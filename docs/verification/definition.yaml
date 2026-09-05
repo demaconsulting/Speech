@@ -5,8 +5,8 @@ resource-path:
 input-files:
   - docs/verification/title.txt
   - docs/verification/introduction.md
-  - docs/verification/template-dot-net-library.md
-  - docs/verification/template-dot-net-library/demo.md
+  - docs/verification/speech.md
+  - docs/verification/speech/demo.md
   - docs/verification/ots.md
   - docs/verification/ots/buildmark.md
   - docs/verification/ots/fileassert.md

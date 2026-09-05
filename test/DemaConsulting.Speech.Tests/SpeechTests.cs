@@ -1,18 +1,18 @@
-using TemplateDotNetLibrary;
+using Speech;
 
-namespace DemaConsulting.TemplateDotNetLibrary.Tests;
+namespace DemaConsulting.Speech.Tests;
 
 /// <summary>
-///     System-level integration tests for the TemplateDotNetLibrary system.
+///     System-level integration tests for the Speech system.
 /// </summary>
-public class TemplateDotNetLibraryTests
+public class SpeechTests
 {
     /// <summary>
     ///     Proves that the system can be instantiated and provides expected functionality
     ///     when integrated with all components.
     /// </summary>
     [Fact]
-    public void TemplateDotNetLibrary_SystemIntegration_DefaultConstruction_ReturnsExpectedGreeting()
+    public void Speech_SystemIntegration_DefaultConstruction_ReturnsExpectedGreeting()
     {
         // Arrange: set up system-level integration test
         var demo = new Demo();
@@ -30,7 +30,7 @@ public class TemplateDotNetLibraryTests
     ///     across all integrated components.
     /// </summary>
     [Fact]
-    public void TemplateDotNetLibrary_SystemCustomization_CustomPrefix_ReturnsExpectedGreeting()
+    public void Speech_SystemCustomization_CustomPrefix_ReturnsExpectedGreeting()
     {
         // Arrange: set up system with custom configuration
         const string customPrefix = "Welcome";
@@ -49,7 +49,7 @@ public class TemplateDotNetLibraryTests
     ///     with the expected exception at the system level.
     /// </summary>
     [Fact]
-    public void TemplateDotNetLibrary_SystemValidation_DemoMethodNullInput_ThrowsArgumentNullException()
+    public void Speech_SystemValidation_DemoMethodNullInput_ThrowsArgumentNullException()
     {
         // Arrange: set up system components
         var demo = new Demo();
@@ -63,7 +63,7 @@ public class TemplateDotNetLibraryTests
     ///     with the expected exception at the system level.
     /// </summary>
     [Fact]
-    public void TemplateDotNetLibrary_SystemValidation_DemoMethodEmptyInput_ThrowsArgumentException()
+    public void Speech_SystemValidation_DemoMethodEmptyInput_ThrowsArgumentException()
     {
         // Arrange: set up system components
         var demo = new Demo();
@@ -77,7 +77,7 @@ public class TemplateDotNetLibraryTests
     ///     with the expected exception at the system level.
     /// </summary>
     [Fact]
-    public void TemplateDotNetLibrary_SystemValidation_ConstructorNullPrefix_ThrowsArgumentNullException()
+    public void Speech_SystemValidation_ConstructorNullPrefix_ThrowsArgumentNullException()
     {
         // Act & Assert: system validates constructor null prefix properly
         Assert.Throws<ArgumentNullException>(() => new Demo(null!));
@@ -88,7 +88,7 @@ public class TemplateDotNetLibraryTests
     ///     with the expected exception at the system level.
     /// </summary>
     [Fact]
-    public void TemplateDotNetLibrary_SystemValidation_ConstructorEmptyPrefix_ThrowsArgumentException()
+    public void Speech_SystemValidation_ConstructorEmptyPrefix_ThrowsArgumentException()
     {
         // Act & Assert: system validates constructor empty prefix properly
         Assert.Throws<ArgumentException>(() => new Demo(string.Empty));
@@ -98,7 +98,7 @@ public class TemplateDotNetLibraryTests
     ///     Proves that the Prefix property exposes the configured prefix at the system level.
     /// </summary>
     [Fact]
-    public void TemplateDotNetLibrary_SystemIntegration_CustomPrefix_ExposesPrefix()
+    public void Speech_SystemIntegration_CustomPrefix_ExposesPrefix()
     {
         // Arrange: construct system with a custom prefix
         const string customPrefix = "Greetings";

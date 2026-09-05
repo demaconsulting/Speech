@@ -9,7 +9,7 @@ in isolation. Because `Demo` has no external dependencies beyond the .NET base c
 mocking or stubbing is required. Tests supply controlled inputs and assert on returned values and
 thrown exception types.
 
-Unit tests reside in `DemoTests.cs` within the `DemaConsulting.TemplateDotNetLibrary.Tests`
+Unit tests reside in `DemoTests.cs` within the `DemaConsulting.Speech.Tests`
 project.
 
 ### Test Environment
