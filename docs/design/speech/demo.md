@@ -1,8 +1,8 @@
 ## Demo
 
-![Template DotNet Library Structure](TemplateDotNetLibraryView.svg)
+![Speech Structure](SpeechView.svg)
 
-The `Demo` class is the sole software unit in the Template DotNet Library. It serves as a
+The `Demo` class is the sole software unit in the Speech. It serves as a
 demonstration of how a DEMA Consulting .NET library class should be structured, documented,
 and tested.
 
@@ -68,5 +68,5 @@ N/A - Demo has no dependencies beyond the .NET base class library.
 
 `Demo` has no interactions with other units. It is a self-contained leaf class with no
 dependencies beyond the .NET base class library. It is a public API entry point: it is invoked
-externally by consumers of the Template DotNet Library package, not by any other unit within
+externally by consumers of the Speech package, not by any other unit within
 this system.

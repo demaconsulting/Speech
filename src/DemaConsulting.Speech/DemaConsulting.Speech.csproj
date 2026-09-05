@@ -7,20 +7,20 @@
     <Nullable>enable</Nullable>
 
     <!-- NuGet Package Configuration -->
-    <PackageId>TemplateDotNetLibrary</PackageId>
+    <PackageId>Speech</PackageId>
     <Version>0.0.0</Version>
     <Authors>DEMA Consulting</Authors>
     <Company>DEMA Consulting</Company>
     <Description>Template project for DEMA Consulting DotNet Libraries</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/demaconsulting/TemplateDotNetLibrary</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/demaconsulting/TemplateDotNetLibrary</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/demaconsulting/Speech</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/demaconsulting/Speech</RepositoryUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>Icon.png</PackageIcon>
     <PackageTags>template;dotnet-library</PackageTags>
     <Copyright>Copyright DEMA Consulting</Copyright>
-    <Title>Template DotNet Library</Title>
-    <Product>TemplateDotNetLibrary</Product>
+    <Title>Speech</Title>
+    <Product>Speech</Product>
 
     <!-- Symbol Package Configuration -->
     <IncludeSymbols>true</IncludeSymbols>
@@ -71,7 +71,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="DemaConsulting.TemplateDotNetLibrary.Tests" />
+    <InternalsVisibleTo Include="DemaConsulting.Speech.Tests" />
   </ItemGroup>
 
   <ItemGroup>

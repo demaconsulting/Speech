@@ -1,5 +1,5 @@
 ---
-# Software System Requirements for Template DotNet Library
+# Software System Requirements for Speech
 #
 # These requirements describe the externally visible behavior of the library
 # from the perspective of its consumers, without specifying implementation details.
@@ -16,8 +16,8 @@ sections:
         children:
           - Template-Demo-Greeting
         tests:
-          - TemplateDotNetLibrary_SystemIntegration_DefaultConstruction_ReturnsExpectedGreeting
-          - TemplateDotNetLibrary_SystemCustomization_CustomPrefix_ReturnsExpectedGreeting
+          - Speech_SystemIntegration_DefaultConstruction_ReturnsExpectedGreeting
+          - Speech_SystemCustomization_CustomPrefix_ReturnsExpectedGreeting
 
       - id: Template-Lib-GreetingFormat
         title: The library shall return a greeting string in the format "{prefix}, {name}!".
@@ -28,8 +28,8 @@ sections:
         children:
           - Template-Demo-Greeting
         tests:
-          - TemplateDotNetLibrary_SystemIntegration_DefaultConstruction_ReturnsExpectedGreeting
-          - TemplateDotNetLibrary_SystemCustomization_CustomPrefix_ReturnsExpectedGreeting
+          - Speech_SystemIntegration_DefaultConstruction_ReturnsExpectedGreeting
+          - Speech_SystemCustomization_CustomPrefix_ReturnsExpectedGreeting
 
       - id: Template-Lib-DefaultPrefix
         title: The library shall use "Hello" as the default greeting prefix.
@@ -40,7 +40,7 @@ sections:
         children:
           - Template-Demo-DefaultPrefix
         tests:
-          - TemplateDotNetLibrary_SystemIntegration_DefaultConstruction_ReturnsExpectedGreeting
+          - Speech_SystemIntegration_DefaultConstruction_ReturnsExpectedGreeting
 
       - id: Template-Lib-CustomPrefix
         title: The library shall support a customizable greeting prefix.
@@ -53,7 +53,7 @@ sections:
           - Template-Demo-AcceptCustomPrefix
           - Template-Demo-Prefix
         tests:
-          - TemplateDotNetLibrary_SystemCustomization_CustomPrefix_ReturnsExpectedGreeting
+          - Speech_SystemCustomization_CustomPrefix_ReturnsExpectedGreeting
 
       - id: Template-Lib-Prefix
         title: The library shall expose the configured greeting prefix via a read-only property.
@@ -64,7 +64,7 @@ sections:
         children:
           - Template-Demo-Prefix
         tests:
-          - TemplateDotNetLibrary_SystemIntegration_CustomPrefix_ExposesPrefix
+          - Speech_SystemIntegration_CustomPrefix_ExposesPrefix
 
       - id: Template-Lib-ValidationNull-DemoMethod
         title: The library shall reject a null name argument to DemoMethod with ArgumentNullException.
@@ -76,7 +76,7 @@ sections:
         children:
           - Template-Demo-ValidationNull-DemoMethod
         tests:
-          - TemplateDotNetLibrary_SystemValidation_DemoMethodNullInput_ThrowsArgumentNullException
+          - Speech_SystemValidation_DemoMethodNullInput_ThrowsArgumentNullException
 
       - id: Template-Lib-ValidationNull-Constructor
         title: The library shall reject a null prefix argument to the constructor with ArgumentNullException.
@@ -87,7 +87,7 @@ sections:
         children:
           - Template-Demo-ValidationNull-Constructor
         tests:
-          - TemplateDotNetLibrary_SystemValidation_ConstructorNullPrefix_ThrowsArgumentNullException
+          - Speech_SystemValidation_ConstructorNullPrefix_ThrowsArgumentNullException
 
       - id: Template-Lib-ValidationEmpty-DemoMethod
         title: The library shall reject an empty-string name argument to DemoMethod with ArgumentException.
@@ -98,7 +98,7 @@ sections:
         children:
           - Template-Demo-ValidationEmpty-DemoMethod
         tests:
-          - TemplateDotNetLibrary_SystemValidation_DemoMethodEmptyInput_ThrowsArgumentException
+          - Speech_SystemValidation_DemoMethodEmptyInput_ThrowsArgumentException
 
       - id: Template-Lib-ValidationEmpty-Constructor
         title: The library shall reject an empty-string prefix argument to the constructor with ArgumentException.
@@ -109,4 +109,4 @@ sections:
         children:
           - Template-Demo-ValidationEmpty-Constructor
         tests:
-          - TemplateDotNetLibrary_SystemValidation_ConstructorEmptyPrefix_ThrowsArgumentException
+          - Speech_SystemValidation_ConstructorEmptyPrefix_ThrowsArgumentException

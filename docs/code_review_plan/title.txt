@@ -1,11 +1,11 @@
 ---
-title: Template DotNet Library Review Plan
-subtitle: File Review Plan for the Template DotNet Library
+title: Speech Review Plan
+subtitle: File Review Plan for the Speech
 author: DEMA Consulting
-description: File Review Plan for the Template DotNet Library
+description: File Review Plan for the Speech
 lang: en-US
 keywords:
-  - Template DotNet Library
+  - Speech
   - Review Plan
   - File Reviews
   - .NET
