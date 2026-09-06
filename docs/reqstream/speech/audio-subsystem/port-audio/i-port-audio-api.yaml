@@ -1,0 +1,27 @@
+---
+# Software Unit Requirements for IPortAudioApi
+#
+# These requirements describe the design-level behavior of the IPortAudioApi
+# unit, decomposing the parent PortAudio subsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: AudioSubsystem Requirements
+        sections:
+          - title: PortAudio Requirements
+            sections:
+              - title: IPortAudioApi Requirements
+                requirements:
+                  - id: Speech-Audio-PortAudio-IPortAudioApi-AbstractsNativeRuntime
+                    title: >-
+                      The IPortAudioApi interface shall abstract PortAudio initialization,
+                      host-API metadata access, device metadata access, and capture/playback
+                      stream opening behind a mockable managed contract.
+                    justification: |
+                      Higher-level audio-device logic must be unit testable without referencing
+                      native PortAudioSharp2 types or loading a native runtime.
+                    tests:
+                      - PortAudioEnvironment_TryResolvePreferredHostApi_InitializedAndMapped_ReturnsHostApiInfo
+                      - PortAudioCaptureDevice_Start_StreamCapturesSamples_RaisesFrameCaptured
+                      - PortAudioPlaybackDevice_Write_StreamRequestsSamples_DrainsQueueAndZeroFills

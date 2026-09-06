@@ -1,26 +1,29 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>netstandard2.0;net8.0;net9.0;net10.0</TargetFrameworks>
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
     <LangVersion>latest</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <RootNamespace>DemaConsulting.Speech</RootNamespace>
+    <AssemblyName>DemaConsulting.Speech</AssemblyName>
 
     <!-- NuGet Package Configuration -->
-    <PackageId>Speech</PackageId>
+    <PackageId>DemaConsulting.Speech</PackageId>
     <Version>0.0.0</Version>
     <Authors>DEMA Consulting</Authors>
     <Company>DEMA Consulting</Company>
-    <Description>Template project for DEMA Consulting DotNet Libraries</Description>
+    <Description>Cross-platform .NET library providing local, offline speech-to-text and
+      text-to-speech services for desktop applications.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/demaconsulting/Speech</PackageProjectUrl>
     <RepositoryUrl>https://github.com/demaconsulting/Speech</RepositoryUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>Icon.png</PackageIcon>
-    <PackageTags>template;dotnet-library</PackageTags>
+    <PackageTags>speech;speech-to-text;text-to-speech;stt;tts;offline;audio</PackageTags>
     <Copyright>Copyright DEMA Consulting</Copyright>
-    <Title>Speech</Title>
-    <Product>Speech</Product>
+    <Title>DemaConsulting.Speech</Title>
+    <Product>DemaConsulting.Speech</Product>
 
     <!-- Symbol Package Configuration -->
     <IncludeSymbols>true</IncludeSymbols>
@@ -51,6 +54,16 @@
     <PackageReference Include="Microsoft.Sbom.Targets" Version="4.1.5" PrivateAssets="All" />
     <PackageReference Include="Polyfill" Version="11.2.0" PrivateAssets="All" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.400" PrivateAssets="All" />
+    <PackageReference Include="PortAudioSharp2" Version="1.0.6" />
+    <!-- Managed sherpa-onnx API only. The matching org.k2fsa.sherpa.onnx.runtime.{RID} native
+         package is deliberately NOT referenced here: see architecture.md "Sherpa-onnx native
+         runtime packages are NOT bundled by this library" - the consuming application adds the
+         runtime package(s) for its own target RID(s). -->
+    <PackageReference Include="org.k2fsa.sherpa.onnx" Version="1.13.5" />
+    <!-- The BCL has no BZip2 decoder. SharpCompress provides the .tar.bz2 extraction used by
+         TarBz2ArchiveExtractor to unpack sherpa-onnx model archives (e.g. the streaming
+         Zipformer/Nemotron recognition models) during model install. -->
+    <PackageReference Include="SharpCompress" Version="1.0.0" />
   </ItemGroup>
 
   <!-- Code Analysis Dependencies -->
@@ -72,11 +85,35 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="DemaConsulting.Speech.Tests" />
+    <InternalsVisibleTo Include="DemaConsulting.Speech.Demo.Tests" />
   </ItemGroup>
 
   <ItemGroup>
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
     <None Include="..\..\Icon.png" Pack="true" PackagePath="\" />
   </ItemGroup>
+
+  <!-- Independence Verification Configuration -->
+  <PropertyGroup>
+    <!-- Semicolon-separated list of package-identity prefixes this library must never
+         reference. These are interface/UI/hosting-layer packages (Avalonia, ASP.NET Core,
+         WinForms/WPF, MAUI) that would tie a general-purpose offline speech library to a
+         specific application shell, breaking its "usable by any .NET host" promise. No such
+         package is referenced yet - the list is seeded now so the check below is exercised
+         and proven correct before any real dependency (e.g. a future demo application
+         project) could accidentally add one. -->
+    <SpeechDeniedPackagePrefixes>Avalonia;Microsoft.AspNetCore;Microsoft.WindowsDesktop;System.Windows.Forms;Microsoft.Maui</SpeechDeniedPackagePrefixes>
+  </PropertyGroup>
+
+  <!-- Carried forward from the reference implementation's VerifyLibraryIsIndependent pattern
+       (see architecture.md "Zero project references, denylisted interface-layer packages"):
+       fails the build if this library gains a ProjectReference to anything, or a
+       PackageReference to a denylisted interface/UI-layer package, keeping the library
+       independently publishable and safely consumable by any host application. -->
+  <Target Name="VerifyLibraryIsIndependent" BeforeTargets="Build">
+    <Error Condition="'@(ProjectReference)' != ''" Text="DemaConsulting.Speech must not have any ProjectReference (found: @(ProjectReference)). This library must remain independently publishable with zero project references." />
+
+    <Error Condition="'@(PackageReference)' != '' and&#xA;                 ($([System.String]::Copy('%(PackageReference.Identity)').StartsWith('Avalonia'))&#xA;                  or $([System.String]::Copy('%(PackageReference.Identity)').StartsWith('Microsoft.AspNetCore'))&#xA;                  or $([System.String]::Copy('%(PackageReference.Identity)').StartsWith('Microsoft.WindowsDesktop'))&#xA;                  or $([System.String]::Copy('%(PackageReference.Identity)').StartsWith('System.Windows.Forms'))&#xA;                  or $([System.String]::Copy('%(PackageReference.Identity)').StartsWith('Microsoft.Maui')))" Text="Package '%(PackageReference.Identity)' is on the interface/UI-layer package deny-list ($(SpeechDeniedPackagePrefixes)) for DemaConsulting.Speech and must not be referenced." />
+  </Target>
 
 </Project>

@@ -1,0 +1,65 @@
+---
+# Software Unit Requirements for SpeechModelCatalog
+#
+# These requirements describe the design-level behavior of the SpeechModelCatalog unit,
+# decomposing the parent ModelManagementSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        sections:
+          - title: SpeechModelCatalog Requirements
+            requirements:
+              - id: Speech-Models-SpeechModelCatalog-KnownModelsRegistry
+                title: >-
+                  The SpeechModelCatalog class shall expose a compiled-in KnownModels registry
+                  containing all three of this library's real, production models
+                  (SherpaOnnxZipformerEnRecognitionModel,
+                  SherpaOnnxNemotronStreamingEnRecognitionModel, and
+                  SherpaOnnxVitsLibriTtsEnglishSynthesisModel), and shall enumerate an empty
+                  known-model list to an empty descriptor list without throwing.
+                justification: |
+                  Phase 7a resolved the earlier "ship zero real model classes" limitation for
+                  recognition models - the defect a user discovered where the catalog was always
+                  empty - by registering the library's first two concrete IRecognitionModel
+                  implementations; Phase 7b completes the catalog by registering the library's
+                  first concrete ISynthesisModel implementation, so every model role the library
+                  defines now has at least one shippable model. Enumeration must still never
+                  throw regardless of how many models are known, which the empty-list scenario
+                  continues to prove independently of KnownModels' own current contents.
+                tests:
+                  - SpeechModelCatalog_Enumerate_EmptyKnownModels_ReturnsEmptyList
+                  - SpeechModelCatalog_KnownModels_ContainsAllThreeRealModels
+
+              - id: Speech-Models-SpeechModelCatalog-StateResolution
+                title: >-
+                  The SpeechModelCatalog class shall resolve a known model's state to
+                  NotDownloaded, Downloading, Downloaded, or FailedOrCorrupt by combining the
+                  underlying store's installed-state query with in-memory tracking of in-flight
+                  and most-recently-failed download attempts.
+                justification: |
+                  SpeechModelStore alone only distinguishes installed/not-installed;
+                  architecture.md's fixed four-state model additionally requires an honest
+                  in-progress and failed signal, which only the catalog (as the caller of
+                  DownloadAsync) can observe.
+                tests:
+                  - SpeechModelCatalog_Enumerate_NeverDownloaded_ReportsNotDownloaded
+                  - SpeechModelCatalog_GetState_DownloadInFlight_ReportsDownloading
+
+              - id: Speech-Models-SpeechModelCatalog-DownloadOrchestration
+                title: >-
+                  The SpeechModelCatalog class shall download a known model by its declared
+                  download descriptor, correctly reflecting Downloaded on success and
+                  FailedOrCorrupt on a checksum mismatch, and shall throw when asked to download
+                  a model id absent from its known-model list.
+                justification: |
+                  A host driving a model-settings page calls DownloadAsync by model id alone;
+                  the catalog must translate that into the model's own declared descriptor and
+                  honestly reflect the real outcome, while an unknown model id is a caller
+                  programming error that must surface immediately as an explicit, user-invoked
+                  action (not composition or enumeration).
+                tests:
+                  - SpeechModelCatalog_DownloadAsync_ValidModel_ReportsDownloadedAfterCompletion
+                  - SpeechModelCatalog_DownloadAsync_ChecksumMismatch_ReportsFailedOrCorrupt
+                  - SpeechModelCatalog_DownloadAsync_UnknownModelId_ThrowsArgumentException

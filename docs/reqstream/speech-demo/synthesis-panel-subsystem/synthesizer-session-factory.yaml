@@ -1,0 +1,35 @@
+---
+# Software Unit Requirements for the SpeechDemo SynthesizerSessionFactory
+#
+# These requirements describe the design-level behavior of the ISynthesizerSessionFactory /
+# SynthesizerSessionFactory unit - the demo-owned synthesizer composition seam over the
+# library's SpeechModelStore and SpeechSynthesizerFactory - decomposing the parent
+# SynthesisPanelSubsystem requirements. ISynthesizerSessionFactory and SynthesizerSessionFactory
+# are treated as one unit because the interface has no independently observable behavior of its
+# own; every test exercises it through SynthesizerSessionFactory, its sole implementation.
+
+sections:
+  - title: SpeechDemo Requirements
+    sections:
+      - title: SynthesisPanelSubsystem Requirements
+        sections:
+          - title: SynthesizerSessionFactory Requirements
+            requirements:
+              - id: SpeechDemo-Synthesis-SessionSeam
+                title: >-
+                  The SynthesisPanelSubsystem shall compose every speech synthesizer it uses
+                  through an injectable seam over the library's synthesizer factory, and that
+                  seam shall honestly report a model of the wrong role as unavailable rather
+                  than throwing.
+                justification: |
+                  The library's synthesizer factory requires an interface only the library's own
+                  assemblies can implement, so a demo-owned seam accepting the library's public
+                  model contract is what makes Play/Stop testable with no downloaded model and
+                  no native runtime, while still reporting a role mismatch the same honest way
+                  the library itself reports an uninstalled model.
+                tests:
+                  - SynthesisPanelViewModel_Constructor_NullDependency_ThrowsArgumentNullException
+                  - SynthesizerSessionFactory_Constructor_NullStore_ThrowsArgumentNullException
+                  - SynthesizerSessionFactory_Create_NullModel_ThrowsArgumentNullException
+                  - SynthesizerSessionFactory_Create_NullDevice_ThrowsArgumentNullException
+                  - SynthesizerSessionFactory_Create_ModelNotSynthesisRole_ReturnsUnavailableSynthesizer

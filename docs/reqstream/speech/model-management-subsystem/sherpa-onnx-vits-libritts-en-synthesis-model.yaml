@@ -1,0 +1,116 @@
+---
+# Software Unit Requirements for SherpaOnnxVitsLibriTtsEnglishSynthesisModel
+#
+# These requirements describe the design-level behavior of the
+# SherpaOnnxVitsLibriTtsEnglishSynthesisModel unit, decomposing the parent
+# ModelManagementSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        sections:
+          - title: SherpaOnnxVitsLibriTtsEnglishSynthesisModel Requirements
+            requirements:
+              - id: Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-Identity
+                title: >-
+                  The SherpaOnnxVitsLibriTtsEnglishSynthesisModel class shall declare a stable
+                  catalog identity (Id, DisplayName, Role = Synthesis, AudioTagSupport = None).
+                justification: |
+                  SpeechModelCatalog and SpeechModelDownloader depend only on the generic
+                  ISpeechModel/ISynthesisModel contract; this model must honestly declare its
+                  own fixed identity for the catalog and downloader to enumerate and fetch it
+                  correctly.
+                tests:
+                  - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_Identity_DeclaresExpectedValues
+
+              - id: Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-DownloadDescriptor
+                title: >-
+                  The SherpaOnnxVitsLibriTtsEnglishSynthesisModel class shall declare a single
+                  validated HTTPS .tar.bz2 download file with a well-formed SHA-256 checksum.
+                justification: |
+                  SpeechModelDownloader depends only on the generic ISpeechModel download
+                  descriptor; this model must honestly declare its own single validated archive
+                  file for the downloader to fetch and verify it correctly.
+                tests:
+                  - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_DownloadDescriptor_DeclaresSingleValidatedArchiveFile
+
+              - id: Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-ParameterDeclaration
+                title: >-
+                  The SherpaOnnxVitsLibriTtsEnglishSynthesisModel class shall declare a single
+                  speaker NumericParameter spanning its full 0-903 range with IsInteger = true.
+                justification: |
+                  There is no published human-readable name mapping for LibriTTS-R speaker
+                  embeddings, so a numeric parameter is the only honest declaration, and
+                  IsInteger = true keeps a host from ever rendering a control that could select
+                  a fractional speaker index.
+                tests:
+                  - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_Parameters_DeclaresSpeakerNumericParameter
+
+              - id: Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-EngineConfig
+                title: >-
+                  The SherpaOnnxVitsLibriTtsEnglishSynthesisModel class shall build an
+                  OfflineTtsConfig wiring its VITS model/tokens/data-dir files, this model's own
+                  recommended NoiseScale/NoiseScaleW/LengthScale values, an unset Lexicon, and
+                  the shared default CapabilityProfile.
+                justification: |
+                  This exact VITS configuration was proven end-to-end in this project's
+                  development sandbox against a real, loaded OfflineTts instance that reported
+                  the model's true SampleRate/NumSpeakers and generated non-silent audio; the
+                  SynthesisSubsystem depends on this configuration being wired correctly and
+                  consistently for every installed-directory argument it may be given.
+                tests:
+                  - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_CreateEngineConfig_ResolvesVitsFilesAndConfig
+                  - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_CapabilityProfile_IsDefaultProfile
+
+              - id: Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-EngineConfigArgumentValidation
+                title: >-
+                  The SherpaOnnxVitsLibriTtsEnglishSynthesisModel class shall throw
+                  ArgumentException from CreateEngineConfig for a null or empty
+                  installed-model directory.
+                justification: |
+                  A programming error (empty installed-model directory) should surface
+                  immediately with a clear, cheap-to-diagnose exception rather than an opaque
+                  failure deeper in engine configuration.
+                tests:
+                  - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_CreateEngineConfig_EmptyDirectory_ThrowsArgumentException
+
+              - id: Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-InstallAsync
+                title: >-
+                  The SherpaOnnxVitsLibriTtsEnglishSynthesisModel class shall extract its
+                  downloaded .tar.bz2 archive in place via the shared TarBz2ArchiveExtractor and
+                  remove the archive file, leaving the archive's own top-level folder available
+                  to CreateEngineConfig.
+                justification: |
+                  SpeechModelDownloader invokes InstallAsync after checksum verification and
+                  before the atomic install swap; this model's declared payload is an archive,
+                  so its files must be expanded in place for the paths CreateEngineConfig
+                  resolves to actually exist after install. Reusing the Phase 7a
+                  TarBz2ArchiveExtractor (rather than a duplicate helper) keeps archive-extraction
+                  behavior identical and once-reviewed across every model that needs it.
+                tests:
+                  - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_InstallAsync_SyntheticArchive_ExtractsFilesAndRemovesArchive
+
+              - id: Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-ResolveSpeakerId
+                title: >-
+                  The SherpaOnnxVitsLibriTtsEnglishSynthesisModel class shall resolve a numeric
+                  speaker value from the supplied parameter value bag to that same sherpa-onnx
+                  speaker id when it is a finite number within its declared 0-903 range, falling
+                  back to the default speaker id (0) for a null value bag, a missing key, a
+                  non-numeric value, or a value outside that range.
+                justification: |
+                  ISynthesisModel.ResolveSpeakerId is this model's own owned knowledge - reading
+                  its numeric speaker parameter directly out of the bag lets
+                  SherpaOnnxSpeechSynthesizer.GenerateSegment turn a demo-selected or
+                  library-consumer-selected numeric speaker index into the real speaker id
+                  sherpa-onnx's native Generate call needs, replacing the previous hard-coded
+                  speakerId: 0 and closing this model's previously known, accepted, out-of-scope
+                  limitation. Never throwing on a missing/invalid/out-of-range selection keeps
+                  synthesis available even for a malformed or stale caller-supplied value bag.
+                tests:
+                  - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_ResolveSpeakerId_ValidValue_ReturnsThatValue
+                  - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_ResolveSpeakerId_BoxedInt_ReturnsThatValue
+                  - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_ResolveSpeakerId_OutOfRangeValue_ReturnsDefaultId
+                  - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_ResolveSpeakerId_NonNumericValue_ReturnsDefaultId
+                  - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_ResolveSpeakerId_NullBag_ReturnsDefaultId
+                  - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_ResolveSpeakerId_MissingKey_ReturnsDefaultId

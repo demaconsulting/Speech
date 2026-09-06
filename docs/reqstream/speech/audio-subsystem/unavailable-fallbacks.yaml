@@ -1,0 +1,119 @@
+---
+# Software Unit Requirements for the Unavailable* Fallback Units
+#
+# Groups requirements for UnavailableAudioCaptureDevice, UnavailableAudioPlaybackDevice,
+# UnavailableAudioCaptureDeviceProbe, UnavailableAudioPlaybackDeviceProbe, and
+# AudioDeviceUnavailableException into a single file, per design-documentation.md's allowance
+# for small supporting types documented inline within their subsystem's design doc. Each unit's
+# requirement subset is called out in its own subsection below so every unit still has requirements
+# tracing to it individually.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: AudioSubsystem Requirements
+        sections:
+          - title: UnavailableAudioCaptureDevice Requirements
+            requirements:
+              - id: Speech-Audio-UnavailableAudioCaptureDevice-ReportsUnavailable
+                title: >-
+                  The UnavailableAudioCaptureDevice class shall report IsAvailable as false and
+                  never throw merely for being constructed or held.
+                justification: |
+                  A caller must always be able to safely obtain and hold a fallback capture
+                  device, per architecture.md's "nothing throws at composition" decision.
+                tests:
+                  - UnavailableAudioCaptureDevice_IsAvailable_Read_ReturnsFalse
+
+              - id: Speech-Audio-UnavailableAudioCaptureDevice-OperationsThrow
+                title: >-
+                  The UnavailableAudioCaptureDevice class shall throw AudioDeviceUnavailableException
+                  when Start or Stop is invoked.
+                justification: |
+                  A caller that ignores the IsAvailable flag and invokes an operational member
+                  has made a programming error that must surface immediately.
+                tests:
+                  - UnavailableAudioCaptureDevice_Start_Always_ThrowsAudioDeviceUnavailableException
+                  - UnavailableAudioCaptureDevice_Stop_Always_ThrowsAudioDeviceUnavailableException
+
+              - id: Speech-Audio-UnavailableAudioCaptureDevice-ZeroCaptureFormat
+                title: >-
+                  The UnavailableAudioCaptureDevice class shall report a channel count and sample
+                  rate of zero.
+                justification: |
+                  A fallback device delivers no audio, so reporting a plausible-looking format
+                  would mislead a consumer into preparing a conversion for audio that will never
+                  arrive; zero is the honest report and matches the false availability flag.
+                tests:
+                  - UnavailableAudioCaptureDevice_CaptureFormat_Read_ReturnsZeroRateAndChannelCount
+
+          - title: UnavailableAudioPlaybackDevice Requirements
+            requirements:
+              - id: Speech-Audio-UnavailableAudioPlaybackDevice-ReportsUnavailable
+                title: >-
+                  The UnavailableAudioPlaybackDevice class shall report IsAvailable as false and
+                  never throw merely for being constructed or held.
+                justification: |
+                  A caller must always be able to safely obtain and hold a fallback playback
+                  device, per architecture.md's "nothing throws at composition" decision.
+                tests:
+                  - UnavailableAudioPlaybackDevice_IsAvailable_Read_ReturnsFalse
+
+              - id: Speech-Audio-UnavailableAudioPlaybackDevice-OperationsThrow
+                title: >-
+                  The UnavailableAudioPlaybackDevice class shall throw AudioDeviceUnavailableException
+                  when Start, Stop, or Write is invoked.
+                justification: |
+                  A caller that ignores the IsAvailable flag and invokes an operational member
+                  has made a programming error that must surface immediately.
+                tests:
+                  - UnavailableAudioPlaybackDevice_Start_Always_ThrowsAudioDeviceUnavailableException
+                  - UnavailableAudioPlaybackDevice_Stop_Always_ThrowsAudioDeviceUnavailableException
+                  - UnavailableAudioPlaybackDevice_Write_Always_ThrowsAudioDeviceUnavailableException
+
+              - id: Speech-Audio-UnavailableAudioPlaybackDevice-ZeroPlaybackFormat
+                title: >-
+                  The UnavailableAudioPlaybackDevice class shall report a channel count and
+                  sample rate of zero.
+                justification: |
+                  A fallback device plays no audio, so reporting a plausible-looking format would
+                  mislead a consumer into preparing a conversion for audio that will never be
+                  played; zero is the honest report and matches the false availability flag,
+                  mirroring UnavailableAudioCaptureDevice's identical Sub-phase 3 behavior.
+                tests:
+                  - UnavailableAudioPlaybackDevice_PlaybackFormat_Read_ReturnsZeroRateAndChannelCount
+
+          - title: UnavailableAudioCaptureDeviceProbe Requirements
+            requirements:
+              - id: Speech-Audio-UnavailableAudioCaptureDeviceProbe-EmptyEnumeration
+                title: The UnavailableAudioCaptureDeviceProbe class shall always enumerate zero devices.
+                justification: |
+                  A probe with no real backend must report "no devices" rather than throwing, so
+                  callers can treat "no devices" and "backend unavailable" identically.
+                tests:
+                  - UnavailableAudioCaptureDeviceProbe_Enumerate_Always_ReturnsEmptyList
+
+          - title: UnavailableAudioPlaybackDeviceProbe Requirements
+            requirements:
+              - id: Speech-Audio-UnavailableAudioPlaybackDeviceProbe-EmptyEnumeration
+                title: The UnavailableAudioPlaybackDeviceProbe class shall always enumerate zero devices.
+                justification: |
+                  A probe with no real backend must report "no devices" rather than throwing, so
+                  callers can treat "no devices" and "backend unavailable" identically.
+                tests:
+                  - UnavailableAudioPlaybackDeviceProbe_Enumerate_Always_ReturnsEmptyList
+
+          - title: AudioDeviceUnavailableException Requirements
+            requirements:
+              - id: Speech-Audio-AudioDeviceUnavailableException-Thrown
+                title: >-
+                  The AudioDeviceUnavailableException class shall provide standard exception
+                  constructors (default, message, message with inner exception).
+                justification: |
+                  Standard exception conformance lets callers construct, catch, and inspect this
+                  exception like any other .NET exception type, including wrapping an underlying
+                  native failure as the inner exception.
+                tests:
+                  - AudioDeviceUnavailableException_Constructor_WithMessage_ExposesMessage
+                  - AudioDeviceUnavailableException_Constructor_WithInnerException_ExposesBoth
+                  - AudioDeviceUnavailableException_Constructor_Default_HasNonEmptyMessage

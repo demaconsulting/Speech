@@ -1,0 +1,315 @@
+---
+# Software Unit Requirements for the streaming synthesizer implementation
+#
+# Groups requirements for SherpaOnnxSpeechSynthesizer together with the synthesis-engine seam,
+# the Layer 2 rendering pipeline (IModelCapabilityProfile/DefaultModelCapabilityProfile,
+# SpeechSegment/SpeechPlan), the SentenceChunker, and the PlaybackAudioResampler, mirroring how
+# sherpa-onnx-speech-recognizer.yaml groups a cohesive implementation unit. Each unit's
+# requirement subset is called out in its own subsection below so every unit still has
+# requirements tracing to it individually.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: SynthesisSubsystem Requirements
+        sections:
+          - title: SherpaOnnxSpeechSynthesizer Requirements
+            requirements:
+              - id: Speech-Synthesis-SherpaOnnxSpeechSynthesizer-ChunkedPipeline
+                title: >-
+                  The SherpaOnnxSpeechSynthesizer class shall normalize, tag-parse, and Layer 2
+                  render input text into an ordered SpeechPlan, then synthesize and yield each
+                  resulting segment as it becomes ready rather than waiting for the whole plan to
+                  finish.
+                justification: |
+                  architecture.md requires chunked, low-latency streaming synthesis so playback of
+                  an early sentence can start while a later sentence is still being synthesized,
+                  rather than a host waiting for an entire utterance's inference to complete
+                  before hearing anything.
+                tests:
+                  - SynthesizeStreamAsync_PlainText_YieldsAudioSegment
+                  - SynthesizeStreamAsync_TextWithPauseTag_YieldsSilenceSegmentWithNoEngineCall
+
+              - id: Speech-Synthesis-SherpaOnnxSpeechSynthesizer-PipelinedPlayback
+                title: >-
+                  The SherpaOnnxSpeechSynthesizer class shall start the playback device once, play
+                  each segment's pre-silence, resampled audio, and post-silence in order, and stop
+                  the device once playback of the stream ends or faults.
+                justification: |
+                  architecture.md's synthesize-while-playing-previous chunk behavior requires that
+                  the playback device is driven continuously across segments rather than being
+                  restarted per segment, while still guaranteeing the device is released when the
+                  session ends for any reason.
+                tests:
+                  - PlayStreamAsync_OrderedSegments_StartsWritesInOrderAndStops
+                  - PlayStreamAsync_PlaybackDeviceWriteThrows_PropagatesAndStillStopsDevice
+
+              - id: Speech-Synthesis-SherpaOnnxSpeechSynthesizer-GenuinePlaybackDrainWait
+                title: >-
+                  The SherpaOnnxSpeechSynthesizer class shall wait for the playback device to
+                  report a fully drained pending-sample count, plus a small safety margin, before
+                  stopping the device at the end of a PlayStreamAsync session, and shall exit that
+                  wait promptly on cancellation rather than waiting out the full drain.
+                justification: |
+                  Confirmed via user testing: pressing "Play" in the demo's TTS panel flashed the
+                  status from "Idle" to "Playing" for about a quarter second before flashing back
+                  to "Idle" with no audible sound, on every model. Root cause was that
+                  PlayStreamAsync treated "every segment enqueued" as "finished playing" and
+                  immediately stopped the playback device (discarding whatever audio the hardware
+                  had not yet actually rendered) as soon as the fire-and-forget Write calls
+                  returned, rather than once the hardware had genuinely finished. Waiting for
+                  IAudioPlaybackDevice.PendingSampleCount to reach zero closes that gap without
+                  regressing existing cancellation behavior.
+                tests:
+                  - PlayStreamAsync_PlaybackDeviceReportsPendingSamples_WaitsForDrainBeforeStopping
+
+              - id: Speech-Synthesis-SherpaOnnxSpeechSynthesizer-FaultContainment
+                title: >-
+                  The SherpaOnnxSpeechSynthesizer class shall surface a synthesis-engine fault or
+                  an unavailable playback device honestly to the caller rather than hanging or
+                  crashing the process.
+                justification: |
+                  A model that fails mid-utterance or a playback device that drops must fail the
+                  caller's awaited task promptly so a host can report the failure, per
+                  architecture.md's "fail honestly, never crash or hang" requirement for the
+                  synthesis pipeline.
+                tests:
+                  - SynthesizeStreamAsync_EngineThrows_ReportsFaultAndPropagatesToCaller
+                  - PlayStreamAsync_PlaybackDeviceUnavailable_ThrowsRatherThanHanging
+
+              - id: Speech-Synthesis-SherpaOnnxSpeechSynthesizer-SpeakerSelection
+                title: >-
+                  The SherpaOnnxSpeechSynthesizer class shall resolve the speaker id passed to
+                  Generate by calling ISynthesisModel.ResolveSpeakerId against the
+                  constructor-supplied parameterValues bag once per synthesized segment, rather
+                  than a hard-coded speakerId: 0, and this resolution shall coexist correctly
+                  with the independent, per-segment ParameterOverrides speed/volume mechanism
+                  (Natural Language Audio Tags) without either mechanism regressing the other.
+                justification: |
+                  Prior to this requirement, GenerateSegment hard-coded speakerId: 0 for every
+                  synthesis model, so a model's declared voice-selection parameter (for example
+                  SherpaOnnxKokoroEnglishSynthesisModel's 11-voice ChoiceParameter) had no real
+                  effect on synthesized output even when a host selected a non-default voice.
+                  Session-level voice selection and per-segment Natural Language Audio Tag
+                  overrides are two independent mechanisms - a selected voice applies to the
+                  whole session while a [fast]/[loud] tag applies only to the segment it
+                  annotates - and both must keep working correctly at the same time.
+                tests:
+                  - SynthesizeStreamAsync_NoParameterValues_ResolvesDefaultSpeakerIdFromModel
+                  - SynthesizeStreamAsync_ParameterValuesSupplied_ResolvesSpeakerIdFromBag
+                  - SynthesizeStreamAsync_ParameterValuesSuppliedAlongsideSpeedTag_BothMechanismsApplyIndependently
+
+              - id: Speech-Synthesis-SherpaOnnxSpeechSynthesizer-CancellationAndLifecycle
+                title: >-
+                  The SherpaOnnxSpeechSynthesizer class shall cancel an in-flight SpeakAsync
+                  session deterministically when Stop is called, treat Stop as a safe no-op when
+                  idle, and release its engine resources on disposal.
+                justification: |
+                  A host must be able to interrupt speech immediately in response to a user
+                  action (e.g. barge-in), without the cancellation racing or hanging, and must not
+                  leak native inference resources across repeated speak/stop cycles.
+                tests:
+                  - Stop_WhileSpeaking_CancelsInFlightSession
+                  - Stop_NoSessionInFlight_IsNoOp
+                  - Dispose_CalledTwice_DisposesEngineOnce
+                  - SynthesizeStreamAsync_AfterDispose_ThrowsObjectDisposedException
+                  - IsAvailable_Always_ReturnsTrue
+
+          - title: SynthesisEngine Requirements
+            requirements:
+              - id: Speech-Synthesis-SynthesisEngine-MockableSeam
+                title: >-
+                  The synthesis-engine seam shall isolate all speech-inference interop so the
+                  synthesis pipeline's chunking, Layer 2 rendering, and playback can be verified
+                  without a downloaded model or an installed speech-engine native runtime.
+                justification: |
+                  CI runners cannot be assumed to have a multi-hundred-megabyte speech model or a
+                  platform-specific native inference binary available, so the synthesis logic must
+                  be verifiable entirely in pure managed tests.
+                tests:
+                  - SpeechSynthesizerFactory_Create_ModelInstalledAndDeviceAvailable_ReturnsRealSynthesizer
+                  - SynthesizeStreamAsync_PlainText_YieldsAudioSegment
+
+              - id: Speech-Synthesis-SynthesisEngine-ModelOwnedConfiguration
+                title: >-
+                  The synthesis-engine seam shall load an engine using only the configuration the
+                  selected model itself declares, reusing the already-referenced sherpa-onnx
+                  package rather than adding a new native dependency.
+                justification: |
+                  architecture.md makes each model's backing class responsible for its own engine
+                  configuration, so that adding a new synthesis model is a self-contained,
+                  reviewable unit of work that never requires changing the synthesis subsystem or
+                  its native package reference.
+                tests:
+                  - ISynthesisModel_CreateEngineConfig_InstalledDirectory_ResolvesPaths
+                  - SpeechSynthesizerFactory_Create_ModelInstalledAndDeviceAvailable_ReturnsRealSynthesizer
+
+          - title: Layer2Rendering Requirements
+            requirements:
+              - id: Speech-Synthesis-Layer2Rendering-PauseAlwaysSilence
+                title: >-
+                  The default Layer 2 rendering strategy shall always render a pause tag as a
+                  real timed silence segment, regardless of a model's declared audio-tag support,
+                  with a long pause rendering strictly longer than a short pause.
+                justification: |
+                  architecture.md states that pauses require no model cooperation, so every
+                  installed model - however limited its audio-tag support - can honor a pause
+                  tag identically and correctly.
+                tests:
+                  - DefaultModelCapabilityProfile_Render_ShortPause_AlwaysRendersAsSilenceSegment
+                  - DefaultModelCapabilityProfile_Render_LongPause_RendersLongerSilenceThanShortPause
+
+              - id: Speech-Synthesis-Layer2Rendering-NativePassthrough
+                title: >-
+                  The default Layer 2 rendering strategy shall pass a tag through as its
+                  canonical bracket text, unchanged, for a model that declares native audio-tag
+                  support.
+                justification: |
+                  A model with native audio-tag support already understands the canonical bracket
+                  syntax as a control token during its own inference, so the library must not
+                  alter or strip it before the model sees it.
+                tests:
+                  - DefaultModelCapabilityProfile_Render_NativeSupport_PassesThroughCanonicalBracketText
+
+              - id: Speech-Synthesis-Layer2Rendering-ParameterMappedApproximation
+                title: >-
+                  The default Layer 2 rendering strategy shall approximate a pace or
+                  delivery/volume tag as a numeric parameter override on the surrounding segment
+                  for a model declaring parameter-mapped audio-tag support, and shall silently
+                  strip a tag with no built-in convention rather than failing.
+                justification: |
+                  architecture.md's Risk #1 mitigation requires that a model without native tag
+                  support still gets a reasonable, non-crashing approximation of pace/volume
+                  intent, while intentionally conservative scope means only the tags with a clear
+                  numeric convention are mapped; every other tag safely degrades to plain
+                  narration instead of causing an error.
+                tests:
+                  - DefaultModelCapabilityProfile_Render_ParameterMappedSupport_FastTag_MapsToSpeedParameter
+                  - DefaultModelCapabilityProfile_Render_ParameterMappedSupport_EmotionTag_StripsWithNoOverride
+
+              - id: Speech-Synthesis-Layer2Rendering-NoneStripsAll
+                title: >-
+                  The default Layer 2 rendering strategy shall strip every tag to plain narration
+                  text, except pauses, for a model declaring no audio-tag support.
+                justification: |
+                  architecture.md's "never worse than plain narration" guarantee requires that a
+                  model incapable of any tag rendering still narrates the underlying text
+                  correctly rather than speaking literal bracket syntax aloud.
+                tests:
+                  - DefaultModelCapabilityProfile_Render_NoneSupport_StripsAllTags
+
+              - id: Speech-Synthesis-Layer2Rendering-PlainTextChunking
+                title: >-
+                  The default Layer 2 rendering strategy shall split ordinary narration text into
+                  sentence/clause-sized chunks using the SentenceChunker, producing one rendered
+                  segment per chunk.
+                justification: |
+                  Chunked synthesis requires a Layer 2 boundary that lines up with natural speech
+                  units so that pipelined synthesize-while-playing-previous behavior sounds
+                  natural rather than cutting mid-word or mid-phrase.
+                tests:
+                  - DefaultModelCapabilityProfile_Render_PlainTextOnly_RendersChunkedSegments
+                  - DefaultModelCapabilityProfile_Render_NullArguments_ThrowsArgumentNullException
+
+          - title: SentenceChunker Requirements
+            requirements:
+              - id: Speech-Synthesis-SentenceChunker-BoundarySplitting
+                title: >-
+                  The SentenceChunker class shall split text on primary sentence boundaries first,
+                  falling back to secondary clause boundaries and then a whitespace budget only
+                  when a segment still exceeds the configured maximum chunk length.
+                justification: |
+                  Splitting on the coarsest natural boundary that still fits the configured budget
+                  keeps each chunk as large - and therefore as natural-sounding - as possible while
+                  guaranteeing no chunk exceeds the length a model or pipeline stage can handle in
+                  one synthesis call.
+                tests:
+                  - SentenceChunker_Chunk_ShortSingleSentence_ReturnsOneChunk
+                  - SentenceChunker_Chunk_MultipleSentences_SplitsOnPrimaryBoundaries
+                  - SentenceChunker_Chunk_LongSentenceWithClauses_SplitsOnSecondaryBoundaries
+                  - SentenceChunker_Chunk_LongClauseWithNoPunctuation_SplitsOnWhitespaceBudget
+
+              - id: Speech-Synthesis-SentenceChunker-BoundaryHandling
+                title: >-
+                  The SentenceChunker class shall return a single word unsplit when the word
+                  alone exceeds the configured maximum chunk length, and shall reject a
+                  non-positive maximum chunk length or null text.
+                justification: |
+                  Splitting inside a single word would produce unintelligible synthesized audio,
+                  so an over-length word must still be synthesized whole; a non-positive maximum
+                  length or null text describes no meaningful chunking request and must be
+                  rejected rather than silently producing corrupt output.
+                tests:
+                  - SentenceChunker_Chunk_SingleWordExceedsBudget_ReturnsWholeWord
+                  - SentenceChunker_Chunk_NonPositiveMaxLength_ThrowsArgumentOutOfRangeException
+                  - SentenceChunker_Chunk_NullText_ThrowsArgumentNullException
+
+              - id: Speech-Synthesis-SentenceChunker-ConsecutiveBoundaryMerging
+                title: >-
+                  The SentenceChunker class shall treat a maximal run of consecutive primary
+                  sentence-ending characters (any combination of '.', '!', '?', such as an
+                  ellipsis or a mixed terminator like "?!" or "!!") as a single boundary, splitting
+                  only once after the last character of the run and keeping the whole run attached
+                  to the sentence that precedes it, both mid-text and at the end of the text.
+                justification: |
+                  Splitting after every individual character in a run of terminal punctuation
+                  produces degenerate chunks that are just a single punctuation character with no
+                  other content; synthesizing such a near-empty chunk produces audible glitches and
+                  artifacts regardless of which model performs the synthesis. Merging the run into
+                  one boundary also matches how a human naturally pauses once at an ellipsis rather
+                  than stopping once per character.
+                tests:
+                  - SentenceChunker_Chunk_MidSentenceEllipsis_StaysAttachedAsSingleChunk
+                  - SentenceChunker_Chunk_MixedConsecutiveTerminators_StaysAttachedAsSingleChunk
+                  - SentenceChunker_Chunk_RepeatedExclamations_StaysAttachedAsSingleChunk
+                  - SentenceChunker_Chunk_SingleTerminators_NoRegression
+                  - SentenceChunker_Chunk_TrailingEllipsis_NoDegenerateTrailingChunk
+
+          - title: PlaybackAudioResampler Requirements
+            requirements:
+              - id: Speech-Synthesis-PlaybackAudioResampler-RateConversion
+                title: >-
+                  The PlaybackAudioResampler class shall convert single-channel synthesized audio
+                  from the engine's sample rate to the playback device's sample rate, producing a
+                  proportional number of output samples and returning the input unchanged when the
+                  two rates are equal.
+                justification: |
+                  A synthesis engine produces audio at one fixed rate while a playback device
+                  resolves whatever rate its hardware defaults to; without this conversion,
+                  synthesized speech would only play correctly on a device that happened to match
+                  the model's rate, mirroring the recognition-direction requirement that resampling
+                  audio already matching would introduce avoidable error and cost.
+                tests:
+                  - PlaybackAudioResampler_Resample_EqualRates_CopiesUnchanged
+                  - PlaybackAudioResampler_Resample_Upsample_ProducesInterpolatedSamples
+                  - PlaybackAudioResampler_Resample_Downsample_ReducesSampleCount
+                  - PlaybackAudioResampler_Resample_EmptyInput_ReturnsEmpty
+
+              - id: Speech-Synthesis-PlaybackAudioResampler-Upmix
+                title: >-
+                  The PlaybackAudioResampler class shall replicate single-channel audio across
+                  every channel the playback device requires, leaving already single-channel
+                  output unchanged when the device requires one channel, and shall reject a
+                  non-positive channel count.
+                justification: |
+                  A playback device commonly requires stereo or multi-channel output while a
+                  synthesis engine produces mono audio; replicating the single channel across every
+                  output channel is the simplest correct upmix, and a non-positive channel count
+                  describes no meaningful playback format and must be rejected.
+                tests:
+                  - PlaybackAudioResampler_UpmixToChannels_SingleChannel_CopiesUnchanged
+                  - PlaybackAudioResampler_UpmixToChannels_MultipleChannels_ReplicatesEachFrame
+                  - PlaybackAudioResampler_UpmixToChannels_EmptyInput_ReturnsEmpty
+                  - PlaybackAudioResampler_UpmixToChannels_NonPositiveChannelCount_ThrowsArgumentOutOfRangeException
+
+              - id: Speech-Synthesis-PlaybackAudioResampler-Composition
+                title: >-
+                  The PlaybackAudioResampler class shall expose a single Convert operation that
+                  resamples and then upmixes engine-rate mono audio directly to the playback
+                  device's rate and channel count.
+                justification: |
+                  The synthesis pipeline always needs both conversions applied together for every
+                  segment it plays, so a single composed entry point avoids every caller having to
+                  correctly sequence resample-then-upmix itself.
+                tests:
+                  - PlaybackAudioResampler_Convert_DifferentRateAndChannels_ResamplesThenUpmixes

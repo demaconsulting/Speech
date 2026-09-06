@@ -1,0 +1,209 @@
+---
+# Software Subsystem Requirements for SynthesisSubsystem
+#
+# These requirements describe the subsystem-level behavior of the SynthesisSubsystem,
+# decomposing the system-level Natural Language Audio Tag requirement in docs/reqstream/speech.yaml.
+#
+# Sub-phase 4a covers the closed tag vocabulary and the model-independent Layer 1 parser
+# (AudioTagCatalog/AudioTagParser). Sub-phase 4b, described below, adds Layer 2 per-model
+# rendering into a SpeechPlan, the chunked/streaming ISpeechSynthesizer pipeline, the real
+# sherpa-onnx synthesis engine, and playback.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: SynthesisSubsystem Requirements
+        requirements:
+          - id: Speech-Synthesis-ClosedVocabulary
+            title: >-
+              The SynthesisSubsystem shall define a closed, fixed set of Natural Language Audio
+              Tags - one canonical value per tag with every documented synonym collapsed onto
+              it - grouped into kinds (Emotion, Pace, Delivery/Volume, Non-verbal, Pause,
+              Emphasis).
+            justification: |
+              architecture.md fixes the tag vocabulary and groups it into kinds so that Layer 2
+              per-model rendering (a later phase) and host UI code can reason about a tag's
+              broad category generically, and so the vocabulary expands only through a new
+              library release rather than being host- or model-configurable.
+            children:
+              - Speech-Synthesis-AudioTagParser-VocabularyCompleteness
+              - Speech-Synthesis-AudioTagParser-NoAliasAmbiguity
+              - Speech-Synthesis-AudioTagParser-KindGrouping
+            tests:
+              - AudioTagCatalog_Tags_Always_CoversEveryCanonicalTagWithAtLeastOneAlias
+              - AudioTagCatalog_Tags_Always_NoAliasIsSharedByTwoDifferentTags
+
+          - id: Speech-Synthesis-Layer1Parsing
+            title: >-
+              The SynthesisSubsystem shall parse text containing inline Natural Language Audio
+              Tag bracket syntax into an ordered, model-independent sequence of literal-text and
+              recognized-tag spans, resolving aliases case-insensitively and passing any
+              unrecognized or malformed bracket content through as literal text rather than
+              throwing or discarding it.
+            justification: |
+              architecture.md's two-layer tag rendering decision requires a Layer 1 parser that
+              is generic and model-independent, producing a neutral intermediate representation
+              that a later Layer 2 rendering stage can consume regardless of which model is
+              installed. Its "never worse than plain narration" guarantee requires that a typo,
+              an unsupported bracket phrase, or an unbalanced bracket degrades to ordinary
+              narration rather than failing or losing content.
+            children:
+              - Speech-Synthesis-AudioTagParser-CaseInsensitiveResolution
+              - Speech-Synthesis-AudioTagParser-ExtraWhitespaceTolerance
+              - Speech-Synthesis-AudioTagParser-OrderedSpanSequence
+              - Speech-Synthesis-AudioTagParser-MalformedPassthrough
+            tests:
+              - AudioTagParser_Parse_MixedPlainTextAndTag_ReturnsOrderedSpans
+              - AudioTagParser_Parse_UnclosedOpeningBracket_PassesThroughAsLiteralText
+
+          - id: Speech-Synthesis-Layer2Rendering
+            title: >-
+              The SynthesisSubsystem shall render a Layer 1 parsed span sequence into an ordered
+              SpeechPlan of speech segments, deciding per tag - based purely on the selected
+              model's own declared audio-tag support and parameters - whether to pass the tag
+              through as a model-native control token, approximate it as a timed pause or a
+              parameter override, or strip it to plain narration.
+            justification: |
+              architecture.md's two-layer tag rendering decision requires a model-independent
+              Layer 1 parse to be turned into model-appropriate output by a separate Layer 2
+              stage, so that adding a new model with different tag capabilities never requires
+              changing the parser, and so that every installed model - however limited its
+              tag support - still narrates correctly per the "never worse than plain narration"
+              guarantee.
+            children:
+              - Speech-Synthesis-Layer2Rendering-PauseAlwaysSilence
+              - Speech-Synthesis-Layer2Rendering-NativePassthrough
+              - Speech-Synthesis-Layer2Rendering-ParameterMappedApproximation
+              - Speech-Synthesis-Layer2Rendering-NoneStripsAll
+              - Speech-Synthesis-Layer2Rendering-PlainTextChunking
+            tests:
+              - DefaultModelCapabilityProfile_Render_ShortPause_AlwaysRendersAsSilenceSegment
+              - DefaultModelCapabilityProfile_Render_NativeSupport_PassesThroughCanonicalBracketText
+              - DefaultModelCapabilityProfile_Render_ParameterMappedSupport_FastTag_MapsToSpeedParameter
+              - DefaultModelCapabilityProfile_Render_NoneSupport_StripsAllTags
+
+          - id: Speech-Synthesis-MockableContract
+            title: >-
+              The SynthesisSubsystem shall expose a mockable chunked/streaming text-to-speech
+              contract that reports availability, synthesizes and plays speech, and supports
+              deterministic cancellation, without exposing any inference-engine type.
+            justification: |
+              architecture.md's "engine backend stays swappable at the public API surface"
+              decision requires that a future non-sherpa-onnx backend can replace the current one
+              without a breaking API change, and hosts must be able to test their playback
+              handling against the contract with no model, speakers, or native runtime present.
+            children:
+              - Speech-Synthesis-ISpeechSynthesizer-AvailabilityFlag
+              - Speech-Synthesis-ISpeechSynthesizer-StreamingContract
+              - Speech-Synthesis-ISpeechSynthesizer-UnavailableOperationsThrow
+              - Speech-Synthesis-ISpeechSynthesizer-SynthesizedSpeechShape
+            tests:
+              - UnavailableSpeechSynthesizer_IsAvailable_Read_ReturnsFalse
+              - SynthesizeStreamAsync_PlainText_YieldsAudioSegment
+
+          - id: Speech-Synthesis-Composition
+            title: >-
+              The SynthesisSubsystem shall compose a speech synthesizer for an installed
+              synthesis model and an audio playback device without ever throwing for an ordinary
+              machine state.
+            justification: |
+              Composition happens at application start-up, where a model that has not been
+              downloaded yet, a machine with no speakers, and a machine without the speech
+              engine's native runtime are all ordinary states rather than programming errors, per
+              architecture.md's "nothing throws at composition" decision.
+            children:
+              - Speech-Synthesis-SpeechSynthesizerFactory-RealSynthesizer
+              - Speech-Synthesis-SpeechSynthesizerFactory-HonestFallbacks
+              - Speech-Synthesis-SpeechSynthesizerFactory-EngineLoadFailureFallback
+              - Speech-Synthesis-SpeechSynthesizerFactory-ArgumentValidation
+              - Speech-Synthesis-SynthesisEngine-MockableSeam
+              - Speech-Synthesis-SynthesisEngine-ModelOwnedConfiguration
+            tests:
+              - SpeechSynthesizerFactory_Create_ModelInstalledAndDeviceAvailable_ReturnsRealSynthesizer
+              - SpeechSynthesizerFactory_Create_ModelNotInstalled_ReturnsUnavailableSynthesizer
+              - SpeechSynthesizerFactory_Create_PlaybackDeviceUnavailable_ReturnsUnavailableSynthesizer
+
+          - id: Speech-Synthesis-VoiceSelection
+            title: >-
+              The SynthesisSubsystem shall thread an optional, session-level parameterValues bag
+              from SpeechSynthesizerFactory.Create through to SherpaOnnxSpeechSynthesizer, which
+              shall resolve a real speaker id from it via ISynthesisModel.ResolveSpeakerId once
+              per synthesized segment, replacing a previously hard-coded speakerId: 0, without
+              regressing the independent, per-segment Natural Language Audio Tag speed/volume
+              override mechanism.
+            justification: |
+              Phase 7b shipped the library's first real ISynthesisModel but left voice/speaker
+              selection entirely out of scope: GenerateSegment hard-coded speakerId: 0
+              regardless of any model-declared voice parameter, so a model such as
+              SherpaOnnxKokoroEnglishSynthesisModel's 11-voice ChoiceParameter had no real path
+              to change synthesized output. This requirement closes that gap for any model that
+              owns real per-voice knowledge, while keeping voice selection and the existing
+              per-segment speed/volume convention correctly independent of each other.
+            children:
+              - Speech-Synthesis-SpeechSynthesizerFactory-ParameterValuesForwarding
+              - Speech-Synthesis-SherpaOnnxSpeechSynthesizer-SpeakerSelection
+            tests:
+              - SpeechSynthesizerFactory_Create_ParameterValuesSupplied_ForwardedToSynthesizer
+              - SynthesizeStreamAsync_NoParameterValues_ResolvesDefaultSpeakerIdFromModel
+              - SynthesizeStreamAsync_ParameterValuesSupplied_ResolvesSpeakerIdFromBag
+              - SynthesizeStreamAsync_ParameterValuesSuppliedAlongsideSpeedTag_BothMechanismsApplyIndependently
+
+          - id: Speech-Synthesis-ChunkedPipeline
+            title: >-
+              The SynthesisSubsystem shall chunk synthesis-ready text into sentence/clause-sized
+              pieces and synthesize a later chunk while an earlier chunk is still playing.
+            justification: |
+              architecture.md requires low-latency streaming synthesis where playback of an early
+              chunk begins while later chunks are still being synthesized, rather than a caller
+              waiting for an entire utterance's inference to complete before hearing anything.
+            children:
+              - Speech-Synthesis-SentenceChunker-BoundarySplitting
+              - Speech-Synthesis-SentenceChunker-BoundaryHandling
+              - Speech-Synthesis-SentenceChunker-ConsecutiveBoundaryMerging
+              - Speech-Synthesis-SherpaOnnxSpeechSynthesizer-ChunkedPipeline
+              - Speech-Synthesis-SherpaOnnxSpeechSynthesizer-PipelinedPlayback
+              - Speech-Synthesis-SherpaOnnxSpeechSynthesizer-GenuinePlaybackDrainWait
+              - Speech-Synthesis-PlaybackAudioResampler-RateConversion
+              - Speech-Synthesis-PlaybackAudioResampler-Upmix
+              - Speech-Synthesis-PlaybackAudioResampler-Composition
+            tests:
+              - SentenceChunker_Chunk_MultipleSentences_SplitsOnPrimaryBoundaries
+              - PlayStreamAsync_OrderedSegments_StartsWritesInOrderAndStops
+              - SynthesizeStreamAsync_LongMultiSentenceInput_ProducesOrderedSegmentsSequentially
+
+          - id: Speech-Synthesis-FaultContainment
+            title: >-
+              The SynthesisSubsystem shall contain and report faults raised while synthesizing or
+              playing speech, and shall support deterministic cancellation of an in-flight speak
+              session, rather than hanging or crashing the process.
+            justification: |
+              A model that fails mid-utterance, a dropped playback device, or a user interrupting
+              speech (barge-in) are all ordinary events during a long-running synthesis session
+              and must never leave the caller's task hanging or tear down the process, per
+              architecture.md's fault-containment requirements mirrored from the recognition
+              direction.
+            children:
+              - Speech-Synthesis-SherpaOnnxSpeechSynthesizer-FaultContainment
+              - Speech-Synthesis-SherpaOnnxSpeechSynthesizer-CancellationAndLifecycle
+            tests:
+              - SynthesizeStreamAsync_EngineThrows_ReportsFaultAndPropagatesToCaller
+              - Stop_WhileSpeaking_CancelsInFlightSession
+
+          - id: Speech-Synthesis-UnavailableFallback
+            title: >-
+              The SynthesisSubsystem shall provide an honest unavailable synthesizer that reports
+              unavailability rather than throwing, and throws a documented exception only when an
+              operational member is actually invoked.
+            justification: |
+              Per architecture.md's "nothing throws at composition" decision, obtaining and
+              holding a fallback synthesizer must never throw; only misuse of an already
+              unavailable synthesizer is a programming error that should surface as an exception.
+            children:
+              - Speech-Synthesis-UnavailableSpeechSynthesizer-ReportsUnavailable
+              - Speech-Synthesis-UnavailableSpeechSynthesizer-OperationsThrow
+              - Speech-Synthesis-UnavailableSpeechSynthesizer-SafeDispose
+              - Speech-Synthesis-SpeechSynthesizerUnavailableException-Thrown
+            tests:
+              - UnavailableSpeechSynthesizer_IsAvailable_Read_ReturnsFalse
+              - UnavailableSpeechSynthesizer_SynthesizeStreamAsync_Always_ThrowsSpeechSynthesizerUnavailableException
+              - UnavailableSpeechSynthesizer_Stop_Always_ThrowsSpeechSynthesizerUnavailableException

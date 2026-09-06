@@ -1,0 +1,28 @@
+---
+# Avalonia OTS Software Requirements
+#
+# Requirements for the Avalonia cross-platform UI framework used by the demo application.
+
+sections:
+  - title: OTS Software Requirements
+    sections:
+      - title: Avalonia Requirements
+        requirements:
+          - id: SpeechDemo-OTS-Avalonia-DesktopApplicationHost
+            title: >-
+              Avalonia shall provide the cross-platform desktop application host, styling, and
+              view layer used by the SpeechDemo application.
+            justification: |
+              The demo has to run on the same desktop platforms the library supports, so a
+              Windows-only UI framework was not an option. Avalonia supplies one XAML-based
+              application host that runs on Windows, Linux, and macOS, letting the demo prove
+              the library is consumable from a real cross-platform application without writing
+              a separate front end per operating system.
+
+              Automated verification is limited to configuring the application host, because a
+              CI runner has no display and starting a windowing lifetime would prove nothing
+              about the demo that the ViewModel tests do not already prove.
+            tags: [ots]
+            tests:
+              - Avalonia_BuildAvaloniaApp_Invoked_ReturnsConfiguredApplicationBuilder
+              - Avalonia_DemoApplication_Inspected_DerivesFromAvaloniaApplication

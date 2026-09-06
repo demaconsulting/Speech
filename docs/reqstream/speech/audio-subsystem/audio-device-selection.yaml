@@ -1,0 +1,36 @@
+---
+# Software Unit Requirements for AudioDeviceSelection
+#
+# These requirements describe the design-level behavior of the AudioDeviceSelection
+# unit, decomposing the parent AudioSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: AudioSubsystem Requirements
+        sections:
+          - title: AudioDeviceSelection Requirements
+            requirements:
+              - id: Speech-Audio-AudioDeviceSelection-FallbackToDefault
+                title: >-
+                  The AudioDeviceSelection record shall resolve to the system default (null)
+                  rather than throwing when its persisted device name does not match any
+                  currently enumerated device.
+                justification: |
+                  A saved selection that no longer resolves represents an ordinary machine-state
+                  change (device unplugged or renamed), not a caller programming error.
+                tests:
+                  - AudioDeviceSelection_Resolve_NoLongerPresent_ReturnsNull
+                  - AudioDeviceSelection_Resolve_SystemDefault_ReturnsNull
+                  - AudioDeviceSelection_Resolve_EmptyDeviceList_ReturnsNull
+
+              - id: Speech-Audio-AudioDeviceSelection-ExactNameMatch
+                title: >-
+                  The AudioDeviceSelection record shall resolve to the enumerated device whose
+                  name exactly matches the persisted device name.
+                justification: |
+                  Name-only identity (see the parent AudioSubsystem requirements) requires exact,
+                  unambiguous matching so a selection reliably identifies the same device across
+                  repeated enumerations of the same hardware state.
+                tests:
+                  - AudioDeviceSelection_Resolve_MatchingName_ReturnsMatchingDevice

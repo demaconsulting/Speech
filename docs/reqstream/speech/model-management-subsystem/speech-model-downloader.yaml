@@ -1,0 +1,117 @@
+---
+# Software Unit Requirements for SpeechModelDownloader
+#
+# These requirements describe the design-level behavior of the SpeechModelDownloader unit,
+# decomposing the parent ModelManagementSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        sections:
+          - title: SpeechModelDownloader Requirements
+            requirements:
+              - id: Speech-Models-SpeechModelDownloader-PerModelSerialization
+                title: >-
+                  The SpeechModelDownloader class shall serialize two concurrent DownloadAsync
+                  calls for the same model id, queueing the second behind the first rather than
+                  running both in parallel.
+                justification: |
+                  SpeechModelStore's atomic-swap install for a given model id is not itself
+                  re-entrant: two concurrent Directory.Move-based installs of the same model id
+                  can race. A per-model-id lock is the minimal guard needed to prevent this
+                  same-model race without constraining unrelated models.
+                tests:
+                  - SpeechModelDownloader_DownloadAsync_TwoConcurrentRequestsForSameModelId_AreSerialized
+
+              - id: Speech-Models-SpeechModelDownloader-ConcurrentDownloadsAcrossModels
+                title: >-
+                  The SpeechModelDownloader class shall allow downloads of different model ids to
+                  run fully concurrently, with no pool limit or global gate serializing them.
+                justification: |
+                  architecture.md's "download integrity and progress" decision allows unlimited
+                  cross-model concurrency since each model is staged and installed under its own
+                  isolated subtree in SpeechModelStore, with no shared mutable state between
+                  different model ids' downloads.
+                tests:
+                  - SpeechModelDownloader_DownloadAsync_TwoConcurrentRequestsForDifferentModels_RunConcurrently
+
+              - id: Speech-Models-SpeechModelDownloader-FetchVerifyInstall
+                title: >-
+                  The SpeechModelDownloader class shall fetch each declared file through its
+                  IModelDownloadClient, verify its SHA-256 checksum, and hand a fully verified
+                  result to SpeechModelStore for atomic installation, reporting progress with
+                  correct FileIndex/FileCount values as each file transfers.
+                justification: |
+                  This is the core download-integrity guarantee: every byte installed must have
+                  first passed checksum verification, and callers need accurate multi-file
+                  progress to build UI.
+                tests:
+                  - SpeechModelDownloader_DownloadAsync_ValidPayload_InstallsModelAndReportsProgress
+
+              - id: Speech-Models-SpeechModelDownloader-ChecksumMismatch
+                title: >-
+                  The SpeechModelDownloader class shall report SpeechModelDownloadOutcome.ChecksumMismatch
+                  and install nothing when a downloaded file's SHA-256 checksum does not match its
+                  declared value.
+                justification: |
+                  A host must be able to trust that "installed" means "verified"; a checksum
+                  mismatch must never silently install unverified or tampered content.
+                tests:
+                  - SpeechModelDownloader_DownloadAsync_ChecksumMismatch_ReportsChecksumMismatchAndInstallsNothing
+
+              - id: Speech-Models-SpeechModelDownloader-CancellationDiscardsStaging
+                title: >-
+                  The SpeechModelDownloader class shall propagate a canceled download as
+                  OperationCanceledException and discard its staging directory without installing
+                  anything or affecting a prior successful install.
+                justification: |
+                  Cancellation is an ordinary caller-driven outcome, not a corruption; it must
+                  clean up its own scratch space and leave any existing installed model untouched.
+                tests:
+                  - SpeechModelDownloader_DownloadAsync_CanceledMidDownload_ThrowsAndInstallsNothing
+
+              - id: Speech-Models-SpeechModelDownloader-PriorInstallUntouchedOnFailedRepair
+                title: >-
+                  The SpeechModelDownloader class shall leave a model's prior successful install
+                  completely untouched when a later repair/re-download attempt for the same model
+                  fails checksum verification.
+                justification: |
+                  A failed repair attempt must be a safe no-op from the model's perspective; it
+                  must never regress an already-working model to a half-updated or removed state.
+                tests:
+                  - SpeechModelDownloader_DownloadAsync_ChecksumMismatchAfterPriorSuccess_LeavesPriorInstallIntact
+
+              - id: Speech-Models-SpeechModelDownloader-InvokesModelInstallHook
+                title: >-
+                  The SpeechModelDownloader class shall expose a DownloadAsync(ISpeechModel, ...)
+                  overload that invokes the model's own InstallAsync hook on its verified staged
+                  files after checksum verification and before SpeechModelStore atomically
+                  installs them, recomputing the installed size from the post-install staging
+                  directory's actual file tree. The existing DownloadAsync(modelId, descriptor,
+                  ...) overload's behavior is unchanged and never invokes an install hook.
+                justification: |
+                  This is the wiring that lets any real model whose declared download payload is
+                  an archive (zip/tar) actually become installable: without it, ISpeechModel's
+                  InstallAsync hook exists but is never called by the download/install
+                  machinery. SpeechModelCatalog uses this overload exclusively so every
+                  catalog-driven download genuinely runs the model's install hook.
+                tests:
+                  - SpeechModelDownloader_DownloadAsync_WithModel_InvokesInstallAsyncBeforeCompleteInstall
+                  - SpeechModelDownloader_DownloadAsync_WithZipArchiveModel_CurrentContainsExtractedFilesNotTheArchive
+                  - SpeechModelCatalog_DownloadAsync_ZipArchiveModel_InstallsExtractedContentAndReportsDownloaded
+
+              - id: Speech-Models-SpeechModelDownloader-InstallHookFailureIsHandledLikeDownloadFailure
+                title: >-
+                  The SpeechModelDownloader class shall treat an exception thrown from a model's
+                  InstallAsync hook identically to a download failure: report
+                  SpeechModelDownloadOutcome.Failed with the underlying exception attached,
+                  discard the staging directory, and leave any prior successful install of the
+                  same model completely untouched.
+                justification: |
+                  A model's own unpacking code can fail (corrupt archive, disk full, permission
+                  denied) just as a transport failure can; this failure mode must be just as safe
+                  as every other documented failure path - never installing partially-unpacked
+                  content and never regressing an already-working model.
+                tests:
+                  - SpeechModelDownloader_DownloadAsync_WithModel_InstallAsyncThrows_ReportsFailedAndLeavesPriorInstallIntact

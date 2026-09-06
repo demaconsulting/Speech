@@ -1,0 +1,52 @@
+---
+# Software Unit Requirements for IAudioCaptureDevice
+#
+# These requirements describe the design-level behavior of the IAudioCaptureDevice
+# unit, decomposing the parent AudioSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: AudioSubsystem Requirements
+        sections:
+          - title: IAudioCaptureDevice Requirements
+            requirements:
+              - id: Speech-Audio-IAudioCaptureDevice-AvailabilityFlag
+                title: >-
+                  The IAudioCaptureDevice interface shall expose an IsAvailable flag that never
+                  throws to read.
+                justification: |
+                  Callers must be able to check availability before invoking an operational
+                  member, without risk of the check itself failing.
+                tests:
+                  - UnavailableAudioCaptureDevice_IsAvailable_Read_ReturnsFalse
+                  - PortAudioCaptureDevice_IsAvailable_NoResolvableDevice_ReturnsFalse
+
+              - id: Speech-Audio-IAudioCaptureDevice-StartStopFrameCaptured
+                title: >-
+                  The IAudioCaptureDevice interface shall define Start/Stop lifecycle methods and
+                  a FrameCaptured event for delivering captured audio while running.
+                justification: |
+                  A mockable capture-device contract lets hosts and tests depend on capture
+                  behavior without tying themselves to native PortAudio types.
+                tests:
+                  - UnavailableAudioCaptureDevice_Start_Always_ThrowsAudioDeviceUnavailableException
+                  - UnavailableAudioCaptureDevice_Stop_Always_ThrowsAudioDeviceUnavailableException
+                  - UnavailableAudioCaptureDevice_FrameCapturedSubscription_Always_DoesNotThrow
+                  - PortAudioCaptureDevice_Start_StreamCapturesSamples_RaisesFrameCaptured
+                  - PortAudioCaptureDevice_Start_OpenFails_ThrowsAudioDeviceUnavailableException
+
+              - id: Speech-Audio-IAudioCaptureDevice-CaptureFormat
+                title: >-
+                  The IAudioCaptureDevice interface shall expose the channel count and sample rate
+                  of the audio it delivers, readable without throwing and reported as zero when
+                  the device is unavailable.
+                justification: |
+                  Captured sample blocks carry no format metadata, so a consumer that must
+                  downmix or resample them - such as speech recognition - has no other way to
+                  learn the format. Reporting zero rather than a plausible default when no device
+                  was resolved keeps the contract honest and consistent with the availability flag.
+                tests:
+                  - PortAudioCaptureDevice_CaptureFormat_ResolvedDevice_ReflectsResolvedDeviceFormat
+                  - PortAudioCaptureDevice_CaptureFormat_NoResolvableDevice_ReturnsZeroRateAndChannelCount
+                  - UnavailableAudioCaptureDevice_CaptureFormat_Read_ReturnsZeroRateAndChannelCount

@@ -1,0 +1,25 @@
+---
+# Software Unit Requirements for IAudioCaptureDeviceProbe
+#
+# These requirements describe the design-level behavior of the IAudioCaptureDeviceProbe
+# unit, decomposing the parent AudioSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: AudioSubsystem Requirements
+        sections:
+          - title: IAudioCaptureDeviceProbe Requirements
+            requirements:
+              - id: Speech-Audio-IAudioCaptureDeviceProbe-EnumerateNeverThrows
+                title: >-
+                  The IAudioCaptureDeviceProbe interface shall define an Enumerate method that
+                  never throws, returning an empty list when no capture devices are available.
+                justification: |
+                  A mockable enumeration contract lets hosts build device pickers, and tests
+                  substitute enumerations, without any real hardware present.
+                tests:
+                  - UnavailableAudioCaptureDeviceProbe_Enumerate_Always_ReturnsEmptyList
+                  - PortAudioCaptureDeviceProbe_Enumerate_PreferredHostApiMissing_ReturnsEmptyList
+                  - PortAudioCaptureDeviceProbe_Enumerate_NoDevices_ReturnsEmptyList
+                  - PortAudioCaptureDeviceProbe_Enumerate_MixedHostApis_ReturnsOnlyPreferredInputDevices

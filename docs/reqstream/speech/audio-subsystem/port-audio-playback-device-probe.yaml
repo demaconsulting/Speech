@@ -1,0 +1,33 @@
+---
+# Software Unit Requirements for PortAudioPlaybackDeviceProbe
+#
+# These requirements describe the design-level behavior of the PortAudioPlaybackDeviceProbe
+# unit, decomposing the parent AudioSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: AudioSubsystem Requirements
+        sections:
+          - title: PortAudioPlaybackDeviceProbe Requirements
+            requirements:
+              - id: Speech-Audio-PortAudioPlaybackDeviceProbe-PreferredHostOnly
+                title: >-
+                  The PortAudioPlaybackDeviceProbe class shall enumerate only output-capable
+                  devices that belong to the current platform's preferred PortAudio host API.
+                justification: |
+                  Restricting enumeration to one host API avoids duplicate device listings and
+                  keeps persisted name-only selections unambiguous.
+                tests:
+                  - PortAudioPlaybackDeviceProbe_Enumerate_MixedHostApis_ReturnsOnlyPreferredOutputDevices
+
+              - id: Speech-Audio-PortAudioPlaybackDeviceProbe-EmptyOnMissingBackend
+                title: >-
+                  The PortAudioPlaybackDeviceProbe class shall return an empty list when the
+                  preferred host API is unavailable or the runtime exposes no playback devices.
+                justification: |
+                  Enumeration is an information-gathering operation that must degrade honestly
+                  without throwing when audio hardware is absent.
+                tests:
+                  - PortAudioPlaybackDeviceProbe_Enumerate_PreferredHostApiMissing_ReturnsEmptyList
+                  - PortAudioPlaybackDeviceProbe_Enumerate_NoDevices_ReturnsEmptyList

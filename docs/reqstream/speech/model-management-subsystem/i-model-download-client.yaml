@@ -1,0 +1,28 @@
+---
+# Software Unit Requirements for IModelDownloadClient
+#
+# These requirements describe the design-level behavior of the IModelDownloadClient unit,
+# decomposing the parent ModelManagementSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        sections:
+          - title: IModelDownloadClient Requirements
+            requirements:
+              - id: Speech-Models-IModelDownloadClient-Seam
+                title: >-
+                  The IModelDownloadClient interface shall define a single mockable
+                  DownloadAsync(Uri, Stream, IProgress, CancellationToken) member that isolates
+                  SpeechModelDownloader from any concrete HTTP implementation, so its
+                  queueing/verification/atomic-swap orchestration can be unit tested with a fake
+                  implementation and no real network access.
+                justification: |
+                  architecture.md's "own interfaces over direct OTS types" decision requires a
+                  library-owned abstraction so tests can substitute deterministic fakes while the
+                  production path still uses a real HTTP implementation.
+                tests:
+                  - SpeechModelDownloader_DownloadAsync_ValidPayload_InstallsModelAndReportsProgress
+                  - SpeechModelDownloader_DownloadAsync_TwoConcurrentRequestsForSameModelId_AreSerialized
+                  - HttpModelDownloadClient_DownloadAsync_LoopbackServer_DownloadsExactBytesWithProgress

@@ -1,0 +1,104 @@
+---
+# Software Unit Requirements for the SpeechDemo ModelCatalogViewModel
+#
+# These requirements describe the design-level behavior of the ModelCatalogViewModel unit - the
+# catalog panel's presentation state, refresh, and download orchestration - decomposing the
+# parent ModelCatalogSubsystem requirements.
+
+sections:
+  - title: SpeechDemo Requirements
+    sections:
+      - title: ModelCatalogSubsystem Requirements
+        sections:
+          - title: ModelCatalogViewModel Requirements
+            requirements:
+              - id: SpeechDemo-Models-Enumeration
+                title: >-
+                  The ModelCatalogSubsystem shall show one row per model the library reports and
+                  shall preselect the first row.
+                justification: |
+                  The panel is a direct rendering of the library's catalog: one row per known
+                  model, with nothing added and nothing hidden. Preselecting the first row makes
+                  the panel immediately usable without configuration.
+                tests:
+                  - ModelCatalogViewModel_Constructor_PopulatedCatalog_BuildsOneRowPerModel
+                  - ModelCatalogViewModel_Constructor_PopulatedCatalog_SelectsFirstModel
+
+              - id: SpeechDemo-Models-Refresh
+                title: >-
+                  The ModelCatalogSubsystem shall re-read the catalog on demand, keeping the
+                  current selection when that model is still reported and dropping the row when
+                  it is not.
+                justification: |
+                  The library's catalog is the single source of truth for both membership and
+                  state, so a refresh must adopt it wholesale. Keeping a row the library no
+                  longer reports would let the panel offer a model that cannot be downloaded.
+                tests:
+                  - ModelCatalogViewModel_Refresh_StateChanged_RebuildsRowsAndKeepsSelection
+                  - ModelCatalogViewModel_Refresh_ModelNoLongerKnown_DropsRowAndFallsBack
+                  - ModelCatalogViewModel_RefreshCommand_Executed_ReReadsCatalog
+
+              - id: SpeechDemo-Models-DownloadProgress
+                title: >-
+                  The ModelCatalogSubsystem shall show a model as downloading while its download
+                  runs, reflect reported progress on that model's row, and mark it installed on
+                  success.
+                justification: |
+                  Model downloads are large enough that an application with no progress feedback
+                  looks hung. Showing progress on the row being downloaded also proves the
+                  library's progress contract is usable from a host's UI thread.
+                tests:
+                  - ModelCatalogViewModel_DownloadAsync_ProgressReported_UpdatesRowProgress
+                  - ModelCatalogViewModel_DownloadAsync_Installed_MarksModelDownloaded
+
+              - id: SpeechDemo-Models-DownloadOutcomes
+                title: >-
+                  The ModelCatalogSubsystem shall report a checksum mismatch, a transport
+                  failure, an unexpected seam fault, and a cancellation as explained row states
+                  rather than as an application error.
+                justification: |
+                  The library treats a failed download as an ordinary outcome that never
+                  disturbs an existing install, so the demo must not escalate one into a crash.
+                  Cancellation is reported as simply not downloaded, because the library
+                  guarantees nothing was installed.
+                tests:
+                  - ModelCatalogViewModel_DownloadAsync_ChecksumMismatch_ReportsExplainedFailure
+                  - ModelCatalogViewModel_DownloadAsync_Failed_ReportsLibraryErrorMessage
+                  - ModelCatalogViewModel_DownloadAsync_SeamThrows_ContainsFaultInRow
+                  - ModelCatalogViewModel_DownloadAsync_Canceled_ReportsNotDownloaded
+
+              - id: SpeechDemo-Models-DownloadRetry
+                title: >-
+                  The ModelCatalogSubsystem shall allow a failed download to be retried and shall
+                  clear the previous failure explanation when the retry starts.
+                justification: |
+                  Most download failures are transient. Leaving a stale failure message beside a
+                  retry in progress would misreport the model's current state.
+                tests:
+                  - ModelCatalogViewModel_DownloadAsync_RetryAfterFailure_ClearsPreviousFailureMessage
+
+              - id: SpeechDemo-Models-DownloadGuard
+                title: >-
+                  The ModelCatalogSubsystem shall not start a download for a model that is
+                  already installed or already downloading, nor when no model is selected.
+                justification: |
+                  Re-downloading an installed model risks disturbing working content for no
+                  benefit, and a download command invoked with no selection must do nothing
+                  rather than fail.
+                tests:
+                  - ModelCatalogViewModel_DownloadAsync_AlreadyInstalledModel_DoesNotDownload
+                  - ModelCatalogViewModel_DownloadAsync_NullModel_DoesNothing
+
+              - id: SpeechDemo-Models-EmptyCatalogExplanation
+                title: >-
+                  The ModelCatalogSubsystem shall display a message stating that the library
+                  ships no downloadable models yet when the catalog reports none.
+                justification: |
+                  An empty catalog remains a possible host/composition state (for example a host
+                  supplying its own, empty known-model list) even though the library's compiled-in
+                  catalog itself now ships four real models. Explaining an empty catalog in the
+                  panel prevents a developer evaluating such a composition from reporting the
+                  empty list as a bug.
+                tests:
+                  - ModelCatalogViewModel_Constructor_EmptyCatalog_ReportsHonestEmptyState
+                  - ModelCatalogViewModel_EmptyCatalogMessage_Read_ExplainsNoModelsAreShippedYet

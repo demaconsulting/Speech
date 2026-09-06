@@ -1,0 +1,17 @@
+---
+# Software Subsystem Requirements for the SpeechDemo SynthesisPanelSubsystem
+#
+# These requirements describe the subsystem-level behavior of the demo's text-to-speech panel,
+# decomposing the system-level synthesis requirements in docs/reqstream/speech-demo.yaml.
+#
+# Unit-level content lives in per-unit files under docs/reqstream/speech-demo/
+# synthesis-panel-subsystem/ - one per independently testable unit:
+# synthesizer-session-factory.yaml (ISynthesizerSessionFactory/SynthesizerSessionFactory, treated
+# as one unit because the interface has no independently observable behavior of its own) and
+# synthesis-panel-view-model.yaml (SynthesisPanelViewModel). This subsystem decomposes no
+# requirements of its own beyond those unit-level requirements.
+
+sections:
+  - title: SpeechDemo Requirements
+    sections:
+      - title: SynthesisPanelSubsystem Requirements

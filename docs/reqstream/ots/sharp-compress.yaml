@@ -1,0 +1,38 @@
+---
+# SharpCompress OTS Software Requirements
+#
+# Requirements for the SharpCompress managed .tar.bz2 archive reader.
+
+sections:
+  - title: OTS Software Requirements
+    sections:
+      - title: SharpCompress Requirements
+        requirements:
+          - id: Speech-OTS-SharpCompress-TarBz2Extraction
+            title: >-
+              SharpCompress shall provide the managed BZip2 tar (.tar.bz2) decoder consumed by
+              the Speech library's TarBz2ArchiveExtractor helper to unpack a downloaded model
+              archive.
+            justification: |
+              The .NET BCL has no BZip2 decoder, and sherpa-onnx's own official GitHub Releases
+              publish its ASR model archives as .tar.bz2; a maintained, permissively-licensed
+              managed decoder is needed to unpack them without shelling out to an external
+              executable.
+            tags: [ots]
+            tests:
+              - TarBz2ArchiveExtractor_ExtractAndDeleteAsync_SingleEntryArchive_ExtractsEntryAndDeletesArchive
+              - TarBz2ArchiveExtractor_ExtractAndDeleteAsync_MultiEntryArchive_ExtractsEveryEntry
+
+          - id: Speech-OTS-SharpCompress-ArgumentValidation
+            title: >-
+              SharpCompress integration shall be preceded by eager argument validation so an
+              invalid archive path or destination directory never reaches the third-party
+              decoder.
+            justification: |
+              A programming error (empty path/directory) should surface immediately with a
+              clear ArgumentException, matching this repository's existing validation
+              convention, rather than as an opaque failure from the third-party library.
+            tags: [ots]
+            tests:
+              - TarBz2ArchiveExtractor_ExtractAndDeleteAsync_EmptyArchivePath_ThrowsArgumentException
+              - TarBz2ArchiveExtractor_ExtractAndDeleteAsync_EmptyDestinationDirectory_ThrowsArgumentException

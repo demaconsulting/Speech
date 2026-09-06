@@ -1,0 +1,106 @@
+---
+# Software Unit Requirements for SherpaOnnxNemotronStreamingEnRecognitionModel
+#
+# These requirements describe the design-level behavior of the
+# SherpaOnnxNemotronStreamingEnRecognitionModel unit, decomposing the parent
+# ModelManagementSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        sections:
+          - title: SherpaOnnxNemotronStreamingEnRecognitionModel Requirements
+            requirements:
+              - id: Speech-Models-SherpaOnnxNemotronStreamingEnRecognitionModel-Identity
+                title: >-
+                  The SherpaOnnxNemotronStreamingEnRecognitionModel class shall declare a
+                  stable catalog identity (Id, Role = Recognition, no tunable Parameters,
+                  AudioTagSupport = None) whose DisplayName visibly names the NVIDIA Open
+                  Model License, and a single validated HTTPS .tar.bz2 download file
+                  pointing at sherpa-onnx's/k2-fsa's own official GitHub Releases mirror
+                  with a well-formed SHA-256 checksum.
+                justification: |
+                  This model's underlying weights are licensed under the NVIDIA Open Model
+                  License - materially different from every other model in this pass -
+                  which must be visibly distinct anywhere the catalog/settings UI renders
+                  this model's name, not only in code comments; the library must also never
+                  bundle or redistribute the weights itself, only declare where a consumer
+                  can fetch them on their own explicit action.
+                tests:
+                  - SherpaOnnxNemotronStreamingEnRecognitionModel_Identity_DeclaresExpectedValues
+                  - SherpaOnnxNemotronStreamingEnRecognitionModel_DownloadDescriptor_DeclaresSingleValidatedArchiveFile
+
+              - id: Speech-Models-SherpaOnnxNemotronStreamingEnRecognitionModel-EngineConfig
+                title: >-
+                  The SherpaOnnxNemotronStreamingEnRecognitionModel class shall report a
+                  16 kHz SampleRate and build an OnlineRecognizerConfig wiring its
+                  int8-quantized encoder/decoder/joiner/tokens files, DecodingMethod
+                  "greedy_search", and EnableEndpoint 1, deliberately leaving ModelType
+                  unset, and shall throw ArgumentException for a null or empty
+                  installed-model directory.
+                justification: |
+                  Tracing sherpa-onnx's own native dispatch source confirmed the native
+                  library auto-detects the NeMo-cache-aware decoding path from the decoder
+                  ONNX file's own metadata rather than from a ModelType field, so this
+                  model's configuration must deliberately omit that field rather than
+                  guessing a value that could conflict with native auto-detection.
+                tests:
+                  - SherpaOnnxNemotronStreamingEnRecognitionModel_SampleRate_Is16000
+                  - SherpaOnnxNemotronStreamingEnRecognitionModel_CreateEngineConfig_ResolvesInt8FilesAndFeatureConfig
+                  - SherpaOnnxNemotronStreamingEnRecognitionModel_CreateEngineConfig_ModelTypeIsUnset
+                  - SherpaOnnxNemotronStreamingEnRecognitionModel_CreateEngineConfig_EmptyDirectory_ThrowsArgumentException
+
+              - id: Speech-Models-SherpaOnnxNemotronStreamingEnRecognitionModel-InstallAsync
+                title: >-
+                  The SherpaOnnxNemotronStreamingEnRecognitionModel class shall extract its
+                  downloaded .tar.bz2 archive in place via the shared
+                  TarBz2ArchiveExtractor and remove the archive file, leaving the archive's
+                  own top-level folder available to CreateEngineConfig.
+                justification: |
+                  SpeechModelDownloader invokes InstallAsync after checksum verification and
+                  before the atomic install swap; this model's declared payload is an
+                  archive, so its files must be expanded in place for the paths
+                  CreateEngineConfig resolves to actually exist after install.
+                tests:
+                  - SherpaOnnxNemotronStreamingEnRecognitionModel_InstallAsync_SyntheticArchive_ExtractsFilesAndRemovesArchive
+
+              - id: Speech-Models-SherpaOnnxNemotronStreamingEnRecognitionModel-NormalizeText
+                title: >-
+                  The SherpaOnnxNemotronStreamingEnRecognitionModel class shall keep
+                  IRecognitionModel's pass-through NormalizeText default rather than
+                  applying UppercaseTranscriptRestorer.
+                justification: |
+                  A real (non-mocked) spike - synthesizing audio with the shipped LibriTTS
+                  voice and feeding it through the real SherpaOnnxRecognitionEngine -
+                  empirically confirmed this model's raw output already reads as normal,
+                  mixed-case, apostrophized prose, unlike SherpaOnnxZipformerEnRecognitionModel's
+                  UPPERCASE "yelling" raw output, so applying the restorer here would be
+                  unwarranted. This decision is documented in the class's XML remarks; the
+                  pass-through default itself is verified generically by
+                  SpeechModelContractTests.
+                tests:
+                  - IRecognitionModel_NormalizeText_DefaultImplementation_ReturnsInputUnchanged
+
+              - id: Speech-Models-SherpaOnnxNemotronStreamingEnRecognitionModel-PostEndpointWarmupWindow
+                title: >-
+                  The SherpaOnnxNemotronStreamingEnRecognitionModel class shall override
+                  IRecognitionModel.PostEndpointWarmupWindowMs to 800, opting into the
+                  recognition engine's post-endpoint warm-up-replay mitigation.
+                justification: |
+                  This model's endpoint detector was confirmed, on two real user recordings,
+                  to fire as a false positive mid-utterance, and the resulting Reset()
+                  exposes a measured ~550ms encoder warm-up blackout that silently drops
+                  genuinely spoken audio; an empirical window-size sweep against both
+                  recordings (documented in
+                  .agent-logs/planning-nemotron-endpoint-word-loss-warmup-replay-fix-9d4b71.md)
+                  found 600ms the minimum that reliably recovers the dropped words with no
+                  duplication observed up to 1500ms, so 800ms was chosen for comfortable
+                  margin. A later regression (an unconditional replay corrupting the first
+                  recognized segment after a leading-silence-only endpoint) was found and fixed by
+                  gating replay eligibility in the shared engine on genuine recognized text having
+                  occurred since the last reset - this value is unaffected by that fix. See also
+                  Speech-Recognition-RecognitionEngine-PostEndpointWarmupReplay for the
+                  shared engine-level mechanism this value configures.
+                tests:
+                  - SherpaOnnxNemotronStreamingEnRecognitionModel_PostEndpointWarmupWindowMs_Is800

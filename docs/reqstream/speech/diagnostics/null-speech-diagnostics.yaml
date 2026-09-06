@@ -1,0 +1,32 @@
+---
+# Software Unit Requirements for NullSpeechDiagnostics
+#
+# These requirements describe the design-level behavior of the NullSpeechDiagnostics
+# unit, decomposing the parent Diagnostics subsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: Diagnostics Requirements
+        sections:
+          - title: NullSpeechDiagnostics Requirements
+            requirements:
+              - id: Speech-Diagnostics-NullSpeechDiagnostics-Singleton
+                title: The NullSpeechDiagnostics class shall expose a single shared instance.
+                justification: |
+                  The class is stateless, so a shared singleton avoids unnecessary allocation
+                  and gives every caller an identical, predictable no-op sink.
+                tests:
+                  - NullSpeechDiagnostics_Instance_ReadTwice_ReturnsSameInstance
+
+              - id: Speech-Diagnostics-NullSpeechDiagnostics-NeverThrows
+                title: >-
+                  The NullSpeechDiagnostics class shall discard every reported event without
+                  throwing, for any input including null-ish or edge-case values.
+                justification: |
+                  A discard sink must never itself become the reason a caller's real audio,
+                  model, recognition, or synthesis operation fails.
+                tests:
+                  - NullSpeechDiagnostics_Report_NormalEvent_DoesNotThrow
+                  - NullSpeechDiagnostics_Report_NullOrEmptyArguments_DoesNotThrow
+                  - NullSpeechDiagnostics_Report_AnyLevel_DoesNotThrow

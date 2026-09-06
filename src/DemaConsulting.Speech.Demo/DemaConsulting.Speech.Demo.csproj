@@ -1,0 +1,81 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Build Configuration.
+         Single target framework (not the library's net8.0;net9.0;net10.0 matrix): this demo is
+         an application, never a published NuGet package, so it has no consumer compatibility
+         matrix to satisfy. Targeting the floor of the library's supported range proves the
+         library is genuinely consumable at its oldest supported runtime. -->
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>DemaConsulting.Speech.Demo</RootNamespace>
+    <AssemblyName>DemaConsulting.Speech.Demo</AssemblyName>
+
+    <!-- WinExe suppresses the console window on Windows; on Linux/macOS it behaves as Exe. -->
+    <OutputType>WinExe</OutputType>
+    <IsPackable>false</IsPackable>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+
+    <!-- Code Quality Configuration (mirrors DemaConsulting.Speech.csproj) -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+  </PropertyGroup>
+
+  <!-- Avalonia UI Dependencies -->
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.3.20" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.20" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.20" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.20" />
+    <!-- Diagnostics (the developer-tools overlay) is a development aid only and must never ship
+         in a Release build, so it is conditioned on the Debug configuration. -->
+    <PackageReference Include="Avalonia.Diagnostics" Version="11.3.20" Condition="'$(Configuration)' == 'Debug'" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+  </ItemGroup>
+
+  <!-- Speech Engine Native Runtime Dependencies.
+       Per architecture.md's "sherpa-onnx native runtime packages are NOT bundled by this
+       library" decision, the consuming application - this demo - adds the native runtime
+       package for each RID it intends to run on. The version matches the managed
+       org.k2fsa.sherpa.onnx version pinned by DemaConsulting.Speech.csproj.
+       No PortAudio runtime package is listed here: PortAudioSharp2 (referenced by the library)
+       declares its native runtime packages as its own dependencies, so they restore
+       transitively through the ProjectReference below. -->
+  <ItemGroup>
+    <PackageReference Include="org.k2fsa.sherpa.onnx.runtime.win-x64" Version="1.13.5" />
+    <PackageReference Include="org.k2fsa.sherpa.onnx.runtime.linux-x64" Version="1.13.5" />
+  </ItemGroup>
+
+  <!-- Code Analysis Dependencies -->
+  <ItemGroup>
+    <!-- Analyzer packages use child-element form to configure both PrivateAssets and IncludeAssets:
+         - PrivateAssets="all" prevents these build-time analyzers from becoming transitive dependencies
+           in any project that references this application.
+         - IncludeAssets lists all asset types (including 'analyzers' and 'buildtransitive') to ensure
+           Roslyn analyzers and MSBuild targets are fully activated during the build. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="10.0.400">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="SonarAnalyzer.CSharp" Version="10.33.0.1635">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <!-- Project References -->
+  <ItemGroup>
+    <ProjectReference Include="..\DemaConsulting.Speech\DemaConsulting.Speech.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="DemaConsulting.Speech.Demo.Tests" />
+  </ItemGroup>
+
+</Project>

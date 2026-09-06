@@ -1,0 +1,23 @@
+---
+# Software Unit Requirements for ISpeechDiagnostics
+#
+# These requirements describe the design-level behavior of the ISpeechDiagnostics unit,
+# decomposing the parent Diagnostics subsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: Diagnostics Requirements
+        sections:
+          - title: ISpeechDiagnostics Requirements
+            requirements:
+              - id: Speech-Diagnostics-ISpeechDiagnostics-ReportMethod
+                title: >-
+                  The ISpeechDiagnostics interface shall define a Report method accepting a
+                  severity level, category, and message.
+                justification: |
+                  A structured, three-part event shape (level/category/message) lets a host
+                  filter or group events without parsing free-form text, and keeps every
+                  implementation's contract identical regardless of which component reports.
+                tests:
+                  - Speech_SystemIntegration_DiagnosticsSink_ReceivesStructuralEvents

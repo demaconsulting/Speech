@@ -35,7 +35,7 @@ results containing both passing and failing outcomes.
 
 **Requirement coverage**: `Template-OTS-FileAssert`.
 
-#### FileAssert_Exists
+#### FileAssert_File
 
 **Scenario**: FileAssert self-validation exercises a test configuration using a glob pattern to
 assert file existence.
@@ -44,15 +44,34 @@ assert file existence.
 
 **Requirement coverage**: `Template-OTS-FileAssert`.
 
-#### FileAssert_Contains
+#### FileAssert_Text
 
-**Scenario**: FileAssert self-validation exercises a test configuration using a `contains` assertion
-to verify file content.
+**Scenario**: FileAssert self-validation exercises a test configuration using a `contains`
+assertion to verify plain-text file content.
 
 **Expected**: Passes when the specified content is present.
 
 **Requirement coverage**: `Template-OTS-FileAssert`.
 
+#### FileAssert_Html
+
+**Scenario**: FileAssert self-validation exercises a test configuration using a `contains`
+assertion to verify generated HTML file content.
+
+**Expected**: Passes when the specified content is present in the HTML document.
+
+**Requirement coverage**: `Template-OTS-FileAssert`.
+
+#### FileAssert_Pdf
+
+**Scenario**: FileAssert self-validation exercises a test configuration using a `contains`
+assertion to verify generated PDF file content.
+
+**Expected**: Passes when the specified content is present in the PDF document.
+
+**Requirement coverage**: `Template-OTS-FileAssert`.
+
 ### Requirements Coverage
 
-- **`Template-OTS-FileAssert`**: FileAssert_Results, FileAssert_Exists, FileAssert_Contains
+- **`Template-OTS-FileAssert`**: FileAssert_Results, FileAssert_File, FileAssert_Text,
+  FileAssert_Html, FileAssert_Pdf

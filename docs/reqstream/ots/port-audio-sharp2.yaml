@@ -1,0 +1,47 @@
+---
+# PortAudioSharp2 OTS Software Requirements
+#
+# Requirements for the PortAudioSharp2 managed binding over PortAudio.
+
+sections:
+  - title: OTS Software Requirements
+    sections:
+      - title: PortAudioSharp2 Requirements
+        requirements:
+          - id: Speech-OTS-PortAudioSharp2-ManagedBinding
+            title: >-
+              PortAudioSharp2 shall provide the managed PortAudio binding consumed by the
+              Speech audio subsystem.
+            justification: |
+              The Speech library needs a maintained .NET binding over PortAudio so it can offer
+              cross-platform real audio capture and playback without authoring the entire
+              PortAudio managed wrapper itself.
+            tags: [ots]
+            tests:
+              - PortAudioApi_Instance_ReadTwice_ReturnsSameInstance
+              - PortAudioEnvironment_Shared_ReadTwice_ReturnsSameInstance
+
+          - id: Speech-OTS-PortAudioSharp2-HostApiSelection
+            title: >-
+              PortAudioSharp2 integration shall support preferred-host-API device selection
+              behind library-owned abstractions.
+            justification: |
+              The library's real capture/playback devices depend on PortAudio host metadata, but
+              CI can only verify host-API selection through fake seams and composition logic, not
+              through guaranteed physical audio hardware.
+            tags: [ots]
+            tests:
+              - AudioDeviceFactory_Constructor_PortAudioInitialized_ExposesRealProbes
+
+          - id: Speech-OTS-PortAudioSharp2-StreamInterop
+            title: >-
+              PortAudioSharp2 integration shall support callback-stream opening for capture and
+              playback devices behind library-owned abstractions.
+            justification: |
+              The library's real capture/playback devices depend on PortAudio callback streams,
+              but CI can only verify stream-opening behavior through fake seams and composition
+              logic, not through guaranteed physical audio hardware.
+            tags: [ots]
+            tests:
+              - AudioDeviceFactory_CreateCaptureDevice_PortAudioInitialized_ReturnsRealDevice
+              - AudioDeviceFactory_CreatePlaybackDevice_PortAudioInitialized_ReturnsRealDevice

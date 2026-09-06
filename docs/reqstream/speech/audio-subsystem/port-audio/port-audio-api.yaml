@@ -1,0 +1,25 @@
+---
+# Software Unit Requirements for PortAudioApi
+#
+# These requirements describe the design-level behavior of the PortAudioApi
+# unit, decomposing the parent PortAudio subsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: AudioSubsystem Requirements
+        sections:
+          - title: PortAudio Requirements
+            sections:
+              - title: PortAudioApi Requirements
+                requirements:
+                  - id: Speech-Audio-PortAudio-PortAudioApi-BridgesManagedAndNativeCalls
+                    title: >-
+                      The PortAudioApi class shall bridge PortAudioSharp2-managed calls and the
+                      supplementary native host-API bindings behind the IPortAudioApi seam.
+                    justification: |
+                      The public audio-device layer must consume one coherent managed adapter,
+                      not a mixture of direct PortAudioSharp2 and raw P/Invoke calls.
+                    tests:
+                      - PortAudioApi_Instance_ReadTwice_ReturnsSameInstance
+                      - PortAudioEnvironment_Shared_ReadTwice_ReturnsSameInstance

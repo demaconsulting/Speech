@@ -1,0 +1,52 @@
+---
+# cspell:ignore Alsa
+# Software Unit Requirements for PortAudio supporting types
+#
+# These grouped requirements cover PortAudioDeviceInfo, PortAudioHostApiInfo,
+# PortAudioHostApiType, and PortAudioNativeMethods as small supporting types used
+# by the PortAudio child subsystem.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: AudioSubsystem Requirements
+        sections:
+          - title: PortAudio Requirements
+            sections:
+              - title: PortAudio Supporting Types Requirements
+                requirements:
+                  - id: Speech-Audio-PortAudio-SupportingTypes-DescribeInteropMetadata
+                    title: >-
+                      The PortAudio supporting types shall carry managed metadata describing
+                      PortAudio devices and host APIs without exposing PortAudioSharp2 structs to
+                      higher-level logic.
+                    justification: |
+                      Mockable managed metadata lets unit tests drive selection logic without
+                      loading the native PortAudio runtime.
+                    tests:
+                      - PortAudioEnvironment_TryResolvePreferredHostApi_InitializedAndMapped_ReturnsHostApiInfo
+                      - PortAudioCaptureDeviceProbe_Enumerate_MixedHostApis_ReturnsOnlyPreferredInputDevices
+                      - PortAudioPlaybackDeviceProbe_Enumerate_MixedHostApis_ReturnsOnlyPreferredOutputDevices
+
+                  - id: Speech-Audio-PortAudio-SupportingTypes-DeclareHostApiConstants
+                    title: >-
+                      The PortAudioHostApiType type shall declare the stable PortAudio host-API
+                      identifiers used by the platform-mapping policy.
+                    justification: |
+                      The runtime host-API index is machine-specific, so the platform policy must
+                      begin from PortAudio's stable host-API type identifiers.
+                    tests:
+                      - PortAudioEnvironment_ResolvePreferredHostApiType_Windows_ReturnsWasapi
+                      - PortAudioEnvironment_ResolvePreferredHostApiType_Linux_ReturnsAlsa
+                      - PortAudioEnvironment_ResolvePreferredHostApiType_MacOs_ReturnsCoreAudio
+
+                  - id: Speech-Audio-PortAudio-SupportingTypes-BindMissingHostApiInterop
+                    title: >-
+                      The PortAudioNativeMethods type shall expose the native host-API functions
+                      missing from PortAudioSharp2 so the subsystem can resolve preferred host APIs.
+                    justification: |
+                      PortAudioSharp2 exposes device enumeration but not host-API enumeration,
+                      leaving a gap the library must bridge itself.
+                    tests:
+                      - PortAudioEnvironment_TryResolvePreferredHostApi_InitializedAndMapped_ReturnsHostApiInfo
+                      - PortAudioEnvironment_TryResolvePreferredHostApi_PreferredHostApiMissing_ReturnsFalse

@@ -17,6 +17,7 @@ words:
   - buildmark
   - DEMA
   - Dema
+  - DEMASPEECH
   - FileAssert
   - fileassert
   - xunit
@@ -34,7 +35,104 @@ words:
   - WeasyPrint
   - weasyprint
   - netstandard
+  - NTFS
   - yamlfix
+  - onnx
+  - ONNX
+  - SSML
+  - multitargeted
+  - Miniaudio
+  - Avalonia
+  - WASAPI
+  - zipformer
+  - Postconditions
+  - persistable
+  - Persistable
+  - unsupplied
+  - denoise
+  - Denoise
+  - Downmix
+  - downmix
+  - Downmixes
+  - downmixes
+  - Downmixed
+  - downmixed
+  - Downmixing
+  - downmixing
+  - Upmix
+  - upmix
+  - Upmixes
+  - upmixes
+  - Upmixed
+  - upmixed
+  - Upmixing
+  - upmixing
+  - Resampler
+  - resampler
+  - filterbank
+  - livelock
+  - polyphase
+  - precedented
+  - sinc
+  - unsubscription
+  - Chunker
+  - chunker
+  - VITS
+  - Vits
+  - espeak
+  - fakeable
+  - rethrowing
+  - axaml
+  - Mvvm
+  - hotplug
+  - Nemotron
+  - nemotron
+  - RNNT
+  - huggingface
+  - Libri
+  - librispeech
+  - wavs
+  - Zengwei
+  - tvjf
+  - Kokoro
+  - kokoro
+  - jieba
+  - USTAR
+  - libritts
+  - openslr
+  - Piper
+  - piper
+  - nameof
+  - unpunctuated
+  - dont
+  - didnt
+  - doesnt
+  - isnt
+  - arent
+  - wasnt
+  - werent
+  - havent
+  - hasnt
+  - hadnt
+  - wouldnt
+  - couldnt
+  - shouldnt
+  - youre
+  - youll
+  - youve
+  - theyre
+  - theyll
+  - theyve
+  - weve
+  - whos
+  - autoregressive
+  - nonsilence
+  - endpointing
+  - crost
+  - bountless
+  - misrecognitions
+  - voxserv
+  - freesound
 
 # Exclude common build artifacts, dependencies, and vendored third-party code
 ignorePaths:

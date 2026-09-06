@@ -1,0 +1,138 @@
+---
+# Software Unit Requirements for the model contract (ISpeechModel, IRecognitionModel,
+# ISynthesisModel)
+#
+# These requirements describe the design-level behavior of the common per-model contract and its
+# two role-specific marker interfaces, decomposing the parent ModelManagementSubsystem
+# requirements. The three interfaces are documented together since the two role markers carry no
+# independent behavior beyond ISpeechModel in this pass.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        sections:
+          - title: SpeechModelContract Requirements
+            requirements:
+              - id: Speech-Models-SpeechModelContract-RoleMarkerInterfaces
+                title: >-
+                  IRecognitionModel and ISynthesisModel shall each extend ISpeechModel with no
+                  additional members in this pass, letting a model's role be determined by a type
+                  check while remaining usable through the common ISpeechModel contract.
+                justification: |
+                  architecture.md defers real recognition/synthesis engine-construction methods
+                  to Phase 3/4; defining the role markers as empty now means adding those members
+                  later is a new-member addition, not a breaking change to any contract defined
+                  in this pass.
+                tests:
+                  - IRecognitionModel_Role_IsRecognition
+                  - ISynthesisModel_Role_IsSynthesis
+
+              - id: Speech-Models-SpeechModelContract-ParameterDeclaration
+                title: >-
+                  ISpeechModel shall expose a model's declared tunable parameters without
+                  throwing, so a host can build generic UI for any model without knowing it in
+                  advance.
+                justification: |
+                  A host settings page must be able to enumerate a model's declared parameters
+                  for any model implementing this contract, regardless of role, to build the
+                  appropriate controls per architecture.md's demo-application scope.
+                tests:
+                  - ISpeechModel_Parameters_DeclaresEveryDescriptorKind
+
+              - id: Speech-Models-SpeechModelContract-AudioTagAndDownloadDescriptorDeclaration
+                title: >-
+                  ISpeechModel shall expose a model's declared audio-tag support and download
+                  descriptor without throwing.
+                justification: |
+                  A host must be able to read a model's audio-tag support and download
+                  descriptor for any model implementing this contract, regardless of role, so
+                  the catalog and downloader can enumerate and fetch it correctly.
+                tests:
+                  - ISpeechModel_AudioTagSupportAndDownloadDescriptor_AreExposed
+
+              - id: Speech-Models-SpeechModelContract-InstallHook
+                title: >-
+                  ISpeechModel shall declare an InstallAsync(stagedFilesDirectory, cancellationToken)
+                  hook, defaulting to a no-op, that a model overrides only when its declared
+                  download payload is an archive or otherwise needs post-download processing
+                  before use.
+                justification: |
+                  architecture.md lists "own archive unpacking" as a per-model responsibility
+                  alongside a model's download URL(s)/checksum. Without this hook, no model whose
+                  DownloadDescriptor names a zip/tar payload (the normal packaging for sherpa-onnx
+                  models) could ever be installed by SpeechModelDownloader/SpeechModelStore. A
+                  no-op default means a model whose payload is already directly usable (the
+                  common single-file case) needs to write zero code to get correct behavior.
+                tests:
+                  - ISpeechModel_InstallAsync_DefaultImplementation_CompletesWithoutModifyingStagingDirectory
+                  - FakeRecognitionModel_InstallAsync_WithZipArchivePayload_ExtractsEntriesAndRemovesArchive
+
+              - id: Speech-Models-SpeechModelContract-NormalizeTextHook
+                title: >-
+                  ISpeechModel shall declare a NormalizeText(text) hook, defaulting to the
+                  identity function, that a model overrides to apply its own text
+                  normalization/correction before inference.
+                justification: |
+                  architecture.md lists "own text-normalization / correction (e.g. punctuation
+                  restoration)" as a per-model responsibility alongside a model's declared
+                  parameters and audio-tag support. This pass defines only the hook's existence
+                  and identity default; the actual normalization content for any real model is a
+                  Phase 4 synthesis concern, per architecture.md's synthesis-subsystem scope.
+                tests:
+                  - ISpeechModel_NormalizeText_DefaultImplementation_ReturnsInputUnchanged
+
+              - id: Speech-Models-SpeechModelContract-RecognitionNormalizeTextHook
+                title: >-
+                  IRecognitionModel shall declare a recognition-only NormalizeText(text,
+                  isFinal) hook, distinct from ISpeechModel.NormalizeText(text), defaulting to
+                  forwarding to ISpeechModel.NormalizeText(text), that a recognition model
+                  overrides to restore/correct its own raw recognition output, with isFinal
+                  distinguishing a still-forming provisional result from a committed final one.
+                justification: |
+                  Some sherpa-onnx streaming transducer models (empirically confirmed for
+                  SherpaOnnxZipformerEnRecognitionModel) produce UPPERCASE, unpunctuated raw
+                  output; SherpaOnnxSpeechRecognizer needs a per-model hook it can call on every
+                  decoded result's text without knowing which model produced it, mirroring the
+                  existing synthesis-side NormalizeText hook but kept distinct because the two
+                  directions correct fundamentally different things (input text vs. recognized
+                  output text) and must not be confused or merged.
+                tests:
+                  - IRecognitionModel_NormalizeText_DefaultImplementation_ReturnsInputUnchanged
+
+              - id: Speech-Models-SpeechModelContract-RecognitionEngineDeclaration
+                title: >-
+                  A recognition model shall declare the audio sample rate its recognition engine
+                  requires, and shall build that engine's configuration from the directory its
+                  verified files were installed into.
+                justification: |
+                  architecture.md makes each model's backing class responsible for the engine
+                  configuration for its own model architecture, so that adding a model is a
+                  self-contained, reviewable unit of work. Declaring the required rate as a
+                  model-owned fact is what lets the library resample audio captured at any device
+                  rate into the one rate that specific model can actually use.
+                tests:
+                  - IRecognitionModel_SampleRate_DeclaredByModel_IsExposed
+                  - IRecognitionModel_CreateEngineConfig_InstalledDirectory_ResolvesPathsAndSampleRate
+                  - IRecognitionModel_CreateEngineConfig_EmptyDirectory_ThrowsArgumentException
+
+              - id: Speech-Models-SpeechModelContract-SynthesisEngineDeclaration
+                title: >-
+                  A synthesis model shall build its offline text-to-speech engine's configuration
+                  from the directory its verified files were installed into, and shall expose a
+                  Layer 2 tag-rendering strategy that defaults to a generically-correct
+                  implementation driven purely by the model's own declared audio-tag support and
+                  parameters.
+                justification: |
+                  architecture.md makes each model's backing class responsible for the engine
+                  configuration for its own model architecture, mirroring the recognition-side
+                  requirement above, so that adding a synthesis model is a self-contained,
+                  reviewable unit of work that never requires changing the synthesis subsystem.
+                  The default-hook CapabilityProfile member means a model needs zero code to get
+                  generically correct Natural Language Audio Tag rendering, and may override it
+                  only for bespoke, non-generic behavior.
+                tests:
+                  - SpeechSynthesizerFactory_Create_ModelInstalledAndDeviceAvailable_ReturnsRealSynthesizer
+                  - ISynthesisModel_CreateEngineConfig_InstalledDirectory_ResolvesPaths
+                  - ISynthesisModel_CreateEngineConfig_EmptyDirectory_ThrowsArgumentException
+                  - ISynthesisModel_CapabilityProfile_DefaultImplementation_ReturnsDefaultProfile

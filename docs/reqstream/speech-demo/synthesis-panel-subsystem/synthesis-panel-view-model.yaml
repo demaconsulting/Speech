@@ -1,0 +1,171 @@
+---
+# Software Unit Requirements for the SpeechDemo SynthesisPanelViewModel
+#
+# These requirements describe the design-level behavior of the SynthesisPanelViewModel unit -
+# the text-to-speech panel's presentation state, model selection, embedded settings, audio-tag
+# hints, and Play/Stop lifecycle - decomposing the parent SynthesisPanelSubsystem requirements.
+
+sections:
+  - title: SpeechDemo Requirements
+    sections:
+      - title: SynthesisPanelSubsystem Requirements
+        sections:
+          - title: SynthesisPanelViewModel Requirements
+            requirements:
+              - id: SpeechDemo-Synthesis-ModelSelection
+                title: >-
+                  The SynthesisPanelSubsystem shall offer only the installed synthesis models a
+                  user may choose to speak text with, and shall preserve the current selection
+                  across a refresh where it is still installed.
+                justification: |
+                  A model of the wrong role, or one not yet downloaded, cannot honestly speak
+                  text; offering it would let a user start a session that can only fail.
+                  Preserving a still-installed selection across a refresh keeps the panel from
+                  resetting a choice the user already made.
+                children:
+                  - SpeechDemo-Synthesis-EmbeddedSettings
+                tests:
+                  - SynthesisPanelViewModel_Refresh_MixedCatalog_OffersOnlyInstalledSynthesisModels
+
+              - id: SpeechDemo-Synthesis-EmbeddedSettings
+                title: >-
+                  The SynthesisPanelSubsystem shall present the selected model's tunable
+                  parameters through the embedded model-settings panel, replacing them whenever
+                  the selection changes.
+                justification: |
+                  A voice's tunable parameters are only meaningful once a model is chosen;
+                  embedding the generic settings panel is what lets this panel reuse the settings
+                  subsystem instead of duplicating its rendering logic.
+                tests:
+                  - SynthesisPanelViewModel_SelectedModel_Changed_UpdatesEmbeddedSettings
+
+              - id: SpeechDemo-Synthesis-AudioTagHints
+                title: >-
+                  The SynthesisPanelSubsystem shall show example Natural Language Audio Tags
+                  drawn from the library's closed, published vocabulary as inline help alongside
+                  the text input.
+                justification: |
+                  architecture.md calls for a text box with example tags shown as hints. Drawing
+                  the examples from the library's own tag catalog, rather than a hand-maintained
+                  demo list, keeps the hints from drifting out of sync with the vocabulary the
+                  library actually recognizes.
+                tests:
+                  - SynthesisPanelViewModel_ExampleTagHints_ContainsExpectedTags
+
+              - id: SpeechDemo-Synthesis-PlayLifecycle
+                title: >-
+                  The SynthesisPanelSubsystem shall synthesize and speak the entered text through
+                  the selected playback device when Play is invoked, and shall report every
+                  lifecycle transition from synthesizing through playing back to idle.
+                justification: |
+                  A play button with no feedback leaves a user unsure whether anything is
+                  happening. Reporting each transition is the demonstrable proof that a host can
+                  drive the library's synthesis contract from a UI thread with ordinary
+                  property-changed notification alone.
+                tests:
+                  - SynthesisPanelViewModel_Play_SuccessfulSession_TransitionsThroughLifecycleToIdle
+
+              - id: SpeechDemo-Synthesis-StopControl
+                title: >-
+                  The SynthesisPanelSubsystem shall let a user stop an in-flight Play
+                  deterministically.
+                justification: |
+                  Synthesized speech can run for an arbitrary duration; a user must be able to
+                  interrupt it rather than wait for it to finish or close the application.
+                tests:
+                  - SynthesisPanelViewModel_Stop_DuringPlayback_CancelsSessionAndReportsStopped
+
+              - id: SpeechDemo-Synthesis-HonestUnavailableStates
+                title: >-
+                  The SynthesisPanelSubsystem shall report an honest, explanatory outcome -
+                  rather than a crash or a silent no-op - when no synthesis model is selected, no
+                  playback device is available, or the composed synthesizer honestly reports
+                  itself unavailable, and shall release any synthesizer it created for a failed
+                  attempt.
+                justification: |
+                  A user evaluating the library on a machine with no installed voice, no
+                  speaker, or an engine fault beyond the library's control must see why Play did
+                  nothing, matching the library's own "nothing throws at composition" guarantee
+                  carried through to the panel.
+                tests:
+                  - SynthesisPanelViewModel_Play_NoModelSelected_ReportsErrorState
+                  - SynthesisPanelViewModel_Play_NoPlaybackDevice_ReportsErrorState
+                  - SynthesisPanelViewModel_Play_SynthesizerUnavailable_ReportsErrorStateAndDisposes
+
+              - id: SpeechDemo-Synthesis-HonestEmptyCatalogState
+                title: >-
+                  The SynthesisPanelSubsystem shall explain, rather than silently show nothing,
+                  when no installed synthesis model exists to choose from.
+                justification: |
+                  Consistent with the honest-empty-state precedent set by the model catalog
+                  panel, an unexplained empty picker reads to a user as a broken application
+                  rather than an expected pre-download state.
+                tests:
+                  - SynthesisPanelViewModel_Constructor_NoInstalledSynthesisModel_ReportsHonestEmptyState
+
+              - id: SpeechDemo-Synthesis-AutoRefreshOnInstall
+                title: >-
+                  The SynthesisPanelSubsystem shall subscribe to
+                  IModelCatalogService.ModelInstalled at construction and automatically refresh
+                  its offered models when the event reports a synthesis-role model, ignoring the
+                  event for any other role.
+                justification: |
+                  A user who downloads a synthesis model from the Model Catalog panel should see
+                  it become available on this panel immediately, without a manual Refresh click
+                  or an application restart. Filtering by role keeps an unrelated
+                  recognition-model install from causing a spurious refresh.
+                tests:
+                  - SynthesisPanelViewModel_ModelInstalled_MatchingRole_TriggersRefresh
+                  - SynthesisPanelViewModel_ModelInstalled_NonMatchingRole_DoesNotTriggerRefresh
+
+              - id: SpeechDemo-Synthesis-VoiceSelectionForwarding
+                title: >-
+                  The SynthesisPanelSubsystem shall forward the embedded settings panel's
+                  current parameter value bag (Settings.BuildValueBag()) to
+                  ISynthesizerSessionFactory.Create when composing a synthesizer, so a voice
+                  selected through the panel's generic ChoiceParameter control genuinely changes
+                  what is synthesized.
+                justification: |
+                  Prior to this requirement, the demo's ChoiceParameter -> ComboBox UI rendering
+                  existed but was not wired to any real consumer: the selected value bag was
+                  built and exercised by unit tests but never reached a real synthesis or
+                  recognition call. Threading it through to the library's
+                  SpeechSynthesizerFactory.Create (and, from there, to
+                  ISynthesisModel.ResolveSpeakerId) closes that gap for synthesis models such as
+                  SherpaOnnxKokoroEnglishSynthesisModel that own real per-voice knowledge.
+                tests:
+                  - SynthesisPanelViewModel_Play_ModelDeclaresChoiceParameter_ForwardsValueBagToSessionFactory
+                  - SynthesizerSessionFactory_Create_ModelNotSynthesisRoleWithParameterValues_ReturnsUnavailableSynthesizer
+
+              - id: SpeechDemo-Synthesis-ResourceLifetime
+                title: >-
+                  The SynthesisPanelSubsystem shall implement IDisposable, unsubscribing from
+                  IModelCatalogService.ModelInstalled and defensively disposing an active
+                  synthesizer if one is still held, idempotently.
+                justification: |
+                  SynthesisPanelViewModel did not previously implement IDisposable, since it held
+                  no resource or subscription that outlived a single Play call; it now holds a
+                  ModelInstalled subscription for its own lifetime, which must be released the
+                  same way a disposed RecognitionPanelViewModel already releases its own
+                  subscriptions, or a disposed panel would keep refreshing itself in response to
+                  later installs. Idempotent disposal keeps a duplicate Dispose call - however it
+                  is triggered by the shell - from faulting.
+                tests:
+                  - SynthesisPanelViewModel_Dispose_UnsubscribesFromModelInstalled_NoRefreshAfterDispose
+                  - SynthesisPanelViewModel_Dispose_NoActiveSynthesizer_IsSafeAndIdempotent
+
+              - id: SpeechDemo-Synthesis-ModelSwitchGuard
+                title: >-
+                  The SynthesisPanelSubsystem shall expose a CanChangeModel value that is true
+                  only when State is Idle or Error, mirroring CanPlay's own condition, and the
+                  view shall disable both the model-selection control and the embedded
+                  voice/speaker settings view while it is false.
+                justification: |
+                  Switching the selected synthesis model or its voice/speaker parameters while
+                  synthesis is in flight or audio is playing would leave a running synthesizer
+                  bound to settings no longer reflected in the UI, silently desynchronizing the
+                  displayed selection from what is actually being spoken; disabling both controls
+                  outside Idle/Error prevents that inconsistency.
+                tests:
+                  - SynthesisPanelViewModel_Play_SuccessfulSession_CanChangeModelTogglesAcrossLifecycle
+                  - SynthesisPanelViewModel_CanChangeModel_ErrorState_IsTrue

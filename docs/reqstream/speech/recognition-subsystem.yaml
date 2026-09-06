@@ -1,0 +1,108 @@
+---
+# Software Subsystem Requirements for RecognitionSubsystem
+#
+# These requirements describe the subsystem-level behavior of the RecognitionSubsystem,
+# decomposing the system-level streaming-recognition requirements in docs/reqstream/speech.yaml.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: RecognitionSubsystem Requirements
+        requirements:
+          - id: Speech-Recognition-MockableContract
+            title: >-
+              The RecognitionSubsystem shall expose a mockable streaming speech-to-text contract
+              that reports availability, starts and stops recognition, and delivers provisional
+              and final results, without exposing any inference-engine type.
+            justification: |
+              architecture.md's "engine backend stays swappable at the public API surface"
+              decision requires that a future non-sherpa-onnx backend can replace the current one
+              without a breaking API change, and hosts must be able to test their transcript
+              handling against the contract with no model, microphone, or native runtime present.
+            children:
+              - Speech-Recognition-ISpeechRecognizer-AvailabilityFlag
+              - Speech-Recognition-ISpeechRecognizer-StartStopResultReceived
+              - Speech-Recognition-ISpeechRecognizer-ResultShape
+            tests:
+              - UnavailableSpeechRecognizer_IsAvailable_Read_ReturnsFalse
+              - SherpaOnnxSpeechRecognizer_Start_Always_SubscribesAndStartsCaptureDevice
+
+          - id: Speech-Recognition-Composition
+            title: >-
+              The RecognitionSubsystem shall compose a speech recognizer for an installed
+              recognition model and an audio capture device without ever throwing for an ordinary
+              machine state.
+            justification: |
+              Composition happens at application start-up, where a model that has not been
+              downloaded yet, a machine with no microphone, and a machine without the speech
+              engine's native runtime are all ordinary states rather than programming errors, per
+              architecture.md's "nothing throws at composition" decision.
+            children:
+              - Speech-Recognition-SpeechRecognizerFactory-RealRecognizer
+              - Speech-Recognition-SpeechRecognizerFactory-HonestFallbacks
+              - Speech-Recognition-SpeechRecognizerFactory-EngineLoadFailureFallback
+              - Speech-Recognition-RecognitionEngine-MockableSeam
+              - Speech-Recognition-RecognitionEngine-ModelOwnedConfiguration
+              - Speech-Recognition-RecognitionEngine-PostEndpointWarmupReplay
+              - Speech-Recognition-RecognitionEngine-RealSpeechAccuracy
+            tests:
+              - SpeechRecognizerFactory_Create_ModelInstalledAndDeviceAvailable_ReturnsRealRecognizer
+              - SpeechRecognizerFactory_Create_ModelNotInstalled_ReturnsUnavailableRecognizer
+              - SpeechRecognizerFactory_Create_CaptureDeviceUnavailable_ReturnsUnavailableRecognizer
+
+          - id: Speech-Recognition-StreamingPipeline
+            title: >-
+              The RecognitionSubsystem shall convert captured audio into the format the selected
+              model requires and deliver the resulting recognition results while running.
+            justification: |
+              A capture device resolves whatever channel count and sample rate its hardware
+              defaults to, while a recognition model requires a single fixed mono rate. Without
+              that conversion the library could only recognize speech on machines whose microphone
+              happened to match the model, which is not an acceptable cross-platform promise.
+            children:
+              - Speech-Recognition-SherpaOnnxSpeechRecognizer-FormatConversion
+              - Speech-Recognition-SherpaOnnxSpeechRecognizer-ResultDelivery
+              - Speech-Recognition-SherpaOnnxSpeechRecognizer-TextNormalization
+              - Speech-Recognition-SherpaOnnxSpeechRecognizer-LifecycleDrain
+              - Speech-Recognition-AudioFrameResampler-Downmix
+              - Speech-Recognition-AudioFrameResampler-RateConversion
+              - Speech-Recognition-AudioFrameResampler-BoundaryHandling
+            tests:
+              - SherpaOnnxSpeechRecognizer_FrameCaptured_StereoAtHigherRate_FeedsResampledMonoToEngine
+              - SherpaOnnxSpeechRecognizer_FrameCaptured_EngineDecodesResults_RaisesResultReceivedInOrder
+
+          - id: Speech-Recognition-FaultContainment
+            title: >-
+              The RecognitionSubsystem shall contain and report faults raised while recognizing
+              captured audio, rather than propagating them into the audio capture path or ending
+              the recognition session.
+            justification: |
+              Captured audio is delivered on a high-priority audio callback thread where an
+              escaping exception tears down the audio stream. A single bad audio block, a single
+              engine fault, or a single misbehaving host handler must never silence the
+              microphone or lose the rest of the session.
+            children:
+              - Speech-Recognition-SherpaOnnxSpeechRecognizer-FaultContainment
+              - Speech-Recognition-SherpaOnnxSpeechRecognizer-CaptureStartFailure
+            tests:
+              - SherpaOnnxSpeechRecognizer_ResultReceived_HandlerThrows_ReportsFaultAndDoesNotRethrow
+              - SherpaOnnxSpeechRecognizer_FrameCaptured_EngineThrows_ReportsFaultAndKeepsRunning
+
+          - id: Speech-Recognition-UnavailableFallback
+            title: >-
+              The RecognitionSubsystem shall provide an honest unavailable recognizer that reports
+              unavailability rather than throwing, and throws a documented exception only when an
+              operational member is actually invoked.
+            justification: |
+              Per architecture.md's "nothing throws at composition" decision, obtaining and holding
+              a fallback recognizer must never throw; only misuse of an already unavailable
+              recognizer is a programming error that should surface as an exception.
+            children:
+              - Speech-Recognition-UnavailableSpeechRecognizer-ReportsUnavailable
+              - Speech-Recognition-UnavailableSpeechRecognizer-OperationsThrow
+              - Speech-Recognition-UnavailableSpeechRecognizer-SafeNoOps
+              - Speech-Recognition-SpeechRecognizerUnavailableException-Thrown
+            tests:
+              - UnavailableSpeechRecognizer_IsAvailable_Read_ReturnsFalse
+              - UnavailableSpeechRecognizer_Start_Always_ThrowsSpeechRecognizerUnavailableException
+              - UnavailableSpeechRecognizer_Stop_Always_ThrowsSpeechRecognizerUnavailableException

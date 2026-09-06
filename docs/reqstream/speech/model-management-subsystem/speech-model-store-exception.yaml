@@ -1,0 +1,36 @@
+---
+# Software Unit Requirements for SpeechModelStoreException
+#
+# These requirements describe the design-level behavior of the SpeechModelStoreException unit,
+# decomposing the parent ModelManagementSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        sections:
+          - title: SpeechModelStoreException Requirements
+            requirements:
+              - id: Speech-Models-SpeechModelStoreException-UninstallFailureSignal
+                title: >-
+                  The SpeechModelStoreException class shall be thrown by SpeechModelStore.Uninstall
+                  when a model's current/ directory cannot be removed (most commonly because
+                  another process still holds an open file handle into it).
+                justification: |
+                  Per architecture.md's "nothing throws at composition" decision, this exception
+                  is reserved for the one explicit, user-invoked operation (uninstall) that can
+                  genuinely fail.
+                tests:
+                  - SpeechModelStore_Uninstall_OpenFileHandleInCurrent_ThrowsSpeechModelStoreException
+
+              - id: Speech-Models-SpeechModelStoreException-StandardConstructors
+                title: >-
+                  The SpeechModelStoreException class shall provide the standard three-constructor
+                  exception pattern (default, message, message with inner exception).
+                justification: |
+                  Standard constructor conformance lets callers construct, catch, and inspect
+                  this exception like any other .NET exception type.
+                tests:
+                  - SpeechModelStoreException_Constructor_WithMessage_ExposesMessage
+                  - SpeechModelStoreException_Constructor_WithInnerException_ExposesBoth
+                  - SpeechModelStoreException_Constructor_Default_HasNonEmptyMessage

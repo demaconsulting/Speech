@@ -1,0 +1,66 @@
+---
+# Software Unit Requirements for UnavailableSpeechSynthesizer
+#
+# Groups requirements for UnavailableSpeechSynthesizer and SpeechSynthesizerUnavailableException
+# into a single file, per design-documentation.md's allowance for small supporting types
+# documented inline within their subsystem's design doc, mirroring
+# unavailable-speech-recognizer.yaml's identical Phase 3 pattern. Each unit's requirement subset
+# is called out in its own subsection below so every unit still has requirements tracing to it
+# individually.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: SynthesisSubsystem Requirements
+        sections:
+          - title: UnavailableSpeechSynthesizer Requirements
+            requirements:
+              - id: Speech-Synthesis-UnavailableSpeechSynthesizer-ReportsUnavailable
+                title: >-
+                  The UnavailableSpeechSynthesizer class shall report IsAvailable as false and
+                  never throw merely for being obtained or held.
+                justification: |
+                  A caller must always be able to safely obtain and hold a fallback synthesizer,
+                  per architecture.md's "nothing throws at composition" decision.
+                tests:
+                  - UnavailableSpeechSynthesizer_IsAvailable_Read_ReturnsFalse
+
+              - id: Speech-Synthesis-UnavailableSpeechSynthesizer-OperationsThrow
+                title: >-
+                  The UnavailableSpeechSynthesizer class shall throw
+                  SpeechSynthesizerUnavailableException when SynthesizeStreamAsync,
+                  PlayStreamAsync, SpeakAsync, or Stop is invoked.
+                justification: |
+                  A caller that ignores the IsAvailable flag and invokes an operational member
+                  has made a programming error that must surface immediately rather than silently
+                  speaking nothing.
+                tests:
+                  - UnavailableSpeechSynthesizer_SynthesizeStreamAsync_Always_ThrowsSpeechSynthesizerUnavailableException
+                  - UnavailableSpeechSynthesizer_PlayStreamAsync_Always_ThrowsSpeechSynthesizerUnavailableException
+                  - UnavailableSpeechSynthesizer_SpeakAsync_Always_ThrowsSpeechSynthesizerUnavailableException
+                  - UnavailableSpeechSynthesizer_Stop_Always_ThrowsSpeechSynthesizerUnavailableException
+
+              - id: Speech-Synthesis-UnavailableSpeechSynthesizer-SafeDispose
+                title: >-
+                  The UnavailableSpeechSynthesizer class shall treat disposal as a safe no-op
+                  that never throws and never invalidates the shared fallback.
+                justification: |
+                  A host that wraps its synthesizer in a disposal scope must be able to run that
+                  same code unchanged on a machine where synthesis is unavailable.
+                tests:
+                  - UnavailableSpeechSynthesizer_Dispose_CalledTwice_DoesNotThrow
+
+          - title: SpeechSynthesizerUnavailableException Requirements
+            requirements:
+              - id: Speech-Synthesis-SpeechSynthesizerUnavailableException-Thrown
+                title: >-
+                  The SpeechSynthesizerUnavailableException class shall provide standard
+                  exception constructors (default, message, message with inner exception).
+                justification: |
+                  Standard exception conformance lets callers construct, catch, and inspect this
+                  exception like any other .NET exception type, including wrapping an underlying
+                  playback-device failure as the inner exception.
+                tests:
+                  - SpeechSynthesizerUnavailableException_Constructor_WithMessage_ExposesMessage
+                  - SpeechSynthesizerUnavailableException_Constructor_WithInnerException_ExposesBoth
+                  - SpeechSynthesizerUnavailableException_Constructor_Default_HasNonEmptyMessage

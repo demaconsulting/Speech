@@ -1,0 +1,104 @@
+---
+# Software Subsystem Requirements for the SpeechDemo DeviceSelectionSubsystem
+#
+# These requirements describe the subsystem-level behavior of the demo's device pickers,
+# decomposing the system-level device requirements in docs/reqstream/speech-demo.yaml.
+#
+# Unit-level content is consolidated here: IAudioDeviceService/AudioDeviceService and
+# DeviceSelectionViewModel are a small seam-and-presenter pair whose behavior is only
+# observable together, so per-unit requirement files would restate this content.
+
+sections:
+  - title: SpeechDemo Requirements
+    sections:
+      - title: DeviceSelectionSubsystem Requirements
+        requirements:
+          - id: SpeechDemo-Devices-Enumeration
+            title: >-
+              The DeviceSelectionSubsystem shall list the capture devices and the playback
+              devices reported for the machine, and shall report how many of each were found.
+            justification: |
+              A user cannot choose a device they cannot see, and a visible count is the
+              quickest way for a developer evaluating the library to confirm the library's
+              probes are seeing the same hardware the operating system does.
+            tests:
+              - DeviceSelectionViewModel_Constructor_DevicesAvailable_PopulatesBothLists
+              - DeviceSelectionViewModel_Constructor_DevicesAvailable_ReportsCountStatus
+
+          - id: SpeechDemo-Devices-DefaultSelection
+            title: >-
+              The DeviceSelectionSubsystem shall preselect the first reported device in each
+              direction.
+            justification: |
+              A demo should be usable without configuration; requiring a user to pick a device
+              before anything works adds a step that proves nothing about the library.
+            tests:
+              - DeviceSelectionViewModel_Constructor_DevicesAvailable_SelectsFirstOfEachDirection
+
+          - id: SpeechDemo-Devices-NameBasedSelection
+            title: >-
+              The DeviceSelectionSubsystem shall express the chosen device as the library's
+              name-based selection value and shall announce every change of that selection.
+            justification: |
+              The library identifies devices by name alone so that a saved preference survives
+              reboots and hot-plug events. The demo must therefore hand the library a
+              name-based selection, which is also what a later phase will persist.
+            tests:
+              - DeviceSelectionViewModel_CaptureSelection_DeviceSelected_ReturnsNameBasedSelection
+              - DeviceSelectionViewModel_SelectedPlaybackDevice_Changed_NotifiesPlaybackSelection
+
+          - id: SpeechDemo-Devices-Refresh
+            title: >-
+              The DeviceSelectionSubsystem shall re-enumerate devices on demand, keeping the
+              current selection when it is still reported and falling back to the first
+              remaining device when it is not.
+            justification: |
+              Devices are hot-plugged while an application is running. Discarding a still-valid
+              selection on every refresh would be visibly wrong, and keeping a selection the
+              machine no longer reports would hand the library a stale device name.
+            tests:
+              - DeviceSelectionViewModel_Refresh_DeviceAdded_KeepsExistingSelection
+              - DeviceSelectionViewModel_Refresh_SameDeviceReportedWithNewFormat_SelectsMatchingNameAgain
+              - DeviceSelectionViewModel_Refresh_SelectedDeviceRemoved_FallsBackToFirstAvailable
+              - DeviceSelectionViewModel_RefreshCommand_Executed_ReEnumeratesDevices
+
+          - id: SpeechDemo-Devices-LibraryProbeDelegation
+            title: >-
+              The DeviceSelectionSubsystem shall obtain every device it lists from the library's
+              own capture and playback probes through an injectable seam, and shall reject a
+              missing seam.
+            justification: |
+              The demo exists to show the library's device enumeration working, so it must not
+              maintain a device list of its own. Routing enumeration through a demo-owned seam
+              keeps the presentation logic testable without audio hardware while leaving the
+              library's public API untouched.
+            tests:
+              - AudioDeviceService_Constructor_NullFactory_ThrowsArgumentNullException
+              - AudioDeviceService_EnumerateCaptureDevices_ProbeReportsDevices_ReturnsProbeDevices
+              - AudioDeviceService_EnumeratePlaybackDevices_ProbeReportsDevices_ReturnsProbeDevices
+              - DeviceSelectionViewModel_Constructor_NullService_ThrowsArgumentNullException
+
+          - id: SpeechDemo-Devices-EmptyStateExplanation
+            title: >-
+              The DeviceSelectionSubsystem shall report an explanatory message naming the
+              possible cause when a direction reports no devices, both at start-up and after a
+              refresh that removes the last device.
+            justification: |
+              "No devices" and "the audio backend failed to initialize" look identical to a
+              user. Naming the likely cause turns a silent empty list into actionable
+              information.
+            tests:
+              - DeviceSelectionViewModel_Constructor_NoDevices_ReportsHonestEmptyState
+              - DeviceSelectionViewModel_Refresh_AllDevicesRemoved_ClearsSelectionAndExplains
+              - AudioDeviceService_Enumerate_ProbesReportNothing_ReturnsEmptyLists
+
+          - id: SpeechDemo-Devices-EmptySelectionFallback
+            title: >-
+              The DeviceSelectionSubsystem shall report the library's system-default selection
+              for a direction with no devices.
+            justification: |
+              Handing the library a null or invented selection would force every caller to
+              special-case the no-device machine; the library already defines a system-default
+              selection for exactly this case.
+            tests:
+              - DeviceSelectionViewModel_Selections_NoDevices_ReturnSystemDefault

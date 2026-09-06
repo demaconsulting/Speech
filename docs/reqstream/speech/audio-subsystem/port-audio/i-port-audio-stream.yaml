@@ -1,0 +1,25 @@
+---
+# Software Unit Requirements for IPortAudioStream
+#
+# These requirements describe the design-level behavior of the IPortAudioStream
+# unit, decomposing the parent PortAudio subsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: AudioSubsystem Requirements
+        sections:
+          - title: PortAudio Requirements
+            sections:
+              - title: IPortAudioStream Requirements
+                requirements:
+                  - id: Speech-Audio-PortAudio-IPortAudioStream-AbstractsStreamLifecycle
+                    title: >-
+                      The IPortAudioStream interface shall abstract PortAudio stream start, stop,
+                      and disposal behind a mockable managed contract.
+                    justification: |
+                      Capture/playback unit tests need to simulate stream lifecycle transitions
+                      without opening native PortAudio streams.
+                    tests:
+                      - PortAudioCaptureDevice_Start_StreamCapturesSamples_RaisesFrameCaptured
+                      - PortAudioPlaybackDevice_Write_StreamRequestsSamples_DrainsQueueAndZeroFills

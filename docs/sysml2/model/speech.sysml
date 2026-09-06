@@ -13,6 +13,10 @@ package Speech {
         comment verificationRef /* Verification: docs/verification/speech.md */
         comment reqRef /* Requirements: docs/reqstream/speech.yaml */
 
-        part demo : Demo;
+        part diagnostics : Diagnostics;
+        part audioSubsystem : AudioSubsystem;
+        part modelManagementSubsystem : ModelManagementSubsystem;
+        part recognitionSubsystem : RecognitionSubsystem;
+        part synthesisSubsystem : SynthesisSubsystem;
     }
 }

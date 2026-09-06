@@ -1,0 +1,246 @@
+---
+# Software System Requirements for SpeechDemo
+#
+# These requirements describe the externally visible behavior of the demo application
+# from the perspective of a person running it, without specifying implementation details.
+# SpeechDemo is a sibling system to Speech: it consumes the Speech library's public API
+# and demonstrates it, but ships and is versioned as part of this repository.
+
+sections:
+  - title: Demo Application
+    requirements:
+      - id: SpeechDemo-Shell-CapabilityNavigation
+        title: >-
+          The demo application shall present each demonstrated library capability as a
+          separately selectable, titled panel.
+        tags: [system]
+        justification: |
+          architecture.md's "Demo Application" section requires a single application that
+          exercises the library's capabilities. Grouping each capability into its own named
+          panel lets a user find the capability they want to try, and lets later phases add
+          further capabilities without redesigning the application shell.
+        children:
+          - SpeechDemo-Shell-PanelCatalog
+          - SpeechDemo-Shell-DefaultPanel
+          - SpeechDemo-Shell-PanelTitles
+        tests:
+          - SpeechDemo_SystemIntegration_RealLibraryEntryPoints_ComposesWorkingShell
+
+      - id: SpeechDemo-Shell-LibraryComposition
+        title: >-
+          The demo application shall compose itself over the library's real public entry
+          points without ever throwing at start-up.
+        tags: [system]
+        justification: |
+          The demo's primary evidence value is that the library is genuinely consumable by a
+          real application. A start-up crash on a machine with no audio backend or no installed
+          model would contradict the library's own "nothing throws at composition" guarantee,
+          so the demo must survive every ordinary machine state.
+        children:
+          - SpeechDemo-Shell-CompositionRoot
+          - SpeechDemo-Shell-PanelRefreshNeverThrows
+        tests:
+          - SpeechDemo_SystemIntegration_RefreshAllPanels_NeverThrows
+
+      - id: SpeechDemo-Devices-Selection
+        title: >-
+          The demo application shall let a user see the available audio capture and playback
+          devices and choose which one to use.
+        tags: [system]
+        justification: |
+          Choosing a microphone and a speaker is the first thing a user of a speech application
+          must do, and it is the demonstrable proof that the library's device enumeration and
+          name-based selection contracts are usable from a host application.
+        children:
+          - SpeechDemo-Devices-Enumeration
+          - SpeechDemo-Devices-DefaultSelection
+          - SpeechDemo-Devices-NameBasedSelection
+          - SpeechDemo-Devices-Refresh
+          - SpeechDemo-Devices-LibraryProbeDelegation
+        tests:
+          - SpeechDemo_SystemIntegration_RealAudioBackend_DeviceEnumerationNeverThrows
+
+      - id: SpeechDemo-Devices-HonestEmptyState
+        title: >-
+          The demo application shall explain, rather than silently show nothing, when the
+          machine reports no audio devices.
+        tags: [system]
+        justification: |
+          The library degrades to honest unavailable probes when the audio backend cannot
+          initialize. An empty picker with no explanation reads to a user as a broken
+          application, so the demo must say what happened and remain usable.
+        children:
+          - SpeechDemo-Devices-EmptyStateExplanation
+          - SpeechDemo-Devices-EmptySelectionFallback
+        tests:
+          - SpeechDemo_SystemIntegration_UnavailableAudioBackend_DevicePanelExplainsAbsence
+
+      - id: SpeechDemo-Models-CatalogBrowsing
+        title: >-
+          The demo application shall list the speech models the library knows about together
+          with each model's current installation state.
+        tags: [system]
+        justification: |
+          Before a user can try recognition or synthesis they must know which models exist and
+          which are installed. This panel is also the demonstrable proof that a host can build
+          a complete model-management page against the library's generic catalog contract
+          alone, with no knowledge of any specific model.
+        children:
+          - SpeechDemo-Models-Enumeration
+          - SpeechDemo-Models-StatePresentation
+          - SpeechDemo-Models-Refresh
+          - SpeechDemo-Models-LibraryCatalogDelegation
+        tests:
+          - SpeechDemo_SystemIntegration_RefreshAllPanels_NeverThrows
+
+      - id: SpeechDemo-Models-Download
+        title: >-
+          The demo application shall let a user download a listed model and shall report that
+          download's progress and final outcome, including failure.
+        tags: [system]
+        justification: |
+          Downloading is the only way a user obtains a model, and the library treats a failed
+          or checksum-mismatched download as an ordinary outcome rather than an exception. The
+          demo must therefore surface both progress and honest failure in the list rather than
+          crashing or silently doing nothing.
+
+          This requirement is verified against controlled catalog data rather than a real
+          multi-hundred-megabyte download, since automated tests must not depend on network
+          access (see SpeechDemo-Models-RealCatalogReporting for the real-catalog enumeration
+          proof).
+        children:
+          - SpeechDemo-Models-DownloadProgress
+          - SpeechDemo-Models-DownloadOutcomes
+          - SpeechDemo-Models-DownloadRetry
+          - SpeechDemo-Models-DownloadGuard
+          - SpeechDemo-Models-InstallNotification
+        tests:
+          - ModelCatalogViewModel_DownloadAsync_Installed_MarksModelDownloaded
+
+      - id: SpeechDemo-Models-RealCatalogReporting
+        title: >-
+          The demo application shall report exactly what the library's real compiled-in
+          known-model registry contains, whether that is the two real recognition models
+          Phase 7a registers or an empty registry for a caller-supplied catalog with none.
+        tags: [system]
+        justification: |
+          Phase 7a resolves the earlier "empty known-model registry" limitation for recognition
+          models - a defect a user discovered - by registering the library's first two concrete
+          IRecognitionModel implementations; the demo's catalog panel must now surface those real
+          models rather than continuing to assert emptiness as the expected state. The underlying
+          "explain an empty catalog plainly" capability remains a real, separately-tested feature
+          for any caller-supplied catalog that genuinely has none (see
+          SpeechDemo-Models-EmptyCatalogExplanation).
+        children:
+          - SpeechDemo-Models-EmptyCatalogExplanation
+        tests:
+          - SpeechDemo_SystemIntegration_RealModelCatalog_ReportsKnownModels
+
+      - id: SpeechDemo-Settings-PerModelParameters
+        title: >-
+          The demo application shall let a user view and adjust a selected installed model's
+          declared tunable parameters, using a generic control appropriate to each parameter's
+          kind.
+        tags: [system]
+        justification: |
+          architecture.md calls for generic controls over a model's declared parameters -
+          slider/numeric-updown for a numeric parameter, dropdown/radio for a choice parameter,
+          checkbox/toggle for a boolean parameter - so that a new model with its own parameter
+          set works with this panel unmodified. This panel is the demonstrable proof that a host
+          can build such a page against the library's generic parameter contract alone.
+        children:
+          - SpeechDemo-Settings-GenericParameterRendering
+          - SpeechDemo-Settings-ValueBag
+          - SpeechDemo-Settings-ParameterConstructionGuards
+        tests:
+          - SpeechDemo_SystemIntegration_RealCatalog_TtsAndSttPanelsReportEmptyStateHonestly
+
+      - id: SpeechDemo-Settings-EmptyStateExplanation
+        title: >-
+          The demo application shall explain, rather than silently show nothing, when no model
+          is selected or the selected model declares no tunable parameters.
+        tags: [system]
+        justification: |
+          Consistent with the honest-empty-state precedent this demo already established for an
+          empty known-model registry, an unexplained blank settings panel reads to a user as a
+          broken application rather than an expected state.
+        children:
+          - SpeechDemo-Settings-HonestEmptyState
+        tests:
+          - SpeechDemo_SystemIntegration_RealCatalog_TtsAndSttPanelsReportEmptyStateHonestly
+
+      - id: SpeechDemo-Synthesis-TextToSpeech
+        title: >-
+          The demo application shall let a user enter text - optionally containing inline
+          Natural Language Audio Tags - and speak it through the selected playback device using
+          a chosen installed synthesis model, reporting playback status and letting the user
+          stop it.
+        tags: [system]
+        justification: |
+          Text-to-speech is one of the two capabilities this demo exists to prove is usable from
+          a real host application. Showing example tags and reporting each lifecycle transition
+          is what turns the library's synthesis contract into a usable demonstration rather than
+          an opaque one-shot call.
+        children:
+          - SpeechDemo-Synthesis-ModelSelection
+          - SpeechDemo-Synthesis-AudioTagHints
+          - SpeechDemo-Synthesis-PlayLifecycle
+          - SpeechDemo-Synthesis-StopControl
+          - SpeechDemo-Synthesis-SessionSeam
+          - SpeechDemo-Synthesis-VoiceSelectionForwarding
+          - SpeechDemo-Synthesis-AutoRefreshOnInstall
+          - SpeechDemo-Synthesis-ResourceLifetime
+          - SpeechDemo-Synthesis-ModelSwitchGuard
+        tests:
+          - SpeechDemo_SystemIntegration_RealCatalog_TtsAndSttPanelsReportEmptyStateHonestly
+
+      - id: SpeechDemo-Synthesis-UnavailableExplanation
+        title: >-
+          The demo application shall report an honest, explanatory outcome, rather than a crash,
+          when no synthesis model is installed or no playback device is available.
+        tags: [system]
+        justification: |
+          A developer evaluating the library frequently runs the demo before downloading any
+          model or connecting a speaker; the synthesis panel must say so plainly rather than
+          fail silently or crash the application.
+        children:
+          - SpeechDemo-Synthesis-HonestEmptyCatalogState
+          - SpeechDemo-Synthesis-HonestUnavailableStates
+        tests:
+          - SpeechDemo_SystemIntegration_RealCatalog_TtsAndSttPanelsReportEmptyStateHonestly
+
+      - id: SpeechDemo-Recognition-SpeechToText
+        title: >-
+          The demo application shall let a user start and stop a live streaming transcription
+          session through the selected capture device using a chosen installed recognition
+          model, showing the progressive partial and committed final transcript as it streams.
+        tags: [system]
+        justification: |
+          Speech-to-text is the other capability this demo exists to prove is usable from a real
+          host application. Rendering the progressive partial-then-final sequence is what proves
+          the library's streaming recognition contract is genuinely usable from a UI thread.
+        children:
+          - SpeechDemo-Recognition-ModelSelection
+          - SpeechDemo-Recognition-StartStopLifecycle
+          - SpeechDemo-Recognition-TranscriptSequencing
+          - SpeechDemo-Recognition-ResourceLifetime
+          - SpeechDemo-Recognition-SessionSeam
+          - SpeechDemo-Recognition-AutoRefreshOnInstall
+          - SpeechDemo-Recognition-ModelSwitchGuard
+        tests:
+          - SpeechDemo_SystemIntegration_RealCatalog_TtsAndSttPanelsReportEmptyStateHonestly
+
+      - id: SpeechDemo-Recognition-UnavailableExplanation
+        title: >-
+          The demo application shall report an honest, explanatory outcome, rather than a crash,
+          when no recognition model is installed or no capture device is available.
+        tags: [system]
+        justification: |
+          A developer evaluating the library frequently runs the demo before downloading any
+          model or connecting a microphone; the recognition panel must say so plainly rather
+          than fail silently or crash the application.
+        children:
+          - SpeechDemo-Recognition-HonestEmptyCatalogState
+          - SpeechDemo-Recognition-HonestUnavailableStates
+        tests:
+          - SpeechDemo_SystemIntegration_RealCatalog_TtsAndSttPanelsReportEmptyStateHonestly

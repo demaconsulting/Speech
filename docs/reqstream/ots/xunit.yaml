@@ -17,15 +17,15 @@ sections:
               test method.
             tags: [ots]
             tests:
-              - Demo_DemoMethod_DefaultPrefix_ReturnsGreeting
-              - Demo_DemoMethod_CustomPrefix_ReturnsGreeting
-              - Demo_DemoMethod_NullInput_ThrowsArgumentNullException
-              - Demo_DemoMethod_EmptyInput_ThrowsArgumentException
-              - Demo_Constructor_NullPrefix_ThrowsArgumentNullException
-              - Demo_Constructor_EmptyPrefix_ThrowsArgumentException
-              - Demo_DefaultPrefix_Read_IsHello
-              - Demo_Prefix_WithCustomConstruction_ReturnsCustomPrefix
-              - Demo_DefaultConstructor_WithNoArgs_SetsDefaultPrefix
+              - NullSpeechDiagnostics_Instance_ReadTwice_ReturnsSameInstance
+              - NullSpeechDiagnostics_Report_NormalEvent_DoesNotThrow
+              - NullSpeechDiagnostics_Report_NullOrEmptyArguments_DoesNotThrow
+              - NullSpeechDiagnostics_Report_AnyLevel_DoesNotThrow
+              - AudioDeviceSelection_Resolve_MatchingName_ReturnsMatchingDevice
+              - AudioDeviceSelection_Resolve_NoLongerPresent_ReturnsNull
+              - AudioDeviceSelection_Resolve_SystemDefault_ReturnsNull
+              - AudioDeviceSelection_Resolve_EmptyDeviceList_ReturnsNull
+              - AudioDeviceSelection_Resolve_NullDeviceList_ThrowsArgumentNullException
           - id: Template-OTS-xUnit-Report
             title: xUnit shall record test results in TRX output files.
             justification: |
@@ -35,12 +35,12 @@ sections:
               correctly.
             tags: [ots]
             tests:
-              - Demo_DemoMethod_DefaultPrefix_ReturnsGreeting
-              - Demo_DemoMethod_CustomPrefix_ReturnsGreeting
-              - Demo_DemoMethod_NullInput_ThrowsArgumentNullException
-              - Demo_DemoMethod_EmptyInput_ThrowsArgumentException
-              - Demo_Constructor_NullPrefix_ThrowsArgumentNullException
-              - Demo_Constructor_EmptyPrefix_ThrowsArgumentException
-              - Demo_DefaultPrefix_Read_IsHello
-              - Demo_Prefix_WithCustomConstruction_ReturnsCustomPrefix
-              - Demo_DefaultConstructor_WithNoArgs_SetsDefaultPrefix
+              - NullSpeechDiagnostics_Instance_ReadTwice_ReturnsSameInstance
+              - NullSpeechDiagnostics_Report_NormalEvent_DoesNotThrow
+              - NullSpeechDiagnostics_Report_NullOrEmptyArguments_DoesNotThrow
+              - NullSpeechDiagnostics_Report_AnyLevel_DoesNotThrow
+              - AudioDeviceSelection_Resolve_MatchingName_ReturnsMatchingDevice
+              - AudioDeviceSelection_Resolve_NoLongerPresent_ReturnsNull
+              - AudioDeviceSelection_Resolve_SystemDefault_ReturnsNull
+              - AudioDeviceSelection_Resolve_EmptyDeviceList_ReturnsNull
+              - AudioDeviceSelection_Resolve_NullDeviceList_ThrowsArgumentNullException

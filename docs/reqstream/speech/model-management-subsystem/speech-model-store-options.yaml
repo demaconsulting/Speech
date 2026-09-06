@@ -1,0 +1,24 @@
+---
+# Software Unit Requirements for SpeechModelStoreOptions
+#
+# These requirements describe the design-level behavior of the SpeechModelStoreOptions unit,
+# decomposing the parent ModelManagementSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        sections:
+          - title: SpeechModelStoreOptions Requirements
+            requirements:
+              - id: Speech-Models-SpeechModelStoreOptions-RootOverride
+                title: >-
+                  The SpeechModelStoreOptions class shall expose an optional RootPathOverride
+                  property that, when non-null and non-empty, replaces SpeechModelStore's default
+                  per-user storage root verbatim.
+                justification: |
+                  Some hosts need to redirect model storage (for example to a shared or portable
+                  location) without any library code change; a plain options property is the
+                  simplest seam for this.
+                tests:
+                  - SpeechModelStore_Constructor_RootPathOverride_UsesOverrideVerbatim

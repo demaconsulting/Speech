@@ -1,0 +1,57 @@
+---
+# Software Unit Requirements for SpeechModelDownloadFile
+#
+# These requirements describe the design-level behavior of the SpeechModelDownloadFile unit,
+# decomposing the parent ModelManagementSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        sections:
+          - title: SpeechModelDownloadFile Requirements
+            requirements:
+              - id: Speech-Models-SpeechModelDownloadFile-UriValidation
+                title: >-
+                  The SpeechModelDownloadFile record shall reject, at construction, any URI
+                  whose scheme is not HTTPS.
+                justification: |
+                  Validating eagerly at construction, rather than deep into the download
+                  pipeline, catches a malformed or tampered model catalog entry as early as
+                  possible.
+                tests:
+                  - SpeechModelDownloadFile_Constructor_ValidValues_ExposesValues
+                  - SpeechModelDownloadFile_Constructor_HttpUri_ThrowsArgumentException
+
+              - id: Speech-Models-SpeechModelDownloadFile-ChecksumValidation
+                title: >-
+                  The SpeechModelDownloadFile record shall reject, at construction, any checksum
+                  that is not a 64-character hexadecimal SHA-256 digest.
+                justification: |
+                  Validating eagerly at construction, rather than deep into the download
+                  pipeline, catches a malformed or tampered model catalog entry as early as
+                  possible.
+                tests:
+                  - SpeechModelDownloadFile_Constructor_InvalidChecksum_ThrowsArgumentException
+
+              - id: Speech-Models-SpeechModelDownloadFile-InstallPathValidation
+                title: >-
+                  The SpeechModelDownloadFile record shall reject, at construction, any relative
+                  install path that is null/whitespace, rooted, or escapes its parent directory.
+                justification: |
+                  Validating eagerly at construction, rather than deep into the download
+                  pipeline, prevents a relative install path from escaping the staging directory.
+                tests:
+                  - SpeechModelDownloadFile_Constructor_InvalidInstallPath_ThrowsArgumentException
+                  - SpeechModelDownloadFile_Constructor_RootedInstallPath_ThrowsArgumentException
+
+              - id: Speech-Models-SpeechModelDownloadFile-NullArgumentValidation
+                title: >-
+                  The SpeechModelDownloadFile record shall throw ArgumentNullException at
+                  construction for any null constructor argument.
+                justification: |
+                  A programming error (a null constructor argument) should surface immediately
+                  with a clear, cheap-to-diagnose exception rather than an opaque failure deeper
+                  in the download pipeline.
+                tests:
+                  - SpeechModelDownloadFile_Constructor_NullArguments_ThrowsArgumentNullException

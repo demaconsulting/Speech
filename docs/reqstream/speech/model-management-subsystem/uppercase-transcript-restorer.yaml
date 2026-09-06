@@ -1,0 +1,85 @@
+---
+# Software Unit Requirements for UppercaseTranscriptRestorer
+#
+# These requirements describe the design-level behavior of the UppercaseTranscriptRestorer unit,
+# decomposing the parent ModelManagementSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        sections:
+          - title: UppercaseTranscriptRestorer Requirements
+            requirements:
+              - id: Speech-Models-UppercaseTranscriptRestorer-RestoreFinal
+                title: >-
+                  The UppercaseTranscriptRestorer helper shall restore casing on a finalized
+                  recognition result via RestoreFinal.
+                justification: |
+                  Some sherpa-onnx streaming transducer models (empirically confirmed for
+                  SherpaOnnxZipformerEnRecognitionModel) raw-output an unbroken UPPERCASE
+                  shout; a finalized recognition result must read as ordinary prose for it to be
+                  usable in a UI transcript or as text fed to any downstream consumer.
+                tests:
+                  - RestoreFinal_StandaloneI_IsCapitalized
+                  - RestoreFinal_FirstLetter_IsCapitalized
+                  - RestoreFinal_AlreadyRestoredText_IsIdempotent
+
+              - id: Speech-Models-UppercaseTranscriptRestorer-RestoreFinalContractions
+                title: >-
+                  The UppercaseTranscriptRestorer helper shall restore a closed conservative set
+                  of contractions on a finalized recognition result via RestoreFinal, leaving
+                  deliberately-ambiguous forms unchanged.
+                justification: |
+                  Some sherpa-onnx streaming transducer models raw-output contractions without
+                  their apostrophe; restoring only a closed, conservative set avoids damaging
+                  genuinely ambiguous forms whose non-contraction reading is common.
+                tests:
+                  - RestoreFinal_ContractionForm_RestoresApostrophe
+                  - RestoreFinal_DeliberatelyAmbiguousForm_IsLeftAlone
+
+              - id: Speech-Models-UppercaseTranscriptRestorer-RestoreFinalPunctuation
+                title: >-
+                  The UppercaseTranscriptRestorer helper shall append terminal punctuation on a
+                  finalized recognition result via RestoreFinal when none is already present.
+                justification: |
+                  Some sherpa-onnx streaming transducer models raw-output unpunctuated text; a
+                  finalized recognition result must read as ordinary, terminated prose for it to
+                  be usable in a UI transcript or as text fed to any downstream consumer.
+                tests:
+                  - RestoreFinal_AlreadyTerminated_KeepsExistingTerminator
+                  - RestoreFinal_NoTerminator_AppendsPeriod
+
+              - id: Speech-Models-UppercaseTranscriptRestorer-RestoreProvisional
+                title: >-
+                  The UppercaseTranscriptRestorer helper shall apply only cheap casing
+                  (lowercase, then capitalize the first letter and standalone "I") to a
+                  provisional recognition result via RestoreProvisional, without restoring
+                  contractions or appending terminal punctuation.
+                justification: |
+                  A provisional hypothesis may still be revised or superseded many times
+                  before it settles; applying full restoration (including terminal
+                  punctuation) to text that has not yet finalized would misleadingly imply
+                  the sentence has ended and would waste work on text about to be replaced.
+                tests:
+                  - RestoreProvisional_ContractionForm_DoesNotRestoreApostrophe
+                  - RestoreProvisional_NoTerminator_DoesNotAppendPeriod
+                  - RestoreProvisional_StandaloneIAndFirstLetter_AreCapitalized
+
+              - id: Speech-Models-UppercaseTranscriptRestorer-ArgumentValidation
+                title: >-
+                  The UppercaseTranscriptRestorer helper shall throw
+                  ArgumentNullException for a null input and return the empty string for
+                  empty or whitespace-only input, from both RestoreFinal and
+                  RestoreProvisional.
+                justification: |
+                  A programming error (null input) should surface immediately with a clear
+                  exception, matching this repository's existing argument-validation
+                  convention; empty/whitespace input is a normal, expected edge case (for
+                  example, a recognizer's very first, empty provisional result) and must not
+                  throw.
+                tests:
+                  - RestoreFinal_EmptyOrWhitespace_ReturnsEmptyString
+                  - RestoreFinal_NullInput_ThrowsArgumentNullException
+                  - RestoreProvisional_EmptyOrWhitespace_ReturnsEmptyString
+                  - RestoreProvisional_NullInput_ThrowsArgumentNullException

@@ -1,0 +1,248 @@
+---
+# Software Unit Requirements for the streaming recognizer implementation
+#
+# Groups requirements for SherpaOnnxSpeechRecognizer together with the recognition-engine seam
+# and the audio-format converter it depends on, mirroring how port-audio.yaml groups a cohesive
+# implementation unit. Each unit's requirement subset is called out in its own subsection below so
+# every unit still has requirements tracing to it individually.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: RecognitionSubsystem Requirements
+        sections:
+          - title: SherpaOnnxSpeechRecognizer Requirements
+            requirements:
+              - id: Speech-Recognition-SherpaOnnxSpeechRecognizer-FormatConversion
+                title: >-
+                  The SherpaOnnxSpeechRecognizer class shall convert each captured audio block
+                  from the capture device's reported channel count and sample rate into
+                  single-channel audio at the rate the selected model requires.
+                justification: |
+                  Desktop microphones commonly capture stereo audio at 44.1 or 48 kHz while
+                  recognition models require one fixed mono rate. Without this conversion,
+                  recognition would only work on machines whose microphone happened to match the
+                  model, which contradicts the library's cross-platform promise.
+                tests:
+                  - SherpaOnnxSpeechRecognizer_FrameCaptured_StereoAtHigherRate_FeedsResampledMonoToEngine
+                  - SherpaOnnxSpeechRecognizer_Constructor_DeviceReportsUnusableFormat_FallsBackToPassThrough
+
+              - id: Speech-Recognition-SherpaOnnxSpeechRecognizer-ResultDelivery
+                title: >-
+                  The SherpaOnnxSpeechRecognizer class shall deliver every recognition result
+                  produced from captured audio, in the order produced, on a thread other than the
+                  audio capture callback thread.
+                justification: |
+                  Recognition work performed on the audio callback thread causes capture dropouts,
+                  and a host rendering a live transcript needs results in the order they were
+                  produced for the transcript to read correctly.
+                tests:
+                  - SherpaOnnxSpeechRecognizer_FrameCaptured_EngineDecodesResults_RaisesResultReceivedInOrder
+
+              - id: Speech-Recognition-SherpaOnnxSpeechRecognizer-TextNormalization
+                title: >-
+                  The SherpaOnnxSpeechRecognizer class shall require a non-null owning
+                  IRecognitionModel and shall pass every decoded result's text through that
+                  model's IRecognitionModel.NormalizeText(text, isFinal) before raising it,
+                  supplying the result's own IsFinal flag as isFinal.
+                justification: |
+                  Some recognition models' raw output is UPPERCASE and unpunctuated (empirically
+                  confirmed for the Zipformer model); consumers must see readable, cased,
+                  punctuated text rather than the engine's raw output, and the recognizer is the
+                  one place every result passes through regardless of which model produced it.
+                tests:
+                  - SherpaOnnxSpeechRecognizer_Constructor_NullModel_ThrowsArgumentNullException
+                  - SherpaOnnxSpeechRecognizer_FrameCaptured_FinalResult_AppliesModelNormalizeTextWithIsFinalTrue
+                  - SherpaOnnxSpeechRecognizer_FrameCaptured_ProvisionalResult_AppliesModelNormalizeTextWithIsFinalFalse
+
+              - id: Speech-Recognition-SherpaOnnxSpeechRecognizer-LifecycleDrain
+                title: >-
+                  The SherpaOnnxSpeechRecognizer class shall start and stop audio capture with the
+                  recognition session, deliver every result derived from audio captured before a
+                  stop request before that request completes, and release its engine resources on
+                  disposal.
+                justification: |
+                  A host that stops recognition must be able to rely on having received the whole
+                  transcript, and must not leak native inference resources; without a defined
+                  drain point the tail of an utterance could be silently lost.
+                tests:
+                  - SherpaOnnxSpeechRecognizer_Start_Always_SubscribesAndStartsCaptureDevice
+                  - SherpaOnnxSpeechRecognizer_Start_AlreadyRunning_IsNoOp
+                  - SherpaOnnxSpeechRecognizer_Stop_WhileRunning_UnsubscribesAndStopsCaptureDevice
+                  - SherpaOnnxSpeechRecognizer_Stop_NotRunning_IsNoOp
+                  - SherpaOnnxSpeechRecognizer_Dispose_CalledTwice_StopsAndDisposesEngineOnce
+                  - SherpaOnnxSpeechRecognizer_Start_AfterDispose_ThrowsObjectDisposedException
+
+              - id: Speech-Recognition-SherpaOnnxSpeechRecognizer-FaultContainment
+                title: >-
+                  The SherpaOnnxSpeechRecognizer class shall report, and continue running after,
+                  any fault raised while recognizing a captured audio block or while delivering a
+                  result to a host handler.
+                justification: |
+                  Captured audio arrives on a high-priority audio callback thread where an
+                  escaping exception tears down the audio stream, so one bad block or one
+                  misbehaving host handler must never silence the microphone or end the session.
+                tests:
+                  - SherpaOnnxSpeechRecognizer_FrameCaptured_EngineThrows_ReportsFaultAndKeepsRunning
+                  - SherpaOnnxSpeechRecognizer_ResultReceived_HandlerThrows_ReportsFaultAndDoesNotRethrow
+                  - SherpaOnnxSpeechRecognizer_FrameCaptured_EmptyBlock_IsIgnored
+
+              - id: Speech-Recognition-SherpaOnnxSpeechRecognizer-CaptureStartFailure
+                title: >-
+                  The SherpaOnnxSpeechRecognizer class shall throw the documented recognizer
+                  exception when the capture device it was composed with fails to start.
+                justification: |
+                  A device that reported itself available but then failed on first use is a
+                  genuine failure the caller asked for, so it must surface immediately rather than
+                  leaving the host believing recognition is running.
+                tests:
+                  - SherpaOnnxSpeechRecognizer_Start_CaptureDeviceFails_ThrowsSpeechRecognizerUnavailableException
+
+          - title: RecognitionEngine Requirements
+            requirements:
+              - id: Speech-Recognition-RecognitionEngine-MockableSeam
+                title: >-
+                  The recognition-engine seam shall isolate all speech-inference interop so the
+                  recognition pipeline's threading, audio conversion, and result delivery can be
+                  verified without a downloaded model or an installed speech-engine native
+                  runtime.
+                justification: |
+                  CI runners cannot be assumed to have a multi-hundred-megabyte speech model or a
+                  platform-specific native inference binary available, so the recognition logic
+                  must be verifiable entirely in pure managed tests.
+                tests:
+                  - SpeechRecognizerFactory_Create_ModelInstalledAndDeviceAvailable_ReturnsRealRecognizer
+                  - SherpaOnnxSpeechRecognizer_FrameCaptured_EngineDecodesResults_RaisesResultReceivedInOrder
+
+              - id: Speech-Recognition-RecognitionEngine-ModelOwnedConfiguration
+                title: >-
+                  The recognition-engine seam shall load an engine using only the configuration
+                  and input rate the selected model itself declares.
+                justification: |
+                  architecture.md makes each model's backing class responsible for its own engine
+                  configuration, so that adding a new model is a self-contained, reviewable unit of
+                  work that never requires changing the recognition subsystem.
+                tests:
+                  - SpeechRecognizerFactory_Create_ModelInstalledAndDeviceAvailable_ReturnsRealRecognizer
+                  - IRecognitionModel_CreateEngineConfig_InstalledDirectory_ResolvesPathsAndSampleRate
+
+              - id: Speech-Recognition-RecognitionEngine-PostEndpointWarmupReplay
+                title: >-
+                  The recognition-engine seam shall not lose genuinely spoken audio that falls
+                  within a model's post-reset encoder warm-up period, for any model that declares
+                  a positive IRecognitionModel.PostEndpointWarmupWindowMs, by buffering a rolling
+                  window of pre-endpoint audio and silently replaying it into the freshly reset
+                  stream on every endpoint that occurs after genuine (non-empty) recognized text
+                  has been produced since the stream's most recent reset, while never surfacing
+                  text derived purely from that replay as a reported result; an endpoint that
+                  fires on pure/near-silence with no genuine text recognized yet since the last
+                  reset shall not replay, dropping the buffered audio instead, since replaying it
+                  into a freshly reset (encoder-cold) stream risks corrupting the next genuinely
+                  recognized segment; models that declare the default 0 (disabled) window shall be
+                  entirely unaffected, with no buffer allocated and no replay logic invoked.
+                justification: |
+                  SherpaOnnxNemotronStreamingEnRecognitionModel's endpoint detector was confirmed,
+                  on two real user recordings, to fire as a false positive mid-utterance; the
+                  resulting Reset() exposes a measured ~550ms encoder warm-up blackout that
+                  silently drops genuinely spoken audio landing in that window (for example "that
+                  is" dropped from "To be or not to be... that is the question"). A window-size
+                  sweep against both recordings (documented in
+                  .agent-logs/planning-nemotron-endpoint-word-loss-warmup-replay-fix-9d4b71.md)
+                  found 800ms recovers the lost words with no duplication for Nemotron, but the
+                  same window forced onto SherpaOnnxZipformerEnRecognitionModel produced genuine
+                  duplicated text - so the feature must be opt-in per model, not a shared default,
+                  and must be a provable no-op for every model that does not opt in. A later
+                  independent quality review
+                  (.agent-logs/quality-nemotron-endpoint-warmup-replay-fix-7a2f91.md) found that an
+                  unconditional replay-on-every-endpoint corrupts the first genuinely recognized
+                  segment of a session when an endpoint fires on leading/inter-utterance silence
+                  before any speech has occurred; the fix
+                  (.agent-logs/planning-nemotron-endpoint-leading-silence-regression-fix-7a2f91.md)
+                  gates replay eligibility on genuine recognized text having occurred since the
+                  last reset, closing that regression without reopening the original word-loss
+                  defect (a genuine mid-utterance false-positive endpoint, by definition, only
+                  ever occurs after real speech is already in progress within that cycle).
+                tests:
+                  - SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsZero_NoBufferAllocated
+                  - SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsZero_AcceptSamplesAndDecode_IsNoOpForWarmupMechanism
+                  - SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_BufferSizedToWindowAndAccumulates
+                  - SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_BufferNeverExceedsCapacity
+                  - SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_EndpointReplaysAndArmsGracePeriod
+                  - SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_ReplayNeverProducesExtraResult
+                  - SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_GracePeriodSuppressesImmediateReTrigger
+                  - SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_SilenceOnlyEndpoint_NeverArmsReplay
+                  - SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_ReplayEligibility_GatedOnHasRecognizedTextSinceReset
+                  - SherpaOnnxNemotronStreamingEnRecognitionModel_PostEndpointWarmupWindowMs_Is800
+                  - SherpaOnnxZipformerEnRecognitionModel_PostEndpointWarmupWindowMs_IsDisabledDefault
+
+              - id: Speech-Recognition-RecognitionEngine-RealSpeechAccuracy
+                title: >-
+                  The recognition-engine seam shall transcribe a clear, single-speaker,
+                  studio-quality real human speech recording into text whose Word Error Rate
+                  against the recording's known-correct ground-truth transcript does not exceed a
+                  documented tolerance, for every real, installed recognition model.
+                justification: |
+                  Every existing automated test for this seam either replaces the real engine with
+                  a fake, or drives the real engine with silence and a synthesized sine-wave tone
+                  purely to exercise buffer/bookkeeping logic (see the RecognitionEngine
+                  Requirements above) - none of them ever assert on actual transcribed text
+                  content. That left a genuine, previously unaddressed coverage gap: nothing
+                  proved the real, shipped models transcribe real speech correctly. A tolerant
+                  Word-Error-Rate comparison, not an exact string match, is required because a
+                  real model's raw output legitimately differs from the ground truth in ways that
+                  do not reflect a transcription failure - for example Tennyson's archaic spelling
+                  "crost" (for "crossed") in the "Crossing the Bar" fixture recording may be
+                  rendered as either spelling by a modern model's vocabulary.
+                tests:
+                  - SherpaOnnxRecognitionEngine_Transcribe_RealCrossingTheBarRecording_WordErrorRateBelowTolerance
+                  - SherpaOnnxRecognitionEngine_Transcribe_RealCrossingTheBarRecording_NemotronWordErrorRateBelowTolerance
+
+          - title: AudioFrameResampler Requirements
+            requirements:
+              - id: Speech-Recognition-AudioFrameResampler-Downmix
+                title: >-
+                  The AudioFrameResampler class shall collapse interleaved multi-channel audio to
+                  single-channel audio by averaging each frame's channels, discarding any trailing
+                  incomplete frame.
+                justification: |
+                  A speaker is normally present in every channel of a desktop microphone, so
+                  averaging preserves the voice while partially canceling uncorrelated per-channel
+                  noise; an incomplete trailing frame has no defined average and must be dropped.
+                tests:
+                  - AudioFrameResampler_DownmixToMono_StereoInput_AveragesChannelsPerFrame
+                  - AudioFrameResampler_DownmixToMono_TrailingPartialFrame_DiscardsPartialFrame
+                  - AudioFrameResampler_DownmixToMono_SingleChannel_ReturnsSamplesUnchanged
+
+              - id: Speech-Recognition-AudioFrameResampler-RateConversion
+                title: >-
+                  The AudioFrameResampler class shall convert single-channel audio from one sample
+                  rate to another, producing a proportional number of output samples and returning
+                  the input unchanged when the two rates are equal.
+                justification: |
+                  Recognition models accept exactly one input rate, so audio captured at any other
+                  rate must be converted; converting audio that already matches would introduce
+                  avoidable error and cost.
+                tests:
+                  - AudioFrameResampler_Resample_Downsampling_ProducesProportionallyFewerSamples
+                  - AudioFrameResampler_Resample_Upsampling_LinearlyInterpolatesBetweenSamples
+                  - AudioFrameResampler_Convert_MonoAtTargetRate_ReturnsSamplesUnchanged
+                  - AudioFrameResampler_Convert_StereoAtHigherRate_DownmixesAndResamples
+
+              - id: Speech-Recognition-AudioFrameResampler-BoundaryHandling
+                title: >-
+                  The AudioFrameResampler class shall handle empty, single-sample, and
+                  rounds-to-empty conversions without throwing, and shall reject a non-positive
+                  sample rate or channel count.
+                justification: |
+                  A capture device may legitimately deliver an empty or very short block, which
+                  must not interrupt a recognition session; a non-positive rate or channel count
+                  describes no meaningful audio and must be rejected rather than silently
+                  producing corrupt output.
+                tests:
+                  - AudioFrameResampler_Convert_EmptyInput_ReturnsEmptyResult
+                  - AudioFrameResampler_Resample_SingleSample_ClampsToThatSample
+                  - AudioFrameResampler_Resample_OutputRoundsToZeroSamples_ReturnsEmptyResult
+                  - AudioFrameResampler_Constructor_NonPositiveSourceRate_ThrowsArgumentOutOfRangeException
+                  - AudioFrameResampler_Constructor_NonPositiveTargetRate_ThrowsArgumentOutOfRangeException
+                  - AudioFrameResampler_Constructor_NonPositiveChannelCount_ThrowsArgumentOutOfRangeException
+                  - AudioFrameResampler_DownmixToMono_NonPositiveChannelCount_ThrowsArgumentOutOfRangeException

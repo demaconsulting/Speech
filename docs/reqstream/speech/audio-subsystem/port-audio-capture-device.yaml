@@ -1,0 +1,66 @@
+---
+# Software Unit Requirements for PortAudioCaptureDevice
+#
+# These requirements describe the design-level behavior of the PortAudioCaptureDevice
+# unit, decomposing the parent AudioSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: AudioSubsystem Requirements
+        sections:
+          - title: PortAudioCaptureDevice Requirements
+            requirements:
+              - id: Speech-Audio-PortAudioCaptureDevice-AvailabilityReflectsResolution
+                title: >-
+                  The PortAudioCaptureDevice class shall report availability according to whether
+                  a capture device can be resolved on the preferred host API.
+                justification: |
+                  Hosts need an honest, non-throwing way to decide whether manual capture is
+                  currently possible.
+                tests:
+                  - PortAudioCaptureDevice_IsAvailable_NoResolvableDevice_ReturnsFalse
+
+              - id: Speech-Audio-PortAudioCaptureDevice-StaleSelectionUsesDefault
+                title: >-
+                  The PortAudioCaptureDevice class shall fall back to the preferred host API's
+                  default input device when a persisted selection no longer resolves.
+                justification: |
+                  A stale user preference should not make capture unavailable when the system
+                  still has a valid default input device.
+                tests:
+                  - PortAudioCaptureDevice_Constructor_StaleSelection_FallsBackToDefaultDevice
+
+              - id: Speech-Audio-PortAudioCaptureDevice-FrameDelivery
+                title: >-
+                  The PortAudioCaptureDevice class shall raise FrameCaptured with interleaved
+                  floating-point samples supplied by the PortAudio seam.
+                justification: |
+                  The speech-recognition pipeline consumes normalized floating-point sample
+                  blocks, so the capture implementation must surface that representation.
+                tests:
+                  - PortAudioCaptureDevice_Start_StreamCapturesSamples_RaisesFrameCaptured
+
+              - id: Speech-Audio-PortAudioCaptureDevice-NativeFaultsThrowUnavailable
+                title: >-
+                  The PortAudioCaptureDevice class shall surface native stream-open failures as
+                  AudioDeviceUnavailableException.
+                justification: |
+                  A device that disappeared or could not open after selection should fail at
+                  first use with a library-specific exception rather than leaking native details.
+                tests:
+                  - PortAudioCaptureDevice_Start_OpenFails_ThrowsAudioDeviceUnavailableException
+
+              - id: Speech-Audio-PortAudioCaptureDevice-CaptureFormat
+                title: >-
+                  The PortAudioCaptureDevice class shall report the channel count and sample rate
+                  of the device it resolved, and shall report zero for both when no device could
+                  be resolved.
+                justification: |
+                  The reported format must describe the audio actually delivered through
+                  FrameCaptured, so a consumer resampling or downmixing that audio converts it
+                  correctly; reporting zero when nothing was resolved keeps the report consistent
+                  with the device's honest availability flag.
+                tests:
+                  - PortAudioCaptureDevice_CaptureFormat_ResolvedDevice_ReflectsResolvedDeviceFormat
+                  - PortAudioCaptureDevice_CaptureFormat_NoResolvableDevice_ReturnsZeroRateAndChannelCount

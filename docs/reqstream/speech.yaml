@@ -7,106 +7,209 @@
 sections:
   - title: Library API
     requirements:
-      - id: Template-Lib-Greeting
-        title: The library shall generate a greeting string when given a name.
+      - id: Speech-Diagnostics-StructuralSink
+        title: >-
+          The library shall let a host supply a diagnostics sink that receives structural
+          facts about library operation.
         tags: [system]
         justification: |
-          Provides a simple demonstration of library functionality following
-          .NET library best practices for DEMA Consulting libraries.
+          Hosts embedding offline speech capabilities need visibility into structural
+          library events (for example device selection and fallback decisions) for support and
+          troubleshooting, without the library ever exposing user audio or text.
         children:
-          - Template-Demo-Greeting
+          - Speech-Diagnostics-Interface
+          - Speech-Diagnostics-StructuralFactsOnly
         tests:
-          - Speech_SystemIntegration_DefaultConstruction_ReturnsExpectedGreeting
-          - Speech_SystemCustomization_CustomPrefix_ReturnsExpectedGreeting
+          - Speech_SystemIntegration_DiagnosticsSink_ReceivesStructuralEvents
 
-      - id: Template-Lib-GreetingFormat
-        title: The library shall return a greeting string in the format "{prefix}, {name}!".
+      - id: Speech-Diagnostics-DefaultSink
+        title: >-
+          The library shall provide a working default diagnostics sink when a host supplies
+          none.
         tags: [system]
         justification: |
-          The format is the core observable contract of the library: callers depend on this
-          specific structure in documentation examples and integration code.
+          Per architecture.md's "nothing throws at composition" decision, a host that has not
+          yet wired up its own diagnostics must still be able to compose every library
+          component successfully.
         children:
-          - Template-Demo-Greeting
+          - Speech-Diagnostics-NullSink
         tests:
-          - Speech_SystemIntegration_DefaultConstruction_ReturnsExpectedGreeting
-          - Speech_SystemCustomization_CustomPrefix_ReturnsExpectedGreeting
+          - Speech_SystemIntegration_NoDiagnosticsSupplied_UsesNullSpeechDiagnosticsSafely
 
-      - id: Template-Lib-DefaultPrefix
-        title: The library shall use "Hello" as the default greeting prefix.
+      - id: Speech-Audio-DeviceFactory
+        title: >-
+          The library shall provide a factory that composes audio capture and playback
+          devices without ever throwing.
         tags: [system]
         justification: |
-          Callers constructing the library without a prefix argument need a predictable default
-          greeting to rely on in documentation and examples.
+          Composition happens at application start-up, where a missing backend or missing
+          device is an ordinary machine state, not a programming error.
         children:
-          - Template-Demo-DefaultPrefix
+          - Speech-Audio-Factory
+          - Speech-Audio-NameOnlyIdentity
+          - Speech-Audio-SelectionFallback
+          - Speech-Audio-MockableContracts
+          - Speech-Audio-PreferredHostApiEnumeration
+          - Speech-Audio-RealCaptureDevice
+          - Speech-Audio-RealPlaybackDevice
+          - Speech-Audio-PortAudioInterop
         tests:
-          - Speech_SystemIntegration_DefaultConstruction_ReturnsExpectedGreeting
+          - Speech_SystemIntegration_PortAudioInitialized_FactoryReturnsRealDevices
 
-      - id: Template-Lib-CustomPrefix
-        title: The library shall support a customizable greeting prefix.
+      - id: Speech-Audio-InitializationFailureFallback
+        title: >-
+          The library shall degrade to honest unavailable audio devices when the PortAudio
+          runtime cannot initialize.
         tags: [system]
         justification: |
-          Consumers may need to produce greetings with a prefix other than the
-          default, so the library must allow the prefix to be specified at
-          construction time.
+          A machine missing compatible native audio support is an expected deployment state.
+          The library must degrade predictably rather than failing during composition.
         children:
-          - Template-Demo-AcceptCustomPrefix
-          - Template-Demo-Prefix
+          - Speech-Audio-AudioDeviceFactory-PortAudioInitializationFallback
         tests:
-          - Speech_SystemCustomization_CustomPrefix_ReturnsExpectedGreeting
+          - Speech_SystemIntegration_PortAudioInitializationFails_FactoryReturnsUnavailableDevices
 
-      - id: Template-Lib-Prefix
-        title: The library shall expose the configured greeting prefix via a read-only property.
+      - id: Speech-Audio-UnavailableDeviceUsage
+        title: >-
+          The library shall throw a documented exception when a caller attempts to use an
+          audio device the library has already reported as unavailable.
         tags: [system]
         justification: |
-          Callers may need to inspect the prefix configured at construction time without
-          re-specifying it or relying on the greeting output format to infer it.
+          Exceptions are reserved for first-use failures on an object that claimed to be
+          available. A caller that ignores the honest unavailable signal and invokes an
+          operational member anyway has made a programming error that must surface immediately.
         children:
-          - Template-Demo-Prefix
+          - Speech-Audio-UnavailableFallbacks
         tests:
-          - Speech_SystemIntegration_CustomPrefix_ExposesPrefix
+          - Speech_SystemValidation_NoResolvableCaptureDevice_StartThrowsAudioDeviceUnavailableException
 
-      - id: Template-Lib-ValidationNull-DemoMethod
-        title: The library shall reject a null name argument to DemoMethod with ArgumentNullException.
+      - id: Speech-Models-DownloadAndInstall
+        title: >-
+          The library shall download, verify, and atomically install speech models so that an
+          in-use model is never disturbed by a download in progress and a corrupted, partial, or
+          checksum-mismatched download is never installed.
         tags: [system]
         justification: |
-          Passing null to DemoMethod is a programming error. Throwing ArgumentNullException
-          immediately surfaces the mistake to callers and prevents obscure failures deeper in
-          the call stack.
+          architecture.md's Open Concern #3 (download-while-in-use) and "download integrity and
+          progress" decision require that model downloads never disturb an in-use model and
+          never install unverified content, while still letting a host observe download progress
+          and explicitly manage installed models. This pass (Sub-phase 2a) covers only the
+          storage and download machinery; the model catalog/contract types land in Sub-phase 2b.
         children:
-          - Template-Demo-ValidationNull-DemoMethod
+          - Speech-Models-AtomicInstall
+          - Speech-Models-InstallStateQuery
+          - Speech-Models-ConfigurableRoot
+          - Speech-Models-Uninstall
+          - Speech-Models-DownloadOrchestration
+          - Speech-Models-HonestFailureStates
+          - Speech-Models-DownloadDescriptors
+          - Speech-Models-DownloadProgress
+          - Speech-Models-MockableHttpSeam
         tests:
-          - Speech_SystemValidation_DemoMethodNullInput_ThrowsArgumentNullException
+          - Speech_SystemIntegration_ModelDownload_VerifiesAndAtomicallyInstallsModel
 
-      - id: Template-Lib-ValidationNull-Constructor
-        title: The library shall reject a null prefix argument to the constructor with ArgumentNullException.
+      - id: Speech-Models-CatalogAndContract
+        title: >-
+          The library shall describe each known model through a common, role-tagged contract
+          (identity, declared tunable parameters, declared audio-tag support, download
+          descriptor) and enumerate every known model alongside its current install state through
+          a catalog that never throws.
         tags: [system]
         justification: |
-          Passing null to the constructor is a programming error. Throwing ArgumentNullException
-          immediately surfaces the mistake and prevents invalid instances from being created.
+          architecture.md's model-catalog decision requires a typed, self-describing model
+          contract so a host can build UI (parameter controls, model lists) without knowing a
+          specific model in advance, and an enumerable catalog exposing install state so a host
+          can build a model-settings page. This pass (Sub-phase 2b) ships the generic
+          contract/catalog machinery with zero real, production model classes; Phase 3/4 add
+          real recognition/synthesis models on top of it.
         children:
-          - Template-Demo-ValidationNull-Constructor
+          - Speech-Models-ContractDeclaration
+          - Speech-Models-TunableParameters
+          - Speech-Models-CatalogEnumeration
+          - Speech-Models-RealRecognitionModels
+          - Speech-Models-RealSynthesisModel
+          - Speech-Models-RealKokoroSynthesisModelWithVoiceSelection
         tests:
-          - Speech_SystemValidation_ConstructorNullPrefix_ThrowsArgumentNullException
+          - Speech_SystemIntegration_ModelCatalog_EnumeratesAndTracksDownloadState
 
-      - id: Template-Lib-ValidationEmpty-DemoMethod
-        title: The library shall reject an empty-string name argument to DemoMethod with ArgumentException.
+      - id: Speech-Recognition-StreamingRecognizer
+        title: >-
+          The library shall recognize speech from a configured audio input device using an
+          installed recognition model, emitting progressive provisional and final text results
+          while audio is arriving, and shall compose without ever throwing when recognition is
+          not possible on the machine.
         tags: [system]
         justification: |
-          Passing an empty string to DemoMethod is a programming error. Throwing ArgumentException
-          immediately surfaces the mistake and prevents malformed output such as "Hello, !".
+          architecture.md's core promise includes "streaming speech-to-text, emitting progressive
+          provisional and final results as audio arrives", built on the already-shipped audio
+          capture and model management capabilities. Because a model that has not been downloaded
+          yet, a machine with no microphone, and a machine without the speech engine's native
+          runtime are all ordinary deployment states, composition must degrade honestly rather
+          than failing application start-up. This pass (Phase 3) ships the recognition
+          infrastructure and the model-to-engine contract; no real, production recognition model
+          class ships yet, so end-to-end behavior is proven against a test model.
         children:
-          - Template-Demo-ValidationEmpty-DemoMethod
+          - Speech-Recognition-MockableContract
+          - Speech-Recognition-Composition
+          - Speech-Recognition-StreamingPipeline
+          - Speech-Recognition-FaultContainment
+          - Speech-Recognition-UnavailableFallback
+          - Speech-Models-SpeechModelContract-RecognitionEngineDeclaration
+          - Speech-Audio-CaptureFormatDisclosure
         tests:
-          - Speech_SystemValidation_DemoMethodEmptyInput_ThrowsArgumentException
+          - Speech_SystemIntegration_StreamingRecognition_CapturedAudioProducesRecognitionResults
 
-      - id: Template-Lib-ValidationEmpty-Constructor
-        title: The library shall reject an empty-string prefix argument to the constructor with ArgumentException.
+      - id: Speech-Synthesis-AudioTagVocabulary
+        title: >-
+          The library shall recognize a closed, fixed vocabulary of inline Natural Language
+          Audio Tags in text intended for text-to-speech, grouped into kinds, and shall pass any
+          unrecognized or malformed bracket content through as plain narration text rather than
+          dropping or rejecting it.
         tags: [system]
         justification: |
-          Passing an empty string to the constructor is a programming error. Throwing ArgumentException
-          immediately surfaces the mistake and prevents malformed output such as ", World!".
+          architecture.md's "Natural Language Audio Tags replace SSML" decision and its "never
+          worse than plain narration" reasoning require a fixed, model-independent vocabulary
+          that a host can rely on across every model, and require that text a host did not
+          intend as a tag (a typo, an unsupported bracket phrase, an unbalanced bracket) is never
+          silently dropped or rejected. This requirement covers the closed vocabulary and the
+          model-independent Layer 1 parser; Layer 2 per-model rendering and the public
+          ISpeechSynthesizer streaming/playback pipeline are described by
+          Speech-Synthesis-StreamingSynthesizer below.
         children:
-          - Template-Demo-ValidationEmpty-Constructor
+          - Speech-Synthesis-ClosedVocabulary
+          - Speech-Synthesis-Layer1Parsing
         tests:
-          - Speech_SystemValidation_ConstructorEmptyPrefix_ThrowsArgumentException
+          - AudioTagParser_Parse_EveryDocumentedAlias_ResolvesToItsCanonicalTagSpan
+          - AudioTagParser_Parse_UnknownBracketedWord_PassesThroughAsLiteralText
+
+      - id: Speech-Synthesis-StreamingSynthesizer
+        title: >-
+          The library shall synthesize speech for text containing Natural Language Audio Tags,
+          using an installed synthesis model and a configured audio output device, rendering each
+          tag according to that model's own declared capabilities, chunking and pipelining
+          synthesis with playback for low latency, and shall compose without ever throwing when
+          synthesis is not possible on the machine.
+        tags: [system]
+        justification: |
+          architecture.md's core promise includes chunked, low-latency streaming synthesis and
+          playback of text containing Natural Language Audio Tags, built on the already-shipped
+          audio playback, model management, and Layer 1 tag-parsing capabilities. Because a model
+          that has not been downloaded yet, a machine with no speakers, and a machine without the
+          speech engine's native runtime are all ordinary deployment states, composition must
+          degrade honestly rather than failing application start-up. This pass (Sub-phase 4b)
+          ships the Layer 2 rendering, chunked pipeline, and real sherpa-onnx synthesis
+          infrastructure; end-to-end behavior is proven against a test model per the fakeable
+          engine seam.
+        children:
+          - Speech-Synthesis-Layer2Rendering
+          - Speech-Synthesis-MockableContract
+          - Speech-Synthesis-Composition
+          - Speech-Synthesis-VoiceSelection
+          - Speech-Synthesis-ChunkedPipeline
+          - Speech-Synthesis-FaultContainment
+          - Speech-Synthesis-UnavailableFallback
+          - Speech-Models-SpeechModelContract-SynthesisEngineDeclaration
+          - Speech-Audio-PlaybackFormatDisclosure
+        tests:
+          - SynthesizeStreamAsync_PlainText_YieldsAudioSegment
+          - PlayStreamAsync_OrderedSegments_StartsWritesInOrderAndStops

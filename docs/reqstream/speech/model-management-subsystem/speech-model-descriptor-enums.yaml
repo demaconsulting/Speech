@@ -1,0 +1,31 @@
+---
+# Software Unit Requirements for the model-descriptor enums (SpeechModelRole, SpeechModelState,
+# SpeechModelAudioTagSupport)
+#
+# These requirements describe the design-level behavior of these three small, tightly-coupled
+# supporting enums, decomposing the parent ModelManagementSubsystem requirements. They are
+# documented together (rather than one file each) because none carries independent behavior
+# beyond declaring its fixed value set, mirroring the existing
+# audio-subsystem/unavailable-fallbacks.yaml grouped-supporting-types precedent.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        sections:
+          - title: SpeechModelDescriptorEnums Requirements
+            requirements:
+              - id: Speech-Models-SpeechModelDescriptorEnums-FixedValueSets
+                title: >-
+                  SpeechModelRole, SpeechModelState, and SpeechModelAudioTagSupport shall each
+                  declare exactly the fixed, small value set architecture.md specifies, with no
+                  "update available" model state.
+                justification: |
+                  architecture.md's "model states are a fixed, small set" decision and the
+                  declaration-shape-only scope of audio-tag support mean these enums must not
+                  grow or shrink silently; a fixed set is what lets a host safely switch on every
+                  value.
+                tests:
+                  - SpeechModelRole_Values_DeclaresRecognitionAndSynthesisOnly
+                  - SpeechModelState_Values_DeclaresFixedStateSet
+                  - SpeechModelAudioTagSupport_Values_DeclaresNoneParameterMappedAndNative

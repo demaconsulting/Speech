@@ -1,0 +1,50 @@
+---
+# cspell:ignore Alsa
+# Software Subsystem Requirements for PortAudio
+#
+# These requirements describe the child PortAudio subsystem that isolates native
+# PortAudioSharp2 interop behind mockable internal abstractions.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: AudioSubsystem Requirements
+        sections:
+          - title: PortAudio Requirements
+            requirements:
+              - id: Speech-Audio-PortAudio-Seam
+                title: >-
+                  The PortAudio subsystem shall isolate native PortAudio interop behind a
+                  mockable managed seam.
+                justification: |
+                  CI cannot assume access to audio hardware, so host-API selection and stream
+                  lifecycle logic must be verifiable using fakes instead of the real runtime.
+                children:
+                  - Speech-Audio-PortAudio-IPortAudioApi-AbstractsNativeRuntime
+                  - Speech-Audio-PortAudio-IPortAudioStream-AbstractsStreamLifecycle
+                  - Speech-Audio-PortAudio-PortAudioEnvironment-CachesInitialization
+                  - Speech-Audio-PortAudio-PortAudioApi-BridgesManagedAndNativeCalls
+                  - Speech-Audio-PortAudio-SupportingTypes-DescribeInteropMetadata
+                tests:
+                  - PortAudioEnvironment_TryResolvePreferredHostApi_InitializationFails_ReturnsFalseAndCachesFailure
+                  - PortAudioCaptureDevice_Start_StreamCapturesSamples_RaisesFrameCaptured
+                  - PortAudioPlaybackDevice_Write_StreamRequestsSamples_DrainsQueueAndZeroFills
+
+              - id: Speech-Audio-PortAudio-PreferredHostApiResolution
+                title: >-
+                  The PortAudio subsystem shall map each supported operating system to exactly
+                  one preferred PortAudio host API and resolve its runtime host-API index.
+                justification: |
+                  The higher-level audio subsystem relies on a single host API per platform to
+                  avoid duplicate device listings and host-API ambiguity.
+                children:
+                  - Speech-Audio-PortAudio-PortAudioEnvironment-PlatformMapping
+                  - Speech-Audio-PortAudio-SupportingTypes-DeclareHostApiConstants
+                  - Speech-Audio-PortAudio-SupportingTypes-BindMissingHostApiInterop
+                  - Speech-Audio-PortAudio-PortAudioEnvironment-ResolvesPreferredHostApi
+                tests:
+                  - PortAudioEnvironment_ResolvePreferredHostApiType_Windows_ReturnsWasapi
+                  - PortAudioEnvironment_ResolvePreferredHostApiType_Linux_ReturnsAlsa
+                  - PortAudioEnvironment_ResolvePreferredHostApiType_MacOs_ReturnsCoreAudio
+                  - PortAudioEnvironment_TryResolvePreferredHostApi_InitializedAndMapped_ReturnsHostApiInfo
+                  - PortAudioEnvironment_TryResolvePreferredHostApi_PreferredHostApiMissing_ReturnsFalse

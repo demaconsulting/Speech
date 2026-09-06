@@ -1,0 +1,36 @@
+---
+# CommunityToolkit.Mvvm OTS Software Requirements
+#
+# Requirements for the CommunityToolkit.Mvvm MVVM source generators used by the demo
+# application's ViewModels.
+
+sections:
+  - title: OTS Software Requirements
+    sections:
+      - title: CommunityToolkit.Mvvm Requirements
+        requirements:
+          - id: SpeechDemo-OTS-CommunityToolkitMvvm-ChangeNotification
+            title: >-
+              CommunityToolkit.Mvvm shall generate the observable-property change notification
+              used by the SpeechDemo ViewModels.
+            justification: |
+              Every demo panel is driven entirely from its ViewModel, which requires correct
+              change notification for each bound value. Hand-writing that boilerplate for every
+              property would add untested code to a demo whose purpose is to exercise the
+              Speech library, so the generated implementation is used instead.
+            tags: [ots]
+            tests:
+              - CommunityToolkitMvvm_ObservableProperty_Assigned_RaisesPropertyChanged
+
+          - id: SpeechDemo-OTS-CommunityToolkitMvvm-Commands
+            title: >-
+              CommunityToolkit.Mvvm shall generate the bindable synchronous and cancellable
+              asynchronous commands used by the SpeechDemo ViewModels.
+            justification: |
+              The demo's refresh and download buttons must bind to commands rather than to
+              code-behind event handlers, and the download command must be awaitable and
+              cancellable so a long model download never blocks the UI thread.
+            tags: [ots]
+            tests:
+              - CommunityToolkitMvvm_RelayCommand_Executed_InvokesAnnotatedMethod
+              - CommunityToolkitMvvm_AsyncRelayCommand_Executed_AwaitsAnnotatedMethod

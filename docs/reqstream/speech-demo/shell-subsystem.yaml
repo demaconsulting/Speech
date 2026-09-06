@@ -1,0 +1,78 @@
+---
+# Software Subsystem Requirements for the SpeechDemo ShellSubsystem
+#
+# These requirements describe the subsystem-level behavior of the demo application's shell,
+# decomposing the system-level shell requirements in docs/reqstream/speech-demo.yaml.
+#
+# Unit-level content is consolidated here: MainWindowViewModel and DemoPanelViewModel are two
+# small, tightly coupled presentation types with no independent externally visible behavior,
+# so per-unit requirement files would restate this content without adding traceability value.
+
+sections:
+  - title: SpeechDemo Requirements
+    sections:
+      - title: ShellSubsystem Requirements
+        requirements:
+          - id: SpeechDemo-Shell-PanelCatalog
+            title: >-
+              The ShellSubsystem shall expose one navigable panel entry per demonstrated
+              capability, hosting the panel instance it was composed with.
+            justification: |
+              The shell owns navigation only; it must never construct or replace the panels it
+              shows, so that the composition root remains the single place where the demo's
+              object graph is decided and each panel stays independently testable.
+            tests:
+              - MainWindowViewModel_Constructor_ValidPanels_OffersAllFourPanels
+              - MainWindowViewModel_Constructor_ValidPanels_HostsTheInjectedPanelInstances
+
+          - id: SpeechDemo-Shell-DefaultPanel
+            title: >-
+              The ShellSubsystem shall open on its first panel and shall announce every change
+              of the selected panel.
+            justification: |
+              An application that opens with nothing selected shows an empty window on start-up.
+              Announcing selection changes is what lets the bound view swap panels without any
+              code-behind.
+            tests:
+              - MainWindowViewModel_Constructor_ValidPanels_SelectsFirstPanel
+              - MainWindowViewModel_SelectedPanel_Changed_NotifiesSelectedPanel
+
+          - id: SpeechDemo-Shell-PanelTitles
+            title: >-
+              The ShellSubsystem shall give every panel a non-blank title and shall name the
+              capabilities the application currently implements.
+            justification: |
+              A navigation entry with no title is unusable, and an honest window title tells a
+              user which capabilities this build actually demonstrates rather than implying
+              capabilities that arrive in a later phase.
+            tests:
+              - DemoPanelViewModel_Constructor_ValidArguments_CarriesTitleAndContent
+              - DemoPanelViewModel_Constructor_BlankTitle_ThrowsArgumentException
+              - DemoPanelViewModel_Constructor_NullTitle_ThrowsArgumentNullException
+              - DemoPanelViewModel_Constructor_NullContent_ThrowsArgumentNullException
+              - MainWindowViewModel_Title_Read_NamesTheImplementedCapabilities
+
+          - id: SpeechDemo-Shell-CompositionRoot
+            title: >-
+              The ShellSubsystem shall require every panel it presents to be supplied at
+              construction and shall reject a missing panel.
+            justification: |
+              The demo composes manually, without a dependency-injection container, so the
+              constructor is the only place a missing collaborator can be detected. Failing
+              loudly there keeps a half-composed window from ever reaching a user.
+            tests:
+              - MainWindowViewModel_Constructor_NullDeviceSelection_ThrowsArgumentNullException
+              - MainWindowViewModel_Constructor_NullModelCatalog_ThrowsArgumentNullException
+              - MainWindowViewModel_Constructor_NullSynthesis_ThrowsArgumentNullException
+              - MainWindowViewModel_Constructor_NullRecognition_ThrowsArgumentNullException
+
+          - id: SpeechDemo-Shell-PanelRefreshNeverThrows
+            title: >-
+              The ShellSubsystem shall compose successfully on a machine that reports no audio
+              devices and no known models, with each panel reporting its own empty state.
+            justification: |
+              A developer evaluating the library frequently runs the demo on a machine with no
+              audio backend and nothing installed. That must produce a working window that
+              explains the situation, not a start-up failure.
+            tests:
+              - MainWindowViewModel_Constructor_EmptyEnvironment_PanelsReportHonestEmptyState

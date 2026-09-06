@@ -1,0 +1,35 @@
+---
+# Software Unit Requirements for HttpModelDownloadClient
+#
+# These requirements describe the design-level behavior of the HttpModelDownloadClient unit,
+# decomposing the parent ModelManagementSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        sections:
+          - title: HttpModelDownloadClient Requirements
+            requirements:
+              - id: Speech-Models-HttpModelDownloadClient-RealDownload
+                title: >-
+                  The HttpModelDownloadClient class shall genuinely perform an HTTP download of
+                  the requested URI using System.Net.Http.HttpClient, reporting byte-level
+                  progress as the transfer proceeds.
+                justification: |
+                  This is the library's one real network-facing implementation of
+                  IModelDownloadClient; it must be proven against a genuine HTTP server (not just
+                  mocked) to trust it in production.
+                tests:
+                  - HttpModelDownloadClient_DownloadAsync_LoopbackServer_DownloadsExactBytesWithProgress
+
+              - id: Speech-Models-HttpModelDownloadClient-NonSuccessResponseHandling
+                title: >-
+                  The HttpModelDownloadClient class shall throw HttpRequestException for a
+                  non-2xx HTTP response rather than silently writing a truncated or error-page
+                  body to the destination.
+                justification: |
+                  A non-2xx response must surface honestly rather than truncating, so a caller
+                  never mistakes a partial or error-page body for a genuine model file.
+                tests:
+                  - HttpModelDownloadClient_DownloadAsync_NonSuccessResponse_ThrowsHttpRequestException

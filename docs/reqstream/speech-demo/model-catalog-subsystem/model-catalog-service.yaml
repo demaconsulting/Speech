@@ -1,0 +1,49 @@
+---
+# Software Unit Requirements for the SpeechDemo ModelCatalogService
+#
+# These requirements describe the design-level behavior of the IModelCatalogService /
+# ModelCatalogService unit - the demo-owned catalog seam and its real implementation over the
+# library's SpeechModelCatalog - decomposing the parent ModelCatalogSubsystem requirements.
+# IModelCatalogService and ModelCatalogService are treated as one unit because the interface has
+# no independently observable behavior of its own; every test exercises it through
+# ModelCatalogService, its sole implementation.
+
+sections:
+  - title: SpeechDemo Requirements
+    sections:
+      - title: ModelCatalogSubsystem Requirements
+        sections:
+          - title: ModelCatalogService Requirements
+            requirements:
+              - id: SpeechDemo-Models-LibraryCatalogDelegation
+                title: >-
+                  The ModelCatalogSubsystem shall obtain every listed model and perform every
+                  download through the library's own catalog, behind an injectable seam, and
+                  shall reject a missing seam.
+                justification: |
+                  The demo must not carry its own model registry or download logic; its evidence
+                  value comes entirely from driving the library's catalog. A demo-owned seam
+                  keeps the panel testable against controlled data without adding any public API
+                  to the library.
+                tests:
+                  - ModelCatalogService_Constructor_NullCatalog_ThrowsArgumentNullException
+                  - ModelCatalogService_Enumerate_LibraryKnowsNoModels_ReturnsEmptyList
+                  - ModelCatalogService_DownloadAsync_UnknownModelId_ThrowsArgumentException
+                  - ModelCatalogService_Enumerate_AfterAnotherAdapterFallsOutOfUse_StillWorks
+                  - ModelCatalogViewModel_Constructor_NullService_ThrowsArgumentNullException
+
+              - id: SpeechDemo-Models-InstallNotification
+                title: >-
+                  The ModelCatalogSubsystem shall raise a ModelInstalled event, carrying the
+                  installed model's id and role, once a download genuinely installs a model, and
+                  shall never raise it for a failed, canceled, or checksum-mismatched download
+                  attempt.
+                justification: |
+                  The STT and TTS panels already depend on this same seam and need a way to
+                  learn that a model they care about just finished installing, so they can
+                  refresh themselves automatically without a manual click or app restart.
+                  Raising the event only on a genuine install keeps this a reliable signal
+                  rather than a noisy one.
+                tests:
+                  - ModelCatalogService_DownloadAsync_Installed_RaisesModelInstalledWithCorrectIdAndRole
+                  - ModelCatalogService_DownloadAsync_Failed_DoesNotRaiseModelInstalled

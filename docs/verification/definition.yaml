@@ -6,8 +6,57 @@ input-files:
   - docs/verification/title.txt
   - docs/verification/introduction.md
   - docs/verification/speech.md
-  - docs/verification/speech/demo.md
+  - docs/verification/speech/diagnostics.md
+  - docs/verification/speech/audio-subsystem.md
+  - docs/verification/speech/audio-subsystem/audio-device-description.md
+  - docs/verification/speech/audio-subsystem/audio-device-selection.md
+  - docs/verification/speech/audio-subsystem/i-audio-capture-device.md
+  - docs/verification/speech/audio-subsystem/i-audio-playback-device.md
+  - docs/verification/speech/audio-subsystem/i-audio-capture-device-probe.md
+  - docs/verification/speech/audio-subsystem/i-audio-playback-device-probe.md
+  - docs/verification/speech/audio-subsystem/audio-device-factory.md
+  - docs/verification/speech/audio-subsystem/port-audio-capture-device-probe.md
+  - docs/verification/speech/audio-subsystem/port-audio-playback-device-probe.md
+  - docs/verification/speech/audio-subsystem/port-audio-capture-device.md
+  - docs/verification/speech/audio-subsystem/port-audio-playback-device.md
+  - docs/verification/speech/audio-subsystem/port-audio.md
+  - docs/verification/speech/audio-subsystem/port-audio/i-port-audio-api.md
+  - docs/verification/speech/audio-subsystem/port-audio/i-port-audio-stream.md
+  - docs/verification/speech/audio-subsystem/port-audio/port-audio-environment.md
+  - docs/verification/speech/audio-subsystem/port-audio/port-audio-api.md
+  - docs/verification/speech/audio-subsystem/port-audio/port-audio-supporting-types.md
+  - docs/verification/speech/model-management-subsystem.md
+  - docs/verification/speech/model-management-subsystem/speech-model-store.md
+  - docs/verification/speech/model-management-subsystem/speech-model-store-options.md
+  - docs/verification/speech/model-management-subsystem/speech-model-store-exception.md
+  - docs/verification/speech/model-management-subsystem/speech-model-download-file.md
+  - docs/verification/speech/model-management-subsystem/speech-model-download-descriptor.md
+  - docs/verification/speech/model-management-subsystem/speech-model-download-progress.md
+  - docs/verification/speech/model-management-subsystem/i-model-download-client.md
+  - docs/verification/speech/model-management-subsystem/http-model-download-client.md
+  - docs/verification/speech/model-management-subsystem/speech-model-downloader.md
+  - docs/verification/speech/model-management-subsystem/speech-model-descriptor-enums.md
+  - docs/verification/speech/model-management-subsystem/speech-model-parameters.md
+  - docs/verification/speech/model-management-subsystem/speech-model-contract.md
+  - docs/verification/speech/model-management-subsystem/speech-model-descriptor.md
+  - docs/verification/speech/model-management-subsystem/speech-model-catalog.md
+  - docs/verification/speech/recognition-subsystem.md
+  - docs/verification/speech/recognition-subsystem/i-speech-recognizer.md
+  - docs/verification/speech/recognition-subsystem/speech-recognizer-factory.md
+  - docs/verification/speech/recognition-subsystem/sherpa-onnx-speech-recognizer.md
+  - docs/verification/speech/recognition-subsystem/unavailable-speech-recognizer.md
+  - docs/verification/speech-demo.md
+  - docs/verification/speech-demo/shell-subsystem.md
+  - docs/verification/speech-demo/device-selection-subsystem.md
+  - docs/verification/speech-demo/model-catalog-subsystem.md
+  - docs/verification/speech-demo/model-settings-subsystem.md
+  - docs/verification/speech-demo/synthesis-panel-subsystem.md
+  - docs/verification/speech-demo/recognition-panel-subsystem.md
   - docs/verification/ots.md
+  - docs/verification/ots/port-audio-sharp2.md
+  - docs/verification/ots/sherpa-onnx.md
+  - docs/verification/ots/avalonia.md
+  - docs/verification/ots/community-toolkit-mvvm.md
   - docs/verification/ots/buildmark.md
   - docs/verification/ots/fileassert.md
   - docs/verification/ots/pandoc.md

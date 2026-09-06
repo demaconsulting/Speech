@@ -1,0 +1,265 @@
+using SherpaOnnx;
+
+namespace DemaConsulting.Speech.ModelManagementSubsystem;
+
+/// <summary>
+///     Real, production <see cref="ISynthesisModel"/> backing the sherpa-onnx VITS/Piper
+///     text-to-speech voice <c>vits-piper-en_US-libritts_r-medium</c>, converted from the Piper
+///     project's LibriTTS-R-trained English (US) checkpoint.
+/// </summary>
+/// <remarks>
+///     Per architecture.md's "one backing class per model" decision, this class owns everything
+///     specific to this one model: its declared download descriptor (a single <c>.tar.bz2</c>
+///     archive fetched from sherpa-onnx's own GitHub Releases mirror), how to unpack that archive
+///     (<see cref="InstallAsync"/>, delegating to the shared <see cref="TarBz2ArchiveExtractor"/>
+///     built in Phase 7a and reused, not duplicated, here), and how to build the sherpa-onnx
+///     offline text-to-speech configuration for it (<c>CreateEngineConfig</c>).
+///     <para>
+///     <b>Download provenance</b>: <c>https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-libritts_r-medium.tar.bz2</c>,
+///     82,038,311 bytes, confirmed directly against the live GitHub Releases asset listing
+///     (<c>gh api repos/k2-fsa/sherpa-onnx/releases/tags/tts-models</c>) and downloaded end-to-end
+///     in this project's development sandbox, whose real SHA-256 hash is the exact value recorded
+///     in <see cref="DownloadDescriptor"/> below. The archive's top-level folder
+///     (<c>vits-piper-en_US-libritts_r-medium/</c>) and file names -
+///     <c>en_US-libritts_r-medium.onnx</c>, <c>tokens.txt</c>, <c>espeak-ng-data/</c> (phoneme/
+///     dictionary data bundled inside this archive, no separate download), <c>MODEL_CARD</c>, and
+///     <c>en_US-libritts_r-medium.onnx.json</c> - were confirmed the same way, by inspecting the
+///     actually downloaded archive's contents (<c>tar -tvjf</c>/extraction), not merely by reading
+///     third-party documentation. This model ships no <c>lexicon.txt</c>, so
+///     <c>OfflineTtsVitsModelConfig.Lexicon</c> is deliberately left unset.
+///     </para>
+///     <para>
+///     <b>Engine configuration</b> was proven end-to-end in this project's development sandbox: a
+///     real, loaded <c>OfflineTts</c> instance built from exactly the configuration
+///     <c>CreateEngineConfig</c> below produces (<c>Model.Vits.Model</c>/<c>Tokens</c>/
+///     <c>DataDir</c>, <c>NoiseScale = 0.333f</c>, <c>NoiseScaleW = 0.333f</c>,
+///     <c>LengthScale = 1.0f</c>) reported <c>SampleRate = 22050</c> and <c>NumSpeakers = 904</c>,
+///     and generating real, audibly non-silent audio for an English sentence (max absolute sample
+///     amplitude ~0.74, far above silence). The noise-scale values deliberately differ from this
+///     model family's other commonly-cited defaults (<c>0.667</c>/<c>0.8</c>): this specific
+///     model's own published <c>en_US-libritts_r-medium.onnx.json</c> config file (downloaded and
+///     read directly in this session) declares <c>"inference": {"noise_scale": 0.333,
+///     "length_scale": 1, "noise_w": 0.333}</c> as its own recommended defaults, so this class
+///     honors this model's own voice-specific recommendation rather than a different sibling
+///     voice's proven values.
+///     </para>
+///     <para>
+///     <b>Multi-speaker selection resolved</b>: this model's own <c>MODEL_CARD</c> declares 904
+///     distinct speakers, identified only by plain numeric <c>sid</c> 0-903 - the LibriTTS-R
+///     speaker embeddings this voice was fine-tuned on have no published human-readable name
+///     mapping, unlike the sibling <see cref="SherpaOnnxKokoroEnglishSynthesisModel"/>'s small,
+///     named voice set. Rather than fabricate names this model owns no confirmed mapping for,
+///     this class exposes the full range directly as a numeric <see cref="NumericParameter"/>
+///     (id <see cref="SpeakerParameterId"/>, range <c>0</c>-<c>903</c>, default <c>0</c>), and
+///     overrides <see cref="ISynthesisModel.ResolveSpeakerId"/> to read that value straight out
+///     of the supplied <c>parameterValues</c> bag, validating it defensively so a
+///     <see langword="null"/> bag, a missing key, or an out-of-range/non-numeric value all
+///     degrade to the default speaker <c>0</c> rather than throwing - this class previously
+///     deferred this as a known, accepted, out-of-scope limitation; that gap is closed here.
+///     </para>
+///     <para>
+///     <b>License</b>: CC BY 4.0 - confirmed directly from this model's own <c>MODEL_CARD</c>
+///     (downloaded and read in this session: <c>"Dataset: URL: http://www.openslr.org/141/,
+///     License: CC BY 4.0"</c>), tracing to the LibriTTS-R corpus this Piper voice was fine-tuned
+///     on. Unlike the Apache-2.0/NVIDIA-Open-Model-License recognition models from Phase 7a,
+///     CC BY 4.0 is an attribution license: any redistribution of audio generated by this model,
+///     or of the model itself, must credit the LibriTTS-R dataset (OpenSLR resource 141,
+///     <c>http://www.openslr.org/141/</c>) and the Piper text-to-speech project
+///     (<c>https://github.com/OHF-Voice/piper1-gpl</c>) that converted it for sherpa-onnx. This
+///     is materially different from ShareAlike (CC BY-SA) - attribution is required, but
+///     downstream relicensing under different terms is not restricted - and different again from
+///     the NVIDIA Open Model License's custom, non-OSI redistribution terms; see
+///     <c>docs/user_guide/introduction.md</c> and <c>README.md</c> for the consumer-facing
+///     attribution text.
+///     </para>
+/// </remarks>
+public sealed class SherpaOnnxVitsLibriTtsEnglishSynthesisModel : ISynthesisModel
+{
+    /// <summary>The stable catalog identifier for this model.</summary>
+    public const string ModelId = "vits-piper-en_US-libritts_r-medium";
+
+    /// <summary>The relative install path the declared download archive is written to.</summary>
+    private const string ArchiveRelativeInstallPath = "vits-piper-en_US-libritts_r-medium.tar.bz2";
+
+    /// <summary>The archive's own top-level folder name, preserved by extraction.</summary>
+    private const string ExtractedFolderName = "vits-piper-en_US-libritts_r-medium";
+
+    /// <summary>
+    ///     This model's own recommended VITS noise scale, read directly from its published
+    ///     <c>en_US-libritts_r-medium.onnx.json</c> config file - see the type-level remarks for
+    ///     why this deliberately differs from another sibling voice's proven defaults.
+    /// </summary>
+    private const float NoiseScale = 0.333f;
+
+    /// <summary>This model's own recommended VITS noise-scale-W value, read the same way as <see cref="NoiseScale"/>.</summary>
+    private const float NoiseScaleW = 0.333f;
+
+    /// <summary>This model's own recommended VITS length scale (playback speed multiplier), read the same way as <see cref="NoiseScale"/>.</summary>
+    private const float LengthScale = 1.0f;
+
+    /// <summary>The parameter id used for this model's numeric speaker-index selection.</summary>
+    public const string SpeakerParameterId = "speaker";
+
+    /// <summary>The lowest valid speaker index this model declares.</summary>
+    private const int MinSpeakerId = 0;
+
+    /// <summary>The highest valid speaker index this model declares (904 speakers, ids 0-903).</summary>
+    private const int MaxSpeakerId = 903;
+
+    /// <summary>The default speaker index used when no selection is supplied.</summary>
+    private const int DefaultSpeakerId = 0;
+
+    /// <inheritdoc/>
+    public string Id => ModelId;
+
+    /// <inheritdoc/>
+    public string DisplayName => "LibriTTS-R English (Piper VITS, 904 speakers) - CC BY 4.0";
+
+    /// <inheritdoc/>
+    public SpeechModelRole Role => SpeechModelRole.Synthesis;
+
+    /// <inheritdoc/>
+    /// <remarks>
+    ///     Declares exactly one tunable parameter: a plain numeric speaker-index selection over
+    ///     this model's full declared range. See the type-level remarks' "Multi-speaker selection
+    ///     resolved" section for why this is a numeric index rather than a named
+    ///     <see cref="ChoiceParameter"/> - LibriTTS-R's speaker embeddings have no published
+    ///     human-readable name mapping, unlike the sibling
+    ///     <see cref="SherpaOnnxKokoroEnglishSynthesisModel"/>'s small, named voice set. The
+    ///     default speed/volume conventions <see cref="SynthesisSubsystem.DefaultModelCapabilityProfile"/>
+    ///     already looks for are not declared here, since this class relies on the caller's own
+    ///     <c>speed</c>/volume-scaling arguments to <c>ISynthesisEngine.Generate</c> rather than a
+    ///     model-declared numeric parameter for those.
+    /// </remarks>
+    public IReadOnlyList<ISpeechModelParameter> Parameters { get; } =
+    [
+        new NumericParameter(
+            SpeakerParameterId,
+            "Speaker",
+            "Selects one of this model's 904 speaker embeddings by plain numeric index " +
+            "(0-903). LibriTTS-R's speaker embeddings have no published human-readable name " +
+            "mapping, so speakers are identified only by their numeric id.",
+            MinSpeakerId,
+            MaxSpeakerId,
+            1,
+            DefaultSpeakerId,
+            isInteger: true),
+    ];
+
+    /// <inheritdoc/>
+    /// <remarks>
+    ///     A plain VITS/Piper model has no native inline Natural Language Audio Tag support -
+    ///     the default <see cref="SynthesisSubsystem.DefaultModelCapabilityProfile"/> already
+    ///     strips unsupported tags to plain narration and renders pauses as real inserted
+    ///     silence for a model declaring <see cref="SpeechModelAudioTagSupport.None"/>, so this
+    ///     class needs no bespoke <see cref="ISynthesisModel.CapabilityProfile"/> override.
+    /// </remarks>
+    public SpeechModelAudioTagSupport AudioTagSupport => SpeechModelAudioTagSupport.None;
+
+    /// <inheritdoc/>
+    /// <remarks>
+    ///     Declares exactly one file: the model's own published <c>.tar.bz2</c> archive. See the
+    ///     type-level remarks for the exact byte count, SHA-256 provenance, and download URL
+    ///     confirmation performed in this project's development sandbox.
+    /// </remarks>
+#pragma warning disable S1075 // This model's download URL is intentionally a compiled-in, reviewed literal - the whole point of a catalog entry is to name one specific, checksum-verified release asset.
+    public SpeechModelDownloadDescriptor DownloadDescriptor { get; } = new(
+    [
+        new SpeechModelDownloadFile(
+            new Uri("https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-libritts_r-medium.tar.bz2"),
+            "10dc268f3e371696d721486123e2705a9fc1faa113491979fde4d88dba1f1b1c",
+            ArchiveRelativeInstallPath),
+    ]);
+#pragma warning restore S1075
+
+    /// <summary>
+    ///     Extracts the downloaded <c>.tar.bz2</c> archive in place using the shared
+    ///     <see cref="TarBz2ArchiveExtractor"/> (built in Phase 7a and reused here unchanged),
+    ///     then deletes the archive file, leaving the archive's own top-level folder
+    ///     (<see cref="ExtractedFolderName"/>) containing every file <c>CreateEngineConfig</c>
+    ///     references.
+    /// </summary>
+    /// <inheritdoc/>
+    public Task InstallAsync(string stagedFilesDirectory, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(stagedFilesDirectory);
+
+        var archivePath = Path.Combine(stagedFilesDirectory, ArchiveRelativeInstallPath);
+        return TarBz2ArchiveExtractor.ExtractAndDeleteAsync(archivePath, stagedFilesDirectory, cancellationToken);
+    }
+
+    /// <summary>
+    ///     Builds the proven VITS/Piper offline text-to-speech configuration for this model,
+    ///     resolving every file path against the archive's extracted top-level folder within
+    ///     <paramref name="installedModelDirectory"/>.
+    /// </summary>
+    /// <inheritdoc/>
+    OfflineTtsConfig ISynthesisModel.CreateEngineConfig(string installedModelDirectory)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(installedModelDirectory);
+
+        var modelDirectory = Path.Combine(installedModelDirectory, ExtractedFolderName);
+
+        var config = new OfflineTtsConfig();
+        config.Model.Vits.Model = Path.Combine(modelDirectory, "en_US-libritts_r-medium.onnx");
+        config.Model.Vits.Tokens = Path.Combine(modelDirectory, "tokens.txt");
+        config.Model.Vits.DataDir = Path.Combine(modelDirectory, "espeak-ng-data");
+        config.Model.Vits.NoiseScale = NoiseScale;
+        config.Model.Vits.NoiseScaleW = NoiseScaleW;
+        config.Model.Vits.LengthScale = LengthScale;
+        // Model.Vits.Lexicon is deliberately left unset - this archive ships no lexicon.txt.
+        config.Model.Provider = "cpu";
+        config.Model.NumThreads = 1;
+
+        return config;
+    }
+
+    /// <summary>
+    ///     Resolves the selected <see cref="SpeakerParameterId"/> value in <paramref name="parameterValues"/>
+    ///     to this model's plain numeric sherpa-onnx speaker id.
+    /// </summary>
+    /// <param name="parameterValues">
+    ///     The untyped key-value bag supplied to <c>SpeechSynthesizerFactory.Create</c> (for
+    ///     example built from a host's settings UI via this model's declared
+    ///     <see cref="NumericParameter"/>), or <see langword="null"/> when the caller supplied
+    ///     none.
+    /// </param>
+    /// <returns>
+    ///     The selected speaker id, when it lies within <c>[<see cref="MinSpeakerId"/>,
+    ///     <see cref="MaxSpeakerId"/>]</c>; otherwise <see cref="DefaultSpeakerId"/> - including
+    ///     when <paramref name="parameterValues"/> is <see langword="null"/>, does not contain
+    ///     <see cref="SpeakerParameterId"/>, contains a value that cannot be read as a number, or
+    ///     contains a number outside the declared range.
+    /// </returns>
+    /// <remarks>
+    ///     Never throws: a <see langword="null"/> bag, a missing key, or an out-of-range or
+    ///     non-numeric value all degrade to <see cref="DefaultSpeakerId"/> rather than failing
+    ///     synthesis. Accepts both a boxed <see cref="double"/> (the value type a host's generic
+    ///     numeric-parameter UI, such as <c>NumericParameterViewModel.BoxedValue</c>, supplies)
+    ///     and a boxed <see cref="int"/> (for a caller building the bag programmatically), since
+    ///     this hook has no control over how a caller boxes the numeric value it supplies.
+    /// </remarks>
+    int ISynthesisModel.ResolveSpeakerId(IReadOnlyDictionary<string, object>? parameterValues)
+    {
+        if (parameterValues is null || !parameterValues.TryGetValue(SpeakerParameterId, out var value))
+        {
+            return DefaultSpeakerId;
+        }
+
+        double? numericValue = value switch
+        {
+            double doubleValue => doubleValue,
+            int intValue => intValue,
+            float floatValue => floatValue,
+            _ => null,
+        };
+
+        if (numericValue is not double resolved || !double.IsFinite(resolved))
+        {
+            return DefaultSpeakerId;
+        }
+
+        var speakerId = (int)Math.Round(resolved, MidpointRounding.AwayFromZero);
+        return speakerId is >= MinSpeakerId and <= MaxSpeakerId ? speakerId : DefaultSpeakerId;
+    }
+}

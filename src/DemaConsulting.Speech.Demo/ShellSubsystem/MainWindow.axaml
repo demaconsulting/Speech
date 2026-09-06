@@ -1,0 +1,42 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:devices="clr-namespace:DemaConsulting.Speech.Demo.DeviceSelectionSubsystem"
+        xmlns:models="clr-namespace:DemaConsulting.Speech.Demo.ModelCatalogSubsystem"
+        xmlns:synthesis="clr-namespace:DemaConsulting.Speech.Demo.SynthesisPanelSubsystem"
+        xmlns:recognition="clr-namespace:DemaConsulting.Speech.Demo.RecognitionPanelSubsystem"
+        xmlns:shell="clr-namespace:DemaConsulting.Speech.Demo.ShellSubsystem"
+        x:Class="DemaConsulting.Speech.Demo.ShellSubsystem.MainWindow"
+        x:DataType="shell:MainWindowViewModel"
+        Title="{x:Static shell:MainWindowViewModel.Title}"
+        Width="900" Height="640">
+
+  <Window.DataTemplates>
+    <DataTemplate DataType="devices:DeviceSelectionViewModel">
+      <devices:DeviceSelectionView />
+    </DataTemplate>
+    <DataTemplate DataType="models:ModelCatalogViewModel">
+      <models:ModelCatalogView />
+    </DataTemplate>
+    <DataTemplate DataType="synthesis:SynthesisPanelViewModel">
+      <synthesis:SynthesisPanelView />
+    </DataTemplate>
+    <DataTemplate DataType="recognition:RecognitionPanelViewModel">
+      <recognition:RecognitionPanelView />
+    </DataTemplate>
+  </Window.DataTemplates>
+
+  <TabControl ItemsSource="{Binding Panels}"
+              SelectedItem="{Binding SelectedPanel}">
+    <TabControl.ItemTemplate>
+      <DataTemplate x:DataType="shell:DemoPanelViewModel">
+        <TextBlock Text="{Binding Title}" />
+      </DataTemplate>
+    </TabControl.ItemTemplate>
+    <TabControl.ContentTemplate>
+      <DataTemplate x:DataType="shell:DemoPanelViewModel">
+        <ContentControl Content="{Binding Content}" />
+      </DataTemplate>
+    </TabControl.ContentTemplate>
+  </TabControl>
+
+</Window>

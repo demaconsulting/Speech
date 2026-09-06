@@ -1,0 +1,55 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:models="clr-namespace:DemaConsulting.Speech.Demo.ModelCatalogSubsystem"
+             x:Class="DemaConsulting.Speech.Demo.ModelCatalogSubsystem.ModelCatalogView"
+             x:DataType="models:ModelCatalogViewModel">
+
+  <Grid Margin="16" RowDefinitions="Auto,Auto,*,Auto">
+
+    <TextBlock Grid.Row="0" Text="Model Catalog" FontSize="18" FontWeight="SemiBold" />
+
+    <TextBlock Grid.Row="1"
+               Margin="0,8,0,8"
+               TextWrapping="Wrap"
+               IsVisible="{Binding IsCatalogEmpty}"
+               Text="{x:Static models:ModelCatalogViewModel.EmptyCatalogMessage}" />
+
+    <ListBox Grid.Row="2"
+             ItemsSource="{Binding Models}"
+             SelectedItem="{Binding SelectedModel}"
+             IsVisible="{Binding HasModels}">
+      <ListBox.ItemTemplate>
+        <DataTemplate x:DataType="models:ModelListItemViewModel">
+          <StackPanel Spacing="4" Margin="0,4">
+            <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
+            <TextBlock Text="{Binding Id}" Opacity="0.6" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Text="{Binding StatusText}" />
+              <TextBlock Text="{Binding Role}" Opacity="0.6" />
+            </StackPanel>
+            <ProgressBar Minimum="0" Maximum="1"
+                         Value="{Binding ProgressFraction}"
+                         IsVisible="{Binding IsDownloading}" />
+            <TextBlock Text="{Binding FailureMessage}"
+                       TextWrapping="Wrap"
+                       IsVisible="{Binding HasFailureMessage}"
+                       Foreground="IndianRed" />
+            <Button Content="Download"
+                    IsEnabled="{Binding CanDownload}"
+                    Command="{Binding $parent[ListBox].((models:ModelCatalogViewModel)DataContext).DownloadCommand}"
+                    CommandParameter="{Binding}"
+                    HorizontalAlignment="Left" />
+          </StackPanel>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+
+    <Button Grid.Row="3"
+            Margin="0,8,0,0"
+            Content="Refresh catalog"
+            Command="{Binding RefreshCommand}"
+            HorizontalAlignment="Left" />
+
+  </Grid>
+
+</UserControl>

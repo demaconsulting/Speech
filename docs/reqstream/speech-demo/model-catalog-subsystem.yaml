@@ -1,0 +1,19 @@
+---
+# Software Subsystem Requirements for the SpeechDemo ModelCatalogSubsystem
+#
+# These requirements describe the subsystem-level behavior of the demo's model catalog and
+# download panel, decomposing the system-level model requirements in
+# docs/reqstream/speech-demo.yaml.
+#
+# Unit-level content lives in per-unit files under docs/reqstream/speech-demo/
+# model-catalog-subsystem/ - one per independently testable unit:
+# model-catalog-service.yaml (IModelCatalogService/ModelCatalogService, treated as one unit
+# because the interface has no independently observable behavior of its own),
+# model-catalog-view-model.yaml (ModelCatalogViewModel), and
+# model-list-item-view-model.yaml (ModelListItemViewModel). This subsystem decomposes no
+# requirements of its own beyond those unit-level requirements.
+
+sections:
+  - title: SpeechDemo Requirements
+    sections:
+      - title: ModelCatalogSubsystem Requirements

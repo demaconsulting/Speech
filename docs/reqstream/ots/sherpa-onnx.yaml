@@ -1,0 +1,36 @@
+---
+# cspell:ignore Kaldi
+# sherpa-onnx OTS Software Requirements
+#
+# Requirements for the org.k2fsa.sherpa.onnx managed speech-inference API package.
+
+sections:
+  - title: OTS Software Requirements
+    sections:
+      - title: SherpaOnnx Requirements
+        requirements:
+          - id: Speech-OTS-SherpaOnnx-ManagedStreamingApi
+            title: >-
+              sherpa-onnx shall provide the managed streaming speech-recognition API consumed by
+              the Speech recognition subsystem.
+            justification: |
+              The Speech library needs a maintained, local-inference speech-to-text engine with a
+              .NET API so it can offer offline streaming recognition without authoring an ONNX
+              inference pipeline and acoustic-model runtime itself.
+            tags: [ots]
+            tests:
+              - IRecognitionModel_CreateEngineConfig_InstalledDirectory_ResolvesPathsAndSampleRate
+              - IRecognitionModel_SampleRate_DeclaredByModel_IsExposed
+
+          - id: Speech-OTS-SherpaOnnx-ModelOwnedConfiguration
+            title: >-
+              sherpa-onnx integration shall let each model declare its own engine configuration
+              and required input sample rate behind library-owned abstractions.
+            justification: |
+              architecture.md makes each model's backing class responsible for its own engine
+              configuration, and requires that no sherpa-onnx type appear in the library's public
+              recognition contract so the engine backend stays swappable.
+            tags: [ots]
+            tests:
+              - SpeechRecognizerFactory_Create_ModelInstalledAndDeviceAvailable_ReturnsRealRecognizer
+              - SpeechRecognizerFactory_Create_EngineLoadFails_ReturnsUnavailableRecognizerAndDoesNotThrow

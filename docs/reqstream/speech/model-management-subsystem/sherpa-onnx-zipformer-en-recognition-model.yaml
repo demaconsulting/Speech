@@ -1,0 +1,113 @@
+---
+# Software Unit Requirements for SherpaOnnxZipformerEnRecognitionModel
+#
+# These requirements describe the design-level behavior of the
+# SherpaOnnxZipformerEnRecognitionModel unit, decomposing the parent ModelManagementSubsystem
+# requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        sections:
+          - title: SherpaOnnxZipformerEnRecognitionModel Requirements
+            requirements:
+              - id: Speech-Models-SherpaOnnxZipformerEnRecognitionModel-Identity
+                title: >-
+                  The SherpaOnnxZipformerEnRecognitionModel class shall declare a stable
+                  catalog identity (Id, DisplayName, Role = Recognition, no tunable
+                  Parameters, AudioTagSupport = None).
+                justification: |
+                  SpeechModelCatalog and SpeechModelDownloader depend only on the generic
+                  ISpeechModel/IRecognitionModel contract; this model must honestly declare
+                  its own fixed identity for the catalog and downloader to enumerate and
+                  fetch it correctly.
+                tests:
+                  - SherpaOnnxZipformerEnRecognitionModel_Identity_DeclaresExpectedValues
+
+              - id: Speech-Models-SherpaOnnxZipformerEnRecognitionModel-DownloadDescriptor
+                title: >-
+                  The SherpaOnnxZipformerEnRecognitionModel class shall declare a single
+                  validated HTTPS .tar.bz2 download file with a well-formed SHA-256 checksum.
+                justification: |
+                  SpeechModelDownloader depends only on the generic ISpeechModel download
+                  descriptor; this model must honestly declare its own single validated
+                  archive file for the downloader to fetch and verify it correctly.
+                tests:
+                  - SherpaOnnxZipformerEnRecognitionModel_DownloadDescriptor_DeclaresSingleValidatedArchiveFile
+
+              - id: Speech-Models-SherpaOnnxZipformerEnRecognitionModel-EngineConfig
+                title: >-
+                  The SherpaOnnxZipformerEnRecognitionModel class shall report a 16 kHz
+                  SampleRate and build an OnlineRecognizerConfig wiring its int8-quantized
+                  encoder/decoder/joiner/tokens files, ModelType "zipformer2",
+                  DecodingMethod "greedy_search", and EnableEndpoint 1.
+                justification: |
+                  This exact int8 configuration was proven end-to-end in this project's
+                  development sandbox against a real WAV file and the model's own ground
+                  truth transcript; the RecognitionSubsystem depends on this configuration
+                  being wired correctly and consistently for every installed-directory
+                  argument it may be given.
+                tests:
+                  - SherpaOnnxZipformerEnRecognitionModel_SampleRate_Is16000
+                  - SherpaOnnxZipformerEnRecognitionModel_CreateEngineConfig_ResolvesInt8FilesAndFeatureConfig
+
+              - id: Speech-Models-SherpaOnnxZipformerEnRecognitionModel-EngineConfigArgumentValidation
+                title: >-
+                  The SherpaOnnxZipformerEnRecognitionModel class shall throw
+                  ArgumentException from CreateEngineConfig for a null or empty
+                  installed-model directory.
+                justification: |
+                  A programming error (empty installed-model directory) should surface
+                  immediately with a clear, cheap-to-diagnose exception rather than an
+                  opaque failure deeper in engine configuration.
+                tests:
+                  - SherpaOnnxZipformerEnRecognitionModel_CreateEngineConfig_EmptyDirectory_ThrowsArgumentException
+
+              - id: Speech-Models-SherpaOnnxZipformerEnRecognitionModel-InstallAsync
+                title: >-
+                  The SherpaOnnxZipformerEnRecognitionModel class shall extract its
+                  downloaded .tar.bz2 archive in place via the shared
+                  TarBz2ArchiveExtractor and remove the archive file, leaving the
+                  archive's own top-level folder available to CreateEngineConfig.
+                justification: |
+                  SpeechModelDownloader invokes InstallAsync after checksum verification and
+                  before the atomic install swap; this model's declared payload is an
+                  archive, so its files must be expanded in place for the paths
+                  CreateEngineConfig resolves to actually exist after install.
+                tests:
+                  - SherpaOnnxZipformerEnRecognitionModel_InstallAsync_SyntheticArchive_ExtractsFilesAndRemovesArchive
+
+              - id: Speech-Models-SherpaOnnxZipformerEnRecognitionModel-NormalizeText
+                title: >-
+                  The SherpaOnnxZipformerEnRecognitionModel class shall restore casing,
+                  contractions, and terminal punctuation on final recognition results via
+                  the shared UppercaseTranscriptRestorer, and apply only cheap casing to
+                  provisional results.
+                justification: |
+                  This model's raw recognition output was empirically confirmed - by
+                  synthesizing real audio with the shipped LibriTTS voice and feeding it
+                  through the real SherpaOnnxRecognitionEngine - to be UPPERCASE and
+                  unpunctuated. Without restoration, SherpaOnnxSpeechRecognizer would
+                  surface that raw, shouted text unchanged to every consumer instead of
+                  readable prose.
+                tests:
+                  - SherpaOnnxZipformerEnRecognitionModel_NormalizeText_Final_RestoresCasingContractionsAndPunctuation
+                  - SherpaOnnxZipformerEnRecognitionModel_NormalizeText_Provisional_AppliesCheapCasingOnly
+
+              - id: Speech-Models-SherpaOnnxZipformerEnRecognitionModel-PostEndpointWarmupWindow
+                title: >-
+                  The SherpaOnnxZipformerEnRecognitionModel class shall not override
+                  IRecognitionModel.PostEndpointWarmupWindowMs, keeping the disabled 0
+                  default and remaining entirely unaffected by the recognition engine's
+                  post-endpoint warm-up-replay mitigation.
+                justification: |
+                  Forcing the post-endpoint warm-up-replay feature on for this model was
+                  empirically shown, against a real recording, to cause genuine duplicated
+                  text (documented in
+                  .agent-logs/planning-nemotron-endpoint-word-loss-warmup-replay-fix-9d4b71.md)
+                  - this model has shown no reproduction of the word-loss defect the feature
+                  exists to fix, so it must never opt in. This is a regression guard against
+                  the disabled default ever being accidentally changed for this model.
+                tests:
+                  - SherpaOnnxZipformerEnRecognitionModel_PostEndpointWarmupWindowMs_IsDisabledDefault

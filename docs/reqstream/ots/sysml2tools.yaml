@@ -27,3 +27,7 @@ sections:
               - SysML2Tools_RenderSvgSelfTest
               - SysML2Tools_SoftwareStructureViewSvg
               - SysML2Tools_SpeechViewSvg
+              - SysML2Tools_RecognitionSubsystemViewSvg
+              - SysML2Tools_DiagnosticsViewSvg
+              - SysML2Tools_AudioSubsystemViewSvg
+              - SysML2Tools_PortAudioViewSvg

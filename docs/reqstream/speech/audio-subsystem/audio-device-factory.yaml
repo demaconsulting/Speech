@@ -1,0 +1,55 @@
+---
+# Software Unit Requirements for AudioDeviceFactory
+#
+# These requirements describe the design-level behavior of the AudioDeviceFactory
+# unit, decomposing the parent AudioSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: AudioSubsystem Requirements
+        sections:
+          - title: AudioDeviceFactory Requirements
+            requirements:
+              - id: Speech-Audio-AudioDeviceFactory-NeverThrows
+                title: >-
+                  The AudioDeviceFactory class shall never throw when constructed or when
+                  creating a capture or playback device.
+                justification: |
+                  Composition happens at application start-up, where a missing device or backend
+                  is an ordinary machine state, not a programming error.
+                tests:
+                  - AudioDeviceFactory_Constructor_CustomEnvironment_DoesNotThrow
+
+              - id: Speech-Audio-AudioDeviceFactory-InjectableProbes
+                title: >-
+                  The AudioDeviceFactory class shall accept injected capture/playback probes and
+                  a diagnostics sink, falling back to safe defaults when none are supplied.
+                justification: |
+                  Constructor injection lets tests substitute mock probes while the production
+                  path still exposes the real PortAudio-backed defaults.
+                tests:
+                  - AudioDeviceFactory_Constructor_InjectedProbes_ExposesInjectedProbes
+
+              - id: Speech-Audio-AudioDeviceFactory-RealDefaultsWhenInitialized
+                title: >-
+                  The AudioDeviceFactory class shall expose PortAudio-backed default probes and
+                  devices when the PortAudio runtime initializes successfully.
+                justification: |
+                  Hosts should receive the real implementation by default once the runtime is
+                  available, without needing custom factory wiring.
+                tests:
+                  - AudioDeviceFactory_Constructor_PortAudioInitialized_ExposesRealProbes
+                  - AudioDeviceFactory_CreateCaptureDevice_PortAudioInitialized_ReturnsRealDevice
+                  - AudioDeviceFactory_CreatePlaybackDevice_PortAudioInitialized_ReturnsRealDevice
+
+              - id: Speech-Audio-AudioDeviceFactory-PortAudioInitializationFallback
+                title: >-
+                  The AudioDeviceFactory class shall fall back to the Unavailable* probes and
+                  devices when the PortAudio runtime cannot initialize.
+                justification: |
+                  A missing or incompatible native PortAudio runtime is an expected deployment
+                  state that must not break composition.
+                tests:
+                  - AudioDeviceFactory_Constructor_PortAudioInitializationFails_ExposesUnavailableProbes
+                  - AudioDeviceFactory_CreateDevices_PortAudioInitializationFails_ReturnUnavailableDevices

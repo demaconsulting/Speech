@@ -1,0 +1,53 @@
+---
+# Software Unit Requirements for ISpeechRecognizer
+#
+# These requirements describe the design-level behavior of the ISpeechRecognizer contract and its
+# adjacent result/event value types, decomposing the parent RecognitionSubsystem requirements.
+# The three types are documented together since the result and event types carry no behavior
+# independent of the contract that produces them.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: RecognitionSubsystem Requirements
+        sections:
+          - title: ISpeechRecognizer Requirements
+            requirements:
+              - id: Speech-Recognition-ISpeechRecognizer-AvailabilityFlag
+                title: >-
+                  The ISpeechRecognizer interface shall expose an IsAvailable flag that never
+                  throws to read.
+                justification: |
+                  Callers must be able to check availability before invoking an operational
+                  member, without risk of the check itself failing.
+                tests:
+                  - UnavailableSpeechRecognizer_IsAvailable_Read_ReturnsFalse
+                  - SpeechRecognizerFactory_Create_ModelInstalledAndDeviceAvailable_ReturnsRealRecognizer
+
+              - id: Speech-Recognition-ISpeechRecognizer-StartStopResultReceived
+                title: >-
+                  The ISpeechRecognizer interface shall define Start/Stop lifecycle methods, a
+                  ResultReceived event for delivering recognition results while running, and
+                  disposal of the resources a running recognizer holds.
+                justification: |
+                  A mockable streaming-recognition contract lets hosts and tests depend on
+                  recognition behavior without tying themselves to a specific inference engine,
+                  while still giving them a defined point at which engine resources are released.
+                tests:
+                  - UnavailableSpeechRecognizer_Start_Always_ThrowsSpeechRecognizerUnavailableException
+                  - UnavailableSpeechRecognizer_Stop_Always_ThrowsSpeechRecognizerUnavailableException
+                  - SherpaOnnxSpeechRecognizer_Start_Always_SubscribesAndStartsCaptureDevice
+                  - SherpaOnnxSpeechRecognizer_Stop_WhileRunning_UnsubscribesAndStopsCaptureDevice
+                  - SherpaOnnxSpeechRecognizer_Dispose_CalledTwice_StopsAndDisposesEngineOnce
+
+              - id: Speech-Recognition-ISpeechRecognizer-ResultShape
+                title: >-
+                  A recognition result shall carry the full recognized text of the current
+                  utterance together with whether that text is provisional or final.
+                justification: |
+                  architecture.md requires streaming recognition that emits "progressive
+                  provisional and final results as audio arrives", so a host must be able to tell
+                  from a single result whether to replace an in-progress transcript line or commit
+                  it, without accumulating fragments itself.
+                tests:
+                  - SherpaOnnxSpeechRecognizer_FrameCaptured_EngineDecodesResults_RaisesResultReceivedInOrder

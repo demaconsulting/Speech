@@ -1,0 +1,51 @@
+---
+# Software Unit Requirements for SpeechRecognizerFactory
+#
+# These requirements describe the design-level behavior of the SpeechRecognizerFactory unit,
+# decomposing the parent RecognitionSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: RecognitionSubsystem Requirements
+        sections:
+          - title: SpeechRecognizerFactory Requirements
+            requirements:
+              - id: Speech-Recognition-SpeechRecognizerFactory-RealRecognizer
+                title: >-
+                  The SpeechRecognizerFactory class shall return a working speech recognizer when
+                  the requested model is installed, declares the recognition role, its engine
+                  loads, and the supplied capture device is available.
+                justification: |
+                  A single composition entry point keeps all "can this machine recognize speech
+                  right now?" logic in one reviewable place, so a host never has to reason about
+                  model installation, device availability, and engine loading separately.
+                tests:
+                  - SpeechRecognizerFactory_Create_ModelInstalledAndDeviceAvailable_ReturnsRealRecognizer
+
+              - id: Speech-Recognition-SpeechRecognizerFactory-HonestFallbacks
+                title: >-
+                  The SpeechRecognizerFactory class shall return an honest unavailable recognizer,
+                  without throwing, when the requested model is not installed, the model does not
+                  declare the recognition role, or the supplied capture device is unavailable.
+                justification: |
+                  Per architecture.md's "nothing throws at composition" decision, a model that has
+                  not been downloaded yet and a machine with no microphone are ordinary states at
+                  application start-up, not programming errors.
+                tests:
+                  - SpeechRecognizerFactory_Create_ModelNotInstalled_ReturnsUnavailableRecognizer
+                  - SpeechRecognizerFactory_Create_CaptureDeviceUnavailable_ReturnsUnavailableRecognizer
+                  - SpeechRecognizerFactory_Create_ModelRoleIsNotRecognition_ReturnsUnavailableRecognizer
+
+              - id: Speech-Recognition-SpeechRecognizerFactory-EngineLoadFailureFallback
+                title: >-
+                  The SpeechRecognizerFactory class shall return an honest unavailable recognizer,
+                  and report the reason, when the recognition engine for an installed model cannot
+                  be loaded.
+                justification: |
+                  architecture.md requires that "a model whose native runtime is absent must
+                  degrade the same honest way as a missing model file, never crash". An engine
+                  that cannot load because of a missing native binary, an unsupported platform, or
+                  corrupt model files must therefore not fail application start-up.
+                tests:
+                  - SpeechRecognizerFactory_Create_EngineLoadFails_ReturnsUnavailableRecognizerAndDoesNotThrow

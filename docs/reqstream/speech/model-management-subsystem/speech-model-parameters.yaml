@@ -1,0 +1,74 @@
+---
+# Software Unit Requirements for the model-parameter descriptors (ISpeechModelParameter,
+# NumericParameter, ChoiceParameter, BooleanParameter)
+#
+# These requirements describe the design-level behavior of the typed tunable-parameter
+# descriptor hierarchy, decomposing the parent ModelManagementSubsystem requirements. The
+# common contract and its three concrete implementations are documented together since they form
+# one cohesive, tightly-coupled descriptor set with no independent behavior beyond it.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        sections:
+          - title: SpeechModelParameters Requirements
+            requirements:
+              - id: Speech-Models-SpeechModelParameters-NumericValidation
+                title: >-
+                  The NumericParameter class shall validate at construction that minimum does not
+                  exceed maximum, that step is strictly positive, and that the default value
+                  falls within [minimum, maximum], rejecting a non-finite bound outright; when
+                  isInteger is true, it shall additionally validate that minimum, maximum, step,
+                  and default are all whole numbers.
+                justification: |
+                  A range that could never be honored by a slider control, or a default a host
+                  could never actually supply back to the model, must be caught the moment a
+                  model's backing class declares it - not discovered later when a host tries to
+                  render it. An inherently whole-number parameter (for example a discrete speaker
+                  index) has no fractional meaning, so a fractional bound declared alongside
+                  isInteger: true must be rejected for the same reason, since it could never be
+                  honored by a whole-number-only control.
+                tests:
+                  - NumericParameter_Constructor_ValidRange_ExposesValues
+                  - NumericParameter_Constructor_NoUnit_UnitIsNull
+                  - NumericParameter_Constructor_MinimumGreaterThanMaximum_ThrowsArgumentException
+                  - NumericParameter_Constructor_NonPositiveStep_ThrowsArgumentException
+                  - NumericParameter_Constructor_DefaultOutsideRange_ThrowsArgumentException
+                  - NumericParameter_Constructor_NonFiniteMinimum_ThrowsArgumentException
+                  - NumericParameter_Constructor_NullId_ThrowsArgumentNullException
+                  - NumericParameter_Constructor_IsIntegerWithWholeNumberBounds_ExposesIsIntegerTrue
+                  - NumericParameter_Constructor_IsIntegerOmitted_DefaultsToFalse
+                  - NumericParameter_Constructor_IsIntegerWithFractionalMinimum_ThrowsArgumentException
+                  - NumericParameter_Constructor_IsIntegerWithFractionalMaximum_ThrowsArgumentException
+                  - NumericParameter_Constructor_IsIntegerWithFractionalStep_ThrowsArgumentException
+                  - NumericParameter_Constructor_IsIntegerWithFractionalDefault_ThrowsArgumentException
+
+              - id: Speech-Models-SpeechModelParameters-ChoiceValidation
+                title: >-
+                  The ChoiceParameter class shall validate at construction that at least one
+                  option is declared, that no two options share the same value, and that the
+                  default value matches one declared option's value exactly.
+                justification: |
+                  An empty option list could never be rendered as a dropdown, duplicate option
+                  values would make a supplied bag entry ambiguous, and a default matching no
+                  option would leave a host unable to select the model's own declared default.
+                tests:
+                  - ChoiceParameter_Constructor_ValidOptions_ExposesValues
+                  - ChoiceParameter_Constructor_EmptyOptions_ThrowsArgumentException
+                  - ChoiceParameter_Constructor_DuplicateOptionValues_ThrowsArgumentException
+                  - ChoiceParameter_Constructor_DefaultNotAnOption_ThrowsArgumentException
+                  - ChoiceParameterOption_Constructor_EmptyValue_ThrowsArgumentException
+
+              - id: Speech-Models-SpeechModelParameters-BooleanValidation
+                title: >-
+                  The BooleanParameter class shall validate the common ISpeechModelParameter
+                  fields at construction, exposing a default value with no further constraint.
+                justification: |
+                  A boolean value has no invalid range to reject; only the common id/display
+                  name/description fields need validation, consistent with the other descriptor
+                  types.
+                tests:
+                  - BooleanParameter_Constructor_ValidValues_ExposesValues
+                  - BooleanParameter_Constructor_WhitespaceId_ThrowsArgumentException
+                  - BooleanParameter_Constructor_NullDisplayName_ThrowsArgumentNullException

@@ -94,6 +94,52 @@ sections:
           - Template-OTS-ReqStream-Lint
           - Template-OTS-FileAssert
 
+      - id: Quality-AudioBackend
+        title: >-
+          The repository shall rely on PortAudioSharp2 for real cross-platform audio capture and
+          playback.
+        tags: [quality]
+        justification: |
+          Real audio I/O depends on PortAudioSharp2's managed PortAudio binding and its
+          host-API-aware device selection and stream-opening capabilities. This grouping
+          requirement links those OTS requirements to the quality root so they participate in
+          orphan detection without being falsely reported as disconnected from library
+          functionality.
+        children:
+          - Speech-OTS-PortAudioSharp2-ManagedBinding
+          - Speech-OTS-PortAudioSharp2-HostApiSelection
+          - Speech-OTS-PortAudioSharp2-StreamInterop
+
+      - id: Quality-SpeechEngine
+        title: >-
+          The repository shall rely on sherpa-onnx for local, offline speech recognition
+          inference.
+        tags: [quality]
+        justification: |
+          Streaming speech-to-text depends on sherpa-onnx's managed streaming-recognition API and
+          on each model declaring its own engine configuration through that API. This grouping
+          requirement links those OTS requirements to the quality root so they participate in
+          orphan detection without being falsely reported as disconnected from library
+          functionality.
+        children:
+          - Speech-OTS-SherpaOnnx-ManagedStreamingApi
+          - Speech-OTS-SherpaOnnx-ModelOwnedConfiguration
+
+      - id: Quality-ArchiveExtraction
+        title: >-
+          The repository shall rely on SharpCompress to unpack downloaded .tar.bz2 model
+          archives.
+        tags: [quality]
+        justification: |
+          Model installation depends on SharpCompress's managed BZip2 tar decoder, and the
+          TarBz2ArchiveExtractor helper's argument validation precedes every call into it. This
+          grouping requirement links those OTS requirements to the quality root so they
+          participate in orphan detection without being falsely reported as disconnected from
+          library functionality.
+        children:
+          - Speech-OTS-SharpCompress-TarBz2Extraction
+          - Speech-OTS-SharpCompress-ArgumentValidation
+
       - id: Quality-SoftwareStructureModeling
         title: The repository shall rely on SysML2Tools to lint and render software-structure models.
         tags: [quality]
@@ -106,3 +152,19 @@ sections:
         children:
           - Template-OTS-SysML2Tools-Lint
           - Template-OTS-SysML2Tools-Render
+
+      - id: Quality-DemoUserInterface
+        title: >-
+          The repository shall rely on Avalonia and CommunityToolkit.Mvvm for the cross-platform
+          demo application user interface.
+        tags: [quality]
+        justification: |
+          The SpeechDemo application depends on Avalonia for its cross-platform desktop
+          application host and on CommunityToolkit.Mvvm for observable change notification and
+          generated commands. This grouping requirement links those OTS requirements to the
+          quality root so they participate in orphan detection without being falsely reported as
+          disconnected from library functionality.
+        children:
+          - SpeechDemo-OTS-Avalonia-DesktopApplicationHost
+          - SpeechDemo-OTS-CommunityToolkitMvvm-ChangeNotification
+          - SpeechDemo-OTS-CommunityToolkitMvvm-Commands

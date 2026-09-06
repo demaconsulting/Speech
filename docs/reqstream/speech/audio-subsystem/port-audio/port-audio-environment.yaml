@@ -1,0 +1,51 @@
+---
+# cspell:ignore Alsa
+# Software Unit Requirements for PortAudioEnvironment
+#
+# These requirements describe the design-level behavior of the PortAudioEnvironment
+# unit, decomposing the parent PortAudio subsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: AudioSubsystem Requirements
+        sections:
+          - title: PortAudio Requirements
+            sections:
+              - title: PortAudioEnvironment Requirements
+                requirements:
+                  - id: Speech-Audio-PortAudio-PortAudioEnvironment-PlatformMapping
+                    title: >-
+                      The PortAudioEnvironment class shall map each supported desktop platform
+                      to exactly one preferred PortAudio host API.
+                    justification: |
+                      The higher-level audio subsystem relies on deterministic host-API
+                      selection to avoid duplicate device listings.
+                    tests:
+                      - PortAudioEnvironment_ResolvePreferredHostApiType_Windows_ReturnsWasapi
+                      - PortAudioEnvironment_ResolvePreferredHostApiType_Linux_ReturnsAlsa
+                      - PortAudioEnvironment_ResolvePreferredHostApiType_MacOs_ReturnsCoreAudio
+                      - PortAudioEnvironment_ResolvePreferredHostApiType_UnsupportedPlatform_ReturnsNull
+
+                  - id: Speech-Audio-PortAudio-PortAudioEnvironment-CachesInitialization
+                    title: >-
+                      The PortAudioEnvironment class shall cache one PortAudio initialization
+                      attempt and convert initialization failure into a non-throwing state.
+                    justification: |
+                      PortAudio initialization status influences composition-time fallback
+                      decisions and must not cause repeated native initialization attempts.
+                    tests:
+                      - PortAudioEnvironment_TryResolvePreferredHostApi_InitializationFails_ReturnsFalseAndCachesFailure
+                      - PortAudioEnvironment_Shared_ReadTwice_ReturnsSameInstance
+                      - PortAudioApi_Instance_ReadTwice_ReturnsSameInstance
+
+                  - id: Speech-Audio-PortAudio-PortAudioEnvironment-ResolvesPreferredHostApi
+                    title: >-
+                      The PortAudioEnvironment class shall resolve the preferred host API's
+                      runtime index and metadata when that host API is available.
+                    justification: |
+                      Higher-level device enumeration and default-device selection depend on the
+                      host-API-scoped default device indices.
+                    tests:
+                      - PortAudioEnvironment_TryResolvePreferredHostApi_InitializedAndMapped_ReturnsHostApiInfo
+                      - PortAudioEnvironment_TryResolvePreferredHostApi_PreferredHostApiMissing_ReturnsFalse

@@ -1,0 +1,73 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:settings="clr-namespace:DemaConsulting.Speech.Demo.ModelSettingsSubsystem"
+             x:Class="DemaConsulting.Speech.Demo.ModelSettingsSubsystem.ModelSettingsView"
+             x:DataType="settings:ModelSettingsViewModel">
+
+  <UserControl.DataTemplates>
+
+    <!-- Numeric: slider (continuous) or numeric up-down (integer) bound to the clamped Value,
+         with min/max/step from the descriptor. IsInteger selects which control is shown so an
+         inherently whole-number parameter (for example a discrete speaker index) can never have
+         a fractional value selected in the first place. -->
+    <DataTemplate DataType="settings:NumericParameterViewModel">
+      <StackPanel Spacing="2" Margin="0,4">
+        <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
+        <TextBlock Text="{Binding Description}" Opacity="0.6" TextWrapping="Wrap" />
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Slider IsVisible="{Binding !IsInteger}"
+                  Minimum="{Binding Minimum}"
+                  Maximum="{Binding Maximum}"
+                  TickFrequency="{Binding Step}"
+                  Value="{Binding Value}"
+                  Width="220" />
+          <NumericUpDown IsVisible="{Binding IsInteger}"
+                          Minimum="{Binding Minimum}"
+                          Maximum="{Binding Maximum}"
+                          Increment="{Binding Step}"
+                          Value="{Binding Value}"
+                          FormatString="0"
+                          Width="220" />
+          <TextBlock Text="{Binding Value}" />
+          <TextBlock Text="{Binding Unit}" />
+        </StackPanel>
+      </StackPanel>
+    </DataTemplate>
+
+    <!-- Choice: dropdown of the declared options -->
+    <DataTemplate DataType="settings:ChoiceParameterViewModel">
+      <StackPanel Spacing="2" Margin="0,4">
+        <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
+        <TextBlock Text="{Binding Description}" Opacity="0.6" TextWrapping="Wrap" />
+        <ComboBox ItemsSource="{Binding Options}"
+                  SelectedItem="{Binding SelectedOption}"
+                  DisplayMemberBinding="{Binding Label}"
+                  Width="220" />
+      </StackPanel>
+    </DataTemplate>
+
+    <!-- Boolean: checkbox toggling the value directly -->
+    <DataTemplate DataType="settings:BooleanParameterViewModel">
+      <StackPanel Spacing="2" Margin="0,4">
+        <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
+        <TextBlock Text="{Binding Description}" Opacity="0.6" TextWrapping="Wrap" />
+        <CheckBox Content="Enabled" IsChecked="{Binding Value}" />
+      </StackPanel>
+    </DataTemplate>
+
+  </UserControl.DataTemplates>
+
+  <StackPanel Spacing="8">
+
+    <TextBlock Text="Model Settings" FontWeight="SemiBold" />
+
+    <TextBlock TextWrapping="Wrap"
+               IsVisible="{Binding IsEmpty}"
+               Text="{Binding EmptyMessage}" />
+
+    <ItemsControl ItemsSource="{Binding Parameters}"
+                  IsVisible="{Binding HasParameters}" />
+
+  </StackPanel>
+
+</UserControl>

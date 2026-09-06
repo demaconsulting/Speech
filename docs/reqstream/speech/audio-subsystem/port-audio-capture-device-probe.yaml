@@ -1,0 +1,33 @@
+---
+# Software Unit Requirements for PortAudioCaptureDeviceProbe
+#
+# These requirements describe the design-level behavior of the PortAudioCaptureDeviceProbe
+# unit, decomposing the parent AudioSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: AudioSubsystem Requirements
+        sections:
+          - title: PortAudioCaptureDeviceProbe Requirements
+            requirements:
+              - id: Speech-Audio-PortAudioCaptureDeviceProbe-PreferredHostOnly
+                title: >-
+                  The PortAudioCaptureDeviceProbe class shall enumerate only input-capable
+                  devices that belong to the current platform's preferred PortAudio host API.
+                justification: |
+                  Restricting enumeration to one host API avoids duplicate device listings and
+                  keeps persisted name-only selections unambiguous.
+                tests:
+                  - PortAudioCaptureDeviceProbe_Enumerate_MixedHostApis_ReturnsOnlyPreferredInputDevices
+
+              - id: Speech-Audio-PortAudioCaptureDeviceProbe-EmptyOnMissingBackend
+                title: >-
+                  The PortAudioCaptureDeviceProbe class shall return an empty list when the
+                  preferred host API is unavailable or the runtime exposes no capture devices.
+                justification: |
+                  Enumeration is an information-gathering operation that must degrade honestly
+                  without throwing when audio hardware is absent.
+                tests:
+                  - PortAudioCaptureDeviceProbe_Enumerate_PreferredHostApiMissing_ReturnsEmptyList
+                  - PortAudioCaptureDeviceProbe_Enumerate_NoDevices_ReturnsEmptyList

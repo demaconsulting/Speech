@@ -2,8 +2,7 @@
 
   <PropertyGroup>
     <!-- Build Configuration -->
-    <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('Windows'))">net481;net8.0;net9.0;net10.0</TargetFrameworks>
-    <TargetFrameworks Condition="!$([MSBuild]::IsOSPlatform('Windows'))">net8.0;net9.0;net10.0</TargetFrameworks>
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
     <LangVersion>latest</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
@@ -40,6 +39,7 @@
     </PackageReference>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.9.0" />
     <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" Version="2.3.3" />
+    <PackageReference Include="NSubstitute" Version="6.2.0" />
     <PackageReference Include="xunit.v3" Version="4.0.0" />
     <PackageReference Include="xunit.runner.visualstudio" Version="4.0.0">
       <PrivateAssets>all</PrivateAssets>
@@ -67,6 +67,15 @@
   <!-- Project References -->
   <ItemGroup>
     <ProjectReference Include="..\..\src\DemaConsulting.Speech\DemaConsulting.Speech.csproj" />
+  </ItemGroup>
+
+  <!-- Test Data Files -->
+  <ItemGroup>
+    <!-- Real-speech WAV fixture (and its licensing/attribution NOTICE.md) consumed by
+         SherpaOnnxRecognitionEngineAccuracyTests; copied next to the built test assembly so the
+         path resolved via AppContext.BaseDirectory at test run time is always valid regardless of
+         the working directory the test host was launched from. -->
+    <None Include="TestData\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

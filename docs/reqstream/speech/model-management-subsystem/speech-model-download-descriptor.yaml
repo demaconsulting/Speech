@@ -1,0 +1,27 @@
+---
+# Software Unit Requirements for SpeechModelDownloadDescriptor
+#
+# These requirements describe the design-level behavior of the SpeechModelDownloadDescriptor
+# unit, decomposing the parent ModelManagementSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        sections:
+          - title: SpeechModelDownloadDescriptor Requirements
+            requirements:
+              - id: Speech-Models-SpeechModelDownloadDescriptor-Validation
+                title: >-
+                  The SpeechModelDownloadDescriptor record shall preserve the declared order of
+                  its files, and shall reject, at construction, a null or empty file list and a
+                  file list containing duplicate relative install paths.
+                justification: |
+                  Declaration order determines download and progress-reporting order; duplicate
+                  install paths within one descriptor would cause one downloaded file to silently
+                  overwrite another during staging.
+                tests:
+                  - SpeechModelDownloadDescriptor_Constructor_MultipleFiles_PreservesOrder
+                  - SpeechModelDownloadDescriptor_Constructor_EmptyFileList_ThrowsArgumentException
+                  - SpeechModelDownloadDescriptor_Constructor_NullFileList_ThrowsArgumentNullException
+                  - SpeechModelDownloadDescriptor_Constructor_DuplicateInstallPaths_ThrowsArgumentException

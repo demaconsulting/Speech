@@ -1,0 +1,28 @@
+---
+# Software Unit Requirements for SpeechModelDownloadProgress
+#
+# These requirements describe the design-level behavior of the SpeechModelDownloadProgress unit,
+# decomposing the parent ModelManagementSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        sections:
+          - title: SpeechModelDownloadProgress Requirements
+            requirements:
+              - id: Speech-Models-SpeechModelDownloadProgress-FractionComplete
+                title: >-
+                  The SpeechModelDownloadProgress record shall compute FractionComplete as
+                  BytesTransferred divided by TotalBytes when the total is known and positive,
+                  return null when the total is unknown, and return 1 when the total is exactly
+                  zero.
+                justification: |
+                  A host progress UI needs a single, unambiguous fraction; an unknown total
+                  (chunked transfer with no Content-Length) must not be misreported as zero
+                  progress, and a genuinely empty file must report as complete rather than
+                  dividing by zero.
+                tests:
+                  - SpeechModelDownloadProgress_FractionComplete_KnownTotal_ComputesFraction
+                  - SpeechModelDownloadProgress_FractionComplete_UnknownTotal_ReturnsNull
+                  - SpeechModelDownloadProgress_FractionComplete_ZeroTotalBytes_ReturnsOne

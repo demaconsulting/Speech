@@ -1,0 +1,43 @@
+---
+# Software Subsystem Requirements for Diagnostics
+#
+# These requirements describe the subsystem-level behavior of the Diagnostics
+# subsystem, decomposing the system-level diagnostics requirements in
+# docs/reqstream/speech.yaml.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: Diagnostics Requirements
+        requirements:
+          - id: Speech-Diagnostics-Interface
+            title: The Diagnostics subsystem shall expose an interface for reporting structural events.
+            justification: |
+              Hosts need a single, stable contract to implement in order to receive diagnostic
+              events, independent of which library component raises them.
+            children:
+              - Speech-Diagnostics-ISpeechDiagnostics-ReportMethod
+            tests:
+              - Speech_SystemIntegration_DiagnosticsSink_ReceivesStructuralEvents
+
+          - id: Speech-Diagnostics-StructuralFactsOnly
+            title: The Diagnostics subsystem shall carry structural facts only, never raw user audio or text.
+            justification: |
+              architecture.md requires diagnostics to report structural facts only (e.g. device
+              selected, model state changed) so a host can safely surface diagnostics without
+              risking exposure of user speech or dictated text content.
+            children:
+              - Speech-Diagnostics-ISpeechDiagnostics-ReportMethod
+            tests:
+              - Speech_SystemIntegration_DiagnosticsSink_ReceivesStructuralEvents
+
+          - id: Speech-Diagnostics-NullSink
+            title: The Diagnostics subsystem shall provide a default sink that discards every event without throwing.
+            justification: |
+              Per architecture.md's "nothing throws at composition" decision, every factory must
+              be able to supply a working diagnostics sink even when a host provides none.
+            children:
+              - Speech-Diagnostics-NullSpeechDiagnostics-Singleton
+              - Speech-Diagnostics-NullSpeechDiagnostics-NeverThrows
+            tests:
+              - Speech_SystemIntegration_NoDiagnosticsSupplied_UsesNullSpeechDiagnosticsSafely

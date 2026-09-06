@@ -18,82 +18,90 @@ run for all scenarios constitutes evidence that both requirements are satisfied.
 
 ### Test Scenarios
 
-#### Demo_DemoMethod_DefaultPrefix_ReturnsGreeting
+#### NullSpeechDiagnostics_Instance_ReadTwice_ReturnsSameInstance
 
-**Scenario**: xUnit discovers and runs this test; the test verifies that DemoMethod returns the
-expected greeting using the default prefix.
-
-**Expected**: xUnit executes the test, the test passes, and the result appears in the TRX output.
-
-**Requirement coverage**: `Template-OTS-xUnit-Execute`, `Template-OTS-xUnit-Report`.
-
-#### Demo_DemoMethod_CustomPrefix_ReturnsGreeting
-
-**Scenario**: xUnit discovers and runs this test; the test verifies that DemoMethod returns the
-expected greeting using a custom prefix.
+**Scenario**: xUnit discovers and runs this test; the test verifies that
+`NullSpeechDiagnostics.Instance` returns the identical shared object on two successive reads,
+confirming the documented singleton contract.
 
 **Expected**: xUnit executes the test, the test passes, and the result appears in the TRX output.
 
 **Requirement coverage**: `Template-OTS-xUnit-Execute`, `Template-OTS-xUnit-Report`.
 
-#### Demo_DemoMethod_NullInput_ThrowsArgumentNullException
+#### NullSpeechDiagnostics_Report_NormalEvent_DoesNotThrow
 
-**Scenario**: xUnit discovers and runs this test; the test verifies that DemoMethod rejects a null
-argument with ArgumentNullException.
-
-**Expected**: xUnit executes the test, the test passes, and the result appears in the TRX output.
-
-**Requirement coverage**: `Template-OTS-xUnit-Execute`, `Template-OTS-xUnit-Report`.
-
-#### Demo_DemoMethod_EmptyInput_ThrowsArgumentException
-
-**Scenario**: xUnit discovers and runs this test; the test verifies that DemoMethod rejects an
-empty string argument with ArgumentException.
+**Scenario**: xUnit discovers and runs this test; the test verifies that
+`NullSpeechDiagnostics.Report` is a true no-op for a normal, well-formed diagnostic event and
+never throws.
 
 **Expected**: xUnit executes the test, the test passes, and the result appears in the TRX output.
 
 **Requirement coverage**: `Template-OTS-xUnit-Execute`, `Template-OTS-xUnit-Report`.
 
-#### Demo_Constructor_NullPrefix_ThrowsArgumentNullException
+#### NullSpeechDiagnostics_Report_NullOrEmptyArguments_DoesNotThrow
 
-**Scenario**: xUnit discovers and runs this test; the test verifies that the constructor rejects a
-null prefix with ArgumentNullException.
-
-**Expected**: xUnit executes the test, the test passes, and the result appears in the TRX output.
-
-**Requirement coverage**: `Template-OTS-xUnit-Execute`, `Template-OTS-xUnit-Report`.
-
-#### Demo_Constructor_EmptyPrefix_ThrowsArgumentException
-
-**Scenario**: xUnit discovers and runs this test; the test verifies that the constructor rejects an
-empty string prefix with ArgumentException.
+**Scenario**: xUnit discovers and runs this test; the test verifies that
+`NullSpeechDiagnostics.Report` never throws even when given null category/message arguments,
+confirming the sink cannot become the reason a caller's real operation fails.
 
 **Expected**: xUnit executes the test, the test passes, and the result appears in the TRX output.
 
 **Requirement coverage**: `Template-OTS-xUnit-Execute`, `Template-OTS-xUnit-Report`.
 
-#### Demo_DefaultPrefix_Read_IsHello
+#### NullSpeechDiagnostics_Report_AnyLevel_DoesNotThrow
 
-**Scenario**: xUnit discovers and runs this test; the test verifies that the DefaultPrefix constant
-has the value "Hello".
+**Scenario**: xUnit discovers and runs this data-driven `[Theory]` test across every
+`SpeechDiagnosticLevel` value (`Info`, `Warning`, `Error`); the test verifies that the sink
+discards events regardless of severity without throwing.
+
+**Expected**: xUnit executes the test for each inline data case, all cases pass, and the results
+appear in the TRX output.
+
+**Requirement coverage**: `Template-OTS-xUnit-Execute`, `Template-OTS-xUnit-Report`.
+
+#### AudioDeviceSelection_Resolve_MatchingName_ReturnsMatchingDevice
+
+**Scenario**: xUnit discovers and runs this test; the test verifies that resolving a selection
+whose name matches an enumerated device returns that matching device.
 
 **Expected**: xUnit executes the test, the test passes, and the result appears in the TRX output.
 
 **Requirement coverage**: `Template-OTS-xUnit-Execute`, `Template-OTS-xUnit-Report`.
 
-#### Demo_Prefix_WithCustomConstruction_ReturnsCustomPrefix
+#### AudioDeviceSelection_Resolve_NoLongerPresent_ReturnsNull
 
-**Scenario**: xUnit discovers and runs this test; the test verifies that the Prefix property
-returns the value supplied at construction.
+**Scenario**: xUnit discovers and runs this test; the test verifies that resolving a selection
+whose named device is no longer present in the enumeration falls back to `null` (system default)
+rather than throwing.
 
 **Expected**: xUnit executes the test, the test passes, and the result appears in the TRX output.
 
 **Requirement coverage**: `Template-OTS-xUnit-Execute`, `Template-OTS-xUnit-Report`.
 
-#### Demo_DefaultConstructor_WithNoArgs_SetsDefaultPrefix
+#### AudioDeviceSelection_Resolve_SystemDefault_ReturnsNull
 
-**Scenario**: xUnit discovers and runs this test; the test verifies that the default constructor
-sets Prefix to the DefaultPrefix constant.
+**Scenario**: xUnit discovers and runs this test; the test verifies that
+`AudioDeviceSelection.SystemDefault` always resolves to `null`, regardless of what devices are
+enumerated.
+
+**Expected**: xUnit executes the test, the test passes, and the result appears in the TRX output.
+
+**Requirement coverage**: `Template-OTS-xUnit-Execute`, `Template-OTS-xUnit-Report`.
+
+#### AudioDeviceSelection_Resolve_EmptyDeviceList_ReturnsNull
+
+**Scenario**: xUnit discovers and runs this test; the test verifies that resolving against an
+empty device list never throws and falls back to `null`.
+
+**Expected**: xUnit executes the test, the test passes, and the result appears in the TRX output.
+
+**Requirement coverage**: `Template-OTS-xUnit-Execute`, `Template-OTS-xUnit-Report`.
+
+#### AudioDeviceSelection_Resolve_NullDeviceList_ThrowsArgumentNullException
+
+**Scenario**: xUnit discovers and runs this test; the test verifies that
+`AudioDeviceSelection.Resolve` rejects a `null` device list with `ArgumentNullException`,
+distinguishing "not asked" from "no devices".
 
 **Expected**: xUnit executes the test, the test passes, and the result appears in the TRX output.
 
@@ -101,19 +109,21 @@ sets Prefix to the DefaultPrefix constant.
 
 ### Requirements Coverage
 
-- **`Template-OTS-xUnit-Execute`**: Demo_DemoMethod_DefaultPrefix_ReturnsGreeting,
-  Demo_DemoMethod_CustomPrefix_ReturnsGreeting,
-  Demo_DemoMethod_NullInput_ThrowsArgumentNullException,
-  Demo_DemoMethod_EmptyInput_ThrowsArgumentException,
-  Demo_Constructor_NullPrefix_ThrowsArgumentNullException,
-  Demo_Constructor_EmptyPrefix_ThrowsArgumentException, Demo_DefaultPrefix_Read_IsHello,
-  Demo_Prefix_WithCustomConstruction_ReturnsCustomPrefix,
-  Demo_DefaultConstructor_WithNoArgs_SetsDefaultPrefix
-- **`Template-OTS-xUnit-Report`**: Demo_DemoMethod_DefaultPrefix_ReturnsGreeting,
-  Demo_DemoMethod_CustomPrefix_ReturnsGreeting,
-  Demo_DemoMethod_NullInput_ThrowsArgumentNullException,
-  Demo_DemoMethod_EmptyInput_ThrowsArgumentException,
-  Demo_Constructor_NullPrefix_ThrowsArgumentNullException,
-  Demo_Constructor_EmptyPrefix_ThrowsArgumentException, Demo_DefaultPrefix_Read_IsHello,
-  Demo_Prefix_WithCustomConstruction_ReturnsCustomPrefix,
-  Demo_DefaultConstructor_WithNoArgs_SetsDefaultPrefix
+- **`Template-OTS-xUnit-Execute`**: NullSpeechDiagnostics_Instance_ReadTwice_ReturnsSameInstance,
+  NullSpeechDiagnostics_Report_NormalEvent_DoesNotThrow,
+  NullSpeechDiagnostics_Report_NullOrEmptyArguments_DoesNotThrow,
+  NullSpeechDiagnostics_Report_AnyLevel_DoesNotThrow,
+  AudioDeviceSelection_Resolve_MatchingName_ReturnsMatchingDevice,
+  AudioDeviceSelection_Resolve_NoLongerPresent_ReturnsNull,
+  AudioDeviceSelection_Resolve_SystemDefault_ReturnsNull,
+  AudioDeviceSelection_Resolve_EmptyDeviceList_ReturnsNull,
+  AudioDeviceSelection_Resolve_NullDeviceList_ThrowsArgumentNullException
+- **`Template-OTS-xUnit-Report`**: NullSpeechDiagnostics_Instance_ReadTwice_ReturnsSameInstance,
+  NullSpeechDiagnostics_Report_NormalEvent_DoesNotThrow,
+  NullSpeechDiagnostics_Report_NullOrEmptyArguments_DoesNotThrow,
+  NullSpeechDiagnostics_Report_AnyLevel_DoesNotThrow,
+  AudioDeviceSelection_Resolve_MatchingName_ReturnsMatchingDevice,
+  AudioDeviceSelection_Resolve_NoLongerPresent_ReturnsNull,
+  AudioDeviceSelection_Resolve_SystemDefault_ReturnsNull,
+  AudioDeviceSelection_Resolve_EmptyDeviceList_ReturnsNull,
+  AudioDeviceSelection_Resolve_NullDeviceList_ThrowsArgumentNullException

@@ -18,7 +18,10 @@ WeasyPrint produced meaningful, correctly formed output at every stage of the pi
 
 FileAssert is invoked as a `dotnet tool` (`dotnet fileassert`) from
 `.github/workflows/build.yaml` after each Pandoc/WeasyPrint conversion step (Build Notes, Code
-Quality, Review Plan, Review Report, Design, Verification, and User Guide documents), and via
-`.fileassert.yaml` for its self-validation configuration. It is a stateless CLI invocation —
-each run reads a configuration/target file, asserts, and exits with a pass/fail code; there is
-no initialization, long-lived configuration object, or disposal step.
+Quality, Code Review, Design, Verification, User Guide, and Requirements documents), reading its
+declarative assertion targets from `.fileassert.yaml` at the repository root. Separately, the
+workflow runs `dotnet fileassert --validate` to exercise FileAssert's own built-in
+self-validation suite (independent of `.fileassert.yaml`) and records its results for ReqStream.
+It is a stateless CLI invocation — each run reads its configuration/target, asserts, and exits
+with a pass/fail code; there is no initialization, long-lived configuration object, or disposal
+step.

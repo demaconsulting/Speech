@@ -22,9 +22,12 @@ Speech model and fails the build on any syntax or reference error. The build-doc
 job runs `dotnet sysml2tools render` to produce one SVG file per declared view under
 `docs/design/generated/`. FileAssert then directly asserts that each declared view's SVG file
 exists and is well-formed XML with an `<svg>` root element (`SysML2Tools_SoftwareStructureViewSvg`,
-`SysML2Tools_SpeechViewSvg`), before Pandoc compiles `docs/design/*.md`, which embed
-those SVG files by filename. A CI build failure at any of these steps is evidence that SysML2Tools
-did not produce the required model validation or diagrams against the real model.
+`SysML2Tools_SpeechViewSvg`, `SysML2Tools_DiagnosticsViewSvg`,
+`SysML2Tools_AudioSubsystemViewSvg`, `SysML2Tools_PortAudioViewSvg`, and
+`SysML2Tools_RecognitionSubsystemViewSvg`), before Pandoc
+compiles `docs/design/*.md`, which embed those SVG files by filename. A CI build failure at any
+of these steps is evidence that SysML2Tools did not produce the required model validation or
+diagrams against the real model.
 
 ### Test Scenarios
 
@@ -49,8 +52,8 @@ against a known-good model fixture as part of its built-in self-test suite.
 
 #### SysML2Tools_SoftwareStructureViewSvg
 
-**Scenario**: The build-docs CI job runs `dotnet sysml2tools render` against the real Template
-DotNet Library model, then FileAssert checks the resulting file at
+**Scenario**: The build-docs CI job runs `dotnet sysml2tools render` against the real Speech
+model, then FileAssert checks the resulting file at
 `docs/design/generated/SoftwareStructureView.svg`.
 
 **Expected**: Exactly one file exists at that path, and it is well-formed XML with a root element
@@ -60,9 +63,53 @@ named `svg`.
 
 #### SysML2Tools_SpeechViewSvg
 
-**Scenario**: The build-docs CI job runs `dotnet sysml2tools render` against the real Template
-DotNet Library model, then FileAssert checks the resulting file at
+**Scenario**: The build-docs CI job runs `dotnet sysml2tools render` against the real Speech
+model, then FileAssert checks the resulting file at
 `docs/design/generated/SpeechView.svg`.
+
+**Expected**: Exactly one file exists at that path, and it is well-formed XML with a root element
+named `svg`.
+
+**Requirement coverage**: `Template-OTS-SysML2Tools-Render`.
+
+#### SysML2Tools_DiagnosticsViewSvg
+
+**Scenario**: The build-docs CI job runs `dotnet sysml2tools render` against the real Speech
+model, then FileAssert checks the resulting file at
+`docs/design/generated/DiagnosticsView.svg`.
+
+**Expected**: Exactly one file exists at that path, and it is well-formed XML with a root element
+named `svg`.
+
+**Requirement coverage**: `Template-OTS-SysML2Tools-Render`.
+
+#### SysML2Tools_AudioSubsystemViewSvg
+
+**Scenario**: The build-docs CI job runs `dotnet sysml2tools render` against the real Speech
+model, then FileAssert checks the resulting file at
+`docs/design/generated/AudioSubsystemView.svg`.
+
+**Expected**: Exactly one file exists at that path, and it is well-formed XML with a root element
+named `svg`.
+
+**Requirement coverage**: `Template-OTS-SysML2Tools-Render`.
+
+#### SysML2Tools_PortAudioViewSvg
+
+**Scenario**: The build-docs CI job runs `dotnet sysml2tools render` against the real Speech
+model, then FileAssert checks the resulting file at
+`docs/design/generated/PortAudioView.svg`.
+
+**Expected**: Exactly one file exists at that path, and it is well-formed XML with a root element
+named `svg`.
+
+**Requirement coverage**: `Template-OTS-SysML2Tools-Render`.
+
+#### SysML2Tools_RecognitionSubsystemViewSvg
+
+**Scenario**: The build-docs CI job runs `dotnet sysml2tools render` against the real Speech
+model, then FileAssert checks the resulting file at
+`docs/design/generated/RecognitionSubsystemView.svg`.
 
 **Expected**: Exactly one file exists at that path, and it is well-formed XML with a root element
 named `svg`.
@@ -73,4 +120,6 @@ named `svg`.
 
 - **`Template-OTS-SysML2Tools-Lint`**: SysML2Tools_LintSelfTest
 - **`Template-OTS-SysML2Tools-Render`**: SysML2Tools_RenderSvgSelfTest,
-  SysML2Tools_SoftwareStructureViewSvg, SysML2Tools_SpeechViewSvg
+  SysML2Tools_SoftwareStructureViewSvg, SysML2Tools_SpeechViewSvg,
+  SysML2Tools_DiagnosticsViewSvg, SysML2Tools_AudioSubsystemViewSvg,
+  SysML2Tools_PortAudioViewSvg, SysML2Tools_RecognitionSubsystemViewSvg

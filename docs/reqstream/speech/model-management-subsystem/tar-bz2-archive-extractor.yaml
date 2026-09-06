@@ -1,0 +1,43 @@
+---
+# Software Unit Requirements for TarBz2ArchiveExtractor
+#
+# These requirements describe the design-level behavior of the TarBz2ArchiveExtractor unit,
+# decomposing the parent ModelManagementSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        sections:
+          - title: TarBz2ArchiveExtractor Requirements
+            requirements:
+              - id: Speech-Models-TarBz2ArchiveExtractor-ExtractAndDelete
+                title: >-
+                  The TarBz2ArchiveExtractor helper shall extract every file entry of a
+                  .tar.bz2 archive into a destination directory, preserving the archive's
+                  own relative folder structure, and shall delete the archive file only
+                  after every entry extracts successfully.
+                justification: |
+                  Both new recognition models declare their downloadable payload as a
+                  single .tar.bz2 archive matching the exact file sherpa-onnx itself
+                  publishes; their InstallAsync overrides need a shared, correctly-behaving
+                  extraction routine so the archive's files exist at the paths
+                  CreateEngineConfig expects, with no leftover archive file cluttering the
+                  installed model's directory.
+                tests:
+                  - TarBz2ArchiveExtractor_ExtractAndDeleteAsync_SingleEntryArchive_ExtractsEntryAndDeletesArchive
+                  - TarBz2ArchiveExtractor_ExtractAndDeleteAsync_MultiEntryArchive_ExtractsEveryEntry
+
+              - id: Speech-Models-TarBz2ArchiveExtractor-ArgumentValidation
+                title: >-
+                  The TarBz2ArchiveExtractor helper shall throw ArgumentException for a
+                  null or empty archive path or destination directory before attempting any
+                  extraction.
+                justification: |
+                  A programming error (empty path/directory) should surface immediately
+                  with a clear, cheap-to-diagnose exception, matching this repository's
+                  existing argument-validation convention, rather than an opaque failure
+                  from the underlying SharpCompress library.
+                tests:
+                  - TarBz2ArchiveExtractor_ExtractAndDeleteAsync_EmptyArchivePath_ThrowsArgumentException
+                  - TarBz2ArchiveExtractor_ExtractAndDeleteAsync_EmptyDestinationDirectory_ThrowsArgumentException

@@ -1,0 +1,69 @@
+---
+# Software Unit Requirements for ISpeechSynthesizer
+#
+# These requirements describe the design-level behavior of the ISpeechSynthesizer contract and
+# its adjacent SynthesizedSpeech value type, decomposing the parent SynthesisSubsystem
+# requirements. Mirrors i-speech-recognizer.yaml's identical Phase 3 pattern.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: SynthesisSubsystem Requirements
+        sections:
+          - title: ISpeechSynthesizer Requirements
+            requirements:
+              - id: Speech-Synthesis-ISpeechSynthesizer-AvailabilityFlag
+                title: >-
+                  The ISpeechSynthesizer interface shall expose an IsAvailable flag that never
+                  throws to read.
+                justification: |
+                  Callers must be able to check availability before invoking an operational
+                  member, without risk of the check itself failing.
+                tests:
+                  - UnavailableSpeechSynthesizer_IsAvailable_Read_ReturnsFalse
+                  - IsAvailable_Always_ReturnsTrue
+
+              - id: Speech-Synthesis-ISpeechSynthesizer-StreamingContract
+                title: >-
+                  The ISpeechSynthesizer interface shall define a chunked/streaming
+                  synthesize-and-play contract (SynthesizeStreamAsync, PlayStreamAsync,
+                  SpeakAsync), a Stop method to cancel an in-flight session deterministically, and
+                  disposal of the resources a synthesizer holds, without exposing any inference
+                  engine or native audio type.
+                justification: |
+                  architecture.md's "engine backend stays swappable at the public API surface"
+                  decision requires that a future non-sherpa-onnx backend can replace the current
+                  one without a breaking API change.
+                tests:
+                  - SynthesizeStreamAsync_PlainText_YieldsAudioSegment
+                  - Stop_WhileSpeaking_CancelsInFlightSession
+                  - Stop_NoSessionInFlight_IsNoOp
+
+              - id: Speech-Synthesis-ISpeechSynthesizer-UnavailableOperationsThrow
+                title: >-
+                  Every operational member of the ISpeechSynthesizer contract
+                  (SynthesizeStreamAsync, PlayStreamAsync, SpeakAsync, Stop) shall throw a
+                  documented exception when invoked on an unavailable synthesizer, rather than
+                  silently no-op-ing or misbehaving.
+                justification: |
+                  Hosts must be able to test their playback logic against the contract with no
+                  model, no speakers, and no native runtime present, so an unavailable
+                  synthesizer's operational members must fail loudly and consistently rather
+                  than silently doing nothing.
+                tests:
+                  - UnavailableSpeechSynthesizer_SynthesizeStreamAsync_Always_ThrowsSpeechSynthesizerUnavailableException
+                  - UnavailableSpeechSynthesizer_PlayStreamAsync_Always_ThrowsSpeechSynthesizerUnavailableException
+                  - UnavailableSpeechSynthesizer_SpeakAsync_Always_ThrowsSpeechSynthesizerUnavailableException
+                  - UnavailableSpeechSynthesizer_Stop_Always_ThrowsSpeechSynthesizerUnavailableException
+
+              - id: Speech-Synthesis-ISpeechSynthesizer-SynthesizedSpeechShape
+                title: >-
+                  A synthesized speech segment shall carry its normalized audio samples, the rate
+                  they were produced at, and the real pre/post silence to play alongside them.
+                justification: |
+                  architecture.md requires chunked, low-latency streaming synthesis and playback
+                  in which each segment is played back independently and in order; a caller
+                  playing segments as they arrive needs each segment's own silence and rate to
+                  play it correctly without consulting any other segment.
+                tests:
+                  - SynthesizeStreamAsync_TextWithPauseTag_YieldsSilenceSegmentWithNoEngineCall

@@ -6,8 +6,57 @@ input-files:
   - docs/design/title.txt
   - docs/design/introduction.md
   - docs/design/speech.md
-  - docs/design/speech/demo.md
+  - docs/design/speech/diagnostics.md
+  - docs/design/speech/audio-subsystem.md
+  - docs/design/speech/audio-subsystem/audio-device-description.md
+  - docs/design/speech/audio-subsystem/audio-device-selection.md
+  - docs/design/speech/audio-subsystem/i-audio-capture-device.md
+  - docs/design/speech/audio-subsystem/i-audio-playback-device.md
+  - docs/design/speech/audio-subsystem/i-audio-capture-device-probe.md
+  - docs/design/speech/audio-subsystem/i-audio-playback-device-probe.md
+  - docs/design/speech/audio-subsystem/audio-device-factory.md
+  - docs/design/speech/audio-subsystem/port-audio-capture-device-probe.md
+  - docs/design/speech/audio-subsystem/port-audio-playback-device-probe.md
+  - docs/design/speech/audio-subsystem/port-audio-capture-device.md
+  - docs/design/speech/audio-subsystem/port-audio-playback-device.md
+  - docs/design/speech/audio-subsystem/port-audio.md
+  - docs/design/speech/audio-subsystem/port-audio/i-port-audio-api.md
+  - docs/design/speech/audio-subsystem/port-audio/i-port-audio-stream.md
+  - docs/design/speech/audio-subsystem/port-audio/port-audio-environment.md
+  - docs/design/speech/audio-subsystem/port-audio/port-audio-api.md
+  - docs/design/speech/audio-subsystem/port-audio/port-audio-supporting-types.md
+  - docs/design/speech/model-management-subsystem.md
+  - docs/design/speech/model-management-subsystem/speech-model-store.md
+  - docs/design/speech/model-management-subsystem/speech-model-store-options.md
+  - docs/design/speech/model-management-subsystem/speech-model-store-exception.md
+  - docs/design/speech/model-management-subsystem/speech-model-download-file.md
+  - docs/design/speech/model-management-subsystem/speech-model-download-descriptor.md
+  - docs/design/speech/model-management-subsystem/speech-model-download-progress.md
+  - docs/design/speech/model-management-subsystem/i-model-download-client.md
+  - docs/design/speech/model-management-subsystem/http-model-download-client.md
+  - docs/design/speech/model-management-subsystem/speech-model-downloader.md
+  - docs/design/speech/model-management-subsystem/speech-model-descriptor-enums.md
+  - docs/design/speech/model-management-subsystem/speech-model-parameters.md
+  - docs/design/speech/model-management-subsystem/speech-model-contract.md
+  - docs/design/speech/model-management-subsystem/speech-model-descriptor.md
+  - docs/design/speech/model-management-subsystem/speech-model-catalog.md
+  - docs/design/speech/recognition-subsystem.md
+  - docs/design/speech/recognition-subsystem/i-speech-recognizer.md
+  - docs/design/speech/recognition-subsystem/speech-recognizer-factory.md
+  - docs/design/speech/recognition-subsystem/sherpa-onnx-speech-recognizer.md
+  - docs/design/speech/recognition-subsystem/unavailable-speech-recognizer.md
+  - docs/design/speech-demo.md
+  - docs/design/speech-demo/shell-subsystem.md
+  - docs/design/speech-demo/device-selection-subsystem.md
+  - docs/design/speech-demo/model-catalog-subsystem.md
+  - docs/design/speech-demo/model-settings-subsystem.md
+  - docs/design/speech-demo/synthesis-panel-subsystem.md
+  - docs/design/speech-demo/recognition-panel-subsystem.md
   - docs/design/ots.md
+  - docs/design/ots/port-audio-sharp2.md
+  - docs/design/ots/sherpa-onnx.md
+  - docs/design/ots/avalonia.md
+  - docs/design/ots/community-toolkit-mvvm.md
   - docs/design/ots/buildmark.md
   - docs/design/ots/fileassert.md
   - docs/design/ots/pandoc.md

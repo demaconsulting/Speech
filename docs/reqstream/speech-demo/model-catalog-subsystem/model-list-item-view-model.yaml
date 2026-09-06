@@ -1,0 +1,31 @@
+---
+# Software Unit Requirements for the SpeechDemo ModelListItemViewModel
+#
+# These requirements describe the design-level behavior of the ModelListItemViewModel unit -
+# one catalog row's presentation state - decomposing the parent ModelCatalogSubsystem
+# requirements.
+
+sections:
+  - title: SpeechDemo Requirements
+    sections:
+      - title: ModelCatalogSubsystem Requirements
+        sections:
+          - title: ModelListItemViewModel Requirements
+            requirements:
+              - id: SpeechDemo-Models-StatePresentation
+                title: >-
+                  The ModelCatalogSubsystem shall present each model's identity, role, and
+                  installation state in readable form, and shall announce every derived display
+                  value when that state changes.
+                justification: |
+                  A user needs to know at a glance whether a model is missing, downloading,
+                  installed, or broken. Announcing the derived caption, progress visibility, and
+                  button state together is what keeps a bound row from going stale mid-download.
+                tests:
+                  - ModelListItemViewModel_Constructor_NullDescriptor_ThrowsArgumentNullException
+                  - ModelListItemViewModel_Constructor_Descriptor_CarriesDescriptorIdentityAndState
+                  - ModelListItemViewModel_StatusText_EachState_ReturnsReadableCaption
+                  - ModelListItemViewModel_CanDownload_EachState_ReflectsRetryPolicy
+                  - ModelListItemViewModel_IsDownloading_DownloadingState_ReturnsTrue
+                  - ModelListItemViewModel_HasFailureMessage_ReflectsPresenceOfMessage
+                  - ModelListItemViewModel_State_Changed_NotifiesDerivedProperties

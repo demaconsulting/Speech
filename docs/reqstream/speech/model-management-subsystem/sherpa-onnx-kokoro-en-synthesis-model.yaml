@@ -1,0 +1,104 @@
+---
+# Software Unit Requirements for SherpaOnnxKokoroEnglishSynthesisModel
+#
+# These requirements describe the design-level behavior of the
+# SherpaOnnxKokoroEnglishSynthesisModel unit, decomposing the parent
+# ModelManagementSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        sections:
+          - title: SherpaOnnxKokoroEnglishSynthesisModel Requirements
+            requirements:
+              - id: Speech-Models-SherpaOnnxKokoroEnglishSynthesisModel-Identity
+                title: >-
+                  The SherpaOnnxKokoroEnglishSynthesisModel class shall declare a stable catalog
+                  identity (Id, DisplayName, Role = Synthesis, a single voice ChoiceParameter
+                  with 11 confirmed options, AudioTagSupport = None).
+                justification: |
+                  SpeechModelCatalog and SpeechModelDownloader depend only on the generic
+                  ISpeechModel/ISynthesisModel contract; this model must honestly declare its
+                  own fixed identity and its real 11-voice option set (confirmed against
+                  upstream sherpa-onnx's own generation script, byte arithmetic against the real
+                  voices.bin, and a live model load) for the catalog and downloader to enumerate
+                  and fetch it correctly.
+                tests:
+                  - SherpaOnnxKokoroEnglishSynthesisModel_Identity_DeclaresExpectedValues
+
+              - id: Speech-Models-SherpaOnnxKokoroEnglishSynthesisModel-DownloadDescriptor
+                title: >-
+                  The SherpaOnnxKokoroEnglishSynthesisModel class shall declare a single
+                  validated HTTPS .tar.bz2 download file with a well-formed SHA-256 checksum.
+                justification: |
+                  SpeechModelDownloader depends only on the generic ISpeechModel download
+                  descriptor; this model must honestly declare its own single validated archive
+                  file for the downloader to fetch and verify it correctly.
+                tests:
+                  - SherpaOnnxKokoroEnglishSynthesisModel_DownloadDescriptor_DeclaresSingleValidatedArchiveFile
+
+              - id: Speech-Models-SherpaOnnxKokoroEnglishSynthesisModel-EngineConfig
+                title: >-
+                  The SherpaOnnxKokoroEnglishSynthesisModel class shall build an OfflineTtsConfig
+                  wiring its Kokoro model/voices/tokens/data-dir files and this model's own
+                  recommended LengthScale, and the shared default CapabilityProfile.
+                justification: |
+                  This exact Kokoro configuration was proven end-to-end in this project's
+                  development sandbox against a real, loaded OfflineTts instance that reported
+                  the model's true SampleRate = 24000 and NumSpeakers = 11 and generated
+                  non-silent, audibly distinct audio for two different speaker ids given the
+                  same input sentence; the SynthesisSubsystem depends on this configuration
+                  being wired correctly and consistently for every installed-directory argument
+                  it may be given.
+                tests:
+                  - SherpaOnnxKokoroEnglishSynthesisModel_CreateEngineConfig_ResolvesKokoroFilesAndConfig
+                  - SherpaOnnxKokoroEnglishSynthesisModel_CapabilityProfile_IsDefaultProfile
+
+              - id: Speech-Models-SherpaOnnxKokoroEnglishSynthesisModel-EngineConfigArgumentValidation
+                title: >-
+                  The SherpaOnnxKokoroEnglishSynthesisModel class shall throw ArgumentException
+                  from CreateEngineConfig for a null or empty installed-model directory.
+                justification: |
+                  A programming error (empty installed-model directory) should surface
+                  immediately with a clear, cheap-to-diagnose exception rather than an opaque
+                  failure deeper in engine configuration.
+                tests:
+                  - SherpaOnnxKokoroEnglishSynthesisModel_CreateEngineConfig_EmptyDirectory_ThrowsArgumentException
+
+              - id: Speech-Models-SherpaOnnxKokoroEnglishSynthesisModel-InstallAsync
+                title: >-
+                  The SherpaOnnxKokoroEnglishSynthesisModel class shall extract its downloaded
+                  .tar.bz2 archive in place via the shared TarBz2ArchiveExtractor and remove the
+                  archive file, leaving the archive's own top-level folder available to
+                  CreateEngineConfig.
+                justification: |
+                  SpeechModelDownloader invokes InstallAsync after checksum verification and
+                  before the atomic install swap; this model's declared payload is an archive,
+                  so its files must be expanded in place for the paths CreateEngineConfig
+                  resolves to actually exist after install. Reusing the Phase 7a
+                  TarBz2ArchiveExtractor (rather than a duplicate helper) keeps archive-extraction
+                  behavior identical and once-reviewed across every model that needs it.
+                tests:
+                  - SherpaOnnxKokoroEnglishSynthesisModel_InstallAsync_SyntheticArchive_ExtractsFilesAndRemovesArchive
+
+              - id: Speech-Models-SherpaOnnxKokoroEnglishSynthesisModel-ResolveSpeakerId
+                title: >-
+                  The SherpaOnnxKokoroEnglishSynthesisModel class shall map a selected voice
+                  ChoiceParameter value to sherpa-onnx's confirmed integer speaker id for that
+                  voice, falling back to the declared default voice's speaker id for a null
+                  value bag, a missing key, or an unrecognized value, and shall correctly
+                  resolve every one of its 11 declared voices.
+                justification: |
+                  ISynthesisModel.ResolveSpeakerId is this model's own owned knowledge - the
+                  confirmed id2speaker ordering (index = speaker id) that lets
+                  SherpaOnnxSpeechSynthesizer.GenerateSegment turn a demo-selected or
+                  library-consumer-selected voice name into the real speaker id sherpa-onnx's
+                  native Generate call needs, replacing the previous hard-coded speakerId: 0.
+                  Never throwing on a missing/unrecognized selection keeps synthesis available
+                  even for a malformed or stale caller-supplied value bag.
+                tests:
+                  - SherpaOnnxKokoroEnglishSynthesisModel_ResolveSpeakerId_KnownVoice_ReturnsConfirmedId
+                  - SherpaOnnxKokoroEnglishSynthesisModel_ResolveSpeakerId_UnknownVoice_ReturnsDefaultId
+                  - SherpaOnnxKokoroEnglishSynthesisModel_ResolveSpeakerId_NullBag_ReturnsDefaultId
+                  - SherpaOnnxKokoroEnglishSynthesisModel_ResolveSpeakerId_MissingKey_ReturnsDefaultId

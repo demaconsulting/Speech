@@ -1,0 +1,46 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:audio="clr-namespace:DemaConsulting.Speech.AudioSubsystem;assembly=DemaConsulting.Speech"
+             xmlns:devices="clr-namespace:DemaConsulting.Speech.Demo.DeviceSelectionSubsystem"
+             x:Class="DemaConsulting.Speech.Demo.DeviceSelectionSubsystem.DeviceSelectionView"
+             x:DataType="devices:DeviceSelectionViewModel">
+
+  <ScrollViewer>
+    <StackPanel Margin="16" Spacing="12">
+
+      <TextBlock Text="Audio Devices" FontSize="18" FontWeight="SemiBold" />
+      <TextBlock TextWrapping="Wrap"
+                 Text="Devices are enumerated through the library's capture and playback probes. A machine with no audio backend reports an empty list rather than failing." />
+
+      <TextBlock Text="Capture (input) device" FontWeight="SemiBold" />
+      <ComboBox ItemsSource="{Binding CaptureDevices}"
+                SelectedItem="{Binding SelectedCaptureDevice}"
+                IsEnabled="{Binding HasCaptureDevices}"
+                HorizontalAlignment="Stretch">
+        <ComboBox.ItemTemplate>
+          <DataTemplate x:DataType="audio:AudioDeviceDescription">
+            <TextBlock Text="{Binding Name}" />
+          </DataTemplate>
+        </ComboBox.ItemTemplate>
+      </ComboBox>
+      <TextBlock Text="{Binding CaptureStatus}" TextWrapping="Wrap" Opacity="0.75" />
+
+      <TextBlock Text="Playback (output) device" FontWeight="SemiBold" />
+      <ComboBox ItemsSource="{Binding PlaybackDevices}"
+                SelectedItem="{Binding SelectedPlaybackDevice}"
+                IsEnabled="{Binding HasPlaybackDevices}"
+                HorizontalAlignment="Stretch">
+        <ComboBox.ItemTemplate>
+          <DataTemplate x:DataType="audio:AudioDeviceDescription">
+            <TextBlock Text="{Binding Name}" />
+          </DataTemplate>
+        </ComboBox.ItemTemplate>
+      </ComboBox>
+      <TextBlock Text="{Binding PlaybackStatus}" TextWrapping="Wrap" Opacity="0.75" />
+
+      <Button Content="Refresh devices" Command="{Binding RefreshCommand}" HorizontalAlignment="Left" />
+
+    </StackPanel>
+  </ScrollViewer>
+
+</UserControl>

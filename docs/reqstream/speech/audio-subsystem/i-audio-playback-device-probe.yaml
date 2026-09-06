@@ -1,0 +1,25 @@
+---
+# Software Unit Requirements for IAudioPlaybackDeviceProbe
+#
+# These requirements describe the design-level behavior of the IAudioPlaybackDeviceProbe
+# unit, decomposing the parent AudioSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: AudioSubsystem Requirements
+        sections:
+          - title: IAudioPlaybackDeviceProbe Requirements
+            requirements:
+              - id: Speech-Audio-IAudioPlaybackDeviceProbe-EnumerateNeverThrows
+                title: >-
+                  The IAudioPlaybackDeviceProbe interface shall define an Enumerate method that
+                  never throws, returning an empty list when no playback devices are available.
+                justification: |
+                  A mockable enumeration contract lets hosts build device pickers, and tests
+                  substitute enumerations, without any real hardware present.
+                tests:
+                  - UnavailableAudioPlaybackDeviceProbe_Enumerate_Always_ReturnsEmptyList
+                  - PortAudioPlaybackDeviceProbe_Enumerate_PreferredHostApiMissing_ReturnsEmptyList
+                  - PortAudioPlaybackDeviceProbe_Enumerate_NoDevices_ReturnsEmptyList
+                  - PortAudioPlaybackDeviceProbe_Enumerate_MixedHostApis_ReturnsOnlyPreferredOutputDevices

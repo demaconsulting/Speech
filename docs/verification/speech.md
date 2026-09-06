@@ -4,90 +4,155 @@ This document describes the system-level verification strategy for the Speech.
 
 ## Verification Approach
 
-The Speech system is verified through system-level integration tests that
-exercise the library as a whole from the perspective of a consumer. Tests instantiate the library
-using its public API and assert on observable outputs, without relying on knowledge of internal
-implementation details. No mocking or stubbing is required at the system level — the entire
-integrated system is exercised as it would be used by a real caller.
+The Speech system is verified through deterministic system-level integration tests that compose
+`AudioDeviceFactory` with controlled fake PortAudio environments and optional diagnostics sinks,
+compose model storage/download/catalog over a scratch store root and a fake download client,
+compose `SpeechRecognizerFactory` over an installed test model, a substitute capture device, and a
+fake recognition engine, and compose `SpeechSynthesizerFactory`/`AudioTagParser` over an installed
+test model, a substitute playback device, and a fake synthesis engine. This proves the public
+composition surface, fallback behavior, diagnostics reporting, the streaming-recognition pipeline,
+the Natural Language Audio Tag vocabulary/parser, and the chunked streaming-synthesis pipeline
+without requiring physical audio hardware, network access, a downloaded speech model, or a native
+speech-inference runtime in CI.
 
-System tests reside in `SpeechTests.cs` within the
-`DemaConsulting.Speech.Tests` project.
+Automated coverage **does not** extend to actually opening a real microphone or speaker and
+moving audio end to end through hardware, nor to recognizing or synthesizing real speech through
+a real model. Those remain manual/local verification activities because CI runners cannot
+guarantee audio hardware. The library's compiled-in catalog now ships four real, production
+models - `SherpaOnnxZipformerEnRecognitionModel`, `SherpaOnnxNemotronStreamingEnRecognitionModel`,
+`SherpaOnnxVitsLibriTtsEnglishSynthesisModel`, and `SherpaOnnxKokoroEnglishSynthesisModel` - but
+automated system tests deliberately exercise a deterministic test model and a fake recognition
+or synthesis engine instead of a real model, so CI never depends on a real, multi-hundred-megabyte
+download or the native sherpa-onnx runtime.
+
+System tests reside in `SpeechTests.cs` within the `DemaConsulting.Speech.Tests` project, with the
+Natural Language Audio Tag and streaming-synthesis scenarios additionally proven by
+`AudioTagParserTests.cs` and `SherpaOnnxSpeechSynthesizerTests.cs` in the same project.
 
 ## Test Environment
 
 - **Framework**: xUnit v3 running under the .NET SDK
 - **Execution**: `dotnet test` invoked by `build.ps1` and the CI pipeline
-- **Dependencies**: No external services, databases, or network access required
-- **Isolation**: Each test method constructs its own `Demo` instance; no shared state between tests
+- **Dependencies**: No external services and no guaranteed physical audio hardware
+- **Isolation**: Each test method constructs its own deterministic `PortAudioEnvironment`, and
+  each model-storage/download/catalog test roots its `SpeechModelStore` in a fresh temporary
+  directory so no test ever reads or writes a developer's real installed-model store
 
 ## External Interface Simulation
 
-The system has no external interfaces requiring simulation. It is a pure in-process .NET library
-with no I/O, network calls, or platform services. System tests call the public API directly
-with controlled inputs and verify returned values and thrown exceptions.
+The system simulates the PortAudio runtime through an internal fake `IPortAudioApi` exposed via
+`PortAudioEnvironment`. This allows system tests to exercise the public `AudioDeviceFactory`
+composition surface with controlled host-API and device catalogs while remaining deterministic
+on every CI runner.
 
 ## System-Level Test Scenarios
 
-### Integration: Provides Expected Functionality
+### Integration: PortAudio Initialized Returns Real Devices
 
-**Test**: `Speech_SystemIntegration_DefaultConstruction_ReturnsExpectedGreeting`
+**Test**: `Speech_SystemIntegration_PortAudioInitialized_FactoryReturnsRealDevices`
 
-Exercises end-to-end system behavior: constructs a `Demo` instance using the default constructor
-and calls `DemoMethod` with a valid name. Asserts that the system produces the expected greeting
-string `"Hello, System!"`, confirming that all components integrate correctly under default
-configuration.
+Verifies that the public composition surface returns real PortAudio-backed device abstractions
+when PortAudio initialization succeeds.
 
-### Customization: Handles Configuration Properly
+### Integration: Diagnostics Sink Receives Structural Events
 
-**Test**: `Speech_SystemCustomization_CustomPrefix_ReturnsExpectedGreeting`
+**Test**: `Speech_SystemIntegration_DiagnosticsSink_ReceivesStructuralEvents`
 
-Verifies that the system correctly propagates a custom prefix supplied at construction time.
-Constructs a `Demo` instance with prefix `"Welcome"`, calls `DemoMethod` with a valid name, and
-asserts the result is `"Welcome, Integration!"`. Confirms that the configuration path through all
-integrated components functions as expected.
+Verifies that a host-supplied diagnostics sink receives structural selection events reported
+during audio-device composition.
 
-### Validation: DemoMethod Null Input Throws ArgumentNullException
+### Integration: No Diagnostics Supplied Uses the Null Sink Safely
 
-**Test**: `Speech_SystemValidation_DemoMethodNullInput_ThrowsArgumentNullException`
+**Test**: `Speech_SystemIntegration_NoDiagnosticsSupplied_UsesNullSpeechDiagnosticsSafely`
 
-Verifies that the system rejects a `null` argument to `DemoMethod` with `ArgumentNullException`.
-Constructs a `Demo` instance with the default constructor and passes `null` to `DemoMethod`.
-Confirms that the system boundary enforces the null-rejection contract.
+Verifies that omitting the diagnostics sink still composes safely through
+`NullSpeechDiagnostics`.
 
-### Validation: DemoMethod Empty Input Throws ArgumentException
+### Integration: PortAudio Initialization Failure Returns Unavailable Devices
 
-**Test**: `Speech_SystemValidation_DemoMethodEmptyInput_ThrowsArgumentException`
+**Test**: `Speech_SystemIntegration_PortAudioInitializationFails_FactoryReturnsUnavailableDevices`
 
-Verifies that the system rejects an empty-string argument to `DemoMethod` with `ArgumentException`.
-Constructs a `Demo` instance with the default constructor and passes `string.Empty` to `DemoMethod`.
-Confirms that the system boundary enforces the empty-string rejection contract.
+Verifies that PortAudio initialization failure degrades composition to the honest unavailable
+fallback devices rather than throwing.
 
-### Validation: Constructor Null Prefix Throws ArgumentNullException
+### Validation: No Resolvable Capture Device Throws on Start
 
-**Test**: `Speech_SystemValidation_ConstructorNullPrefix_ThrowsArgumentNullException`
+**Test**: `Speech_SystemValidation_NoResolvableCaptureDevice_StartThrowsAudioDeviceUnavailableException`
 
-Verifies that the system rejects a `null` prefix argument at construction time with
-`ArgumentNullException`. Attempts to construct a `Demo` instance with `null` as the prefix.
-Confirms that the system boundary prevents invalid configuration from being established.
+Verifies that a real PortAudio-backed capture device with no resolvable input device reports
+`IsAvailable = false` and throws the documented exception only when a caller attempts to start it.
 
-### Validation: Constructor Empty Prefix Throws ArgumentException
+### Integration: Streaming Recognition Produces Results from Captured Audio
 
-**Test**: `Speech_SystemValidation_ConstructorEmptyPrefix_ThrowsArgumentException`
+**Test**: `Speech_SystemIntegration_StreamingRecognition_CapturedAudioProducesRecognitionResults`
 
-Verifies that the system rejects an empty-string prefix argument at construction time with
-`ArgumentException`. Attempts to construct a `Demo` instance with `string.Empty` as the prefix.
-Confirms that the system boundary prevents empty-string configuration from being established.
+Verifies the full public streaming-recognition surface end to end: composing a recognizer for an
+installed model and an available capture device, streaming one captured block through audio-format
+conversion into the recognition engine, and surfacing the resulting provisional and final text
+through the recognizer's result event. The recognition engine is a deterministic test double, so
+this scenario proves the composed pipeline rather than speech-recognition accuracy.
 
-### Integration: Exposes Configured Prefix
+### Integration: Model Download Verifies and Atomically Installs the Model
 
-**Test**: `Speech_SystemIntegration_CustomPrefix_ExposesPrefix`
+**Test**: `Speech_SystemIntegration_ModelDownload_VerifiesAndAtomicallyInstallsModel`
 
-Verifies that the `Prefix` property exposes the prefix supplied at construction time. Constructs
-a `Demo` instance with a custom prefix and reads the `Prefix` property. Confirms the system's
-public API correctly surfaces the configured prefix to callers.
+Verifies `SpeechModelDownloader` end to end over a scratch store root and a fake download client
+serving a known payload: a declared file is fetched, its SHA-256 checksum is verified, and it is
+atomically installed and reported installed rather than left partial or corrupted.
+
+### Integration: Model Catalog Enumerates and Tracks Download State
+
+**Test**: `Speech_SystemIntegration_ModelCatalog_EnumeratesAndTracksDownloadState`
+
+Verifies `SpeechModelCatalog` end to end over a scratch store root, one known fake model, and a
+fake download client: `Enumerate()` reports the model's install state, and the state transitions
+to `SpeechModelState.Downloaded` once `DownloadAsync` verifies and atomically installs the model.
+
+### Integration: Streaming Synthesis Produces Played Audio from Text
+
+**Test**: `Speech_SystemIntegration_StreamingSynthesis_TextProducesPlayedAudio`
+
+Verifies the full public streaming-synthesis surface end to end: composing a synthesizer for an
+installed model and an available playback device, speaking one plain-text utterance, and
+confirming the playback device is started, receives at least one written block of audio, and is
+stopped. The synthesis engine is a deterministic test double, so this scenario proves the composed
+chunked pipeline rather than speech-synthesis audio quality.
+
+### Unit: Every Documented Audio Tag Alias Resolves to Its Canonical Tag Span
+
+**Test**: `AudioTagParser_Parse_EveryDocumentedAlias_ResolvesToItsCanonicalTagSpan`
+
+Verifies, for every alias in the closed Natural Language Audio Tag vocabulary, that
+`AudioTagParser.Parse` resolves the bracketed alias to its canonical tag span, proving the
+model-independent Layer 1 parser recognizes the complete documented vocabulary.
+
+### Unit: Unknown Bracketed Word Passes Through as Literal Text
+
+**Test**: `AudioTagParser_Parse_UnknownBracketedWord_PassesThroughAsLiteralText`
+
+Verifies that a bracketed word outside the closed vocabulary is passed through as plain narration
+text rather than dropped or rejected, proving the "never worse than plain narration" guarantee for
+unrecognized or malformed bracket content.
+
+### Unit: Plain Text Synthesis Yields an Audio Segment
+
+**Test**: `SynthesizeStreamAsync_PlainText_YieldsAudioSegment`
+
+Verifies that `SherpaOnnxSpeechSynthesizer.SynthesizeStreamAsync` yields at least one audio segment
+for plain text with no audio tags, proving the Layer 2 rendering and chunked synthesis pipeline
+produce audio for the simplest input.
+
+### Unit: Ordered Segments Start, Write in Order, and Stop Playback
+
+**Test**: `PlayStreamAsync_OrderedSegments_StartsWritesInOrderAndStops`
+
+Verifies that `SherpaOnnxSpeechSynthesizer.PlayStreamAsync` starts the playback device, writes a
+mono 16 kHz silence segment followed by an audio segment to the device in order, and stops the
+device once playback completes.
 
 ## Acceptance Criteria
 
-A system-level test run passes when all seven scenarios above pass without error or exception beyond
-those explicitly asserted. Any unexpected exception, wrong exception type, or wrong return value
-constitutes a failure.
+A system-level test run passes when all scenarios above pass without unexpected exceptions and
+when the automated verification boundary remains honest: only deterministic seam-driven behavior
+is claimed as automated coverage, while physical device I/O is explicitly left to manual/local
+verification.

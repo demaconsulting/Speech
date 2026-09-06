@@ -1,8 +1,10 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/DemaConsulting.Speech/DemaConsulting.Speech.csproj" />
+    <Project Path="src/DemaConsulting.Speech.Demo/DemaConsulting.Speech.Demo.csproj" />
   </Folder>
   <Folder Name="/test/">
     <Project Path="test/DemaConsulting.Speech.Tests/DemaConsulting.Speech.Tests.csproj" />
+    <Project Path="test/DemaConsulting.Speech.Demo.Tests/DemaConsulting.Speech.Demo.Tests.csproj" />
   </Folder>
 </Solution>

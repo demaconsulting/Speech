@@ -1,0 +1,110 @@
+---
+# Software Unit Requirements for AudioTagParser
+#
+# These requirements describe the design-level behavior of AudioTagCatalog (the closed
+# alias/kind lookup table) and AudioTagParser (the Layer 1 scanner that consumes it), decomposing
+# the parent SynthesisSubsystem requirements. The two types are documented together since the
+# parser carries no vocabulary knowledge of its own - it exists only to locate bracket syntax and
+# delegate resolution to the catalog.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: SynthesisSubsystem Requirements
+        sections:
+          - title: AudioTagParser Requirements
+            requirements:
+              - id: Speech-Synthesis-AudioTagParser-VocabularyCompleteness
+                title: >-
+                  Every canonical Natural Language Audio Tag shall have at least one alias in
+                  AudioTagCatalog, and every documented alias shall resolve back to its own
+                  canonical tag and kind.
+                justification: |
+                  A canonical tag with no reachable alias would be an unusable dead value, and a
+                  stale or incorrect alias mapping would silently misclassify a host's intended
+                  tag. Proving completeness against the enum itself, not a hand-copied list,
+                  keeps the catalog from drifting out of sync with the vocabulary as it grows in
+                  a future release.
+                tests:
+                  - AudioTagCatalog_Tags_Always_CoversEveryCanonicalTagWithAtLeastOneAlias
+                  - AudioTagCatalog_TryResolve_EveryDocumentedAlias_ResolvesToItsOwnTag
+
+              - id: Speech-Synthesis-AudioTagParser-NoAliasAmbiguity
+                title: >-
+                  No single alias shall resolve to two different canonical tags.
+                justification: |
+                  Ambiguous alias resolution would make Layer 1 parsing non-deterministic and
+                  impossible to document reliably in a user-facing tag reference.
+                tests:
+                  - AudioTagCatalog_Tags_Always_NoAliasIsSharedByTwoDifferentTags
+
+              - id: Speech-Synthesis-AudioTagParser-KindGrouping
+                title: >-
+                  AudioTagCatalog shall report each canonical tag's kind alongside its resolved
+                  value, matching architecture.md's Emotion/Pace/Delivery-Volume/Non-verbal/
+                  Pause/Emphasis grouping.
+                justification: |
+                  A later Layer 2 rendering stage and host UI code need to reason about a tag's
+                  broad category (for example, "pauses always render as silence regardless of
+                  model capability") without hard-coding the full tag list.
+                tests:
+                  - AudioTagCatalog_TryResolve_EveryDocumentedAlias_ResolvesToItsOwnTag
+                  - AudioTagCatalog_TryResolve_MixedCaseWithExtraWhitespace_ResolvesToCanonicalTag
+
+              - id: Speech-Synthesis-AudioTagParser-CaseInsensitiveResolution
+                title: >-
+                  Alias resolution shall be case-insensitive.
+                justification: |
+                  A host or user typing a tag inline should not need to match the catalog's exact
+                  canonical casing for a tag to be recognized.
+                tests:
+                  - AudioTagParser_Parse_UppercaseTag_ResolvesToCanonicalTag
+                  - AudioTagCatalog_Normalize_VariousInputs_ProducesExpectedNormalForm
+
+              - id: Speech-Synthesis-AudioTagParser-ExtraWhitespaceTolerance
+                title: >-
+                  Alias resolution shall tolerate extra leading, trailing, and internal
+                  whitespace within bracket content.
+                justification: |
+                  Multi-word tags (for example "very slow") are easy to mistype with extra
+                  spaces; rejecting those as unrecognized would defeat the vocabulary's purpose
+                  for its most error-prone entries.
+                tests:
+                  - AudioTagParser_Parse_TagWithExtraInternalWhitespace_ResolvesToCanonicalTag
+
+              - id: Speech-Synthesis-AudioTagParser-OrderedSpanSequence
+                title: >-
+                  AudioTagParser.Parse shall return the input's literal text and recognized tags
+                  as an ordered sequence of spans that reconstructs the input's structure,
+                  including plain text alone, a tag alone, adjacent tags, and a tag at the start
+                  or end of the input, with no spurious empty spans.
+                justification: |
+                  A later Layer 2 rendering stage must be able to walk the parser's output in
+                  order to build a SpeechPlan; any gap, duplication, or incorrect ordering would
+                  corrupt the synthesized speech's structure.
+                tests:
+                  - AudioTagParser_Parse_PlainTextWithNoTags_ReturnsSinglePlainTextSpan
+                  - AudioTagParser_Parse_EmptyInput_ReturnsEmptySpanList
+                  - AudioTagParser_Parse_MixedPlainTextAndTag_ReturnsOrderedSpans
+                  - AudioTagParser_Parse_AdjacentTags_ReturnsTwoSeparateTagSpans
+                  - AudioTagParser_Parse_TagAtStartOfText_ReturnsTagSpanFirst
+                  - AudioTagParser_Parse_TagAtEndOfText_ReturnsTagSpanLast
+
+              - id: Speech-Synthesis-AudioTagParser-MalformedPassthrough
+                title: >-
+                  AudioTagParser.Parse shall pass unrecognized bracket content, empty brackets,
+                  unclosed brackets, and stray closing brackets through as literal text, exactly
+                  as they appeared, rather than throwing or discarding them.
+                justification: |
+                  architecture.md's "never worse than plain narration" guarantee requires that a
+                  typo, an unsupported bracket phrase, or an unbalanced bracket in host- or
+                  user-supplied text degrades to ordinary narration rather than failing synthesis
+                  or silently losing content.
+                tests:
+                  - AudioTagCatalog_TryResolve_UnknownWord_ReturnsFalse
+                  - AudioTagCatalog_TryResolve_EmptyOrWhitespace_ReturnsFalse
+                  - AudioTagParser_Parse_UnknownBracketedWord_PassesThroughAsLiteralText
+                  - AudioTagParser_Parse_UnclosedOpeningBracket_PassesThroughAsLiteralText
+                  - AudioTagParser_Parse_EmptyBrackets_PassesThroughAsLiteralText
+                  - AudioTagParser_Parse_StrayClosingBracket_PassesThroughAsLiteralText
+                  - AudioTagParser_Parse_RecognizedTagFollowedByUnknownBracket_ReturnsTagThenLiteralSpans

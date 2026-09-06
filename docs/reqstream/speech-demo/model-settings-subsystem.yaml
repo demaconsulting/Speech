@@ -1,0 +1,160 @@
+---
+# Software Subsystem Requirements for the SpeechDemo ModelSettingsSubsystem
+#
+# These requirements describe the subsystem-level behavior of the demo's generic per-model
+# tunable-parameter settings panel, decomposing the system-level settings requirements in
+# docs/reqstream/speech-demo.yaml.
+#
+# Unit-level content is consolidated here: ParameterViewModelBase and its three concrete
+# presenters (Numeric/Choice/Boolean), together with ModelSettingsViewModel, form one
+# generic-rendering cluster whose behavior is only observable together, so per-unit requirement
+# files would restate this content.
+
+sections:
+  - title: SpeechDemo Requirements
+    sections:
+      - title: ModelSettingsSubsystem Requirements
+        requirements:
+          - id: SpeechDemo-Settings-GenericParameterRendering
+            title: >-
+              The ModelSettingsSubsystem shall render one presenter per parameter the selected
+              model declares, choosing the presenter kind from the parameter's concrete type
+              alone.
+            justification: |
+              architecture.md's typed, self-describing parameter design lets a host build a
+              completely generic settings UI with no prior knowledge of a specific model's
+              declared parameter set. Choosing the presenter by type check alone is the
+              demonstrable proof that this generic rendering works for every parameter kind the
+              library defines today.
+            children:
+              - SpeechDemo-Settings-NumericPresenter-DefaultInitialization
+              - SpeechDemo-Settings-NumericPresenter-Clamping
+              - SpeechDemo-Settings-NumericPresenter-IntegerRounding
+              - SpeechDemo-Settings-NumericPresenter-ControlSelection
+              - SpeechDemo-Settings-ChoicePresenter
+              - SpeechDemo-Settings-BooleanPresenter
+              - SpeechDemo-Settings-ModelSwitch
+            tests:
+              - ModelSettingsViewModel_Model_ModelWithAllThreeParameterKinds_RendersMatchingPresenters
+
+          - id: SpeechDemo-Settings-NumericPresenter-DefaultInitialization
+            title: >-
+              The ModelSettingsSubsystem shall present a numeric parameter starting at its
+              declared default value.
+            justification: |
+              A slider or numeric-updown control needs a starting value; starting at the model's
+              own declared default keeps the presented control consistent with what the model
+              would use if no setting were ever changed.
+            tests:
+              - NumericParameterViewModel_Constructor_Parameter_StartsAtDeclaredDefault
+
+          - id: SpeechDemo-Settings-NumericPresenter-Clamping
+            title: >-
+              The ModelSettingsSubsystem shall clamp every value written to a numeric parameter's
+              presenter to that parameter's declared range.
+            justification: |
+              A slider or numeric-updown control can be bound to a value outside a parameter's
+              declared range (for example, through free-text entry); clamping on every write is
+              what keeps the presented value honoring the model's own declared constraint
+              regardless of how the value was set.
+            tests:
+              - NumericParameterViewModel_Value_SetOutsideRange_ClampsToBounds
+
+          - id: SpeechDemo-Settings-NumericPresenter-IntegerRounding
+            title: >-
+              The ModelSettingsSubsystem shall round every value written to a numeric parameter's
+              presenter to the nearest whole number when that parameter is declared IsInteger.
+            justification: |
+              A discrete parameter with no fractional meaning (for example the LibriTTS-R
+              speaker index) must never allow a fractional value to be selected in the first
+              place - rounding on every write, applied together with range clamping, keeps that
+              guarantee true regardless of how the value was set.
+            tests:
+              - NumericParameterViewModel_Value_SetFractionalOnIntegerParameter_RoundsToNearestWholeNumber
+              - NumericParameterViewModel_Value_SetFractionalOutsideRangeOnIntegerParameter_ClampsAndRounds
+
+          - id: SpeechDemo-Settings-NumericPresenter-ControlSelection
+            title: >-
+              The ModelSettingsSubsystem shall render a whole-number-only control (NumericUpDown)
+              instead of a continuous Slider for a numeric parameter declared IsInteger.
+            justification: |
+              A discrete parameter with no fractional meaning must never present a continuous
+              slider control that implies fractional values are selectable; rendering
+              NumericUpDown instead makes the parameter's discrete nature visible in the UI
+              itself.
+            tests:
+              - NumericParameterViewModel_Constructor_IntegerParameter_ExposesIsIntegerTrue
+
+          - id: SpeechDemo-Settings-ChoicePresenter
+            title: >-
+              The ModelSettingsSubsystem shall present a choice parameter's declared options and
+              shall preselect the option matching its declared default.
+            justification: |
+              A dropdown or radio group needs a concrete list of selectable options and a sane
+              starting selection; resolving the default by value (rather than by position) keeps
+              the starting selection correct regardless of the declared option order.
+            tests:
+              - ChoiceParameterViewModel_Constructor_Parameter_StartsAtDeclaredDefaultOption
+              - ChoiceParameterViewModel_SelectedOption_ChangedToDifferentOption_UpdatesBoxedValue
+
+          - id: SpeechDemo-Settings-BooleanPresenter
+            title: >-
+              The ModelSettingsSubsystem shall present a boolean parameter starting at its
+              declared default.
+            justification: |
+              A checkbox or toggle needs a starting state; starting at the model's own declared
+              default keeps the presented control consistent with what the model would use if no
+              setting were ever changed.
+            tests:
+              - BooleanParameterViewModel_Constructor_Parameter_StartsAtDeclaredDefault
+              - BooleanParameterViewModel_Value_Toggled_UpdatesBoxedValue
+
+          - id: SpeechDemo-Settings-ModelSwitch
+            title: >-
+              The ModelSettingsSubsystem shall replace its presented parameters whenever a
+              different model is assigned, dropping any presenter the new model does not
+              declare.
+            justification: |
+              A newly selected model's parameter set is unrelated to the previous one's; keeping
+              a stale presenter alive across a model change would let the panel offer a control
+              for a parameter the new model does not declare.
+            tests:
+              - ModelSettingsViewModel_Model_ChangedToDifferentModel_ReplacesPresenters
+
+          - id: SpeechDemo-Settings-ParameterConstructionGuards
+            title: >-
+              The ModelSettingsSubsystem shall reject a missing library parameter descriptor for
+              every presenter kind.
+            justification: |
+              A presenter built with no descriptor has nothing to display; failing loudly at
+              construction keeps a half-built presenter from ever reaching a bound view.
+            tests:
+              - ParameterViewModels_Constructor_NullParameter_ThrowArgumentNullException
+
+          - id: SpeechDemo-Settings-ValueBag
+            title: >-
+              The ModelSettingsSubsystem shall assemble the current value of every presented
+              parameter into a key-value bag keyed by each parameter's declared identifier.
+            justification: |
+              architecture.md describes an untyped key-value bag as the interface between a
+              host's settings UI and per-model synthesis/recognition parameter handling. This bag
+              is built and exercised now so a future library revision exposing a per-call
+              parameter surface has an already-proven consumer ready to use it; the current
+              public synthesis/recognition contracts accept no such bag on any per-call member,
+              so the bag has no real synthesis or recognition consumer yet, which is stated
+              plainly rather than silently implied.
+            tests:
+              - ModelSettingsViewModel_BuildValueBag_AllThreeParameterKinds_RoundTripsCurrentValues
+              - ModelSettingsViewModel_BuildValueBag_NoModel_ReturnsEmptyBag
+
+          - id: SpeechDemo-Settings-HonestEmptyState
+            title: >-
+              The ModelSettingsSubsystem shall explain, rather than silently show nothing, when
+              no model is selected or the selected model declares no tunable parameters.
+            justification: |
+              Consistent with the honest-empty-state precedent set by the model catalog panel for
+              an empty known-model registry, an unexplained blank settings panel would read to a
+              user as a broken application rather than an expected state.
+            tests:
+              - ModelSettingsViewModel_Constructor_NoModel_ReportsNoModelEmptyState
+              - ModelSettingsViewModel_Model_ModelWithNoParameters_ReportsNoParametersEmptyState

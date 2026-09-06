@@ -1,0 +1,386 @@
+---
+# Software Subsystem Requirements for ModelManagementSubsystem
+#
+# These requirements describe the subsystem-level behavior of the ModelManagementSubsystem,
+# decomposing the system-level requirements in docs/reqstream/speech.yaml. Sub-phase 2a covers
+# the storage and download machinery: SpeechModelStore's atomic current/ swap, SpeechModelDownloader's
+# queued fetch/verify/install orchestration, the mockable IModelDownloadClient seam and its real
+# HttpModelDownloadClient implementation, and the small descriptor/progress/options/exception
+# supporting types. Sub-phase 2b adds the model catalog/contract machinery on top: the typed
+# tunable-parameter descriptors, the common ISpeechModel contract with its
+# IRecognitionModel/ISynthesisModel role markers, the SpeechModelDescriptor catalog read-model,
+# and SpeechModelCatalog itself. Phase 7a populated that previously-empty catalog
+# with the library's first two real, concrete IRecognitionModel classes
+# (SherpaOnnxZipformerEnRecognitionModel, SherpaOnnxNemotronStreamingEnRecognitionModel) plus a
+# shared TarBz2ArchiveExtractor helper. Phase 7b added the library's first real, concrete
+# ISynthesisModel class (SherpaOnnxVitsLibriTtsEnglishSynthesisModel), exposing only its default
+# speaker as a tracked, out-of-scope limitation. Phase 10 adds a second ISynthesisModel
+# (SherpaOnnxKokoroEnglishSynthesisModel, 11 genuinely distinct voices) and a new
+# ISynthesisModel.ResolveSpeakerId hook, closing that limitation for any model with real
+# per-voice knowledge. A later pass closes the VITS model's own remaining limitation too, by
+# declaring a plain numeric speaker parameter (0-903) and overriding ResolveSpeakerId for it.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        requirements:
+          - id: Speech-Models-AtomicInstall
+            title: >-
+              The ModelManagementSubsystem shall atomically install downloaded model content so
+              an in-use model's current directory is never touched until a verified replacement
+              is fully staged.
+            justification: |
+              architecture.md's Open Concern #3 (download-while-in-use) requires that a model
+              already loaded by an in-use recognizer/synthesizer keep reading unaffected content
+              until a directory-rename swap completes, rather than being partially overwritten.
+            children:
+              - Speech-Models-SpeechModelStore-AtomicSwap
+              - Speech-Models-SpeechModelStore-NeverTouchesCurrentDuringStaging
+            tests:
+              - SpeechModelStore_CompleteInstall_FirstInstall_CreatesCurrentAndManifest
+              - SpeechModelStore_CompleteInstall_ExistingCurrent_ReplacesContentAndCleansUpOldDirectory
+
+          - id: Speech-Models-InstallStateQuery
+            title: >-
+              The ModelManagementSubsystem shall report a model's installed/not-installed state
+              cheaply and honestly, never throwing and never reporting "installed" for a current/
+              directory whose install manifest is missing or unreadable.
+            justification: |
+              A crash between the atomic-swap rename and the manifest write must be treated as
+              not-installed/corrupt rather than falsely "installed", so a repeat of the entire
+              install sequence is always safe.
+            children:
+              - Speech-Models-SpeechModelStore-InstallStateHonesty
+            tests:
+              - SpeechModelStore_IsInstalled_NoInstall_ReturnsFalse
+              - SpeechModelStore_IsInstalled_CurrentWithoutManifest_ReturnsFalse
+
+          - id: Speech-Models-ConfigurableRoot
+            title: >-
+              The ModelManagementSubsystem shall resolve its per-user storage root under
+              Environment.SpecialFolder.LocalApplicationData by default, or an explicit
+              host-configured override path when supplied.
+            justification: |
+              Per-user storage keeps downloaded models out of the installed application's own
+              directory, while an override lets hosts redirect storage (for example to a shared
+              or portable location) without any library code change.
+            children:
+              - Speech-Models-SpeechModelStoreOptions-RootOverride
+              - Speech-Models-SpeechModelStore-DefaultRootResolution
+            tests:
+              - SpeechModelStore_Constructor_NoOptions_ResolvesUnderLocalApplicationData
+              - SpeechModelStore_Constructor_RootPathOverride_UsesOverrideVerbatim
+
+          - id: Speech-Models-Uninstall
+            title: >-
+              The ModelManagementSubsystem shall support explicitly uninstalling an installed
+              model and best-effort cleaning up leftover scratch/replaced directories from prior
+              interrupted operations, signaling a documented exception only when an explicit
+              uninstall cannot complete.
+            justification: |
+              Per architecture.md's "nothing throws at composition" decision, only an explicit,
+              user-invoked uninstall (never composition, install-state queries, or catalog
+              enumeration) may throw - most commonly when another process still holds an open
+              file handle into the model's content.
+            children:
+              - Speech-Models-SpeechModelStore-Uninstall
+              - Speech-Models-SpeechModelStore-CleanUpLeftovers
+              - Speech-Models-SpeechModelStoreException-UninstallFailureSignal
+              - Speech-Models-SpeechModelStoreException-StandardConstructors
+            tests:
+              - SpeechModelStore_Uninstall_InstalledModel_RemovesCurrentAndManifest
+              - SpeechModelStore_Uninstall_NotInstalled_DoesNotThrow
+              - SpeechModelStore_CleanUpLeftovers_LeftoverTmpDirectory_IsRemoved
+
+          - id: Speech-Models-DownloadOrchestration
+            title: >-
+              The ModelManagementSubsystem shall orchestrate one model's download as a SHA-256
+              verify, optional model-owned install-hook, then atomic-install sequence, serializing
+              only two concurrent download requests for the same model id while allowing downloads
+              of different model ids to run fully concurrently, with no pool limit.
+            justification: |
+              architecture.md's "download integrity and progress" decision allows unlimited
+              cross-model concurrency, since each model is staged and installed under its own
+              isolated subtree with no shared mutable state, while a per-model-id guard prevents
+              two concurrent callers from racing the store's atomic-swap install for the same
+              model id. architecture.md's per-model "own archive unpacking" responsibility
+              additionally requires the orchestration to invoke that hook on the verified staged
+              files before the atomic swap, so any model whose payload is an archive can actually
+              be installed.
+            children:
+              - Speech-Models-SpeechModelDownloader-PerModelSerialization
+              - Speech-Models-SpeechModelDownloader-ConcurrentDownloadsAcrossModels
+              - Speech-Models-SpeechModelDownloader-FetchVerifyInstall
+              - Speech-Models-SpeechModelDownloader-InvokesModelInstallHook
+            tests:
+              - SpeechModelDownloader_DownloadAsync_ValidPayload_InstallsModelAndReportsProgress
+              - SpeechModelDownloader_DownloadAsync_TwoConcurrentRequestsForSameModelId_AreSerialized
+              - SpeechModelDownloader_DownloadAsync_TwoConcurrentRequestsForDifferentModels_RunConcurrently
+              - SpeechModelDownloader_DownloadAsync_WithModel_InvokesInstallAsyncBeforeCompleteInstall
+              - SpeechModelDownloader_DownloadAsync_WithZipArchiveModel_CurrentContainsExtractedFilesNotTheArchive
+              - SpeechModelCatalog_DownloadAsync_ZipArchiveModel_InstallsExtractedContentAndReportsDownloaded
+
+          - id: Speech-Models-HonestFailureStates
+            title: >-
+              The ModelManagementSubsystem shall never mark a corrupted, partial,
+              checksum-mismatched, or install-hook-failed download as installed, and a failed
+              repair/re-download attempt shall never regress a model's prior successful install.
+            justification: |
+              A host must be able to trust that "installed" means "verified" (and, when
+              applicable, successfully unpacked); a failed repair attempt against an
+              already-working model must be a safe no-op from the model's perspective, not a risk
+              of leaving it half-updated or removed.
+            children:
+              - Speech-Models-SpeechModelDownloader-ChecksumMismatch
+              - Speech-Models-SpeechModelDownloader-CancellationDiscardsStaging
+              - Speech-Models-SpeechModelDownloader-PriorInstallUntouchedOnFailedRepair
+              - Speech-Models-SpeechModelDownloader-InstallHookFailureIsHandledLikeDownloadFailure
+            tests:
+              - SpeechModelDownloader_DownloadAsync_ChecksumMismatch_ReportsChecksumMismatchAndInstallsNothing
+              - SpeechModelDownloader_DownloadAsync_ChecksumMismatchAfterPriorSuccess_LeavesPriorInstallIntact
+              - SpeechModelDownloader_DownloadAsync_CanceledMidDownload_ThrowsAndInstallsNothing
+              - SpeechModelDownloader_DownloadAsync_WithModel_InstallAsyncThrows_ReportsFailedAndLeavesPriorInstallIntact
+
+          - id: Speech-Models-DownloadDescriptors
+            title: >-
+              The ModelManagementSubsystem shall describe a model's downloadable file(s) via
+              HTTPS-only URLs paired with SHA-256 checksums and non-escaping relative install
+              paths, rejecting insecure or malformed descriptors at construction.
+            justification: |
+              Restricting downloads to HTTPS and validating checksums/paths eagerly at
+              construction, rather than deep into the download pipeline, catches a malformed or
+              tampered model catalog entry as early as possible.
+            children:
+              - Speech-Models-SpeechModelDownloadFile-UriValidation
+              - Speech-Models-SpeechModelDownloadFile-ChecksumValidation
+              - Speech-Models-SpeechModelDownloadFile-InstallPathValidation
+              - Speech-Models-SpeechModelDownloadFile-NullArgumentValidation
+              - Speech-Models-SpeechModelDownloadDescriptor-Validation
+            tests:
+              - SpeechModelDownloadFile_Constructor_HttpUri_ThrowsArgumentException
+              - SpeechModelDownloadFile_Constructor_InvalidChecksum_ThrowsArgumentException
+              - SpeechModelDownloadDescriptor_Constructor_DuplicateInstallPaths_ThrowsArgumentException
+
+          - id: Speech-Models-DownloadProgress
+            title: >-
+              The ModelManagementSubsystem shall report download progress through a mockable,
+              IProgress-compatible payload usable by a host to display progress UI.
+            justification: |
+              Model downloads can be large; hosts need a structural progress signal to build
+              their own UI without the library dictating any particular UI technology.
+            children:
+              - Speech-Models-SpeechModelDownloadProgress-FractionComplete
+            tests:
+              - SpeechModelDownloadProgress_FractionComplete_KnownTotal_ComputesFraction
+              - SpeechModelDownloadProgress_FractionComplete_UnknownTotal_ReturnsNull
+
+          - id: Speech-Models-MockableHttpSeam
+            title: >-
+              The ModelManagementSubsystem shall isolate real HTTP download behind a mockable
+              seam so download orchestration can be unit tested deterministically with no real
+              network access, while the real HttpClient-backed implementation is separately
+              verified against a genuine loopback HTTP server.
+            justification: |
+              Per architecture.md's "own interfaces over direct OTS types" decision, download
+              orchestration must be testable without a real network, while the concrete HTTP
+              implementation still needs proof it genuinely performs an HTTP transfer.
+            children:
+              - Speech-Models-IModelDownloadClient-Seam
+              - Speech-Models-HttpModelDownloadClient-RealDownload
+              - Speech-Models-HttpModelDownloadClient-NonSuccessResponseHandling
+            tests:
+              - HttpModelDownloadClient_DownloadAsync_LoopbackServer_DownloadsExactBytesWithProgress
+              - HttpModelDownloadClient_DownloadAsync_NonSuccessResponse_ThrowsHttpRequestException
+
+          - id: Speech-Models-ContractDeclaration
+            title: >-
+              The ModelManagementSubsystem shall describe each model through a common contract
+              (identity, role, declared parameters, declared audio-tag support, download
+              descriptor, an install hook defaulting to a no-op, and a text-normalization hook
+              defaulting to identity), with role-specific recognition/synthesis marker interfaces
+              so a catalog can report and filter models by role ahead of any engine-specific
+              construction logic.
+            justification: |
+              architecture.md defers engine-specific construction to Phase 3/4 behind
+              IRecognitionModel/ISynthesisModel; defining them as empty marker interfaces now
+              lets SpeechModelCatalog already report/filter by role without any change when
+              Phase 3/4 add real engine-configuration members to those same interfaces.
+              architecture.md additionally lists "own archive unpacking" and "own
+              text-normalization/correction" as per-model responsibilities alongside a model's
+              declared parameters and audio-tag support, so the contract declares both hooks now
+              (with no-op-friendly defaults) rather than adding them as a later breaking change.
+            children:
+              - Speech-Models-SpeechModelContract-RoleMarkerInterfaces
+              - Speech-Models-SpeechModelContract-ParameterDeclaration
+              - Speech-Models-SpeechModelContract-AudioTagAndDownloadDescriptorDeclaration
+              - Speech-Models-SpeechModelContract-InstallHook
+              - Speech-Models-SpeechModelContract-NormalizeTextHook
+              - Speech-Models-SpeechModelContract-RecognitionNormalizeTextHook
+              - Speech-Models-SpeechModelDescriptorEnums-FixedValueSets
+            tests:
+              - IRecognitionModel_Role_IsRecognition
+              - ISynthesisModel_Role_IsSynthesis
+              - ISpeechModel_Parameters_DeclaresEveryDescriptorKind
+              - ISpeechModel_AudioTagSupportAndDownloadDescriptor_AreExposed
+              - ISpeechModel_InstallAsync_DefaultImplementation_CompletesWithoutModifyingStagingDirectory
+              - ISpeechModel_NormalizeText_DefaultImplementation_ReturnsInputUnchanged
+              - FakeRecognitionModel_InstallAsync_WithZipArchivePayload_ExtractsEntriesAndRemovesArchive
+              - SpeechModelRole_Values_DeclaresRecognitionAndSynthesisOnly
+              - SpeechModelState_Values_DeclaresFixedStateSet
+              - SpeechModelAudioTagSupport_Values_DeclaresNoneParameterMappedAndNative
+
+          - id: Speech-Models-TunableParameters
+            title: >-
+              The ModelManagementSubsystem shall describe a model's tunable parameters through a
+              typed, self-describing descriptor set (numeric, choice, boolean) that a host can
+              render generic controls for without knowing the model in advance, rejecting an
+              internally inconsistent descriptor (an invalid range, an empty choice list, or a
+              default matching no declared option) at construction.
+            justification: |
+              architecture.md's "per-model tunable parameters use a typed, self-describing
+              descriptor set" decision requires each descriptor to validate itself eagerly, so an
+              invalid descriptor is caught the moment a model's backing class declares it, not
+              silently accepted and discovered only when a host tries to render it.
+            children:
+              - Speech-Models-SpeechModelParameters-NumericValidation
+              - Speech-Models-SpeechModelParameters-ChoiceValidation
+              - Speech-Models-SpeechModelParameters-BooleanValidation
+            tests:
+              - NumericParameter_Constructor_MinimumGreaterThanMaximum_ThrowsArgumentException
+              - NumericParameter_Constructor_DefaultOutsideRange_ThrowsArgumentException
+              - ChoiceParameter_Constructor_EmptyOptions_ThrowsArgumentException
+              - ChoiceParameter_Constructor_DefaultNotAnOption_ThrowsArgumentException
+              - BooleanParameter_Constructor_ValidValues_ExposesValues
+
+          - id: Speech-Models-CatalogEnumeration
+            title: >-
+              The ModelManagementSubsystem shall enumerate its compiled-in known models alongside
+              each one's current install state, never throwing, correctly reporting
+              not-downloaded, downloading, downloaded, and failed-or-corrupt as a download is
+              requested, in progress, completes, or fails.
+            justification: |
+              architecture.md's model-settings-page use case requires an honest, never-throwing
+              enumeration a host can bind directly to a UI list; Phase 7a populates the
+              compiled-in registry with the library's first two real recognition models,
+              resolving the "always empty" defect a user discovered in the demo app, while state
+              resolution itself continues to be proven here against injected fake models.
+            children:
+              - Speech-Models-SpeechModelCatalog-KnownModelsRegistry
+              - Speech-Models-SpeechModelCatalog-StateResolution
+              - Speech-Models-SpeechModelCatalog-DownloadOrchestration
+              - Speech-Models-SpeechModelDescriptor-Snapshot
+            tests:
+              - SpeechModelCatalog_Enumerate_EmptyKnownModels_ReturnsEmptyList
+              - SpeechModelCatalog_KnownModels_ContainsAllFourRealModels
+              - SpeechModelCatalog_Enumerate_NeverDownloaded_ReportsNotDownloaded
+              - SpeechModelCatalog_GetState_DownloadInFlight_ReportsDownloading
+              - SpeechModelCatalog_DownloadAsync_ValidModel_ReportsDownloadedAfterCompletion
+              - SpeechModelCatalog_DownloadAsync_ChecksumMismatch_ReportsFailedOrCorrupt
+              - SpeechModelCatalog_DownloadAsync_UnknownModelId_ThrowsArgumentException
+
+          - id: Speech-Models-RealRecognitionModels
+            title: >-
+              The ModelManagementSubsystem shall provide two real, concrete IRecognitionModel
+              classes (SherpaOnnxZipformerEnRecognitionModel and
+              SherpaOnnxNemotronStreamingEnRecognitionModel) and a shared internal .tar.bz2
+              archive-extraction helper (TarBz2ArchiveExtractor) both new models'
+              InstallAsync implementations use.
+            justification: |
+              The library's compiled-in known-model registry was empty until this phase, which a
+              user discovered and was unhappy about; Phase 7a resolves that limitation for
+              recognition models by shipping the library's first two production model-backing
+              classes, each declaring a real, checksum-verified download descriptor and
+              engine-configuration wiring, plus the shared archive-extraction helper their
+              install hooks both require (the BCL has no BZip2 decoder).
+            children:
+              - Speech-Models-SherpaOnnxZipformerEnRecognitionModel-Identity
+              - Speech-Models-SherpaOnnxZipformerEnRecognitionModel-DownloadDescriptor
+              - Speech-Models-SherpaOnnxZipformerEnRecognitionModel-EngineConfig
+              - Speech-Models-SherpaOnnxZipformerEnRecognitionModel-EngineConfigArgumentValidation
+              - Speech-Models-SherpaOnnxZipformerEnRecognitionModel-InstallAsync
+              - Speech-Models-SherpaOnnxNemotronStreamingEnRecognitionModel-Identity
+              - Speech-Models-SherpaOnnxNemotronStreamingEnRecognitionModel-EngineConfig
+              - Speech-Models-SherpaOnnxNemotronStreamingEnRecognitionModel-InstallAsync
+              - Speech-Models-SherpaOnnxZipformerEnRecognitionModel-NormalizeText
+              - Speech-Models-SherpaOnnxZipformerEnRecognitionModel-PostEndpointWarmupWindow
+              - Speech-Models-SherpaOnnxNemotronStreamingEnRecognitionModel-NormalizeText
+              - Speech-Models-SherpaOnnxNemotronStreamingEnRecognitionModel-PostEndpointWarmupWindow
+              - Speech-Models-UppercaseTranscriptRestorer-RestoreFinal
+              - Speech-Models-UppercaseTranscriptRestorer-RestoreFinalContractions
+              - Speech-Models-UppercaseTranscriptRestorer-RestoreFinalPunctuation
+              - Speech-Models-UppercaseTranscriptRestorer-RestoreProvisional
+              - Speech-Models-UppercaseTranscriptRestorer-ArgumentValidation
+              - Speech-Models-TarBz2ArchiveExtractor-ExtractAndDelete
+              - Speech-Models-TarBz2ArchiveExtractor-ArgumentValidation
+            tests:
+              - SherpaOnnxZipformerEnRecognitionModel_Identity_DeclaresExpectedValues
+              - SherpaOnnxNemotronStreamingEnRecognitionModel_Identity_DeclaresExpectedValues
+              - TarBz2ArchiveExtractor_ExtractAndDeleteAsync_SingleEntryArchive_ExtractsEntryAndDeletesArchive
+
+          - id: Speech-Models-RealSynthesisModel
+            title: >-
+              The ModelManagementSubsystem shall provide one real, concrete ISynthesisModel
+              class (SherpaOnnxVitsLibriTtsEnglishSynthesisModel), reusing the shared internal
+              .tar.bz2 archive-extraction helper (TarBz2ArchiveExtractor) built in Phase 7a
+              for its own InstallAsync implementation, and declaring a plain numeric speaker
+              parameter (0-903) with a matching ResolveSpeakerId override.
+            justification: |
+              Phase 7a shipped the library's first two production IRecognitionModel classes but
+              left ISynthesisModel with zero real implementations, a tracked follow-up. Phase 7b
+              completes the catalog by shipping the library's first production ISynthesisModel
+              class, declaring a real, checksum-verified download descriptor and VITS/Piper
+              engine-configuration wiring, reusing (not duplicating) the archive-extraction
+              helper Phase 7a already built and quality-passed, but exposing only its default
+              speaker as an accepted, out-of-scope limitation. A later pass closes that
+              limitation by declaring a plain numeric speaker parameter spanning this model's
+              full 904-speaker range - LibriTTS-R's speaker embeddings have no published
+              human-readable name mapping, unlike the sibling Kokoro model's small, named voice
+              set - and overriding ResolveSpeakerId to read it defensively.
+            children:
+              - Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-Identity
+              - Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-DownloadDescriptor
+              - Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-ParameterDeclaration
+              - Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-EngineConfig
+              - Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-EngineConfigArgumentValidation
+              - Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-InstallAsync
+              - Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-ResolveSpeakerId
+            tests:
+              - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_Identity_DeclaresExpectedValues
+              - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_CreateEngineConfig_ResolvesVitsFilesAndConfig
+              - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_InstallAsync_SyntheticArchive_ExtractsFilesAndRemovesArchive
+              - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_ResolveSpeakerId_ValidValue_ReturnsThatValue
+
+          - id: Speech-Models-RealKokoroSynthesisModelWithVoiceSelection
+            title: >-
+              The ModelManagementSubsystem shall provide a second real, concrete
+              ISynthesisModel class (SherpaOnnxKokoroEnglishSynthesisModel) declaring 11
+              genuinely distinct voices and a confirmed voice-name-to-speaker-id mapping via a
+              new ISynthesisModel.ResolveSpeakerId hook, reusing the shared internal .tar.bz2
+              archive-extraction helper (TarBz2ArchiveExtractor) for its own InstallAsync
+              implementation, closing the "speaker selection is out of scope" gap the sibling
+              VITS synthesis model explicitly deferred.
+            justification: |
+              Phase 7b shipped the library's first production ISynthesisModel but exposed only
+              its default speaker, an accepted, documented, out-of-scope limitation. Phase 10
+              closes that limitation for any model with real per-voice knowledge by adding a
+              second ISynthesisModel implementation (Kokoro) whose 11-voice option set and
+              speaker-id ordering were independently confirmed against upstream sherpa-onnx's
+              own generation script, byte arithmetic against the real voices.bin, and a live
+              model load reporting NumSpeakers = 11, and by extending ISynthesisModel itself
+              with a non-breaking ResolveSpeakerId default-hook member that
+              SherpaOnnxSpeechSynthesizer.GenerateSegment now calls instead of hard-coding
+              speakerId: 0.
+            children:
+              - Speech-Models-SherpaOnnxKokoroEnglishSynthesisModel-Identity
+              - Speech-Models-SherpaOnnxKokoroEnglishSynthesisModel-DownloadDescriptor
+              - Speech-Models-SherpaOnnxKokoroEnglishSynthesisModel-EngineConfig
+              - Speech-Models-SherpaOnnxKokoroEnglishSynthesisModel-EngineConfigArgumentValidation
+              - Speech-Models-SherpaOnnxKokoroEnglishSynthesisModel-InstallAsync
+              - Speech-Models-SherpaOnnxKokoroEnglishSynthesisModel-ResolveSpeakerId
+            tests:
+              - SherpaOnnxKokoroEnglishSynthesisModel_Identity_DeclaresExpectedValues
+              - SherpaOnnxKokoroEnglishSynthesisModel_CreateEngineConfig_ResolvesKokoroFilesAndConfig
+              - SherpaOnnxKokoroEnglishSynthesisModel_InstallAsync_SyntheticArchive_ExtractsFilesAndRemovesArchive
+              - SherpaOnnxKokoroEnglishSynthesisModel_ResolveSpeakerId_KnownVoice_ReturnsConfirmedId
+              - SherpaOnnxKokoroEnglishSynthesisModel_ResolveSpeakerId_UnknownVoice_ReturnsDefaultId

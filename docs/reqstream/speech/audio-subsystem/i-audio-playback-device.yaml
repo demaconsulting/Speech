@@ -1,0 +1,75 @@
+---
+# Software Unit Requirements for IAudioPlaybackDevice
+#
+# These requirements describe the design-level behavior of the IAudioPlaybackDevice
+# unit, decomposing the parent AudioSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: AudioSubsystem Requirements
+        sections:
+          - title: IAudioPlaybackDevice Requirements
+            requirements:
+              - id: Speech-Audio-IAudioPlaybackDevice-AvailabilityFlag
+                title: >-
+                  The IAudioPlaybackDevice interface shall expose an IsAvailable flag that never
+                  throws to read.
+                justification: |
+                  Callers must be able to check availability before invoking an operational
+                  member, without risk of the check itself failing.
+                tests:
+                  - UnavailableAudioPlaybackDevice_IsAvailable_Read_ReturnsFalse
+                  - PortAudioPlaybackDevice_IsAvailable_NoResolvableDevice_ReturnsFalse
+
+              - id: Speech-Audio-IAudioPlaybackDevice-StartStopWrite
+                title: >-
+                  The IAudioPlaybackDevice interface shall define Start/Stop lifecycle methods
+                  and a Write method for submitting audio for playback.
+                justification: |
+                  A mockable playback-device contract lets hosts and tests depend on playback
+                  behavior without tying themselves to native PortAudio types.
+                tests:
+                  - UnavailableAudioPlaybackDevice_Start_Always_ThrowsAudioDeviceUnavailableException
+                  - UnavailableAudioPlaybackDevice_Stop_Always_ThrowsAudioDeviceUnavailableException
+                  - UnavailableAudioPlaybackDevice_Write_Always_ThrowsAudioDeviceUnavailableException
+                  - PortAudioPlaybackDevice_Write_StreamRequestsSamples_DrainsQueueAndZeroFills
+                  - PortAudioPlaybackDevice_Start_OpenFails_ThrowsAudioDeviceUnavailableException
+
+              - id: Speech-Audio-IAudioPlaybackDevice-PlaybackFormat
+                title: >-
+                  The IAudioPlaybackDevice interface shall expose the channel count and sample
+                  rate Write renders audio at, readable without throwing and reported as zero when
+                  the device is unavailable.
+                justification: |
+                  Synthesized audio carries no format metadata of its own until it is converted,
+                  so a consumer that must resample and upmix it before playback - speech
+                  synthesis, added in Sub-phase 4b - has no other way to learn the device's
+                  resolved format. Mirroring IAudioCaptureDevice's identical Sub-phase 3 addition
+                  keeps both capture and playback format contracts consistent, and reporting zero
+                  rather than a plausible default when no device was resolved keeps the contract
+                  honest and consistent with the availability flag.
+                tests:
+                  - PortAudioPlaybackDevice_PlaybackFormat_ResolvedDevice_ReflectsResolvedDeviceFormat
+                  - PortAudioPlaybackDevice_PlaybackFormat_NoResolvableDevice_ReturnsZeroRateAndChannelCount
+                  - UnavailableAudioPlaybackDevice_PlaybackFormat_Read_ReturnsZeroRateAndChannelCount
+
+              - id: Speech-Audio-IAudioPlaybackDevice-PendingSampleCount
+                title: >-
+                  The IAudioPlaybackDevice interface shall expose a non-throwing, non-blocking
+                  PendingSampleCount reporting how many samples passed to Write the playback
+                  hardware has not yet actually rendered, reported as zero when the device is
+                  unavailable.
+                justification: |
+                  Write is fire-and-forget: it enqueues samples for later, callback-driven
+                  rendering and returns immediately regardless of how much audio is still
+                  pending. Without an honest way to observe real hardware-drain progress, a
+                  caller (SherpaOnnxSpeechSynthesizer.PlayStreamAsync) could only ever observe
+                  that samples had been handed off, not that they had actually played - the
+                  confirmed root cause of a bug where the TTS panel's status flashed back to idle
+                  and cut audio off almost instantly, because playback was stopped (discarding
+                  whatever was still queued) as soon as every segment was enqueued.
+                tests:
+                  - PortAudioPlaybackDevice_PendingSampleCount_WriteDrainAndStop_TracksQueueDepth
+                  - PortAudioPlaybackDevice_IsAvailable_NoResolvableDevice_ReturnsFalse
+                  - UnavailableAudioPlaybackDevice_PendingSampleCount_Read_ReturnsZero

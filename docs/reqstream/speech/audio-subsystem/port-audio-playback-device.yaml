@@ -1,0 +1,85 @@
+---
+# Software Unit Requirements for PortAudioPlaybackDevice
+#
+# These requirements describe the design-level behavior of the PortAudioPlaybackDevice
+# unit, decomposing the parent AudioSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: AudioSubsystem Requirements
+        sections:
+          - title: PortAudioPlaybackDevice Requirements
+            requirements:
+              - id: Speech-Audio-PortAudioPlaybackDevice-AvailabilityReflectsResolution
+                title: >-
+                  The PortAudioPlaybackDevice class shall report availability according to
+                  whether a playback device can be resolved on the preferred host API.
+                justification: |
+                  Hosts need an honest, non-throwing way to decide whether manual playback is
+                  currently possible.
+                tests:
+                  - PortAudioPlaybackDevice_IsAvailable_NoResolvableDevice_ReturnsFalse
+
+              - id: Speech-Audio-PortAudioPlaybackDevice-StaleSelectionUsesDefault
+                title: >-
+                  The PortAudioPlaybackDevice class shall fall back to the preferred host API's
+                  default output device when a persisted selection no longer resolves.
+                justification: |
+                  A stale user preference should not make playback unavailable when the system
+                  still has a valid default output device.
+                tests:
+                  - PortAudioPlaybackDevice_Constructor_StaleSelection_FallsBackToDefaultDevice
+
+              - id: Speech-Audio-PortAudioPlaybackDevice-QueuedPlayback
+                title: >-
+                  The PortAudioPlaybackDevice class shall queue interleaved floating-point
+                  samples and zero-fill any playback underrun.
+                justification: |
+                  Callback-driven playback must avoid blocking for new audio data and must
+                  return a complete output buffer to PortAudio on every callback.
+                tests:
+                  - PortAudioPlaybackDevice_Write_StreamRequestsSamples_DrainsQueueAndZeroFills
+
+              - id: Speech-Audio-PortAudioPlaybackDevice-NativeFaultsThrowUnavailable
+                title: >-
+                  The PortAudioPlaybackDevice class shall surface native stream-open failures as
+                  AudioDeviceUnavailableException.
+                justification: |
+                  A device that disappeared or could not open after selection should fail at
+                  first use with a library-specific exception rather than leaking native details.
+                tests:
+                  - PortAudioPlaybackDevice_Start_OpenFails_ThrowsAudioDeviceUnavailableException
+
+              - id: Speech-Audio-PortAudioPlaybackDevice-PlaybackFormat
+                title: >-
+                  The PortAudioPlaybackDevice class shall report the channel count and sample
+                  rate of the device it resolved, and shall report zero for both when no device
+                  could be resolved.
+                justification: |
+                  The reported format must describe the audio Write actually renders, so a
+                  consumer resampling or upmixing audio before playback - notably speech
+                  synthesis - converts it correctly; reporting zero when nothing was resolved
+                  keeps the report consistent with the device's honest availability flag, mirroring
+                  PortAudioCaptureDevice's identical Sub-phase 3 addition.
+                tests:
+                  - PortAudioPlaybackDevice_PlaybackFormat_ResolvedDevice_ReflectsResolvedDeviceFormat
+                  - PortAudioPlaybackDevice_PlaybackFormat_NoResolvableDevice_ReturnsZeroRateAndChannelCount
+
+              - id: Speech-Audio-PortAudioPlaybackDevice-PendingSampleCount
+                title: >-
+                  The PortAudioPlaybackDevice class shall track, with PendingSampleCount, how
+                  many samples passed to Write have not yet been dequeued by the playback
+                  callback, decrementing only by samples the callback genuinely dequeues (never
+                  by a zero-fill shortfall), and shall reset the count to zero when Stop clears
+                  the queue or when no device was resolved.
+                justification: |
+                  Fixes a bug where SherpaOnnxSpeechSynthesizer.PlayStreamAsync stopped the
+                  device (discarding whatever was still queued) as soon as every segment had been
+                  enqueued via the fire-and-forget Write, rather than once the hardware had
+                  actually rendered it, cutting the TTS panel's audio off almost instantly.
+                  PendingSampleCount is the only honest signal of real drain progress, so it must
+                  reflect actual callback consumption rather than mere queue occupancy at
+                  enqueue time.
+                tests:
+                  - PortAudioPlaybackDevice_PendingSampleCount_WriteDrainAndStop_TracksQueueDepth

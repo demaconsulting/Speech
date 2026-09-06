@@ -1,0 +1,81 @@
+---
+# Software Unit Requirements for SpeechSynthesizerFactory
+#
+# These requirements describe the design-level behavior of the SpeechSynthesizerFactory unit,
+# decomposing the parent SynthesisSubsystem requirements. Mirrors
+# speech-recognizer-factory.yaml's identical Phase 3 pattern.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: SynthesisSubsystem Requirements
+        sections:
+          - title: SpeechSynthesizerFactory Requirements
+            requirements:
+              - id: Speech-Synthesis-SpeechSynthesizerFactory-RealSynthesizer
+                title: >-
+                  The SpeechSynthesizerFactory class shall return a working speech synthesizer
+                  when the requested model is installed, declares the synthesis role, its engine
+                  loads, and the supplied playback device is available.
+                justification: |
+                  A single composition entry point keeps all "can this machine speak right now?"
+                  logic in one reviewable place, so a host never has to reason about model
+                  installation, device availability, and engine loading separately.
+                tests:
+                  - SpeechSynthesizerFactory_Create_ModelInstalledAndDeviceAvailable_ReturnsRealSynthesizer
+
+              - id: Speech-Synthesis-SpeechSynthesizerFactory-HonestFallbacks
+                title: >-
+                  The SpeechSynthesizerFactory class shall return an honest unavailable
+                  synthesizer, without throwing, when the requested model is not installed, the
+                  model does not declare the synthesis role, or the supplied playback device is
+                  unavailable.
+                justification: |
+                  Per architecture.md's "nothing throws at composition" decision, a model that has
+                  not been downloaded yet and a machine with no speakers are ordinary states at
+                  application start-up, not programming errors.
+                tests:
+                  - SpeechSynthesizerFactory_Create_ModelNotInstalled_ReturnsUnavailableSynthesizer
+                  - SpeechSynthesizerFactory_Create_PlaybackDeviceUnavailable_ReturnsUnavailableSynthesizer
+                  - SpeechSynthesizerFactory_Create_ModelRoleIsNotSynthesis_ReturnsUnavailableSynthesizer
+
+              - id: Speech-Synthesis-SpeechSynthesizerFactory-EngineLoadFailureFallback
+                title: >-
+                  The SpeechSynthesizerFactory class shall return an honest unavailable
+                  synthesizer, and report the reason, when the synthesis engine for an installed
+                  model cannot be loaded.
+                justification: |
+                  architecture.md requires that "a model whose native runtime is absent must
+                  degrade the same honest way as a missing model file, never crash". An engine
+                  that cannot load because of a missing native binary, an unsupported platform, or
+                  corrupt model files must therefore not fail application start-up.
+                tests:
+                  - SpeechSynthesizerFactory_Create_EngineLoadFails_ReturnsUnavailableSynthesizerAndDoesNotThrow
+
+              - id: Speech-Synthesis-SpeechSynthesizerFactory-ArgumentValidation
+                title: >-
+                  The SpeechSynthesizerFactory class shall reject a null model or a null playback
+                  device.
+                justification: |
+                  A null model or playback device is a programming error at the call site, not an
+                  ordinary "unavailable" machine state, and must fail immediately with a clear
+                  exception rather than being silently treated as unavailable.
+                tests:
+                  - SpeechSynthesizerFactory_Create_NullModel_ThrowsArgumentNullException
+                  - SpeechSynthesizerFactory_Create_NullPlaybackDevice_ThrowsArgumentNullException
+
+              - id: Speech-Synthesis-SpeechSynthesizerFactory-ParameterValuesForwarding
+                title: >-
+                  The SpeechSynthesizerFactory class shall forward an optional parameterValues
+                  bag unchanged to the constructed synthesizer, defaulting to null for a caller
+                  that does not supply one, so a model with real per-voice knowledge can later
+                  resolve a genuine speaker id from it.
+                justification: |
+                  Prior to this requirement, no seam existed to carry a session-level selected
+                  voice from a host's ISpeechModel.Parameters selection through to
+                  SherpaOnnxSpeechSynthesizer; adding this argument as optional with a null
+                  default keeps every existing call site source-compatible while unblocking real
+                  voice selection end-to-end for models such as
+                  SherpaOnnxKokoroEnglishSynthesisModel.
+                tests:
+                  - SpeechSynthesizerFactory_Create_ParameterValuesSupplied_ForwardedToSynthesizer

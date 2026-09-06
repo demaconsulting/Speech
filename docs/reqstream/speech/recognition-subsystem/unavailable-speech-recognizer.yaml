@@ -1,0 +1,63 @@
+---
+# Software Unit Requirements for UnavailableSpeechRecognizer
+#
+# Groups requirements for UnavailableSpeechRecognizer and SpeechRecognizerUnavailableException
+# into a single file, per design-documentation.md's allowance for small supporting types
+# documented inline within their subsystem's design doc. Each unit's requirement subset is called
+# out in its own subsection below so every unit still has requirements tracing to it individually.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: RecognitionSubsystem Requirements
+        sections:
+          - title: UnavailableSpeechRecognizer Requirements
+            requirements:
+              - id: Speech-Recognition-UnavailableSpeechRecognizer-ReportsUnavailable
+                title: >-
+                  The UnavailableSpeechRecognizer class shall report IsAvailable as false and
+                  never throw merely for being obtained or held.
+                justification: |
+                  A caller must always be able to safely obtain and hold a fallback recognizer,
+                  per architecture.md's "nothing throws at composition" decision.
+                tests:
+                  - UnavailableSpeechRecognizer_IsAvailable_Read_ReturnsFalse
+
+              - id: Speech-Recognition-UnavailableSpeechRecognizer-OperationsThrow
+                title: >-
+                  The UnavailableSpeechRecognizer class shall throw
+                  SpeechRecognizerUnavailableException when Start or Stop is invoked.
+                justification: |
+                  A caller that ignores the IsAvailable flag and invokes an operational member
+                  has made a programming error that must surface immediately rather than silently
+                  recognizing nothing.
+                tests:
+                  - UnavailableSpeechRecognizer_Start_Always_ThrowsSpeechRecognizerUnavailableException
+                  - UnavailableSpeechRecognizer_Stop_Always_ThrowsSpeechRecognizerUnavailableException
+
+              - id: Speech-Recognition-UnavailableSpeechRecognizer-SafeNoOps
+                title: >-
+                  The UnavailableSpeechRecognizer class shall treat result-event subscription and
+                  disposal as safe no-ops that never throw and never invalidate the shared
+                  fallback.
+                justification: |
+                  A host that wires up its transcript handler and wraps its recognizer in a
+                  disposal scope must be able to run that same code unchanged on a machine where
+                  recognition is unavailable.
+                tests:
+                  - UnavailableSpeechRecognizer_SubscriptionAndDispose_Always_AreSafeNoOps
+
+          - title: SpeechRecognizerUnavailableException Requirements
+            requirements:
+              - id: Speech-Recognition-SpeechRecognizerUnavailableException-Thrown
+                title: >-
+                  The SpeechRecognizerUnavailableException class shall provide standard exception
+                  constructors (default, message, message with inner exception).
+                justification: |
+                  Standard exception conformance lets callers construct, catch, and inspect this
+                  exception like any other .NET exception type, including wrapping an underlying
+                  capture-device failure as the inner exception.
+                tests:
+                  - SpeechRecognizerUnavailableException_Constructor_WithMessage_ExposesMessage
+                  - SpeechRecognizerUnavailableException_Constructor_WithInnerException_ExposesBoth
+                  - SpeechRecognizerUnavailableException_Constructor_Default_HasNonEmptyMessage

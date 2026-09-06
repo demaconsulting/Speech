@@ -1,0 +1,150 @@
+---
+# Software Subsystem Requirements for the SpeechDemo RecognitionPanelSubsystem
+#
+# These requirements describe the subsystem-level behavior of the demo's speech-to-text panel,
+# decomposing the system-level recognition requirements in docs/reqstream/speech-demo.yaml.
+#
+# Unit-level content is consolidated here: IRecognizerSessionFactory/RecognizerSessionFactory and
+# RecognitionPanelViewModel form one seam-and-presenter pair whose behavior is only observable
+# together, so per-unit requirement files would restate this content.
+
+sections:
+  - title: SpeechDemo Requirements
+    sections:
+      - title: RecognitionPanelSubsystem Requirements
+        requirements:
+          - id: SpeechDemo-Recognition-ModelSelection
+            title: >-
+              The RecognitionPanelSubsystem shall offer only the installed recognition models a
+              user may choose to transcribe with, and shall preserve the current selection
+              across a refresh where it is still installed.
+            justification: |
+              A model of the wrong role, or one not yet downloaded, cannot honestly transcribe
+              audio; offering it would let a user start a session that can only fail. Preserving
+              a still-installed selection across a refresh keeps the panel from resetting a
+              choice the user already made.
+            tests:
+              - RecognitionPanelViewModel_Refresh_MixedCatalog_OffersOnlyInstalledRecognitionModels
+
+          - id: SpeechDemo-Recognition-StartStopLifecycle
+            title: >-
+              The RecognitionPanelSubsystem shall start a streaming transcription session for the
+              selected model through the selected capture device when Start is invoked, and shall
+              let a user stop it deterministically at any time.
+            justification: |
+              Streaming speech-to-text is only useful as a start/stop lifecycle a user directly
+              controls; this is the demonstrable proof that a host can drive the library's
+              recognizer contract from a UI thread with ordinary property-changed notification
+              alone.
+            tests:
+              - RecognitionPanelViewModel_Start_SuccessfulSession_EntersListeningState
+              - RecognitionPanelViewModel_Stop_DuringListening_StopsAndReleasesSession
+              - RecognitionPanelViewModel_Stop_NothingListening_IsSafeNoOp
+
+          - id: SpeechDemo-Recognition-TranscriptSequencing
+            title: >-
+              The RecognitionPanelSubsystem shall replace the trailing provisional transcript
+              line with each new partial result, and shall commit a final result to the ordered
+              list of finished lines while clearing the trailing partial.
+            justification: |
+              A live captioning display must show the most recent provisional guess without
+              accumulating every intermediate guess as noise, and must commit an utterance to a
+              stable line the instant the recognizer considers it final - the exact sequencing a
+              real captioning UI depends on.
+            tests:
+              - RecognitionPanelViewModel_ResultReceived_PartialThenFinal_UpdatesTranscriptInOrder
+              - RecognitionPanelViewModel_BuildTranscriptText_FinalsAndPartial_RendersInOrder
+
+          - id: SpeechDemo-Recognition-HonestUnavailableStates
+            title: >-
+              The RecognitionPanelSubsystem shall report an honest, explanatory outcome - rather
+              than a crash or a silent no-op - when no recognition model is selected, no capture
+              device is available, the composed recognizer honestly reports itself unavailable,
+              or the recognizer faults when actually started, and shall release any recognizer it
+              created for a failed attempt.
+            justification: |
+              A user evaluating the library on a machine with no installed model, no microphone,
+              or an engine fault beyond the library's control must see why Start did nothing,
+              matching the library's own "nothing throws at composition" guarantee carried
+              through to the panel.
+            tests:
+              - RecognitionPanelViewModel_Start_NoModelSelected_ReportsErrorState
+              - RecognitionPanelViewModel_Start_NoCaptureDevice_ReportsErrorState
+              - RecognitionPanelViewModel_Start_RecognizerUnavailable_ReportsErrorStateAndDisposes
+              - RecognitionPanelViewModel_Start_RecognizerStartThrows_ReportsErrorStateAndDisposes
+
+          - id: SpeechDemo-Recognition-HonestEmptyCatalogState
+            title: >-
+              The RecognitionPanelSubsystem shall explain, rather than silently show nothing,
+              when no installed recognition model exists to choose from.
+            justification: |
+              Consistent with the honest-empty-state precedent set by the model catalog panel, an
+              unexplained empty picker reads to a user as a broken application rather than an
+              expected pre-download state.
+            tests:
+              - RecognitionPanelViewModel_Constructor_NoInstalledRecognitionModel_ReportsHonestEmptyState
+
+          - id: SpeechDemo-Recognition-ResourceLifetime
+            title: >-
+              The RecognitionPanelSubsystem shall release an active recognizer, unsubscribe from
+              its events, and unsubscribe from IModelCatalogService.ModelInstalled when the panel
+              is disposed, idempotently.
+            justification: |
+              A recognizer owns unmanaged inference resources and a live capture device; leaking
+              either when the panel's host shuts down would starve the next session or leave the
+              device open. The panel also now holds a ModelInstalled subscription for its own
+              lifetime, which must be released the same way or a disposed panel would keep
+              refreshing itself in response to later installs. Idempotent disposal keeps a
+              duplicate Dispose call - however it is triggered by the shell - from faulting.
+            tests:
+              - RecognitionPanelViewModel_Dispose_ReleasesActiveSessionWithoutThrowing
+
+          - id: SpeechDemo-Recognition-SessionSeam
+            title: >-
+              The RecognitionPanelSubsystem shall compose every speech recognizer it uses through
+              an injectable seam over the library's recognizer factory, and that seam shall
+              honestly report a model of the wrong role as unavailable rather than throwing.
+            justification: |
+              The library's recognizer factory requires an interface only the library's own
+              assemblies can implement, so a demo-owned seam accepting the library's public model
+              contract is what makes Start/Stop testable with no downloaded model and no native
+              runtime, while still reporting a role mismatch the same honest way the library
+              itself reports an uninstalled model.
+            tests:
+              - RecognitionPanelViewModel_Constructor_NullDependency_ThrowsArgumentNullException
+              - RecognizerSessionFactory_Constructor_NullStore_ThrowsArgumentNullException
+              - RecognizerSessionFactory_Create_NullModel_ThrowsArgumentNullException
+              - RecognizerSessionFactory_Create_NullDevice_ThrowsArgumentNullException
+              - RecognizerSessionFactory_Create_ModelNotRecognitionRole_ReturnsUnavailableRecognizer
+
+          - id: SpeechDemo-Recognition-AutoRefreshOnInstall
+            title: >-
+              The RecognitionPanelSubsystem shall subscribe to
+              IModelCatalogService.ModelInstalled at construction and automatically refresh its
+              offered models when the event reports a recognition-role model, ignoring the event
+              for any other role, and shall unsubscribe from it on disposal.
+            justification: |
+              A user who downloads a recognition model from the Model Catalog panel should see it
+              become available on this panel immediately, without a manual Refresh click or an
+              application restart. Filtering by role keeps an unrelated synthesis-model install
+              from causing a spurious refresh, and unsubscribing on disposal prevents a disposed
+              panel from reacting to a later install.
+            tests:
+              - RecognitionPanelViewModel_ModelInstalled_MatchingRole_TriggersRefresh
+              - RecognitionPanelViewModel_ModelInstalled_NonMatchingRole_DoesNotTriggerRefresh
+              - RecognitionPanelViewModel_Dispose_UnsubscribesFromModelInstalled_NoRefreshAfterDispose
+
+          - id: SpeechDemo-Recognition-ModelSwitchGuard
+            title: >-
+              The RecognitionPanelSubsystem shall expose a CanChangeModel value that is true
+              only when State is not Listening, and the view shall disable the model-selection
+              control while it is false.
+            justification: |
+              Switching the selected recognition model while a streaming session is active would
+              leave a running recognizer bound to a model no longer reflected in SelectedModel,
+              silently desynchronizing the displayed selection from the model actually
+              transcribing audio; disabling selection while Listening prevents that
+              inconsistency.
+            tests:
+              - RecognitionPanelViewModel_CanChangeModel_TogglesAcrossStateTransitions
+              - RecognitionPanelViewModel_CanChangeModel_ErrorState_IsTrue

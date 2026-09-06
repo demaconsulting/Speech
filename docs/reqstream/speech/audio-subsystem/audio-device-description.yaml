@@ -1,0 +1,24 @@
+---
+# Software Unit Requirements for AudioDeviceDescription
+#
+# These requirements describe the design-level behavior of the AudioDeviceDescription
+# unit, decomposing the parent AudioSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: AudioSubsystem Requirements
+        sections:
+          - title: AudioDeviceDescription Requirements
+            requirements:
+              - id: Speech-Audio-AudioDeviceDescription-NameIdentity
+                title: >-
+                  The AudioDeviceDescription record shall carry the device's name as its sole
+                  stable identity field, alongside direction, channel count, and sample rate
+                  metadata.
+                justification: |
+                  Consumers (probes, selections, and hosts building device pickers) need a
+                  single, well-known field to treat as identity, plus enough descriptive
+                  metadata to present a device meaningfully without querying the backend again.
+                tests:
+                  - AudioDeviceSelection_Resolve_MatchingName_ReturnsMatchingDevice
