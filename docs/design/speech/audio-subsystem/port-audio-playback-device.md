@@ -3,19 +3,22 @@
 **Purpose**: Represent one real playback device resolved through PortAudio.
 
 **Data Model**: Holds a `PortAudioEnvironment`, an `AudioDeviceSelection`, a diagnostics sink,
-and either resolved device metadata or `null` when no device could be resolved. `ChannelCount`
-and `SampleRate`, added in Sub-phase 4b mirroring `PortAudioCaptureDevice`'s identical Phase 3
-addition, project the resolved device's own values - the same values requested when the playback
-stream is opened - and report `0` when nothing was resolved. A `ConcurrentQueue<float>` buffers
-samples written by callers until the PortAudio callback requests them, alongside a `long`
-`_pendingSampleCount` field updated with `Interlocked` (because `Write` runs on caller threads
-while the PortAudio callback runs on its own real-time thread) tracking how many enqueued samples
-the callback has not yet dequeued.
+an optional preferred `AudioFormat`, and either resolved device metadata or `null` when no device
+could be resolved. `ChannelCount` and `SampleRate`, added in Sub-phase 4b mirroring
+`PortAudioCaptureDevice`'s identical Phase 3 addition, project the values requested when the
+playback stream is opened: either the resolved device's own default/full-capacity format, or the
+caller-preferred format with channel count clamped down to device capability. They report `0`
+when nothing was resolved. A `ConcurrentQueue<float>` buffers samples written by callers until
+the PortAudio callback requests them, alongside a `long` `_pendingSampleCount` field updated
+with `Interlocked` (because `Write` runs on caller threads while the PortAudio callback runs on
+its own real-time thread) tracking how many enqueued samples the callback has not yet dequeued.
 
 **Key Methods**:
 
 - **PortAudioPlaybackDevice(...)**: Resolves either the named device or the preferred host API's
-  default output device. Construction never throws.
+  default output device, applies any preferred sample-rate hint directly, and clamps any
+  preferred channel count down to the device's maximum output-channel capability. Construction
+  never throws.
 - **Start()**: Opens a playback-only PortAudio stream through `IPortAudioApi` and starts it.
 - **Write(IReadOnlyList&lt;float&gt;)**: Enqueues interleaved samples for the PortAudio callback to
   drain later and increments `_pendingSampleCount` by however many samples were enqueued.
@@ -34,6 +37,6 @@ members throw `AudioDeviceUnavailableException`. Native stream-open or stream-st
 wrapped in `AudioDeviceUnavailableException`.
 
 **Dependencies**: `PortAudioEnvironment`, `IPortAudioApi`, `IPortAudioStream`,
-`AudioDeviceSelection`, `ConcurrentQueue<float>`, and `ISpeechDiagnostics`.
+`AudioDeviceSelection`, `AudioFormat`, `ConcurrentQueue<float>`, and `ISpeechDiagnostics`.
 
 **Callers**: `AudioDeviceFactory.CreatePlaybackDevice()`.

@@ -11,7 +11,7 @@ namespace DemaConsulting.Speech.RecognitionSubsystem;
 ///     This type deliberately contains no model-specific knowledge: architecture.md makes each
 ///     per-model backing class responsible for "sherpa-onnx configuration for its own model
 ///     architecture", so all this factory does is ask the model for its configuration and
-///     declared rate and hand both to the engine. Adding a model therefore never requires
+///     declared input format and hand both to the engine. Adding a model therefore never requires
 ///     changing this class.
 ///     <para>
 ///     Loading failures - a missing <c>org.k2fsa.sherpa.onnx.runtime.{RID}</c> native binary, an
@@ -30,9 +30,12 @@ internal sealed class SherpaOnnxRecognitionEngineFactory : IRecognitionEngineFac
         ArgumentException.ThrowIfNullOrEmpty(installedModelDirectory);
 
         // Ask the model for its own configuration, resolved against where its files were
-        // actually installed, then load it at the rate the same model declared.
+        // actually installed, then load it at the sample rate the same model declared.
         var config = model.CreateEngineConfig(installedModelDirectory);
 
-        return new SherpaOnnxRecognitionEngine(config, model.SampleRate, model.PostEndpointWarmupWindowMs);
+        return new SherpaOnnxRecognitionEngine(
+            config,
+            model.AudioFormat.SampleRate,
+            model.PostEndpointWarmupWindowMs);
     }
 }

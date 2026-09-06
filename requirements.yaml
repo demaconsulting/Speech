@@ -16,6 +16,7 @@ includes:
   - docs/reqstream/speech/audio-subsystem.yaml
   - docs/reqstream/speech/audio-subsystem/audio-device-description.yaml
   - docs/reqstream/speech/audio-subsystem/audio-device-selection.yaml
+  - docs/reqstream/speech/audio-subsystem/audio-format.yaml
   - docs/reqstream/speech/audio-subsystem/i-audio-capture-device.yaml
   - docs/reqstream/speech/audio-subsystem/i-audio-playback-device.yaml
   - docs/reqstream/speech/audio-subsystem/i-audio-capture-device-probe.yaml

@@ -41,6 +41,9 @@ fabricated or copied uncritically from an earlier measurement).
   from it reported `SampleRate = 24000` and `NumSpeakers = 11`, and generated real, audibly
   non-silent, and audibly distinct audio for two different speaker ids given the identical input
   sentence.
+- **ISynthesisModel.PreferredAudioFormat** *(public)*: mono `24000` Hz, a best-effort playback
+  hint matching the real engine sample rate observed for this model in this repository's manual
+  engine-load verification.
 - **ISynthesisModel.CapabilityProfile** *(internal)*: not overridden - resolves to the interface's
   default, `DefaultModelCapabilityProfile.Instance`.
 - **ISynthesisModel.ResolveSpeakerId(parameterValues)** *(internal)*: this model's own owned
@@ -92,4 +95,5 @@ hard-coding `speakerId: 0`, and `SpeechSynthesizerFactory.Create` threads an opt
 `SpeechModelDownloader` (invokes `InstallAsync` after checksum verification);
 `SherpaOnnxSynthesisEngine` (consumes the internal `CreateEngineConfig` member through the
 SynthesisSubsystem); `SherpaOnnxSpeechSynthesizer.GenerateSegment` (consumes the internal
-`ResolveSpeakerId` member once per synthesized segment).
+`ResolveSpeakerId` member once per synthesized segment); and hosts or factory composition code
+that read `PreferredAudioFormat` before engine construction.

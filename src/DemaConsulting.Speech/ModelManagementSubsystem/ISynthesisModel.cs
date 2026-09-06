@@ -1,3 +1,4 @@
+using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.SynthesisSubsystem;
 using SherpaOnnx;
 
@@ -31,6 +32,23 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 /// </remarks>
 public interface ISynthesisModel : ISpeechModel
 {
+    /// <summary>
+    ///     Gets the mono audio format this model prefers a playback device to request before the
+    ///     native synthesis engine has been loaded.
+    /// </summary>
+    /// <remarks>
+    ///     This value is a best-effort hint, not an authoritative engine fact. A host may pass
+    ///     it to
+    ///     <see cref="AudioSubsystem.AudioDeviceFactory.CreatePlaybackDevice(AudioSubsystem.AudioDeviceSelection?, AudioFormat?)"/>
+    ///     so the playback device attempts to open near the model's expected output format before
+    ///     synthesis starts, potentially reducing or eliminating later resampling work. The real
+    ///     source of truth remains the constructed engine's
+    ///     <see cref="SynthesisSubsystem.ISynthesisEngine.SampleRate"/>, which is read only after
+    ///     <see cref="CreateEngineConfig"/> has been used to load the native engine. Callers must
+    ///     therefore still handle a mismatch by resampling playback audio after construction.
+    /// </remarks>
+    public AudioFormat PreferredAudioFormat { get; }
+
     /// <summary>
     ///     Builds the sherpa-onnx offline text-to-speech configuration for this model, resolved
     ///     against the directory its verified files were installed into.

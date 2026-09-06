@@ -20,7 +20,7 @@ sections:
             tags: [ots]
             tests:
               - IRecognitionModel_CreateEngineConfig_InstalledDirectory_ResolvesPathsAndSampleRate
-              - IRecognitionModel_SampleRate_DeclaredByModel_IsExposed
+              - IRecognitionModel_AudioFormat_DeclaredByModel_IsExposed
 
           - id: Speech-OTS-SherpaOnnx-ModelOwnedConfiguration
             title: >-

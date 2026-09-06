@@ -2,7 +2,9 @@ package Speech {
     part def AudioFrameResampler {
         doc /* Pure, immutable converter that collapses interleaved multi-channel capture audio to
              * mono by channel averaging and converts its sample rate by linear interpolation, so
-             * audio captured at any device format can be fed to a model at its declared rate. */
+             * audio captured at any device format can be fed to a model at its declared rate. A
+             * small windowed-sinc lowpass filter is applied only on the downsampling path before
+             * decimation to reduce aliasing. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech/RecognitionSubsystem/AudioFrameResampler.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Tests/RecognitionSubsystem/AudioFrameResamplerTests.cs */

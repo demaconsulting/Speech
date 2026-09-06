@@ -103,25 +103,25 @@ public class AudioFrameResamplerTests
         float[] interleaved = [0.1f, 0.2f];
 
         // Act & Assert: the invalid stride is rejected
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => AudioFrameResampler.DownmixToMono(interleaved, 0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => AudioFrameResampler.DownmixToMono(interleaved, 0));
     }
 
     /// <summary>
-    ///     Proves that halving the sample rate produces half as many samples, taken from the
-    ///     matching positions in the source signal.
+    ///     Proves that halving the sample rate still produces half as many samples, but now from
+    ///     the anti-aliased signal rather than from raw point-picking.
     /// </summary>
     [Fact]
     public void AudioFrameResampler_Resample_Downsampling_ProducesProportionallyFewerSamples()
     {
         // Arrange: four mono samples being taken from 32 kHz down to 16 kHz
         float[] mono = [0.0f, 1.0f, 2.0f, 3.0f];
+        var expected = ResampleReference(mono, 32000, 16000);
 
         // Act: resample at half rate
         var resampled = AudioFrameResampler.Resample(mono, 32000, 16000);
 
-        // Assert: every second source sample is selected exactly
-        Assert.Equal([0.0f, 2.0f], resampled, new FloatToleranceComparer());
+        // Assert: the production output matches the independently recomputed filtered signal
+        Assert.Equal(expected, resampled, new FloatToleranceComparer());
     }
 
     /// <summary>
@@ -178,7 +178,7 @@ public class AudioFrameResamplerTests
 
     /// <summary>
     ///     Proves that a full stereo-to-mono, 48 kHz-to-16 kHz conversion applies both stages in
-    ///     order, which is the realistic desktop-microphone case.
+    ///     order, now including the anti-aliasing filter before decimation.
     /// </summary>
     [Fact]
     public void AudioFrameResampler_Convert_StereoAtHigherRate_DownmixesAndResamples()
@@ -194,12 +194,49 @@ public class AudioFrameResamplerTests
             4.0f, 4.0f,
             5.0f, 5.0f
         ];
+        var expected = ResampleReference([0.0f, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f], 48000, 16000);
 
         // Act: convert one block
         var converted = resampler.Convert(interleaved);
 
-        // Assert: six stereo frames become six mono samples, then every third is selected
-        Assert.Equal([0.0f, 3.0f], converted, new FloatToleranceComparer());
+        // Assert: the downmixed mono signal is then anti-aliased and resampled
+        Assert.Equal(expected, converted, new FloatToleranceComparer());
+    }
+
+    /// <summary>
+    ///     Proves that downsampling attenuates a tone above the target Nyquist frequency.
+    /// </summary>
+    [Fact]
+    public void AudioFrameResampler_Resample_AboveTargetNyquistTone_IsAttenuated()
+    {
+        // Arrange: equally loud below-Nyquist and above-Nyquist tones at the source rate
+        var belowNyquist = GenerateSineWave(sourceSampleRate: 48000, frequencyHz: 1000, sampleCount: 480);
+        var aboveNyquist = GenerateSineWave(sourceSampleRate: 48000, frequencyHz: 12000, sampleCount: 480);
+
+        // Act: downsample both tones to 16 kHz
+        var belowNyquistResampled = AudioFrameResampler.Resample(belowNyquist, 48000, 16000);
+        var aboveNyquistResampled = AudioFrameResampler.Resample(aboveNyquist, 48000, 16000);
+
+        // Assert: the out-of-band tone is materially attenuated before aliasing can fold down
+        Assert.True(
+            ComputeRootMeanSquare(aboveNyquistResampled) < ComputeRootMeanSquare(belowNyquistResampled) * 0.35f);
+    }
+
+    /// <summary>
+    ///     Proves that a downsampling input shorter than the filter radius still converts without
+    ///     throwing.
+    /// </summary>
+    [Fact]
+    public void AudioFrameResampler_Resample_ShortInputDuringDownsampling_DoesNotThrow()
+    {
+        // Arrange: a short signal well below the FIR kernel radius
+        float[] mono = [0.0f, 1.0f, 2.0f, 3.0f];
+
+        // Act
+        var exception = Record.Exception(() => AudioFrameResampler.Resample(mono, 32000, 16000));
+
+        // Assert
+        Assert.Null(exception);
     }
 
     /// <summary>
@@ -231,6 +268,157 @@ public class AudioFrameResamplerTests
     {
         // Act & Assert: a zero channel count is rejected
         Assert.Throws<ArgumentOutOfRangeException>(() => new AudioFrameResampler(16000, 0, 16000));
+    }
+
+    /// <summary>
+    ///     Computes the expected resampled signal independently for test assertions.
+    /// </summary>
+    /// <param name="monoSamples">The input mono samples.</param>
+    /// <param name="sourceSampleRate">The input sample rate.</param>
+    /// <param name="targetSampleRate">The output sample rate.</param>
+    /// <returns>The independently recomputed expected output.</returns>
+    private static float[] ResampleReference(
+        ReadOnlySpan<float> monoSamples,
+        int sourceSampleRate,
+        int targetSampleRate)
+    {
+        if (monoSamples.IsEmpty || sourceSampleRate == targetSampleRate)
+        {
+            return monoSamples.ToArray();
+        }
+
+        var outputLength = (int)(monoSamples.Length * (long)targetSampleRate / sourceSampleRate);
+        if (outputLength == 0)
+        {
+            return [];
+        }
+
+        var filtered = monoSamples.ToArray();
+        if (targetSampleRate < sourceSampleRate)
+        {
+            filtered = ApplyReferenceLowpassFilter(
+                filtered,
+                BuildReferenceLowpassKernel((double)targetSampleRate / sourceSampleRate, 33));
+        }
+
+        var resampled = new float[outputLength];
+        var step = (double)sourceSampleRate / targetSampleRate;
+        var lastIndex = filtered.Length - 1;
+        for (var index = 0; index < outputLength; index++)
+        {
+            var position = index * step;
+            var lowerIndex = (int)position;
+            if (lowerIndex >= lastIndex)
+            {
+                resampled[index] = filtered[lastIndex];
+                continue;
+            }
+
+            var fraction = position - lowerIndex;
+            var lower = filtered[lowerIndex];
+            var upper = filtered[lowerIndex + 1];
+            resampled[index] = (float)(lower + ((upper - lower) * fraction));
+        }
+
+        return resampled;
+    }
+
+    /// <summary>
+    ///     Builds the reference Hamming-windowed sinc lowpass kernel used by the expected-value
+    ///     helper.
+    /// </summary>
+    /// <param name="cutoffRatio">The cutoff ratio relative to the source Nyquist frequency.</param>
+    /// <param name="tapCount">The odd-numbered FIR tap count.</param>
+    /// <returns>The normalized kernel.</returns>
+    private static float[] BuildReferenceLowpassKernel(double cutoffRatio, int tapCount)
+    {
+        var radius = tapCount / 2;
+        var kernel = new float[tapCount];
+        var sum = 0.0;
+        for (var tap = 0; tap < tapCount; tap++)
+        {
+            var offset = tap - radius;
+            var window = 0.54d - (0.46d * Math.Cos((2.0d * Math.PI * tap) / (tapCount - 1)));
+            var radians = Math.PI * cutoffRatio * offset;
+            var sinc = Math.Abs(radians) < double.Epsilon
+                ? 1.0d
+                : Math.Sin(radians) / radians;
+            var coefficient = cutoffRatio * sinc * window;
+            kernel[tap] = (float)coefficient;
+            sum += coefficient;
+        }
+
+        for (var tap = 0; tap < kernel.Length; tap++)
+        {
+            kernel[tap] = (float)(kernel[tap] / sum);
+        }
+
+        return kernel;
+    }
+
+    /// <summary>
+    ///     Applies the reference FIR kernel with replicated edge extension.
+    /// </summary>
+    /// <param name="monoSamples">The mono samples to filter.</param>
+    /// <param name="kernel">The kernel to apply.</param>
+    /// <returns>The filtered signal.</returns>
+    private static float[] ApplyReferenceLowpassFilter(ReadOnlySpan<float> monoSamples, IReadOnlyList<float> kernel)
+    {
+        var filtered = new float[monoSamples.Length];
+        var radius = kernel.Count / 2;
+        var lastIndex = monoSamples.Length - 1;
+        for (var sampleIndex = 0; sampleIndex < monoSamples.Length; sampleIndex++)
+        {
+            var sum = 0.0;
+            for (var tap = 0; tap < kernel.Count; tap++)
+            {
+                var sourceIndex = Math.Clamp(sampleIndex + tap - radius, 0, lastIndex);
+                sum += monoSamples[sourceIndex] * kernel[tap];
+            }
+
+            filtered[sampleIndex] = (float)sum;
+        }
+
+        return filtered;
+    }
+
+    /// <summary>
+    ///     Generates one mono sine wave for attenuation comparisons.
+    /// </summary>
+    /// <param name="sourceSampleRate">The source sample rate.</param>
+    /// <param name="frequencyHz">The sine-wave frequency.</param>
+    /// <param name="sampleCount">The number of samples to generate.</param>
+    /// <returns>The generated samples.</returns>
+    private static float[] GenerateSineWave(int sourceSampleRate, int frequencyHz, int sampleCount)
+    {
+        var samples = new float[sampleCount];
+        for (var index = 0; index < sampleCount; index++)
+        {
+            samples[index] = (float)Math.Sin((2.0d * Math.PI * frequencyHz * index) / sourceSampleRate);
+        }
+
+        return samples;
+    }
+
+    /// <summary>
+    ///     Computes the root-mean-square amplitude of one signal.
+    /// </summary>
+    /// <param name="samples">The samples to measure.</param>
+    /// <returns>The RMS amplitude.</returns>
+    private static float ComputeRootMeanSquare(ReadOnlySpan<float> samples)
+    {
+        if (samples.IsEmpty)
+        {
+            return 0.0f;
+        }
+
+        var sum = 0.0d;
+        for (var index = 0; index < samples.Length; index++)
+        {
+            sum += samples[index] * samples[index];
+        }
+
+        return (float)Math.Sqrt(sum / samples.Length);
     }
 
     /// <summary>

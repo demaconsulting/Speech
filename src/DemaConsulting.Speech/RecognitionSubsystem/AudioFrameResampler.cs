@@ -1,3 +1,5 @@
+using DemaConsulting.Speech.AudioSubsystem;
+
 namespace DemaConsulting.Speech.RecognitionSubsystem;
 
 /// <summary>
@@ -11,15 +13,16 @@ namespace DemaConsulting.Speech.RecognitionSubsystem;
 ///     free type - keeps that conversion fully unit-testable with plain <see cref="float"/>
 ///     arrays, with no capture device, engine, or native runtime involved.
 ///     <para>
-///     <b>Deliberate quality trade-off.</b> Downmixing is a straight arithmetic mean across
-///     channels and resampling is linear interpolation between adjacent samples. Neither is a
-///     polyphase or windowed-sinc resampler, so the output contains more aliasing than a
-///     high-quality resampler would produce, and because each block is converted independently
-///     the interpolation restarts at every block boundary. This was chosen knowingly: speech
-///     recognition features are computed from a mel filterbank that is highly tolerant of that
-///     level of artifact, and the simpler algorithm is small enough to review and test
-///     exhaustively. See the recognition subsystem's design documentation for the full rationale
-///     and the conditions under which a later phase would revisit it.
+///     <b>Deliberate quality trade-off.</b> Downmixing is still a straight arithmetic mean across
+///     channels, and rate conversion still uses simple linear interpolation between adjacent
+///     samples. Downsampling now inserts one small, dependency-free windowed-sinc FIR lowpass
+///     stage first, which attenuates above-target-Nyquist content before decimation and
+///     materially reduces aliasing. The type remains intentionally much smaller than a full
+///     polyphase resampler, and because each block is converted independently the interpolation
+///     restarts at every block boundary. This balance keeps the implementation small enough to
+///     review and test exhaustively while addressing the most significant quality gap in the
+///     original downsampling path. See the recognition subsystem's design documentation for the
+///     full rationale.
 ///     </para>
 ///     <para>
 ///     Instances are immutable and carry no per-block state, so a single instance is safe to
@@ -141,8 +144,8 @@ internal sealed class AudioFrameResampler
     }
 
     /// <summary>
-    ///     Resamples mono audio from one rate to another using linear interpolation between
-    ///     adjacent samples.
+    ///     Resamples mono audio from one rate to another using linear interpolation between adjacent
+    ///     samples, with an anti-aliasing lowpass filter applied first when downsampling.
     /// </summary>
     /// <param name="monoSamples">The single-channel input samples. May be empty.</param>
     /// <param name="sourceSampleRate">The input rate, in Hz. Must be greater than zero.</param>
@@ -157,9 +160,12 @@ internal sealed class AudioFrameResampler
     /// </exception>
     /// <remarks>
     ///     When the two rates are equal the input is copied unchanged, so the identity case costs
-    ///     nothing and introduces no interpolation error at all. Otherwise each output sample is
-    ///     the linear blend of the two input samples straddling its position, with the final
-    ///     position clamped to the last input sample so the loop never reads past the end.
+    ///     nothing and introduces no interpolation error at all. When downsampling, the input is
+    ///     first low-pass filtered with a small Hamming-windowed sinc FIR kernel so energy above the
+    ///     target Nyquist frequency is attenuated before decimation. The actual resampling step
+    ///     remains the same linear blend of the two input samples straddling each output position,
+    ///     with the final position clamped to the last input sample so the loop never reads past the
+    ///     end.
     /// </remarks>
     internal static float[] Resample(ReadOnlySpan<float> monoSamples, int sourceSampleRate, int targetSampleRate)
     {
@@ -179,9 +185,17 @@ internal sealed class AudioFrameResampler
             return [];
         }
 
+        ReadOnlySpan<float> samplesToResample = monoSamples;
+        if (targetSampleRate < sourceSampleRate)
+        {
+            var cutoffRatio = (double)targetSampleRate / sourceSampleRate;
+            var kernel = WindowedSincLowpassFilter.BuildLowpassKernel(cutoffRatio, WindowedSincLowpassFilter.DownsamplingFilterTapCount);
+            samplesToResample = WindowedSincLowpassFilter.ApplyLowpassFilter(monoSamples, kernel);
+        }
+
         var resampled = new float[outputLength];
         var step = (double)sourceSampleRate / targetSampleRate;
-        var lastIndex = monoSamples.Length - 1;
+        var lastIndex = samplesToResample.Length - 1;
         for (var i = 0; i < outputLength; i++)
         {
             // Locate this output sample's fractional position in the input signal, then blend
@@ -190,13 +204,13 @@ internal sealed class AudioFrameResampler
             var lowerIndex = (int)position;
             if (lowerIndex >= lastIndex)
             {
-                resampled[i] = monoSamples[lastIndex];
+                resampled[i] = samplesToResample[lastIndex];
                 continue;
             }
 
             var fraction = position - lowerIndex;
-            var lower = monoSamples[lowerIndex];
-            var upper = monoSamples[lowerIndex + 1];
+            var lower = samplesToResample[lowerIndex];
+            var upper = samplesToResample[lowerIndex + 1];
             resampled[i] = (float)(lower + ((upper - lower) * fraction));
         }
 

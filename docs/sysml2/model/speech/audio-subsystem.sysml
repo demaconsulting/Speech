@@ -8,6 +8,8 @@ package Speech {
         comment verificationRef /* Verification: docs/verification/speech/audio-subsystem.md */
         comment reqRef /* Requirements: docs/reqstream/speech/audio-subsystem.yaml */
 
+        part audioFormat : AudioFormat;
+        part windowedSincLowpassFilter : WindowedSincLowpassFilter;
         part audioDeviceDescription : AudioDeviceDescription;
         part audioDeviceSelection : AudioDeviceSelection;
         part iAudioCaptureDevice : IAudioCaptureDevice;

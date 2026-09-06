@@ -35,16 +35,23 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
     ///     The diagnostics sink for structural selection/start/stop/fault events, or
     ///     <see langword="null"/> to use <see cref="NullSpeechDiagnostics.Instance"/>.
     /// </param>
+    /// <param name="preferredFormat">
+    ///     The preferred playback format to request for the resolved device, or
+    ///     <see langword="null"/> to request the device's own default sample rate and full output
+    ///     channel capacity.
+    /// </param>
     internal PortAudioPlaybackDevice(
         PortAudioEnvironment environment,
         AudioDeviceSelection? selection = null,
-        ISpeechDiagnostics? diagnostics = null)
+        ISpeechDiagnostics? diagnostics = null,
+        AudioFormat? preferredFormat = null)
     {
         ArgumentNullException.ThrowIfNull(environment);
 
         _environment = environment;
         _selection = selection ?? AudioDeviceSelection.SystemDefault;
         _diagnostics = diagnostics ?? NullSpeechDiagnostics.Instance;
+        _preferredFormat = preferredFormat;
         _resolvedDevice = ResolveDevice();
     }
 
@@ -82,6 +89,11 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
     private readonly ISpeechDiagnostics _diagnostics;
 
     /// <summary>
+    ///     The optional preferred playback format to request when resolving the device.
+    /// </summary>
+    private readonly AudioFormat? _preferredFormat;
+
+    /// <summary>
     ///     The resolved device metadata, or <see langword="null"/> when no playback device could
     ///     be resolved on the preferred host API.
     /// </summary>
@@ -97,16 +109,19 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
 
     /// <inheritdoc/>
     /// <remarks>
-    ///     Reports the channel count of the device resolved at construction, which is the same
-    ///     count requested when the playback stream is opened and therefore the interleaving
-    ///     stride every <see cref="Write"/> call must supply.
+    ///     Reports the channel count requested at construction time: either the resolved device's
+    ///     own full output-channel capacity, or the caller's preferred channel count clamped down
+    ///     to that capability. This is the same count requested when the playback stream is
+    ///     opened and therefore the interleaving stride every <see cref="Write"/> call must
+    ///     supply.
     /// </remarks>
     public int ChannelCount => _resolvedDevice?.ChannelCount ?? 0;
 
     /// <inheritdoc/>
     /// <remarks>
-    ///     Reports the sample rate of the device resolved at construction (its PortAudio-reported
-    ///     default rate), which is the same rate requested when the playback stream is opened.
+    ///     Reports the sample rate requested at construction time: either the resolved device's
+    ///     own PortAudio-reported default rate, or the caller's preferred sample rate when one
+    ///     was supplied. This is the same rate requested when the playback stream is opened.
     /// </remarks>
     public int SampleRate => _resolvedDevice?.SampleRate ?? 0;
 
@@ -265,8 +280,8 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
                 new ResolvedPlaybackDevice(
                     deviceIndex,
                     deviceInfo.Name,
-                    deviceInfo.MaxOutputChannels,
-                    deviceInfo.DefaultSampleRate));
+                    ResolveChannelCount(deviceInfo.MaxOutputChannels),
+                    _preferredFormat?.SampleRate ?? deviceInfo.DefaultSampleRate));
         }
 
         var selectedDevice = ResolveSelectedDevice(eligibleDevices, hostApiInfo.DefaultOutputDeviceIndex);
@@ -317,6 +332,31 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
         }
 
         return eligibleDevices.FirstOrDefault(device => device.DeviceIndex == defaultDeviceIndex);
+    }
+
+    /// <summary>
+    ///     Resolves the playback channel count to request for one device, clamping any preferred
+    ///     value to the device's advertised capability.
+    /// </summary>
+    /// <param name="maxOutputChannels">
+    ///     The device's maximum supported output-channel count.
+    /// </param>
+    /// <returns>
+    ///     The preferred channel count when one was supplied and does not exceed the device's
+    ///     capability; otherwise the device capability itself.
+    /// </returns>
+    private int ResolveChannelCount(int maxOutputChannels)
+    {
+        var resolvedChannelCount = Math.Min(_preferredFormat?.ChannelCount ?? maxOutputChannels, maxOutputChannels);
+        if (_preferredFormat is not null && _preferredFormat.ChannelCount > maxOutputChannels)
+        {
+            _diagnostics.Report(
+                SpeechDiagnosticLevel.Info,
+                "AudioSubsystem",
+                $"Clamped preferred playback channel count {_preferredFormat.ChannelCount} to device capability {maxOutputChannels}.");
+        }
+
+        return resolvedChannelCount;
     }
 
     /// <summary>

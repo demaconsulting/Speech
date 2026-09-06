@@ -104,19 +104,31 @@ public sealed class AudioDeviceFactory
     ///     The persisted device selection to honor, or <see langword="null"/> to request the
     ///     host-API-scoped default input device.
     /// </param>
+    /// <param name="preferredFormat">
+    ///     An optional preferred capture format to request when the underlying device is opened.
+    ///     When omitted, the resolved device's own default sample rate and full input-channel
+    ///     capacity are requested exactly as before.
+    /// </param>
     /// <returns>
     ///     A real PortAudio-backed capture device when PortAudio initialized successfully;
     ///     otherwise, <see cref="UnavailableAudioCaptureDevice.Instance"/>.
     /// </returns>
-    /// <remarks>Never throws; reports backend initialization fallback via diagnostics.</remarks>
-    public IAudioCaptureDevice CreateCaptureDevice(AudioDeviceSelection? selection = null)
+    /// <remarks>
+    ///     Never throws; reports backend initialization fallback via diagnostics. When
+    ///     <paramref name="preferredFormat"/> is supplied and the backend honors it, the returned
+    ///     device may report a <c>SampleRate</c> and <c>ChannelCount</c> different from the
+    ///     hardware default.
+    /// </remarks>
+    public IAudioCaptureDevice CreateCaptureDevice(
+        AudioDeviceSelection? selection = null,
+        AudioFormat? preferredFormat = null)
     {
         if (!_environment.IsInitialized)
         {
             return UnavailableAudioCaptureDevice.Instance;
         }
 
-        return new PortAudioCaptureDevice(_environment, selection, _diagnostics);
+        return new PortAudioCaptureDevice(_environment, selection, _diagnostics, preferredFormat);
     }
 
     /// <summary>
@@ -126,18 +138,30 @@ public sealed class AudioDeviceFactory
     ///     The persisted device selection to honor, or <see langword="null"/> to request the
     ///     host-API-scoped default output device.
     /// </param>
+    /// <param name="preferredFormat">
+    ///     An optional preferred playback format to request when the underlying device is opened.
+    ///     When omitted, the resolved device's own default sample rate and full output-channel
+    ///     capacity are requested exactly as before.
+    /// </param>
     /// <returns>
     ///     A real PortAudio-backed playback device when PortAudio initialized successfully;
     ///     otherwise, <see cref="UnavailableAudioPlaybackDevice.Instance"/>.
     /// </returns>
-    /// <remarks>Never throws; reports backend initialization fallback via diagnostics.</remarks>
-    public IAudioPlaybackDevice CreatePlaybackDevice(AudioDeviceSelection? selection = null)
+    /// <remarks>
+    ///     Never throws; reports backend initialization fallback via diagnostics. When
+    ///     <paramref name="preferredFormat"/> is supplied and the backend honors it, the returned
+    ///     device may report a <c>SampleRate</c> and <c>ChannelCount</c> different from the
+    ///     hardware default.
+    /// </remarks>
+    public IAudioPlaybackDevice CreatePlaybackDevice(
+        AudioDeviceSelection? selection = null,
+        AudioFormat? preferredFormat = null)
     {
         if (!_environment.IsInitialized)
         {
             return UnavailableAudioPlaybackDevice.Instance;
         }
 
-        return new PortAudioPlaybackDevice(_environment, selection, _diagnostics);
+        return new PortAudioPlaybackDevice(_environment, selection, _diagnostics, preferredFormat);
     }
 }

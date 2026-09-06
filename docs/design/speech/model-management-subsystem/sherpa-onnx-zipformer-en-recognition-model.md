@@ -21,7 +21,8 @@ against a real download in this project's development sandbox, not fabricated).
   `TarBz2ArchiveExtractor` to extract the downloaded archive in place and delete it, leaving the
   archive's own top-level folder (`sherpa-onnx-streaming-zipformer-en-2023-06-26/`) containing
   every file `CreateEngineConfig` references.
-- **IRecognitionModel.SampleRate** *(internal)*: `16000` Hz, the rate this model was trained at.
+- **IRecognitionModel.AudioFormat** *(public explicit interface member)*: mono `16000` Hz, the
+  rate this model was trained at.
 - **IRecognitionModel.CreateEngineConfig(installedModelDirectory)** *(internal)*: builds an
   `OnlineRecognizerConfig` wiring `OnlineModelConfig.Transducer.Encoder`/`Decoder`/`Joiner` to
   this model's **int8-quantized** files (not the same archive's fp32 files, for a leaner default
@@ -70,5 +71,5 @@ this model is relied upon in a context requiring a legally certain license deter
 
 **Callers**: `SpeechModelCatalog.KnownModels` (registers this instance);
 `SpeechModelDownloader` (invokes `InstallAsync` after checksum verification);
-`SherpaOnnxRecognitionEngine` (consumes the internal `CreateEngineConfig`/`SampleRate` members
-through the RecognitionSubsystem).
+`SherpaOnnxRecognitionEngine` (consumes the internal `CreateEngineConfig` member and the public
+`AudioFormat` declaration through the RecognitionSubsystem).

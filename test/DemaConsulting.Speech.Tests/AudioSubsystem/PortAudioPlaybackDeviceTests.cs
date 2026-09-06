@@ -147,6 +147,80 @@ public class PortAudioPlaybackDeviceTests
     }
 
     /// <summary>
+    ///     Proves that a preferred playback format within device capability is honored.
+    /// </summary>
+    [Fact]
+    public void PortAudioPlaybackDevice_Constructor_PreferredFormatWithinCapability_UsesPreferredFormat()
+    {
+        // Arrange: a device with more channels and a different default rate than requested
+        var api = new FakePortAudioApi([new PortAudioDeviceInfo("Speaker", 5, 0, 4, 48000, 0.0, 0.01)])
+        {
+            FindHostApiIndexResult = 5,
+            HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, -1, 0)
+        };
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+
+        // Act
+        var device = new PortAudioPlaybackDevice(environment, preferredFormat: new AudioFormat(24000, 2));
+
+        // Assert
+        Assert.Equal(24000, device.SampleRate);
+        Assert.Equal(2, device.ChannelCount);
+    }
+
+    /// <summary>
+    ///     Proves that an over-large preferred channel count is clamped to the device capability.
+    /// </summary>
+    [Fact]
+    public void PortAudioPlaybackDevice_Constructor_PreferredChannelCountExceedsCapability_ClampsAndReportsDiagnostic()
+    {
+        // Arrange: a stereo-capable device and a larger preferred channel count
+        var api = new FakePortAudioApi([new PortAudioDeviceInfo("Speaker", 5, 0, 2, 48000, 0.0, 0.01)])
+        {
+            FindHostApiIndexResult = 5,
+            HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, -1, 0)
+        };
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+
+        // Act
+        var device = new PortAudioPlaybackDevice(
+            environment,
+            diagnostics: diagnostics,
+            preferredFormat: new AudioFormat(24000, 4));
+
+        // Assert
+        Assert.Equal(24000, device.SampleRate);
+        Assert.Equal(2, device.ChannelCount);
+        diagnostics.Received().Report(
+            SpeechDiagnosticLevel.Info,
+            "AudioSubsystem",
+            "Clamped preferred playback channel count 4 to device capability 2.");
+    }
+
+    /// <summary>
+    ///     Proves that omitting a preferred format preserves the previous default behavior.
+    /// </summary>
+    [Fact]
+    public void PortAudioPlaybackDevice_Constructor_PreferredFormatOmitted_UsesDeviceDefaultFormat()
+    {
+        // Arrange
+        var api = new FakePortAudioApi([new PortAudioDeviceInfo("Speaker", 5, 0, 3, 44100, 0.0, 0.01)])
+        {
+            FindHostApiIndexResult = 5,
+            HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, -1, 0)
+        };
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+
+        // Act
+        var device = new PortAudioPlaybackDevice(environment);
+
+        // Assert
+        Assert.Equal(44100, device.SampleRate);
+        Assert.Equal(3, device.ChannelCount);
+    }
+
+    /// <summary>
     ///     Proves that an unresolved playback device reports a zero playback format, matching its
     ///     false availability flag instead of advertising a format it cannot deliver.
     /// </summary>

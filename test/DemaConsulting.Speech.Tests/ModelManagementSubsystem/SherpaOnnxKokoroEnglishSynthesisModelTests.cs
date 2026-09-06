@@ -1,3 +1,4 @@
+using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.SynthesisSubsystem;
 using DemaConsulting.Speech.Tests.ModelManagementSubsystem.Fakes;
@@ -118,6 +119,22 @@ public sealed class SherpaOnnxKokoroEnglishSynthesisModelTests : IDisposable
         Assert.Equal(64, file.Sha256Checksum.Length);
         Assert.True(file.Sha256Checksum.All(char.IsAsciiHexDigit));
         Assert.EndsWith(".tar.bz2", file.RelativeInstallPath, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Proves that this model exposes its best-effort preferred mono playback format.
+    /// </summary>
+    [Fact]
+    public void SherpaOnnxKokoroEnglishSynthesisModel_PreferredAudioFormat_IsMono24000()
+    {
+        // Arrange
+        ISynthesisModel model = new SherpaOnnxKokoroEnglishSynthesisModel();
+
+        // Act
+        var preferredFormat = model.PreferredAudioFormat;
+
+        // Assert
+        Assert.Equal(new AudioFormat(24000, 1), preferredFormat);
     }
 
     /// <summary>

@@ -12,10 +12,11 @@ in-memory zip archive built with `System.IO.Compression.ZipArchive`
 (`FakeModelDescriptors.ZipArchiveDescriptor`/`ZipArchiveBytes`). The recognition role's engine
 members added in Phase 3 are verified through `FakeRecognitionModel`, which builds a real managed
 recognizer configuration without loading any native library or opening any file, so the contract
-is provable with no downloaded model present. The synthesis role's engine and capability-profile
-members added in Sub-phase 4b are verified the same way through `FakeSynthesisModel`, which
-builds a real managed VITS `OfflineTtsConfig` without loading any native library, and which relies
-on `ISynthesisModel.CapabilityProfile`'s default-hook implementation rather than overriding it,
+is provable with no downloaded model present. The synthesis role's engine, preferred-audio-format,
+and capability-profile members added in Sub-phase 4b are verified the same way through
+`FakeSynthesisModel`, which builds a real managed VITS `OfflineTtsConfig` without loading any
+native library, exposes a concrete best-effort `PreferredAudioFormat`, and relies on
+`ISynthesisModel.CapabilityProfile`'s default-hook implementation rather than overriding it,
 proving the default resolves to `DefaultModelCapabilityProfile.Instance` with zero model-specific
 code. `IRecognitionModel.NormalizeText(text, isFinal)`'s default hook (forwarding to
 `ISpeechModel.NormalizeText(text)`) is verified directly against `FakeRecognitionModel`, which
@@ -37,12 +38,13 @@ contract regardless of which role-marker interface is used. The default `Install
 implementation completes without modifying a staging directory's contents at all; the default
 `NormalizeText` implementation returns its input unchanged; a zip-archive-payload fake's
 `InstallAsync` override extracts its declared archive's entries into the staging directory and
-removes the archive file. A fake `IRecognitionModel` also exposes the engine input sample rate it
-declares, builds an engine configuration whose feature rate and file paths are resolved against a
-supplied installed-model directory, and rejects an empty directory. A fake `ISynthesisModel`
-builds an engine configuration whose file paths are resolved against a supplied installed-model
-directory, rejects an empty directory, and exposes the default `CapabilityProfile` hook. The
-default `IRecognitionModel.NormalizeText(text, isFinal)` hook forwards to the shared
+removes the archive file. A fake `IRecognitionModel` also exposes the mono engine input
+`AudioFormat` it declares, builds an engine configuration whose feature rate and file paths are
+resolved against a supplied installed-model directory, and rejects an empty directory. A fake
+`ISynthesisModel` builds an engine configuration whose file paths are resolved against a supplied
+installed-model directory, rejects an empty directory, exposes its best-effort
+`PreferredAudioFormat`, and exposes the default `CapabilityProfile` hook. The default
+`IRecognitionModel.NormalizeText(text, isFinal)` hook forwards to the shared
 `ISpeechModel.NormalizeText(text)` pass-through, for both `isFinal` values.
 
 #### Test Scenarios
@@ -75,9 +77,9 @@ default `IRecognitionModel.NormalizeText(text, isFinal)` hook forwards to the sh
 
 **Test**: `FakeRecognitionModel_InstallAsync_WithZipArchivePayload_ExtractsEntriesAndRemovesArchive`
 
-##### A fake recognition model exposes its declared engine input sample rate
+##### A fake recognition model exposes its declared engine input AudioFormat
 
-**Test**: `IRecognitionModel_SampleRate_DeclaredByModel_IsExposed`
+**Test**: `IRecognitionModel_AudioFormat_DeclaredByModel_IsExposed`
 
 ##### A fake recognition model builds an engine configuration resolved against its installed directory
 
@@ -90,6 +92,10 @@ default `IRecognitionModel.NormalizeText(text, isFinal)` hook forwards to the sh
 ##### A fake synthesis model builds an engine configuration resolved against its installed directory
 
 **Test**: `ISynthesisModel_CreateEngineConfig_InstalledDirectory_ResolvesPaths`
+
+##### A fake synthesis model exposes its declared preferred audio format
+
+**Test**: `ISynthesisModel_PreferredAudioFormat_DeclaredByModel_IsExposed`
 
 ##### A fake synthesis model rejects an empty installed-model directory
 

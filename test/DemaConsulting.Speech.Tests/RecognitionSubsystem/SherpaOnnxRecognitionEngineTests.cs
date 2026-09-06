@@ -58,7 +58,10 @@ public sealed class SherpaOnnxRecognitionEngineTests
 
         IRecognitionModel model = Model;
         var config = model.CreateEngineConfig(InstalledModelDirectory);
-        return new SherpaOnnxRecognitionEngine(config, model.SampleRate, postEndpointWarmupWindowMs);
+        return new SherpaOnnxRecognitionEngine(
+            config,
+            model.AudioFormat.SampleRate,
+            postEndpointWarmupWindowMs);
     }
 
     /// <summary>Reads a private instance field by name via reflection.</summary>

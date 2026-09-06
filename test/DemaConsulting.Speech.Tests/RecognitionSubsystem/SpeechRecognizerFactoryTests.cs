@@ -228,7 +228,7 @@ public sealed class SpeechRecognizerFactoryTests : IDisposable
             FakeModelDescriptors.SingleFileDescriptor("wrong-role-model");
 
         /// <inheritdoc/>
-        int IRecognitionModel.SampleRate => 16000;
+        AudioFormat IRecognitionModel.AudioFormat => AudioFormat.Mono(16000);
 
         /// <inheritdoc/>
         SherpaOnnx.OnlineRecognizerConfig IRecognitionModel.CreateEngineConfig(string installedModelDirectory) =>

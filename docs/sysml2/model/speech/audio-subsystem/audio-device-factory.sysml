@@ -2,7 +2,9 @@ package Speech {
     part def AudioDeviceFactory {
         doc /* Composition entry point for obtaining audio capture/playback devices and probes;
              * exposes real PortAudio-backed defaults when the runtime initializes and otherwise
-             * degrades safely to the Unavailable* fallbacks without throwing at composition. */
+             * degrades safely to the Unavailable* fallbacks without throwing at composition. The
+             * factory also accepts an optional preferred AudioFormat hint for capture/playback
+             * device construction, defaulting to device-native behavior when omitted. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech/AudioSubsystem/AudioDeviceFactory.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Tests/AudioSubsystem/AudioDeviceFactoryTests.cs */

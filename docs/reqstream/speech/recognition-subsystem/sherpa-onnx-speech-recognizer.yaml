@@ -216,14 +216,18 @@ sections:
               - id: Speech-Recognition-AudioFrameResampler-RateConversion
                 title: >-
                   The AudioFrameResampler class shall convert single-channel audio from one sample
-                  rate to another, producing a proportional number of output samples and returning
-                  the input unchanged when the two rates are equal.
+                  rate to another, producing a proportional number of output samples, returning
+                  the input unchanged when the two rates are equal, and applying anti-aliasing
+                  lowpass filtering before decimation whenever it downsamples.
                 justification: |
                   Recognition models accept exactly one input rate, so audio captured at any other
                   rate must be converted; converting audio that already matches would introduce
-                  avoidable error and cost.
+                  avoidable error and cost. A downsampling path that omits anti-aliasing folds
+                  above-target-Nyquist energy back into the speech band, degrading recognition.
                 tests:
                   - AudioFrameResampler_Resample_Downsampling_ProducesProportionallyFewerSamples
+                  - AudioFrameResampler_Resample_AboveTargetNyquistTone_IsAttenuated
+                  - AudioFrameResampler_Resample_ShortInputDuringDownsampling_DoesNotThrow
                   - AudioFrameResampler_Resample_Upsampling_LinearlyInterpolatesBetweenSamples
                   - AudioFrameResampler_Convert_MonoAtTargetRate_ReturnsSamplesUnchanged
                   - AudioFrameResampler_Convert_StereoAtHigherRate_DownmixesAndResamples

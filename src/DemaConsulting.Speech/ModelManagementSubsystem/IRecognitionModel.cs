@@ -1,3 +1,4 @@
+using DemaConsulting.Speech.AudioSubsystem;
 using SherpaOnnx;
 
 namespace DemaConsulting.Speech.ModelManagementSubsystem;
@@ -11,19 +12,18 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     Sub-phase 2b defined this interface as an empty role marker so
 ///     <see cref="SpeechModelCatalog"/> could already report and filter models by role via a type
 ///     check, and stated that Phase 3 would add "the real recognition-engine-configuration
-///     member here". This pass fulfills exactly that: <see cref="SampleRate"/> and
+///     member here". This pass fulfills exactly that: <see cref="AudioFormat"/> and
 ///     <see cref="CreateEngineConfig"/> are new members added to an interface that still has no
 ///     production implementations, so nothing defined in Sub-phase 2b was replaced or broken.
 ///     <para>
-///     Both members are deliberately <see langword="internal"/> rather than public.
-///     architecture.md's "engine backend stays swappable at the public API surface" constraint is
-///     scoped to <c>ISpeechRecognizer</c>/<c>ISpeechSynthesizer</c>, while each per-model backing
-///     class is architecturally responsible for "sherpa-onnx configuration for its own model
-///     architecture" - so returning a real <see cref="OnlineRecognizerConfig"/> here is
-///     consistent with the approved design. Keeping the members internal means this interface's
-///     <em>public</em> surface is unchanged, no sherpa-onnx type leaks into the library's public
-///     API, and only assemblies granted <c>InternalsVisibleTo</c> (the library itself and its
-///     test project) can implement the interface. That restriction is intentional and matches
+///     The two members deliberately have different visibility. <see cref="AudioFormat"/> is
+///     public because it is a plain library-owned data value that leaks no native engine type and
+///     lets callers compose an audio device before loading the engine. By contrast,
+///     <see cref="CreateEngineConfig"/> remains <see langword="internal"/> because it returns the
+///     real sherpa-onnx <see cref="OnlineRecognizerConfig"/> type. This keeps the public
+///     recognition surface swappable while still letting each model own its native-engine
+///     configuration. Only assemblies granted <c>InternalsVisibleTo</c> (the library itself and
+///     its test project) can implement the interface. That restriction is intentional and matches
 ///     architecture.md's "one backing class per model; a new model requires a new library
 ///     release" decision.
 ///     </para>
@@ -31,19 +31,20 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 public interface IRecognitionModel : ISpeechModel
 {
     /// <summary>
-    ///     Gets the sample rate, in Hz, that this model's recognition engine requires its input
-    ///     audio to be supplied at. Must be greater than zero.
+    ///     Gets the mono audio format that this model's recognition engine requires its input
+    ///     audio to be supplied at.
     /// </summary>
     /// <remarks>
     ///     Streaming sherpa-onnx models are trained at a fixed feature sample rate (commonly
     ///     16000 Hz, but declared per model rather than assumed) and produce unusable results if
-    ///     fed audio at any other rate. Exposing the rate as a model-declared fact - instead of
-    ///     hard-coding one - lets the recognition subsystem resample whatever rate the capture
-    ///     device actually resolved into whatever rate this specific model needs. The value must
+    ///     fed audio at any other rate. Exposing the full format as a model-declared fact - instead
+    ///     of hard-coding only a sample rate - lets the recognition subsystem and host composition
+    ///     code request a capture device already opened in the model's own format. Current models are
+    ///     mono, so <see cref="AudioFormat.ChannelCount"/> is presently <c>1</c>; the value must
     ///     agree with the feature configuration returned by <see cref="CreateEngineConfig"/>.
     ///     Reading this property never throws.
     /// </remarks>
-    internal int SampleRate { get; }
+    public AudioFormat AudioFormat { get; }
 
     /// <summary>
     ///     Builds the sherpa-onnx streaming-recognizer configuration for this model, resolved

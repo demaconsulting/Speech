@@ -40,12 +40,12 @@ types correctly.
 
 **Requirement coverage**: `Speech-OTS-SherpaOnnx-ManagedStreamingApi`.
 
-#### IRecognitionModel_SampleRate_DeclaredByModel_IsExposed
+#### IRecognitionModel_AudioFormat_DeclaredByModel_IsExposed
 
-**Scenario**: A recognition model's declared engine input rate is read.
+**Scenario**: A recognition model's declared engine input format is read.
 
-**Expected**: The declared rate is returned, proving the per-model rate declaration the streaming
-API requires is available to the recognition pipeline.
+**Expected**: The declared mono `AudioFormat` is returned, proving the per-model input-format
+declaration the streaming API requires is available to the recognition pipeline.
 
 **Requirement coverage**: `Speech-OTS-SherpaOnnx-ManagedStreamingApi`.
 
@@ -53,8 +53,9 @@ API requires is available to the recognition pipeline.
 
 **Scenario**: Recognition is composed for an installed model and an available capture device.
 
-**Expected**: The model's own configuration and declared rate are requested and used to load an
-engine through the library's seam, proving the model-owned configuration pattern works end to end.
+**Expected**: The model's own configuration and declared `AudioFormat.SampleRate` are requested
+and used to load an engine through the library's seam, proving the model-owned configuration
+pattern works end to end.
 
 **Requirement coverage**: `Speech-OTS-SherpaOnnx-ModelOwnedConfiguration`.
 
@@ -72,7 +73,7 @@ without throwing, proving the native-runtime boundary degrades as architecture.m
 
 - **`Speech-OTS-SherpaOnnx-ManagedStreamingApi`**:
   `IRecognitionModel_CreateEngineConfig_InstalledDirectory_ResolvesPathsAndSampleRate`,
-  `IRecognitionModel_SampleRate_DeclaredByModel_IsExposed`
+  `IRecognitionModel_AudioFormat_DeclaredByModel_IsExposed`
 - **`Speech-OTS-SherpaOnnx-ModelOwnedConfiguration`**:
   `SpeechRecognizerFactory_Create_ModelInstalledAndDeviceAvailable_ReturnsRealRecognizer`,
   `SpeechRecognizerFactory_Create_EngineLoadFails_ReturnsUnavailableRecognizerAndDoesNotThrow`

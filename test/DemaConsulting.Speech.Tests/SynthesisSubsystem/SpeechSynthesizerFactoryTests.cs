@@ -256,6 +256,9 @@ public sealed class SpeechSynthesizerFactoryTests : IDisposable
             FakeModelDescriptors.SingleFileDescriptor("wrong-role-model");
 
         /// <inheritdoc/>
+        public AudioFormat PreferredAudioFormat => AudioFormat.Mono(24000);
+
+        /// <inheritdoc/>
         SherpaOnnx.OfflineTtsConfig ISynthesisModel.CreateEngineConfig(string installedModelDirectory) =>
             new();
     }

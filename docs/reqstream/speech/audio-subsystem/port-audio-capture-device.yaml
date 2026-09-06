@@ -54,13 +54,30 @@ sections:
               - id: Speech-Audio-PortAudioCaptureDevice-CaptureFormat
                 title: >-
                   The PortAudioCaptureDevice class shall report the channel count and sample rate
-                  of the device it resolved, and shall report zero for both when no device could
-                  be resolved.
+                  it requested when opening the resolved device, and shall report zero for both
+                  when no device could be resolved.
                 justification: |
-                  The reported format must describe the audio actually delivered through
-                  FrameCaptured, so a consumer resampling or downmixing that audio converts it
-                  correctly; reporting zero when nothing was resolved keeps the report consistent
-                  with the device's honest availability flag.
+                  The reported format must describe the audio actually requested and then
+                  delivered through FrameCaptured, whether it came from the device default or a
+                  caller-supplied preference; reporting zero when nothing was resolved keeps the
+                  report consistent with the device's honest availability flag.
                 tests:
                   - PortAudioCaptureDevice_CaptureFormat_ResolvedDevice_ReflectsResolvedDeviceFormat
                   - PortAudioCaptureDevice_CaptureFormat_NoResolvableDevice_ReturnsZeroRateAndChannelCount
+
+              - id: Speech-Audio-PortAudioCaptureDevice-PreferredFormatSelection
+                title: >-
+                  The PortAudioCaptureDevice class shall request the caller's preferred sample
+                  rate when one is supplied and shall clamp a preferred channel count down to
+                  the resolved device's maximum input-channel capability; when no preference is
+                  supplied it shall request the device's own default sample rate and full input
+                  capability.
+                justification: |
+                  A format hint must never ask PortAudio to open more input channels than the
+                  device exposes, but should otherwise let model-driven composition bias the
+                  opened stream toward the model's own format and potentially avoid later
+                  resampling or downmixing work.
+                tests:
+                  - PortAudioCaptureDevice_Constructor_PreferredFormatWithinCapability_UsesPreferredFormat
+                  - PortAudioCaptureDevice_Constructor_PreferredChannelCountExceedsCapability_ClampsAndReportsDiagnostic
+                  - PortAudioCaptureDevice_Constructor_PreferredFormatOmitted_UsesDeviceDefaultFormat

@@ -248,7 +248,8 @@ instance serves a whole playback session.
 - **Resample(samples, sourceSampleRate, targetSampleRate)**: Produces
   `floor(length * target / source)` samples via linear interpolation, clamped to the last input
   sample at the boundary. Equal rates copy the input unchanged, so the identity case introduces no
-  error at all.
+  error at all. When downsampling, a small Hamming-windowed sinc lowpass filter runs first to
+  attenuate above-target-Nyquist energy before decimation.
 - **UpmixToChannels(samples, channelCount)**: Replicates each mono sample across every output
   channel, interleaved. A single required channel copies the input unchanged.
 - **Convert(samples)**: Composes `Resample` then `UpmixToChannels` into the single operation the
@@ -258,6 +259,8 @@ instance serves a whole playback session.
 `ArgumentOutOfRangeException`. Empty input returns an empty result rather than throwing, since a
 pure-silence segment legitimately has no samples to convert.
 
-**Dependencies**: None beyond the Base Class Library.
+**Dependencies**: `AudioSubsystem.WindowedSincLowpassFilter` for the downsampling anti-aliasing
+lowpass stage, shared with `AudioFrameResampler`'s identical need in the recognition subsystem;
+otherwise none beyond the Base Class Library.
 
 **Callers**: `SherpaOnnxSpeechSynthesizer.PlayStreamAsync(...)`.

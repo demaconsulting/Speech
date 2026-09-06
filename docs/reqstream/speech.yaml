@@ -46,6 +46,7 @@ sections:
           device is an ordinary machine state, not a programming error.
         children:
           - Speech-Audio-Factory
+          - Speech-Audio-FormatValue
           - Speech-Audio-NameOnlyIdentity
           - Speech-Audio-SelectionFallback
           - Speech-Audio-MockableContracts

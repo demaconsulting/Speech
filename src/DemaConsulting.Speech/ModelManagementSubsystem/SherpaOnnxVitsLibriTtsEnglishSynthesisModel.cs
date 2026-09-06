@@ -1,3 +1,4 @@
+using DemaConsulting.Speech.AudioSubsystem;
 using SherpaOnnx;
 
 namespace DemaConsulting.Speech.ModelManagementSubsystem;
@@ -100,6 +101,12 @@ public sealed class SherpaOnnxVitsLibriTtsEnglishSynthesisModel : ISynthesisMode
     /// <summary>The parameter id used for this model's numeric speaker-index selection.</summary>
     public const string SpeakerParameterId = "speaker";
 
+    /// <summary>
+    ///     The empirically observed output sample rate, in Hz, reported by this model's loaded
+    ///     native engine in this repository's own verification evidence.
+    /// </summary>
+    private const int PreferredSampleRate = 22050;
+
     /// <summary>The lowest valid speaker index this model declares.</summary>
     private const int MinSpeakerId = 0;
 
@@ -171,6 +178,9 @@ public sealed class SherpaOnnxVitsLibriTtsEnglishSynthesisModel : ISynthesisMode
             ArchiveRelativeInstallPath),
     ]);
 #pragma warning restore S1075
+
+    /// <inheritdoc/>
+    AudioFormat ISynthesisModel.PreferredAudioFormat => AudioFormat.Mono(PreferredSampleRate);
 
     /// <summary>
     ///     Extracts the downloaded <c>.tar.bz2</c> archive in place using the shared

@@ -53,3 +53,19 @@ sections:
                 tests:
                   - AudioDeviceFactory_Constructor_PortAudioInitializationFails_ExposesUnavailableProbes
                   - AudioDeviceFactory_CreateDevices_PortAudioInitializationFails_ReturnUnavailableDevices
+
+              - id: Speech-Audio-AudioDeviceFactory-PreferredFormatForwarding
+                title: >-
+                  The AudioDeviceFactory class shall accept an optional preferred AudioFormat
+                  for capture and playback device creation, forwarding it to the concrete
+                  PortAudio-backed device implementation and preserving today's device-native
+                  behavior when the preference is omitted.
+                justification: |
+                  A caller composing devices around a speech model should be able to request the
+                  model's preferred format at the public factory boundary, without knowing any
+                  concrete PortAudio-backed type. Omitting the argument must remain fully
+                  backward compatible with today's behavior.
+                tests:
+                  - AudioDeviceFactory_CreateCaptureDevice_PreferredFormatSupplied_ForwardsPreferredFormat
+                  - AudioDeviceFactory_CreatePlaybackDevice_PreferredFormatSupplied_ForwardsPreferredFormat
+                  - AudioDeviceFactory_CreateDevices_PreferredFormatOmitted_PreservesDefaultFormatBehavior

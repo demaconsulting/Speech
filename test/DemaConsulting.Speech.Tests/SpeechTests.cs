@@ -340,7 +340,7 @@ public class SpeechTests
         public SpeechModelDownloadDescriptor DownloadDescriptor => downloadDescriptor;
 
         /// <inheritdoc/>
-        int IRecognitionModel.SampleRate => 16000;
+        AudioFormat IRecognitionModel.AudioFormat => AudioFormat.Mono(16000);
 
         /// <inheritdoc/>
         SherpaOnnx.OnlineRecognizerConfig IRecognitionModel.CreateEngineConfig(string installedModelDirectory)

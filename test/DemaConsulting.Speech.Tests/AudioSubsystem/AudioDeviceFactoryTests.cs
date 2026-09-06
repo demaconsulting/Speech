@@ -115,6 +115,34 @@ public class AudioDeviceFactoryTests
     }
 
     /// <summary>
+    ///     Proves that a preferred capture format is forwarded to the constructed device.
+    /// </summary>
+    [Fact]
+    public void AudioDeviceFactory_CreateCaptureDevice_PreferredFormatSupplied_ForwardsPreferredFormat()
+    {
+        // Arrange: a fake PortAudio environment with a higher-capability default capture device
+        var environment = new PortAudioEnvironment(
+            new FakePortAudioApi(
+            [
+                new PortAudioDeviceInfo("Mic", 5, 4, 0, 48000, 0.01, 0.0)
+            ])
+            {
+                FindHostApiIndexResult = 5,
+                HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, 0, -1)
+            },
+            OSPlatform.Windows);
+        var factory = new AudioDeviceFactory(null, null, null, environment);
+        var preferredFormat = new AudioFormat(16000, 2);
+
+        // Act
+        var device = factory.CreateCaptureDevice(preferredFormat: preferredFormat);
+
+        // Assert
+        Assert.Equal(16000, device.SampleRate);
+        Assert.Equal(2, device.ChannelCount);
+    }
+
+    /// <summary>
     ///     Proves that a successful PortAudio initialization returns a real playback-device implementation.
     /// </summary>
     [Fact]
@@ -139,6 +167,65 @@ public class AudioDeviceFactoryTests
         // Assert: a real PortAudio-backed device is returned and is available
         var typedDevice = Assert.IsType<PortAudioPlaybackDevice>(device);
         Assert.True(typedDevice.IsAvailable);
+    }
+
+    /// <summary>
+    ///     Proves that a preferred playback format is forwarded to the constructed device.
+    /// </summary>
+    [Fact]
+    public void AudioDeviceFactory_CreatePlaybackDevice_PreferredFormatSupplied_ForwardsPreferredFormat()
+    {
+        // Arrange: a fake PortAudio environment with a higher-capability default playback device
+        var environment = new PortAudioEnvironment(
+            new FakePortAudioApi(
+            [
+                new PortAudioDeviceInfo("Speaker", 5, 0, 4, 48000, 0.0, 0.01)
+            ])
+            {
+                FindHostApiIndexResult = 5,
+                HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, -1, 0)
+            },
+            OSPlatform.Windows);
+        var factory = new AudioDeviceFactory(null, null, null, environment);
+        var preferredFormat = new AudioFormat(24000, 2);
+
+        // Act
+        var device = factory.CreatePlaybackDevice(preferredFormat: preferredFormat);
+
+        // Assert
+        Assert.Equal(24000, device.SampleRate);
+        Assert.Equal(2, device.ChannelCount);
+    }
+
+    /// <summary>
+    ///     Proves that omitting a preferred format preserves the device-native defaults.
+    /// </summary>
+    [Fact]
+    public void AudioDeviceFactory_CreateDevices_PreferredFormatOmitted_PreservesDefaultFormatBehavior()
+    {
+        // Arrange: fake default devices with their own native format values
+        var environment = new PortAudioEnvironment(
+            new FakePortAudioApi(
+            [
+                new PortAudioDeviceInfo("Mic", 5, 3, 0, 44100, 0.01, 0.0),
+                new PortAudioDeviceInfo("Speaker", 5, 0, 2, 48000, 0.0, 0.01),
+            ])
+            {
+                FindHostApiIndexResult = 5,
+                HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, 0, 1)
+            },
+            OSPlatform.Windows);
+        var factory = new AudioDeviceFactory(null, null, null, environment);
+
+        // Act
+        var captureDevice = factory.CreateCaptureDevice();
+        var playbackDevice = factory.CreatePlaybackDevice();
+
+        // Assert
+        Assert.Equal(44100, captureDevice.SampleRate);
+        Assert.Equal(3, captureDevice.ChannelCount);
+        Assert.Equal(48000, playbackDevice.SampleRate);
+        Assert.Equal(2, playbackDevice.ChannelCount);
     }
 
     /// <summary>

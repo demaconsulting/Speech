@@ -34,7 +34,7 @@ sections:
               - id: Speech-Models-SherpaOnnxNemotronStreamingEnRecognitionModel-EngineConfig
                 title: >-
                   The SherpaOnnxNemotronStreamingEnRecognitionModel class shall report a
-                  16 kHz SampleRate and build an OnlineRecognizerConfig wiring its
+                  mono 16 kHz AudioFormat and build an OnlineRecognizerConfig wiring its
                   int8-quantized encoder/decoder/joiner/tokens files, DecodingMethod
                   "greedy_search", and EnableEndpoint 1, deliberately leaving ModelType
                   unset, and shall throw ArgumentException for a null or empty
@@ -46,7 +46,7 @@ sections:
                   model's configuration must deliberately omit that field rather than
                   guessing a value that could conflict with native auto-detection.
                 tests:
-                  - SherpaOnnxNemotronStreamingEnRecognitionModel_SampleRate_Is16000
+                  - SherpaOnnxNemotronStreamingEnRecognitionModel_AudioFormat_IsMono16000
                   - SherpaOnnxNemotronStreamingEnRecognitionModel_CreateEngineConfig_ResolvesInt8FilesAndFeatureConfig
                   - SherpaOnnxNemotronStreamingEnRecognitionModel_CreateEngineConfig_ModelTypeIsUnset
                   - SherpaOnnxNemotronStreamingEnRecognitionModel_CreateEngineConfig_EmptyDirectory_ThrowsArgumentException

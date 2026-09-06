@@ -2,10 +2,11 @@
 
 **Purpose**: Define the common per-model contract every model's backing class implements
 (identity, role, declared parameters, declared audio-tag support, download descriptor), with two
-role-specific interfaces. `IRecognitionModel` was extended in Phase 3 with the internal
-engine-construction members the RecognitionSubsystem needs. `ISynthesisModel` is extended in
-Sub-phase 4b with the equivalent members the SynthesisSubsystem needs, exactly as this contract's
-Sub-phase 2b documentation anticipated.
+role-specific interfaces. `IRecognitionModel` now exposes a public `AudioFormat` plus the
+internal engine-construction members the RecognitionSubsystem needs. `ISynthesisModel` is
+extended in Sub-phase 4b with the equivalent internal members the SynthesisSubsystem needs and a
+public best-effort `PreferredAudioFormat` hint, exactly as this contract's Sub-phase 2b
+documentation anticipated.
 
 **Data Model**: N/A (interfaces only).
 
@@ -32,11 +33,12 @@ Sub-phase 2b documentation anticipated.
   `internal` members in Phase 3 (see below), plus a public `NormalizeText(text, isFinal)` default
   hook in Phase 12 (see below). `ISynthesisModel` adds two `internal` members in Sub-phase 4b
   (see below).
-- **IRecognitionModel.SampleRate** *(internal)*: the sample rate, in Hz, this model's recognition
+- **IRecognitionModel.AudioFormat** *(public)*: the mono audio format this model's recognition
   engine requires its input audio at. Declared per model rather than assumed, because streaming
   models are trained at a fixed feature rate and produce unusable results at any other; this is
-  what lets the RecognitionSubsystem resample whatever rate a capture device resolved into what
-  this specific model needs.
+  what lets callers request a capture device already matching the model and lets the
+  RecognitionSubsystem resample whatever rate a capture device resolved into what this specific
+  model needs when it does not.
 - **IRecognitionModel.CreateEngineConfig(installedModelDirectory)** *(internal)*: builds the
   sherpa-onnx streaming-recognizer configuration for this model, combining the model's own
   compiled-in relative file names with the directory its verified files were installed into.
@@ -71,6 +73,10 @@ Sub-phase 2b documentation anticipated.
   it allocates no native resources and never loads the model, so a missing native runtime or
   unusable model file fails in the SynthesisSubsystem (where it degrades to an honest unavailable
   synthesizer) rather than here.
+- **ISynthesisModel.PreferredAudioFormat** *(public)*: a best-effort mono playback-format hint a
+  host may use before the native engine is loaded. This is deliberately not authoritative: the
+  true output rate remains the loaded engine's `ISynthesisEngine.SampleRate`, which may differ
+  and therefore still drive playback resampling.
 - **ISynthesisModel.CapabilityProfile** *(internal)*: the `IModelCapabilityProfile` this model
   uses to render Natural Language Audio Tags into a `SpeechPlan`. Defaults to
   `DefaultModelCapabilityProfile.Instance`, a stateless singleton driven purely by
@@ -90,10 +96,12 @@ Every `internal` member is deliberately not public. architecture.md scopes the "
 sherpa-onnx types" constraint to `ISpeechRecognizer`/`ISpeechSynthesizer`, and makes each model's
 backing class responsible for "sherpa-onnx configuration for its own model architecture", so
 returning a real recognizer/synthesizer configuration here is consistent with the approved
-design. Keeping the members internal leaves this interface's public surface unchanged, keeps
-every sherpa-onnx type out of the library's public API, and means only the library and its test
-project can implement the interface - an intentional restriction matching architecture.md's "one
-backing class per model; a new model requires a new library release" decision.
+design. Keeping those members internal keeps every sherpa-onnx type out of the library's public
+API, and means only the library and its test project can implement the interface - an intentional
+restriction matching architecture.md's "one backing class per model; a new model requires a new
+library release" decision. `AudioFormat` and `PreferredAudioFormat` are the deliberate
+exception: they are plain library-owned data values, so exposing them publicly improves
+composition without leaking native types.
 `ISynthesisModel.CapabilityProfile` is internal for the same reason even though
 `IModelCapabilityProfile` itself carries no sherpa-onnx type, so the whole Layer 2 rendering seam
 stays a library-internal extension point rather than a public one a host could otherwise be
@@ -104,11 +112,13 @@ rules apply. An exception thrown from a model's own `InstallAsync` override is h
 `SpeechModelDownloader`, not by this contract, identically to a download failure.
 
 **Dependencies**: `SpeechModelRole`, `SpeechModelAudioTagSupport`, `ISpeechModelParameter`,
-`SpeechModelDownloadDescriptor`, and (Sub-phase 4b) `IModelCapabilityProfile`/
-`DefaultModelCapabilityProfile` from the SynthesisSubsystem.
+`SpeechModelDownloadDescriptor`, `AudioFormat` from the AudioSubsystem, and (Sub-phase 4b)
+`IModelCapabilityProfile`/`DefaultModelCapabilityProfile` from the SynthesisSubsystem.
 
 **Callers**: `SpeechModelDescriptor`/`SpeechModelCatalog` depend only on `ISpeechModel`, so they
-can enumerate and report install state for any model regardless of role. The RecognitionSubsystem
-depends on `IRecognitionModel`'s two internal members to load a model's engine; the
-SynthesisSubsystem depends on `ISynthesisModel`'s two internal members to load a model's engine
-and render its Natural Language Audio Tags.
+can enumerate and report install state for any model regardless of role. Hosts and the
+AudioSubsystem may read `IRecognitionModel.AudioFormat` and `ISynthesisModel.PreferredAudioFormat`
+to compose audio devices. The RecognitionSubsystem depends on `IRecognitionModel`'s internal
+engine-configuration member to load a model's engine; the SynthesisSubsystem depends on
+`ISynthesisModel`'s internal members to load a model's engine and render its Natural Language
+Audio Tags.

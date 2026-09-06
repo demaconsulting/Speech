@@ -155,6 +155,7 @@ using DemaConsulting.Speech.AudioSubsystem;
 
 var factory = new AudioDeviceFactory();
 var device = factory.CreateCaptureDevice(AudioDeviceSelection.SystemDefault);
+// Optionally pass a preferred AudioFormat when you already know the target format.
 
 if (device.IsAvailable)
 {
@@ -192,7 +193,9 @@ using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.RecognitionSubsystem;
 
 var store = new SpeechModelStore();
-var captureDevice = new AudioDeviceFactory().CreateCaptureDevice(AudioDeviceSelection.SystemDefault);
+var captureDevice = new AudioDeviceFactory().CreateCaptureDevice(
+    AudioDeviceSelection.SystemDefault,
+    model.AudioFormat);
 
 using var recognizer = SpeechRecognizerFactory.Create(
     model,                                          // an installed IRecognitionModel
@@ -215,9 +218,13 @@ if (recognizer.IsAvailable)
 
 Points worth knowing:
 
-- **You do not need to match the microphone to the model.** The recognizer reads the capture
-  device's reported `ChannelCount` and `SampleRate` and converts each captured block to the mono
-  rate the model declares.
+- **You usually do not need to match the microphone to the model manually.** The recognizer
+  reads the capture device's reported `ChannelCount` and `SampleRate` and converts each captured
+  block to the mono rate the model declares. When you already know the chosen model, prefer
+  creating the capture device with `model.AudioFormat` first so the backend can open closer to
+  the target format and the recognizer often stays on its no-op equal-rate fast path. When
+  resampling is still required, the downsampling path now applies anti-alias filtering before
+  decimation.
 - **Results arrive off the audio thread.** `ResultReceived` is raised from the recognizer's own
   background decoding thread, never from the audio callback thread, so a handler may do moderate
   work. Handlers are invoked serially, and an exception thrown by a handler is reported through
@@ -302,7 +309,9 @@ using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.SynthesisSubsystem;
 
 var store = new SpeechModelStore();
-var playbackDevice = new AudioDeviceFactory().CreatePlaybackDevice();
+var playbackDevice = new AudioDeviceFactory().CreatePlaybackDevice(
+    AudioDeviceSelection.SystemDefault,
+    model.PreferredAudioFormat);
 
 using var synthesizer = SpeechSynthesizerFactory.Create(
     model,                                          // an installed ISynthesisModel
@@ -331,8 +340,11 @@ using var synthesizer = SpeechSynthesizerFactory.Create(
 
 A `null` (or omitted) `parameterValues` bag - the previous behavior - resolves to every declared
 parameter's own default value, including whichever speaker/voice a model's `ResolveSpeakerId`
-hook treats as its default. This is a session-level choice: it is independent of, and does not
-disturb, the existing per-segment Natural Language Audio Tag speed/volume overrides described
+hook treats as its default. `model.PreferredAudioFormat` is likewise only a best-effort playback
+hint: after construction, the synthesizer always treats the loaded engine's actual `SampleRate`
+as authoritative and resamples whenever needed. This is a session-level choice: it is
+independent of, and does not disturb, the existing per-segment Natural Language Audio Tag
+speed/volume overrides described
 above, which continue to apply per rendered segment regardless of which voice is selected. The
 demo's Text-to-Speech panel exposes this same choice as a combo box in its embedded Model
 Settings panel for any model that declares a `ChoiceParameter`.
@@ -406,8 +418,6 @@ using DemaConsulting.Speech.SynthesisSubsystem;
 //    runtime all degrade to an honest "unavailable" device/recognizer/synthesizer instead.
 using var catalog = new SpeechModelCatalog();
 var audioFactory = new AudioDeviceFactory();
-var captureDevice = audioFactory.CreateCaptureDevice();
-var playbackDevice = audioFactory.CreatePlaybackDevice();
 
 // 2. Download one recognition model and one synthesis model on first run. DownloadAsync is a
 //    safe no-op cost-wise to call every launch: skip it yourself once IsInstalled(...) is true
@@ -422,15 +432,23 @@ await catalog.DownloadAsync(synthesisModelId);
 var recognitionDescriptor = catalog.Enumerate().Single(d => d.Id == recognitionModelId);
 var synthesisDescriptor = catalog.Enumerate().Single(d => d.Id == synthesisModelId);
 var store = new SpeechModelStore();
+var recognitionModel = (IRecognitionModel)recognitionDescriptor.Model;
+var synthesisModel = (ISynthesisModel)synthesisDescriptor.Model;
+var captureDevice = audioFactory.CreateCaptureDevice(
+    AudioDeviceSelection.SystemDefault,
+    recognitionModel.AudioFormat);
+var playbackDevice = audioFactory.CreatePlaybackDevice(
+    AudioDeviceSelection.SystemDefault,
+    synthesisModel.PreferredAudioFormat);
 
 // 4. Compose the recognizer and synthesizer over the resolved models and devices.
 using var recognizer = SpeechRecognizerFactory.Create(
-    (IRecognitionModel)recognitionDescriptor.Model,
+    recognitionModel,
     store.GetCurrentDirectory(recognitionModelId),
     captureDevice);
 
 using var synthesizer = SpeechSynthesizerFactory.Create(
-    (ISynthesisModel)synthesisDescriptor.Model,
+    synthesisModel,
     store.GetCurrentDirectory(synthesisModelId),
     playbackDevice);
 

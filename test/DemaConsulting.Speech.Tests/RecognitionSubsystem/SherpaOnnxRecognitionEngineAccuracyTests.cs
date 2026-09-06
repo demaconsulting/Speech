@@ -277,13 +277,16 @@ public sealed class SherpaOnnxRecognitionEngineAccuracyTests
 
         var modelDirectory = InstalledModelDirectory(model.Id);
         var config = model.CreateEngineConfig(modelDirectory);
-        using var engine = new SherpaOnnxRecognitionEngine(config, model.SampleRate, model.PostEndpointWarmupWindowMs);
+        using var engine = new SherpaOnnxRecognitionEngine(
+            config,
+            model.AudioFormat.SampleRate,
+            model.PostEndpointWarmupWindowMs);
 
         var wavPath = Path.Combine(AppContext.BaseDirectory, "TestData", "crossing-the-bar-16k-mono.wav");
         var samples = ReadMonoPcm16Wav(wavPath);
 
         // Act: stream the real recording through the real engine and score the result
-        var transcript = Transcribe(engine, samples, model.SampleRate);
+        var transcript = Transcribe(engine, samples, model.AudioFormat.SampleRate);
         var wordErrorRate = WordErrorRateCalculator.Compute(GroundTruthTranscript, transcript);
 
         // Assert: the real model transcribed clear studio-quality speech within tolerance
@@ -313,13 +316,16 @@ public sealed class SherpaOnnxRecognitionEngineAccuracyTests
 
         var modelDirectory = InstalledModelDirectory(model.Id);
         var config = model.CreateEngineConfig(modelDirectory);
-        using var engine = new SherpaOnnxRecognitionEngine(config, model.SampleRate, model.PostEndpointWarmupWindowMs);
+        using var engine = new SherpaOnnxRecognitionEngine(
+            config,
+            model.AudioFormat.SampleRate,
+            model.PostEndpointWarmupWindowMs);
 
         var wavPath = Path.Combine(AppContext.BaseDirectory, "TestData", "crossing-the-bar-16k-mono.wav");
         var samples = ReadMonoPcm16Wav(wavPath);
 
         // Act: stream the real recording through the real engine and score the result
-        var transcript = Transcribe(engine, samples, model.SampleRate);
+        var transcript = Transcribe(engine, samples, model.AudioFormat.SampleRate);
         var wordErrorRate = WordErrorRateCalculator.Compute(GroundTruthTranscript, transcript);
 
         // Assert: the real model transcribed clear studio-quality speech within tolerance

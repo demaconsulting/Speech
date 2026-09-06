@@ -271,18 +271,23 @@ sections:
                 title: >-
                   The PlaybackAudioResampler class shall convert single-channel synthesized audio
                   from the engine's sample rate to the playback device's sample rate, producing a
-                  proportional number of output samples and returning the input unchanged when the
-                  two rates are equal.
+                  proportional number of output samples, returning the input unchanged when the
+                  two rates are equal, and applying anti-aliasing lowpass filtering before
+                  decimation whenever it downsamples.
                 justification: |
                   A synthesis engine produces audio at one fixed rate while a playback device
                   resolves whatever rate its hardware defaults to; without this conversion,
                   synthesized speech would only play correctly on a device that happened to match
-                  the model's rate, mirroring the recognition-direction requirement that resampling
-                  audio already matching would introduce avoidable error and cost.
+                  the model's rate, mirroring the recognition-direction requirement that
+                  resampling audio already matching would introduce avoidable error and cost. A
+                  downsampling path that omits anti-aliasing folds above-target-Nyquist energy
+                  back into the audible band and audibly degrades playback.
                 tests:
                   - PlaybackAudioResampler_Resample_EqualRates_CopiesUnchanged
                   - PlaybackAudioResampler_Resample_Upsample_ProducesInterpolatedSamples
                   - PlaybackAudioResampler_Resample_Downsample_ReducesSampleCount
+                  - PlaybackAudioResampler_Resample_AboveTargetNyquistTone_IsAttenuated
+                  - PlaybackAudioResampler_Resample_ShortInputDuringDownsampling_DoesNotThrow
                   - PlaybackAudioResampler_Resample_EmptyInput_ReturnsEmpty
 
               - id: Speech-Synthesis-PlaybackAudioResampler-Upmix

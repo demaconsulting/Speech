@@ -38,8 +38,8 @@ sections:
 
               - id: Speech-Models-SherpaOnnxZipformerEnRecognitionModel-EngineConfig
                 title: >-
-                  The SherpaOnnxZipformerEnRecognitionModel class shall report a 16 kHz
-                  SampleRate and build an OnlineRecognizerConfig wiring its int8-quantized
+                  The SherpaOnnxZipformerEnRecognitionModel class shall report a mono 16 kHz
+                  AudioFormat and build an OnlineRecognizerConfig wiring its int8-quantized
                   encoder/decoder/joiner/tokens files, ModelType "zipformer2",
                   DecodingMethod "greedy_search", and EnableEndpoint 1.
                 justification: |
@@ -49,7 +49,7 @@ sections:
                   being wired correctly and consistently for every installed-directory
                   argument it may be given.
                 tests:
-                  - SherpaOnnxZipformerEnRecognitionModel_SampleRate_Is16000
+                  - SherpaOnnxZipformerEnRecognitionModel_AudioFormat_IsMono16000
                   - SherpaOnnxZipformerEnRecognitionModel_CreateEngineConfig_ResolvesInt8FilesAndFeatureConfig
 
               - id: Speech-Models-SherpaOnnxZipformerEnRecognitionModel-EngineConfigArgumentValidation

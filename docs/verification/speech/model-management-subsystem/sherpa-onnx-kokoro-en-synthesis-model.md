@@ -31,7 +31,8 @@ below is this document's permanent record of that proof.
 The model declares its stable `Id`/`DisplayName` (naming Apache-2.0)/`Role = Synthesis`/a single
 `voice` `ChoiceParameter` with 11 options/`AudioTagSupport = None`; its `DownloadDescriptor` names
 exactly one HTTPS file with a well-formed SHA-256 checksum and a `.tar.bz2` relative install
-path; `CreateEngineConfig` resolves the Kokoro model/voices/tokens/data-dir paths against the
+path; `PreferredAudioFormat` reports mono `24000` Hz as a best-effort pre-load hint;
+`CreateEngineConfig` resolves the Kokoro model/voices/tokens/data-dir paths against the
 archive's extracted top-level folder with `LengthScale = 1.0f` and `Provider = "cpu"`; an empty
 installed directory throws `ArgumentException`; `CapabilityProfile` resolves to the shared
 `DefaultModelCapabilityProfile.Instance`; `InstallAsync` extracts a synthetic archive's entries
@@ -50,6 +51,10 @@ suite - selecting two different voices against the same input sentence through t
 ##### The model declares exactly one validated HTTPS archive download file
 
 **Test**: `SherpaOnnxKokoroEnglishSynthesisModel_DownloadDescriptor_DeclaresSingleValidatedArchiveFile`
+
+##### PreferredAudioFormat reports the model's best-effort mono 24000 Hz hint
+
+**Test**: `SherpaOnnxKokoroEnglishSynthesisModel_PreferredAudioFormat_IsMono24000`
 
 ##### CreateEngineConfig resolves the Kokoro files and this model's own recommended configuration
 

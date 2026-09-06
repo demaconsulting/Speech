@@ -143,9 +143,10 @@ acceptable, non-regression-indicating error the 20% tolerance is designed to abs
 #### Acceptance Criteria
 
 The units are considered verified when captured audio reaches the engine downmixed and resampled
-to the model's declared rate, every decoded result is raised in order with its provisional/final
-flag intact, start/stop/dispose are idempotent and drain queued audio before returning, engine
-and handler faults are reported without escaping, a capture-start failure surfaces the documented
+to the model's declared `AudioFormat`, with above-target-Nyquist energy attenuated before any
+downsampling decimation; every decoded result is raised in order with its provisional/final flag
+intact, start/stop/dispose are idempotent and drain queued audio before returning, engine and
+handler faults are reported without escaping, a capture-start failure surfaces the documented
 exception, and the converter produces the documented output for identity, upsampling,
 downsampling, multi-channel, and boundary inputs while rejecting non-positive rates and channel
 counts. For the post-endpoint warm-up-replay feature specifically: a disabled (`0`) window

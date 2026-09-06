@@ -102,19 +102,34 @@ sections:
 
               - id: Speech-Models-SpeechModelContract-RecognitionEngineDeclaration
                 title: >-
-                  A recognition model shall declare the audio sample rate its recognition engine
+                  A recognition model shall declare the mono AudioFormat its recognition engine
                   requires, and shall build that engine's configuration from the directory its
                   verified files were installed into.
                 justification: |
                   architecture.md makes each model's backing class responsible for the engine
                   configuration for its own model architecture, so that adding a model is a
-                  self-contained, reviewable unit of work. Declaring the required rate as a
-                  model-owned fact is what lets the library resample audio captured at any device
-                  rate into the one rate that specific model can actually use.
+                  self-contained, reviewable unit of work. Declaring the required input format as
+                  a model-owned fact is what lets the library either request a matching capture
+                  device up front or resample audio captured at any device rate into the one
+                  rate that specific model can actually use.
                 tests:
-                  - IRecognitionModel_SampleRate_DeclaredByModel_IsExposed
+                  - IRecognitionModel_AudioFormat_DeclaredByModel_IsExposed
                   - IRecognitionModel_CreateEngineConfig_InstalledDirectory_ResolvesPathsAndSampleRate
                   - IRecognitionModel_CreateEngineConfig_EmptyDirectory_ThrowsArgumentException
+
+              - id: Speech-Models-SpeechModelContract-SynthesisPreferredAudioFormat
+                title: >-
+                  A synthesis model shall declare a mono PreferredAudioFormat that is only a
+                  best-effort hint for playback-device composition, not the authoritative sample
+                  rate of the native engine's generated output.
+                justification: |
+                  The library cannot know a synthesis engine's true output rate authoritatively
+                  until the native engine has been loaded and queried, but hosts still benefit
+                  from a pre-load hint they can use when opening a playback device. Keeping the
+                  distinction explicit prevents callers from mistaking a composition hint for the
+                  actual rate resampling must target.
+                tests:
+                  - ISynthesisModel_PreferredAudioFormat_DeclaredByModel_IsExposed
 
               - id: Speech-Models-SpeechModelContract-SynthesisEngineDeclaration
                 title: >-

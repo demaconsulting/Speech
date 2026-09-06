@@ -17,7 +17,9 @@ runtime.
   `UnavailableSpeechRecognizer.Instance`. Preconditions: `model` and `captureDevice` are
   non-null. Postcondition: the returned recognizer is never null, and either owns a loaded engine
   or is the shared unavailable instance. Loading the engine allocates native resources, so the
-  returned recognizer must be disposed.
+  returned recognizer must be disposed. The recommended caller pattern is to compose
+  `captureDevice` first via `AudioDeviceFactory.CreateCaptureDevice(selection, model.AudioFormat)`
+  so the device opens already matching the model when the backend honors the hint.
 
 The checks run in a deliberate order - installed, then role, then device, then engine load - so
 the cheapest and most common cause of unavailability (a model not downloaded yet) is reported

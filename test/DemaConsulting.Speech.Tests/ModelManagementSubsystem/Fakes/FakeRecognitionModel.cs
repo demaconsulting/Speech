@@ -1,3 +1,4 @@
+using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 using SherpaOnnx;
 
@@ -18,7 +19,8 @@ public sealed class FakeRecognitionModel : IRecognitionModel
     private readonly bool _useZipArchivePayload;
 
     /// <summary>
-    ///     The engine input rate this fake declares through <see cref="IRecognitionModel.SampleRate"/>.
+    ///     The engine input rate this fake declares through
+    ///     <see cref="IRecognitionModel.AudioFormat"/>.
     /// </summary>
     private readonly int _sampleRate;
 
@@ -101,7 +103,7 @@ public sealed class FakeRecognitionModel : IRecognitionModel
     public SpeechModelDownloadDescriptor DownloadDescriptor { get; }
 
     /// <inheritdoc/>
-    int IRecognitionModel.SampleRate => _sampleRate;
+    AudioFormat IRecognitionModel.AudioFormat => AudioFormat.Mono(_sampleRate);
 
     /// <summary>
     ///     Delegates to the injected <c>normalizeText</c> callback when one was supplied,

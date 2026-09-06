@@ -48,8 +48,9 @@ the pass-through default. It contains the following units:
 - **SpeechModelParameters** (`ISpeechModelParameter`, `NumericParameter`, `ChoiceParameter`,
   `BooleanParameter`): the typed, self-describing tunable-parameter descriptor hierarchy
 - **SpeechModelContract** (`ISpeechModel`, `IRecognitionModel`, `ISynthesisModel`): the common
-  per-model contract plus its two role-specific interfaces - `ISynthesisModel` still an empty
-  marker, `IRecognitionModel` carrying the internal engine-construction members added in Phase 3
+  per-model contract plus its two role-specific interfaces - `IRecognitionModel` exposing a
+  public `AudioFormat` and internal engine-construction members, and `ISynthesisModel` exposing
+  a public best-effort `PreferredAudioFormat` plus its internal synthesis hooks
 - **SpeechModelDescriptor**: the immutable catalog read-model pairing one `ISpeechModel` with its
   current `SpeechModelState`
 - **SpeechModelCatalog**: enumerates the compiled-in known-model registry alongside each model's
@@ -93,7 +94,8 @@ The subsystem exposes `SpeechModelStore`, `SpeechModelStoreOptions`, `SpeechMode
 `SherpaOnnxVitsLibriTtsEnglishSynthesisModel`, and `SherpaOnnxKokoroEnglishSynthesisModel` as its
 public API (`TarBz2ArchiveExtractor` is internal). It consumes `ISpeechDiagnostics` from the
 Diagnostics subsystem to report structural download-failure facts without ever exposing raw
-model bytes.
+model bytes. It also consumes `AudioFormat` from the AudioSubsystem as a narrow plain-data
+dependency for public model format declarations.
 
 ### Design
 
@@ -133,14 +135,14 @@ its declared `Parameters` (`ISpeechModelParameter` instances - `NumericParameter
 option-set/default at construction), its declared `AudioTagSupport` (a declaration only - the
 Layer 2 rendering logic is Phase 4), its `DownloadDescriptor`, its `InstallAsync` hook (a no-op
 default, overridable to unpack an archive payload), and its `NormalizeText` hook (an identity
-default, overridable for Phase 4 text normalization). `ISynthesisModel` was extended in Phase 10
-with an internal `ResolveSpeakerId(parameterValues)` default-hook member (returning `0` unless a
-model overrides it), a non-breaking addition letting a model with real per-voice knowledge - such
-as `SherpaOnnxKokoroEnglishSynthesisModel` - map a selected `ChoiceParameter` value to
-sherpa-onnx's real speaker id; `IRecognitionModel` was extended in Phase 3 with internal
-`SampleRate` and `CreateEngineConfig(installedModelDirectory)` members, which was likewise a
-new-member addition rather than a replacement and so broke none of this subsystem's earlier
-contracts - see _SpeechModelContract Design_.
+default, overridable for Phase 4 text normalization). `IRecognitionModel` now exposes a public
+plain-data `AudioFormat` declaration, while keeping `CreateEngineConfig(installedModelDirectory)`
+internal because it returns a sherpa-onnx type; this lets hosts compose capture devices around a
+model's required format without leaking native engine configuration into the public API.
+`ISynthesisModel` similarly exposes a public best-effort `PreferredAudioFormat` hint, while
+keeping `CreateEngineConfig`, `CapabilityProfile`, and `ResolveSpeakerId(parameterValues)`
+internal. The hint is intentionally non-authoritative: the real synthesis output rate is still
+the loaded engine's `ISynthesisEngine.SampleRate`.
 
 `SpeechModelCatalog` composes a compiled-in `KnownModels` list - as of Phase 7a, this phase's two
 real recognition models - with a `SpeechModelStore` and a `SpeechModelDownloader`. `Enumerate()`
@@ -159,7 +161,8 @@ never composition or enumeration.
 Phase 7a's two concrete `IRecognitionModel` implementations, both structurally similar: each
 declares its identity/`Id`/`DisplayName`, a `SpeechModelDownloadDescriptor` pointing at the
 model's own official upstream GitHub release URL (`k2-fsa/sherpa-onnx`'s `asr-models` tag) with a
-real, independently-computed SHA-256 checksum, a 16 kHz `SampleRate`, and a `CreateEngineConfig`
+real, independently-computed SHA-256 checksum, a mono 16 kHz `AudioFormat`, and a
+`CreateEngineConfig`
 that builds an `OnlineRecognizerConfig` wiring `OnlineModelConfig.Transducer`'s
 `Encoder`/`Decoder`/`Joiner`/`Tokens` paths to the model's int8-quantized files inside its
 installed directory, `DecodingMethod = "greedy_search"`, and `EnableEndpoint = 1`. The Zipformer
@@ -192,9 +195,13 @@ checksum, and a `CreateEngineConfig` that builds an `OfflineTtsConfig` wiring
 installed directory, this model's own recommended `NoiseScale`/`NoiseScaleW`/`LengthScale`
 values (read directly from its published `.onnx.json` config, deliberately different from
 another sibling VITS/Piper voice's separately-proven defaults), and no `Lexicon` (this archive
-ships none). `AudioTagSupport = None` and no `CapabilityProfile` override are declared, since the
-default `DefaultModelCapabilityProfile` already provides generically correct tag-stripping/
-pause-silence behavior for a model with no native tag support. `InstallAsync` delegates to the
+ships none). `PreferredAudioFormat` is declared as mono 22050 Hz - the best-effort rate this
+repository's own manual engine load observed for the real model - so a host can request matching
+playback before the engine is loaded, while still treating the eventual loaded engine's
+`SampleRate` as authoritative. `AudioTagSupport = None` and no `CapabilityProfile` override are
+declared, since the default `DefaultModelCapabilityProfile` already provides generically correct
+tag-stripping/pause-silence behavior for a model with no native tag support. `InstallAsync`
+delegates to the
 same `TarBz2ArchiveExtractor` Phase 7a built - reused unchanged, not duplicated - to unpack its
 downloaded `.tar.bz2` archive in place before deleting the archive file. The model's own
 `MODEL_CARD` declares 904 distinct speakers; as of Phase 7b, neither `ISynthesisModel` nor
@@ -218,8 +225,12 @@ independently-computed SHA-256 checksum, a `Parameters` list containing one `voi
 `ChoiceParameter` with 11 confirmed options, and a `CreateEngineConfig` that builds an
 `OfflineTtsConfig` wiring `Model.Kokoro.Model`/`.Voices`/`.Tokens`/`.DataDir` to the model's
 onnx/voices/tokens/espeak-ng-data files inside its installed directory, `LengthScale = 1.0f`,
-and no `DictDir`/`Lexicon`/`Lang` (this English-only archive ships none of those). `AudioTagSupport
-= None` and no `CapabilityProfile` override are declared, for the same reason as the VITS model.
+and no `DictDir`/`Lexicon`/`Lang` (this English-only archive ships none of those).
+`PreferredAudioFormat` is declared as mono 24000 Hz - the best-effort rate this repository's own
+manual engine load observed for the real model - so a host can request matching playback before
+the engine is loaded, while still treating the eventual loaded engine's `SampleRate` as
+authoritative. `AudioTagSupport = None` and no `CapabilityProfile` override are declared, for the
+same reason as the VITS model.
 `InstallAsync` delegates to the same `TarBz2ArchiveExtractor` reused unchanged across every
 archive-based model in this subsystem. Its `ISynthesisModel.ResolveSpeakerId` override is this
 model's own owned knowledge: a confirmed `id2speaker` ordering mapping each of its 11 declared

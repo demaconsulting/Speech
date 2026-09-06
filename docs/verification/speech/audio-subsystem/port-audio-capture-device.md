@@ -14,8 +14,10 @@ Verified through direct unit tests in `PortAudioCaptureDeviceTests.cs` using fak
 
 Tests pass when stale selections fall back to the host-API default capture device, capture-frame
 delivery raises `FrameCaptured`, open failures surface `AudioDeviceUnavailableException`, no
-resolvable device yields `IsAvailable = false`, and the reported channel count and sample rate
-match the resolved device (or are zero when nothing was resolved).
+resolvable device yields `IsAvailable = false`, preferred formats are honored when within device
+capability, excessive preferred channel counts are clamped, omitted preferences fall back to the
+device default, and the reported channel count and sample rate match the requested open format
+(or are zero when nothing was resolved).
 
 #### Test Scenarios
 
@@ -38,6 +40,18 @@ match the resolved device (or are zero when nothing was resolved).
 ##### Capture Format: Resolved Device Reflects the Resolved Device Format
 
 **Test**: `PortAudioCaptureDevice_CaptureFormat_ResolvedDevice_ReflectsResolvedDeviceFormat`
+
+##### Construction: Preferred Format Within Capability Is Used
+
+**Test**: `PortAudioCaptureDevice_Constructor_PreferredFormatWithinCapability_UsesPreferredFormat`
+
+##### Construction: Excessive Preferred Channel Count Is Clamped
+
+**Test**: `PortAudioCaptureDevice_Constructor_PreferredChannelCountExceedsCapability_ClampsAndReportsDiagnostic`
+
+##### Construction: Omitted Preferred Format Uses Device Defaults
+
+**Test**: `PortAudioCaptureDevice_Constructor_PreferredFormatOmitted_UsesDeviceDefaultFormat`
 
 ##### Capture Format: No Resolvable Device Returns Zero Rate and Channel Count
 

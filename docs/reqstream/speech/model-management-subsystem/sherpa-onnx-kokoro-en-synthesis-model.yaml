@@ -55,6 +55,19 @@ sections:
                   - SherpaOnnxKokoroEnglishSynthesisModel_CreateEngineConfig_ResolvesKokoroFilesAndConfig
                   - SherpaOnnxKokoroEnglishSynthesisModel_CapabilityProfile_IsDefaultProfile
 
+              - id: Speech-Models-SherpaOnnxKokoroEnglishSynthesisModel-PreferredAudioFormat
+                title: >-
+                  The SherpaOnnxKokoroEnglishSynthesisModel class shall declare a mono
+                  PreferredAudioFormat hint of 24000 Hz, matching the sample rate this
+                  repository's verified engine configuration and manual engine load observed for
+                  the model.
+                justification: |
+                  A host can use this hint to open playback nearer the model's likely native
+                  rate before loading the engine, but the rate remains a hint rather than a
+                  guarantee until the real engine is loaded and queried.
+                tests:
+                  - SherpaOnnxKokoroEnglishSynthesisModel_PreferredAudioFormat_IsMono24000
+
               - id: Speech-Models-SherpaOnnxKokoroEnglishSynthesisModel-EngineConfigArgumentValidation
                 title: >-
                   The SherpaOnnxKokoroEnglishSynthesisModel class shall throw ArgumentException

@@ -240,8 +240,8 @@ direct safety impact.
 3. **Capture**: `Start()` subscribes to `FrameCaptured` and starts the device; each captured
    block is copied onto a bounded queue on the audio callback thread and nothing more
 4. **Conversion and inference**: A single background consumer downmixes and resamples each block
-   from the device's reported `ChannelCount`/`SampleRate` to the model's declared rate via
-   `AudioFrameResampler`, feeds it to the `IRecognitionEngine`, and polls for results
+   from the device's reported `ChannelCount`/`SampleRate` to the model's declared `AudioFormat`
+   via `AudioFrameResampler`, feeds it to the `IRecognitionEngine`, and polls for results
 5. **Output**: `ResultReceived` raises each provisional and final `SpeechRecognitionResult` off
    the audio callback thread; `Stop()` drains the queue so no result derived from already-captured
    audio is lost

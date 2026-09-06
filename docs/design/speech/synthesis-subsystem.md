@@ -46,16 +46,17 @@ The subsystem exposes `NaturalLanguageAudioTag`, `NaturalLanguageAudioTagKind`,
 (Sub-phase 4a, unchanged), `ISpeechSynthesizer`, `SynthesizedSpeech`, `SpeechSynthesizerFactory`,
 `UnavailableSpeechSynthesizer`, and `SpeechSynthesizerUnavailableException` as its public API. It
 consumes `IAudioPlaybackDevice` from the AudioSubsystem for output audio, `ISynthesisModel` from
-the ModelManagementSubsystem for the engine configuration and Layer 2 rendering strategy, and
-`ISpeechDiagnostics` from the Diagnostics subsystem to report structural composition, lifecycle,
-and fault facts without ever exposing synthesized text.
+the ModelManagementSubsystem for the engine configuration, preferred playback-format hint, and
+Layer 2 rendering strategy, and `ISpeechDiagnostics` from the Diagnostics subsystem to report
+structural composition, lifecycle, and fault facts without ever exposing synthesized text.
 
 Both cross-subsystem dependencies were extended in this phase, additively, mirroring Phase 3's
 identical recognition-direction additions: `IAudioPlaybackDevice` gained
 `ChannelCount`/`SampleRate` so the resolved playback format can be discovered (see
-_IAudioPlaybackDevice Design_), and `ISynthesisModel` gained internal `CreateEngineConfig` and a
-default-hook `CapabilityProfile` member so each model owns its own engine configuration and Layer
-2 rendering strategy (see _SpeechModelContract Design_).
+_IAudioPlaybackDevice Design_), and `ISynthesisModel` gained a public best-effort
+`PreferredAudioFormat` plus internal `CreateEngineConfig` and default-hook `CapabilityProfile` so
+each model owns both its playback hint and its engine configuration/Layer 2 rendering strategy
+(see _SpeechModelContract Design_).
 
 No member of the subsystem's public API names a sherpa-onnx type, per architecture.md's
 "engine backend stays swappable at the public API surface" decision. The sherpa-onnx
@@ -149,10 +150,12 @@ capture audio can tolerate drops, this channel uses `BoundedChannelFullMode.Wait
 audio has already cost real inference time, so it must never be silently discarded, and instead
 the producer simply waits for the consumer to catch up. A pause segment (empty text) skips the
 engine entirely and produces pure silence directly, since there is nothing for the engine to
-synthesize. `PlaybackAudioResampler` performs the playback-direction format conversion - resample
-from the engine's declared rate to the device's resolved rate, then upmix mono to the device's
-channel count - mirroring `AudioFrameResampler`'s identical recognition-direction role, and the
-internal `ISynthesisEngine`/`ISynthesisEngineFactory` seam confines every sherpa-onnx call to
+synthesize. `PlaybackAudioResampler` performs the playback-direction format conversion -
+resample from the engine's actual rate to the device's resolved rate, using the same small
+windowed-sinc FIR anti-aliasing step before downsampling decimation that the recognition-side
+resampler now uses, then upmix mono to the device's channel count - mirroring
+`AudioFrameResampler`'s identical recognition-direction role. The internal
+`ISynthesisEngine`/`ISynthesisEngineFactory` seam confines every sherpa-onnx call to
 `SherpaOnnxSynthesisEngine`/`SherpaOnnxSynthesisEngineFactory`, mirroring the
 `IRecognitionEngine`/`IRecognitionEngineFactory` seam so the whole pipeline - chunking, Layer 2
 rendering, pipelined synthesize-while-play ordering, cancellation, and fault containment - is
@@ -205,7 +208,13 @@ member after disposal throws `ObjectDisposedException`.
 
 **Purpose**: Provide the single composition entry point for obtaining an `ISpeechSynthesizer`, so
 all "can this machine speak right now?" logic lives in one reviewable place, mirroring
-`SpeechRecognizerFactory` exactly.
+`SpeechRecognizerFactory` exactly. The recommended caller pattern is to compose
+`playbackDevice` first via `AudioDeviceFactory.CreatePlaybackDevice(selection,
+model.PreferredAudioFormat)` and then pass that device into `SpeechSynthesizerFactory.Create(...)`;
+when the backend honors the hint and the loaded engine later reports the same rate,
+`PlaybackAudioResampler` stays on its existing equal-rate no-op fast path. Because
+`PreferredAudioFormat` is only a best-effort hint, the resampler remains the guaranteed fallback
+when the loaded engine's real `SampleRate` differs.
 
 **Data Model**: A static class with no state. The public `Create(...)` overload composes against
 the real sherpa-onnx engine factory; an internal overload accepts an injected

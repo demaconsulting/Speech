@@ -69,6 +69,14 @@ public static class SpeechSynthesizerFactory
     ///     Loads the model into native memory when it succeeds, so the returned synthesizer owns
     ///     unmanaged resources and must be disposed. Reports every fallback decision through the
     ///     diagnostics sink as a structural fact, never including synthesized text.
+    ///     <para>
+    ///     Recommended composition pattern: create the playback device first with
+    ///     <c>new AudioDeviceFactory().CreatePlaybackDevice(selection, model.PreferredAudioFormat)</c>,
+    ///     then pass that device here. This hint is best-effort only: the authoritative playback
+    ///     rate remains the constructed engine's <see cref="ISynthesisEngine.SampleRate"/>, so
+    ///     <see cref="PlaybackAudioResampler"/> remains the guaranteed fallback whenever the
+    ///     loaded engine's actual output rate differs from the preferred hint.
+    ///     </para>
     /// </remarks>
     public static ISpeechSynthesizer Create(
         ISynthesisModel model,

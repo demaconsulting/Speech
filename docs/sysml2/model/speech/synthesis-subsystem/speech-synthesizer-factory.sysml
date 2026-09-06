@@ -4,7 +4,9 @@ package Speech {
              * installed synthesis model and available playback device, or an honest unavailable
              * fallback, without ever throwing for an ordinary machine state. Forwards an
              * optional, session-level parameterValues bag (for example a selected voice)
-             * unchanged to the constructed synthesizer. */
+             * unchanged to the constructed synthesizer. The preferred composition is to open the
+             * playback device with the model's best-effort PreferredAudioFormat first, while
+             * still relying on runtime resampling if the loaded engine reports a different rate. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech/SynthesisSubsystem/SpeechSynthesizerFactory.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Tests/SynthesisSubsystem/SpeechSynthesizerFactoryTests.cs */

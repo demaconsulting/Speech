@@ -36,8 +36,8 @@ A RecognitionSubsystem test run passes when:
 - Composition returns a real recognizer only when the model is installed, declares the
   recognition role, the capture device is available, and the engine loads
 - Every other composition outcome returns the honest unavailable recognizer without throwing
-- Captured audio is downmixed and resampled to the model's declared rate before reaching the
-  engine
+- Captured audio is downmixed and resampled to the model's declared `AudioFormat`, with
+  above-target-Nyquist energy attenuated before downsampling decimation
 - Every recognition result is delivered, in order, with its provisional/final flag preserved
 - Start/stop/dispose behave idempotently, drain queued audio, and release engine resources
 - Engine faults and throwing host handlers are reported and contained rather than propagated
@@ -134,6 +134,8 @@ the documented recognizer exception with the device's failure as its inner excep
 `AudioFrameResampler_Resample_Upsampling_LinearlyInterpolatesBetweenSamples`,
 `AudioFrameResampler_Resample_SingleSample_ClampsToThatSample`,
 `AudioFrameResampler_Resample_OutputRoundsToZeroSamples_ReturnsEmptyResult`,
+`AudioFrameResampler_Resample_AboveTargetNyquistTone_IsAttenuated`,
+`AudioFrameResampler_Resample_ShortInputDuringDownsampling_DoesNotThrow`,
 `AudioFrameResampler_Convert_MonoAtTargetRate_ReturnsSamplesUnchanged`,
 `AudioFrameResampler_Convert_EmptyInput_ReturnsEmptyResult`,
 `AudioFrameResampler_Convert_StereoAtHigherRate_DownmixesAndResamples`,
@@ -142,8 +144,9 @@ the documented recognizer exception with the device's failure as its inner excep
 `AudioFrameResampler_Constructor_NonPositiveChannelCount_ThrowsArgumentOutOfRangeException`
 
 Verifies channel averaging, partial-frame discard, exact identity pass-through, proportional
-up/down conversion with linear interpolation, empty/single-sample/rounds-to-empty boundaries, and
-rejection of non-positive rates and channel counts.
+up/down conversion with linear interpolation, anti-aliased downsampling, short-input safety,
+empty/single-sample/rounds-to-empty boundaries, and rejection of non-positive rates and channel
+counts.
 
 #### Unavailable Fallback: Honest Degradation
 

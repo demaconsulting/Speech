@@ -63,6 +63,19 @@ sections:
                   - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_CreateEngineConfig_ResolvesVitsFilesAndConfig
                   - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_CapabilityProfile_IsDefaultProfile
 
+              - id: Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-PreferredAudioFormat
+                title: >-
+                  The SherpaOnnxVitsLibriTtsEnglishSynthesisModel class shall declare a mono
+                  PreferredAudioFormat hint of 22050 Hz, matching the sample rate this
+                  repository's verified engine configuration and manual engine load observed for
+                  the model.
+                justification: |
+                  A host can use this hint to open playback nearer the model's likely native
+                  rate before loading the engine, but the rate remains a hint rather than a
+                  guarantee until the real engine is loaded and queried.
+                tests:
+                  - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_PreferredAudioFormat_IsMono22050
+
               - id: Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-EngineConfigArgumentValidation
                 title: >-
                   The SherpaOnnxVitsLibriTtsEnglishSynthesisModel class shall throw

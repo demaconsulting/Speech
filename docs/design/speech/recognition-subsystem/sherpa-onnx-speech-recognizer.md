@@ -11,7 +11,7 @@ on the audio callback thread.
 
 **Data Model**: Holds the owned `IRecognitionEngine`, the `IAudioCaptureDevice` it streams from,
 the owning `IRecognitionModel` (used only to normalize result text), an `AudioFrameResampler`
-configured at construction from the device's reported format and the model's required rate, and
+configured at construction from the device's reported format and the model's declared `AudioFormat.SampleRate`, and
 a diagnostics sink. While running it also holds a bounded `Channel<float[]>` of pending capture
 blocks and the background consumer `Task` draining it; both are created on start and cleared on
 stop, guarded by a lock together with the running and disposed flags. `IsAvailable` is always
@@ -85,7 +85,7 @@ for downloads.
   while silence is streaming. Callers may poll until it returns `false`.
 - **IRecognitionEngine.Reset()**: Discards a partially decoded utterance.
 - **IRecognitionEngineFactory.Create(IRecognitionModel, string installedModelDirectory)**: Loads
-  an engine from the model's own declared configuration and required input rate.
+  an engine from the model's own declared configuration and required input `AudioFormat`.
 
 **Error Handling**: Implementations are not thread-safe by contract; the recognizer calls them
 from exactly one consumer thread. Load failures surface as exceptions from `Create(...)`, which
@@ -109,7 +109,7 @@ configuration, so adding a model never requires changing the factory.
 
 **Key Methods**:
 
-- **AcceptSamples(...)**: Pushes the block into the stream at the declared rate. The managed
+- **AcceptSamples(...)**: Pushes the block into the stream at the model-declared sample rate. The managed
   binding takes an array rather than a span, so the block is materialized before crossing the
   interop boundary. When the model has opted into the post-endpoint warm-up-replay feature (see
   below), the same block is also appended to a rolling pre-endpoint sample buffer, trimmed to the
@@ -129,7 +129,7 @@ configuration, so adding a model never requires changing the factory.
 - **Dispose()**: Releases the stream and then the recognizer that owns it. Safe to call more than
   once.
 - **Create(...)**: Asks the model for its configuration, resolved against the installed-files
-  directory, and loads an engine at the same model's declared rate and declared
+  directory, and loads an engine at the same model's declared `AudioFormat.SampleRate` and declared
   `PostEndpointWarmupWindowMs`.
 
 **Post-endpoint warm-up replay (Nemotron-only mitigation).** A real, confirmed defect was found
@@ -219,7 +219,8 @@ the ModelManagementSubsystem.
 #### AudioFrameResampler
 
 **Purpose**: Convert one block of interleaved, multi-channel capture audio into the mono audio at
-the model-declared rate that a recognition engine requires. Keeping this conversion in a pure,
+the model-declared `AudioFormat.SampleRate` that a recognition engine requires. Keeping this
+conversion in a pure,
 dependency-free type makes it exhaustively testable with plain float arrays.
 
 **Data Model**: Immutable: the source sample rate, source channel count, and target sample rate,
@@ -240,33 +241,33 @@ session and is safe to share across threads.
 - **Resample(ReadOnlySpan&lt;float&gt;, int sourceSampleRate, int targetSampleRate)**: Produces
   `floor(length * target / source)` samples, each the linear blend of the two input samples
   straddling its position, with the final positions clamped to the last input sample. Equal rates
-  copy the input unchanged, so the identity case introduces no error at all. The output length is
-  computed in 64-bit arithmetic so a long block at a high rate cannot overflow the intermediate
-  product.
+  copy the input unchanged, so the identity case introduces no error at all. When downsampling, a
+  small Hamming-windowed sinc lowpass filter runs first to attenuate above-target-Nyquist energy
+  before decimation. The output length is computed in 64-bit arithmetic so a long block at a high
+  rate cannot overflow the intermediate product.
 
 **Error Handling**: A non-positive sample rate or channel count throws
 `ArgumentOutOfRangeException`, because no meaningful conversion exists for it. Empty,
 single-sample, and rounds-to-empty conversions all return an empty or clamped result rather than
 throwing, since a capture device may legitimately deliver a very short block.
 
-**Dependencies**: None beyond the Base Class Library.
+**Dependencies**: `AudioSubsystem.WindowedSincLowpassFilter` for the downsampling anti-aliasing
+lowpass stage, shared with `PlaybackAudioResampler`'s identical need in the synthesis subsystem;
+otherwise none beyond the Base Class Library.
 
 **Callers**: `SherpaOnnxSpeechRecognizer`.
 
 #### Design Constraints
 
-**Resampler quality is a deliberate, accepted trade-off.** Downmixing is a straight arithmetic
-mean and resampling is linear interpolation - not polyphase or windowed-sinc filtering - and each
-captured block is converted independently, so the interpolation restarts at every block boundary.
-This produces more aliasing than a high-quality resampler would. The trade-off was made
-knowingly for three reasons: recognition features are computed from a mel filterbank that is
-highly tolerant of that class of artifact; the simple algorithm is small enough to review and
-unit-test exhaustively, which a filter-bank resampler is not; and adding a dependency or several
-hundred lines of DSP for an unmeasured accuracy gain would contradict the project's preference
-for the simplest solution that satisfies the requirement. It is a considered decision, not an
-outstanding defect. A later phase should revisit it only if a real model's measured recognition
-accuracy on non-native-rate hardware is shown to fall short of its accuracy at the model's own
-rate; the pure, well-tested seam means that change would be confined to this one unit.
+**Resampler quality is a deliberate, bounded trade-off.** Downmixing remains a straight
+arithmetic mean and the upsampling path remains linear interpolation, keeping the implementation
+small, reviewable, and dependency-free. The downsampling path now adds a small Hamming-windowed
+sinc FIR lowpass filter immediately before decimation, closing the most harmful aliasing case
+without turning this unit into a full polyphase DSP subsystem. Each captured block is still
+converted independently, so interpolation restarts at every block boundary, but the new filter
+removes much of the above-target-Nyquist energy that would otherwise fold into the speech band.
+A later phase should revisit the design only if a real model's measured recognition accuracy on
+non-native-rate hardware is shown to require something stronger.
 
 **Recognition results are never reported through diagnostics.** Every diagnostic this subsystem
 emits is a structural fact - composed, started, stopped, or a named fault - and never includes

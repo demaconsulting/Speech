@@ -1,3 +1,4 @@
+using DemaConsulting.Speech.AudioSubsystem;
 using SherpaOnnx;
 
 namespace DemaConsulting.Speech.ModelManagementSubsystem;
@@ -123,7 +124,7 @@ public sealed class SherpaOnnxNemotronStreamingEnRecognitionModel : IRecognition
 #pragma warning restore S1075
 
     /// <inheritdoc/>
-    int IRecognitionModel.SampleRate => ModelSampleRate;
+    AudioFormat IRecognitionModel.AudioFormat => AudioFormat.Mono(ModelSampleRate);
 
     /// <summary>
     ///     The empirically validated post-endpoint warm-up-replay window, in milliseconds, for

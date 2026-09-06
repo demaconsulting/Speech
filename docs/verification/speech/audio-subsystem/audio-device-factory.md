@@ -15,8 +15,9 @@ hardware.
 #### Acceptance Criteria
 
 Tests pass when construction never throws, default probes are real PortAudio-backed probes when
-initialization succeeds, injected probes are exposed exactly as supplied, and initialization
-failure degrades to the unavailable probes/devices.
+initialization succeeds, injected probes are exposed exactly as supplied, optional preferred
+formats are forwarded to the concrete devices, omitting the preference preserves device-native
+format behavior, and initialization failure degrades to the unavailable probes/devices.
 
 #### Test Scenarios
 
@@ -40,9 +41,21 @@ failure degrades to the unavailable probes/devices.
 
 **Test**: `AudioDeviceFactory_CreateCaptureDevice_PortAudioInitialized_ReturnsRealDevice`
 
+##### Creation: Preferred Capture Format Is Forwarded
+
+**Test**: `AudioDeviceFactory_CreateCaptureDevice_PreferredFormatSupplied_ForwardsPreferredFormat`
+
 ##### Creation: PortAudio Initialized Returns the Real Playback Device
 
 **Test**: `AudioDeviceFactory_CreatePlaybackDevice_PortAudioInitialized_ReturnsRealDevice`
+
+##### Creation: Preferred Playback Format Is Forwarded
+
+**Test**: `AudioDeviceFactory_CreatePlaybackDevice_PreferredFormatSupplied_ForwardsPreferredFormat`
+
+##### Creation: Omitting Preferred Format Preserves Device Defaults
+
+**Test**: `AudioDeviceFactory_CreateDevices_PreferredFormatOmitted_PreservesDefaultFormatBehavior`
 
 ##### Creation: PortAudio Initialization Failure Returns Unavailable Devices
 

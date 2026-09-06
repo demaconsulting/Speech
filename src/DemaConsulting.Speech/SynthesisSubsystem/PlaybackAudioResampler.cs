@@ -1,3 +1,5 @@
+using DemaConsulting.Speech.AudioSubsystem;
+
 namespace DemaConsulting.Speech.SynthesisSubsystem;
 
 /// <summary>
@@ -14,11 +16,11 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     channels to mono there) and combining them would blur that already-reviewed unit's scope.
 ///     <para>
 ///     <b>Deliberate quality trade-off.</b> As with <see cref="RecognitionSubsystem.AudioFrameResampler"/>,
-///     rate conversion uses linear interpolation between adjacent samples rather than a polyphase
-///     or windowed-sinc resampler, and each block is converted independently. This keeps the
-///     implementation small enough to review and test exhaustively, at the cost of more aliasing
-///     than a high-quality resampler would introduce; see the synthesis subsystem's design
-///     documentation for the full rationale.
+///     rate conversion still uses simple linear interpolation between adjacent samples and each
+///     block is converted independently. Downsampling now inserts one small, dependency-free
+///     windowed-sinc FIR lowpass stage first, materially reducing aliasing while keeping this
+///     direction-specific implementation small enough to review and test exhaustively; see the
+///     synthesis subsystem's design documentation for the full rationale.
 ///     </para>
 ///     <para>
 ///     Instances are immutable and carry no per-block state, so a single instance is safe to
@@ -74,8 +76,8 @@ internal sealed class PlaybackAudioResampler
     }
 
     /// <summary>
-    ///     Resamples mono audio from one rate to another using linear interpolation between
-    ///     adjacent samples.
+    ///     Resamples mono audio from one rate to another using linear interpolation between adjacent
+    ///     samples, with an anti-aliasing lowpass filter applied first when downsampling.
     /// </summary>
     /// <param name="monoSamples">The single-channel input samples. May be empty.</param>
     /// <param name="sourceSampleRate">The input rate, in Hz. Must be greater than zero.</param>
@@ -91,7 +93,9 @@ internal sealed class PlaybackAudioResampler
     /// <remarks>
     ///     When the two rates are equal the input is copied unchanged, so the identity case (the
     ///     common case where a model's declared rate already matches the playback device) costs
-    ///     nothing and introduces no interpolation error at all.
+    ///     nothing and introduces no interpolation error at all. When downsampling, the input is
+    ///     first low-pass filtered with a small Hamming-windowed sinc FIR kernel so energy above the
+    ///     target Nyquist frequency is attenuated before decimation.
     /// </remarks>
     internal static float[] Resample(ReadOnlySpan<float> monoSamples, int sourceSampleRate, int targetSampleRate)
     {
@@ -109,22 +113,30 @@ internal sealed class PlaybackAudioResampler
             return [];
         }
 
+        ReadOnlySpan<float> samplesToResample = monoSamples;
+        if (targetSampleRate < sourceSampleRate)
+        {
+            var cutoffRatio = (double)targetSampleRate / sourceSampleRate;
+            var kernel = WindowedSincLowpassFilter.BuildLowpassKernel(cutoffRatio, WindowedSincLowpassFilter.DownsamplingFilterTapCount);
+            samplesToResample = WindowedSincLowpassFilter.ApplyLowpassFilter(monoSamples, kernel);
+        }
+
         var resampled = new float[outputLength];
         var step = (double)sourceSampleRate / targetSampleRate;
-        var lastIndex = monoSamples.Length - 1;
+        var lastIndex = samplesToResample.Length - 1;
         for (var i = 0; i < outputLength; i++)
         {
             var position = i * step;
             var lowerIndex = (int)position;
             if (lowerIndex >= lastIndex)
             {
-                resampled[i] = monoSamples[lastIndex];
+                resampled[i] = samplesToResample[lastIndex];
                 continue;
             }
 
             var fraction = position - lowerIndex;
-            var lower = monoSamples[lowerIndex];
-            var upper = monoSamples[lowerIndex + 1];
+            var lower = samplesToResample[lowerIndex];
+            var upper = samplesToResample[lowerIndex + 1];
             resampled[i] = (float)(lower + ((upper - lower) * fraction));
         }
 

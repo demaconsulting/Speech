@@ -261,21 +261,24 @@ Verifies that `Stop()` cancels an in-flight session deterministically, is a safe
 disposal releases the engine exactly once even when called twice, operating after disposal is
 rejected, and a real synthesizer always reports itself available.
 
-#### Playback Format Conversion: Resampling and Upmix
+#### Playback Format Conversion: Resampling, Anti-Aliasing, and Upmix
 
 **Tests**: `PlaybackAudioResampler_Resample_EqualRates_CopiesUnchanged`,
 `PlaybackAudioResampler_Resample_Upsample_ProducesInterpolatedSamples`,
 `PlaybackAudioResampler_Resample_Downsample_ReducesSampleCount`,
+`PlaybackAudioResampler_Resample_AboveTargetNyquistTone_IsAttenuated`,
+`PlaybackAudioResampler_Resample_ShortInputDuringDownsampling_DoesNotThrow`,
 `PlaybackAudioResampler_Resample_EmptyInput_ReturnsEmpty`,
 `PlaybackAudioResampler_UpmixToChannels_SingleChannel_CopiesUnchanged`,
 `PlaybackAudioResampler_UpmixToChannels_MultipleChannels_ReplicatesEachFrame`,
 `PlaybackAudioResampler_UpmixToChannels_EmptyInput_ReturnsEmpty`,
 `PlaybackAudioResampler_UpmixToChannels_NonPositiveChannelCount_ThrowsArgumentOutOfRangeException`,
-`PlaybackAudioResampler_Convert_DifferentRateAndChannels_ResamplesThenUpmixes`
+`PlaybackAudioResampler_Convert_DifferentRateAndChannels_ResamplesThenUpmixes`,
+`PlaybackAudioResampler_Constructor_NonPositiveArgument_ThrowsArgumentOutOfRangeException`
 
-Verifies identity pass-through at equal rates, proportional up/down conversion, empty-input
-handling, single/multi-channel upmix, rejection of a non-positive channel count, and the
-composed resample-then-upmix conversion.
+Verifies identity pass-through at equal rates, interpolation-only upsampling, anti-aliased
+downsampling, short-input safety, empty-input handling, single/multi-channel upmix, rejection of
+non-positive arguments, and the composed resample-then-upmix conversion.
 
 #### Unavailable Fallback: Honest Degradation
 

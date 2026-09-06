@@ -35,16 +35,23 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
     ///     The diagnostics sink for structural selection/start/stop/fault events, or
     ///     <see langword="null"/> to use <see cref="NullSpeechDiagnostics.Instance"/>.
     /// </param>
+    /// <param name="preferredFormat">
+    ///     The preferred capture format to request for the resolved device, or
+    ///     <see langword="null"/> to request the device's own default sample rate and full input
+    ///     channel capacity.
+    /// </param>
     internal PortAudioCaptureDevice(
         PortAudioEnvironment environment,
         AudioDeviceSelection? selection = null,
-        ISpeechDiagnostics? diagnostics = null)
+        ISpeechDiagnostics? diagnostics = null,
+        AudioFormat? preferredFormat = null)
     {
         ArgumentNullException.ThrowIfNull(environment);
 
         _environment = environment;
         _selection = selection ?? AudioDeviceSelection.SystemDefault;
         _diagnostics = diagnostics ?? NullSpeechDiagnostics.Instance;
+        _preferredFormat = preferredFormat;
         _resolvedDevice = ResolveDevice();
     }
 
@@ -69,6 +76,11 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
     private readonly ISpeechDiagnostics _diagnostics;
 
     /// <summary>
+    ///     The optional preferred capture format to request when resolving the device.
+    /// </summary>
+    private readonly AudioFormat? _preferredFormat;
+
+    /// <summary>
     ///     The resolved device metadata, or <see langword="null"/> when no capture device could
     ///     be resolved on the preferred host API.
     /// </summary>
@@ -84,16 +96,18 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
 
     /// <inheritdoc/>
     /// <remarks>
-    ///     Reports the channel count of the device resolved at construction, which is the same
-    ///     count requested when the capture stream is opened and therefore the interleaving
-    ///     stride of every <see cref="FrameCaptured"/> payload.
+    ///     Reports the channel count requested at construction time: either the resolved device's
+    ///     own full input-channel capacity, or the caller's preferred channel count clamped down
+    ///     to that capability. This is the same count requested when the capture stream is opened
+    ///     and therefore the interleaving stride of every <see cref="FrameCaptured"/> payload.
     /// </remarks>
     public int ChannelCount => _resolvedDevice?.ChannelCount ?? 0;
 
     /// <inheritdoc/>
     /// <remarks>
-    ///     Reports the sample rate of the device resolved at construction (its PortAudio-reported
-    ///     default rate), which is the same rate requested when the capture stream is opened.
+    ///     Reports the sample rate requested at construction time: either the resolved device's
+    ///     own PortAudio-reported default rate, or the caller's preferred sample rate when one
+    ///     was supplied. This is the same rate requested when the capture stream is opened.
     /// </remarks>
     public int SampleRate => _resolvedDevice?.SampleRate ?? 0;
 
@@ -219,8 +233,8 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
                 new ResolvedCaptureDevice(
                     deviceIndex,
                     deviceInfo.Name,
-                    deviceInfo.MaxInputChannels,
-                    deviceInfo.DefaultSampleRate));
+                    ResolveChannelCount(deviceInfo.MaxInputChannels),
+                    _preferredFormat?.SampleRate ?? deviceInfo.DefaultSampleRate));
         }
 
         var selectedDevice = ResolveSelectedDevice(eligibleDevices, hostApiInfo.DefaultInputDeviceIndex);
@@ -271,6 +285,31 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
         }
 
         return eligibleDevices.FirstOrDefault(device => device.DeviceIndex == defaultDeviceIndex);
+    }
+
+    /// <summary>
+    ///     Resolves the capture channel count to request for one device, clamping any preferred
+    ///     value to the device's advertised capability.
+    /// </summary>
+    /// <param name="maxInputChannels">
+    ///     The device's maximum supported input-channel count.
+    /// </param>
+    /// <returns>
+    ///     The preferred channel count when one was supplied and does not exceed the device's
+    ///     capability; otherwise the device capability itself.
+    /// </returns>
+    private int ResolveChannelCount(int maxInputChannels)
+    {
+        var resolvedChannelCount = Math.Min(_preferredFormat?.ChannelCount ?? maxInputChannels, maxInputChannels);
+        if (_preferredFormat is not null && _preferredFormat.ChannelCount > maxInputChannels)
+        {
+            _diagnostics.Report(
+                SpeechDiagnosticLevel.Info,
+                "AudioSubsystem",
+                $"Clamped preferred capture channel count {_preferredFormat.ChannelCount} to device capability {maxInputChannels}.");
+        }
+
+        return resolvedChannelCount;
     }
 
     /// <summary>

@@ -14,10 +14,12 @@ Verified through direct unit tests in `PortAudioPlaybackDeviceTests.cs` using fa
 
 Tests pass when stale selections fall back to the host-API default playback device, queued
 samples drain in order and zero-fill underruns, open failures surface
-`AudioDeviceUnavailableException`, no resolvable device yields `IsAvailable = false`, the
-reported channel count and sample rate match the resolved device (or are zero when nothing was
-resolved), and `PendingSampleCount` honestly tracks how many written samples the callback has
-genuinely dequeued.
+`AudioDeviceUnavailableException`, no resolvable device yields `IsAvailable = false`, preferred
+formats are honored when within device capability, excessive preferred channel counts are
+clamped, omitted preferences fall back to the device default, the reported channel count and
+sample rate match the requested open format (or are zero when nothing was resolved), and
+`PendingSampleCount` honestly tracks how many written samples the callback has genuinely
+dequeued.
 
 #### Test Scenarios
 
@@ -40,6 +42,18 @@ genuinely dequeued.
 ##### Playback Format: Resolved Device Reflects the Resolved Device Format
 
 **Test**: `PortAudioPlaybackDevice_PlaybackFormat_ResolvedDevice_ReflectsResolvedDeviceFormat`
+
+##### Construction: Preferred Format Within Capability Is Used
+
+**Test**: `PortAudioPlaybackDevice_Constructor_PreferredFormatWithinCapability_UsesPreferredFormat`
+
+##### Construction: Excessive Preferred Channel Count Is Clamped
+
+**Test**: `PortAudioPlaybackDevice_Constructor_PreferredChannelCountExceedsCapability_ClampsAndReportsDiagnostic`
+
+##### Construction: Omitted Preferred Format Uses Device Defaults
+
+**Test**: `PortAudioPlaybackDevice_Constructor_PreferredFormatOmitted_UsesDeviceDefaultFormat`
 
 ##### Playback Format: No Resolvable Device Returns Zero Rate and Channel Count
 

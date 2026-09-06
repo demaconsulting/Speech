@@ -24,8 +24,9 @@ against a real download in this project's development sandbox, not fabricated).
   model bytes by this project itself.
 - **InstallAsync(stagedFilesDirectory, cancellationToken)**: delegates to the shared
   `TarBz2ArchiveExtractor`, identically to `SherpaOnnxZipformerEnRecognitionModel`.
-- **IRecognitionModel.SampleRate** *(internal)*: `16000` Hz (the common convention for this model
-  family; not independently confirmed against an unreachable HuggingFace model card).
+- **IRecognitionModel.AudioFormat** *(public explicit interface member)*: mono `16000` Hz (the
+  common convention for this model family; not independently confirmed against an unreachable
+  HuggingFace model card).
 - **IRecognitionModel.CreateEngineConfig(installedModelDirectory)** *(internal)*: builds an
   `OnlineRecognizerConfig` wiring `OnlineModelConfig.Transducer.Encoder`/`Decoder`/`Joiner` to
   this model's `encoder.int8.onnx`/`decoder.int8.onnx`/`joiner.int8.onnx` files (int8-only - this
@@ -90,5 +91,5 @@ is a build-time metadata/download registration only.
 
 **Callers**: `SpeechModelCatalog.KnownModels` (registers this instance);
 `SpeechModelDownloader` (invokes `InstallAsync` after checksum verification);
-`SherpaOnnxRecognitionEngine` (consumes the internal `CreateEngineConfig`/`SampleRate` members
-through the RecognitionSubsystem).
+`SherpaOnnxRecognitionEngine` (consumes the internal `CreateEngineConfig` member and the public
+`AudioFormat` declaration through the RecognitionSubsystem).

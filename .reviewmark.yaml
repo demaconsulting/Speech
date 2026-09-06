@@ -155,6 +155,32 @@ reviews:
       - "src/DemaConsulting.Speech/AudioSubsystem/AudioDeviceSelection.cs"
       - "test/DemaConsulting.Speech.Tests/AudioSubsystem/AudioDeviceSelectionTests.cs"
 
+  # Speech-AudioSubsystem-AudioFormat Review (one per unit)
+  - id: Speech-AudioSubsystem-AudioFormat
+    title: Review that Speech AudioSubsystem AudioFormat Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/audio-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/audio-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/audio-subsystem/audio-format.yaml"
+      - "docs/design/speech/audio-subsystem/audio-format.md"
+      - "docs/verification/speech/audio-subsystem/audio-format.md"
+      - "src/DemaConsulting.Speech/AudioSubsystem/AudioFormat.cs"
+      - "test/DemaConsulting.Speech.Tests/AudioSubsystem/AudioFormatTests.cs"
+
+  # Speech-AudioSubsystem-WindowedSincLowpassFilter Review (grouped small supporting type)
+  - id: Speech-AudioSubsystem-WindowedSincLowpassFilter
+    title: Review that Speech AudioSubsystem WindowedSincLowpassFilter Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/audio-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/audio-subsystem.yaml"
+    paths:
+      - "src/DemaConsulting.Speech/AudioSubsystem/WindowedSincLowpassFilter.cs"
+
   # Speech-AudioSubsystem-IAudioCaptureDevice Review (one per unit)
   - id: Speech-AudioSubsystem-IAudioCaptureDevice
     title: Review that Speech AudioSubsystem IAudioCaptureDevice Implementation is Correct

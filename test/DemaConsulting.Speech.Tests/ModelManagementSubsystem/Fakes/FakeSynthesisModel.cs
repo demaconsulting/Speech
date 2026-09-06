@@ -1,3 +1,4 @@
+using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 using SherpaOnnx;
 
@@ -60,6 +61,9 @@ public sealed class FakeSynthesisModel : ISynthesisModel
 
     /// <inheritdoc/>
     public SpeechModelDownloadDescriptor DownloadDescriptor { get; }
+
+    /// <inheritdoc/>
+    public AudioFormat PreferredAudioFormat => AudioFormat.Mono(24000);
 
     /// <summary>
     ///     Builds a minimal but structurally valid VITS <see cref="OfflineTtsConfig"/> whose file

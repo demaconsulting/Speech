@@ -1,3 +1,4 @@
+using DemaConsulting.Speech.AudioSubsystem;
 using SherpaOnnx;
 
 namespace DemaConsulting.Speech.ModelManagementSubsystem;
@@ -96,7 +97,7 @@ public sealed class SherpaOnnxZipformerEnRecognitionModel : IRecognitionModel
 #pragma warning restore S1075
 
     /// <inheritdoc/>
-    int IRecognitionModel.SampleRate => ModelSampleRate;
+    AudioFormat IRecognitionModel.AudioFormat => AudioFormat.Mono(ModelSampleRate);
 
     /// <summary>
     ///     Restores casing, contractions, and terminal punctuation on this model's raw

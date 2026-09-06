@@ -69,11 +69,16 @@ words:
   - upmixing
   - Resampler
   - resampler
+  - resamplers
   - filterbank
   - livelock
   - polyphase
   - precedented
   - sinc
+  - lowpass
+  - Lowpass
+  - Nyquist
+  - downsamples
   - unsubscription
   - Chunker
   - chunker

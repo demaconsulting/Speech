@@ -1,0 +1,38 @@
+---
+# Software Unit Requirements for AudioFormat
+#
+# These requirements describe the design-level behavior of the AudioFormat unit,
+# decomposing the parent AudioSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: AudioSubsystem Requirements
+        sections:
+          - title: AudioFormat Requirements
+            requirements:
+              - id: Speech-Audio-AudioFormat-PositiveValues
+                title: >-
+                  The AudioFormat value type shall reject a non-positive sample rate or channel
+                  count and shall expose the accepted values unchanged when both are positive.
+                justification: |
+                  Zero or negative rates and channel counts describe no meaningful audio format.
+                  Rejecting them at construction keeps every downstream device/model declaration
+                  honest and removes repeated defensive validation at each call site.
+                tests:
+                  - AudioFormat_Constructor_ValidValues_ExposesProperties
+                  - AudioFormat_Constructor_NonPositiveSampleRate_ThrowsArgumentOutOfRangeException
+                  - AudioFormat_Constructor_NonPositiveChannelCount_ThrowsArgumentOutOfRangeException
+                  - AudioFormat_ValueEquality_EquivalentValuesCompareByValue
+
+              - id: Speech-Audio-AudioFormat-MonoFactory
+                title: >-
+                  The AudioFormat value type shall provide a Mono(sampleRate) helper that
+                  returns a one-channel format using the same sample-rate validation as the main
+                  constructor.
+                justification: |
+                  Every model currently declared by the library is mono. A dedicated helper keeps
+                  those declarations concise while preserving one canonical validation rule.
+                tests:
+                  - AudioFormat_Mono_ValidSampleRate_ReturnsMonoFormat
+                  - AudioFormat_Mono_NonPositiveSampleRate_ThrowsArgumentOutOfRangeException

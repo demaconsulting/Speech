@@ -1,3 +1,4 @@
+using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.SynthesisSubsystem;
 using DemaConsulting.Speech.Tests.ModelManagementSubsystem.Fakes;
@@ -112,6 +113,22 @@ public sealed class SherpaOnnxVitsLibriTtsEnglishSynthesisModelTests : IDisposab
         Assert.Equal(903, numericParameter.Maximum);
         Assert.Equal(0, numericParameter.Default);
         Assert.True(numericParameter.IsInteger);
+    }
+
+    /// <summary>
+    ///     Proves that this model exposes its best-effort preferred mono playback format.
+    /// </summary>
+    [Fact]
+    public void SherpaOnnxVitsLibriTtsEnglishSynthesisModel_PreferredAudioFormat_IsMono22050()
+    {
+        // Arrange
+        ISynthesisModel model = new SherpaOnnxVitsLibriTtsEnglishSynthesisModel();
+
+        // Act
+        var preferredFormat = model.PreferredAudioFormat;
+
+        // Assert
+        Assert.Equal(new AudioFormat(22050, 1), preferredFormat);
     }
 
     /// <summary>

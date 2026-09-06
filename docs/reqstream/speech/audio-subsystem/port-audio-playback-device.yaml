@@ -54,17 +54,33 @@ sections:
               - id: Speech-Audio-PortAudioPlaybackDevice-PlaybackFormat
                 title: >-
                   The PortAudioPlaybackDevice class shall report the channel count and sample
-                  rate of the device it resolved, and shall report zero for both when no device
-                  could be resolved.
+                  rate it requested when opening the resolved device, and shall report zero for
+                  both when no device could be resolved.
                 justification: |
-                  The reported format must describe the audio Write actually renders, so a
-                  consumer resampling or upmixing audio before playback - notably speech
-                  synthesis - converts it correctly; reporting zero when nothing was resolved
-                  keeps the report consistent with the device's honest availability flag, mirroring
-                  PortAudioCaptureDevice's identical Sub-phase 3 addition.
+                  The reported format must describe the audio Write actually sends to the device,
+                  whether that request came from the hardware default or a caller-supplied
+                  preference, so a consumer resampling or upmixing audio before playback -
+                  notably speech synthesis - converts it correctly.
                 tests:
                   - PortAudioPlaybackDevice_PlaybackFormat_ResolvedDevice_ReflectsResolvedDeviceFormat
                   - PortAudioPlaybackDevice_PlaybackFormat_NoResolvableDevice_ReturnsZeroRateAndChannelCount
+
+              - id: Speech-Audio-PortAudioPlaybackDevice-PreferredFormatSelection
+                title: >-
+                  The PortAudioPlaybackDevice class shall request the caller's preferred sample
+                  rate when one is supplied and shall clamp a preferred channel count down to
+                  the resolved device's maximum output-channel capability; when no preference is
+                  supplied it shall request the device's own default sample rate and full output
+                  capability.
+                justification: |
+                  A playback hint must never ask PortAudio to open more output channels than the
+                  device exposes, but should otherwise let model-driven composition bias the
+                  opened stream toward the model's preferred format and potentially avoid later
+                  resampling or upmixing work.
+                tests:
+                  - PortAudioPlaybackDevice_Constructor_PreferredFormatWithinCapability_UsesPreferredFormat
+                  - PortAudioPlaybackDevice_Constructor_PreferredChannelCountExceedsCapability_ClampsAndReportsDiagnostic
+                  - PortAudioPlaybackDevice_Constructor_PreferredFormatOmitted_UsesDeviceDefaultFormat
 
               - id: Speech-Audio-PortAudioPlaybackDevice-PendingSampleCount
                 title: >-

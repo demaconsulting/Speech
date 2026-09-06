@@ -1,3 +1,4 @@
+using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.SynthesisSubsystem;
 using DemaConsulting.Speech.Tests.ModelManagementSubsystem.Fakes;
@@ -45,20 +46,20 @@ public class SpeechModelContractTests
     }
 
     /// <summary>
-    ///     Proves that a recognition model exposes the engine input rate it declares, so the
-    ///     recognition pipeline can resample captured audio to the rate the model needs.
+    ///     Proves that a recognition model exposes the audio format it declares, so the
+    ///     recognition pipeline can resample captured audio to the format the model needs.
     /// </summary>
     [Fact]
-    public void IRecognitionModel_SampleRate_DeclaredByModel_IsExposed()
+    public void IRecognitionModel_AudioFormat_DeclaredByModel_IsExposed()
     {
         // Arrange: a fake recognition model declaring a non-default engine input rate
         IRecognitionModel model = new FakeRecognitionModel(sampleRate: 8000);
 
         // Act
-        var sampleRate = model.SampleRate;
+        var format = model.AudioFormat;
 
         // Assert
-        Assert.Equal(8000, sampleRate);
+        Assert.Equal(new AudioFormat(8000, 1), format);
     }
 
     /// <summary>
@@ -77,7 +78,7 @@ public class SpeechModelContractTests
         var config = model.CreateEngineConfig(installedModelDirectory);
 
         // Assert: the declared rate and the resolved token path are both present
-        Assert.Equal(model.SampleRate, config.FeatConfig.SampleRate);
+        Assert.Equal(model.AudioFormat.SampleRate, config.FeatConfig.SampleRate);
         Assert.Equal(Path.Combine(installedModelDirectory, "tokens.txt"), config.ModelConfig.Tokens);
     }
 
@@ -112,6 +113,23 @@ public class SpeechModelContractTests
         // Assert: the model's own file paths are resolved against the supplied directory
         Assert.Equal(Path.Combine(installedModelDirectory, "model.onnx"), config.Model.Vits.Model);
         Assert.Equal(Path.Combine(installedModelDirectory, "tokens.txt"), config.Model.Vits.Tokens);
+    }
+
+    /// <summary>
+    ///     Proves that a synthesis model exposes a preferred audio-format hint without exposing
+    ///     any native engine type.
+    /// </summary>
+    [Fact]
+    public void ISynthesisModel_PreferredAudioFormat_DeclaredByModel_IsExposed()
+    {
+        // Arrange
+        ISynthesisModel model = new FakeSynthesisModel();
+
+        // Act
+        var preferredFormat = model.PreferredAudioFormat;
+
+        // Assert
+        Assert.Equal(new AudioFormat(24000, 1), preferredFormat);
     }
 
     /// <summary>

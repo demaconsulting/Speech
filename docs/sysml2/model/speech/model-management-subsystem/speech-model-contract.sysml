@@ -1,10 +1,11 @@
 package Speech {
     part def SpeechModelContract {
         doc /* The common per-model contract (ISpeechModel: Id, DisplayName, Role, Parameters,
-             * AudioTagSupport, DownloadDescriptor) and its two empty role-marker interfaces,
-             * IRecognitionModel and ISynthesisModel - the seam Phase 3/4 extend with real
-             * engine-construction methods (CreateEngineConfig) and, for synthesis, a
-             * default-hook CapabilityProfile member. Phase 12 adds a recognition-only
+             * AudioTagSupport, DownloadDescriptor) and its two role-specific interfaces,
+             * IRecognitionModel and ISynthesisModel. Recognition exposes a public AudioFormat
+             * plus internal engine construction; synthesis exposes a public best-effort
+             * PreferredAudioFormat plus internal engine construction and a default-hook
+             * CapabilityProfile member. Phase 12 adds a recognition-only
              * IRecognitionModel.NormalizeText(text, isFinal) default hook, distinct from the
              * shared ISpeechModel.NormalizeText(text) used on the synthesis side. */
 

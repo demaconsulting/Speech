@@ -217,6 +217,9 @@ sections:
               - Speech-Models-SpeechModelContract-InstallHook
               - Speech-Models-SpeechModelContract-NormalizeTextHook
               - Speech-Models-SpeechModelContract-RecognitionNormalizeTextHook
+              - Speech-Models-SpeechModelContract-RecognitionEngineDeclaration
+              - Speech-Models-SpeechModelContract-SynthesisPreferredAudioFormat
+              - Speech-Models-SpeechModelContract-SynthesisEngineDeclaration
               - Speech-Models-SpeechModelDescriptorEnums-FixedValueSets
             tests:
               - IRecognitionModel_Role_IsRecognition
@@ -225,6 +228,8 @@ sections:
               - ISpeechModel_AudioTagSupportAndDownloadDescriptor_AreExposed
               - ISpeechModel_InstallAsync_DefaultImplementation_CompletesWithoutModifyingStagingDirectory
               - ISpeechModel_NormalizeText_DefaultImplementation_ReturnsInputUnchanged
+              - IRecognitionModel_AudioFormat_DeclaredByModel_IsExposed
+              - ISynthesisModel_PreferredAudioFormat_DeclaredByModel_IsExposed
               - FakeRecognitionModel_InstallAsync_WithZipArchivePayload_ExtractsEntriesAndRemovesArchive
               - SpeechModelRole_Values_DeclaresRecognitionAndSynthesisOnly
               - SpeechModelState_Values_DeclaresFixedStateSet
@@ -342,6 +347,7 @@ sections:
               - Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-DownloadDescriptor
               - Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-ParameterDeclaration
               - Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-EngineConfig
+              - Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-PreferredAudioFormat
               - Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-EngineConfigArgumentValidation
               - Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-InstallAsync
               - Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-ResolveSpeakerId
@@ -375,6 +381,7 @@ sections:
               - Speech-Models-SherpaOnnxKokoroEnglishSynthesisModel-Identity
               - Speech-Models-SherpaOnnxKokoroEnglishSynthesisModel-DownloadDescriptor
               - Speech-Models-SherpaOnnxKokoroEnglishSynthesisModel-EngineConfig
+              - Speech-Models-SherpaOnnxKokoroEnglishSynthesisModel-PreferredAudioFormat
               - Speech-Models-SherpaOnnxKokoroEnglishSynthesisModel-EngineConfigArgumentValidation
               - Speech-Models-SherpaOnnxKokoroEnglishSynthesisModel-InstallAsync
               - Speech-Models-SherpaOnnxKokoroEnglishSynthesisModel-ResolveSpeakerId

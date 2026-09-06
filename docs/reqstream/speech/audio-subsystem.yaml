@@ -58,6 +58,30 @@ sections:
               - AudioDeviceFactory_CreatePlaybackDevice_PortAudioInitialized_ReturnsRealDevice
               - AudioDeviceFactory_CreateDevices_PortAudioInitializationFails_ReturnUnavailableDevices
 
+          - id: Speech-Audio-FormatValue
+            title: >-
+              The AudioSubsystem shall expose a validating audio-format value type and allow
+              callers to request a preferred capture or playback format while preserving today's
+              device-native behavior when no preference is supplied.
+            justification: |
+              Model-driven composition needs one plain, public type that can describe "open the
+              device in roughly this format" without leaking native PortAudio or sherpa-onnx
+              types. Keeping the type inside the AudioSubsystem lets both device composition and
+              model metadata talk about audio format in the same terms.
+            children:
+              - Speech-Audio-AudioFormat-PositiveValues
+              - Speech-Audio-AudioFormat-MonoFactory
+              - Speech-Audio-AudioDeviceFactory-PreferredFormatForwarding
+              - Speech-Audio-PortAudioCaptureDevice-PreferredFormatSelection
+              - Speech-Audio-PortAudioPlaybackDevice-PreferredFormatSelection
+            tests:
+              - AudioFormat_Constructor_ValidValues_ExposesProperties
+              - AudioFormat_Mono_ValidSampleRate_ReturnsMonoFormat
+              - AudioDeviceFactory_CreateCaptureDevice_PreferredFormatSupplied_ForwardsPreferredFormat
+              - AudioDeviceFactory_CreatePlaybackDevice_PreferredFormatSupplied_ForwardsPreferredFormat
+              - PortAudioCaptureDevice_Constructor_PreferredFormatWithinCapability_UsesPreferredFormat
+              - PortAudioPlaybackDevice_Constructor_PreferredFormatWithinCapability_UsesPreferredFormat
+
           - id: Speech-Audio-MockableContracts
             title: >-
               The AudioSubsystem shall expose mockable capture/playback device and probe

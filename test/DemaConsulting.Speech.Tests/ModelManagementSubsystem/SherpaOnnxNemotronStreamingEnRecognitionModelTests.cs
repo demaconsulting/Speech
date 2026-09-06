@@ -93,17 +93,18 @@ public sealed class SherpaOnnxNemotronStreamingEnRecognitionModelTests : IDispos
     }
 
     /// <summary>
-    ///     Proves that <see cref="IRecognitionModel.SampleRate"/> reports the model's declared
-    ///     16 kHz feature rate.
+    ///     Proves that <see cref="IRecognitionModel.AudioFormat"/> reports the model's declared
+    ///     mono 16 kHz feature format.
     /// </summary>
     [Fact]
-    public void SherpaOnnxNemotronStreamingEnRecognitionModel_SampleRate_Is16000()
+    public void SherpaOnnxNemotronStreamingEnRecognitionModel_AudioFormat_IsMono16000()
     {
         // Arrange
         IRecognitionModel model = new SherpaOnnxNemotronStreamingEnRecognitionModel();
 
         // Act & Assert
-        Assert.Equal(16000, model.SampleRate);
+        Assert.Equal(16000, model.AudioFormat.SampleRate);
+        Assert.Equal(1, model.AudioFormat.ChannelCount);
     }
 
     /// <summary>

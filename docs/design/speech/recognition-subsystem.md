@@ -28,15 +28,15 @@ The subsystem exposes `ISpeechRecognizer`, `SpeechRecognitionResult`, `SpeechRec
 `SpeechRecognizerFactory`, `UnavailableSpeechRecognizer`, and
 `SpeechRecognizerUnavailableException` as its public API. It consumes `IAudioCaptureDevice` from
 the AudioSubsystem for input audio, `IRecognitionModel` from the ModelManagementSubsystem for the
-engine configuration and required input rate, and `ISpeechDiagnostics` from the Diagnostics
+engine configuration and required input format, and `ISpeechDiagnostics` from the Diagnostics
 subsystem to report structural composition, lifecycle, and fault facts without ever exposing
 recognized text.
 
 Both cross-subsystem dependencies were extended in this phase, additively:
 `IAudioCaptureDevice` gained `ChannelCount`/`SampleRate` so the resolved capture format can be
-discovered (see _IAudioCaptureDevice Design_), and `IRecognitionModel` gained internal
-`SampleRate`/`CreateEngineConfig` members so each model owns its own engine configuration (see
-_SpeechModelContract Design_).
+discovered (see _IAudioCaptureDevice Design_), and `IRecognitionModel` now exposes a public
+`AudioFormat` plus internal `CreateEngineConfig` so each model owns both its input-format
+declaration and its engine configuration (see _SpeechModelContract Design_).
 
 No member of the subsystem's public API names a sherpa-onnx type, per architecture.md's
 "engine backend stays swappable at the public API surface" decision. The sherpa-onnx
@@ -52,7 +52,11 @@ whether the supplied capture device is available; any failure returns
 failed. Only then does it ask an `IRecognitionEngineFactory` to load the model, and a failure
 there - the case architecture.md calls out for a missing native runtime - degrades exactly the
 same honest way rather than throwing. Nothing about "is recognition possible?" is left for the
-host to work out from separate signals.
+host to work out from separate signals. When a caller already knows the chosen model, the
+recommended composition pattern is to construct the capture device first with
+`AudioDeviceFactory.CreateCaptureDevice(selection, model.AudioFormat)` and then pass that device
+into `SpeechRecognizerFactory.Create(...)`; when the backend honors the hint,
+`AudioFrameResampler` stays on its existing equal-rate no-op fast path.
 
 The running pipeline in `SherpaOnnxSpeechRecognizer` spans two threads by design. The capture
 device raises frames on a high-priority audio callback thread, so the recognizer's frame handler
@@ -61,13 +65,15 @@ event raising happens on a single background consumer task. Stopping completes t
 joins that task, so every result derived from audio captured before the stop request has been
 delivered by the time the call returns.
 
-`AudioFrameResampler` performs the format conversion, and the internal
-`IRecognitionEngine`/`IRecognitionEngineFactory` seam confines every sherpa-onnx call to
-`SherpaOnnxRecognitionEngine`/`SherpaOnnxRecognitionEngineFactory`. That seam is the reason the
-whole pipeline is verifiable in CI: the recognizer's threading, conversion, fault containment,
-and result ordering are all exercised through pure managed fakes with no model file and no
-native inference binary present. It mirrors the `IPortAudioApi` seam used for audio interop and
-the `IModelDownloadClient` seam used for downloads.
+`AudioFrameResampler` performs the format conversion, downmixing to mono and using simple linear
+interpolation for rate conversion except on the downsampling path, where a small windowed-sinc
+FIR lowpass filter now runs immediately before decimation to attenuate above-target-Nyquist
+energy. The internal `IRecognitionEngine`/`IRecognitionEngineFactory` seam confines every
+sherpa-onnx call to `SherpaOnnxRecognitionEngine`/`SherpaOnnxRecognitionEngineFactory`. That seam
+is the reason the whole pipeline is verifiable in CI: the recognizer's threading, conversion,
+fault containment, and result ordering are all exercised through pure managed fakes with no model
+file and no native inference binary present. It mirrors the `IPortAudioApi` seam used for audio
+interop and the `IModelDownloadClient` seam used for downloads.
 
 #### UnavailableSpeechRecognizer
 

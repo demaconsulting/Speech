@@ -83,9 +83,13 @@ public class SherpaOnnxSpeechRecognizerTests
         RaiseFrameCaptured(captureDevice, [0.0f, 0.0f, 1.0f, 1.0f, 2.0f, 2.0f, 3.0f, 3.0f]);
         recognizer.Stop();
 
-        // Assert: four stereo frames became four mono samples, halved to two by the resampler
+        // Assert: four stereo frames became four mono samples, then anti-aliased and halved by
+        // the resampler
         Assert.Equal(1, engine.AcceptSamplesCallCount);
-        Assert.Equal([0.0f, 2.0f], engine.AcceptedSamples);
+        Assert.Collection(
+            engine.AcceptedSamples,
+            sample => Assert.InRange(sample, 0.11705f, 0.11706f),
+            sample => Assert.InRange(sample, 2.06629f, 2.06630f));
     }
 
     /// <summary>

@@ -1,3 +1,4 @@
+using DemaConsulting.Speech.AudioSubsystem;
 using SherpaOnnx;
 
 namespace DemaConsulting.Speech.ModelManagementSubsystem;
@@ -97,6 +98,12 @@ public sealed class SherpaOnnxKokoroEnglishSynthesisModel : ISynthesisModel
     /// <summary>This model's own recommended Kokoro length scale (playback speed multiplier).</summary>
     private const float LengthScale = 1.0f;
 
+    /// <summary>
+    ///     The empirically observed output sample rate, in Hz, reported by this model's loaded
+    ///     native engine in this repository's own verification evidence.
+    /// </summary>
+    private const int PreferredSampleRate = 24000;
+
     /// <summary>The default voice used when no selection is supplied.</summary>
     private const string DefaultVoice = "af";
 
@@ -195,6 +202,9 @@ public sealed class SherpaOnnxKokoroEnglishSynthesisModel : ISynthesisModel
             ArchiveRelativeInstallPath),
     ]);
 #pragma warning restore S1075
+
+    /// <inheritdoc/>
+    AudioFormat ISynthesisModel.PreferredAudioFormat => AudioFormat.Mono(PreferredSampleRate);
 
     /// <summary>
     ///     Extracts the downloaded <c>.tar.bz2</c> archive in place using the shared

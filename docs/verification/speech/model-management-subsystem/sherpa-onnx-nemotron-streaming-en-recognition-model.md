@@ -77,9 +77,9 @@ deliberately leaves `ModelType` unset; an empty installed directory throws `Argu
 
 **Test**: `SherpaOnnxNemotronStreamingEnRecognitionModel_DownloadDescriptor_DeclaresSingleValidatedArchiveFile`
 
-##### SampleRate reports the model's declared 16 kHz feature rate
+##### AudioFormat reports the model's declared mono 16 kHz feature rate
 
-**Test**: `SherpaOnnxNemotronStreamingEnRecognitionModel_SampleRate_Is16000`
+**Test**: `SherpaOnnxNemotronStreamingEnRecognitionModel_AudioFormat_IsMono16000`
 
 ##### CreateEngineConfig resolves the int8 files and feature configuration
 

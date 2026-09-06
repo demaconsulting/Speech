@@ -62,6 +62,13 @@ public static class SpeechRecognizerFactory
     ///     Loads the model into native memory when it succeeds, so the returned recognizer owns
     ///     unmanaged resources and must be disposed. Reports every fallback decision through the
     ///     diagnostics sink as a structural fact, never including recognized text.
+    ///     <para>
+    ///     Recommended composition pattern: create the capture device first with
+    ///     <c>new AudioDeviceFactory().CreateCaptureDevice(selection, model.AudioFormat)</c>, then
+    ///     pass that device here. When the backend honors the preferred format, the device opens
+    ///     already matching the recognition model's mono input rate and
+    ///     <see cref="AudioFrameResampler"/> falls through to its existing no-op fast path.
+    ///     </para>
     /// </remarks>
     public static ISpeechRecognizer Create(
         IRecognitionModel model,
@@ -156,6 +163,11 @@ public static class SpeechRecognizerFactory
             SpeechDiagnosticLevel.Info,
             DiagnosticsCategory,
             $"Composed a streaming speech recognizer for model '{model.Id}'.");
-        return new SherpaOnnxSpeechRecognizer(engine, captureDevice, model.SampleRate, model, sink);
+        return new SherpaOnnxSpeechRecognizer(
+            engine,
+            captureDevice,
+            model.AudioFormat.SampleRate,
+            model,
+            sink);
     }
 }

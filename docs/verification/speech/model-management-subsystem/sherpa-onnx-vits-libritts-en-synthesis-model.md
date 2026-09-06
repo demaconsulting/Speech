@@ -32,7 +32,8 @@ The model declares its stable `Id`/`DisplayName`/`Role = Synthesis`/a single `sp
 `NumericParameter` (range `0`-`903`, default `0`, `IsInteger = true`)/`AudioTagSupport = None`;
 its
 `DownloadDescriptor` names exactly one HTTPS file with a well-formed SHA-256 checksum and a
-`.tar.bz2` relative install path; `CreateEngineConfig` resolves the VITS model/tokens/data-dir
+`.tar.bz2` relative install path; `PreferredAudioFormat` reports mono `22050` Hz as a
+best-effort pre-load hint; `CreateEngineConfig` resolves the VITS model/tokens/data-dir
 paths against the archive's extracted top-level folder with `NoiseScale = 0.333f`,
 `NoiseScaleW = 0.333f`, `LengthScale = 1.0f`, an unset `Lexicon`, and `Provider = "cpu"`; an empty
 installed directory throws `ArgumentException`; `CapabilityProfile` resolves to the shared
@@ -58,6 +59,10 @@ outputs.
 ##### The model declares exactly one numeric speaker parameter spanning its full range
 
 **Test**: `SherpaOnnxVitsLibriTtsEnglishSynthesisModel_Parameters_DeclaresSpeakerNumericParameter`
+
+##### PreferredAudioFormat reports the model's best-effort mono 22050 Hz hint
+
+**Test**: `SherpaOnnxVitsLibriTtsEnglishSynthesisModel_PreferredAudioFormat_IsMono22050`
 
 ##### CreateEngineConfig resolves the VITS files and this model's own recommended configuration
 

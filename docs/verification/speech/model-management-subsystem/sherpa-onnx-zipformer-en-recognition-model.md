@@ -49,9 +49,9 @@ is a regression guard against this deliberate non-enablement ever being accident
 
 **Test**: `SherpaOnnxZipformerEnRecognitionModel_DownloadDescriptor_DeclaresSingleValidatedArchiveFile`
 
-##### SampleRate reports the model's trained 16 kHz feature rate
+##### AudioFormat reports the model's trained mono 16 kHz feature rate
 
-**Test**: `SherpaOnnxZipformerEnRecognitionModel_SampleRate_Is16000`
+**Test**: `SherpaOnnxZipformerEnRecognitionModel_AudioFormat_IsMono16000`
 
 ##### CreateEngineConfig resolves the int8 files and feature configuration
 

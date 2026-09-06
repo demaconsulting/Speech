@@ -88,17 +88,18 @@ public sealed class SherpaOnnxZipformerEnRecognitionModelTests : IDisposable
     }
 
     /// <summary>
-    ///     Proves that <see cref="IRecognitionModel.SampleRate"/> reports the model's trained
-    ///     16 kHz feature rate.
+    ///     Proves that <see cref="IRecognitionModel.AudioFormat"/> reports the model's trained
+    ///     mono 16 kHz feature format.
     /// </summary>
     [Fact]
-    public void SherpaOnnxZipformerEnRecognitionModel_SampleRate_Is16000()
+    public void SherpaOnnxZipformerEnRecognitionModel_AudioFormat_IsMono16000()
     {
         // Arrange
         IRecognitionModel model = new SherpaOnnxZipformerEnRecognitionModel();
 
         // Act & Assert
-        Assert.Equal(16000, model.SampleRate);
+        Assert.Equal(16000, model.AudioFormat.SampleRate);
+        Assert.Equal(1, model.AudioFormat.ChannelCount);
     }
 
     /// <summary>
