@@ -13,7 +13,7 @@ sections:
           - id: Speech-Audio-NameOnlyIdentity
             title: The AudioSubsystem shall identify audio devices by name alone.
             justification: |
-              architecture.md's "single preferred host API per platform, name-only device
+              This library's "single preferred host API per platform, name-only device
               identity" decision removes device-index instability across reboots and hot-plug
               events; the trade-off (two identically named devices are indistinguishable) is
               accepted for the desktop use case.
@@ -88,7 +88,7 @@ sections:
               interfaces so hosts and tests can depend on audio behavior without any real
               hardware in automated test environments.
             justification: |
-              architecture.md's "own interfaces over direct OTS types" decision requires
+              This library's "own interfaces over direct OTS types" decision requires
               library-owned abstractions so hosts can supply mocks in tests and the backend can
               be replaced later without a breaking API change.
             children:
@@ -213,7 +213,7 @@ sections:
               rather than throwing, and throw a documented exception only when an operational
               member is actually invoked.
             justification: |
-              Per architecture.md's "nothing throws at composition" decision, obtaining and
+              Per this library's "nothing throws at composition" decision, obtaining and
               holding a fallback device or probe must never throw; only misuse of an already
               unavailable device is a programming error that should surface as an exception.
             children:

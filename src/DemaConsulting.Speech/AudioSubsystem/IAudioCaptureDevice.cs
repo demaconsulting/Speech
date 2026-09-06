@@ -17,7 +17,7 @@ public sealed record AudioCaptureFrameEventArgs(IReadOnlyList<float> Samples);
 /// <remarks>
 ///     Implementations own the full lifecycle of a single physical or virtual capture device.
 ///     A device that cannot function honestly reports <see cref="IsAvailable"/> as
-///     <see langword="false"/> rather than throwing at construction time, per architecture.md's
+///     <see langword="false"/> rather than throwing at construction time, per this library's
 ///     "nothing throws at composition" decision; see <see cref="UnavailableAudioCaptureDevice"/>
 ///     for the canonical fallback.
 /// </remarks>

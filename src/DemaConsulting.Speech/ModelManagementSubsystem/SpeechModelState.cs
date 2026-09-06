@@ -5,7 +5,7 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     <see cref="SpeechModelCatalog"/>.
 /// </summary>
 /// <remarks>
-///     Per architecture.md's "model states are a fixed, small set" decision, there is no
+///     Per this library's "model states are a fixed, small set" decision, there is no
 ///     "update available" state in this iteration - model versioning is an explicit non-goal.
 ///     <see cref="SpeechModelStore"/> itself only distinguishes installed/not-installed (via
 ///     <see cref="SpeechModelStore.IsInstalled"/>); <see cref="SpeechModelCatalog"/> layers

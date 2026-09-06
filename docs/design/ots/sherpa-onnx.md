@@ -27,17 +27,17 @@ package directly; those native runtime packages are declared as dependencies of 
 package itself, so a consuming application restores the ones it needs transitively rather than
 this library selecting or bundling any of them. A consumer that trims or excludes the native
 runtime for its target platform still composes successfully - recognition simply reports itself
-unavailable, per architecture.md's requirement that a missing native runtime "must degrade the
+unavailable, per this library's requirement that a missing native runtime "must degrade the
 same honest way as a missing model file, never crash."
 
 Sherpa-onnx types are confined to two places. Each model's backing class produces its own engine
-configuration through an internal member of `IRecognitionModel`, matching architecture.md's
+configuration through an internal member of `IRecognitionModel`, matching this library's
 "sherpa-onnx configuration for its own model architecture" responsibility. The
 RecognitionSubsystem then consumes that configuration behind its internal
 `IRecognitionEngine`/`IRecognitionEngineFactory` seam, implemented for real by
 `SherpaOnnxRecognitionEngine`/`SherpaOnnxRecognitionEngineFactory`. No sherpa-onnx type appears
 anywhere in the library's public API: public callers interact only through `ISpeechRecognizer`,
-`SpeechRecognitionResult`, and `SpeechRecognizerFactory`, keeping architecture.md's "engine
+`SpeechRecognitionResult`, and `SpeechRecognizerFactory`, keeping this library's "engine
 backend stays swappable at the public API surface" promise intact. See
 _RecognitionSubsystem Design_ for the seam's structure.
 

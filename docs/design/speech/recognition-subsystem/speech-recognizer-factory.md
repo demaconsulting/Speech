@@ -26,8 +26,8 @@ the cheapest and most common cause of unavailability (a model not downloaded yet
 first and no native memory is allocated for a recognizer that could never run.
 
 **Error Handling**: Every ordinary machine state is represented as the honest unavailable
-recognizer plus a structural diagnostic, never as an exception, per architecture.md's "nothing
-throws at composition" decision. An engine load failure - the case architecture.md names for a
+recognizer plus a structural diagnostic, never as an exception, per this library's "nothing
+throws at composition" decision. An engine load failure - the missing-native-runtime case for a
 missing `org.k2fsa.sherpa.onnx.runtime.{RID}` binary or unusable model files - is caught and
 degraded identically to a missing model. Only a null `model`, `captureDevice`, or engine factory
 throws `ArgumentNullException`, since a null argument is a programming error rather than a

@@ -11,7 +11,7 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 /// <remarks>
 ///     Hosts call <see cref="Create(ISynthesisModel,string,IAudioPlaybackDevice,ISpeechDiagnostics,System.Collections.Generic.IReadOnlyDictionary{string,object}?)"/>
 ///     rather than constructing a synthesizer directly, so all of the "can this machine actually
-///     speak right now?" logic lives in one reviewable place. Per architecture.md's "nothing
+///     speak right now?" logic lives in one reviewable place. Per this library's "nothing
 ///     throws at composition" decision this method never throws for an ordinary machine state - a
 ///     model that is not installed, a model whose role is not synthesis, a machine with no
 ///     playback device, and a machine missing the sherpa-onnx native runtime all return
@@ -19,7 +19,7 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     diagnostics sink. Only a null argument, which is a programming error rather than a machine
 ///     state, throws.
 ///     <para>
-///     Nothing in this type's public signature names a sherpa-onnx type, keeping architecture.md's
+///     Nothing in this type's public signature names a sherpa-onnx type, keeping this library's
 ///     "engine backend stays swappable at the public API surface" promise intact.
 ///     </para>
 /// </remarks>

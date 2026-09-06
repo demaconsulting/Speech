@@ -22,7 +22,7 @@ sections:
                   resulting segment as it becomes ready rather than waiting for the whole plan to
                   finish.
                 justification: |
-                  architecture.md requires chunked, low-latency streaming synthesis so playback of
+                  The design requires chunked, low-latency streaming synthesis so playback of
                   an early sentence can start while a later sentence is still being synthesized,
                   rather than a host waiting for an entire utterance's inference to complete
                   before hearing anything.
@@ -36,7 +36,7 @@ sections:
                   each segment's pre-silence, resampled audio, and post-silence in order, and stop
                   the device once playback of the stream ends or faults.
                 justification: |
-                  architecture.md's synthesize-while-playing-previous chunk behavior requires that
+                  This library's synthesize-while-playing-previous chunk behavior requires that
                   the playback device is driven continuously across segments rather than being
                   restarted per segment, while still guaranteeing the device is released when the
                   session ends for any reason.
@@ -71,7 +71,7 @@ sections:
                 justification: |
                   A model that fails mid-utterance or a playback device that drops must fail the
                   caller's awaited task promptly so a host can report the failure, per
-                  architecture.md's "fail honestly, never crash or hang" requirement for the
+                  this library's "fail honestly, never crash or hang" requirement for the
                   synthesis pipeline.
                 tests:
                   - SynthesizeStreamAsync_EngineThrows_ReportsFaultAndPropagatesToCaller
@@ -136,7 +136,7 @@ sections:
                   selected model itself declares, reusing the already-referenced sherpa-onnx
                   package rather than adding a new native dependency.
                 justification: |
-                  architecture.md makes each model's backing class responsible for its own engine
+                  The design makes each model's backing class responsible for its own engine
                   configuration, so that adding a new synthesis model is a self-contained,
                   reviewable unit of work that never requires changing the synthesis subsystem or
                   its native package reference.
@@ -152,7 +152,7 @@ sections:
                   real timed silence segment, regardless of a model's declared audio-tag support,
                   with a long pause rendering strictly longer than a short pause.
                 justification: |
-                  architecture.md states that pauses require no model cooperation, so every
+                  The design states that pauses require no model cooperation, so every
                   installed model - however limited its audio-tag support - can honor a pause
                   tag identically and correctly.
                 tests:
@@ -178,8 +178,9 @@ sections:
                   for a model declaring parameter-mapped audio-tag support, and shall silently
                   strip a tag with no built-in convention rather than failing.
                 justification: |
-                  architecture.md's Risk #1 mitigation requires that a model without native tag
-                  support still gets a reasonable, non-crashing approximation of pace/volume
+                  This library's conservative risk mitigation for unsupported tags requires that
+                  a model without native tag support still gets a reasonable, non-crashing
+                  approximation of pace/volume
                   intent, while intentionally conservative scope means only the tags with a clear
                   numeric convention are mapped; every other tag safely degrades to plain
                   narration instead of causing an error.
@@ -192,7 +193,7 @@ sections:
                   The default Layer 2 rendering strategy shall strip every tag to plain narration
                   text, except pauses, for a model declaring no audio-tag support.
                 justification: |
-                  architecture.md's "never worse than plain narration" guarantee requires that a
+                  This library's "never worse than plain narration" guarantee requires that a
                   model incapable of any tag rendering still narrates the underlying text
                   correctly rather than speaking literal bracket syntax aloud.
                 tests:

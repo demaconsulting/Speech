@@ -6,7 +6,7 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     use.
 /// </summary>
 /// <remarks>
-///     Per architecture.md's "nothing throws at composition" decision, obtaining and holding an
+///     Per this library's "nothing throws at composition" decision, obtaining and holding an
 ///     <see cref="ISpeechSynthesizer"/> never throws - <see cref="SpeechSynthesizerFactory"/>
 ///     returns <see cref="UnavailableSpeechSynthesizer.Instance"/> for every ordinary
 ///     "cannot synthesize on this machine right now" state (model not installed, native runtime

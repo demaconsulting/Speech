@@ -11,7 +11,7 @@ namespace DemaConsulting.Speech.RecognitionSubsystem;
 /// <remarks>
 ///     Hosts call <see cref="Create(IRecognitionModel,string,IAudioCaptureDevice,ISpeechDiagnostics)"/>
 ///     rather than constructing a recognizer directly, so all of the "can this machine actually
-///     recognize speech right now?" logic lives in one reviewable place. Per architecture.md's
+///     recognize speech right now?" logic lives in one reviewable place. Per this library's
 ///     "nothing throws at composition" decision this method never throws for an ordinary machine
 ///     state - a model that is not installed, a model whose role is not recognition, a machine
 ///     with no capture device, and a machine missing the sherpa-onnx native runtime all return
@@ -19,7 +19,7 @@ namespace DemaConsulting.Speech.RecognitionSubsystem;
 ///     diagnostics sink. Only a null argument, which is a programming error rather than a machine
 ///     state, throws.
 ///     <para>
-///     Nothing in this type's public signature names a sherpa-onnx type, keeping architecture.md's
+///     Nothing in this type's public signature names a sherpa-onnx type, keeping this library's
 ///     "engine backend stays swappable at the public API surface" promise intact.
 ///     </para>
 /// </remarks>

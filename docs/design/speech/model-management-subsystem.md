@@ -99,7 +99,7 @@ dependency for public model format declarations.
 
 ### Design
 
-`SpeechModelStore` owns the on-disk layout resolving architecture.md's Open Concern #3
+`SpeechModelStore` owns the on-disk layout resolving the download-while-in-use concern
 (download-while-in-use). For each model id, it manages `{root}/{model-id}/current/` (the
 stable, installed content, only ever replaced by a directory rename),
 `{root}/{model-id}/install-manifest.json` (a sidecar written only after a successful swap so

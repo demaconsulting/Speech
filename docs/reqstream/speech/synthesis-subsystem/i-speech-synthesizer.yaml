@@ -31,7 +31,7 @@ sections:
                   disposal of the resources a synthesizer holds, without exposing any inference
                   engine or native audio type.
                 justification: |
-                  architecture.md's "engine backend stays swappable at the public API surface"
+                  This library's "engine backend stays swappable at the public API surface"
                   decision requires that a future non-sherpa-onnx backend can replace the current
                   one without a breaking API change.
                 tests:
@@ -61,7 +61,7 @@ sections:
                   A synthesized speech segment shall carry its normalized audio samples, the rate
                   they were produced at, and the real pre/post silence to play alongside them.
                 justification: |
-                  architecture.md requires chunked, low-latency streaming synthesis and playback
+                  The design requires chunked, low-latency streaming synthesis and playback
                   in which each segment is played back independently and in order; a caller
                   playing segments as they arrive needs each segment's own silence and rate to
                   play it correctly without consulting any other segment.

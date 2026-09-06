@@ -65,7 +65,7 @@ pattern works end to end.
 runtime is absent.
 
 **Expected**: Composition returns the honest unavailable recognizer and reports the reason,
-without throwing, proving the native-runtime boundary degrades as architecture.md requires.
+without throwing, proving the native-runtime boundary degrades in the required honest way.
 
 **Requirement coverage**: `Speech-OTS-SherpaOnnx-ModelOwnedConfiguration`.
 

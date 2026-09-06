@@ -19,7 +19,7 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     production implementations, so nothing defined in Sub-phase 2b was replaced or broken.
 ///     <para>
 ///     Both members are deliberately <see langword="internal"/> rather than public, mirroring
-///     <see cref="IRecognitionModel"/>'s identical Phase 3 pattern: architecture.md's "engine
+///     <see cref="IRecognitionModel"/>'s identical Phase 3 pattern: this library's "engine
 ///     backend stays swappable at the public API surface" constraint is scoped to
 ///     <c>ISpeechSynthesizer</c>, while each per-model backing class is architecturally
 ///     responsible for "sherpa-onnx configuration for its own model architecture" - so returning

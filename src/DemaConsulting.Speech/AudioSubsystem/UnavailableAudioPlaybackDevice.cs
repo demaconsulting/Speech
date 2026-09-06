@@ -6,7 +6,7 @@ namespace DemaConsulting.Speech.AudioSubsystem;
 ///     letting a caller construct against a device that cannot function.
 /// </summary>
 /// <remarks>
-///     Per architecture.md's "nothing throws at composition" decision, obtaining and holding this
+///     Per this library's "nothing throws at composition" decision, obtaining and holding this
 ///     instance never throws. Only the operational members (<see cref="Start"/>,
 ///     <see cref="Stop"/>, <see cref="Write"/>) throw <see cref="AudioDeviceUnavailableException"/>,
 ///     and only when actually invoked - a caller that checks <see cref="IsAvailable"/> first, as

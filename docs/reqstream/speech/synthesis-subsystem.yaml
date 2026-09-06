@@ -21,7 +21,7 @@ sections:
               it - grouped into kinds (Emotion, Pace, Delivery/Volume, Non-verbal, Pause,
               Emphasis).
             justification: |
-              architecture.md fixes the tag vocabulary and groups it into kinds so that Layer 2
+              The design fixes the tag vocabulary and groups it into kinds so that Layer 2
               per-model rendering (a later phase) and host UI code can reason about a tag's
               broad category generically, and so the vocabulary expands only through a new
               library release rather than being host- or model-configurable.
@@ -41,7 +41,7 @@ sections:
               unrecognized or malformed bracket content through as literal text rather than
               throwing or discarding it.
             justification: |
-              architecture.md's two-layer tag rendering decision requires a Layer 1 parser that
+              This library's two-layer tag rendering decision requires a Layer 1 parser that
               is generic and model-independent, producing a neutral intermediate representation
               that a later Layer 2 rendering stage can consume regardless of which model is
               installed. Its "never worse than plain narration" guarantee requires that a typo,
@@ -64,7 +64,7 @@ sections:
               through as a model-native control token, approximate it as a timed pause or a
               parameter override, or strip it to plain narration.
             justification: |
-              architecture.md's two-layer tag rendering decision requires a model-independent
+              This library's two-layer tag rendering decision requires a model-independent
               Layer 1 parse to be turned into model-appropriate output by a separate Layer 2
               stage, so that adding a new model with different tag capabilities never requires
               changing the parser, and so that every installed model - however limited its
@@ -88,7 +88,7 @@ sections:
               contract that reports availability, synthesizes and plays speech, and supports
               deterministic cancellation, without exposing any inference-engine type.
             justification: |
-              architecture.md's "engine backend stays swappable at the public API surface"
+              This library's "engine backend stays swappable at the public API surface"
               decision requires that a future non-sherpa-onnx backend can replace the current one
               without a breaking API change, and hosts must be able to test their playback
               handling against the contract with no model, speakers, or native runtime present.
@@ -110,7 +110,7 @@ sections:
               Composition happens at application start-up, where a model that has not been
               downloaded yet, a machine with no speakers, and a machine without the speech
               engine's native runtime are all ordinary states rather than programming errors, per
-              architecture.md's "nothing throws at composition" decision.
+              this library's "nothing throws at composition" decision.
             children:
               - Speech-Synthesis-SpeechSynthesizerFactory-RealSynthesizer
               - Speech-Synthesis-SpeechSynthesizerFactory-HonestFallbacks
@@ -153,7 +153,7 @@ sections:
               The SynthesisSubsystem shall chunk synthesis-ready text into sentence/clause-sized
               pieces and synthesize a later chunk while an earlier chunk is still playing.
             justification: |
-              architecture.md requires low-latency streaming synthesis where playback of an early
+              The design requires low-latency streaming synthesis where playback of an early
               chunk begins while later chunks are still being synthesized, rather than a caller
               waiting for an entire utterance's inference to complete before hearing anything.
             children:
@@ -180,7 +180,7 @@ sections:
               A model that fails mid-utterance, a dropped playback device, or a user interrupting
               speech (barge-in) are all ordinary events during a long-running synthesis session
               and must never leave the caller's task hanging or tear down the process, per
-              architecture.md's fault-containment requirements mirrored from the recognition
+              this library's fault-containment requirements mirrored from the recognition
               direction.
             children:
               - Speech-Synthesis-SherpaOnnxSpeechSynthesizer-FaultContainment
@@ -195,7 +195,7 @@ sections:
               unavailability rather than throwing, and throws a documented exception only when an
               operational member is actually invoked.
             justification: |
-              Per architecture.md's "nothing throws at composition" decision, obtaining and
+              Per this library's "nothing throws at composition" decision, obtaining and
               holding a fallback synthesizer must never throw; only misuse of an already
               unavailable synthesizer is a programming error that should surface as an exception.
             children:

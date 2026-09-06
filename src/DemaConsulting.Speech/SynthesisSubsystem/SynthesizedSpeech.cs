@@ -5,9 +5,9 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     ready to be played back in order by <see cref="ISpeechSynthesizer.PlayStreamAsync"/>.
 /// </summary>
 /// <remarks>
-///     This is the one Layer-2/engine output type architecture.md names directly in
+///     This is the one Layer-2/engine output type named directly in
 ///     <see cref="ISpeechSynthesizer.PlayStreamAsync"/>'s signature. It carries no sherpa-onnx
-///     type, per architecture.md's "engine backend stays swappable at the public API surface"
+///     type, per this library's "engine backend stays swappable at the public API surface"
 ///     decision. The record is immutable and safe to share across threads. Validation happens
 ///     eagerly in the constructor so an invalid instance is rejected the moment it is created.
 /// </remarks>

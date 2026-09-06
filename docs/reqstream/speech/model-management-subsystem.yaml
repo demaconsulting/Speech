@@ -31,9 +31,9 @@ sections:
               an in-use model's current directory is never touched until a verified replacement
               is fully staged.
             justification: |
-              architecture.md's Open Concern #3 (download-while-in-use) requires that a model
-              already loaded by an in-use recognizer/synthesizer keep reading unaffected content
-              until a directory-rename swap completes, rather than being partially overwritten.
+              The download-while-in-use residual risk requires that a model already loaded by an
+              in-use recognizer/synthesizer keep reading unaffected content until a
+              directory-rename swap completes, rather than being partially overwritten.
             children:
               - Speech-Models-SpeechModelStore-AtomicSwap
               - Speech-Models-SpeechModelStore-NeverTouchesCurrentDuringStaging
@@ -79,7 +79,7 @@ sections:
               interrupted operations, signaling a documented exception only when an explicit
               uninstall cannot complete.
             justification: |
-              Per architecture.md's "nothing throws at composition" decision, only an explicit,
+              Per this library's "nothing throws at composition" decision, only an explicit,
               user-invoked uninstall (never composition, install-state queries, or catalog
               enumeration) may throw - most commonly when another process still holds an open
               file handle into the model's content.
@@ -100,11 +100,11 @@ sections:
               only two concurrent download requests for the same model id while allowing downloads
               of different model ids to run fully concurrently, with no pool limit.
             justification: |
-              architecture.md's "download integrity and progress" decision allows unlimited
+              This library's "download integrity and progress" decision allows unlimited
               cross-model concurrency, since each model is staged and installed under its own
               isolated subtree with no shared mutable state, while a per-model-id guard prevents
               two concurrent callers from racing the store's atomic-swap install for the same
-              model id. architecture.md's per-model "own archive unpacking" responsibility
+              model id. This library's per-model "own archive unpacking" responsibility
               additionally requires the orchestration to invoke that hook on the verified staged
               files before the atomic swap, so any model whose payload is an archive can actually
               be installed.
@@ -182,7 +182,7 @@ sections:
               network access, while the real HttpClient-backed implementation is separately
               verified against a genuine loopback HTTP server.
             justification: |
-              Per architecture.md's "own interfaces over direct OTS types" decision, download
+              Per this library's "own interfaces over direct OTS types" decision, download
               orchestration must be testable without a real network, while the concrete HTTP
               implementation still needs proof it genuinely performs an HTTP transfer.
             children:
@@ -202,11 +202,11 @@ sections:
               so a catalog can report and filter models by role ahead of any engine-specific
               construction logic.
             justification: |
-              architecture.md defers engine-specific construction to Phase 3/4 behind
+              The design defers engine-specific construction to Phase 3/4 behind
               IRecognitionModel/ISynthesisModel; defining them as empty marker interfaces now
               lets SpeechModelCatalog already report/filter by role without any change when
               Phase 3/4 add real engine-configuration members to those same interfaces.
-              architecture.md additionally lists "own archive unpacking" and "own
+              The design additionally lists "own archive unpacking" and "own
               text-normalization/correction" as per-model responsibilities alongside a model's
               declared parameters and audio-tag support, so the contract declares both hooks now
               (with no-op-friendly defaults) rather than adding them as a later breaking change.
@@ -243,7 +243,7 @@ sections:
               internally inconsistent descriptor (an invalid range, an empty choice list, or a
               default matching no declared option) at construction.
             justification: |
-              architecture.md's "per-model tunable parameters use a typed, self-describing
+              This library's "per-model tunable parameters use a typed, self-describing
               descriptor set" decision requires each descriptor to validate itself eagerly, so an
               invalid descriptor is caught the moment a model's backing class declares it, not
               silently accepted and discovered only when a host tries to render it.
@@ -265,7 +265,7 @@ sections:
               not-downloaded, downloading, downloaded, and failed-or-corrupt as a download is
               requested, in progress, completes, or fails.
             justification: |
-              architecture.md's model-settings-page use case requires an honest, never-throwing
+              The model-settings-page use case requires an honest, never-throwing
               enumeration a host can bind directly to a UI list; Phase 7a populates the
               compiled-in registry with the library's first two real recognition models,
               resolving the "always empty" defect a user discovered in the demo app, while state

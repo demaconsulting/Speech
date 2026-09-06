@@ -12,7 +12,7 @@ public class DefaultModelCapabilityProfileTests
 {
     /// <summary>
     ///     Proves that a pause tag always renders as real inserted silence, regardless of the
-    ///     model's declared support, per architecture.md's decision that pauses require no model
+    ///     model's declared support, per this library's decision that pauses require no model
     ///     cooperation.
     /// </summary>
     [Theory]

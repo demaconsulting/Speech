@@ -8,7 +8,7 @@ namespace DemaConsulting.Speech.Demo.ModelSettingsSubsystem;
 ///     the numeric, choice, and boolean concrete presenters.
 /// </summary>
 /// <remarks>
-///     Per architecture.md's typed, self-describing parameter design, a host renders an
+///     Per this library's typed, self-describing parameter design, a host renders an
 ///     appropriate control per concrete <see cref="ISpeechModelParameter"/> implementation using
 ///     only a type check - it never needs prior knowledge of a specific model's parameter set.
 ///     This base class carries the three fields every kind shares (<see cref="Id"/>,

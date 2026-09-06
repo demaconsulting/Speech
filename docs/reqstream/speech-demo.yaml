@@ -15,7 +15,7 @@ sections:
           separately selectable, titled panel.
         tags: [system]
         justification: |
-          architecture.md's "Demo Application" section requires a single application that
+          The demo application design requires a single application that
           exercises the library's capabilities. Grouping each capability into its own named
           panel lets a user find the capability they want to try, and lets later phases add
           further capabilities without redesigning the application shell.
@@ -143,7 +143,7 @@ sections:
           kind.
         tags: [system]
         justification: |
-          architecture.md calls for generic controls over a model's declared parameters -
+          The design calls for generic controls over a model's declared parameters -
           slider/numeric-updown for a numeric parameter, dropdown/radio for a choice parameter,
           checkbox/toggle for a boolean parameter - so that a new model with its own parameter
           set works with this panel unmodified. This panel is the demonstrable proof that a host

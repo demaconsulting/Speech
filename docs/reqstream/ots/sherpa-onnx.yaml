@@ -27,7 +27,7 @@ sections:
               sherpa-onnx integration shall let each model declare its own engine configuration
               and required input sample rate behind library-owned abstractions.
             justification: |
-              architecture.md makes each model's backing class responsible for its own engine
+              The design makes each model's backing class responsible for its own engine
               configuration, and requires that no sherpa-onnx type appear in the library's public
               recognition contract so the engine backend stays swappable.
             tags: [ots]

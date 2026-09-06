@@ -19,7 +19,7 @@ sections:
                   queueing/verification/atomic-swap orchestration can be unit tested with a fake
                   implementation and no real network access.
                 justification: |
-                  architecture.md's "own interfaces over direct OTS types" decision requires a
+                  This library's "own interfaces over direct OTS types" decision requires a
                   library-owned abstraction so tests can substitute deterministic fakes while the
                   production path still uses a real HTTP implementation.
                 tests:

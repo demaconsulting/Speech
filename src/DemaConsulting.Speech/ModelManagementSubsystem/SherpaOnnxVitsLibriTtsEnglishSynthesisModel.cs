@@ -9,7 +9,7 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     project's LibriTTS-R-trained English (US) checkpoint.
 /// </summary>
 /// <remarks>
-///     Per architecture.md's "one backing class per model" decision, this class owns everything
+///     Per this library's "one backing class per model" decision, this class owns everything
 ///     specific to this one model: its declared download descriptor (a single <c>.tar.bz2</c>
 ///     archive fetched from sherpa-onnx's own GitHub Releases mirror), how to unpack that archive
 ///     (<see cref="InstallAsync"/>, delegating to the shared <see cref="TarBz2ArchiveExtractor"/>

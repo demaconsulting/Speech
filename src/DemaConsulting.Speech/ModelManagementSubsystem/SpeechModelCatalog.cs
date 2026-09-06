@@ -9,7 +9,7 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     and <see cref="SpeechModelDownloader"/>.
 /// </summary>
 /// <remarks>
-///     Per architecture.md's "model catalog and download are new capabilities" decision, this
+///     Per this library's "model catalog and download are new capabilities" decision, this
 ///     type composes the storage/download machinery from Sub-phase 2a with a compiled-in list
 ///     of known models. Phase 7a populated <see cref="KnownModels"/> with the library's first
 ///     two real, production <see cref="IRecognitionModel"/> implementations -
@@ -30,7 +30,16 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     after an application restart) reports <see cref="SpeechModelState.NotDownloaded"/> for a
 ///     model whose only history is a prior failed attempt, since no durable "last attempt
 ///     failed" record exists on disk - this is an honest degradation, not a defect, consistent
-///     with the fixed, small state set architecture.md defines.
+///     with the fixed, small state set this library defines.
+///     </para>
+///     <para>
+///     <b>Thread safety</b>: <see cref="Enumerate"/> and <see cref="GetState"/> are safe to
+///     call concurrently, from any thread, including while a <see cref="DownloadAsync"/> call
+///     is in flight for the same or a different model. Concurrent <see cref="DownloadAsync"/>
+///     calls for <em>different</em> model ids run fully in parallel; concurrent calls for the
+///     <em>same</em> model id are serialized - a second call queues behind the first rather
+///     than racing it - by the same per-model-id lock <see cref="SpeechModelDownloader"/>
+///     documents on its own <c>DownloadAsync</c> overloads.
 ///     </para>
 /// </remarks>
 public sealed class SpeechModelCatalog : IDisposable
@@ -89,7 +98,7 @@ public sealed class SpeechModelCatalog : IDisposable
     ///     The sink to report structural download failures to, or <see langword="null"/> to use
     ///     <see cref="NullSpeechDiagnostics.Instance"/>.
     /// </param>
-    /// <remarks>Never throws; composition always succeeds, consistent with architecture.md.</remarks>
+    /// <remarks>Never throws; composition always succeeds, consistent with this library's design.</remarks>
     public SpeechModelCatalog(SpeechModelStoreOptions? options = null, ISpeechDiagnostics? diagnostics = null)
         : this(KnownModels, new SpeechModelStore(options), null, diagnostics)
     {
@@ -195,7 +204,7 @@ public sealed class SpeechModelCatalog : IDisposable
     /// <exception cref="ArgumentException">
     ///     Thrown when <paramref name="modelId"/> does not match any known model. This is an
     ///     explicit, user-invoked action (never composition or enumeration), so throwing here is
-    ///     consistent with architecture.md's "nothing throws at composition" carve-out.
+    ///     consistent with this library's "nothing throws at composition" carve-out.
     /// </exception>
     /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is canceled.</exception>
     public async Task<SpeechModelDownloadResult> DownloadAsync(

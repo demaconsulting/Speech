@@ -23,7 +23,7 @@ sections:
           - id: Speech-Diagnostics-StructuralFactsOnly
             title: The Diagnostics subsystem shall carry structural facts only, never raw user audio or text.
             justification: |
-              architecture.md requires diagnostics to report structural facts only (e.g. device
+              The design requires diagnostics to report structural facts only (e.g. device
               selected, model state changed) so a host can safely surface diagnostics without
               risking exposure of user speech or dictated text content.
             children:
@@ -34,7 +34,7 @@ sections:
           - id: Speech-Diagnostics-NullSink
             title: The Diagnostics subsystem shall provide a default sink that discards every event without throwing.
             justification: |
-              Per architecture.md's "nothing throws at composition" decision, every factory must
+              Per this library's "nothing throws at composition" decision, every factory must
               be able to supply a working diagnostics sink even when a host provides none.
             children:
               - Speech-Diagnostics-NullSpeechDiagnostics-Singleton

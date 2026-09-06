@@ -21,7 +21,7 @@ namespace DemaConsulting.Speech.Demo.ModelSettingsSubsystem;
 ///     matching the empty-state precedent set by the model catalog panel.
 ///     </para>
 ///     <para>
-///     <see cref="BuildValueBag"/> assembles the untyped key-value bag architecture.md describes
+///     <see cref="BuildValueBag"/> assembles the untyped key-value bag this library uses
 ///     as the interface between a host's settings UI and per-model synthesis/recognition
 ///     parameter handling. As of this pass, the synthesis panel's
 ///     <c>SynthesisPanelViewModel.PlayAsync</c> passes this bag to

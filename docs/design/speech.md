@@ -270,6 +270,13 @@ direct safety impact.
   never throws; PortAudio initialization failure degrades to unavailable probes/devices
 - **Own interfaces over direct OTS types**: Hosts and tests depend on library-owned interfaces,
   never directly on PortAudioSharp2 types
+- **Zero project references, denylisted interface-layer packages**: The library must remain
+  independently publishable and consumable by any .NET host, so its project file carries no
+  `ProjectReference` at all, and a build-time check (`VerifyLibraryIsIndependent`) fails the
+  build if one is added or if a `PackageReference` matches a denylisted UI/hosting-layer package
+  prefix (`Avalonia`, `Microsoft.AspNetCore`, `Microsoft.WindowsDesktop`,
+  `System.Windows.Forms`, `Microsoft.Maui`) that would tie a general-purpose offline speech
+  library to one specific application shell
 - **Single preferred host API per platform**: Windows uses WASAPI, Linux uses ALSA, and macOS
   uses CoreAudio to avoid duplicate device listings across PortAudio backends
 - **Stable name-only identity**: Persisted device selections store only device names and fall

@@ -17,7 +17,7 @@ sections:
                   when a model's current/ directory cannot be removed (most commonly because
                   another process still holds an open file handle into it).
                 justification: |
-                  Per architecture.md's "nothing throws at composition" decision, this exception
+                  Per this library's "nothing throws at composition" decision, this exception
                   is reserved for the one explicit, user-invoked operation (uninstall) that can
                   genuinely fail.
                 tests:

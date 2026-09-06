@@ -9,7 +9,7 @@ recognized-tag spans for a later Layer 2 rendering stage to consume.
 - `NaturalLanguageAudioTag` — one canonical value per tag (22 values), collapsing every
   documented synonym onto a single value (for example `[excited]`/`[excitedly]` both resolve to
   `Excited`).
-- `NaturalLanguageAudioTagKind` — the six kind categories architecture.md defines: `Emotion`,
+- `NaturalLanguageAudioTagKind` — the six kind categories: `Emotion`,
   `Pace`, `DeliveryVolume`, `NonVerbal`, `Pause`, `Emphasis`.
 - `AudioTagDescriptor` — a read-only report of one canonical tag's kind and every alias that
   resolves to it, as exposed by `AudioTagCatalog.Tags`.
@@ -40,7 +40,7 @@ recognized-tag spans for a later Layer 2 rendering stage to consume.
   of the scan. An empty input produces an empty span list, not a spurious empty `PlainText` span.
 
 **Error Handling**: `Parse` throws `ArgumentNullException` for a `null` input; there is no other
-failure mode. Per architecture.md's "never worse than plain narration" guarantee, no bracket
+failure mode. Per this library's "never worse than plain narration" guarantee, no bracket
 content - however malformed - ever throws or is discarded; it always becomes literal
 `PlainText`.
 
@@ -49,5 +49,5 @@ any model, engine, or audio device.
 
 **Callers**: `SherpaOnnxSpeechSynthesizer` calls `AudioTagParser.Parse` as its Layer 1 tag-parsing
 step before Layer 2 rendering builds a `SpeechPlan` from the resulting spans, per
-architecture.md's Layer 1 (model-independent parsing) / Layer 2 (model-specific rendering)
+this library's Layer 1 (model-independent parsing) / Layer 2 (model-specific rendering)
 split.

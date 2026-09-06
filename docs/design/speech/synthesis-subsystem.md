@@ -58,7 +58,7 @@ _IAudioPlaybackDevice Design_), and `ISynthesisModel` gained a public best-effor
 each model owns both its playback hint and its engine configuration/Layer 2 rendering strategy
 (see _SpeechModelContract Design_).
 
-No member of the subsystem's public API names a sherpa-onnx type, per architecture.md's
+No member of the subsystem's public API names a sherpa-onnx type, per this library's
 "engine backend stays swappable at the public API surface" decision. The sherpa-onnx
 configuration type appears only on `ISynthesisModel`'s internal members and inside the
 subsystem's internal engine seam.
@@ -76,7 +76,7 @@ never affects resolution.
 `AudioTagParser.Parse` is a single-pass scanner with no dependency on the catalog's internal
 shape - it looks for `[`...`]` pairs, hands the interior text to
 `AudioTagCatalog.TryResolve`, and either emits a `TaggedTextSpanKind.Tag` span (on a match) or
-folds the bracket text into the running literal-text buffer (on no match). Per architecture.md's
+folds the bracket text into the running literal-text buffer (on no match). Per this library's
 "never worse than plain narration" guarantee, nothing this parser encounters ever throws or is
 silently dropped: an unknown word, an empty bracket, an unclosed bracket, or a stray closing
 bracket all become ordinary `TaggedTextSpanKind.PlainText` content, brackets included, exactly as
@@ -109,12 +109,12 @@ mapping from tag to numeric parameter lives: only `Fast`/`VeryFast`/`Slow`/`Very
 speed override (a fraction of the parameter's declared range) and only `Loud`/`Soft`/`Whispers`
 map to a volume override; every other tag (every Emotion, every Non-verbal cue, `Breathy`,
 `Emphasis`) has no built-in numeric meaning and silently strips under parameter-mapped support.
-This is architecture.md's Risk #1 mitigation deliberately kept conservative: a wrong guess at
+This risk mitigation for unsupported tags is deliberately kept conservative: a wrong guess at
 what "louder" or "more emphatic" numerically means for an arbitrary model would be worse than
 narrating the plain text, so the default profile only maps the handful of tags with an
 unambiguous numeric direction and lets a model override the profile entirely if it wants richer
 behavior. Pause tags (`ShortPause`/`LongPause`) always render as real silence regardless of a
-model's declared support, per architecture.md's explicit "pauses require no model cooperation"
+model's declared support, per this library's explicit "pauses require no model cooperation"
 decision - no model text is spoken for a pause, so there is nothing for it to get wrong. Ordinary
 narration text between tags is split into `SpeechSegment`s by `SentenceChunker` so the resulting
 `SpeechPlan` already has chunk-sized boundaries lined up with natural speech units before the
@@ -242,7 +242,7 @@ unavailability (a model not downloaded yet) is reported first and no native memo
 for a synthesizer that could never run.
 
 **Error Handling**: Every ordinary machine state is represented as the honest unavailable
-synthesizer plus a structural diagnostic, never as an exception, per architecture.md's "nothing
+synthesizer plus a structural diagnostic, never as an exception, per this library's "nothing
 throws at composition" decision. An engine load failure is caught and degraded identically to a
 missing model. Only a null `model`, `playbackDevice`, or engine factory throws
 `ArgumentNullException`, since a null argument is a programming error rather than a machine

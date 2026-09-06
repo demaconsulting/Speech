@@ -8,7 +8,7 @@ namespace DemaConsulting.Speech.RecognitionSubsystem;
 ///     configuration.
 /// </summary>
 /// <remarks>
-///     This type deliberately contains no model-specific knowledge: architecture.md makes each
+///     This type deliberately contains no model-specific knowledge: this library makes each
 ///     per-model backing class responsible for "sherpa-onnx configuration for its own model
 ///     architecture", so all this factory does is ask the model for its configuration and
 ///     declared input format and hand both to the engine. Adding a model therefore never requires

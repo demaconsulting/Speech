@@ -7,7 +7,7 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     synthesized.
 /// </summary>
 /// <remarks>
-///     Per architecture.md's "engine backend stays swappable at the public API surface"
+///     Per this library's "engine backend stays swappable at the public API surface"
 ///     decision, no member of this contract exposes a sherpa-onnx (or any other engine) type, so
 ///     a future non-sherpa-onnx backend can be added without a breaking change. Hosts obtain
 ///     implementations from <see cref="SpeechSynthesizerFactory"/> rather than constructing them,
@@ -19,6 +19,18 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     <see cref="UnavailableSpeechSynthesizer"/> for the canonical fallback. Implementations own
 ///     unmanaged inference resources, so callers must dispose them; disposal is idempotent and
 ///     implies <see cref="Stop"/>.
+///     </para>
+///     <para>
+///     <b>Thread safety</b>: <see cref="Stop"/> and <see cref="IDisposable.Dispose"/> may be
+///     called concurrently, from any thread, without external synchronization - this is the
+///     intended way to cancel an in-flight <see cref="SpeakAsync"/> or
+///     <see cref="PlayStreamAsync"/> session from another thread (for example, a UI thread
+///     reacting to a "stop" control while synthesis runs in the background). Only one
+///     synthesis/playback session (<see cref="SpeakAsync"/>, <see cref="SynthesizeStreamAsync"/>,
+///     or <see cref="PlayStreamAsync"/>) is supported in flight at a time per instance;
+///     starting a second session on the same instance while one is already running is not
+///     supported and produces undefined interleaving of playback - a caller needing to speak
+///     concurrently must use separate synthesizer instances.
 ///     </para>
 /// </remarks>
 public interface ISpeechSynthesizer : IDisposable
@@ -41,12 +53,18 @@ public interface ISpeechSynthesizer : IDisposable
     /// <returns>
     ///     An ordered asynchronous sequence of <see cref="SynthesizedSpeech"/> segments. Segments
     ///     later in the sequence may still be being synthesized while earlier ones are already
-    ///     available, per architecture.md's chunked, low-latency streaming design.
+    ///     available, per this library's chunked, low-latency streaming design.
     /// </returns>
     /// <exception cref="SpeechSynthesizerUnavailableException">
     ///     Thrown when <see cref="IsAvailable"/> is <see langword="false"/>.
     /// </exception>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> is <see langword="null"/>.</exception>
+    /// <remarks>
+    ///     Recognized tag syntax and the full closed vocabulary are described on
+    ///     <see cref="AudioTagParser"/> and <see cref="NaturalLanguageAudioTag"/>; a bracketed
+    ///     span that does not match a recognized tag is passed through as literal text, never
+    ///     thrown as an error.
+    /// </remarks>
     IAsyncEnumerable<SynthesizedSpeech> SynthesizeStreamAsync(string text, CancellationToken cancellationToken = default);
 
     /// <summary>

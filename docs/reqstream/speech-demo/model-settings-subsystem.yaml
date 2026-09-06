@@ -21,7 +21,7 @@ sections:
               model declares, choosing the presenter kind from the parameter's concrete type
               alone.
             justification: |
-              architecture.md's typed, self-describing parameter design lets a host build a
+              This library's typed, self-describing parameter design lets a host build a
               completely generic settings UI with no prior knowledge of a specific model's
               declared parameter set. Choosing the presenter by type check alone is the
               demonstrable proof that this generic rendering works for every parameter kind the
@@ -136,7 +136,7 @@ sections:
               The ModelSettingsSubsystem shall assemble the current value of every presented
               parameter into a key-value bag keyed by each parameter's declared identifier.
             justification: |
-              architecture.md describes an untyped key-value bag as the interface between a
+              The design describes an untyped key-value bag as the interface between a
               host's settings UI and per-model synthesis/recognition parameter handling. This bag
               is built and exercised now so a future library revision exposing a per-call
               parameter surface has an already-proven consumer ready to use it; the current

@@ -20,7 +20,7 @@ public sealed record SpeechModelDownloadFile
     /// </summary>
     /// <param name="Uri">
     ///     The HTTPS location to download the file from. Must use the <c>https</c> scheme; per
-    ///     architecture.md's download-integrity decision, plain HTTP is never valid for a
+    ///     this library's download-integrity decision, plain HTTP is never valid for a
     ///     production model download.
     /// </param>
     /// <param name="Sha256Checksum">

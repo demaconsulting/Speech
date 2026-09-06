@@ -32,8 +32,8 @@ sections:
                   directory.
                 justification: |
                   A model already loaded by an in-use recognizer/synthesizer must continue
-                  reading unaffected content until the swap completes, per architecture.md's
-                  Open Concern  # 3 discussion.
+                  reading unaffected content until the swap completes, addressing the
+                  download-while-in-use concern.
                 tests:
                   - SpeechModelStore_CompleteInstall_ExistingCurrent_ReplacesContentAndCleansUpOldDirectory
 

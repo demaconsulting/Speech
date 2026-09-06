@@ -39,8 +39,8 @@ In this phase the application consists of six subsystems:
   progressive partial-then-final transcript rendering and honest unavailable-state reporting —
   see _SpeechDemo RecognitionPanelSubsystem Design_
 
-This phase completes the three capabilities architecture.md's "Demo Application" section
-describes: text-to-speech, speech-to-text, and per-model settings all now have working panels
+This phase completes the three capabilities in the demo application's design:
+text-to-speech, speech-to-text, and per-model settings all now have working panels
 alongside the device and model-catalog panels from the previous phase.
 
 ## External Interfaces

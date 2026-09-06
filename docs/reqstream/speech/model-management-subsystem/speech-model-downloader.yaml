@@ -29,7 +29,7 @@ sections:
                   The SpeechModelDownloader class shall allow downloads of different model ids to
                   run fully concurrently, with no pool limit or global gate serializing them.
                 justification: |
-                  architecture.md's "download integrity and progress" decision allows unlimited
+                  This library's "download integrity and progress" decision allows unlimited
                   cross-model concurrency since each model is staged and installed under its own
                   isolated subtree in SpeechModelStore, with no shared mutable state between
                   different model ids' downloads.

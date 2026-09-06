@@ -42,4 +42,4 @@ a corruption signal).
 `ISpeechModel`, `SpeechModelDescriptor`, `ISpeechDiagnostics`.
 
 **Callers**: Hosts building a model-settings page (enumerate + download/delete actions per
-architecture.md's demo-application scope).
+the demo-application scope).

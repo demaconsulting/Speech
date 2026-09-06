@@ -5,7 +5,7 @@ namespace DemaConsulting.Speech.AudioSubsystem;
 ///     reported itself as unavailable.
 /// </summary>
 /// <remarks>
-///     Per architecture.md's "nothing throws at composition" decision, an <c>Unavailable*</c>
+///     Per this library's "nothing throws at composition" decision, an <c>Unavailable*</c>
 ///     device never throws merely for existing - callers can always construct and hold one
 ///     safely. This exception is instead reserved for the first-use failure case: a caller that
 ///     ignored <c>IsAvailable == false</c> and invoked an operational member anyway has made a

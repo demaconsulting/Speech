@@ -141,7 +141,7 @@ subsystem that call speech-synthesis inference APIs.
 
 **Data Model**: The engine holds one loaded `OfflineTts`, its declared `SampleRate`, and a
 disposed flag. The factory is stateless and holds no model-specific knowledge at all -
-architecture.md makes each model's backing class responsible for its own engine configuration,
+the design makes each model's backing class responsible for its own engine configuration,
 so adding a synthesis model never requires changing the factory.
 
 **Key Methods**:
@@ -197,7 +197,7 @@ default, generically-correct behavior.
 
 **Error Handling**: Rejects a null `spans` or `model` with `ArgumentNullException`. Every other
 input - any tag, any support level, any parameter set - is handled without throwing, per
-architecture.md's "never worse than plain narration" guarantee extended to Layer 2.
+this library's "never worse than plain narration" guarantee extended to Layer 2.
 
 **Dependencies**: `TaggedTextSpan`, `TaggedTextSpanKind`, `NaturalLanguageAudioTagKind` from this
 subsystem's Sub-phase 4a units; `SentenceChunker`; `SpeechParameterConventions`; `SpeechSegment`,

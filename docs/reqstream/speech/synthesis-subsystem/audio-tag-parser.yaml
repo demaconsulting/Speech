@@ -41,7 +41,7 @@ sections:
               - id: Speech-Synthesis-AudioTagParser-KindGrouping
                 title: >-
                   AudioTagCatalog shall report each canonical tag's kind alongside its resolved
-                  value, matching architecture.md's Emotion/Pace/Delivery-Volume/Non-verbal/
+                  value, matching this library's Emotion/Pace/Delivery-Volume/Non-verbal/
                   Pause/Emphasis grouping.
                 justification: |
                   A later Layer 2 rendering stage and host UI code need to reason about a tag's
@@ -96,7 +96,7 @@ sections:
                   unclosed brackets, and stray closing brackets through as literal text, exactly
                   as they appeared, rather than throwing or discarding them.
                 justification: |
-                  architecture.md's "never worse than plain narration" guarantee requires that a
+                  This library's "never worse than plain narration" guarantee requires that a
                   typo, an unsupported bracket phrase, or an unbalanced bracket in host- or
                   user-supplied text degrades to ordinary narration rather than failing synthesis
                   or silently losing content.

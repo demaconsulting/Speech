@@ -18,10 +18,10 @@ sections:
               - id: Speech-Models-SpeechModelDescriptorEnums-FixedValueSets
                 title: >-
                   SpeechModelRole, SpeechModelState, and SpeechModelAudioTagSupport shall each
-                  declare exactly the fixed, small value set architecture.md specifies, with no
+                  declare exactly the fixed, small value set used by this library, with no
                   "update available" model state.
                 justification: |
-                  architecture.md's "model states are a fixed, small set" decision and the
+                  This library's "model states are a fixed, small set" decision and the
                   declaration-shape-only scope of audio-tag support mean these enums must not
                   grow or shrink silently; a fixed set is what lets a host safely switch on every
                   value.

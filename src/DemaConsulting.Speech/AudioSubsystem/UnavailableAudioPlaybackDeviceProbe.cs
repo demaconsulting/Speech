@@ -5,7 +5,7 @@ namespace DemaConsulting.Speech.AudioSubsystem;
 ///     is available, always reporting zero devices rather than throwing.
 /// </summary>
 /// <remarks>
-///     Per architecture.md's "nothing throws at composition" decision, a probe that cannot
+///     Per this library's "nothing throws at composition" decision, a probe that cannot
 ///     enumerate real hardware returns an empty list instead of failing, so callers can always
 ///     treat "no devices" and "backend unavailable" identically. The type is stateless and holds
 ///     no resources, so the shared <see cref="Instance"/> is safe for concurrent use by any

@@ -24,7 +24,7 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     recognition surface swappable while still letting each model own its native-engine
 ///     configuration. Only assemblies granted <c>InternalsVisibleTo</c> (the library itself and
 ///     its test project) can implement the interface. That restriction is intentional and matches
-///     architecture.md's "one backing class per model; a new model requires a new library
+///     this library's "one backing class per model; a new model requires a new library
 ///     release" decision.
 ///     </para>
 /// </remarks>

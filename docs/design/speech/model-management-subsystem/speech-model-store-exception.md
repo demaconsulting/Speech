@@ -8,7 +8,7 @@ uninstall) could not complete.
 **Key Methods**: Standard three-constructor exception pattern (default message, custom message,
 message with inner exception).
 
-**Error Handling**: This type is itself the error-handling mechanism. Per architecture.md's
+**Error Handling**: This type is itself the error-handling mechanism. Per this library's
 "nothing throws at composition" decision, it is never thrown by construction, install-state
 queries, or catalog enumeration - only by an explicit `Uninstall` call whose `current/` directory
 cannot be removed, most commonly because another process still holds an open file handle into it

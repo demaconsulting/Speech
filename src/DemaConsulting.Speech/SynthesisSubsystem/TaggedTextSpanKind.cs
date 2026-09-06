@@ -8,7 +8,7 @@ public enum TaggedTextSpanKind
 {
     /// <summary>
     ///     A run of ordinary narration text - including any unrecognized or malformed bracket
-    ///     content, passed through literally per architecture.md's "never worse than plain
+    ///     content, passed through literally per this library's "never worse than plain
     ///     narration" guarantee.
     /// </summary>
     PlainText,

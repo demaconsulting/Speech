@@ -40,7 +40,7 @@ sections:
                   and most-recently-failed download attempts.
                 justification: |
                   SpeechModelStore alone only distinguishes installed/not-installed;
-                  architecture.md's fixed four-state model additionally requires an honest
+                  the fixed four-state model additionally requires an honest
                   in-progress and failed signal, which only the catalog (as the caller of
                   DownloadAsync) can observe.
                 tests:

@@ -3,13 +3,13 @@ using System.Text;
 namespace DemaConsulting.Speech.SynthesisSubsystem;
 
 /// <summary>
-///     Layer 1 of architecture.md's "two-layer tag rendering" design: a pure, model-independent
+///     Layer 1 of this library's "two-layer tag rendering" design: a pure, model-independent
 ///     scanner that recognizes closed-vocabulary Natural Language Audio Tag bracket syntax in
 ///     input text and produces an ordered, neutral sequence of <see cref="TaggedTextSpan"/>.
 /// </summary>
 /// <remarks>
 ///     This parser has no knowledge of any synthesis model, engine, or audio device; it is pure
-///     text-in, spans-out. Per architecture.md's "guarantees a reply is never worse than plain
+///     text-in, spans-out. Per this library's "guarantees a reply is never worse than plain
 ///     narration" reasoning, any bracket content this parser cannot resolve against
 ///     <see cref="AudioTagCatalog"/> - an unknown word, an unclosed bracket, or empty brackets -
 ///     is emitted as literal <see cref="TaggedTextSpanKind.PlainText"/> (including the brackets

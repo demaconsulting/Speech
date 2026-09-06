@@ -20,7 +20,7 @@ sections:
                   additional members in this pass, letting a model's role be determined by a type
                   check while remaining usable through the common ISpeechModel contract.
                 justification: |
-                  architecture.md defers real recognition/synthesis engine-construction methods
+                  The design defers real recognition/synthesis engine-construction methods
                   to Phase 3/4; defining the role markers as empty now means adding those members
                   later is a new-member addition, not a breaking change to any contract defined
                   in this pass.
@@ -36,7 +36,7 @@ sections:
                 justification: |
                   A host settings page must be able to enumerate a model's declared parameters
                   for any model implementing this contract, regardless of role, to build the
-                  appropriate controls per architecture.md's demo-application scope.
+                  appropriate controls per the demo-application scope.
                 tests:
                   - ISpeechModel_Parameters_DeclaresEveryDescriptorKind
 
@@ -58,7 +58,7 @@ sections:
                   download payload is an archive or otherwise needs post-download processing
                   before use.
                 justification: |
-                  architecture.md lists "own archive unpacking" as a per-model responsibility
+                  The design lists "own archive unpacking" as a per-model responsibility
                   alongside a model's download URL(s)/checksum. Without this hook, no model whose
                   DownloadDescriptor names a zip/tar payload (the normal packaging for sherpa-onnx
                   models) could ever be installed by SpeechModelDownloader/SpeechModelStore. A
@@ -74,11 +74,11 @@ sections:
                   identity function, that a model overrides to apply its own text
                   normalization/correction before inference.
                 justification: |
-                  architecture.md lists "own text-normalization / correction (e.g. punctuation
+                  The design lists "own text-normalization / correction (e.g. punctuation
                   restoration)" as a per-model responsibility alongside a model's declared
                   parameters and audio-tag support. This pass defines only the hook's existence
                   and identity default; the actual normalization content for any real model is a
-                  Phase 4 synthesis concern, per architecture.md's synthesis-subsystem scope.
+                  Phase 4 synthesis concern, per this library's synthesis-subsystem scope.
                 tests:
                   - ISpeechModel_NormalizeText_DefaultImplementation_ReturnsInputUnchanged
 
@@ -106,7 +106,7 @@ sections:
                   requires, and shall build that engine's configuration from the directory its
                   verified files were installed into.
                 justification: |
-                  architecture.md makes each model's backing class responsible for the engine
+                  The design makes each model's backing class responsible for the engine
                   configuration for its own model architecture, so that adding a model is a
                   self-contained, reviewable unit of work. Declaring the required input format as
                   a model-owned fact is what lets the library either request a matching capture
@@ -139,7 +139,7 @@ sections:
                   implementation driven purely by the model's own declared audio-tag support and
                   parameters.
                 justification: |
-                  architecture.md makes each model's backing class responsible for the engine
+                  The design makes each model's backing class responsible for the engine
                   configuration for its own model architecture, mirroring the recognition-side
                   requirement above, so that adding a synthesis model is a self-contained,
                   reviewable unit of work that never requires changing the synthesis subsystem.

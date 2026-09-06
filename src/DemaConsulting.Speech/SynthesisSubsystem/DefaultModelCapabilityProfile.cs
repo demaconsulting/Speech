@@ -10,7 +10,7 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 /// </summary>
 /// <remarks>
 ///     For each tag encountered: a <see cref="NaturalLanguageAudioTagKind.Pause"/> tag always
-///     renders as real inserted silence, regardless of declared support, per architecture.md
+///     renders as real inserted silence, regardless of declared support
 ///     ("Pauses always render as real inserted silence, since that requires no model
 ///     cooperation"). Otherwise, <see cref="SpeechModelAudioTagSupport.Native"/> passes the tag
 ///     through verbatim as canonical bracket text inline with the surrounding words (the model

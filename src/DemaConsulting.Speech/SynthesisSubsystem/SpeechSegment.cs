@@ -25,7 +25,7 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     declare in <see cref="DemaConsulting.Speech.ModelManagementSubsystem.ISpeechModel.Parameters"/>.
 /// </param>
 /// <remarks>
-///     Per architecture.md's "two-layer tag rendering" decision, pauses always render as real
+///     Per this library's "two-layer tag rendering" decision, pauses always render as real
 ///     inserted silence regardless of model capability, so
 ///     <see cref="NaturalLanguageAudioTag.ShortPause"/>/<see cref="NaturalLanguageAudioTag.LongPause"/>
 ///     always produce silence here rather than a parameter override or passthrough text. This

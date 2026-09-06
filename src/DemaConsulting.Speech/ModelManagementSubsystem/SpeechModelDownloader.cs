@@ -10,7 +10,7 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     and handing a fully verified result to <see cref="SpeechModelStore"/> for atomic install.
 /// </summary>
 /// <remarks>
-///     Per architecture.md's "download integrity and progress" decision, downloads of different
+///     Per this library's "download integrity and progress" decision, downloads of different
 ///     models run fully concurrently with no pool limit, since each model is staged and installed
 ///     under its own isolated subtree in <see cref="SpeechModelStore"/>. A per-model-id lock
 ///     serializes only two concurrent <c>DownloadAsync</c> calls for the *same* model id - the

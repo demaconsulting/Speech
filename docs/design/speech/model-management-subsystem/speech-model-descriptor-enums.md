@@ -8,7 +8,7 @@ can honor inline Natural Language Audio Tags.
 
 - `SpeechModelRole`: `Recognition`, `Synthesis`.
 - `SpeechModelState`: `NotDownloaded`, `Downloading`, `Downloaded`, `FailedOrCorrupt` - no
-  "update available" state, per architecture.md.
+  "update available" state.
 - `SpeechModelAudioTagSupport`: `None`, `ParameterMapped`, `Native` - a declaration shape only;
   the Layer 2 rendering logic that actually honors a tag is implemented per-model in Phase 4.
 

@@ -28,7 +28,7 @@ sections:
           none.
         tags: [system]
         justification: |
-          Per architecture.md's "nothing throws at composition" decision, a host that has not
+          Per this library's "nothing throws at composition" decision, a host that has not
           yet wired up its own diagnostics must still be able to compose every library
           component successfully.
         children:
@@ -91,7 +91,7 @@ sections:
           checksum-mismatched download is never installed.
         tags: [system]
         justification: |
-          architecture.md's Open Concern #3 (download-while-in-use) and "download integrity and
+          The download-while-in-use concern and "download integrity and
           progress" decision require that model downloads never disturb an in-use model and
           never install unverified content, while still letting a host observe download progress
           and explicitly manage installed models. This pass (Sub-phase 2a) covers only the
@@ -117,7 +117,7 @@ sections:
           a catalog that never throws.
         tags: [system]
         justification: |
-          architecture.md's model-catalog decision requires a typed, self-describing model
+          This library's model-catalog decision requires a typed, self-describing model
           contract so a host can build UI (parameter controls, model lists) without knowing a
           specific model in advance, and an enumerable catalog exposing install state so a host
           can build a model-settings page. This pass (Sub-phase 2b) ships the generic
@@ -141,7 +141,7 @@ sections:
           not possible on the machine.
         tags: [system]
         justification: |
-          architecture.md's core promise includes "streaming speech-to-text, emitting progressive
+          This library's core promise includes "streaming speech-to-text, emitting progressive
           provisional and final results as audio arrives", built on the already-shipped audio
           capture and model management capabilities. Because a model that has not been downloaded
           yet, a machine with no microphone, and a machine without the speech engine's native
@@ -168,7 +168,7 @@ sections:
           dropping or rejecting it.
         tags: [system]
         justification: |
-          architecture.md's "Natural Language Audio Tags replace SSML" decision and its "never
+          This library's "Natural Language Audio Tags replace SSML" decision and its "never
           worse than plain narration" reasoning require a fixed, model-independent vocabulary
           that a host can rely on across every model, and require that text a host did not
           intend as a tag (a typo, an unsupported bracket phrase, an unbalanced bracket) is never
@@ -192,7 +192,7 @@ sections:
           synthesis is not possible on the machine.
         tags: [system]
         justification: |
-          architecture.md's core promise includes chunked, low-latency streaming synthesis and
+          This library's core promise includes chunked, low-latency streaming synthesis and
           playback of text containing Natural Language Audio Tags, built on the already-shipped
           audio playback, model management, and Layer 1 tag-parsing capabilities. Because a model
           that has not been downloaded yet, a machine with no speakers, and a machine without the

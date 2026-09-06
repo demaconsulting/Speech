@@ -45,7 +45,7 @@ sections:
                   drawn from the library's closed, published vocabulary as inline help alongside
                   the text input.
                 justification: |
-                  architecture.md calls for a text box with example tags shown as hints. Drawing
+                  The design calls for a text box with example tags shown as hints. Drawing
                   the examples from the library's own tag catalog, rather than a hand-maintained
                   demo list, keeps the hints from drifting out of sync with the vocabulary the
                   library actually recognizes.

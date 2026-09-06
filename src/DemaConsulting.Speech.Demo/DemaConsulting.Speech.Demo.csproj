@@ -40,9 +40,9 @@
   </ItemGroup>
 
   <!-- Speech Engine Native Runtime Dependencies.
-       Per architecture.md's "sherpa-onnx native runtime packages are NOT bundled by this
-       library" decision, the consuming application - this demo - adds the native runtime
-       package for each RID it intends to run on. The version matches the managed
+       Because this library does NOT bundle sherpa-onnx native runtime packages, the consuming
+       application - this demo - adds the native runtime package for each RID it intends to run
+       on. The version matches the managed
        org.k2fsa.sherpa.onnx version pinned by DemaConsulting.Speech.csproj.
        No PortAudio runtime package is listed here: PortAudioSharp2 (referenced by the library)
        declares its native runtime packages as its own dependencies, so they restore

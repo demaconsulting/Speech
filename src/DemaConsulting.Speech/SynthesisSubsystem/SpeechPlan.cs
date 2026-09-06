@@ -10,7 +10,7 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     was empty or resolved to nothing.
 /// </param>
 /// <remarks>
-///     Per architecture.md's "chunked, low-latency streaming synthesis and playback" decision,
+///     Per this library's "chunked, low-latency streaming synthesis and playback" decision,
 ///     each segment is synthesized and played back independently and in order, with playback of
 ///     an earlier segment beginning while later segments are still being synthesized. This record
 ///     is immutable and safe to share across threads.

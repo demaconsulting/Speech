@@ -7,7 +7,7 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     Real, production <see cref="IRecognitionModel"/> backing the sherpa-onnx streaming
 ///     NVIDIA Nemotron cache-aware FastConformer-RNNT transducer model
 ///     <c>nemotron-speech-streaming-en-0.6b-560ms-int8-2026-04-25</c> (int8-quantized, 560ms
-///     chunk latency).
+///     chunk latency, 16 kHz mono input).
 /// </summary>
 /// <remarks>
 ///     Structurally, this class is deliberately near-identical to
@@ -23,6 +23,10 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     CPU provider path this project uses. Only literal file paths, license/display metadata,
 ///     and (per that same tracing) the omission of a Zipformer-specific
 ///     <see cref="OnlineModelConfig.ModelType"/> value differ from the Zipformer class.
+///     Like Zipformer, this model expects 16 kHz mono input (the common convention for this
+///     model family, matching the sample rate reported by <see cref="IRecognitionModel.AudioFormat"/>);
+///     that value has not been independently confirmed against an unreachable HuggingFace model
+///     card, but is consistent with sherpa-onnx's own shipped configuration for this archive.
 ///     <para>
 ///     <b>Download provenance</b>: <c>https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemotron-speech-streaming-en-0.6b-560ms-int8-2026-04-25.tar.bz2</c>,
 ///     463,945,051 bytes, confirmed directly against the live GitHub Releases asset listing and

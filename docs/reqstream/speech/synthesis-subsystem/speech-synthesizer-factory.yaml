@@ -31,7 +31,7 @@ sections:
                   model does not declare the synthesis role, or the supplied playback device is
                   unavailable.
                 justification: |
-                  Per architecture.md's "nothing throws at composition" decision, a model that has
+                  Per this library's "nothing throws at composition" decision, a model that has
                   not been downloaded yet and a machine with no speakers are ordinary states at
                   application start-up, not programming errors.
                 tests:
@@ -45,7 +45,7 @@ sections:
                   synthesizer, and report the reason, when the synthesis engine for an installed
                   model cannot be loaded.
                 justification: |
-                  architecture.md requires that "a model whose native runtime is absent must
+                  The design requires that "a model whose native runtime is absent must
                   degrade the same honest way as a missing model file, never crash". An engine
                   that cannot load because of a missing native binary, an unsupported platform, or
                   corrupt model files must therefore not fail application start-up.

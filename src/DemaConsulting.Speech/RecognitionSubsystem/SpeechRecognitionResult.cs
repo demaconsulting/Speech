@@ -15,7 +15,7 @@ namespace DemaConsulting.Speech.RecognitionSubsystem;
 ///     a later result for the same utterance may extend or revise.
 /// </param>
 /// <remarks>
-///     architecture.md requires streaming speech-to-text that emits "progressive provisional and
+///     This library requires streaming speech-to-text that emits "progressive provisional and
 ///     final results as audio arrives", so a single flag - not two separate event types - is
 ///     enough to tell a host whether to replace an in-progress transcript line or commit it.
 ///     <see cref="Text"/> is always the full text of the current utterance, not a delta, so a

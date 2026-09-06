@@ -1,8 +1,9 @@
 ### SpeechModelStore
 
 **Purpose**: Own the on-disk layout, atomic install/replace, and uninstall of downloaded models
-under a single per-user root directory, resolving architecture.md's Open Concern #3
-(download-while-in-use).
+under a single per-user root directory, resolving the download-while-in-use residual risk (an
+in-progress synthesis/playback cycle reading `current/` while a redownload of the same model is
+attempted) via the atomic staging-then-rename swap described below.
 
 **Data Model**: `RootPath` (the resolved storage root). For each model id: `current/` (stable
 installed content), `install-manifest.json` (a sidecar record of `TotalSizeBytes` and

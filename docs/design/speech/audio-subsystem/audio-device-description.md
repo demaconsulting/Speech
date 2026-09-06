@@ -4,7 +4,7 @@
 depending on any native backend type.
 
 **Data Model**: A `record` with properties `Name` (`string`, non-null, the device's sole
-identity key per architecture.md's name-only identity decision), `Direction`
+identity key per this library's name-only identity decision), `Direction`
 (`AudioDeviceDirection`: `Capture` or `Playback`), `ChannelCount` (`int`), and `SampleRate`
 (`int`). Records are immutable after construction and support value-based equality, which the
 subsystem relies on for comparing descriptions in tests and in future selection logic.

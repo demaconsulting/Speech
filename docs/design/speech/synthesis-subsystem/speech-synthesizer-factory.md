@@ -30,7 +30,7 @@ unavailability (a model not downloaded yet) is reported first and no native memo
 for a synthesizer that could never run.
 
 **Error Handling**: Every ordinary machine state is represented as the honest unavailable
-synthesizer plus a structural diagnostic, never as an exception, per architecture.md's "nothing
+synthesizer plus a structural diagnostic, never as an exception, per this library's "nothing
 throws at composition" decision. An engine load failure is caught and degraded identically to a
 missing model. Only a null `model`, `playbackDevice`, or engine factory throws
 `ArgumentNullException`, since a null argument is a programming error rather than a machine

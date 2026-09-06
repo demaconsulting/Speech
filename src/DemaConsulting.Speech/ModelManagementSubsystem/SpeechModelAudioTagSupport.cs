@@ -9,7 +9,7 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     host can introspect a model's capability before use, and so
 ///     <see cref="SpeechModelCatalog"/>/UI code can reason about it generically. The actual
 ///     Layer 2 rendering logic that turns tagged spans into a per-model <c>SpeechPlan</c>
-///     (passthrough, parameter-mapping, or stripping, per architecture.md's "two-layer tag
+///     (passthrough, parameter-mapping, or stripping, per this library's "two-layer tag
 ///     rendering" decision) is implemented per-model in Phase 4, not here.
 /// </remarks>
 public enum SpeechModelAudioTagSupport

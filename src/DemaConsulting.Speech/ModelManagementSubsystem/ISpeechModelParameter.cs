@@ -5,7 +5,7 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     letting a host build a generic settings UI without knowing the model in advance.
 /// </summary>
 /// <remarks>
-///     Per architecture.md's "per-model tunable parameters use a typed, self-describing
+///     Per this library's "per-model tunable parameters use a typed, self-describing
 ///     descriptor set" decision, a host renders an appropriate control per concrete
 ///     implementation (<see cref="NumericParameter"/> → slider, <see cref="ChoiceParameter"/> →
 ///     dropdown, <see cref="BooleanParameter"/> → checkbox) using only this common shape plus a

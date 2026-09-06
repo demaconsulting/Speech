@@ -6,7 +6,7 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     letting a caller build against a synthesizer that cannot function.
 /// </summary>
 /// <remarks>
-///     Per architecture.md's "nothing throws at composition" decision, obtaining and holding this
+///     Per this library's "nothing throws at composition" decision, obtaining and holding this
 ///     instance never throws: a missing model, an absent native runtime, and a machine with no
 ///     speakers are ordinary machine states at application start-up, not programming errors.
 ///     Only the operational members (<see cref="SynthesizeStreamAsync"/>,

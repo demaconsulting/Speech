@@ -6,7 +6,7 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     collapsed onto it (see <see cref="AudioTagCatalog"/> for the alias table).
 /// </summary>
 /// <remarks>
-///     Per architecture.md's "Natural Language Audio Tags replace SSML" decision, this
+///     Per this library's "Natural Language Audio Tags replace SSML" decision, this
 ///     vocabulary is fixed for now and expands only through a new library release; it is not a
 ///     host-configurable or model-configurable set. Each value belongs to exactly one
 ///     <see cref="NaturalLanguageAudioTagKind"/>, reported alongside it by

@@ -19,7 +19,7 @@ constructing `new AudioDeviceSelection(null)` directly.
 
 **Error Handling**: `Resolve` throws `ArgumentNullException` when `availableDevices` is `null`,
 distinguishing "not asked" from "no devices available"; every other input (empty list, stale or
-unmatched name) resolves to `null` rather than throwing, per architecture.md's "nothing throws
+unmatched name) resolves to `null` rather than throwing, per this library's "nothing throws
 at composition" decision.
 
 **Dependencies**: `AudioDeviceDescription` (parameter/return type).

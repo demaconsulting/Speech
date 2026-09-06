@@ -39,7 +39,7 @@ public sealed class SpeechModelStoreTests : IDisposable
 
     /// <summary>
     ///     Proves that a store constructed with no options resolves its root under the per-user
-    ///     LocalApplicationData folder, per architecture.md's default storage location.
+    ///     LocalApplicationData folder, per this library's default storage location.
     /// </summary>
     [Fact]
     public void SpeechModelStore_Constructor_NoOptions_ResolvesUnderLocalApplicationData()

@@ -104,7 +104,7 @@ only types in the library that call speech-inference APIs.
 **Data Model**: The engine holds one loaded `OnlineRecognizer`, the `OnlineStream` carrying the
 current utterance, the declared input sample rate, the text most recently reported as
 provisional, and a disposed flag. The factory is stateless and holds no model-specific knowledge
-at all - architecture.md makes each model's backing class responsible for its own engine
+at all - the design makes each model's backing class responsible for its own engine
 configuration, so adding a model never requires changing the factory.
 
 **Key Methods**:

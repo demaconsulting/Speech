@@ -6,7 +6,7 @@ namespace DemaConsulting.Speech.RecognitionSubsystem;
 ///     use.
 /// </summary>
 /// <remarks>
-///     Per architecture.md's "nothing throws at composition" decision, obtaining and holding an
+///     Per this library's "nothing throws at composition" decision, obtaining and holding an
 ///     <see cref="ISpeechRecognizer"/> never throws - <see cref="SpeechRecognizerFactory"/>
 ///     returns <see cref="UnavailableSpeechRecognizer.Instance"/> for every ordinary
 ///     "cannot recognize on this machine right now" state (model not installed, native runtime

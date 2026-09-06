@@ -92,13 +92,13 @@ documentation anticipated.
   unrecognized or missing selection must degrade to a sensible default speaker id rather than
   fault synthesis.
 
-Every `internal` member is deliberately not public. architecture.md scopes the "must not leak
+Every `internal` member is deliberately not public. The design scopes the "must not leak
 sherpa-onnx types" constraint to `ISpeechRecognizer`/`ISpeechSynthesizer`, and makes each model's
 backing class responsible for "sherpa-onnx configuration for its own model architecture", so
 returning a real recognizer/synthesizer configuration here is consistent with the approved
 design. Keeping those members internal keeps every sherpa-onnx type out of the library's public
 API, and means only the library and its test project can implement the interface - an intentional
-restriction matching architecture.md's "one backing class per model; a new model requires a new
+restriction matching this library's "one backing class per model; a new model requires a new
 library release" decision. `AudioFormat` and `PreferredAudioFormat` are the deliberate
 exception: they are plain library-owned data values, so exposing them publicly improves
 composition without leaking native types.

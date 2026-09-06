@@ -57,9 +57,9 @@
     <PackageReference Include="DemaConsulting.ApiMark.MSBuild" Version="0.5.0-beta.1" PrivateAssets="All" />
     <PackageReference Include="PortAudioSharp2" Version="1.0.6" />
     <!-- Managed sherpa-onnx API only. The matching org.k2fsa.sherpa.onnx.runtime.{RID} native
-         package is deliberately NOT referenced here: see architecture.md "Sherpa-onnx native
-         runtime packages are NOT bundled by this library" - the consuming application adds the
-         runtime package(s) for its own target RID(s). -->
+         package is deliberately NOT referenced here: this library does NOT bundle sherpa-onnx
+         native runtime packages; the consuming application adds the runtime package(s) for its
+         own target RID(s). -->
     <PackageReference Include="org.k2fsa.sherpa.onnx" Version="1.13.5" />
     <!-- The BCL has no BZip2 decoder. SharpCompress provides the .tar.bz2 extraction used by
          TarBz2ArchiveExtractor to unpack sherpa-onnx model archives (e.g. the streaming
@@ -107,7 +107,7 @@
   </PropertyGroup>
 
   <!-- Carried forward from the reference implementation's VerifyLibraryIsIndependent pattern
-       (see architecture.md "Zero project references, denylisted interface-layer packages"):
+       (enforcing this library's zero-project-reference and denylisted interface-layer package rule):
        fails the build if this library gains a ProjectReference to anything, or a
        PackageReference to a denylisted interface/UI-layer package, keeping the library
        independently publishable and safely consumable by any host application. -->

@@ -17,7 +17,7 @@ selected there. It contains the following units:
 
 ### Why a Generic Presenter Set
 
-architecture.md's typed, self-describing parameter design lets a host render an appropriate
+this library's typed, self-describing parameter design lets a host render an appropriate
 control for a parameter using only a type check against the three concrete
 `ISpeechModelParameter` implementations. `ModelSettingsViewModel` performs exactly that type
 check and nothing more, which is what proves a new model with its own declared parameter set
@@ -82,7 +82,7 @@ being empty: an unexplained blank panel would read to a user as a broken applica
 an expected state.
 
 **Value bag.** `BuildValueBag()` assembles every presented parameter's current `BoxedValue` into
-a dictionary keyed by `Id`. architecture.md describes this untyped key-value bag as the interface
+a dictionary keyed by `Id`. The design describes this untyped key-value bag as the interface
 between a host's settings UI and per-model synthesis/recognition parameter handling. As of this
 pass, `SynthesisPanelViewModel.PlayAsync` forwards this bag as the `parameterValues` argument to
 `ISynthesizerSessionFactory.Create`, which threads it through to the library's

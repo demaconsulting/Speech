@@ -21,7 +21,7 @@ sections:
                   never throw merely for being constructed or held.
                 justification: |
                   A caller must always be able to safely obtain and hold a fallback capture
-                  device, per architecture.md's "nothing throws at composition" decision.
+                  device, per this library's "nothing throws at composition" decision.
                 tests:
                   - UnavailableAudioCaptureDevice_IsAvailable_Read_ReturnsFalse
 
@@ -55,7 +55,7 @@ sections:
                   never throw merely for being constructed or held.
                 justification: |
                   A caller must always be able to safely obtain and hold a fallback playback
-                  device, per architecture.md's "nothing throws at composition" decision.
+                  device, per this library's "nothing throws at composition" decision.
                 tests:
                   - UnavailableAudioPlaybackDevice_IsAvailable_Read_ReturnsFalse
 

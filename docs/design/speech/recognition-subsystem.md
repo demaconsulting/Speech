@@ -38,7 +38,7 @@ discovered (see _IAudioCaptureDevice Design_), and `IRecognitionModel` now expos
 `AudioFormat` plus internal `CreateEngineConfig` so each model owns both its input-format
 declaration and its engine configuration (see _SpeechModelContract Design_).
 
-No member of the subsystem's public API names a sherpa-onnx type, per architecture.md's
+No member of the subsystem's public API names a sherpa-onnx type, per this library's
 "engine backend stays swappable at the public API surface" decision. The sherpa-onnx
 configuration type appears only on `IRecognitionModel`'s internal members and inside the
 subsystem's internal engine seam.
@@ -50,7 +50,7 @@ requested model's files exist on disk, whether the model declares the recognitio
 whether the supplied capture device is available; any failure returns
 `UnavailableSpeechRecognizer.Instance` with a structural diagnostic explaining which condition
 failed. Only then does it ask an `IRecognitionEngineFactory` to load the model, and a failure
-there - the case architecture.md calls out for a missing native runtime - degrades exactly the
+there - the missing-native-runtime case - degrades exactly the
 same honest way rather than throwing. Nothing about "is recognition possible?" is left for the
 host to work out from separate signals. When a caller already knows the chosen model, the
 recommended composition pattern is to construct the capture device first with

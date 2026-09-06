@@ -15,7 +15,7 @@ sections:
               that reports availability, starts and stops recognition, and delivers provisional
               and final results, without exposing any inference-engine type.
             justification: |
-              architecture.md's "engine backend stays swappable at the public API surface"
+              This library's "engine backend stays swappable at the public API surface"
               decision requires that a future non-sherpa-onnx backend can replace the current one
               without a breaking API change, and hosts must be able to test their transcript
               handling against the contract with no model, microphone, or native runtime present.
@@ -36,7 +36,7 @@ sections:
               Composition happens at application start-up, where a model that has not been
               downloaded yet, a machine with no microphone, and a machine without the speech
               engine's native runtime are all ordinary states rather than programming errors, per
-              architecture.md's "nothing throws at composition" decision.
+              this library's "nothing throws at composition" decision.
             children:
               - Speech-Recognition-SpeechRecognizerFactory-RealRecognizer
               - Speech-Recognition-SpeechRecognizerFactory-HonestFallbacks
@@ -94,7 +94,7 @@ sections:
               unavailability rather than throwing, and throws a documented exception only when an
               operational member is actually invoked.
             justification: |
-              Per architecture.md's "nothing throws at composition" decision, obtaining and holding
+              Per this library's "nothing throws at composition" decision, obtaining and holding
               a fallback recognizer must never throw; only misuse of an already unavailable
               recognizer is a programming error that should surface as an exception.
             children:

@@ -21,7 +21,7 @@ sections:
                   never throw merely for being obtained or held.
                 justification: |
                   A caller must always be able to safely obtain and hold a fallback synthesizer,
-                  per architecture.md's "nothing throws at composition" decision.
+                  per this library's "nothing throws at composition" decision.
                 tests:
                   - UnavailableSpeechSynthesizer_IsAvailable_Read_ReturnsFalse
 

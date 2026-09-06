@@ -5,7 +5,7 @@ namespace DemaConsulting.Speech.AudioSubsystem;
 /// </summary>
 /// <remarks>
 ///     Implementations restrict enumeration to one preferred host API per platform (e.g. WASAPI
-///     on Windows) per architecture.md's decision to avoid the same physical device appearing
+///     on Windows) per this library's decision to avoid the same physical device appearing
 ///     multiple times under different host APIs. Enumeration never throws; a backend that cannot
 ///     enumerate devices returns an empty list, see <see cref="UnavailableAudioCaptureDeviceProbe"/>.
 /// </remarks>

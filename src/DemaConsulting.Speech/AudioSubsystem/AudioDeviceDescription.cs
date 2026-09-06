@@ -21,7 +21,7 @@ public enum AudioDeviceDirection
 ///     Immutable description of an enumerable audio device, identified by name alone.
 /// </summary>
 /// <remarks>
-///     Per architecture.md's "single preferred host API per platform, name-only device
+///     Per this library's "single preferred host API per platform, name-only device
 ///     identity" decision, <see cref="Name"/> is the device's sole stable identity: PortAudio
 ///     device indices are not stable across reboots or hot-plug events, so this library never
 ///     persists or compares devices by index. The trade-off - two identically-named devices are

@@ -119,7 +119,7 @@ sections:
                   The recognition-engine seam shall load an engine using only the configuration
                   and input rate the selected model itself declares.
                 justification: |
-                  architecture.md makes each model's backing class responsible for its own engine
+                  The design makes each model's backing class responsible for its own engine
                   configuration, so that adding a new model is a self-contained, reviewable unit of
                   work that never requires changing the recognition subsystem.
                 tests:

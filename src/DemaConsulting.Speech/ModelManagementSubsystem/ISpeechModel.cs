@@ -6,7 +6,7 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     inference engine.
 /// </summary>
 /// <remarks>
-///     Per architecture.md's "one backing class per model" decision, each shippable model is a
+///     Per this library's "one backing class per model" decision, each shippable model is a
 ///     single class implementing either <see cref="IRecognitionModel"/> or
 ///     <see cref="ISynthesisModel"/> (never this interface directly), carrying its own download
 ///     URL(s)/checksum(s), declared parameters, audio-tag support declaration, own archive
@@ -94,10 +94,10 @@ public interface ISpeechModel
     /// <param name="text">The text to normalize.</param>
     /// <returns>The normalized text; by default, <paramref name="text"/> unchanged.</returns>
     /// <remarks>
-    ///     Per architecture.md's per-model "own text-normalization / correction (e.g. punctuation
+    ///     Per this library's per-model "own text-normalization / correction (e.g. punctuation
     ///     restoration)" responsibility. This pass defines only the hook's existence and identity
     ///     default; the actual normalization *content* for any real model is a Phase 4 synthesis
-    ///     concern, per architecture.md's synthesis-subsystem scope - this member exists now
+    ///     concern, per this library's synthesis-subsystem scope - this member exists now
     ///     purely so the contract shape matches the approved plan and does not need a breaking
     ///     change later.
     /// </remarks>

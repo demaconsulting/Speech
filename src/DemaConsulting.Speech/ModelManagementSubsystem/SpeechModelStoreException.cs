@@ -5,7 +5,7 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     only uninstall) cannot complete.
 /// </summary>
 /// <remarks>
-///     Per architecture.md's "nothing throws at composition" decision, this exception is never
+///     Per this library's "nothing throws at composition" decision, this exception is never
 ///     thrown by store construction, install-state queries, or catalog enumeration - those
 ///     operations degrade to an honest state (e.g. "not installed") instead. It is reserved for
 ///     explicit, first-use-style calls a host makes intentionally, most notably uninstalling a

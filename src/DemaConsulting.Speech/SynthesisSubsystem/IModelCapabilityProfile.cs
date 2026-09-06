@@ -3,7 +3,7 @@ using DemaConsulting.Speech.ModelManagementSubsystem;
 namespace DemaConsulting.Speech.SynthesisSubsystem;
 
 /// <summary>
-///     Internal seam for Layer 2 of architecture.md's "two-layer tag rendering" design: renders a
+///     Internal seam for Layer 2 of this library's "two-layer tag rendering" design: renders a
 ///     Layer 1 parsed span sequence into a per-model <see cref="SpeechPlan"/>.
 /// </summary>
 /// <remarks>

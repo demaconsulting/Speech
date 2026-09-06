@@ -8,7 +8,7 @@ namespace DemaConsulting.Speech.AudioSubsystem;
 /// <remarks>
 ///     Implementations own the full lifecycle of a single physical or virtual playback device.
 ///     A device that cannot function honestly reports <see cref="IsAvailable"/> as
-///     <see langword="false"/> rather than throwing at construction time, per architecture.md's
+///     <see langword="false"/> rather than throwing at construction time, per this library's
 ///     "nothing throws at composition" decision; see <see cref="UnavailableAudioPlaybackDevice"/>
 ///     for the canonical fallback.
 /// </remarks>

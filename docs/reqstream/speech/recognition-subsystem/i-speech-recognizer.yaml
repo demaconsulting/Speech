@@ -45,7 +45,7 @@ sections:
                   A recognition result shall carry the full recognized text of the current
                   utterance together with whether that text is provisional or final.
                 justification: |
-                  architecture.md requires streaming recognition that emits "progressive
+                  The design requires streaming recognition that emits "progressive
                   provisional and final results as audio arrives", so a host must be able to tell
                   from a single result whether to replace an in-progress transcript line or commit
                   it, without accumulating fragments itself.

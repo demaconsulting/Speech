@@ -5,7 +5,7 @@ namespace DemaConsulting.Speech.Tests.ModelManagementSubsystem;
 /// <summary>
 ///     Unit tests for the <see cref="SpeechModelRole"/>, <see cref="SpeechModelState"/>, and
 ///     <see cref="SpeechModelAudioTagSupport"/> enums, proving each declares exactly the fixed
-///     set of values architecture.md specifies.
+///     set of values this library specifies.
 /// </summary>
 public class SpeechModelDescriptorEnumsTests
 {
@@ -24,7 +24,7 @@ public class SpeechModelDescriptorEnumsTests
 
     /// <summary>
     ///     Proves that <see cref="SpeechModelState"/> declares exactly the fixed, small state set
-    ///     architecture.md defines, with no "update available" state.
+    ///     this library defines, with no "update available" state.
     /// </summary>
     [Fact]
     public void SpeechModelState_Values_DeclaresFixedStateSet()

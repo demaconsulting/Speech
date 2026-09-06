@@ -5,7 +5,7 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     per-user model files on disk.
 /// </summary>
 /// <remarks>
-///     Per architecture.md's "simplified single-root model storage" decision, a host almost
+///     Per this library's "simplified single-root model storage" decision, a host almost
 ///     never needs to supply this type - the default (per-user
 ///     <see cref="Environment.SpecialFolder.LocalApplicationData"/>) is correct for the vast
 ///     majority of desktop applications. <see cref="RootPathOverride"/> exists only for the

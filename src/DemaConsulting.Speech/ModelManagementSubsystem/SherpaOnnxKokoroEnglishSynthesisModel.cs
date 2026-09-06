@@ -9,7 +9,7 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     StyleTTS2-derived multi-speaker model.
 /// </summary>
 /// <remarks>
-///     Per architecture.md's "one backing class per model" decision, this class owns everything
+///     Per this library's "one backing class per model" decision, this class owns everything
 ///     specific to this one model: its declared download descriptor, how to unpack its archive
 ///     (<see cref="InstallAsync"/>, delegating to the shared <see cref="TarBz2ArchiveExtractor"/>,
 ///     reused unchanged from the existing VITS model), how to build the sherpa-onnx offline

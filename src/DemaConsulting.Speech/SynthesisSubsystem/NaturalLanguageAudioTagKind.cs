@@ -2,7 +2,7 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 
 /// <summary>
 ///     Groups every <see cref="NaturalLanguageAudioTag"/> value into the kind categories
-///     architecture.md defines for the closed Natural Language Audio Tag vocabulary.
+///     this library defines for the closed Natural Language Audio Tag vocabulary.
 /// </summary>
 /// <remarks>
 ///     Grouping tags by kind lets Layer 2 per-model rendering (a later phase) and host UI code

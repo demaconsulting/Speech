@@ -9,7 +9,7 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     k2-fsa/icefall's LibriSpeech-trained streaming Zipformer checkpoint.
 /// </summary>
 /// <remarks>
-///     Per architecture.md's "one backing class per model; a new model requires a new library
+///     Per this library's "one backing class per model; a new model requires a new library
 ///     release" decision, this class owns everything specific to this one model: its declared
 ///     download descriptor (a single <c>.tar.bz2</c> archive fetched from sherpa-onnx's own
 ///     GitHub Releases mirror), how to unpack that archive (<see cref="InstallAsync"/>,

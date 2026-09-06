@@ -6,7 +6,7 @@ namespace DemaConsulting.Speech.AudioSubsystem;
 /// <remarks>
 ///     A host persists an <see cref="AudioDeviceSelection"/> (e.g. in application settings) and
 ///     resolves it against a probe's current enumeration each time a device is needed.
-///     Resolution never throws: per architecture.md's "nothing throws at composition" decision,
+///     Resolution never throws: per this library's "nothing throws at composition" decision,
 ///     a saved selection that no longer matches any currently enumerated device silently
 ///     resolves to <see langword="null"/> (meaning "fall back to the system default") rather than
 ///     raising an error, since a previously-selected device disappearing (unplugged, renamed) is

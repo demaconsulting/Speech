@@ -7,8 +7,8 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     a single per-user root directory.
 /// </summary>
 /// <remarks>
-///     Implements the atomic-swap design resolving architecture.md's Open Concern #3
-///     (download-while-in-use): for each model id, this type manages
+///     Implements the atomic-swap design resolving the download-while-in-use residual risk: for
+///     each model id, this type manages
 ///     <c>{root}/{model-id}/current/</c> (the stable, installed content, only ever replaced by a
 ///     directory rename), <c>{root}/{model-id}/install-manifest.json</c> (a sidecar written only
 ///     after a successful swap, so the store can report "installed" cheaply without re-hashing
@@ -16,9 +16,8 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     for an in-progress download/install, never read as installed content). <c>current/</c> is
 ///     never touched while a download is being fetched and verified, so a model already loaded by
 ///     an in-use recognizer/synthesizer continues reading unaffected content until the swap
-///     completes; see architecture.md's Open Concern #3 discussion for the residual risk around
-///     in-use file handles, which this design defers rather than assumes away by making
-///     old-directory cleanup best-effort and non-blocking.
+///     completes; the residual risk around in-use file handles during old-directory cleanup is
+///     deferred rather than assumed away, by making that cleanup best-effort and non-blocking.
 /// </remarks>
 public sealed class SpeechModelStore
 {
@@ -187,7 +186,7 @@ public sealed class SpeechModelStore
     /// </exception>
     /// <remarks>
     ///     This is an explicit, user-invoked operation (never called during composition or
-    ///     catalog enumeration), so throwing on failure here is consistent with architecture.md's
+    ///     catalog enumeration), so throwing on failure here is consistent with this library's
     ///     "nothing throws at composition" decision - it does not apply to explicit, first-use
     ///     actions like an intentional uninstall.
     /// </remarks>

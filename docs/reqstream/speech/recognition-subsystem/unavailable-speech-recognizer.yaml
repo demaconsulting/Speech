@@ -19,7 +19,7 @@ sections:
                   never throw merely for being obtained or held.
                 justification: |
                   A caller must always be able to safely obtain and hold a fallback recognizer,
-                  per architecture.md's "nothing throws at composition" decision.
+                  per this library's "nothing throws at composition" decision.
                 tests:
                   - UnavailableSpeechRecognizer_IsAvailable_Read_ReturnsFalse
 

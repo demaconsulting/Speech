@@ -17,7 +17,7 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     blocks for a background consumer to recognize, a background producer task synthesizes
 ///     ordered <see cref="SynthesizedSpeech"/> segments into a bounded channel while the awaiting
 ///     caller (or <see cref="PlayStreamAsync"/>) plays them in order, so synthesis of a later
-///     segment overlaps with playback of an earlier one per architecture.md's chunked,
+///     segment overlaps with playback of an earlier one per this library's chunked,
 ///     low-latency streaming design.
 ///     <para>
 ///     Unlike the recognizer's capture queue, the channel here never drops a segment: synthesized
