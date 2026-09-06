@@ -196,6 +196,8 @@ playing, so you can't switch models mid-session.
 
 Generated documentation includes:
 
+- **API Reference**: Gradual-disclosure Markdown API docs (index → namespace → type), packed
+  into the NuGet package's `api/` folder for downstream tools and agents to consume
 - **Build Notes**: Release information and changes
 - **User Guide**: Installation and usage guidance
 - **Code Quality Report**: CodeQL and SonarCloud analysis results

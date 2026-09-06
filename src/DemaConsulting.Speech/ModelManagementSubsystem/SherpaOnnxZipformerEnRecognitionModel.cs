@@ -63,6 +63,11 @@ public sealed class SherpaOnnxZipformerEnRecognitionModel : IRecognitionModel
     /// <summary>The feature dimension this streaming Zipformer model was trained at (icefall/LibriSpeech convention).</summary>
     private const int ModelFeatureDim = 80;
 
+    /// <summary>Initializes a new instance of the <see cref="SherpaOnnxZipformerEnRecognitionModel"/> class.</summary>
+    public SherpaOnnxZipformerEnRecognitionModel()
+    {
+    }
+
     /// <inheritdoc/>
     public string Id => ModelId;
 

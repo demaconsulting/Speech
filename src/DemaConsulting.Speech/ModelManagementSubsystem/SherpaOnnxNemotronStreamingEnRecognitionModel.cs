@@ -88,6 +88,11 @@ public sealed class SherpaOnnxNemotronStreamingEnRecognitionModel : IRecognition
     /// </summary>
     private const int ModelSampleRate = 16000;
 
+    /// <summary>Initializes a new instance of the <see cref="SherpaOnnxNemotronStreamingEnRecognitionModel"/> class.</summary>
+    public SherpaOnnxNemotronStreamingEnRecognitionModel()
+    {
+    }
+
     /// <inheritdoc/>
     public string Id => ModelId;
 

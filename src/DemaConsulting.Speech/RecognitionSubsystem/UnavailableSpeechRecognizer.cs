@@ -72,7 +72,7 @@ public sealed class UnavailableSpeechRecognizer : ISpeechRecognizer
             "Cannot stop recognition: no speech recognizer is available.");
     }
 
-    /// <inheritdoc/>
+    /// <summary>Releases resources held by this recognizer.</summary>
     /// <remarks>
     ///     A no-op: this recognizer owns no engine, thread, or native resource. Disposal must not
     ///     throw or invalidate <see cref="Instance"/>, because a host that wraps its recognizer in

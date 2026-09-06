@@ -76,7 +76,7 @@ public sealed class UnavailableSpeechSynthesizer : ISpeechSynthesizer
             "Cannot stop: no speech synthesizer is available.");
     }
 
-    /// <inheritdoc/>
+    /// <summary>Releases resources held by this synthesizer.</summary>
     /// <remarks>
     ///     A no-op: this synthesizer owns no engine, thread, or native resource. Disposal must
     ///     not throw or invalidate <see cref="Instance"/>, because a host that wraps its

@@ -107,6 +107,11 @@ public sealed class SherpaOnnxKokoroEnglishSynthesisModel : ISynthesisModel
     /// <summary>The default voice used when no selection is supplied.</summary>
     private const string DefaultVoice = "af";
 
+    /// <summary>Initializes a new instance of the <see cref="SherpaOnnxKokoroEnglishSynthesisModel"/> class.</summary>
+    public SherpaOnnxKokoroEnglishSynthesisModel()
+    {
+    }
+
     /// <summary>
     ///     This archive's own confirmed <c>id2speaker</c> voice ordering (index = sherpa-onnx
     ///     speaker id), reproduced verbatim from <c>k2-fsa/sherpa-onnx</c>'s own

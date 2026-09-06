@@ -116,6 +116,11 @@ public sealed class SherpaOnnxVitsLibriTtsEnglishSynthesisModel : ISynthesisMode
     /// <summary>The default speaker index used when no selection is supplied.</summary>
     private const int DefaultSpeakerId = 0;
 
+    /// <summary>Initializes a new instance of the <see cref="SherpaOnnxVitsLibriTtsEnglishSynthesisModel"/> class.</summary>
+    public SherpaOnnxVitsLibriTtsEnglishSynthesisModel()
+    {
+    }
+
     /// <inheritdoc/>
     public string Id => ModelId;
 

@@ -15,6 +15,11 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 /// </remarks>
 public sealed class SpeechModelStoreOptions
 {
+    /// <summary>Initializes a new instance of the <see cref="SpeechModelStoreOptions"/> class.</summary>
+    public SpeechModelStoreOptions()
+    {
+    }
+
     /// <summary>
     ///     Gets or sets an absolute directory path to use as the model store root instead of the
     ///     default per-user <see cref="Environment.SpecialFolder.LocalApplicationData"/> location.

@@ -54,6 +54,7 @@
     <PackageReference Include="Microsoft.Sbom.Targets" Version="4.1.5" PrivateAssets="All" />
     <PackageReference Include="Polyfill" Version="11.2.0" PrivateAssets="All" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.400" PrivateAssets="All" />
+    <PackageReference Include="DemaConsulting.ApiMark.MSBuild" Version="0.5.0-beta.1" PrivateAssets="All" />
     <PackageReference Include="PortAudioSharp2" Version="1.0.6" />
     <!-- Managed sherpa-onnx API only. The matching org.k2fsa.sherpa.onnx.runtime.{RID} native
          package is deliberately NOT referenced here: see architecture.md "Sherpa-onnx native
@@ -115,5 +116,22 @@
 
     <Error Condition="'@(PackageReference)' != '' and&#xA;                 ($([System.String]::Copy('%(PackageReference.Identity)').StartsWith('Avalonia'))&#xA;                  or $([System.String]::Copy('%(PackageReference.Identity)').StartsWith('Microsoft.AspNetCore'))&#xA;                  or $([System.String]::Copy('%(PackageReference.Identity)').StartsWith('Microsoft.WindowsDesktop'))&#xA;                  or $([System.String]::Copy('%(PackageReference.Identity)').StartsWith('System.Windows.Forms'))&#xA;                  or $([System.String]::Copy('%(PackageReference.Identity)').StartsWith('Microsoft.Maui')))" Text="Package '%(PackageReference.Identity)' is on the interface/UI-layer package deny-list ($(SpeechDeniedPackagePrefixes)) for DemaConsulting.Speech and must not be referenced." />
   </Target>
+
+  <!-- API documentation generation -->
+  <PropertyGroup>
+    <!-- Run API documentation generation only for this framework in multi-targeted builds -->
+    <ApiDocsTargetFramework>net8.0</ApiDocsTargetFramework>
+    <!-- Configuration-specific output so Debug and Release docs do not overwrite each other -->
+    <ApiMarkOutputDir>$(MSBuildProjectDirectory)\bin\$(Configuration)\apimark-docs</ApiMarkOutputDir>
+    <!-- Pack generated API docs into the NuGet package under api/ -->
+    <ApiMarkPackDocs>false</ApiMarkPackDocs>
+    <ApiMarkPackDocs Condition="'$(TargetFramework)' == '$(ApiDocsTargetFramework)'">true</ApiMarkPackDocs>
+    <!-- Disable for non-primary framework to avoid duplicate generation in multi-targeted builds -->
+    <DisableApiMark Condition="'$(TargetFramework)' != '$(ApiDocsTargetFramework)'">true</DisableApiMark>
+    <!-- Report (but do not yet fail the build on) any public API surface missing an XML doc
+         <summary>, so gaps are visible before this is tightened to Error. -->
+    <ApiMarkEnforceDocs Condition="'$(TargetFramework)' == '$(ApiDocsTargetFramework)'">Public</ApiMarkEnforceDocs>
+    <ApiMarkEnforceDocsSeverity Condition="'$(TargetFramework)' == '$(ApiDocsTargetFramework)'">Warning</ApiMarkEnforceDocsSeverity>
+  </PropertyGroup>
 
 </Project>
