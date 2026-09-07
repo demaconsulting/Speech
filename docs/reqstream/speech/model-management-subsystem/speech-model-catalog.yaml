@@ -30,7 +30,7 @@ sections:
                   continues to prove independently of KnownModels' own current contents.
                 tests:
                   - SpeechModelCatalog_Enumerate_EmptyKnownModels_ReturnsEmptyList
-                  - SpeechModelCatalog_KnownModels_ContainsAllThreeRealModels
+                  - SpeechModelCatalog_KnownModels_ContainsAllFourRealModels
 
               - id: Speech-Models-SpeechModelCatalog-StateResolution
                 title: >-

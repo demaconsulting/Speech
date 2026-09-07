@@ -182,6 +182,40 @@ jobs:
           --configuration Release
           --property:Version=${{ inputs.version }}
 
+      # === DOWNLOAD REAL SPEECH MODELS ===
+      # Several tests (SherpaOnnxRecognitionEngineTests, SherpaOnnxRecognitionEngineAccuracyTests)
+      # deliberately skip rather than fail when their real, production model is not installed in
+      # this environment, since a multi-hundred-megabyte model download is outside the scope of an
+      # ordinary unit test run. Downloading them here (once per OS, cached across runs) lets those
+      # tests genuinely execute in CI instead of skipping, so the requirements they back can be
+      # satisfied with real test evidence.
+
+      - name: Determine speech model cache path
+        id: model-cache-path
+        shell: bash
+        run: |
+          if [ "${{ matrix.os }}" == "windows-latest" ]; then
+            echo "path=$HOME/AppData/Local/DemaConsulting.Speech/Models" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=$HOME/.local/share/DemaConsulting.Speech/Models" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Cache real speech models
+        uses: actions/cache@v5
+        with:
+          path: ${{ steps.model-cache-path.outputs.path }}
+          key: speech-models-${{ matrix.os }}-zipformer-2023-06-26-nemotron-0.6b-560ms-int8-2026-04-25
+
+      - name: Download real speech models
+        run: >
+          dotnet run
+          --project tools/ModelDownloader
+          --configuration Release
+          --no-build
+          --
+          streaming-zipformer-en-2023-06-26
+          nemotron-speech-streaming-en-0.6b-560ms-int8-2026-04-25
+
       - name: Test
         run: >
           dotnet test

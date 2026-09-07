@@ -101,4 +101,4 @@ sections:
                   empty list as a bug.
                 tests:
                   - ModelCatalogViewModel_Constructor_EmptyCatalog_ReportsHonestEmptyState
-                  - ModelCatalogViewModel_EmptyCatalogMessage_Read_ExplainsNoModelsAreShippedYet
+                  - ModelCatalogViewModel_EmptyCatalogMessage_Read_ExplainsCatalogHasNoKnownModels

@@ -26,7 +26,7 @@ sections:
           DEMA Consulting libraries must support Windows as a major development platform.
         tests:
           # Tests link to "windows" to ensure results come from Windows platform
-          - "windows@Speech_SystemIntegration_NoHardware_FactoryReturnsUnavailableDevices"
+          - "windows@Speech_SystemIntegration_PortAudioInitializationFails_FactoryReturnsUnavailableDevices"
 
       - id: Template-Platform-Linux
         title: The library shall build and run on Linux platforms.
@@ -35,7 +35,7 @@ sections:
           DEMA Consulting libraries must support Linux for CI/CD and containerized environments.
         tests:
           # Tests link to "ubuntu" to ensure results come from Linux platform
-          - "ubuntu@Speech_SystemIntegration_NoHardware_FactoryReturnsUnavailableDevices"
+          - "ubuntu@Speech_SystemIntegration_PortAudioInitializationFails_FactoryReturnsUnavailableDevices"
 
       - id: Template-Platform-MacOS
         title: The library shall build and run on macOS platforms.
@@ -44,7 +44,7 @@ sections:
           DEMA Consulting libraries must support macOS for developers using Apple platforms.
         tests:
           # Tests link to "macos" to ensure results come from macOS platform
-          - "macos@Speech_SystemIntegration_NoHardware_FactoryReturnsUnavailableDevices"
+          - "macos@Speech_SystemIntegration_PortAudioInitializationFails_FactoryReturnsUnavailableDevices"
 
       - id: Template-Platform-Net8
         title: The library shall support .NET 8 runtime.
@@ -52,7 +52,7 @@ sections:
         justification: |
           .NET 8 is an LTS release providing long-term stability for enterprise users.
         tests:
-          - "net8.0@Speech_SystemIntegration_NoHardware_FactoryReturnsUnavailableDevices"
+          - "net8.0@Speech_SystemIntegration_PortAudioInitializationFails_FactoryReturnsUnavailableDevices"
 
       - id: Template-Platform-Net9
         title: The library shall support .NET 9 runtime.
@@ -60,7 +60,7 @@ sections:
         justification: |
           .NET 9 support enables users to leverage the latest .NET features.
         tests:
-          - "net9.0@Speech_SystemIntegration_NoHardware_FactoryReturnsUnavailableDevices"
+          - "net9.0@Speech_SystemIntegration_PortAudioInitializationFails_FactoryReturnsUnavailableDevices"
 
       - id: Template-Platform-Net10
         title: The library shall support .NET 10 runtime.
@@ -68,4 +68,4 @@ sections:
         justification: |
           .NET 10 support ensures the library remains compatible with the latest .NET ecosystem.
         tests:
-          - "net10.0@Speech_SystemIntegration_NoHardware_FactoryReturnsUnavailableDevices"
+          - "net10.0@Speech_SystemIntegration_PortAudioInitializationFails_FactoryReturnsUnavailableDevices"

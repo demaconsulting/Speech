@@ -27,7 +27,7 @@ sections:
                   to the library.
                 tests:
                   - ModelCatalogService_Constructor_NullCatalog_ThrowsArgumentNullException
-                  - ModelCatalogService_Enumerate_LibraryKnowsNoModels_ReturnsEmptyList
+                  - ModelCatalogService_Enumerate_LibraryKnowsRealModels_ReturnsThem
                   - ModelCatalogService_DownloadAsync_UnknownModelId_ThrowsArgumentException
                   - ModelCatalogService_Enumerate_AfterAnotherAdapterFallsOutOfUse_StillWorks
                   - ModelCatalogViewModel_Constructor_NullService_ThrowsArgumentNullException
