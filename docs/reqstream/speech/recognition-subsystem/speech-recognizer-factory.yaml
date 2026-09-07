@@ -91,3 +91,5 @@ sections:
                 tests:
                   - SpeechRecognizerFactory_Create_ParameterValuesSuppliedToZeroParameterModel_BehaviorUnchanged
                   - SpeechRecognizerFactory_Create_ParameterValuesSupplied_ReachesModelCreateEngineConfig
+                  - SpeechRecognizerFactory_Create_WithStoreParameterValuesSupplied_ReachesModelCreateEngineConfig
+                  - SpeechRecognizerFactory_Create_WithCatalogParameterValuesSupplied_ReachesModelCreateEngineConfig

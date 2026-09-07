@@ -91,7 +91,9 @@ programming error from an ordinary machine state.
 #### Composition: Parameter Value Bag Forwarding
 
 **Tests**: `SpeechRecognizerFactory_Create_ParameterValuesSuppliedToZeroParameterModel_BehaviorUnchanged`,
-`SpeechRecognizerFactory_Create_ParameterValuesSupplied_ReachesModelCreateEngineConfig`
+`SpeechRecognizerFactory_Create_ParameterValuesSupplied_ReachesModelCreateEngineConfig`,
+`SpeechRecognizerFactory_Create_WithStoreParameterValuesSupplied_ReachesModelCreateEngineConfig`,
+`SpeechRecognizerFactory_Create_WithCatalogParameterValuesSupplied_ReachesModelCreateEngineConfig`
 
 Verifies that an optional `parameterValues` bag supplied by the caller (for example, a selected
 recognition language built from a declared `ChoiceParameter`) does not change composition

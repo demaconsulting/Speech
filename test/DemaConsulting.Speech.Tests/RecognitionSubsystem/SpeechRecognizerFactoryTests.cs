@@ -312,6 +312,29 @@ public sealed class SpeechRecognizerFactoryTests : IDisposable
     }
 
     /// <summary>
+    ///     Proves that a supplied <c>parameterValues</c> bag genuinely reaches the model's own
+    ///     two-argument <c>CreateEngineConfig</c> override when composed through the store-based
+    ///     composition overload, not merely the engine factory.
+    /// </summary>
+    [Fact]
+    public void SpeechRecognizerFactory_Create_WithStoreParameterValuesSupplied_ReachesModelCreateEngineConfig()
+    {
+        // Arrange: a parameter-capturing model installed via the store, an available device, and a parameter bag
+        var captureDevice = CreateAvailableCaptureDevice();
+        var engineFactory = new FakeRecognitionEngineFactory();
+        var model = new ParameterCapturingRecognitionModel();
+        Directory.CreateDirectory(_store.GetCurrentDirectory(model.Id));
+        IReadOnlyDictionary<string, object> parameterValues = new Dictionary<string, object> { ["language"] = "en-gb" };
+
+        // Act: compose a recognizer through the store overload, supplying parameterValues
+        using var recognizer = SpeechRecognizerFactory.Create(model, _store, captureDevice, null, engineFactory, parameterValues);
+
+        // Assert: the value reached the model's own CreateEngineConfig override
+        Assert.IsType<SherpaOnnxSpeechRecognizer>(recognizer);
+        Assert.Equal("en-gb", engineFactory.RequestedConfig?.ModelConfig.ModelType);
+    }
+
+    /// <summary>
     ///     Proves that the public store-based composition overload rejects a null model.
     /// </summary>
     [Fact]
@@ -392,6 +415,29 @@ public sealed class SpeechRecognizerFactoryTests : IDisposable
         Assert.IsType<SherpaOnnxSpeechRecognizer>(recognizer);
         Assert.Equal(1, engineFactory.CreateCallCount);
         Assert.Equal(_catalog.Store.GetCurrentDirectory(model.Id), engineFactory.RequestedInstalledModelDirectory);
+    }
+
+    /// <summary>
+    ///     Proves that a supplied <c>parameterValues</c> bag genuinely reaches the model's own
+    ///     two-argument <c>CreateEngineConfig</c> override when composed through the catalog-based
+    ///     composition overload, not merely the engine factory.
+    /// </summary>
+    [Fact]
+    public void SpeechRecognizerFactory_Create_WithCatalogParameterValuesSupplied_ReachesModelCreateEngineConfig()
+    {
+        // Arrange: a parameter-capturing model installed via the catalog's store, an available device, and a parameter bag
+        var captureDevice = CreateAvailableCaptureDevice();
+        var engineFactory = new FakeRecognitionEngineFactory();
+        var model = new ParameterCapturingRecognitionModel();
+        Directory.CreateDirectory(_store.GetCurrentDirectory(model.Id));
+        IReadOnlyDictionary<string, object> parameterValues = new Dictionary<string, object> { ["language"] = "en-gb" };
+
+        // Act: compose a recognizer through the catalog overload, supplying parameterValues
+        using var recognizer = SpeechRecognizerFactory.Create(model, _catalog, captureDevice, null, engineFactory, parameterValues);
+
+        // Assert: the value reached the model's own CreateEngineConfig override
+        Assert.IsType<SherpaOnnxSpeechRecognizer>(recognizer);
+        Assert.Equal("en-gb", engineFactory.RequestedConfig?.ModelConfig.ModelType);
     }
 
     /// <summary>
