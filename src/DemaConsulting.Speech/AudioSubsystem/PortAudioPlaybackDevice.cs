@@ -197,6 +197,7 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
             return;
         }
 
+        Exception? stopException = null;
         try
         {
             streamToStop.Stop();
@@ -208,18 +209,43 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
         }
         catch (Exception ex)
         {
+            stopException = ex;
             ClearQueuedSamples();
             _diagnostics.Report(
                 SpeechDiagnosticLevel.Error,
                 DiagnosticsCategory,
                 $"Failed to stop PortAudio playback on '{_resolvedDevice.Name}': {ex.Message}");
+        }
+
+        try
+        {
+            streamToStop.Dispose();
+        }
+        catch (Exception ex) when (stopException is null)
+        {
+            _diagnostics.Report(
+                SpeechDiagnosticLevel.Error,
+                DiagnosticsCategory,
+                $"Failed to dispose PortAudio playback stream on '{_resolvedDevice.Name}': {ex.Message}");
             throw new AudioDeviceUnavailableException(
                 $"Failed to stop playback on '{_resolvedDevice.Name}'.",
                 ex);
         }
-        finally
+        catch (Exception ex)
         {
-            streamToStop.Dispose();
+            _diagnostics.Report(
+                SpeechDiagnosticLevel.Error,
+                DiagnosticsCategory,
+                $"Failed to dispose PortAudio playback stream on '{_resolvedDevice.Name}' " +
+                "after a stop failure: " +
+                $"{ex.Message}");
+        }
+
+        if (stopException is not null)
+        {
+            throw new AudioDeviceUnavailableException(
+                $"Failed to stop playback on '{_resolvedDevice.Name}'.",
+                stopException);
         }
     }
 
