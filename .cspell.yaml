@@ -36,6 +36,7 @@ words:
   - weasyprint
   - netstandard
   - NTFS
+  - LOCALAPPDATA
   - yamlfix
   - onnx
   - ONNX

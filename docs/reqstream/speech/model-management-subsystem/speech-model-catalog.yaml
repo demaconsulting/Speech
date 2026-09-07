@@ -14,10 +14,11 @@ sections:
               - id: Speech-Models-SpeechModelCatalog-KnownModelsRegistry
                 title: >-
                   The SpeechModelCatalog class shall expose a compiled-in KnownModels registry
-                  containing all three of this library's real, production models
+                  containing all four of this library's real, production models
                   (SherpaOnnxZipformerEnRecognitionModel,
-                  SherpaOnnxNemotronStreamingEnRecognitionModel, and
-                  SherpaOnnxVitsLibriTtsEnglishSynthesisModel), and shall enumerate an empty
+                  SherpaOnnxNemotronStreamingEnRecognitionModel,
+                  SherpaOnnxVitsLibriTtsEnglishSynthesisModel, and
+                  SherpaOnnxKokoroEnglishSynthesisModel), and shall enumerate an empty
                   known-model list to an empty descriptor list without throwing.
                 justification: |
                   Phase 7a resolved the earlier "ship zero real model classes" limitation for
@@ -25,9 +26,11 @@ sections:
                   empty - by registering the library's first two concrete IRecognitionModel
                   implementations; Phase 7b completes the catalog by registering the library's
                   first concrete ISynthesisModel implementation, so every model role the library
-                  defines now has at least one shippable model. Enumeration must still never
-                  throw regardless of how many models are known, which the empty-list scenario
-                  continues to prove independently of KnownModels' own current contents.
+                  defines now has at least one shippable model. Phase 10 adds a second synthesis
+                  model, SherpaOnnxKokoroEnglishSynthesisModel, bringing the registry to four
+                  real models. Enumeration must still never throw regardless of how many models
+                  are known, which the empty-list scenario continues to prove independently of
+                  KnownModels' own current contents.
                 tests:
                   - SpeechModelCatalog_Enumerate_EmptyKnownModels_ReturnsEmptyList
                   - SpeechModelCatalog_KnownModels_ContainsAllFourRealModels

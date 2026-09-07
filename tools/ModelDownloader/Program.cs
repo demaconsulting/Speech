@@ -1,7 +1,9 @@
 using DemaConsulting.Speech.ModelManagementSubsystem;
 
-// CI-only bootstrap tool. Downloads one or more known models by id into the shared
-// %LocalAppData%\DemaConsulting.Speech\Models store, so tests that are otherwise
+// CI-only bootstrap tool. Downloads one or more known models by id into the shared, per-user
+// model store (Environment.SpecialFolder.LocalApplicationData\DemaConsulting.Speech\Models -
+// an OS-dependent path: %LOCALAPPDATA% on Windows, ~/.local/share on Linux, and
+// ~/Library/Application Support on macOS as of .NET 8), so tests that are otherwise
 // deliberately skipped when a real model is not installed (see the class-level remarks on
 // SherpaOnnxRecognitionEngineTests and SherpaOnnxRecognitionEngineAccuracyTests) can exercise
 // a real, downloaded model instead. Not part of the library's public surface, never packed or
@@ -17,30 +19,45 @@ var failed = false;
 
 foreach (var modelId in args)
 {
-    if (catalog.GetState(modelId) == SpeechModelState.Downloaded)
-    {
-        Console.WriteLine($"Model '{modelId}' is already installed - skipping download.");
-        continue;
-    }
-
-    Console.WriteLine($"Downloading model '{modelId}'...");
-    var lastReportedPercent = -1;
-    var progress = new Progress<SpeechModelDownloadProgress>(p =>
-    {
-        var percent = p.FractionComplete is { } fraction ? (int)(fraction * 100) : -1;
-        if (percent == lastReportedPercent)
-        {
-            return;
-        }
-
-        lastReportedPercent = percent;
-        Console.WriteLine(percent >= 0
-            ? $"  '{modelId}' file {p.FileIndex + 1}/{p.FileCount}: {percent}%"
-            : $"  '{modelId}' file {p.FileIndex + 1}/{p.FileCount}: {p.BytesTransferred:N0} bytes");
-    });
-
     try
     {
+        if (catalog.GetState(modelId) == SpeechModelState.Downloaded)
+        {
+            Console.WriteLine($"Model '{modelId}' is already installed - skipping download.");
+            continue;
+        }
+
+        Console.WriteLine($"Downloading model '{modelId}'...");
+        var lastReportedPercent = -1;
+        var lastReportedMegabytes = -1L;
+        var progress = new Progress<SpeechModelDownloadProgress>(p =>
+        {
+            if (p.FractionComplete is { } fraction)
+            {
+                var percent = (int)(fraction * 100);
+                if (percent == lastReportedPercent)
+                {
+                    return;
+                }
+
+                lastReportedPercent = percent;
+                Console.WriteLine($"  '{modelId}' file {p.FileIndex + 1}/{p.FileCount}: {percent}%");
+            }
+            else
+            {
+                // TotalBytes is unknown (no Content-Length reported), so report progress by
+                // whole megabytes transferred instead of a percentage, throttled the same way.
+                var megabytes = p.BytesTransferred / (1024 * 1024);
+                if (megabytes == lastReportedMegabytes)
+                {
+                    return;
+                }
+
+                lastReportedMegabytes = megabytes;
+                Console.WriteLine($"  '{modelId}' file {p.FileIndex + 1}/{p.FileCount}: {p.BytesTransferred:N0} bytes");
+            }
+        });
+
         var result = await catalog.DownloadAsync(modelId, progress).ConfigureAwait(false);
         if (result.Outcome == SpeechModelDownloadOutcome.Installed)
         {
