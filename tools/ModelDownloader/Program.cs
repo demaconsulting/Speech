@@ -88,11 +88,15 @@ foreach (var modelId in args)
             failed = true;
         }
     }
-    catch (Exception ex) when (ex is not OperationCanceledException)
+    catch (Exception ex)
     {
-        // Any failure for one model (bad id, network/IO error, checksum mismatch, etc.) must
-        // not abort the remaining requested models - report it and keep going, reflecting the
-        // overall failure in the tool's exit code instead.
+        // Any failure for one model (bad id, network/IO error, an HttpClient.Timeout expiring
+        // as a TaskCanceledException, checksum mismatch, etc.) must not abort the remaining
+        // requested models - report it and keep going, reflecting the overall failure in the
+        // tool's exit code instead. This tool never passes a CancellationToken to DownloadAsync,
+        // so there is no genuine caller-requested cancellation to let propagate here -
+        // TaskCanceledException (which derives from OperationCanceledException) only ever
+        // originates from the HttpClient timeout in this tool, not real cancellation.
         await Console.Error.WriteLineAsync($"Model '{modelId}' failed: {ex.Message}").ConfigureAwait(false);
         failed = true;
     }
