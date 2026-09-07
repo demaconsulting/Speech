@@ -121,12 +121,13 @@ that always throws.
 
 **Requirement coverage**: `SpeechDemo-Models-EmptyCatalogExplanation`.
 
-#### ModelCatalogViewModel_EmptyCatalogMessage_Read_ExplainsNoModelsAreShippedYet
+#### ModelCatalogViewModel_EmptyCatalogMessage_Read_ExplainsCatalogHasNoKnownModels
 
 **Scenario**: The empty-catalog message is read.
 
-**Expected**: It states that the library ships no downloadable models yet and that the list will
-populate automatically once it knows about any.
+**Expected**: It states that no speech models are currently known to this catalog (the honest
+reason for a host-supplied empty catalog), without claiming the library itself ships no
+downloadable models.
 
 **Requirement coverage**: `SpeechDemo-Models-EmptyCatalogExplanation`.
 
@@ -326,7 +327,7 @@ a bound row cannot go stale mid-download.
   `ModelCatalogViewModel_DownloadAsync_NullModel_DoesNothing`
 - **`SpeechDemo-Models-EmptyCatalogExplanation`**:
   `ModelCatalogViewModel_Constructor_EmptyCatalog_ReportsHonestEmptyState`,
-  `ModelCatalogViewModel_EmptyCatalogMessage_Read_ExplainsNoModelsAreShippedYet`
+  `ModelCatalogViewModel_EmptyCatalogMessage_Read_ExplainsCatalogHasNoKnownModels`
 - **`SpeechDemo-Models-InstallNotification`**:
   `ModelCatalogService_DownloadAsync_Installed_RaisesModelInstalledWithCorrectIdAndRole`,
   `ModelCatalogService_DownloadAsync_Failed_DoesNotRaiseModelInstalled`

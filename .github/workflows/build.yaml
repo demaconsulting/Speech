@@ -218,6 +218,18 @@ jobs:
         shell: bash
         run: echo "path=$HOME/.local/share/DemaConsulting.Speech/Models" >> "$GITHUB_OUTPUT"
 
+      # actions/cache reports a "path does not exist" validation error at save-time if this
+      # directory was never created (e.g. a genuine first-ever run before any model is
+      # downloaded into it) - pre-create it so a cache is always saved, even on a cache miss.
+      - name: Ensure speech model cache directory exists
+        shell: pwsh
+        env:
+          MODEL_CACHE_PATH: >-
+            ${{ steps.model-cache-path-windows.outputs.path ||
+            steps.model-cache-path-macos.outputs.path ||
+            steps.model-cache-path-linux.outputs.path }}
+        run: New-Item -ItemType Directory -Force -Path $env:MODEL_CACHE_PATH | Out-Null
+
       - name: Cache real speech models
         uses: actions/cache@v5
         with:
