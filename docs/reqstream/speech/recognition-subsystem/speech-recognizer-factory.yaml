@@ -37,6 +37,7 @@ sections:
                   - SpeechRecognizerFactory_Create_ModelNotInstalled_ReturnsUnavailableRecognizer
                   - SpeechRecognizerFactory_Create_CaptureDeviceUnavailable_ReturnsUnavailableRecognizer
                   - SpeechRecognizerFactory_Create_ModelRoleIsNotRecognition_ReturnsUnavailableRecognizer
+                  - SpeechRecognizerFactory_Create_WithStoreModelNotInstalled_ReturnsUnavailableRecognizer
 
               - id: Speech-Recognition-SpeechRecognizerFactory-EngineLoadFailureFallback
                 title: >-
@@ -50,3 +51,18 @@ sections:
                   corrupt model files must therefore not fail application start-up.
                 tests:
                   - SpeechRecognizerFactory_Create_EngineLoadFails_ReturnsUnavailableRecognizerAndDoesNotThrow
+
+              - id: Speech-Recognition-SpeechRecognizerFactory-ArgumentValidation
+                title: >-
+                  The SpeechRecognizerFactory class shall reject a null model, a null
+                  SpeechModelStore, or a null capture device.
+                justification: |
+                  A null model, store, or capture device is a programming error at the call site,
+                  not an ordinary "unavailable" machine state, and must fail immediately with a
+                  clear exception rather than being silently treated as unavailable.
+                tests:
+                  - SpeechRecognizerFactory_Create_NullModel_ThrowsArgumentNullException
+                  - SpeechRecognizerFactory_Create_NullCaptureDevice_ThrowsArgumentNullException
+                  - SpeechRecognizerFactory_Create_WithStoreNullModel_ThrowsArgumentNullException
+                  - SpeechRecognizerFactory_Create_WithStoreNullStore_ThrowsArgumentNullException
+                  - SpeechRecognizerFactory_Create_WithStoreNullCaptureDevice_ThrowsArgumentNullException

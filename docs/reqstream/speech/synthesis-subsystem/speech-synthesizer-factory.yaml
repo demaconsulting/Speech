@@ -39,6 +39,7 @@ sections:
                   - SpeechSynthesizerFactory_Create_ModelNotInstalled_ReturnsUnavailableSynthesizer
                   - SpeechSynthesizerFactory_Create_PlaybackDeviceUnavailable_ReturnsUnavailableSynthesizer
                   - SpeechSynthesizerFactory_Create_ModelRoleIsNotSynthesis_ReturnsUnavailableSynthesizer
+                  - SpeechSynthesizerFactory_Create_WithStoreModelNotInstalled_ReturnsUnavailableSynthesizer
 
               - id: Speech-Synthesis-SpeechSynthesizerFactory-EngineLoadFailureFallback
                 title: >-
@@ -55,15 +56,18 @@ sections:
 
               - id: Speech-Synthesis-SpeechSynthesizerFactory-ArgumentValidation
                 title: >-
-                  The SpeechSynthesizerFactory class shall reject a null model or a null playback
-                  device.
+                  The SpeechSynthesizerFactory class shall reject a null model, a null
+                  SpeechModelStore, or a null playback device.
                 justification: |
-                  A null model or playback device is a programming error at the call site, not an
-                  ordinary "unavailable" machine state, and must fail immediately with a clear
-                  exception rather than being silently treated as unavailable.
+                  A null model, store, or playback device is a programming error at the call
+                  site, not an ordinary "unavailable" machine state, and must fail immediately
+                  with a clear exception rather than being silently treated as unavailable.
                 tests:
                   - SpeechSynthesizerFactory_Create_NullModel_ThrowsArgumentNullException
                   - SpeechSynthesizerFactory_Create_NullPlaybackDevice_ThrowsArgumentNullException
+                  - SpeechSynthesizerFactory_Create_WithStoreNullModel_ThrowsArgumentNullException
+                  - SpeechSynthesizerFactory_Create_WithStoreNullStore_ThrowsArgumentNullException
+                  - SpeechSynthesizerFactory_Create_WithStoreNullPlaybackDevice_ThrowsArgumentNullException
 
               - id: Speech-Synthesis-SpeechSynthesizerFactory-ParameterValuesForwarding
                 title: >-
