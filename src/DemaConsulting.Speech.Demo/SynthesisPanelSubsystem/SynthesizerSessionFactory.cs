@@ -12,7 +12,7 @@ namespace DemaConsulting.Speech.Demo.SynthesisPanelSubsystem;
 ///     This adapter resolves the model's installed-files directory from the shared
 ///     <see cref="SpeechModelStore"/>, narrows <see cref="ISpeechModel"/> to the
 ///     <see cref="ISynthesisModel"/> the library's factory requires, and forwards to
-///     <see cref="SpeechSynthesizerFactory.Create(ISynthesisModel,string,IAudioPlaybackDevice,Diagnostics.ISpeechDiagnostics?,System.Collections.Generic.IReadOnlyDictionary{string,object}?)"/>,
+///     <see cref="SpeechSynthesizerFactory.Create(ISynthesisModel,SpeechModelStore,IAudioPlaybackDevice,Diagnostics.ISpeechDiagnostics?,System.Collections.Generic.IReadOnlyDictionary{string,object}?)"/>,
 ///     inheriting that factory's "nothing throws at composition" contract. A model that declares
 ///     a role other than synthesis (and therefore is not an <see cref="ISynthesisModel"/>) is an
 ///     honest unavailable outcome, exactly like a model that is not installed, rather than a
@@ -50,7 +50,6 @@ public sealed class SynthesizerSessionFactory : ISynthesizerSessionFactory
             return UnavailableSpeechSynthesizer.Instance;
         }
 
-        var installedModelDirectory = _store.GetCurrentDirectory(model.Id);
-        return SpeechSynthesizerFactory.Create(synthesisModel, installedModelDirectory, playbackDevice, parameterValues: parameterValues);
+        return SpeechSynthesizerFactory.Create(synthesisModel, _store, playbackDevice, parameterValues: parameterValues);
     }
 }

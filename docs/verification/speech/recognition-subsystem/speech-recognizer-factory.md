@@ -6,7 +6,10 @@
 `IRecognitionEngineFactory`, so every composition branch can be exercised without a downloaded
 model or a native speech-inference runtime. Model installation is simulated with a real scratch
 directory created and removed per test instance, so the "is it installed?" check is exercised
-against the file system rather than a mock. Capture-device availability is supplied by an
+against the file system rather than a mock. The store-based overload is verified against a real
+`SpeechModelStore` rooted at a second scratch directory (via `SpeechModelStoreOptions
+.RootPathOverride`), not a mock, proving the installed-model directory is genuinely resolved
+through the store rather than hard-coded. Capture-device availability is supplied by an
 NSubstitute `IAudioCaptureDevice` and by the shared unavailable capture device. Diagnostics are
 verified with an NSubstitute sink where the reported reason matters.
 

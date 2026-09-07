@@ -174,18 +174,21 @@ unchanged.
 
 #### Composition: Real Synthesizer for an Installed Model and Available Device
 
-**Tests**: `SpeechSynthesizerFactory_Create_ModelInstalledAndDeviceAvailable_ReturnsRealSynthesizer`
+**Tests**: `SpeechSynthesizerFactory_Create_ModelInstalledAndDeviceAvailable_ReturnsRealSynthesizer`,
+`SpeechSynthesizerFactory_Create_WithStoreModelInstalledAndDeviceAvailable_ReturnsRealSynthesizer`
 
 Verifies that an installed synthesis model plus an available playback device composes a real
 synthesizer wired to the injected engine factory, with the installed-model directory passed
-through unchanged.
+through unchanged, whether that directory is supplied directly as a `string` or resolved from a
+`SpeechModelStore`.
 
 #### Composition: Honest Fallback for Every Unavailable State
 
 **Tests**: `SpeechSynthesizerFactory_Create_ModelNotInstalled_ReturnsUnavailableSynthesizer`,
 `SpeechSynthesizerFactory_Create_PlaybackDeviceUnavailable_ReturnsUnavailableSynthesizer`,
 `SpeechSynthesizerFactory_Create_ModelRoleIsNotSynthesis_ReturnsUnavailableSynthesizer`,
-`SpeechSynthesizerFactory_Create_EngineLoadFails_ReturnsUnavailableSynthesizerAndDoesNotThrow`
+`SpeechSynthesizerFactory_Create_EngineLoadFails_ReturnsUnavailableSynthesizerAndDoesNotThrow`,
+`SpeechSynthesizerFactory_Create_WithStoreModelNotInstalled_ReturnsUnavailableSynthesizer`
 
 Verifies that a missing model, an unavailable device, a wrong-role model, and a failed engine
 load all degrade to the shared unavailable synthesizer without throwing.
@@ -193,10 +196,13 @@ load all degrade to the shared unavailable synthesizer without throwing.
 #### Composition: Null Arguments Are Programming Errors
 
 **Tests**: `SpeechSynthesizerFactory_Create_NullModel_ThrowsArgumentNullException`,
-`SpeechSynthesizerFactory_Create_NullPlaybackDevice_ThrowsArgumentNullException`
+`SpeechSynthesizerFactory_Create_NullPlaybackDevice_ThrowsArgumentNullException`,
+`SpeechSynthesizerFactory_Create_WithStoreNullModel_ThrowsArgumentNullException`,
+`SpeechSynthesizerFactory_Create_WithStoreNullStore_ThrowsArgumentNullException`,
+`SpeechSynthesizerFactory_Create_WithStoreNullPlaybackDevice_ThrowsArgumentNullException`
 
-Verifies that a null model or playback device throws, distinguishing a programming error from an
-ordinary machine state.
+Verifies that a null model, playback device, or store throws, distinguishing a programming error
+from an ordinary machine state.
 
 #### Composition: Voice Selection Value Bag Forwarding
 

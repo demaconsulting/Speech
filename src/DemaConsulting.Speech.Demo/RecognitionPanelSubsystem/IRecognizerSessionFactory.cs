@@ -9,7 +9,7 @@ namespace DemaConsulting.Speech.Demo.RecognitionPanelSubsystem;
 /// </summary>
 /// <remarks>
 ///     The library exposes recognizer composition through the static
-///     <see cref="SpeechRecognizerFactory.Create(IRecognitionModel,string,IAudioCaptureDevice,Diagnostics.ISpeechDiagnostics?)"/>
+///     <see cref="SpeechRecognizerFactory.Create(IRecognitionModel,SpeechModelStore,IAudioCaptureDevice,Diagnostics.ISpeechDiagnostics?)"/>
 ///     method, which requires an <see cref="IRecognitionModel"/> - an interface whose members are
 ///     partly <see langword="internal"/> to the library, so only the library's own assemblies can
 ///     implement it. This seam therefore accepts the common <see cref="ISpeechModel"/> contract

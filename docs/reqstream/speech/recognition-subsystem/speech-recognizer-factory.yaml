@@ -22,6 +22,7 @@ sections:
                   model installation, device availability, and engine loading separately.
                 tests:
                   - SpeechRecognizerFactory_Create_ModelInstalledAndDeviceAvailable_ReturnsRealRecognizer
+                  - SpeechRecognizerFactory_Create_WithStoreModelInstalledAndDeviceAvailable_ReturnsRealRecognizer
 
               - id: Speech-Recognition-SpeechRecognizerFactory-HonestFallbacks
                 title: >-

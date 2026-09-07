@@ -192,15 +192,31 @@ using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.RecognitionSubsystem;
 
+// 1. The catalog is the library's only "what models exist" entry point - nothing below names a
+//    concrete model class, so new models added in a future release show up automatically.
+using var catalog = new SpeechModelCatalog();
 var store = new SpeechModelStore();
+
+// 2. Pick a recognition model. Any model with the recognition role will do - this is the
+//    idiomatic pattern for an app that just wants "a" speech-to-text model:
+var descriptor = catalog.Enumerate().First(d => d.Role == SpeechModelRole.Recognition);
+// To pick a *specific* model when more than one of the same role is installed, match on name
+// instead: catalog.Enumerate().First(d => d.DisplayName.Contains("Zipformer"));
+var model = (IRecognitionModel)descriptor.Model;
+
+// 3. Ensure the chosen model is downloaded before first use.
+if (descriptor.State != SpeechModelState.Downloaded)
+{
+    await catalog.DownloadAsync(model.Id);
+}
+
+// 4. Create a capture device matching the model's own required audio format.
 var captureDevice = new AudioDeviceFactory().CreateCaptureDevice(
     AudioDeviceSelection.SystemDefault,
     model.AudioFormat);
 
-using var recognizer = SpeechRecognizerFactory.Create(
-    model,                                          // an installed IRecognitionModel
-    store.GetCurrentDirectory(model.Id),
-    captureDevice);
+// 5. Compose the recognizer and stream recognized text as it arrives.
+using var recognizer = SpeechRecognizerFactory.Create(model, store, captureDevice);
 
 if (recognizer.IsAvailable)
 {
@@ -308,15 +324,31 @@ using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.SynthesisSubsystem;
 
+// 1. The catalog is the library's only "what models exist" entry point - nothing below names a
+//    concrete model class, so new models added in a future release show up automatically.
+using var catalog = new SpeechModelCatalog();
 var store = new SpeechModelStore();
+
+// 2. Pick a synthesis model. Any model with the synthesis role will do - this is the idiomatic
+//    pattern for an app that just wants "a" text-to-speech model:
+var descriptor = catalog.Enumerate().First(d => d.Role == SpeechModelRole.Synthesis);
+// To pick a *specific* model when more than one of the same role is installed, match on name
+// instead: catalog.Enumerate().First(d => d.DisplayName.Contains("Kokoro"));
+var model = (ISynthesisModel)descriptor.Model;
+
+// 3. Ensure the chosen model is downloaded before first use.
+if (descriptor.State != SpeechModelState.Downloaded)
+{
+    await catalog.DownloadAsync(model.Id);
+}
+
+// 4. Create a playback device matching the model's own preferred audio format hint.
 var playbackDevice = new AudioDeviceFactory().CreatePlaybackDevice(
     AudioDeviceSelection.SystemDefault,
     model.PreferredAudioFormat);
 
-using var synthesizer = SpeechSynthesizerFactory.Create(
-    model,                                          // an installed ISynthesisModel
-    store.GetCurrentDirectory(model.Id),
-    playbackDevice);
+// 5. Compose the synthesizer and speak.
+using var synthesizer = SpeechSynthesizerFactory.Create(model, store, playbackDevice);
 
 if (synthesizer.IsAvailable)
 {
@@ -333,7 +365,7 @@ non-default value:
 ```csharp
 using var synthesizer = SpeechSynthesizerFactory.Create(
     model,
-    store.GetCurrentDirectory(model.Id),
+    store,
     playbackDevice,
     parameterValues: new Dictionary<string, object> { ["voice"] = "bm_george" });
 ```
@@ -444,12 +476,12 @@ var playbackDevice = audioFactory.CreatePlaybackDevice(
 // 4. Compose the recognizer and synthesizer over the resolved models and devices.
 using var recognizer = SpeechRecognizerFactory.Create(
     recognitionModel,
-    store.GetCurrentDirectory(recognitionModelId),
+    store,
     captureDevice);
 
 using var synthesizer = SpeechSynthesizerFactory.Create(
     synthesisModel,
-    store.GetCurrentDirectory(synthesisModelId),
+    store,
     playbackDevice);
 
 if (!recognizer.IsAvailable || !synthesizer.IsAvailable)

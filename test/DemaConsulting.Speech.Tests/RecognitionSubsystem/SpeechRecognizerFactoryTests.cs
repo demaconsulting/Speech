@@ -25,10 +25,29 @@ public sealed class SpeechRecognizerFactoryTests : IDisposable
         Guid.NewGuid().ToString("N"));
 
     /// <summary>
+    ///     A scratch root directory for a real <see cref="SpeechModelStore"/>, created per test
+    ///     instance and removed on disposal.
+    /// </summary>
+    private readonly string _storeRoot = Path.Combine(
+        Path.GetTempPath(),
+        "DemaConsulting.Speech.Tests",
+        Guid.NewGuid().ToString("N"));
+
+    /// <summary>
+    ///     A real <see cref="SpeechModelStore"/> rooted at <see cref="_storeRoot"/>, used to
+    ///     exercise store-based directory resolution rather than a mock.
+    /// </summary>
+    private readonly SpeechModelStore _store;
+
+    /// <summary>
     ///     Initializes a new instance of the <see cref="SpeechRecognizerFactoryTests"/> class,
     ///     creating the scratch installed-model directory the "installed" cases require.
     /// </summary>
-    public SpeechRecognizerFactoryTests() => Directory.CreateDirectory(_installedModelDirectory);
+    public SpeechRecognizerFactoryTests()
+    {
+        Directory.CreateDirectory(_installedModelDirectory);
+        _store = new SpeechModelStore(new SpeechModelStoreOptions { RootPathOverride = _storeRoot });
+    }
 
     /// <summary>Removes the scratch installed-model directory.</summary>
     public void Dispose()
@@ -38,6 +57,11 @@ public sealed class SpeechRecognizerFactoryTests : IDisposable
             if (Directory.Exists(_installedModelDirectory))
             {
                 Directory.Delete(_installedModelDirectory, recursive: true);
+            }
+
+            if (Directory.Exists(_storeRoot))
+            {
+                Directory.Delete(_storeRoot, recursive: true);
             }
         }
         catch (IOException)
@@ -186,6 +210,89 @@ public sealed class SpeechRecognizerFactoryTests : IDisposable
         // Act & Assert: a null capture device is rejected
         Assert.Throws<ArgumentNullException>(
             () => SpeechRecognizerFactory.Create(new FakeRecognitionModel(), _installedModelDirectory, null!));
+    }
+
+    /// <summary>
+    ///     Proves that a model not yet installed in the store composes to the honest unavailable
+    ///     recognizer, and that the engine is never loaded.
+    /// </summary>
+    [Fact]
+    public void SpeechRecognizerFactory_Create_WithStoreModelNotInstalled_ReturnsUnavailableRecognizer()
+    {
+        // Arrange: an available capture device and a store with no installed model directory
+        var captureDevice = CreateAvailableCaptureDevice();
+        var engineFactory = new FakeRecognitionEngineFactory();
+        var model = new FakeRecognitionModel();
+
+        // Act: compose against the store, which resolves to a directory that does not exist
+        var recognizer = SpeechRecognizerFactory.Create(model, _store, captureDevice, null, engineFactory);
+
+        // Assert: the honest fallback is returned and no engine was loaded
+        Assert.Same(UnavailableSpeechRecognizer.Instance, recognizer);
+        Assert.Equal(0, engineFactory.CreateCallCount);
+    }
+
+    /// <summary>
+    ///     Proves that an installed recognition model plus an available capture device composes a
+    ///     real recognizer wired to the injected engine factory, with the directory resolved
+    ///     through the store rather than hard-coded.
+    /// </summary>
+    [Fact]
+    public void SpeechRecognizerFactory_Create_WithStoreModelInstalledAndDeviceAvailable_ReturnsRealRecognizer()
+    {
+        // Arrange: a model installed via the store, an available device, and a fake engine factory
+        var captureDevice = CreateAvailableCaptureDevice();
+        var engineFactory = new FakeRecognitionEngineFactory();
+        var model = new FakeRecognitionModel();
+        Directory.CreateDirectory(_store.GetCurrentDirectory(model.Id));
+
+        // Act: compose a recognizer through the store overload
+        using var recognizer = SpeechRecognizerFactory.Create(model, _store, captureDevice, null, engineFactory);
+
+        // Assert: a real recognizer was built, and the directory was resolved through the store
+        Assert.IsType<SherpaOnnxSpeechRecognizer>(recognizer);
+        Assert.Equal(1, engineFactory.CreateCallCount);
+        Assert.Equal(_store.GetCurrentDirectory(model.Id), engineFactory.RequestedInstalledModelDirectory);
+    }
+
+    /// <summary>
+    ///     Proves that the public store-based composition overload rejects a null model.
+    /// </summary>
+    [Fact]
+    public void SpeechRecognizerFactory_Create_WithStoreNullModel_ThrowsArgumentNullException()
+    {
+        // Arrange: an available capture device
+        var captureDevice = CreateAvailableCaptureDevice();
+
+        // Act & Assert: a null model is rejected
+        Assert.Throws<ArgumentNullException>(
+            () => SpeechRecognizerFactory.Create(null!, _store, captureDevice));
+    }
+
+    /// <summary>
+    ///     Proves that the public store-based composition overload rejects a null store.
+    /// </summary>
+    [Fact]
+    public void SpeechRecognizerFactory_Create_WithStoreNullStore_ThrowsArgumentNullException()
+    {
+        // Arrange: an available capture device
+        var captureDevice = CreateAvailableCaptureDevice();
+
+        // Act & Assert: a null store is rejected
+        Assert.Throws<ArgumentNullException>(
+            () => SpeechRecognizerFactory.Create(new FakeRecognitionModel(), (SpeechModelStore)null!, captureDevice));
+    }
+
+    /// <summary>
+    ///     Proves that the public store-based composition overload rejects a null capture device,
+    ///     confirming the delegation still reaches the string-overload's own null check.
+    /// </summary>
+    [Fact]
+    public void SpeechRecognizerFactory_Create_WithStoreNullCaptureDevice_ThrowsArgumentNullException()
+    {
+        // Act & Assert: a null capture device is rejected
+        Assert.Throws<ArgumentNullException>(
+            () => SpeechRecognizerFactory.Create(new FakeRecognitionModel(), _store, null!));
     }
 
     /// <summary>

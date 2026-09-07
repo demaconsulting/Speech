@@ -25,10 +25,29 @@ public sealed class SpeechSynthesizerFactoryTests : IDisposable
         Guid.NewGuid().ToString("N"));
 
     /// <summary>
+    ///     A scratch root directory for a real <see cref="SpeechModelStore"/>, created per test
+    ///     instance and removed on disposal.
+    /// </summary>
+    private readonly string _storeRoot = Path.Combine(
+        Path.GetTempPath(),
+        "DemaConsulting.Speech.Tests",
+        Guid.NewGuid().ToString("N"));
+
+    /// <summary>
+    ///     A real <see cref="SpeechModelStore"/> rooted at <see cref="_storeRoot"/>, used to
+    ///     exercise store-based directory resolution rather than a mock.
+    /// </summary>
+    private readonly SpeechModelStore _store;
+
+    /// <summary>
     ///     Initializes a new instance of the <see cref="SpeechSynthesizerFactoryTests"/> class,
     ///     creating the scratch installed-model directory the "installed" cases require.
     /// </summary>
-    public SpeechSynthesizerFactoryTests() => Directory.CreateDirectory(_installedModelDirectory);
+    public SpeechSynthesizerFactoryTests()
+    {
+        Directory.CreateDirectory(_installedModelDirectory);
+        _store = new SpeechModelStore(new SpeechModelStoreOptions { RootPathOverride = _storeRoot });
+    }
 
     /// <summary>Removes the scratch installed-model directory.</summary>
     public void Dispose()
@@ -38,6 +57,11 @@ public sealed class SpeechSynthesizerFactoryTests : IDisposable
             if (Directory.Exists(_installedModelDirectory))
             {
                 Directory.Delete(_installedModelDirectory, recursive: true);
+            }
+
+            if (Directory.Exists(_storeRoot))
+            {
+                Directory.Delete(_storeRoot, recursive: true);
             }
         }
         catch (IOException)
@@ -214,6 +238,89 @@ public sealed class SpeechSynthesizerFactoryTests : IDisposable
         // Assert
         var call = Assert.Single(engineFactory.Engine.GenerateCalls);
         Assert.Equal(4, call.SpeakerId);
+    }
+
+    /// <summary>
+    ///     Proves that a model not yet installed in the store composes to the honest unavailable
+    ///     synthesizer, and that the engine is never loaded.
+    /// </summary>
+    [Fact]
+    public void SpeechSynthesizerFactory_Create_WithStoreModelNotInstalled_ReturnsUnavailableSynthesizer()
+    {
+        // Arrange: an available playback device and a store with no installed model directory
+        var playbackDevice = CreateAvailablePlaybackDevice();
+        var engineFactory = new FakeSynthesisEngineFactory();
+        var model = new FakeSynthesisModel();
+
+        // Act: compose against the store, which resolves to a directory that does not exist
+        var synthesizer = SpeechSynthesizerFactory.Create(model, _store, playbackDevice, null, engineFactory);
+
+        // Assert: the honest fallback is returned and no engine was loaded
+        Assert.Same(UnavailableSpeechSynthesizer.Instance, synthesizer);
+        Assert.Equal(0, engineFactory.CreateCallCount);
+    }
+
+    /// <summary>
+    ///     Proves that an installed synthesis model plus an available playback device composes a
+    ///     real synthesizer wired to the injected engine factory, with the directory resolved
+    ///     through the store rather than hard-coded.
+    /// </summary>
+    [Fact]
+    public void SpeechSynthesizerFactory_Create_WithStoreModelInstalledAndDeviceAvailable_ReturnsRealSynthesizer()
+    {
+        // Arrange: a model installed via the store, an available device, and a fake engine factory
+        var playbackDevice = CreateAvailablePlaybackDevice();
+        var engineFactory = new FakeSynthesisEngineFactory();
+        var model = new FakeSynthesisModel();
+        Directory.CreateDirectory(_store.GetCurrentDirectory(model.Id));
+
+        // Act: compose a synthesizer through the store overload
+        using var synthesizer = SpeechSynthesizerFactory.Create(model, _store, playbackDevice, null, engineFactory);
+
+        // Assert: a real synthesizer was built, and the directory was resolved through the store
+        Assert.IsType<SherpaOnnxSpeechSynthesizer>(synthesizer);
+        Assert.Equal(1, engineFactory.CreateCallCount);
+        Assert.Equal(_store.GetCurrentDirectory(model.Id), engineFactory.RequestedInstalledModelDirectory);
+    }
+
+    /// <summary>
+    ///     Proves that the public store-based composition overload rejects a null model.
+    /// </summary>
+    [Fact]
+    public void SpeechSynthesizerFactory_Create_WithStoreNullModel_ThrowsArgumentNullException()
+    {
+        // Arrange: an available playback device
+        var playbackDevice = CreateAvailablePlaybackDevice();
+
+        // Act & Assert: a null model is rejected
+        Assert.Throws<ArgumentNullException>(
+            () => SpeechSynthesizerFactory.Create(null!, _store, playbackDevice));
+    }
+
+    /// <summary>
+    ///     Proves that the public store-based composition overload rejects a null store.
+    /// </summary>
+    [Fact]
+    public void SpeechSynthesizerFactory_Create_WithStoreNullStore_ThrowsArgumentNullException()
+    {
+        // Arrange: an available playback device
+        var playbackDevice = CreateAvailablePlaybackDevice();
+
+        // Act & Assert: a null store is rejected
+        Assert.Throws<ArgumentNullException>(
+            () => SpeechSynthesizerFactory.Create(new FakeSynthesisModel(), (SpeechModelStore)null!, playbackDevice));
+    }
+
+    /// <summary>
+    ///     Proves that the public store-based composition overload rejects a null playback
+    ///     device, confirming the delegation still reaches the string-overload's own null check.
+    /// </summary>
+    [Fact]
+    public void SpeechSynthesizerFactory_Create_WithStoreNullPlaybackDevice_ThrowsArgumentNullException()
+    {
+        // Act & Assert: a null playback device is rejected
+        Assert.Throws<ArgumentNullException>(
+            () => SpeechSynthesizerFactory.Create(new FakeSynthesisModel(), _store, null!));
     }
 
     /// <summary>

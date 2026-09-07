@@ -9,7 +9,7 @@ namespace DemaConsulting.Speech.Demo.SynthesisPanelSubsystem;
 /// </summary>
 /// <remarks>
 ///     The library exposes synthesizer composition through the static
-///     <see cref="SpeechSynthesizerFactory.Create(ISynthesisModel,string,IAudioPlaybackDevice,Diagnostics.ISpeechDiagnostics?,System.Collections.Generic.IReadOnlyDictionary{string,object}?)"/>
+///     <see cref="SpeechSynthesizerFactory.Create(ISynthesisModel,SpeechModelStore,IAudioPlaybackDevice,Diagnostics.ISpeechDiagnostics?,System.Collections.Generic.IReadOnlyDictionary{string,object}?)"/>
 ///     method, which requires an <see cref="ISynthesisModel"/> - an interface whose members are
 ///     partly <see langword="internal"/> to the library, so only the library's own assemblies can
 ///     implement it. This seam therefore accepts the common <see cref="ISpeechModel"/> contract

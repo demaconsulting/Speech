@@ -23,6 +23,7 @@ sections:
                   installation, device availability, and engine loading separately.
                 tests:
                   - SpeechSynthesizerFactory_Create_ModelInstalledAndDeviceAvailable_ReturnsRealSynthesizer
+                  - SpeechSynthesizerFactory_Create_WithStoreModelInstalledAndDeviceAvailable_ReturnsRealSynthesizer
 
               - id: Speech-Synthesis-SpeechSynthesizerFactory-HonestFallbacks
                 title: >-

@@ -48,18 +48,21 @@ A RecognitionSubsystem test run passes when:
 
 #### Composition: Real Recognizer for an Installed Model and Available Device
 
-**Tests**: `SpeechRecognizerFactory_Create_ModelInstalledAndDeviceAvailable_ReturnsRealRecognizer`
+**Tests**: `SpeechRecognizerFactory_Create_ModelInstalledAndDeviceAvailable_ReturnsRealRecognizer`,
+`SpeechRecognizerFactory_Create_WithStoreModelInstalledAndDeviceAvailable_ReturnsRealRecognizer`
 
 Verifies that an installed recognition model plus an available capture device composes a real
 recognizer wired to the injected engine factory, with the installed-model directory passed
-through unchanged.
+through unchanged, whether that directory is supplied directly as a `string` or resolved from a
+`SpeechModelStore`.
 
 #### Composition: Honest Fallback for Every Unavailable State
 
 **Tests**: `SpeechRecognizerFactory_Create_ModelNotInstalled_ReturnsUnavailableRecognizer`,
 `SpeechRecognizerFactory_Create_CaptureDeviceUnavailable_ReturnsUnavailableRecognizer`,
 `SpeechRecognizerFactory_Create_ModelRoleIsNotRecognition_ReturnsUnavailableRecognizer`,
-`SpeechRecognizerFactory_Create_EngineLoadFails_ReturnsUnavailableRecognizerAndDoesNotThrow`
+`SpeechRecognizerFactory_Create_EngineLoadFails_ReturnsUnavailableRecognizerAndDoesNotThrow`,
+`SpeechRecognizerFactory_Create_WithStoreModelNotInstalled_ReturnsUnavailableRecognizer`
 
 Verifies that a missing model, an unavailable device, a wrong-role model, and a failed engine
 load all degrade to the shared unavailable recognizer without throwing, and that no engine is
@@ -68,10 +71,13 @@ loaded when an earlier check already failed.
 #### Composition: Null Arguments Are Programming Errors
 
 **Tests**: `SpeechRecognizerFactory_Create_NullModel_ThrowsArgumentNullException`,
-`SpeechRecognizerFactory_Create_NullCaptureDevice_ThrowsArgumentNullException`
+`SpeechRecognizerFactory_Create_NullCaptureDevice_ThrowsArgumentNullException`,
+`SpeechRecognizerFactory_Create_WithStoreNullModel_ThrowsArgumentNullException`,
+`SpeechRecognizerFactory_Create_WithStoreNullStore_ThrowsArgumentNullException`,
+`SpeechRecognizerFactory_Create_WithStoreNullCaptureDevice_ThrowsArgumentNullException`
 
-Verifies that a null model or capture device throws, distinguishing a programming error from an
-ordinary machine state.
+Verifies that a null model, capture device, or store throws, distinguishing a programming error
+from an ordinary machine state.
 
 #### Pipeline: Capture Format Conversion
 
