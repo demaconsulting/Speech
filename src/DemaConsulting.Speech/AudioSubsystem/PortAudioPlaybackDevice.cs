@@ -228,7 +228,7 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
                     DiagnosticsCategory,
                     $"Failed to dispose PortAudio playback stream on '{_resolvedDevice.Name}': {ex.Message}");
                 throw new AudioDeviceUnavailableException(
-                    $"Failed to stop playback on '{_resolvedDevice.Name}'.",
+                    $"Failed to dispose playback stream on '{_resolvedDevice.Name}' after stopping it.",
                     ex);
             }
             catch (Exception ex)

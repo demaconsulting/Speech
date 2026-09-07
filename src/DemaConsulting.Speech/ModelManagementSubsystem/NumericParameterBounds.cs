@@ -3,9 +3,8 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 /// <summary>
 ///     Bundles the four numeric bounds required to construct a <see cref="NumericParameter"/>
 ///     (<see cref="Minimum"/>, <see cref="Maximum"/>, <see cref="Step"/>, and
-///     <see cref="Default"/>) into a single value, keeping
-///     <see cref="NumericParameter(string, string, string, NumericParameterBounds, string?, bool)"/>'s
-///     parameter count small. <see cref="NumericParameter"/> still validates and exposes these
+///     <see cref="Default"/>) into a single value, keeping <see cref="NumericParameter"/>'s
+///     constructor parameter count small. <see cref="NumericParameter"/> still validates and exposes these
 ///     four values as its own individual properties; this type exists only to group the
 ///     constructor arguments.
 /// </summary>

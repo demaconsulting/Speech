@@ -214,7 +214,7 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
                     DiagnosticsCategory,
                     $"Failed to dispose PortAudio capture stream on '{_resolvedDevice.Name}': {ex.Message}");
                 throw new AudioDeviceUnavailableException(
-                    $"Failed to stop capture on '{_resolvedDevice.Name}'.",
+                    $"Failed to dispose capture stream on '{_resolvedDevice.Name}' after stopping it.",
                     ex);
             }
             catch (Exception ex)
