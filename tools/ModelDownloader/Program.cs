@@ -54,7 +54,7 @@ foreach (var modelId in args)
                 }
 
                 lastReportedMegabytes = megabytes;
-                Console.WriteLine($"  '{modelId}' file {p.FileIndex + 1}/{p.FileCount}: {p.BytesTransferred:N0} bytes");
+                Console.WriteLine($"  '{modelId}' file {p.FileIndex + 1}/{p.FileCount}: {megabytes:N0} MB");
             }
         });
 
