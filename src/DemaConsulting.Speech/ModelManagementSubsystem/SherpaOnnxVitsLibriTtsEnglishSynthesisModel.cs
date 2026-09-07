@@ -162,10 +162,7 @@ public sealed class SherpaOnnxVitsLibriTtsEnglishSynthesisModel : ISynthesisMode
             "Selects one of this model's 904 speaker embeddings by plain numeric index " +
             "(0-903). LibriTTS-R's speaker embeddings have no published human-readable name " +
             "mapping, so speakers are identified only by their numeric id.",
-            MinSpeakerId,
-            MaxSpeakerId,
-            1,
-            DefaultSpeakerId,
+            new NumericParameterBounds(MinSpeakerId, MaxSpeakerId, 1, DefaultSpeakerId),
             isInteger: true),
     ];
 

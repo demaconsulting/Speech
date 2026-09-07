@@ -22,6 +22,11 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
     internal const uint FramesPerBuffer = 0;
 
     /// <summary>
+    ///     The diagnostics category reported for every event raised by this class.
+    /// </summary>
+    private const string DiagnosticsCategory = "AudioSubsystem";
+
+    /// <summary>
     ///     Initializes a new instance of the <see cref="PortAudioCaptureDevice"/> class.
     /// </summary>
     /// <param name="environment">
@@ -141,7 +146,7 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
                 _stream.Start();
                 _diagnostics.Report(
                     SpeechDiagnosticLevel.Info,
-                    "AudioSubsystem",
+                    DiagnosticsCategory,
                     $"Started PortAudio capture on '{_resolvedDevice.Name}'.");
             }
             catch (Exception ex)
@@ -150,7 +155,7 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
                 _stream = null;
                 _diagnostics.Report(
                     SpeechDiagnosticLevel.Error,
-                    "AudioSubsystem",
+                    DiagnosticsCategory,
                     $"Failed to start PortAudio capture on '{_resolvedDevice.Name}': {ex.Message}");
                 throw new AudioDeviceUnavailableException(
                     $"Failed to start capture on '{_resolvedDevice.Name}'.",
@@ -183,22 +188,24 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
         try
         {
             streamToStop.Stop();
-            streamToStop.Dispose();
             _diagnostics.Report(
                 SpeechDiagnosticLevel.Info,
-                "AudioSubsystem",
+                DiagnosticsCategory,
                 $"Stopped PortAudio capture on '{_resolvedDevice.Name}'.");
         }
         catch (Exception ex)
         {
-            streamToStop.Dispose();
             _diagnostics.Report(
                 SpeechDiagnosticLevel.Error,
-                "AudioSubsystem",
+                DiagnosticsCategory,
                 $"Failed to stop PortAudio capture on '{_resolvedDevice.Name}': {ex.Message}");
             throw new AudioDeviceUnavailableException(
                 $"Failed to stop capture on '{_resolvedDevice.Name}'.",
                 ex);
+        }
+        finally
+        {
+            streamToStop.Dispose();
         }
     }
 
@@ -215,7 +222,7 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
         {
             _diagnostics.Report(
                 SpeechDiagnosticLevel.Warning,
-                "AudioSubsystem",
+                DiagnosticsCategory,
                 "PortAudio capture device resolution is unavailable because the preferred host API could not be resolved.");
             return null;
         }
@@ -242,7 +249,7 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
         {
             _diagnostics.Report(
                 SpeechDiagnosticLevel.Warning,
-                "AudioSubsystem",
+                DiagnosticsCategory,
                 "No PortAudio capture device matched the requested selection or host-API default.");
             return null;
         }
@@ -252,7 +259,7 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
             : "host API default";
         _diagnostics.Report(
             SpeechDiagnosticLevel.Info,
-            "AudioSubsystem",
+            DiagnosticsCategory,
             $"Resolved PortAudio capture device '{selectedDevice.Name}' via {resolutionBasis}.");
         return selectedDevice;
     }
@@ -305,7 +312,7 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
         {
             _diagnostics.Report(
                 SpeechDiagnosticLevel.Info,
-                "AudioSubsystem",
+                DiagnosticsCategory,
                 $"Clamped preferred capture channel count {_preferredFormat.ChannelCount} to device capability {maxInputChannels}.");
         }
 
@@ -328,7 +335,7 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
         {
             _diagnostics.Report(
                 SpeechDiagnosticLevel.Error,
-                "AudioSubsystem",
+                DiagnosticsCategory,
                 $"An audio capture callback handler failed on '{_resolvedDevice?.Name}': {ex.Message}");
             throw;
         }

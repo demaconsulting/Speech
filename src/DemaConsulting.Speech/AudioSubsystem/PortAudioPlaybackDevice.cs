@@ -22,6 +22,11 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
     internal const uint FramesPerBuffer = 0;
 
     /// <summary>
+    ///     The diagnostics category reported for every event raised by this class.
+    /// </summary>
+    private const string DiagnosticsCategory = "AudioSubsystem";
+
+    /// <summary>
     ///     Initializes a new instance of the <see cref="PortAudioPlaybackDevice"/> class.
     /// </summary>
     /// <param name="environment">
@@ -152,7 +157,7 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
                 _stream.Start();
                 _diagnostics.Report(
                     SpeechDiagnosticLevel.Info,
-                    "AudioSubsystem",
+                    DiagnosticsCategory,
                     $"Started PortAudio playback on '{_resolvedDevice.Name}'.");
             }
             catch (Exception ex)
@@ -161,7 +166,7 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
                 _stream = null;
                 _diagnostics.Report(
                     SpeechDiagnosticLevel.Error,
-                    "AudioSubsystem",
+                    DiagnosticsCategory,
                     $"Failed to start PortAudio playback on '{_resolvedDevice.Name}': {ex.Message}");
                 throw new AudioDeviceUnavailableException(
                     $"Failed to start playback on '{_resolvedDevice.Name}'.",
@@ -195,24 +200,26 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
         try
         {
             streamToStop.Stop();
-            streamToStop.Dispose();
             ClearQueuedSamples();
             _diagnostics.Report(
                 SpeechDiagnosticLevel.Info,
-                "AudioSubsystem",
+                DiagnosticsCategory,
                 $"Stopped PortAudio playback on '{_resolvedDevice.Name}'.");
         }
         catch (Exception ex)
         {
-            streamToStop.Dispose();
             ClearQueuedSamples();
             _diagnostics.Report(
                 SpeechDiagnosticLevel.Error,
-                "AudioSubsystem",
+                DiagnosticsCategory,
                 $"Failed to stop PortAudio playback on '{_resolvedDevice.Name}': {ex.Message}");
             throw new AudioDeviceUnavailableException(
                 $"Failed to stop playback on '{_resolvedDevice.Name}'.",
                 ex);
+        }
+        finally
+        {
+            streamToStop.Dispose();
         }
     }
 
@@ -262,7 +269,7 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
         {
             _diagnostics.Report(
                 SpeechDiagnosticLevel.Warning,
-                "AudioSubsystem",
+                DiagnosticsCategory,
                 "PortAudio playback device resolution is unavailable because the preferred host API could not be resolved.");
             return null;
         }
@@ -289,7 +296,7 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
         {
             _diagnostics.Report(
                 SpeechDiagnosticLevel.Warning,
-                "AudioSubsystem",
+                DiagnosticsCategory,
                 "No PortAudio playback device matched the requested selection or host-API default.");
             return null;
         }
@@ -299,7 +306,7 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
             : "host API default";
         _diagnostics.Report(
             SpeechDiagnosticLevel.Info,
-            "AudioSubsystem",
+            DiagnosticsCategory,
             $"Resolved PortAudio playback device '{selectedDevice.Name}' via {resolutionBasis}.");
         return selectedDevice;
     }
@@ -352,7 +359,7 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
         {
             _diagnostics.Report(
                 SpeechDiagnosticLevel.Info,
-                "AudioSubsystem",
+                DiagnosticsCategory,
                 $"Clamped preferred playback channel count {_preferredFormat.ChannelCount} to device capability {maxOutputChannels}.");
         }
 

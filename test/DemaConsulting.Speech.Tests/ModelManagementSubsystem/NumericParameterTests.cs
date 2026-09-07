@@ -15,7 +15,8 @@ public class NumericParameterTests
     public void NumericParameter_Constructor_ValidRange_ExposesValues()
     {
         // Act
-        var parameter = new NumericParameter("tempo", "Tempo", "Speaking rate.", 0.5, 2.0, 0.1, 1.0, "x");
+        var parameter = new NumericParameter(
+            "tempo", "Tempo", "Speaking rate.", new NumericParameterBounds(0.5, 2.0, 0.1, 1.0), "x");
 
         // Assert
         Assert.Equal("tempo", parameter.Id);
@@ -36,7 +37,7 @@ public class NumericParameterTests
     public void NumericParameter_Constructor_NoUnit_UnitIsNull()
     {
         // Act
-        var parameter = new NumericParameter("gain", "Gain", "Input gain.", 0, 1, 0.05, 0.5);
+        var parameter = new NumericParameter("gain", "Gain", "Input gain.", new NumericParameterBounds(0, 1, 0.05, 0.5));
 
         // Assert
         Assert.Null(parameter.Unit);
@@ -50,7 +51,8 @@ public class NumericParameterTests
     public void NumericParameter_Constructor_MinimumGreaterThanMaximum_ThrowsArgumentException()
     {
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => new NumericParameter("bad", "Bad", "Bad range.", 1.0, 0.0, 0.1, 0.5));
+        Assert.Throws<ArgumentException>(() =>
+            new NumericParameter("bad", "Bad", "Bad range.", new NumericParameterBounds(1.0, 0.0, 0.1, 0.5)));
     }
 
     /// <summary>
@@ -61,7 +63,8 @@ public class NumericParameterTests
     public void NumericParameter_Constructor_NonPositiveStep_ThrowsArgumentException()
     {
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => new NumericParameter("bad", "Bad", "Bad step.", 0.0, 1.0, 0.0, 0.5));
+        Assert.Throws<ArgumentException>(() =>
+            new NumericParameter("bad", "Bad", "Bad step.", new NumericParameterBounds(0.0, 1.0, 0.0, 0.5)));
     }
 
     /// <summary>
@@ -72,7 +75,8 @@ public class NumericParameterTests
     public void NumericParameter_Constructor_DefaultOutsideRange_ThrowsArgumentException()
     {
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => new NumericParameter("bad", "Bad", "Bad default.", 0.0, 1.0, 0.1, 2.0));
+        Assert.Throws<ArgumentException>(() =>
+            new NumericParameter("bad", "Bad", "Bad default.", new NumericParameterBounds(0.0, 1.0, 0.1, 2.0)));
     }
 
     /// <summary>
@@ -85,7 +89,8 @@ public class NumericParameterTests
     public void NumericParameter_Constructor_NonFiniteMinimum_ThrowsArgumentException(double minimum)
     {
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => new NumericParameter("bad", "Bad", "Bad bound.", minimum, 1.0, 0.1, 0.5));
+        Assert.Throws<ArgumentException>(() =>
+            new NumericParameter("bad", "Bad", "Bad bound.", new NumericParameterBounds(minimum, 1.0, 0.1, 0.5)));
     }
 
     /// <summary>
@@ -95,7 +100,8 @@ public class NumericParameterTests
     public void NumericParameter_Constructor_NullId_ThrowsArgumentNullException()
     {
         // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => new NumericParameter(null!, "Name", "Description.", 0, 1, 0.1, 0.5));
+        Assert.Throws<ArgumentNullException>(() =>
+            new NumericParameter(null!, "Name", "Description.", new NumericParameterBounds(0, 1, 0.1, 0.5)));
     }
 
     /// <summary>
@@ -108,7 +114,8 @@ public class NumericParameterTests
     public void NumericParameter_Constructor_IsIntegerWithWholeNumberBounds_ExposesIsIntegerTrue()
     {
         // Act
-        var parameter = new NumericParameter("speaker", "Speaker", "Speaker index.", 0, 903, 1, 0, isInteger: true);
+        var parameter = new NumericParameter(
+            "speaker", "Speaker", "Speaker index.", new NumericParameterBounds(0, 903, 1, 0), isInteger: true);
 
         // Assert
         Assert.True(parameter.IsInteger);
@@ -126,7 +133,7 @@ public class NumericParameterTests
     public void NumericParameter_Constructor_IsIntegerOmitted_DefaultsToFalse()
     {
         // Act
-        var parameter = new NumericParameter("tempo", "Tempo", "Speaking rate.", 0.5, 2.0, 0.1, 1.0);
+        var parameter = new NumericParameter("tempo", "Tempo", "Speaking rate.", new NumericParameterBounds(0.5, 2.0, 0.1, 1.0));
 
         // Assert
         Assert.False(parameter.IsInteger);
@@ -142,7 +149,7 @@ public class NumericParameterTests
     {
         // Act & Assert
         Assert.Throws<ArgumentException>(() =>
-            new NumericParameter("bad", "Bad", "Bad minimum.", 0.5, 10, 1, 1, isInteger: true));
+            new NumericParameter("bad", "Bad", "Bad minimum.", new NumericParameterBounds(0.5, 10, 1, 1), isInteger: true));
     }
 
     /// <summary>
@@ -154,7 +161,7 @@ public class NumericParameterTests
     {
         // Act & Assert
         Assert.Throws<ArgumentException>(() =>
-            new NumericParameter("bad", "Bad", "Bad maximum.", 0, 10.5, 1, 1, isInteger: true));
+            new NumericParameter("bad", "Bad", "Bad maximum.", new NumericParameterBounds(0, 10.5, 1, 1), isInteger: true));
     }
 
     /// <summary>
@@ -166,7 +173,7 @@ public class NumericParameterTests
     {
         // Act & Assert
         Assert.Throws<ArgumentException>(() =>
-            new NumericParameter("bad", "Bad", "Bad step.", 0, 10, 0.5, 1, isInteger: true));
+            new NumericParameter("bad", "Bad", "Bad step.", new NumericParameterBounds(0, 10, 0.5, 1), isInteger: true));
     }
 
     /// <summary>
@@ -178,6 +185,6 @@ public class NumericParameterTests
     {
         // Act & Assert
         Assert.Throws<ArgumentException>(() =>
-            new NumericParameter("bad", "Bad", "Bad default.", 0, 10, 1, 1.5, isInteger: true));
+            new NumericParameter("bad", "Bad", "Bad default.", new NumericParameterBounds(0, 10, 1, 1.5), isInteger: true));
     }
 }
