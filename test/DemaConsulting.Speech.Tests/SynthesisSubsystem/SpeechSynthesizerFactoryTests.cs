@@ -40,6 +40,12 @@ public sealed class SpeechSynthesizerFactoryTests : IDisposable
     private readonly SpeechModelStore _store;
 
     /// <summary>
+    ///     A catalog wrapping <see cref="_store"/>, used to exercise catalog-based directory
+    ///     resolution via <see cref="SpeechModelCatalog.Store"/> rather than a mock.
+    /// </summary>
+    private readonly SpeechModelCatalog _catalog;
+
+    /// <summary>
     ///     Initializes a new instance of the <see cref="SpeechSynthesizerFactoryTests"/> class,
     ///     creating the scratch installed-model directory the "installed" cases require.
     /// </summary>
@@ -47,11 +53,14 @@ public sealed class SpeechSynthesizerFactoryTests : IDisposable
     {
         Directory.CreateDirectory(_installedModelDirectory);
         _store = new SpeechModelStore(new SpeechModelStoreOptions { RootPathOverride = _storeRoot });
+        _catalog = new SpeechModelCatalog([], _store, null);
     }
 
     /// <summary>Removes the scratch installed-model directory.</summary>
     public void Dispose()
     {
+        _catalog.Dispose();
+
         try
         {
             if (Directory.Exists(_installedModelDirectory))
@@ -321,6 +330,89 @@ public sealed class SpeechSynthesizerFactoryTests : IDisposable
         // Act & Assert: a null playback device is rejected
         Assert.Throws<ArgumentNullException>(
             () => SpeechSynthesizerFactory.Create(new FakeSynthesisModel(), _store, null!));
+    }
+
+    /// <summary>
+    ///     Proves that a model not yet installed in the catalog's store composes to the honest
+    ///     unavailable synthesizer, and that the engine is never loaded.
+    /// </summary>
+    [Fact]
+    public void SpeechSynthesizerFactory_Create_WithCatalogModelNotInstalled_ReturnsUnavailableSynthesizer()
+    {
+        // Arrange: an available playback device and a catalog whose store has no installed model directory
+        var playbackDevice = CreateAvailablePlaybackDevice();
+        var engineFactory = new FakeSynthesisEngineFactory();
+        var model = new FakeSynthesisModel();
+
+        // Act: compose against the catalog, which resolves to a directory that does not exist
+        var synthesizer = SpeechSynthesizerFactory.Create(model, _catalog, playbackDevice, null, engineFactory);
+
+        // Assert: the honest fallback is returned and no engine was loaded
+        Assert.Same(UnavailableSpeechSynthesizer.Instance, synthesizer);
+        Assert.Equal(0, engineFactory.CreateCallCount);
+    }
+
+    /// <summary>
+    ///     Proves that an installed synthesis model plus an available playback device composes a
+    ///     real synthesizer wired to the injected engine factory, with the directory resolved
+    ///     through the catalog's own store rather than a second, disconnected store.
+    /// </summary>
+    [Fact]
+    public void SpeechSynthesizerFactory_Create_WithCatalogModelInstalledAndDeviceAvailable_ReturnsRealSynthesizer()
+    {
+        // Arrange: a model installed via the catalog's store, an available device, and a fake engine factory
+        var playbackDevice = CreateAvailablePlaybackDevice();
+        var engineFactory = new FakeSynthesisEngineFactory();
+        var model = new FakeSynthesisModel();
+        Directory.CreateDirectory(_store.GetCurrentDirectory(model.Id));
+
+        // Act: compose a synthesizer through the catalog overload
+        using var synthesizer = SpeechSynthesizerFactory.Create(model, _catalog, playbackDevice, null, engineFactory);
+
+        // Assert: a real synthesizer was built, and the directory was resolved through the catalog's store
+        Assert.IsType<SherpaOnnxSpeechSynthesizer>(synthesizer);
+        Assert.Equal(1, engineFactory.CreateCallCount);
+        Assert.Equal(_catalog.Store.GetCurrentDirectory(model.Id), engineFactory.RequestedInstalledModelDirectory);
+    }
+
+    /// <summary>
+    ///     Proves that the public catalog-based composition overload rejects a null model.
+    /// </summary>
+    [Fact]
+    public void SpeechSynthesizerFactory_Create_WithCatalogNullModel_ThrowsArgumentNullException()
+    {
+        // Arrange: an available playback device
+        var playbackDevice = CreateAvailablePlaybackDevice();
+
+        // Act & Assert: a null model is rejected
+        Assert.Throws<ArgumentNullException>(
+            () => SpeechSynthesizerFactory.Create(null!, _catalog, playbackDevice));
+    }
+
+    /// <summary>
+    ///     Proves that the public catalog-based composition overload rejects a null catalog.
+    /// </summary>
+    [Fact]
+    public void SpeechSynthesizerFactory_Create_WithCatalogNullCatalog_ThrowsArgumentNullException()
+    {
+        // Arrange: an available playback device
+        var playbackDevice = CreateAvailablePlaybackDevice();
+
+        // Act & Assert: a null catalog is rejected
+        Assert.Throws<ArgumentNullException>(
+            () => SpeechSynthesizerFactory.Create(new FakeSynthesisModel(), (SpeechModelCatalog)null!, playbackDevice));
+    }
+
+    /// <summary>
+    ///     Proves that the public catalog-based composition overload rejects a null playback
+    ///     device, confirming the delegation still reaches the store-overload's own null check.
+    /// </summary>
+    [Fact]
+    public void SpeechSynthesizerFactory_Create_WithCatalogNullPlaybackDevice_ThrowsArgumentNullException()
+    {
+        // Act & Assert: a null playback device is rejected
+        Assert.Throws<ArgumentNullException>(
+            () => SpeechSynthesizerFactory.Create(new FakeSynthesisModel(), _catalog, null!));
     }
 
     /// <summary>

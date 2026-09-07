@@ -284,6 +284,25 @@ sections:
               - SpeechModelCatalog_DownloadAsync_ChecksumMismatch_ReportsFailedOrCorrupt
               - SpeechModelCatalog_DownloadAsync_UnknownModelId_ThrowsArgumentException
 
+          - id: Speech-Models-CatalogStoreComposition
+            title: >-
+              The ModelManagementSubsystem shall let a host resolve an installed model's
+              directory, and compose a recognizer or synthesizer, through the same
+              SpeechModelCatalog instance used for enumeration and download, without
+              constructing a second SpeechModelStore.
+            justification: |
+              A host that already owns a SpeechModelCatalog for enumeration and download
+              previously had to construct a second, independent SpeechModelStore just to
+              resolve an installed model's directory for RecognitionSubsystem/
+              SynthesisSubsystem composition - two objects for one "model management" concept
+              that could silently diverge. Exposing the catalog's own store through a public
+              property is the seam that lets a host compose everything model-related through
+              exactly one object.
+            children:
+              - Speech-Models-SpeechModelCatalog-StoreExposure
+            tests:
+              - SpeechModelCatalog_Store_Always_ReturnsInternalStoreInstance
+
           - id: Speech-Models-RealRecognitionModels
             title: >-
               The ModelManagementSubsystem shall provide two real, concrete IRecognitionModel

@@ -40,6 +40,12 @@ public sealed class SpeechRecognizerFactoryTests : IDisposable
     private readonly SpeechModelStore _store;
 
     /// <summary>
+    ///     A catalog wrapping <see cref="_store"/>, used to exercise catalog-based directory
+    ///     resolution via <see cref="SpeechModelCatalog.Store"/> rather than a mock.
+    /// </summary>
+    private readonly SpeechModelCatalog _catalog;
+
+    /// <summary>
     ///     Initializes a new instance of the <see cref="SpeechRecognizerFactoryTests"/> class,
     ///     creating the scratch installed-model directory the "installed" cases require.
     /// </summary>
@@ -47,11 +53,14 @@ public sealed class SpeechRecognizerFactoryTests : IDisposable
     {
         Directory.CreateDirectory(_installedModelDirectory);
         _store = new SpeechModelStore(new SpeechModelStoreOptions { RootPathOverride = _storeRoot });
+        _catalog = new SpeechModelCatalog([], _store, null);
     }
 
     /// <summary>Removes the scratch installed-model directory.</summary>
     public void Dispose()
     {
+        _catalog.Dispose();
+
         try
         {
             if (Directory.Exists(_installedModelDirectory))
@@ -293,6 +302,89 @@ public sealed class SpeechRecognizerFactoryTests : IDisposable
         // Act & Assert: a null capture device is rejected
         Assert.Throws<ArgumentNullException>(
             () => SpeechRecognizerFactory.Create(new FakeRecognitionModel(), _store, null!));
+    }
+
+    /// <summary>
+    ///     Proves that a model not yet installed in the catalog's store composes to the honest
+    ///     unavailable recognizer, and that the engine is never loaded.
+    /// </summary>
+    [Fact]
+    public void SpeechRecognizerFactory_Create_WithCatalogModelNotInstalled_ReturnsUnavailableRecognizer()
+    {
+        // Arrange: an available capture device and a catalog whose store has no installed model directory
+        var captureDevice = CreateAvailableCaptureDevice();
+        var engineFactory = new FakeRecognitionEngineFactory();
+        var model = new FakeRecognitionModel();
+
+        // Act: compose against the catalog, which resolves to a directory that does not exist
+        var recognizer = SpeechRecognizerFactory.Create(model, _catalog, captureDevice, null, engineFactory);
+
+        // Assert: the honest fallback is returned and no engine was loaded
+        Assert.Same(UnavailableSpeechRecognizer.Instance, recognizer);
+        Assert.Equal(0, engineFactory.CreateCallCount);
+    }
+
+    /// <summary>
+    ///     Proves that an installed recognition model plus an available capture device composes a
+    ///     real recognizer wired to the injected engine factory, with the directory resolved
+    ///     through the catalog's own store rather than a second, disconnected store.
+    /// </summary>
+    [Fact]
+    public void SpeechRecognizerFactory_Create_WithCatalogModelInstalledAndDeviceAvailable_ReturnsRealRecognizer()
+    {
+        // Arrange: a model installed via the catalog's store, an available device, and a fake engine factory
+        var captureDevice = CreateAvailableCaptureDevice();
+        var engineFactory = new FakeRecognitionEngineFactory();
+        var model = new FakeRecognitionModel();
+        Directory.CreateDirectory(_store.GetCurrentDirectory(model.Id));
+
+        // Act: compose a recognizer through the catalog overload
+        using var recognizer = SpeechRecognizerFactory.Create(model, _catalog, captureDevice, null, engineFactory);
+
+        // Assert: a real recognizer was built, and the directory was resolved through the catalog's store
+        Assert.IsType<SherpaOnnxSpeechRecognizer>(recognizer);
+        Assert.Equal(1, engineFactory.CreateCallCount);
+        Assert.Equal(_catalog.Store.GetCurrentDirectory(model.Id), engineFactory.RequestedInstalledModelDirectory);
+    }
+
+    /// <summary>
+    ///     Proves that the public catalog-based composition overload rejects a null model.
+    /// </summary>
+    [Fact]
+    public void SpeechRecognizerFactory_Create_WithCatalogNullModel_ThrowsArgumentNullException()
+    {
+        // Arrange: an available capture device
+        var captureDevice = CreateAvailableCaptureDevice();
+
+        // Act & Assert: a null model is rejected
+        Assert.Throws<ArgumentNullException>(
+            () => SpeechRecognizerFactory.Create(null!, _catalog, captureDevice));
+    }
+
+    /// <summary>
+    ///     Proves that the public catalog-based composition overload rejects a null catalog.
+    /// </summary>
+    [Fact]
+    public void SpeechRecognizerFactory_Create_WithCatalogNullCatalog_ThrowsArgumentNullException()
+    {
+        // Arrange: an available capture device
+        var captureDevice = CreateAvailableCaptureDevice();
+
+        // Act & Assert: a null catalog is rejected
+        Assert.Throws<ArgumentNullException>(
+            () => SpeechRecognizerFactory.Create(new FakeRecognitionModel(), (SpeechModelCatalog)null!, captureDevice));
+    }
+
+    /// <summary>
+    ///     Proves that the public catalog-based composition overload rejects a null capture
+    ///     device, confirming the delegation still reaches the store-overload's own null check.
+    /// </summary>
+    [Fact]
+    public void SpeechRecognizerFactory_Create_WithCatalogNullCaptureDevice_ThrowsArgumentNullException()
+    {
+        // Act & Assert: a null capture device is rejected
+        Assert.Throws<ArgumentNullException>(
+            () => SpeechRecognizerFactory.Create(new FakeRecognitionModel(), _catalog, null!));
     }
 
     /// <summary>

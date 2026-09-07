@@ -9,8 +9,9 @@ namespace DemaConsulting.Speech.RecognitionSubsystem;
 ///     recognition model and one capture device.
 /// </summary>
 /// <remarks>
-///     Hosts call <see cref="Create(IRecognitionModel,string,IAudioCaptureDevice,ISpeechDiagnostics)"/> or
-///     <see cref="Create(IRecognitionModel,SpeechModelStore,IAudioCaptureDevice,ISpeechDiagnostics)"/>
+///     Hosts call <see cref="Create(IRecognitionModel,string,IAudioCaptureDevice,ISpeechDiagnostics)"/>,
+///     <see cref="Create(IRecognitionModel,SpeechModelStore,IAudioCaptureDevice,ISpeechDiagnostics)"/>, or
+///     <see cref="Create(IRecognitionModel,SpeechModelCatalog,IAudioCaptureDevice,ISpeechDiagnostics)"/>
 ///     rather than constructing a recognizer directly, so all of the "can this machine actually
 ///     recognize speech right now?" logic lives in one reviewable place. Per this library's
 ///     "nothing throws at composition" decision this method never throws for an ordinary machine
@@ -130,6 +131,56 @@ public static class SpeechRecognizerFactory
     }
 
     /// <summary>
+    ///     Creates a speech recognizer for an installed recognition model, resolving the model's
+    ///     installed-files directory from the supplied catalog's own store rather than requiring
+    ///     the caller to construct a separate <see cref="SpeechModelStore"/>.
+    /// </summary>
+    /// <param name="model">
+    ///     The recognition model to load. Must not be null and must already be installed.
+    /// </param>
+    /// <param name="catalog">
+    ///     The catalog whose <see cref="SpeechModelCatalog.Store"/> resolves
+    ///     <paramref name="model"/>'s installed-files directory. Must not be null.
+    /// </param>
+    /// <param name="captureDevice">
+    ///     The capture device to stream audio from, as returned by
+    ///     <c>AudioDeviceFactory.CreateCaptureDevice(...)</c>. Must not be null; a device
+    ///     reporting <c>IsAvailable == false</c> is treated as "no microphone", not as an error.
+    /// </param>
+    /// <param name="diagnostics">
+    ///     The sink to report structural composition, lifecycle, and fault events to, or
+    ///     <see langword="null"/> to use <see cref="NullSpeechDiagnostics.Instance"/>.
+    /// </param>
+    /// <returns>
+    ///     A real streaming recognizer when the model is installed, its role is recognition, the
+    ///     capture device is available, and the engine loaded successfully; otherwise
+    ///     <see cref="UnavailableSpeechRecognizer.Instance"/>.
+    /// </returns>
+    /// <exception cref="ArgumentNullException">
+    ///     Thrown when <paramref name="model"/>, <paramref name="catalog"/>, or
+    ///     <paramref name="captureDevice"/> is <see langword="null"/>.
+    /// </exception>
+    /// <remarks>
+    ///     Equivalent to calling
+    ///     <see cref="Create(IRecognitionModel,SpeechModelStore,IAudioCaptureDevice,ISpeechDiagnostics)"/>
+    ///     with <c>catalog.Store</c> as the store argument, so a host that already owns a
+    ///     <see cref="SpeechModelCatalog"/> for enumeration and download can compose a recognizer
+    ///     through that same catalog instance, without constructing a second, potentially
+    ///     divergent <see cref="SpeechModelStore"/>.
+    /// </remarks>
+    public static ISpeechRecognizer Create(
+        IRecognitionModel model,
+        SpeechModelCatalog catalog,
+        IAudioCaptureDevice captureDevice,
+        ISpeechDiagnostics? diagnostics = null)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+        ArgumentNullException.ThrowIfNull(catalog);
+
+        return Create(model, catalog.Store, captureDevice, diagnostics);
+    }
+
+    /// <summary>
     ///     Creates a speech recognizer using an injected engine factory and a model store, for tests
     ///     that need a deterministic engine while still exercising store-based directory resolution.
     /// </summary>
@@ -157,6 +208,37 @@ public static class SpeechRecognizerFactory
         ArgumentNullException.ThrowIfNull(store);
 
         return Create(model, store.GetCurrentDirectory(model.Id), captureDevice, diagnostics, engineFactory);
+    }
+
+    /// <summary>
+    ///     Creates a speech recognizer using an injected engine factory and a model catalog, for
+    ///     tests that need a deterministic engine while still exercising catalog-based directory
+    ///     resolution.
+    /// </summary>
+    /// <param name="model">The recognition model to load. Must not be null.</param>
+    /// <param name="catalog">The catalog whose store resolves the model's installed-files directory. Must not be null.</param>
+    /// <param name="captureDevice">The capture device to stream audio from. Must not be null.</param>
+    /// <param name="diagnostics">The diagnostics sink, or <see langword="null"/> for the null sink.</param>
+    /// <param name="engineFactory">The engine factory to load the model through. Must not be null.</param>
+    /// <returns>
+    ///     A real streaming recognizer, or <see cref="UnavailableSpeechRecognizer.Instance"/> for
+    ///     any honest unavailable state.
+    /// </returns>
+    /// <exception cref="ArgumentNullException">
+    ///     Thrown when <paramref name="model"/>, <paramref name="catalog"/>,
+    ///     <paramref name="captureDevice"/>, or <paramref name="engineFactory"/> is <see langword="null"/>.
+    /// </exception>
+    internal static ISpeechRecognizer Create(
+        IRecognitionModel model,
+        SpeechModelCatalog catalog,
+        IAudioCaptureDevice captureDevice,
+        ISpeechDiagnostics? diagnostics,
+        IRecognitionEngineFactory engineFactory)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+        ArgumentNullException.ThrowIfNull(catalog);
+
+        return Create(model, catalog.Store, captureDevice, diagnostics, engineFactory);
     }
 
     /// <summary>

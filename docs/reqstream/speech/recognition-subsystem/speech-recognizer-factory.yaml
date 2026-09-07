@@ -23,6 +23,7 @@ sections:
                 tests:
                   - SpeechRecognizerFactory_Create_ModelInstalledAndDeviceAvailable_ReturnsRealRecognizer
                   - SpeechRecognizerFactory_Create_WithStoreModelInstalledAndDeviceAvailable_ReturnsRealRecognizer
+                  - SpeechRecognizerFactory_Create_WithCatalogModelInstalledAndDeviceAvailable_ReturnsRealRecognizer
 
               - id: Speech-Recognition-SpeechRecognizerFactory-HonestFallbacks
                 title: >-
@@ -38,6 +39,7 @@ sections:
                   - SpeechRecognizerFactory_Create_CaptureDeviceUnavailable_ReturnsUnavailableRecognizer
                   - SpeechRecognizerFactory_Create_ModelRoleIsNotRecognition_ReturnsUnavailableRecognizer
                   - SpeechRecognizerFactory_Create_WithStoreModelNotInstalled_ReturnsUnavailableRecognizer
+                  - SpeechRecognizerFactory_Create_WithCatalogModelNotInstalled_ReturnsUnavailableRecognizer
 
               - id: Speech-Recognition-SpeechRecognizerFactory-EngineLoadFailureFallback
                 title: >-
@@ -55,14 +57,18 @@ sections:
               - id: Speech-Recognition-SpeechRecognizerFactory-ArgumentValidation
                 title: >-
                   The SpeechRecognizerFactory class shall reject a null model, a null
-                  SpeechModelStore, or a null capture device.
+                  SpeechModelStore, a null SpeechModelCatalog, or a null capture device.
                 justification: |
-                  A null model, store, or capture device is a programming error at the call site,
-                  not an ordinary "unavailable" machine state, and must fail immediately with a
-                  clear exception rather than being silently treated as unavailable.
+                  A null model, store, catalog, or capture device is a programming error at the
+                  call site, not an ordinary "unavailable" machine state, and must fail
+                  immediately with a clear exception rather than being silently treated as
+                  unavailable.
                 tests:
                   - SpeechRecognizerFactory_Create_NullModel_ThrowsArgumentNullException
                   - SpeechRecognizerFactory_Create_NullCaptureDevice_ThrowsArgumentNullException
                   - SpeechRecognizerFactory_Create_WithStoreNullModel_ThrowsArgumentNullException
                   - SpeechRecognizerFactory_Create_WithStoreNullStore_ThrowsArgumentNullException
                   - SpeechRecognizerFactory_Create_WithStoreNullCaptureDevice_ThrowsArgumentNullException
+                  - SpeechRecognizerFactory_Create_WithCatalogNullModel_ThrowsArgumentNullException
+                  - SpeechRecognizerFactory_Create_WithCatalogNullCatalog_ThrowsArgumentNullException
+                  - SpeechRecognizerFactory_Create_WithCatalogNullCaptureDevice_ThrowsArgumentNullException

@@ -9,7 +9,10 @@ directory created and removed per test instance, so the "is it installed?" check
 against the file system rather than a mock. The store-based overload is verified against a real
 `SpeechModelStore` rooted at a second scratch directory (via `SpeechModelStoreOptions
 .RootPathOverride`), not a mock, proving the installed-model directory is genuinely resolved
-through the store rather than hard-coded. Capture-device availability is supplied by an
+through the store rather than hard-coded, and the catalog-based overload is verified against a
+`SpeechModelCatalog` wrapping that same real store (via the internal test constructor with an
+empty known-model list), proving `catalog.Store` genuinely resolves through to the same store
+rather than a second, disconnected one. Capture-device availability is supplied by an
 NSubstitute `IAudioCaptureDevice` and by the shared unavailable capture device. Diagnostics are
 verified with an NSubstitute sink where the reported reason matters.
 

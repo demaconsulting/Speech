@@ -95,7 +95,6 @@ using DemaConsulting.Speech.RecognitionSubsystem;
 // 1. The catalog is the library's only "what models exist" entry point - nothing below names a
 //    concrete model class, so new models added in a future release show up automatically.
 using var catalog = new SpeechModelCatalog();
-var store = new SpeechModelStore();
 
 // 2. Pick a recognition model. Any model with the recognition role will do - this is the
 //    idiomatic pattern for an app that just wants "a" speech-to-text model:
@@ -119,7 +118,7 @@ var captureDevice = new AudioDeviceFactory().CreateCaptureDevice(
 
 // 5. Compose the recognizer and stream recognized text as it arrives. Create never throws for an
 //    ordinary machine state (model not installed, no microphone) - check IsAvailable instead.
-using var recognizer = SpeechRecognizerFactory.Create(model, store, captureDevice);
+using var recognizer = SpeechRecognizerFactory.Create(model, catalog, captureDevice);
 if (recognizer.IsAvailable)
 {
     recognizer.ResultReceived += (_, args) =>
@@ -142,7 +141,6 @@ using DemaConsulting.Speech.SynthesisSubsystem;
 // 1. The catalog is the library's only "what models exist" entry point - nothing below names a
 //    concrete model class, so new models added in a future release show up automatically.
 using var catalog = new SpeechModelCatalog();
-var store = new SpeechModelStore();
 
 // 2. Pick a synthesis model. Any model with the synthesis role will do - this is the idiomatic
 //    pattern for an app that just wants "a" text-to-speech model:
@@ -164,7 +162,7 @@ var playbackDevice = new AudioDeviceFactory().CreatePlaybackDevice(
 
 // 5. Compose the synthesizer and speak. Create never throws for an ordinary machine state (model
 //    not installed, no speakers) - check IsAvailable instead.
-using var synthesizer = SpeechSynthesizerFactory.Create(model, store, playbackDevice);
+using var synthesizer = SpeechSynthesizerFactory.Create(model, catalog, playbackDevice);
 if (synthesizer.IsAvailable)
 {
     await synthesizer.SpeakAsync("To be, or not to be. [short pause] That is the question.");
@@ -187,7 +185,7 @@ numeric `speaker` id - pass a `parameterValues` bag keyed by each parameter's `I
 ```csharp
 using var synthesizer = SpeechSynthesizerFactory.Create(
     model,
-    store,
+    catalog,
     playbackDevice,
     parameterValues: new Dictionary<string, object> { ["voice"] = "af_bella" });
 ```

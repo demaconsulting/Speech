@@ -195,7 +195,6 @@ using DemaConsulting.Speech.RecognitionSubsystem;
 // 1. The catalog is the library's only "what models exist" entry point - nothing below names a
 //    concrete model class, so new models added in a future release show up automatically.
 using var catalog = new SpeechModelCatalog();
-var store = new SpeechModelStore();
 
 // 2. Pick a recognition model. Any model with the recognition role will do - this is the
 //    idiomatic pattern for an app that just wants "a" speech-to-text model:
@@ -216,7 +215,7 @@ var captureDevice = new AudioDeviceFactory().CreateCaptureDevice(
     model.AudioFormat);
 
 // 5. Compose the recognizer and stream recognized text as it arrives.
-using var recognizer = SpeechRecognizerFactory.Create(model, store, captureDevice);
+using var recognizer = SpeechRecognizerFactory.Create(model, catalog, captureDevice);
 
 if (recognizer.IsAvailable)
 {
@@ -327,7 +326,6 @@ using DemaConsulting.Speech.SynthesisSubsystem;
 // 1. The catalog is the library's only "what models exist" entry point - nothing below names a
 //    concrete model class, so new models added in a future release show up automatically.
 using var catalog = new SpeechModelCatalog();
-var store = new SpeechModelStore();
 
 // 2. Pick a synthesis model. Any model with the synthesis role will do - this is the idiomatic
 //    pattern for an app that just wants "a" text-to-speech model:
@@ -348,7 +346,7 @@ var playbackDevice = new AudioDeviceFactory().CreatePlaybackDevice(
     model.PreferredAudioFormat);
 
 // 5. Compose the synthesizer and speak.
-using var synthesizer = SpeechSynthesizerFactory.Create(model, store, playbackDevice);
+using var synthesizer = SpeechSynthesizerFactory.Create(model, catalog, playbackDevice);
 
 if (synthesizer.IsAvailable)
 {
@@ -365,7 +363,7 @@ non-default value:
 ```csharp
 using var synthesizer = SpeechSynthesizerFactory.Create(
     model,
-    store,
+    catalog,
     playbackDevice,
     parameterValues: new Dictionary<string, object> { ["voice"] = "bm_george" });
 ```
@@ -463,7 +461,6 @@ await catalog.DownloadAsync(synthesisModelId);
 // 3. Resolve each downloaded id back to its ISpeechModel instance and installed directory.
 var recognitionDescriptor = catalog.Enumerate().Single(d => d.Id == recognitionModelId);
 var synthesisDescriptor = catalog.Enumerate().Single(d => d.Id == synthesisModelId);
-var store = new SpeechModelStore();
 var recognitionModel = (IRecognitionModel)recognitionDescriptor.Model;
 var synthesisModel = (ISynthesisModel)synthesisDescriptor.Model;
 var captureDevice = audioFactory.CreateCaptureDevice(
@@ -476,12 +473,12 @@ var playbackDevice = audioFactory.CreatePlaybackDevice(
 // 4. Compose the recognizer and synthesizer over the resolved models and devices.
 using var recognizer = SpeechRecognizerFactory.Create(
     recognitionModel,
-    store,
+    catalog,
     captureDevice);
 
 using var synthesizer = SpeechSynthesizerFactory.Create(
     synthesisModel,
-    store,
+    catalog,
     playbackDevice);
 
 if (!recognizer.IsAvailable || !synthesizer.IsAvailable)

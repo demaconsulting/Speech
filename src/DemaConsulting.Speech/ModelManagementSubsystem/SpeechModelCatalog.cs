@@ -139,6 +139,20 @@ public sealed class SpeechModelCatalog : IDisposable
     }
 
     /// <summary>
+    ///     Gets the store this catalog uses to resolve each known model's installed/not-installed
+    ///     state and installed-files directory.
+    /// </summary>
+    /// <remarks>
+    ///     Exposing this lets a host compose exactly one <see cref="SpeechModelCatalog"/> for
+    ///     enumeration, download, and recognizer/synthesizer composition, instead of constructing
+    ///     a second, potentially divergent <see cref="SpeechModelStore"/>. See
+    ///     <see cref="RecognitionSubsystem.SpeechRecognizerFactory"/> and
+    ///     <see cref="SynthesisSubsystem.SpeechSynthesizerFactory"/>, whose catalog-based
+    ///     <c>Create</c> overloads use this property internally.
+    /// </remarks>
+    public SpeechModelStore Store => _store;
+
+    /// <summary>
     ///     Enumerates every known model alongside its current install state.
     /// </summary>
     /// <returns>

@@ -9,8 +9,9 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     installed synthesis model and one playback device.
 /// </summary>
 /// <remarks>
-///     Hosts call <see cref="Create(ISynthesisModel,string,IAudioPlaybackDevice,ISpeechDiagnostics,System.Collections.Generic.IReadOnlyDictionary{string,object}?)"/>
-///     or <see cref="Create(ISynthesisModel,SpeechModelStore,IAudioPlaybackDevice,ISpeechDiagnostics,System.Collections.Generic.IReadOnlyDictionary{string,object}?)"/>
+///     Hosts call <see cref="Create(ISynthesisModel,string,IAudioPlaybackDevice,ISpeechDiagnostics,System.Collections.Generic.IReadOnlyDictionary{string,object}?)"/>,
+///     <see cref="Create(ISynthesisModel,SpeechModelStore,IAudioPlaybackDevice,ISpeechDiagnostics,System.Collections.Generic.IReadOnlyDictionary{string,object}?)"/>,
+///     or <see cref="Create(ISynthesisModel,SpeechModelCatalog,IAudioPlaybackDevice,ISpeechDiagnostics,System.Collections.Generic.IReadOnlyDictionary{string,object}?)"/>
 ///     rather than constructing a synthesizer directly, so all of the "can this machine actually
 ///     speak right now?" logic lives in one reviewable place. Per this library's "nothing
 ///     throws at composition" decision this method never throws for an ordinary machine state - a
@@ -144,6 +145,61 @@ public static class SpeechSynthesizerFactory
     }
 
     /// <summary>
+    ///     Creates a speech synthesizer for an installed synthesis model, resolving the model's
+    ///     installed-files directory from the supplied catalog's own store rather than requiring
+    ///     the caller to construct a separate <see cref="SpeechModelStore"/>.
+    /// </summary>
+    /// <param name="model">
+    ///     The synthesis model to load. Must not be null and must already be installed.
+    /// </param>
+    /// <param name="catalog">
+    ///     The catalog whose <see cref="SpeechModelCatalog.Store"/> resolves
+    ///     <paramref name="model"/>'s installed-files directory. Must not be null.
+    /// </param>
+    /// <param name="playbackDevice">
+    ///     The playback device to play synthesized audio through, as returned by
+    ///     <c>AudioDeviceFactory.CreatePlaybackDevice(...)</c>. Must not be null; a device
+    ///     reporting <c>IsAvailable == false</c> is treated as "no speakers", not as an error.
+    /// </param>
+    /// <param name="diagnostics">
+    ///     The sink to report structural composition, lifecycle, and fault events to, or
+    ///     <see langword="null"/> to use <see cref="NullSpeechDiagnostics.Instance"/>.
+    /// </param>
+    /// <param name="parameterValues">
+    ///     An optional session-level parameter value bag, forwarded to the returned synthesizer, or
+    ///     <see langword="null"/> to use every model's own default voice/speaker.
+    /// </param>
+    /// <returns>
+    ///     A real chunked/streaming synthesizer when the model is installed, its role is synthesis,
+    ///     the playback device is available, and the engine loaded successfully; otherwise
+    ///     <see cref="UnavailableSpeechSynthesizer.Instance"/>.
+    /// </returns>
+    /// <exception cref="ArgumentNullException">
+    ///     Thrown when <paramref name="model"/>, <paramref name="catalog"/>, or
+    ///     <paramref name="playbackDevice"/> is <see langword="null"/>.
+    /// </exception>
+    /// <remarks>
+    ///     Equivalent to calling
+    ///     <see cref="Create(ISynthesisModel,SpeechModelStore,IAudioPlaybackDevice,ISpeechDiagnostics,System.Collections.Generic.IReadOnlyDictionary{string,object}?)"/>
+    ///     with <c>catalog.Store</c> as the store argument, so a host that already owns a
+    ///     <see cref="SpeechModelCatalog"/> for enumeration and download can compose a synthesizer
+    ///     through that same catalog instance, without constructing a second, potentially
+    ///     divergent <see cref="SpeechModelStore"/>.
+    /// </remarks>
+    public static ISpeechSynthesizer Create(
+        ISynthesisModel model,
+        SpeechModelCatalog catalog,
+        IAudioPlaybackDevice playbackDevice,
+        ISpeechDiagnostics? diagnostics = null,
+        IReadOnlyDictionary<string, object>? parameterValues = null)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+        ArgumentNullException.ThrowIfNull(catalog);
+
+        return Create(model, catalog.Store, playbackDevice, diagnostics, parameterValues);
+    }
+
+    /// <summary>
     ///     Creates a speech synthesizer using an injected engine factory and a model store, for
     ///     tests that need a deterministic engine while still exercising store-based directory
     ///     resolution.
@@ -177,6 +233,42 @@ public static class SpeechSynthesizerFactory
         ArgumentNullException.ThrowIfNull(store);
 
         return Create(model, store.GetCurrentDirectory(model.Id), playbackDevice, diagnostics, engineFactory, parameterValues);
+    }
+
+    /// <summary>
+    ///     Creates a speech synthesizer using an injected engine factory and a model catalog, for
+    ///     tests that need a deterministic engine while still exercising catalog-based directory
+    ///     resolution.
+    /// </summary>
+    /// <param name="model">The synthesis model to load. Must not be null.</param>
+    /// <param name="catalog">The catalog whose store resolves the model's installed-files directory. Must not be null.</param>
+    /// <param name="playbackDevice">The playback device to play through. Must not be null.</param>
+    /// <param name="diagnostics">The diagnostics sink, or <see langword="null"/> for the null sink.</param>
+    /// <param name="engineFactory">The engine factory to load the model through. Must not be null.</param>
+    /// <param name="parameterValues">
+    ///     An optional session-level parameter value bag forwarded to the returned synthesizer, or
+    ///     <see langword="null"/> to use every model's own default voice/speaker.
+    /// </param>
+    /// <returns>
+    ///     A real chunked/streaming synthesizer, or <see cref="UnavailableSpeechSynthesizer.Instance"/>
+    ///     for any honest unavailable state.
+    /// </returns>
+    /// <exception cref="ArgumentNullException">
+    ///     Thrown when <paramref name="model"/>, <paramref name="catalog"/>,
+    ///     <paramref name="playbackDevice"/>, or <paramref name="engineFactory"/> is <see langword="null"/>.
+    /// </exception>
+    internal static ISpeechSynthesizer Create(
+        ISynthesisModel model,
+        SpeechModelCatalog catalog,
+        IAudioPlaybackDevice playbackDevice,
+        ISpeechDiagnostics? diagnostics,
+        ISynthesisEngineFactory engineFactory,
+        IReadOnlyDictionary<string, object>? parameterValues = null)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+        ArgumentNullException.ThrowIfNull(catalog);
+
+        return Create(model, catalog.Store, playbackDevice, diagnostics, engineFactory, parameterValues);
     }
 
     /// <summary>

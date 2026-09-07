@@ -127,6 +127,7 @@ sections:
           - Speech-Models-ContractDeclaration
           - Speech-Models-TunableParameters
           - Speech-Models-CatalogEnumeration
+          - Speech-Models-CatalogStoreComposition
           - Speech-Models-RealRecognitionModels
           - Speech-Models-RealSynthesisModel
           - Speech-Models-RealKokoroSynthesisModelWithVoiceSelection
