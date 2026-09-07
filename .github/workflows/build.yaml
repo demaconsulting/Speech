@@ -190,28 +190,41 @@ jobs:
       # tests genuinely execute in CI instead of skipping, so the requirements they back can be
       # satisfied with real test evidence.
 
-      - name: Determine speech model cache path
-        id: model-cache-path
+      # Environment.SpecialFolder.LocalApplicationData resolves differently per OS as of .NET 8
+      # (see https://learn.microsoft.com/dotnet/core/compatibility/core-libraries/8.0/getfolderpath-unix):
+      # Windows -> %LOCALAPPDATA% ($HOME/AppData/Local); Linux -> $HOME/.local/share (XDG);
+      # macOS -> $HOME/Library/Application Support (NSApplicationSupportDirectory), NOT
+      # $HOME/.local/share. The cache path below must match SpeechModelStore's actual default
+      # root on each OS, or the cache will silently never hit. Each OS uses its own native shell
+      # (pwsh on Windows, bash on macOS/Linux) so the emitted path uses that OS's native path
+      # separators - a bash-built path on Windows (e.g. $HOME/...) is a git-bash POSIX-style path
+      # that actions/cache (running under Node) cannot resolve as a real Windows path, silently
+      # failing to save the cache.
+      - name: Determine speech model cache path (Windows)
+        id: model-cache-path-windows
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: echo "path=$env:LOCALAPPDATA\DemaConsulting.Speech\Models" >> $env:GITHUB_OUTPUT
+
+      - name: Determine speech model cache path (macOS)
+        id: model-cache-path-macos
+        if: matrix.os == 'macos-latest'
         shell: bash
-        run: |
-          # Environment.SpecialFolder.LocalApplicationData resolves differently per OS as of
-          # .NET 8 (see https://learn.microsoft.com/dotnet/core/compatibility/core-libraries/8.0/getfolderpath-unix):
-          # Windows -> %LOCALAPPDATA% ($HOME/AppData/Local); Linux -> $HOME/.local/share (XDG);
-          # macOS -> $HOME/Library/Application Support (NSApplicationSupportDirectory), NOT
-          # $HOME/.local/share. The cache path below must match SpeechModelStore's actual
-          # default root on each OS, or the cache will silently never hit.
-          if [ "${{ matrix.os }}" == "windows-latest" ]; then
-            echo "path=$HOME/AppData/Local/DemaConsulting.Speech/Models" >> "$GITHUB_OUTPUT"
-          elif [ "${{ matrix.os }}" == "macos-latest" ]; then
-            echo "path=$HOME/Library/Application Support/DemaConsulting.Speech/Models" >> "$GITHUB_OUTPUT"
-          else
-            echo "path=$HOME/.local/share/DemaConsulting.Speech/Models" >> "$GITHUB_OUTPUT"
-          fi
+        run: echo "path=$HOME/Library/Application Support/DemaConsulting.Speech/Models" >> "$GITHUB_OUTPUT"
+
+      - name: Determine speech model cache path (Linux)
+        id: model-cache-path-linux
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: echo "path=$HOME/.local/share/DemaConsulting.Speech/Models" >> "$GITHUB_OUTPUT"
 
       - name: Cache real speech models
         uses: actions/cache@v5
         with:
-          path: ${{ steps.model-cache-path.outputs.path }}
+          path: >-
+            ${{ steps.model-cache-path-windows.outputs.path ||
+            steps.model-cache-path-macos.outputs.path ||
+            steps.model-cache-path-linux.outputs.path }}
           key: speech-models-${{ matrix.os }}-zipformer-2023-06-26-nemotron-0.6b-560ms-int8-2026-04-25
 
       - name: Download real speech models
