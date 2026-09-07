@@ -321,16 +321,24 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
     {
         if (_selection.DeviceName is not null)
         {
-            var selectedByName = eligibleDevices.FirstOrDefault(
-                device => string.Equals(device.DeviceInfo.Name, _selection.DeviceName, StringComparison.Ordinal));
-            if (selectedByName.DeviceInfo is not null)
+            foreach (var device in eligibleDevices)
             {
-                return selectedByName;
+                if (string.Equals(device.DeviceInfo.Name, _selection.DeviceName, StringComparison.Ordinal))
+                {
+                    return device;
+                }
             }
         }
 
-        var selectedByDefault = eligibleDevices.FirstOrDefault(device => device.DeviceIndex == defaultDeviceIndex);
-        return selectedByDefault.DeviceInfo is not null ? selectedByDefault : null;
+        foreach (var device in eligibleDevices)
+        {
+            if (device.DeviceIndex == defaultDeviceIndex)
+            {
+                return device;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>
