@@ -258,7 +258,7 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
             return null;
         }
 
-        var eligibleDevices = new List<ResolvedCaptureDevice>();
+        var eligibleDevices = new List<(int DeviceIndex, PortAudioDeviceInfo DeviceInfo)>();
         for (var deviceIndex = 0; deviceIndex < _environment.Api.DeviceCount; deviceIndex++)
         {
             var deviceInfo = _environment.Api.GetDeviceInfo(deviceIndex);
@@ -267,13 +267,7 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
                 continue;
             }
 
-            var resolvedChannelCount = ResolveChannelCount(deviceInfo.MaxInputChannels);
-            eligibleDevices.Add(
-                new ResolvedCaptureDevice(
-                    deviceIndex,
-                    deviceInfo.Name,
-                    resolvedChannelCount,
-                    ResolveSampleRate(deviceIndex, resolvedChannelCount, deviceInfo)));
+            eligibleDevices.Add((deviceIndex, deviceInfo));
         }
 
         var selectedDevice = ResolveSelectedDevice(eligibleDevices, hostApiInfo.DefaultInputDeviceIndex);
@@ -286,14 +280,25 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
             return null;
         }
 
-        var resolutionBasis = string.Equals(selectedDevice.Name, _selection.DeviceName, StringComparison.Ordinal)
+        // Only the device actually selected needs its preferred format negotiated: probing every
+        // eligible device would perform unnecessary native calls and could report a misleading
+        // fallback diagnostic for a device that was never going to be used.
+        var (selectedDeviceIndex, selectedDeviceInfo) = selectedDevice.Value;
+        var resolvedChannelCount = ResolveChannelCount(selectedDeviceInfo.MaxInputChannels);
+        var resolvedDevice = new ResolvedCaptureDevice(
+            selectedDeviceIndex,
+            selectedDeviceInfo.Name,
+            resolvedChannelCount,
+            ResolveSampleRate(selectedDeviceIndex, resolvedChannelCount, selectedDeviceInfo));
+
+        var resolutionBasis = string.Equals(resolvedDevice.Name, _selection.DeviceName, StringComparison.Ordinal)
             ? "selection"
             : "host API default";
         _diagnostics.Report(
             SpeechDiagnosticLevel.Info,
             DiagnosticsCategory,
-            $"Resolved PortAudio capture device '{selectedDevice.Name}' via {resolutionBasis}.");
-        return selectedDevice;
+            $"Resolved PortAudio capture device '{resolvedDevice.Name}' via {resolutionBasis}.");
+        return resolvedDevice;
     }
 
     /// <summary>
@@ -307,23 +312,25 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
     ///     The host-API-scoped default input-device index.
     /// </param>
     /// <returns>
-    ///     The resolved device when one is available; otherwise, <see langword="null"/>.
+    ///     The device index and metadata for the resolved device when one is available;
+    ///     otherwise, <see langword="null"/>.
     /// </returns>
-    private ResolvedCaptureDevice? ResolveSelectedDevice(
-        IReadOnlyList<ResolvedCaptureDevice> eligibleDevices,
+    private (int DeviceIndex, PortAudioDeviceInfo DeviceInfo)? ResolveSelectedDevice(
+        IReadOnlyList<(int DeviceIndex, PortAudioDeviceInfo DeviceInfo)> eligibleDevices,
         int defaultDeviceIndex)
     {
         if (_selection.DeviceName is not null)
         {
             var selectedByName = eligibleDevices.FirstOrDefault(
-                device => string.Equals(device.Name, _selection.DeviceName, StringComparison.Ordinal));
-            if (selectedByName is not null)
+                device => string.Equals(device.DeviceInfo.Name, _selection.DeviceName, StringComparison.Ordinal));
+            if (selectedByName.DeviceInfo is not null)
             {
                 return selectedByName;
             }
         }
 
-        return eligibleDevices.FirstOrDefault(device => device.DeviceIndex == defaultDeviceIndex);
+        var selectedByDefault = eligibleDevices.FirstOrDefault(device => device.DeviceIndex == defaultDeviceIndex);
+        return selectedByDefault.DeviceInfo is not null ? selectedByDefault : null;
     }
 
     /// <summary>

@@ -28,3 +28,5 @@ sections:
                       - PortAudioPlaybackDevice_Write_StreamRequestsSamples_DrainsQueueAndZeroFills
                       - PortAudioCaptureDevice_Constructor_PreferredSampleRateSupported_UsesPreferredFormat
                       - PortAudioPlaybackDevice_Constructor_PreferredSampleRateSupported_UsesPreferredFormat
+                      - PortAudioCaptureDevice_Constructor_PreferredSampleRateUnsupported_FallsBackToDeviceDefaultSampleRateAndReportsDiagnostic
+                      - PortAudioPlaybackDevice_Constructor_PreferredSampleRateUnsupported_FallsBackToDeviceDefaultSampleRateAndReportsDiagnostic
