@@ -219,9 +219,13 @@ public sealed class SpeechModelDownloader : IDisposable
         // same id (a second caller either observes the already-completed install here, or
         // queues behind the first caller's in-flight install and observes it here once that
         // caller releases the lock). Skips the network/staging directory entirely, keeping
-        // DownloadAsync a genuinely cheap no-op to call unconditionally on every launch.
+        // DownloadAsync a genuinely cheap no-op to call unconditionally on every launch. Still
+        // opportunistically retries leftover cleanup (a cheap directory enumeration/delete, no
+        // network or hashing) so a model that stays "already installed" across every future
+        // launch does not leak leftover staging/replaced directories indefinitely.
         if (_store.IsInstalled(modelId))
         {
+            _store.CleanUpLeftovers(modelId);
             _diagnostics.Report(
                 SpeechDiagnosticLevel.Info,
                 "ModelManagementSubsystem",

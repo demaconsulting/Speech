@@ -142,6 +142,38 @@ public sealed class SpeechModelDownloaderTests : IDisposable
     }
 
     /// <summary>
+    ///     Proves that the already-installed fast path still opportunistically cleans up a
+    ///     leftover staging directory from a prior interrupted attempt, rather than leaving it
+    ///     in place indefinitely on every future launch's no-op <c>DownloadAsync</c> call.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_AlreadyInstalledWithLeftoverStaging_CleansUpLeftover()
+    {
+        // Arrange: install the model for real, then leave behind an abandoned staging directory
+        // as if a prior repair attempt had been interrupted mid-flight.
+        var payload = "hello, model!"u8.ToArray();
+        var descriptor = SingleFileDescriptor(payload, "model.bin");
+        var store = NewStore();
+        var firstDownloader = new SpeechModelDownloader(store, new FakeModelDownloadClient(payload, 1024));
+        var firstResult = await firstDownloader.DownloadAsync(
+            "model-a", descriptor, cancellationToken: TestContext.Current.CancellationToken);
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, firstResult.Outcome);
+
+        var (_, leftoverStagingDirectory) = store.BeginStaging("model-a");
+        Assert.True(Directory.Exists(leftoverStagingDirectory));
+
+        var secondDownloader = new SpeechModelDownloader(store, Substitute.For<IModelDownloadClient>());
+
+        // Act: a subsequent no-op call for the already-installed model
+        var result = await secondDownloader.DownloadAsync(
+            "model-a", descriptor, cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert: still reports the fast-path outcome, but the leftover is gone
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, result.Outcome);
+        Assert.False(Directory.Exists(leftoverStagingDirectory));
+    }
+
+    /// <summary>
     ///     Proves that a second <c>DownloadAsync</c> call for an already-installed model takes
     ///     the Issue 3 fast path - returning <see cref="SpeechModelDownloadOutcome.Installed"/>
     ///     without ever inspecting the second call's descriptor/checksum at all - leaving the
