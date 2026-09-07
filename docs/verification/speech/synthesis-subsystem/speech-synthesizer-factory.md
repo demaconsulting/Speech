@@ -28,11 +28,14 @@ verified with an NSubstitute sink where the reported reason matters.
 Composition is considered verified when a real synthesizer is returned only for the fully
 available case, every unavailable state returns the shared fallback without throwing, no engine
 is loaded once an earlier check has failed, an engine load failure is caught and reported, null
-arguments throw, and an optional `parameterValues` bag supplied by the caller is forwarded
-unchanged to the constructed synthesizer.
+arguments throw, an optional `parameterValues` bag supplied by the caller is forwarded unchanged
+to the constructed synthesizer, an unrecognized `parameterValues` key composes successfully with
+only an `Info` diagnostic reported, and an invalid value for a parameter the model does declare
+throws `ArgumentException` synchronously from `Create()`.
 
 #### Test Scenarios
 
 See the SynthesisSubsystem-level scenarios "Composition: Real Synthesizer for an Installed Model
 and Available Device", "Composition: Honest Fallback for Every Unavailable State", "Composition:
-Null Arguments Are Programming Errors", and "Composition: Voice Selection Value Bag Forwarding".
+Null Arguments Are Programming Errors", "Composition: Voice Selection Value Bag Forwarding", and
+"Composition: Parameter Value Validation".

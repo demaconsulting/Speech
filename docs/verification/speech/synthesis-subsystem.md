@@ -58,6 +58,13 @@ A SynthesisSubsystem test run passes when:
 - Composition returns a real synthesizer only when the model is installed, declares the
   synthesis role, the playback device is available, and the engine loads; every other outcome
   returns the honest unavailable synthesizer without throwing
+- A supplied `parameterValues` key naming a parameter not declared by the requested model is
+  silently ignored (with only an `Info` diagnostic reported) and composition still succeeds; a
+  supplied value for a parameter the model *does* declare that fails that parameter's own
+  validation (wrong CLR type, out-of-range or non-integral for a `NumericParameter`, an invalid
+  option for a `ChoiceParameter`, a non-`bool` for a `BooleanParameter`) throws
+  `ArgumentException` synchronously from `Create()`, before any installed/role/device/engine
+  check runs
 - Text flows through chunking, rendering, and the engine to yield ordered audio segments, played
   in order with correct pre/post silence, while a later chunk synthesizes during an earlier
   chunk's playback
@@ -216,6 +223,25 @@ programming error from an ordinary machine state.
 Verifies that an optional `parameterValues` bag supplied by the caller (for example, a chosen
 voice built from a declared `ChoiceParameter`) is forwarded unchanged to the constructed
 synthesizer.
+
+#### Composition: Parameter Value Validation
+
+**Tests**: `SpeechSynthesizerFactory_Create_UnrecognizedParameterId_ComposesAndReportsInfo`,
+`SpeechSynthesizerFactory_Create_RecognizedNumericParameterOutOfRange_Throws`,
+`SpeechSynthesizerFactory_Create_RecognizedNumericParameterWrongType_Throws`,
+`SpeechSynthesizerFactory_Create_RecognizedIntegerParameterFractionalValue_Throws`,
+`SpeechSynthesizerFactory_Create_RecognizedChoiceParameterInvalidOption_Throws`
+
+Verifies the deliberate, breaking-change split introduced for this behavior: a supplied
+`parameterValues` key naming a parameter the model does not declare still composes a real
+synthesizer and reports only an `Info` diagnostic, never throwing (preserving cross-model
+compatibility); a supplied value for a parameter the model *does* declare, but that is invalid
+for it, throws `ArgumentException` synchronously from `Create()` - before any
+installed/role/device/engine check runs - naming the parameter id, the model id, and the specific
+reason the value is invalid. This replaces this library's earlier behavior of silently
+substituting a default the first time `ResolveSpeakerId` ran per segment, and does not change
+`ResolveSpeakerId`'s or `ResolveOverrideRatios`'s own existing never-throw, per-segment runtime
+contract.
 
 #### Pipeline: Chunked Synthesis and Ordered Playback
 

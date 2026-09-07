@@ -250,6 +250,125 @@ public sealed class SpeechSynthesizerFactoryTests : IDisposable
     }
 
     /// <summary>
+    ///     Proves that an unrecognized parameter id is silently ignored (never throws) and is
+    ///     reported at <see cref="SpeechDiagnosticLevel.Info"/> when a diagnostics sink is
+    ///     supplied.
+    /// </summary>
+    [Fact]
+    public void SpeechSynthesizerFactory_Create_UnrecognizedParameterId_ComposesAndReportsInfo()
+    {
+        // Arrange
+        var playbackDevice = CreateAvailablePlaybackDevice();
+        var engineFactory = new FakeSynthesisEngineFactory();
+        var model = new FakeSynthesisModel();
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        IReadOnlyDictionary<string, object> parameterValues = new Dictionary<string, object> { ["typo-id"] = 1 };
+
+        // Act
+        using var synthesizer = SpeechSynthesizerFactory.Create(
+            model, _installedModelDirectory, playbackDevice, diagnostics, engineFactory, parameterValues);
+
+        // Assert: still a real, working synthesizer, plus the observability diagnostic
+        Assert.True(synthesizer.IsAvailable);
+        diagnostics.Received(1).Report(
+            SpeechDiagnosticLevel.Info,
+            "SynthesisSubsystem",
+            "Parameter 'typo-id' is not declared by this model and was ignored.");
+    }
+
+    /// <summary>
+    ///     Proves that an out-of-range value for a recognized numeric parameter throws
+    ///     <see cref="ArgumentException"/> synchronously from <c>Create</c>, rather than
+    ///     silently defaulting, and that the engine is never loaded.
+    /// </summary>
+    [Fact]
+    public void SpeechSynthesizerFactory_Create_RecognizedNumericParameterOutOfRange_Throws()
+    {
+        // Arrange: FakeSynthesisModel declares "tempo" bounded to [0.5, 2.0]
+        var playbackDevice = CreateAvailablePlaybackDevice();
+        var engineFactory = new FakeSynthesisEngineFactory();
+        var model = new FakeSynthesisModel();
+        IReadOnlyDictionary<string, object> parameterValues = new Dictionary<string, object> { ["tempo"] = 5.0 };
+
+        // Act / Assert
+        var exception = Assert.Throws<ArgumentException>(() => SpeechSynthesizerFactory.Create(
+            model, _installedModelDirectory, playbackDevice, null, engineFactory, parameterValues));
+        Assert.Contains("tempo", exception.Message, StringComparison.Ordinal);
+        Assert.Equal(0, engineFactory.CreateCallCount);
+    }
+
+    /// <summary>
+    ///     Proves that a wrong CLR type for a recognized numeric parameter throws
+    ///     <see cref="ArgumentException"/> synchronously from <c>Create</c>.
+    /// </summary>
+    [Fact]
+    public void SpeechSynthesizerFactory_Create_RecognizedNumericParameterWrongType_Throws()
+    {
+        // Arrange
+        var playbackDevice = CreateAvailablePlaybackDevice();
+        var engineFactory = new FakeSynthesisEngineFactory();
+        var model = new FakeSynthesisModel();
+        IReadOnlyDictionary<string, object> parameterValues = new Dictionary<string, object> { ["tempo"] = "fast" };
+
+        // Act / Assert
+        var exception = Assert.Throws<ArgumentException>(() => SpeechSynthesizerFactory.Create(
+            model, _installedModelDirectory, playbackDevice, null, engineFactory, parameterValues));
+        Assert.Contains("tempo", exception.Message, StringComparison.Ordinal);
+        Assert.Equal(0, engineFactory.CreateCallCount);
+    }
+
+    /// <summary>
+    ///     Proves that a non-integral value for the real, shipped
+    ///     <see cref="SherpaOnnxVitsLibriTtsEnglishSynthesisModel"/>'s integer-only
+    ///     <c>speaker</c> parameter throws <see cref="ArgumentException"/> synchronously from
+    ///     <c>Create</c>, rather than silently rounding it (this library's previous, now
+    ///     deliberately superseded, behavior for this exact case).
+    /// </summary>
+    [Fact]
+    public void SpeechSynthesizerFactory_Create_RecognizedIntegerParameterFractionalValue_Throws()
+    {
+        // Arrange
+        var playbackDevice = CreateAvailablePlaybackDevice();
+        var engineFactory = new FakeSynthesisEngineFactory();
+        var model = new SherpaOnnxVitsLibriTtsEnglishSynthesisModel();
+        IReadOnlyDictionary<string, object> parameterValues = new Dictionary<string, object>
+        {
+            [SherpaOnnxVitsLibriTtsEnglishSynthesisModel.SpeakerParameterId] = 12.4,
+        };
+
+        // Act / Assert
+        var exception = Assert.Throws<ArgumentException>(() => SpeechSynthesizerFactory.Create(
+            model, _installedModelDirectory, playbackDevice, null, engineFactory, parameterValues));
+        Assert.Contains(SherpaOnnxVitsLibriTtsEnglishSynthesisModel.SpeakerParameterId, exception.Message, StringComparison.Ordinal);
+        Assert.Contains("whole number", exception.Message, StringComparison.Ordinal);
+        Assert.Equal(0, engineFactory.CreateCallCount);
+    }
+
+    /// <summary>
+    ///     Proves that a value not matching any declared voice for the real, shipped
+    ///     <see cref="SherpaOnnxKokoroEnglishSynthesisModel"/>'s <c>ChoiceParameter</c> throws
+    ///     <see cref="ArgumentException"/> synchronously from <c>Create</c>.
+    /// </summary>
+    [Fact]
+    public void SpeechSynthesizerFactory_Create_RecognizedChoiceParameterInvalidOption_Throws()
+    {
+        // Arrange
+        var playbackDevice = CreateAvailablePlaybackDevice();
+        var engineFactory = new FakeSynthesisEngineFactory();
+        var model = new SherpaOnnxKokoroEnglishSynthesisModel();
+        IReadOnlyDictionary<string, object> parameterValues = new Dictionary<string, object>
+        {
+            [SherpaOnnxKokoroEnglishSynthesisModel.VoiceParameterId] = "not-a-declared-voice",
+        };
+
+        // Act / Assert
+        var exception = Assert.Throws<ArgumentException>(() => SpeechSynthesizerFactory.Create(
+            model, _installedModelDirectory, playbackDevice, null, engineFactory, parameterValues));
+        Assert.Contains("not-a-declared-voice", exception.Message, StringComparison.Ordinal);
+        Assert.Equal(0, engineFactory.CreateCallCount);
+    }
+
+    /// <summary>
     ///     Proves that a model not yet installed in the store composes to the honest unavailable
     ///     synthesizer, and that the engine is never loaded.
     /// </summary>

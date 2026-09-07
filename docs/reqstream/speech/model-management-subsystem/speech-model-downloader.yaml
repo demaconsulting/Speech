@@ -52,11 +52,15 @@ sections:
               - id: Speech-Models-SpeechModelDownloader-ChecksumMismatch
                 title: >-
                   The SpeechModelDownloader class shall report SpeechModelDownloadOutcome.ChecksumMismatch
-                  and install nothing when a downloaded file's SHA-256 checksum does not match its
-                  declared value.
+                  with Error populated with a descriptive exception, and install nothing, when a
+                  downloaded file's SHA-256 checksum does not match its declared value.
                 justification: |
                   A host must be able to trust that "installed" means "verified"; a checksum
-                  mismatch must never silently install unverified or tampered content.
+                  mismatch must never silently install unverified or tampered content, and
+                  SpeechModelDownloadResult.Error must be populated for every non-Installed
+                  outcome (matching the Failed outcome) rather than left null only for this one
+                  outcome, so a host never has to special-case which non-Installed outcomes carry
+                  a diagnosable exception.
                 tests:
                   - SpeechModelDownloader_DownloadAsync_ChecksumMismatch_ReportsChecksumMismatchAndInstallsNothing
 
@@ -71,16 +75,36 @@ sections:
                 tests:
                   - SpeechModelDownloader_DownloadAsync_CanceledMidDownload_ThrowsAndInstallsNothing
 
+              - id: Speech-Models-SpeechModelDownloader-AlreadyInstalledNoOp
+                title: >-
+                  The SpeechModelDownloader class shall check, as the first step after acquiring a
+                  model id's own lock, whether that model id is already installed, and if so
+                  return SpeechModelDownloadOutcome.Installed immediately - without any network
+                  fetch or staging-directory activity - and report an Info-level diagnostic,
+                  rather than unconditionally re-transferring an already-installed model's payload.
+                justification: |
+                  A host calling DownloadAsync unconditionally on every launch (the documented
+                  quickstart pattern) must not re-download and re-verify a model's full payload
+                  every time merely to confirm it is already installed; this fast-path check must
+                  sit inside the already-acquired per-model-id lock (not before it) to stay
+                  race-safe against a concurrent first-time install of the same model id.
+                tests:
+                  - SpeechModelDownloader_DownloadAsync_AlreadyInstalled_ReturnsInstalledWithoutFetchingOrStaging
+
               - id: Speech-Models-SpeechModelDownloader-PriorInstallUntouchedOnFailedRepair
                 title: >-
                   The SpeechModelDownloader class shall leave a model's prior successful install
-                  completely untouched when a later repair/re-download attempt for the same model
-                  fails checksum verification.
+                  completely untouched when a second DownloadAsync call is made for the same,
+                  already-installed model id - the already-installed fast path takes over
+                  regardless of what descriptor or model the second call supplies, so the prior
+                  install can never be regressed by a second call.
                 justification: |
-                  A failed repair attempt must be a safe no-op from the model's perspective; it
-                  must never regress an already-working model to a half-updated or removed state.
+                  A second call for an already-installed model id must be a safe no-op from the
+                  model's perspective; it must never regress an already-working model to a
+                  half-updated or removed state, even when the second call's descriptor would
+                  itself have failed checksum verification had it genuinely been re-attempted.
                 tests:
-                  - SpeechModelDownloader_DownloadAsync_ChecksumMismatchAfterPriorSuccess_LeavesPriorInstallIntact
+                  - SpeechModelDownloader_DownloadAsync_SecondCallAfterPriorSuccess_TakesFastPathAndLeavesPriorInstallIntact
 
               - id: Speech-Models-SpeechModelDownloader-InvokesModelInstallHook
                 title: >-
@@ -106,12 +130,12 @@ sections:
                   The SpeechModelDownloader class shall treat an exception thrown from a model's
                   InstallAsync hook identically to a download failure: report
                   SpeechModelDownloadOutcome.Failed with the underlying exception attached,
-                  discard the staging directory, and leave any prior successful install of the
-                  same model completely untouched.
+                  discard the staging directory, and install nothing for that model id.
                 justification: |
                   A model's own unpacking code can fail (corrupt archive, disk full, permission
                   denied) just as a transport failure can; this failure mode must be just as safe
                   as every other documented failure path - never installing partially-unpacked
-                  content and never regressing an already-working model.
+                  content.
                 tests:
-                  - SpeechModelDownloader_DownloadAsync_WithModel_InstallAsyncThrows_ReportsFailedAndLeavesPriorInstallIntact
+                  - SpeechModelDownloader_DownloadAsync_WithModel_InstallAsyncThrowsUnlistedExceptionType_ReportsFailed
+                  - SpeechModelDownloader_DownloadAsync_WithModel_SecondCallAfterPriorSuccess_TakesFastPathAndNeverInvokesInstallHook

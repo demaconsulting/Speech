@@ -42,22 +42,35 @@ native runtime.
   same catalog instance, without constructing a second, potentially divergent `SpeechModelStore`.
   Preconditions: `model`, `catalog`, and `playbackDevice` are non-null.
 
-The checks run in the same deliberate order as the recognition-direction factory - installed,
-then role, then device, then engine load - so the cheapest and most common cause of
-unavailability (a model not downloaded yet) is reported first and no native memory is allocated
-for a synthesizer that could never run.
+The checks run in the same deliberate order as the recognition-direction factory - parameter
+validation, then installed, then role, then device, then engine load - so a caller-supplied
+parameter value invalid for a recognized parameter is rejected synchronously and loudly before
+any of the ordinary, never-throw machine state checks run, and so the cheapest and most common
+cause of unavailability (a model not downloaded yet) is reported first among those and no native
+memory is allocated for a synthesizer that could never run.
 
 **Error Handling**: Every ordinary machine state is represented as the honest unavailable
 synthesizer plus a structural diagnostic, never as an exception, per this library's "nothing
 throws at composition" decision. An engine load failure is caught and degraded identically to a
 missing model. Only a null `model`, `store`, `catalog`, `playbackDevice`, or engine factory
 throws `ArgumentNullException`, since a null argument is a programming error rather than a
-machine state.
+machine state. **Breaking change**: `parameterValues` is now validated against `model.Parameters`
+before any other work runs, using the same shared `SpeechModelParameterDiagnostics.ValidateAndReport`
+helper as `SpeechRecognizerFactory`. A supplied key naming a parameter not declared by `model` is
+still silently ignored exactly as before (preserving the documented cross-model-compatibility
+contract) but now also reports an `Info` diagnostic. A supplied value for a parameter that *is*
+declared by `model` but fails that parameter's own validation (wrong CLR type, out-of-range or
+non-integral for a `NumericParameter`, unrecognized `ChoiceParameter` option, non-`bool` for a
+`BooleanParameter`) now throws `ArgumentException` synchronously from `Create()` naming the
+parameter id, model id, and the reason the value is invalid - previously such a value was
+silently substituted with a default the first time `ResolveSpeakerId` ran per segment. This
+validation happens once, up front, at `Create()`; it does not change `ResolveSpeakerId`'s or
+`ResolveOverrideRatios`'s own existing never-throw, per-segment runtime contract.
 
-**Dependencies**: `ISynthesisModel`, `SpeechModelRole`, `SpeechModelStore`, and
-`SpeechModelCatalog` from the ModelManagementSubsystem, `IAudioPlaybackDevice` from the
-AudioSubsystem, `ISpeechDiagnostics`/`NullSpeechDiagnostics` from the Diagnostics subsystem, and
-the subsystem's own `ISynthesisEngineFactory`, `SherpaOnnxSynthesisEngineFactory`,
+**Dependencies**: `ISynthesisModel`, `SpeechModelRole`, `SpeechModelStore`, `SpeechModelCatalog`,
+and `SpeechModelParameterDiagnostics` from the ModelManagementSubsystem, `IAudioPlaybackDevice`
+from the AudioSubsystem, `ISpeechDiagnostics`/`NullSpeechDiagnostics` from the Diagnostics
+subsystem, and the subsystem's own `ISynthesisEngineFactory`, `SherpaOnnxSynthesisEngineFactory`,
 `SherpaOnnxSpeechSynthesizer`, and `UnavailableSpeechSynthesizer`.
 
 **Callers**: Host applications composing speech synthesis at start-up, and the system-level

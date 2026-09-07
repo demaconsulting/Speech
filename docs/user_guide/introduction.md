@@ -384,7 +384,15 @@ using var synthesizer = SpeechSynthesizerFactory.Create(
 
 A `null` (or omitted) `parameterValues` bag - the previous behavior - resolves to every declared
 parameter's own default value, including whichever speaker/voice a model's `ResolveSpeakerId`
-hook treats as its default. `model.PreferredAudioFormat` is likewise only a best-effort playback
+hook treats as its default. A supplied key naming a parameter the model does not declare is
+silently ignored (composition still succeeds, with only an `Info`-level diagnostic reported if a
+sink is wired up) so one settings dictionary stays reusable across different models, but a
+supplied value for a parameter the model *does* declare that fails that parameter's own
+validation (wrong CLR type, out of range, a fractional value for a whole-number-only parameter,
+or a string matching no declared `ChoiceParameterOption`) throws `ArgumentException` synchronously
+from `Create()` naming the parameter, the model, and the reason the value is invalid -
+`SpeechRecognizerFactory.Create`'s `parameterValues` argument follows the same rule.
+`model.PreferredAudioFormat` is likewise only a best-effort playback
 hint: after construction, the synthesizer always treats the loaded engine's actual `SampleRate`
 as authoritative and resamples whenever needed. This is a session-level choice: it is
 independent of, and does not disturb, the existing per-segment Natural Language Audio Tag

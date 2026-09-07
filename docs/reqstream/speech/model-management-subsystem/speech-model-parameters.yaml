@@ -72,3 +72,46 @@ sections:
                   - BooleanParameter_Constructor_ValidValues_ExposesValues
                   - BooleanParameter_Constructor_WhitespaceId_ThrowsArgumentException
                   - BooleanParameter_Constructor_NullDisplayName_ThrowsArgumentNullException
+
+              - id: Speech-Models-SpeechModelParameterDiagnostics-UnrecognizedIdSilentWithDiagnostic
+                title: >-
+                  SpeechModelParameterDiagnostics.ValidateAndReport shall never throw for a
+                  supplied parameterValues key that names no parameter declared by the model's
+                  own descriptor set, and shall report an Info-level diagnostic naming the
+                  ignored key ("Parameter '{id}' is not declared by this model and was ignored.").
+                justification: |
+                  A host reusing one settings dictionary across different models must not have
+                  composition break just because a given model does not declare a parameter
+                  another model had; this is a deliberate, documented cross-model-compatibility
+                  contract, so an unrecognized id must remain a silent no-op (beyond the
+                  informational diagnostic), never a thrown exception.
+                tests:
+                  - ValidateAndReport_UnrecognizedParameterId_ReportsInfoAndDoesNotThrow
+
+              - id: Speech-Models-SpeechModelParameterDiagnostics-InvalidRecognizedValueThrows
+                title: >-
+                  SpeechModelParameterDiagnostics.ValidateAndReport shall throw ArgumentException
+                  for the first invalid value found (iterating declared parameters in their
+                  declared order, for determinism) supplied for a parameter the model does
+                  declare - a wrong CLR type, a value outside [Minimum, Maximum] or a fractional
+                  value for a NumericParameter declared IsInteger, a string not matching a
+                  declared ChoiceParameterOption.Value for a ChoiceParameter, or a non-bool for a
+                  BooleanParameter - naming the parameter id, the model id, and the reason the
+                  value is invalid, without rounding or otherwise silently substituting a valid
+                  value.
+                justification: |
+                  A host explicitly targeting a parameter it knows this model declares, with a
+                  value invalid for it, is a caller bug rather than a legitimate cross-model
+                  compatibility gap; this must be surfaced immediately and loudly so the host
+                  fixes the value at its source, rather than the model silently substituting a
+                  default (or, for a fractional value against an IsInteger parameter, silently
+                  rounding it) and the host discovering the mismatch only from confusing later
+                  behavior.
+                tests:
+                  - ValidateAndReport_NumericParameterOutOfRange_Throws
+                  - ValidateAndReport_NumericParameterWrongType_Throws
+                  - ValidateAndReport_IntegerParameterFractionalValue_Throws
+                  - ValidateAndReport_ChoiceParameterInvalidOption_Throws
+                  - ValidateAndReport_ChoiceParameterWrongType_Throws
+                  - ValidateAndReport_BooleanParameterWrongType_Throws
+                  - ValidateAndReport_InvalidRecognizedValueAndUnrecognizedId_ThrowsForRecognizedValue

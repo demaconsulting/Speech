@@ -43,9 +43,12 @@ native runtime.
   same catalog instance, without constructing a second, potentially divergent `SpeechModelStore`.
   Preconditions: `model`, `catalog`, and `captureDevice` are non-null.
 
-The checks run in a deliberate order - installed, then role, then device, then engine load - so
-the cheapest and most common cause of unavailability (a model not downloaded yet) is reported
-first and no native memory is allocated for a recognizer that could never run.
+The checks run in a deliberate order - parameter validation, then installed, then role, then
+device, then engine load - so a caller-supplied parameter value invalid for a recognized
+parameter is rejected synchronously and loudly before any of the ordinary, never-throw machine
+state checks run, and so the cheapest and most common cause of unavailability (a model not
+downloaded yet) is reported first among those and no native memory is allocated for a recognizer
+that could never run.
 
 **Error Handling**: Every ordinary machine state is represented as the honest unavailable
 recognizer plus a structural diagnostic, never as an exception, per this library's "nothing
@@ -53,13 +56,27 @@ throws at composition" decision. An engine load failure - the missing-native-run
 missing `org.k2fsa.sherpa.onnx.runtime.{RID}` binary or unusable model files - is caught and
 degraded identically to a missing model. Only a null `model`, `store`, `catalog`, `captureDevice`,
 or engine factory throws `ArgumentNullException`, since a null argument is a programming error
-rather than a machine state.
+rather than a machine state. **Breaking change**: `parameterValues` is now validated against
+`model.Parameters` before any other work runs. A supplied key that names a parameter *not*
+declared by `model` is still silently ignored exactly as before (this deliberately preserves the
+documented cross-model-compatibility contract - a host reusing one settings bag across different
+models must not break just because model B doesn't declare a parameter model A had) but now also
+reports an `Info` diagnostic. A supplied value for a parameter *that is declared* by `model` but
+fails that parameter's own validation (wrong CLR type, a `NumericParameter` value outside
+`[Minimum, Maximum]` or - when `IsInteger` is `true` - a non-integral value, an unrecognized
+`ChoiceParameter` option, or a non-`bool` for a `BooleanParameter`) now throws `ArgumentException`
+synchronously from `Create()` naming the parameter id, model id, and the reason the value is
+invalid, via the shared `SpeechModelParameterDiagnostics.ValidateAndReport` helper. Previously
+such a value was silently substituted with a default deeper in the composed recognizer; a caller
+targeting a specific, declared parameter on this model with an invalid value is a caller bug that
+should surface immediately rather than silently misbehave later.
 
-**Dependencies**: `IRecognitionModel`, `SpeechModelRole`, `SpeechModelStore`, and
-`SpeechModelCatalog` from the ModelManagementSubsystem, `IAudioCaptureDevice` from the
-AudioSubsystem, `ISpeechDiagnostics`/`NullSpeechDiagnostics` from the Diagnostics subsystem, and
-the subsystem's own `IRecognitionEngineFactory`, `SherpaOnnxRecognitionEngineFactory`,
-`SherpaOnnxSpeechRecognizer`, and `UnavailableSpeechRecognizer`.
+**Dependencies**: `IRecognitionModel`, `SpeechModelRole`, `SpeechModelStore`,
+`SpeechModelCatalog`, and `SpeechModelParameterDiagnostics` from the ModelManagementSubsystem,
+`IAudioCaptureDevice` from the AudioSubsystem, `ISpeechDiagnostics`/`NullSpeechDiagnostics` from
+the Diagnostics subsystem, and the subsystem's own `IRecognitionEngineFactory`,
+`SherpaOnnxRecognitionEngineFactory`, `SherpaOnnxSpeechRecognizer`, and
+`UnavailableSpeechRecognizer`.
 
 **Callers**: Host applications composing speech recognition at start-up, and the system-level
 integration tests.

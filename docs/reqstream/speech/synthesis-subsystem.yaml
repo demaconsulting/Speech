@@ -105,23 +105,34 @@ sections:
             title: >-
               The SynthesisSubsystem shall compose a speech synthesizer for an installed
               synthesis model and an audio playback device without ever throwing for an ordinary
-              machine state.
+              machine state, while validating any supplied parameterValues up front: silently
+              ignoring an unrecognized parameter id (an ordinary cross-model-compatibility gap)
+              but throwing ArgumentException for a recognized parameter's invalid value (a caller
+              bug, not an ordinary machine state).
             justification: |
               Composition happens at application start-up, where a model that has not been
               downloaded yet, a machine with no speakers, and a machine without the speech
               engine's native runtime are all ordinary states rather than programming errors, per
-              this library's "nothing throws at composition" decision.
+              this library's "nothing throws at composition" decision. A caller explicitly
+              targeting a parameter it knows this model declares, with a value invalid for it, is
+              a distinct case - a programming error at the call site - so it must be surfaced
+              synchronously and loudly rather than folded into the same never-throw contract as
+              genuine machine-state unavailability.
             children:
               - Speech-Synthesis-SpeechSynthesizerFactory-RealSynthesizer
               - Speech-Synthesis-SpeechSynthesizerFactory-HonestFallbacks
               - Speech-Synthesis-SpeechSynthesizerFactory-EngineLoadFailureFallback
               - Speech-Synthesis-SpeechSynthesizerFactory-ArgumentValidation
+              - Speech-Synthesis-SpeechSynthesizerFactory-UnrecognizedParameterIdIgnored
+              - Speech-Synthesis-SpeechSynthesizerFactory-InvalidRecognizedParameterValueThrows
               - Speech-Synthesis-SynthesisEngine-MockableSeam
               - Speech-Synthesis-SynthesisEngine-ModelOwnedConfiguration
             tests:
               - SpeechSynthesizerFactory_Create_ModelInstalledAndDeviceAvailable_ReturnsRealSynthesizer
               - SpeechSynthesizerFactory_Create_ModelNotInstalled_ReturnsUnavailableSynthesizer
               - SpeechSynthesizerFactory_Create_PlaybackDeviceUnavailable_ReturnsUnavailableSynthesizer
+              - SpeechSynthesizerFactory_Create_UnrecognizedParameterId_ComposesAndReportsInfo
+              - SpeechSynthesizerFactory_Create_RecognizedNumericParameterOutOfRange_Throws
 
           - id: Speech-Synthesis-VoiceSelection
             title: >-

@@ -103,15 +103,56 @@ public sealed class SpeechModelDownloaderTests : IDisposable
         // Assert
         Assert.Equal(SpeechModelDownloadOutcome.ChecksumMismatch, result.Outcome);
         Assert.False(store.IsInstalled("model-a"));
+        Assert.NotNull(result.Error);
+        Assert.Contains("model-a", result.Error.Message, StringComparison.Ordinal);
         diagnostics.Received(1).Report(SpeechDiagnosticLevel.Error, "ModelManagementSubsystem", Arg.Any<string>());
     }
 
     /// <summary>
-    ///     Proves that a failed repair/re-download attempt leaves a prior successful install
-    ///     completely untouched, never regressing an already-working model.
+    ///     Proves that <see cref="SpeechModelDownloader.DownloadAsync(string,SpeechModelDownloadDescriptor,IProgress{SpeechModelDownloadProgress}?,CancellationToken)"/>
+    ///     is a genuine no-op for an already-installed model: it reports
+    ///     <see cref="SpeechModelDownloadOutcome.Installed"/> without ever invoking the download
+    ///     client, and reports an <see cref="SpeechDiagnosticLevel.Info"/> diagnostic.
     /// </summary>
     [Fact]
-    public async Task SpeechModelDownloader_DownloadAsync_ChecksumMismatchAfterPriorSuccess_LeavesPriorInstallIntact()
+    public async Task SpeechModelDownloader_DownloadAsync_AlreadyInstalled_ReturnsInstalledWithoutFetchingOrStaging()
+    {
+        // Arrange: install the model for real once, then swap in a client that must never be called
+        var payload = "hello, model!"u8.ToArray();
+        var descriptor = SingleFileDescriptor(payload, "model.bin");
+        var store = NewStore();
+        var firstDownloader = new SpeechModelDownloader(store, new FakeModelDownloadClient(payload, 1024));
+        var firstResult = await firstDownloader.DownloadAsync(
+            "model-a", descriptor, cancellationToken: TestContext.Current.CancellationToken);
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, firstResult.Outcome);
+
+        var client = Substitute.For<IModelDownloadClient>();
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        var secondDownloader = new SpeechModelDownloader(store, client, diagnostics);
+
+        // Act
+        var result = await secondDownloader.DownloadAsync(
+            "model-a", descriptor, cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert: reported installed, without ever touching the network client
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, result.Outcome);
+        await client.DidNotReceive().DownloadAsync(
+            Arg.Any<Uri>(), Arg.Any<Stream>(), Arg.Any<IProgress<SpeechModelDownloadProgress>?>(), Arg.Any<CancellationToken>());
+        diagnostics.Received(1).Report(SpeechDiagnosticLevel.Info, "ModelManagementSubsystem", Arg.Any<string>());
+    }
+
+    /// <summary>
+    ///     Proves that a second <c>DownloadAsync</c> call for an already-installed model takes
+    ///     the Issue 3 fast path - returning <see cref="SpeechModelDownloadOutcome.Installed"/>
+    ///     without ever inspecting the second call's descriptor/checksum at all - leaving the
+    ///     prior successful install completely untouched. This supersedes this library's earlier
+    ///     "second call genuinely re-verifies and can report ChecksumMismatch" behavior: once
+    ///     installed, <c>DownloadAsync</c> is a genuine no-op regardless of what a second caller
+    ///     supplies, so there is no longer any way to trigger a real repair attempt through this
+    ///     API for an already-installed model id.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_SecondCallAfterPriorSuccess_TakesFastPathAndLeavesPriorInstallIntact()
     {
         // Arrange: a successful first install
         var goodPayload = "good payload"u8.ToArray();
@@ -122,7 +163,8 @@ public sealed class SpeechModelDownloaderTests : IDisposable
             "model-a", goodDescriptor, cancellationToken: TestContext.Current.CancellationToken);
         Assert.Equal(SpeechModelDownloadOutcome.Installed, firstResult.Outcome);
 
-        // Act: a repair attempt whose payload does not match its declared checksum
+        // Act: a second call whose descriptor's checksum would not match its payload, were it
+        // ever actually re-verified
         var badPayload = "bad payload!!"u8.ToArray();
         var wrongChecksumFile = new SpeechModelDownloadFile(
             new Uri("https://example.test/model.bin"),
@@ -133,8 +175,9 @@ public sealed class SpeechModelDownloaderTests : IDisposable
         var secondResult = await secondDownloader.DownloadAsync(
             "model-a", badDescriptor, cancellationToken: TestContext.Current.CancellationToken);
 
-        // Assert: the repair attempt fails honestly, and the prior good install is untouched
-        Assert.Equal(SpeechModelDownloadOutcome.ChecksumMismatch, secondResult.Outcome);
+        // Assert: the fast path took over - Installed, not ChecksumMismatch - and the prior good
+        // install is untouched
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, secondResult.Outcome);
         Assert.True(store.IsInstalled("model-a"));
         var installedBytes = await File.ReadAllBytesAsync(
             Path.Combine(store.GetCurrentDirectory("model-a"), "model.bin"), TestContext.Current.CancellationToken);
@@ -232,11 +275,20 @@ public sealed class SpeechModelDownloaderTests : IDisposable
         await Task.Delay(50, TestContext.Current.CancellationToken);
         Assert.Equal(1, orderTrackingClient.CallCount);
 
-        // Release the first call so the second can proceed, and confirm both completed in order.
+        // Release the first call so it can complete and install the model. The second call was
+        // genuinely serialized behind the first (never raced its atomic-swap install); once it
+        // acquires the lock in turn, it now observes the already-installed fast path added for
+        // Issue 3 and short-circuits to Installed without ever reaching the client a second time
+        // - proving both that serialization held (only entry order [1] was ever recorded) and
+        // that the fast path itself is race-safe when checked while holding the same lock a
+        // concurrent first-time install just released.
         orderTrackingClient.ReleaseFirstCall();
-        await Task.WhenAll(taskA, taskB);
+        var resultA = await taskA;
+        var resultB = await taskB;
 
-        Assert.Equal([1, 2], orderTrackingClient.EntryOrder);
+        Assert.Equal([1], orderTrackingClient.EntryOrder);
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, resultA.Outcome);
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, resultB.Outcome);
         Assert.True(store.IsInstalled("model-a"));
     }
 
@@ -296,12 +348,16 @@ public sealed class SpeechModelDownloaderTests : IDisposable
     }
 
     /// <summary>
-    ///     Proves that an <see cref="ISpeechModel.InstallAsync"/> failure on a repair attempt is
-    ///     handled identically to a download failure: nothing is installed, and a prior
-    ///     successful install of the same model is left completely untouched.
+    ///     Proves that a second <c>DownloadAsync</c> call for an already-installed model id takes
+    ///     the Issue 3 fast path even when supplied a model whose
+    ///     <see cref="ISpeechModel.InstallAsync"/> hook would throw - the hook is never invoked
+    ///     at all, since the fast path returns before any staging/install work begins - leaving
+    ///     the prior successful install completely untouched. This supersedes this library's
+    ///     earlier "second call genuinely re-runs InstallAsync and can report Failed" behavior for
+    ///     an already-installed model id.
     /// </summary>
     [Fact]
-    public async Task SpeechModelDownloader_DownloadAsync_WithModel_InstallAsyncThrows_ReportsFailedAndLeavesPriorInstallIntact()
+    public async Task SpeechModelDownloader_DownloadAsync_WithModel_SecondCallAfterPriorSuccess_TakesFastPathAndNeverInvokesInstallHook()
     {
         // Arrange: a successful first install using the bare (modelId, descriptor, ...) overload
         var goodPayload = "good payload"u8.ToArray();
@@ -312,7 +368,7 @@ public sealed class SpeechModelDownloaderTests : IDisposable
             "model-a", goodDescriptor, cancellationToken: TestContext.Current.CancellationToken);
         Assert.Equal(SpeechModelDownloadOutcome.Installed, firstResult.Outcome);
 
-        // Act: a repair attempt whose model's InstallAsync hook throws
+        // Act: a second call whose model's InstallAsync hook would throw if it were ever invoked
         var repairPayload = "repair payload"u8.ToArray();
         var repairDescriptor = SingleFileDescriptor(repairPayload, "model.bin");
         var secondDownloader = new SpeechModelDownloader(store, new FakeModelDownloadClient(repairPayload, 1024));
@@ -320,9 +376,10 @@ public sealed class SpeechModelDownloaderTests : IDisposable
         var secondResult = await secondDownloader.DownloadAsync(
             throwingModel, cancellationToken: TestContext.Current.CancellationToken);
 
-        // Assert: the repair attempt fails honestly, and the prior good install is untouched
-        Assert.Equal(SpeechModelDownloadOutcome.Failed, secondResult.Outcome);
-        Assert.NotNull(secondResult.Error);
+        // Assert: the fast path took over - Installed, not Failed - the hook never ran, and the
+        // prior good install is untouched
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, secondResult.Outcome);
+        Assert.Null(secondResult.Error);
         Assert.True(store.IsInstalled("model-a"));
         var installedBytes = await File.ReadAllBytesAsync(
             Path.Combine(store.GetCurrentDirectory("model-a"), "model.bin"), TestContext.Current.CancellationToken);
