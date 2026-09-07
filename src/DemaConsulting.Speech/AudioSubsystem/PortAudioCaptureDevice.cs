@@ -173,65 +173,66 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
                 "Cannot stop capture: no PortAudio capture device could be resolved.");
         }
 
-        IPortAudioStream? streamToStop;
+        // Held for the entire stop/dispose sequence (not just the field swap) so a concurrent
+        // Start() cannot open a replacement stream while this one is still shutting down.
         lock (_syncRoot)
         {
-            streamToStop = _stream;
+            var streamToStop = _stream;
             _stream = null;
-        }
 
-        if (streamToStop is null)
-        {
-            return;
-        }
+            if (streamToStop is null)
+            {
+                return;
+            }
 
-        Exception? stopException = null;
-        try
-        {
-            streamToStop.Stop();
-            _diagnostics.Report(
-                SpeechDiagnosticLevel.Info,
-                DiagnosticsCategory,
-                $"Stopped PortAudio capture on '{_resolvedDevice.Name}'.");
-        }
-        catch (Exception ex)
-        {
-            stopException = ex;
-            _diagnostics.Report(
-                SpeechDiagnosticLevel.Error,
-                DiagnosticsCategory,
-                $"Failed to stop PortAudio capture on '{_resolvedDevice.Name}': {ex.Message}");
-        }
+            Exception? stopException = null;
+            try
+            {
+                streamToStop.Stop();
+                _diagnostics.Report(
+                    SpeechDiagnosticLevel.Info,
+                    DiagnosticsCategory,
+                    $"Stopped PortAudio capture on '{_resolvedDevice.Name}'.");
+            }
+            catch (Exception ex)
+            {
+                stopException = ex;
+                _diagnostics.Report(
+                    SpeechDiagnosticLevel.Error,
+                    DiagnosticsCategory,
+                    $"Failed to stop PortAudio capture on '{_resolvedDevice.Name}': {ex.Message}");
+            }
 
-        try
-        {
-            streamToStop.Dispose();
-        }
-        catch (Exception ex) when (stopException is null)
-        {
-            _diagnostics.Report(
-                SpeechDiagnosticLevel.Error,
-                DiagnosticsCategory,
-                $"Failed to dispose PortAudio capture stream on '{_resolvedDevice.Name}': {ex.Message}");
-            throw new AudioDeviceUnavailableException(
-                $"Failed to stop capture on '{_resolvedDevice.Name}'.",
-                ex);
-        }
-        catch (Exception ex)
-        {
-            _diagnostics.Report(
-                SpeechDiagnosticLevel.Error,
-                DiagnosticsCategory,
-                $"Failed to dispose PortAudio capture stream on '{_resolvedDevice.Name}' " +
-                "after a stop failure: " +
-                $"{ex.Message}");
-        }
+            try
+            {
+                streamToStop.Dispose();
+            }
+            catch (Exception ex) when (stopException is null)
+            {
+                _diagnostics.Report(
+                    SpeechDiagnosticLevel.Error,
+                    DiagnosticsCategory,
+                    $"Failed to dispose PortAudio capture stream on '{_resolvedDevice.Name}': {ex.Message}");
+                throw new AudioDeviceUnavailableException(
+                    $"Failed to stop capture on '{_resolvedDevice.Name}'.",
+                    ex);
+            }
+            catch (Exception ex)
+            {
+                _diagnostics.Report(
+                    SpeechDiagnosticLevel.Error,
+                    DiagnosticsCategory,
+                    $"Failed to dispose PortAudio capture stream on '{_resolvedDevice.Name}' " +
+                    "after a stop failure: " +
+                    $"{ex.Message}");
+            }
 
-        if (stopException is not null)
-        {
-            throw new AudioDeviceUnavailableException(
-                $"Failed to stop capture on '{_resolvedDevice.Name}'.",
-                stopException);
+            if (stopException is not null)
+            {
+                throw new AudioDeviceUnavailableException(
+                    $"Failed to stop capture on '{_resolvedDevice.Name}'.",
+                    stopException);
+            }
         }
     }
 
