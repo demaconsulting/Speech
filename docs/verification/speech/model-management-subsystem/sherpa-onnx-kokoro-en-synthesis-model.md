@@ -28,8 +28,9 @@ below is this document's permanent record of that proof.
 
 #### Acceptance Criteria
 
-The model declares its stable `Id`/`DisplayName` (naming Apache-2.0)/`Role = Synthesis`/a single
-`voice` `ChoiceParameter` with 11 options/`AudioTagSupport = None`; its `DownloadDescriptor` names
+The model declares its stable `Id`/`DisplayName`/`Role = Synthesis`/a single
+`voice` `ChoiceParameter` with 11 options/`AudioTagSupport = None`, and `LicenseName =
+"Apache-2.0"` with a canonical `LicenseUrl`; its `DownloadDescriptor` names
 exactly one HTTPS file with a well-formed SHA-256 checksum and a `.tar.bz2` relative install
 path; `PreferredAudioFormat` reports mono `24000` Hz as a best-effort pre-load hint;
 `CreateEngineConfig` resolves the Kokoro model/voices/tokens/data-dir paths against the

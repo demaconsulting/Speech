@@ -197,10 +197,10 @@ sections:
             title: >-
               The ModelManagementSubsystem shall describe each model through a common contract
               (identity, role, declared parameters, declared audio-tag support, download
-              descriptor, an install hook defaulting to a no-op, and a text-normalization hook
-              defaulting to identity), with role-specific recognition/synthesis marker interfaces
-              so a catalog can report and filter models by role ahead of any engine-specific
-              construction logic.
+              descriptor, an install hook defaulting to a no-op, a text-normalization hook
+              defaulting to identity, and a declared license name/URL defaulting to "Unknown"/
+              null), with role-specific recognition/synthesis marker interfaces so a catalog can
+              report and filter models by role ahead of any engine-specific construction logic.
             justification: |
               The design defers engine-specific construction to Phase 3/4 behind
               IRecognitionModel/ISynthesisModel; defining them as empty marker interfaces now
@@ -210,6 +210,10 @@ sections:
               text-normalization/correction" as per-model responsibilities alongside a model's
               declared parameters and audio-tag support, so the contract declares both hooks now
               (with no-op-friendly defaults) rather than adding them as a later breaking change.
+              License information previously existed only as DisplayName prose or per-class XML
+              documentation, neither reliably discoverable by a host; declaring LicenseName/
+              LicenseUrl as further default-hooked members closes that gap without breaking any
+              existing model or test/demo fake.
             children:
               - Speech-Models-SpeechModelContract-RoleMarkerInterfaces
               - Speech-Models-SpeechModelContract-ParameterDeclaration
@@ -220,6 +224,7 @@ sections:
               - Speech-Models-SpeechModelContract-RecognitionEngineDeclaration
               - Speech-Models-SpeechModelContract-SynthesisPreferredAudioFormat
               - Speech-Models-SpeechModelContract-SynthesisEngineDeclaration
+              - Speech-Models-SpeechModelContract-LicenseDeclaration
               - Speech-Models-SpeechModelDescriptorEnums-FixedValueSets
             tests:
               - IRecognitionModel_Role_IsRecognition

@@ -16,14 +16,18 @@ sections:
                 title: >-
                   The SherpaOnnxKokoroEnglishSynthesisModel class shall declare a stable catalog
                   identity (Id, DisplayName, Role = Synthesis, a single voice ChoiceParameter
-                  with 11 confirmed options, AudioTagSupport = None).
+                  with 11 confirmed options, AudioTagSupport = None), and shall declare
+                  LicenseName = "Apache-2.0" with a canonical LicenseUrl to the Apache-2.0 full
+                  text.
                 justification: |
                   SpeechModelCatalog and SpeechModelDownloader depend only on the generic
                   ISpeechModel/ISynthesisModel contract; this model must honestly declare its
                   own fixed identity and its real 11-voice option set (confirmed against
                   upstream sherpa-onnx's own generation script, byte arithmetic against the real
                   voices.bin, and a live model load) for the catalog and downloader to enumerate
-                  and fetch it correctly.
+                  and fetch it correctly. This model's license, confirmed directly from its own
+                  archive's LICENSE file, must be discoverable programmatically, not only via
+                  DisplayName prose or XML documentation.
                 tests:
                   - SherpaOnnxKokoroEnglishSynthesisModel_Identity_DeclaresExpectedValues
 

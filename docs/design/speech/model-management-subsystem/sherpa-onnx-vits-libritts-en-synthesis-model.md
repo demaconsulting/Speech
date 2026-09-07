@@ -23,6 +23,10 @@ confirmed against a real download in this project's development sandbox, not fab
   Language Audio Tag concept; the default `DefaultModelCapabilityProfile` already strips
   unsupported tags and renders pauses as real silence, so no bespoke `CapabilityProfile`
   override is needed).
+- **LicenseName / LicenseUrl**: `LicenseName = "CC BY 4.0"` and `LicenseUrl` pointing at the
+  canonical `https://creativecommons.org/licenses/by/4.0/` full text (see the "License" section
+  below), so this model's attribution requirement is discoverable programmatically without
+  parsing `DisplayName`.
 - **DownloadDescriptor**: the single-file `.tar.bz2` archive descriptor described above.
 - **InstallAsync(stagedFilesDirectory, cancellationToken)**: delegates to the shared
   `TarBz2ArchiveExtractor` (built in Phase 7a, reused here unchanged) to extract the downloaded
@@ -59,7 +63,9 @@ This is an attribution license, materially different from both the Apache-2.0 an
 Model License recognition models registered alongside it: any redistribution of audio generated
 by this model, or of the model itself, must credit the LibriTTS-R dataset and the Piper
 text-to-speech project that converted it. Unlike CC BY-SA (ShareAlike), downstream relicensing
-under different terms is not restricted.
+under different terms is not restricted. This fact is now also exposed structurally, not only in
+this prose, via `LicenseName = "CC BY 4.0"` and
+`LicenseUrl = https://creativecommons.org/licenses/by/4.0/`.
 
 **Multi-Speaker Selection Resolved**: this model's `MODEL_CARD` declares 904 distinct speakers,
 identified only by plain numeric `sid` 0-903 - the LibriTTS-R speaker embeddings this voice was

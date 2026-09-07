@@ -47,9 +47,9 @@ public sealed class SherpaOnnxNemotronStreamingEnRecognitionModelTests : IDispos
     }
 
     /// <summary>
-    ///     Proves this model declares its expected, stable catalog identity, and that its
-    ///     display name visibly distinguishes it as NVIDIA Open Model License content, unlike the
-    ///     Apache-2.0-licensed Zipformer model.
+    ///     Proves this model declares its expected, stable catalog identity, and that it
+    ///     declares the NVIDIA Open Model License via <see cref="ISpeechModel.LicenseName"/>/
+    ///     <see cref="ISpeechModel.LicenseUrl"/>, unlike the Apache-2.0-licensed Zipformer model.
     /// </summary>
     [Fact]
     public void SherpaOnnxNemotronStreamingEnRecognitionModel_Identity_DeclaresExpectedValues()
@@ -60,10 +60,14 @@ public sealed class SherpaOnnxNemotronStreamingEnRecognitionModelTests : IDispos
         // Act & Assert
         Assert.Equal("nemotron-speech-streaming-en-0.6b-560ms-int8-2026-04-25", model.Id);
         Assert.Equal(SherpaOnnxNemotronStreamingEnRecognitionModel.ModelId, model.Id);
-        Assert.Contains("NVIDIA Open Model License", model.DisplayName, StringComparison.Ordinal);
+        Assert.Equal("NVIDIA Nemotron English (Streaming, 560ms)", model.DisplayName);
         Assert.Equal(SpeechModelRole.Recognition, model.Role);
         Assert.Empty(model.Parameters);
         Assert.Equal(SpeechModelAudioTagSupport.None, model.AudioTagSupport);
+        Assert.Equal("NVIDIA Open Model License", model.LicenseName);
+        Assert.Equal(
+            new Uri("https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-license/"),
+            model.LicenseUrl);
     }
 
     /// <summary>

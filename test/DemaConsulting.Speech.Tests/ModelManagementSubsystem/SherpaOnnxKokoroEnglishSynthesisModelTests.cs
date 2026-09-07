@@ -81,9 +81,11 @@ public sealed class SherpaOnnxKokoroEnglishSynthesisModelTests : IDisposable
         // Act & Assert
         Assert.Equal("kokoro-int8-en-v0_19", model.Id);
         Assert.Equal(SherpaOnnxKokoroEnglishSynthesisModel.ModelId, model.Id);
-        Assert.Contains("Apache-2.0", model.DisplayName, StringComparison.Ordinal);
+        Assert.Equal("Kokoro English (int8, 11 voices)", model.DisplayName);
         Assert.Equal(SpeechModelRole.Synthesis, model.Role);
         Assert.Equal(SpeechModelAudioTagSupport.None, model.AudioTagSupport);
+        Assert.Equal("Apache-2.0", model.LicenseName);
+        Assert.Equal(new Uri("https://www.apache.org/licenses/LICENSE-2.0"), model.LicenseUrl);
 
         var parameter = Assert.Single(model.Parameters);
         var choice = Assert.IsType<ChoiceParameter>(parameter);

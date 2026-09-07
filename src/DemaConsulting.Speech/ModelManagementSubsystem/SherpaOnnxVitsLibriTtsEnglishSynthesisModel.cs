@@ -125,7 +125,18 @@ public sealed class SherpaOnnxVitsLibriTtsEnglishSynthesisModel : ISynthesisMode
     public string Id => ModelId;
 
     /// <inheritdoc/>
-    public string DisplayName => "LibriTTS-R English (Piper VITS, 904 speakers) - CC BY 4.0";
+    public string DisplayName => "LibriTTS-R English (Piper VITS, 904 speakers)";
+
+    /// <summary>
+    ///     <inheritdoc/>
+    ///     See the type-level remarks' "License" paragraph - confirmed directly from this
+    ///     model's own <c>MODEL_CARD</c>, tracing to the LibriTTS-R corpus this Piper voice was
+    ///     fine-tuned on.
+    /// </summary>
+    public string LicenseName => "CC BY 4.0";
+
+    /// <inheritdoc/>
+    public Uri? LicenseUrl { get; } = new("https://creativecommons.org/licenses/by/4.0/");
 
     /// <inheritdoc/>
     public SpeechModelRole Role => SpeechModelRole.Synthesis;

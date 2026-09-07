@@ -21,6 +21,10 @@ fabricated or copied uncritically from an earlier measurement).
   has no native inline Natural Language Audio Tag concept; the default
   `DefaultModelCapabilityProfile` already strips unsupported tags and renders pauses as real
   silence, so no bespoke `CapabilityProfile` override is needed).
+- **LicenseName / LicenseUrl**: `LicenseName = "Apache-2.0"` and `LicenseUrl` pointing at the
+  canonical `https://www.apache.org/licenses/LICENSE-2.0` full text (see the "License" section
+  below), so this model's license is discoverable programmatically without parsing
+  `DisplayName`.
 - **DownloadDescriptor**: the single-file `.tar.bz2` archive descriptor described above.
 - **InstallAsync(stagedFilesDirectory, cancellationToken)**: delegates to the shared
   `TarBz2ArchiveExtractor` (built in Phase 7a, reused here unchanged) to extract the downloaded
@@ -68,7 +72,9 @@ handled by `SpeechModelDownloader`, identically to a download failure.
 **License**: Apache License 2.0 - confirmed directly from this archive's own `LICENSE` file
 (re-read in this pass, not assumed from memory or copied from a different model's docs),
 matching the recognition models' license family rather than the VITS/Piper synthesis model's
-CC BY 4.0 attribution license.
+CC BY 4.0 attribution license. This fact is now also exposed structurally, not only in this
+prose, via `LicenseName = "Apache-2.0"` and
+`LicenseUrl = https://www.apache.org/licenses/LICENSE-2.0`.
 
 **Capability Honesty**: Kokoro exposes no discrete emotion-style parameter anywhere in
 `OfflineTtsKokoroModelConfig` - only `Voices` (a fixed set of pre-trained speaker embeddings,

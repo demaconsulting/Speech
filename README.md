@@ -71,8 +71,13 @@ This release ships four models:
 | `SherpaOnnxVitsLibriTtsEnglishSynthesisModel` | TTS, 904 speakers | CC BY 4.0 |
 | `SherpaOnnxKokoroEnglishSynthesisModel` | TTS, 11 voices | Apache-2.0 |
 
-See the [user guide][link-user-guide] for full model details, license rationale, and
-voice/speaker selection.
+The table above is a convenience view for at-a-glance browsing, not the sole source of license
+information: every model also reports its license programmatically via
+`ISpeechModel.LicenseName`/`LicenseUrl` (also available through `SpeechModelCatalog.Enumerate()`'s
+`SpeechModelDescriptor.LicenseName`/`LicenseUrl`), so a host can discover licensing for any
+installed or installable model without parsing `DisplayName`. See the
+[user guide][link-user-guide] for full model details, license rationale, and voice/speaker
+selection.
 
 ## Usage
 

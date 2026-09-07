@@ -74,6 +74,16 @@ public sealed class SherpaOnnxZipformerEnRecognitionModel : IRecognitionModel
     /// <inheritdoc/>
     public string DisplayName => "Zipformer English (Streaming)";
 
+    /// <summary>
+    ///     <inheritdoc/>
+    ///     See the type-level remarks' "License" paragraph for why this is rated LIKELY rather
+    ///     than certain, and why that uncertainty is preserved verbatim in this string.
+    /// </summary>
+    public string LicenseName => "Apache-2.0 (likely)";
+
+    /// <inheritdoc/>
+    public Uri? LicenseUrl { get; } = new("https://www.apache.org/licenses/LICENSE-2.0");
+
     /// <inheritdoc/>
     public SpeechModelRole Role => SpeechModelRole.Recognition;
 

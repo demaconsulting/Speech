@@ -101,7 +101,19 @@ public sealed class SherpaOnnxNemotronStreamingEnRecognitionModel : IRecognition
     public string Id => ModelId;
 
     /// <inheritdoc/>
-    public string DisplayName => "NVIDIA Nemotron English (Streaming, 560ms) - NVIDIA Open Model License";
+    public string DisplayName => "NVIDIA Nemotron English (Streaming, 560ms)";
+
+    /// <summary>
+    ///     <inheritdoc/>
+    ///     See the type-level remarks' "License - materially different from every other model
+    ///     in this pass" paragraph - this is a custom, NVIDIA-authored license, not Apache-2.0,
+    ///     MIT, or any other widely-used OSI-approved permissive license.
+    /// </summary>
+    public string LicenseName => "NVIDIA Open Model License";
+
+    /// <inheritdoc/>
+    public Uri? LicenseUrl { get; } =
+        new("https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-license/");
 
     /// <inheritdoc/>
     public SpeechModelRole Role => SpeechModelRole.Recognition;

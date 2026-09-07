@@ -5,8 +5,8 @@
 moment the snapshot was built.
 
 **Data Model**: `Model` (`ISpeechModel`), `State` (`SpeechModelState`), plus convenience
-passthrough properties `Id`, `DisplayName`, and `Role` mirroring the wrapped model's own
-properties.
+passthrough properties `Id`, `DisplayName`, `Role`, `LicenseName`, and `LicenseUrl` mirroring the
+wrapped model's own properties.
 
 **Key Methods**:
 

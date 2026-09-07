@@ -10,9 +10,10 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     single class implementing either <see cref="IRecognitionModel"/> or
 ///     <see cref="ISynthesisModel"/> (never this interface directly), carrying its own download
 ///     URL(s)/checksum(s), declared parameters, audio-tag support declaration, own archive
-///     unpacking (<see cref="InstallAsync"/>), and own text normalization/correction
-///     (<see cref="NormalizeText"/>). This pass (Sub-phase 2b) defines only the generic
-///     identity/catalog contract plus these two model-owned hooks; the recognition- and
+///     unpacking (<see cref="InstallAsync"/>), own text normalization/correction
+///     (<see cref="NormalizeText"/>), and own declared license identification
+///     (<see cref="LicenseName"/>/<see cref="LicenseUrl"/>). This pass (Sub-phase 2b) defines
+///     only the generic identity/catalog contract plus these model-owned hooks; the recognition- and
 ///     synthesis-engine construction members that Phase 3/4 add live on the role-specific
 ///     interfaces, not here, so this contract never needs to change to add a new engine backend.
 ///     <see cref="SpeechModelCatalog"/> depends only on this common contract, so it can
@@ -102,4 +103,33 @@ public interface ISpeechModel
     ///     change later.
     /// </remarks>
     string NormalizeText(string text) => text;
+
+    /// <summary>
+    ///     Gets the model's declared license name or identifier, for display in a host UI and for
+    ///     programmatic discovery without parsing <see cref="DisplayName"/>. The default
+    ///     implementation returns <c>"Unknown"</c>.
+    /// </summary>
+    /// <remarks>
+    ///     Never null or empty. When a model's license is not certainly known (for example
+    ///     because the upstream model card could not be independently confirmed), that
+    ///     uncertainty must be encoded directly in the string itself (for example
+    ///     <c>"Apache-2.0 (likely)"</c>) rather than silently upgraded to a certain claim - a
+    ///     consumer relying on this value for a legally significant decision must be able to see
+    ///     the uncertainty in the value it reads, not just in this class's own XML documentation.
+    /// </remarks>
+    string LicenseName => "Unknown";
+
+    /// <summary>
+    ///     Gets the canonical URL to the full text of this model's declared license
+    ///     (<see cref="LicenseName"/>), when one is known. The default implementation returns
+    ///     <see langword="null"/>.
+    /// </summary>
+    /// <remarks>
+    ///     Null when no canonical license URL is known or applicable - for example while
+    ///     <see cref="LicenseName"/> is still the <c>"Unknown"</c> default. When non-null, this
+    ///     is expected to resolve to the license's own authoritative text (for example an
+    ///     SPDX-canonical license URL, or a model owner's own published license agreement), not a
+    ///     third-party summary or mirror.
+    /// </remarks>
+    Uri? LicenseUrl => null;
 }

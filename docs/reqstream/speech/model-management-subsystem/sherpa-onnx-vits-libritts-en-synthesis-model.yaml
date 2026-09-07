@@ -15,12 +15,16 @@ sections:
               - id: Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-Identity
                 title: >-
                   The SherpaOnnxVitsLibriTtsEnglishSynthesisModel class shall declare a stable
-                  catalog identity (Id, DisplayName, Role = Synthesis, AudioTagSupport = None).
+                  catalog identity (Id, DisplayName, Role = Synthesis, AudioTagSupport = None),
+                  and shall declare LicenseName = "CC BY 4.0" with a canonical LicenseUrl to
+                  the CC BY 4.0 full text.
                 justification: |
                   SpeechModelCatalog and SpeechModelDownloader depend only on the generic
                   ISpeechModel/ISynthesisModel contract; this model must honestly declare its
                   own fixed identity for the catalog and downloader to enumerate and fetch it
-                  correctly.
+                  correctly. This model's CC BY 4.0 attribution license (confirmed directly from
+                  its own MODEL_CARD) must be discoverable programmatically, not only via
+                  DisplayName prose or XML documentation.
                 tests:
                   - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_Identity_DeclaresExpectedValues
 

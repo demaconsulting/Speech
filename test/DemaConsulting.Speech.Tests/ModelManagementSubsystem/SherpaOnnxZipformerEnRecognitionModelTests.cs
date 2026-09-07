@@ -61,6 +61,8 @@ public sealed class SherpaOnnxZipformerEnRecognitionModelTests : IDisposable
         Assert.Equal(SpeechModelRole.Recognition, model.Role);
         Assert.Empty(model.Parameters);
         Assert.Equal(SpeechModelAudioTagSupport.None, model.AudioTagSupport);
+        Assert.Equal("Apache-2.0 (likely)", model.LicenseName);
+        Assert.Equal(new Uri("https://www.apache.org/licenses/LICENSE-2.0"), model.LicenseUrl);
     }
 
     /// <summary>

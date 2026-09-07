@@ -29,6 +29,16 @@ documentation anticipated.
   before inference. Defaults to the identity function. `SherpaOnnxSpeechSynthesizer` calls this
   hook before Layer 1 tag parsing, so a synthesis model may correct punctuation or spelling
   without the SynthesisSubsystem needing to know how.
+- **ISpeechModel.LicenseName / LicenseUrl**: a model's declared license name/identifier and an
+  optional canonical URL to its full text. Both are default-hooked members
+  (`LicenseName => "Unknown"`, `LicenseUrl => null`), matching the `InstallAsync`/`NormalizeText`
+  default-hook pattern above, so no existing test/demo fake implementing `ISpeechModel` needs to
+  change. `LicenseName` is never null or empty; when a model's license is not certainly known,
+  the uncertainty must be encoded directly in the string itself (for example
+  `"Apache-2.0 (likely)"`), never silently upgraded to a certain claim. `LicenseUrl` is null when
+  no canonical license URL is known or applicable. `SpeechModelDescriptor` forwards both, so a
+  host enumerating `SpeechModelCatalog.Enumerate()` can discover licensing for any model without
+  parsing `DisplayName`.
 - **IRecognitionModel** / **ISynthesisModel**: `: ISpeechModel`. `IRecognitionModel` adds two
   `internal` members in Phase 3 (see below), plus a public `NormalizeText(text, isFinal)` default
   hook in Phase 12 (see below). `ISynthesisModel` adds two `internal` members in Sub-phase 4b

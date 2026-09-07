@@ -270,7 +270,10 @@ this project's sandboxes) and `SherpaOnnxNemotronStreamingEnRecognitionModel`
 model's Apache-2.0 terms; review that license's field-of-use and redistribution terms before
 relying on this model) — both registered in `SpeechModelCatalog.KnownModels`. Neither model's
 bytes are bundled with this library; `SpeechModelCatalog.DownloadAsync` fetches each one directly
-from its own official GitHub Releases URL only when you explicitly request it. See
+from its own official GitHub Releases URL only when you explicitly request it. Both facts above
+are also available programmatically without parsing prose or `DisplayName`, via each model's
+`ISpeechModel.LicenseName`/`LicenseUrl` (for example `SherpaOnnxZipformerEnRecognitionModel`
+reports `"Apache-2.0 (likely)"`, preserving the same uncertainty rating in the value itself). See
 "Synthesizing Speech" below for this release's two production synthesis models.
 
 ## Natural Language Audio Tags
@@ -402,7 +405,9 @@ safe no-op when nothing is speaking. A synthesis-engine fault or a playback devi
 mid-utterance fails the awaited `SpeakAsync` task honestly rather than hanging or crashing the
 process.
 
-This release ships two production synthesis models:
+This release ships two production synthesis models (each also reports its license
+programmatically via `ISpeechModel.LicenseName`/`LicenseUrl`, without requiring you to parse
+this prose or `DisplayName`):
 
 - **`SherpaOnnxVitsLibriTtsEnglishSynthesisModel`** (`vits-piper-en_US-libritts_r-medium`, a
   VITS/Piper voice fine-tuned on the LibriTTS-R corpus, 904 declared speakers, 22,050 Hz,

@@ -16,6 +16,10 @@ against a real download in this project's development sandbox, not fabricated).
 - **Id / DisplayName / Role / Parameters / AudioTagSupport**: fixed values - `Role =
   Recognition`, no tunable parameters, `AudioTagSupport = None` (Natural Language Audio Tags are
   a synthesis-input concept, not applicable to recognition output).
+- **LicenseName / LicenseUrl**: `LicenseName = "Apache-2.0 (likely)"`, preserving the "LIKELY,
+  not independently confirmed" uncertainty rating verbatim in the declared value itself (see the
+  "License" section below), and `LicenseUrl` pointing at the canonical
+  `https://www.apache.org/licenses/LICENSE-2.0` full text.
 - **DownloadDescriptor**: the single-file `.tar.bz2` archive descriptor described above.
 - **InstallAsync(stagedFilesDirectory, cancellationToken)**: delegates to the shared
   `TarBz2ArchiveExtractor` to extract the downloaded archive in place and delete it, leaving the

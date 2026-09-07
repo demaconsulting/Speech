@@ -19,8 +19,10 @@ by the test project's own `TarBz2ArchiveFixtures` helper.
 #### Acceptance Criteria
 
 The model declares its stable `Id`/`DisplayName`/`Role`/empty `Parameters`/`AudioTagSupport =
-None`; its `DownloadDescriptor` names exactly one HTTPS file with a well-formed SHA-256 checksum
-and a `.tar.bz2` relative install path; `SampleRate` reports `16000`; `CreateEngineConfig`
+None`; its `LicenseName` reports `"Apache-2.0 (likely)"` and its `LicenseUrl` reports the
+canonical Apache-2.0 license text URL; its `DownloadDescriptor` names exactly one HTTPS file
+with a well-formed SHA-256 checksum and a `.tar.bz2` relative install path; `SampleRate` reports
+`16000`; `CreateEngineConfig`
 resolves the int8 encoder/decoder/joiner/tokens paths against the archive's extracted top-level
 folder with `ModelType = "zipformer2"`, `DecodingMethod = "greedy_search"`, and
 `EnableEndpoint = 1`; an empty installed directory throws `ArgumentException`; `InstallAsync`

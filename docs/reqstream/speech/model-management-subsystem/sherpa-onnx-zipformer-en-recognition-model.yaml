@@ -16,12 +16,18 @@ sections:
                 title: >-
                   The SherpaOnnxZipformerEnRecognitionModel class shall declare a stable
                   catalog identity (Id, DisplayName, Role = Recognition, no tunable
-                  Parameters, AudioTagSupport = None).
+                  Parameters, AudioTagSupport = None), and declare LicenseName =
+                  "Apache-2.0 (likely)" with a canonical LicenseUrl to the Apache-2.0 full
+                  text, preserving the "LIKELY, not independently confirmed" uncertainty
+                  rating verbatim in the declared LicenseName value.
                 justification: |
                   SpeechModelCatalog and SpeechModelDownloader depend only on the generic
                   ISpeechModel/IRecognitionModel contract; this model must honestly declare
                   its own fixed identity for the catalog and downloader to enumerate and
-                  fetch it correctly.
+                  fetch it correctly. This model's Apache-2.0 license rating was never
+                  independently confirmed against an explicit model-specific LICENSE/model-card
+                  file (see the class's own remarks), so LicenseName must carry that
+                  uncertainty in the value itself rather than overstate it as certain.
                 tests:
                   - SherpaOnnxZipformerEnRecognitionModel_Identity_DeclaresExpectedValues
 

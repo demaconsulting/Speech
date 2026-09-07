@@ -157,7 +157,17 @@ public sealed class SherpaOnnxKokoroEnglishSynthesisModel : ISynthesisModel
     public string Id => ModelId;
 
     /// <inheritdoc/>
-    public string DisplayName => "Kokoro English (int8, 11 voices) - Apache-2.0";
+    public string DisplayName => "Kokoro English (int8, 11 voices)";
+
+    /// <summary>
+    ///     <inheritdoc/>
+    ///     See the type-level remarks' "License" paragraph - confirmed directly from this
+    ///     archive's own <c>LICENSE</c> file.
+    /// </summary>
+    public string LicenseName => "Apache-2.0";
+
+    /// <inheritdoc/>
+    public Uri? LicenseUrl { get; } = new("https://www.apache.org/licenses/LICENSE-2.0");
 
     /// <inheritdoc/>
     public SpeechModelRole Role => SpeechModelRole.Synthesis;

@@ -16,17 +16,20 @@ sections:
                 title: >-
                   The SherpaOnnxNemotronStreamingEnRecognitionModel class shall declare a
                   stable catalog identity (Id, Role = Recognition, no tunable Parameters,
-                  AudioTagSupport = None) whose DisplayName visibly names the NVIDIA Open
-                  Model License, and a single validated HTTPS .tar.bz2 download file
+                  AudioTagSupport = None) and shall declare LicenseName = "NVIDIA Open Model
+                  License" with a canonical LicenseUrl, since DisplayName no longer embeds
+                  license text; and a single validated HTTPS .tar.bz2 download file
                   pointing at sherpa-onnx's/k2-fsa's own official GitHub Releases mirror
                   with a well-formed SHA-256 checksum.
                 justification: |
                   This model's underlying weights are licensed under the NVIDIA Open Model
                   License - materially different from every other model in this pass -
-                  which must be visibly distinct anywhere the catalog/settings UI renders
-                  this model's name, not only in code comments; the library must also never
-                  bundle or redistribute the weights itself, only declare where a consumer
-                  can fetch them on their own explicit action.
+                  which must be visibly and programmatically discoverable anywhere the
+                  catalog/settings UI renders this model, not only in code comments;
+                  LicenseName/LicenseUrl are now the mechanism a host uses to surface that
+                  fact, rather than DisplayName. The library must also never bundle or
+                  redistribute the weights itself, only declare where a consumer can fetch
+                  them on their own explicit action.
                 tests:
                   - SherpaOnnxNemotronStreamingEnRecognitionModel_Identity_DeclaresExpectedValues
                   - SherpaOnnxNemotronStreamingEnRecognitionModel_DownloadDescriptor_DeclaresSingleValidatedArchiveFile
