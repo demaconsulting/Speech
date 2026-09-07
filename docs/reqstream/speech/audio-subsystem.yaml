@@ -74,6 +74,8 @@ sections:
               - Speech-Audio-AudioDeviceFactory-PreferredFormatForwarding
               - Speech-Audio-PortAudioCaptureDevice-PreferredFormatSelection
               - Speech-Audio-PortAudioPlaybackDevice-PreferredFormatSelection
+              - Speech-Audio-PortAudioCaptureDevice-PreferredSampleRateNegotiated
+              - Speech-Audio-PortAudioPlaybackDevice-PreferredSampleRateNegotiated
             tests:
               - AudioFormat_Constructor_ValidValues_ExposesProperties
               - AudioFormat_Mono_ValidSampleRate_ReturnsMonoFormat
@@ -81,6 +83,8 @@ sections:
               - AudioDeviceFactory_CreatePlaybackDevice_PreferredFormatSupplied_ForwardsPreferredFormat
               - PortAudioCaptureDevice_Constructor_PreferredFormatWithinCapability_UsesPreferredFormat
               - PortAudioPlaybackDevice_Constructor_PreferredFormatWithinCapability_UsesPreferredFormat
+              - PortAudioCaptureDevice_Constructor_PreferredSampleRateUnsupported_FallsBackToDeviceDefaultSampleRateAndReportsDiagnostic
+              - PortAudioPlaybackDevice_Constructor_PreferredSampleRateUnsupported_FallsBackToDeviceDefaultSampleRateAndReportsDiagnostic
 
           - id: Speech-Audio-MockableContracts
             title: >-
