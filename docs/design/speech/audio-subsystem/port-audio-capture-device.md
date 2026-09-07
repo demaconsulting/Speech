@@ -6,16 +6,19 @@
 an optional preferred `AudioFormat`, and either resolved device metadata or `null` when no
 device could be resolved. `ChannelCount` and `SampleRate` project the values requested when the
 capture stream is opened: either the resolved device's own default/full-capacity format, or the
-caller-preferred format with channel count clamped down to device capability. They report `0`
-when nothing was resolved. The active stream reference is synchronized so only one capture stream
-can run at a time.
+caller-preferred format with channel count clamped down to device capability and sample rate
+negotiated against the device/host API's actual capability. They report `0` when nothing was
+resolved. The active stream reference is synchronized so only one capture stream can run at a
+time.
 
 **Key Methods**:
 
 - **PortAudioCaptureDevice(...)**: Resolves either the named device or the preferred host API's
-  default input device, applies any preferred sample-rate hint directly, and clamps any
-  preferred channel count down to the device's maximum input-channel capability. Construction
-  never throws.
+  default input device, negotiates any preferred sample-rate hint against the device/host API's
+  actual capability via `IPortAudioApi.IsCaptureFormatSupported`, honoring it only when confirmed
+  openable and otherwise falling back to the device's own default sample rate with an Info-level
+  diagnostic, and clamps any preferred channel count down to the device's maximum input-channel
+  capability. Construction never throws.
 - **Start()**: Opens a capture-only PortAudio stream through `IPortAudioApi`, starts it, and
   forwards managed sample blocks through `FrameCaptured`.
 - **Stop()**: Stops and disposes the active capture stream when one exists.

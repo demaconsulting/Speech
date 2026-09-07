@@ -17,9 +17,11 @@ samples drain in order and zero-fill underruns, open failures surface
 `AudioDeviceUnavailableException`, no resolvable device yields `IsAvailable = false`, preferred
 formats are honored when within device capability, excessive preferred channel counts are
 clamped, omitted preferences fall back to the device default, the reported channel count and
-sample rate match the requested open format (or are zero when nothing was resolved), and
+sample rate match the requested open format (or are zero when nothing was resolved),
 `PendingSampleCount` honestly tracks how many written samples the callback has genuinely
-dequeued.
+dequeued, a preferred sample rate the host API confirms it can open is honored, and a preferred
+sample rate the host API cannot open falls back to the device's default sample rate with an
+Info-level diagnostic.
 
 #### Test Scenarios
 
@@ -62,3 +64,11 @@ dequeued.
 ##### Pending Sample Count: Write, Drain, and Stop Track Queue Depth
 
 **Test**: `PortAudioPlaybackDevice_PendingSampleCount_WriteDrainAndStop_TracksQueueDepth`
+
+##### Construction: Unsupported Preferred Sample Rate Falls Back to Device Default
+
+**Test**: `PortAudioPlaybackDevice_Constructor_PreferredSampleRateUnsupported_FallsBackToDeviceDefaultSampleRateAndReportsDiagnostic`
+
+##### Construction: Supported Preferred Sample Rate Is Used
+
+**Test**: `PortAudioPlaybackDevice_Constructor_PreferredSampleRateSupported_UsesPreferredFormat`

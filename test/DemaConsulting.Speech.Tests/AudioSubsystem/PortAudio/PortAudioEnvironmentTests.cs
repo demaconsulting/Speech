@@ -231,6 +231,18 @@ public class PortAudioEnvironmentTests
         }
 
         /// <inheritdoc/>
+        public bool IsCaptureFormatSupported(int deviceIndex, int channelCount, int sampleRate)
+        {
+            throw new NotSupportedException("Format negotiation is outside this test scope.");
+        }
+
+        /// <inheritdoc/>
+        public bool IsPlaybackFormatSupported(int deviceIndex, int channelCount, int sampleRate)
+        {
+            throw new NotSupportedException("Format negotiation is outside this test scope.");
+        }
+
+        /// <inheritdoc/>
         public IPortAudioStream OpenCaptureStream(
             int deviceIndex,
             int channelCount,

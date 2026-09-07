@@ -85,6 +85,22 @@ internal sealed class PortAudioApi : IPortAudioApi
     }
 
     /// <inheritdoc/>
+    public bool IsCaptureFormatSupported(int deviceIndex, int channelCount, int sampleRate)
+    {
+        var deviceInfo = GetDeviceInfo(deviceIndex);
+        var parameters = CreateInputParameters(deviceIndex, channelCount, deviceInfo.DefaultLowInputLatency);
+        return IsFormatSupported(parameters, isInput: true, sampleRate);
+    }
+
+    /// <inheritdoc/>
+    public bool IsPlaybackFormatSupported(int deviceIndex, int channelCount, int sampleRate)
+    {
+        var deviceInfo = GetDeviceInfo(deviceIndex);
+        var parameters = CreateOutputParameters(deviceIndex, channelCount, deviceInfo.DefaultLowOutputLatency);
+        return IsFormatSupported(parameters, isInput: false, sampleRate);
+    }
+
+    /// <inheritdoc/>
     public IPortAudioStream OpenCaptureStream(
         int deviceIndex,
         int channelCount,
@@ -239,6 +255,55 @@ internal sealed class PortAudioApi : IPortAudioApi
             suggestedLatency = suggestedLatency,
             hostApiSpecificStreamInfo = nint.Zero
         };
+    }
+
+    /// <summary>
+    ///     Probes the native runtime for whether the given stream parameters and sample rate can
+    ///     actually be opened, marshaling the managed parameters to unmanaged memory for the
+    ///     duration of the native call and always releasing it afterward.
+    /// </summary>
+    /// <param name="parameters">
+    ///     The input or output stream parameters to probe, built the same way the corresponding
+    ///     open-stream path builds them.
+    /// </param>
+    /// <param name="isInput">
+    ///     <see langword="true"/> when <paramref name="parameters"/> describes the input side of
+    ///     the probe; <see langword="false"/> when it describes the output side.
+    /// </param>
+    /// <param name="sampleRate">The sample rate, in Hz, to probe.</param>
+    /// <returns>
+    ///     <see langword="true"/> when the native runtime reports <c>paNoError</c> for the exact
+    ///     combination; <see langword="false"/> when it reports any other result or when the
+    ///     probe itself fails for any reason - a probe failure must never be worse than the
+    ///     un-negotiated behavior it replaces.
+    /// </returns>
+    private static bool IsFormatSupported(PortAudioStreamParameters parameters, bool isInput, int sampleRate)
+    {
+        var parametersPointer = nint.Zero;
+        try
+        {
+            parametersPointer = Marshal.AllocHGlobal(Marshal.SizeOf<PortAudioStreamParameters>());
+            Marshal.StructureToPtr(parameters, parametersPointer, false);
+
+            var inputParameters = isInput ? parametersPointer : nint.Zero;
+            var outputParameters = isInput ? nint.Zero : parametersPointer;
+            var result = PortAudioNativeMethods.Pa_IsFormatSupported(inputParameters, outputParameters, sampleRate);
+            return result == 0;
+        }
+        catch
+        {
+            // A probe failure (for example a marshaling fault) must fail safe rather than
+            // propagate, since the caller's fallback behavior is strictly no worse than the
+            // un-negotiated forwarding this probe replaces.
+            return false;
+        }
+        finally
+        {
+            if (parametersPointer != nint.Zero)
+            {
+                Marshal.FreeHGlobal(parametersPointer);
+            }
+        }
     }
 
     /// <summary>

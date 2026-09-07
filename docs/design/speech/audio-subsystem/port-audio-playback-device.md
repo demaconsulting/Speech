@@ -7,8 +7,9 @@ an optional preferred `AudioFormat`, and either resolved device metadata or `nul
 could be resolved. `ChannelCount` and `SampleRate`, added in Sub-phase 4b mirroring
 `PortAudioCaptureDevice`'s identical Phase 3 addition, project the values requested when the
 playback stream is opened: either the resolved device's own default/full-capacity format, or the
-caller-preferred format with channel count clamped down to device capability. They report `0`
-when nothing was resolved. A `ConcurrentQueue<float>` buffers samples written by callers until
+caller-preferred format with channel count clamped down to device capability and sample rate
+negotiated against the device/host API's actual capability. They report `0` when nothing was
+resolved. A `ConcurrentQueue<float>` buffers samples written by callers until
 the PortAudio callback requests them, alongside a `long` `_pendingSampleCount` field updated
 with `Interlocked` (because `Write` runs on caller threads while the PortAudio callback runs on
 its own real-time thread) tracking how many enqueued samples the callback has not yet dequeued.
@@ -16,9 +17,11 @@ its own real-time thread) tracking how many enqueued samples the callback has no
 **Key Methods**:
 
 - **PortAudioPlaybackDevice(...)**: Resolves either the named device or the preferred host API's
-  default output device, applies any preferred sample-rate hint directly, and clamps any
-  preferred channel count down to the device's maximum output-channel capability. Construction
-  never throws.
+  default output device, negotiates any preferred sample-rate hint against the device/host API's
+  actual capability via `IPortAudioApi.IsPlaybackFormatSupported`, honoring it only when
+  confirmed openable and otherwise falling back to the device's own default sample rate with an
+  Info-level diagnostic, and clamps any preferred channel count down to the device's maximum
+  output-channel capability. Construction never throws.
 - **Start()**: Opens a playback-only PortAudio stream through `IPortAudioApi` and starts it.
 - **Write(IReadOnlyList&lt;float&gt;)**: Enqueues interleaved samples for the PortAudio callback to
   drain later and increments `_pendingSampleCount` by however many samples were enqueued.

@@ -12,6 +12,10 @@ Speech library needs.
 - **HostApiCount / DeviceCount**: Expose runtime metadata counts.
 - **FindHostApiIndex(...) / GetHostApiInfo(...) / GetDeviceInfo(...)**: Resolve stable host-API
   identifiers and per-device metadata.
+- **IsCaptureFormatSupported(...) / IsPlaybackFormatSupported(...)**: Probe whether a specific
+  channel count and sample rate can actually be opened on a given device, so callers can
+  negotiate a preferred format before opening a stream rather than discovering an unsupported
+  combination only when `Pa_OpenStream` fails.
 - **OpenCaptureStream(...) / OpenPlaybackStream(...)**: Open mockable capture and playback
   streams using managed callbacks.
 

@@ -16,8 +16,10 @@ Tests pass when stale selections fall back to the host-API default capture devic
 delivery raises `FrameCaptured`, open failures surface `AudioDeviceUnavailableException`, no
 resolvable device yields `IsAvailable = false`, preferred formats are honored when within device
 capability, excessive preferred channel counts are clamped, omitted preferences fall back to the
-device default, and the reported channel count and sample rate match the requested open format
-(or are zero when nothing was resolved).
+device default, the reported channel count and sample rate match the requested open format (or
+are zero when nothing was resolved), a preferred sample rate the host API confirms it can open is
+honored, and a preferred sample rate the host API cannot open falls back to the device's default
+sample rate with an Info-level diagnostic.
 
 #### Test Scenarios
 
@@ -56,3 +58,11 @@ device default, and the reported channel count and sample rate match the request
 ##### Capture Format: No Resolvable Device Returns Zero Rate and Channel Count
 
 **Test**: `PortAudioCaptureDevice_CaptureFormat_NoResolvableDevice_ReturnsZeroRateAndChannelCount`
+
+##### Construction: Unsupported Preferred Sample Rate Falls Back to Device Default
+
+**Test**: `PortAudioCaptureDevice_Constructor_PreferredSampleRateUnsupported_FallsBackToDeviceDefaultSampleRateAndReportsDiagnostic`
+
+##### Construction: Supported Preferred Sample Rate Is Used
+
+**Test**: `PortAudioCaptureDevice_Constructor_PreferredSampleRateSupported_UsesPreferredFormat`

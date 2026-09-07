@@ -43,7 +43,9 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
     /// <param name="preferredFormat">
     ///     The preferred playback format to request for the resolved device, or
     ///     <see langword="null"/> to request the device's own default sample rate and full output
-    ///     channel capacity.
+    ///     channel capacity. The preferred sample rate is only honored when the resolved device's
+    ///     host API confirms it can actually be opened; otherwise the device's default sample
+    ///     rate is used instead.
     /// </param>
     internal PortAudioPlaybackDevice(
         PortAudioEnvironment environment,
@@ -126,7 +128,9 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
     /// <remarks>
     ///     Reports the sample rate requested at construction time: either the resolved device's
     ///     own PortAudio-reported default rate, or the caller's preferred sample rate when one
-    ///     was supplied. This is the same rate requested when the playback stream is opened.
+    ///     was supplied and confirmed openable on the resolved device's host API - a preferred
+    ///     rate the host API cannot open falls back to the device's default rate instead. This is
+    ///     the same rate requested when the playback stream is opened.
     /// </remarks>
     public int SampleRate => _resolvedDevice?.SampleRate ?? 0;
 
@@ -301,7 +305,7 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
             return null;
         }
 
-        var eligibleDevices = new List<ResolvedPlaybackDevice>();
+        var eligibleDevices = new List<(int DeviceIndex, PortAudioDeviceInfo DeviceInfo)>();
         for (var deviceIndex = 0; deviceIndex < _environment.Api.DeviceCount; deviceIndex++)
         {
             var deviceInfo = _environment.Api.GetDeviceInfo(deviceIndex);
@@ -310,12 +314,7 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
                 continue;
             }
 
-            eligibleDevices.Add(
-                new ResolvedPlaybackDevice(
-                    deviceIndex,
-                    deviceInfo.Name,
-                    ResolveChannelCount(deviceInfo.MaxOutputChannels),
-                    _preferredFormat?.SampleRate ?? deviceInfo.DefaultSampleRate));
+            eligibleDevices.Add((deviceIndex, deviceInfo));
         }
 
         var selectedDevice = ResolveSelectedDevice(eligibleDevices, hostApiInfo.DefaultOutputDeviceIndex);
@@ -328,14 +327,25 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
             return null;
         }
 
-        var resolutionBasis = string.Equals(selectedDevice.Name, _selection.DeviceName, StringComparison.Ordinal)
+        // Only the device actually selected needs its preferred format negotiated: probing every
+        // eligible device would perform unnecessary native calls and could report a misleading
+        // fallback diagnostic for a device that was never going to be used.
+        var (selectedDeviceIndex, selectedDeviceInfo) = selectedDevice.Value;
+        var resolvedChannelCount = ResolveChannelCount(selectedDeviceInfo.MaxOutputChannels);
+        var resolvedDevice = new ResolvedPlaybackDevice(
+            selectedDeviceIndex,
+            selectedDeviceInfo.Name,
+            resolvedChannelCount,
+            ResolveSampleRate(selectedDeviceIndex, resolvedChannelCount, selectedDeviceInfo));
+
+        var resolutionBasis = string.Equals(resolvedDevice.Name, _selection.DeviceName, StringComparison.Ordinal)
             ? "selection"
             : "host API default";
         _diagnostics.Report(
             SpeechDiagnosticLevel.Info,
             DiagnosticsCategory,
-            $"Resolved PortAudio playback device '{selectedDevice.Name}' via {resolutionBasis}.");
-        return selectedDevice;
+            $"Resolved PortAudio playback device '{resolvedDevice.Name}' via {resolutionBasis}.");
+        return resolvedDevice;
     }
 
     /// <summary>
@@ -349,23 +359,33 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
     ///     The host-API-scoped default output-device index.
     /// </param>
     /// <returns>
-    ///     The resolved device when one is available; otherwise, <see langword="null"/>.
+    ///     The device index and metadata for the resolved device when one is available;
+    ///     otherwise, <see langword="null"/>.
     /// </returns>
-    private ResolvedPlaybackDevice? ResolveSelectedDevice(
-        IReadOnlyList<ResolvedPlaybackDevice> eligibleDevices,
+    private (int DeviceIndex, PortAudioDeviceInfo DeviceInfo)? ResolveSelectedDevice(
+        IReadOnlyList<(int DeviceIndex, PortAudioDeviceInfo DeviceInfo)> eligibleDevices,
         int defaultDeviceIndex)
     {
         if (_selection.DeviceName is not null)
         {
-            var selectedByName = eligibleDevices.FirstOrDefault(
-                device => string.Equals(device.Name, _selection.DeviceName, StringComparison.Ordinal));
-            if (selectedByName is not null)
+            foreach (var device in eligibleDevices)
             {
-                return selectedByName;
+                if (string.Equals(device.DeviceInfo.Name, _selection.DeviceName, StringComparison.Ordinal))
+                {
+                    return device;
+                }
             }
         }
 
-        return eligibleDevices.FirstOrDefault(device => device.DeviceIndex == defaultDeviceIndex);
+        foreach (var device in eligibleDevices)
+        {
+            if (device.DeviceIndex == defaultDeviceIndex)
+            {
+                return device;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -391,6 +411,39 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
         }
 
         return resolvedChannelCount;
+    }
+
+    /// <summary>
+    ///     Resolves the playback sample rate to request for one device, negotiating any
+    ///     preferred rate against the device/host API's actual capability before honoring it.
+    /// </summary>
+    /// <param name="deviceIndex">The PortAudio runtime device index being resolved.</param>
+    /// <param name="channelCount">The resolved playback channel count for this device.</param>
+    /// <param name="deviceInfo">The device metadata reported for this device index.</param>
+    /// <returns>
+    ///     The preferred sample rate when one was supplied and confirmed openable by the host
+    ///     API; otherwise, the device's own default sample rate.
+    /// </returns>
+    private int ResolveSampleRate(int deviceIndex, int channelCount, PortAudioDeviceInfo deviceInfo)
+    {
+        if (_preferredFormat is null)
+        {
+            return deviceInfo.DefaultSampleRate;
+        }
+
+        var preferredSampleRate = _preferredFormat.SampleRate;
+        if (_environment.Api.IsPlaybackFormatSupported(deviceIndex, channelCount, preferredSampleRate))
+        {
+            return preferredSampleRate;
+        }
+
+        _diagnostics.Report(
+            SpeechDiagnosticLevel.Info,
+            DiagnosticsCategory,
+            $"Preferred playback sample rate {preferredSampleRate} Hz is not supported by device " +
+            $"'{deviceInfo.Name}'; falling back to the device's default sample rate " +
+            $"{deviceInfo.DefaultSampleRate} Hz.");
+        return deviceInfo.DefaultSampleRate;
     }
 
     /// <summary>

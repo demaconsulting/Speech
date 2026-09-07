@@ -1,4 +1,4 @@
-// cspell:ignore Alsa ALSA portaudio
+// cspell:ignore Alsa ALSA portaudio Cdecl
 using System.Runtime.InteropServices;
 
 namespace DemaConsulting.Speech.AudioSubsystem.PortAudio;
@@ -22,14 +22,14 @@ internal static class PortAudioNativeMethods
     /// <summary>
     ///     Returns the number of host APIs exposed by the initialized PortAudio runtime.
     /// </summary>
-    [DllImport(PortAudioLibraryName)]
+    [DllImport(PortAudioLibraryName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern int Pa_GetHostApiCount();
 
     /// <summary>
     ///     Returns a pointer to immutable information describing one host API.
     /// </summary>
     /// <param name="hostApiIndex">The runtime-specific host-API index to inspect.</param>
-    [DllImport(PortAudioLibraryName)]
+    [DllImport(PortAudioLibraryName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern nint Pa_GetHostApiInfo(int hostApiIndex);
 
     /// <summary>
@@ -37,8 +37,25 @@ internal static class PortAudioNativeMethods
     ///     API index.
     /// </summary>
     /// <param name="type">The stable host-API type identifier to resolve.</param>
-    [DllImport(PortAudioLibraryName)]
+    [DllImport(PortAudioLibraryName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern int Pa_HostApiTypeIdToHostApiIndex(PortAudioHostApiType type);
+
+    /// <summary>
+    ///     Determines whether the host API can actually open a stream for the given input and/or
+    ///     output parameters at the given sample rate, returning <c>paNoError</c> (<c>0</c>) only
+    ///     when the exact combination is supported.
+    /// </summary>
+    /// <param name="inputParameters">
+    ///     Pointer to a native <c>PaStreamParameters</c> structure describing the requested input
+    ///     side, or <see cref="nint.Zero"/> when the probe is output-only.
+    /// </param>
+    /// <param name="outputParameters">
+    ///     Pointer to a native <c>PaStreamParameters</c> structure describing the requested output
+    ///     side, or <see cref="nint.Zero"/> when the probe is input-only.
+    /// </param>
+    /// <param name="sampleRate">The sample rate, in Hz, to probe.</param>
+    [DllImport(PortAudioLibraryName, CallingConvention = CallingConvention.Cdecl)]
+    internal static extern int Pa_IsFormatSupported(nint inputParameters, nint outputParameters, double sampleRate);
 
     /// <summary>
     ///     Managed layout for PortAudio's native <c>PaHostApiInfo</c> structure.
