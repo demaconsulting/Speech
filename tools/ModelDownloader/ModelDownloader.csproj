@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- CI-only bootstrap tool: downloads real, production models into the shared
+         %LocalAppData%\DemaConsulting.Speech\Models store before the test suite runs, so the
+         CI-skip-by-design tests in DemaConsulting.Speech.Tests (which otherwise skip when a
+         real model is not installed) can exercise a real, downloaded model. This tool is never
+         packed or shipped, and is not part of the library's public surface - see the
+         VerifyLibraryIsIndependent target in DemaConsulting.Speech.csproj, which the library
+         itself remains subject to, unaffected by this tool referencing it. -->
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>DemaConsulting.Speech.ModelDownloader</RootNamespace>
+    <AssemblyName>DemaConsulting.Speech.ModelDownloader</AssemblyName>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+
+    <!-- Code Quality Configuration (mirrors DemaConsulting.Speech.csproj) -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\DemaConsulting.Speech\DemaConsulting.Speech.csproj" />
+  </ItemGroup>
+
+  <!-- Code Analysis Dependencies -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="10.0.400">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="SonarAnalyzer.CSharp" Version="10.33.0.1635">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+</Project>

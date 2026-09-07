@@ -29,9 +29,9 @@ successful download reports `Downloaded`; a checksum-mismatched download reports
 
 **Test**: `SpeechModelCatalog_Enumerate_EmptyKnownModels_ReturnsEmptyList`
 
-##### The compiled-in KnownModels list contains all three real, production models
+##### The compiled-in KnownModels list contains all four real, production models
 
-**Test**: `SpeechModelCatalog_KnownModels_ContainsAllThreeRealModels`
+**Test**: `SpeechModelCatalog_KnownModels_ContainsAllFourRealModels`
 
 ##### A never-downloaded known model reports NotDownloaded
 

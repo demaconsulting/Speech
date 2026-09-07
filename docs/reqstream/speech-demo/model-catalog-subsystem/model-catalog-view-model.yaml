@@ -91,8 +91,8 @@ sections:
 
               - id: SpeechDemo-Models-EmptyCatalogExplanation
                 title: >-
-                  The ModelCatalogSubsystem shall display a message stating that the library
-                  ships no downloadable models yet when the catalog reports none.
+                  The ModelCatalogSubsystem shall display a message explaining that the catalog
+                  currently reports no known models when the catalog reports none.
                 justification: |
                   An empty catalog remains a possible host/composition state (for example a host
                   supplying its own, empty known-model list) even though the library's compiled-in
@@ -101,4 +101,4 @@ sections:
                   empty list as a bug.
                 tests:
                   - ModelCatalogViewModel_Constructor_EmptyCatalog_ReportsHonestEmptyState
-                  - ModelCatalogViewModel_EmptyCatalogMessage_Read_ExplainsNoModelsAreShippedYet
+                  - ModelCatalogViewModel_EmptyCatalogMessage_Read_ExplainsCatalogHasNoKnownModels

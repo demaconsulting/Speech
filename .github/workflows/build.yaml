@@ -182,6 +182,73 @@ jobs:
           --configuration Release
           --property:Version=${{ inputs.version }}
 
+      # === DOWNLOAD REAL SPEECH MODELS ===
+      # Several tests (SherpaOnnxRecognitionEngineTests, SherpaOnnxRecognitionEngineAccuracyTests)
+      # deliberately skip rather than fail when their real, production model is not installed in
+      # this environment, since a multi-hundred-megabyte model download is outside the scope of an
+      # ordinary unit test run. Downloading them here (once per OS, cached across runs) lets those
+      # tests genuinely execute in CI instead of skipping, so the requirements they back can be
+      # satisfied with real test evidence.
+
+      # Environment.SpecialFolder.LocalApplicationData resolves differently per OS as of .NET 8
+      # (see https://learn.microsoft.com/dotnet/core/compatibility/core-libraries/8.0/getfolderpath-unix):
+      # Windows -> %LOCALAPPDATA% ($HOME/AppData/Local); Linux -> $HOME/.local/share (XDG);
+      # macOS -> $HOME/Library/Application Support (NSApplicationSupportDirectory), NOT
+      # $HOME/.local/share. The cache path below must match SpeechModelStore's actual default
+      # root on each OS, or the cache will silently never hit. Each OS uses its own native shell
+      # (pwsh on Windows, bash on macOS/Linux) so the emitted path uses that OS's native path
+      # separators - a bash-built path on Windows (e.g. $HOME/...) is a git-bash POSIX-style path
+      # that actions/cache (running under Node) cannot resolve as a real Windows path, silently
+      # failing to save the cache.
+      - name: Determine speech model cache path (Windows)
+        id: model-cache-path-windows
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: echo "path=$env:LOCALAPPDATA\DemaConsulting.Speech\Models" >> $env:GITHUB_OUTPUT
+
+      - name: Determine speech model cache path (macOS)
+        id: model-cache-path-macos
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        run: echo "path=$HOME/Library/Application Support/DemaConsulting.Speech/Models" >> "$GITHUB_OUTPUT"
+
+      - name: Determine speech model cache path (Linux)
+        id: model-cache-path-linux
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: echo "path=$HOME/.local/share/DemaConsulting.Speech/Models" >> "$GITHUB_OUTPUT"
+
+      # actions/cache reports a "path does not exist" validation error at save-time if this
+      # directory was never created (e.g. a genuine first-ever run before any model is
+      # downloaded into it) - pre-create it so a cache is always saved, even on a cache miss.
+      - name: Ensure speech model cache directory exists
+        shell: pwsh
+        env:
+          MODEL_CACHE_PATH: >-
+            ${{ steps.model-cache-path-windows.outputs.path ||
+            steps.model-cache-path-macos.outputs.path ||
+            steps.model-cache-path-linux.outputs.path }}
+        run: New-Item -ItemType Directory -Force -Path $env:MODEL_CACHE_PATH | Out-Null
+
+      - name: Cache real speech models
+        uses: actions/cache@v5
+        with:
+          path: >-
+            ${{ steps.model-cache-path-windows.outputs.path ||
+            steps.model-cache-path-macos.outputs.path ||
+            steps.model-cache-path-linux.outputs.path }}
+          key: speech-models-${{ matrix.os }}-zipformer-2023-06-26-nemotron-0.6b-560ms-int8-2026-04-25
+
+      - name: Download real speech models
+        run: >
+          dotnet run
+          --project tools/ModelDownloader
+          --configuration Release
+          --no-build
+          --
+          streaming-zipformer-en-2023-06-26
+          nemotron-speech-streaming-en-0.6b-560ms-int8-2026-04-25
+
       - name: Test
         run: >
           dotnet test
