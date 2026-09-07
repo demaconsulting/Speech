@@ -126,6 +126,7 @@ sections:
         children:
           - Speech-Models-ContractDeclaration
           - Speech-Models-TunableParameters
+          - Speech-Models-TunableParameterValueValidation
           - Speech-Models-CatalogEnumeration
           - Speech-Models-CatalogStoreComposition
           - Speech-Models-RealRecognitionModels
