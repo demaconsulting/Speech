@@ -259,6 +259,17 @@ Points worth knowing:
   deliberately leaving genuinely ambiguous forms (`were`, `well`, `its`, and similar) untouched.
   Provisional (`isFinal: false`) results only get the cheap lowercase/capitalize pass, not the
   full contraction/punctuation restoration, so they stay stable as later words refine them.
+- **Host-side post-processing of delivered text is a supported pattern.** "Already restored"
+  describes what the library itself will do to `Text`, not a ceiling on what you may do to it
+  afterward. Applying your own domain-specific transformation — for example, correcting the
+  casing of project-glossary terms (acronyms, product names) that general-purpose recognition
+  cannot know about — is an anticipated, supported use of the delivered text, not an
+  undocumented workaround. The ordering is guaranteed: the owning model's `NormalizeText` has
+  already run by the time `Text` reaches your `ResultReceived` handler, so your transformation
+  composes after the library's restoration rather than racing it. Attach that transformation to
+  final (`isFinal: true`) results only — provisional results carry just the cheap pass and are
+  still being revised, so running your own restoration on them would make the draft flicker
+  while the user is still speaking.
 
 This release ships two production recognition models —
 `SherpaOnnxZipformerEnRecognitionModel` (`streaming-zipformer-en-2023-06-26`, Apache-2.0
