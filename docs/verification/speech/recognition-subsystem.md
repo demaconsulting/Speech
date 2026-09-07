@@ -26,7 +26,8 @@ manual/local verification activity.
 - **Dependencies**: No external services, no downloaded model, no native speech-inference runtime,
   and no physical audio hardware
 - **Test doubles**: A fake `IRecognitionEngine`/`IRecognitionEngineFactory` pair, NSubstitute
-  capture devices and diagnostics sinks, and a fake recognition model
+  capture devices and diagnostics sinks, a fake recognition model, and a parameter-capturing fake
+  recognition model used only to prove parameter-values pass-through
 - **Isolation**: Composition tests create and delete their own scratch installed-model directory
 
 ### Acceptance Criteria
@@ -36,6 +37,9 @@ A RecognitionSubsystem test run passes when:
 - Composition returns a real recognizer only when the model is installed, declares the
   recognition role, the capture device is available, and the engine loads
 - Every other composition outcome returns the honest unavailable recognizer without throwing
+- An optional `parameterValues` bag supplied by the caller reaches the recognition model's own
+  engine-configuration logic unchanged, and does not change behavior for a model that declares no
+  parameters
 - Captured audio is downmixed and resampled to the model's declared `AudioFormat`, with
   above-target-Nyquist energy attenuated before downsampling decimation
 - Every recognition result is delivered, in order, with its provisional/final flag preserved
@@ -83,6 +87,17 @@ loaded when an earlier check already failed.
 
 Verifies that a null model, capture device, store, or catalog throws, distinguishing a
 programming error from an ordinary machine state.
+
+#### Composition: Parameter Value Bag Forwarding
+
+**Tests**: `SpeechRecognizerFactory_Create_ParameterValuesSuppliedToZeroParameterModel_BehaviorUnchanged`,
+`SpeechRecognizerFactory_Create_ParameterValuesSupplied_ReachesModelCreateEngineConfig`
+
+Verifies that an optional `parameterValues` bag supplied by the caller (for example, a selected
+recognition language built from a declared `ChoiceParameter`) does not change composition
+behavior for today's zero-parameter recognition models, and genuinely reaches a model's own
+two-argument `IRecognitionModel.CreateEngineConfig` override rather than merely reaching the
+engine factory.
 
 #### Pipeline: Capture Format Conversion
 

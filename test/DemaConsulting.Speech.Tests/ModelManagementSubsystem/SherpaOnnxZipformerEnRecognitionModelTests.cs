@@ -103,7 +103,7 @@ public sealed class SherpaOnnxZipformerEnRecognitionModelTests : IDisposable
     }
 
     /// <summary>
-    ///     Proves that <see cref="IRecognitionModel.CreateEngineConfig"/> resolves the int8
+    ///     Proves that <see cref="IRecognitionModel.CreateEngineConfig(string)"/> resolves the int8
     ///     encoder/decoder/joiner/tokens paths against the archive's extracted top-level folder,
     ///     and wires the proven feature/decoding configuration.
     /// </summary>

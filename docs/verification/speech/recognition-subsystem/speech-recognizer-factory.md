@@ -27,11 +27,12 @@ verified with an NSubstitute sink where the reported reason matters.
 
 Composition is considered verified when a real recognizer is returned only for the fully
 available case, every unavailable state returns the shared fallback without throwing, no engine
-is loaded once an earlier check has failed, an engine load failure is caught and reported, and
-null arguments throw.
+is loaded once an earlier check has failed, an engine load failure is caught and reported, null
+arguments throw, and an optional `parameterValues` bag supplied by the caller reaches the
+recognition model's own engine-configuration logic unchanged.
 
 #### Test Scenarios
 
 See the RecognitionSubsystem-level scenarios "Composition: Real Recognizer for an Installed Model
-and Available Device", "Composition: Honest Fallback for Every Unavailable State", and
-"Composition: Null Arguments Are Programming Errors".
+and Available Device", "Composition: Honest Fallback for Every Unavailable State", "Composition:
+Null Arguments Are Programming Errors", and "Composition: Parameter Value Bag Forwarding".

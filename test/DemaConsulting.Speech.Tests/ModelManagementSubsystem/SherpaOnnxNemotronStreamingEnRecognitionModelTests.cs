@@ -108,7 +108,7 @@ public sealed class SherpaOnnxNemotronStreamingEnRecognitionModelTests : IDispos
     }
 
     /// <summary>
-    ///     Proves that <see cref="IRecognitionModel.CreateEngineConfig"/> resolves the int8
+    ///     Proves that <see cref="IRecognitionModel.CreateEngineConfig(string)"/> resolves the int8
     ///     encoder/decoder/joiner/tokens paths against the archive's extracted top-level folder,
     ///     using the exact same <c>Transducer</c> configuration shape as
     ///     <see cref="SherpaOnnxZipformerEnRecognitionModel"/> - proving the two classes really

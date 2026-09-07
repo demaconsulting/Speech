@@ -22,6 +22,12 @@ following direct units:
 - **UnavailableSpeechRecognizer** and **SpeechRecognizerUnavailableException**: honest fallback
   behavior when no model, no engine, or no capture device is available
 
+A later pass threads an optional, session-level `parameterValues` bag through
+`SpeechRecognizerFactory.Create` into a new `IRecognitionModel.CreateEngineConfig(installedModelDirectory,
+parameterValues)` default hook, giving the RecognitionSubsystem the same tunable-parameter seam
+the SynthesisSubsystem already has via `ResolveSpeakerId`, with no shipped recognition model yet
+declaring a parameter to interpret from it.
+
 ### Interfaces
 
 The subsystem exposes `ISpeechRecognizer`, `SpeechRecognitionResult`, `SpeechRecognitionEvent`,
@@ -37,6 +43,9 @@ Both cross-subsystem dependencies were extended in this phase, additively:
 discovered (see _IAudioCaptureDevice Design_), and `IRecognitionModel` now exposes a public
 `AudioFormat` plus internal `CreateEngineConfig` so each model owns both its input-format
 declaration and its engine configuration (see _SpeechModelContract Design_).
+`IRecognitionModel.CreateEngineConfig` further gained a two-argument, parameter-value-aware
+default-hook overload, forwarded from `SpeechRecognizerFactory.Create`'s own new optional
+`parameterValues` argument.
 
 No member of the subsystem's public API names a sherpa-onnx type, per this library's
 "engine backend stays swappable at the public API surface" decision. The sherpa-onnx

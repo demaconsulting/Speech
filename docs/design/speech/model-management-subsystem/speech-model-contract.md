@@ -46,6 +46,15 @@ documentation anticipated.
   so a missing native runtime or unusable model file fails in the RecognitionSubsystem (where it
   degrades to an honest unavailable recognizer) rather than here. Throws `ArgumentException` for a
   null or empty directory.
+- **IRecognitionModel.CreateEngineConfig(installedModelDirectory, parameterValues)** *(internal)*:
+  a two-argument overload of the member above, resolving a session-level, untyped key-value
+  parameter bag (for example built from a host's settings UI via a declared
+  `ISpeechModel.Parameters` entry) alongside the installed-files directory. Defaults to ignoring
+  `parameterValues` and forwarding to the single-argument overload, identical to every existing
+  model's current parameter-less behavior, mirroring `ISynthesisModel.ResolveSpeakerId`'s
+  "generically correct for free, override only for bespoke per-model behavior" default-hook
+  pattern. Neither shipped recognition model declares a parameter today, so both need zero code to
+  keep their exact current behavior.
 - **IRecognitionModel.NormalizeText(text, isFinal)**: a recognition-only hook, distinct from
   `ISpeechModel.NormalizeText(text)` above (that one runs before synthesis inference; this one
   runs on a model's own recognition output). Defaults to forwarding to

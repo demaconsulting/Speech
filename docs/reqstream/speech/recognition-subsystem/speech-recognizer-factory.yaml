@@ -72,3 +72,22 @@ sections:
                   - SpeechRecognizerFactory_Create_WithCatalogNullModel_ThrowsArgumentNullException
                   - SpeechRecognizerFactory_Create_WithCatalogNullCatalog_ThrowsArgumentNullException
                   - SpeechRecognizerFactory_Create_WithCatalogNullCaptureDevice_ThrowsArgumentNullException
+
+              - id: Speech-Recognition-SpeechRecognizerFactory-ParameterValuesForwarding
+                title: >-
+                  The SpeechRecognizerFactory class shall forward an optional parameterValues
+                  bag to the recognition engine construction path, defaulting to null for a
+                  caller that does not supply one, so a model with real tunable-parameter
+                  knowledge can later interpret a genuine parameter value from it.
+                justification: |
+                  Prior to this requirement, no seam existed to carry a session-level tunable
+                  value (for example a selected recognition language) from a host's
+                  ISpeechModel.Parameters selection through to a recognition model's engine
+                  configuration; adding this argument as optional with a null default keeps every
+                  existing call site source-compatible while unblocking real parameter
+                  interpretation end-to-end for a future tunable recognition model, mirroring the
+                  equivalent SpeechSynthesizerFactory capability already added for voice
+                  selection.
+                tests:
+                  - SpeechRecognizerFactory_Create_ParameterValuesSuppliedToZeroParameterModel_BehaviorUnchanged
+                  - SpeechRecognizerFactory_Create_ParameterValuesSupplied_ReachesModelCreateEngineConfig

@@ -42,15 +42,32 @@ internal sealed class FakeRecognitionEngineFactory : IRecognitionEngineFactory
     /// <summary>Gets the installed-model directory most recently passed to <see cref="Create"/>.</summary>
     public string? RequestedInstalledModelDirectory { get; private set; }
 
+    /// <summary>Gets the parameter value bag most recently passed to <see cref="Create"/>.</summary>
+    public IReadOnlyDictionary<string, object>? RequestedParameterValues { get; private set; }
+
+    /// <summary>
+    ///     Gets the <see cref="SherpaOnnx.OnlineRecognizerConfig"/> most recently built by calling
+    ///     the requested model's <c>CreateEngineConfig</c>, mirroring what
+    ///     <c>SherpaOnnxRecognitionEngineFactory</c> genuinely does, so a test can prove a supplied
+    ///     <c>parameterValues</c> bag actually reached the model rather than merely reached this
+    ///     factory.
+    /// </summary>
+    public SherpaOnnx.OnlineRecognizerConfig? RequestedConfig { get; private set; }
+
     /// <summary>Gets the number of <see cref="Create"/> calls this factory has received.</summary>
     public int CreateCallCount { get; private set; }
 
     /// <inheritdoc/>
-    public IRecognitionEngine Create(IRecognitionModel model, string installedModelDirectory)
+    public IRecognitionEngine Create(
+        IRecognitionModel model,
+        string installedModelDirectory,
+        IReadOnlyDictionary<string, object>? parameterValues = null)
     {
         CreateCallCount++;
         RequestedModel = model;
         RequestedInstalledModelDirectory = installedModelDirectory;
+        RequestedParameterValues = parameterValues;
+        RequestedConfig = model.CreateEngineConfig(installedModelDirectory, parameterValues);
 
         if (_createException is not null)
         {

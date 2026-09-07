@@ -12,7 +12,7 @@ namespace DemaConsulting.Speech.Demo.RecognitionPanelSubsystem;
 ///     This adapter resolves the model's installed-files directory from the shared
 ///     <see cref="SpeechModelStore"/>, narrows <see cref="ISpeechModel"/> to the
 ///     <see cref="IRecognitionModel"/> the library's factory requires, and forwards to
-///     <see cref="SpeechRecognizerFactory.Create(IRecognitionModel,SpeechModelStore,IAudioCaptureDevice,Diagnostics.ISpeechDiagnostics?)"/>,
+///     <see cref="SpeechRecognizerFactory.Create(IRecognitionModel,SpeechModelStore,IAudioCaptureDevice,Diagnostics.ISpeechDiagnostics?,System.Collections.Generic.IReadOnlyDictionary{string,object}?)"/>,
 ///     inheriting that factory's "nothing throws at composition" contract. A model that declares
 ///     a role other than recognition (and therefore is not an <see cref="IRecognitionModel"/>) is
 ///     an honest unavailable outcome, exactly like a model that is not installed, rather than a

@@ -14,7 +14,8 @@ native runtime.
 **Key Methods**:
 
 - **Create(IRecognitionModel model, string installedModelDirectory, IAudioCaptureDevice
-  captureDevice, ISpeechDiagnostics? diagnostics)**: Returns a real `SherpaOnnxSpeechRecognizer`
+  captureDevice, ISpeechDiagnostics? diagnostics, IReadOnlyDictionary&lt;string, object&gt;?
+  parameterValues = null)**: Returns a real `SherpaOnnxSpeechRecognizer`
   when the model's installed directory exists, the model declares `SpeechModelRole.Recognition`,
   the capture device reports `IsAvailable`, and the engine loads. Otherwise returns
   `UnavailableSpeechRecognizer.Instance`. Preconditions: `model` and `captureDevice` are
@@ -23,14 +24,20 @@ native runtime.
   returned recognizer must be disposed. The recommended caller pattern is to compose
   `captureDevice` first via `AudioDeviceFactory.CreateCaptureDevice(selection, model.AudioFormat)`
   so the device opens already matching the model when the backend honors the hint.
+  `parameterValues` is an optional session-level parameter value bag forwarded to the model's own
+  `CreateEngineConfig(installedModelDirectory, parameterValues)` overload when the engine is
+  constructed; `null` (or any bag, for either of today's two shipped models) resolves to today's
+  exact parameter-less behavior via that member's default hook.
 - **Create(IRecognitionModel model, SpeechModelStore store, IAudioCaptureDevice captureDevice,
-  ISpeechDiagnostics? diagnostics)**: A convenience overload with byte-for-byte identical behavior
+  ISpeechDiagnostics? diagnostics, IReadOnlyDictionary&lt;string, object&gt;? parameterValues =
+  null)**: A convenience overload with byte-for-byte identical behavior
   to the `string`-based overload above; it resolves `store.GetCurrentDirectory(model.Id)` for the
   caller and delegates to the same overload, so a host never needs to know
   `SpeechModelStore`'s on-disk directory-naming scheme just to compose a recognizer.
-  Preconditions: `model`, `store`, and `captureDevice` are non-null.
+  Preconditions: `model`, `store`, and `captureDevice` are non-null. Preconditions unchanged.
 - **Create(IRecognitionModel model, SpeechModelCatalog catalog, IAudioCaptureDevice
-  captureDevice, ISpeechDiagnostics? diagnostics)**: A convenience overload delegating through the
+  captureDevice, ISpeechDiagnostics? diagnostics, IReadOnlyDictionary&lt;string, object&gt;?
+  parameterValues = null)**: A convenience overload delegating through the
   `SpeechModelStore`-based overload via the catalog's own `Store` property, so a host that already
   owns a `SpeechModelCatalog` for enumeration and download can compose a recognizer through that
   same catalog instance, without constructing a second, potentially divergent `SpeechModelStore`.

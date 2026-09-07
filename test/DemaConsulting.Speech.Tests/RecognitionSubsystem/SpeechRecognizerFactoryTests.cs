@@ -196,6 +196,53 @@ public sealed class SpeechRecognizerFactoryTests : IDisposable
     }
 
     /// <summary>
+    ///     Proves that passing a <c>parameterValues</c> bag does not change composition behavior
+    ///     for a zero-parameter recognition model, since it reaches the model only through the
+    ///     default hook that ignores it.
+    /// </summary>
+    [Fact]
+    public void SpeechRecognizerFactory_Create_ParameterValuesSuppliedToZeroParameterModel_BehaviorUnchanged()
+    {
+        // Arrange: an installed zero-parameter model, an available device, and a parameter bag
+        var captureDevice = CreateAvailableCaptureDevice();
+        var engineFactory = new FakeRecognitionEngineFactory();
+        var model = new FakeRecognitionModel();
+        IReadOnlyDictionary<string, object> parameterValues = new Dictionary<string, object> { ["language"] = "en-gb" };
+
+        // Act: compose a recognizer, supplying parameterValues
+        using var recognizer = SpeechRecognizerFactory.Create(
+            model, _installedModelDirectory, captureDevice, null, engineFactory, parameterValues);
+
+        // Assert: composition behaves identically to the no-parameterValues case
+        Assert.IsType<SherpaOnnxSpeechRecognizer>(recognizer);
+        Assert.True(recognizer.IsAvailable);
+        Assert.Equal(1, engineFactory.CreateCallCount);
+        Assert.Equal(parameterValues, engineFactory.RequestedParameterValues);
+    }
+
+    /// <summary>
+    ///     Proves that a supplied <c>parameterValues</c> bag genuinely reaches the model's own
+    ///     two-argument <c>CreateEngineConfig</c> override, not merely the engine factory.
+    /// </summary>
+    [Fact]
+    public void SpeechRecognizerFactory_Create_ParameterValuesSupplied_ReachesModelCreateEngineConfig()
+    {
+        // Arrange: an installed model whose CreateEngineConfig override encodes the language value
+        var captureDevice = CreateAvailableCaptureDevice();
+        var engineFactory = new FakeRecognitionEngineFactory();
+        var model = new ParameterCapturingRecognitionModel();
+        IReadOnlyDictionary<string, object> parameterValues = new Dictionary<string, object> { ["language"] = "en-gb" };
+
+        // Act: compose a recognizer, supplying parameterValues
+        using var recognizer = SpeechRecognizerFactory.Create(
+            model, _installedModelDirectory, captureDevice, null, engineFactory, parameterValues);
+
+        // Assert: the value reached the model's own CreateEngineConfig override
+        Assert.IsType<SherpaOnnxSpeechRecognizer>(recognizer);
+        Assert.Equal("en-gb", engineFactory.RequestedConfig?.ModelConfig.ModelType);
+    }
+
+    /// <summary>
     ///     Proves that the public composition overload rejects a null model, since a null
     ///     argument is a programming error rather than an ordinary machine state.
     /// </summary>
@@ -432,5 +479,63 @@ public sealed class SpeechRecognizerFactoryTests : IDisposable
         /// <inheritdoc/>
         SherpaOnnx.OnlineRecognizerConfig IRecognitionModel.CreateEngineConfig(string installedModelDirectory) =>
             new();
+    }
+
+    /// <summary>
+    ///     Test-only recognition model whose two-argument <c>CreateEngineConfig</c> override
+    ///     encodes a supplied <c>"language"</c> parameter value into the returned config's
+    ///     <c>ModelConfig.ModelType</c>, used to prove a <c>parameterValues</c> bag supplied to
+    ///     <see cref="SpeechRecognizerFactory.Create(IRecognitionModel,string,IAudioCaptureDevice,ISpeechDiagnostics,IRecognitionEngineFactory,IReadOnlyDictionary{string,object}?)"/>
+    ///     genuinely reaches the model, not merely the engine factory.
+    /// </summary>
+    private sealed class ParameterCapturingRecognitionModel : IRecognitionModel
+    {
+        /// <inheritdoc/>
+        public string Id => "parameter-capturing-recognition-model";
+
+        /// <inheritdoc/>
+        public string DisplayName => "Parameter Capturing Recognition Model";
+
+        /// <inheritdoc/>
+        public SpeechModelRole Role => SpeechModelRole.Recognition;
+
+        /// <inheritdoc/>
+        public IReadOnlyList<ISpeechModelParameter> Parameters => [];
+
+        /// <inheritdoc/>
+        public SpeechModelAudioTagSupport AudioTagSupport => SpeechModelAudioTagSupport.None;
+
+        /// <inheritdoc/>
+        public SpeechModelDownloadDescriptor DownloadDescriptor =>
+            FakeModelDescriptors.SingleFileDescriptor("parameter-capturing-recognition-model");
+
+        /// <inheritdoc/>
+        AudioFormat IRecognitionModel.AudioFormat => AudioFormat.Mono(16000);
+
+        /// <inheritdoc/>
+        SherpaOnnx.OnlineRecognizerConfig IRecognitionModel.CreateEngineConfig(string installedModelDirectory) =>
+            new();
+
+        /// <summary>
+        ///     Encodes a supplied <c>"language"</c> string value into the returned config's
+        ///     <c>ModelConfig.ModelType</c> field, so a test can assert the value it passed as
+        ///     <c>parameterValues</c> reached this method, not merely the engine factory that
+        ///     called it.
+        /// </summary>
+        /// <inheritdoc/>
+        SherpaOnnx.OnlineRecognizerConfig IRecognitionModel.CreateEngineConfig(
+            string installedModelDirectory,
+            IReadOnlyDictionary<string, object>? parameterValues)
+        {
+            var config = new SherpaOnnx.OnlineRecognizerConfig();
+            if (parameterValues is not null &&
+                parameterValues.TryGetValue("language", out var value) &&
+                value is string language)
+            {
+                config.ModelConfig.ModelType = language;
+            }
+
+            return config;
+        }
     }
 }
