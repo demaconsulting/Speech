@@ -48,9 +48,13 @@ internal static class SpeechModelParameterDiagnostics
     ///     in the given order so the first invalid recognized value throws deterministically.
     ///     Must not be null.
     /// </param>
-    /// <param name="suppliedValues">
+    /// <param name="parameterValues">
     ///     The caller's untyped parameter value bag, or <see langword="null"/>/empty to skip
-    ///     validation entirely (there is nothing to validate).
+    ///     validation entirely (there is nothing to validate). Named to match the caller-facing
+    ///     <c>parameterValues</c> parameter on every <c>SpeechRecognizerFactory.Create</c>/
+    ///     <c>SpeechSynthesizerFactory.Create</c> overload, so a thrown
+    ///     <see cref="ArgumentException"/>'s <see cref="ArgumentException.ParamName"/> names the
+    ///     argument the caller actually supplied.
     /// </param>
     /// <param name="diagnostics">The sink to report an unrecognized parameter id to. Must not be null.</param>
     /// <param name="category">The diagnostics category to report under. Must not be null.</param>
@@ -59,7 +63,7 @@ internal static class SpeechModelParameterDiagnostics
     ///     <paramref name="diagnostics"/>, or <paramref name="category"/> is <see langword="null"/>.
     /// </exception>
     /// <exception cref="ArgumentException">
-    ///     Thrown when <paramref name="suppliedValues"/> contains a value for a declared
+    ///     Thrown when <paramref name="parameterValues"/> contains a value for a declared
     ///     parameter that is invalid for it - wrong CLR type, out of
     ///     <see cref="NumericParameter.Minimum"/>/<see cref="NumericParameter.Maximum"/> range, a
     ///     non-integral value for a <see cref="NumericParameter"/> with
@@ -71,7 +75,7 @@ internal static class SpeechModelParameterDiagnostics
     public static void ValidateAndReport(
         string modelId,
         IReadOnlyList<ISpeechModelParameter> declaredParameters,
-        IReadOnlyDictionary<string, object>? suppliedValues,
+        IReadOnlyDictionary<string, object>? parameterValues,
         ISpeechDiagnostics diagnostics,
         string category)
     {
@@ -80,7 +84,7 @@ internal static class SpeechModelParameterDiagnostics
         ArgumentNullException.ThrowIfNull(diagnostics);
         ArgumentNullException.ThrowIfNull(category);
 
-        if (suppliedValues is null || suppliedValues.Count == 0)
+        if (parameterValues is null || parameterValues.Count == 0)
         {
             return;
         }
@@ -90,9 +94,9 @@ internal static class SpeechModelParameterDiagnostics
         // order.
         foreach (var parameter in declaredParameters)
         {
-            if (suppliedValues.TryGetValue(parameter.Id, out var value))
+            if (parameterValues.TryGetValue(parameter.Id, out var value))
             {
-                ValidateValue(modelId, parameter, value);
+                ValidateValue(modelId, parameter, value, nameof(parameterValues));
             }
         }
 
@@ -102,7 +106,7 @@ internal static class SpeechModelParameterDiagnostics
         var declaredIds = declaredParameters
             .Select(parameter => parameter.Id)
             .ToHashSet(StringComparer.Ordinal);
-        foreach (var key in suppliedValues.Keys.Where(key => !declaredIds.Contains(key)))
+        foreach (var key in parameterValues.Keys.Where(key => !declaredIds.Contains(key)))
         {
             diagnostics.Report(
                 SpeechDiagnosticLevel.Info,
@@ -118,26 +122,27 @@ internal static class SpeechModelParameterDiagnostics
     ///     <see cref="ISpeechModelParameter"/> is public, so a custom model could otherwise supply
     ///     an unrecognized descriptor subtype whose values would silently bypass validation.
     /// </exception>
-    private static void ValidateValue(string modelId, ISpeechModelParameter parameter, object? value)
+    private static void ValidateValue(string modelId, ISpeechModelParameter parameter, object? value, string paramName)
     {
         switch (parameter)
         {
             case NumericParameter numeric:
-                ValidateNumeric(modelId, numeric, value);
+                ValidateNumeric(modelId, numeric, value, paramName);
                 break;
 
             case ChoiceParameter choice:
-                ValidateChoice(modelId, choice, value);
+                ValidateChoice(modelId, choice, value, paramName);
                 break;
 
             case BooleanParameter boolean:
-                ValidateBoolean(modelId, boolean, value);
+                ValidateBoolean(modelId, boolean, value, paramName);
                 break;
 
             default:
                 throw new ArgumentException(
                     $"Parameter '{parameter.Id}' declares an unsupported descriptor type " +
-                    $"'{parameter.GetType()}' for model '{modelId}' and cannot be validated.");
+                    $"'{parameter.GetType()}' for model '{modelId}' and cannot be validated.",
+                    paramName);
         }
     }
 
@@ -157,7 +162,7 @@ internal static class SpeechModelParameterDiagnostics
     ///     when <see cref="NumericParameter.IsInteger"/> is <see langword="true"/>, a whole
     ///     number - a fractional value is rejected outright rather than silently rounded.
     /// </summary>
-    private static void ValidateNumeric(string modelId, NumericParameter parameter, object? value)
+    private static void ValidateNumeric(string modelId, NumericParameter parameter, object? value, string paramName)
     {
         double? numericValue = value switch
         {
@@ -170,20 +175,23 @@ internal static class SpeechModelParameterDiagnostics
         if (numericValue is not double resolved || !double.IsFinite(resolved))
         {
             throw new ArgumentException(
-                $"Parameter '{parameter.Id}' expected a numeric value but received {DescribeType(value)} for model '{modelId}'.");
+                $"Parameter '{parameter.Id}' expected a numeric value but received {DescribeType(value)} for model '{modelId}'.",
+                paramName);
         }
 
         if (resolved < parameter.Minimum || resolved > parameter.Maximum)
         {
             throw new ArgumentException(
                 $"Parameter '{parameter.Id}' value {resolved} is outside the valid range " +
-                $"[{parameter.Minimum}, {parameter.Maximum}] for model '{modelId}'.");
+                $"[{parameter.Minimum}, {parameter.Maximum}] for model '{modelId}'.",
+                paramName);
         }
 
         if (parameter.IsInteger && !double.IsInteger(resolved))
         {
             throw new ArgumentException(
-                $"Parameter '{parameter.Id}' value {resolved} must be a whole number for model '{modelId}'.");
+                $"Parameter '{parameter.Id}' value {resolved} must be a whole number for model '{modelId}'.",
+                paramName);
         }
     }
 
@@ -192,12 +200,13 @@ internal static class SpeechModelParameterDiagnostics
     ///     <see cref="string"/> matching one declared <see cref="ChoiceParameterOption.Value"/>
     ///     exactly (ordinal comparison).
     /// </summary>
-    private static void ValidateChoice(string modelId, ChoiceParameter parameter, object? value)
+    private static void ValidateChoice(string modelId, ChoiceParameter parameter, object? value, string paramName)
     {
         if (value is not string stringValue)
         {
             throw new ArgumentException(
-                $"Parameter '{parameter.Id}' expected a string value but received {DescribeType(value)} for model '{modelId}'.");
+                $"Parameter '{parameter.Id}' expected a string value but received {DescribeType(value)} for model '{modelId}'.",
+                paramName);
         }
 
         if (!parameter.Options.Any(option => string.Equals(option.Value, stringValue, StringComparison.Ordinal)))
@@ -205,17 +214,19 @@ internal static class SpeechModelParameterDiagnostics
             var expectedValues = string.Join(", ", parameter.Options.Select(option => option.Value));
             throw new ArgumentException(
                 $"Parameter '{parameter.Id}' value '{stringValue}' is not a valid option for model " +
-                $"'{modelId}'; expected one of: {expectedValues}.");
+                $"'{modelId}'; expected one of: {expectedValues}.",
+                paramName);
         }
     }
 
     /// <summary>Validates a value supplied for a <see cref="BooleanParameter"/>: it must be a <see cref="bool"/>.</summary>
-    private static void ValidateBoolean(string modelId, BooleanParameter parameter, object? value)
+    private static void ValidateBoolean(string modelId, BooleanParameter parameter, object? value, string paramName)
     {
         if (value is not bool)
         {
             throw new ArgumentException(
-                $"Parameter '{parameter.Id}' expected a boolean value but received {DescribeType(value)} for model '{modelId}'.");
+                $"Parameter '{parameter.Id}' expected a boolean value but received {DescribeType(value)} for model '{modelId}'.",
+                paramName);
         }
     }
 }

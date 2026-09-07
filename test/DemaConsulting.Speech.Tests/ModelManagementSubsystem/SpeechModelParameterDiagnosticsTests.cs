@@ -113,6 +113,7 @@ public sealed class SpeechModelParameterDiagnosticsTests
         Assert.Contains("tempo", exception.Message, StringComparison.Ordinal);
         Assert.Contains("System.String", exception.Message, StringComparison.Ordinal);
         Assert.Contains(ModelId, exception.Message, StringComparison.Ordinal);
+        Assert.Equal("parameterValues", exception.ParamName);
     }
 
     /// <summary>
