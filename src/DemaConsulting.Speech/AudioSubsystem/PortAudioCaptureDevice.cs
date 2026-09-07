@@ -43,7 +43,9 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
     /// <param name="preferredFormat">
     ///     The preferred capture format to request for the resolved device, or
     ///     <see langword="null"/> to request the device's own default sample rate and full input
-    ///     channel capacity.
+    ///     channel capacity. The preferred sample rate is only honored when the resolved device's
+    ///     host API confirms it can actually be opened; otherwise the device's default sample
+    ///     rate is used instead.
     /// </param>
     internal PortAudioCaptureDevice(
         PortAudioEnvironment environment,
@@ -112,7 +114,9 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
     /// <remarks>
     ///     Reports the sample rate requested at construction time: either the resolved device's
     ///     own PortAudio-reported default rate, or the caller's preferred sample rate when one
-    ///     was supplied. This is the same rate requested when the capture stream is opened.
+    ///     was supplied and confirmed openable on the resolved device's host API - a preferred
+    ///     rate the host API cannot open falls back to the device's default rate instead. This is
+    ///     the same rate requested when the capture stream is opened.
     /// </remarks>
     public int SampleRate => _resolvedDevice?.SampleRate ?? 0;
 
@@ -263,12 +267,13 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
                 continue;
             }
 
+            var resolvedChannelCount = ResolveChannelCount(deviceInfo.MaxInputChannels);
             eligibleDevices.Add(
                 new ResolvedCaptureDevice(
                     deviceIndex,
                     deviceInfo.Name,
-                    ResolveChannelCount(deviceInfo.MaxInputChannels),
-                    _preferredFormat?.SampleRate ?? deviceInfo.DefaultSampleRate));
+                    resolvedChannelCount,
+                    ResolveSampleRate(deviceIndex, resolvedChannelCount, deviceInfo)));
         }
 
         var selectedDevice = ResolveSelectedDevice(eligibleDevices, hostApiInfo.DefaultInputDeviceIndex);
@@ -344,6 +349,39 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
         }
 
         return resolvedChannelCount;
+    }
+
+    /// <summary>
+    ///     Resolves the capture sample rate to request for one device, negotiating any preferred
+    ///     rate against the device/host API's actual capability before honoring it.
+    /// </summary>
+    /// <param name="deviceIndex">The PortAudio runtime device index being resolved.</param>
+    /// <param name="channelCount">The resolved capture channel count for this device.</param>
+    /// <param name="deviceInfo">The device metadata reported for this device index.</param>
+    /// <returns>
+    ///     The preferred sample rate when one was supplied and confirmed openable by the host
+    ///     API; otherwise, the device's own default sample rate.
+    /// </returns>
+    private int ResolveSampleRate(int deviceIndex, int channelCount, PortAudioDeviceInfo deviceInfo)
+    {
+        if (_preferredFormat is null)
+        {
+            return deviceInfo.DefaultSampleRate;
+        }
+
+        var preferredSampleRate = _preferredFormat.SampleRate;
+        if (_environment.Api.IsCaptureFormatSupported(deviceIndex, channelCount, preferredSampleRate))
+        {
+            return preferredSampleRate;
+        }
+
+        _diagnostics.Report(
+            SpeechDiagnosticLevel.Info,
+            DiagnosticsCategory,
+            $"Preferred capture sample rate {preferredSampleRate} Hz is not supported by device " +
+            $"'{deviceInfo.Name}'; falling back to the device's default sample rate " +
+            $"{deviceInfo.DefaultSampleRate} Hz.");
+        return deviceInfo.DefaultSampleRate;
     }
 
     /// <summary>

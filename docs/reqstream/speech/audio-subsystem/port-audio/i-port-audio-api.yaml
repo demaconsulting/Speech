@@ -16,8 +16,9 @@ sections:
                   - id: Speech-Audio-PortAudio-IPortAudioApi-AbstractsNativeRuntime
                     title: >-
                       The IPortAudioApi interface shall abstract PortAudio initialization,
-                      host-API metadata access, device metadata access, and capture/playback
-                      stream opening behind a mockable managed contract.
+                      host-API metadata access, device metadata access, capture/playback format
+                      negotiation, and capture/playback stream opening behind a mockable managed
+                      contract.
                     justification: |
                       Higher-level audio-device logic must be unit testable without referencing
                       native PortAudioSharp2 types or loading a native runtime.
@@ -25,3 +26,5 @@ sections:
                       - PortAudioEnvironment_TryResolvePreferredHostApi_InitializedAndMapped_ReturnsHostApiInfo
                       - PortAudioCaptureDevice_Start_StreamCapturesSamples_RaisesFrameCaptured
                       - PortAudioPlaybackDevice_Write_StreamRequestsSamples_DrainsQueueAndZeroFills
+                      - PortAudioCaptureDevice_Constructor_PreferredSampleRateSupported_UsesPreferredFormat
+                      - PortAudioPlaybackDevice_Constructor_PreferredSampleRateSupported_UsesPreferredFormat

@@ -68,10 +68,10 @@ sections:
               - id: Speech-Audio-PortAudioPlaybackDevice-PreferredFormatSelection
                 title: >-
                   The PortAudioPlaybackDevice class shall request the caller's preferred sample
-                  rate when one is supplied and shall clamp a preferred channel count down to
-                  the resolved device's maximum output-channel capability; when no preference is
-                  supplied it shall request the device's own default sample rate and full output
-                  capability.
+                  rate when one is supplied and the resolved device's host API confirms it can
+                  be opened, and shall clamp a preferred channel count down to the resolved
+                  device's maximum output-channel capability; when no preference is supplied it
+                  shall request the device's own default sample rate and full output capability.
                 justification: |
                   A playback hint must never ask PortAudio to open more output channels than the
                   device exposes, but should otherwise let model-driven composition bias the
@@ -81,6 +81,22 @@ sections:
                   - PortAudioPlaybackDevice_Constructor_PreferredFormatWithinCapability_UsesPreferredFormat
                   - PortAudioPlaybackDevice_Constructor_PreferredChannelCountExceedsCapability_ClampsAndReportsDiagnostic
                   - PortAudioPlaybackDevice_Constructor_PreferredFormatOmitted_UsesDeviceDefaultFormat
+                  - PortAudioPlaybackDevice_Constructor_PreferredSampleRateSupported_UsesPreferredFormat
+
+              - id: Speech-Audio-PortAudioPlaybackDevice-PreferredSampleRateNegotiated
+                title: >-
+                  The PortAudioPlaybackDevice class shall fall back to the resolved device's
+                  default sample rate and report an Info-level diagnostic when the resolved
+                  device's host API cannot open the caller's preferred sample rate.
+                justification: |
+                  Forwarding an un-negotiated preferred rate straight to the native stream-open
+                  call fails Start() on real hardware whose native mix rate differs from a
+                  synthesis model's declared preferred sample rate. Probing capability at
+                  construction time, before IsAvailable/SampleRate are ever read, keeps both
+                  honest: a caller only ever sees a sample rate that has already been confirmed
+                  openable.
+                tests:
+                  - PortAudioPlaybackDevice_Constructor_PreferredSampleRateUnsupported_FallsBackToDeviceDefaultSampleRateAndReportsDiagnostic
 
               - id: Speech-Audio-PortAudioPlaybackDevice-PendingSampleCount
                 title: >-

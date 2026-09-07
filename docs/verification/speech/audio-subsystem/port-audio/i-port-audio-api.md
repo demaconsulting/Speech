@@ -12,8 +12,9 @@ Verified indirectly through `PortAudioEnvironment`, `PortAudioCaptureDevice`, an
 
 ##### Acceptance Criteria
 
-The seam is considered verified when fake implementations can drive host-API resolution and
-capture/playback stream behavior in deterministic unit tests.
+The seam is considered verified when fake implementations can drive host-API resolution,
+capture/playback format negotiation, and capture/playback stream behavior in deterministic unit
+tests.
 
 ##### Test Scenarios
 

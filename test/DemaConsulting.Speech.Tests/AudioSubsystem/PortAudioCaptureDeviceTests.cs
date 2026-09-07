@@ -169,6 +169,61 @@ public class PortAudioCaptureDeviceTests
     }
 
     /// <summary>
+    ///     Proves that a preferred sample rate the host API cannot open falls back to the
+    ///     device's default sample rate and reports an Info diagnostic, so hardware whose native
+    ///     mix rate differs from the caller's preference never fails to start.
+    /// </summary>
+    [Fact]
+    public void PortAudioCaptureDevice_Constructor_PreferredSampleRateUnsupported_FallsBackToDeviceDefaultSampleRateAndReportsDiagnostic()
+    {
+        // Arrange: a device that rejects the preferred sample rate via the format-negotiation probe
+        var api = new FakePortAudioApi([new PortAudioDeviceInfo("Mic", 5, 2, 0, 48000, 0.01, 0.0)])
+        {
+            FindHostApiIndexResult = 5,
+            HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, 0, -1),
+            IsCaptureFormatSupportedResult = false
+        };
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+
+        // Act
+        var device = new PortAudioCaptureDevice(
+            environment,
+            diagnostics: diagnostics,
+            preferredFormat: new AudioFormat(16000, 2));
+
+        // Assert: the device falls back to the device default rather than the unsupported preference
+        Assert.Equal(48000, device.SampleRate);
+        diagnostics.Received().Report(
+            SpeechDiagnosticLevel.Info,
+            "AudioSubsystem",
+            "Preferred capture sample rate 16000 Hz is not supported by device 'Mic'; falling back " +
+            "to the device's default sample rate 48000 Hz.");
+    }
+
+    /// <summary>
+    ///     Proves that a preferred sample rate the host API confirms it can open is honored.
+    /// </summary>
+    [Fact]
+    public void PortAudioCaptureDevice_Constructor_PreferredSampleRateSupported_UsesPreferredFormat()
+    {
+        // Arrange: a device that confirms the preferred sample rate via the format-negotiation probe
+        var api = new FakePortAudioApi([new PortAudioDeviceInfo("Mic", 5, 2, 0, 48000, 0.01, 0.0)])
+        {
+            FindHostApiIndexResult = 5,
+            HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, 0, -1),
+            IsCaptureFormatSupportedResult = true
+        };
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+
+        // Act
+        var device = new PortAudioCaptureDevice(environment, preferredFormat: new AudioFormat(16000, 2));
+
+        // Assert: the confirmed-openable preferred rate is used, not the device default
+        Assert.Equal(16000, device.SampleRate);
+    }
+
+    /// <summary>
     ///     Proves that an over-large preferred channel count is clamped to the device capability.
     /// </summary>
     [Fact]
@@ -270,6 +325,13 @@ public class PortAudioCaptureDeviceTests
         /// </summary>
         internal Exception? OpenCaptureException { get; init; }
 
+        /// <summary>
+        ///     Gets or sets the result returned by <see cref="IsCaptureFormatSupported"/>.
+        ///     Defaults to <see langword="true"/> so every existing test that does not care about
+        ///     format negotiation is unaffected.
+        /// </summary>
+        internal bool IsCaptureFormatSupportedResult { get; init; } = true;
+
         /// <inheritdoc/>
         public int HostApiCount => 1;
 
@@ -297,6 +359,18 @@ public class PortAudioCaptureDeviceTests
         public PortAudioDeviceInfo GetDeviceInfo(int deviceIndex)
         {
             return devices[deviceIndex];
+        }
+
+        /// <inheritdoc/>
+        public bool IsCaptureFormatSupported(int deviceIndex, int channelCount, int sampleRate)
+        {
+            return IsCaptureFormatSupportedResult;
+        }
+
+        /// <inheritdoc/>
+        public bool IsPlaybackFormatSupported(int deviceIndex, int channelCount, int sampleRate)
+        {
+            throw new NotSupportedException("Playback is outside this test scope.");
         }
 
         /// <inheritdoc/>

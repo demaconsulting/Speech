@@ -411,6 +411,18 @@ public class SpeechTests
         }
 
         /// <inheritdoc/>
+        public bool IsCaptureFormatSupported(int deviceIndex, int channelCount, int sampleRate)
+        {
+            return true;
+        }
+
+        /// <inheritdoc/>
+        public bool IsPlaybackFormatSupported(int deviceIndex, int channelCount, int sampleRate)
+        {
+            return true;
+        }
+
+        /// <inheritdoc/>
         public IPortAudioStream OpenCaptureStream(
             int deviceIndex,
             int channelCount,

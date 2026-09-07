@@ -169,6 +169,61 @@ public class PortAudioPlaybackDeviceTests
     }
 
     /// <summary>
+    ///     Proves that a preferred sample rate the host API cannot open falls back to the
+    ///     device's default sample rate and reports an Info diagnostic, so hardware whose native
+    ///     mix rate differs from the caller's preference never fails to start.
+    /// </summary>
+    [Fact]
+    public void PortAudioPlaybackDevice_Constructor_PreferredSampleRateUnsupported_FallsBackToDeviceDefaultSampleRateAndReportsDiagnostic()
+    {
+        // Arrange: a device that rejects the preferred sample rate via the format-negotiation probe
+        var api = new FakePortAudioApi([new PortAudioDeviceInfo("Speaker", 5, 0, 2, 48000, 0.0, 0.01)])
+        {
+            FindHostApiIndexResult = 5,
+            HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, -1, 0),
+            IsPlaybackFormatSupportedResult = false
+        };
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+
+        // Act
+        var device = new PortAudioPlaybackDevice(
+            environment,
+            diagnostics: diagnostics,
+            preferredFormat: new AudioFormat(24000, 2));
+
+        // Assert: the device falls back to the device default rather than the unsupported preference
+        Assert.Equal(48000, device.SampleRate);
+        diagnostics.Received().Report(
+            SpeechDiagnosticLevel.Info,
+            "AudioSubsystem",
+            "Preferred playback sample rate 24000 Hz is not supported by device 'Speaker'; falling " +
+            "back to the device's default sample rate 48000 Hz.");
+    }
+
+    /// <summary>
+    ///     Proves that a preferred sample rate the host API confirms it can open is honored.
+    /// </summary>
+    [Fact]
+    public void PortAudioPlaybackDevice_Constructor_PreferredSampleRateSupported_UsesPreferredFormat()
+    {
+        // Arrange: a device that confirms the preferred sample rate via the format-negotiation probe
+        var api = new FakePortAudioApi([new PortAudioDeviceInfo("Speaker", 5, 0, 2, 48000, 0.0, 0.01)])
+        {
+            FindHostApiIndexResult = 5,
+            HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, -1, 0),
+            IsPlaybackFormatSupportedResult = true
+        };
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+
+        // Act
+        var device = new PortAudioPlaybackDevice(environment, preferredFormat: new AudioFormat(24000, 2));
+
+        // Assert: the confirmed-openable preferred rate is used, not the device default
+        Assert.Equal(24000, device.SampleRate);
+    }
+
+    /// <summary>
     ///     Proves that an over-large preferred channel count is clamped to the device capability.
     /// </summary>
     [Fact]
@@ -313,6 +368,13 @@ public class PortAudioPlaybackDeviceTests
         /// </summary>
         internal Exception? OpenPlaybackException { get; init; }
 
+        /// <summary>
+        ///     Gets or sets the result returned by <see cref="IsPlaybackFormatSupported"/>.
+        ///     Defaults to <see langword="true"/> so every existing test that does not care about
+        ///     format negotiation is unaffected.
+        /// </summary>
+        internal bool IsPlaybackFormatSupportedResult { get; init; } = true;
+
         /// <inheritdoc/>
         public int HostApiCount => 1;
 
@@ -340,6 +402,18 @@ public class PortAudioPlaybackDeviceTests
         public PortAudioDeviceInfo GetDeviceInfo(int deviceIndex)
         {
             return devices[deviceIndex];
+        }
+
+        /// <inheritdoc/>
+        public bool IsCaptureFormatSupported(int deviceIndex, int channelCount, int sampleRate)
+        {
+            throw new NotSupportedException("Capture is outside this test scope.");
+        }
+
+        /// <inheritdoc/>
+        public bool IsPlaybackFormatSupported(int deviceIndex, int channelCount, int sampleRate)
+        {
+            return IsPlaybackFormatSupportedResult;
         }
 
         /// <inheritdoc/>

@@ -78,6 +78,32 @@ internal interface IPortAudioApi
     PortAudioDeviceInfo GetDeviceInfo(int deviceIndex);
 
     /// <summary>
+    ///     Determines whether the given capture channel count and sample rate can actually be
+    ///     opened on the specified input device.
+    /// </summary>
+    /// <param name="deviceIndex">The PortAudio device index to probe.</param>
+    /// <param name="channelCount">The number of input channels to probe.</param>
+    /// <param name="sampleRate">The sample rate, in Hz, to probe.</param>
+    /// <returns>
+    ///     <see langword="true"/> when the host API confirms the exact combination can be opened;
+    ///     otherwise, <see langword="false"/>, including when the probe itself fails.
+    /// </returns>
+    bool IsCaptureFormatSupported(int deviceIndex, int channelCount, int sampleRate);
+
+    /// <summary>
+    ///     Determines whether the given playback channel count and sample rate can actually be
+    ///     opened on the specified output device.
+    /// </summary>
+    /// <param name="deviceIndex">The PortAudio device index to probe.</param>
+    /// <param name="channelCount">The number of output channels to probe.</param>
+    /// <param name="sampleRate">The sample rate, in Hz, to probe.</param>
+    /// <returns>
+    ///     <see langword="true"/> when the host API confirms the exact combination can be opened;
+    ///     otherwise, <see langword="false"/>, including when the probe itself fails.
+    /// </returns>
+    bool IsPlaybackFormatSupported(int deviceIndex, int channelCount, int sampleRate);
+
+    /// <summary>
     ///     Opens a capture-only stream for the specified input device.
     /// </summary>
     /// <param name="deviceIndex">The PortAudio device index to open.</param>
