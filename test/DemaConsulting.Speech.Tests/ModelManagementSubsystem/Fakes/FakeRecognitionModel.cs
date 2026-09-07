@@ -86,7 +86,7 @@ public sealed class FakeRecognitionModel : IRecognitionModel
     /// <inheritdoc/>
     public IReadOnlyList<ISpeechModelParameter> Parameters { get; } =
     [
-        new NumericParameter("sensitivity", "Sensitivity", "Microphone input sensitivity.", 0, 1, 0.1, 0.5),
+        new NumericParameter("sensitivity", "Sensitivity", "Microphone input sensitivity.", new NumericParameterBounds(0, 1, 0.1, 0.5)),
         new ChoiceParameter(
             "language",
             "Language",

@@ -21,18 +21,11 @@ public sealed record NumericParameter : ISpeechModelParameter
     /// <param name="id">The stable parameter key. Must not be null, empty, or whitespace-only.</param>
     /// <param name="displayName">The human-readable label. Must not be null.</param>
     /// <param name="description">The human-readable explanation. Must not be null.</param>
-    /// <param name="minimum">The smallest value a host may supply for this parameter. Must be finite.</param>
-    /// <param name="maximum">
-    ///     The largest value a host may supply for this parameter. Must be finite and not less
-    ///     than <paramref name="minimum"/>.
-    /// </param>
-    /// <param name="step">
-    ///     The smallest meaningful increment between adjacent values (for a slider's step size).
-    ///     Must be finite and strictly greater than zero.
-    /// </param>
-    /// <param name="default">
-    ///     The value used when a host supplies none. Must be finite and within
-    ///     <c>[<paramref name="minimum"/>, <paramref name="maximum"/>]</c>.
+    /// <param name="bounds">
+    ///     The parameter's minimum, maximum, step, and default value, grouped into a single
+    ///     <see cref="NumericParameterBounds"/> to keep this constructor's own parameter count
+    ///     small. See <see cref="Minimum"/>, <see cref="Maximum"/>, <see cref="Step"/>, and
+    ///     <see cref="Default"/> for the individual constraints each value must satisfy.
     /// </param>
     /// <param name="unit">
     ///     An optional short unit label to display alongside the value (for example "%" or
@@ -43,19 +36,15 @@ public sealed record NumericParameter : ISpeechModelParameter
     ///     index) with no fractional meaning, so a host must render it with a control that can
     ///     never select a fractional value (for example a numeric up-down) rather than a
     ///     continuous slider. Defaults to <see langword="false"/> for a continuous parameter
-    ///     (for example a speaking-rate or volume ratio). When <see langword="true"/>,
-    ///     <paramref name="minimum"/>, <paramref name="maximum"/>, <paramref name="step"/>, and
-    ///     <paramref name="default"/> must each be whole numbers.
+    ///     (for example a speaking-rate or volume ratio). When <see langword="true"/>, every
+    ///     value in <paramref name="bounds"/> must be a whole number.
     /// </param>
     /// <exception cref="ArgumentException">
-    ///     Thrown when any of <paramref name="minimum"/>, <paramref name="maximum"/>,
-    ///     <paramref name="step"/>, or <paramref name="default"/> is not finite, when
-    ///     <paramref name="minimum"/> exceeds <paramref name="maximum"/>, when
-    ///     <paramref name="step"/> is not strictly positive, when <paramref name="default"/>
-    ///     falls outside <c>[<paramref name="minimum"/>, <paramref name="maximum"/>]</c>, or when
-    ///     <paramref name="isInteger"/> is <see langword="true"/> and any of
-    ///     <paramref name="minimum"/>, <paramref name="maximum"/>, <paramref name="step"/>, or
-    ///     <paramref name="default"/> is not a whole number.
+    ///     Thrown when any value in <paramref name="bounds"/> is not finite, when its minimum
+    ///     exceeds its maximum, when its step is not strictly positive, when its default falls
+    ///     outside <c>[minimum, maximum]</c>, or when <paramref name="isInteger"/> is
+    ///     <see langword="true"/> and any value in <paramref name="bounds"/> is not a whole
+    ///     number.
     /// </exception>
     /// <exception cref="ArgumentNullException">
     ///     Thrown when <paramref name="id"/>, <paramref name="displayName"/>, or
@@ -65,16 +54,15 @@ public sealed record NumericParameter : ISpeechModelParameter
         string id,
         string displayName,
         string description,
-        double minimum,
-        double maximum,
-        double step,
-        double @default,
+        NumericParameterBounds bounds,
         string? unit = null,
         bool isInteger = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
         ArgumentNullException.ThrowIfNull(displayName);
         ArgumentNullException.ThrowIfNull(description);
+
+        var (minimum, maximum, step, @default) = bounds;
 
         // Reject non-finite bounds up front - NaN/infinity could never be rendered by a slider
         // or validated meaningfully by a model's own clamping logic.
@@ -83,28 +71,28 @@ public sealed record NumericParameter : ISpeechModelParameter
         {
             throw new ArgumentException(
                 "Numeric parameter minimum, maximum, step, and default must all be finite values.",
-                nameof(minimum));
+                nameof(bounds));
         }
 
         if (minimum > maximum)
         {
             throw new ArgumentException(
                 $"Minimum ({minimum}) must not exceed maximum ({maximum}).",
-                nameof(minimum));
+                nameof(bounds));
         }
 
         if (step <= 0)
         {
             throw new ArgumentException(
                 $"Step ({step}) must be strictly greater than zero.",
-                nameof(step));
+                nameof(bounds));
         }
 
         if (@default < minimum || @default > maximum)
         {
             throw new ArgumentException(
                 $"Default ({@default}) must be within [{minimum}, {maximum}].",
-                nameof(@default));
+                nameof(bounds));
         }
 
         // An integer parameter (for example a discrete speaker index) has no fractional

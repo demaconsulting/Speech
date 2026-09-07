@@ -53,7 +53,7 @@ public sealed class FakeSynthesisModel : ISynthesisModel
     /// <inheritdoc/>
     public IReadOnlyList<ISpeechModelParameter> Parameters { get; } =
     [
-        new NumericParameter("tempo", "Tempo", "Speaking rate multiplier.", 0.5, 2.0, 0.05, 1.0, "x"),
+        new NumericParameter("tempo", "Tempo", "Speaking rate multiplier.", new NumericParameterBounds(0.5, 2.0, 0.05, 1.0), "x"),
     ];
 
     /// <inheritdoc/>

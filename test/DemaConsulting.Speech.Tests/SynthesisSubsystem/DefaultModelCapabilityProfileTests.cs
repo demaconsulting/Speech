@@ -83,7 +83,7 @@ public class DefaultModelCapabilityProfileTests
         // Arrange: a model declaring a "tempo" numeric parameter
         var model = new StubSpeechModel(
             SpeechModelAudioTagSupport.ParameterMapped,
-            [new NumericParameter("tempo", "Tempo", "Speaking rate.", 0.5, 2.0, 0.05, 1.0)]);
+            [new NumericParameter("tempo", "Tempo", "Speaking rate.", new NumericParameterBounds(0.5, 2.0, 0.05, 1.0))]);
         var spans = AudioTagParser.Parse("[fast] Hello world.");
 
         // Act

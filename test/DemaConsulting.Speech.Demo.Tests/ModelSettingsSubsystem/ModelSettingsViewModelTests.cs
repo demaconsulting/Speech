@@ -11,11 +11,11 @@ public class ModelSettingsViewModelTests
 {
     /// <summary>A numeric parameter used across several tests.</summary>
     private static readonly NumericParameter NumericParam =
-        new("speed", "Speed", "Speaking rate.", 0.5, 2.0, 0.1, 1.0, "x");
+        new("speed", "Speed", "Speaking rate.", new NumericParameterBounds(0.5, 2.0, 0.1, 1.0), "x");
 
     /// <summary>An integer numeric parameter used to prove whole-number rounding behavior.</summary>
     private static readonly NumericParameter IntegerNumericParam =
-        new("speaker", "Speaker", "Speaker index.", 0, 903, 1, 0, isInteger: true);
+        new("speaker", "Speaker", "Speaker index.", new NumericParameterBounds(0, 903, 1, 0), isInteger: true);
 
     /// <summary>A choice parameter used across several tests.</summary>
     private static readonly ChoiceParameter ChoiceParam = new(
