@@ -403,6 +403,7 @@ sections:
               speakerId: 0.
             children:
               - Speech-Models-SherpaOnnxKokoroEnglishSynthesisModel-Identity
+              - Speech-Models-SherpaOnnxKokoroEnglishSynthesisModel-License
               - Speech-Models-SherpaOnnxKokoroEnglishSynthesisModel-DownloadDescriptor
               - Speech-Models-SherpaOnnxKokoroEnglishSynthesisModel-EngineConfig
               - Speech-Models-SherpaOnnxKokoroEnglishSynthesisModel-PreferredAudioFormat
