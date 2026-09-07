@@ -112,7 +112,13 @@ internal static class SpeechModelParameterDiagnostics
     }
 
     /// <summary>Dispatches to the type-specific validator for one recognized parameter/value pair.</summary>
-    private static void ValidateValue(string modelId, ISpeechModelParameter parameter, object value)
+    /// <exception cref="ArgumentException">
+    ///     Thrown when <paramref name="parameter"/> is a descriptor type other than
+    ///     <see cref="NumericParameter"/>/<see cref="ChoiceParameter"/>/<see cref="BooleanParameter"/>.
+    ///     <see cref="ISpeechModelParameter"/> is public, so a custom model could otherwise supply
+    ///     an unrecognized descriptor subtype whose values would silently bypass validation.
+    /// </exception>
+    private static void ValidateValue(string modelId, ISpeechModelParameter parameter, object? value)
     {
         switch (parameter)
         {
@@ -127,8 +133,21 @@ internal static class SpeechModelParameterDiagnostics
             case BooleanParameter boolean:
                 ValidateBoolean(modelId, boolean, value);
                 break;
+
+            default:
+                throw new ArgumentException(
+                    $"Parameter '{parameter.Id}' declares an unsupported descriptor type " +
+                    $"'{parameter.GetType()}' for model '{modelId}' and cannot be validated.");
         }
     }
+
+    /// <summary>
+    ///     Describes a supplied value's runtime type for an error message, without throwing when
+    ///     the value is <see langword="null"/> (a <see cref="IReadOnlyDictionary{TKey,TValue}"/>
+    ///     of <see cref="object"/> is not itself immune to a caller storing a null entry at
+    ///     runtime, even though the declared value type is non-nullable).
+    /// </summary>
+    private static string DescribeType(object? value) => value is null ? "null" : value.GetType().ToString();
 
     /// <summary>
     ///     Validates a value supplied for a <see cref="NumericParameter"/>: it must be a
@@ -138,7 +157,7 @@ internal static class SpeechModelParameterDiagnostics
     ///     when <see cref="NumericParameter.IsInteger"/> is <see langword="true"/>, a whole
     ///     number - a fractional value is rejected outright rather than silently rounded.
     /// </summary>
-    private static void ValidateNumeric(string modelId, NumericParameter parameter, object value)
+    private static void ValidateNumeric(string modelId, NumericParameter parameter, object? value)
     {
         double? numericValue = value switch
         {
@@ -151,7 +170,7 @@ internal static class SpeechModelParameterDiagnostics
         if (numericValue is not double resolved || !double.IsFinite(resolved))
         {
             throw new ArgumentException(
-                $"Parameter '{parameter.Id}' expected a numeric value but received {value.GetType()} for model '{modelId}'.");
+                $"Parameter '{parameter.Id}' expected a numeric value but received {DescribeType(value)} for model '{modelId}'.");
         }
 
         if (resolved < parameter.Minimum || resolved > parameter.Maximum)
@@ -173,12 +192,12 @@ internal static class SpeechModelParameterDiagnostics
     ///     <see cref="string"/> matching one declared <see cref="ChoiceParameterOption.Value"/>
     ///     exactly (ordinal comparison).
     /// </summary>
-    private static void ValidateChoice(string modelId, ChoiceParameter parameter, object value)
+    private static void ValidateChoice(string modelId, ChoiceParameter parameter, object? value)
     {
         if (value is not string stringValue)
         {
             throw new ArgumentException(
-                $"Parameter '{parameter.Id}' expected a string value but received {value.GetType()} for model '{modelId}'.");
+                $"Parameter '{parameter.Id}' expected a string value but received {DescribeType(value)} for model '{modelId}'.");
         }
 
         if (!parameter.Options.Any(option => string.Equals(option.Value, stringValue, StringComparison.Ordinal)))
@@ -191,12 +210,12 @@ internal static class SpeechModelParameterDiagnostics
     }
 
     /// <summary>Validates a value supplied for a <see cref="BooleanParameter"/>: it must be a <see cref="bool"/>.</summary>
-    private static void ValidateBoolean(string modelId, BooleanParameter parameter, object value)
+    private static void ValidateBoolean(string modelId, BooleanParameter parameter, object? value)
     {
         if (value is not bool)
         {
             throw new ArgumentException(
-                $"Parameter '{parameter.Id}' expected a boolean value but received {value.GetType()} for model '{modelId}'.");
+                $"Parameter '{parameter.Id}' expected a boolean value but received {DescribeType(value)} for model '{modelId}'.");
         }
     }
 }

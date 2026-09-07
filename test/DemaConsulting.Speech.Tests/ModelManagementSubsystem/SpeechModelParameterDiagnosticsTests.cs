@@ -340,7 +340,119 @@ public sealed class SpeechModelParameterDiagnosticsTests
         diagnostics.DidNotReceiveWithAnyArgs().Report(default, default!, default!);
     }
 
+    /// <summary>
+    ///     Proves that a <see langword="null"/> value supplied for a recognized
+    ///     <see cref="NumericParameter"/> throws <see cref="ArgumentException"/> (not
+    ///     <see cref="NullReferenceException"/>), describing the received value as "null" rather
+    ///     than calling <see cref="object.GetType"/> on it.
+    /// </summary>
+    [Fact]
+    public void ValidateAndReport_NumericParameterNullValue_ThrowsArgumentException()
+    {
+        // Arrange
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        var parameters = new List<ISpeechModelParameter> { NumericTempoParameter() };
+        var suppliedValues = new Dictionary<string, object> { ["tempo"] = null! };
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => SpeechModelParameterDiagnostics.ValidateAndReport(
+            ModelId, parameters, suppliedValues, diagnostics, Category));
+
+        // Assert
+        Assert.Contains("tempo", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("null", exception.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Proves that a <see langword="null"/> value supplied for a recognized
+    ///     <see cref="ChoiceParameter"/> throws <see cref="ArgumentException"/> rather than
+    ///     <see cref="NullReferenceException"/>.
+    /// </summary>
+    [Fact]
+    public void ValidateAndReport_ChoiceParameterNullValue_ThrowsArgumentException()
+    {
+        // Arrange
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        var parameter = new ChoiceParameter(
+            "speed",
+            "Speed",
+            "Speaking speed.",
+            [new ChoiceParameterOption("normal", "Normal")],
+            "normal");
+        var parameters = new List<ISpeechModelParameter> { parameter };
+        var suppliedValues = new Dictionary<string, object> { ["speed"] = null! };
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => SpeechModelParameterDiagnostics.ValidateAndReport(
+            ModelId, parameters, suppliedValues, diagnostics, Category));
+
+        // Assert
+        Assert.Contains("speed", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("null", exception.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Proves that a <see langword="null"/> value supplied for a recognized
+    ///     <see cref="BooleanParameter"/> throws <see cref="ArgumentException"/> rather than
+    ///     <see cref="NullReferenceException"/>.
+    /// </summary>
+    [Fact]
+    public void ValidateAndReport_BooleanParameterNullValue_ThrowsArgumentException()
+    {
+        // Arrange
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        var parameter = new BooleanParameter("denoise", "Denoise", "Denoise input audio.", false);
+        var parameters = new List<ISpeechModelParameter> { parameter };
+        var suppliedValues = new Dictionary<string, object> { ["denoise"] = null! };
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => SpeechModelParameterDiagnostics.ValidateAndReport(
+            ModelId, parameters, suppliedValues, diagnostics, Category));
+
+        // Assert
+        Assert.Contains("denoise", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("null", exception.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Proves that a value supplied for a recognized parameter whose descriptor is neither
+    ///     <see cref="NumericParameter"/>, <see cref="ChoiceParameter"/>, nor
+    ///     <see cref="BooleanParameter"/> throws <see cref="ArgumentException"/> rather than
+    ///     silently bypassing validation - <see cref="ISpeechModelParameter"/> is public, so a
+    ///     custom model could otherwise supply an unrecognized descriptor subtype.
+    /// </summary>
+    [Fact]
+    public void ValidateAndReport_UnsupportedParameterDescriptorType_Throws()
+    {
+        // Arrange
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        var parameter = new FakeSpeechModelParameter("custom");
+        var parameters = new List<ISpeechModelParameter> { parameter };
+        var suppliedValues = new Dictionary<string, object> { ["custom"] = "anything" };
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => SpeechModelParameterDiagnostics.ValidateAndReport(
+            ModelId, parameters, suppliedValues, diagnostics, Category));
+
+        // Assert
+        Assert.Contains("custom", exception.Message, StringComparison.Ordinal);
+        Assert.Contains(ModelId, exception.Message, StringComparison.Ordinal);
+    }
+
     /// <summary>Builds a small, reusable declared "tempo" <see cref="NumericParameter"/>.</summary>
     private static NumericParameter NumericTempoParameter() =>
         new("tempo", "Tempo", "Speaking rate multiplier.", new NumericParameterBounds(0.5, 2.0, 0.05, 1.0), "x");
+
+    /// <summary>
+    ///     A minimal <see cref="ISpeechModelParameter"/> implementation representing a
+    ///     hypothetical descriptor subtype not known to <see cref="SpeechModelParameterDiagnostics"/>.
+    /// </summary>
+    private sealed class FakeSpeechModelParameter(string id) : ISpeechModelParameter
+    {
+        public string Id { get; } = id;
+
+        public string DisplayName => "Custom";
+
+        public string Description => string.Empty;
+    }
 }
