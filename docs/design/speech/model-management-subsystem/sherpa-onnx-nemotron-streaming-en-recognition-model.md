@@ -15,10 +15,14 @@ against a real download in this project's development sandbox, not fabricated).
 **Key Methods**:
 
 - **Id / DisplayName / Role / Parameters / AudioTagSupport**: fixed values - `Role =
-  Recognition`, no tunable parameters, `AudioTagSupport = None`. `DisplayName` deliberately
-  embeds "NVIDIA Open Model License" so the license distinction is visible anywhere the demo
-  app's catalog/settings UI renders this model's name, without relying on a caller to also read
-  XML documentation.
+  Recognition`, no tunable parameters, `AudioTagSupport = None`. `DisplayName` names only the
+  model itself (`"NVIDIA Nemotron English (Streaming, 560ms)"`) and no longer embeds license
+  text - the license distinction is now carried structurally by `LicenseName`/`LicenseUrl` below,
+  discoverable without a caller needing to parse `DisplayName` or read XML documentation.
+- **LicenseName / LicenseUrl**: `LicenseName = "NVIDIA Open Model License"` and `LicenseUrl`
+  pointing at NVIDIA's own published open model license agreement URL (see the "License"
+  section below), so the license distinction is visible anywhere the demo app's catalog/settings
+  UI renders this model, and programmatically discoverable by any host.
 - **DownloadDescriptor**: the single-file `.tar.bz2` archive descriptor described above, pointing
   at sherpa-onnx's/k2-fsa's own official GitHub Releases mirror - never a redistribution of the
   model bytes by this project itself.
@@ -75,7 +79,10 @@ model (`nvidia/nemotron-speech-streaming-en-0.6b` on HuggingFace) is released un
 Open Model License**, a custom, NVIDIA-authored, non-OSI license - *not* Apache-2.0 or any other
 widely-used permissive OSS license like the Zipformer model above. Confirmed via web-search
 citing the model's own published HuggingFace README (`huggingface.co` itself is unreachable from
-this project's development sandboxes for a first-hand read). This project does **not** bundle or
+this project's development sandboxes for a first-hand read). This fact is now also exposed
+structurally, not only in this prose, via `LicenseName = "NVIDIA Open Model License"` and
+`LicenseUrl = https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-license/`
+(the same URL cited above). This project does **not** bundle or
 redistribute NVIDIA's model weights: this class stores only metadata (identity, description,
 capability profile) and a `SpeechModelDownloadDescriptor` pointing at sherpa-onnx's own official
 GitHub Releases mirror; the actual model bytes are fetched by the consumer's own machine, on

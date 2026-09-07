@@ -27,6 +27,18 @@ sections:
                 tests:
                   - SherpaOnnxKokoroEnglishSynthesisModel_Identity_DeclaresExpectedValues
 
+              - id: Speech-Models-SherpaOnnxKokoroEnglishSynthesisModel-License
+                title: >-
+                  The SherpaOnnxKokoroEnglishSynthesisModel class shall declare
+                  LicenseName = "Apache-2.0" with a canonical LicenseUrl to the Apache-2.0 full
+                  text.
+                justification: |
+                  This model's license, confirmed directly from its own archive's LICENSE file,
+                  must be discoverable programmatically, not only via DisplayName prose or XML
+                  documentation.
+                tests:
+                  - SherpaOnnxKokoroEnglishSynthesisModel_Identity_DeclaresExpectedValues
+
               - id: Speech-Models-SherpaOnnxKokoroEnglishSynthesisModel-DownloadDescriptor
                 title: >-
                   The SherpaOnnxKokoroEnglishSynthesisModel class shall declare a single

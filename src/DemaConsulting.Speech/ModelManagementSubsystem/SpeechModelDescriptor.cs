@@ -40,4 +40,10 @@ public sealed record SpeechModelDescriptor
 
     /// <summary>Gets which speech capability the model provides. Equivalent to <c>Model.Role</c>.</summary>
     public SpeechModelRole Role => Model.Role;
+
+    /// <summary>Gets the model's declared license name or identifier. Equivalent to <c>Model.LicenseName</c>.</summary>
+    public string LicenseName => Model.LicenseName;
+
+    /// <summary>Gets the canonical URL to the full text of the model's declared license, when known. Equivalent to <c>Model.LicenseUrl</c>.</summary>
+    public Uri? LicenseUrl => Model.LicenseUrl;
 }

@@ -151,3 +151,21 @@ sections:
                   - ISynthesisModel_CreateEngineConfig_InstalledDirectory_ResolvesPaths
                   - ISynthesisModel_CreateEngineConfig_EmptyDirectory_ThrowsArgumentException
                   - ISynthesisModel_CapabilityProfile_DefaultImplementation_ReturnsDefaultProfile
+
+              - id: Speech-Models-SpeechModelContract-LicenseDeclaration
+                title: >-
+                  ISpeechModel shall expose a model's declared license name and optional license
+                  URL without throwing, defaulting to an explicit "Unknown" name and a null URL,
+                  so a host can discover licensing for any model without parsing DisplayName.
+                justification: |
+                  License information previously existed only as prose embedded in some models'
+                  DisplayName strings (for example "... - CC BY 4.0") or in each class's own XML
+                  documentation, neither of which a host application can reliably parse or
+                  enumerate. Declaring LicenseName/LicenseUrl as first-class, default-hooked
+                  members lets any host discover a model's license programmatically, mirroring
+                  the existing InstallAsync/NormalizeText default-hook pattern so that no existing
+                  test/demo fake implementing ISpeechModel needs to change. An uncertain license
+                  must encode that uncertainty directly in the LicenseName string itself (for
+                  example "Apache-2.0 (likely)"), never silently upgraded to a certain claim.
+                tests:
+                  - ISpeechModel_LicenseName_DefaultImplementation_ReturnsUnknownAndNullLicenseUrl

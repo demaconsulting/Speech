@@ -29,8 +29,8 @@ part of the repository; the evidence below is this document's permanent record o
 #### Acceptance Criteria
 
 The model declares its stable `Id`/`DisplayName`/`Role = Synthesis`/a single `speaker`
-`NumericParameter` (range `0`-`903`, default `0`, `IsInteger = true`)/`AudioTagSupport = None`;
-its
+`NumericParameter` (range `0`-`903`, default `0`, `IsInteger = true`)/`AudioTagSupport = None`,
+and `LicenseName = "CC BY 4.0"` with a canonical `LicenseUrl`; its
 `DownloadDescriptor` names exactly one HTTPS file with a well-formed SHA-256 checksum and a
 `.tar.bz2` relative install path; `PreferredAudioFormat` reports mono `22050` Hz as a
 best-effort pre-load hint; `CreateEngineConfig` resolves the VITS model/tokens/data-dir

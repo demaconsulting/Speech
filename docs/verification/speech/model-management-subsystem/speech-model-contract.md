@@ -21,7 +21,10 @@ proving the default resolves to `DefaultModelCapabilityProfile.Instance` with ze
 code. `IRecognitionModel.NormalizeText(text, isFinal)`'s default hook (forwarding to
 `ISpeechModel.NormalizeText(text)`) is verified directly against `FakeRecognitionModel`, which
 does not override either method, proving the default resolves to the shared pass-through with no
-model-specific code.
+model-specific code. The default `LicenseName`/`LicenseUrl` hooks are verified directly against
+`FakeSynthesisModel`, which does not override either member, proving the defaults resolve to an
+explicit `"Unknown"` name and a null URL rather than throwing or silently claiming a specific
+license.
 
 #### Test Environment
 
@@ -45,7 +48,8 @@ resolved against a supplied installed-model directory, and rejects an empty dire
 installed-model directory, rejects an empty directory, exposes its best-effort
 `PreferredAudioFormat`, and exposes the default `CapabilityProfile` hook. The default
 `IRecognitionModel.NormalizeText(text, isFinal)` hook forwards to the shared
-`ISpeechModel.NormalizeText(text)` pass-through, for both `isFinal` values.
+`ISpeechModel.NormalizeText(text)` pass-through, for both `isFinal` values. The default
+`LicenseName`/`LicenseUrl` hooks report an explicit `"Unknown"` name and a null URL.
 
 #### Test Scenarios
 
@@ -108,3 +112,7 @@ installed-model directory, rejects an empty directory, exposes its best-effort
 ##### The default IRecognitionModel.NormalizeText hook forwards to ISpeechModel.NormalizeText
 
 **Test**: `IRecognitionModel_NormalizeText_DefaultImplementation_ReturnsInputUnchanged`
+
+##### The default LicenseName/LicenseUrl hooks report Unknown/null
+
+**Test**: `ISpeechModel_LicenseName_DefaultImplementation_ReturnsUnknownAndNullLicenseUrl`

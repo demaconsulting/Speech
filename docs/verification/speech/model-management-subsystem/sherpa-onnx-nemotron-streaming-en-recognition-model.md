@@ -6,7 +6,8 @@
 that never touch the network or the real ~442 MiB production download, deliberately mirroring
 `SherpaOnnxZipformerEnRecognitionModelTests`'s shape since both models share the same
 `OnlineModelConfig.Transducer` configuration surface: identity/metadata assertions (including
-that `DisplayName` visibly names the NVIDIA Open Model License), a download-descriptor shape
+that `LicenseName`/`LicenseUrl` declare the NVIDIA Open Model License, since `DisplayName` no
+longer embeds license text), a download-descriptor shape
 check, engine-configuration field-wiring assertions, an explicit assertion that `ModelType` is
 left unset, and an `InstallAsync` test against a small synthetic `.tar.bz2` fixture. Whether this
 model needs a `NormalizeText` override was decided by a real (non-mocked) spike - synthesizing
@@ -58,8 +59,9 @@ the question"` (the "that is" recovery this 800ms value exists to preserve is un
 
 #### Acceptance Criteria
 
-The model declares its stable `Id`/`Role`/empty `Parameters`/`AudioTagSupport = None`, and a
-`DisplayName` that visibly names the NVIDIA Open Model License; its `DownloadDescriptor` names
+The model declares its stable `Id`/`Role`/empty `Parameters`/`AudioTagSupport = None`, a
+`DisplayName` naming only the model itself, and `LicenseName`/`LicenseUrl` that declare the
+NVIDIA Open Model License; its `DownloadDescriptor` names
 exactly one HTTPS file (from `github.com`, never a bundled copy) with a well-formed SHA-256
 checksum and a `.tar.bz2` relative install path; `SampleRate` reports `16000`;
 `CreateEngineConfig` resolves the int8 encoder/decoder/joiner/tokens paths against the archive's
@@ -69,7 +71,7 @@ deliberately leaves `ModelType` unset; an empty installed directory throws `Argu
 
 #### Test Scenarios
 
-##### The model declares its expected, stable catalog identity, visibly naming its license
+##### The model declares its expected, stable catalog identity, declaring its license via LicenseName/LicenseUrl
 
 **Test**: `SherpaOnnxNemotronStreamingEnRecognitionModel_Identity_DeclaresExpectedValues`
 

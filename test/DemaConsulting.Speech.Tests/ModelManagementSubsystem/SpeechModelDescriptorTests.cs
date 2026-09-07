@@ -27,6 +27,8 @@ public class SpeechModelDescriptorTests
         Assert.Equal(model.Id, descriptor.Id);
         Assert.Equal(model.DisplayName, descriptor.DisplayName);
         Assert.Equal(model.Role, descriptor.Role);
+        Assert.Equal(((ISpeechModel)model).LicenseName, descriptor.LicenseName);
+        Assert.Equal(((ISpeechModel)model).LicenseUrl, descriptor.LicenseUrl);
     }
 
     /// <summary>

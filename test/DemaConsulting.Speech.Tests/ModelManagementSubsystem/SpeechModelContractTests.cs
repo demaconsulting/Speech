@@ -251,6 +251,23 @@ public class SpeechModelContractTests
     }
 
     /// <summary>
+    ///     Proves that the default <see cref="ISpeechModel.LicenseName"/>/<see cref="ISpeechModel.LicenseUrl"/>
+    ///     implementations report an explicit <c>"Unknown"</c> name and a null URL, so a model
+    ///     that declares no license still reports a discoverable, honest value rather than
+    ///     throwing or silently claiming a specific license.
+    /// </summary>
+    [Fact]
+    public void ISpeechModel_LicenseName_DefaultImplementation_ReturnsUnknownAndNullLicenseUrl()
+    {
+        // Arrange
+        ISpeechModel model = new FakeSynthesisModel();
+
+        // Act & Assert
+        Assert.Equal("Unknown", model.LicenseName);
+        Assert.Null(model.LicenseUrl);
+    }
+
+    /// <summary>
     ///     Proves that <see cref="FakeRecognitionModel"/> constructed with
     ///     <c>useZipArchivePayload: true</c> extracts its declared zip archive's entries into the
     ///     staging directory and removes the archive file, when its <see cref="ISpeechModel.InstallAsync"/>

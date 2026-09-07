@@ -48,8 +48,9 @@ public sealed class SherpaOnnxVitsLibriTtsEnglishSynthesisModelTests : IDisposab
     }
 
     /// <summary>
-    ///     Proves this model declares its expected, stable catalog identity, and that its display
-    ///     name visibly names the CC BY 4.0 license, unlike the Apache-2.0/NVIDIA-licensed
+    ///     Proves this model declares its expected, stable catalog identity, and that it
+    ///     declares the CC BY 4.0 license via <see cref="ISpeechModel.LicenseName"/>/
+    ///     <see cref="ISpeechModel.LicenseUrl"/>, unlike the Apache-2.0/NVIDIA-licensed
     ///     recognition models registered alongside it.
     /// </summary>
     [Fact]
@@ -61,10 +62,12 @@ public sealed class SherpaOnnxVitsLibriTtsEnglishSynthesisModelTests : IDisposab
         // Act & Assert
         Assert.Equal("vits-piper-en_US-libritts_r-medium", model.Id);
         Assert.Equal(SherpaOnnxVitsLibriTtsEnglishSynthesisModel.ModelId, model.Id);
-        Assert.Contains("CC BY 4.0", model.DisplayName, StringComparison.Ordinal);
+        Assert.Equal("LibriTTS-R English (Piper VITS, 904 speakers)", model.DisplayName);
         Assert.Equal(SpeechModelRole.Synthesis, model.Role);
         Assert.Single(model.Parameters);
         Assert.Equal(SpeechModelAudioTagSupport.None, model.AudioTagSupport);
+        Assert.Equal("CC BY 4.0", model.LicenseName);
+        Assert.Equal(new Uri("https://creativecommons.org/licenses/by/4.0/"), model.LicenseUrl);
     }
 
     /// <summary>

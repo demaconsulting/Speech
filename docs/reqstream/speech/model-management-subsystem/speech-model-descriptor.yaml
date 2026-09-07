@@ -15,13 +15,15 @@ sections:
                 title: >-
                   The SpeechModelDescriptor record shall pair one model with its install state as
                   an immutable snapshot, exposing convenience passthrough properties for the
-                  model's identity and role, and rejecting a null model at construction.
+                  model's identity, role, and declared license (name and optional URL), and
+                  rejecting a null model at construction.
                 justification: |
                   SpeechModelCatalog.Enumerate() must return a value a host can safely bind to a
                   UI list without holding a live reference back to the catalog; an immutable
                   snapshot pairing a model with the state observed at build time achieves this,
                   while the passthrough properties save a host from unwrapping Model for the
-                  common fields it needs to display.
+                  common fields it needs to display, including license information for a host
+                  that wants to surface it without parsing DisplayName.
                 tests:
                   - SpeechModelDescriptor_Constructor_ValidModel_ExposesModelAndPassthroughProperties
                   - SpeechModelDescriptor_Constructor_NullModel_ThrowsArgumentNullException

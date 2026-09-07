@@ -71,8 +71,13 @@ This release ships four models:
 | `SherpaOnnxVitsLibriTtsEnglishSynthesisModel` | TTS, 904 speakers | CC BY 4.0 |
 | `SherpaOnnxKokoroEnglishSynthesisModel` | TTS, 11 voices | Apache-2.0 |
 
-See the [user guide][link-user-guide] for full model details, license rationale, and
-voice/speaker selection.
+The table above is a convenience view for at-a-glance browsing, not the sole source of license
+information: every model also reports its license programmatically via
+`ISpeechModel.LicenseName`/`LicenseUrl` (also available through `SpeechModelCatalog.Enumerate()`'s
+`SpeechModelDescriptor.LicenseName`/`LicenseUrl`), so a host can discover licensing for any
+installed or installable model without parsing `DisplayName`. See the
+[user guide][link-user-guide] for full model details, license rationale, and voice/speaker
+selection.
 
 ## Usage
 
@@ -248,7 +253,8 @@ By contributing to this project, you agree that your contributions will be licen
 [badge-stars]: https://img.shields.io/github/stars/demaconsulting/Speech?style=plastic
 [badge-contributors]: https://img.shields.io/github/contributors/demaconsulting/Speech?style=plastic
 [badge-license]: https://img.shields.io/github/license/demaconsulting/Speech?style=plastic
-[badge-build]: https://img.shields.io/github/actions/workflow/status/demaconsulting/Speech/build_on_push.yaml?style=plastic
+[badge-build]:
+  https://img.shields.io/github/actions/workflow/status/demaconsulting/Speech/build_on_push.yaml?style=plastic
 [badge-quality]: https://sonarcloud.io/api/project_badges/measure?project=demaconsulting_Speech&metric=alert_status
 [badge-security]: https://sonarcloud.io/api/project_badges/measure?project=demaconsulting_Speech&metric=security_rating
 [badge-nuget]: https://img.shields.io/nuget/v/DemaConsulting.Speech?style=plastic

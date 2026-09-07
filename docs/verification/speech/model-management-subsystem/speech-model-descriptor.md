@@ -15,9 +15,10 @@ is rejected, and that two descriptors for the same model in different states are
 
 #### Acceptance Criteria
 
-`Id`, `DisplayName`, and `Role` always mirror the wrapped `Model`'s own properties verbatim; a
-null `model` throws `ArgumentNullException`; two descriptors differing only in `State` are not
-equal.
+`Id`, `DisplayName`, and `Role` always mirror the wrapped `Model`'s own properties verbatim;
+likewise `LicenseName` and `LicenseUrl` always mirror the wrapped `Model`'s declared license
+name and URL; a null `model` throws `ArgumentNullException`; two descriptors differing only in
+`State` are not equal.
 
 #### Test Scenarios
 
