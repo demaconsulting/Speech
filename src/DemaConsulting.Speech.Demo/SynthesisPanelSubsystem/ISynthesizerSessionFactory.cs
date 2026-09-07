@@ -17,8 +17,9 @@ namespace DemaConsulting.Speech.Demo.SynthesisPanelSubsystem;
 ///     plain, publicly implementable fake model for every scenario (including "wrong role") with
 ///     no <c>InternalsVisibleTo</c> grant from the library. This method also cannot be
 ///     substituted directly in a ViewModel unit test because it is static; the production
-///     implementation resolves the model's installed-files directory and delegates straight to
-///     that factory, while tests substitute a fake that returns a controlled
+///     implementation supplies the shared <see cref="SpeechModelStore"/> itself and delegates
+///     straight to that factory, which resolves the model's installed-files directory
+///     internally, while tests substitute a fake that returns a controlled
 ///     <see cref="ISpeechSynthesizer"/> without a downloaded model, a native runtime, or a real
 ///     playback device. It adds no public API to <c>DemaConsulting.Speech</c>.
 /// </remarks>

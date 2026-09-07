@@ -9,11 +9,12 @@ namespace DemaConsulting.Speech.Demo.SynthesisPanelSubsystem;
 ///     <see cref="SpeechModelStore"/> and <see cref="SpeechSynthesizerFactory"/>.
 /// </summary>
 /// <remarks>
-///     This adapter resolves the model's installed-files directory from the shared
-///     <see cref="SpeechModelStore"/>, narrows <see cref="ISpeechModel"/> to the
-///     <see cref="ISynthesisModel"/> the library's factory requires, and forwards to
+///     This adapter narrows <see cref="ISpeechModel"/> to the <see cref="ISynthesisModel"/> the
+///     library's factory requires and forwards it, together with the shared
+///     <see cref="SpeechModelStore"/> supplied at construction, to
 ///     <see cref="SpeechSynthesizerFactory.Create(ISynthesisModel,SpeechModelStore,IAudioPlaybackDevice,Diagnostics.ISpeechDiagnostics?,System.Collections.Generic.IReadOnlyDictionary{string,object}?)"/>,
-///     inheriting that factory's "nothing throws at composition" contract. A model that declares
+///     which resolves the model's installed-files directory itself, inheriting that factory's
+///     "nothing throws at composition" contract. A model that declares
 ///     a role other than synthesis (and therefore is not an <see cref="ISynthesisModel"/>) is an
 ///     honest unavailable outcome, exactly like a model that is not installed, rather than a
 ///     defect: a host that lets a user choose an installed model with the wrong role must still
