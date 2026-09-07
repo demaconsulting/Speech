@@ -23,6 +23,11 @@ internal interface IRecognitionEngineFactory
     ///     The absolute path of the directory holding the model's installed files. Must not be
     ///     null or empty.
     /// </param>
+    /// <param name="parameterValues">
+    ///     An optional session-level parameter value bag forwarded unchanged to
+    ///     <see cref="IRecognitionModel.CreateEngineConfig(string,System.Collections.Generic.IReadOnlyDictionary{string,object}?)"/>,
+    ///     or <see langword="null"/> when the caller supplied none.
+    /// </param>
     /// <returns>A loaded engine ready to accept samples. Never <see langword="null"/>.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="model"/> is null.</exception>
     /// <exception cref="ArgumentException">
@@ -35,5 +40,8 @@ internal interface IRecognitionEngineFactory
     ///     <see cref="SpeechRecognizerFactory"/> converts them into the honest
     ///     <see cref="UnavailableSpeechRecognizer"/> fallback so composition still never throws.
     /// </remarks>
-    IRecognitionEngine Create(IRecognitionModel model, string installedModelDirectory);
+    IRecognitionEngine Create(
+        IRecognitionModel model,
+        string installedModelDirectory,
+        IReadOnlyDictionary<string, object>? parameterValues = null);
 }

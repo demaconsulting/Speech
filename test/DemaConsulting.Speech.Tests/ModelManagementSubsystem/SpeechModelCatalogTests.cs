@@ -87,6 +87,23 @@ public sealed class SpeechModelCatalogTests : IDisposable
     }
 
     /// <summary>
+    ///     Proves that <see cref="SpeechModelCatalog.Store"/> always returns the exact
+    ///     <see cref="SpeechModelStore"/> instance the catalog was composed with, so a host can
+    ///     compose a recognizer/synthesizer through the same catalog instance without
+    ///     constructing a second, potentially divergent store.
+    /// </summary>
+    [Fact]
+    public void SpeechModelCatalog_Store_Always_ReturnsInternalStoreInstance()
+    {
+        // Arrange
+        var store = NewStore();
+        using var catalog = new SpeechModelCatalog([], store, null);
+
+        // Act & Assert
+        Assert.Same(store, catalog.Store);
+    }
+
+    /// <summary>
     ///     Proves that a known model with no installed content and no download attempt reports
     ///     <see cref="SpeechModelState.NotDownloaded"/>.
     /// </summary>

@@ -25,19 +25,52 @@ public sealed class SpeechRecognizerFactoryTests : IDisposable
         Guid.NewGuid().ToString("N"));
 
     /// <summary>
+    ///     A scratch root directory for a real <see cref="SpeechModelStore"/>, created per test
+    ///     instance and removed on disposal.
+    /// </summary>
+    private readonly string _storeRoot = Path.Combine(
+        Path.GetTempPath(),
+        "DemaConsulting.Speech.Tests",
+        Guid.NewGuid().ToString("N"));
+
+    /// <summary>
+    ///     A real <see cref="SpeechModelStore"/> rooted at <see cref="_storeRoot"/>, used to
+    ///     exercise store-based directory resolution rather than a mock.
+    /// </summary>
+    private readonly SpeechModelStore _store;
+
+    /// <summary>
+    ///     A catalog wrapping <see cref="_store"/>, used to exercise catalog-based directory
+    ///     resolution via <see cref="SpeechModelCatalog.Store"/> rather than a mock.
+    /// </summary>
+    private readonly SpeechModelCatalog _catalog;
+
+    /// <summary>
     ///     Initializes a new instance of the <see cref="SpeechRecognizerFactoryTests"/> class,
     ///     creating the scratch installed-model directory the "installed" cases require.
     /// </summary>
-    public SpeechRecognizerFactoryTests() => Directory.CreateDirectory(_installedModelDirectory);
+    public SpeechRecognizerFactoryTests()
+    {
+        Directory.CreateDirectory(_installedModelDirectory);
+        _store = new SpeechModelStore(new SpeechModelStoreOptions { RootPathOverride = _storeRoot });
+        _catalog = new SpeechModelCatalog([], _store, null);
+    }
 
     /// <summary>Removes the scratch installed-model directory.</summary>
     public void Dispose()
     {
+        _catalog.Dispose();
+
         try
         {
             if (Directory.Exists(_installedModelDirectory))
             {
                 Directory.Delete(_installedModelDirectory, recursive: true);
+            }
+
+            if (Directory.Exists(_storeRoot))
+            {
+                Directory.Delete(_storeRoot, recursive: true);
             }
         }
         catch (IOException)
@@ -163,6 +196,53 @@ public sealed class SpeechRecognizerFactoryTests : IDisposable
     }
 
     /// <summary>
+    ///     Proves that passing a <c>parameterValues</c> bag does not change composition behavior
+    ///     for a zero-parameter recognition model, since it reaches the model only through the
+    ///     default hook that ignores it.
+    /// </summary>
+    [Fact]
+    public void SpeechRecognizerFactory_Create_ParameterValuesSuppliedToZeroParameterModel_BehaviorUnchanged()
+    {
+        // Arrange: an installed zero-parameter model, an available device, and a parameter bag
+        var captureDevice = CreateAvailableCaptureDevice();
+        var engineFactory = new FakeRecognitionEngineFactory();
+        var model = new FakeRecognitionModel();
+        IReadOnlyDictionary<string, object> parameterValues = new Dictionary<string, object> { ["language"] = "en-gb" };
+
+        // Act: compose a recognizer, supplying parameterValues
+        using var recognizer = SpeechRecognizerFactory.Create(
+            model, _installedModelDirectory, captureDevice, null, engineFactory, parameterValues);
+
+        // Assert: composition behaves identically to the no-parameterValues case
+        Assert.IsType<SherpaOnnxSpeechRecognizer>(recognizer);
+        Assert.True(recognizer.IsAvailable);
+        Assert.Equal(1, engineFactory.CreateCallCount);
+        Assert.Equal(parameterValues, engineFactory.RequestedParameterValues);
+    }
+
+    /// <summary>
+    ///     Proves that a supplied <c>parameterValues</c> bag genuinely reaches the model's own
+    ///     two-argument <c>CreateEngineConfig</c> override, not merely the engine factory.
+    /// </summary>
+    [Fact]
+    public void SpeechRecognizerFactory_Create_ParameterValuesSupplied_ReachesModelCreateEngineConfig()
+    {
+        // Arrange: an installed model whose CreateEngineConfig override encodes the language value
+        var captureDevice = CreateAvailableCaptureDevice();
+        var engineFactory = new FakeRecognitionEngineFactory();
+        var model = new ParameterCapturingRecognitionModel();
+        IReadOnlyDictionary<string, object> parameterValues = new Dictionary<string, object> { ["language"] = "en-gb" };
+
+        // Act: compose a recognizer, supplying parameterValues
+        using var recognizer = SpeechRecognizerFactory.Create(
+            model, _installedModelDirectory, captureDevice, null, engineFactory, parameterValues);
+
+        // Assert: the value reached the model's own CreateEngineConfig override
+        Assert.IsType<SherpaOnnxSpeechRecognizer>(recognizer);
+        Assert.Equal("en-gb", engineFactory.RequestedConfig?.ModelConfig.ModelType);
+    }
+
+    /// <summary>
     ///     Proves that the public composition overload rejects a null model, since a null
     ///     argument is a programming error rather than an ordinary machine state.
     /// </summary>
@@ -186,6 +266,235 @@ public sealed class SpeechRecognizerFactoryTests : IDisposable
         // Act & Assert: a null capture device is rejected
         Assert.Throws<ArgumentNullException>(
             () => SpeechRecognizerFactory.Create(new FakeRecognitionModel(), _installedModelDirectory, null!));
+    }
+
+    /// <summary>
+    ///     Proves that a model not yet installed in the store composes to the honest unavailable
+    ///     recognizer, and that the engine is never loaded.
+    /// </summary>
+    [Fact]
+    public void SpeechRecognizerFactory_Create_WithStoreModelNotInstalled_ReturnsUnavailableRecognizer()
+    {
+        // Arrange: an available capture device and a store with no installed model directory
+        var captureDevice = CreateAvailableCaptureDevice();
+        var engineFactory = new FakeRecognitionEngineFactory();
+        var model = new FakeRecognitionModel();
+
+        // Act: compose against the store, which resolves to a directory that does not exist
+        var recognizer = SpeechRecognizerFactory.Create(model, _store, captureDevice, null, engineFactory);
+
+        // Assert: the honest fallback is returned and no engine was loaded
+        Assert.Same(UnavailableSpeechRecognizer.Instance, recognizer);
+        Assert.Equal(0, engineFactory.CreateCallCount);
+    }
+
+    /// <summary>
+    ///     Proves that an installed recognition model plus an available capture device composes a
+    ///     real recognizer wired to the injected engine factory, with the directory resolved
+    ///     through the store rather than hard-coded.
+    /// </summary>
+    [Fact]
+    public void SpeechRecognizerFactory_Create_WithStoreModelInstalledAndDeviceAvailable_ReturnsRealRecognizer()
+    {
+        // Arrange: a model installed via the store, an available device, and a fake engine factory
+        var captureDevice = CreateAvailableCaptureDevice();
+        var engineFactory = new FakeRecognitionEngineFactory();
+        var model = new FakeRecognitionModel();
+        Directory.CreateDirectory(_store.GetCurrentDirectory(model.Id));
+
+        // Act: compose a recognizer through the store overload
+        using var recognizer = SpeechRecognizerFactory.Create(model, _store, captureDevice, null, engineFactory);
+
+        // Assert: a real recognizer was built, and the directory was resolved through the store
+        Assert.IsType<SherpaOnnxSpeechRecognizer>(recognizer);
+        Assert.Equal(1, engineFactory.CreateCallCount);
+        Assert.Equal(_store.GetCurrentDirectory(model.Id), engineFactory.RequestedInstalledModelDirectory);
+    }
+
+    /// <summary>
+    ///     Proves that a supplied <c>parameterValues</c> bag genuinely reaches the model's own
+    ///     two-argument <c>CreateEngineConfig</c> override when composed through the PUBLIC
+    ///     store-based composition overload (with no injected <c>engineFactory</c>), so the real
+    ///     production delegation chain (public store overload → public string overload →
+    ///     internal string+engineFactory overload → real
+    ///     <see cref="Fakes.FakeRecognitionEngineFactory"/>-free <c>SherpaOnnxRecognitionEngineFactory</c>)
+    ///     is exercised end to end. The model throws from within its own
+    ///     <c>CreateEngineConfig</c> override, after recording the received parameter bag, so the
+    ///     test never reaches a real native sherpa-onnx engine construction.
+    /// </summary>
+    [Fact]
+    public void SpeechRecognizerFactory_Create_WithStoreParameterValuesSupplied_ReachesModelCreateEngineConfig()
+    {
+        // Arrange: a throwing parameter-capturing model installed via the store, an available device, and a parameter bag
+        var captureDevice = CreateAvailableCaptureDevice();
+        var model = new ThrowingParameterCapturingRecognitionModel();
+        Directory.CreateDirectory(_store.GetCurrentDirectory(model.Id));
+        IReadOnlyDictionary<string, object> parameterValues = new Dictionary<string, object> { ["language"] = "en-gb" };
+
+        // Act: compose a recognizer through the genuine public store overload, supplying
+        // parameterValues, with no engineFactory argument so overload resolution can only bind
+        // to the real public overload
+        var recognizer = SpeechRecognizerFactory.Create(model, _store, captureDevice, null, parameterValues);
+
+        // Assert: the value reached the model's own CreateEngineConfig override via the real
+        // production chain, and the model's throw was honestly swallowed into the unavailable
+        // fallback rather than propagating
+        Assert.Same(UnavailableSpeechRecognizer.Instance, recognizer);
+        Assert.Equal(parameterValues, model.RequestedParameterValues);
+    }
+
+    /// <summary>
+    ///     Proves that the public store-based composition overload rejects a null model.
+    /// </summary>
+    [Fact]
+    public void SpeechRecognizerFactory_Create_WithStoreNullModel_ThrowsArgumentNullException()
+    {
+        // Arrange: an available capture device
+        var captureDevice = CreateAvailableCaptureDevice();
+
+        // Act & Assert: a null model is rejected
+        Assert.Throws<ArgumentNullException>(
+            () => SpeechRecognizerFactory.Create(null!, _store, captureDevice));
+    }
+
+    /// <summary>
+    ///     Proves that the public store-based composition overload rejects a null store.
+    /// </summary>
+    [Fact]
+    public void SpeechRecognizerFactory_Create_WithStoreNullStore_ThrowsArgumentNullException()
+    {
+        // Arrange: an available capture device
+        var captureDevice = CreateAvailableCaptureDevice();
+
+        // Act & Assert: a null store is rejected
+        Assert.Throws<ArgumentNullException>(
+            () => SpeechRecognizerFactory.Create(new FakeRecognitionModel(), (SpeechModelStore)null!, captureDevice));
+    }
+
+    /// <summary>
+    ///     Proves that the public store-based composition overload rejects a null capture device,
+    ///     confirming the delegation still reaches the string-overload's own null check.
+    /// </summary>
+    [Fact]
+    public void SpeechRecognizerFactory_Create_WithStoreNullCaptureDevice_ThrowsArgumentNullException()
+    {
+        // Act & Assert: a null capture device is rejected
+        Assert.Throws<ArgumentNullException>(
+            () => SpeechRecognizerFactory.Create(new FakeRecognitionModel(), _store, null!));
+    }
+
+    /// <summary>
+    ///     Proves that a model not yet installed in the catalog's store composes to the honest
+    ///     unavailable recognizer, and that the engine is never loaded.
+    /// </summary>
+    [Fact]
+    public void SpeechRecognizerFactory_Create_WithCatalogModelNotInstalled_ReturnsUnavailableRecognizer()
+    {
+        // Arrange: an available capture device and a catalog whose store has no installed model directory
+        var captureDevice = CreateAvailableCaptureDevice();
+        var engineFactory = new FakeRecognitionEngineFactory();
+        var model = new FakeRecognitionModel();
+
+        // Act: compose against the catalog, which resolves to a directory that does not exist
+        var recognizer = SpeechRecognizerFactory.Create(model, _catalog, captureDevice, null, engineFactory);
+
+        // Assert: the honest fallback is returned and no engine was loaded
+        Assert.Same(UnavailableSpeechRecognizer.Instance, recognizer);
+        Assert.Equal(0, engineFactory.CreateCallCount);
+    }
+
+    /// <summary>
+    ///     Proves that an installed recognition model plus an available capture device composes a
+    ///     real recognizer wired to the injected engine factory, with the directory resolved
+    ///     through the catalog's own store rather than a second, disconnected store.
+    /// </summary>
+    [Fact]
+    public void SpeechRecognizerFactory_Create_WithCatalogModelInstalledAndDeviceAvailable_ReturnsRealRecognizer()
+    {
+        // Arrange: a model installed via the catalog's store, an available device, and a fake engine factory
+        var captureDevice = CreateAvailableCaptureDevice();
+        var engineFactory = new FakeRecognitionEngineFactory();
+        var model = new FakeRecognitionModel();
+        Directory.CreateDirectory(_store.GetCurrentDirectory(model.Id));
+
+        // Act: compose a recognizer through the catalog overload
+        using var recognizer = SpeechRecognizerFactory.Create(model, _catalog, captureDevice, null, engineFactory);
+
+        // Assert: a real recognizer was built, and the directory was resolved through the catalog's store
+        Assert.IsType<SherpaOnnxSpeechRecognizer>(recognizer);
+        Assert.Equal(1, engineFactory.CreateCallCount);
+        Assert.Equal(_catalog.Store.GetCurrentDirectory(model.Id), engineFactory.RequestedInstalledModelDirectory);
+    }
+
+    /// <summary>
+    ///     Proves that a supplied <c>parameterValues</c> bag genuinely reaches the model's own
+    ///     two-argument <c>CreateEngineConfig</c> override when composed through the PUBLIC
+    ///     catalog-based composition overload (with no injected <c>engineFactory</c>), so the real
+    ///     production delegation chain (public catalog overload → public store overload → public
+    ///     string overload → internal string+engineFactory overload → real
+    ///     <c>SherpaOnnxRecognitionEngineFactory</c>) is exercised end to end. The model throws
+    ///     from within its own <c>CreateEngineConfig</c> override, after recording the received
+    ///     parameter bag, so the test never reaches a real native sherpa-onnx engine construction.
+    /// </summary>
+    [Fact]
+    public void SpeechRecognizerFactory_Create_WithCatalogParameterValuesSupplied_ReachesModelCreateEngineConfig()
+    {
+        // Arrange: a throwing parameter-capturing model installed via the catalog's store, an available device, and a parameter bag
+        var captureDevice = CreateAvailableCaptureDevice();
+        var model = new ThrowingParameterCapturingRecognitionModel();
+        Directory.CreateDirectory(_store.GetCurrentDirectory(model.Id));
+        IReadOnlyDictionary<string, object> parameterValues = new Dictionary<string, object> { ["language"] = "en-gb" };
+
+        // Act: compose a recognizer through the genuine public catalog overload, supplying
+        // parameterValues, with no engineFactory argument so overload resolution can only bind
+        // to the real public overload
+        var recognizer = SpeechRecognizerFactory.Create(model, _catalog, captureDevice, null, parameterValues);
+
+        // Assert: the value reached the model's own CreateEngineConfig override via the real
+        // production chain, and the model's throw was honestly swallowed into the unavailable
+        // fallback rather than propagating
+        Assert.Same(UnavailableSpeechRecognizer.Instance, recognizer);
+        Assert.Equal(parameterValues, model.RequestedParameterValues);
+    }
+
+    /// <summary>
+    ///     Proves that the public catalog-based composition overload rejects a null model.
+    /// </summary>
+    [Fact]
+    public void SpeechRecognizerFactory_Create_WithCatalogNullModel_ThrowsArgumentNullException()
+    {
+        // Arrange: an available capture device
+        var captureDevice = CreateAvailableCaptureDevice();
+
+        // Act & Assert: a null model is rejected
+        Assert.Throws<ArgumentNullException>(
+            () => SpeechRecognizerFactory.Create(null!, _catalog, captureDevice));
+    }
+
+    /// <summary>
+    ///     Proves that the public catalog-based composition overload rejects a null catalog.
+    /// </summary>
+    [Fact]
+    public void SpeechRecognizerFactory_Create_WithCatalogNullCatalog_ThrowsArgumentNullException()
+    {
+        // Arrange: an available capture device
+        var captureDevice = CreateAvailableCaptureDevice();
+
+        // Act & Assert: a null catalog is rejected
+        Assert.Throws<ArgumentNullException>(
+            () => SpeechRecognizerFactory.Create(new FakeRecognitionModel(), (SpeechModelCatalog)null!, captureDevice));
+    }
+
+    /// <summary>
+    ///     Proves that the public catalog-based composition overload rejects a null capture
+    ///     device, confirming the delegation still reaches the store-overload's own null check.
+    /// </summary>
+    [Fact]
+    public void SpeechRecognizerFactory_Create_WithCatalogNullCaptureDevice_ThrowsArgumentNullException()
+    {
+        // Act & Assert: a null capture device is rejected
+        Assert.Throws<ArgumentNullException>(
+            () => SpeechRecognizerFactory.Create(new FakeRecognitionModel(), _catalog, null!));
     }
 
     /// <summary>
@@ -233,5 +542,129 @@ public sealed class SpeechRecognizerFactoryTests : IDisposable
         /// <inheritdoc/>
         SherpaOnnx.OnlineRecognizerConfig IRecognitionModel.CreateEngineConfig(string installedModelDirectory) =>
             new();
+    }
+
+    /// <summary>
+    ///     Test-only recognition model whose two-argument <c>CreateEngineConfig</c> override
+    ///     encodes a supplied <c>"language"</c> parameter value into the returned config's
+    ///     <c>ModelConfig.ModelType</c>, used to prove a <c>parameterValues</c> bag supplied to
+    ///     <see cref="SpeechRecognizerFactory.Create(IRecognitionModel,string,IAudioCaptureDevice,ISpeechDiagnostics,IRecognitionEngineFactory,IReadOnlyDictionary{string,object}?)"/>
+    ///     genuinely reaches the model, not merely the engine factory.
+    /// </summary>
+    private sealed class ParameterCapturingRecognitionModel : IRecognitionModel
+    {
+        /// <inheritdoc/>
+        public string Id => "parameter-capturing-recognition-model";
+
+        /// <inheritdoc/>
+        public string DisplayName => "Parameter Capturing Recognition Model";
+
+        /// <inheritdoc/>
+        public SpeechModelRole Role => SpeechModelRole.Recognition;
+
+        /// <inheritdoc/>
+        public IReadOnlyList<ISpeechModelParameter> Parameters => [];
+
+        /// <inheritdoc/>
+        public SpeechModelAudioTagSupport AudioTagSupport => SpeechModelAudioTagSupport.None;
+
+        /// <inheritdoc/>
+        public SpeechModelDownloadDescriptor DownloadDescriptor =>
+            FakeModelDescriptors.SingleFileDescriptor("parameter-capturing-recognition-model");
+
+        /// <inheritdoc/>
+        AudioFormat IRecognitionModel.AudioFormat => AudioFormat.Mono(16000);
+
+        /// <inheritdoc/>
+        SherpaOnnx.OnlineRecognizerConfig IRecognitionModel.CreateEngineConfig(string installedModelDirectory) =>
+            new();
+
+        /// <summary>
+        ///     Encodes a supplied <c>"language"</c> string value into the returned config's
+        ///     <c>ModelConfig.ModelType</c> field, so a test can assert the value it passed as
+        ///     <c>parameterValues</c> reached this method, not merely the engine factory that
+        ///     called it.
+        /// </summary>
+        /// <inheritdoc/>
+        SherpaOnnx.OnlineRecognizerConfig IRecognitionModel.CreateEngineConfig(
+            string installedModelDirectory,
+            IReadOnlyDictionary<string, object>? parameterValues)
+        {
+            var config = new SherpaOnnx.OnlineRecognizerConfig();
+            if (parameterValues is not null &&
+                parameterValues.TryGetValue("language", out var value) &&
+                value is string language)
+            {
+                config.ModelConfig.ModelType = language;
+            }
+
+            return config;
+        }
+    }
+
+    /// <summary>
+    ///     Test-only recognition model whose two-argument <c>CreateEngineConfig</c> override
+    ///     records the received <c>parameterValues</c> bag into <see cref="RequestedParameterValues"/>
+    ///     and then throws, short-circuiting before any real native sherpa-onnx engine
+    ///     construction could occur. Used to prove that a <c>parameterValues</c> bag supplied to
+    ///     the genuine PUBLIC store/catalog composition overloads (with no injected
+    ///     <c>engineFactory</c> test seam) reaches this model through the real production
+    ///     delegation chain, without requiring a working native engine.
+    /// </summary>
+    private sealed class ThrowingParameterCapturingRecognitionModel : IRecognitionModel
+    {
+        /// <summary>
+        ///     Gets the <c>parameterValues</c> bag most recently received by the two-argument
+        ///     <see cref="IRecognitionModel.CreateEngineConfig(string,IReadOnlyDictionary{string,object}?)"/>
+        ///     override, or <see langword="null"/> if it has not yet been invoked.
+        /// </summary>
+        public IReadOnlyDictionary<string, object>? RequestedParameterValues { get; private set; }
+
+        /// <inheritdoc/>
+        public string Id => "throwing-parameter-capturing-recognition-model";
+
+        /// <inheritdoc/>
+        public string DisplayName => "Throwing Parameter Capturing Recognition Model";
+
+        /// <inheritdoc/>
+        public SpeechModelRole Role => SpeechModelRole.Recognition;
+
+        /// <inheritdoc/>
+        public IReadOnlyList<ISpeechModelParameter> Parameters => [];
+
+        /// <inheritdoc/>
+        public SpeechModelAudioTagSupport AudioTagSupport => SpeechModelAudioTagSupport.None;
+
+        /// <inheritdoc/>
+        public SpeechModelDownloadDescriptor DownloadDescriptor =>
+            FakeModelDescriptors.SingleFileDescriptor("throwing-parameter-capturing-recognition-model");
+
+        /// <inheritdoc/>
+        AudioFormat IRecognitionModel.AudioFormat => AudioFormat.Mono(16000);
+
+        /// <summary>
+        ///     Never expected to be invoked by these tests, since <c>parameterValues</c> is
+        ///     always supplied; throws <see cref="NotSupportedException"/> if it ever is.
+        /// </summary>
+        /// <inheritdoc/>
+        SherpaOnnx.OnlineRecognizerConfig IRecognitionModel.CreateEngineConfig(string installedModelDirectory) =>
+            throw new NotSupportedException(
+                "This test model always expects parameterValues to be supplied; the single-argument overload should never be invoked.");
+
+        /// <summary>
+        ///     Records the received <paramref name="parameterValues"/> bag into
+        ///     <see cref="RequestedParameterValues"/>, then throws
+        ///     <see cref="InvalidOperationException"/> to short-circuit before any real native
+        ///     sherpa-onnx engine construction could occur.
+        /// </summary>
+        /// <inheritdoc/>
+        SherpaOnnx.OnlineRecognizerConfig IRecognitionModel.CreateEngineConfig(
+            string installedModelDirectory,
+            IReadOnlyDictionary<string, object>? parameterValues)
+        {
+            RequestedParameterValues = parameterValues;
+            throw new InvalidOperationException(
+                "Deliberate short-circuit: parameterValues has been recorded; no real engine config is produced.");
+        }
     }
 }

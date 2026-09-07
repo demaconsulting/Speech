@@ -6,9 +6,10 @@ contract so the panel can be tested with a plain fake model and no `InternalsVis
 from the library.
 
 **Why a Demo-Owned Seam**: The library composes a synthesizer through the static
-`SpeechSynthesizerFactory.Create(ISynthesisModel, string, IAudioPlaybackDevice,
-ISpeechDiagnostics?)` method, which requires an `ISynthesisModel` — an interface whose members
-are partly `internal` to the library, so only the library's own assemblies can implement it. A
+`SpeechSynthesizerFactory.Create(ISynthesisModel, SpeechModelStore, IAudioPlaybackDevice,
+ISpeechDiagnostics?, IReadOnlyDictionary<string, object>?)` method, which requires an
+`ISynthesisModel` — an interface whose members are partly `internal` to the library, so only
+the library's own assemblies can implement it. A
 demo-owned seam therefore accepts the common `ISpeechModel` contract instead and performs the
 narrowing itself. This is also what works around the static factory method itself not being
 substitutable in a ViewModel unit test. `ISynthesizerSessionFactory` and
@@ -24,10 +25,12 @@ independently observable behavior of its own — every test exercises it through
 
 **Key Methods**:
 
-- **Create(model, playbackDevice, parameterValues?)**: Resolves the model's installed-files
-  directory from the shared `SpeechModelStore`, narrows the model to `ISynthesisModel`, and
-  forwards to `SpeechSynthesizerFactory.Create` (including the `parameterValues` bag unchanged),
-  inheriting that factory's "nothing throws at composition" contract. A model that declares a
+- **Create(model, playbackDevice, parameterValues?)**: Narrows the model to `ISynthesisModel` and
+  forwards it, the shared `SpeechModelStore`, the playback device, and the `parameterValues` bag
+  unchanged to `SpeechSynthesizerFactory.Create(ISynthesisModel, SpeechModelStore,
+  IAudioPlaybackDevice, ISpeechDiagnostics?, IReadOnlyDictionary<string, object>?)`, which
+  resolves the model's installed-files directory internally, inheriting that factory's "nothing
+  throws at composition" contract. A model that declares a
   role other than synthesis — and is therefore not an `ISynthesisModel` — returns the library's
   own `UnavailableSpeechSynthesizer.Instance`, exactly like a model that is not installed, rather
   than throwing: a host that lets a user choose an installed model with the wrong role must

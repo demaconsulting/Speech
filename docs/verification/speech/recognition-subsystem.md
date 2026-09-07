@@ -26,7 +26,8 @@ manual/local verification activity.
 - **Dependencies**: No external services, no downloaded model, no native speech-inference runtime,
   and no physical audio hardware
 - **Test doubles**: A fake `IRecognitionEngine`/`IRecognitionEngineFactory` pair, NSubstitute
-  capture devices and diagnostics sinks, and a fake recognition model
+  capture devices and diagnostics sinks, a fake recognition model, and a parameter-capturing fake
+  recognition model used only to prove parameter-values pass-through
 - **Isolation**: Composition tests create and delete their own scratch installed-model directory
 
 ### Acceptance Criteria
@@ -36,6 +37,9 @@ A RecognitionSubsystem test run passes when:
 - Composition returns a real recognizer only when the model is installed, declares the
   recognition role, the capture device is available, and the engine loads
 - Every other composition outcome returns the honest unavailable recognizer without throwing
+- An optional `parameterValues` bag supplied by the caller reaches the recognition model's own
+  engine-configuration logic unchanged, and does not change behavior for a model that declares no
+  parameters
 - Captured audio is downmixed and resampled to the model's declared `AudioFormat`, with
   above-target-Nyquist energy attenuated before downsampling decimation
 - Every recognition result is delivered, in order, with its provisional/final flag preserved
@@ -48,18 +52,23 @@ A RecognitionSubsystem test run passes when:
 
 #### Composition: Real Recognizer for an Installed Model and Available Device
 
-**Tests**: `SpeechRecognizerFactory_Create_ModelInstalledAndDeviceAvailable_ReturnsRealRecognizer`
+**Tests**: `SpeechRecognizerFactory_Create_ModelInstalledAndDeviceAvailable_ReturnsRealRecognizer`,
+`SpeechRecognizerFactory_Create_WithStoreModelInstalledAndDeviceAvailable_ReturnsRealRecognizer`,
+`SpeechRecognizerFactory_Create_WithCatalogModelInstalledAndDeviceAvailable_ReturnsRealRecognizer`
 
 Verifies that an installed recognition model plus an available capture device composes a real
 recognizer wired to the injected engine factory, with the installed-model directory passed
-through unchanged.
+through unchanged, whether that directory is supplied directly as a `string`, resolved from a
+`SpeechModelStore`, or resolved from a `SpeechModelCatalog`'s own store.
 
 #### Composition: Honest Fallback for Every Unavailable State
 
 **Tests**: `SpeechRecognizerFactory_Create_ModelNotInstalled_ReturnsUnavailableRecognizer`,
 `SpeechRecognizerFactory_Create_CaptureDeviceUnavailable_ReturnsUnavailableRecognizer`,
 `SpeechRecognizerFactory_Create_ModelRoleIsNotRecognition_ReturnsUnavailableRecognizer`,
-`SpeechRecognizerFactory_Create_EngineLoadFails_ReturnsUnavailableRecognizerAndDoesNotThrow`
+`SpeechRecognizerFactory_Create_EngineLoadFails_ReturnsUnavailableRecognizerAndDoesNotThrow`,
+`SpeechRecognizerFactory_Create_WithStoreModelNotInstalled_ReturnsUnavailableRecognizer`,
+`SpeechRecognizerFactory_Create_WithCatalogModelNotInstalled_ReturnsUnavailableRecognizer`
 
 Verifies that a missing model, an unavailable device, a wrong-role model, and a failed engine
 load all degrade to the shared unavailable recognizer without throwing, and that no engine is
@@ -68,10 +77,29 @@ loaded when an earlier check already failed.
 #### Composition: Null Arguments Are Programming Errors
 
 **Tests**: `SpeechRecognizerFactory_Create_NullModel_ThrowsArgumentNullException`,
-`SpeechRecognizerFactory_Create_NullCaptureDevice_ThrowsArgumentNullException`
+`SpeechRecognizerFactory_Create_NullCaptureDevice_ThrowsArgumentNullException`,
+`SpeechRecognizerFactory_Create_WithStoreNullModel_ThrowsArgumentNullException`,
+`SpeechRecognizerFactory_Create_WithStoreNullStore_ThrowsArgumentNullException`,
+`SpeechRecognizerFactory_Create_WithStoreNullCaptureDevice_ThrowsArgumentNullException`,
+`SpeechRecognizerFactory_Create_WithCatalogNullModel_ThrowsArgumentNullException`,
+`SpeechRecognizerFactory_Create_WithCatalogNullCatalog_ThrowsArgumentNullException`,
+`SpeechRecognizerFactory_Create_WithCatalogNullCaptureDevice_ThrowsArgumentNullException`
 
-Verifies that a null model or capture device throws, distinguishing a programming error from an
-ordinary machine state.
+Verifies that a null model, capture device, store, or catalog throws, distinguishing a
+programming error from an ordinary machine state.
+
+#### Composition: Parameter Value Bag Forwarding
+
+**Tests**: `SpeechRecognizerFactory_Create_ParameterValuesSuppliedToZeroParameterModel_BehaviorUnchanged`,
+`SpeechRecognizerFactory_Create_ParameterValuesSupplied_ReachesModelCreateEngineConfig`,
+`SpeechRecognizerFactory_Create_WithStoreParameterValuesSupplied_ReachesModelCreateEngineConfig`,
+`SpeechRecognizerFactory_Create_WithCatalogParameterValuesSupplied_ReachesModelCreateEngineConfig`
+
+Verifies that an optional `parameterValues` bag supplied by the caller (for example, a selected
+recognition language built from a declared `ChoiceParameter`) does not change composition
+behavior for today's zero-parameter recognition models, and genuinely reaches a model's own
+two-argument `IRecognitionModel.CreateEngineConfig` override rather than merely reaching the
+engine factory.
 
 #### Pipeline: Capture Format Conversion
 

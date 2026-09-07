@@ -11,7 +11,10 @@ contains all four of this library's real, production models -
 least one shippable model of every role the library defines, with a second, multi-speaker
 synthesis model). Per instance: the injected known-model list, a `SpeechModelStore`, a
 `SpeechModelDownloader`, and two in-memory `ConcurrentDictionary<string, byte>` sets tracking
-model ids currently downloading and model ids whose most recent attempt failed.
+model ids currently downloading and model ids whose most recent attempt failed. **Store**
+(public, get-only) - the `SpeechModelStore` this catalog composes internally, exposed so a host
+can compose a recognizer/synthesizer through the same catalog instance used for enumeration and
+download, without constructing a second store.
 
 **Key Methods**:
 
@@ -20,6 +23,7 @@ model ids currently downloading and model ids whose most recent attempt failed.
 - **SpeechModelCatalog(knownModels, store, client?, diagnostics?)** _(internal)_: Test-only
   constructor injecting the known-model list, store, and download client for deterministic
   testing without a real network.
+- **Store**: Returns the `SpeechModelStore` instance this catalog was composed with. Never throws.
 - **Enumerate()**: Builds one `SpeechModelDescriptor` per known model, resolving each one's state
   via `GetState`. Never throws.
 - **GetState(modelId)**: Returns `Downloading` when a `DownloadAsync` call for `modelId` is
@@ -42,4 +46,5 @@ a corruption signal).
 `ISpeechModel`, `SpeechModelDescriptor`, `ISpeechDiagnostics`.
 
 **Callers**: Hosts building a model-settings page (enumerate + download/delete actions per
-the demo-application scope).
+the demo-application scope). `SpeechRecognizerFactory`/`SpeechSynthesizerFactory` catalog-based
+`Create` overloads (via `Store`).

@@ -66,3 +66,20 @@ sections:
                   - SpeechModelCatalog_DownloadAsync_ValidModel_ReportsDownloadedAfterCompletion
                   - SpeechModelCatalog_DownloadAsync_ChecksumMismatch_ReportsFailedOrCorrupt
                   - SpeechModelCatalog_DownloadAsync_UnknownModelId_ThrowsArgumentException
+
+              - id: Speech-Models-SpeechModelCatalog-StoreExposure
+                title: >-
+                  The SpeechModelCatalog class shall expose the SpeechModelStore instance it
+                  composes internally through a public Store property, so a host can resolve an
+                  installed model's directory, or compose a recognizer or synthesizer, through
+                  the same catalog instance used for enumeration and download.
+                justification: |
+                  Phase 3 added SpeechModelStore-accepting Create overloads on
+                  SpeechRecognizerFactory/SpeechSynthesizerFactory, but a host still had to
+                  construct a second, independent SpeechModelStore to use them, risking silent
+                  divergence from the catalog's own store (for example, a custom
+                  SpeechModelStoreOptions root passed to one but not the other). Exposing the
+                  catalog's own store as Store closes that gap and is the composition seam the
+                  new SpeechModelCatalog-accepting Create overloads use internally.
+                tests:
+                  - SpeechModelCatalog_Store_Always_ReturnsInternalStoreInstance

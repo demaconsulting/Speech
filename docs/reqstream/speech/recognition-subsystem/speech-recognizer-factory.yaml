@@ -22,6 +22,8 @@ sections:
                   model installation, device availability, and engine loading separately.
                 tests:
                   - SpeechRecognizerFactory_Create_ModelInstalledAndDeviceAvailable_ReturnsRealRecognizer
+                  - SpeechRecognizerFactory_Create_WithStoreModelInstalledAndDeviceAvailable_ReturnsRealRecognizer
+                  - SpeechRecognizerFactory_Create_WithCatalogModelInstalledAndDeviceAvailable_ReturnsRealRecognizer
 
               - id: Speech-Recognition-SpeechRecognizerFactory-HonestFallbacks
                 title: >-
@@ -36,6 +38,8 @@ sections:
                   - SpeechRecognizerFactory_Create_ModelNotInstalled_ReturnsUnavailableRecognizer
                   - SpeechRecognizerFactory_Create_CaptureDeviceUnavailable_ReturnsUnavailableRecognizer
                   - SpeechRecognizerFactory_Create_ModelRoleIsNotRecognition_ReturnsUnavailableRecognizer
+                  - SpeechRecognizerFactory_Create_WithStoreModelNotInstalled_ReturnsUnavailableRecognizer
+                  - SpeechRecognizerFactory_Create_WithCatalogModelNotInstalled_ReturnsUnavailableRecognizer
 
               - id: Speech-Recognition-SpeechRecognizerFactory-EngineLoadFailureFallback
                 title: >-
@@ -49,3 +53,43 @@ sections:
                   corrupt model files must therefore not fail application start-up.
                 tests:
                   - SpeechRecognizerFactory_Create_EngineLoadFails_ReturnsUnavailableRecognizerAndDoesNotThrow
+
+              - id: Speech-Recognition-SpeechRecognizerFactory-ArgumentValidation
+                title: >-
+                  The SpeechRecognizerFactory class shall reject a null model, a null
+                  SpeechModelStore, a null SpeechModelCatalog, or a null capture device.
+                justification: |
+                  A null model, store, catalog, or capture device is a programming error at the
+                  call site, not an ordinary "unavailable" machine state, and must fail
+                  immediately with a clear exception rather than being silently treated as
+                  unavailable.
+                tests:
+                  - SpeechRecognizerFactory_Create_NullModel_ThrowsArgumentNullException
+                  - SpeechRecognizerFactory_Create_NullCaptureDevice_ThrowsArgumentNullException
+                  - SpeechRecognizerFactory_Create_WithStoreNullModel_ThrowsArgumentNullException
+                  - SpeechRecognizerFactory_Create_WithStoreNullStore_ThrowsArgumentNullException
+                  - SpeechRecognizerFactory_Create_WithStoreNullCaptureDevice_ThrowsArgumentNullException
+                  - SpeechRecognizerFactory_Create_WithCatalogNullModel_ThrowsArgumentNullException
+                  - SpeechRecognizerFactory_Create_WithCatalogNullCatalog_ThrowsArgumentNullException
+                  - SpeechRecognizerFactory_Create_WithCatalogNullCaptureDevice_ThrowsArgumentNullException
+
+              - id: Speech-Recognition-SpeechRecognizerFactory-ParameterValuesForwarding
+                title: >-
+                  The SpeechRecognizerFactory class shall forward an optional parameterValues
+                  bag to the recognition engine construction path, defaulting to null for a
+                  caller that does not supply one, so a model with real tunable-parameter
+                  knowledge can later interpret a genuine parameter value from it.
+                justification: |
+                  Prior to this requirement, no seam existed to carry a session-level tunable
+                  value (for example a selected recognition language) from a host's
+                  ISpeechModel.Parameters selection through to a recognition model's engine
+                  configuration; adding this argument as optional with a null default keeps every
+                  existing call site source-compatible while unblocking real parameter
+                  interpretation end-to-end for a future tunable recognition model, mirroring the
+                  equivalent SpeechSynthesizerFactory capability already added for voice
+                  selection.
+                tests:
+                  - SpeechRecognizerFactory_Create_ParameterValuesSuppliedToZeroParameterModel_BehaviorUnchanged
+                  - SpeechRecognizerFactory_Create_ParameterValuesSupplied_ReachesModelCreateEngineConfig
+                  - SpeechRecognizerFactory_Create_WithStoreParameterValuesSupplied_ReachesModelCreateEngineConfig
+                  - SpeechRecognizerFactory_Create_WithCatalogParameterValuesSupplied_ReachesModelCreateEngineConfig

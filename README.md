@@ -92,19 +92,33 @@ using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.RecognitionSubsystem;
 
-var model = new SherpaOnnxZipformerEnRecognitionModel();
+// 1. The catalog is the library's only "what models exist" entry point - nothing below names a
+//    concrete model class, so new models added in a future release show up automatically.
 using var catalog = new SpeechModelCatalog();
-if (catalog.GetState(model.Id) != SpeechModelState.Downloaded)
+
+// 2. Pick a recognition model. Any model with the recognition role will do - this is the
+//    idiomatic pattern for an app that just wants "a" speech-to-text model:
+var descriptor = catalog.Enumerate().First(d => d.Role == SpeechModelRole.Recognition);
+// To pick a *specific* model when more than one of the same role is installed, match on name
+// instead: catalog.Enumerate().First(d => d.DisplayName.Contains("Zipformer"));
+var model = (IRecognitionModel)descriptor.Model;
+
+// 3. Ensure the chosen model is downloaded before first use. DownloadAsync is a safe no-op cost
+//    check to call on every launch once a model is installed.
+if (descriptor.State != SpeechModelState.Downloaded)
 {
     await catalog.DownloadAsync(model.Id);
 }
 
-var store = new SpeechModelStore();
+// 4. Create a capture device matching the model's own required audio format - there is no
+//    manual mono/stereo or sample-rate configuration to get wrong.
 var captureDevice = new AudioDeviceFactory().CreateCaptureDevice(
     AudioDeviceSelection.SystemDefault,
     model.AudioFormat);
 
-using var recognizer = SpeechRecognizerFactory.Create(model, store.GetCurrentDirectory(model.Id), captureDevice);
+// 5. Compose the recognizer and stream recognized text as it arrives. Create never throws for an
+//    ordinary machine state (model not installed, no microphone) - check IsAvailable instead.
+using var recognizer = SpeechRecognizerFactory.Create(model, catalog, captureDevice);
 if (recognizer.IsAvailable)
 {
     recognizer.ResultReceived += (_, args) =>
@@ -124,19 +138,31 @@ using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.SynthesisSubsystem;
 
-var model = new SherpaOnnxKokoroEnglishSynthesisModel();
+// 1. The catalog is the library's only "what models exist" entry point - nothing below names a
+//    concrete model class, so new models added in a future release show up automatically.
 using var catalog = new SpeechModelCatalog();
-if (catalog.GetState(model.Id) != SpeechModelState.Downloaded)
+
+// 2. Pick a synthesis model. Any model with the synthesis role will do - this is the idiomatic
+//    pattern for an app that just wants "a" text-to-speech model:
+var descriptor = catalog.Enumerate().First(d => d.Role == SpeechModelRole.Synthesis);
+// To pick a *specific* model when more than one of the same role is installed, match on name
+// instead: catalog.Enumerate().First(d => d.DisplayName.Contains("Kokoro"));
+var model = (ISynthesisModel)descriptor.Model;
+
+// 3. Ensure the chosen model is downloaded before first use.
+if (descriptor.State != SpeechModelState.Downloaded)
 {
     await catalog.DownloadAsync(model.Id);
 }
 
-var store = new SpeechModelStore();
+// 4. Create a playback device matching the model's own preferred audio format hint.
 var playbackDevice = new AudioDeviceFactory().CreatePlaybackDevice(
     AudioDeviceSelection.SystemDefault,
     model.PreferredAudioFormat);
 
-using var synthesizer = SpeechSynthesizerFactory.Create(model, store.GetCurrentDirectory(model.Id), playbackDevice);
+// 5. Compose the synthesizer and speak. Create never throws for an ordinary machine state (model
+//    not installed, no speakers) - check IsAvailable instead.
+using var synthesizer = SpeechSynthesizerFactory.Create(model, catalog, playbackDevice);
 if (synthesizer.IsAvailable)
 {
     await synthesizer.SpeakAsync("To be, or not to be. [short pause] That is the question.");
@@ -159,7 +185,7 @@ numeric `speaker` id - pass a `parameterValues` bag keyed by each parameter's `I
 ```csharp
 using var synthesizer = SpeechSynthesizerFactory.Create(
     model,
-    store.GetCurrentDirectory(model.Id),
+    catalog,
     playbackDevice,
     parameterValues: new Dictionary<string, object> { ["voice"] = "af_bella" });
 ```

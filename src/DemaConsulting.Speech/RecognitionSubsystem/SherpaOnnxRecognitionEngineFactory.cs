@@ -24,14 +24,17 @@ namespace DemaConsulting.Speech.RecognitionSubsystem;
 internal sealed class SherpaOnnxRecognitionEngineFactory : IRecognitionEngineFactory
 {
     /// <inheritdoc/>
-    public IRecognitionEngine Create(IRecognitionModel model, string installedModelDirectory)
+    public IRecognitionEngine Create(
+        IRecognitionModel model,
+        string installedModelDirectory,
+        IReadOnlyDictionary<string, object>? parameterValues = null)
     {
         ArgumentNullException.ThrowIfNull(model);
         ArgumentException.ThrowIfNullOrEmpty(installedModelDirectory);
 
         // Ask the model for its own configuration, resolved against where its files were
         // actually installed, then load it at the sample rate the same model declared.
-        var config = model.CreateEngineConfig(installedModelDirectory);
+        var config = model.CreateEngineConfig(installedModelDirectory, parameterValues);
 
         return new SherpaOnnxRecognitionEngine(
             config,

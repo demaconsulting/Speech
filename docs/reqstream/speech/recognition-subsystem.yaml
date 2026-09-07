@@ -41,6 +41,8 @@ sections:
               - Speech-Recognition-SpeechRecognizerFactory-RealRecognizer
               - Speech-Recognition-SpeechRecognizerFactory-HonestFallbacks
               - Speech-Recognition-SpeechRecognizerFactory-EngineLoadFailureFallback
+              - Speech-Recognition-SpeechRecognizerFactory-ArgumentValidation
+              - Speech-Recognition-SpeechRecognizerFactory-ParameterValuesForwarding
               - Speech-Recognition-RecognitionEngine-MockableSeam
               - Speech-Recognition-RecognitionEngine-ModelOwnedConfiguration
               - Speech-Recognition-RecognitionEngine-PostEndpointWarmupReplay

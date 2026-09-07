@@ -13,13 +13,13 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     <see cref="SpeechModelCatalog"/> could already report and filter models by role via a type
 ///     check, and stated that Phase 3 would add "the real recognition-engine-configuration
 ///     member here". This pass fulfills exactly that: <see cref="AudioFormat"/> and
-///     <see cref="CreateEngineConfig"/> are new members added to an interface that still has no
+///     <see cref="CreateEngineConfig(string)"/> are new members added to an interface that still has no
 ///     production implementations, so nothing defined in Sub-phase 2b was replaced or broken.
 ///     <para>
 ///     The two members deliberately have different visibility. <see cref="AudioFormat"/> is
 ///     public because it is a plain library-owned data value that leaks no native engine type and
 ///     lets callers compose an audio device before loading the engine. By contrast,
-///     <see cref="CreateEngineConfig"/> remains <see langword="internal"/> because it returns the
+///     <see cref="CreateEngineConfig(string)"/> remains <see langword="internal"/> because it returns the
 ///     real sherpa-onnx <see cref="OnlineRecognizerConfig"/> type. This keeps the public
 ///     recognition surface swappable while still letting each model own its native-engine
 ///     configuration. Only assemblies granted <c>InternalsVisibleTo</c> (the library itself and
@@ -41,7 +41,7 @@ public interface IRecognitionModel : ISpeechModel
     ///     of hard-coding only a sample rate - lets the recognition subsystem and host composition
     ///     code request a capture device already opened in the model's own format. Current models are
     ///     mono, so <see cref="AudioFormat.ChannelCount"/> is presently <c>1</c>; the value must
-    ///     agree with the feature configuration returned by <see cref="CreateEngineConfig"/>.
+    ///     agree with the feature configuration returned by <see cref="CreateEngineConfig(string)"/>.
     ///     Reading this property never throws.
     /// </remarks>
     public AudioFormat AudioFormat { get; }
@@ -73,6 +73,46 @@ public interface IRecognitionModel : ISpeechModel
     ///     concurrently.
     /// </remarks>
     internal OnlineRecognizerConfig CreateEngineConfig(string installedModelDirectory);
+
+    /// <summary>
+    ///     Builds the sherpa-onnx streaming-recognizer configuration for this model, resolved
+    ///     against the directory its verified files were installed into and an optional
+    ///     session-level parameter value bag. The default implementation ignores
+    ///     <paramref name="parameterValues"/> entirely and forwards to the single-argument
+    ///     <see cref="CreateEngineConfig(string)"/> overload, identical to every existing model's
+    ///     current parameter-less behavior.
+    /// </summary>
+    /// <param name="installedModelDirectory">
+    ///     The absolute path of the directory holding this model's installed files (the store's
+    ///     <c>current/</c> directory for this model). Must not be null or empty; the
+    ///     implementation combines it with its own known relative file names to produce the
+    ///     absolute encoder/decoder/joiner/tokens paths the engine requires.
+    /// </param>
+    /// <param name="parameterValues">
+    ///     The untyped key-value bag supplied to <c>SpeechRecognizerFactory.Create</c> (for
+    ///     example built from a host's settings UI via a declared <see cref="ISpeechModel.Parameters"/>
+    ///     entry), or <see langword="null"/> when the caller supplied none.
+    /// </param>
+    /// <returns>
+    ///     A fully populated <see cref="OnlineRecognizerConfig"/> describing this model's
+    ///     architecture, file locations, feature configuration, and decoding options.
+    /// </returns>
+    /// <remarks>
+    ///     Added so a future tunable recognition model (for example, one offering language
+    ///     selection, beam width, or noise-suppression strength) can own its own parameter
+    ///     interpretation entirely inside its own backing class, mirroring
+    ///     <see cref="ISynthesisModel.ResolveSpeakerId"/>'s and
+    ///     <see cref="ISynthesisModel.CapabilityProfile"/>'s "generically correct for free,
+    ///     override only for bespoke per-model behavior" default-hook pattern. Neither of today's
+    ///     two recognition models (<see cref="SherpaOnnxZipformerEnRecognitionModel"/>,
+    ///     <see cref="SherpaOnnxNemotronStreamingEnRecognitionModel"/>) declares any
+    ///     <see cref="ISpeechModel.Parameters"/> entry, so both need zero code to keep today's
+    ///     exact behavior through this default hook.
+    /// </remarks>
+    internal OnlineRecognizerConfig CreateEngineConfig(
+        string installedModelDirectory,
+        IReadOnlyDictionary<string, object>? parameterValues) =>
+        CreateEngineConfig(installedModelDirectory);
 
     /// <summary>
     ///     Gets the duration, in milliseconds, of pre-endpoint audio the recognition engine

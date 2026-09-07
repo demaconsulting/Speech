@@ -29,7 +29,10 @@ shared `UppercaseTranscriptRestorer` helper, so a model whose raw output empiric
 (UPPERCASE, unpunctuated - confirmed for the Zipformer model via a real audio spike) can restore
 readable, cased, punctuated prose before `RecognitionSubsystem` surfaces it to consumers; the
 Nemotron model was empirically confirmed to already produce proper casing and therefore keeps
-the pass-through default. It contains the following units:
+the pass-through default. A later pass adds a two-argument, parameter-value-aware default
+hook to `IRecognitionModel.CreateEngineConfig`, bringing the recognition side to parity with the
+synthesis side's `ResolveSpeakerId` seam, with zero changes required to either shipped recognition
+model since neither declares a parameter yet. It contains the following units:
 
 - **SpeechModelStore** / **SpeechModelStoreOptions** / **SpeechModelStoreException**: the
   per-user on-disk layout, atomic `current/` swap, install-state query, uninstall, and
