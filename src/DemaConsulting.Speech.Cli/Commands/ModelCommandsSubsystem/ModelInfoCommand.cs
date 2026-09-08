@@ -18,6 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+using System.Globalization;
 using DemaConsulting.Speech.Cli.Cli;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 
@@ -136,8 +137,10 @@ internal static class ModelInfoCommand
                 var kind = numeric.IsInteger ? "integer" : "numeric";
                 var unit = numeric.Unit is null ? string.Empty : $" {numeric.Unit}";
                 context.WriteLine(
-                    $"    Type: {kind}, min={numeric.Minimum}, max={numeric.Maximum}, " +
-                    $"step={numeric.Step}, default={numeric.Default}{unit}");
+                    $"    Type: {kind}, min={numeric.Minimum.ToString(CultureInfo.InvariantCulture)}, " +
+                    $"max={numeric.Maximum.ToString(CultureInfo.InvariantCulture)}, " +
+                    $"step={numeric.Step.ToString(CultureInfo.InvariantCulture)}, " +
+                    $"default={numeric.Default.ToString(CultureInfo.InvariantCulture)}{unit}");
                 break;
 
             case ChoiceParameter choice:

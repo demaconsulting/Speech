@@ -122,6 +122,9 @@ sections:
               - SpeakCommand_RunAsync_Output_ConstructsWavFileDeviceFromPreferredFormat
               - SpeakCommand_RunAsync_UnknownDevice_ThrowsArgumentException
               - SpeakCommand_RunAsync_NoPlaybackDeviceAvailable_ThrowsInvalidOperationException
+              - AudioDeviceFactoryPlaybackDeviceSource_PlaybackProbe_ForwardsToFactory
+              - AudioDeviceFactoryPlaybackDeviceSource_CreatePlaybackDevice_ForwardsToFactory
+              - AudioDeviceFactoryPlaybackDeviceSource_NullFactory_ThrowsArgumentNullException
 
           - id: SpeechCli-SynthesisCommands-CancellationAndDisposal
             title: >-

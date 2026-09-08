@@ -110,7 +110,7 @@ public sealed class SpeakCommandTests
     public async Task SpeakCommand_RunAsync_TextAndFileBothGiven_ThrowsArgumentException()
     {
         var catalog = CreateCatalogWithModel();
-        var factory = new AudioDeviceFactory(playbackProbe: new FakeAudioPlaybackDeviceProbe([OutputDevice]));
+        var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
         using var context = Context.Create(["speak", "--model", "model-1", "--text", "hi", "--file", "in.txt"]);
 
         await Assert.ThrowsAsync<ArgumentException>(
@@ -129,7 +129,7 @@ public sealed class SpeakCommandTests
         }
 
         var catalog = CreateCatalogWithModel();
-        var factory = new AudioDeviceFactory(playbackProbe: new FakeAudioPlaybackDeviceProbe([OutputDevice]));
+        var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
         using var context = Context.Create(["speak", "--model", "model-1"]);
 
         await Assert.ThrowsAsync<ArgumentException>(
@@ -143,7 +143,7 @@ public sealed class SpeakCommandTests
     public async Task SpeakCommand_RunAsync_UnknownModelId_ThrowsArgumentException()
     {
         var catalog = new FakeCliModelCatalog();
-        var factory = new AudioDeviceFactory(playbackProbe: new FakeAudioPlaybackDeviceProbe([OutputDevice]));
+        var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
         using var context = Context.Create(["speak", "--model", "does-not-exist", "--text", "hi"]);
 
         var exception = await Assert.ThrowsAsync<ArgumentException>(
@@ -156,7 +156,7 @@ public sealed class SpeakCommandTests
     public async Task SpeakCommand_RunAsync_WrongRoleModel_ThrowsArgumentException()
     {
         var catalog = CreateCatalogWithModel(role: SpeechModelRole.Recognition);
-        var factory = new AudioDeviceFactory(playbackProbe: new FakeAudioPlaybackDeviceProbe([OutputDevice]));
+        var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
         using var context = Context.Create(["speak", "--model", "model-1", "--text", "hi"]);
 
         var exception = await Assert.ThrowsAsync<ArgumentException>(
@@ -169,7 +169,7 @@ public sealed class SpeakCommandTests
     public async Task SpeakCommand_RunAsync_NotDownloadedModel_ThrowsArgumentExceptionWithDownloadHint()
     {
         var catalog = CreateCatalogWithModel(state: SpeechModelState.NotDownloaded);
-        var factory = new AudioDeviceFactory(playbackProbe: new FakeAudioPlaybackDeviceProbe([OutputDevice]));
+        var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
         using var context = Context.Create(["speak", "--model", "model-1", "--text", "hi"]);
 
         var exception = await Assert.ThrowsAsync<ArgumentException>(
@@ -188,7 +188,7 @@ public sealed class SpeakCommandTests
         var catalog = CreateCatalogWithModel(parameters: [rateParameter]);
         var synthesizer = new FakeSpeechSynthesizer();
         catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
-        var factory = new AudioDeviceFactory(playbackProbe: new FakeAudioPlaybackDeviceProbe([OutputDevice]));
+        var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
         using var context = Context.Create(["speak", "--model", "model-1", "--text", "hi", "--param", "rate=1.5"]);
 
         await SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None);
@@ -205,7 +205,7 @@ public sealed class SpeakCommandTests
         var rateParameter = new NumericParameter(
             "rate", "Rate", "Speaking rate", new NumericParameterBounds(0.5, 2.0, 0.1, 1.0));
         var catalog = CreateCatalogWithModel(parameters: [rateParameter]);
-        var factory = new AudioDeviceFactory(playbackProbe: new FakeAudioPlaybackDeviceProbe([OutputDevice]));
+        var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
         using var context = Context.Create(["speak", "--model", "model-1", "--text", "hi", "--param", "rate=100"]);
 
         await Assert.ThrowsAsync<ArgumentException>(
@@ -221,7 +221,7 @@ public sealed class SpeakCommandTests
         var catalog = CreateCatalogWithModel();
         var synthesizer = new FakeSpeechSynthesizer();
         catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
-        var factory = new AudioDeviceFactory(playbackProbe: new FakeAudioPlaybackDeviceProbe([OutputDevice]));
+        var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
         using var context = Context.Create(
             ["speak", "--model", "model-1", "--text", "Hello [laughs] there", "--no-tags"]);
 
@@ -238,7 +238,7 @@ public sealed class SpeakCommandTests
         var catalog = CreateCatalogWithModel();
         var synthesizer = new FakeSpeechSynthesizer();
         catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
-        var factory = new AudioDeviceFactory(playbackProbe: new FakeAudioPlaybackDeviceProbe([OutputDevice]));
+        var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
         using var context = Context.Create(["speak", "--model", "model-1", "--text", "Hello [laughs] there"]);
 
         await SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None);
@@ -251,7 +251,7 @@ public sealed class SpeakCommandTests
 
     /// <summary>
     ///     Test that --output constructs a WavFileAudioPlaybackDevice sized from the model's
-    ///     preferred format and never touches the AudioDeviceFactory's probes.
+    ///     preferred format and never touches the playback-device source's probe.
     /// </summary>
     [Fact]
     public async Task SpeakCommand_RunAsync_Output_ConstructsWavFileDeviceFromPreferredFormat()
@@ -266,7 +266,7 @@ public sealed class SpeakCommandTests
             return synthesizer;
         };
         // A probe that throws if enumerated, proving --output never touches real device probes.
-        var factory = new AudioDeviceFactory(playbackProbe: new ThrowingAudioPlaybackDeviceProbe());
+        var factory = new FakePlaybackDeviceSource(new ThrowingAudioPlaybackDeviceProbe());
         var outputPath = Path.Combine(Path.GetTempPath(), $"speak-test-{Guid.NewGuid():N}.wav");
 
         try
@@ -294,7 +294,7 @@ public sealed class SpeakCommandTests
     public async Task SpeakCommand_RunAsync_UnknownDevice_ThrowsArgumentException()
     {
         var catalog = CreateCatalogWithModel();
-        var factory = new AudioDeviceFactory(playbackProbe: new FakeAudioPlaybackDeviceProbe([OutputDevice]));
+        var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
         using var context = Context.Create(
             ["speak", "--model", "model-1", "--text", "hi", "--device", "does-not-exist"]);
 
@@ -308,7 +308,7 @@ public sealed class SpeakCommandTests
     public async Task SpeakCommand_RunAsync_NoPlaybackDeviceAvailable_ThrowsInvalidOperationException()
     {
         var catalog = CreateCatalogWithModel();
-        var factory = new AudioDeviceFactory(playbackProbe: new FakeAudioPlaybackDeviceProbe());
+        var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe());
         using var context = Context.Create(["speak", "--model", "model-1", "--text", "hi"]);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
@@ -324,7 +324,7 @@ public sealed class SpeakCommandTests
         var catalog = CreateCatalogWithModel();
         var synthesizer = new FakeSpeechSynthesizer { SpeakAsyncException = new OperationCanceledException() };
         catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
-        var factory = new AudioDeviceFactory(playbackProbe: new FakeAudioPlaybackDeviceProbe([OutputDevice]));
+        var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
         using var context = Context.Create(["speak", "--model", "model-1", "--text", "hi"]);
 
         await SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None);
@@ -342,7 +342,7 @@ public sealed class SpeakCommandTests
         var catalog = CreateCatalogWithModel();
         var synthesizer = new FakeSpeechSynthesizer();
         catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
-        var factory = new AudioDeviceFactory(playbackProbe: new FakeAudioPlaybackDeviceProbe([OutputDevice]));
+        var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
         using var context = Context.Create(["speak", "--model", "model-1", "--text", "hi"]);
 
         await SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None);
@@ -358,7 +358,7 @@ public sealed class SpeakCommandTests
     public async Task SpeakCommand_RunAsync_NullContext_ThrowsArgumentNullException()
     {
         await Assert.ThrowsAsync<ArgumentNullException>(
-            () => SpeakCommand.RunAsync(null!, new FakeCliModelCatalog(), new AudioDeviceFactory(), CancellationToken.None));
+            () => SpeakCommand.RunAsync(null!, new FakeCliModelCatalog(), new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe()), CancellationToken.None));
     }
 
     /// <summary>Test that a null catalog is rejected.</summary>
@@ -367,7 +367,7 @@ public sealed class SpeakCommandTests
     {
         using var context = Context.Create(["speak", "--model", "model-1", "--text", "hi"]);
         await Assert.ThrowsAsync<ArgumentNullException>(
-            () => SpeakCommand.RunAsync(context, null!, new AudioDeviceFactory(), CancellationToken.None));
+            () => SpeakCommand.RunAsync(context, null!, new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe()), CancellationToken.None));
     }
 
     /// <summary>Test that a null factory is rejected.</summary>
@@ -379,12 +379,12 @@ public sealed class SpeakCommandTests
             () => SpeakCommand.RunAsync(context, new FakeCliModelCatalog(), null!, CancellationToken.None));
     }
 
-    /// <summary>Test that Run(Context, ICliModelCatalog, AudioDeviceFactory) rejects a null context.</summary>
+    /// <summary>Test that Run(Context, ICliModelCatalog, ICliPlaybackDeviceSource) rejects a null context.</summary>
     [Fact]
     public void SpeakCommand_Run_NullContext_ThrowsArgumentNullException()
     {
         Assert.Throws<ArgumentNullException>(
-            () => SpeakCommand.Run(null!, new FakeCliModelCatalog(), new AudioDeviceFactory()));
+            () => SpeakCommand.Run(null!, new FakeCliModelCatalog(), new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe())));
     }
 
     /// <summary>

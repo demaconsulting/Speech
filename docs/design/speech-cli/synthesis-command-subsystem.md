@@ -3,8 +3,9 @@
 ### Overview
 
 The SynthesisCommandSubsystem implements the one text-to-speech subcommand dispatched to by
-`CommandDispatch`: `speak`. It contains one command handler plus one parsing utility, and extends
-`ModelCommandsSubsystem`'s existing catalog seam with two further members:
+`CommandDispatch`: `speak`. It contains one command handler plus one parsing utility, extends
+`ModelCommandsSubsystem`'s existing catalog seam with two further members, and introduces its own
+small seam over real playback-device resolution:
 
 - **`SpeakCommand`**: implements
   `speak --model <id> (--text <string> | --file <path> | stdin) [--output <wav-path>]
@@ -14,6 +15,10 @@ The SynthesisCommandSubsystem implements the one text-to-speech subcommand dispa
 - **`ICliModelCatalog.GetPreferredAudioFormat`/`CreateSynthesizer`**: the two new seam members
   (see _Extending the ModelCommandsSubsystem Seam_ below), implemented by
   `SpeechModelCatalogAdapter`
+- **`ICliPlaybackDeviceSource`**/**`AudioDeviceFactoryPlaybackDeviceSource`**: a small CLI-owned
+  seam over real-playback-device resolution (see _Deterministic Playback-Device Resolution_
+  below), letting `SpeakCommand`'s own device-dispatch logic be unit tested deterministically
+  without depending on real PortAudio hardware being present
 
 ### Extending the ModelCommandsSubsystem Seam
 
@@ -56,6 +61,51 @@ This keeps `SpeakCommand`'s own logic - argument parsing, text-source resolution
 validation, tag stripping, device dispatch, disposal ordering, cancellation - fully unit-testable
 against `FakeCliModelCatalog`'s delegate overrides for the two new members, with no dependency on
 `ISynthesisModel` anywhere in the test project.
+
+### Deterministic Playback-Device Resolution
+
+`SpeakCommand`'s real playback-device path is composed over the library's `AudioDeviceFactory`,
+whose public constructor consults the real, shared `PortAudioEnvironment.Shared.IsInitialized`
+flag before ever consulting any injected `IAudioPlaybackDeviceProbe`:
+`AudioDeviceFactory.CreatePlaybackDevice` returns `UnavailableAudioPlaybackDevice.Instance`
+immediately whenever `IsInitialized` is `false`, regardless of what an injected probe reports.
+On a development machine with real audio hardware this flag is `true`, so a test that constructs
+`new AudioDeviceFactory(playbackProbe: new FakePlaybackDeviceProbe([...]))` and expects a real
+device back happens to pass - but the exact same test is guaranteed to fail on any headless
+machine with no real playback hardware at all, including every `ubuntu-latest`/`macos-latest`
+GitHub Actions runner this project's CI matrix uses. `AudioDeviceFactory` also exposes an
+`internal` constructor that accepts an explicit `PortAudioEnvironment` (backed by a fake
+`IPortAudioApi`) for exactly this kind of deterministic testing - `DemaConsulting.Speech.Tests`
+uses it in `AudioDeviceFactoryTests.cs` - but that constructor is deliberately unreachable from
+`DemaConsulting.Speech.Cli.Tests`, which is **not** granted `InternalsVisibleTo` access to
+`DemaConsulting.Speech` (see the _ModelCommandsSubsystem_ design doc's identical rationale for
+`ICliModelCatalog`: `DemaConsulting.Speech.Cli.Tests` is scoped to the library's public surface
+only, and widening that boundary to fix one subsystem's tests would weaken the isolation the CLI
+test project is meant to provide everywhere else).
+
+Rather than change `AudioDeviceFactory`'s own hardware-detection behavior (which is correct: it
+must never construct a real PortAudio-backed device once its `PortAudioEnvironment` has failed to
+initialize) or grant `DemaConsulting.Speech.Cli.Tests` broader internal access, `SpeakCommand`'s
+device-dispatch logic is composed over a second, CLI-owned seam:
+
+| Member | Returns | Behavior |
+| --- | --- | --- |
+| `ICliPlaybackDeviceSource.PlaybackProbe` | `IAudioPlaybackDeviceProbe` | Enumerates playback devices |
+| `ICliPlaybackDeviceSource.CreatePlaybackDevice(selection)` | `IAudioPlaybackDevice` | Resolves a device |
+
+`AudioDeviceFactoryPlaybackDeviceSource` is the sole production implementation: it forwards both
+members to a composed, real `AudioDeviceFactory` completely unchanged, so `SpeakCommand.Run(Context)`'s
+actual runtime device-resolution behavior (including its dependence on real PortAudio hardware
+being present) is exactly what it was before this seam was introduced -
+`AudioDeviceFactoryPlaybackDeviceSourceTests` proves this by comparing the adapter's result to the
+real factory's own result for the same call, without asserting on whether real hardware happens
+to be present on the machine running the test. `SpeakCommandTests` instead substitutes a
+`FakePlaybackDeviceSource` (in the test project, implementing `ICliPlaybackDeviceSource` directly)
+that resolves purely from an in-memory device list, never touching `PortAudioEnvironment.Shared`
+or any real PortAudio state at all - making every `speak` device-dispatch scenario deterministic
+on every machine, headless or not. This mirrors `ICliModelCatalog`'s own "CLI-owned seam over a
+sealed library type" pattern exactly, just for playback-device resolution instead of the model
+catalog.
 
 ### ParameterBagParser
 
@@ -116,11 +166,12 @@ resolved via the new `GetPreferredAudioFormat` seam member and used to size a
 `WavFileAudioPlaybackDevice` at that path; `--device` is documented, and enforced by construction,
 to be ignored in this case, since an explicit file destination unambiguously wins and no error is
 raised for supplying both. Otherwise, a real playback device is resolved from the injected
-`AudioDeviceFactory`, reusing `DevicesTestCommand.ResolveDeviceSelectionOrThrow` (internal, same
-assembly, different namespace - no refactor needed) to validate any requested `--device` name
-against the enumerated playback devices before a device is actually created, exactly mirroring
-`devices test`'s own validate-before-create pattern; an unavailable resolved device throws
-`InvalidOperationException` suggesting `--output` as an alternative.
+`ICliPlaybackDeviceSource` (see _Deterministic Playback-Device Resolution_ above), reusing
+`DevicesTestCommand.ResolveDeviceSelectionOrThrow` (internal, same assembly, different namespace -
+no refactor needed) to validate any requested `--device` name against the enumerated playback
+devices before a device is actually created, exactly mirroring `devices test`'s own
+validate-before-create pattern; an unavailable resolved device throws `InvalidOperationException`
+suggesting `--output` as an alternative.
 
 **Disposal ordering.** `ISpeechSynthesizer.Dispose()` does not dispose the playback device it was
 constructed over (confirmed against the library's own `SherpaOnnxSpeechSynthesizer.Dispose()`
@@ -143,11 +194,12 @@ propagating as a stack trace.
 
 `SpeakCommand` depends on the `ICliModelCatalog` seam (both its original five members and the two
 new ones added by this pass), the library's public `AudioFormat`/`ISpeechSynthesizer`/
-`AudioTagParser`/`TaggedTextSpan` types, `AudioDeviceFactory` from the library's audio subsystem,
-`WavFileAudioPlaybackDevice`, and reuses `DeviceCommandsSubsystem`'s
-`DevicesTestCommand.ResolveDeviceSelectionOrThrow` internal helper rather than duplicating device
-resolution logic. `ParameterBagParser` depends only on the library's public
-`ISpeechModelParameter`/`NumericParameter`/`ChoiceParameter`/`BooleanParameter` types. None of this
-subsystem touches `ISynthesisModel` or any other internal library type directly - that access is
-confined entirely to `SpeechModelCatalogAdapter`, exactly as `ModelCommandsSubsystem`'s original
-seam already established.
+`AudioTagParser`/`TaggedTextSpan` types, its own `ICliPlaybackDeviceSource` seam (composed over
+`AudioDeviceFactory` from the library's audio subsystem in production, via
+`AudioDeviceFactoryPlaybackDeviceSource`), `WavFileAudioPlaybackDevice`, and reuses
+`DeviceCommandsSubsystem`'s `DevicesTestCommand.ResolveDeviceSelectionOrThrow` internal helper
+rather than duplicating device resolution logic. `ParameterBagParser` depends only on the
+library's public `ISpeechModelParameter`/`NumericParameter`/`ChoiceParameter`/`BooleanParameter`
+types. None of this subsystem touches `ISynthesisModel` or any other internal library type
+directly - that access is confined entirely to `SpeechModelCatalogAdapter`, exactly as
+`ModelCommandsSubsystem`'s original seam already established.

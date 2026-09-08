@@ -58,27 +58,27 @@ internal static class SpeakCommand
         ArgumentNullException.ThrowIfNull(context);
 
         using var catalog = CliModelCatalogFactory.Create(context);
-        var factory = new AudioDeviceFactory();
-        Run(context, catalog, factory);
+        var deviceSource = new AudioDeviceFactoryPlaybackDeviceSource(new AudioDeviceFactory());
+        Run(context, catalog, deviceSource);
     }
 
     /// <summary>
-    ///     Runs the <c>speak</c> subcommand against an injected catalog seam and audio device
-    ///     factory, for unit testing without a real model catalog, network access, or audio
+    ///     Runs the <c>speak</c> subcommand against an injected catalog seam and playback-device
+    ///     source, for unit testing without a real model catalog, network access, or audio
     ///     hardware.
     /// </summary>
     /// <param name="context">The invocation context. Must not be null.</param>
     /// <param name="catalog">The catalog seam to resolve the model through. Must not be null.</param>
-    /// <param name="factory">The audio device factory to resolve a real playback device through. Must not be null.</param>
+    /// <param name="deviceSource">The playback-device seam to resolve a real playback device through. Must not be null.</param>
     /// <exception cref="ArgumentNullException">
     ///     Thrown when <paramref name="context"/>, <paramref name="catalog"/>, or
-    ///     <paramref name="factory"/> is <see langword="null"/>.
+    ///     <paramref name="deviceSource"/> is <see langword="null"/>.
     /// </exception>
-    internal static void Run(Context context, ICliModelCatalog catalog, AudioDeviceFactory factory)
+    internal static void Run(Context context, ICliModelCatalog catalog, ICliPlaybackDeviceSource deviceSource)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(catalog);
-        ArgumentNullException.ThrowIfNull(factory);
+        ArgumentNullException.ThrowIfNull(deviceSource);
 
         using var cancellationSource = new CancellationTokenSource();
 
@@ -94,7 +94,7 @@ internal static class SpeakCommand
         Console.CancelKeyPress += onCancelKeyPress;
         try
         {
-            RunAsync(context, catalog, factory, cancellationSource.Token).GetAwaiter().GetResult();
+            RunAsync(context, catalog, deviceSource, cancellationSource.Token).GetAwaiter().GetResult();
         }
         finally
         {
@@ -108,12 +108,12 @@ internal static class SpeakCommand
     /// </summary>
     /// <param name="context">The invocation context. Must not be null.</param>
     /// <param name="catalog">The catalog seam to resolve the model through. Must not be null.</param>
-    /// <param name="factory">The audio device factory to resolve a real playback device through. Must not be null.</param>
+    /// <param name="deviceSource">The playback-device seam to resolve a real playback device through. Must not be null.</param>
     /// <param name="cancellationToken">A token that, when canceled, aborts the in-progress speak session.</param>
     /// <returns>A task that completes once the speak session has finished, failed, or been canceled.</returns>
     /// <exception cref="ArgumentNullException">
     ///     Thrown when <paramref name="context"/>, <paramref name="catalog"/>, or
-    ///     <paramref name="factory"/> is <see langword="null"/>.
+    ///     <paramref name="deviceSource"/> is <see langword="null"/>.
     /// </exception>
     /// <exception cref="ArgumentException">
     ///     Thrown for any usage error: missing/unknown/wrong-role/not-downloaded model, conflicting
@@ -123,12 +123,12 @@ internal static class SpeakCommand
     internal static async Task RunAsync(
         Context context,
         ICliModelCatalog catalog,
-        AudioDeviceFactory factory,
+        ICliPlaybackDeviceSource deviceSource,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(catalog);
-        ArgumentNullException.ThrowIfNull(factory);
+        ArgumentNullException.ThrowIfNull(deviceSource);
 
         var options = ParseArguments(context.CommandArgs);
 
@@ -144,7 +144,7 @@ internal static class SpeakCommand
         var descriptor = ResolveModel(catalog, options.ModelId);
         var parameterValues = ParameterBagParser.Resolve(options.RawParameters, descriptor.Model.Parameters);
 
-        var playbackDevice = ResolvePlaybackDevice(catalog, factory, descriptor, options);
+        var playbackDevice = ResolvePlaybackDevice(catalog, deviceSource, descriptor, options);
         try
         {
             var synthesizer = catalog.CreateSynthesizer(descriptor, playbackDevice, parameterValues);
@@ -181,11 +181,11 @@ internal static class SpeakCommand
     /// <summary>
     ///     Resolves the playback device for this session: a <see cref="WavFileAudioPlaybackDevice"/>
     ///     sized from the model's preferred audio format when <c>--output</c> was given, otherwise
-    ///     a real device resolved from <paramref name="factory"/> (honoring <c>--device</c>).
+    ///     a real device resolved from <paramref name="deviceSource"/> (honoring <c>--device</c>).
     /// </summary>
     private static IAudioPlaybackDevice ResolvePlaybackDevice(
         ICliModelCatalog catalog,
-        AudioDeviceFactory factory,
+        ICliPlaybackDeviceSource deviceSource,
         SpeechModelDescriptor descriptor,
         SpeakOptions options)
     {
@@ -195,10 +195,10 @@ internal static class SpeakCommand
             return new WavFileAudioPlaybackDevice(options.OutputPath, format.SampleRate, format.ChannelCount);
         }
 
-        var knownDevices = factory.PlaybackProbe.Enumerate();
+        var knownDevices = deviceSource.PlaybackProbe.Enumerate();
         var selection = DevicesTestCommand.ResolveDeviceSelectionOrThrow(knownDevices, options.DeviceName, "playback");
 
-        var device = factory.CreatePlaybackDevice(selection);
+        var device = deviceSource.CreatePlaybackDevice(selection);
         if (!device.IsAvailable)
         {
             throw new InvalidOperationException(

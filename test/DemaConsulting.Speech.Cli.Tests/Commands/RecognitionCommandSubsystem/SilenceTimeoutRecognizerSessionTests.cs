@@ -141,7 +141,87 @@ public sealed class SilenceTimeoutRecognizerSessionTests
         Assert.False(timedOutRaised);
     }
 
-    /// <summary>Test that a null recognizer is rejected.</summary>
+    /// <summary>
+    ///     Test that many rounds of a concurrent recognizer result event racing a concurrent
+    ///     <see cref="SilenceTimeoutRecognizerSession.Dispose"/> call - on two genuine background
+    ///     threads, released simultaneously via a <see cref="Barrier"/> - never throws (in
+    ///     particular, never lets <c>ObjectDisposedException</c> escape from the disposed timer),
+    ///     regardless of which thread wins the race.
+    /// </summary>
+    [Fact]
+    public void SilenceTimeoutRecognizerSession_ConcurrentResultReceivedAndDispose_DoesNotThrow()
+    {
+        var iterationsCompleted = 0;
+        for (var i = 0; i < 200; i++)
+        {
+            var recognizer = new FakeSpeechRecognizer();
+            var timeProvider = new FakeTimeProvider();
+            var session = new SilenceTimeoutRecognizerSession(recognizer, TimeSpan.FromSeconds(5), timeProvider);
+
+            using var barrier = new Barrier(2);
+            var disposeThread = new Thread(() =>
+            {
+                barrier.SignalAndWait();
+                session.Dispose();
+            });
+            var resultThread = new Thread(() =>
+            {
+                barrier.SignalAndWait();
+                recognizer.RaiseResult("still talking", isFinal: false);
+            });
+
+            disposeThread.Start();
+            resultThread.Start();
+            disposeThread.Join();
+            resultThread.Join();
+            iterationsCompleted++;
+        }
+
+        Assert.Equal(200, iterationsCompleted);
+    }
+
+    /// <summary>
+    ///     Test that many rounds of a concurrent idle-timer fire racing a concurrent
+    ///     <see cref="SilenceTimeoutRecognizerSession.Dispose"/> call - on two genuine background
+    ///     threads, released simultaneously via a <see cref="Barrier"/> - never throws, and the
+    ///     recognizer's <c>Stop()</c> is called at most once regardless of which thread wins the
+    ///     race (proving the idle-timer callback never acts after disposal has already
+    ///     completed, and never races a half-torn-down session).
+    /// </summary>
+    [Fact]
+    public void SilenceTimeoutRecognizerSession_ConcurrentTimerFireAndDispose_DoesNotThrowOrActTwice()
+    {
+        for (var i = 0; i < 200; i++)
+        {
+            var recognizer = new FakeSpeechRecognizer();
+            var timeProvider = new FakeTimeProvider();
+            var session = new SilenceTimeoutRecognizerSession(recognizer, TimeSpan.FromSeconds(5), timeProvider);
+            var timer = timeProvider.LastTimer!;
+
+            using var barrier = new Barrier(2);
+            var disposeThread = new Thread(() =>
+            {
+                barrier.SignalAndWait();
+                session.Dispose();
+            });
+            var fireThread = new Thread(() =>
+            {
+                barrier.SignalAndWait();
+                timer.Fire();
+            });
+
+            disposeThread.Start();
+            fireThread.Start();
+            disposeThread.Join();
+            fireThread.Join();
+
+            Assert.InRange(recognizer.StopCallCount, 0, 1);
+        }
+    }
+
+    /// <summary>
+    ///     Test that a null recognizer is rejected.
+    /// </summary>
     [Fact]
     public void SilenceTimeoutRecognizerSession_Construct_NullRecognizer_ThrowsArgumentNullException()
     {

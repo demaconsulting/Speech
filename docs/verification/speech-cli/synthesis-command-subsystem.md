@@ -6,15 +6,27 @@ The SynthesisCommandSubsystem is verified through deterministic unit tests again
 hand-written `FakeSpeechSynthesizer` (recording `SpeakAsync` calls and `Stop`/`Dispose` call
 counts, with settable `IsAvailable`/`SpeakAsyncException`) and `FakeCliModelCatalog`'s two new
 delegate overrides (`GetPreferredAudioFormatOverride`/`CreateSynthesizerOverride`), reused from
-`ModelCommandsSubsystem`'s own tests. `ParameterBagParser` is verified entirely in isolation
+`ModelCommandsSubsystem`'s own tests. Real-device dispatch is verified against a `FakePlaybackDeviceSource`
+(a hand-written `ICliPlaybackDeviceSource` fake resolving purely from an in-memory device list,
+touching no real PortAudio state at all) and a `FakeAudioPlaybackDevice`, so every `speak`
+device-dispatch scenario is deterministic on every machine, headless or not - unlike constructing
+a real `AudioDeviceFactory` with an injected probe, which still resolves to the honestly
+unavailable fallback whenever `PortAudioEnvironment.Shared.IsInitialized` is `false`, regardless
+of the injected probe (the exact bug this pass fixed; see `AudioDeviceFactoryPlaybackDeviceSourceTests`
+below for the seam's own forwarding proof). `ParameterBagParser` is verified entirely in isolation
 against hand-built `NumericParameter`/`ChoiceParameter`/`BooleanParameter` instances, with no
 model catalog or synthesizer involved at all. The two new `ICliModelCatalog` seam members
 (`GetPreferredAudioFormat`/`CreateSynthesizer`) are additionally verified against a **real**
 `SpeechModelCatalogAdapter`, proving the production `is ISynthesisModel` cast genuinely throws for
 a real, compiled-in recognition-role model, in
-`SpeechModelCatalogAdapterTests.cs`. Out-of-process integration tests in `IntegrationTests.cs`
-invoke the built tool as a child process for the model-resolution and text-source error paths
-that matter most from an operator's perspective.
+`SpeechModelCatalogAdapterTests.cs`. `AudioDeviceFactoryPlaybackDeviceSource` - the production
+`ICliPlaybackDeviceSource` implementation - is separately verified against a **real**, composed
+`AudioDeviceFactory` in `AudioDeviceFactoryPlaybackDeviceSourceTests.cs`, proving it is a pure
+pass-through and does not alter `AudioDeviceFactory`'s own hardware-detection behavior in any way,
+without asserting on whether real playback hardware happens to be present on the machine running
+the test. Out-of-process integration tests in `IntegrationTests.cs` invoke the built tool as a
+child process for the model-resolution and text-source error paths that matter most from an
+operator's perspective.
 
 Automated tests do **not** exercise a real, downloaded synthesis model's actual `--output`
 WAV-writing path end to end: CI has no cached TTS model available (downloading one requires
@@ -34,7 +46,9 @@ documents for the same convention applied elsewhere).
   its model-store root, deleted afterward via `IDisposable`
 - **Test doubles**: `FakeSpeechSynthesizer` (hand-written `ISpeechSynthesizer` fake),
   `FakeCliModelCatalog` (extended with `GetPreferredAudioFormatOverride`/
-  `CreateSynthesizerOverride`), `FakeAudioPlaybackDeviceProbe` (reused from
+  `CreateSynthesizerOverride`), `FakePlaybackDeviceSource` (hand-written `ICliPlaybackDeviceSource`
+  fake resolving purely from an in-memory device list), `FakeAudioPlaybackDevice` (hand-written
+  `IAudioPlaybackDevice` fake), `FakeAudioPlaybackDeviceProbe` (reused from
   `DeviceCommandsSubsystem`'s own tests)
 
 ### Test Scenarios
@@ -131,7 +145,25 @@ path, sized from the resolved model's `GetPreferredAudioFormat` result (proven v
 catalog's override), ignoring any `--device` given alongside it; requesting an unrecognized
 `--device` name (no `--output` given) throws `ArgumentException` before any device is created;
 an unavailable resolved real device throws `InvalidOperationException` suggesting `--output` as
-an alternative.
+an alternative. Every scenario here is exercised against `FakePlaybackDeviceSource`, never a real
+`AudioDeviceFactory`, so results do not depend on whether real playback hardware happens to be
+present on the machine running the test.
+
+**Requirement coverage**: `SpeechCli-SynthesisCommands-OutputDispatch`.
+
+#### AudioDeviceFactoryPlaybackDeviceSource (Real AudioDeviceFactory Forwarding)
+
+**Tests**: `AudioDeviceFactoryPlaybackDeviceSource_PlaybackProbe_ForwardsToFactory`,
+`AudioDeviceFactoryPlaybackDeviceSource_CreatePlaybackDevice_ForwardsToFactory`,
+`AudioDeviceFactoryPlaybackDeviceSource_NullFactory_ThrowsArgumentNullException`
+
+**Scenario/Expected**: Against a real, composed `AudioDeviceFactory`, `PlaybackProbe` returns the
+exact same probe instance the factory itself exposes, and `CreatePlaybackDevice` (for both the
+default selection and a named selection) returns a result of the same type and
+`IsAvailable`-ness as calling the factory directly - proving the adapter is a pure pass-through
+that does not alter `AudioDeviceFactory`'s own hardware-detection behavior in any way, without
+asserting on whether real playback hardware happens to be present on the machine running the
+test; a `null` factory is rejected with `ArgumentNullException`.
 
 **Requirement coverage**: `SpeechCli-SynthesisCommands-OutputDispatch`.
 

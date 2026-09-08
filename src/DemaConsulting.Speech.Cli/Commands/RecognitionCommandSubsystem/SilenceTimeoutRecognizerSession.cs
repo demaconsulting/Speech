@@ -61,12 +61,22 @@ internal sealed class SilenceTimeoutRecognizerSession : IDisposable
     private readonly ITimer _timer;
 
     /// <summary>
+    ///     Serializes <see cref="OnResultReceived"/>, <see cref="OnIdle"/>, and <see cref="Dispose"/>
+    ///     against one another, so a timer/result callback racing a concurrent
+    ///     <see cref="Dispose"/> call always either completes entirely before disposal starts or
+    ///     observes <see cref="_isDisposed"/> already set and returns immediately - it never reads
+    ///     a torn state or touches the timer after it has been disposed.
+    /// </summary>
+    private readonly object _gate = new();
+
+    /// <summary>
     ///     Guards against a timer callback racing a concurrent <see cref="Dispose"/> call: once
     ///     set, the timer callback (which runs on a thread-pool thread independent of the
     ///     constructing/disposing thread) must not call <see cref="ISpeechRecognizer.Stop"/> or
-    ///     raise <see cref="TimedOut"/> on an already-torn-down session.
+    ///     raise <see cref="TimedOut"/> on an already-torn-down session. Always read/written while
+    ///     holding <see cref="_gate"/>.
     /// </summary>
-    private volatile bool _isDisposed;
+    private bool _isDisposed;
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="SilenceTimeoutRecognizerSession"/> class,
@@ -114,12 +124,19 @@ internal sealed class SilenceTimeoutRecognizerSession : IDisposable
     /// </summary>
     private void OnResultReceived(object? sender, SpeechRecognitionEvent e)
     {
-        if (_isDisposed)
+        lock (_gate)
         {
-            return;
-        }
+            if (_isDisposed)
+            {
+                return;
+            }
 
-        _timer.Change(_idleTimeout, Timeout.InfiniteTimeSpan);
+            // Holding _gate for the whole check-then-act guarantees Dispose cannot have disposed
+            // _timer between the _isDisposed check above and this call: Dispose only disposes
+            // _timer after it has both set _isDisposed and released _gate (see Dispose below), so
+            // observing _isDisposed == false here under the lock proves _timer is still live.
+            _timer.Change(_idleTimeout, Timeout.InfiniteTimeSpan);
+        }
     }
 
     /// <summary>
@@ -128,13 +145,21 @@ internal sealed class SilenceTimeoutRecognizerSession : IDisposable
     /// </summary>
     private void OnIdle(object? state)
     {
-        if (_isDisposed)
+        lock (_gate)
         {
-            return;
-        }
+            if (_isDisposed)
+            {
+                return;
+            }
 
-        _recognizer.Stop();
-        TimedOut?.Invoke(this, EventArgs.Empty);
+            // Stop() and the TimedOut raise both happen while still holding _gate, for the same
+            // reason as OnResultReceived above: a concurrent Dispose cannot have torn down
+            // _recognizer's subscription or _timer while this thread holds the lock, and lock is
+            // reentrant on this thread, so a TimedOut handler that itself calls Dispose() does
+            // not deadlock.
+            _recognizer.Stop();
+            TimedOut?.Invoke(this, EventArgs.Empty);
+        }
     }
 
     /// <summary>
@@ -143,14 +168,25 @@ internal sealed class SilenceTimeoutRecognizerSession : IDisposable
     /// </summary>
     public void Dispose()
     {
-        if (_isDisposed)
+        lock (_gate)
         {
-            return;
+            if (_isDisposed)
+            {
+                return;
+            }
+
+            _isDisposed = true;
+            _recognizer.ResultReceived -= OnResultReceived;
         }
 
-        _isDisposed = true;
-
-        _recognizer.ResultReceived -= OnResultReceived;
+        // _timer.Dispose() runs outside _gate deliberately: some TimeProvider/ITimer
+        // implementations block a Dispose() call until any currently in-flight callback
+        // invocation has finished. Since OnIdle also acquires _gate, disposing the timer while
+        // still holding _gate here could deadlock (this thread blocked inside _timer.Dispose()
+        // waiting for OnIdle to return, while OnIdle is blocked waiting to acquire the very lock
+        // this thread holds). Releasing _gate first (having already set _isDisposed under it)
+        // still guarantees no new call to OnResultReceived/OnIdle acts on this session, since
+        // both re-check _isDisposed immediately after acquiring _gate.
         _timer.Dispose();
     }
 }

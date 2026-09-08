@@ -181,6 +181,48 @@ public sealed class ModelInfoCommandTests
     }
 
     /// <summary>
+    ///     Test that a numeric parameter's min/max/step/default are printed using invariant
+    ///     culture formatting, regardless of the current thread's culture, so a comma-decimal
+    ///     locale (e.g. <c>de-DE</c>) does not produce a locale-specific (and un-parseable-by-
+    ///     -script) decimal separator.
+    /// </summary>
+    [Fact]
+    public void ModelInfoCommand_Run_NumericParameter_CommaDecimalCulture_PrintsInvariantFormat()
+    {
+        // Arrange
+        var parameter = new NumericParameter(
+            "rate",
+            "Speaking rate",
+            "Controls how fast speech is spoken.",
+            new NumericParameterBounds(0.5, 2.0, 0.1, 1.5));
+        var model = new FakeSpeechModel("model-numeric", parameters: [parameter]);
+        var catalog = new FakeCliModelCatalog().WithModel(model, SpeechModelState.NotDownloaded);
+        var originalOut = Console.Out;
+        var originalCulture = System.Globalization.CultureInfo.CurrentCulture;
+        try
+        {
+            System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo("de-DE");
+            using var writer = new StringWriter();
+            Console.SetOut(writer);
+            using var context = Context.Create(["model-info", "model-numeric"]);
+
+            // Act
+            ModelInfoCommand.Run(context, catalog);
+
+            // Assert
+            var output = writer.ToString();
+            Assert.Contains("min=0.5, max=2, step=0.1, default=1.5", output);
+            Assert.DoesNotContain("0,5", output);
+            Assert.DoesNotContain("1,5", output);
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentCulture = originalCulture;
+            Console.SetOut(originalOut);
+        }
+    }
+
+    /// <summary>
     ///     Test that an unknown model id throws a clean <see cref="ArgumentException"/> naming
     ///     the id and pointing at <c>list-models</c>.
     /// </summary>
