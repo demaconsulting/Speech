@@ -19,7 +19,7 @@ rules for what counts as a valid supplied value.
   `Value`/`Label` pair) and `Default`.
 - `BooleanParameter`: `Default`.
 - `SpeechModelParameterDiagnostics`: an internal, stateless static helper with a single
-  `ValidateAndReport(modelId, declaredParameters, suppliedValues, diagnostics, category)` entry
+  `ValidateAndReport(modelId, declaredParameters, parameterValues, diagnostics, category)` entry
   point; carries no data of its own.
 
 **Key Methods**:
@@ -37,22 +37,25 @@ rules for what counts as a valid supplied value.
 - **ChoiceParameterOption(value, label)**: Validates `value` is non-empty/non-whitespace.
 - **BooleanParameter(id, displayName, description, default)**: Validates only the common fields.
 - **SpeechModelParameterDiagnostics.ValidateAndReport(modelId, declaredParameters,
-  suppliedValues, diagnostics, category)**: Called once, up front, by both composition factories'
+  parameterValues, diagnostics, category)**: Called once, up front, by both composition factories'
   innermost `Create` overloads (before either factory does any other work). Iterates
   `declaredParameters` in their declared order; for each one present as a key in
-  `suppliedValues`, validates the supplied value against that parameter's own rules - a
+  `parameterValues`, validates the supplied value against that parameter's own rules - a
   `NumericParameter` value must be a `double`/`int`/`float` within `[Minimum, Maximum]`, and
   additionally a whole number when `IsInteger` is `true` (a fractional value is rejected outright,
   never silently rounded); a `ChoiceParameter` value must be a `string` matching one declared
   `ChoiceParameterOption.Value` exactly; a `BooleanParameter` value must be a `bool`. The first
   invalid recognized value found (in declared-parameter order, so behavior is deterministic)
   throws `ArgumentException` immediately, naming the parameter id, the model id, and the specific
-  reason the value is invalid. Only once every declared, supplied parameter validates does it
-  report an `Info` diagnostic for each key in `suppliedValues` that names no parameter declared
+  reason the value is invalid; the exception's `ParamName` is always `"parameterValues"` - the
+  actual public parameter name a caller passed the offending bag through as - rather than the
+  internal parameter id, consistent with this codebase's convention of every `ArgumentException`
+  populating `ParamName`. Only once every declared, supplied parameter validates does it
+  report an `Info` diagnostic for each key in `parameterValues` that names no parameter declared
   by this model ("Parameter '{id}' is not declared by this model and was ignored.") - this case
   never throws, since a host reusing one settings bag across different models must not break just
   because one model doesn't declare a parameter another model had. A `null` or empty
-  `suppliedValues` bag is a no-op.
+  `parameterValues` bag is a no-op.
 
 **Error Handling**: Every parameter-descriptor constructor validates eagerly and throws
 `ArgumentException`/`ArgumentNullException` for an invalid or internally inconsistent descriptor

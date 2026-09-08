@@ -80,16 +80,22 @@ sections:
                   The SpeechModelDownloader class shall check, as the first step after acquiring a
                   model id's own lock, whether that model id is already installed, and if so
                   return SpeechModelDownloadOutcome.Installed immediately - without any network
-                  fetch or staging-directory activity - and report an Info-level diagnostic,
-                  rather than unconditionally re-transferring an already-installed model's payload.
+                  fetch or staging-directory activity beyond an opportunistic, cheap leftover
+                  cleanup sweep - and report an Info-level diagnostic, rather than unconditionally
+                  re-transferring an already-installed model's payload.
                 justification: |
                   A host calling DownloadAsync unconditionally on every launch (the documented
                   quickstart pattern) must not re-download and re-verify a model's full payload
                   every time merely to confirm it is already installed; this fast-path check must
                   sit inside the already-acquired per-model-id lock (not before it) to stay
-                  race-safe against a concurrent first-time install of the same model id.
+                  race-safe against a concurrent first-time install of the same model id. It must
+                  still opportunistically clean up any leftover staging/replaced directory from a
+                  prior interrupted attempt (a cheap, best-effort directory enumeration/delete with
+                  no network or hashing), so a model that stays installed across every future
+                  launch does not leak disk space indefinitely.
                 tests:
                   - SpeechModelDownloader_DownloadAsync_AlreadyInstalled_ReturnsInstalledWithoutFetchingOrStaging
+                  - SpeechModelDownloader_DownloadAsync_AlreadyInstalledWithLeftoverStaging_CleansUpLeftover
 
               - id: Speech-Models-SpeechModelDownloader-PriorInstallUntouchedOnFailedRepair
                 title: >-
