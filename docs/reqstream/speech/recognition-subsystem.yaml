@@ -31,18 +31,27 @@ sections:
             title: >-
               The RecognitionSubsystem shall compose a speech recognizer for an installed
               recognition model and an audio capture device without ever throwing for an ordinary
-              machine state.
+              machine state, while validating any supplied parameterValues up front: silently
+              ignoring an unrecognized parameter id (an ordinary cross-model-compatibility gap)
+              but throwing ArgumentException for a recognized parameter's invalid value (a caller
+              bug, not an ordinary machine state).
             justification: |
               Composition happens at application start-up, where a model that has not been
               downloaded yet, a machine with no microphone, and a machine without the speech
               engine's native runtime are all ordinary states rather than programming errors, per
-              this library's "nothing throws at composition" decision.
+              this library's "nothing throws at composition" decision. A caller explicitly
+              targeting a parameter it knows this model declares, with a value invalid for it, is
+              a distinct case - a programming error at the call site - so it must be surfaced
+              synchronously and loudly rather than folded into the same never-throw contract as
+              genuine machine-state unavailability.
             children:
               - Speech-Recognition-SpeechRecognizerFactory-RealRecognizer
               - Speech-Recognition-SpeechRecognizerFactory-HonestFallbacks
               - Speech-Recognition-SpeechRecognizerFactory-EngineLoadFailureFallback
               - Speech-Recognition-SpeechRecognizerFactory-ArgumentValidation
               - Speech-Recognition-SpeechRecognizerFactory-ParameterValuesForwarding
+              - Speech-Recognition-SpeechRecognizerFactory-UnrecognizedParameterIdIgnored
+              - Speech-Recognition-SpeechRecognizerFactory-InvalidRecognizedParameterValueThrows
               - Speech-Recognition-RecognitionEngine-MockableSeam
               - Speech-Recognition-RecognitionEngine-ModelOwnedConfiguration
               - Speech-Recognition-RecognitionEngine-PostEndpointWarmupReplay
@@ -51,6 +60,8 @@ sections:
               - SpeechRecognizerFactory_Create_ModelInstalledAndDeviceAvailable_ReturnsRealRecognizer
               - SpeechRecognizerFactory_Create_ModelNotInstalled_ReturnsUnavailableRecognizer
               - SpeechRecognizerFactory_Create_CaptureDeviceUnavailable_ReturnsUnavailableRecognizer
+              - SpeechRecognizerFactory_Create_UnrecognizedParameterId_ComposesAndReportsInfo
+              - SpeechRecognizerFactory_Create_RecognizedNumericParameterOutOfRange_Throws
 
           - id: Speech-Recognition-StreamingPipeline
             title: >-

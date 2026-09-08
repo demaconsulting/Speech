@@ -33,7 +33,12 @@ download, without constructing a second store.
 - **DownloadAsync(modelId, progress?, cancellationToken)**: Looks up `modelId` in the known-model
   list, marks it downloading, delegates to `SpeechModelDownloader.DownloadAsync` with the model's
   own declared `DownloadDescriptor`, and records a failed-attempt marker when the outcome is not
-  `Installed`. Throws `ArgumentException` when `modelId` matches no known model.
+  `Installed`. Throws `ArgumentException` when `modelId` matches no known model. Because
+  `SpeechModelDownloader.DownloadAsync` itself now short-circuits to a safe no-op for a model id
+  it finds already installed (see `SpeechModelDownloader`'s design doc), calling this method for
+  an already-`Downloaded` model id is likewise a safe no-op that returns `Installed` without any
+  network activity - a host may call it unconditionally on every launch without first checking
+  `GetState`.
 
 **Error Handling**: `Enumerate()` and `GetState(modelId)` never throw for an honest state query
 (only `ArgumentException` for an invalid `modelId` string, matching `SpeechModelStore`'s own

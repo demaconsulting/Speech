@@ -69,6 +69,14 @@ public static class SpeechRecognizerFactory
     ///     Thrown when <paramref name="model"/> or <paramref name="captureDevice"/> is
     ///     <see langword="null"/>.
     /// </exception>
+    /// <exception cref="ArgumentException">
+    ///     Thrown when <paramref name="parameterValues"/> contains a value for a parameter
+    ///     <paramref name="model"/> declares that is invalid for it (wrong type, out of range,
+    ///     non-integral for an integer-only parameter, or an unrecognized choice/boolean value).
+    ///     An unrecognized parameter id is not an error - it is reported at
+    ///     <see cref="Diagnostics.SpeechDiagnosticLevel.Info"/> and silently ignored, preserving
+    ///     this library's cross-model settings-dictionary-reuse contract.
+    /// </exception>
     /// <remarks>
     ///     Loads the model into native memory when it succeeds, so the returned recognizer owns
     ///     unmanaged resources and must be disposed. Reports every fallback decision through the
@@ -120,6 +128,12 @@ public static class SpeechRecognizerFactory
     /// <exception cref="ArgumentNullException">
     ///     Thrown when <paramref name="model"/>, <paramref name="store"/>, or
     ///     <paramref name="captureDevice"/> is <see langword="null"/>.
+    /// </exception>
+    /// <exception cref="ArgumentException">
+    ///     Thrown when <paramref name="parameterValues"/> contains an invalid value for a
+    ///     parameter <paramref name="model"/> declares. See the
+    ///     <see cref="Create(IRecognitionModel,string,IAudioCaptureDevice,ISpeechDiagnostics,System.Collections.Generic.IReadOnlyDictionary{string,object}?)"/>
+    ///     overload's matching remark for the full behavior.
     /// </exception>
     /// <remarks>
     ///     Equivalent to calling
@@ -177,6 +191,12 @@ public static class SpeechRecognizerFactory
     ///     Thrown when <paramref name="model"/>, <paramref name="catalog"/>, or
     ///     <paramref name="captureDevice"/> is <see langword="null"/>.
     /// </exception>
+    /// <exception cref="ArgumentException">
+    ///     Thrown when <paramref name="parameterValues"/> contains an invalid value for a
+    ///     parameter <paramref name="model"/> declares. See the
+    ///     <see cref="Create(IRecognitionModel,string,IAudioCaptureDevice,ISpeechDiagnostics,System.Collections.Generic.IReadOnlyDictionary{string,object}?)"/>
+    ///     overload's matching remark for the full behavior.
+    /// </exception>
     /// <remarks>
     ///     Equivalent to calling
     ///     <see cref="Create(IRecognitionModel,SpeechModelStore,IAudioCaptureDevice,ISpeechDiagnostics,System.Collections.Generic.IReadOnlyDictionary{string,object}?)"/>
@@ -226,6 +246,10 @@ public static class SpeechRecognizerFactory
     ///     Thrown when <paramref name="model"/>, <paramref name="store"/>,
     ///     <paramref name="captureDevice"/>, or <paramref name="engineFactory"/> is <see langword="null"/>.
     /// </exception>
+    /// <exception cref="ArgumentException">
+    ///     Thrown when <paramref name="parameterValues"/> contains an invalid value for a
+    ///     parameter <paramref name="model"/> declares.
+    /// </exception>
     internal static ISpeechRecognizer Create(
         IRecognitionModel model,
         SpeechModelStore store,
@@ -262,6 +286,10 @@ public static class SpeechRecognizerFactory
     /// <exception cref="ArgumentNullException">
     ///     Thrown when <paramref name="model"/>, <paramref name="catalog"/>,
     ///     <paramref name="captureDevice"/>, or <paramref name="engineFactory"/> is <see langword="null"/>.
+    /// </exception>
+    /// <exception cref="ArgumentException">
+    ///     Thrown when <paramref name="parameterValues"/> contains an invalid value for a
+    ///     parameter <paramref name="model"/> declares.
     /// </exception>
     internal static ISpeechRecognizer Create(
         IRecognitionModel model,
@@ -300,6 +328,13 @@ public static class SpeechRecognizerFactory
     ///     Thrown when <paramref name="model"/>, <paramref name="captureDevice"/>, or
     ///     <paramref name="engineFactory"/> is <see langword="null"/>.
     /// </exception>
+    /// <exception cref="ArgumentException">
+    ///     Thrown when <paramref name="parameterValues"/> contains an invalid value for a
+    ///     parameter <paramref name="model"/> declares - wrong CLR type, out of range, a
+    ///     non-integral value for an integer-only parameter, or an unrecognized choice/boolean
+    ///     value. An unrecognized parameter id is reported at
+    ///     <see cref="Diagnostics.SpeechDiagnosticLevel.Info"/> and silently ignored instead.
+    /// </exception>
     internal static ISpeechRecognizer Create(
         IRecognitionModel model,
         string installedModelDirectory,
@@ -313,6 +348,14 @@ public static class SpeechRecognizerFactory
         ArgumentNullException.ThrowIfNull(engineFactory);
 
         var sink = diagnostics ?? NullSpeechDiagnostics.Instance;
+
+        // Validate the caller's parameter value bag against this model's own declared
+        // parameters before anything else: an unrecognized id is reported and silently ignored
+        // (preserving cross-model settings-dictionary reuse), while an invalid value for a
+        // parameter this model does declare throws synchronously from this call, rather than
+        // degrading silently deep inside the loaded engine.
+        SpeechModelParameterDiagnostics.ValidateAndReport(
+            model.Id, model.Parameters, parameterValues, sink, DiagnosticsCategory);
 
         // A model that has not been downloaded yet is the single most common reason recognition
         // is unavailable, and is an ordinary first-run state rather than an error.

@@ -90,3 +90,44 @@ sections:
                   SherpaOnnxKokoroEnglishSynthesisModel.
                 tests:
                   - SpeechSynthesizerFactory_Create_ParameterValuesSupplied_ForwardedToSynthesizer
+
+              - id: Speech-Synthesis-SpeechSynthesizerFactory-UnrecognizedParameterIdIgnored
+                title: >-
+                  The SpeechSynthesizerFactory class shall silently ignore a supplied
+                  parameterValues key that names a parameter not declared by the requested model,
+                  still composing a real synthesizer, while reporting an Info-level diagnostic
+                  naming the ignored key.
+                justification: |
+                  A host reusing one settings dictionary across different synthesis models must
+                  not break composition just because a given model does not declare a parameter
+                  another model had; this is a deliberate, documented cross-model-compatibility
+                  contract, not a caller bug, so it must never throw - only be surfaced as an
+                  informational diagnostic for a host that wired up a sink.
+                tests:
+                  - SpeechSynthesizerFactory_Create_UnrecognizedParameterId_ComposesAndReportsInfo
+
+              - id: Speech-Synthesis-SpeechSynthesizerFactory-InvalidRecognizedParameterValueThrows
+                title: >-
+                  The SpeechSynthesizerFactory class shall throw ArgumentException synchronously
+                  from Create() - before installed/role/device/engine checks run - when
+                  parameterValues supplies a value for a parameter the requested model does
+                  declare, but the value is invalid for that parameter (wrong CLR type, outside
+                  [Minimum, Maximum] or non-integral for a NumericParameter declared IsInteger,
+                  or not a declared ChoiceParameterOption.Value for a ChoiceParameter, or not a
+                  bool for a BooleanParameter), naming the parameter id, the model id, and the
+                  reason the value is invalid.
+                justification: |
+                  This is a deliberate, user-approved breaking change from this library's
+                  earlier silent-default behavior for this case: a host explicitly targeting a
+                  parameter it knows this model declares, with a value invalid for it, is a
+                  caller bug rather than a legitimate cross-model compatibility gap, and must be
+                  surfaced immediately and loudly - synchronously from Create() - rather than
+                  silently substituted the first time ResolveSpeakerId ran per segment. This
+                  validation happens once, up front, at Create(); it does not change
+                  ResolveSpeakerId's or ResolveOverrideRatios's own existing never-throw,
+                  per-segment runtime contract.
+                tests:
+                  - SpeechSynthesizerFactory_Create_RecognizedNumericParameterOutOfRange_Throws
+                  - SpeechSynthesizerFactory_Create_RecognizedNumericParameterWrongType_Throws
+                  - SpeechSynthesizerFactory_Create_RecognizedIntegerParameterFractionalValue_Throws
+                  - SpeechSynthesizerFactory_Create_RecognizedChoiceParameterInvalidOption_Throws

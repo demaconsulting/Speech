@@ -40,6 +40,12 @@ A RecognitionSubsystem test run passes when:
 - An optional `parameterValues` bag supplied by the caller reaches the recognition model's own
   engine-configuration logic unchanged, and does not change behavior for a model that declares no
   parameters
+- A supplied `parameterValues` key naming a parameter not declared by the requested model is
+  silently ignored (with only an `Info` diagnostic reported) and composition still succeeds; a
+  supplied value for a parameter the model *does* declare that fails that parameter's own
+  validation (wrong CLR type, out-of-range or non-integral for a `NumericParameter`, an invalid
+  option for a `ChoiceParameter`, a non-`bool` for a `BooleanParameter`) throws `ArgumentException`
+  synchronously from `Create()`, before any installed/role/device/engine check runs
 - Captured audio is downmixed and resampled to the model's declared `AudioFormat`, with
   above-target-Nyquist energy attenuated before downsampling decimation
 - Every recognition result is delivered, in order, with its provisional/final flag preserved
@@ -90,16 +96,31 @@ programming error from an ordinary machine state.
 
 #### Composition: Parameter Value Bag Forwarding
 
-**Tests**: `SpeechRecognizerFactory_Create_ParameterValuesSuppliedToZeroParameterModel_BehaviorUnchanged`,
-`SpeechRecognizerFactory_Create_ParameterValuesSupplied_ReachesModelCreateEngineConfig`,
+**Tests**: `SpeechRecognizerFactory_Create_ParameterValuesSupplied_ReachesModelCreateEngineConfig`,
 `SpeechRecognizerFactory_Create_WithStoreParameterValuesSupplied_ReachesModelCreateEngineConfig`,
 `SpeechRecognizerFactory_Create_WithCatalogParameterValuesSupplied_ReachesModelCreateEngineConfig`
 
 Verifies that an optional `parameterValues` bag supplied by the caller (for example, a selected
-recognition language built from a declared `ChoiceParameter`) does not change composition
-behavior for today's zero-parameter recognition models, and genuinely reaches a model's own
+recognition language built from a declared `ChoiceParameter`) genuinely reaches a model's own
 two-argument `IRecognitionModel.CreateEngineConfig` override rather than merely reaching the
 engine factory.
+
+#### Composition: Parameter Value Validation
+
+**Tests**: `SpeechRecognizerFactory_Create_UnrecognizedParameterId_ComposesAndReportsInfo`,
+`SpeechRecognizerFactory_Create_RecognizedNumericParameterOutOfRange_Throws`,
+`SpeechRecognizerFactory_Create_RecognizedNumericParameterWrongType_Throws`,
+`SpeechRecognizerFactory_Create_RecognizedChoiceParameterInvalidOption_Throws`,
+`SpeechRecognizerFactory_Create_RecognizedBooleanParameterWrongType_Throws`
+
+Verifies the deliberate, breaking-change split introduced for this behavior: a supplied
+`parameterValues` key naming a parameter the model does not declare still composes a real
+recognizer and reports only an `Info` diagnostic, never throwing (preserving cross-model
+compatibility); a supplied value for a parameter the model *does* declare, but that is invalid
+for it, throws `ArgumentException` synchronously from `Create()` - before any
+installed/role/device/engine check runs - naming the parameter id, the model id, and the specific
+reason the value is invalid. This replaces this library's earlier behavior of silently
+substituting a default for such a value.
 
 #### Pipeline: Capture Format Conversion
 

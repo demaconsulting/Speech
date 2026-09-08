@@ -196,28 +196,114 @@ public sealed class SpeechRecognizerFactoryTests : IDisposable
     }
 
     /// <summary>
-    ///     Proves that passing a <c>parameterValues</c> bag does not change composition behavior
-    ///     for a zero-parameter recognition model, since it reaches the model only through the
-    ///     default hook that ignores it.
+    ///     Proves that an unrecognized parameter id is silently ignored (never throws) and is
+    ///     reported at <see cref="SpeechDiagnosticLevel.Info"/> when a diagnostics sink is
+    ///     supplied - preserving this library's deliberate cross-model settings-dictionary-reuse
+    ///     contract.
     /// </summary>
     [Fact]
-    public void SpeechRecognizerFactory_Create_ParameterValuesSuppliedToZeroParameterModel_BehaviorUnchanged()
+    public void SpeechRecognizerFactory_Create_UnrecognizedParameterId_ComposesAndReportsInfo()
     {
-        // Arrange: an installed zero-parameter model, an available device, and a parameter bag
+        // Arrange
         var captureDevice = CreateAvailableCaptureDevice();
         var engineFactory = new FakeRecognitionEngineFactory();
         var model = new FakeRecognitionModel();
-        IReadOnlyDictionary<string, object> parameterValues = new Dictionary<string, object> { ["language"] = "en-gb" };
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        IReadOnlyDictionary<string, object> parameterValues = new Dictionary<string, object> { ["typo-id"] = 1 };
 
-        // Act: compose a recognizer, supplying parameterValues
+        // Act
         using var recognizer = SpeechRecognizerFactory.Create(
-            model, _installedModelDirectory, captureDevice, null, engineFactory, parameterValues);
+            model, _installedModelDirectory, captureDevice, diagnostics, engineFactory, parameterValues);
 
-        // Assert: composition behaves identically to the no-parameterValues case
+        // Assert: still a real, working recognizer, plus the observability diagnostic
         Assert.IsType<SherpaOnnxSpeechRecognizer>(recognizer);
         Assert.True(recognizer.IsAvailable);
-        Assert.Equal(1, engineFactory.CreateCallCount);
-        Assert.Equal(parameterValues, engineFactory.RequestedParameterValues);
+        diagnostics.Received(1).Report(
+            SpeechDiagnosticLevel.Info,
+            "RecognitionSubsystem",
+            "Parameter 'typo-id' is not declared by this model and was ignored.");
+    }
+
+    /// <summary>
+    ///     Proves that an out-of-range value for a recognized numeric parameter throws
+    ///     <see cref="ArgumentException"/> synchronously from <c>Create</c>, rather than
+    ///     silently clamping.
+    /// </summary>
+    [Fact]
+    public void SpeechRecognizerFactory_Create_RecognizedNumericParameterOutOfRange_Throws()
+    {
+        // Arrange
+        var captureDevice = CreateAvailableCaptureDevice();
+        var engineFactory = new FakeRecognitionEngineFactory();
+        var model = new FakeRecognitionModel();
+        IReadOnlyDictionary<string, object> parameterValues = new Dictionary<string, object> { ["sensitivity"] = 5.0 };
+
+        // Act / Assert
+        var exception = Assert.Throws<ArgumentException>(() => SpeechRecognizerFactory.Create(
+            model, _installedModelDirectory, captureDevice, null, engineFactory, parameterValues));
+        Assert.Contains("sensitivity", exception.Message, StringComparison.Ordinal);
+        Assert.Equal(0, engineFactory.CreateCallCount);
+    }
+
+    /// <summary>
+    ///     Proves that a value not matching any declared choice option throws
+    ///     <see cref="ArgumentException"/> synchronously from <c>Create</c>.
+    /// </summary>
+    [Fact]
+    public void SpeechRecognizerFactory_Create_RecognizedChoiceParameterInvalidOption_Throws()
+    {
+        // Arrange
+        var captureDevice = CreateAvailableCaptureDevice();
+        var engineFactory = new FakeRecognitionEngineFactory();
+        var model = new FakeRecognitionModel();
+        IReadOnlyDictionary<string, object> parameterValues = new Dictionary<string, object> { ["language"] = "klingon" };
+
+        // Act / Assert
+        var exception = Assert.Throws<ArgumentException>(() => SpeechRecognizerFactory.Create(
+            model, _installedModelDirectory, captureDevice, null, engineFactory, parameterValues));
+        Assert.Contains("language", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("klingon", exception.Message, StringComparison.Ordinal);
+        Assert.Equal(0, engineFactory.CreateCallCount);
+    }
+
+    /// <summary>
+    ///     Proves that a non-boolean value for a recognized <see cref="BooleanParameter"/> throws
+    ///     <see cref="ArgumentException"/> synchronously from <c>Create</c>.
+    /// </summary>
+    [Fact]
+    public void SpeechRecognizerFactory_Create_RecognizedBooleanParameterWrongType_Throws()
+    {
+        // Arrange
+        var captureDevice = CreateAvailableCaptureDevice();
+        var engineFactory = new FakeRecognitionEngineFactory();
+        var model = new FakeRecognitionModel();
+        IReadOnlyDictionary<string, object> parameterValues = new Dictionary<string, object> { ["denoise"] = "yes" };
+
+        // Act / Assert
+        var exception = Assert.Throws<ArgumentException>(() => SpeechRecognizerFactory.Create(
+            model, _installedModelDirectory, captureDevice, null, engineFactory, parameterValues));
+        Assert.Contains("denoise", exception.Message, StringComparison.Ordinal);
+        Assert.Equal(0, engineFactory.CreateCallCount);
+    }
+
+    /// <summary>
+    ///     Proves that a wrong CLR type for a recognized numeric parameter throws
+    ///     <see cref="ArgumentException"/> synchronously from <c>Create</c>.
+    /// </summary>
+    [Fact]
+    public void SpeechRecognizerFactory_Create_RecognizedNumericParameterWrongType_Throws()
+    {
+        // Arrange
+        var captureDevice = CreateAvailableCaptureDevice();
+        var engineFactory = new FakeRecognitionEngineFactory();
+        var model = new FakeRecognitionModel();
+        IReadOnlyDictionary<string, object> parameterValues = new Dictionary<string, object> { ["sensitivity"] = "high" };
+
+        // Act / Assert
+        var exception = Assert.Throws<ArgumentException>(() => SpeechRecognizerFactory.Create(
+            model, _installedModelDirectory, captureDevice, null, engineFactory, parameterValues));
+        Assert.Contains("sensitivity", exception.Message, StringComparison.Ordinal);
+        Assert.Equal(0, engineFactory.CreateCallCount);
     }
 
     /// <summary>

@@ -195,6 +195,16 @@ using var synthesizer = SpeechSynthesizerFactory.Create(
     parameterValues: new Dictionary<string, object> { ["voice"] = "af_bella" });
 ```
 
+A `parameterValues` key that names a parameter *not* declared by the target model is silently
+ignored (composition still succeeds, with only an `Info`-level diagnostic reported if a
+diagnostics sink is wired up) - this deliberately keeps one settings dictionary reusable across
+different models without breaking composition. A supplied value for a parameter the model *does*
+declare, but that fails that parameter's own validation - the wrong CLR type, a number outside
+its declared range, a fractional value for a whole-number-only parameter, or a string that
+matches none of a `ChoiceParameter`'s declared options - throws `ArgumentException` synchronously
+from `Create()`, naming the parameter, the model, and the reason the value is invalid. This same
+rule applies to `SpeechRecognizerFactory.Create`'s `parameterValues` argument.
+
 See the [user guide][link-user-guide] for the full API walkthrough, voice/speaker catalogs, and
 Natural Language Audio Tag vocabulary.
 

@@ -524,9 +524,11 @@ reviews:
       - "src/DemaConsulting.Speech/ModelManagementSubsystem/NumericParameter.cs"
       - "src/DemaConsulting.Speech/ModelManagementSubsystem/ChoiceParameter.cs"
       - "src/DemaConsulting.Speech/ModelManagementSubsystem/BooleanParameter.cs"
+      - "src/DemaConsulting.Speech/ModelManagementSubsystem/SpeechModelParameterDiagnostics.cs"
       - "test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/NumericParameterTests.cs"
       - "test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/ChoiceParameterTests.cs"
       - "test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/BooleanParameterTests.cs"
+      - "test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/SpeechModelParameterDiagnosticsTests.cs"
 
   # Speech-ModelManagementSubsystem-SpeechModelContract Review (one per unit)
   - id: Speech-ModelManagementSubsystem-SpeechModelContract

@@ -89,7 +89,46 @@ sections:
                   equivalent SpeechSynthesizerFactory capability already added for voice
                   selection.
                 tests:
-                  - SpeechRecognizerFactory_Create_ParameterValuesSuppliedToZeroParameterModel_BehaviorUnchanged
                   - SpeechRecognizerFactory_Create_ParameterValuesSupplied_ReachesModelCreateEngineConfig
                   - SpeechRecognizerFactory_Create_WithStoreParameterValuesSupplied_ReachesModelCreateEngineConfig
                   - SpeechRecognizerFactory_Create_WithCatalogParameterValuesSupplied_ReachesModelCreateEngineConfig
+
+              - id: Speech-Recognition-SpeechRecognizerFactory-UnrecognizedParameterIdIgnored
+                title: >-
+                  The SpeechRecognizerFactory class shall silently ignore a supplied
+                  parameterValues key that names a parameter not declared by the requested model,
+                  still composing a real recognizer, while reporting an Info-level diagnostic
+                  naming the ignored key.
+                justification: |
+                  A host reusing one settings dictionary across different recognition models
+                  must not break composition just because a given model does not declare a
+                  parameter another model had; this is a deliberate, documented
+                  cross-model-compatibility contract, not a caller bug, so it must never throw -
+                  only be surfaced as an informational diagnostic for a host that wired up a
+                  sink.
+                tests:
+                  - SpeechRecognizerFactory_Create_UnrecognizedParameterId_ComposesAndReportsInfo
+
+              - id: Speech-Recognition-SpeechRecognizerFactory-InvalidRecognizedParameterValueThrows
+                title: >-
+                  The SpeechRecognizerFactory class shall throw ArgumentException synchronously
+                  from Create() - before installed/role/device/engine checks run - when
+                  parameterValues supplies a value for a parameter the requested model does
+                  declare, but the value is invalid for that parameter (wrong CLR type, outside
+                  [Minimum, Maximum] or non-integral for a NumericParameter declared IsInteger,
+                  or not a declared ChoiceParameterOption.Value for a ChoiceParameter, or not a
+                  bool for a BooleanParameter), naming the parameter id, the model id, and the
+                  reason the value is invalid.
+                justification: |
+                  This is a deliberate, user-approved breaking change from this library's
+                  earlier silent-default behavior for this case: a host explicitly targeting a
+                  parameter it knows this model declares, with a value invalid for it, is a
+                  caller bug rather than a legitimate cross-model compatibility gap, and must be
+                  surfaced immediately and loudly - synchronously from Create() - rather than
+                  silently substituted and discovered much later from confusing recognizer
+                  behavior.
+                tests:
+                  - SpeechRecognizerFactory_Create_RecognizedNumericParameterOutOfRange_Throws
+                  - SpeechRecognizerFactory_Create_RecognizedNumericParameterWrongType_Throws
+                  - SpeechRecognizerFactory_Create_RecognizedChoiceParameterInvalidOption_Throws
+                  - SpeechRecognizerFactory_Create_RecognizedBooleanParameterWrongType_Throws

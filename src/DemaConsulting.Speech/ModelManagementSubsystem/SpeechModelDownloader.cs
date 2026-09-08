@@ -214,6 +214,25 @@ public sealed class SpeechModelDownloader : IDisposable
         IProgress<SpeechModelDownloadProgress>? progress,
         CancellationToken cancellationToken)
     {
+        // Already-installed fast path: checked as the very first statement while holding this
+        // model id's lock, so it stays race-safe with a concurrent first-time install of the
+        // same id (a second caller either observes the already-completed install here, or
+        // queues behind the first caller's in-flight install and observes it here once that
+        // caller releases the lock). Skips the network/staging directory entirely, keeping
+        // DownloadAsync a genuinely cheap no-op to call unconditionally on every launch. Still
+        // opportunistically retries leftover cleanup (a cheap directory enumeration/delete, no
+        // network or hashing) so a model that stays "already installed" across every future
+        // launch does not leak leftover staging/replaced directories indefinitely.
+        if (_store.IsInstalled(modelId))
+        {
+            _store.CleanUpLeftovers(modelId);
+            _diagnostics.Report(
+                SpeechDiagnosticLevel.Info,
+                "ModelManagementSubsystem",
+                $"Model '{modelId}' is already installed; DownloadAsync is a no-op.");
+            return new SpeechModelDownloadResult(SpeechModelDownloadOutcome.Installed);
+        }
+
         // Opportunistically retry cleanup of any leftovers from a prior interrupted attempt
         // before starting a new one, per the store's non-blocking cleanup policy.
         _store.CleanUpLeftovers(modelId);
@@ -239,12 +258,14 @@ public sealed class SpeechModelDownloader : IDisposable
 
                 if (!await VerifyChecksumAsync(destinationPath, file.Sha256Checksum, cancellationToken).ConfigureAwait(false))
                 {
+                    var checksumError = new InvalidOperationException(
+                        $"Checksum mismatch downloading model '{modelId}', file '{file.RelativeInstallPath}'.");
                     _diagnostics.Report(
                         SpeechDiagnosticLevel.Error,
                         "ModelManagementSubsystem",
-                        $"Checksum mismatch downloading model '{modelId}', file '{file.RelativeInstallPath}'.");
+                        checksumError.Message);
                     SpeechModelStore.AbandonStaging(stagingDirectory);
-                    return new SpeechModelDownloadResult(SpeechModelDownloadOutcome.ChecksumMismatch);
+                    return new SpeechModelDownloadResult(SpeechModelDownloadOutcome.ChecksumMismatch, checksumError);
                 }
 
                 totalSizeBytes += new FileInfo(destinationPath).Length;
@@ -407,7 +428,8 @@ public enum SpeechModelDownloadOutcome
 /// </summary>
 /// <param name="Outcome">Why the download did or did not result in an installed model.</param>
 /// <param name="Error">
-///     The underlying exception when <see cref="Outcome"/> is
-///     <see cref="SpeechModelDownloadOutcome.Failed"/>; otherwise, <see langword="null"/>.
+///     The underlying/descriptive exception for any non-<see cref="SpeechModelDownloadOutcome.Installed"/>
+///     outcome (<see cref="SpeechModelDownloadOutcome.Failed"/> or
+///     <see cref="SpeechModelDownloadOutcome.ChecksumMismatch"/>); otherwise, <see langword="null"/>.
 /// </param>
 public sealed record SpeechModelDownloadResult(SpeechModelDownloadOutcome Outcome, Exception? Error = null);

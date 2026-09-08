@@ -124,23 +124,30 @@ sections:
           - id: Speech-Models-HonestFailureStates
             title: >-
               The ModelManagementSubsystem shall never mark a corrupted, partial,
-              checksum-mismatched, or install-hook-failed download as installed, and a failed
-              repair/re-download attempt shall never regress a model's prior successful install.
+              checksum-mismatched, or install-hook-failed download as installed, with Error always
+              populated for any non-Installed outcome, and a second DownloadAsync call for an
+              already-installed model id shall never regress that model's prior successful
+              install regardless of what the second call supplies.
             justification: |
               A host must be able to trust that "installed" means "verified" (and, when
-              applicable, successfully unpacked); a failed repair attempt against an
-              already-working model must be a safe no-op from the model's perspective, not a risk
-              of leaving it half-updated or removed.
+              applicable, successfully unpacked), and that any non-Installed
+              SpeechModelDownloadResult carries a diagnosable Error rather than leaving a host to
+              special-case which outcomes populate it; a second call against an already-installed
+              model must be a safe no-op from the model's perspective, not a risk of leaving it
+              half-updated or removed.
             children:
               - Speech-Models-SpeechModelDownloader-ChecksumMismatch
               - Speech-Models-SpeechModelDownloader-CancellationDiscardsStaging
+              - Speech-Models-SpeechModelDownloader-AlreadyInstalledNoOp
               - Speech-Models-SpeechModelDownloader-PriorInstallUntouchedOnFailedRepair
               - Speech-Models-SpeechModelDownloader-InstallHookFailureIsHandledLikeDownloadFailure
             tests:
               - SpeechModelDownloader_DownloadAsync_ChecksumMismatch_ReportsChecksumMismatchAndInstallsNothing
-              - SpeechModelDownloader_DownloadAsync_ChecksumMismatchAfterPriorSuccess_LeavesPriorInstallIntact
               - SpeechModelDownloader_DownloadAsync_CanceledMidDownload_ThrowsAndInstallsNothing
-              - SpeechModelDownloader_DownloadAsync_WithModel_InstallAsyncThrows_ReportsFailedAndLeavesPriorInstallIntact
+              - SpeechModelDownloader_DownloadAsync_AlreadyInstalled_ReturnsInstalledWithoutFetchingOrStaging
+              - SpeechModelDownloader_DownloadAsync_SecondCallAfterPriorSuccess_TakesFastPathAndLeavesPriorInstallIntact
+              - SpeechModelDownloader_DownloadAsync_WithModel_InstallAsyncThrowsUnlistedExceptionType_ReportsFailed
+              - SpeechModelDownloader_DownloadAsync_WithModel_SecondCallAfterPriorSuccess_TakesFastPathAndNeverInvokesInstallHook
 
           - id: Speech-Models-DownloadDescriptors
             title: >-
@@ -262,6 +269,32 @@ sections:
               - ChoiceParameter_Constructor_EmptyOptions_ThrowsArgumentException
               - ChoiceParameter_Constructor_DefaultNotAnOption_ThrowsArgumentException
               - BooleanParameter_Constructor_ValidValues_ExposesValues
+
+          - id: Speech-Models-TunableParameterValueValidation
+            title: >-
+              The ModelManagementSubsystem shall provide a shared helper that validates a
+              caller-supplied parameterValues bag against a model's declared tunable-parameter
+              descriptor set: silently ignoring (with only an Info diagnostic) a supplied key
+              naming a parameter the model does not declare, but throwing ArgumentException for
+              a value supplied for a parameter the model does declare when that value is invalid
+              for it.
+            justification: |
+              This is a deliberate, user-approved breaking change from this library's earlier
+              silent-default behavior for a recognized parameter's invalid value: an unrecognized
+              parameter id is a legitimate cross-model compatibility gap (a host reusing one
+              settings bag across different models) and must remain a silent no-op, while an
+              invalid value for a parameter the caller explicitly targeted on this specific model
+              is a caller bug that must be surfaced immediately and loudly rather than silently
+              substituted. Sharing one helper between SpeechRecognizerFactory and
+              SpeechSynthesizerFactory guarantees both compose with identical validation rules.
+            children:
+              - Speech-Models-SpeechModelParameterDiagnostics-UnrecognizedIdSilentWithDiagnostic
+              - Speech-Models-SpeechModelParameterDiagnostics-InvalidRecognizedValueThrows
+            tests:
+              - ValidateAndReport_UnrecognizedParameterId_ReportsInfoAndDoesNotThrow
+              - ValidateAndReport_NumericParameterOutOfRange_Throws
+              - ValidateAndReport_ChoiceParameterInvalidOption_Throws
+              - ValidateAndReport_BooleanParameterWrongType_Throws
 
           - id: Speech-Models-CatalogEnumeration
             title: >-
