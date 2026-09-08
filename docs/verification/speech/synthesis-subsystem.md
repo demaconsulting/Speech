@@ -290,13 +290,23 @@ complete and the device get stopped.
 
 #### Pipeline: Cancellation and Lifecycle
 
-**Tests**: `Stop_WhileSpeaking_CancelsInFlightSession`, `Stop_NoSessionInFlight_IsNoOp`,
-`Dispose_CalledTwice_DisposesEngineOnce`,
+**Tests**: `Stop_WhileSpeaking_CancelsInFlightSessionOnlyAfterInFlightGenerateReturns`,
+`SynthesizeStreamAsync_CancelledMidGenerate_AwaitsProducerBeforeEnumerationCompletesAndDisposalIsSafe`,
+`Stop_NoSessionInFlight_IsNoOp`, `Dispose_CalledTwice_DisposesEngineOnce`,
 `SynthesizeStreamAsync_AfterDispose_ThrowsObjectDisposedException`, `IsAvailable_Always_ReturnsTrue`
 
 Verifies that `Stop()` cancels an in-flight session deterministically, is a safe no-op when idle,
 disposal releases the engine exactly once even when called twice, operating after disposal is
-rejected, and a real synthesizer always reports itself available.
+rejected, and a real synthesizer always reports itself available. Also verifies the fix for a
+confirmed `AccessViolationException` crash: `SynthesizeStreamAsync`/`SpeakAsync` never report
+completion while the producer's in-flight native `Generate` call is still running, on either the
+`Stop()`-driven or the directly-cancelled path, so a caller can never dispose the engine out from
+under a still-executing call. A `BlockingSynthesisEngine` test double holds `Generate` open on two
+`SemaphoreSlim`s until the test explicitly releases it, letting each test assert the outer task is
+still incomplete immediately after cancellation and only completes (with `OperationCanceledException`)
+once the in-flight call has genuinely returned; the second test additionally disposes the
+synthesizer immediately afterward and asserts no exception, and that only the one expected
+`Generate` call was ever made.
 
 #### Playback Format Conversion: Resampling, Anti-Aliasing, and Upmix
 

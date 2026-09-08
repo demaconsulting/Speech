@@ -198,7 +198,7 @@ sections:
               - Speech-Synthesis-SherpaOnnxSpeechSynthesizer-CancellationAndLifecycle
             tests:
               - SynthesizeStreamAsync_EngineThrows_ReportsFaultAndPropagatesToCaller
-              - Stop_WhileSpeaking_CancelsInFlightSession
+              - Stop_WhileSpeaking_CancelsInFlightSessionOnlyAfterInFlightGenerateReturns
 
           - id: Speech-Synthesis-UnavailableFallback
             title: >-

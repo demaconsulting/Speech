@@ -135,8 +135,9 @@ internal interface IPortAudioApi
     ///     The callback block size to request, or <c>0</c> for PortAudio's unspecified size.
     /// </param>
     /// <param name="provideSamples">
-    ///     Callback that must return exactly the requested number of interleaved samples. When
-    ///     less real audio is available, the caller is expected to zero-fill the remainder.
+    ///     Callback that must return a <see cref="float"/> array containing exactly the requested
+    ///     number of interleaved samples. When less real audio is available, the caller is
+    ///     expected to zero-fill the remainder.
     /// </param>
     /// <returns>
     ///     A stream wrapper representing the opened native stream.
@@ -146,5 +147,5 @@ internal interface IPortAudioApi
         int channelCount,
         int sampleRate,
         uint framesPerBuffer,
-        Func<int, IReadOnlyList<float>> provideSamples);
+        Func<int, float[]> provideSamples);
 }

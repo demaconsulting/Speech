@@ -136,7 +136,7 @@ internal sealed class PortAudioApi : IPortAudioApi
         int channelCount,
         int sampleRate,
         uint framesPerBuffer,
-        Func<int, IReadOnlyList<float>> provideSamples)
+        Func<int, float[]> provideSamples)
     {
         ArgumentNullException.ThrowIfNull(provideSamples);
 
@@ -195,22 +195,16 @@ internal sealed class PortAudioApi : IPortAudioApi
         nint output,
         uint frameCount,
         int channelCount,
-        Func<int, IReadOnlyList<float>> provideSamples)
+        Func<int, float[]> provideSamples)
     {
         try
         {
             var sampleCount = checked((int)frameCount * channelCount);
             var providedSamples = provideSamples(sampleCount);
-            var outputSamples = new float[sampleCount];
-            var copyLength = Math.Min(sampleCount, providedSamples.Count);
-            for (var index = 0; index < copyLength; index++)
-            {
-                outputSamples[index] = providedSamples[index];
-            }
 
             if (output != nint.Zero && sampleCount > 0)
             {
-                Marshal.Copy(outputSamples, 0, output, sampleCount);
+                Marshal.Copy(providedSamples, 0, output, sampleCount);
             }
 
             return PortAudioStreamCallbackResult.Continue;

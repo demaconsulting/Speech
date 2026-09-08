@@ -40,6 +40,10 @@ sections:
                   return a complete output buffer to PortAudio on every callback.
                 tests:
                   - PortAudioPlaybackDevice_Write_StreamRequestsSamples_DrainsQueueAndZeroFills
+                  - PortAudioPlaybackDevice_Write_MultipleBlocksOfVaryingSize_DrainsInOrder
+                  - PortAudioPlaybackDevice_Write_BlockLargerThanRequest_DrainsRemainderOnNextCall
+                  - PortAudioPlaybackDevice_Write_SmallBlockFollowedByAnotherWrite_ConcatenatesAcrossBoundary
+                  - PortAudioPlaybackDevice_Stop_PartiallyConsumedBlock_RestartNeverReplaysStaleAudio
 
               - id: Speech-Audio-PortAudioPlaybackDevice-NativeFaultsThrowUnavailable
                 title: >-
@@ -115,3 +119,7 @@ sections:
                   enqueue time.
                 tests:
                   - PortAudioPlaybackDevice_PendingSampleCount_WriteDrainAndStop_TracksQueueDepth
+                  - PortAudioPlaybackDevice_Write_MultipleBlocksOfVaryingSize_DrainsInOrder
+                  - PortAudioPlaybackDevice_Write_BlockLargerThanRequest_DrainsRemainderOnNextCall
+                  - PortAudioPlaybackDevice_Write_SmallBlockFollowedByAnotherWrite_ConcatenatesAcrossBoundary
+                  - PortAudioPlaybackDevice_Stop_PartiallyConsumedBlock_RestartNeverReplaysStaleAudio

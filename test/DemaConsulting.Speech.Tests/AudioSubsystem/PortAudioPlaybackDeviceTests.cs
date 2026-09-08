@@ -343,6 +343,144 @@ public class PortAudioPlaybackDeviceTests
     }
 
     /// <summary>
+    ///     Proves that multiple <see cref="PortAudioPlaybackDevice.Write"/> calls of varying block
+    ///     sizes are queued as separate blocks and drained by the playback callback in the exact
+    ///     order they were written, with <see cref="PortAudioPlaybackDevice.PendingSampleCount"/>
+    ///     staying accurate throughout.
+    /// </summary>
+    [Fact]
+    public void PortAudioPlaybackDevice_Write_MultipleBlocksOfVaryingSize_DrainsInOrder()
+    {
+        // Arrange: a fake runtime with one default speaker and a playback-stream fake
+        var stream = new FakePortAudioStream();
+        var api = new FakePortAudioApi([new PortAudioDeviceInfo("Speaker", 5, 0, 2, 48000, 0.0, 0.01)])
+        {
+            FindHostApiIndexResult = 5,
+            HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, -1, 0),
+            PlaybackStream = stream
+        };
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+        var device = new PortAudioPlaybackDevice(environment);
+
+        // Act: queue three separately sized blocks, then drain exactly their combined length
+        device.Write([0.1f]);
+        device.Write([0.2f, 0.3f]);
+        device.Write([0.4f, 0.5f, 0.6f]);
+        Assert.Equal(6, device.PendingSampleCount);
+
+        device.Start();
+        var drainedSamples = stream.RequestSamples(6);
+        device.Stop();
+
+        // Assert: samples are returned in write order regardless of block boundaries
+        Assert.Equal([0.1f, 0.2f, 0.3f, 0.4f, 0.5f, 0.6f], drainedSamples);
+        Assert.Equal(0, device.PendingSampleCount);
+    }
+
+    /// <summary>
+    ///     Proves that a single <see cref="PortAudioPlaybackDevice.Write"/> call larger than one
+    ///     playback callback request is drained across multiple callback invocations, with the
+    ///     unconsumed remainder of the block preserved and returned correctly on the next call.
+    /// </summary>
+    [Fact]
+    public void PortAudioPlaybackDevice_Write_BlockLargerThanRequest_DrainsRemainderOnNextCall()
+    {
+        // Arrange: a fake runtime with one default speaker and a playback-stream fake
+        var stream = new FakePortAudioStream();
+        var api = new FakePortAudioApi([new PortAudioDeviceInfo("Speaker", 5, 0, 2, 48000, 0.0, 0.01)])
+        {
+            FindHostApiIndexResult = 5,
+            HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, -1, 0),
+            PlaybackStream = stream
+        };
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+        var device = new PortAudioPlaybackDevice(environment);
+
+        // Act: queue one block larger than the first requested callback size
+        device.Write([0.1f, 0.2f, 0.3f, 0.4f, 0.5f]);
+        device.Start();
+        var firstRequest = stream.RequestSamples(2);
+        Assert.Equal(3, device.PendingSampleCount);
+        var secondRequest = stream.RequestSamples(3);
+        device.Stop();
+
+        // Assert: the leftover remainder of the block is preserved and returned on the next call
+        Assert.Equal([0.1f, 0.2f], firstRequest);
+        Assert.Equal([0.3f, 0.4f, 0.5f], secondRequest);
+        Assert.Equal(0, device.PendingSampleCount);
+    }
+
+    /// <summary>
+    ///     Proves that a <see cref="PortAudioPlaybackDevice.Write"/> smaller than one playback
+    ///     callback request, combined with a subsequent <see cref="PortAudioPlaybackDevice.Write"/>,
+    ///     drains as a seamless concatenation across the block boundary within a single callback
+    ///     invocation.
+    /// </summary>
+    [Fact]
+    public void PortAudioPlaybackDevice_Write_SmallBlockFollowedByAnotherWrite_ConcatenatesAcrossBoundary()
+    {
+        // Arrange: a fake runtime with one default speaker and a playback-stream fake
+        var stream = new FakePortAudioStream();
+        var api = new FakePortAudioApi([new PortAudioDeviceInfo("Speaker", 5, 0, 2, 48000, 0.0, 0.01)])
+        {
+            FindHostApiIndexResult = 5,
+            HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, -1, 0),
+            PlaybackStream = stream
+        };
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+        var device = new PortAudioPlaybackDevice(environment);
+
+        // Act: queue a small block, then a second block, and drain both in a single request that
+        // spans the boundary between them
+        device.Write([0.1f, 0.2f]);
+        device.Write([0.3f]);
+        Assert.Equal(3, device.PendingSampleCount);
+
+        device.Start();
+        var drainedSamples = stream.RequestSamples(3);
+        device.Stop();
+
+        // Assert: the two blocks concatenate seamlessly in write order
+        Assert.Equal([0.1f, 0.2f, 0.3f], drainedSamples);
+        Assert.Equal(0, device.PendingSampleCount);
+    }
+
+    /// <summary>
+    ///     Proves that a partially consumed block never replays after <see cref="PortAudioPlaybackDevice.Stop"/>
+    ///     and a subsequent <see cref="PortAudioPlaybackDevice.Start"/>: the first callback after
+    ///     restart returns all zeros rather than the stale leftover remainder.
+    /// </summary>
+    [Fact]
+    public void PortAudioPlaybackDevice_Stop_PartiallyConsumedBlock_RestartNeverReplaysStaleAudio()
+    {
+        // Arrange: a fake runtime with one default speaker and a playback-stream fake
+        var stream = new FakePortAudioStream();
+        var api = new FakePortAudioApi([new PortAudioDeviceInfo("Speaker", 5, 0, 2, 48000, 0.0, 0.01)])
+        {
+            FindHostApiIndexResult = 5,
+            HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, -1, 0),
+            PlaybackStream = stream
+        };
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+        var device = new PortAudioPlaybackDevice(environment);
+
+        // Act: queue a block, partially consume it via the callback, then stop with a leftover
+        // remainder still unconsumed, and restart
+        device.Write([0.1f, 0.2f, 0.3f, 0.4f]);
+        device.Start();
+        stream.RequestSamples(2);
+        device.Stop();
+
+        device.Start();
+        var drainedSamples = stream.RequestSamples(4);
+        device.Stop();
+
+        // Assert: the leftover remainder never replays; the restarted stream sees pure silence
+        Assert.Equal([0.0f, 0.0f, 0.0f, 0.0f], drainedSamples);
+        Assert.Equal(0, device.PendingSampleCount);
+    }
+
+    /// <summary>
     ///     Minimal fake PortAudio seam used by the playback-device tests.
     /// </summary>
     private sealed class FakePortAudioApi(IReadOnlyList<PortAudioDeviceInfo> devices) : IPortAudioApi
@@ -433,7 +571,7 @@ public class PortAudioPlaybackDeviceTests
             int channelCount,
             int sampleRate,
             uint framesPerBuffer,
-            Func<int, IReadOnlyList<float>> provideSamples)
+            Func<int, float[]> provideSamples)
         {
             if (OpenPlaybackException is not null)
             {
@@ -453,7 +591,7 @@ public class PortAudioPlaybackDeviceTests
         /// <summary>
         ///     Gets or sets the callback used to provide one requested output block.
         /// </summary>
-        internal Func<int, IReadOnlyList<float>>? ProvideSamples { get; set; }
+        internal Func<int, float[]>? ProvideSamples { get; set; }
 
         /// <summary>
         ///     Gets the number of times <see cref="Start"/> has been called.

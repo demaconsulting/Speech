@@ -396,7 +396,7 @@ public class PortAudioCaptureDeviceTests
             int channelCount,
             int sampleRate,
             uint framesPerBuffer,
-            Func<int, IReadOnlyList<float>> provideSamples)
+            Func<int, float[]> provideSamples)
         {
             throw new NotSupportedException("Playback is outside this test scope.");
         }

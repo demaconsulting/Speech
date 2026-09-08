@@ -47,8 +47,43 @@ change.
   `_model.NormalizeText`, parses it via `AudioTagParser.Parse`, renders it via
   `_model.CapabilityProfile.Render(spans, _model)` into a `SpeechPlan`, spawns a producer task
   synthesizing each `SpeechSegment` in turn onto the bounded channel, and yields from
-  `channel.Reader.ReadAllAsync(...)`. Awaits the producer task after the loop completes so any
-  residual fault it recorded is still surfaced to the caller.
+  `channel.Reader.ReadAllAsync(...)` inside a `try`/`finally` whose `finally` block unconditionally
+  awaits the producer task - on normal completion, on cancellation, and on any other exception
+  from the loop alike - so the producer (and whatever in-flight `_engine.Generate` call it may be
+  mid-way through) is guaranteed to have genuinely finished before this method ever returns
+  control to its caller. This closes a use-after-free window that previously existed only on the
+  cancellation path: `ReadAllAsync(cancellationToken)` observing cancellation threw
+  `OperationCanceledException` straight out of the `await foreach`, skipping a then-unconditional
+  post-loop await and orphaning the producer task; because the producer only checks its own
+  cancellation token between segments (never while inside `GenerateSegment`), an in-flight native
+  `_engine.Generate` call kept running, untracked, on a background thread even after this method
+  returned - and if the caller (for example `SpeakAsync`'s caller, on observing the same
+  cancellation) then disposed the synthesizer and its owned engine, that still-running native call
+  touched freed native memory, producing an `AccessViolationException` on the ThreadPool worker
+  thread running the producer. The `finally` block's await swallows a residual
+  `OperationCanceledException` from the producer task specifically (benign and expected on the
+  cancellation path, since `ProduceAsync` normally suppresses it internally and completes the
+  channel instead of faulting) without masking whatever exception, if any, is already propagating
+  out of the loop; a genuine (non-cancellation) producer fault on the normal-completion path still
+  propagates to the caller exactly as before. An unconditional await alone would not be safe,
+  though: the producer writes into the bounded channel via `writer.WriteAsync`, which only
+  unblocks a full write when either the reader keeps draining or the write's own token is
+  cancelled. Enumeration can also be abandoned for a reason that never touches the caller's
+  `cancellationToken` at all - most notably a consumer's own `await foreach` body throwing an
+  unrelated exception (for example `PlayStreamAsync` observing a playback device fault), which the
+  compiler's `await foreach` cleanup turns into a `DisposeAsync` on this iterator, resuming it
+  inside the same `finally` block. If the channel happened to be full at that moment, the reader
+  will never drain again and the caller's token was never cancelled, so the unconditional await
+  would hang forever. To close that hole, the producer task observes its own
+  `CancellationTokenSource` linked to (but distinct from) the caller's token, and the `finally`
+  block cancels it before awaiting the producer task on every exit path, guaranteeing
+  `writer.WriteAsync` always has a way to unblock regardless of why enumeration was abandoned. See
+  `SherpaOnnxSpeechSynthesizerTests.Stop_WhileSpeaking_CancelsInFlightSessionOnlyAfterInFlightGenerateReturns`,
+  `SherpaOnnxSpeechSynthesizerTests.SynthesizeStreamAsync_CancelledMidGenerate_AwaitsProducerBeforeEnumerationCompletesAndDisposalIsSafe`,
+  and
+  `SherpaOnnxSpeechSynthesizerTests.SynthesizeStreamAsync_EnumerationAbandonedWithoutCancellation_DisposesPromptlyInsteadOfHanging`
+  for regression coverage proving the producer task is never orphaned, disposal after cancellation
+  is safe, and abandoning enumeration for an unrelated reason cannot hang.
 - **GenerateSegment(segment)**: An empty-text segment (a rendered pause) skips the engine
   entirely and returns a pure-silence `SynthesizedSpeech` built directly from the segment's
   declared silence durations. Otherwise resolves speed/volume overrides against the model's
@@ -89,8 +124,12 @@ change.
 **Error Handling**: A fault raised synthesizing a segment is caught by the producer task,
 reported through `ISpeechDiagnostics`, and completes the channel with that exception
 (`writer.TryComplete(ex)`) so the awaiting consumer observes it as a faulted enumeration rather
-than hanging; a cancellation during production completes the channel normally instead. A
-playback-device write failure propagates out of `PlayStreamAsync` after the device is still
+than hanging; a cancellation during production completes the channel normally instead.
+`SynthesizeStreamCore`'s `finally` block guarantees the producer task is always awaited to
+completion before the method returns on every exit path, so a caller can never observe control
+returned while an in-flight `_engine.Generate` call is still running - see
+`SynthesizeStreamAsync(text, cancellationToken)` above for the full rationale and regression
+tests. A playback-device write failure propagates out of `PlayStreamAsync` after the device is still
 stopped in `finally`. A cancellation while `WaitForPlaybackDrainAsync` is polling for drain (or
 during its tail margin) propagates the same `Task.Delay`-raised `OperationCanceledException`,
 ending the wait immediately rather than waiting out the full drain, while `finally` still stops

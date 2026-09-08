@@ -9,10 +9,18 @@ could be resolved. `ChannelCount` and `SampleRate`, added in Sub-phase 4b mirror
 playback stream is opened: either the resolved device's own default/full-capacity format, or the
 caller-preferred format with channel count clamped down to device capability and sample rate
 negotiated against the device/host API's actual capability. They report `0` when nothing was
-resolved. A `ConcurrentQueue<float>` buffers samples written by callers until
-the PortAudio callback requests them, alongside a `long` `_pendingSampleCount` field updated
-with `Interlocked` (because `Write` runs on caller threads while the PortAudio callback runs on
-its own real-time thread) tracking how many enqueued samples the callback has not yet dequeued.
+resolved. A `ConcurrentQueue<float[]>` buffers whole sample blocks written by callers - one
+enqueue per `Write` call rather than one per sample - until the PortAudio callback requests them,
+alongside a `_headBlock`/`_headOffset` cursor that lets the callback drain queued blocks in bulk
+(via `Array.Copy`) instead of dequeuing one sample at a time, and a `long` `_pendingSampleCount`
+field updated with `Interlocked` (because `Write` runs on caller threads while the PortAudio
+callback runs on its own real-time thread) tracking how many enqueued samples the callback has not
+yet dequeued. The `_headBlock`/`_headOffset` cursor requires no additional synchronization: it is
+touched from `ProvideSamples` (the single real-time PortAudio callback thread, only while a stream
+is running) and from `ClearQueuedSamples` (a caller thread, only after that stream's callback
+processing has genuinely ceased). The two never run concurrently because `Start`/`Stop` are
+serialized under the same lock, and `Stop` only calls `ClearQueuedSamples` after the native
+stream-stop call has already blocked until the callback thread finished.
 
 **Key Methods**:
 
@@ -40,6 +48,6 @@ members throw `AudioDeviceUnavailableException`. Native stream-open or stream-st
 wrapped in `AudioDeviceUnavailableException`.
 
 **Dependencies**: `PortAudioEnvironment`, `IPortAudioApi`, `IPortAudioStream`,
-`AudioDeviceSelection`, `AudioFormat`, `ConcurrentQueue<float>`, and `ISpeechDiagnostics`.
+`AudioDeviceSelection`, `AudioFormat`, `ConcurrentQueue<float[]>`, and `ISpeechDiagnostics`.
 
 **Callers**: `AudioDeviceFactory.CreatePlaybackDevice()`.

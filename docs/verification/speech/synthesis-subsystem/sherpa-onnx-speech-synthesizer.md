@@ -23,9 +23,27 @@ no sleep, and no race between the test and the implementation - before asserting
 `PlayStreamAsync` task is not yet complete and `Stop()` has not yet been called.
 
 Cancellation is verified deterministically, not by timing: a `BlockingSynthesisEngine` test
-double uses `SemaphoreSlim`s to hold the producer mid-segment until the test has called `Stop()`,
-then releases it and asserts the pipeline unwound via cancellation rather than completing
-normally - no sleeps, polls, or timeouts appear anywhere.
+double uses `SemaphoreSlim`s to hold the producer mid-segment until the test explicitly releases
+it, letting a test assert that neither `SpeakAsync` nor `SynthesizeStreamAsync`'s enumeration
+completes while `Generate` is still in flight - proving the producer task is never orphaned - and
+then, once released, that the pipeline unwound via cancellation rather than completing normally
+and that disposing the synthesizer immediately afterward is safe. This is the regression coverage
+for a fixed `AccessViolationException` crash: `SynthesizeStreamCore` previously could return
+control to its caller (who could then dispose the owned engine) while the producer's native
+`Generate` call was still genuinely running on a background thread; the assertions themselves
+synchronize deterministically via semaphores and awaited tasks, with no polling-based sleeps or
+waits anywhere in this coverage. Each test does carry a `[Fact(Timeout = ...)]` attribute, but only
+as a safety-net deadlock guard that fails the test fast if the fix ever regressed, not as part of
+the synchronization logic.
+
+A further test proves the fix for the crash cannot itself hang: it drives a fast, non-blocking
+fake engine through more sentences than the producer's bounded look-ahead capacity, consumes only
+the first synthesized segment, then abandons enumeration by disposing the enumerator directly -
+exactly what the compiler's `await foreach` cleanup does when a consumer's loop body throws for an
+unrelated reason, without the stream's own `cancellationToken` ever being cancelled - and asserts
+that disposal still completes promptly rather than hanging on the producer's now-permanently-full
+channel write. This is regression coverage for a hang that an earlier, narrower version of the fix
+could otherwise have introduced.
 
 Speaker-id resolution is verified against a `FakeSynthesisModel` whose injectable
 `resolveSpeakerId` delegate lets a test assert exactly which speaker id
@@ -66,9 +84,12 @@ audio segments; a pause tag yields silence without an engine call; segments are 
 with correct pre/post silence while a later chunk synthesizes during an earlier chunk's playback;
 `PlayStreamAsync` genuinely waits for the playback device to report a drained queue before
 stopping it, rather than stopping as soon as every segment has been enqueued; `Stop()` cancels an
-in-flight session deterministically and is a safe no-op when idle; engine faults and an
-unavailable playback device fail the caller's task honestly rather than hanging; a playback write
-failure still stops the device; a session's `parameterValues` bag resolves to the correct speaker
+in-flight session deterministically and is a safe no-op when idle; `SynthesizeStreamAsync` never
+returns control to its caller while the producer's in-flight `Generate` call is still running, on
+every exit path (normal completion, cancellation, or any other exception), so a caller can never
+dispose the engine out from under a still-executing native call; engine faults and an unavailable
+playback device fail the caller's task honestly rather than hanging; a playback write failure
+still stops the device; a session's `parameterValues` bag resolves to the correct speaker
 id via `ISynthesisModel.ResolveSpeakerId` once per segment, coexisting correctly with an
 independent per-segment Natural Language Audio Tag speed override in the same call; and
 `PlaybackAudioResampler` produces the documented output for
