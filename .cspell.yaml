@@ -38,6 +38,7 @@ words:
   - NTFS
   - LOCALAPPDATA
   - yamlfix
+  - Realtek
   - onnx
   - ONNX
   - SSML
@@ -139,6 +140,14 @@ words:
   - misrecognitions
   - voxserv
   - freesound
+  - snupkg
+  - writability
+  - unwritable
+  - ordinally
+  - interruptible
+  - quiescing
+  - reentrantly
+  - slnx
 
 # Exclude common build artifacts, dependencies, and vendored third-party code
 ignorePaths:

@@ -1,0 +1,188 @@
+---
+# Software Subsystem Requirements for the SpeechCli ModelCommandsSubsystem
+#
+# These requirements describe the subsystem-level behavior of the five model-management
+# subcommands (list-models, model-info, download, uninstall, clean), decomposing the
+# system-level dispatch requirements in docs/reqstream/speech-cli.yaml.
+#
+# Unit-level content is consolidated here rather than split per command: all five commands
+# share one seam (ICliModelCatalog/SpeechModelCatalogAdapter) over the library's
+# SpeechModelCatalog/SpeechModelStore, and each command's own logic is a small, single-purpose
+# argument parser plus a thin call through that seam, so per-command requirement files would
+# mostly restate this shared context.
+
+sections:
+  - title: SpeechCli Requirements
+    sections:
+      - title: ModelCommandsSubsystem Requirements
+        requirements:
+          - id: SpeechCli-ModelCommands-ListModels
+            title: >-
+              The tool shall list every known model's id, display name, role, install state, and
+              license name when invoked with `list-models`, optionally filtered to one role
+              (`--role tts`/`stt`) and/or one install-state group (`--state downloaded`/
+              `missing`), and shall print either an aligned table (default) or a JSON array
+              (`--format json`).
+            tags: [subsystem]
+            justification: |
+              An operator or script needs to discover which models exist, which are already
+              installed, and which still need to be downloaded, without inspecting the
+              model-store directory by hand. A machine-parseable JSON form lets a script make
+              the same decision without scraping table formatting.
+            tests:
+              - ListModelsCommand_Run_NoFilters_ListsEveryModelAsTable
+              - ListModelsCommand_Run_RoleFilterTts_ListsOnlySynthesisModels
+              - ListModelsCommand_Run_StateFilterDownloaded_ListsOnlyDownloadedModels
+              - ListModelsCommand_Run_StateFilterMissing_ListsOnlyMissingModels
+              - ListModelsCommand_Run_FormatJson_EmitsJsonArray
+              - ListModelsCommand_Run_EmptyCatalog_PrintsNoModelsMessage
+              - SpeechCli_ListModelsCommand_Invoked_ListsKnownModelsAsTable
+              - SpeechCli_ListModelsCommandWithJsonFormat_Invoked_EmitsJsonArray
+
+          - id: SpeechCli-ModelCommands-ModelInfo
+            title: >-
+              The tool shall print a model's full identity (id, display name, role, install
+              state, license name and URL, audio-tag support) and every one of its parameters
+              (with min/max/step/default for a numeric parameter, options/default for a choice
+              parameter, or default for a boolean parameter) when invoked with
+              `model-info <modelId>`, and shall reject an unrecognized model id with a clear,
+              non-zero-exit-code error naming the id and suggesting `list-models`, rather than a
+              stack trace.
+            tags: [subsystem]
+            justification: |
+              An operator deciding whether a model is suitable (e.g. its voice choices, its
+              license) needs its full parameter surface, not just its name. An id typo is a
+              certainty in interactive use, so it must fail predictably rather than crash.
+            tests:
+              - ModelInfoCommand_Run_KnownModel_PrintsIdentityAndState
+              - ModelInfoCommand_Run_NumericParameter_PrintsBounds
+              - ModelInfoCommand_Run_ChoiceParameter_PrintsOptions
+              - ModelInfoCommand_Run_BooleanParameter_PrintsDefault
+              - ModelInfoCommand_Run_UnknownModelId_ThrowsArgumentException
+              - SpeechCli_ModelInfoCommandWithUnknownId_Invoked_ReturnsCleanError
+              - SpeechCli_ModelInfoCommandWithMissingArgument_Invoked_ReturnsCleanError
+
+          - id: SpeechCli-ModelCommands-Download
+            title: >-
+              The tool shall download, verify, and install one or more models given by id when
+              invoked with `download <modelId> [<modelId>...]`, reporting live progress for the
+              in-progress model, attempting every requested model even when an earlier one
+              fails, exiting non-zero if any requested model's download fails, and, when given
+              `--force`, uninstalling an already-downloaded model before downloading it again.
+            tags: [subsystem]
+            justification: |
+              A single failed model (checksum mismatch, network fault, unknown id) in a
+              multi-model request must not silently abandon the remaining requested models, so a
+              script requesting several models learns the true outcome of every one of them
+              rather than stopping at the first failure. `--force` gives an operator a way to
+              recover from a suspected-corrupt local copy without manually deleting files.
+            tests:
+              - DownloadCommand_RunAsync_SingleModel_Succeeds_ReportsInstalled
+              - DownloadCommand_RunAsync_MultipleModels_DownloadsEachSequentially
+              - DownloadCommand_RunAsync_ChecksumMismatch_ReportsErrorAndContinues
+              - DownloadCommand_RunAsync_UnknownModelId_ReportsErrorAndContinues
+              - DownloadCommand_RunAsync_ForceOnDownloadedModel_UninstallsFirst
+              - DownloadCommand_RunAsync_ForceOnMissingModel_DoesNotUninstall
+              - DownloadCommand_RunAsync_ReportsProgress_WritesPercentLine
+              - DownloadCommand_RunAsync_NoModelIds_ThrowsArgumentException
+              - DownloadCommand_RunAsync_UnsupportedFlag_ThrowsArgumentException
+              - SpeechCli_DownloadCommandWithUnknownId_Invoked_ReturnsNonZeroExitCode
+              - SpeechCli_DownloadCommandWithMissingArgument_Invoked_ReturnsCleanError
+
+          - id: SpeechCli-ModelCommands-DownloadCancellation
+            title: >-
+              The tool shall stop the remaining `download` batch, without attempting further
+              requested models, when the operator interrupts the process (`Ctrl+C`), reporting
+              which model was in progress when canceled.
+            tags: [subsystem]
+            justification: |
+              A large multi-model download can take a long time; an operator who interrupts it
+              is asking the whole operation to stop, not just the current file, so continuing to
+              attempt further models after a deliberate interruption would be surprising and
+              wasteful.
+            tests:
+              - DownloadCommand_RunAsync_Canceled_ReportsErrorAndStopsBatch
+
+          - id: SpeechCli-ModelCommands-Uninstall
+            title: >-
+              The tool shall remove a downloaded model's installed files when invoked with
+              `uninstall <modelId>`, treating a model that has nothing installed as a safe,
+              successful no-op rather than an error.
+            tags: [subsystem]
+            justification: |
+              Freeing disk space is the sole purpose of this command; a model with nothing
+              installed already satisfies that goal, so reporting it as an error would make a
+              defensive "uninstall it if present" script exit non-zero for no real problem.
+            tests:
+              - UninstallCommand_Run_InstalledModel_UninstallsAndReportsSuccess
+              - UninstallCommand_Run_NeverInstalledModel_IsSafeNoOp
+              - UninstallCommand_Run_StoreThrows_ThrowsInvalidOperationException
+              - SpeechCli_UninstallCommand_Invoked_NeverInstalledModel_ExitsCleanly
+
+          - id: SpeechCli-ModelCommands-Clean
+            title: >-
+              The tool shall remove any partial or stale download artifacts left behind for a
+              model when invoked with `clean <modelId>`, without ever failing for a model with
+              nothing to clean up.
+            tags: [subsystem]
+            justification: |
+              A prior interrupted or failed download can leave scratch files behind; an operator
+              needs a way to reclaim that space without needing to know the model store's
+              internal layout, and a routine "clean up after every attempt" script must never be
+              broken by a model that already has nothing to clean.
+            tests:
+              - CleanCommand_Run_KnownModel_CleansUpAndReportsSuccess
+              - CleanCommand_Run_MissingModelIdArgument_ThrowsArgumentException
+              - SpeechCli_CleanCommand_Invoked_NothingToCleanUp_ExitsCleanly
+
+          - id: SpeechCli-ModelCommands-LibraryDelegation
+            title: >-
+              The ModelCommandsSubsystem shall obtain every model descriptor, every download,
+              and every install/uninstall/cleanup operation it reports through an injectable
+              catalog seam over the library's `SpeechModelCatalog`/`SpeechModelStore`, and shall
+              reject a missing context or catalog seam.
+            tags: [subsystem]
+            justification: |
+              The subsystem exists to expose the library's own model-management behavior from
+              the command line, so it must not maintain any model state of its own. Routing
+              every command through an injectable seam keeps each command's argument-parsing and
+              presentation logic testable without a real network access or a real installed
+              model, matching this repository's established seam pattern (see SpeechDemo's
+              `IModelCatalogService`).
+            tests:
+              - ListModelsCommand_Run_NullContext_ThrowsArgumentNullException
+              - ListModelsCommand_Run_NullCatalog_ThrowsArgumentNullException
+              - ModelInfoCommand_Run_NullContext_ThrowsArgumentNullException
+              - ModelInfoCommand_Run_NullCatalog_ThrowsArgumentNullException
+              - DownloadCommand_RunAsync_NullContext_ThrowsArgumentNullException
+              - DownloadCommand_RunAsync_NullCatalog_ThrowsArgumentNullException
+              - UninstallCommand_Run_NullContext_ThrowsArgumentNullException
+              - UninstallCommand_Run_NullCatalog_ThrowsArgumentNullException
+              - CleanCommand_Run_NullContext_ThrowsArgumentNullException
+              - CleanCommand_Run_NullCatalog_ThrowsArgumentNullException
+              - SpeechModelCatalogAdapter_Enumerate_ReturnsCompiledInKnownModels
+              - SpeechModelCatalogAdapter_DownloadAsync_UnknownModelId_ThrowsArgumentException
+              - CliModelCatalogFactory_Create_WithModelsDir_UsesGivenRoot
+              - CliModelCatalogFactory_Create_NullContext_ThrowsArgumentNullException
+
+          - id: SpeechCli-ModelCommands-SynthesisSeamExtension
+            title: >-
+              The `ICliModelCatalog` seam shall additionally expose a resolved model's preferred
+              audio format and construct its `ISpeechSynthesizer`, for use by
+              `SynthesisCommandSubsystem`'s `speak` subcommand, rejecting a descriptor whose model
+              is not a synthesis model with a clean `ArgumentException` rather than an unhandled
+              cast exception.
+            tags: [subsystem]
+            justification: |
+              Added in Pass 5 alongside `SynthesisCommandSubsystem`: a resolved model must be cast
+              to the library's internal `ISynthesisModel` before either operation is possible, and
+              that cast is only compilable inside this same assembly, not inside the test
+              project. Extending this existing seam - rather than introducing a second, competing
+              one for the new subsystem - keeps a single, narrow, already-established boundary
+              between the CLI and the library's internal model types.
+            tests:
+              - SpeechModelCatalogAdapter_GetPreferredAudioFormat_RecognitionRoleModel_ThrowsArgumentException
+              - SpeechModelCatalogAdapter_GetPreferredAudioFormat_NullDescriptor_ThrowsArgumentNullException
+              - SpeechModelCatalogAdapter_CreateSynthesizer_RecognitionRoleModel_ThrowsArgumentException
+              - SpeechModelCatalogAdapter_CreateSynthesizer_NullDescriptor_ThrowsArgumentNullException
+              - SpeechModelCatalogAdapter_CreateSynthesizer_NullPlaybackDevice_ThrowsArgumentNullException

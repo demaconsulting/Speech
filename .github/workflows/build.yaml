@@ -300,6 +300,8 @@ jobs:
           path: |
             src/DemaConsulting.Speech/bin/Release/*.nupkg
             src/DemaConsulting.Speech/bin/Release/*.snupkg
+            src/DemaConsulting.Speech.Cli/bin/Release/*.nupkg
+            src/DemaConsulting.Speech.Cli/bin/Release/*.snupkg
 
   # Runs CodeQL security and quality analysis, gathering results to include
   # in the code quality report.

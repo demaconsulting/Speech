@@ -604,6 +604,72 @@ The demo is verified at the view-model level. Its window, layout, and interactiv
 not covered by automated tests, because CI runners have no display; visual verification of the
 application is a manual/local activity.
 
+## SpeechCli
+
+`speech-cli` is a cross-platform .NET global tool, packaged as `DemaConsulting.Speech.Cli`, that
+exposes the library's model management, audio device inspection, text-to-speech, and
+speech-to-text capabilities directly from the command line - useful for scripting, CI smoke
+checks, or trying a model without writing any code. It is a sibling application to the library,
+not a wrapper around the demo; it is separately packaged and versioned.
+
+### Installing SpeechCli
+
+```bash
+dotnet tool install -g DemaConsulting.Speech.Cli
+```
+
+Once installed, the `speech-cli` command is available on the `PATH`. Run `speech-cli doctor` any
+time to check that the native audio backend, native inference runtime, and model store are all in
+a healthy state on the current machine.
+
+### Command Overview
+
+| Command | Purpose |
+| --- | --- |
+| `list-models` | List known models, optionally filtered by role or download state |
+| `model-info <modelId>` | Show full detail for one known model |
+| `download <modelId> [<modelId>...]` | Download one or more models into the local model store |
+| `uninstall <modelId>` | Remove a downloaded model's files, keeping its catalog entry |
+| `clean <modelId>` | Remove a downloaded model's files and its catalog entry |
+| `list-devices` | List capture and/or playback audio devices |
+| `devices test` | Play or record a short test tone/clip on a chosen device |
+| `doctor` | Report overall environment health (audio, native runtimes, model store) |
+| `speak` | Synthesize text to a real playback device or a WAV file |
+| `recognize` | Recognize speech from a WAV file or the microphone |
+
+Every command's exact flags are shown by `speech-cli --help`, which always reflects the installed
+version - run it locally rather than relying solely on the summary above, which is illustrative
+only.
+
+### Worked Examples
+
+Download a recognition model, then recognize speech from a WAV file:
+
+```bash
+speech-cli download streaming-zipformer-en-2023-06-26
+speech-cli recognize --model streaming-zipformer-en-2023-06-26 --input meeting.wav
+```
+
+Speak text to a WAV file, without needing a playback device:
+
+```bash
+speech-cli download vits-piper-en_US-libritts_r-medium
+speech-cli speak --model vits-piper-en_US-libritts_r-medium --text "Hello there." --output hello.wav
+```
+
+Speak text through a real playback device, selecting a specific device by name (see
+`list-devices` for the exact names available on the current machine):
+
+```bash
+speech-cli speak --model vits-piper-en_US-libritts_r-medium --text "Hello there." --device "Speakers (Realtek)"
+```
+
+Recognize speech live from the microphone, stopping automatically after five seconds of silence:
+
+```bash
+speech-cli recognize --model streaming-zipformer-en-2023-06-26 --mic --silence-timeout 5
+```
+
 ## Hardware Verification Boundary
 
 Automated tests in this repository verify only the seam-driven logic that is safe for CI:

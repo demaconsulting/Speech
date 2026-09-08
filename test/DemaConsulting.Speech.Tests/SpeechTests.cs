@@ -115,7 +115,8 @@ public class SpeechTests
     }
 
     /// <summary>
-    ///     Proves that attempting to use a resolved-but-unavailable real capture device surfaces the documented exception.
+    ///     Proves that attempting to use a device the factory could not resolve from its own probe
+    ///     surfaces the documented exception, consistent with the probe the factory was given.
     /// </summary>
     [Fact]
     public void Speech_SystemValidation_NoResolvableCaptureDevice_StartThrowsAudioDeviceUnavailableException()
@@ -130,8 +131,12 @@ public class SpeechTests
         var factory = new AudioDeviceFactory(null, null, null, environment);
         var device = factory.CreateCaptureDevice();
 
-        // Act & Assert: starting the unresolved real device throws the documented exception
-        Assert.IsType<PortAudioCaptureDevice>(device);
+        // Act & Assert: the factory's own default probe reports no capture devices, so it returns
+        // the honest unavailable fallback (consistent with AudioDeviceFactory_CreateCaptureDevice
+        // now consulting CaptureProbe before constructing a real device) rather than a real,
+        // resolved-but-unavailable PortAudioCaptureDevice - starting it still throws the same
+        // documented exception either way.
+        Assert.Same(UnavailableAudioCaptureDevice.Instance, device);
         Assert.False(device.IsAvailable);
         Assert.Throws<AudioDeviceUnavailableException>(device.Start);
     }

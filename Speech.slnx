@@ -2,10 +2,12 @@
   <Folder Name="/src/">
     <Project Path="src/DemaConsulting.Speech/DemaConsulting.Speech.csproj" />
     <Project Path="src/DemaConsulting.Speech.Demo/DemaConsulting.Speech.Demo.csproj" />
+    <Project Path="src/DemaConsulting.Speech.Cli/DemaConsulting.Speech.Cli.csproj" />
   </Folder>
   <Folder Name="/test/">
     <Project Path="test/DemaConsulting.Speech.Tests/DemaConsulting.Speech.Tests.csproj" />
     <Project Path="test/DemaConsulting.Speech.Demo.Tests/DemaConsulting.Speech.Demo.Tests.csproj" />
+    <Project Path="test/DemaConsulting.Speech.Cli.Tests/DemaConsulting.Speech.Cli.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/ModelDownloader/ModelDownloader.csproj" />

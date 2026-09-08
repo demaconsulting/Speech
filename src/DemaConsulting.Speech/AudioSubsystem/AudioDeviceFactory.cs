@@ -110,20 +110,29 @@ public sealed class AudioDeviceFactory
     ///     capacity are requested exactly as before.
     /// </param>
     /// <returns>
-    ///     A real PortAudio-backed capture device when PortAudio initialized successfully;
-    ///     otherwise, <see cref="UnavailableAudioCaptureDevice.Instance"/>.
+    ///     A real PortAudio-backed capture device when PortAudio initialized successfully and the
+    ///     requested <paramref name="selection"/> (or, when omitted, at least one device) is known
+    ///     to <see cref="CaptureProbe"/>; otherwise, <see cref="UnavailableAudioCaptureDevice.Instance"/>.
     /// </returns>
     /// <remarks>
     ///     Never throws; reports backend initialization fallback via diagnostics. When
     ///     <paramref name="preferredFormat"/> is supplied and the backend honors it, the returned
     ///     device may report a <c>SampleRate</c> and <c>ChannelCount</c> different from the
-    ///     hardware default.
+    ///     hardware default. Consulting <see cref="CaptureProbe"/> before constructing the device
+    ///     keeps device creation consistent with an injected probe (for example, a test double
+    ///     with no known devices), rather than resolving the selection independently against the
+    ///     real environment and silently ignoring the probe the caller supplied.
     /// </remarks>
     public IAudioCaptureDevice CreateCaptureDevice(
         AudioDeviceSelection? selection = null,
         AudioFormat? preferredFormat = null)
     {
         if (!_environment.IsInitialized)
+        {
+            return UnavailableAudioCaptureDevice.Instance;
+        }
+
+        if (!IsSelectionKnownToProbe(CaptureProbe.Enumerate(), selection))
         {
             return UnavailableAudioCaptureDevice.Instance;
         }
@@ -144,14 +153,18 @@ public sealed class AudioDeviceFactory
     ///     capacity are requested exactly as before.
     /// </param>
     /// <returns>
-    ///     A real PortAudio-backed playback device when PortAudio initialized successfully;
-    ///     otherwise, <see cref="UnavailableAudioPlaybackDevice.Instance"/>.
+    ///     A real PortAudio-backed playback device when PortAudio initialized successfully and the
+    ///     requested <paramref name="selection"/> (or, when omitted, at least one device) is known
+    ///     to <see cref="PlaybackProbe"/>; otherwise, <see cref="UnavailableAudioPlaybackDevice.Instance"/>.
     /// </returns>
     /// <remarks>
     ///     Never throws; reports backend initialization fallback via diagnostics. When
     ///     <paramref name="preferredFormat"/> is supplied and the backend honors it, the returned
     ///     device may report a <c>SampleRate</c> and <c>ChannelCount</c> different from the
-    ///     hardware default.
+    ///     hardware default. Consulting <see cref="PlaybackProbe"/> before constructing the device
+    ///     keeps device creation consistent with an injected probe (for example, a test double
+    ///     with no known devices), rather than resolving the selection independently against the
+    ///     real environment and silently ignoring the probe the caller supplied.
     /// </remarks>
     public IAudioPlaybackDevice CreatePlaybackDevice(
         AudioDeviceSelection? selection = null,
@@ -162,6 +175,48 @@ public sealed class AudioDeviceFactory
             return UnavailableAudioPlaybackDevice.Instance;
         }
 
+        if (!IsSelectionKnownToProbe(PlaybackProbe.Enumerate(), selection))
+        {
+            return UnavailableAudioPlaybackDevice.Instance;
+        }
+
         return new PortAudioPlaybackDevice(_environment, selection, _diagnostics, preferredFormat);
+    }
+
+    /// <summary>
+    ///     Determines whether a requested device selection (or, for the default selection, at
+    ///     least one known device) is present in a probe's enumeration result.
+    /// </summary>
+    /// <param name="knownDevices">
+    ///     The devices enumerated by <see cref="CaptureProbe"/> or <see cref="PlaybackProbe"/>.
+    /// </param>
+    /// <param name="selection">
+    ///     The requested device selection, or <see langword="null"/> to request the default
+    ///     device.
+    /// </param>
+    /// <returns>
+    ///     <see langword="true"/> when <paramref name="selection"/> names a device present in
+    ///     <paramref name="knownDevices"/>, or when <paramref name="selection"/> is
+    ///     <see langword="null"/> (or names no device) and <paramref name="knownDevices"/> is not
+    ///     empty; otherwise, <see langword="false"/>.
+    /// </returns>
+    /// <remarks>
+    ///     This keeps <see cref="CreateCaptureDevice"/>/<see cref="CreatePlaybackDevice"/>
+    ///     consistent with whichever probe was actually injected into this factory, instead of
+    ///     resolving the selection independently against the real PortAudio environment: an
+    ///     injected probe that reports zero devices (or does not know a named device) now yields
+    ///     the honest unavailable fallback rather than a device resolved from hardware the probe
+    ///     never reported.
+    /// </remarks>
+    private static bool IsSelectionKnownToProbe(
+        IReadOnlyList<AudioDeviceDescription> knownDevices,
+        AudioDeviceSelection? selection)
+    {
+        if (selection?.DeviceName is { } deviceName)
+        {
+            return knownDevices.Any(device => string.Equals(device.Name, deviceName, StringComparison.Ordinal));
+        }
+
+        return knownDevices.Count > 0;
     }
 }

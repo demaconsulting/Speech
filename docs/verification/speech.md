@@ -79,8 +79,10 @@ fallback devices rather than throwing.
 
 **Test**: `Speech_SystemValidation_NoResolvableCaptureDevice_StartThrowsAudioDeviceUnavailableException`
 
-Verifies that a real PortAudio-backed capture device with no resolvable input device reports
-`IsAvailable = false` and throws the documented exception only when a caller attempts to start it.
+Verifies that a capture device the factory's own default probe could not resolve (an
+initialized environment whose preferred host API has no capture-capable devices) reports
+`IsAvailable = false` and throws the documented exception when a caller attempts to start it -
+consistent with `AudioDeviceFactory` consulting its probe before constructing a real device.
 
 ### Integration: Streaming Recognition Produces Results from Captured Audio
 

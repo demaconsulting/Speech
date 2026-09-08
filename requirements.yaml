@@ -27,6 +27,8 @@ includes:
   - docs/reqstream/speech/audio-subsystem/port-audio-capture-device.yaml
   - docs/reqstream/speech/audio-subsystem/port-audio-playback-device.yaml
   - docs/reqstream/speech/audio-subsystem/port-audio.yaml
+  - docs/reqstream/speech/audio-subsystem/wav-file-audio-playback-device.yaml
+  - docs/reqstream/speech/audio-subsystem/wav-file-audio-capture-device.yaml
   - docs/reqstream/speech/audio-subsystem/port-audio/i-port-audio-api.yaml
   - docs/reqstream/speech/audio-subsystem/port-audio/i-port-audio-stream.yaml
   - docs/reqstream/speech/audio-subsystem/port-audio/port-audio-environment.yaml
@@ -77,6 +79,11 @@ includes:
   - docs/reqstream/speech-demo/synthesis-panel-subsystem/synthesizer-session-factory.yaml
   - docs/reqstream/speech-demo/synthesis-panel-subsystem/synthesis-panel-view-model.yaml
   - docs/reqstream/speech-demo/recognition-panel-subsystem.yaml
+  - docs/reqstream/speech-cli.yaml
+  - docs/reqstream/speech-cli/model-commands-subsystem.yaml
+  - docs/reqstream/speech-cli/device-commands-subsystem.yaml
+  - docs/reqstream/speech-cli/synthesis-command-subsystem.yaml
+  - docs/reqstream/speech-cli/recognition-command-subsystem.yaml
   - docs/reqstream/ots/port-audio-sharp2.yaml
   - docs/reqstream/ots/sherpa-onnx.yaml
   - docs/reqstream/ots/sharp-compress.yaml

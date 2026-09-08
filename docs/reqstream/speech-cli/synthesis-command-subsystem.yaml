@@ -1,0 +1,180 @@
+---
+# Software Subsystem Requirements for the SpeechCli SynthesisCommandSubsystem
+#
+# These requirements describe the subsystem-level behavior of the one text-to-speech subcommand
+# (speak), decomposing the system-level dispatch requirements in docs/reqstream/speech-cli.yaml.
+#
+# This subsystem extends the ModelCommandsSubsystem seam (ICliModelCatalog) with two further
+# members - GetPreferredAudioFormat and CreateSynthesizer - rather than introduce a second,
+# competing seam, since a resolved model must still be cast to the library's internal
+# ISynthesisModel before either operation is possible, and that cast belongs in the same
+# assembly-scoped adapter that already owns the original five members.
+
+sections:
+  - title: SpeechCli Requirements
+    sections:
+      - title: SynthesisCommandSubsystem Requirements
+        requirements:
+          - id: SpeechCli-SynthesisCommands-Speak
+            title: >-
+              The tool shall synthesize speech from text supplied via exactly one of `--text
+              <string>`, `--file <path>`, or piped stdin, through a known, downloaded synthesis
+              model named by `--model <id>`, when invoked with `speak`, rejecting a missing
+              `--model`, an unknown/wrong-role/not-downloaded model id, or a conflicting/missing
+              text source with a clean, actionable, non-zero-exit-code error rather than a stack
+              trace.
+            tags: [subsystem]
+            justification: |
+              An operator or script needs one command that turns arbitrary text into speech
+              without needing to know which library types compose a synthesizer. Text-source
+              mutual exclusion and model validation must fail predictably and with an actionable
+              next step (`list-models`, `list-models --role tts`, or `download <modelId>`) so a
+              scripted invocation can react to the specific failure rather than a generic error.
+            tests:
+              - SpeakCommand_ParseArguments_MissingModel_ThrowsArgumentException
+              - SpeakCommand_ParseArguments_TextFlag_ParsesText
+              - SpeakCommand_ParseArguments_UnsupportedArgument_ThrowsArgumentException
+              - SpeakCommand_ParseArguments_FlagMissingValue_ThrowsArgumentException
+              - SpeakCommand_RunAsync_TextAndFileBothGiven_ThrowsArgumentException
+              - SpeakCommand_RunAsync_NoTextSourceAndStdinNotRedirected_ThrowsArgumentException
+              - SpeakCommand_RunAsync_UnknownModelId_ThrowsArgumentException
+              - SpeakCommand_RunAsync_WrongRoleModel_ThrowsArgumentException
+              - SpeakCommand_RunAsync_NotDownloadedModel_ThrowsArgumentExceptionWithDownloadHint
+              - SpeakCommand_RunAsync_Success_DisposesSynthesizerOnce
+              - SpeechCli_SpeakCommandWithoutModel_Invoked_ReturnsCleanError
+              - SpeechCli_SpeakCommandWithUnknownModel_Invoked_ReturnsCleanError
+              - SpeechCli_SpeakCommandWithWrongRoleModel_Invoked_ReturnsCleanError
+              - SpeechCli_SpeakCommandWithNotDownloadedModel_Invoked_ReturnsCleanErrorWithDownloadHint
+              - SpeechCli_SpeakCommandWithConflictingTextSources_Invoked_ReturnsCleanError
+              - Program_Run_WithSpeakCommand_DoesNotThrowNotImplemented
+
+          - id: SpeechCli-SynthesisCommands-ParamValidation
+            title: >-
+              The tool shall parse repeatable `--param key=value` flags and validate each value
+              against the resolved model's own declared parameter set - a numeric range and
+              integer-only constraint for a `NumericParameter`, a declared option match for a
+              `ChoiceParameter`, and `true`/`false` for a `BooleanParameter` - rejecting a
+              malformed token, an out-of-range or non-integral numeric value, an unmatched choice
+              value, an invalid boolean value, or a key not declared by the resolved model, with a
+              clean `ArgumentException`.
+            tags: [subsystem]
+            justification: |
+              Every synthesis model declares its own tunable parameters with its own valid
+              ranges/options; validating `--param` against that declared set before synthesis
+              starts catches an operator typo or out-of-range value immediately, rather than
+              having it silently ignored (or fail deep inside the synthesis engine) minutes into
+              a run. An unrecognized key is deliberately rejected here even though the library's
+              own `SpeechSynthesizerFactory.Create` silently ignores one, since an unrecognized
+              CLI flag value is almost always an operator mistake that should fail loudly at the
+              command line.
+            tests:
+              - ParameterBagParser_ParseToken_WellFormedToken_SplitsKeyAndValue
+              - ParameterBagParser_ParseToken_NoSeparator_ThrowsArgumentException
+              - ParameterBagParser_ParseToken_EmptyKey_ThrowsArgumentException
+              - ParameterBagParser_ParseToken_EmptyValueHalf_ReturnsEmptyValue
+              - ParameterBagParser_Resolve_NumericInRange_ResolvesBoxedDouble
+              - ParameterBagParser_Resolve_NumericOutOfRange_ThrowsArgumentException
+              - ParameterBagParser_Resolve_NumericMalformed_ThrowsArgumentException
+              - ParameterBagParser_Resolve_IntegerParameterFractionalValue_ThrowsArgumentException
+              - ParameterBagParser_Resolve_IntegerParameterWholeValue_ResolvesBoxedDouble
+              - ParameterBagParser_Resolve_ValidChoiceValue_ResolvesBoxedString
+              - ParameterBagParser_Resolve_InvalidChoiceValue_ThrowsArgumentException
+              - ParameterBagParser_Resolve_ValidBooleanValue_ResolvesBoxedBool
+              - ParameterBagParser_Resolve_InvalidBooleanValue_ThrowsArgumentException
+              - ParameterBagParser_Resolve_UnrecognizedKey_ThrowsArgumentException
+              - ParameterBagParser_Resolve_NoRawValues_ReturnsEmptyBag
+              - SpeakCommand_ParseArguments_RepeatedParamFlags_AccumulatesInOrder
+              - SpeakCommand_RunAsync_ValidParam_ForwardsToCreateSynthesizer
+              - SpeakCommand_RunAsync_InvalidParam_ThrowsArgumentException
+
+          - id: SpeechCli-SynthesisCommands-NoTags
+            title: >-
+              The tool shall unconditionally strip every Natural Language Audio Tag from the
+              resolved text, keeping only its literal narration content, when `--no-tags` is
+              given, regardless of the resolved model's own declared audio-tag support level.
+            tags: [subsystem]
+            justification: |
+              An operator explicitly requesting tag stripping is asking for literal narration
+              text only; a model's own native tag-support level (Native/ParameterMapped) must not
+              silently override that explicit request, since the operator's own downstream use of
+              the audio (e.g. a context where tag-driven expressiveness is unwanted) is the
+              deciding factor, not what the model happens to support.
+            tests:
+              - SpeakCommand_ParseArguments_NoTagsFlag_ParsesTrue
+              - SpeakCommand_RunAsync_NoTags_StripsRecognizedTagExactly
+              - SpeakCommand_RunAsync_WithoutNoTags_PassesOriginalTextUnchanged
+
+          - id: SpeechCli-SynthesisCommands-OutputDispatch
+            title: >-
+              The tool shall write synthesized audio to a WAV file sized from the resolved
+              model's preferred audio format when `--output <path>` is given (ignoring any
+              `--device` given alongside it), and shall otherwise resolve and validate a real
+              playback device (honoring `--device` when given), rejecting an unknown device name
+              or an unavailable resolved device with a clean, non-zero-exit-code error rather than
+              a stack trace.
+            tags: [subsystem]
+            justification: |
+              `--output` unambiguously indicates the operator wants a file, not real playback, so
+              silently requiring the two to agree (or erroring when both are given) would be an
+              unnecessary usability trap; validating an unknown/unavailable real device before
+              any synthesis is attempted avoids a partially-synthesized, undeliverable session.
+            tests:
+              - SpeakCommand_RunAsync_Output_ConstructsWavFileDeviceFromPreferredFormat
+              - SpeakCommand_RunAsync_UnknownDevice_ThrowsArgumentException
+              - SpeakCommand_RunAsync_NoPlaybackDeviceAvailable_ThrowsInvalidOperationException
+
+          - id: SpeechCli-SynthesisCommands-CancellationAndDisposal
+            title: >-
+              The tool shall wire `Ctrl+C` to cooperative cancellation of an in-progress `speak`
+              session, reporting a cancellation as a clean message rather than an unhandled
+              exception, and shall dispose the synthesizer before the playback device in every
+              case (success, failure, or cancellation).
+            tags: [subsystem]
+            justification: |
+              A long-running synthesis session must be interruptible without corrupting a
+              partially-written output file or leaving native resources open; disposing the
+              synthesizer first guarantees any in-flight playback/write has genuinely quiesced
+              before the underlying device is released, mirroring the ordering
+              `DownloadCommand` already established for its own cancellation handling.
+            tests:
+              - SpeakCommand_RunAsync_Canceled_ReportsErrorCleanly
+              - SpeakCommand_RunAsync_Success_DisposesSynthesizerOnce
+
+          - id: SpeechCli-SynthesisCommands-CatalogSeamExtension
+            title: >-
+              The tool shall resolve a synthesis-role model's preferred audio format and construct
+              its `ISpeechSynthesizer` exclusively through the `ICliModelCatalog` seam's
+              `GetPreferredAudioFormat`/`CreateSynthesizer` members, which shall reject a
+              descriptor whose model is not a synthesis model with a clean `ArgumentException`.
+            tags: [subsystem]
+            justification: |
+              `SpeakCommand` cannot itself distinguish a synthesis-capable model without internal
+              library access it is not granted; extending the existing seam (rather than
+              introducing a second, competing one) keeps a single, narrow, already-established
+              boundary between the CLI and the library's internal model types, letting
+              `SpeakCommand`'s own logic remain fully testable against a fake catalog with no
+              dependency on `ISynthesisModel`.
+            tests:
+              - SpeechModelCatalogAdapter_GetPreferredAudioFormat_RecognitionRoleModel_ThrowsArgumentException
+              - SpeechModelCatalogAdapter_GetPreferredAudioFormat_NullDescriptor_ThrowsArgumentNullException
+              - SpeechModelCatalogAdapter_CreateSynthesizer_RecognitionRoleModel_ThrowsArgumentException
+              - SpeechModelCatalogAdapter_CreateSynthesizer_NullDescriptor_ThrowsArgumentNullException
+              - SpeechModelCatalogAdapter_CreateSynthesizer_NullPlaybackDevice_ThrowsArgumentNullException
+
+          - id: SpeechCli-SynthesisCommands-NullGuards
+            title: >-
+              The SynthesisCommandSubsystem shall reject a missing context, catalog, factory, or
+              argument list immediately with `ArgumentNullException`, so a programming error is
+              never silently ignored.
+            tags: [subsystem]
+            justification: |
+              Consistent with every other subsystem in this tool, a missing required dependency
+              must fail immediately and specifically rather than surface later as a confusing
+              `NullReferenceException` deep inside synthesis or device resolution logic.
+            tests:
+              - SpeakCommand_RunAsync_NullContext_ThrowsArgumentNullException
+              - SpeakCommand_RunAsync_NullCatalog_ThrowsArgumentNullException
+              - SpeakCommand_RunAsync_NullFactory_ThrowsArgumentNullException
+              - SpeakCommand_Run_NullContext_ThrowsArgumentNullException
+              - ParameterBagParser_Resolve_NullRawValues_ThrowsArgumentNullException
+              - ParameterBagParser_Resolve_NullDeclaredParameters_ThrowsArgumentNullException

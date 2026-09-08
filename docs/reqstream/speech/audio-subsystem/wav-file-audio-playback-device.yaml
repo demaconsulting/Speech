@@ -1,0 +1,96 @@
+---
+# Software Unit Requirements for WavFileAudioPlaybackDevice
+#
+# These requirements describe the design-level behavior of the WavFileAudioPlaybackDevice
+# unit, decomposing the parent AudioSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: AudioSubsystem Requirements
+        sections:
+          - title: WavFileAudioPlaybackDevice Requirements
+            requirements:
+              - id: Speech-Audio-WavFileAudioPlaybackDevice-AlwaysAvailable
+                title: >-
+                  The WavFileAudioPlaybackDevice class shall always report IsAvailable as true,
+                  since writing to a file never depends on real audio hardware.
+                justification: |
+                  A file-backed playback device has no backend-resolution step that can fail the
+                  way a real device's hardware resolution can, so it should never report a false
+                  availability a caller would otherwise wait on or degrade around.
+                tests:
+                  - WavFileAudioPlaybackDevice_IsAvailable_Always_ReturnsTrue
+
+              - id: Speech-Audio-WavFileAudioPlaybackDevice-WriteEncodesPcm
+                title: >-
+                  The WavFileAudioPlaybackDevice class shall encode every sample supplied to
+                  Write as 16-bit PCM into a RIFF/WAVE file, clamping each sample to [-1.0, 1.0]
+                  before scaling so a sample at or beyond the clamp boundary maps to the nearest
+                  valid 16-bit value rather than overflowing into an unrelated sample on the wire.
+                justification: |
+                  Promoting the demo's temporary WavFileWriter byte-layout into a permanent
+                  public library type must not subtly diverge in clamping/rounding behavior; the
+                  same round-trip fidelity previously informal must now be tested and guaranteed.
+                tests:
+                  - WavFileAudioPlaybackDevice_WriteThenDispose_RoundTripsSamplesWithinQuantizationTolerance
+                  - WavFileAudioPlaybackDevice_Write_SamplesBeyondClampBoundary_ClampToNearestValidValue
+
+              - id: Speech-Audio-WavFileAudioPlaybackDevice-ReportsConstructedFormat
+                title: >-
+                  The WavFileAudioPlaybackDevice class shall report the sample rate and channel
+                  count supplied at construction.
+                justification: |
+                  A consumer preparing audio for Write must know the exact interleaving stride
+                  and rate the written file declares, mirroring the disclosure contract every
+                  other IAudioPlaybackDevice implementation honors.
+                tests:
+                  - WavFileAudioPlaybackDevice_Format_Read_ReflectsConstructorArguments
+
+              - id: Speech-Audio-WavFileAudioPlaybackDevice-PendingSampleCountAlwaysZero
+                title: >-
+                  The WavFileAudioPlaybackDevice class shall always report PendingSampleCount as
+                  zero, since every Write call is fully synchronous.
+                justification: |
+                  Unlike a real device's callback-driven queue, a file write completes before
+                  Write returns, so there is never anything genuinely "in flight" to report.
+                tests:
+                  - WavFileAudioPlaybackDevice_PendingSampleCount_AfterWrite_ReturnsZero
+
+              - id: Speech-Audio-WavFileAudioPlaybackDevice-FinalizesHeaderOnDispose
+                title: >-
+                  The WavFileAudioPlaybackDevice class shall patch the RIFF and data chunk sizes
+                  with the total bytes written when disposed, and shall tolerate being disposed
+                  more than once.
+                justification: |
+                  The total sample count is not known until writing stops, so the header must be
+                  patched after the fact; a caller that disposes twice (for example, via both an
+                  explicit call and a using block) must not fault.
+                tests:
+                  - WavFileAudioPlaybackDevice_WriteThenDispose_RoundTripsSamplesWithinQuantizationTolerance
+                  - WavFileAudioPlaybackDevice_Dispose_CalledTwice_DoesNotThrow
+
+              - id: Speech-Audio-WavFileAudioPlaybackDevice-ArgumentValidation
+                title: >-
+                  The WavFileAudioPlaybackDevice class shall validate its constructor arguments
+                  and Write's sample buffer, and shall reject Write after disposal.
+                justification: |
+                  Invalid construction arguments or a null sample buffer are programming errors
+                  that should surface immediately rather than corrupt the written file; writing
+                  after disposal must not silently write into a closed stream.
+                tests:
+                  - WavFileAudioPlaybackDevice_Constructor_NullOrEmptyPath_ThrowsArgumentException
+                  - WavFileAudioPlaybackDevice_Constructor_NonPositiveSampleRate_ThrowsArgumentOutOfRangeException
+                  - WavFileAudioPlaybackDevice_Constructor_NonPositiveChannelCount_ThrowsArgumentOutOfRangeException
+                  - WavFileAudioPlaybackDevice_Write_NullSamples_ThrowsArgumentNullException
+                  - WavFileAudioPlaybackDevice_Write_AfterDispose_ThrowsObjectDisposedException
+
+              - id: Speech-Audio-WavFileAudioPlaybackDevice-StartStopAreNoOps
+                title: >-
+                  The WavFileAudioPlaybackDevice class shall treat Start and Stop as safe no-ops
+                  that never throw, since there is no real playback stream to open or close.
+                justification: |
+                  A file-backed device has no hardware stream lifecycle; Start/Stop exist only
+                  to satisfy the IAudioPlaybackDevice contract's expected call sequence.
+                tests:
+                  - WavFileAudioPlaybackDevice_StartThenStop_Always_DoesNotThrow
