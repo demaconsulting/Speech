@@ -72,3 +72,19 @@ Info-level diagnostic.
 ##### Construction: Supported Preferred Sample Rate Is Used
 
 **Test**: `PortAudioPlaybackDevice_Constructor_PreferredSampleRateSupported_UsesPreferredFormat`
+
+##### Write: Multiple Blocks of Varying Size Drain in Order
+
+**Test**: `PortAudioPlaybackDevice_Write_MultipleBlocksOfVaryingSize_DrainsInOrder`
+
+##### Write: Block Larger Than Request Drains Remainder on Next Call
+
+**Test**: `PortAudioPlaybackDevice_Write_BlockLargerThanRequest_DrainsRemainderOnNextCall`
+
+##### Write: Small Block Followed by Another Write Concatenates Across Boundary
+
+**Test**: `PortAudioPlaybackDevice_Write_SmallBlockFollowedByAnotherWrite_ConcatenatesAcrossBoundary`
+
+##### Stop: Partially Consumed Block Never Replays Stale Audio After Restart
+
+**Test**: `PortAudioPlaybackDevice_Stop_PartiallyConsumedBlock_RestartNeverReplaysStaleAudio`

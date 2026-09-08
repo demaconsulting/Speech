@@ -103,13 +103,23 @@ sections:
                 title: >-
                   The SherpaOnnxSpeechSynthesizer class shall cancel an in-flight SpeakAsync
                   session deterministically when Stop is called, treat Stop as a safe no-op when
-                  idle, and release its engine resources on disposal.
+                  idle, release its engine resources on disposal, and never return control from
+                  SynthesizeStreamAsync (on normal completion, cancellation, or any other
+                  exception) until the background producer task - and any native engine call it
+                  may still be mid-way through - has genuinely finished.
                 justification: |
                   A host must be able to interrupt speech immediately in response to a user
                   action (e.g. barge-in), without the cancellation racing or hanging, and must not
-                  leak native inference resources across repeated speak/stop cycles.
+                  leak native inference resources across repeated speak/stop cycles. A confirmed
+                  AccessViolationException crash occurred because the cancellation path let
+                  SynthesizeStreamCore return control to its caller while the producer task was
+                  still genuinely executing a native Generate call on a background thread; the
+                  caller then disposed the synthesizer's owned engine, and the still-running
+                  native call touched freed native memory. The producer task must therefore never
+                  be orphaned on any exit path.
                 tests:
-                  - Stop_WhileSpeaking_CancelsInFlightSession
+                  - Stop_WhileSpeaking_CancelsInFlightSessionOnlyAfterInFlightGenerateReturns
+                  - SynthesizeStreamAsync_CancelledMidGenerate_AwaitsProducerBeforeEnumerationCompletesAndDisposalIsSafe
                   - Stop_NoSessionInFlight_IsNoOp
                   - Dispose_CalledTwice_DisposesEngineOnce
                   - SynthesizeStreamAsync_AfterDispose_ThrowsObjectDisposedException

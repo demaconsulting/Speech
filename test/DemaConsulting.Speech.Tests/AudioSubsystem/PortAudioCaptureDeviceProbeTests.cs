@@ -154,7 +154,7 @@ public class PortAudioCaptureDeviceProbeTests
             int channelCount,
             int sampleRate,
             uint framesPerBuffer,
-            Func<int, IReadOnlyList<float>> provideSamples)
+            Func<int, float[]> provideSamples)
         {
             throw new NotSupportedException("Stream opening is outside this test scope.");
         }

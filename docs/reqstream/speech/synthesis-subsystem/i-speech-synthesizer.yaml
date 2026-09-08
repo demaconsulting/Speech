@@ -36,7 +36,7 @@ sections:
                   one without a breaking API change.
                 tests:
                   - SynthesizeStreamAsync_PlainText_YieldsAudioSegment
-                  - Stop_WhileSpeaking_CancelsInFlightSession
+                  - Stop_WhileSpeaking_CancelsInFlightSessionOnlyAfterInFlightGenerateReturns
                   - Stop_NoSessionInFlight_IsNoOp
 
               - id: Speech-Synthesis-ISpeechSynthesizer-UnavailableOperationsThrow

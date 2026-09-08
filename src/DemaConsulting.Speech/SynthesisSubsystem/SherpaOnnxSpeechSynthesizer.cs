@@ -188,14 +188,46 @@ internal sealed class SherpaOnnxSpeechSynthesizer : ISpeechSynthesizer
 
         var producerTask = Task.Run(() => ProduceAsync(plan, channel.Writer, cancellationToken), CancellationToken.None);
 
-        await foreach (var segment in channel.Reader.ReadAllAsync(cancellationToken).ConfigureAwait(false))
+        try
         {
-            yield return segment;
+            await foreach (var segment in channel.Reader.ReadAllAsync(cancellationToken).ConfigureAwait(false))
+            {
+                yield return segment;
+            }
         }
-
-        // Surface any producer fault (other than cancellation) to the caller now that every
-        // successfully produced segment has already been yielded.
-        await producerTask.ConfigureAwait(false);
+        finally
+        {
+            // The loop above can exit early via an exception (most commonly the reader observing
+            // cancellationToken cancellation and throwing OperationCanceledException) before ever
+            // reaching a normal-completion await. producerTask must still be awaited on every
+            // exit path - normal completion, cancellation, or any other exception - because
+            // ProduceAsync may be mid-way through a native engine call (GenerateSegment) when
+            // cancellation fires: it only checks the token between segments, so the native call
+            // can keep running, untracked, after this method has otherwise returned control to
+            // its caller. If that caller then disposes the engine (as SpeakAsync's caller
+            // commonly does once cancellation propagates), the still-running native call touches
+            // freed native memory. Awaiting here unconditionally guarantees the producer has
+            // genuinely finished before this iterator ever yields control past this point, which
+            // also preserves the previous behavior of surfacing any genuine (non-cancellation)
+            // producer fault to the caller on the normal-completion path, since ProduceAsync
+            // completes the channel with that fault and this await then rethrows it.
+            //
+            // ProduceAsync itself swallows OperationCanceledException internally (see its own
+            // catch block) and completes the channel normally instead of faulting on that path,
+            // so this await will not normally throw OperationCanceledException; the catch below
+            // only guards the unlikely case of a residual OperationCanceledException still
+            // escaping, which is expected and benign here and must not mask whatever exception
+            // (if any) is already propagating out of the try block above.
+            try
+            {
+                await producerTask.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // Benign on the cancellation path; do not let it mask another exception already
+                // propagating from the try block above.
+            }
+        }
     }
 
     /// <inheritdoc/>

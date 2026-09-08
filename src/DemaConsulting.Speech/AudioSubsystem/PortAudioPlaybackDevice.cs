@@ -68,9 +68,28 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
     private readonly object _syncRoot = new();
 
     /// <summary>
-    ///     The managed sample queue drained by the PortAudio playback callback.
+    ///     The managed queue of sample blocks drained by the PortAudio playback callback. Each
+    ///     <see cref="Write"/> call enqueues exactly one block rather than one entry per sample,
+    ///     so the real-time callback thread never has to perform per-sample queue operations.
     /// </summary>
-    private readonly ConcurrentQueue<float> _queuedSamples = new();
+    private readonly ConcurrentQueue<float[]> _queuedBlocks = new();
+
+    /// <summary>
+    ///     The block currently being drained by <see cref="ProvideSamples"/>, or
+    ///     <see langword="null"/> when no partially consumed block remains. Read and written only
+    ///     from <see cref="ProvideSamples"/> and <see cref="ClearQueuedSamples"/>, both of which
+    ///     execute exclusively on the single real-time PortAudio callback thread for the lifetime
+    ///     of one stream (<see cref="Start"/>/<see cref="Stop"/> are serialized under
+    ///     <see cref="_syncRoot"/>, and <c>Stop()</c> blocks until native callback processing has
+    ///     ceased before this field is reset), so no additional synchronization is required.
+    /// </summary>
+    private float[]? _headBlock;
+
+    /// <summary>
+    ///     The offset of the next unconsumed sample within <see cref="_headBlock"/>. Same
+    ///     single-consumer invariant as <see cref="_headBlock"/> applies.
+    /// </summary>
+    private int _headOffset;
 
     /// <summary>
     ///     The number of samples enqueued via <see cref="Write"/> that <see cref="ProvideSamples"/>
@@ -270,11 +289,17 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
             return;
         }
 
+        // Copy into a new array rather than trusting the caller's buffer: Write is documented as
+        // fire-and-forget, so the caller must remain free to mutate or reuse its own buffer the
+        // instant this call returns, and the queued block must own stable storage for however
+        // long it takes ProvideSamples to drain it.
+        var block = new float[samples.Count];
         for (var index = 0; index < samples.Count; index++)
         {
-            _queuedSamples.Enqueue(samples[index]);
+            block[index] = samples[index];
         }
 
+        _queuedBlocks.Enqueue(block);
         Interlocked.Add(ref _pendingSampleCount, samples.Count);
     }
 
@@ -455,7 +480,7 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
     /// <returns>
     ///     A buffer containing exactly <paramref name="sampleCount"/> samples.
     /// </returns>
-    private IReadOnlyList<float> ProvideSamples(int sampleCount)
+    private float[] ProvideSamples(int sampleCount)
     {
         if (sampleCount <= 0)
         {
@@ -463,19 +488,38 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
         }
 
         var samples = new float[sampleCount];
-        var dequeuedCount = 0;
-        for (var index = 0; index < sampleCount; index++)
+        var filledCount = 0;
+
+        // Drain whatever remains of a previously partially consumed block first, then fully or
+        // partially consume subsequent queued blocks, all via bulk array copies rather than a
+        // per-sample dequeue loop - this is the real-time callback thread's hot path.
+        while (filledCount < sampleCount)
         {
-            if (_queuedSamples.TryDequeue(out var sample))
+            if (_headBlock is null && !_queuedBlocks.TryDequeue(out _headBlock))
             {
-                samples[index] = sample;
-                dequeuedCount++;
+                // No more queued audio: the remainder of samples stays zero-filled.
+                break;
+            }
+
+            var headBlock = _headBlock;
+            var available = headBlock.Length - _headOffset;
+            var remaining = sampleCount - filledCount;
+            var copyLength = Math.Min(available, remaining);
+
+            Array.Copy(headBlock, _headOffset, samples, filledCount, copyLength);
+            filledCount += copyLength;
+            _headOffset += copyLength;
+
+            if (_headOffset >= headBlock.Length)
+            {
+                _headBlock = null;
+                _headOffset = 0;
             }
         }
 
-        if (dequeuedCount > 0)
+        if (filledCount > 0)
         {
-            Interlocked.Add(ref _pendingSampleCount, -dequeuedCount);
+            Interlocked.Add(ref _pendingSampleCount, -filledCount);
         }
 
         return samples;
@@ -486,7 +530,9 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
     /// </summary>
     private void ClearQueuedSamples()
     {
-        _queuedSamples.Clear();
+        _queuedBlocks.Clear();
+        _headBlock = null;
+        _headOffset = 0;
         Interlocked.Exchange(ref _pendingSampleCount, 0);
     }
 
