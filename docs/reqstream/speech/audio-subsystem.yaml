@@ -52,6 +52,7 @@ sections:
               - Speech-Audio-AudioDeviceFactory-InjectableProbes
               - Speech-Audio-AudioDeviceFactory-RealDefaultsWhenInitialized
               - Speech-Audio-AudioDeviceFactory-PortAudioInitializationFallback
+              - Speech-Audio-AudioDeviceFactory-DeviceCreationConsistentWithInjectedProbe
             tests:
               - AudioDeviceFactory_Constructor_CustomEnvironment_DoesNotThrow
               - AudioDeviceFactory_CreateCaptureDevice_PortAudioInitialized_ReturnsRealDevice

@@ -107,6 +107,94 @@ sections:
           - SpeechCli_ValidateWithTrxResults_Requested_GeneratesTrxFile
           - SpeechCli_ValidateWithDepth_DepthThree_OutputsCorrectHeadingLevel
 
+      - id: SpeechCli-ModelManagement
+        title: >-
+          The tool shall let an operator list every known speech model, inspect a single
+          model's details, download a model, and remove a downloaded or partially downloaded
+          model, when invoked with the `list-models`, `model-info`, `download`, `uninstall`, and
+          `clean` subcommands respectively.
+        tags: [system]
+        justification: |
+          An operator cannot use any speech capability without first knowing which models exist,
+          whether they are downloaded, and having a way to download or remove them; this is the
+          minimum model-lifecycle surface a command-line tool over this library must expose.
+        children:
+          - SpeechCli-ModelCommands-ListModels
+          - SpeechCli-ModelCommands-ModelInfo
+          - SpeechCli-ModelCommands-Download
+          - SpeechCli-ModelCommands-DownloadCancellation
+          - SpeechCli-ModelCommands-Uninstall
+          - SpeechCli-ModelCommands-Clean
+          - SpeechCli-ModelCommands-LibraryDelegation
+          - SpeechCli-ModelCommands-SynthesisSeamExtension
+        tests:
+          - SpeechCli_ListModelsCommand_Invoked_ListsKnownModelsAsTable
+          - DownloadCommand_RunAsync_MultipleModels_DownloadsEachSequentially
+
+      - id: SpeechCli-DeviceInspection
+        title: >-
+          The tool shall let an operator list available audio devices, test a device with a
+          generated tone, and run a combined diagnostic check of the audio and model subsystems,
+          when invoked with the `list-devices`, `devices test`, and `doctor` subcommands
+          respectively.
+        tags: [system]
+        justification: |
+          An operator troubleshooting a failed `speak`/`recognize` invocation needs a way to
+          confirm which audio devices this machine actually exposes, and to positively verify
+          one works, without reasoning about the library's internal audio subsystem.
+        children:
+          - SpeechCli-DeviceCommands-ListDevices
+          - SpeechCli-DeviceCommands-DevicesTest
+          - SpeechCli-DeviceCommands-ToneGeneration
+          - SpeechCli-DeviceCommands-Doctor
+          - SpeechCli-DeviceCommands-LibraryDelegation
+        tests:
+          - ListDevicesCommand_Run_NoFilter_ListsBothDirections
+          - DoctorCommand_Run_WritableModelStore_ReportsHealthy
+
+      - id: SpeechCli-TextToSpeech
+        title: >-
+          The tool shall synthesize speech from operator-supplied text through a downloaded
+          synthesis model, either playing it back on a real audio device or writing it to a WAV
+          file, when invoked with the `speak` subcommand.
+        tags: [system]
+        justification: |
+          Text-to-speech is one of this library's two core capabilities; an operator or script
+          must be able to exercise it directly from the command line without writing any code.
+        children:
+          - SpeechCli-SynthesisCommands-Speak
+          - SpeechCli-SynthesisCommands-ParamValidation
+          - SpeechCli-SynthesisCommands-NoTags
+          - SpeechCli-SynthesisCommands-OutputDispatch
+          - SpeechCli-SynthesisCommands-CancellationAndDisposal
+          - SpeechCli-SynthesisCommands-CatalogSeamExtension
+          - SpeechCli-SynthesisCommands-NullGuards
+        tests:
+          - SpeakCommand_RunAsync_Output_ConstructsWavFileDeviceFromPreferredFormat
+
+      - id: SpeechCli-SpeechToText
+        title: >-
+          The tool shall recognize speech from a WAV file or from a real microphone through a
+          downloaded recognition model, printing the recognized transcript, when invoked with
+          the `recognize` subcommand.
+        tags: [system]
+        justification: |
+          Speech-to-text is this library's other core capability; an operator or script must be
+          able to exercise it directly from the command line, including a silence-timeout-driven
+          microphone session, without writing any code.
+        children:
+          - SpeechCli-RecognitionCommands-Recognize
+          - SpeechCli-RecognitionCommands-ParamValidation
+          - SpeechCli-RecognitionCommands-FileInputEofDrivenStop
+          - SpeechCli-RecognitionCommands-SilenceTimeout
+          - SpeechCli-RecognitionCommands-VerbosityAndOutput
+          - SpeechCli-RecognitionCommands-DeviceDispatch
+          - SpeechCli-RecognitionCommands-CatalogSeamExtension
+          - SpeechCli-RecognitionCommands-NullGuards
+        tests:
+          - RecognizeCommand_Run_ValidParam_ForwardsToCreateRecognizer
+          - RecognizeCommand_Run_Success_DisposesRecognizerOnce
+
       - id: SpeechCli-Packaging-GlobalTool
         title: >-
           The tool shall be distributable as a .NET global tool, installable with
