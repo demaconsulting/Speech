@@ -186,7 +186,11 @@ internal sealed class SherpaOnnxSpeechSynthesizer : ISpeechSynthesizer
                 SingleWriter = true
             });
 
-        var producerTask = Task.Run(() => ProduceAsync(plan, channel.Writer, cancellationToken), CancellationToken.None);
+        // The producer observes its own linked token, distinct from the caller's
+        // cancellationToken, so that abandoning enumeration for any reason (not just external
+        // cancellation) can always unblock it - see the finally block below.
+        using var producerCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var producerTask = Task.Run(() => ProduceAsync(plan, channel.Writer, producerCancellation.Token), CancellationToken.None);
 
         try
         {
@@ -197,24 +201,41 @@ internal sealed class SherpaOnnxSpeechSynthesizer : ISpeechSynthesizer
         }
         finally
         {
-            // The loop above can exit early via an exception (most commonly the reader observing
-            // cancellationToken cancellation and throwing OperationCanceledException) before ever
-            // reaching a normal-completion await. producerTask must still be awaited on every
-            // exit path - normal completion, cancellation, or any other exception - because
-            // ProduceAsync may be mid-way through a native engine call (GenerateSegment) when
-            // cancellation fires: it only checks the token between segments, so the native call
-            // can keep running, untracked, after this method has otherwise returned control to
-            // its caller. If that caller then disposes the engine (as SpeakAsync's caller
-            // commonly does once cancellation propagates), the still-running native call touches
-            // freed native memory. Awaiting here unconditionally guarantees the producer has
-            // genuinely finished before this iterator ever yields control past this point, which
-            // also preserves the previous behavior of surfacing any genuine (non-cancellation)
-            // producer fault to the caller on the normal-completion path, since ProduceAsync
-            // completes the channel with that fault and this await then rethrows it.
+            // The loop above can exit early via an exception before ever reaching a
+            // normal-completion await - most commonly the reader observing cancellationToken
+            // cancellation and throwing OperationCanceledException, but also (via the compiler's
+            // await-foreach desugaring calling DisposeAsync on this iterator) whenever a
+            // *consumer* of this stream - e.g. PlayStreamAsync's own await foreach - throws for
+            // an unrelated reason, such as a playback device fault, without cancellationToken
+            // itself ever being cancelled. producerTask must still be awaited on every exit path
+            // - normal completion, cancellation, or any other exception - because ProduceAsync
+            // may be mid-way through a native engine call (GenerateSegment) when this iterator
+            // is abandoned: it only checks its token between segments, so the native call can
+            // keep running, untracked, after this method has otherwise returned control to its
+            // caller. If that caller then disposes the engine (as SpeakAsync's caller commonly
+            // does once cancellation propagates), the still-running native call touches freed
+            // native memory. Awaiting here unconditionally guarantees the producer has genuinely
+            // finished before this iterator ever yields control past this point.
             //
-            // ProduceAsync itself swallows OperationCanceledException internally (see its own
-            // catch block) and completes the channel normally instead of faulting on that path,
-            // so this await will not normally throw OperationCanceledException; the catch below
+            // However, an unconditional await alone is not safe: ProduceAsync writes to a
+            // *bounded* channel via writer.WriteAsync, which only unblocks when either the
+            // reader keeps draining or its token is cancelled. If enumeration is abandoned for a
+            // reason other than cancellationToken being cancelled (the unrelated-exception case
+            // above), and the channel happens to be full at that moment, the reader will never
+            // drain again and cancellationToken was never cancelled, so WriteAsync - and this
+            // await - would hang forever. Cancelling the producer's own, always-owned
+            // producerCancellation here guarantees WriteAsync always has a way to unblock on
+            // every abandonment path, regardless of why the caller's cancellationToken was or
+            // was not cancelled. This preserves the previous behavior of surfacing any genuine
+            // (non-cancellation) producer fault to the caller on the normal-completion path,
+            // since that path reaches this finally block without needing to cancel anything -
+            // ProduceAsync has already completed the channel with that fault and this await then
+            // rethrows it before producerCancellation.Cancel() below can matter.
+            await producerCancellation.CancelAsync().ConfigureAwait(false);
+
+            // ProduceAsync swallows OperationCanceledException internally (see its own catch
+            // block) and completes the channel normally instead of faulting on that path, so
+            // this await will not normally throw OperationCanceledException; the catch below
             // only guards the unlikely case of a residual OperationCanceledException still
             // escaping, which is expected and benign here and must not mask whatever exception
             // (if any) is already propagating out of the try block above.

@@ -76,12 +76,14 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
 
     /// <summary>
     ///     The block currently being drained by <see cref="ProvideSamples"/>, or
-    ///     <see langword="null"/> when no partially consumed block remains. Read and written only
-    ///     from <see cref="ProvideSamples"/> and <see cref="ClearQueuedSamples"/>, both of which
-    ///     execute exclusively on the single real-time PortAudio callback thread for the lifetime
-    ///     of one stream (<see cref="Start"/>/<see cref="Stop"/> are serialized under
-    ///     <see cref="_syncRoot"/>, and <c>Stop()</c> blocks until native callback processing has
-    ///     ceased before this field is reset), so no additional synchronization is required.
+    ///     <see langword="null"/> when no partially consumed block remains. Read and written from
+    ///     <see cref="ProvideSamples"/> (the single real-time PortAudio callback thread, only
+    ///     while a stream is running) and from <see cref="ClearQueuedSamples"/> (a caller thread,
+    ///     only after that stream's callback processing has genuinely ceased). No additional
+    ///     synchronization is required because <see cref="Start"/>/<see cref="Stop"/> are
+    ///     serialized under <see cref="_syncRoot"/>, and <c>Stop()</c> only calls
+    ///     <see cref="ClearQueuedSamples"/> after the native <c>stream.Stop()</c> call has already
+    ///     blocked until the callback thread finished - so the two accessors never run concurrently.
     /// </summary>
     private float[]? _headBlock;
 

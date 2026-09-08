@@ -211,7 +211,7 @@ public class SherpaOnnxSpeechSynthesizerTests
         // in-flight cancellation primitive of its own.
         using var generateStarted = new SemaphoreSlim(0, 1);
         using var generateRelease = new SemaphoreSlim(0, 1);
-        var engine = new BlockingSynthesisEngine(generateStarted, generateRelease);
+        var engine = new BlockingSynthesisEngine(generateStarted, generateRelease, TestContext.Current.CancellationToken);
         var playbackDevice = CreateAvailablePlaybackDevice();
         using var synthesizer = new SherpaOnnxSpeechSynthesizer(engine, playbackDevice, new FakeSynthesisModel());
 
@@ -247,7 +247,7 @@ public class SherpaOnnxSpeechSynthesizerTests
         // Arrange
         using var generateStarted = new SemaphoreSlim(0, 1);
         using var generateRelease = new SemaphoreSlim(0, 1);
-        var engine = new BlockingSynthesisEngine(generateStarted, generateRelease);
+        var engine = new BlockingSynthesisEngine(generateStarted, generateRelease, TestContext.Current.CancellationToken);
         var playbackDevice = CreateAvailablePlaybackDevice();
         using var synthesizer = new SherpaOnnxSpeechSynthesizer(engine, playbackDevice, new FakeSynthesisModel());
         using var cts = new CancellationTokenSource();
@@ -278,6 +278,52 @@ public class SherpaOnnxSpeechSynthesizerTests
         Assert.True(engine.GenerateReturned);
         Assert.Equal(1, engine.GenerateCallCount);
         var disposeException = Record.Exception(synthesizer.Dispose);
+        Assert.Null(disposeException);
+    }
+
+    /// <summary>
+    ///     Proves that abandoning enumeration of <see cref="SherpaOnnxSpeechSynthesizer.SynthesizeStreamAsync"/>
+    ///     for a reason <em>other</em> than the stream's own <c>cancellationToken</c> being
+    ///     cancelled - exactly what happens when a consumer's <c>await foreach</c> body throws an
+    ///     unrelated exception, such as <see cref="ISpeechSynthesizer.PlayStreamAsync"/> observing a
+    ///     playback device fault - still completes promptly instead of hanging.
+    /// </summary>
+    /// <remarks>
+    ///     This is the regression coverage for a hang introduced by the crash fix itself: the
+    ///     producer writes into a <em>bounded</em> channel, which only unblocks a full write when
+    ///     either the reader keeps draining or the write's token is cancelled. Before adding the
+    ///     producer's own, always-owned cancellation (independent of the caller's token), disposing
+    ///     the enumerator early - without the caller's token ever being cancelled - awaited the
+    ///     producer task in the <c>finally</c> block while the producer sat blocked forever inside
+    ///     a full channel's <c>WriteAsync</c>, since nothing was left to drain it. A
+    ///     <c>Timeout</c> is set as a safety net so this test fails fast rather than hanging the
+    ///     whole run if that regresses.
+    /// </remarks>
+    [Fact(Timeout = 5000)]
+    public async Task SynthesizeStreamAsync_EnumerationAbandonedWithoutCancellation_DisposesPromptlyInsteadOfHanging()
+    {
+        // Arrange: enough sentences to exceed the producer's bounded look-ahead capacity, so the
+        // producer is still blocked mid-stream, waiting for channel space that will never free up,
+        // by the time enumeration is abandoned below.
+        var manySentences = string.Concat(Enumerable.Range(1, 12).Select(i => $"Sentence number {i}. "));
+        var engine = new FakeSynthesisEngine();
+        var playbackDevice = CreateAvailablePlaybackDevice();
+        using var synthesizer = new SherpaOnnxSpeechSynthesizer(engine, playbackDevice, new FakeSynthesisModel());
+
+        // Act: start enumerating (this launches the background producer), consume exactly one
+        // segment to prove the pipeline is genuinely running, then abandon enumeration by
+        // disposing the enumerator directly - exactly what the compiler-generated `await foreach`
+        // cleanup does when a consumer's loop body throws for an unrelated reason - without ever
+        // cancelling the stream's own cancellationToken.
+        var enumerator = synthesizer
+            .SynthesizeStreamAsync(manySentences, TestContext.Current.CancellationToken)
+            .GetAsyncEnumerator(TestContext.Current.CancellationToken);
+        var hasFirstSegment = await enumerator.MoveNextAsync();
+        Assert.True(hasFirstSegment);
+
+        // Assert: disposal completes promptly (the [Fact(Timeout = ...)] above is the actual
+        // safety net; this await simply must not hang).
+        var disposeException = await Record.ExceptionAsync(async () => await enumerator.DisposeAsync());
         Assert.Null(disposeException);
     }
 
@@ -564,11 +610,21 @@ public class SherpaOnnxSpeechSynthesizerTests
     ///     a caller do so) while this call is still in flight, so a test relying on
     ///     <see cref="Dispose"/> to unblock it would either mask that exact bug or deadlock
     ///     against the fix. Callers must release <paramref name="generateRelease"/> explicitly to
-    ///     let the in-flight call complete.
+    ///     let the in-flight call complete. However, <see cref="Generate"/> still waits against
+    ///     <paramref name="testCancellationToken"/>, so a failed or timed-out test unblocks the
+    ///     background producer thread instead of leaving it blocked for the rest of the test run.
     /// </remarks>
     /// <param name="generateStarted">Released once <see cref="Generate"/> is called.</param>
     /// <param name="generateRelease">Awaited by <see cref="Generate"/> before it returns.</param>
-    private sealed class BlockingSynthesisEngine(SemaphoreSlim generateStarted, SemaphoreSlim generateRelease) : ISynthesisEngine
+    /// <param name="testCancellationToken">
+    ///     The owning test's own cancellation/timeout token (for example,
+    ///     <see cref="TestContext.CancellationToken"/>), observed only as a failure-mode safety
+    ///     net so the wait never outlives the test, not as part of the behavior under test.
+    /// </param>
+    private sealed class BlockingSynthesisEngine(
+        SemaphoreSlim generateStarted,
+        SemaphoreSlim generateRelease,
+        CancellationToken testCancellationToken) : ISynthesisEngine
     {
         public int SampleRate => 16000;
 
@@ -584,9 +640,11 @@ public class SherpaOnnxSpeechSynthesizerTests
             generateStarted.Release();
 
             // Blocks until the test explicitly allows this in-flight call to complete, rather
-            // than observing any cancellation token - matching the real native call this fake
-            // stands in for.
-            generateRelease.Wait();
+            // than observing any cancellation token that the synthesizer under test might use -
+            // matching the real native call this fake stands in for. The test's own
+            // cancellation/timeout token is still observed here purely as a safety net so a
+            // failed or timed-out test cannot leave this background thread blocked forever.
+            generateRelease.Wait(testCancellationToken);
 
             GenerateReturned = true;
             return new EngineAudio([], SampleRate);

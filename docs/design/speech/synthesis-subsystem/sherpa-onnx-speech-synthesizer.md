@@ -65,12 +65,25 @@ change.
   cancellation path, since `ProduceAsync` normally suppresses it internally and completes the
   channel instead of faulting) without masking whatever exception, if any, is already propagating
   out of the loop; a genuine (non-cancellation) producer fault on the normal-completion path still
-  propagates to the caller exactly as before. See
-  `SherpaOnnxSpeechSynthesizerTests.Stop_WhileSpeaking_CancelsInFlightSessionOnlyAfterInFlightGenerateReturns`
+  propagates to the caller exactly as before. An unconditional await alone would not be safe,
+  though: the producer writes into the bounded channel via `writer.WriteAsync`, which only
+  unblocks a full write when either the reader keeps draining or the write's own token is
+  cancelled. Enumeration can also be abandoned for a reason that never touches the caller's
+  `cancellationToken` at all - most notably a consumer's own `await foreach` body throwing an
+  unrelated exception (for example `PlayStreamAsync` observing a playback device fault), which the
+  compiler's `await foreach` cleanup turns into a `DisposeAsync` on this iterator, resuming it
+  inside the same `finally` block. If the channel happened to be full at that moment, the reader
+  will never drain again and the caller's token was never cancelled, so the unconditional await
+  would hang forever. To close that hole, the producer task observes its own
+  `CancellationTokenSource` linked to (but distinct from) the caller's token, and the `finally`
+  block cancels it before awaiting the producer task on every exit path, guaranteeing
+  `writer.WriteAsync` always has a way to unblock regardless of why enumeration was abandoned. See
+  `SherpaOnnxSpeechSynthesizerTests.Stop_WhileSpeaking_CancelsInFlightSessionOnlyAfterInFlightGenerateReturns`,
+  `SherpaOnnxSpeechSynthesizerTests.SynthesizeStreamAsync_CancelledMidGenerate_AwaitsProducerBeforeEnumerationCompletesAndDisposalIsSafe`,
   and
-  `SherpaOnnxSpeechSynthesizerTests.SynthesizeStreamAsync_CancelledMidGenerate_AwaitsProducerBeforeEnumerationCompletesAndDisposalIsSafe`
-  for regression coverage proving the producer task is never orphaned and disposal after
-  cancellation is safe.
+  `SherpaOnnxSpeechSynthesizerTests.SynthesizeStreamAsync_EnumerationAbandonedWithoutCancellation_DisposesPromptlyInsteadOfHanging`
+  for regression coverage proving the producer task is never orphaned, disposal after cancellation
+  is safe, and abandoning enumeration for an unrelated reason cannot hang.
 - **GenerateSegment(segment)**: An empty-text segment (a rendered pause) skips the engine
   entirely and returns a pure-silence `SynthesizedSpeech` built directly from the segment's
   declared silence durations. Otherwise resolves speed/volume overrides against the model's

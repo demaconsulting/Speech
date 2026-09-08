@@ -30,8 +30,20 @@ then, once released, that the pipeline unwound via cancellation rather than comp
 and that disposing the synthesizer immediately afterward is safe. This is the regression coverage
 for a fixed `AccessViolationException` crash: `SynthesizeStreamCore` previously could return
 control to its caller (who could then dispose the owned engine) while the producer's native
-`Generate` call was still genuinely running on a background thread; no sleeps, polls, or timeouts
-appear anywhere in this coverage.
+`Generate` call was still genuinely running on a background thread; the assertions themselves
+synchronize deterministically via semaphores and awaited tasks, with no polling-based sleeps or
+waits anywhere in this coverage. Each test does carry a `[Fact(Timeout = ...)]` attribute, but only
+as a safety-net deadlock guard that fails the test fast if the fix ever regressed, not as part of
+the synchronization logic.
+
+A further test proves the fix for the crash cannot itself hang: it drives a fast, non-blocking
+fake engine through more sentences than the producer's bounded look-ahead capacity, consumes only
+the first synthesized segment, then abandons enumeration by disposing the enumerator directly -
+exactly what the compiler's `await foreach` cleanup does when a consumer's loop body throws for an
+unrelated reason, without the stream's own `cancellationToken` ever being cancelled - and asserts
+that disposal still completes promptly rather than hanging on the producer's now-permanently-full
+channel write. This is regression coverage for a hang that an earlier, narrower version of the fix
+could otherwise have introduced.
 
 Speaker-id resolution is verified against a `FakeSynthesisModel` whose injectable
 `resolveSpeakerId` delegate lets a test assert exactly which speaker id
