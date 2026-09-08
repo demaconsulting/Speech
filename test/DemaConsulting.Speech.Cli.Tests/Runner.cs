@@ -40,6 +40,17 @@ internal static class Runner
     private static readonly TimeSpan ProcessExitTimeout = TimeSpan.FromSeconds(60);
 
     /// <summary>
+    ///     The maximum time to wait for a killed process tree to finish terminating after
+    ///     <see cref="ProcessExitTimeout"/> has already elapsed.
+    /// </summary>
+    /// <remarks>
+    ///     Killing a process tree is not instantaneous; this second, shorter wait keeps <see
+    ///     cref="Run"/> from returning control to the caller (and, in a test run, moving on to
+    ///     the next test) while the killed tree is still tearing down.
+    /// </remarks>
+    private static readonly TimeSpan ProcessKillTimeout = TimeSpan.FromSeconds(5);
+
+    /// <summary>
     ///     Runs the specified program and captures its output.
     /// </summary>
     /// <param name="output">Program output (stdout and stderr combined).</param>
@@ -81,9 +92,24 @@ internal static class Runner
         // hang this entire test suite - and CI - indefinitely instead of failing fast.
         if (!process.WaitForExit((int)ProcessExitTimeout.TotalMilliseconds))
         {
-            // Kill the whole process tree so no orphaned child process outlives the test, then
-            // report a clear failure instead of hanging.
-            process.Kill(entireProcessTree: true);
+            // Kill the whole process tree so no orphaned child process outlives the test. Kill()
+            // can race with the process exiting on its own just after WaitForExit returned false
+            // (which can itself throw, e.g. InvalidOperationException for a process that has
+            // already exited), so tolerate that race rather than letting it mask the intended
+            // timeout failure below, and wait again afterward so a still-terminating process
+            // tree cannot outlive this call.
+            try
+            {
+                process.Kill(entireProcessTree: true);
+            }
+            catch (InvalidOperationException)
+            {
+                // The process already exited on its own between the timed-out WaitForExit above
+                // and this Kill() call; nothing left to kill.
+            }
+
+            process.WaitForExit((int)ProcessKillTimeout.TotalMilliseconds);
+
             throw new InvalidOperationException(
                 $"Process '{program}' did not exit within {ProcessExitTimeout.TotalSeconds}s.");
         }

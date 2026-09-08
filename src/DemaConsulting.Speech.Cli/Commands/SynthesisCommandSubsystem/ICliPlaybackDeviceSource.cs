@@ -32,10 +32,11 @@ namespace DemaConsulting.Speech.Cli.Commands.SynthesisCommandSubsystem;
 ///     <c>ICliModelCatalog</c> already establishes for the model catalog (see
 ///     _SpeechCli ModelCommandsSubsystem Design_). This seam exists because
 ///     <see cref="AudioDeviceFactory"/>'s own real-hardware detection
-///     (<c>PortAudioEnvironment.Shared.IsInitialized</c>) makes its public constructor resolve to
-///     the honest unavailable fallback on any machine with no real playback hardware - including
-///     headless CI runners - regardless of any playback probe injected into it, and its
-///     internal, hardware-injectable constructor is deliberately not reachable from
+///     (<c>PortAudioEnvironment.Shared.IsInitialized</c>) makes its
+///     <see cref="AudioDeviceFactory.CreatePlaybackDevice"/> method return the honest
+///     unavailable fallback on any machine with no real playback hardware - including headless
+///     CI runners - regardless of any playback probe injected into the factory's constructor,
+///     and its internal, hardware-injectable constructor is deliberately not reachable from
 ///     <c>DemaConsulting.Speech.Cli.Tests</c> (that assembly is not granted
 ///     <c>InternalsVisibleTo</c> access, by design - see
 ///     _SpeechCli SynthesisCommandSubsystem Design_ for the full rationale). The production
