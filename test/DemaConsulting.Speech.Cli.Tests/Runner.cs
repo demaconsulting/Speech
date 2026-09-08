@@ -108,10 +108,14 @@ internal static class Runner
                 // and this Kill() call; nothing left to kill.
             }
 
-            process.WaitForExit((int)ProcessKillTimeout.TotalMilliseconds);
+            var killedInTime = process.WaitForExit((int)ProcessKillTimeout.TotalMilliseconds);
 
             throw new InvalidOperationException(
-                $"Process '{program}' did not exit within {ProcessExitTimeout.TotalSeconds}s.");
+                killedInTime
+                    ? $"Process '{program}' did not exit within {ProcessExitTimeout.TotalSeconds}s."
+                    : $"Process '{program}' did not exit within {ProcessExitTimeout.TotalSeconds}s, " +
+                      $"and could not be confirmed terminated within {ProcessKillTimeout.TotalSeconds}s " +
+                      "of being killed; it (or a child process) may still be running.");
         }
 
         // Combine stdout and stderr, save the output and return the exit code

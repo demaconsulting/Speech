@@ -49,6 +49,15 @@ internal sealed class FakeSpeechRecognizer : ISpeechRecognizer
     /// </remarks>
     public Action<FakeSpeechRecognizer>? OnStart { get; set; }
 
+    /// <summary>Gets or sets an action invoked synchronously from <see cref="Stop"/>, after incrementing <see cref="StopCallCount"/>.</summary>
+    /// <remarks>
+    ///     Lets a test simulate the real recognizer's <c>Stop()</c> blocking while its own
+    ///     background decode thread drains already-captured audio and raises
+    ///     <see cref="ResultReceived"/> - the exact interleaving
+    ///     <c>SilenceTimeoutRecognizerSession.OnIdle</c> must not deadlock against.
+    /// </remarks>
+    public Action<FakeSpeechRecognizer>? OnStop { get; set; }
+
     /// <inheritdoc/>
     public bool IsAvailable { get; set; } = true;
 
@@ -76,7 +85,11 @@ internal sealed class FakeSpeechRecognizer : ISpeechRecognizer
     }
 
     /// <inheritdoc/>
-    public void Stop() => StopCallCount++;
+    public void Stop()
+    {
+        StopCallCount++;
+        OnStop?.Invoke(this);
+    }
 
     /// <inheritdoc/>
     public void Dispose() => DisposeCallCount++;

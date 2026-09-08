@@ -73,10 +73,37 @@ internal sealed class SilenceTimeoutRecognizerSession : IDisposable
     ///     Guards against a timer callback racing a concurrent <see cref="Dispose"/> call: once
     ///     set, the timer callback (which runs on a thread-pool thread independent of the
     ///     constructing/disposing thread) must not call <see cref="ISpeechRecognizer.Stop"/> or
-    ///     raise <see cref="TimedOut"/> on an already-torn-down session. Always read/written while
-    ///     holding <see cref="_gate"/>.
+    ///     raise <see cref="TimedOut"/> once <see cref="Dispose"/> has already started and
+    ///     observed the callback hasn't fired yet. Always read/written while holding
+    ///     <see cref="_gate"/>; see <see cref="OnIdle"/> for why <see cref="_gate"/> is released
+    ///     again before that call and raise actually happen.
     /// </summary>
     private bool _isDisposed;
+
+    /// <summary>
+    ///     Signaled whenever no <see cref="OnIdle"/> invocation is currently between its
+    ///     <see cref="_gate"/>-protected disposed-check and the completion of its
+    ///     <see cref="ISpeechRecognizer.Stop"/> call and <see cref="TimedOut"/> raise. Starts
+    ///     signaled (no callback in flight). <see cref="Dispose"/> waits on this - outside
+    ///     <see cref="_gate"/> - so it still happens-after any in-flight
+    ///     <see cref="ISpeechRecognizer.Stop"/> call and <see cref="TimedOut"/> raise, even though
+    ///     <see cref="OnIdle"/> no longer holds <see cref="_gate"/> while making them (see
+    ///     <see cref="OnIdle"/> for why holding <see cref="_gate"/> across those calls would
+    ///     deadlock). Without this, a caller could observe <see cref="Dispose"/> return and then
+    ///     tear down state a <see cref="TimedOut"/> handler still in flight depends on (for
+    ///     example disposing a synchronization primitive a handler closure calls back into, as
+    ///     <c>RecognizeCommand</c> does with its shared <c>stopSignal</c>).
+    /// </summary>
+    /// <remarks>
+    ///     This assumes a <see cref="TimedOut"/> subscriber never calls <see cref="Dispose"/>
+    ///     synchronously from within its own handler - <see cref="Dispose"/> would deadlock
+    ///     waiting on this event in that case, since only that same (blocked) thread's own
+    ///     <see cref="OnIdle"/> invocation could ever signal it. This session's sole caller,
+    ///     <c>RecognizeCommand</c>, only ever sets a flag from its <see cref="TimedOut"/> handler
+    ///     and calls <see cref="Dispose"/> later, separately, after observing that flag on its own
+    ///     thread, so this is not a real constraint in practice today.
+    /// </remarks>
+    private readonly ManualResetEventSlim _idleCallbackDone = new(initialState: true);
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="SilenceTimeoutRecognizerSession"/> class,
@@ -152,13 +179,33 @@ internal sealed class SilenceTimeoutRecognizerSession : IDisposable
                 return;
             }
 
-            // Stop() and the TimedOut raise both happen while still holding _gate, for the same
-            // reason as OnResultReceived above: a concurrent Dispose cannot have torn down
-            // _recognizer's subscription or _timer while this thread holds the lock, and lock is
-            // reentrant on this thread, so a TimedOut handler that itself calls Dispose() does
-            // not deadlock.
+            // Reset while still holding _gate: this is the only place _idleCallbackDone is
+            // reset, and _isDisposed being false here (still checked under _gate) proves Dispose
+            // has not yet started waiting on it, so there is no race with the Wait() in Dispose.
+            _idleCallbackDone.Reset();
+        }
+
+        try
+        {
+            // Stop() and the TimedOut raise deliberately happen without holding _gate. Stop()
+            // drains already-captured audio and can block waiting for the recognizer's
+            // background decode thread to finish, and that thread may itself raise
+            // ResultReceived while draining - which needs _gate to reset the idle timer in
+            // OnResultReceived. Holding _gate across Stop() here would deadlock the two threads
+            // against each other (this thread blocked inside Stop() waiting for the decode
+            // thread, the decode thread blocked waiting to enter _gate). Releasing _gate first
+            // means a concurrent Dispose can now set _isDisposed and unsubscribe before Stop()
+            // returns; that is harmless because the recognizer is owned by this session's
+            // caller, not by the session itself, so calling Stop() (and raising TimedOut) after
+            // this session's own bookkeeping has been torn down is still safe. Dispose still
+            // waits for this call to finish (via _idleCallbackDone) before returning, so callers
+            // never observe Dispose complete while a TimedOut raise is still in flight.
             _recognizer.Stop();
             TimedOut?.Invoke(this, EventArgs.Empty);
+        }
+        finally
+        {
+            _idleCallbackDone.Set();
         }
     }
 
@@ -187,6 +234,15 @@ internal sealed class SilenceTimeoutRecognizerSession : IDisposable
         // this thread holds). Releasing _gate first (having already set _isDisposed under it)
         // still guarantees no new call to OnResultReceived/OnIdle acts on this session, since
         // both re-check _isDisposed immediately after acquiring _gate.
+        //
+        // Wait for _idleCallbackDone before disposing the timer: an OnIdle invocation already
+        // past the _isDisposed check above (and therefore already committed to calling Stop()
+        // and raising TimedOut) is not tracked by _gate at all once it releases it, so without
+        // this wait, Dispose could return - and a caller could tear down state a still-in-flight
+        // TimedOut handler depends on - before that call actually happens (see _idleCallbackDone
+        // for the one assumption this relies on: no TimedOut subscriber calls Dispose() itself).
+        _idleCallbackDone.Wait();
         _timer.Dispose();
+        _idleCallbackDone.Dispose();
     }
 }
