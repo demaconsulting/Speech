@@ -229,6 +229,180 @@ public class AudioDeviceFactoryTests
     }
 
     /// <summary>
+    ///     Proves that an injected capture probe reporting zero known devices is genuinely
+    ///     consulted: <see cref="AudioDeviceFactory.CreateCaptureDevice"/> returns the honest
+    ///     unavailable fallback even though the real (fake) PortAudio environment has a device
+    ///     that an unfiltered resolution would otherwise find.
+    /// </summary>
+    [Fact]
+    public void AudioDeviceFactory_CreateCaptureDevice_InjectedProbeReportsNoDevices_ReturnsUnavailableDevice()
+    {
+        // Arrange: a fake PortAudio environment with one real capture device, but an injected
+        // probe that (unlike the real environment) reports no known capture devices.
+        var environment = new PortAudioEnvironment(
+            new FakePortAudioApi(
+            [
+                new PortAudioDeviceInfo("Mic", 5, 1, 0, 16000, 0.01, 0.0)
+            ])
+            {
+                FindHostApiIndexResult = 5,
+                HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, 0, -1)
+            },
+            OSPlatform.Windows);
+        var captureProbe = Substitute.For<IAudioCaptureDeviceProbe>();
+        captureProbe.Enumerate().Returns([]);
+        var factory = new AudioDeviceFactory(captureProbe, null, null, environment);
+
+        // Act: request the default capture device
+        var device = factory.CreateCaptureDevice();
+
+        // Assert: the injected probe's empty enumeration is honored, not the real environment scan
+        Assert.Same(UnavailableAudioCaptureDevice.Instance, device);
+    }
+
+    /// <summary>
+    ///     Proves that an injected capture probe reporting a different device name than requested
+    ///     causes <see cref="AudioDeviceFactory.CreateCaptureDevice"/> to return the honest
+    ///     unavailable fallback, rather than silently falling back to a real device resolved
+    ///     independently of the probe.
+    /// </summary>
+    [Fact]
+    public void AudioDeviceFactory_CreateCaptureDevice_InjectedProbeDoesNotKnowRequestedDevice_ReturnsUnavailableDevice()
+    {
+        // Arrange: a fake PortAudio environment with a real "Mic" device, but an injected probe
+        // that only knows about an unrelated device name.
+        var environment = new PortAudioEnvironment(
+            new FakePortAudioApi(
+            [
+                new PortAudioDeviceInfo("Mic", 5, 1, 0, 16000, 0.01, 0.0)
+            ])
+            {
+                FindHostApiIndexResult = 5,
+                HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, 0, -1)
+            },
+            OSPlatform.Windows);
+        var captureProbe = Substitute.For<IAudioCaptureDeviceProbe>();
+        captureProbe.Enumerate().Returns(
+        [
+            new AudioDeviceDescription("Some Other Mic", AudioDeviceDirection.Capture, 1, 16000)
+        ]);
+        var factory = new AudioDeviceFactory(captureProbe, null, null, environment);
+
+        // Act: request a device the injected probe does not know about, but the real
+        // environment would otherwise be able to resolve by name.
+        var device = factory.CreateCaptureDevice(new AudioDeviceSelection("Mic"));
+
+        // Assert: unavailable, because the injected probe never reported "Mic"
+        Assert.Same(UnavailableAudioCaptureDevice.Instance, device);
+    }
+
+    /// <summary>
+    ///     Proves that an injected playback probe reporting zero known devices is genuinely
+    ///     consulted: <see cref="AudioDeviceFactory.CreatePlaybackDevice"/> returns the honest
+    ///     unavailable fallback even though the real (fake) PortAudio environment has a device
+    ///     that an unfiltered resolution would otherwise find.
+    /// </summary>
+    [Fact]
+    public void AudioDeviceFactory_CreatePlaybackDevice_InjectedProbeReportsNoDevices_ReturnsUnavailableDevice()
+    {
+        // Arrange: a fake PortAudio environment with one real playback device, but an injected
+        // probe that reports no known playback devices.
+        var environment = new PortAudioEnvironment(
+            new FakePortAudioApi(
+            [
+                new PortAudioDeviceInfo("Speaker", 5, 0, 2, 48000, 0.0, 0.01)
+            ])
+            {
+                FindHostApiIndexResult = 5,
+                HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, -1, 0)
+            },
+            OSPlatform.Windows);
+        var playbackProbe = Substitute.For<IAudioPlaybackDeviceProbe>();
+        playbackProbe.Enumerate().Returns([]);
+        var factory = new AudioDeviceFactory(null, playbackProbe, null, environment);
+
+        // Act: request the default playback device
+        var device = factory.CreatePlaybackDevice();
+
+        // Assert: the injected probe's empty enumeration is honored, not the real environment scan
+        Assert.Same(UnavailableAudioPlaybackDevice.Instance, device);
+    }
+
+    /// <summary>
+    ///     Proves that an injected playback probe reporting the requested device name allows
+    ///     <see cref="AudioDeviceFactory.CreatePlaybackDevice"/> to proceed to real resolution,
+    ///     confirming the fix does not regress the common case where the injected probe agrees
+    ///     with the real environment.
+    /// </summary>
+    [Fact]
+    public void AudioDeviceFactory_CreatePlaybackDevice_InjectedProbeKnowsRequestedDevice_ReturnsRealDevice()
+    {
+        // Arrange
+        var environment = new PortAudioEnvironment(
+            new FakePortAudioApi(
+            [
+                new PortAudioDeviceInfo("Speaker", 5, 0, 2, 48000, 0.0, 0.01)
+            ])
+            {
+                FindHostApiIndexResult = 5,
+                HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, -1, 0)
+            },
+            OSPlatform.Windows);
+        var playbackProbe = Substitute.For<IAudioPlaybackDeviceProbe>();
+        playbackProbe.Enumerate().Returns(
+        [
+            new AudioDeviceDescription("Speaker", AudioDeviceDirection.Playback, 2, 48000)
+        ]);
+        var factory = new AudioDeviceFactory(null, playbackProbe, null, environment);
+
+        // Act
+        var device = factory.CreatePlaybackDevice(new AudioDeviceSelection("Speaker"));
+
+        // Assert
+        var typedDevice = Assert.IsType<PortAudioPlaybackDevice>(device);
+        Assert.True(typedDevice.IsAvailable);
+    }
+
+    /// <summary>
+    ///     Proves that a selection with an empty-string device name is treated the same as a
+    ///     <see langword="null"/> selection - falling back to "any known device is acceptable" -
+    ///     matching <see cref="AudioDeviceSelection.Resolve"/>, which can never exactly match an
+    ///     empty name and so always falls back to the system default for it. Without this fix, an
+    ///     empty-string selection would spuriously require an (impossible) exact match and return
+    ///     the unavailable fallback even though the probe reports real devices.
+    /// </summary>
+    [Fact]
+    public void AudioDeviceFactory_CreateCaptureDevice_SelectionHasEmptyDeviceName_ReturnsRealDevice()
+    {
+        // Arrange: a fake PortAudio environment with one real capture device, and a probe
+        // reporting that same device, matching what the real environment would enumerate.
+        var environment = new PortAudioEnvironment(
+            new FakePortAudioApi(
+            [
+                new PortAudioDeviceInfo("Mic", 5, 1, 0, 16000, 0.01, 0.0)
+            ])
+            {
+                FindHostApiIndexResult = 5,
+                HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, 0, -1)
+            },
+            OSPlatform.Windows);
+        var captureProbe = Substitute.For<IAudioCaptureDeviceProbe>();
+        captureProbe.Enumerate().Returns(
+        [
+            new AudioDeviceDescription("Mic", AudioDeviceDirection.Capture, 1, 16000)
+        ]);
+        var factory = new AudioDeviceFactory(captureProbe, null, null, environment);
+
+        // Act: request a device using a selection with an empty-string device name
+        var device = factory.CreateCaptureDevice(new AudioDeviceSelection(string.Empty));
+
+        // Assert: resolved as a real device, exactly as a null selection would be, rather than
+        // spuriously falling back to unavailable
+        var typedDevice = Assert.IsType<PortAudioCaptureDevice>(device);
+        Assert.True(typedDevice.IsAvailable);
+    }
+
+    /// <summary>
     ///     Proves that a PortAudio initialization failure returns the honest unavailable fallback device.
     /// </summary>
     [Fact]

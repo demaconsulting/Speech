@@ -1,0 +1,210 @@
+---
+# Software System Requirements for SpeechCli
+#
+# These requirements describe the externally visible behavior of the Speech CLI application
+# from the perspective of a person running it, without specifying implementation details.
+# SpeechCli is a sibling system to Speech: it consumes the Speech library's public API and
+# ships as a separately packaged .NET global tool (`speech-cli`).
+#
+# This pass covers only the scaffold-level behavior actually implemented: subcommand dispatch,
+# global options, version/help display, self-validation, and global-tool packaging. The ten
+# recognized subcommands (list-models, model-info, download, uninstall, clean, list-devices,
+# devices, doctor, speak, recognize) are dispatched to by name and listed in --help, and all ten
+# are now implemented. Requirements for the five model-management subcommands' functional
+# behavior are decomposed into docs/reqstream/speech-cli/model-commands-subsystem.yaml;
+# requirements for the three device-related subcommands' functional behavior are decomposed into
+# docs/reqstream/speech-cli/device-commands-subsystem.yaml; requirements for the speak
+# subcommand's functional behavior are decomposed into
+# docs/reqstream/speech-cli/synthesis-command-subsystem.yaml; requirements for the recognize
+# subcommand's functional behavior are decomposed into
+# docs/reqstream/speech-cli/recognition-command-subsystem.yaml.
+
+sections:
+  - title: SpeechCli Requirements
+    requirements:
+      - id: SpeechCli-Cli-SubcommandDispatch
+        title: >-
+          The tool shall dispatch a command-line invocation to a named subcommand chosen from a
+          fixed, recognized set, rejecting any unrecognized subcommand name with a clear error
+          message and a non-zero exit code rather than a stack trace or silent no-op.
+        tags: [system]
+        justification: |
+          A CLI with multiple subcommands must fail predictably and legibly on operator typos or
+          unsupported commands, both for interactive use and for scripting, where a non-zero
+          exit code is how a calling script detects failure.
+        tests:
+          - Program_Main_WithUnknownCommand_ReturnsNonZeroExitCodeAndReportsCommand
+          - SpeechCli_UnknownCommand_Provided_ReturnsCleanError
+
+      - id: SpeechCli-Cli-GlobalOptions
+        title: >-
+          The tool shall recognize its global options - `--models-dir`, `--verbose`/
+          `--diagnostics`, `--silent`, `--log <file>` - regardless of whether they appear before
+          or after the subcommand name on the command line.
+        tags: [system]
+        justification: |
+          Every subcommand needs the same cross-cutting configuration (where models are stored,
+          how verbose to be, whether to write a log). Requiring a fixed option order relative to
+          the subcommand name would be a usability trap; recognizing global options anywhere
+          keeps every subcommand's own invocation syntax uncluttered by an artificial ordering
+          rule.
+        tests:
+          - Context_Create_ModelsDirAfterCommand_IsRecognizedAsGlobalOption
+          - SpeechCli_SilentFlag_Provided_SuppressesOutput
+          - SpeechCli_LogFlag_Provided_WritesOutputToFile
+
+      - id: SpeechCli-Cli-VersionDisplay
+        title: >-
+          The tool shall display its version string, and nothing else, when invoked with `-v` or
+          `--version`.
+        tags: [system]
+        justification: |
+          Operators and support scripts need a machine-parseable way to confirm which build of
+          the tool is installed; printing the banner or other output alongside the version would
+          make that output harder to parse reliably.
+        tests:
+          - Program_Run_WithVersionFlag_DisplaysVersionOnly
+          - Program_Run_WithShortVersionFlag_DisplaysVersion
+          - SpeechCli_VersionFlag_Provided_OutputsVersion
+
+      - id: SpeechCli-Cli-HelpDisplay
+        title: >-
+          The tool shall display usage information listing every recognized global option, every
+          recognized subcommand, and each subcommand's expected flags, when invoked with `-h`,
+          `-?`, or `--help`, or when invoked with no subcommand at all.
+        tags: [system]
+        justification: |
+          A first-time user must be able to discover every available subcommand and its expected
+          flags without consulting external documentation. Treating "no subcommand given" the
+          same as `--help` (rather than as an error) is friendlier for a CLI whose main purpose
+          is a menu of subcommands, since a bare invocation is a natural way to ask "what can this
+          tool do?"
+        tests:
+          - Program_Run_WithHelpFlag_DisplaysUsageInformation
+          - Program_Run_WithShortHelpFlag_DisplaysUsage
+          - Program_Run_WithQuestionMarkFlag_DisplaysUsage
+          - Program_Run_NoArguments_DisplaysBannerAndUsage
+          - SpeechCli_HelpFlag_Provided_ListsAllSubcommands
+          - SpeechCli_NoArguments_Invoked_DisplaysBannerAndUsage
+
+      - id: SpeechCli-Cli-SelfValidation
+        title: >-
+          The tool shall run a self-validation, when invoked with `--validate`, that exercises
+          version display, help display, whether the subcommand dispatch table is well formed,
+          audio-backend probe composition, and whether the model-store root can be written to,
+          without requiring a downloaded speech model or real audio hardware to be present, and
+          shall optionally write the results to a `.trx` or `.xml` file named by `--results`.
+        tags: [system]
+        justification: |
+          A CI-safe self-test lets an operator or CI pipeline confirm the tool is installed and
+          functioning correctly on a target machine before relying on it, consistent with the
+          reference `TemplateDotNetTool`'s self-validation precedent. Every check must remain
+          CI-safe: none may depend on a real, multi-hundred-megabyte model download or physical
+          audio hardware, since both are unavailable in an ordinary CI runner.
+        tests:
+          - Program_Run_WithValidateFlag_RunsValidation
+          - SpeechCli_ValidateFlag_Provided_RunsValidation
+          - SpeechCli_ValidateWithTrxResults_Requested_GeneratesTrxFile
+          - SpeechCli_ValidateWithDepth_DepthThree_OutputsCorrectHeadingLevel
+
+      - id: SpeechCli-ModelManagement
+        title: >-
+          The tool shall let an operator list every known speech model, inspect a single
+          model's details, download a model, and remove a downloaded or partially downloaded
+          model, when invoked with the `list-models`, `model-info`, `download`, `uninstall`, and
+          `clean` subcommands respectively.
+        tags: [system]
+        justification: |
+          An operator cannot use any speech capability without first knowing which models exist,
+          whether they are downloaded, and having a way to download or remove them; this is the
+          minimum model-lifecycle surface a command-line tool over this library must expose.
+        children:
+          - SpeechCli-ModelCommands-ListModels
+          - SpeechCli-ModelCommands-ModelInfo
+          - SpeechCli-ModelCommands-Download
+          - SpeechCli-ModelCommands-DownloadCancellation
+          - SpeechCli-ModelCommands-Uninstall
+          - SpeechCli-ModelCommands-Clean
+          - SpeechCli-ModelCommands-LibraryDelegation
+          - SpeechCli-ModelCommands-SynthesisSeamExtension
+        tests:
+          - SpeechCli_ListModelsCommand_Invoked_ListsKnownModelsAsTable
+          - DownloadCommand_RunAsync_MultipleModels_DownloadsEachSequentially
+
+      - id: SpeechCli-DeviceInspection
+        title: >-
+          The tool shall let an operator list available audio devices, test a device with a
+          generated tone, and run a combined diagnostic check of the audio and model subsystems,
+          when invoked with the `list-devices`, `devices test`, and `doctor` subcommands
+          respectively.
+        tags: [system]
+        justification: |
+          An operator troubleshooting a failed `speak`/`recognize` invocation needs a way to
+          confirm which audio devices this machine actually exposes, and to positively verify
+          one works, without reasoning about the library's internal audio subsystem.
+        children:
+          - SpeechCli-DeviceCommands-ListDevices
+          - SpeechCli-DeviceCommands-DevicesTest
+          - SpeechCli-DeviceCommands-ToneGeneration
+          - SpeechCli-DeviceCommands-Doctor
+          - SpeechCli-DeviceCommands-LibraryDelegation
+        tests:
+          - ListDevicesCommand_Run_NoFilter_ListsBothDirections
+          - DoctorCommand_Run_WritableModelStore_ReportsHealthy
+
+      - id: SpeechCli-TextToSpeech
+        title: >-
+          The tool shall synthesize speech from operator-supplied text through a downloaded
+          synthesis model, either playing it back on a real audio device or writing it to a WAV
+          file, when invoked with the `speak` subcommand.
+        tags: [system]
+        justification: |
+          Text-to-speech is one of this library's two core capabilities; an operator or script
+          must be able to exercise it directly from the command line without writing any code.
+        children:
+          - SpeechCli-SynthesisCommands-Speak
+          - SpeechCli-SynthesisCommands-ParamValidation
+          - SpeechCli-SynthesisCommands-NoTags
+          - SpeechCli-SynthesisCommands-OutputDispatch
+          - SpeechCli-SynthesisCommands-CancellationAndDisposal
+          - SpeechCli-SynthesisCommands-CatalogSeamExtension
+          - SpeechCli-SynthesisCommands-NullGuards
+        tests:
+          - SpeakCommand_RunAsync_Output_ConstructsWavFileDeviceFromPreferredFormat
+
+      - id: SpeechCli-SpeechToText
+        title: >-
+          The tool shall recognize speech from a WAV file or from a real microphone through a
+          downloaded recognition model, printing the recognized transcript, when invoked with
+          the `recognize` subcommand.
+        tags: [system]
+        justification: |
+          Speech-to-text is this library's other core capability; an operator or script must be
+          able to exercise it directly from the command line, including a silence-timeout-driven
+          microphone session, without writing any code.
+        children:
+          - SpeechCli-RecognitionCommands-Recognize
+          - SpeechCli-RecognitionCommands-ParamValidation
+          - SpeechCli-RecognitionCommands-FileInputEofDrivenStop
+          - SpeechCli-RecognitionCommands-SilenceTimeout
+          - SpeechCli-RecognitionCommands-VerbosityAndOutput
+          - SpeechCli-RecognitionCommands-DeviceDispatch
+          - SpeechCli-RecognitionCommands-CatalogSeamExtension
+          - SpeechCli-RecognitionCommands-NullGuards
+        tests:
+          - RecognizeCommand_Run_ValidParam_ForwardsToCreateRecognizer
+          - RecognizeCommand_Run_Success_DisposesRecognizerOnce
+
+      - id: SpeechCli-Packaging-GlobalTool
+        title: >-
+          The tool shall be distributable as a .NET global tool, installable with
+          `dotnet tool install -g DemaConsulting.Speech.Cli`, exposing its command-line entry
+          point as `speech-cli`.
+        tags: [system]
+        justification: |
+          Packaging as a .NET global tool is how an operator installs and invokes this CLI in
+          practice; the `ToolCommandName` and `PackageId` are the tool's externally visible
+          installation and invocation identity, distinct from its internal assembly name.
+        tests:
+          - SpeechCli_VersionFlag_Provided_OutputsVersion
+          - SpeechCli_HelpFlag_Provided_ListsAllSubcommands

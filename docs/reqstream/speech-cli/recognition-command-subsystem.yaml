@@ -1,0 +1,192 @@
+---
+# Software Subsystem Requirements for the SpeechCli RecognitionCommandSubsystem
+#
+# These requirements describe the subsystem-level behavior of the one speech-to-text subcommand
+# (recognize), decomposing the system-level dispatch requirements in docs/reqstream/speech-cli.yaml.
+#
+# This subsystem extends the ModelCommandsSubsystem seam (ICliModelCatalog) with two further
+# members - GetAudioFormat and CreateRecognizer - rather than introduce a second, competing seam,
+# since a resolved model must still be cast to the library's internal IRecognitionModel before
+# either operation is possible, and that cast belongs in the same assembly-scoped adapter that
+# already owns the original five members plus the two added by the SynthesisCommandSubsystem.
+
+sections:
+  - title: SpeechCli Requirements
+    sections:
+      - title: RecognitionCommandSubsystem Requirements
+        requirements:
+          - id: SpeechCli-RecognitionCommands-Recognize
+            title: >-
+              The tool shall stream speech-to-text results from exactly one of a pre-recorded
+              mono WAV file (`--input <wav-path>`) or a real microphone (`--mic`), through a
+              known, downloaded recognition model named by `--model <id>`, when invoked with
+              `recognize`, rejecting a missing `--model`, an unknown/wrong-role/not-downloaded
+              model id, or a conflicting/missing input source with a clean, actionable,
+              non-zero-exit-code error rather than a stack trace.
+            tags: [subsystem]
+            justification: |
+              An operator or script needs one command that turns either a WAV file or a live
+              microphone into recognized text without needing to know which library types compose
+              a recognizer. Input-source mutual exclusion and model validation must fail
+              predictably and with an actionable next step (`list-models`, `list-models --role
+              stt`, or `download <modelId>`) so a scripted invocation can react to the specific
+              failure rather than a generic error.
+            tests:
+              - RecognizeCommand_ParseArguments_MissingModel_ThrowsArgumentException
+              - RecognizeCommand_ParseArguments_InputFlag_ParsesInputPath
+              - RecognizeCommand_ParseArguments_MicFlag_ParsesTrue
+              - RecognizeCommand_ParseArguments_UnsupportedArgument_ThrowsArgumentException
+              - RecognizeCommand_ParseArguments_FlagMissingValue_ThrowsArgumentException
+              - RecognizeCommand_Run_InputAndMicBothGiven_ThrowsArgumentException
+              - RecognizeCommand_Run_NoInputSource_ThrowsArgumentException
+              - RecognizeCommand_Run_UnknownModelId_ThrowsArgumentException
+              - RecognizeCommand_Run_WrongRoleModel_ThrowsArgumentException
+              - RecognizeCommand_Run_NotDownloadedModel_ThrowsArgumentExceptionWithDownloadHint
+              - RecognizeCommand_Run_Success_DisposesRecognizerOnce
+              - SpeechCli_RecognizeCommandWithoutModel_Invoked_ReturnsCleanError
+              - SpeechCli_RecognizeCommandWithUnknownModel_Invoked_ReturnsCleanError
+              - SpeechCli_RecognizeCommandWithWrongRoleModel_Invoked_ReturnsCleanError
+              - SpeechCli_RecognizeCommandWithNotDownloadedModel_Invoked_ReturnsCleanErrorWithDownloadHint
+              - SpeechCli_RecognizeCommandWithConflictingInputSources_Invoked_ReturnsCleanError
+              - SpeechCli_RecognizeCommandWithRealSttModel_Invoked_ProducesNonEmptyRecognizedText
+              - Program_Run_WithRecognizeCommand_DoesNotThrowNotImplemented
+
+          - id: SpeechCli-RecognitionCommands-ParamValidation
+            title: >-
+              The tool shall parse repeatable `--param key=value` flags and validate each value
+              against the resolved recognition model's own declared parameter set, reusing
+              `ParameterBagParser` unmodified from the SynthesisCommandSubsystem, forwarding the
+              fully-resolved parameter bag to `CreateRecognizer`.
+            tags: [subsystem]
+            justification: |
+              Recognition models declare tunable parameters exactly as synthesis models do (e.g.
+              decoding beam width); reusing the existing, already-verified `ParameterBagParser`
+              rather than duplicating its validation logic keeps a single source of truth for
+              `--param` semantics across both `speak` and `recognize`.
+            tests:
+              - RecognizeCommand_ParseArguments_RepeatedParamFlags_AccumulatesInOrder
+              - RecognizeCommand_Run_ValidParam_ForwardsToCreateRecognizer
+              - RecognizeCommand_Run_InvalidParam_ThrowsArgumentException
+
+          - id: SpeechCli-RecognitionCommands-FileInputEofDrivenStop
+            title: >-
+              The tool shall, in `--input` mode, drive the supplied `WavFileAudioCaptureDevice` to
+              completion via `ISpeechRecognizer.Start()`'s own synchronous, blocking call chain,
+              stopping the recognizer reentrantly from the device's own `EndOfFileReached` event
+              and returning control to the caller only once every result derived from the whole
+              file has already been raised and the recognizer has fully stopped, with no
+              additional wait or fixed sleep.
+            tags: [subsystem]
+            justification: |
+              A file-input recognition session is inherently finite and must terminate on its own
+              once the file is exhausted, without an operator needing to interrupt it or the
+              command needing an arbitrary settle delay that would be either too short (truncating
+              results) or too long (wasting time) for an unknown file duration.
+            tests:
+              - RecognizeCommand_Run_FileInput_StartsAndStopsRecognizerViaEndOfFile
+              - RecognizeCommand_Run_FileInput_PassesWavFileCaptureDeviceToCreateRecognizer
+
+          - id: SpeechCli-RecognitionCommands-SilenceTimeout
+            title: >-
+              The tool shall, in `--mic` mode with `--silence-timeout <seconds>` given, stop the
+              recognizer and end the session automatically once no recognition result (partial or
+              final) has arrived within the given idle window since the last result (or session
+              start), via `SilenceTimeoutRecognizerSession`, which shall re-arm its idle timer on
+              every result and never fire after `Dispose()`.
+            tags: [subsystem]
+            justification: |
+              An unattended microphone session with no natural end-of-file signal needs an
+              automatic, configurable way to end itself when the speaker has stopped talking,
+              rather than requiring an operator to remain present to press `Ctrl+C`.
+            tests:
+              - RecognizeCommand_ParseArguments_SilenceTimeoutFlag_ParsesSeconds
+              - RecognizeCommand_ParseArguments_NonPositiveSilenceTimeout_ThrowsArgumentException
+              - RecognizeCommand_ParseArguments_MalformedSilenceTimeout_ThrowsArgumentException
+              - SilenceTimeoutRecognizerSession_Construct_ArmsTimerWithGivenTimeout
+              - SilenceTimeoutRecognizerSession_PartialResultReceived_ResetsIdleTimer
+              - SilenceTimeoutRecognizerSession_FinalResultReceived_ResetsIdleTimer
+              - SilenceTimeoutRecognizerSession_IdleTimerFires_StopsRecognizerAndRaisesTimedOut
+              - SilenceTimeoutRecognizerSession_ResetThenFire_StopsOnlyOnActualFire
+              - SilenceTimeoutRecognizerSession_Dispose_UnsubscribesAndDisposesTimer
+              - SilenceTimeoutRecognizerSession_FireAfterDispose_DoesNotCallStopOrRaiseTimedOut
+              - SilenceTimeoutRecognizerSession_Construct_NullRecognizer_ThrowsArgumentNullException
+              - SilenceTimeoutRecognizerSession_Construct_NonPositiveTimeout_ThrowsArgumentOutOfRangeException
+              - SilenceTimeoutRecognizerSession_Construct_NullTimeProvider_UsesSystemTimeProvider
+
+          - id: SpeechCli-RecognitionCommands-VerbosityAndOutput
+            title: >-
+              The tool shall, by default, print both interim and final recognition results (an
+              interim result overwritten in place, a final result settled on its own line); shall,
+              given `--interim`, print only interim results; shall, given `--final-only`, print
+              only final results; shall reject supplying both `--interim` and `--final-only`
+              together; and shall, given `--output <text-path>`, write only final results to the
+              file, one per line, overwriting any prior file content, regardless of the console
+              verbosity flags' effect on console output.
+            tags: [subsystem]
+            justification: |
+              A live console benefits from seeing an evolving interim hypothesis, but a scripted
+              consumer of `--output` needs a stable, append-free record of only the settled,
+              final transcript - conflating the two would either clutter a script's output file
+              with never-finalized partial guesses or deny an interactive operator useful
+              real-time feedback.
+            tests:
+              - RecognizeCommand_ParseArguments_InterimAndFinalOnlyFlags_ParseTrue
+              - RecognizeCommand_ParseArguments_OutputFlag_ParsesOutputPath
+              - RecognizeCommand_Run_InterimAndFinalOnlyBothGiven_ThrowsArgumentException
+              - RecognizeCommand_Run_DefaultVerbosity_PrintsBothInterimAndFinal
+              - RecognizeCommand_Run_ShrinkingInterimSequence_DoesNotLeaveStaleCharacters
+              - RecognizeCommand_Run_FinalOnly_SuppressesInterimConsoleOutput
+              - RecognizeCommand_Run_Interim_SuppressesFinalSettleConsoleOutput
+              - RecognizeCommand_Run_Output_WritesOnlyFinalResultsOverwritingPriorContent
+
+          - id: SpeechCli-RecognitionCommands-DeviceDispatch
+            title: >-
+              The tool shall, in `--mic` mode, resolve and validate a real capture device
+              (honoring `--device` when given), rejecting an unknown device name or an
+              unavailable resolved device with a clean, non-zero-exit-code error rather than a
+              stack trace.
+            tags: [subsystem]
+            justification: |
+              Validating an unknown/unavailable real capture device before any recognition is
+              attempted avoids a partially-run, undeliverable session, mirroring `devices test`'s
+              and `speak`'s own validate-before-create pattern.
+            tests:
+              - RecognizeCommand_Run_UnknownDevice_ThrowsArgumentException
+              - RecognizeCommand_Run_NoCaptureDeviceAvailable_ThrowsInvalidOperationException
+
+          - id: SpeechCli-RecognitionCommands-CatalogSeamExtension
+            title: >-
+              The tool shall resolve a recognition-role model's audio format and construct its
+              `ISpeechRecognizer` exclusively through the `ICliModelCatalog` seam's
+              `GetAudioFormat`/`CreateRecognizer` members, which shall reject a descriptor whose
+              model is not a recognition model with a clean `ArgumentException`.
+            tags: [subsystem]
+            justification: |
+              `RecognizeCommand` cannot itself distinguish a recognition-capable model without
+              internal library access it is not granted; extending the existing seam (rather than
+              introducing a second, competing one) keeps a single, narrow, already-established
+              boundary between the CLI and the library's internal model types, letting
+              `RecognizeCommand`'s own logic remain fully testable against a fake catalog with no
+              dependency on `IRecognitionModel`.
+            tests:
+              - SpeechModelCatalogAdapter_GetAudioFormat_SynthesisRoleModel_ThrowsArgumentException
+              - SpeechModelCatalogAdapter_GetAudioFormat_NullDescriptor_ThrowsArgumentNullException
+              - SpeechModelCatalogAdapter_CreateRecognizer_SynthesisRoleModel_ThrowsArgumentException
+              - SpeechModelCatalogAdapter_CreateRecognizer_NullDescriptor_ThrowsArgumentNullException
+              - SpeechModelCatalogAdapter_CreateRecognizer_NullCaptureDevice_ThrowsArgumentNullException
+
+          - id: SpeechCli-RecognitionCommands-NullGuards
+            title: >-
+              The RecognitionCommandSubsystem shall reject a missing context, catalog, factory, or
+              argument list immediately with `ArgumentNullException`, so a programming error is
+              never silently ignored.
+            tags: [subsystem]
+            justification: |
+              Consistent with every other subsystem in this tool, a missing required dependency
+              must fail immediately and specifically rather than surface later as a confusing
+              `NullReferenceException` deep inside recognition or device resolution logic.
+            tests:
+              - RecognizeCommand_Run_NullContext_ThrowsArgumentNullException
+              - RecognizeCommand_Run_NullCatalog_ThrowsArgumentNullException
+              - RecognizeCommand_Run_NullFactory_ThrowsArgumentNullException
+              - RecognizeCommand_ParseArguments_NullArgs_ThrowsArgumentNullException

@@ -233,6 +233,36 @@ parameters the selected model declares (sliders/numeric up-downs, combo boxes, c
 no per-model code in the demo. Model pickers lock while a model is actively recording or
 playing, so you can't switch models mid-session.
 
+## SpeechCli
+
+`speech-cli` is a cross-platform .NET global tool that exposes the library's model management,
+audio device inspection, text-to-speech, and speech-to-text capabilities directly from the
+command line - useful for scripting, CI smoke checks, or trying a model without writing any code.
+
+```bash
+dotnet tool install -g DemaConsulting.Speech.Cli
+```
+
+| Command | Purpose |
+| --- | --- |
+| `list-models` | List known models, optionally filtered by role or download state |
+| `model-info <modelId>` | Show full detail for one known model |
+| `download <modelId> [<modelId>...]` | Download one or more models |
+| `uninstall <modelId>` | Remove a downloaded model's files, keeping its catalog entry |
+| `clean <modelId>` | Best-effort remove leftover partial-install artifacts for a model (not a full uninstall) |
+| `list-devices` / `devices test` / `doctor` | Inspect audio devices and overall environment health |
+| `speak` | Synthesize text to a real playback device or a WAV file |
+| `recognize` | Recognize speech from a WAV file or the microphone |
+
+```bash
+speech-cli download streaming-zipformer-en-2023-06-26
+speech-cli recognize --model streaming-zipformer-en-2023-06-26 --input meeting.wav
+```
+
+Run `speech-cli --help` for the full flag reference. See the
+[CLI package README][link-cli-readme] and [user guide][link-user-guide] for install details, the
+full command reference, and worked examples.
+
 ## Documentation
 
 Generated documentation includes:
@@ -281,6 +311,7 @@ By contributing to this project, you agree that your contributions will be licen
 [link-continuous-compliance]: https://github.com/demaconsulting/ContinuousCompliance
 [link-contributing]: https://github.com/demaconsulting/Speech/blob/main/CONTRIBUTING.md
 [link-user-guide]: https://github.com/demaconsulting/Speech/blob/main/docs/user_guide/introduction.md
+[link-cli-readme]: https://github.com/demaconsulting/Speech/blob/main/src/DemaConsulting.Speech.Cli/README.md
 
 <!-- Image References -->
 [image-demo-audio-devices]: docs/images/demo-audio-devices.png

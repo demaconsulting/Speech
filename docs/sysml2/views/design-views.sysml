@@ -7,6 +7,7 @@ package Speech {
     view SoftwareStructureView {
         expose Speech;
         expose SpeechDemo;
+        expose SpeechCli;
     }
 
     view SpeechView {
@@ -67,5 +68,13 @@ package SpeechDemo {
 
     view RecognitionPanelSubsystemView {
         expose RecognitionPanelSubsystem;
+    }
+}
+
+// SpeechCli views. Declared in their own package so each 'expose' statement can reference
+// its target part def directly, exactly as the Speech views above do.
+package SpeechCli {
+    view SpeechCliView {
+        expose SpeechCliSystem;
     }
 }

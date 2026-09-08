@@ -312,6 +312,36 @@ reviews:
       - "src/DemaConsulting.Speech/AudioSubsystem/PortAudioPlaybackDevice.cs"
       - "test/DemaConsulting.Speech.Tests/AudioSubsystem/PortAudioPlaybackDeviceTests.cs"
 
+  # Speech-AudioSubsystem-WavFileAudioPlaybackDevice Review (one per unit)
+  - id: Speech-AudioSubsystem-WavFileAudioPlaybackDevice
+    title: Review that Speech AudioSubsystem WavFileAudioPlaybackDevice Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/audio-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/audio-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/audio-subsystem/wav-file-audio-playback-device.yaml"
+      - "docs/design/speech/audio-subsystem/wav-file-audio-playback-device.md"
+      - "docs/verification/speech/audio-subsystem/wav-file-audio-playback-device.md"
+      - "src/DemaConsulting.Speech/AudioSubsystem/WavFileAudioPlaybackDevice.cs"
+      - "test/DemaConsulting.Speech.Tests/AudioSubsystem/WavFileAudioPlaybackDeviceTests.cs"
+
+  # Speech-AudioSubsystem-WavFileAudioCaptureDevice Review (one per unit)
+  - id: Speech-AudioSubsystem-WavFileAudioCaptureDevice
+    title: Review that Speech AudioSubsystem WavFileAudioCaptureDevice Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/audio-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/audio-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/audio-subsystem/wav-file-audio-capture-device.yaml"
+      - "docs/design/speech/audio-subsystem/wav-file-audio-capture-device.md"
+      - "docs/verification/speech/audio-subsystem/wav-file-audio-capture-device.md"
+      - "src/DemaConsulting.Speech/AudioSubsystem/WavFileAudioCaptureDevice.cs"
+      - "test/DemaConsulting.Speech.Tests/AudioSubsystem/WavFileAudioCaptureDeviceTests.cs"
+
   # Speech-AudioSubsystem-PortAudio Review (one per child subsystem)
   - id: Speech-AudioSubsystem-PortAudio
     title: Review that Speech AudioSubsystem PortAudio Child Subsystem Satisfies Requirements
@@ -1082,6 +1112,101 @@ reviews:
       - "docs/verification/speech-demo/recognition-panel-subsystem.md"         # subsystem + inline unit verification
       - "src/DemaConsulting.Speech.Demo/RecognitionPanelSubsystem/**/*.cs"           # subsystem source
       - "test/DemaConsulting.Speech.Demo.Tests/RecognitionPanelSubsystem/**/*.cs"    # subsystem tests
+
+  # SpeechCli-Architecture Review (one per system)
+  - id: SpeechCli-Architecture
+    title: Review that SpeechCli Architecture Satisfies Requirements
+    context:
+      - "README.md"
+    paths:
+      - "docs/reqstream/speech-cli.yaml"                                    # system requirements
+      - "docs/design/speech-cli.md"                                        # system design
+      - "docs/verification/speech-cli.md"                                  # system verification
+      - "src/DemaConsulting.Speech.Cli/Program.cs"                        # process entry point
+      - "src/DemaConsulting.Speech.Cli/Cli/Context.cs"                    # global-option/subcommand parser
+      - "src/DemaConsulting.Speech.Cli/Cli/CommandDispatch.cs"            # subcommand dispatch table
+      - "src/DemaConsulting.Speech.Cli/SelfTest/Validation.cs"            # self-validation
+      - "src/DemaConsulting.Speech.Cli/Utilities/PathHelpers.cs"          # path-traversal-safe combine
+      - "test/DemaConsulting.Speech.Cli.Tests/ProgramTests.cs"            # in-process tests
+      - "test/DemaConsulting.Speech.Cli.Tests/IntegrationTests.cs"        # out-of-process tests
+      - "test/DemaConsulting.Speech.Cli.Tests/Runner.cs"                  # process-invocation helper
+
+  # SpeechCli-Design Review (one per system)
+  - id: SpeechCli-Design
+    title: Review that SpeechCli Design is Consistent and Complete
+    context:
+      - "docs/reqstream/speech-cli.yaml"
+    paths:
+      - "docs/design/speech-cli.md"                                        # system design
+      - "docs/design/speech-cli/**/*.md"                                   # all system design documents (future passes)
+
+  # SpeechCli-AllRequirements Review (one per system)
+  - id: SpeechCli-AllRequirements
+    title: Review that All SpeechCli Requirements are Complete
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/**/*.yaml"                              # subsystem/unit requirements files
+
+  # SpeechCli-ModelCommandsSubsystem Review (one per subsystem)
+  - id: SpeechCli-ModelCommandsSubsystem
+    title: Review that SpeechCli ModelCommandsSubsystem Satisfies Subsystem Requirements
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/model-commands-subsystem.yaml"                      # subsystem requirements
+      - "docs/design/speech-cli/model-commands-subsystem.md"                           # subsystem design
+      - "docs/verification/speech-cli/model-commands-subsystem.md"                     # subsystem verification
+      - "src/DemaConsulting.Speech.Cli/Commands/ModelCommandsSubsystem/**/*.cs"         # subsystem source
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/ModelCommandsSubsystem/**/*.cs"  # subsystem tests
+
+  # SpeechCli-DeviceCommandsSubsystem Review (one per subsystem)
+  - id: SpeechCli-DeviceCommandsSubsystem
+    title: Review that SpeechCli DeviceCommandsSubsystem Satisfies Subsystem Requirements
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/device-commands-subsystem.yaml"                      # subsystem requirements
+      - "docs/design/speech-cli/device-commands-subsystem.md"                           # subsystem design
+      - "docs/verification/speech-cli/device-commands-subsystem.md"                     # subsystem verification
+      - "src/DemaConsulting.Speech.Cli/Commands/DeviceCommandsSubsystem/**/*.cs"         # subsystem source
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/DeviceCommandsSubsystem/**/*.cs"  # subsystem tests
+
+  # SpeechCli-SynthesisCommandSubsystem Review (one per subsystem)
+  - id: SpeechCli-SynthesisCommandSubsystem
+    title: Review that SpeechCli SynthesisCommandSubsystem Satisfies Subsystem Requirements
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem.md"
+      - "docs/reqstream/speech-cli/model-commands-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/synthesis-command-subsystem.yaml"                      # subsystem requirements
+      - "docs/design/speech-cli/synthesis-command-subsystem.md"                           # subsystem design
+      - "docs/verification/speech-cli/synthesis-command-subsystem.md"                     # subsystem verification
+      - "src/DemaConsulting.Speech.Cli/Commands/SynthesisCommandSubsystem/**/*.cs"         # subsystem source
+      - "src/DemaConsulting.Speech.Cli/Cli/ParameterBagParser.cs"                         # subsystem parsing utility
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/SynthesisCommandSubsystem/**/*.cs"  # subsystem tests
+
+  # SpeechCli-RecognitionCommandSubsystem Review (one per subsystem)
+  - id: SpeechCli-RecognitionCommandSubsystem
+    title: Review that SpeechCli RecognitionCommandSubsystem Satisfies Subsystem Requirements
+    context:
+      - "docs/design/speech-cli.md"
+      - "docs/reqstream/speech-cli.yaml"
+      - "docs/design/speech-cli/model-commands-subsystem.md"
+      - "docs/reqstream/speech-cli/model-commands-subsystem.yaml"
+      - "docs/design/speech-cli/synthesis-command-subsystem.md"
+      - "docs/reqstream/speech-cli/synthesis-command-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-cli/recognition-command-subsystem.yaml"                      # subsystem requirements
+      - "docs/design/speech-cli/recognition-command-subsystem.md"                           # subsystem design
+      - "docs/verification/speech-cli/recognition-command-subsystem.md"                     # subsystem verification
+      - "src/DemaConsulting.Speech.Cli/Commands/RecognitionCommandSubsystem/**/*.cs"         # subsystem source
+      - "test/DemaConsulting.Speech.Cli.Tests/Commands/RecognitionCommandSubsystem/**/*.cs"  # subsystem tests
 
   # OTS-PortAudioSharp2 Review (one per OTS item)
   - id: OTS-PortAudioSharp2

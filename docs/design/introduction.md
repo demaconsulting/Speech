@@ -24,8 +24,8 @@ This document is intended for:
 ## Scope
 
 This document covers the detailed design of the Speech system and its constituent software
-items, and of the SpeechDemo application system and its constituent software items,
-specifically:
+items, of the SpeechDemo application system and its constituent software items, and of the
+SpeechCli command-line tool system and its constituent software items, specifically:
 
 - **Speech (System)** — The complete .NET library system providing speech capture, recognition,
   and synthesis capabilities to host applications
@@ -80,6 +80,30 @@ The following software items of the SpeechDemo system are also covered:
   synthesis role, the embedded `ModelSettingsSubsystem` panel for the selected model's
   parameters, example Natural Language Audio Tag hints, and the Play/Stop lifecycle with honest
   reporting of every unavailable state
+
+The following software items of the SpeechCli system are also covered:
+
+- **SpeechCli (System)** — A cross-platform .NET global tool, packaged as
+  `DemaConsulting.Speech.Cli` and installed under the command name `speech-cli`, that exposes
+  the library's model management, audio device inspection, text-to-speech, and speech-to-text
+  capabilities from the command line. It is a sibling system to Speech, not a subsystem of it: it
+  is separately built, separately packaged, and separately versioned, has its own users
+  (command-line operators and scripts), and the library must never depend on it
+- **ModelCommandsSubsystem (Subsystem)** — The five model-management subcommands (`list-models`,
+  `model-info`, `download`, `uninstall`, `clean`) and the CLI-owned catalog seam
+  (`ICliModelCatalog`/`SpeechModelCatalogAdapter`/`CliModelCatalogFactory`) they share over the
+  library's `SpeechModelCatalog`/`SpeechModelStore`
+- **DeviceCommandsSubsystem (Subsystem)** — The three device-related subcommands
+  (`list-devices`, `devices test`, `doctor`), consuming the library's already-public
+  `IAudioCaptureDeviceProbe`/`IAudioPlaybackDeviceProbe`/`AudioDeviceFactory` directly, with no
+  CLI-owned seam wrapper
+- **SynthesisCommandSubsystem (Subsystem)** — The one text-to-speech subcommand (`speak`),
+  extending `ModelCommandsSubsystem`'s `ICliModelCatalog` seam with synthesis-side members
+  rather than introducing a second, competing seam
+- **RecognitionCommandSubsystem (Subsystem)** — The one speech-to-text subcommand
+  (`recognize`) plus the `SilenceTimeoutRecognizerSession` idle-timeout utility, extending
+  `ModelCommandsSubsystem`'s `ICliModelCatalog` seam with recognition-side members symmetric to
+  the synthesis pair
 
 The following OTS items are also covered:
 
@@ -157,6 +181,17 @@ speech-to-text panel over a demo-owned session seam), and `SynthesisPanelSubsyst
 text-to-speech panel over a demo-owned session seam, embedding `ModelSettingsSubsystem`). The
 dependency runs one way only: `SpeechDemo` references `Speech`, and `Speech` neither references
 nor knows about `SpeechDemo`.
+
+A third, sibling system, `SpeechCli`, also sits alongside `Speech` in the model. It is the
+cross-platform .NET global tool (`speech-cli`) that exposes the library's capabilities from the
+command line, and it is structured with four subsystems: `ModelCommandsSubsystem` (the five
+model-management subcommands over a CLI-owned catalog seam), `DeviceCommandsSubsystem` (the
+three device-related subcommands consuming the library's probe/factory interfaces directly),
+`SynthesisCommandSubsystem` (the `speak` subcommand, extending the catalog seam with synthesis
+members), and `RecognitionCommandSubsystem` (the `recognize` subcommand and its silence-timeout
+utility, extending the same seam with recognition members). As with `SpeechDemo`, the dependency
+runs one way only: `SpeechCli` references `Speech`, and `Speech` neither references nor knows
+about `SpeechCli`.
 
 ## Folder Layout
 
@@ -316,6 +351,40 @@ src/DemaConsulting.Speech.Demo/
 subsystem folder because Avalonia requires the process entry point and the application class at
 the application's root namespace. Both belong to the ShellSubsystem for review and traceability
 purposes.
+
+The SpeechCli tool's folder structure likewise mirrors its software structure:
+
+```text
+src/DemaConsulting.Speech.Cli/
+├── Program.cs                                 — Process entry point, banner, help, dispatch
+├── Cli/
+│   ├── Context.cs                             — Global-option parsing and per-invocation state
+│   ├── CommandDispatch.cs                     — Fixed subcommand name-to-handler dispatch table
+│   └── ParameterBagParser.cs                  — Shared `--param key=value` parsing/validation
+├── SelfTest/
+│   └── Validation.cs                          — CI-safe `--validate` self-check implementation
+├── Utilities/
+│   └── PathHelpers.cs                         — Shared path-handling helpers
+├── Commands/
+│   ├── ModelCommandsSubsystem/
+│   │   ├── ICliModelCatalog.cs                — CLI-owned catalog seam contract
+│   │   ├── SpeechModelCatalogAdapter.cs       — Real seam over SpeechModelCatalog/SpeechModelStore
+│   │   ├── CliModelCatalogFactory.cs          — Composition entry point for the catalog seam
+│   │   ├── ListModelsCommand.cs               — `list-models` implementation
+│   │   ├── ModelInfoCommand.cs                — `model-info` implementation
+│   │   ├── DownloadCommand.cs                 — `download` implementation
+│   │   ├── UninstallCommand.cs                — `uninstall` implementation
+│   │   └── CleanCommand.cs                    — `clean` implementation
+│   ├── DeviceCommandsSubsystem/
+│   │   ├── ListDevicesCommand.cs              — `list-devices` implementation
+│   │   ├── DevicesTestCommand.cs              — `devices test` implementation
+│   │   └── DoctorCommand.cs                   — `doctor` implementation
+│   ├── SynthesisCommandSubsystem/
+│   │   └── SpeakCommand.cs                    — `speak` implementation
+│   └── RecognitionCommandSubsystem/
+│       ├── RecognizeCommand.cs                — `recognize` implementation
+│       └── SilenceTimeoutRecognizerSession.cs — Mic idle-timeout utility for `recognize --mic`
+```
 
 ## Document Conventions
 

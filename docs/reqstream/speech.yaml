@@ -57,6 +57,24 @@ sections:
         tests:
           - Speech_SystemIntegration_PortAudioInitialized_FactoryReturnsRealDevices
 
+      - id: Speech-Audio-FileBackedDevices
+        title: >-
+          The library shall provide file-backed capture and playback device implementations
+          that let a host drive speech synthesis and recognition from, and to, a WAV file
+          instead of real audio hardware.
+        tags: [system]
+        justification: |
+          A host application - not only a command-line tool - needs a deterministic,
+          hardware-independent way to synthesize speech to a file and to recognize speech from
+          a pre-recorded file, for example for its own automated tests or for offline batch
+          processing.
+        children:
+          - Speech-Audio-FileBackedPlaybackDevice
+          - Speech-Audio-FileBackedCaptureDevice
+        tests:
+          - WavFileAudioPlaybackDevice_WriteThenDispose_RoundTripsSamplesWithinQuantizationTolerance
+          - WavFileAudioCaptureDevice_Start_FixtureFile_DeliversExpectedTotalSampleCount
+
       - id: Speech-Audio-InitializationFailureFallback
         title: >-
           The library shall degrade to honest unavailable audio devices when the PortAudio

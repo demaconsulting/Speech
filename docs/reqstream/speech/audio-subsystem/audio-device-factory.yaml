@@ -69,3 +69,33 @@ sections:
                   - AudioDeviceFactory_CreateCaptureDevice_PreferredFormatSupplied_ForwardsPreferredFormat
                   - AudioDeviceFactory_CreatePlaybackDevice_PreferredFormatSupplied_ForwardsPreferredFormat
                   - AudioDeviceFactory_CreateDevices_PreferredFormatOmitted_PreservesDefaultFormatBehavior
+
+              - id: Speech-Audio-AudioDeviceFactory-DeviceCreationConsistentWithInjectedProbe
+                title: >-
+                  The AudioDeviceFactory class shall resolve capture/playback device creation
+                  consistently with whichever probe was actually injected (or the real
+                  PortAudio-backed default when none was supplied): a requested selection or
+                  default device not known to the corresponding probe's enumeration shall yield
+                  the honest Unavailable* fallback rather than a device resolved independently
+                  against the real environment.
+                justification: |
+                  The factory's own contract states callers should use it "as the sole source"
+                  of capture/playback device instances, with device resolution and fallback
+                  logic living in one place. Before this requirement, CreateCaptureDevice/
+                  CreatePlaybackDevice resolved a selection by independently re-scanning the real
+                  PortAudio environment, silently ignoring an injected probe entirely. This made
+                  device creation inconsistent with the probe callers actually composed the
+                  factory with (for example, a test double reporting zero known devices, while
+                  the real environment's own device was still resolved and returned as
+                  available), instead of the two staying in agreement. A null-or-empty device
+                  name in the selection is treated as "no device requested" (falling back to
+                  "any known device is acceptable"), consistent with how
+                  AudioDeviceSelection.Resolve treats an empty name: it can never exactly match
+                  a real device, so Resolve always falls back to the system default for it, and
+                  this consistency check must not demand an impossible exact match instead.
+                tests:
+                  - AudioDeviceFactory_CreateCaptureDevice_InjectedProbeReportsNoDevices_ReturnsUnavailableDevice
+                  - AudioDeviceFactory_CreateCaptureDevice_InjectedProbeDoesNotKnowRequestedDevice_ReturnsUnavailableDevice
+                  - AudioDeviceFactory_CreatePlaybackDevice_InjectedProbeReportsNoDevices_ReturnsUnavailableDevice
+                  - AudioDeviceFactory_CreatePlaybackDevice_InjectedProbeKnowsRequestedDevice_ReturnsRealDevice
+                  - AudioDeviceFactory_CreateCaptureDevice_SelectionHasEmptyDeviceName_ReturnsRealDevice

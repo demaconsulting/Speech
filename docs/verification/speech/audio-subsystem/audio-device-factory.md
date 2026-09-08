@@ -17,7 +17,9 @@ hardware.
 Tests pass when construction never throws, default probes are real PortAudio-backed probes when
 initialization succeeds, injected probes are exposed exactly as supplied, optional preferred
 formats are forwarded to the concrete devices, omitting the preference preserves device-native
-format behavior, and initialization failure degrades to the unavailable probes/devices.
+format behavior, initialization failure degrades to the unavailable probes/devices, and device
+creation is genuinely resolved consistently with whichever probe was injected (not silently
+ignored in favor of an independent real-environment scan).
 
 #### Test Scenarios
 
@@ -60,3 +62,30 @@ format behavior, and initialization failure degrades to the unavailable probes/d
 ##### Creation: PortAudio Initialization Failure Returns Unavailable Devices
 
 **Test**: `AudioDeviceFactory_CreateDevices_PortAudioInitializationFails_ReturnUnavailableDevices`
+
+##### Creation: Injected Capture Probe Reporting No Devices Yields the Unavailable Fallback
+
+**Test**: `AudioDeviceFactory_CreateCaptureDevice_InjectedProbeReportsNoDevices_ReturnsUnavailableDevice`
+
+Proves an injected capture probe is genuinely consulted: even though the (fake) real
+PortAudio environment has a resolvable device, an injected probe reporting zero known devices
+causes `CreateCaptureDevice()` to return `UnavailableAudioCaptureDevice.Instance` rather than the
+device the real environment would otherwise resolve independently.
+
+##### Creation: Injected Capture Probe Not Knowing the Requested Device Yields the Unavailable Fallback
+
+**Test**: `AudioDeviceFactory_CreateCaptureDevice_InjectedProbeDoesNotKnowRequestedDevice_ReturnsUnavailableDevice`
+
+Proves a named selection not present in the injected probe's enumeration is rejected even though
+the real environment could otherwise resolve a device by that name.
+
+##### Creation: Injected Playback Probe Reporting No Devices Yields the Unavailable Fallback
+
+**Test**: `AudioDeviceFactory_CreatePlaybackDevice_InjectedProbeReportsNoDevices_ReturnsUnavailableDevice`
+
+##### Creation: Injected Playback Probe Knowing the Requested Device Returns the Real Device
+
+**Test**: `AudioDeviceFactory_CreatePlaybackDevice_InjectedProbeKnowsRequestedDevice_ReturnsRealDevice`
+
+Proves the fix does not regress the common case where the injected probe agrees with the real
+environment: a selection the probe does know about still resolves to a real, available device.

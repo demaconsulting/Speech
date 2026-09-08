@@ -52,6 +52,7 @@ sections:
               - Speech-Audio-AudioDeviceFactory-InjectableProbes
               - Speech-Audio-AudioDeviceFactory-RealDefaultsWhenInitialized
               - Speech-Audio-AudioDeviceFactory-PortAudioInitializationFallback
+              - Speech-Audio-AudioDeviceFactory-DeviceCreationConsistentWithInjectedProbe
             tests:
               - AudioDeviceFactory_Constructor_CustomEnvironment_DoesNotThrow
               - AudioDeviceFactory_CreateCaptureDevice_PortAudioInitialized_ReturnsRealDevice
@@ -156,6 +157,50 @@ sections:
               - PortAudioPlaybackDevice_IsAvailable_NoResolvableDevice_ReturnsFalse
               - PortAudioPlaybackDevice_Write_StreamRequestsSamples_DrainsQueueAndZeroFills
               - PortAudioPlaybackDevice_Start_OpenFails_ThrowsAudioDeviceUnavailableException
+
+          - id: Speech-Audio-FileBackedPlaybackDevice
+            title: >-
+              The AudioSubsystem shall provide a file-backed playback-device implementation that
+              writes queued samples to a WAV file as 16-bit PCM instead of rendering them through
+              real hardware.
+            justification: |
+              Any host application - not only a future command-line tool - needs a deterministic,
+              file-based way to capture synthesized speech (for example, for its own automated
+              tests), the same generic need the demo application's own temporary, non-reusable
+              WavFileWriter previously served informally.
+            children:
+              - Speech-Audio-WavFileAudioPlaybackDevice-AlwaysAvailable
+              - Speech-Audio-WavFileAudioPlaybackDevice-WriteEncodesPcm
+              - Speech-Audio-WavFileAudioPlaybackDevice-ReportsConstructedFormat
+              - Speech-Audio-WavFileAudioPlaybackDevice-PendingSampleCountAlwaysZero
+              - Speech-Audio-WavFileAudioPlaybackDevice-FinalizesHeaderOnDispose
+              - Speech-Audio-WavFileAudioPlaybackDevice-ArgumentValidation
+              - Speech-Audio-WavFileAudioPlaybackDevice-StartStopAreNoOps
+            tests:
+              - WavFileAudioPlaybackDevice_IsAvailable_Always_ReturnsTrue
+              - WavFileAudioPlaybackDevice_WriteThenDispose_RoundTripsSamplesWithinQuantizationTolerance
+
+          - id: Speech-Audio-FileBackedCaptureDevice
+            title: >-
+              The AudioSubsystem shall provide a file-backed capture-device implementation that
+              reads a mono, 16-bit PCM WAV file and delivers it as normalized capture frames
+              instead of capturing from real microphone hardware, signaling end-of-file through
+              an additive event.
+            justification: |
+              Any host application - not only a future command-line tool - needs a deterministic
+              way to drive speech recognition from a pre-recorded file, mirroring the identical
+              file-based need on the playback side above.
+            children:
+              - Speech-Audio-WavFileAudioCaptureDevice-AlwaysAvailable
+              - Speech-Audio-WavFileAudioCaptureDevice-DeliversFileContents
+              - Speech-Audio-WavFileAudioCaptureDevice-EndOfFileReached
+              - Speech-Audio-WavFileAudioCaptureDevice-ReportsResolvedFormat
+              - Speech-Audio-WavFileAudioCaptureDevice-UnsupportedFormatThrowsInvalidOperationException
+              - Speech-Audio-WavFileAudioCaptureDevice-ArgumentValidation
+            tests:
+              - WavFileAudioCaptureDevice_IsAvailable_Always_ReturnsTrue
+              - WavFileAudioCaptureDevice_Start_FixtureFile_DeliversExpectedTotalSampleCount
+              - WavFileAudioCaptureDevice_Start_FixtureFile_RaisesEndOfFileReachedExactlyOnceAfterLastFrame
 
           - id: Speech-Audio-PortAudioInterop
             title: >-

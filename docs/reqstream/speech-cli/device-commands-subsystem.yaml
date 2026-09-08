@@ -1,0 +1,147 @@
+---
+# Software Subsystem Requirements for the SpeechCli DeviceCommandsSubsystem
+#
+# These requirements describe the subsystem-level behavior of the three device-related
+# subcommands (list-devices, devices test, doctor), decomposing the system-level dispatch
+# requirements in docs/reqstream/speech-cli.yaml.
+#
+# Unlike ModelCommandsSubsystem, no CLI-owned seam is introduced here: IAudioCaptureDeviceProbe
+# and IAudioPlaybackDeviceProbe are already public, directly fakeable interfaces, and
+# AudioDeviceFactory itself exposes a public constructor accepting injected probes, so every
+# command depends directly on the library's own public audio types.
+
+sections:
+  - title: SpeechCli Requirements
+    sections:
+      - title: DeviceCommandsSubsystem Requirements
+        requirements:
+          - id: SpeechCli-DeviceCommands-ListDevices
+            title: >-
+              The tool shall enumerate every currently detected audio capture (input) and
+              playback (output) device's name, direction, channel count, and sample rate when
+              invoked with `list-devices`, optionally filtered to one direction
+              (`--direction input`/`output`), printing an aligned table, or a plain "No devices
+              found." message when the result is empty, rather than an error.
+            tags: [subsystem]
+            justification: |
+              An operator or script needs to discover which audio devices this machine offers,
+              and by what name, before selecting one for `devices test` or (in later passes)
+              `speak`/`recognize`. Treating "no devices" as a plain informational message, not an
+              error, mirrors this library's own graceful-degradation convention for optional
+              audio hardware, since a headless/CI machine with no audio hardware is a normal,
+              not exceptional, condition.
+            tests:
+              - ListDevicesCommand_Run_NoFilter_ListsBothDirections
+              - ListDevicesCommand_Run_DirectionInput_ListsOnlyCaptureDevices
+              - ListDevicesCommand_Run_DirectionOutput_ListsOnlyPlaybackDevices
+              - ListDevicesCommand_Run_NoDevices_PrintsNoDevicesMessage
+              - ListDevicesCommand_Run_InvalidDirectionValue_ThrowsArgumentException
+              - ListDevicesCommand_Run_DirectionFlagMissingValue_ThrowsArgumentException
+              - ListDevicesCommand_Run_UnsupportedFlag_ThrowsArgumentException
+              - SpeechCli_ListDevicesCommand_Invoked_ExitsCleanly
+              - SpeechCli_ListDevicesCommandWithInvalidDirection_Invoked_ReturnsCleanError
+
+          - id: SpeechCli-DeviceCommands-DevicesTest
+            title: >-
+              The tool shall sanity-check a single audio device without requiring any speech
+              model when invoked with `devices test [--device <name>] [--direction input|output]`
+              - playing a short synthesized test tone for the output direction (the default when
+              `--direction` is omitted), or recording a short clip and reporting basic capture
+              statistics (sample count, peak amplitude) for the input direction - and shall reject
+              an unrecognized `--device` name, or an unavailable resolved device, with a clean,
+              non-zero-exit-code error rather than a stack trace.
+            tags: [subsystem]
+            justification: |
+              An operator needs a way to prove a specific audio device actually works before
+              relying on it for real speech I/O, without needing a downloaded model just to test
+              hardware. Defaulting to the output direction avoids implicitly recording real audio
+              input as a side effect of a bare invocation, since recording is inherently more
+              privacy-sensitive than playing a tone.
+            tests:
+              - DevicesTestCommand_ParseArguments_NoFlags_DefaultsToOutputDirection
+              - DevicesTestCommand_ParseArguments_DirectionInput_ParsesToCaptureDirection
+              - DevicesTestCommand_ParseArguments_DirectionOutput_ParsesToPlaybackDirection
+              - DevicesTestCommand_ParseArguments_DeviceFlag_ParsesDeviceName
+              - DevicesTestCommand_ParseArguments_MissingSubAction_ThrowsArgumentException
+              - DevicesTestCommand_ParseArguments_UnknownSubAction_ThrowsArgumentException
+              - DevicesTestCommand_ParseArguments_InvalidDirectionValue_ThrowsArgumentException
+              - DevicesTestCommand_ParseArguments_UnsupportedFlag_ThrowsArgumentException
+              - DevicesTestCommand_ParseArguments_DeviceFlagMissingValue_ThrowsArgumentException
+              - DevicesTestCommand_ResolveDeviceSelectionOrThrow_NullDeviceName_ReturnsNull
+              - DevicesTestCommand_ResolveDeviceSelectionOrThrow_KnownDeviceName_ReturnsSelection
+              - DevicesTestCommand_ResolveDeviceSelectionOrThrow_UnknownDeviceName_ThrowsArgumentException
+              - DevicesTestCommand_Run_UnknownPlaybackDevice_ThrowsArgumentException
+              - DevicesTestCommand_Run_UnknownCaptureDevice_ThrowsArgumentException
+              - SpeechCli_DevicesCommandWithoutSubAction_Invoked_ReturnsCleanError
+              - SpeechCli_DevicesTestCommandWithUnknownDevice_Invoked_ReturnsCleanError
+
+          - id: SpeechCli-DeviceCommands-ToneGeneration
+            title: >-
+              The tool shall generate its `devices test` output-direction test tone as an
+              in-process sine wave (never invoking any text-to-speech model), producing the
+              correct sample count for the requested sample rate/duration, with every sample
+              within the normalized `[-1.0, 1.0]` range and identical across every channel.
+            tags: [subsystem]
+            justification: |
+              Sanity-checking playback hardware must not depend on a downloaded synthesis model
+              being available; a simple, deterministic sine wave is sufficient to prove audio
+              actually reaches the device, and its correctness (sample count, normalized range,
+              per-channel identity) can be proven with pure math, with no real hardware.
+            tests:
+              - DevicesTestCommand_GenerateToneSamples_ReturnsExpectedSampleCount
+              - DevicesTestCommand_GenerateToneSamples_AllSamplesWithinNormalizedRange
+              - DevicesTestCommand_GenerateToneSamples_IdenticalAcrossChannels
+              - DevicesTestCommand_GenerateToneSamples_NonPositiveSampleRate_ThrowsArgumentOutOfRangeException
+
+          - id: SpeechCli-DeviceCommands-Doctor
+            title: >-
+              The tool shall report, as a pass/fail checklist, when invoked with `doctor`: whether
+              the native PortAudio and SherpaOnnx runtimes are resolvable, the model store's root
+              path/writability/available disk space, a count of detected input/output audio
+              devices, and installed-versus-known model counts; and shall exit non-zero only when
+              the model store is not writable, treating every other check as informational.
+            tags: [subsystem]
+            justification: |
+              An operator setting up this tool on a new machine needs one command that surfaces
+              every likely cause of trouble - a missing native runtime, an unwritable model
+              store, no audio hardware - without needing to run each narrower command
+              individually. Only the model store's writability is treated as a hard failure
+              because it is infrastructure this tool itself owns and depends on for every
+              model-management command; missing audio hardware or an unresolvable native
+              runtime is a normal, gracefully-degraded condition this library already handles at
+              the point of use, per its own design philosophy, so `doctor` reports it as an
+              informational note rather than failing a perfectly healthy headless/CI machine.
+            tests:
+              - DoctorCommand_Run_WritableModelStore_ReportsHealthy
+              - DoctorCommand_Run_ReportsModelStoreRootPath
+              - DoctorCommand_Run_ReportsInstalledVersusKnownModelCounts
+              - DoctorCommand_Run_ReportsAudioDeviceCounts
+              - DoctorCommand_Run_UnavailablePortAudio_ReportsInformationalNoteNotFailure
+              - DoctorCommand_Run_UnwritableModelStore_ReportsUnhealthyAndNonZeroExitCode
+              - DoctorCommand_Run_ExtraArgument_ThrowsArgumentException
+              - SpeechCli_DoctorCommand_Invoked_ReportsHealthChecklist
+
+          - id: SpeechCli-DeviceCommands-LibraryDelegation
+            title: >-
+              The DeviceCommandsSubsystem shall obtain every audio device probe/factory result it
+              reports directly through the library's public `AudioDeviceFactory`/
+              `IAudioCaptureDeviceProbe`/`IAudioPlaybackDeviceProbe` types (introducing no
+              additional CLI-owned seam wrapper over them), and shall reject a missing context,
+              probe, factory, or model catalog.
+            tags: [subsystem]
+            justification: |
+              Those probe interfaces are already public and directly fakeable, so an additional
+              seam layer (as `ICliModelCatalog` provides for the sealed `SpeechModelCatalog`)
+              would duplicate testability the library already provides for no benefit, while
+              still requiring every command to reject a missing dependency immediately so a
+              programming error is never silently ignored.
+            tests:
+              - ListDevicesCommand_Run_NullContext_ThrowsArgumentNullException
+              - ListDevicesCommand_Run_NullCaptureProbe_ThrowsArgumentNullException
+              - ListDevicesCommand_Run_NullPlaybackProbe_ThrowsArgumentNullException
+              - DevicesTestCommand_ResolveDeviceSelectionOrThrow_NullKnownDevices_ThrowsArgumentNullException
+              - DevicesTestCommand_Run_NullContext_ThrowsArgumentNullException
+              - DevicesTestCommand_Run_NullFactory_ThrowsArgumentNullException
+              - DoctorCommand_Run_NullContext_ThrowsArgumentNullException
+              - DoctorCommand_Run_NullCatalog_ThrowsArgumentNullException
+              - DoctorCommand_Run_EmptyModelStoreRootPath_ThrowsArgumentException

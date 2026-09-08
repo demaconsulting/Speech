@@ -1,0 +1,88 @@
+---
+# Software Unit Requirements for WavFileAudioCaptureDevice
+#
+# These requirements describe the design-level behavior of the WavFileAudioCaptureDevice
+# unit, decomposing the parent AudioSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: AudioSubsystem Requirements
+        sections:
+          - title: WavFileAudioCaptureDevice Requirements
+            requirements:
+              - id: Speech-Audio-WavFileAudioCaptureDevice-AlwaysAvailable
+                title: >-
+                  The WavFileAudioCaptureDevice class shall always report IsAvailable as true,
+                  since reading from a file never depends on real audio hardware.
+                justification: |
+                  A file-backed capture device has no backend-resolution step that can fail the
+                  way a real device's hardware resolution can; unsupported file formats are
+                  instead reported as a handled InvalidOperationException from Start.
+                tests:
+                  - WavFileAudioCaptureDevice_IsAvailable_Always_ReturnsTrue
+
+              - id: Speech-Audio-WavFileAudioCaptureDevice-DeliversFileContents
+                title: >-
+                  The WavFileAudioCaptureDevice class shall synchronously read a mono, 16-bit PCM
+                  RIFF/WAVE file and deliver its full sample content through FrameCaptured in
+                  fixed-size chunks, running at full CPU speed rather than throttled to real time.
+                justification: |
+                  File-based recognition has no live hardware to throttle against, so delivering
+                  audio as fast as the calling thread permits lets a host consume the file more
+                  quickly than real-time playback would allow.
+                tests:
+                  - WavFileAudioCaptureDevice_Start_FixtureFile_DeliversExpectedTotalSampleCount
+
+              - id: Speech-Audio-WavFileAudioCaptureDevice-EndOfFileReached
+                title: >-
+                  The WavFileAudioCaptureDevice class shall raise an additive EndOfFileReached
+                  event exactly once, after the last FrameCaptured event, when the file is fully
+                  consumed without interruption, and shall not raise it when Stop interrupts
+                  delivery first.
+                justification: |
+                  The public IAudioCaptureDevice contract has no "end of stream" concept because
+                  a real live-mic device has no equivalent "end"; a future recognize --input CLI
+                  command needs an honest, additive signal to know when to stop waiting for
+                  further recognition results.
+                tests:
+                  - WavFileAudioCaptureDevice_Start_FixtureFile_RaisesEndOfFileReachedExactlyOnceAfterLastFrame
+                  - WavFileAudioCaptureDevice_Stop_CalledDuringFrameCaptured_InterruptsDeliveryWithoutEndOfFileReached
+
+              - id: Speech-Audio-WavFileAudioCaptureDevice-ReportsResolvedFormat
+                title: >-
+                  The WavFileAudioCaptureDevice class shall report the mono channel count and the
+                  file's declared sample rate once Start has parsed the header, and shall report
+                  zero for both beforehand.
+                justification: |
+                  A consumer converting captured audio into another format needs to know the
+                  exact format actually delivered, mirroring the disclosure contract every other
+                  IAudioCaptureDevice implementation honors; reporting zero before resolution
+                  avoids implying a format that has not actually been confirmed yet.
+                tests:
+                  - WavFileAudioCaptureDevice_Start_FixtureFile_ReportsMonoSixteenKilohertzFormat
+                  - WavFileAudioCaptureDevice_Format_BeforeStart_ReturnsZero
+
+              - id: Speech-Audio-WavFileAudioCaptureDevice-UnsupportedFormatThrowsInvalidOperationException
+                title: >-
+                  The WavFileAudioCaptureDevice class shall reject a non-existent, malformed, or
+                  unsupported (non-PCM, non-16-bit, or non-mono) WAV file by throwing
+                  InvalidOperationException from Start, distinct from AudioDeviceUnavailableException.
+                justification: |
+                  An unsupported or malformed input file is an expected, handled
+                  caller-configuration error to surface clearly, not a backend-availability
+                  failure this library otherwise reserves for AudioDeviceUnavailableException.
+                tests:
+                  - WavFileAudioCaptureDevice_Start_MissingFile_ThrowsInvalidOperationException
+                  - WavFileAudioCaptureDevice_Start_NotARiffFile_ThrowsInvalidOperationException
+                  - WavFileAudioCaptureDevice_Start_StereoFile_ThrowsInvalidOperationException
+
+              - id: Speech-Audio-WavFileAudioCaptureDevice-ArgumentValidation
+                title: >-
+                  The WavFileAudioCaptureDevice class shall validate its constructor arguments.
+                justification: |
+                  An invalid path or non-positive frame sample count is a programming error that
+                  should surface immediately rather than fail obscurely once Start is called.
+                tests:
+                  - WavFileAudioCaptureDevice_Constructor_NullOrEmptyPath_ThrowsArgumentException
+                  - WavFileAudioCaptureDevice_Constructor_NonPositiveFrameSampleCount_ThrowsArgumentOutOfRangeException

@@ -173,6 +173,38 @@ behavior.
 Verifies the shared unavailable fallbacks remain honest and usable as the last-resort
 composition path.
 
+#### File-Backed Playback Device: Round Trip, Format Disclosure, and Argument Validation
+
+**Tests**: `WavFileAudioPlaybackDevice_IsAvailable_Always_ReturnsTrue`,
+`WavFileAudioPlaybackDevice_WriteThenDispose_RoundTripsSamplesWithinQuantizationTolerance`,
+`WavFileAudioPlaybackDevice_Write_SamplesBeyondClampBoundary_ClampToNearestValidValue`,
+`WavFileAudioPlaybackDevice_Format_Read_ReflectsConstructorArguments`,
+`WavFileAudioPlaybackDevice_PendingSampleCount_AfterWrite_ReturnsZero`,
+`WavFileAudioPlaybackDevice_Dispose_CalledTwice_DoesNotThrow`
+
+Verifies that `WavFileAudioPlaybackDevice` always reports itself available, round-trips written
+samples within 16-bit quantization tolerance (including clamping samples beyond `[-1.0, 1.0]` to
+the nearest valid extreme), reports the constructed format, always reports zero pending samples,
+and finalizes its RIFF header safely even across a repeated `Dispose` call. See
+`docs/verification/speech/audio-subsystem/wav-file-audio-playback-device.md` for the full test
+scenario list, including argument-validation coverage.
+
+#### File-Backed Capture Device: Fixture Delivery, End-of-File Signaling, and Format Rejection
+
+**Tests**: `WavFileAudioCaptureDevice_Start_FixtureFile_DeliversExpectedTotalSampleCount`,
+`WavFileAudioCaptureDevice_Start_FixtureFile_RaisesEndOfFileReachedExactlyOnceAfterLastFrame`,
+`WavFileAudioCaptureDevice_Start_FixtureFile_ReportsMonoSixteenKilohertzFormat`,
+`WavFileAudioCaptureDevice_Start_StereoFile_ThrowsInvalidOperationException`,
+`WavFileAudioCaptureDevice_Stop_CalledDuringFrameCaptured_InterruptsDeliveryWithoutEndOfFileReached`
+
+Verifies that `WavFileAudioCaptureDevice` delivers the existing `crossing-the-bar-16k-mono.wav`
+fixture's full sample content through `FrameCaptured`, raises the additive `EndOfFileReached`
+event exactly once after the last frame (and not at all when `Stop` interrupts delivery early),
+reports the fixture's known mono/16 kHz format, and rejects an unsupported (stereo) file with
+`InvalidOperationException` rather than `AudioDeviceUnavailableException`. See
+`docs/verification/speech/audio-subsystem/wav-file-audio-capture-device.md` for the full test
+scenario list, including malformed-file and argument-validation coverage.
+
 #### AudioDeviceSelection: Name-Only Identity Resolution and Stale-Selection Fallback
 
 **Tests**: `AudioDeviceSelection_Resolve_MatchingName_ReturnsMatchingDevice`,

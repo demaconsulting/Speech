@@ -26,6 +26,10 @@ subsystem:
 - **UnavailableAudioCaptureDevice** / **UnavailableAudioPlaybackDevice** and their probes, plus
   **AudioDeviceUnavailableException**: honest fallback behavior when no real backend or no device
   is available
+- **WavFileAudioPlaybackDevice** / **WavFileAudioCaptureDevice**: file-backed
+  `IAudioPlaybackDevice`/`IAudioCaptureDevice` implementations that write/read a mono, 16-bit PCM
+  `.wav` file instead of using real hardware, for deterministic file-based synthesis/recognition
+  by any host application
 - **PortAudio**: child subsystem containing the internal interop seam and the real
   PortAudioSharp2 adapter
 
@@ -188,3 +192,19 @@ than throwing.
 
 **Callers**: The unavailable fallback devices and real PortAudio devices when first-use native
 failures occur.
+
+#### WavFileAudioPlaybackDevice
+
+See `docs/design/speech/audio-subsystem/wav-file-audio-playback-device.md` for full detail.
+Writes synthesized speech to a `.wav` file as 16-bit PCM instead of rendering it to real playback
+hardware, so any host application can capture synthesized audio deterministically. Implements
+`IAudioPlaybackDevice`; always reports `IsAvailable = true` since file writes never depend on
+real audio hardware.
+
+#### WavFileAudioCaptureDevice
+
+See `docs/design/speech/audio-subsystem/wav-file-audio-capture-device.md` for full detail. Reads
+a mono, 16-bit PCM `.wav` file and delivers it as normalized capture frames instead of capturing
+from real microphone hardware, so any host application can drive speech recognition from a
+pre-recorded file deterministically. Implements `IAudioCaptureDevice` plus one additional public
+member, `EndOfFileReached`, raised once the file has been fully consumed.
