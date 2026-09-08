@@ -221,6 +221,65 @@ public class ProgramTests
     }
 
     /// <summary>
+    ///     Test that Main with an unrecognized argument and <c>--silent</c> still returns the
+    ///     non-zero exit code, but suppresses the stderr message - proving the top-level
+    ///     <see cref="ArgumentException"/> catch in <see cref="Program.Main"/> honors
+    ///     <c>--silent</c> even though <see cref="Cli.Context.Create"/> itself threw before a
+    ///     <see cref="Cli.Context"/> could be constructed to expose its own
+    ///     <see cref="Cli.Context.Silent"/> flag.
+    /// </summary>
+    [Fact]
+    public void Program_Main_WithInvalidArgsAndSilentFlag_SuppressesErrorOutput()
+    {
+        // Arrange: redirect stderr to capture (expected empty) error output
+        var originalError = Console.Error;
+        try
+        {
+            using var errWriter = new StringWriter();
+            Console.SetError(errWriter);
+
+            // Act: invoke Main with an unrecognized argument plus --silent
+            var result = Program.Main(["--invalid-argument", "--silent"]);
+
+            // Assert: non-zero exit code still reported, but nothing written to stderr
+            Assert.Equal(1, result);
+            Assert.Equal(string.Empty, errWriter.ToString());
+        }
+        finally
+        {
+            Console.SetError(originalError);
+        }
+    }
+
+    /// <summary>
+    ///     Test that Main with an unrecognized subcommand-shaped argument and <c>--silent</c>
+    ///     still returns the non-zero exit code, but suppresses the stderr message naming the
+    ///     unrecognized command.
+    /// </summary>
+    [Fact]
+    public void Program_Main_WithUnknownCommandAndSilentFlag_SuppressesErrorOutput()
+    {
+        // Arrange: redirect stderr to capture (expected empty) error output
+        var originalError = Console.Error;
+        try
+        {
+            using var errWriter = new StringWriter();
+            Console.SetError(errWriter);
+
+            // Act: invoke Main with an unknown command name plus --silent
+            var result = Program.Main(["not-a-real-command", "--silent"]);
+
+            // Assert: non-zero exit code still reported, but nothing written to stderr
+            Assert.Equal(1, result);
+            Assert.Equal(string.Empty, errWriter.ToString());
+        }
+        finally
+        {
+            Console.SetError(originalError);
+        }
+    }
+
+    /// <summary>
     ///     Test that dispatching to <c>recognize</c> with no arguments runs the real
     ///     implementation (never throwing <see cref="NotImplementedException"/>), proving the
     ///     dispatch table wiring for this pass's <c>recognize</c> command - the last of all 10

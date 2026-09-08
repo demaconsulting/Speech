@@ -30,7 +30,7 @@ internal static class PathHelpers
     /// </summary>
     /// <param name="basePath">The base path.</param>
     /// <param name="relativePath">The relative path to combine.</param>
-    /// <returns>The combined path.</returns>
+    /// <returns>The combined, fully-qualified absolute path.</returns>
     /// <remarks>
     ///     Provides a security boundary for caller-supplied path components. Stateless and thread-safe.
     ///     Performs no file-system I/O; only string-level path normalization is applied.
@@ -65,6 +65,10 @@ internal static class PathHelpers
             throw new ArgumentException($"Invalid path component: {relativePath}", nameof(relativePath));
         }
 
-        return combinedPath;
+        // Return the already-validated absolute path rather than the unnormalized combined
+        // path: when basePath is relative, combinedPath could later resolve against a
+        // different working directory than the one this containment check just validated,
+        // silently weakening the security boundary this method exists to enforce.
+        return absoluteCombined;
     }
 }

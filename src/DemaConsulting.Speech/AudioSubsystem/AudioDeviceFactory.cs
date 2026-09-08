@@ -206,13 +206,18 @@ public sealed class AudioDeviceFactory
     ///     resolving the selection independently against the real PortAudio environment: an
     ///     injected probe that reports zero devices (or does not know a named device) now yields
     ///     the honest unavailable fallback rather than a device resolved from hardware the probe
-    ///     never reported.
+    ///     never reported. A <see langword="null"/>-or-empty <see cref="AudioDeviceSelection.DeviceName"/>
+    ///     is treated the same as "no device requested" here, matching
+    ///     <see cref="AudioDeviceSelection.Resolve"/>: an empty name can never exactly match a
+    ///     real device, so <c>Resolve</c> always falls back to the system default for it, and
+    ///     this check must fall back to "any known device" rather than demanding an impossible
+    ///     exact match against an empty name.
     /// </remarks>
     private static bool IsSelectionKnownToProbe(
         IReadOnlyList<AudioDeviceDescription> knownDevices,
         AudioDeviceSelection? selection)
     {
-        if (selection?.DeviceName is { } deviceName)
+        if (selection?.DeviceName is { Length: > 0 } deviceName)
         {
             return knownDevices.Any(device => string.Equals(device.Name, deviceName, StringComparison.Ordinal));
         }

@@ -61,14 +61,23 @@ internal static class Program
     ///     <see cref="ArgumentException"/> and <see cref="InvalidOperationException"/> are treated as
     ///     expected errors: their messages are written to stderr and exit code 1 is returned without
     ///     a stack trace. Any other exception is written to stderr and then re-thrown so that the
-    ///     runtime can record it in event logs.
+    ///     runtime can record it in event logs. All three of these stderr writes honor
+    ///     <c>--silent</c> (see <see cref="IsSilentRequested"/>), consistent with how
+    ///     <see cref="Context.WriteError"/> suppresses console output elsewhere in the CLI;
+    ///     <c>--silent</c> only ever suppresses the console write, never the exit code or the
+    ///     unexpected-exception rethrow.
     /// </remarks>
     public static int Main(string[] args)
     {
+        // Declared outside the try block (rather than `using var context = ...`) so the catch
+        // blocks below can consult context.Silent when Context.Create succeeded but a later
+        // step failed - `using var` scopes its variable to the try block alone, which would
+        // make it unreachable exactly where the silence-aware error handling needs it.
+        Context? context = null;
         try
         {
             // Create context from command-line arguments
-            using var context = Context.Create(args);
+            context = Context.Create(args);
 
             // Run the program logic
             Run(context);
@@ -78,22 +87,66 @@ internal static class Program
         }
         catch (ArgumentException ex)
         {
-            // Print expected argument exceptions and return error code
-            Console.Error.WriteLine($"Error: {ex.Message}");
+            // Print expected argument exceptions and return error code, honoring --silent
+            if (!IsSilentRequested(context, args))
+            {
+                Console.Error.WriteLine($"Error: {ex.Message}");
+            }
+
             return 1;
         }
         catch (InvalidOperationException ex)
         {
-            // Print expected operation exceptions and return error code
-            Console.Error.WriteLine($"Error: {ex.Message}");
+            // Print expected operation exceptions and return error code, honoring --silent
+            if (!IsSilentRequested(context, args))
+            {
+                Console.Error.WriteLine($"Error: {ex.Message}");
+            }
+
             return 1;
         }
         catch (Exception ex)
         {
-            // Print unexpected exceptions and re-throw to generate event logs
-            Console.Error.WriteLine($"Unexpected error: {ex.Message}");
+            // Print unexpected exceptions (honoring --silent) and re-throw to generate event
+            // logs. --silent only suppresses the console write here; the rethrow still
+            // preserves diagnostics via crash/event logs regardless of --silent.
+            if (!IsSilentRequested(context, args))
+            {
+                Console.Error.WriteLine($"Unexpected error: {ex.Message}");
+            }
+
             throw;
         }
+        finally
+        {
+            context?.Dispose();
+        }
+    }
+
+    /// <summary>
+    ///     Determines whether console error output should be suppressed for <c>--silent</c>.
+    /// </summary>
+    /// <param name="context">
+    ///     The constructed context, or <see langword="null"/> when <see cref="Context.Create"/>
+    ///     itself threw before a context could be built (for example, an unrecognized
+    ///     subcommand name).
+    /// </param>
+    /// <param name="args">The original, unparsed command-line arguments.</param>
+    /// <returns>
+    ///     <see langword="true"/> when <paramref name="context"/> reports <see cref="Context.Silent"/>,
+    ///     or, when no context exists yet, when <paramref name="args"/> contains the literal
+    ///     <c>--silent</c> token; otherwise <see langword="false"/>.
+    /// </returns>
+    /// <remarks>
+    ///     A raw token scan is only ever used as a fallback for the case where argument parsing
+    ///     itself failed before <see cref="Context.Silent"/> could be resolved through the full
+    ///     parser (which also recognizes <c>--silent</c> anywhere among the arguments); once a
+    ///     <see cref="Context"/> exists, its already-parsed <see cref="Context.Silent"/> value is
+    ///     used directly instead of re-scanning.
+    /// </remarks>
+    private static bool IsSilentRequested(Context? context, string[] args)
+    {
+        return context?.Silent ?? Array.IndexOf(args, "--silent") >= 0;
     }
 
     /// <summary>

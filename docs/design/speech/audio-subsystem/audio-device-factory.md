@@ -27,7 +27,11 @@ successfully, and `_diagnostics` records structural selection and fallback event
   whichever probe was actually injected into the factory - previously `CreateCaptureDevice`/
   `CreatePlaybackDevice` resolved a selection by independently re-scanning the real PortAudio
   environment, silently ignoring an injected probe entirely, so an injected test double
-  reporting zero known devices had no effect on device creation at all.
+  reporting zero known devices had no effect on device creation at all. A `null`-or-empty
+  `DeviceName` is treated the same as "no device requested" (falls through to "any known device
+  is acceptable"), matching `AudioDeviceSelection.Resolve`'s treatment of an empty name: an
+  empty name can never exactly match a real device, so `Resolve` always falls back to the
+  system default for it, and this check must not demand an impossible exact match instead.
 
 **Error Handling**: No member throws during composition. PortAudio initialization failure is
 reported through diagnostics and represented by unavailable fallback return values.

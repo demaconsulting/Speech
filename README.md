@@ -248,7 +248,8 @@ dotnet tool install -g DemaConsulting.Speech.Cli
 | `list-models` | List known models, optionally filtered by role or download state |
 | `model-info <modelId>` | Show full detail for one known model |
 | `download <modelId> [<modelId>...]` | Download one or more models |
-| `uninstall <modelId>` / `clean <modelId>` | Remove a downloaded model's files (with/without its catalog entry) |
+| `uninstall <modelId>` | Remove a downloaded model's files, keeping its catalog entry |
+| `clean <modelId>` | Best-effort remove leftover partial-install artifacts for a model (not a full uninstall) |
 | `list-devices` / `devices test` / `doctor` | Inspect audio devices and overall environment health |
 | `speak` | Synthesize text to a real playback device or a WAV file |
 | `recognize` | Recognize speech from a WAV file or the microphone |

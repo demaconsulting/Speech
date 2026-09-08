@@ -630,7 +630,7 @@ a healthy state on the current machine.
 | `model-info <modelId>` | Show full detail for one known model |
 | `download <modelId> [<modelId>...]` | Download one or more models into the local model store |
 | `uninstall <modelId>` | Remove a downloaded model's files, keeping its catalog entry |
-| `clean <modelId>` | Remove a downloaded model's files and its catalog entry |
+| `clean <modelId>` | Best-effort remove leftover partial-install artifacts for a model (not a full uninstall) |
 | `list-devices` | List capture and/or playback audio devices |
 | `devices test` | Play or record a short test tone/clip on a chosen device |
 | `doctor` | Report overall environment health (audio, native runtimes, model store) |

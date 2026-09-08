@@ -87,9 +87,15 @@ sections:
                   device creation inconsistent with the probe callers actually composed the
                   factory with (for example, a test double reporting zero known devices, while
                   the real environment's own device was still resolved and returned as
-                  available), instead of the two staying in agreement.
+                  available), instead of the two staying in agreement. A null-or-empty device
+                  name in the selection is treated as "no device requested" (falling back to
+                  "any known device is acceptable"), consistent with how
+                  AudioDeviceSelection.Resolve treats an empty name: it can never exactly match
+                  a real device, so Resolve always falls back to the system default for it, and
+                  this consistency check must not demand an impossible exact match instead.
                 tests:
                   - AudioDeviceFactory_CreateCaptureDevice_InjectedProbeReportsNoDevices_ReturnsUnavailableDevice
                   - AudioDeviceFactory_CreateCaptureDevice_InjectedProbeDoesNotKnowRequestedDevice_ReturnsUnavailableDevice
                   - AudioDeviceFactory_CreatePlaybackDevice_InjectedProbeReportsNoDevices_ReturnsUnavailableDevice
                   - AudioDeviceFactory_CreatePlaybackDevice_InjectedProbeKnowsRequestedDevice_ReturnsRealDevice
+                  - AudioDeviceFactory_CreateCaptureDevice_SelectionHasEmptyDeviceName_ReturnsRealDevice

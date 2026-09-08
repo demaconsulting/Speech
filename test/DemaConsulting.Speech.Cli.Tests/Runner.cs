@@ -28,13 +28,29 @@ namespace DemaConsulting.Speech.Cli.Tests;
 internal static class Runner
 {
     /// <summary>
+    ///     The maximum time to wait for the child process to exit before treating it as hung.
+    /// </summary>
+    /// <remarks>
+    ///     60 seconds is comfortably larger than this suite's slowest legitimate scenario - the
+    ///     real-model recognition integration test, which loads an already-downloaded STT model
+    ///     and runs inference against a short audio fixture (no network download occurs during
+    ///     tests) - while still failing fast if a regression ever causes the CLI to hang (for
+    ///     example, blocking on stdin it never receives).
+    /// </remarks>
+    private static readonly TimeSpan ProcessExitTimeout = TimeSpan.FromSeconds(60);
+
+    /// <summary>
     ///     Runs the specified program and captures its output.
     /// </summary>
     /// <param name="output">Program output (stdout and stderr combined).</param>
     /// <param name="program">Program name or path.</param>
     /// <param name="arguments">Program arguments.</param>
     /// <returns>Program exit code.</returns>
-    /// <exception cref="InvalidOperationException">Thrown when process fails to start.</exception>
+    /// <exception cref="InvalidOperationException">
+    ///     Thrown when the process fails to start, or when it does not exit within
+    ///     <see cref="ProcessExitTimeout"/> (the process tree is killed before throwing, so no
+    ///     orphaned process is left behind).
+    /// </exception>
     public static int Run(out string output, string program, params string[] arguments)
     {
         // Construct the start information
@@ -60,8 +76,17 @@ internal static class Runner
         var outputTask = process.StandardOutput.ReadToEndAsync();
         var errorTask = process.StandardError.ReadToEndAsync();
 
-        // Wait for the process to exit
-        process.WaitForExit();
+        // Wait for the process to exit, bounded by a generous timeout: an unbounded wait here
+        // would let a regression that hangs the CLI (e.g. blocking on stdin it never receives)
+        // hang this entire test suite - and CI - indefinitely instead of failing fast.
+        if (!process.WaitForExit((int)ProcessExitTimeout.TotalMilliseconds))
+        {
+            // Kill the whole process tree so no orphaned child process outlives the test, then
+            // report a clear failure instead of hanging.
+            process.Kill(entireProcessTree: true);
+            throw new InvalidOperationException(
+                $"Process '{program}' did not exit within {ProcessExitTimeout.TotalSeconds}s.");
+        }
 
         // Combine stdout and stderr, save the output and return the exit code
         var stdout = outputTask.GetAwaiter().GetResult();

@@ -364,6 +364,45 @@ public class AudioDeviceFactoryTests
     }
 
     /// <summary>
+    ///     Proves that a selection with an empty-string device name is treated the same as a
+    ///     <see langword="null"/> selection - falling back to "any known device is acceptable" -
+    ///     matching <see cref="AudioDeviceSelection.Resolve"/>, which can never exactly match an
+    ///     empty name and so always falls back to the system default for it. Without this fix, an
+    ///     empty-string selection would spuriously require an (impossible) exact match and return
+    ///     the unavailable fallback even though the probe reports real devices.
+    /// </summary>
+    [Fact]
+    public void AudioDeviceFactory_CreateCaptureDevice_SelectionHasEmptyDeviceName_ReturnsRealDevice()
+    {
+        // Arrange: a fake PortAudio environment with one real capture device, and a probe
+        // reporting that same device, matching what the real environment would enumerate.
+        var environment = new PortAudioEnvironment(
+            new FakePortAudioApi(
+            [
+                new PortAudioDeviceInfo("Mic", 5, 1, 0, 16000, 0.01, 0.0)
+            ])
+            {
+                FindHostApiIndexResult = 5,
+                HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, 0, -1)
+            },
+            OSPlatform.Windows);
+        var captureProbe = Substitute.For<IAudioCaptureDeviceProbe>();
+        captureProbe.Enumerate().Returns(
+        [
+            new AudioDeviceDescription("Mic", AudioDeviceDirection.Capture, 1, 16000)
+        ]);
+        var factory = new AudioDeviceFactory(captureProbe, null, null, environment);
+
+        // Act: request a device using a selection with an empty-string device name
+        var device = factory.CreateCaptureDevice(new AudioDeviceSelection(string.Empty));
+
+        // Assert: resolved as a real device, exactly as a null selection would be, rather than
+        // spuriously falling back to unavailable
+        var typedDevice = Assert.IsType<PortAudioCaptureDevice>(device);
+        Assert.True(typedDevice.IsAvailable);
+    }
+
+    /// <summary>
     ///     Proves that a PortAudio initialization failure returns the honest unavailable fallback device.
     /// </summary>
     [Fact]
