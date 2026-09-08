@@ -28,8 +28,9 @@ outcome with an optional underlying exception when the outcome is `Failed`.
   enumeration/delete with no network or hashing involved, so it does not compromise the no-op
   contract below), reports an `Info` diagnostic ("Model '{id}' is already installed; DownloadAsync
   is a no-op.") and returns `SpeechModelDownloadResult(SpeechModelDownloadOutcome.Installed)`
-  immediately, with no fetch, verification, or network/staging work performed at all - only the
-  cheap leftover sweep. This fast-path check is deliberately placed
+  immediately, with no fetch, verification, or network work performed at all - the only
+  staging-directory activity is the cheap opportunistic leftover sweep. This fast-path check
+  is deliberately placed
   *inside* the per-model-id lock (never before acquiring it) so it stays race-safe against a
   concurrent first-time install of the same model id: two callers racing to install the same
   not-yet-installed id still serialize on the lock as before, and only a caller that genuinely

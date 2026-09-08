@@ -66,7 +66,7 @@ model reports `Failed` with `Error` populated and installs nothing.
 
 **Test**: `SpeechModelDownloader_DownloadAsync_AlreadyInstalled_ReturnsInstalledWithoutFetchingOrStaging`
 
-##### Download: Already Installed With Leftover Staging Cleans Up Leftover
+##### Download: Already Installed Cleans Up Leftover Staging Directory
 
 **Test**: `SpeechModelDownloader_DownloadAsync_AlreadyInstalledWithLeftoverStaging_CleansUpLeftover`
 
