@@ -96,14 +96,19 @@ real microphone capture) is still called only once Phase 2's `Listen` genuinely 
 pre-warming never risks capturing audio - including any acoustic bleed from the prompt still being
 played - while Phase 1 is in progress.
 
-`RunAsync` unconditionally awaits the pre-warm task before returning, on every exit path, so its
-result and any exception it raises are never left unobserved:
+On every exit path, the pre-warm task's result and any exception it raises are always eventually
+observed and never left unobserved, but `RunAsync` only *synchronously* awaits it on the success
+path (Phase 2 genuinely starting); on the canceled/failed paths it hands the cleanup off
+fire-and-forget so a slow in-flight model load never delays `Ctrl+C`/fast-failure responsiveness:
 
-- **Phase 1 canceled**: the pre-warm task (whether already completed, still in flight, or
-  destined to fail) is awaited and, if it produced a recognizer, that recognizer is disposed,
-  via a small `DisposePrewarmedRecognizerAsync` helper that swallows any pre-warm exception -
-  Phase 1's own cancellation has already been reported, and a concurrently failed pre-warm is not
-  separately actionable once the call is already ending in cancellation.
+- **Phase 1 canceled (or Phase 1/earlier resolution logic throws)**: the pre-warm task (whether
+  already completed, still in flight, or destined to fail) is handed off, not awaited, to a small
+  `DisposePrewarmedRecognizerAsync` helper via `_ = DisposePrewarmedRecognizerAsync(prewarmTask);`,
+  so `RunAsync` can return/rethrow immediately instead of blocking on the recognizer's model load
+  finishing. `DisposePrewarmedRecognizerAsync` itself still awaits the task in the background and,
+  if it produced a recognizer, disposes it, swallowing any pre-warm exception - Phase 1's own
+  cancellation/failure has already been reported, and a concurrently failed pre-warm is not
+  separately actionable once the call is already ending that way.
 - **Phase 1 succeeds**: `RunAsync` awaits the pre-warm task directly, which re-throws (with its
   original exception type, message, and stack trace) any failure `PrewarmRecognizer` raised - an
   unknown/unavailable `--capture-device`, an invalid `--stt-param` value, etc. - at the start of

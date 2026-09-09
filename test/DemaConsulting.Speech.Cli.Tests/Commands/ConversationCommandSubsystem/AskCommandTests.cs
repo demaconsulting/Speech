@@ -18,6 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+using System.Diagnostics;
 using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.Cli.Cli;
 using DemaConsulting.Speech.Cli.Commands.ConversationCommandSubsystem;
@@ -83,10 +84,10 @@ public sealed class AskCommandTests
     /// </summary>
     private static async Task<bool> WaitForConditionAsync(Func<bool> condition, TimeSpan timeout)
     {
-        var deadline = DateTime.UtcNow + timeout;
+        var stopwatch = Stopwatch.StartNew();
         while (!condition())
         {
-            if (DateTime.UtcNow >= deadline)
+            if (stopwatch.Elapsed >= timeout)
             {
                 return false;
             }
