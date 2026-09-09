@@ -65,15 +65,61 @@ parameters, reusing `ParameterBagParser.Resolve` unmodified from the synthesis p
 **Two-phase execution.** Phase 1 (speak) resolves a real playback device from the injected
 `ICliPlaybackDeviceSource` (honoring `--playback-device`, defaulting to the system default device
 exactly as `speak` does), constructs the TTS synthesizer via `CreateSynthesizer`, and calls
-`SpeakAsync` on the resolved text, waiting for it to complete before Phase 2 begins - there is no
-concurrent speak/listen; the two phases are strictly sequential, matching a natural
-question-then-answer conversational turn. Phase 2 (listen) resolves a real capture device from
-the injected `ICliCaptureDeviceSource` (honoring `--capture-device`, defaulting to the system
-default device exactly as `recognize --mic` does), constructs the STT recognizer via
-`CreateRecognizer`, and blocks on a `ManualResetEventSlim` until one of: the first **final**
-recognition result arrives, a `SilenceTimeoutRecognizerSession` (constructed and armed exactly as
-`recognize --mic`'s own, reused unmodified from `RecognitionCommandSubsystem`) times out, or
-`Ctrl+C` is pressed.
+`SpeakAsync` on the resolved text, waiting for it to complete before Phase 2's listen phase can
+end - Phase 2's recognizer construction now begins concurrently with Phase 1's wait rather than
+strictly once it finishes (see "Recognizer Pre-Warming" below); the two phases' *listening*
+remains strictly sequential, matching a natural question-then-answer conversational turn - `ask`
+never starts real microphone capture while the prompt is still being spoken. Phase 2 (listen)
+resolves a real capture device from the injected `ICliCaptureDeviceSource` (honoring
+`--capture-device`, defaulting to the system default device exactly as `recognize --mic` does),
+constructs the STT recognizer via `CreateRecognizer`, and blocks on a `ManualResetEventSlim` until
+one of: the first **final** recognition result arrives, a `SilenceTimeoutRecognizerSession`
+(constructed and armed exactly as `recognize --mic`'s own, reused unmodified from
+`RecognitionCommandSubsystem`) times out, or `Ctrl+C` is pressed.
+
+### Recognizer Pre-Warming (Concurrent Phase 1/Phase 2 Model Load)
+
+Loading a recognition model into native memory - not `Start()`, which merely begins streaming
+audio through an already-loaded model - is the expensive step in constructing an
+`ISpeechRecognizer` (see `SpeechRecognizerFactory`'s own remarks). Deferring that load until
+strictly after Phase 1's playback finishes therefore introduced an avoidable turnaround-gap
+latency between finishing speaking and starting to listen. `AskCommand.RunAsync` now kicks off a
+private `PrewarmRecognizer` method - which resolves Phase 2's capture device (via
+`ICliCaptureDeviceSource`, honoring `--capture-device`) and then calls `CreateRecognizer`, exactly
+what `Listen` used to do at its own start - on a background `Task.Run` immediately after both
+phases' parameters are resolved, so this work overlaps with the `await SpeakPromptAsync(...)` call
+that follows it. Capture-device resolution moved into this pre-warm step alongside recognizer
+construction because `ICliModelCatalog.CreateRecognizer` requires an already-constructed
+`IAudioCaptureDevice` as an argument - it cannot be deferred independently of the recognizer
+itself. Critically, only the model *load* is pre-warmed: `ISpeechRecognizer.Start()` (which begins
+real microphone capture) is still called only once Phase 2's `Listen` genuinely runs, so
+pre-warming never risks capturing audio - including any acoustic bleed from the prompt still being
+played - while Phase 1 is in progress.
+
+`RunAsync` unconditionally awaits the pre-warm task before returning, on every exit path, so its
+result and any exception it raises are never left unobserved:
+
+- **Phase 1 canceled**: the pre-warm task (whether already completed, still in flight, or
+  destined to fail) is awaited and, if it produced a recognizer, that recognizer is disposed,
+  via a small `DisposePrewarmedRecognizerAsync` helper that swallows any pre-warm exception -
+  Phase 1's own cancellation has already been reported, and a concurrently failed pre-warm is not
+  separately actionable once the call is already ending in cancellation.
+- **Phase 1 succeeds**: `RunAsync` awaits the pre-warm task directly, which re-throws (with its
+  original exception type, message, and stack trace) any failure `PrewarmRecognizer` raised - an
+  unknown/unavailable `--capture-device`, an invalid `--stt-param` value, etc. - at the start of
+  Phase 2, exactly as a synchronous call to the same logic would have. `Listen` itself is
+  simplified to accept the already-constructed recognizer directly, rather than constructing one
+  of its own; it still checks `stopSignal.IsSet` first (now also covering the case where `Ctrl+C`
+  landed during the concurrent pre-warm itself) before ever calling `Start()`, and still calls
+  `onRecognizerCreated`/disposes the recognizer in its own `finally` block exactly as before, so
+  the disposal-ordering/callback-timing contract several unit tests depend on is unchanged.
+
+This is a design note for future `ICliModelCatalog` implementers: `SpeechModelCatalogAdapter`
+(the only production implementation) wraps a read-mostly `SpeechModelCatalog` with no documented
+thread-safety concerns for concurrent `CreateSynthesizer`/`CreateRecognizer` calls on the same
+instance, which is what makes running `CreateRecognizer` concurrently with Phase 1's
+`CreateSynthesizer`-backed playback safe today; a future catalog implementation with non-thread-safe
+side effects shared across both calls would need to account for this concurrency.
 
 ### Capture-Device Resolution Through `ICliCaptureDeviceSource` (New Seam)
 
@@ -137,7 +183,15 @@ already landed (and the shared `ManualResetEventSlim` was already set) before Ph
 a recognizer. When a genuine cancellation is detected, Phase 2 reports it the same way Phase 1
 already does - `context.WriteError("Speech was canceled.")` - and the caller skips writing the
 (irrelevant) recognized text to `--output-text`/stdout entirely, rather than silently treating an
-interrupted turn as a successful, empty one.
+interrupted turn as a successful, empty one. `RunAsync` re-checks
+`cancellationToken.IsCancellationRequested` once more immediately after `Listen()` returns,
+covering the narrow race where `Ctrl+C` lands in the gap between `Listen()` unblocking and
+`RunAsync` resuming; and the `--output-text` file write itself passes that same
+`CancellationToken` through to `File.WriteAllTextAsync` (rather than `CancellationToken.None`),
+wrapped in a `try`/`catch (OperationCanceledException)` that reports and returns identically to
+every other cancellation exit point above - so a cancellation observed only once the write is
+already underway is handled the same way as one caught earlier, never silently completing and
+reporting a false "Recognized text written" success.
 
 ### Interactions with Other Units
 

@@ -19,9 +19,12 @@ observed at the contract's event, since they carry no behavior of their own.
 The contract is considered verified when the unavailable implementation reports `false`
 availability, throws on operational misuse, and treats subscription and disposal as safe no-ops,
 and when the real implementation starts and stops capture, delivers ordered provisional and final
-results carrying the full recognized text, and releases its engine on disposal.
+results carrying the full recognized text, releases its engine on disposal, and supports many
+independent Start/Stop cycles on the same instance without needing to be reconstructed.
 
 #### Test Scenarios
 
 See the RecognitionSubsystem-level scenarios "Pipeline: Result Delivery and Ordering", "Pipeline:
-Lifecycle and Draining", and "Unavailable Fallback: Honest Degradation".
+Lifecycle and Draining", and "Unavailable Fallback: Honest Degradation". The "construct once,
+reuse across many turns" contract is verified directly by
+`SherpaOnnxSpeechRecognizer_MultipleStartStopCycles_ReusesSameInstanceWithoutReconstruction`.

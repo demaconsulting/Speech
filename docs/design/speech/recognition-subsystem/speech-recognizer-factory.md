@@ -50,6 +50,17 @@ state checks run, and so the cheapest and most common cause of unavailability (a
 downloaded yet) is reported first among those and no native memory is allocated for a recognizer
 that could never run.
 
+**Reuse and concurrent pre-warming**: Since a call to `Create` is the expensive step (it loads
+the model into native memory) while `ISpeechRecognizer.Start`/`Stop` are cheap, a host doing
+repeated, low-latency recognition should construct one recognizer once via `Create` and reuse it
+across many `Start`/`Stop` cycles rather than calling `Create` again per turn - see
+`ISpeechRecognizer`'s own design doc for that reuse contract. Because this factory itself holds
+no state, a host may also call `Create` concurrently from a background task to overlap the
+model-load step with other work (for example, pre-warming the next turn's recognizer while the
+current turn's prompt is still speaking); this is safe with respect to the factory, but only
+safe with respect to a caller-supplied `diagnostics` sink when that sink is itself safe for
+concurrent use from multiple threads.
+
 **Error Handling**: Every ordinary machine state is represented as the honest unavailable
 recognizer plus a structural diagnostic, never as an exception, per this library's "nothing
 throws at composition" decision. An engine load failure - the missing-native-runtime case for a

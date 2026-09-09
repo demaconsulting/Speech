@@ -41,11 +41,13 @@ the early-return edge case) to reproduce the exact interleaving the real handler
 - **Isolation**: Every test constructs its own fake catalog/synthesizer/recognizer/device probes;
   `--output-text` tests write to a uniquely named temporary file, deleted afterward
 - **Test doubles**: `FakeCliModelCatalog`, `FakeSpeechSynthesizer`, `FakeSpeechRecognizer`,
-  `FakePlaybackDeviceSource`, `FakeAudioPlaybackDeviceProbe` (reused unmodified from
-  `SynthesisCommandSubsystem`'s own tests), and this pass's own new `FakeCaptureDeviceSource`/
-  `FakeAudioCaptureDevice`/`FakeAudioCaptureDeviceProbe` (mirroring `FakePlaybackDeviceSource`/
-  `FakeAudioPlaybackDevice` exactly), so no `AskCommandTests` scenario ever depends on a real
-  `AudioDeviceFactory`
+  `FakePlaybackDeviceSource`, `FakeAudioPlaybackDevice` (now tracking a `DisposeCallCount`,
+  mirroring `FakeSpeechRecognizer.DisposeCallCount`, so a test can prove the playback device
+  resolved by `SpeakPromptAsync` is disposed exactly once), `FakeAudioPlaybackDeviceProbe`
+  (reused, mostly unmodified, from `SynthesisCommandSubsystem`'s own tests), and this pass's own
+  new `FakeCaptureDeviceSource`/`FakeAudioCaptureDevice`/`FakeAudioCaptureDeviceProbe` (mirroring
+  `FakePlaybackDeviceSource`/`FakeAudioPlaybackDevice` exactly), so no `AskCommandTests` scenario
+  ever depends on a real `AudioDeviceFactory`
 
 ### Test Scenarios
 
@@ -140,21 +142,65 @@ real playback or capture device throws `InvalidOperationException`.
 #### Cancellation and Disposal
 
 **Tests**: `AskCommand_Run_CanceledDuringSpeak_SkipsListenPhase`,
+`AskCommand_Run_ExceptionDuringSpeak_DisposesPlaybackDeviceAndRethrows`,
+`AskCommand_Run_Success_SpeaksThenListensAndPrintsFinalResult`,
 `AskCommand_RunAsync_CtrlCDuringListen_ReportsCanceledAndDoesNotPrintText`,
 `AskCommand_RunAsync_CtrlCBeforeListenStarts_ReportsCanceledAndDoesNotPrintText`,
-`AskCommand_RunAsync_SilenceTimeoutWithNoCtrlC_ReportsSuccessNotCanceled`
+`AskCommand_RunAsync_SilenceTimeoutWithNoCtrlC_ReportsSuccessNotCanceled`,
+`AskCommand_RunAsync_CtrlCImmediatelyAfterListenReturns_ReportsCanceledAndDoesNotPrintText`,
+`AskCommand_RunAsync_CtrlCImmediatelyBeforeFileWrite_ReportsCanceledAndDoesNotWriteFile`
 
 **Scenario/Expected**: A cancellation raised during Phase 1 (speak) is reported and causes Phase 2
-(listen) to be skipped entirely - no recognizer is ever constructed, and the command returns
-cleanly with no partial recognized-text or playback state leaked. A genuine `Ctrl+C` landing
-during Phase 2 - whether mid-listen or in the narrow window before Phase 2 even starts a
-recognizer - is reported via `context.WriteError` with a non-zero exit code, and no recognized
-text (even if some was already captured) is ever printed or written to `--output-text`/stdout.
-Conversely, a legitimate empty result from a `--silence-timeout`/`--start-timeout` firing with no
-`Ctrl+C` involved is still reported as a normal, zero-exit-code success, proving the two outcomes
-are correctly distinguished rather than both being silently treated as success.
+(listen) to be skipped entirely - no recognizer is ever *started*, the concurrently pre-warmed
+recognizer (whether already constructed or still in flight) is disposed rather than leaked, and
+the command returns cleanly with no partial recognized-text or playback state leaked. A genuine
+`Ctrl+C` landing during Phase 2 - whether mid-listen or in the narrow window before Phase 2 even
+starts a recognizer - is reported via `context.WriteError` with a non-zero exit code, and no
+recognized text (even if some was already captured) is ever printed or written to
+`--output-text`/stdout. A `Ctrl+C` landing in the narrow window immediately after `Listen()`
+returns - whether or not `--output-text` is configured - is likewise reported as a cancellation
+and never writes the output file or prints "Recognized text written", proving `RunAsync`'s
+output-writing step (which now passes the real `cancellationToken` into
+`File.WriteAllTextAsync` wrapped in a `try`/`catch` mirroring every other cancellation exit point
+in `RunAsync`) never falsely reports success once cancellation has been observed. Conversely, a
+legitimate empty result from a `--silence-timeout`/`--start-timeout` firing with no `Ctrl+C`
+involved is still reported as a normal, zero-exit-code success, proving the two outcomes are
+correctly distinguished rather than both being silently treated as success.
+
+The resolved playback device's disposal - `SpeakPromptAsync`'s own `finally`-guaranteed
+`(playbackDevice as IDisposable)?.Dispose()` - is verified as disposed exactly once across all
+three of Phase 1's possible exits: the ordinary success path
+(`AskCommand_Run_Success_SpeaksThenListensAndPrintsFinalResult`), a canceled Phase 1
+(`AskCommand_Run_CanceledDuringSpeak_SkipsListenPhase`), and a non-cancellation exception thrown
+from Phase 1's `SpeakAsync` (`AskCommand_Run_ExceptionDuringSpeak_DisposesPlaybackDeviceAndRethrows`),
+using `FakeAudioPlaybackDevice.DisposeCallCount` - proving playback-device disposal is not only
+correct on the ordinary path but also never skipped when playback is canceled or faults.
 
 **Requirement coverage**: `SpeechCli-ConversationCommands-CancellationAndDisposal`.
+
+#### Recognizer Pre-Warming
+
+**Tests**: `AskCommand_Run_PrewarmsRecognizerConcurrentlyWithPlayback_CreatesRecognizerBeforePlaybackCompletes`,
+`AskCommand_Run_CanceledDuringSpeak_SkipsListenPhase`,
+`AskCommand_Run_NoCaptureDeviceAvailable_ThrowsInvalidOperationException`
+
+**Scenario/Expected**: The recognizer is constructed concurrently with Phase 1's speak/playback
+wait, not only after it finishes. The primary test proves this deterministically rather than with
+a flaky timing assertion: `FakeSpeechSynthesizer.SpeakAsyncAwaiter` holds Phase 1's `SpeakAsync`
+"in flight" until a `ManualResetEventSlim` set from inside `FakeCliModelCatalog`'s
+`CreateRecognizerOverride` is signaled, with a bounded (five-second) wait. If a future regression
+moves recognizer construction back to strictly after playback finishes, `SpeakAsync` would never
+observe the signal being set (since `CreateRecognizer` would not run until *after* `SpeakAsync`
+itself returns), and the bounded wait fails the test explicitly with a descriptive message
+instead of either silently passing or deadlocking the test run indefinitely. The same scenario
+also proves Phase 2 still proceeds correctly once Phase 1 completes (the recognizer starts, stops
+on the first final result, and is disposed exactly once). The two supporting tests prove pre-warm
+failure/cancellation is handled correctly rather than merely proving pre-warm construction itself:
+a canceled Phase 1 disposes the concurrently pre-warmed recognizer rather than leaking it, and a
+pre-warm failure (no capture device available) surfaces only *after* Phase 1 has already spoken
+the prompt - proving Phase 1 is never skipped or reordered even when Phase 2's setup fails.
+
+**Requirement coverage**: `SpeechCli-ConversationCommands-PrewarmRecognizer`.
 
 #### Null Guards
 
@@ -174,17 +220,18 @@ a `null` argument list with `ArgumentNullException`, proving the guard holds eve
 
 ### Requirements Coverage
 
-- **`SpeechCli-ConversationCommands-Ask`**: see _AskCommand — Argument Parsing, Text Source, and
-  Model Resolution_ above
-- **`SpeechCli-ConversationCommands-ParamValidation`**: see _`--tts-param`/`--stt-param`
-  Validation Reuse_ above
-- **`SpeechCli-ConversationCommands-ListenTermination`**: see _Listen-Phase Termination_ above
-- **`SpeechCli-ConversationCommands-OutputDispatch`**: see _Output Dispatch_ above
-- **`SpeechCli-ConversationCommands-DeviceDispatch`**: see _Playback and Capture Device Dispatch_
+- **`SpeechCli-ConversationCommands-Ask`**: see *AskCommand — Argument Parsing, Text Source, and
+  Model Resolution* above
+- **`SpeechCli-ConversationCommands-ParamValidation`**: see *`--tts-param`/`--stt-param`
+  Validation Reuse* above
+- **`SpeechCli-ConversationCommands-ListenTermination`**: see *Listen-Phase Termination* above
+- **`SpeechCli-ConversationCommands-OutputDispatch`**: see *Output Dispatch* above
+- **`SpeechCli-ConversationCommands-DeviceDispatch`**: see *Playback and Capture Device Dispatch*
   above
-- **`SpeechCli-ConversationCommands-CancellationAndDisposal`**: see _Cancellation and Disposal_
+- **`SpeechCli-ConversationCommands-CancellationAndDisposal`**: see *Cancellation and Disposal*
   above
-- **`SpeechCli-ConversationCommands-NullGuards`**: see _Null Guards_ above
+- **`SpeechCli-ConversationCommands-PrewarmRecognizer`**: see *Recognizer Pre-Warming* above
+- **`SpeechCli-ConversationCommands-NullGuards`**: see *Null Guards* above
 
 ### Acceptance Criteria
 

@@ -24,6 +24,12 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     Nothing in this type's public signature names a sherpa-onnx type, keeping this library's
 ///     "engine backend stays swappable at the public API surface" promise intact.
 ///     </para>
+///     <para>
+///     See <see cref="ISpeechSynthesizer"/>'s own remarks for guidance on reusing one synthesizer
+///     across many <see cref="ISpeechSynthesizer.SpeakAsync"/> sessions for low-latency, repeated
+///     synthesis, since a call to this factory is the expensive step a host typically wants to
+///     make only once.
+///     </para>
 /// </remarks>
 public static class SpeechSynthesizerFactory
 {

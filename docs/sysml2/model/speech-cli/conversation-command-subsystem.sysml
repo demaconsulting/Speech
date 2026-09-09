@@ -29,9 +29,15 @@ package SpeechCli {
              * real playback device (Phase 1), then - once playback finishes - listens
              * through a real capture device resolved via ICliCaptureDeviceSource
              * (Phase 2) until the first final recognition result arrives, a reused
-             * SilenceTimeoutRecognizerSession times out, or Ctrl+C is pressed. A
-             * genuine Ctrl+C during Phase 2 is distinguished from a legitimate empty
-             * result (silence/start timeout) via the shared CancellationToken, and is
+             * SilenceTimeoutRecognizerSession times out, or Ctrl+C is pressed. Phase
+             * 2's recognizer (and its capture device) is now constructed concurrently
+             * with Phase 1's speak/playback wait, via a background task, rather than
+             * only once playback finishes, so the expensive model-load step overlaps
+             * with prompt playback and the turnaround gap before listening starts is
+             * minimized; only the model load is pre-warmed, never Start() (real
+             * microphone capture), which still begins only once Phase 2 genuinely
+             * runs. A genuine Ctrl+C during Phase 2 is distinguished from a legitimate
+             * empty result (silence/start timeout) via the shared CancellationToken, and is
              * reported the same way a Phase-1 cancellation already is (WriteError),
              * skipping the output-writing step entirely rather than printing/writing
              * empty text as a false success. Otherwise, the final recognized text is

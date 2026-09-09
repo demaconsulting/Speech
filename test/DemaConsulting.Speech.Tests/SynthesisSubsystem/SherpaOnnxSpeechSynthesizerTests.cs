@@ -125,6 +125,34 @@ public class SherpaOnnxSpeechSynthesizerTests
     }
 
     /// <summary>
+    ///     Proves that a synthesizer supports multiple independent <c>PlayStreamAsync</c>
+    ///     sessions on the same instance without reconstruction, so a host may construct one
+    ///     synthesizer once and reuse it across many conversation turns for low-latency, repeated
+    ///     synthesis, per <see cref="ISpeechSynthesizer"/>'s "hot synthesis" reuse guidance.
+    /// </summary>
+    [Fact]
+    public async Task PlayStreamAsync_CalledTwiceOnSameInstance_ReusesSameInstanceWithoutReconstruction()
+    {
+        // Arrange: a single synthesizer instance over a mono 16 kHz playback device
+        var engine = new FakeSynthesisEngine();
+        var playbackDevice = CreateAvailablePlaybackDevice(sampleRate: 16000, channelCount: 1);
+        using var synthesizer = new SherpaOnnxSpeechSynthesizer(engine, playbackDevice, new FakeSynthesisModel());
+        SynthesizedSpeech[] segments =
+        [
+            new SynthesizedSpeech([0.1f, 0.2f], engine.SampleRate, TimeSpan.Zero, TimeSpan.Zero)
+        ];
+
+        // Act: run two independent play sessions on the same instance
+        await synthesizer.PlayStreamAsync(ToAsyncEnumerable(segments), TestContext.Current.CancellationToken);
+        await synthesizer.PlayStreamAsync(ToAsyncEnumerable(segments), TestContext.Current.CancellationToken);
+
+        // Assert: both sessions genuinely started and stopped the playback device, proving the
+        // synthesizer remains usable across repeated sessions without being disposed and recreated
+        playbackDevice.Received(2).Start();
+        playbackDevice.Received(2).Stop();
+    }
+
+    /// <summary>
     ///     Proves that a playback device fault while writing propagates to the caller, and that
     ///     the device is still stopped in the guaranteeing <c>finally</c> block.
     /// </summary>

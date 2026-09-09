@@ -24,6 +24,24 @@ namespace DemaConsulting.Speech.RecognitionSubsystem;
 ///     Nothing in this type's public signature names a sherpa-onnx type, keeping this library's
 ///     "engine backend stays swappable at the public API surface" promise intact.
 ///     </para>
+///     <para>
+///     See <see cref="ISpeechRecognizer"/>'s own remarks for guidance on reusing one recognizer
+///     across many <see cref="ISpeechRecognizer.Start"/>/<see cref="ISpeechRecognizer.Stop"/>
+///     cycles for low-latency, repeated recognition, since a call to this factory is the
+///     expensive step a host typically wants to make only once.
+///     </para>
+///     <para>
+///     <b>Concurrent pre-warming.</b> Because this method's model-load work is the expensive
+///     step above, a host may call it from a background task while other unrelated work
+///     proceeds concurrently (for example, to overlap loading the next turn's recognizer with
+///     the current turn's speech playback). This is safe with respect to this factory's own
+///     state, since it holds none. It is only safe with respect to any caller-supplied
+///     collaborator passed to <c>Create</c> - most notably <c>diagnostics</c> - when
+///     that collaborator is itself safe for concurrent use from multiple threads; a
+///     <see cref="ISpeechDiagnostics"/> sink passed as <c>diagnostics</c> that is not
+///     thread-safe must not be shared between a concurrent pre-warming call and any other
+///     concurrent work that reports to the same sink.
+///     </para>
 /// </remarks>
 public static class SpeechRecognizerFactory
 {
