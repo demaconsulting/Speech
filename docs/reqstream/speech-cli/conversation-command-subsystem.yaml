@@ -18,8 +18,8 @@ sections:
         requirements:
           - id: SpeechCli-ConversationCommands-Ask
             title: >-
-              The tool shall speak prompt text (from `--text` or `--file`) through a known,
-              downloaded synthesis model named by `--tts-model <id>` and then, once playback
+              The tool shall speak prompt text (from `--text`, `--file`, or piped stdin) through a
+              known, downloaded synthesis model named by `--tts-model <id>` and then, once playback
               finishes, listen for a reply through a known, downloaded recognition model named by
               `--stt-model <id>`, when invoked with `ask`, rejecting a missing `--tts-model` or
               `--stt-model`, an unknown/wrong-role/not-downloaded model id for either model, a

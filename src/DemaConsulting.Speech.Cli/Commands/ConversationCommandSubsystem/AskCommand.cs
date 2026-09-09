@@ -476,7 +476,13 @@ internal static class AskCommand
                         // Ctrl+C canceled the shared token while waiting; whether or not
                         // stopSignal itself has already been set by the same handler is
                         // irrelevant here - cancellationToken.IsCancellationRequested below is
-                        // what distinguishes this from a legitimate empty result.
+                        // what distinguishes this from a legitimate empty result. Stop the
+                        // recognizer explicitly here (mirroring onResultReceived above) so the
+                        // intent is obvious without requiring a reader to trace through
+                        // ISpeechRecognizer's disposal-implies-stop contract; the recognizer is
+                        // disposed unconditionally below regardless, so this call is redundant
+                        // but harmless given Stop() is documented as idempotent.
+                        recognizer.Stop();
                     }
                 }
                 finally
