@@ -203,11 +203,14 @@ var descriptor = catalog.Enumerate().First(d => d.Role == SpeechModelRole.Recogn
 // instead: catalog.Enumerate().First(d => d.DisplayName.Contains("Zipformer"));
 var model = (IRecognitionModel)descriptor.Model;
 
-// 3. Ensure the chosen model is downloaded before first use.
-if (descriptor.State != SpeechModelState.Downloaded)
-{
-    await catalog.DownloadAsync(model.Id);
-}
+// 3. Ensure the chosen model is downloaded before first use. DownloadAsync is safe to call
+//    unconditionally on every launch: for an already-installed model it is a cheap check (no
+//    network access, no re-download) that returns an Installed result. It only does real work
+//    - and can fail - the first time a model is fetched: a transport failure returns a Failed
+//    result with an Error, and a checksum mismatch returns ChecksumMismatch. An unknown model
+//    id (not one of catalog.Enumerate()'s models) throws ArgumentException instead of
+//    returning a failed result, since that indicates a caller bug, not a runtime condition.
+await catalog.DownloadAsync(model.Id);
 
 // 4. Create a capture device matching the model's own required audio format.
 var captureDevice = new AudioDeviceFactory().CreateCaptureDevice(
@@ -348,11 +351,11 @@ var descriptor = catalog.Enumerate().First(d => d.Role == SpeechModelRole.Synthe
 // instead: catalog.Enumerate().First(d => d.DisplayName.Contains("Kokoro"));
 var model = (ISynthesisModel)descriptor.Model;
 
-// 3. Ensure the chosen model is downloaded before first use.
-if (descriptor.State != SpeechModelState.Downloaded)
-{
-    await catalog.DownloadAsync(model.Id);
-}
+// 3. Ensure the chosen model is downloaded before first use. DownloadAsync is safe to call
+//    unconditionally on every launch: for an already-installed model it is a cheap check (no
+//    network access, no re-download) that returns an Installed result. See the recognition
+//    example above for the failure modes on a first-time download.
+await catalog.DownloadAsync(model.Id);
 
 // 4. Create a playback device matching the model's own preferred audio format hint.
 var playbackDevice = new AudioDeviceFactory().CreatePlaybackDevice(
