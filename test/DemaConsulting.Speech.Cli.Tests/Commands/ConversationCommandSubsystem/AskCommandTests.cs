@@ -32,14 +32,16 @@ namespace DemaConsulting.Speech.Cli.Tests.Commands.ConversationCommandSubsystem;
 
 /// <summary>
 ///     Unit tests for <see cref="AskCommand"/>, using <see cref="FakeCliModelCatalog"/>,
-///     <see cref="FakeSpeechSynthesizer"/>, <see cref="FakeSpeechRecognizer"/>, and fake/real
-///     audio device probes so every scenario runs deterministically with no real catalog,
-///     network access, or native engine. The capture-side device resolution reuses a real
-///     <see cref="AudioDeviceFactory"/> with an injected capture probe (mirroring
-///     <see cref="RecognitionCommandSubsystem.RecognizeCommandTests"/>'s own precedent), while
-///     the playback-side device resolution reuses <see cref="FakePlaybackDeviceSource"/> (mirroring
-///     <see cref="SynthesisCommandSubsystem.SpeakCommandTests"/>'s own precedent), since no new
-///     seam member is required for either.
+///     <see cref="FakeSpeechSynthesizer"/>, <see cref="FakeSpeechRecognizer"/>, and fake audio
+///     device probes/sources so every scenario runs deterministically with no real catalog,
+///     network access, native engine, or PortAudio hardware. Both the playback-side and
+///     capture-side device resolution reuse dedicated CLI-owned seams -
+///     <see cref="FakePlaybackDeviceSource"/> (mirroring
+///     <see cref="SynthesisCommandSubsystem.SpeakCommandTests"/>'s own precedent) and
+///     <see cref="FakeCaptureDeviceSource"/> respectively - rather than a real
+///     <see cref="AudioDeviceFactory"/>, so no test ever depends on
+///     <c>PortAudioEnvironment.Shared.IsInitialized</c> being true (which it never is on headless
+///     CI runners).
 /// </summary>
 [Collection("Sequential")]
 public sealed class AskCommandTests
@@ -69,8 +71,8 @@ public sealed class AskCommandTests
     private static FakePlaybackDeviceSource CreatePlaybackSource() =>
         new(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
 
-    private static AudioDeviceFactory CreateCaptureFactory() =>
-        new(captureProbe: new FakeAudioCaptureDeviceProbe([CaptureDevice]));
+    private static FakeCaptureDeviceSource CreateCaptureSource() =>
+        new(new FakeAudioCaptureDeviceProbe([CaptureDevice]));
 
     // --- ParseArguments ---
 
@@ -217,7 +219,7 @@ public sealed class AskCommandTests
             ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi", "--file", "in.txt"]);
 
         Assert.Throws<ArgumentException>(
-            () => AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureFactory()));
+            () => AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureSource()));
     }
 
     // --- Model validation ---
@@ -231,7 +233,7 @@ public sealed class AskCommandTests
             ["ask", "--tts-model", "does-not-exist", "--stt-model", "stt-model-1", "--text", "hi"]);
 
         var exception = Assert.Throws<ArgumentException>(
-            () => AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureFactory()));
+            () => AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureSource()));
         Assert.Contains("does-not-exist", exception.Message);
     }
 
@@ -244,7 +246,7 @@ public sealed class AskCommandTests
             ["ask", "--tts-model", "tts-model-1", "--stt-model", "does-not-exist", "--text", "hi"]);
 
         var exception = Assert.Throws<ArgumentException>(
-            () => AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureFactory()));
+            () => AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureSource()));
         Assert.Contains("does-not-exist", exception.Message);
     }
 
@@ -257,7 +259,7 @@ public sealed class AskCommandTests
             ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi"]);
 
         var exception = Assert.Throws<ArgumentException>(
-            () => AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureFactory()));
+            () => AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureSource()));
         Assert.Contains("synthesis model", exception.Message);
     }
 
@@ -270,7 +272,7 @@ public sealed class AskCommandTests
             ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi"]);
 
         var exception = Assert.Throws<ArgumentException>(
-            () => AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureFactory()));
+            () => AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureSource()));
         Assert.Contains("recognition model", exception.Message);
     }
 
@@ -283,7 +285,7 @@ public sealed class AskCommandTests
             ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi"]);
 
         var exception = Assert.Throws<ArgumentException>(
-            () => AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureFactory()));
+            () => AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureSource()));
         Assert.Contains("download tts-model-1", exception.Message);
     }
 
@@ -296,7 +298,7 @@ public sealed class AskCommandTests
             ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi"]);
 
         var exception = Assert.Throws<ArgumentException>(
-            () => AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureFactory()));
+            () => AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureSource()));
         Assert.Contains("download stt-model-1", exception.Message);
     }
 
@@ -314,7 +316,7 @@ public sealed class AskCommandTests
             ]);
 
         var exception = Assert.Throws<ArgumentException>(
-            () => AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureFactory()));
+            () => AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureSource()));
         Assert.Contains("does-not-exist", exception.Message);
     }
 
@@ -328,7 +330,7 @@ public sealed class AskCommandTests
             ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi"]);
 
         Assert.Throws<InvalidOperationException>(
-            () => AskCommand.Run(context, catalog, deviceSource, CreateCaptureFactory()));
+            () => AskCommand.Run(context, catalog, deviceSource, CreateCaptureSource()));
     }
 
     /// <summary>Test that an unknown --capture-device throws before any recognizer is created.</summary>
@@ -338,7 +340,7 @@ public sealed class AskCommandTests
         var catalog = CreateCatalogWithModels();
         var synthesizer = new FakeSpeechSynthesizer();
         catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
-        var captureFactory = new AudioDeviceFactory(captureProbe: new FakeAudioCaptureDeviceProbe());
+        var captureSource = new FakeCaptureDeviceSource(new FakeAudioCaptureDeviceProbe());
         using var context = Context.Create(
             [
                 "ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi",
@@ -346,7 +348,7 @@ public sealed class AskCommandTests
             ]);
 
         var exception = Assert.Throws<ArgumentException>(
-            () => AskCommand.Run(context, catalog, CreatePlaybackSource(), captureFactory));
+            () => AskCommand.Run(context, catalog, CreatePlaybackSource(), captureSource));
         Assert.Contains("does-not-exist", exception.Message);
     }
 
@@ -357,12 +359,12 @@ public sealed class AskCommandTests
         var catalog = CreateCatalogWithModels();
         var synthesizer = new FakeSpeechSynthesizer();
         catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
-        var captureFactory = new AudioDeviceFactory(captureProbe: new FakeAudioCaptureDeviceProbe());
+        var captureSource = new FakeCaptureDeviceSource(new FakeAudioCaptureDeviceProbe());
         using var context = Context.Create(
             ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi"]);
 
         Assert.Throws<InvalidOperationException>(
-            () => AskCommand.Run(context, catalog, CreatePlaybackSource(), captureFactory));
+            () => AskCommand.Run(context, catalog, CreatePlaybackSource(), captureSource));
     }
 
     // --- Success path ---
@@ -392,7 +394,7 @@ public sealed class AskCommandTests
             using var context = Context.Create(
                 ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "How are you?"]);
 
-            AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureFactory());
+            AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureSource());
         }
         finally
         {
@@ -431,7 +433,7 @@ public sealed class AskCommandTests
                     "--output-text", outputPath
                 ]);
 
-            AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureFactory());
+            AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureSource());
 
             Assert.True(File.Exists(outputPath));
             Assert.Equal("the reply", File.ReadAllText(outputPath).TrimEnd());
@@ -468,7 +470,7 @@ public sealed class AskCommandTests
                 "--tts-param", "rate=2.0", "--stt-param", "beam=4"
             ]);
 
-        AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureFactory());
+        AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureSource());
 
         var ttsParameterValues = Assert.Single(catalog.CreateSynthesizerParameterValueCalls);
         Assert.NotNull(ttsParameterValues);
@@ -493,7 +495,7 @@ public sealed class AskCommandTests
             ]);
 
         Assert.Throws<ArgumentException>(
-            () => AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureFactory()));
+            () => AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureSource()));
     }
 
     /// <summary>
@@ -528,7 +530,7 @@ public sealed class AskCommandTests
                     "--silence-timeout", "0.05", "--output-text", outputPath
                 ]);
 
-            AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureFactory());
+            AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureSource());
 
             Assert.Equal(1, recognizer.StopCallCount);
             Assert.True(File.Exists(outputPath));
@@ -558,11 +560,170 @@ public sealed class AskCommandTests
         using var context = Context.Create(
             ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi"]);
 
-        AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureFactory());
+        AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureSource());
 
         Assert.Equal(1, context.ExitCode);
         Assert.Equal(1, synthesizer.DisposeCallCount);
         Assert.Equal(0, recognizer.StartCallCount);
+    }
+
+    /// <summary>
+    ///     Test that a genuine <c>Ctrl+C</c> landing mid-listen (simulated by canceling the same
+    ///     <see cref="CancellationTokenSource"/> and setting the same <see cref="ManualResetEventSlim"/>
+    ///     the real <see cref="Console.CancelKeyPress"/> handler uses, from within the fake
+    ///     recognizer's <c>Start()</c> callback) is reported as a cancellation - via
+    ///     <see cref="Context.WriteError"/> and a non-zero exit code - rather than silently
+    ///     printed as an empty, successful result. Drives <see cref="AskCommand.RunAsync"/>
+    ///     directly (rather than the public <c>Run</c> entry point) because there is no
+    ///     supported way to raise a real <see cref="Console.CancelKeyPress"/> event from a test.
+    /// </summary>
+    [Fact]
+    public async Task AskCommand_RunAsync_CtrlCDuringListen_ReportsCanceledAndDoesNotPrintText()
+    {
+        var catalog = CreateCatalogWithModels();
+        var synthesizer = new FakeSpeechSynthesizer();
+        catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
+
+        using var cancellationSource = new CancellationTokenSource();
+        using var stopSignal = new ManualResetEventSlim(initialState: false);
+
+        var recognizer = new FakeSpeechRecognizer
+        {
+            // Simulates the exact interleaving AskCommand's own onCancelKeyPress handler
+            // produces when Ctrl+C lands during Phase 2: cancel the shared token, stop the
+            // recognizer, then signal stopSignal - all without ever raising a final result.
+            OnStart = self =>
+            {
+                cancellationSource.Cancel();
+                self.Stop();
+                stopSignal.Set();
+            }
+        };
+        catalog.CreateRecognizerOverride = (_, _, _) => recognizer;
+
+        var originalOut = Console.Out;
+        var writer = new StringWriter { NewLine = "\n" };
+        Console.SetOut(writer);
+        try
+        {
+            using var context = Context.Create(
+                ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi"]);
+
+            await AskCommand.RunAsync(
+                context,
+                catalog,
+                CreatePlaybackSource(),
+                CreateCaptureSource(),
+                stopSignal,
+                _ => { },
+                cancellationSource.Token);
+
+            Assert.Equal(1, context.ExitCode);
+            Assert.Equal(string.Empty, writer.ToString());
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+    }
+
+    /// <summary>
+    ///     Test that the edge case where <c>Ctrl+C</c> lands so early that <c>stopSignal</c> is
+    ///     already set before <c>Listen</c> even starts a recognizer is also reported as a
+    ///     cancellation, not a silent empty success - covering the early-return path distinct
+    ///     from the mid-listen path exercised by
+    ///     <see cref="AskCommand_RunAsync_CtrlCDuringListen_ReportsCanceledAndDoesNotPrintText"/>.
+    /// </summary>
+    [Fact]
+    public async Task AskCommand_RunAsync_CtrlCBeforeListenStarts_ReportsCanceledAndDoesNotPrintText()
+    {
+        var catalog = CreateCatalogWithModels();
+        var synthesizer = new FakeSpeechSynthesizer();
+        catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
+        var recognizer = new FakeSpeechRecognizer();
+        catalog.CreateRecognizerOverride = (_, _, _) => recognizer;
+
+        using var cancellationSource = new CancellationTokenSource();
+        using var stopSignal = new ManualResetEventSlim(initialState: false);
+
+        // Ctrl+C already landed (token canceled, stopSignal set) in the narrow window between
+        // Phase 1 finishing successfully and Phase 2 starting, before RunAsync is even invoked.
+        await cancellationSource.CancelAsync();
+        stopSignal.Set();
+
+        var originalOut = Console.Out;
+        var writer = new StringWriter { NewLine = "\n" };
+        Console.SetOut(writer);
+        try
+        {
+            using var context = Context.Create(
+                ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi"]);
+
+            await AskCommand.RunAsync(
+                context,
+                catalog,
+                CreatePlaybackSource(),
+                CreateCaptureSource(),
+                stopSignal,
+                _ => { },
+                cancellationSource.Token);
+
+            Assert.Equal(1, context.ExitCode);
+            Assert.Equal(0, recognizer.StartCallCount);
+            Assert.Equal(string.Empty, writer.ToString());
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+    }
+
+    /// <summary>
+    ///     Test that a legitimate empty result from a silence/start timeout (no <c>Ctrl+C</c>
+    ///     involved) is still reported as success, not cancellation, distinguishing it from
+    ///     <see cref="AskCommand_RunAsync_CtrlCDuringListen_ReportsCanceledAndDoesNotPrintText"/>.
+    /// </summary>
+    [Fact]
+    public async Task AskCommand_RunAsync_SilenceTimeoutWithNoCtrlC_ReportsSuccessNotCanceled()
+    {
+        var catalog = CreateCatalogWithModels();
+        var synthesizer = new FakeSpeechSynthesizer();
+        catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
+
+        using var cancellationSource = new CancellationTokenSource();
+        using var stopSignal = new ManualResetEventSlim(initialState: false);
+
+        var recognizer = new FakeSpeechRecognizer
+        {
+            // No Ctrl+C involved: the timeout session (armed by --silence-timeout) is what sets
+            // stopSignal here, exactly as the production TimedOut handler does.
+            OnStart = _ => stopSignal.Set()
+        };
+        catalog.CreateRecognizerOverride = (_, _, _) => recognizer;
+
+        var originalOut = Console.Out;
+        var writer = new StringWriter { NewLine = "\n" };
+        Console.SetOut(writer);
+        try
+        {
+            using var context = Context.Create(
+                ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi"]);
+
+            await AskCommand.RunAsync(
+                context,
+                catalog,
+                CreatePlaybackSource(),
+                CreateCaptureSource(),
+                stopSignal,
+                _ => { },
+                cancellationSource.Token);
+
+            Assert.Equal(0, context.ExitCode);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
     }
 
     // --- Null argument guards ---
@@ -572,7 +733,7 @@ public sealed class AskCommandTests
     public void AskCommand_Run_NullContext_ThrowsArgumentNullException()
     {
         Assert.Throws<ArgumentNullException>(
-            () => AskCommand.Run(null!, new FakeCliModelCatalog(), CreatePlaybackSource(), CreateCaptureFactory()));
+            () => AskCommand.Run(null!, new FakeCliModelCatalog(), CreatePlaybackSource(), CreateCaptureSource()));
     }
 
     /// <summary>Test that a null catalog is rejected.</summary>
@@ -581,7 +742,7 @@ public sealed class AskCommandTests
     {
         using var context = Context.Create(["ask", "--tts-model", "tts-1", "--stt-model", "stt-1", "--text", "hi"]);
         Assert.Throws<ArgumentNullException>(
-            () => AskCommand.Run(context, null!, CreatePlaybackSource(), CreateCaptureFactory()));
+            () => AskCommand.Run(context, null!, CreatePlaybackSource(), CreateCaptureSource()));
     }
 
     /// <summary>Test that a null device source is rejected.</summary>
@@ -590,12 +751,12 @@ public sealed class AskCommandTests
     {
         using var context = Context.Create(["ask", "--tts-model", "tts-1", "--stt-model", "stt-1", "--text", "hi"]);
         Assert.Throws<ArgumentNullException>(
-            () => AskCommand.Run(context, new FakeCliModelCatalog(), null!, CreateCaptureFactory()));
+            () => AskCommand.Run(context, new FakeCliModelCatalog(), null!, CreateCaptureSource()));
     }
 
-    /// <summary>Test that a null capture factory is rejected.</summary>
+    /// <summary>Test that a null capture-device source is rejected.</summary>
     [Fact]
-    public void AskCommand_Run_NullCaptureFactory_ThrowsArgumentNullException()
+    public void AskCommand_Run_NullCaptureSource_ThrowsArgumentNullException()
     {
         using var context = Context.Create(["ask", "--tts-model", "tts-1", "--stt-model", "stt-1", "--text", "hi"]);
         Assert.Throws<ArgumentNullException>(

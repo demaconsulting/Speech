@@ -43,8 +43,12 @@ namespace DemaConsulting.Speech.Cli.Commands.ConversationCommandSubsystem;
 ///     into one invocation, so an AI agent can hold a natural voice conversation with a person
 ///     using a single command instead of two separate CLI processes. No new library-level seam
 ///     member is introduced: Phase 1 reuses <see cref="ICliPlaybackDeviceSource"/> exactly as
-///     <see cref="SpeakCommand"/> does, and Phase 2 reuses a directly-injected
-///     <see cref="AudioDeviceFactory"/> exactly as <see cref="RecognizeCommand"/> does.
+///     <see cref="SpeakCommand"/> does, and Phase 2 resolves its capture device through
+///     <see cref="ICliCaptureDeviceSource"/>, a CLI-owned seam mirroring
+///     <see cref="ICliPlaybackDeviceSource"/> that lets unit tests substitute an in-memory fake
+///     capture device instead of depending on a real, sealed <see cref="AudioDeviceFactory"/> and
+///     real PortAudio hardware (unlike <see cref="RecognizeCommand"/>, which still resolves its
+///     capture device directly from an injected <see cref="AudioDeviceFactory"/>).
 ///     </para>
 ///     <para>
 ///     <b>Listen-termination rule.</b> Unlike <c>recognize --mic</c>, which listens indefinitely
@@ -69,10 +73,17 @@ namespace DemaConsulting.Speech.Cli.Commands.ConversationCommandSubsystem;
 ///     (aborting an in-flight <c>SpeakAsync</c> during Phase 1) and, once the recognizer has been
 ///     constructed, also calls <see cref="ISpeechRecognizer.Stop"/> and signals the same
 ///     <see cref="ManualResetEventSlim"/> the mic-wait blocks on, so <c>Ctrl+C</c> cancels
-///     cleanly whether it lands during playback or during listening. The synthesizer, playback
-///     device, recognizer, silence-timeout session, and output writer are each disposed exactly
-///     once via nested <c>finally</c> blocks, mirroring <see cref="SpeakCommand"/>'s and
-///     <see cref="RecognizeCommand"/>'s own disposal ordering.
+///     cleanly whether it lands during playback or during listening. Because a final
+///     recognition result, a silence/start timeout, and <c>Ctrl+C</c> all unblock the same
+///     <see cref="ManualResetEventSlim"/> identically, <c>Listen</c> re-checks the shared
+///     <see cref="CancellationToken"/> (only ever canceled by the <c>Ctrl+C</c> handler, never
+///     by a timeout or a normal final result) once it unblocks, so a genuine <c>Ctrl+C</c>
+///     during Phase 2 is reported the same way a Phase 1 cancellation is - via
+///     <see cref="Cli.Context.WriteError"/> - rather than silently written out as an empty,
+///     successful result. The synthesizer, playback device, recognizer, silence-timeout
+///     session, and output writer are each disposed exactly once via nested <c>finally</c>
+///     blocks, mirroring <see cref="SpeakCommand"/>'s and <see cref="RecognizeCommand"/>'s own
+///     disposal ordering.
 ///     </para>
 /// </remarks>
 internal static class AskCommand
@@ -80,8 +91,8 @@ internal static class AskCommand
     /// <summary>
     ///     Runs the <c>ask</c> subcommand against a real, composed
     ///     <see cref="SpeechModelCatalogAdapter"/>, <see cref="AudioDeviceFactoryPlaybackDeviceSource"/>,
-    ///     and <see cref="AudioDeviceFactory"/>, wiring <c>Ctrl+C</c> to cooperative cancellation
-    ///     for the duration of the call.
+    ///     and <see cref="AudioDeviceFactoryCaptureDeviceSource"/>, wiring <c>Ctrl+C</c> to
+    ///     cooperative cancellation for the duration of the call.
     /// </summary>
     /// <param name="context">The invocation context. Must not be null.</param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="context"/> is <see langword="null"/>.</exception>
@@ -91,22 +102,22 @@ internal static class AskCommand
 
         using var catalog = CliModelCatalogFactory.Create(context);
         var deviceSource = new AudioDeviceFactoryPlaybackDeviceSource(new AudioDeviceFactory());
-        var captureFactory = new AudioDeviceFactory();
-        Run(context, catalog, deviceSource, captureFactory);
+        var captureSource = new AudioDeviceFactoryCaptureDeviceSource(new AudioDeviceFactory());
+        Run(context, catalog, deviceSource, captureSource);
     }
 
     /// <summary>
     ///     Runs the <c>ask</c> subcommand against an injected catalog seam, playback-device
-    ///     source, and capture-device factory, for unit testing without a real model catalog,
+    ///     source, and capture-device source, for unit testing without a real model catalog,
     ///     network access, or audio hardware.
     /// </summary>
     /// <param name="context">The invocation context. Must not be null.</param>
     /// <param name="catalog">The catalog seam to resolve both models through. Must not be null.</param>
     /// <param name="deviceSource">The playback-device seam to resolve a real playback device through. Must not be null.</param>
-    /// <param name="captureFactory">The audio device factory to resolve a real capture device through. Must not be null.</param>
+    /// <param name="captureSource">The capture-device seam to resolve a real capture device through. Must not be null.</param>
     /// <exception cref="ArgumentNullException">
     ///     Thrown when <paramref name="context"/>, <paramref name="catalog"/>,
-    ///     <paramref name="deviceSource"/>, or <paramref name="captureFactory"/> is <see langword="null"/>.
+    ///     <paramref name="deviceSource"/>, or <paramref name="captureSource"/> is <see langword="null"/>.
     /// </exception>
     /// <exception cref="ArgumentException">
     ///     Thrown for any usage error: missing/unknown/wrong-role/not-downloaded model, conflicting
@@ -120,12 +131,12 @@ internal static class AskCommand
         Context context,
         ICliModelCatalog catalog,
         ICliPlaybackDeviceSource deviceSource,
-        AudioDeviceFactory captureFactory)
+        ICliCaptureDeviceSource captureSource)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(catalog);
         ArgumentNullException.ThrowIfNull(deviceSource);
-        ArgumentNullException.ThrowIfNull(captureFactory);
+        ArgumentNullException.ThrowIfNull(captureSource);
 
         using var cancellationSource = new CancellationTokenSource();
         using var stopSignal = new ManualResetEventSlim(initialState: false);
@@ -161,7 +172,7 @@ internal static class AskCommand
                 context,
                 catalog,
                 deviceSource,
-                captureFactory,
+                captureSource,
                 stopSignal,
                 r =>
                 {
@@ -182,11 +193,21 @@ internal static class AskCommand
     ///     Runs the <c>ask</c> subcommand's full text-source resolution, model resolution,
     ///     Phase 1 (speak) synthesis/playback, and Phase 2 (listen) capture/recognition logic.
     /// </summary>
-    private static async Task RunAsync(
+    /// <remarks>
+    ///     Marked <see langword="internal"/> (rather than <see langword="private"/>) so unit tests
+    ///     can drive Phase 2's <c>Ctrl+C</c>-during-listen cancellation race directly: a test
+    ///     supplies its own <paramref name="stopSignal"/> and <paramref name="cancellationToken"/>
+    ///     (from a <see cref="CancellationTokenSource"/> the test owns), and can cancel that
+    ///     source and set <paramref name="stopSignal"/> from within a fake recognizer's
+    ///     <c>Start()</c> callback to simulate the exact interleaving the real
+    ///     <see cref="Console.CancelKeyPress"/> handler produces, without depending on a real
+    ///     console signal.
+    /// </remarks>
+    internal static async Task RunAsync(
         Context context,
         ICliModelCatalog catalog,
         ICliPlaybackDeviceSource deviceSource,
-        AudioDeviceFactory captureFactory,
+        ICliCaptureDeviceSource captureSource,
         ManualResetEventSlim stopSignal,
         Action<ISpeechRecognizer?> onRecognizerCreated,
         CancellationToken cancellationToken)
@@ -213,14 +234,21 @@ internal static class AskCommand
         }
 
         // Phase 2: listen for the reply through a real capture device.
-        var recognizedText = Listen(
+        var (recognizedText, listenWasCanceled) = Listen(
+            context,
             catalog,
-            captureFactory,
+            captureSource,
             sttDescriptor,
             sttParameterValues,
             options,
             stopSignal,
-            onRecognizerCreated);
+            onRecognizerCreated,
+            cancellationToken);
+
+        if (listenWasCanceled)
+        {
+            return;
+        }
 
         if (options.OutputPath is not null)
         {
@@ -291,26 +319,34 @@ internal static class AskCommand
     }
 
     /// <summary>
-    ///     Runs Phase 2: constructs a real capture device from <paramref name="captureFactory"/>
+    ///     Runs Phase 2: constructs a real capture device from <paramref name="captureSource"/>
     ///     (honoring <c>--capture-device</c>), constructs the recognizer, and listens until the
     ///     first final recognition result arrives, a silence/start timeout fires, or <c>Ctrl+C</c>
     ///     is pressed (signaled externally via <paramref name="stopSignal"/>).
     /// </summary>
-    /// <returns>The final recognized text, or an empty string if the session ended with no final result.</returns>
+    /// <returns>
+    ///     The final recognized text (an empty string if the session ended with no final result),
+    ///     and whether the session ended because of a genuine <c>Ctrl+C</c> cancellation rather
+    ///     than a legitimate empty result (silence/start timeout). When canceled, an error has
+    ///     already been reported via <see cref="Cli.Context.WriteError"/> and the returned text
+    ///     must not be written to <c>--output-text</c>/stdout.
+    /// </returns>
     /// <exception cref="InvalidOperationException">Thrown when no real capture device is available.</exception>
-    private static string Listen(
+    private static (string Text, bool WasCanceled) Listen(
+        Context context,
         ICliModelCatalog catalog,
-        AudioDeviceFactory captureFactory,
+        ICliCaptureDeviceSource captureSource,
         SpeechModelDescriptor sttDescriptor,
         IReadOnlyDictionary<string, object>? parameterValues,
         AskOptions options,
         ManualResetEventSlim stopSignal,
-        Action<ISpeechRecognizer?> onRecognizerCreated)
+        Action<ISpeechRecognizer?> onRecognizerCreated,
+        CancellationToken cancellationToken)
     {
-        var knownDevices = captureFactory.CaptureProbe.Enumerate();
+        var knownDevices = captureSource.CaptureProbe.Enumerate();
         var selection = DevicesTestCommand.ResolveDeviceSelectionOrThrow(knownDevices, options.CaptureDeviceName, "capture");
 
-        var captureDevice = captureFactory.CreateCaptureDevice(selection);
+        var captureDevice = captureSource.CreateCaptureDevice(selection);
         if (!captureDevice.IsAvailable)
         {
             throw new InvalidOperationException(
@@ -319,9 +355,18 @@ internal static class AskCommand
 
         if (stopSignal.IsSet)
         {
-            // Ctrl+C already landed during Phase 1: skip listening entirely rather than starting
-            // a recognizer session that would be stopped again immediately.
-            return string.Empty;
+            // Ctrl+C already landed during Phase 1 (or in the narrow window between Phase 1
+            // finishing and Phase 2 starting): skip listening entirely rather than starting a
+            // recognizer session that would be stopped again immediately. Only report this as a
+            // cancellation when the shared token confirms Ctrl+C is the reason - the flag is
+            // otherwise never set before this point.
+            if (cancellationToken.IsCancellationRequested)
+            {
+                context.WriteError("Speech was canceled.");
+                return (string.Empty, true);
+            }
+
+            return (string.Empty, false);
         }
 
         var recognizer = catalog.CreateRecognizer(sttDescriptor, captureDevice, parameterValues);
@@ -362,7 +407,17 @@ internal static class AskCommand
                     }
 
                     recognizer.Start();
-                    stopSignal.Wait();
+                    try
+                    {
+                        stopSignal.Wait(cancellationToken);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        // Ctrl+C canceled the shared token while waiting; whether or not
+                        // stopSignal itself has already been set by the same handler is
+                        // irrelevant here - cancellationToken.IsCancellationRequested below is
+                        // what distinguishes this from a legitimate empty result.
+                    }
                 }
                 finally
                 {
@@ -374,7 +429,16 @@ internal static class AskCommand
                 recognizer.ResultReceived -= onResultReceived;
             }
 
-            return recognizedText;
+            // stopSignal.Wait() above unblocks identically for a final result, a silence/start
+            // timeout, or Ctrl+C: only Ctrl+C ever cancels the shared token, so this is the sole
+            // reliable way to distinguish a genuine cancellation from a legitimate empty result.
+            if (cancellationToken.IsCancellationRequested)
+            {
+                context.WriteError("Speech was canceled.");
+                return (recognizedText, true);
+            }
+
+            return (recognizedText, false);
         }
         finally
         {

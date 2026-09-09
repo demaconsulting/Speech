@@ -3,15 +3,19 @@
 ### Verification Approach
 
 The ConversationCommandSubsystem is verified entirely through deterministic unit tests against
-the same test doubles the synthesis and recognition passes already established: no new fake is
-needed. `FakeCliModelCatalog`'s existing `CreateSynthesizerOverride`/`CreateRecognizerOverride`
-delegates resolve `AskCommand`'s two models; `FakeSpeechSynthesizer` (recording `SpeakAsync`/
-`Dispose` call counts, with a settable exception to simulate a canceled Phase 1) and
-`FakeSpeechRecognizer` (recording `Start`/`Stop`/`Dispose` call counts, with an `OnStart` callback
-that raises a result synchronously before `Start()` returns) drive both phases; `FakePlaybackDeviceSource`
-and a `FakeAudioCaptureDeviceProbe`-backed `AudioDeviceFactory` resolve both devices, exactly as
-`SpeakCommandTests`/`RecognizeCommandTests` already do individually. No real model catalog,
-network access, or audio hardware is required by any `AskCommandTests` scenario.
+the same test doubles the synthesis and recognition passes already established: no new fake test
+double is needed for the synthesizer/recognizer/catalog. `FakeCliModelCatalog`'s existing
+`CreateSynthesizerOverride`/`CreateRecognizerOverride` delegates resolve `AskCommand`'s two
+models; `FakeSpeechSynthesizer` (recording `SpeakAsync`/`Dispose` call counts, with a settable
+exception to simulate a canceled Phase 1) and `FakeSpeechRecognizer` (recording `Start`/`Stop`/
+`Dispose` call counts, with an `OnStart` callback that raises a result synchronously before
+`Start()` returns) drive both phases. Device resolution reuses `FakePlaybackDeviceSource`
+(unmodified, from `SynthesisCommandSubsystem`'s own tests) for Phase 1, and this pass's own new
+`FakeCaptureDeviceSource`/`FakeAudioCaptureDevice` (mirroring `FakePlaybackDeviceSource`/
+`FakeAudioPlaybackDevice` exactly) for Phase 2 - never a real `AudioDeviceFactory` - so every
+`AskCommandTests` scenario that expects a successfully resolved capture device is deterministic
+on any machine, including headless CI runners with no real PortAudio hardware at all. No real
+model catalog, network access, or audio hardware is required by any `AskCommandTests` scenario.
 
 Because `FakeSpeechRecognizer.Start()` and `FakeSpeechSynthesizer.SpeakAsync()` both invoke their
 configured callbacks/results synchronously before returning, a fully deterministic, single-threaded
@@ -22,6 +26,14 @@ tiny (`0.05`s) real `--silence-timeout` value so the reused, unmodified
 `SilenceTimeoutRecognizerSession`'s real `TimeProvider.System`-backed timer genuinely fires,
 mirroring the same technique `RecognizeCommandTests` uses for its own silence-timeout scenarios.
 
+A genuine `Ctrl+C` landing during Phase 2 cannot be simulated by raising a real
+`Console.CancelKeyPress` event from a test (there is no supported way to do so), so the three
+`AskCommand_RunAsync_*` cancellation scenarios drive `AskCommand.RunAsync` directly - the same
+internal entry point the public `Run` overload's real `Console.CancelKeyPress` handler calls -
+supplying their own `CancellationTokenSource`/`ManualResetEventSlim` pair and canceling/signaling
+them from within a fake recognizer's `Start()` callback (or before `RunAsync` is even invoked, for
+the early-return edge case) to reproduce the exact interleaving the real handler produces.
+
 ### Test Environment
 
 - **Framework**: xUnit v3 running under the .NET SDK
@@ -29,9 +41,11 @@ mirroring the same technique `RecognizeCommandTests` uses for its own silence-ti
 - **Isolation**: Every test constructs its own fake catalog/synthesizer/recognizer/device probes;
   `--output-text` tests write to a uniquely named temporary file, deleted afterward
 - **Test doubles**: `FakeCliModelCatalog`, `FakeSpeechSynthesizer`, `FakeSpeechRecognizer`,
-  `FakePlaybackDeviceSource`, `FakeAudioCaptureDeviceProbe`, `FakeAudioPlaybackDeviceProbe` - all
-  reused unmodified from `SynthesisCommandSubsystem`'s and `RecognitionCommandSubsystem`'s own
-  tests, with no new fake added by this pass
+  `FakePlaybackDeviceSource`, `FakeAudioPlaybackDeviceProbe` (reused unmodified from
+  `SynthesisCommandSubsystem`'s own tests), and this pass's own new `FakeCaptureDeviceSource`/
+  `FakeAudioCaptureDevice`/`FakeAudioCaptureDeviceProbe` (mirroring `FakePlaybackDeviceSource`/
+  `FakeAudioPlaybackDevice` exactly), so no `AskCommandTests` scenario ever depends on a real
+  `AudioDeviceFactory`
 
 ### Test Scenarios
 
@@ -125,11 +139,20 @@ real playback or capture device throws `InvalidOperationException`.
 
 #### Cancellation and Disposal
 
-**Tests**: `AskCommand_Run_CanceledDuringSpeak_SkipsListenPhase`
+**Tests**: `AskCommand_Run_CanceledDuringSpeak_SkipsListenPhase`,
+`AskCommand_RunAsync_CtrlCDuringListen_ReportsCanceledAndDoesNotPrintText`,
+`AskCommand_RunAsync_CtrlCBeforeListenStarts_ReportsCanceledAndDoesNotPrintText`,
+`AskCommand_RunAsync_SilenceTimeoutWithNoCtrlC_ReportsSuccessNotCanceled`
 
 **Scenario/Expected**: A cancellation raised during Phase 1 (speak) is reported and causes Phase 2
 (listen) to be skipped entirely - no recognizer is ever constructed, and the command returns
-cleanly with no partial recognized-text or playback state leaked.
+cleanly with no partial recognized-text or playback state leaked. A genuine `Ctrl+C` landing
+during Phase 2 - whether mid-listen or in the narrow window before Phase 2 even starts a
+recognizer - is reported via `context.WriteError` with a non-zero exit code, and no recognized
+text (even if some was already captured) is ever printed or written to `--output-text`/stdout.
+Conversely, a legitimate empty result from a `--silence-timeout`/`--start-timeout` firing with no
+`Ctrl+C` involved is still reported as a normal, zero-exit-code success, proving the two outcomes
+are correctly distinguished rather than both being silently treated as success.
 
 **Requirement coverage**: `SpeechCli-ConversationCommands-CancellationAndDisposal`.
 
@@ -138,10 +161,10 @@ cleanly with no partial recognized-text or playback state leaked.
 **Tests**: `AskCommand_Run_NullContext_ThrowsArgumentNullException`,
 `AskCommand_Run_NullCatalog_ThrowsArgumentNullException`,
 `AskCommand_Run_NullDeviceSource_ThrowsArgumentNullException`,
-`AskCommand_Run_NullCaptureFactory_ThrowsArgumentNullException`
+`AskCommand_Run_NullCaptureSource_ThrowsArgumentNullException`
 
 **Scenario/Expected**: Every entry point rejects a `null` context, catalog, playback-device
-source, or capture-device factory immediately with `ArgumentNullException`, proving `AskCommand`
+source, or capture-device source immediately with `ArgumentNullException`, proving `AskCommand`
 never silently proceeds with a missing dependency.
 
 **Requirement coverage**: `SpeechCli-ConversationCommands-NullGuards`.
@@ -169,8 +192,10 @@ either model; `--tts-param`/`--stt-param` values are each forwarded through the 
 recognition result, and, absent one, ends cleanly on a `--silence-timeout` fire instead of
 blocking forever; `--output-text` writes exactly as `recognize`'s own flag does; an unknown/
 unavailable playback or capture device is rejected cleanly; a cancellation during the speak phase
-skips the listen phase entirely with no partial state leaked; and every entry point rejects a
-missing required dependency.
+skips the listen phase entirely with no partial state leaked; a genuine `Ctrl+C` during the listen
+phase is reported as a cancellation (non-zero exit code, no text printed/written) rather than a
+silent, false success, correctly distinguished from a legitimate empty `--silence-timeout`/
+`--start-timeout` result; and every entry point rejects a missing required dependency.
 
 ## Manual / Build-Time Verification
 

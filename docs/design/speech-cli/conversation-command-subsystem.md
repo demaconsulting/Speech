@@ -15,6 +15,14 @@ subcommands were implemented. It contains one type, `AskCommand`, and introduces
   [--playback-device <name>] [--capture-device <name>] [--tts-param key=value ...]
   [--stt-param key=value ...] [--silence-timeout <seconds>] [--start-timeout <seconds>]
   [--output-text <text-path>]`
+- **`ICliCaptureDeviceSource`**: a small CLI-owned seam over capture-device resolution, mirroring
+  `SynthesisCommandSubsystem`'s `ICliPlaybackDeviceSource` exactly (a `CaptureProbe` property and
+  a `CreateCaptureDevice(selection)` method), letting unit tests substitute an in-memory fake
+  capture device instead of depending on a real, sealed `AudioDeviceFactory` and real PortAudio
+  hardware.
+- **`AudioDeviceFactoryCaptureDeviceSource`**: the production `ICliCaptureDeviceSource`
+  implementation, forwarding every call unchanged to a composed, real `AudioDeviceFactory`, mirroring
+  `AudioDeviceFactoryPlaybackDeviceSource` exactly.
 
 ### Reuse of the Existing ModelCommandsSubsystem Seam (No New Member)
 
@@ -60,11 +68,33 @@ exactly as `speak` does), constructs the TTS synthesizer via `CreateSynthesizer`
 `SpeakAsync` on the resolved text, waiting for it to complete before Phase 2 begins - there is no
 concurrent speak/listen; the two phases are strictly sequential, matching a natural
 question-then-answer conversational turn. Phase 2 (listen) resolves a real capture device from
-the injected `AudioDeviceFactory` (honoring `--capture-device`, defaulting to the system default
-device exactly as `recognize --mic` does), constructs the STT recognizer via `CreateRecognizer`,
-and blocks on a `ManualResetEventSlim` until one of: the first **final** recognition result
-arrives, a `SilenceTimeoutRecognizerSession` (constructed and armed exactly as `recognize --mic`'s
-own, reused unmodified from `RecognitionCommandSubsystem`) times out, or `Ctrl+C` is pressed.
+the injected `ICliCaptureDeviceSource` (honoring `--capture-device`, defaulting to the system
+default device exactly as `recognize --mic` does), constructs the STT recognizer via
+`CreateRecognizer`, and blocks on a `ManualResetEventSlim` until one of: the first **final**
+recognition result arrives, a `SilenceTimeoutRecognizerSession` (constructed and armed exactly as
+`recognize --mic`'s own, reused unmodified from `RecognitionCommandSubsystem`) times out, or
+`Ctrl+C` is pressed.
+
+### Capture-Device Resolution Through `ICliCaptureDeviceSource` (New Seam)
+
+Unlike `RecognizeCommand`, which resolves its capture device directly from an injected
+`AudioDeviceFactory`, Phase 2 resolves its capture device through `ICliCaptureDeviceSource` - a
+small, CLI-owned seam introduced in this pass and mirroring `ICliPlaybackDeviceSource` exactly
+(same `*Probe` property/`Create*Device(selection)` method shape, same rationale). This exists
+because `AudioDeviceFactory.CreateCaptureDevice` checks real PortAudio initialization state
+*before* even consulting an injected probe, so a test that only fakes the probe (as
+`RecognizeCommandTests` does for its own, narrower error-path-only coverage) still resolves to the
+honestly unavailable fallback on any machine - including every headless CI runner - where real
+PortAudio never initializes, regardless of the fake probe. `ICliCaptureDeviceSource` lets a test
+substitute a fully in-memory fake (`FakeCaptureDeviceSource`, returning a fake, always-available
+`IAudioCaptureDevice`) that never touches real PortAudio state at all, so `ask`'s mic-mode
+happy-path tests are deterministic everywhere. `AudioDeviceFactoryCaptureDeviceSource` is the
+production implementation, forwarding every call unchanged to a real `AudioDeviceFactory` - Phase
+2's real capture-device resolution is exactly what it was before this seam was introduced.
+`RecognizeCommand` itself is unchanged and still resolves its capture device directly from an
+injected `AudioDeviceFactory`; it has the same latent limitation this seam works around for `ask`,
+but this is a known, pre-existing, out-of-scope limitation, since none of `RecognizeCommand`'s own
+unit tests currently exercise a happy path that resolves a real capture device.
 
 **Listen-termination rule (first final result ends the turn).** Unlike `recognize --mic`, which
 listens indefinitely until `--silence-timeout`/`Ctrl+C` alone, `ask`'s Phase 2 additionally stops
@@ -95,6 +125,20 @@ The synthesizer, playback device, recognizer, silence-timeout session (when pres
 writer are each disposed exactly once via nested `finally` blocks in the same disposal order
 `SpeakCommand`/`RecognizeCommand` each already established for their own resources.
 
+**Distinguishing a genuine `Ctrl+C` from a legitimate empty Phase 2 result.** The same
+`ManualResetEventSlim` unblocks Phase 2's wait identically whether the final wake-up came from a
+final recognition result, a silence/start timeout, or `Ctrl+C` - and only the last of those is a
+failure, not a successful (if empty) turn. Phase 2 therefore also receives the shared
+`CancellationToken` (already threaded into Phase 1's `SpeakAsync` call) and, once its wait
+unblocks, checks `cancellationToken.IsCancellationRequested` - true only when the `Ctrl+C` handler
+canceled it, never for a timeout or a normal final result - to decide which case applies. This
+check covers both the ordinary in-progress-listen race and the narrower edge case where `Ctrl+C`
+already landed (and the shared `ManualResetEventSlim` was already set) before Phase 2 even started
+a recognizer. When a genuine cancellation is detected, Phase 2 reports it the same way Phase 1
+already does - `context.WriteError("Speech was canceled.")` - and the caller skips writing the
+(irrelevant) recognized text to `--output-text`/stdout entirely, rather than silently treating an
+interrupted turn as a successful, empty one.
+
 ### Interactions with Other Units
 
 `AskCommand` depends on the `ICliModelCatalog` seam (all members added by both the synthesis and
@@ -102,5 +146,8 @@ recognition passes; no new member of its own), `SynthesisCommandSubsystem`'s
 `ICliPlaybackDeviceSource`/`ParameterBagParser`, `RecognitionCommandSubsystem`'s
 `SilenceTimeoutRecognizerSession`, and `DeviceCommandsSubsystem`'s
 `DevicesTestCommand.ResolveDeviceSelectionOrThrow` internal helper - all four reused entirely
-unmodified, rather than duplicated. `AskCommand` is the only unit in this subsystem; no new
-seam, session, or parser type is introduced anywhere in this pass.
+unmodified, rather than duplicated. This pass introduces two new types local to this subsystem:
+`ICliCaptureDeviceSource` and its production implementation
+`AudioDeviceFactoryCaptureDeviceSource`, mirroring `SynthesisCommandSubsystem`'s
+`ICliPlaybackDeviceSource`/`AudioDeviceFactoryPlaybackDeviceSource` pair exactly. No new
+`DemaConsulting.Speech` library-level API is introduced by either.
