@@ -1,3 +1,4 @@
+<!-- cspell:ignore onnxruntime -->
 # SpeechCli System Design
 
 This document provides the system-level design for the SpeechCli application.
@@ -168,13 +169,16 @@ N/A - SpeechCli provides no safety-critical functionality requiring risk control
 
 | Target Framework | Runtime / Environment |
 | --- | --- |
-| `net8.0` | .NET 8 LTS |
-| `net9.0` | .NET 9 |
 | `net10.0` | .NET 10 |
 
-SpeechCli targets the library's full supported framework matrix, unlike SpeechDemo, because it is
-packaged and shipped as a NuGet global tool with its own compatibility matrix to satisfy, the same
-reasoning `DemaConsulting.Speech` itself follows.
+SpeechCli targets only `net10.0`, unlike the library (`net8.0`/`net9.0`/`net10.0`), because as a
+`PackAsTool` package it bundles a native inference runtime (`onnxruntime`/`sherpa-onnx-c-api`) per
+target framework; packing all three of the library's frameworks multiplied the bundled native
+payload three-fold for no benefit, since a globally-installed tool only ever runs on one .NET
+version at a time. The packed native runtime assets are further pruned to `win-x64`, `linux-x64`,
+and `osx-arm64` only (see [Dependencies](#dependencies)), rather than every RID the transitive
+`org.k2fsa.sherpa.onnx.runtime.*` packages support (including irrelevant ones like Android),
+keeping the packed tool a manageable size instead of bundling every platform's native binaries.
 
 ### Integration Patterns
 

@@ -277,6 +277,31 @@ jobs:
           --configuration Release
           --property:PackageVersion=${{ inputs.version }}
 
+      # DemaConsulting.Speech.Cli is a PackAsTool project targeting only net10.0, but its
+      # transitive org.k2fsa.sherpa.onnx.runtime.* dependencies bundle native onnxruntime/
+      # sherpa-onnx-c-api binaries for every RID they support (including irrelevant ones like
+      # Android). This step strips the native runtime assets for any RID other than the ones we
+      # actually support, keeping the packed tool a manageable size instead of ~90MB+.
+      - name: Prune unsupported CLI native runtimes
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $supportedRids = @('win-x64', 'linux-x64', 'osx-arm64')
+          $nupkgs = Get-ChildItem -Path src/DemaConsulting.Speech.Cli -Recurse `
+            -Filter 'DemaConsulting.Speech.Cli.*.nupkg'
+          foreach ($nupkg in $nupkgs) {
+            $archive = [System.IO.Compression.ZipFile]::Open($nupkg.FullName, 'Update')
+            try {
+              $entries = @($archive.Entries | Where-Object {
+                $_.FullName -match 'runtimes/([^/]+)/native/' -and ($supportedRids -notcontains $Matches[1])
+              })
+              Write-Host "Pruning $($entries.Count) unsupported-RID entries from $($nupkg.Name)"
+              foreach ($entry in $entries) { $entry.Delete() }
+            } finally {
+              $archive.Dispose()
+            }
+          }
+
       - name: Assert NuGet Package with FileAssert
         run: >
           dotnet fileassert
