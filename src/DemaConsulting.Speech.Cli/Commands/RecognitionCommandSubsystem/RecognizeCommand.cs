@@ -101,6 +101,11 @@ namespace DemaConsulting.Speech.Cli.Commands.RecognitionCommandSubsystem;
 internal static class RecognizeCommand
 {
     /// <summary>
+    ///     The repeatable flag used to set an STT model parameter.
+    /// </summary>
+    private const string SttParamFlag = "--stt-param";
+
+    /// <summary>
     ///     Runs the <c>recognize</c> subcommand against a real, composed
     ///     <see cref="SpeechModelCatalogAdapter"/> and <see cref="AudioDeviceFactory"/>.
     /// </summary>
@@ -149,7 +154,7 @@ internal static class RecognizeCommand
         ValidateVerbosityFlags(options);
 
         var descriptor = ResolveModel(catalog, options.ModelId);
-        var parameterValues = ParameterBagParser.Resolve(options.RawParameters, descriptor.Model.Parameters, "--stt-param");
+        var parameterValues = ParameterBagParser.Resolve(options.RawParameters, descriptor.Model.Parameters, SttParamFlag);
 
         using var stopSignal = new ManualResetEventSlim(initialState: false);
         var captureDevice = ResolveCaptureDevice(factory, options);
@@ -477,9 +482,9 @@ internal static class RecognizeCommand
                     startTimeoutSeconds = RequireDoubleValue(args, ref index, "--start-timeout");
                     break;
 
-                case "--stt-param":
-                    var token = RequireValue(args, ref index, "--stt-param");
-                    rawParameters.Add(ParameterBagParser.ParseToken(token, "--stt-param"));
+                case SttParamFlag:
+                    var token = RequireValue(args, ref index, SttParamFlag);
+                    rawParameters.Add(ParameterBagParser.ParseToken(token, SttParamFlag));
                     break;
 
                 case "--interim":

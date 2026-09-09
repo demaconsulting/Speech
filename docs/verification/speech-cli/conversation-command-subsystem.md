@@ -90,7 +90,7 @@ resolved STT model, then prints the final recognized text.
 `AskCommand_Run_InvalidTtsParam_ThrowsArgumentException`
 
 **Scenario/Expected**: Repeated `--tts-param`/`--stt-param` flags each accumulate independently,
-in the order given, and are forwarded, fully resolved via the unmodified `ParameterBagParser`, to
+in the order given, and are forwarded, fully resolved via the shared `ParameterBagParser`, to
 `CreateSynthesizer`'s and `CreateRecognizer`'s own `parameterValues` argument respectively; an
 invalid value for a declared TTS parameter is rejected before any synthesis or recognition is
 attempted. Full `ParameterBagParser` scenario coverage already lives in

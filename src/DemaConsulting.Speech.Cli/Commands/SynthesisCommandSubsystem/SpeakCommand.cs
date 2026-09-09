@@ -47,6 +47,11 @@ namespace DemaConsulting.Speech.Cli.Commands.SynthesisCommandSubsystem;
 internal static class SpeakCommand
 {
     /// <summary>
+    ///     The repeatable flag used to set a TTS model parameter.
+    /// </summary>
+    private const string TtsParamFlag = "--tts-param";
+
+    /// <summary>
     ///     Runs the <c>speak</c> subcommand against a real, composed
     ///     <see cref="SpeechModelCatalogAdapter"/> and <see cref="AudioDeviceFactory"/>, wiring
     ///     <c>Ctrl+C</c> to cooperative cancellation for the duration of the call.
@@ -142,7 +147,7 @@ internal static class SpeakCommand
         }
 
         var descriptor = ResolveModel(catalog, options.ModelId);
-        var parameterValues = ParameterBagParser.Resolve(options.RawParameters, descriptor.Model.Parameters, "--tts-param");
+        var parameterValues = ParameterBagParser.Resolve(options.RawParameters, descriptor.Model.Parameters, TtsParamFlag);
 
         var playbackDevice = ResolvePlaybackDevice(catalog, deviceSource, descriptor, options);
         try
@@ -346,9 +351,9 @@ internal static class SpeakCommand
                     noTags = true;
                     break;
 
-                case "--tts-param":
-                    var token = RequireValue(args, ref index, "--tts-param");
-                    rawParameters.Add(ParameterBagParser.ParseToken(token, "--tts-param"));
+                case TtsParamFlag:
+                    var token = RequireValue(args, ref index, TtsParamFlag);
+                    rawParameters.Add(ParameterBagParser.ParseToken(token, TtsParamFlag));
                     break;
 
                 default:

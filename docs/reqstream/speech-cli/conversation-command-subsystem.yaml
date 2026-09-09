@@ -61,7 +61,7 @@ sections:
             title: >-
               The tool shall parse repeatable `--tts-param key=value` and `--stt-param key=value`
               flags and validate each value against the respective resolved model's own declared
-              parameter set, reusing `ParameterBagParser` unmodified from the
+              parameter set, reusing the shared `ParameterBagParser` from the
               SynthesisCommandSubsystem, forwarding each fully-resolved parameter bag to its own
               `CreateSynthesizer`/`CreateRecognizer` call.
             tags: [subsystem]

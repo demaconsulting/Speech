@@ -91,7 +91,7 @@ dispatched - the last of all 10 subcommands to reach that state.
 `RecognizeCommand_Run_InvalidParam_ThrowsArgumentException`
 
 **Scenario/Expected**: Repeated `--stt-param` flags accumulate in the order given and are forwarded,
-fully resolved via the unmodified `ParameterBagParser`, to `CreateRecognizer`'s `parameterValues`
+fully resolved via the shared `ParameterBagParser`, to `CreateRecognizer`'s `parameterValues`
 argument; an invalid value for a declared parameter is rejected before any recognizer is created.
 Full `ParameterBagParser` scenario coverage (numeric range/integer checks, choice matching,
 boolean parsing, unrecognized-key rejection) already lives in

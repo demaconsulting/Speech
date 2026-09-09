@@ -89,6 +89,16 @@ namespace DemaConsulting.Speech.Cli.Commands.ConversationCommandSubsystem;
 internal static class AskCommand
 {
     /// <summary>
+    ///     The repeatable flag used to set a <c>speak</c>-phase (TTS) model parameter.
+    /// </summary>
+    private const string TtsParamFlag = "--tts-param";
+
+    /// <summary>
+    ///     The repeatable flag used to set a <c>listen</c>-phase (STT) model parameter.
+    /// </summary>
+    private const string SttParamFlag = "--stt-param";
+
+    /// <summary>
     ///     Runs the <c>ask</c> subcommand against a real, composed
     ///     <see cref="SpeechModelCatalogAdapter"/>, <see cref="AudioDeviceFactoryPlaybackDeviceSource"/>,
     ///     and <see cref="AudioDeviceFactoryCaptureDeviceSource"/>, wiring <c>Ctrl+C</c> to
@@ -191,6 +201,21 @@ internal static class AskCommand
     }
 
     /// <summary>
+    ///     Bundles the invocation-scoped dependencies shared by both Phase 1 (speak) and Phase 2
+    ///     (listen), so <see cref="SpeakPromptAsync"/> and <see cref="Listen"/> stay under this
+    ///     repository's parameter-count guideline without changing any public API surface.
+    /// </summary>
+    /// <param name="Context">The invocation context.</param>
+    /// <param name="Catalog">The catalog seam to resolve models through.</param>
+    /// <param name="Options">The parsed <c>ask</c> command-line options.</param>
+    /// <param name="CancellationToken">The cooperative-cancellation token spanning both phases.</param>
+    private readonly record struct AskInvocation(
+        Context Context,
+        ICliModelCatalog Catalog,
+        AskOptions Options,
+        CancellationToken CancellationToken);
+
+    /// <summary>
     ///     Runs the <c>ask</c> subcommand's full text-source resolution, model resolution,
     ///     Phase 1 (speak) synthesis/playback, and Phase 2 (listen) capture/recognition logic.
     /// </summary>
@@ -222,11 +247,13 @@ internal static class AskCommand
 
         var ttsDescriptor = ResolveTtsModel(catalog, options.TtsModelId);
         var sttDescriptor = ResolveSttModel(catalog, options.SttModelId);
-        var ttsParameterValues = ParameterBagParser.Resolve(options.RawTtsParameters, ttsDescriptor.Model.Parameters, "--tts-param");
-        var sttParameterValues = ParameterBagParser.Resolve(options.RawSttParameters, sttDescriptor.Model.Parameters, "--stt-param");
+        var ttsParameterValues = ParameterBagParser.Resolve(options.RawTtsParameters, ttsDescriptor.Model.Parameters, TtsParamFlag);
+        var sttParameterValues = ParameterBagParser.Resolve(options.RawSttParameters, sttDescriptor.Model.Parameters, SttParamFlag);
+
+        var invocation = new AskInvocation(context, catalog, options, cancellationToken);
 
         // Phase 1: speak the prompt through a real playback device and wait for it to finish.
-        var wasCanceled = await SpeakPromptAsync(context, catalog, deviceSource, ttsDescriptor, ttsParameterValues, text, options, cancellationToken)
+        var wasCanceled = await SpeakPromptAsync(invocation, deviceSource, ttsDescriptor, ttsParameterValues, text)
             .ConfigureAwait(false);
 
         if (wasCanceled)
@@ -236,15 +263,12 @@ internal static class AskCommand
 
         // Phase 2: listen for the reply through a real capture device.
         var (recognizedText, listenWasCanceled) = Listen(
-            context,
-            catalog,
+            invocation,
             captureSource,
             sttDescriptor,
             sttParameterValues,
-            options,
             stopSignal,
-            onRecognizerCreated,
-            cancellationToken);
+            onRecognizerCreated);
 
         if (listenWasCanceled)
         {
@@ -274,15 +298,17 @@ internal static class AskCommand
     /// <returns><see langword="true"/> when playback was canceled; otherwise <see langword="false"/>.</returns>
     /// <exception cref="InvalidOperationException">Thrown when no real playback device is available.</exception>
     private static async Task<bool> SpeakPromptAsync(
-        Context context,
-        ICliModelCatalog catalog,
+        AskInvocation invocation,
         ICliPlaybackDeviceSource deviceSource,
         SpeechModelDescriptor ttsDescriptor,
         IReadOnlyDictionary<string, object>? parameterValues,
-        string text,
-        AskOptions options,
-        CancellationToken cancellationToken)
+        string text)
     {
+        var context = invocation.Context;
+        var catalog = invocation.Catalog;
+        var options = invocation.Options;
+        var cancellationToken = invocation.CancellationToken;
+
         var knownDevices = deviceSource.PlaybackProbe.Enumerate();
         var selection = DevicesTestCommand.ResolveDeviceSelectionOrThrow(knownDevices, options.PlaybackDeviceName, "playback");
 
@@ -337,16 +363,18 @@ internal static class AskCommand
     /// </returns>
     /// <exception cref="InvalidOperationException">Thrown when no real capture device is available.</exception>
     private static (string Text, bool WasCanceled) Listen(
-        Context context,
-        ICliModelCatalog catalog,
+        AskInvocation invocation,
         ICliCaptureDeviceSource captureSource,
         SpeechModelDescriptor sttDescriptor,
         IReadOnlyDictionary<string, object>? parameterValues,
-        AskOptions options,
         ManualResetEventSlim stopSignal,
-        Action<ISpeechRecognizer?> onRecognizerCreated,
-        CancellationToken cancellationToken)
+        Action<ISpeechRecognizer?> onRecognizerCreated)
     {
+        var context = invocation.Context;
+        var catalog = invocation.Catalog;
+        var options = invocation.Options;
+        var cancellationToken = invocation.CancellationToken;
+
         var knownDevices = captureSource.CaptureProbe.Enumerate();
         var selection = DevicesTestCommand.ResolveDeviceSelectionOrThrow(knownDevices, options.CaptureDeviceName, "capture");
 
@@ -623,14 +651,14 @@ internal static class AskCommand
                     captureDeviceName = RequireValue(args, ref index, "--capture-device");
                     break;
 
-                case "--tts-param":
-                    var ttsToken = RequireValue(args, ref index, "--tts-param");
-                    rawTtsParameters.Add(ParameterBagParser.ParseToken(ttsToken, "--tts-param"));
+                case TtsParamFlag:
+                    var ttsToken = RequireValue(args, ref index, TtsParamFlag);
+                    rawTtsParameters.Add(ParameterBagParser.ParseToken(ttsToken, TtsParamFlag));
                     break;
 
-                case "--stt-param":
-                    var sttToken = RequireValue(args, ref index, "--stt-param");
-                    rawSttParameters.Add(ParameterBagParser.ParseToken(sttToken, "--stt-param"));
+                case SttParamFlag:
+                    var sttToken = RequireValue(args, ref index, SttParamFlag);
+                    rawSttParameters.Add(ParameterBagParser.ParseToken(sttToken, SttParamFlag));
                     break;
 
                 case "--silence-timeout":

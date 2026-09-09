@@ -54,8 +54,8 @@ sections:
           - id: SpeechCli-RecognitionCommands-ParamValidation
             title: >-
               The tool shall parse repeatable `--stt-param key=value` flags and validate each value
-              against the resolved recognition model's own declared parameter set, reusing
-              `ParameterBagParser` unmodified from the SynthesisCommandSubsystem, forwarding the
+              against the resolved recognition model's own declared parameter set, reusing the
+              shared `ParameterBagParser` from the SynthesisCommandSubsystem, forwarding the
               fully-resolved parameter bag to `CreateRecognizer`.
             tags: [subsystem]
             justification: |
