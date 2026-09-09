@@ -101,8 +101,9 @@ internal static class AskCommand
         ArgumentNullException.ThrowIfNull(context);
 
         using var catalog = CliModelCatalogFactory.Create(context);
-        var deviceSource = new AudioDeviceFactoryPlaybackDeviceSource(new AudioDeviceFactory());
-        var captureSource = new AudioDeviceFactoryCaptureDeviceSource(new AudioDeviceFactory());
+        var factory = new AudioDeviceFactory();
+        var deviceSource = new AudioDeviceFactoryPlaybackDeviceSource(factory);
+        var captureSource = new AudioDeviceFactoryCaptureDeviceSource(factory);
         Run(context, catalog, deviceSource, captureSource);
     }
 
@@ -252,7 +253,10 @@ internal static class AskCommand
 
         if (options.OutputPath is not null)
         {
-            await File.WriteAllTextAsync(options.OutputPath, recognizedText + Environment.NewLine, CancellationToken.None)
+            var fileContents = recognizedText.Length == 0
+                ? string.Empty
+                : recognizedText + Environment.NewLine;
+            await File.WriteAllTextAsync(options.OutputPath, fileContents, CancellationToken.None)
                 .ConfigureAwait(false);
             context.WriteLine($"Recognized text written to '{options.OutputPath}'.");
         }

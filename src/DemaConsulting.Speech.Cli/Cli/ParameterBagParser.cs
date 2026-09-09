@@ -26,14 +26,15 @@ namespace DemaConsulting.Speech.Cli.Cli;
 /// <summary>
 ///     Parses and validates the <c>speak</c>/<c>recognize</c>/<c>ask</c> subcommands' repeatable
 ///     <c>--tts-param</c>/<c>--stt-param key=value</c> flags against a resolved model's declared
-///     <see cref="ISpeechModelParameter"/> set, into the untyped, boxed key-value bag
-///     <c>SpeechSynthesizerFactory.Create</c> expects.
+///     <see cref="ISpeechModelParameter"/> set, into the untyped, boxed key-value bag a
+///     <c>SpeechSynthesizerFactory.Create</c> or <c>SpeechRecognizerFactory.Create</c> call
+///     expects.
 /// </summary>
 /// <remarks>
-///     Deliberately stricter than <c>SpeechSynthesizerFactory.Create</c>'s own "unrecognized key
-///     silently ignored, Info-logged" library-level contract: an unrecognized
+///     Deliberately stricter than <c>SpeechSynthesizerFactory.Create</c>/<c>SpeechRecognizerFactory.Create</c>'s
+///     own "unrecognized key silently ignored, Info-logged" library-level contract: an unrecognized
 ///     <c>--tts-param</c>/<c>--stt-param</c> key is a CLI operator typo, which should fail loudly
-///     at the command line rather than silently mistune synthesis. This divergence is
+///     at the command line rather than silently mistune synthesis or recognition. This divergence is
 ///     intentional; see this subsystem's design documentation for the full rationale.
 /// </remarks>
 internal static class ParameterBagParser

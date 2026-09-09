@@ -97,8 +97,9 @@ sections:
           - id: SpeechCli-ConversationCommands-OutputDispatch
             title: >-
               The tool shall print the final recognized reply text to stdout by default, or write
-              it to the file named by `--output-text <text-path>` instead, mirroring `recognize`'s
-              own `--output-text` behavior exactly, including overwrite-not-append file semantics.
+              it to the file named by `--output-text <text-path>` instead, creating/overwriting a
+              plain-text file containing just the recognized text (or a completely empty file
+              when no recognized text was produced), with overwrite-not-append file semantics.
             tags: [subsystem]
             justification: |
               A scripted caller of `ask` needs the same choice between console output and a
@@ -145,7 +146,7 @@ sections:
           - id: SpeechCli-ConversationCommands-NullGuards
             title: >-
               The ConversationCommandSubsystem shall reject a missing context, catalog, device
-              source, capture factory, or argument list immediately with
+              source, capture-device source, or argument list immediately with
               `ArgumentNullException`, so a programming error is never silently ignored.
             tags: [subsystem]
             justification: |
@@ -157,4 +158,4 @@ sections:
               - AskCommand_Run_NullContext_ThrowsArgumentNullException
               - AskCommand_Run_NullCatalog_ThrowsArgumentNullException
               - AskCommand_Run_NullDeviceSource_ThrowsArgumentNullException
-              - AskCommand_Run_NullCaptureFactory_ThrowsArgumentNullException
+              - AskCommand_Run_NullCaptureSource_ThrowsArgumentNullException

@@ -534,7 +534,7 @@ public sealed class AskCommandTests
 
             Assert.Equal(1, recognizer.StopCallCount);
             Assert.True(File.Exists(outputPath));
-            Assert.Equal(string.Empty, File.ReadAllText(outputPath).TrimEnd());
+            Assert.Equal(string.Empty, File.ReadAllText(outputPath));
         }
         finally
         {
