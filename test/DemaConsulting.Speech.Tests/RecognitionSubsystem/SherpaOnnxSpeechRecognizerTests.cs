@@ -67,6 +67,36 @@ public class SherpaOnnxSpeechRecognizerTests
     }
 
     /// <summary>
+    ///     Proves that a recognizer supports multiple <see cref="SherpaOnnxSpeechRecognizer.Start"/>/
+    ///     <see cref="SherpaOnnxSpeechRecognizer.Stop"/> cycles on the same instance without
+    ///     reconstruction, so a host may construct one recognizer once and reuse it across many
+    ///     conversation turns for low-latency, repeated recognition, per <see cref="ISpeechRecognizer"/>'s
+    ///     "hot recognition" reuse guidance.
+    /// </summary>
+    [Fact]
+    public void SherpaOnnxSpeechRecognizer_MultipleStartStopCycles_ReusesSameInstanceWithoutReconstruction()
+    {
+        // Arrange: a single recognizer instance over a substitute device
+        var captureDevice = CreateCaptureDevice(sampleRate: 16000, channelCount: 1);
+        using var recognizer = new SherpaOnnxSpeechRecognizer(
+            new FakeRecognitionEngine(), captureDevice, 16000, new FakeRecognitionModel());
+
+        // Act: run three independent Start/Stop cycles on the same instance
+        recognizer.Start();
+        recognizer.Stop();
+        recognizer.Start();
+        recognizer.Stop();
+        recognizer.Start();
+        recognizer.Stop();
+
+        // Assert: every cycle genuinely started and stopped the capture device, proving the
+        // recognizer remains usable across repeated cycles without being disposed and recreated
+        captureDevice.Received(3).Start();
+        captureDevice.Received(3).Stop();
+        Assert.True(recognizer.IsAvailable);
+    }
+
+    /// <summary>
     ///     Proves that a captured frame flows through downmixing and resampling into the engine,
     ///     converted to the mono rate the model declared.
     /// </summary>

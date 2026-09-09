@@ -31,6 +31,17 @@ namespace DemaConsulting.Speech.RecognitionSubsystem;
 ///     is always raised from the recognizer's own background decoding thread and handlers are
 ///     invoked serially, never concurrently with each other; see that event's remarks.
 ///     </para>
+///     <para>
+///     <b>Reuse for low latency ("hot" recognition).</b> Obtaining a recognizer via
+///     <see cref="SpeechRecognizerFactory"/> is the expensive step - it loads the model into
+///     native memory - while <see cref="Start"/> and <see cref="Stop"/> are cheap and may be
+///     called repeatedly on the same instance without reloading the model. For low-latency
+///     repeated recognition (for example, many turns of a voice conversation), construct one
+///     recognizer and reuse it across many <see cref="Start"/>/<see cref="Stop"/> cycles rather
+///     than disposing and recreating it per turn; only dispose and recreate to change model,
+///     device, or parameters. See the user guide's "Hot TTS/STT: Reusing an Instance Across
+///     Turns" section for a worked example.
+///     </para>
 /// </remarks>
 public interface ISpeechRecognizer : IDisposable
 {

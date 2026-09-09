@@ -26,8 +26,11 @@ namespace DemaConsulting.Speech.Cli.Tests.Commands.SynthesisCommandSubsystem;
 ///     Deterministic, in-memory fake <see cref="IAudioPlaybackDevice"/> used by <c>speak</c>
 ///     command unit tests, so no test depends on a real, native PortAudio playback stream.
 /// </summary>
-internal sealed class FakeAudioPlaybackDevice : IAudioPlaybackDevice
+internal sealed class FakeAudioPlaybackDevice : IAudioPlaybackDevice, IDisposable
 {
+    /// <summary>Gets the number of times <see cref="Dispose"/> was called.</summary>
+    public int DisposeCallCount { get; private set; }
+
     /// <inheritdoc/>
     public bool IsAvailable => true;
 
@@ -54,4 +57,7 @@ internal sealed class FakeAudioPlaybackDevice : IAudioPlaybackDevice
 
     /// <inheritdoc/>
     public long PendingSampleCount => 0;
+
+    /// <inheritdoc/>
+    public void Dispose() => DisposeCallCount++;
 }

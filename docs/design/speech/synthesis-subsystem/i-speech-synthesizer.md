@@ -25,6 +25,12 @@ nothing from any other segment to play this one correctly.
 - **Dispose()**: Releases the engine resources a synthesizer holds. Implies `Stop()` and is
   idempotent.
 
+A synthesizer supports many independent synthesize/play sessions on the same instance without
+reconstruction - obtaining a synthesizer from `SpeechSynthesizerFactory` is the expensive step, so
+a host doing repeated, low-latency synthesis (for example, many turns of a voice conversation)
+should construct one synthesizer once and reuse it across sessions rather than disposing and
+recreating it per turn.
+
 **Error Handling**: Real implementations and the unavailable fallback both use
 `SpeechSynthesizerUnavailableException` when an operational call is invalid because no usable
 synthesizer is available or the playback device fails at first use. Calling an operational

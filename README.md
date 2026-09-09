@@ -270,7 +270,10 @@ full command reference, and worked examples.
 
 `speak` and `ask` together are the intended integration pattern for an AI agent holding a
 two-way voice conversation with a person through this CLI: `speak` for a one-way statement,
-`ask` when a reply is expected.
+`ask` when a reply is expected. `ask` pre-warms (constructs and loads) its STT recognizer
+concurrently with speaking the prompt, rather than only afterward, so the reply can be heard with
+minimal added latency; see the [user guide's "Hot TTS/STT" section][link-user-guide] for the same
+low-latency create-once/reuse-many pattern applied inside a long-lived host process.
 
 ```bash
 # Make a statement

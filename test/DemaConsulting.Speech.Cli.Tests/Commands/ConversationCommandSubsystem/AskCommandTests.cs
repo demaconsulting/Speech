@@ -18,6 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+using System.Diagnostics;
 using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.Cli.Cli;
 using DemaConsulting.Speech.Cli.Commands.ConversationCommandSubsystem;
@@ -73,6 +74,29 @@ public sealed class AskCommandTests
 
     private static FakeCaptureDeviceSource CreateCaptureSource() =>
         new(new FakeAudioCaptureDeviceProbe([CaptureDevice]));
+
+    /// <summary>
+    ///     Polls <paramref name="condition"/> until it returns <see langword="true"/> or
+    ///     <paramref name="timeout"/> elapses, for use asserting on state that
+    ///     <see cref="AskCommand.RunAsync"/> now updates from a fire-and-forget background
+    ///     continuation (recognizer disposal after a canceled/failed Phase 1) rather than
+    ///     synchronously before returning.
+    /// </summary>
+    private static async Task<bool> WaitForConditionAsync(Func<bool> condition, TimeSpan timeout)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        while (!condition())
+        {
+            if (stopwatch.Elapsed >= timeout)
+            {
+                return false;
+            }
+
+            await Task.Delay(10, TestContext.Current.CancellationToken);
+        }
+
+        return true;
+    }
 
     // --- ParseArguments ---
 
@@ -320,17 +344,37 @@ public sealed class AskCommandTests
         Assert.Contains("does-not-exist", exception.Message);
     }
 
-    /// <summary>Test that no available playback device throws InvalidOperationException.</summary>
+    /// <summary>
+    ///     Test that no available playback device throws InvalidOperationException from Phase 1
+    ///     (before Phase 2's <c>SpeakPromptAsync</c> call ever awaits anything), and that the
+    ///     concurrently pre-warmed recognizer - constructed on a background task that may still be
+    ///     racing with (or may have already completed ahead of) that synchronous throw - is
+    ///     nonetheless eventually disposed rather than leaked or left as an unobserved faulted
+    ///     task: this proves <c>RunAsync</c> observes and cleans up the pre-warm task on every
+    ///     exit path, not only the <c>wasCanceled</c> path. Disposal is now driven by
+    ///     <c>DisposePrewarmedRecognizerAsync</c>'s fire-and-forget background continuation rather
+    ///     than completing synchronously before <c>Run</c> returns, so this polls for it instead
+    ///     of asserting immediately.
+    /// </summary>
     [Fact]
-    public void AskCommand_Run_NoPlaybackDeviceAvailable_ThrowsInvalidOperationException()
+    public async Task AskCommand_Run_NoPlaybackDeviceAvailable_ThrowsInvalidOperationException()
     {
         var catalog = CreateCatalogWithModels();
+        var recognizer = new FakeSpeechRecognizer();
+        catalog.CreateRecognizerOverride = (_, _, _) => recognizer;
         var deviceSource = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe());
         using var context = Context.Create(
             ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi"]);
 
         Assert.Throws<InvalidOperationException>(
             () => AskCommand.Run(context, catalog, deviceSource, CreateCaptureSource()));
+
+        // The concurrently pre-warmed recognizer must eventually be disposed by the background
+        // continuation, even though the exception that ended the call was thrown from Phase 1's
+        // SpeakPromptAsync rather than from the wasCanceled path.
+        Assert.True(
+            await WaitForConditionAsync(() => recognizer.DisposeCallCount == 1, TimeSpan.FromSeconds(5)),
+            "The pre-warmed recognizer was never disposed by the background continuation.");
     }
 
     /// <summary>Test that an unknown --capture-device throws before any recognizer is created.</summary>
@@ -352,7 +396,11 @@ public sealed class AskCommandTests
         Assert.Contains("does-not-exist", exception.Message);
     }
 
-    /// <summary>Test that no available capture device throws InvalidOperationException.</summary>
+    /// <summary>
+    ///     Test that no available capture device throws InvalidOperationException, and that this
+    ///     pre-warm failure surfaces only after Phase 1 has already spoken the prompt - proving
+    ///     the concurrent pre-warm never skips or reorders Phase 1 even when Phase 2 setup fails.
+    /// </summary>
     [Fact]
     public void AskCommand_Run_NoCaptureDeviceAvailable_ThrowsInvalidOperationException()
     {
@@ -365,6 +413,8 @@ public sealed class AskCommandTests
 
         Assert.Throws<InvalidOperationException>(
             () => AskCommand.Run(context, catalog, CreatePlaybackSource(), captureSource));
+
+        Assert.Equal(["hi"], synthesizer.SpeakAsyncCalls);
     }
 
     // --- Success path ---
@@ -372,7 +422,9 @@ public sealed class AskCommandTests
     /// <summary>
     ///     Test that a successful run speaks the prompt, then listens and stops on the first final
     ///     result, printing the recognized text and running Start/Stop/Dispose exactly once for
-    ///     both the synthesizer and the recognizer.
+    ///     both the synthesizer and the recognizer, and disposing the resolved playback device
+    ///     exactly once too - proving <c>SpeakPromptAsync</c>'s playback-device disposal, not only
+    ///     the synthesizer's, runs on the ordinary success path.
     /// </summary>
     [Fact]
     public void AskCommand_Run_Success_SpeaksThenListensAndPrintsFinalResult()
@@ -386,6 +438,9 @@ public sealed class AskCommandTests
         };
         catalog.CreateRecognizerOverride = (_, _, _) => recognizer;
 
+        var playbackDevice = new FakeAudioPlaybackDevice();
+        var playbackSource = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]), playbackDevice);
+
         var originalOut = Console.Out;
         var writer = new StringWriter { NewLine = "\n" };
         Console.SetOut(writer);
@@ -394,7 +449,7 @@ public sealed class AskCommandTests
             using var context = Context.Create(
                 ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "How are you?"]);
 
-            AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureSource());
+            AskCommand.Run(context, catalog, playbackSource, CreateCaptureSource());
         }
         finally
         {
@@ -403,12 +458,74 @@ public sealed class AskCommandTests
 
         Assert.Equal(["How are you?"], synthesizer.SpeakAsyncCalls);
         Assert.Equal(1, synthesizer.DisposeCallCount);
+        Assert.Equal(1, playbackDevice.DisposeCallCount);
         Assert.Equal(1, recognizer.StartCallCount);
         Assert.Equal(1, recognizer.StopCallCount);
         Assert.Equal(1, recognizer.DisposeCallCount);
 
         var printed = writer.ToString();
         Assert.Contains("hello there", printed);
+    }
+
+    // --- Recognizer pre-warming ---
+
+    /// <summary>
+    ///     Test that the STT recognizer is constructed concurrently with - not only after -
+    ///     Phase 1's speak/playback wait: <see cref="FakeSpeechSynthesizer.SpeakAsyncAwaiter"/>
+    ///     holds Phase 1 "in flight" until a signal set by <c>CreateRecognizer</c> fires, with a
+    ///     bounded wait. If a regression moves recognizer construction back to only after
+    ///     playback finishes, the wait below times out and fails explicitly instead of this test
+    ///     silently passing (or the process deadlocking indefinitely).
+    /// </summary>
+    [Fact]
+    public void AskCommand_Run_PrewarmsRecognizerConcurrentlyWithPlayback_CreatesRecognizerBeforePlaybackCompletes()
+    {
+        using var recognizerCreatedSignal = new ManualResetEventSlim(initialState: false);
+
+        var catalog = CreateCatalogWithModels();
+        var synthesizer = new FakeSpeechSynthesizer
+        {
+            SpeakAsyncAwaiter = () =>
+            {
+                Assert.True(
+                    recognizerCreatedSignal.Wait(TimeSpan.FromSeconds(5)),
+                    "The recognizer was not created concurrently with Phase 1's playback wait.");
+                return Task.CompletedTask;
+            }
+        };
+        catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
+
+        var recognizer = new FakeSpeechRecognizer
+        {
+            OnStart = self => self.RaiseResult("hello", isFinal: true)
+        };
+        catalog.CreateRecognizerOverride = (_, _, _) =>
+        {
+            recognizerCreatedSignal.Set();
+            return recognizer;
+        };
+
+        var originalOut = Console.Out;
+        var writer = new StringWriter { NewLine = "\n" };
+        Console.SetOut(writer);
+        try
+        {
+            using var context = Context.Create(
+                ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi"]);
+
+            AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureSource());
+
+            Assert.Equal(0, context.ExitCode);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+
+        Assert.Equal(["hi"], synthesizer.SpeakAsyncCalls);
+        Assert.Equal(1, recognizer.StartCallCount);
+        Assert.Equal(1, recognizer.DisposeCallCount);
+        Assert.Contains("hello", writer.ToString());
     }
 
     /// <summary>Test that --output-text writes the recognized text to a file instead of stdout.</summary>
@@ -547,9 +664,18 @@ public sealed class AskCommandTests
 
     // --- Cancellation ---
 
-    /// <summary>Test that a canceled Phase-1 speak session is reported cleanly, and Phase 2 (listen) never runs.</summary>
+    /// <summary>
+    ///     Test that a canceled Phase-1 speak session is reported cleanly, Phase 2 (listen) never
+    ///     runs, the concurrently pre-warmed recognizer is eventually disposed rather than leaked,
+    ///     and the resolved playback device is disposed exactly once too - proving
+    ///     <c>SpeakPromptAsync</c>'s playback-device disposal runs even when playback itself is
+    ///     canceled, not only on the success path. Recognizer disposal is now driven by
+    ///     <c>DisposePrewarmedRecognizerAsync</c>'s fire-and-forget background continuation rather
+    ///     than completing synchronously before <c>Run</c> returns, so this polls for it instead
+    ///     of asserting immediately.
+    /// </summary>
     [Fact]
-    public void AskCommand_Run_CanceledDuringSpeak_SkipsListenPhase()
+    public async Task AskCommand_Run_CanceledDuringSpeak_SkipsListenPhase()
     {
         var catalog = CreateCatalogWithModels();
         var synthesizer = new FakeSpeechSynthesizer { SpeakAsyncException = new OperationCanceledException() };
@@ -557,14 +683,130 @@ public sealed class AskCommandTests
         var recognizer = new FakeSpeechRecognizer();
         catalog.CreateRecognizerOverride = (_, _, _) => recognizer;
 
+        var playbackDevice = new FakeAudioPlaybackDevice();
+        var playbackSource = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]), playbackDevice);
+
         using var context = Context.Create(
             ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi"]);
 
-        AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureSource());
+        AskCommand.Run(context, catalog, playbackSource, CreateCaptureSource());
 
         Assert.Equal(1, context.ExitCode);
         Assert.Equal(1, synthesizer.DisposeCallCount);
+        Assert.Equal(1, playbackDevice.DisposeCallCount);
         Assert.Equal(0, recognizer.StartCallCount);
+        Assert.True(
+            await WaitForConditionAsync(() => recognizer.DisposeCallCount == 1, TimeSpan.FromSeconds(5)),
+            "The pre-warmed recognizer was never disposed by the background continuation.");
+    }
+
+    /// <summary>
+    ///     Test that a non-cancellation exception thrown from Phase 1's <c>SpeakAsync</c> (for
+    ///     example, a real synthesis engine failure) still disposes the resolved playback device
+    ///     exactly once before propagating - proving <c>SpeakPromptAsync</c>'s playback-device
+    ///     disposal runs on the thrown-exception path too, not only on the success and
+    ///     canceled-during-speak paths. Recognizer disposal is now driven by
+    ///     <c>DisposePrewarmedRecognizerAsync</c>'s fire-and-forget background continuation rather
+    ///     than completing synchronously before <c>Run</c> returns, so this polls for it instead
+    ///     of asserting immediately.
+    /// </summary>
+    [Fact]
+    public async Task AskCommand_Run_ExceptionDuringSpeak_DisposesPlaybackDeviceAndRethrows()
+    {
+        var catalog = CreateCatalogWithModels();
+        var synthesizer = new FakeSpeechSynthesizer { SpeakAsyncException = new InvalidOperationException("synthesis engine failure") };
+        catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
+        var recognizer = new FakeSpeechRecognizer();
+        catalog.CreateRecognizerOverride = (_, _, _) => recognizer;
+
+        var playbackDevice = new FakeAudioPlaybackDevice();
+        var playbackSource = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]), playbackDevice);
+
+        using var context = Context.Create(
+            ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi"]);
+
+        Assert.Throws<InvalidOperationException>(
+            () => AskCommand.Run(context, catalog, playbackSource, CreateCaptureSource()));
+
+        Assert.Equal(1, synthesizer.DisposeCallCount);
+        Assert.Equal(1, playbackDevice.DisposeCallCount);
+        Assert.True(
+            await WaitForConditionAsync(() => recognizer.DisposeCallCount == 1, TimeSpan.FromSeconds(5)),
+            "The pre-warmed recognizer was never disposed by the background continuation.");
+    }
+
+    /// <summary>
+    ///     Test that <c>RunAsync</c> returns promptly on a canceled Phase 1 even while the
+    ///     concurrently pre-warmed recognizer's construction is still artificially held in
+    ///     flight - proving the fix for the reviewer-flagged responsiveness regression where
+    ///     <c>DisposePrewarmedRecognizerAsync</c> used to be awaited synchronously before
+    ///     <c>RunAsync</c> returned, delaying <c>Ctrl+C</c>/fast-failure responsiveness until the
+    ///     expensive recognizer model-load finished. <see cref="FakeCliModelCatalog.CreateRecognizerOverride"/>
+    ///     blocks on a <see cref="ManualResetEventSlim"/> the test controls, simulating the
+    ///     model-load step still being in flight; if a regression reintroduces a synchronous
+    ///     await, this test times out waiting for <c>RunAsync</c> to return instead of passing
+    ///     instantly. Once the hold is released, the recognizer is still proven to be eventually
+    ///     disposed by the background continuation - never leaked - just asynchronously.
+    /// </summary>
+    [Fact]
+    public async Task AskCommand_RunAsync_CanceledDuringSpeak_ReturnsPromptlyWithoutAwaitingInFlightPrewarm()
+    {
+        using var holdPrewarm = new ManualResetEventSlim(initialState: false);
+
+        var catalog = CreateCatalogWithModels();
+        var synthesizer = new FakeSpeechSynthesizer { SpeakAsyncException = new OperationCanceledException() };
+        catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
+
+        var recognizer = new FakeSpeechRecognizer();
+        catalog.CreateRecognizerOverride = (_, _, _) =>
+        {
+            // Simulates the expensive recognizer model-load step still being in flight when
+            // Phase 1 cancels.
+            Assert.True(
+                holdPrewarm.Wait(TimeSpan.FromSeconds(10)),
+                "Test setup failure: the hold signal was never released.");
+            return recognizer;
+        };
+
+        using var context = Context.Create(
+            ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi"]);
+        using var cancellationSource = new CancellationTokenSource();
+        using var stopSignal = new ManualResetEventSlim(initialState: false);
+
+        var runTask = AskCommand.RunAsync(
+            context,
+            catalog,
+            CreatePlaybackSource(),
+            CreateCaptureSource(),
+            stopSignal,
+            _ => { },
+            cancellationSource.Token);
+
+        var promptlyCompleted = await Task.WhenAny(
+            runTask,
+            Task.Delay(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken)) == runTask;
+
+        try
+        {
+            Assert.True(
+                promptlyCompleted,
+                "RunAsync blocked waiting for the in-flight pre-warm task instead of returning promptly.");
+
+            await runTask;
+
+            Assert.Equal(1, context.ExitCode);
+            Assert.Equal(0, recognizer.DisposeCallCount);
+        }
+        finally
+        {
+            // Always release the background thread even if an assertion above already failed,
+            // so this test cannot deadlock the test run.
+            holdPrewarm.Set();
+        }
+
+        Assert.True(
+            await WaitForConditionAsync(() => recognizer.DisposeCallCount == 1, TimeSpan.FromSeconds(5)),
+            "The pre-warmed recognizer was never disposed by the background continuation once construction completed.");
     }
 
     /// <summary>
@@ -793,6 +1035,90 @@ public sealed class AskCommandTests
         finally
         {
             Console.SetOut(originalOut);
+        }
+    }
+
+    /// <summary>
+    ///     Test that a genuine <c>Ctrl+C</c> landing in the same narrow window exercised by
+    ///     <see cref="AskCommand_RunAsync_CtrlCImmediatelyAfterListenReturns_ReportsCanceledAndDoesNotPrintText"/>
+    ///     is still reported as a cancellation - never falsely reporting "Recognized text
+    ///     written" and never writing the output file - when <c>--output-text</c> is configured.
+    ///     Together with that test (which covers the no-output-file case), this proves
+    ///     <c>RunAsync</c>'s output-writing step - now that it passes the real
+    ///     <c>cancellationToken</c> into <see cref="File.WriteAllTextAsync(string,string,CancellationToken)"/>
+    ///     wrapped in a <see langword="try"/>/<see langword="catch"/> mirroring every other
+    ///     cancellation exit point in this method - never reaches (or, if a genuine race lands the
+    ///     cancellation a few CPU instructions later, never completes) the file write once
+    ///     cancellation is observed, regardless of which of the two adjacent checks (the explicit
+    ///     pre-write <c>IsCancellationRequested</c> check, or <see cref="File.WriteAllTextAsync(string,string,CancellationToken)"/>'s
+    ///     own check) ends up observing it first: both are handled identically by design, so the
+    ///     externally observable result - error message, non-zero exit code, no file written - is
+    ///     the same either way.
+    /// </summary>
+    [Fact]
+    public async Task AskCommand_RunAsync_CtrlCImmediatelyBeforeFileWrite_ReportsCanceledAndDoesNotWriteFile()
+    {
+        var catalog = CreateCatalogWithModels();
+        var synthesizer = new FakeSpeechSynthesizer();
+        catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
+
+        using var cancellationSource = new CancellationTokenSource();
+        using var stopSignal = new ManualResetEventSlim(initialState: false);
+
+        var recognizer = new FakeSpeechRecognizer
+        {
+            // A legitimate final result, with no Ctrl+C involved yet: Listen() will observe
+            // cancellationToken.IsCancellationRequested == false and return (text, false).
+            OnStart = self =>
+            {
+                self.RaiseResult("hello", isFinal: true);
+                stopSignal.Set();
+            }
+        };
+        catalog.CreateRecognizerOverride = (_, _, _) => recognizer;
+
+        var outputPath = Path.Combine(Path.GetTempPath(), $"ask-test-{Guid.NewGuid():N}.txt");
+        var originalOut = Console.Out;
+        var writer = new StringWriter { NewLine = "\n" };
+        Console.SetOut(writer);
+        try
+        {
+            using var context = Context.Create(
+                [
+                    "ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi",
+                    "--output-text", outputPath
+                ]);
+
+            await AskCommand.RunAsync(
+                context,
+                catalog,
+                CreatePlaybackSource(),
+                CreateCaptureSource(),
+                stopSignal,
+                createdRecognizer =>
+                {
+                    // Listen() calls onRecognizerCreated(null) as the very last step in its
+                    // outermost finally block, immediately before returning control to RunAsync -
+                    // the narrowest window a test can deterministically land a cancellation in
+                    // ahead of the output-writing step below.
+                    if (createdRecognizer is null)
+                    {
+                        cancellationSource.Cancel();
+                    }
+                },
+                cancellationSource.Token);
+
+            Assert.Equal(1, context.ExitCode);
+            Assert.DoesNotContain("Recognized text written", writer.ToString());
+            Assert.False(File.Exists(outputPath));
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+            if (File.Exists(outputPath))
+            {
+                File.Delete(outputPath);
+            }
         }
     }
 

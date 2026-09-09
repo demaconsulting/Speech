@@ -67,3 +67,17 @@ sections:
                   play it correctly without consulting any other segment.
                 tests:
                   - SynthesizeStreamAsync_TextWithPauseTag_YieldsSilenceSegmentWithNoEngineCall
+
+              - id: Speech-Synthesis-ISpeechSynthesizer-HotReuseAcrossTurns
+                title: >-
+                  The ISpeechSynthesizer interface shall support many independent
+                  synthesize/play sessions on the same instance without requiring the synthesizer
+                  to be disposed and reconstructed between sessions.
+                justification: |
+                  Obtaining a synthesizer from SpeechSynthesizerFactory is the expensive step - it
+                  loads the model into native memory - while a synthesize/play session is cheap.
+                  A host doing repeated, low-latency synthesis (for example, many turns of a
+                  voice conversation) must be able to construct one synthesizer once and reuse it
+                  across turns rather than reloading the model per turn.
+                tests:
+                  - PlayStreamAsync_CalledTwiceOnSameInstance_ReusesSameInstanceWithoutReconstruction

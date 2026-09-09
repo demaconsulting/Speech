@@ -51,3 +51,17 @@ sections:
                   it, without accumulating fragments itself.
                 tests:
                   - SherpaOnnxSpeechRecognizer_FrameCaptured_EngineDecodesResults_RaisesResultReceivedInOrder
+
+              - id: Speech-Recognition-ISpeechRecognizer-HotReuseAcrossTurns
+                title: >-
+                  The ISpeechRecognizer interface shall support many independent Start/Stop
+                  cycles on the same instance without requiring the recognizer to be disposed and
+                  reconstructed between cycles.
+                justification: |
+                  Obtaining a recognizer from SpeechRecognizerFactory is the expensive step - it
+                  loads the model into native memory - while Start/Stop are cheap. A host doing
+                  repeated, low-latency recognition (for example, many turns of a voice
+                  conversation) must be able to construct one recognizer once and reuse it across
+                  turns rather than reloading the model per turn.
+                tests:
+                  - SherpaOnnxSpeechRecognizer_MultipleStartStopCycles_ReusesSameInstanceWithoutReconstruction

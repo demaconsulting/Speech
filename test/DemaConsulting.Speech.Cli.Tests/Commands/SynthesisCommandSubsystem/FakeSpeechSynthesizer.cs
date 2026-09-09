@@ -40,6 +40,15 @@ internal sealed class FakeSpeechSynthesizer : ISpeechSynthesizer
     /// <summary>Gets or sets an exception to throw from <see cref="SpeakAsync"/>, or <see langword="null"/> for none.</summary>
     public Exception? SpeakAsyncException { get; set; }
 
+    /// <summary>
+    ///     Gets or sets an optional awaiter invoked from <see cref="SpeakAsync"/>, after recording
+    ///     the call and the exception check, letting a test hold Phase 1's playback wait "in
+    ///     flight" deterministically (for example, to prove a concurrently pre-warmed recognizer
+    ///     is constructed before playback completes, not after). Purely additive: a test that
+    ///     never sets this completes <see cref="SpeakAsync"/> synchronously, exactly as before.
+    /// </summary>
+    public Func<Task>? SpeakAsyncAwaiter { get; set; }
+
     /// <inheritdoc/>
     public bool IsAvailable { get; set; } = true;
 
@@ -52,7 +61,7 @@ internal sealed class FakeSpeechSynthesizer : ISpeechSynthesizer
         throw new NotSupportedException($"{nameof(FakeSpeechSynthesizer)} only supports {nameof(SpeakAsync)}.");
 
     /// <inheritdoc/>
-    public Task SpeakAsync(string text, CancellationToken cancellationToken = default)
+    public async Task SpeakAsync(string text, CancellationToken cancellationToken = default)
     {
         SpeakAsyncCalls.Add(text);
         cancellationToken.ThrowIfCancellationRequested();
@@ -62,7 +71,10 @@ internal sealed class FakeSpeechSynthesizer : ISpeechSynthesizer
             throw SpeakAsyncException;
         }
 
-        return Task.CompletedTask;
+        if (SpeakAsyncAwaiter is not null)
+        {
+            await SpeakAsyncAwaiter().ConfigureAwait(false);
+        }
     }
 
     /// <inheritdoc/>

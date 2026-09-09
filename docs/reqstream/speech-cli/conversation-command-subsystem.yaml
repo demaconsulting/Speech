@@ -142,10 +142,35 @@ sections:
               guarantee simple to reason about and verify.
             tests:
               - AskCommand_Run_CanceledDuringSpeak_SkipsListenPhase
+              - AskCommand_Run_ExceptionDuringSpeak_DisposesPlaybackDeviceAndRethrows
+              - AskCommand_Run_Success_SpeaksThenListensAndPrintsFinalResult
               - AskCommand_RunAsync_CtrlCDuringListen_ReportsCanceledAndDoesNotPrintText
               - AskCommand_RunAsync_CtrlCBeforeListenStarts_ReportsCanceledAndDoesNotPrintText
               - AskCommand_RunAsync_CtrlCImmediatelyAfterListenReturns_ReportsCanceledAndDoesNotPrintText
+              - AskCommand_RunAsync_CtrlCImmediatelyBeforeFileWrite_ReportsCanceledAndDoesNotWriteFile
               - AskCommand_RunAsync_SilenceTimeoutWithNoCtrlC_ReportsSuccessNotCanceled
+
+          - id: SpeechCli-ConversationCommands-PrewarmRecognizer
+            title: >-
+              The tool shall begin constructing Phase 2's recognizer (including resolving its
+              capture device) concurrently with Phase 1's speak/playback wait, rather than only
+              after playback finishes, so Phase 2 can start listening with minimal added latency;
+              a pre-warm failure shall surface at Phase 2's start rather than being silently
+              lost, and any recognizer produced by a canceled Phase 1 shall be disposed rather
+              than leaked.
+            tags: [subsystem, performance]
+            justification: |
+              Loading a recognition model into native memory is the expensive step in
+              constructing an `ISpeechRecognizer`; deferring that load until after Phase 1's
+              playback finishes introduces an avoidable turnaround-gap latency between finishing
+              speaking and starting to listen, which matters for a natural-feeling voice
+              conversation. Overlapping the load with the time a person spends listening to the
+              prompt removes that gap without starting real microphone capture early, and without
+              changing any other observable behavior, exit code, or error message.
+            tests:
+              - AskCommand_Run_PrewarmsRecognizerConcurrentlyWithPlayback_CreatesRecognizerBeforePlaybackCompletes
+              - AskCommand_Run_CanceledDuringSpeak_SkipsListenPhase
+              - AskCommand_Run_NoCaptureDeviceAvailable_ThrowsInvalidOperationException
 
           - id: SpeechCli-ConversationCommands-NullGuards
             title: >-

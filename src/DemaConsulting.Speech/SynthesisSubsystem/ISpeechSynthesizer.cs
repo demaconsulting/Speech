@@ -32,6 +32,17 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     supported and produces undefined interleaving of playback - a caller needing to speak
 ///     concurrently must use separate synthesizer instances.
 ///     </para>
+///     <para>
+///     <b>Reuse for low latency ("hot" synthesis).</b> Obtaining a synthesizer via
+///     <see cref="SpeechSynthesizerFactory"/> is the expensive step - it loads the model into
+///     native memory - while a <see cref="SpeakAsync"/>/<see cref="SynthesizeStreamAsync"/>/
+///     <see cref="PlayStreamAsync"/> session is cheap and may be run repeatedly on the same
+///     instance without reloading the model. For low-latency repeated synthesis (for example,
+///     many turns of a voice conversation), construct one synthesizer and reuse it across many
+///     sessions rather than disposing and recreating it per turn; only dispose and recreate to
+///     change model, device, or parameters. See the user guide's "Hot TTS/STT: Reusing an
+///     Instance Across Turns" section for a worked example.
+///     </para>
 /// </remarks>
 public interface ISpeechSynthesizer : IDisposable
 {

@@ -132,3 +132,20 @@ sections:
                   - SpeechRecognizerFactory_Create_RecognizedNumericParameterWrongType_Throws
                   - SpeechRecognizerFactory_Create_RecognizedChoiceParameterInvalidOption_Throws
                   - SpeechRecognizerFactory_Create_RecognizedBooleanParameterWrongType_Throws
+
+              - id: Speech-Recognition-SpeechRecognizerFactory-ConcurrentPrewarmingSafety
+                title: >-
+                  A host may call SpeechRecognizerFactory.Create concurrently from a background
+                  task while other unrelated work proceeds, since the factory itself holds no
+                  state; doing so is only safe with respect to a caller-supplied diagnostics sink
+                  when that sink is itself safe for concurrent use from multiple threads.
+                justification: |
+                  This factory's model-load work is expensive, so a host doing repeated,
+                  low-latency recognition (for example, a voice-conversation "ask" command) may
+                  want to pre-warm the next turn's recognizer on a background task while other
+                  work - such as speaking the current turn's prompt - proceeds concurrently. This
+                  is only safe with respect to the factory's own (stateless) implementation; a
+                  non-thread-safe diagnostics sink shared with other concurrent work remains the
+                  caller's responsibility to synchronize.
+                tests:
+                  - AskCommand_Run_PrewarmsRecognizerConcurrentlyWithPlayback_CreatesRecognizerBeforePlaybackCompletes

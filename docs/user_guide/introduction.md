@@ -454,6 +454,40 @@ Both models are registered in `SpeechModelCatalog.KnownModels`. Neither model's 
 with this library; `SpeechModelCatalog.DownloadAsync` fetches each one directly from its own
 official GitHub Releases URL only when you explicitly request it.
 
+## Hot TTS/STT: Reusing an Instance Across Turns
+
+`SpeechRecognizerFactory.Create(...)`/`SpeechSynthesizerFactory.Create(...)` are the expensive
+step in either direction: on success, each loads a model into native memory. `Start()`/`Stop()`
+on an already-created `ISpeechRecognizer`, and a `SpeakAsync`/`SynthesizeStreamAsync`/
+`PlayStreamAsync` session on an already-created `ISpeechSynthesizer`, are comparatively cheap and
+fully repeatable on the same instance - neither reloads the model. For a low-latency, multi-turn
+scenario such as a voice conversation, create each instance **once** and reuse it across many
+turns, rather than disposing and recreating it per turn:
+
+```csharp
+// Synthesis: create once, speak many times.
+using var synthesizer = SpeechSynthesizerFactory.Create(model, catalog, playbackDevice);
+await synthesizer.SpeakAsync("First turn.");
+await synthesizer.SpeakAsync("Second turn - the model was never reloaded.");
+
+// Recognition: create once, Start()/Stop() many times.
+using var recognizer = SpeechRecognizerFactory.Create(model, catalog, captureDevice);
+recognizer.Start();
+// ... wait for this turn's result via ResultReceived, then:
+recognizer.Stop();
+recognizer.Start(); // Next turn - again, no reload.
+// ... wait for this turn's result, then:
+recognizer.Stop();
+```
+
+Only dispose and recreate an instance when you need to change its model, device, or parameter
+values - not simply to begin a new turn. `speech-cli ask` applies the same principle at the
+process level: because a single CLI invocation only ever runs one turn, there is no instance to
+reuse across turns, so instead `ask` pre-warms (constructs, and so loads) its STT recognizer
+concurrently with speaking the prompt, rather than only afterward, removing the same avoidable
+model-load latency a long-lived host would instead avoid by reusing one instance across many
+turns. See the "SpeechCli" section's worked examples below for the exact command.
+
 ## Building a Minimal End-to-End Application
 
 The preceding sections introduced model download, capture/recognition, and playback/synthesis
@@ -678,7 +712,11 @@ speech-cli recognize --stt-model streaming-zipformer-en-2023-06-26 --mic --silen
 
 Speak a prompt and listen for the reply in one invocation, giving up to 20 seconds to start
 speaking and ending capture after 1.5 seconds of silence - the intended pattern for an AI agent
-holding a two-way voice conversation with a person through this CLI:
+holding a two-way voice conversation with a person through this CLI. `ask` pre-warms (constructs
+and loads) its STT recognizer concurrently with speaking the prompt, rather than only afterward,
+so the reply can be heard with minimal added latency; see "Hot TTS/STT: Reusing an Instance
+Across Turns" above for the same low-latency create-once/reuse-many pattern applied inside a
+long-lived host process:
 
 ```bash
 speech-cli ask --tts-model vits-piper-en_US-libritts_r-medium --stt-model streaming-zipformer-en-2023-06-26 \

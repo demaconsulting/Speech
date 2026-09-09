@@ -15,7 +15,11 @@ AudioSubsystem's `AudioCaptureFrameEventArgs` pattern.
 - **Start()** / **Stop()**: Begin/end streaming recognition. Starting an already-running
   recognizer and stopping one that is not running are both safe no-ops. `Stop()` drains
   already-captured audio, so every result derived from audio accepted before the call is
-  delivered before it returns.
+  delivered before it returns. A recognizer supports many independent Start/Stop cycles on the
+  same instance without reconstruction - obtaining a recognizer from `SpeechRecognizerFactory` is
+  the expensive step, so a host doing repeated, low-latency recognition (for example, many turns
+  of a voice conversation) should construct one recognizer once and reuse it across cycles rather
+  than disposing and recreating it per turn.
 - **Dispose()**: Releases the engine resources a running recognizer holds. Implies `Stop()` and
   is idempotent.
 - **ResultReceived**: Raised for each provisional or final result. Raised from the recognizer's

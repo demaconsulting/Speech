@@ -39,3 +39,15 @@ See the RecognitionSubsystem-level scenarios "Composition: Real Recognizer for a
 and Available Device", "Composition: Honest Fallback for Every Unavailable State", "Composition:
 Null Arguments Are Programming Errors", "Composition: Parameter Value Bag Forwarding", and
 "Composition: Parameter Value Validation".
+
+#### Reuse and Concurrent Pre-Warming
+
+This factory's "construct once, reuse across turns" and "safe to call `Create` concurrently from
+a background task" guidance (see the design doc) is a documentation contract about the factory's
+own statelessness, not independently testable behavior of `Create` itself: the factory holds no
+state to race on. It is exercised end-to-end by
+`DemaConsulting.Speech.Cli.Tests.Commands.ConversationCommandSubsystem.AskCommandTests
+.AskCommand_Run_PrewarmsRecognizerConcurrentlyWithPlayback_CreatesRecognizerBeforePlaybackCompletes`,
+which proves a host (the CLI's `ask` command) genuinely calls `Create` from a background task
+while other work (Phase 1's synthesis/playback) proceeds concurrently, and that the resulting
+recognizer is adopted correctly once both complete.
