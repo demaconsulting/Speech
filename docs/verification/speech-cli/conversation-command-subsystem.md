@@ -161,11 +161,14 @@ are correctly distinguished rather than both being silently treated as success.
 **Tests**: `AskCommand_Run_NullContext_ThrowsArgumentNullException`,
 `AskCommand_Run_NullCatalog_ThrowsArgumentNullException`,
 `AskCommand_Run_NullDeviceSource_ThrowsArgumentNullException`,
-`AskCommand_Run_NullCaptureSource_ThrowsArgumentNullException`
+`AskCommand_Run_NullCaptureSource_ThrowsArgumentNullException`,
+`AskCommand_ParseArguments_NullArgs_ThrowsArgumentNullException`
 
 **Scenario/Expected**: Every entry point rejects a `null` context, catalog, playback-device
 source, or capture-device source immediately with `ArgumentNullException`, proving `AskCommand`
-never silently proceeds with a missing dependency.
+never silently proceeds with a missing dependency. `ParseArguments` itself independently rejects
+a `null` argument list with `ArgumentNullException`, proving the guard holds even when
+`ParseArguments` is invoked directly rather than only through `Run`/`RunAsync`.
 
 **Requirement coverage**: `SpeechCli-ConversationCommands-NullGuards`.
 

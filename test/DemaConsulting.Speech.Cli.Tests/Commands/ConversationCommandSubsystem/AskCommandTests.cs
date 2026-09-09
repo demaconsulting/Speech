@@ -736,6 +736,13 @@ public sealed class AskCommandTests
             () => AskCommand.Run(null!, new FakeCliModelCatalog(), CreatePlaybackSource(), CreateCaptureSource()));
     }
 
+    /// <summary>Test that ParseArguments rejects a null args list.</summary>
+    [Fact]
+    public void AskCommand_ParseArguments_NullArgs_ThrowsArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => AskCommand.ParseArguments(null!));
+    }
+
     /// <summary>Test that a null catalog is rejected.</summary>
     [Fact]
     public void AskCommand_Run_NullCatalog_ThrowsArgumentNullException()
@@ -761,5 +768,124 @@ public sealed class AskCommandTests
         using var context = Context.Create(["ask", "--tts-model", "tts-1", "--stt-model", "stt-1", "--text", "hi"]);
         Assert.Throws<ArgumentNullException>(
             () => AskCommand.Run(context, new FakeCliModelCatalog(), CreatePlaybackSource(), null!));
+    }
+
+    // --- RunAsync null argument guards ---
+    //
+    // RunAsync is internal (rather than private) specifically so unit tests can drive Phase 2's
+    // Ctrl+C-during-listen cancellation race directly (see its XML doc remarks). Because it can
+    // be invoked directly - bypassing Run(Context)'s own guards - it must independently reject
+    // null dependencies with ArgumentNullException rather than a NullReferenceException.
+
+    /// <summary>Test that a null context is rejected by RunAsync directly.</summary>
+    [Fact]
+    public async Task AskCommand_RunAsync_NullContext_ThrowsArgumentNullException()
+    {
+        using var cancellationSource = new CancellationTokenSource();
+        using var stopSignal = new ManualResetEventSlim(initialState: false);
+
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => AskCommand.RunAsync(
+                null!,
+                new FakeCliModelCatalog(),
+                CreatePlaybackSource(),
+                CreateCaptureSource(),
+                stopSignal,
+                _ => { },
+                cancellationSource.Token));
+    }
+
+    /// <summary>Test that a null catalog is rejected by RunAsync directly.</summary>
+    [Fact]
+    public async Task AskCommand_RunAsync_NullCatalog_ThrowsArgumentNullException()
+    {
+        using var context = Context.Create(["ask", "--tts-model", "tts-1", "--stt-model", "stt-1", "--text", "hi"]);
+        using var cancellationSource = new CancellationTokenSource();
+        using var stopSignal = new ManualResetEventSlim(initialState: false);
+
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => AskCommand.RunAsync(
+                context,
+                null!,
+                CreatePlaybackSource(),
+                CreateCaptureSource(),
+                stopSignal,
+                _ => { },
+                cancellationSource.Token));
+    }
+
+    /// <summary>Test that a null device source is rejected by RunAsync directly.</summary>
+    [Fact]
+    public async Task AskCommand_RunAsync_NullDeviceSource_ThrowsArgumentNullException()
+    {
+        using var context = Context.Create(["ask", "--tts-model", "tts-1", "--stt-model", "stt-1", "--text", "hi"]);
+        using var cancellationSource = new CancellationTokenSource();
+        using var stopSignal = new ManualResetEventSlim(initialState: false);
+
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => AskCommand.RunAsync(
+                context,
+                new FakeCliModelCatalog(),
+                null!,
+                CreateCaptureSource(),
+                stopSignal,
+                _ => { },
+                cancellationSource.Token));
+    }
+
+    /// <summary>Test that a null capture-device source is rejected by RunAsync directly.</summary>
+    [Fact]
+    public async Task AskCommand_RunAsync_NullCaptureSource_ThrowsArgumentNullException()
+    {
+        using var context = Context.Create(["ask", "--tts-model", "tts-1", "--stt-model", "stt-1", "--text", "hi"]);
+        using var cancellationSource = new CancellationTokenSource();
+        using var stopSignal = new ManualResetEventSlim(initialState: false);
+
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => AskCommand.RunAsync(
+                context,
+                new FakeCliModelCatalog(),
+                CreatePlaybackSource(),
+                null!,
+                stopSignal,
+                _ => { },
+                cancellationSource.Token));
+    }
+
+    /// <summary>Test that a null stop signal is rejected by RunAsync directly.</summary>
+    [Fact]
+    public async Task AskCommand_RunAsync_NullStopSignal_ThrowsArgumentNullException()
+    {
+        using var context = Context.Create(["ask", "--tts-model", "tts-1", "--stt-model", "stt-1", "--text", "hi"]);
+        using var cancellationSource = new CancellationTokenSource();
+
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => AskCommand.RunAsync(
+                context,
+                new FakeCliModelCatalog(),
+                CreatePlaybackSource(),
+                CreateCaptureSource(),
+                null!,
+                _ => { },
+                cancellationSource.Token));
+    }
+
+    /// <summary>Test that a null recognizer-created callback is rejected by RunAsync directly.</summary>
+    [Fact]
+    public async Task AskCommand_RunAsync_NullOnRecognizerCreated_ThrowsArgumentNullException()
+    {
+        using var context = Context.Create(["ask", "--tts-model", "tts-1", "--stt-model", "stt-1", "--text", "hi"]);
+        using var cancellationSource = new CancellationTokenSource();
+        using var stopSignal = new ManualResetEventSlim(initialState: false);
+
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => AskCommand.RunAsync(
+                context,
+                new FakeCliModelCatalog(),
+                CreatePlaybackSource(),
+                CreateCaptureSource(),
+                stopSignal,
+                null!,
+                cancellationSource.Token));
     }
 }

@@ -25,7 +25,7 @@ namespace DemaConsulting.Speech.Cli.Tests.Commands.SynthesisCommandSubsystem;
 
 /// <summary>
 ///     Unit tests for <see cref="ParameterBagParser"/>: per-type parsing/validation of
-///     <c>--tts-param</c>/<c>--stt-param key=value</c> tokens against a model's declared parameters.
+///     <c>--tts-param key=value</c>/<c>--stt-param key=value</c> tokens against a model's declared parameters.
 /// </summary>
 [Collection("Sequential")]
 public sealed class ParameterBagParserTests

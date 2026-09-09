@@ -159,3 +159,4 @@ sections:
               - AskCommand_Run_NullCatalog_ThrowsArgumentNullException
               - AskCommand_Run_NullDeviceSource_ThrowsArgumentNullException
               - AskCommand_Run_NullCaptureSource_ThrowsArgumentNullException
+              - AskCommand_ParseArguments_NullArgs_ThrowsArgumentNullException

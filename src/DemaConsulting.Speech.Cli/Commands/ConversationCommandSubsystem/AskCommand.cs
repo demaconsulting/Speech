@@ -229,6 +229,12 @@ internal static class AskCommand
     ///     <see cref="Console.CancelKeyPress"/> handler produces, without depending on a real
     ///     console signal.
     /// </remarks>
+    /// <exception cref="ArgumentNullException">
+    ///     Thrown when <paramref name="context"/>, <paramref name="catalog"/>,
+    ///     <paramref name="deviceSource"/>, <paramref name="captureSource"/>,
+    ///     <paramref name="stopSignal"/>, or <paramref name="onRecognizerCreated"/> is
+    ///     <see langword="null"/>.
+    /// </exception>
     internal static async Task RunAsync(
         Context context,
         ICliModelCatalog catalog,
@@ -238,6 +244,13 @@ internal static class AskCommand
         Action<ISpeechRecognizer?> onRecognizerCreated,
         CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(catalog);
+        ArgumentNullException.ThrowIfNull(deviceSource);
+        ArgumentNullException.ThrowIfNull(captureSource);
+        ArgumentNullException.ThrowIfNull(stopSignal);
+        ArgumentNullException.ThrowIfNull(onRecognizerCreated);
+
         var options = ParseArguments(context.CommandArgs);
 
         // Text-source resolution runs before model resolution, mirroring SpeakCommand's own
