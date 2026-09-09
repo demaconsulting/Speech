@@ -74,6 +74,29 @@ public sealed class AskCommandTests
     private static FakeCaptureDeviceSource CreateCaptureSource() =>
         new(new FakeAudioCaptureDeviceProbe([CaptureDevice]));
 
+    /// <summary>
+    ///     Polls <paramref name="condition"/> until it returns <see langword="true"/> or
+    ///     <paramref name="timeout"/> elapses, for use asserting on state that
+    ///     <see cref="AskCommand.RunAsync"/> now updates from a fire-and-forget background
+    ///     continuation (recognizer disposal after a canceled/failed Phase 1) rather than
+    ///     synchronously before returning.
+    /// </summary>
+    private static async Task<bool> WaitForConditionAsync(Func<bool> condition, TimeSpan timeout)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+        while (!condition())
+        {
+            if (DateTime.UtcNow >= deadline)
+            {
+                return false;
+            }
+
+            await Task.Delay(10, TestContext.Current.CancellationToken);
+        }
+
+        return true;
+    }
+
     // --- ParseArguments ---
 
     /// <summary>Test that --tts-model is required.</summary>
@@ -325,12 +348,15 @@ public sealed class AskCommandTests
     ///     (before Phase 2's <c>SpeakPromptAsync</c> call ever awaits anything), and that the
     ///     concurrently pre-warmed recognizer - constructed on a background task that may still be
     ///     racing with (or may have already completed ahead of) that synchronous throw - is
-    ///     nonetheless always awaited and disposed rather than leaked or left as an unobserved
-    ///     faulted task: this proves <c>RunAsync</c> observes and cleans up the pre-warm task on
-    ///     every exit path, not only the <c>wasCanceled</c> path.
+    ///     nonetheless eventually disposed rather than leaked or left as an unobserved faulted
+    ///     task: this proves <c>RunAsync</c> observes and cleans up the pre-warm task on every
+    ///     exit path, not only the <c>wasCanceled</c> path. Disposal is now driven by
+    ///     <c>DisposePrewarmedRecognizerAsync</c>'s fire-and-forget background continuation rather
+    ///     than completing synchronously before <c>Run</c> returns, so this polls for it instead
+    ///     of asserting immediately.
     /// </summary>
     [Fact]
-    public void AskCommand_Run_NoPlaybackDeviceAvailable_ThrowsInvalidOperationException()
+    public async Task AskCommand_Run_NoPlaybackDeviceAvailable_ThrowsInvalidOperationException()
     {
         var catalog = CreateCatalogWithModels();
         var recognizer = new FakeSpeechRecognizer();
@@ -342,10 +368,12 @@ public sealed class AskCommandTests
         Assert.Throws<InvalidOperationException>(
             () => AskCommand.Run(context, catalog, deviceSource, CreateCaptureSource()));
 
-        // The concurrently pre-warmed recognizer must have been awaited and disposed before
-        // Run() returns, even though the exception that ended the call was thrown from Phase 1's
+        // The concurrently pre-warmed recognizer must eventually be disposed by the background
+        // continuation, even though the exception that ended the call was thrown from Phase 1's
         // SpeakPromptAsync rather than from the wasCanceled path.
-        Assert.Equal(1, recognizer.DisposeCallCount);
+        Assert.True(
+            await WaitForConditionAsync(() => recognizer.DisposeCallCount == 1, TimeSpan.FromSeconds(5)),
+            "The pre-warmed recognizer was never disposed by the background continuation.");
     }
 
     /// <summary>Test that an unknown --capture-device throws before any recognizer is created.</summary>
@@ -637,13 +665,16 @@ public sealed class AskCommandTests
 
     /// <summary>
     ///     Test that a canceled Phase-1 speak session is reported cleanly, Phase 2 (listen) never
-    ///     runs, the concurrently pre-warmed recognizer is disposed rather than leaked, and the
-    ///     resolved playback device is disposed exactly once too - proving
+    ///     runs, the concurrently pre-warmed recognizer is eventually disposed rather than leaked,
+    ///     and the resolved playback device is disposed exactly once too - proving
     ///     <c>SpeakPromptAsync</c>'s playback-device disposal runs even when playback itself is
-    ///     canceled, not only on the success path.
+    ///     canceled, not only on the success path. Recognizer disposal is now driven by
+    ///     <c>DisposePrewarmedRecognizerAsync</c>'s fire-and-forget background continuation rather
+    ///     than completing synchronously before <c>Run</c> returns, so this polls for it instead
+    ///     of asserting immediately.
     /// </summary>
     [Fact]
-    public void AskCommand_Run_CanceledDuringSpeak_SkipsListenPhase()
+    public async Task AskCommand_Run_CanceledDuringSpeak_SkipsListenPhase()
     {
         var catalog = CreateCatalogWithModels();
         var synthesizer = new FakeSpeechSynthesizer { SpeakAsyncException = new OperationCanceledException() };
@@ -663,7 +694,9 @@ public sealed class AskCommandTests
         Assert.Equal(1, synthesizer.DisposeCallCount);
         Assert.Equal(1, playbackDevice.DisposeCallCount);
         Assert.Equal(0, recognizer.StartCallCount);
-        Assert.Equal(1, recognizer.DisposeCallCount);
+        Assert.True(
+            await WaitForConditionAsync(() => recognizer.DisposeCallCount == 1, TimeSpan.FromSeconds(5)),
+            "The pre-warmed recognizer was never disposed by the background continuation.");
     }
 
     /// <summary>
@@ -671,10 +704,13 @@ public sealed class AskCommandTests
     ///     example, a real synthesis engine failure) still disposes the resolved playback device
     ///     exactly once before propagating - proving <c>SpeakPromptAsync</c>'s playback-device
     ///     disposal runs on the thrown-exception path too, not only on the success and
-    ///     canceled-during-speak paths.
+    ///     canceled-during-speak paths. Recognizer disposal is now driven by
+    ///     <c>DisposePrewarmedRecognizerAsync</c>'s fire-and-forget background continuation rather
+    ///     than completing synchronously before <c>Run</c> returns, so this polls for it instead
+    ///     of asserting immediately.
     /// </summary>
     [Fact]
-    public void AskCommand_Run_ExceptionDuringSpeak_DisposesPlaybackDeviceAndRethrows()
+    public async Task AskCommand_Run_ExceptionDuringSpeak_DisposesPlaybackDeviceAndRethrows()
     {
         var catalog = CreateCatalogWithModels();
         var synthesizer = new FakeSpeechSynthesizer { SpeakAsyncException = new InvalidOperationException("synthesis engine failure") };
@@ -693,7 +729,83 @@ public sealed class AskCommandTests
 
         Assert.Equal(1, synthesizer.DisposeCallCount);
         Assert.Equal(1, playbackDevice.DisposeCallCount);
-        Assert.Equal(1, recognizer.DisposeCallCount);
+        Assert.True(
+            await WaitForConditionAsync(() => recognizer.DisposeCallCount == 1, TimeSpan.FromSeconds(5)),
+            "The pre-warmed recognizer was never disposed by the background continuation.");
+    }
+
+    /// <summary>
+    ///     Test that <c>RunAsync</c> returns promptly on a canceled Phase 1 even while the
+    ///     concurrently pre-warmed recognizer's construction is still artificially held in
+    ///     flight - proving the fix for the reviewer-flagged responsiveness regression where
+    ///     <c>DisposePrewarmedRecognizerAsync</c> used to be awaited synchronously before
+    ///     <c>RunAsync</c> returned, delaying <c>Ctrl+C</c>/fast-failure responsiveness until the
+    ///     expensive recognizer model-load finished. <see cref="FakeCliModelCatalog.CreateRecognizerOverride"/>
+    ///     blocks on a <see cref="ManualResetEventSlim"/> the test controls, simulating the
+    ///     model-load step still being in flight; if a regression reintroduces a synchronous
+    ///     await, this test times out waiting for <c>RunAsync</c> to return instead of passing
+    ///     instantly. Once the hold is released, the recognizer is still proven to be eventually
+    ///     disposed by the background continuation - never leaked - just asynchronously.
+    /// </summary>
+    [Fact]
+    public async Task AskCommand_RunAsync_CanceledDuringSpeak_ReturnsPromptlyWithoutAwaitingInFlightPrewarm()
+    {
+        using var holdPrewarm = new ManualResetEventSlim(initialState: false);
+
+        var catalog = CreateCatalogWithModels();
+        var synthesizer = new FakeSpeechSynthesizer { SpeakAsyncException = new OperationCanceledException() };
+        catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
+
+        var recognizer = new FakeSpeechRecognizer();
+        catalog.CreateRecognizerOverride = (_, _, _) =>
+        {
+            // Simulates the expensive recognizer model-load step still being in flight when
+            // Phase 1 cancels.
+            Assert.True(
+                holdPrewarm.Wait(TimeSpan.FromSeconds(10)),
+                "Test setup failure: the hold signal was never released.");
+            return recognizer;
+        };
+
+        using var context = Context.Create(
+            ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi"]);
+        using var cancellationSource = new CancellationTokenSource();
+        using var stopSignal = new ManualResetEventSlim(initialState: false);
+
+        var runTask = AskCommand.RunAsync(
+            context,
+            catalog,
+            CreatePlaybackSource(),
+            CreateCaptureSource(),
+            stopSignal,
+            _ => { },
+            cancellationSource.Token);
+
+        var promptlyCompleted = await Task.WhenAny(
+            runTask,
+            Task.Delay(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken)) == runTask;
+
+        try
+        {
+            Assert.True(
+                promptlyCompleted,
+                "RunAsync blocked waiting for the in-flight pre-warm task instead of returning promptly.");
+
+            await runTask;
+
+            Assert.Equal(1, context.ExitCode);
+            Assert.Equal(0, recognizer.DisposeCallCount);
+        }
+        finally
+        {
+            // Always release the background thread even if an assertion above already failed,
+            // so this test cannot deadlock the test run.
+            holdPrewarm.Set();
+        }
+
+        Assert.True(
+            await WaitForConditionAsync(() => recognizer.DisposeCallCount == 1, TimeSpan.FromSeconds(5)),
+            "The pre-warmed recognizer was never disposed by the background continuation once construction completed.");
     }
 
     /// <summary>

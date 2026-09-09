@@ -97,6 +97,7 @@ sections:
               - Speech-Synthesis-ISpeechSynthesizer-StreamingContract
               - Speech-Synthesis-ISpeechSynthesizer-UnavailableOperationsThrow
               - Speech-Synthesis-ISpeechSynthesizer-SynthesizedSpeechShape
+              - Speech-Synthesis-ISpeechSynthesizer-HotReuseAcrossTurns
             tests:
               - UnavailableSpeechSynthesizer_IsAvailable_Read_ReturnsFalse
               - SynthesizeStreamAsync_PlainText_YieldsAudioSegment

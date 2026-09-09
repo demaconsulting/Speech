@@ -218,6 +218,7 @@ sections:
           - SpeechCli-ConversationCommands-OutputDispatch
           - SpeechCli-ConversationCommands-DeviceDispatch
           - SpeechCli-ConversationCommands-CancellationAndDisposal
+          - SpeechCli-ConversationCommands-PrewarmRecognizer
           - SpeechCli-ConversationCommands-NullGuards
         tests:
           - AskCommand_Run_Success_SpeaksThenListensAndPrintsFinalResult

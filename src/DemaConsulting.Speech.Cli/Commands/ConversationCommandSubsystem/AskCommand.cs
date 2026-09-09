@@ -89,10 +89,14 @@ namespace DemaConsulting.Speech.Cli.Commands.ConversationCommandSubsystem;
 ///     (aborting an in-flight <c>SpeakAsync</c> during Phase 1) and, once the recognizer has been
 ///     constructed, also calls <see cref="ISpeechRecognizer.Stop"/> and signals the same
 ///     <see cref="ManualResetEventSlim"/> the mic-wait blocks on, so <c>Ctrl+C</c> cancels
-///     cleanly whether it lands during playback or during listening. When Phase 1 is canceled,
-///     the pre-warmed recognizer - which may already have been constructed by the concurrent
-///     background task, or may still be in flight - is still awaited and disposed before
-///     <c>RunAsync</c> returns, rather than leaked or left as an unobserved faulted
+///     cleanly whether it lands during playback or during listening. When Phase 1 is canceled or
+///     throws, the pre-warmed recognizer - which may already have been constructed by the
+///     concurrent background task, or may still be in flight - is never awaited synchronously by
+///     <c>RunAsync</c>: doing so would block <c>Ctrl+C</c>/fast-failure responsiveness on the
+///     expensive model-load step finishing. Instead a background continuation observes the
+///     pre-warm task's eventual result (or exception) and disposes any recognizer it produces,
+///     so <c>RunAsync</c> returns promptly while the recognizer is still guaranteed to be disposed
+///     - just asynchronously - rather than leaked or left as an unobserved faulted
 ///     <see cref="Task"/>. Because a final recognition result, a silence/start timeout, and
 ///     <c>Ctrl+C</c> all unblock the same <see cref="ManualResetEventSlim"/> identically,
 ///     <c>Listen</c> re-checks the shared <see cref="CancellationToken"/> (only ever canceled by
@@ -294,12 +298,14 @@ internal static class AskCommand
         // speak/playback wait below instead of only starting once playback finishes - closing the
         // turnaround-gap latency between finishing speaking and starting to listen. Real
         // microphone capture (Start()) still only begins once Phase 2 genuinely starts, inside
-        // Listen. Every exit path below - Phase 1 canceling, Phase 1 (or anything between here
-        // and adopting the pre-warm result) throwing, or adopting the pre-warm result itself -
-        // unconditionally awaits this task (directly, or via DisposePrewarmedRecognizerAsync)
-        // before RunAsync returns, so its result - and any exception it raises - is always
-        // observed and never left as an unobserved faulted task, and any recognizer it
-        // successfully constructs is never leaked.
+        // Listen. Only the "adopt the pre-warm result" exit path below (Phase 2 genuinely
+        // starting) awaits this task directly. The "Phase 1 canceled" and "Phase 1 (or anything
+        // between here and adopting the pre-warm result) threw" exit paths deliberately do NOT
+        // await this task - blocking RunAsync's return on the expensive model-load finishing
+        // would delay Ctrl+C/fast-failure responsiveness for no benefit - and instead hand it to
+        // DisposePrewarmedRecognizerAsync fire-and-forget: that method's own continuation still
+        // always observes this task's result/exception and disposes any recognizer it produces,
+        // just asynchronously in the background rather than before RunAsync returns.
         var prewarmTask = Task.Run(
             () => PrewarmRecognizer(invocation, captureSource, sttDescriptor, sttParameterValues),
             CancellationToken.None);
@@ -315,9 +321,12 @@ internal static class AskCommand
             {
                 // Phase 1 was canceled, so Phase 2 never runs: the concurrently pre-warmed
                 // recognizer (whether already constructed, still in flight, or never going to
-                // succeed) must still be awaited and disposed here rather than leaked or left as
-                // an unobserved faulted task.
-                await DisposePrewarmedRecognizerAsync(prewarmTask).ConfigureAwait(false);
+                // succeed) must still eventually be disposed, but RunAsync must not block its own
+                // return on the (possibly still-loading) model finishing - that would delay
+                // Ctrl+C responsiveness for exactly the scenario where instant feedback matters
+                // most. Hand it off fire-and-forget: DisposePrewarmedRecognizerAsync's own
+                // continuation disposes it once construction eventually completes.
+                _ = DisposePrewarmedRecognizerAsync(prewarmTask);
                 return;
             }
 
@@ -335,11 +344,13 @@ internal static class AskCommand
             // --playback-device, or PrewarmRecognizer's own failure surfacing when its result is
             // adopted) threw instead of returning a normal wasCanceled result: the pre-warmed
             // recognizer - whether already constructed, still in flight, or never going to
-            // succeed - must still be awaited and disposed here so it is never leaked and
-            // prewarmTask is never left as an unobserved faulted task. This is a no-op if
-            // prewarmTask never produced a recognizer. Rethrow to preserve the original
+            // succeed - must still eventually be disposed and prewarmTask's result/exception must
+            // still eventually be observed, but RunAsync must not block this fast-failure exit on
+            // the (possibly still-loading) model finishing. Hand it off fire-and-forget, same as
+            // the Phase 1 cancellation path above; this is a no-op once it runs if prewarmTask
+            // never produces a recognizer. Rethrow immediately to preserve the original
             // exception's type, message, and stack trace unchanged.
-            await DisposePrewarmedRecognizerAsync(prewarmTask).ConfigureAwait(false);
+            _ = DisposePrewarmedRecognizerAsync(prewarmTask);
             throw;
         }
 
@@ -487,11 +498,24 @@ internal static class AskCommand
     }
 
     /// <summary>
-    ///     Awaits a concurrently pre-warmed recognizer's construction and disposes it, for use
-    ///     when Phase 1 is canceled and Phase 2 will never run: the recognizer <paramref name="prewarmTask"/>
-    ///     produces (if construction succeeds at all) would otherwise be leaked, and the task
-    ///     itself would otherwise go unobserved.
+    ///     Fire-and-forget cleanup for a concurrently pre-warmed recognizer, for use when Phase 1
+    ///     is canceled or throws and Phase 2 will never run: the recognizer
+    ///     <paramref name="prewarmTask"/> produces (if construction succeeds at all) would
+    ///     otherwise be leaked, and the task itself would otherwise go unobserved.
     /// </summary>
+    /// <remarks>
+    ///     Callers deliberately do not <see langword="await"/> the <see cref="Task"/> this method
+    ///     returns: <paramref name="prewarmTask"/> represents the expensive recognizer model-load
+    ///     step, so blocking on it here would delay <c>Ctrl+C</c>/fast-failure responsiveness
+    ///     until that load finishes, even though the caller has already decided to exit. Instead,
+    ///     this method's own <see langword="await"/> below attaches a continuation that runs
+    ///     whenever <paramref name="prewarmTask"/> eventually completes - immediately, if it has
+    ///     already finished by the time this method is called - disposing any recognizer it
+    ///     produced and observing (via the <see langword="catch"/> below) any exception it
+    ///     raised, so <paramref name="prewarmTask"/> is never left as an unobserved faulted
+    ///     <see cref="Task"/> and a successfully constructed recognizer is never leaked - just
+    ///     disposed asynchronously in the background instead of before the caller returns.
+    /// </remarks>
     private static async Task DisposePrewarmedRecognizerAsync(Task<ISpeechRecognizer> prewarmTask)
     {
         try

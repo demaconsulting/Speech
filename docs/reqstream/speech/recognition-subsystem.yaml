@@ -23,6 +23,7 @@ sections:
               - Speech-Recognition-ISpeechRecognizer-AvailabilityFlag
               - Speech-Recognition-ISpeechRecognizer-StartStopResultReceived
               - Speech-Recognition-ISpeechRecognizer-ResultShape
+              - Speech-Recognition-ISpeechRecognizer-HotReuseAcrossTurns
             tests:
               - UnavailableSpeechRecognizer_IsAvailable_Read_ReturnsFalse
               - SherpaOnnxSpeechRecognizer_Start_Always_SubscribesAndStartsCaptureDevice
@@ -52,6 +53,7 @@ sections:
               - Speech-Recognition-SpeechRecognizerFactory-ParameterValuesForwarding
               - Speech-Recognition-SpeechRecognizerFactory-UnrecognizedParameterIdIgnored
               - Speech-Recognition-SpeechRecognizerFactory-InvalidRecognizedParameterValueThrows
+              - Speech-Recognition-SpeechRecognizerFactory-ConcurrentPrewarmingSafety
               - Speech-Recognition-RecognitionEngine-MockableSeam
               - Speech-Recognition-RecognitionEngine-ModelOwnedConfiguration
               - Speech-Recognition-RecognitionEngine-PostEndpointWarmupReplay
