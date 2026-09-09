@@ -113,6 +113,36 @@ sections:
               - SilenceTimeoutRecognizerSession_Construct_NonPositiveTimeout_ThrowsArgumentOutOfRangeException
               - SilenceTimeoutRecognizerSession_Construct_NullTimeProvider_UsesSystemTimeProvider
 
+          - id: SpeechCli-RecognitionCommands-StartTimeout
+            title: >-
+              The tool shall, in `--mic` mode with `--silence-timeout` given, accept an optional
+              `--start-timeout <seconds>` flag configuring a separate idle window used only
+              before the first recognition result arrives (defaulting to `--silence-timeout`'s
+              value when omitted), via `SilenceTimeoutRecognizerSession`, which shall arm its idle
+              timer with the start-timeout value at construction and switch to the
+              silence-timeout value for every re-arm from the first result onward, rejecting a
+              non-positive or malformed `--start-timeout` with a clean error.
+            tags: [subsystem]
+            justification: |
+              A grace period for a user to begin speaking is typically much longer than the brief
+              pause used to detect the end of an utterance; conflating the two into one
+              `--silence-timeout` value forces an operator to choose between a session that gives
+              up too quickly on a slow starter or one that lingers too long after the user has
+              actually stopped talking. A separate, optional `--start-timeout` resolves this
+              without changing `--silence-timeout`'s own existing behavior when the new flag is
+              not used.
+            tests:
+              - RecognizeCommand_ParseArguments_StartTimeoutFlag_ParsesSeconds
+              - RecognizeCommand_ParseArguments_StartTimeoutOmitted_DefaultsToNull
+              - RecognizeCommand_ParseArguments_NonPositiveStartTimeout_ThrowsArgumentException
+              - RecognizeCommand_ParseArguments_MalformedStartTimeout_ThrowsArgumentException
+              - SilenceTimeoutRecognizerSession_Construct_StartTimeoutOmitted_ArmsTimerWithSilenceTimeout
+              - SilenceTimeoutRecognizerSession_Construct_StartTimeoutGiven_ArmsTimerWithStartTimeout
+              - SilenceTimeoutRecognizerSession_FirstResultReceived_ReArmsWithSilenceTimeoutNotStartTimeout
+              - SilenceTimeoutRecognizerSession_SecondResultReceived_StaysOnSilenceTimeout
+              - SilenceTimeoutRecognizerSession_IdleTimerFiresBeforeFirstResult_StopsRecognizerAndRaisesTimedOut
+              - SilenceTimeoutRecognizerSession_Construct_NonPositiveStartTimeout_ThrowsArgumentOutOfRangeException
+
           - id: SpeechCli-RecognitionCommands-VerbosityAndOutput
             title: >-
               The tool shall, by default, print both interim and final recognition results (an

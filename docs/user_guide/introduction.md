@@ -668,10 +668,11 @@ Speak text through a real playback device, selecting a specific device by name (
 speech-cli speak --model vits-piper-en_US-libritts_r-medium --text "Hello there." --device "Speakers (Realtek)"
 ```
 
-Recognize speech live from the microphone, stopping automatically after five seconds of silence:
+Recognize speech live from the microphone, stopping automatically after five seconds of silence
+(and giving up to ten seconds to start speaking):
 
 ```bash
-speech-cli recognize --model streaming-zipformer-en-2023-06-26 --mic --silence-timeout 5
+speech-cli recognize --model streaming-zipformer-en-2023-06-26 --mic --silence-timeout 5 --start-timeout 10
 ```
 
 ## Hardware Verification Boundary

@@ -140,6 +140,32 @@ defaults to `TimeProvider.System` without throwing.
 
 **Requirement coverage**: `SpeechCli-RecognitionCommands-SilenceTimeout`.
 
+#### Start Timeout (Two-Phase Idle Window)
+
+**Tests**: `RecognizeCommand_ParseArguments_StartTimeoutFlag_ParsesSeconds`,
+`RecognizeCommand_ParseArguments_StartTimeoutOmitted_DefaultsToNull`,
+`RecognizeCommand_ParseArguments_NonPositiveStartTimeout_ThrowsArgumentException`,
+`RecognizeCommand_ParseArguments_MalformedStartTimeout_ThrowsArgumentException`,
+`SilenceTimeoutRecognizerSession_Construct_StartTimeoutOmitted_ArmsTimerWithSilenceTimeout`,
+`SilenceTimeoutRecognizerSession_Construct_StartTimeoutGiven_ArmsTimerWithStartTimeout`,
+`SilenceTimeoutRecognizerSession_FirstResultReceived_ReArmsWithSilenceTimeoutNotStartTimeout`,
+`SilenceTimeoutRecognizerSession_SecondResultReceived_StaysOnSilenceTimeout`,
+`SilenceTimeoutRecognizerSession_IdleTimerFiresBeforeFirstResult_StopsRecognizerAndRaisesTimedOut`,
+`SilenceTimeoutRecognizerSession_Construct_NonPositiveStartTimeout_ThrowsArgumentOutOfRangeException`
+
+**Scenario/Expected**: `--start-timeout` parses a positive number of seconds, rejecting zero,
+negative, or malformed values; parsing alone leaves `StartTimeoutSeconds` `null` when the flag is
+omitted (no default is applied at parse time); constructing a session with `startTimeout` omitted
+arms its idle timer with the same value as `idleTimeout` (today's exact behavior, preserved);
+constructing a session with a distinct `startTimeout` value arms the timer with that value, not
+`idleTimeout`; the first `ResultReceived` event (partial or final) re-arms the timer with
+`idleTimeout`, not `startTimeout`; a second result stays re-armed with `idleTimeout`; the idle
+timer firing before any result has arrived calls `Stop()` and raises `TimedOut`, proving
+`startTimeout` genuinely governs the pre-first-result window rather than only being recorded; a
+non-positive `startTimeout` is rejected at construction exactly like a non-positive `idleTimeout`.
+
+**Requirement coverage**: `SpeechCli-RecognitionCommands-StartTimeout`.
+
 #### `--interim`/`--final-only`/`--output` Filtering and Writing
 
 **Tests**: `RecognizeCommand_ParseArguments_InterimAndFinalOnlyFlags_ParseTrue`,
@@ -209,6 +235,8 @@ missing dependency.
   Flow_ above
 - **`SpeechCli-RecognitionCommands-SilenceTimeout`**: see _Silence Timeout
   (`SilenceTimeoutRecognizerSession`)_ above
+- **`SpeechCli-RecognitionCommands-StartTimeout`**: see _Start Timeout (Two-Phase Idle Window)_
+  above
 - **`SpeechCli-RecognitionCommands-VerbosityAndOutput`**: see _`--interim`/`--final-only`/
   `--output` Filtering and Writing_ above
 - **`SpeechCli-RecognitionCommands-DeviceDispatch`**: see _Capture Device Dispatch_ above
@@ -223,6 +251,8 @@ mutual exclusion and reports actionable model-resolution errors; `--param` value
 through the reused `ParameterBagParser`; file-input mode drives a real capture device to
 completion and stops the recognizer reentrantly via `EndOfFileReached` with no added wait;
 silence-timeout logic resets and fires deterministically against a fake time provider;
+`--start-timeout` correctly arms the two-phase idle window (start-timeout before the first
+result, silence-timeout thereafter) deterministically against a fake time provider;
 `--interim`/`--final-only`/`--output` each filter/write exactly as specified; an unknown/
 unavailable capture device is rejected cleanly; the two new `ICliModelCatalog` seam members
 correctly reject a non-recognition model against a real catalog; every entry point rejects a
@@ -246,3 +276,8 @@ verification step instead:
 - `recognize --model <id> --mic --silence-timeout <seconds>`, run on a machine with a real
   microphone, prints live interim/final results while speaking and ends the session automatically
   after the configured idle window once speech stops
+- `recognize --model <id> --mic --silence-timeout <seconds> --start-timeout <seconds>`, run on a
+  machine with a real microphone, waits up to the `--start-timeout` grace period for speech to
+  begin (verified by staying silent past `--silence-timeout`'s own, shorter value without the
+  session ending early) and then, once speech has started, ends the session automatically after
+  `--silence-timeout`'s idle window elapses with no further result

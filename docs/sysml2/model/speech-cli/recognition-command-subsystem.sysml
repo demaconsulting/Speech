@@ -31,8 +31,12 @@ package SpeechCli {
     part def SilenceTimeoutRecognizerSession {
         doc /* Observes an ISpeechRecognizer's ResultReceived event and calls Stop(),
              * then raises TimedOut, when no result (partial or final) arrives within a
-             * configured idle window, re-arming a TimeProvider-based idle timer on every
-             * event for deterministic, real-wall-clock-free unit testing. */
+             * configured idle window. Enforces two sequential idle windows via a
+             * TimeProvider-based timer: a start-timeout grace period (defaulting to the
+             * silence-timeout value) armed once at construction, before any result has
+             * arrived, then re-armed with the silence-timeout value on every subsequent
+             * result from the first onward - deterministic and real-wall-clock-free for
+             * unit testing. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech.Cli/Commands/RecognitionCommandSubsystem/SilenceTimeoutRecognizerSession.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Cli.Tests/Commands/RecognitionCommandSubsystem/SilenceTimeoutRecognizerSessionTests.cs */

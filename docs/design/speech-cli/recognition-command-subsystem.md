@@ -8,10 +8,12 @@ types and extends `ModelCommandsSubsystem`'s existing catalog seam with two furt
 
 - **`RecognizeCommand`**: implements
   `recognize --model <id> (--input <wav-path> | --mic) [--device <name>]
-  [--silence-timeout <seconds>] [--param key=value ...] [--interim | --final-only]
-  [--output <text-path>]`
-- **`SilenceTimeoutRecognizerSession`**: an idle-timeout observer for mic-mode sessions, resetting
-  a timer on every recognition result and stopping the recognizer when none arrives in time
+  [--silence-timeout <seconds>] [--start-timeout <seconds>] [--param key=value ...]
+  [--interim | --final-only] [--output <text-path>]`
+- **`SilenceTimeoutRecognizerSession`**: a two-phase idle-timeout observer for mic-mode sessions,
+  arming its timer with a start-timeout grace period before the first recognition result and a
+  silence-timeout window (resetting on every result) thereafter, stopping the recognizer when the
+  currently-active window elapses with no reset
 - **`ICliModelCatalog.GetAudioFormat`/`CreateRecognizer`**: the two new seam members (see
   _Extending the ModelCommandsSubsystem Seam_ below), implemented by `SpeechModelCatalogAdapter`
 
@@ -46,11 +48,15 @@ dependency on `IRecognitionModel` anywhere in the test project.
 
 ### RecognizeCommand
 
-Parses its own flags (`--model`, `--input`, `--mic`, `--device`, `--silence-timeout`, repeatable
-`--param`, `--interim`, `--final-only`, `--output`) via the same hand-rolled loop style as every
-other command in this tool, requiring `--model` and rejecting an unsupported argument or a
-value-less flag with `ArgumentException`. `--silence-timeout` additionally requires a positive
-number of seconds.
+Parses its own flags (`--model`, `--input`, `--mic`, `--device`, `--silence-timeout`,
+`--start-timeout`, repeatable `--param`, `--interim`, `--final-only`, `--output`) via the same
+hand-rolled loop style as every other command in this tool, requiring `--model` and rejecting an
+unsupported argument or a value-less flag with `ArgumentException`. `--silence-timeout` and
+`--start-timeout` each additionally require a positive number of seconds when given.
+`--start-timeout` follows `--silence-timeout`'s own existing "inert without `--mic`" convention:
+it parses and validates as its own positive-number flag but is only ever consulted inside the
+`options.Mic && options.SilenceTimeoutSeconds is { } seconds` guard in `Run` - no new cross-flag
+validator rejects `--start-timeout` given without `--silence-timeout` or `--mic`.
 
 **Validation ordering mirrors `SpeakCommand`'s own verified ordering exactly**: parse-time
 `--param` token shape is validated inline as each token is parsed; input-source mutual exclusion
@@ -85,7 +91,12 @@ needed.
 
 **Mic-input mode (`--mic`)** blocks the calling thread on a `ManualResetEventSlim` set either by a
 `Ctrl+C` handler or, when `--silence-timeout` was given, by a `SilenceTimeoutRecognizerSession`'s
-`TimedOut` event (the session itself already called `Stop()` before raising that event). `Ctrl+C`
+`TimedOut` event (the session itself already called `Stop()` before raising that event). The
+session enforces two distinct idle windows: it arms its timer with `--start-timeout` (defaulting
+to `--silence-timeout`'s value when `--start-timeout` is omitted) until the first recognition
+result arrives, then re-arms with `--silence-timeout` for every result from the first onward -
+giving the user a separate, typically longer grace period to start speaking without weakening the
+brief end-of-utterance pause `--silence-timeout` alone controls. `Ctrl+C`
 is wired to cooperative cancellation via `Console.CancelKeyPress`, exactly mirroring
 `SpeakCommand.Run`'s own subscribe/unsubscribe-in-try/finally pattern. `--device` resolves a real
 capture device from the injected `AudioDeviceFactory`, reusing
@@ -126,11 +137,22 @@ exit path (EOF stop, silence-timeout stop, `Ctrl+C`, or an error) disposes them 
 
 A pure event-driven observer composed alongside a recognizer, not a decorator around its
 lifecycle API: it never intercepts `Start()`/`Stop()` calls made by its owner, and calls
-`ISpeechRecognizer.Stop()` itself only proactively, on timeout. Subscribes to
-`ISpeechRecognizer.ResultReceived` and re-arms a single-shot idle timer
-(`Change(idleTimeout, Timeout.InfiniteTimeSpan)`) on every event, partial or final. When the timer
-fires with no reset since it was last armed, it calls `Stop()`, then raises its own `TimedOut`
-event.
+`ISpeechRecognizer.Stop()` itself only proactively, on timeout. It enforces two distinct,
+sequential idle windows using the constructor's `startTimeout` parameter (defaulting to
+`idleTimeout` when omitted) only once, to arm the single-shot idle timer at construction, before
+`ResultReceived` is even subscribed; the single stored `_idleTimeout` field (the
+`--silence-timeout` value) then re-arms the timer (`Change(idleTimeout,
+Timeout.InfiniteTimeSpan)`) on every subsequent `ResultReceived` event, partial or final, starting
+with the very first. `startTimeout` itself is never stored as a field - it is only read once,
+inline, at construction, since nothing after that point ever needs it again. When the timer fires
+with no reset since it was last armed, it calls `Stop()`, then raises its own `TimedOut` event. No
+additional "first result seen" boolean flag is needed to implement this phase transition:
+construction and `OnResultReceived` are already distinct call sites, so arming with `startTimeout`
+once at construction and unconditionally re-arming with `_idleTimeout` on every `OnResultReceived`
+call naturally implements "start-timeout governs only the pre-first-result window; silence-timeout
+governs every re-arm from the first result onward" with zero new mutable state and zero new
+lock-guarded reads/writes - the existing `_gate`/`_idleCallbackDone` concurrency design is
+unchanged.
 
 The idle timer is implemented with the injectable `System.TimeProvider` abstraction (available in
 the BCL since .NET 8, requiring no new package reference) rather than a hard-coded

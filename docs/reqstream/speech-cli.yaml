@@ -187,6 +187,7 @@ sections:
           - SpeechCli-RecognitionCommands-ParamValidation
           - SpeechCli-RecognitionCommands-FileInputEofDrivenStop
           - SpeechCli-RecognitionCommands-SilenceTimeout
+          - SpeechCli-RecognitionCommands-StartTimeout
           - SpeechCli-RecognitionCommands-VerbosityAndOutput
           - SpeechCli-RecognitionCommands-DeviceDispatch
           - SpeechCli-RecognitionCommands-CatalogSeamExtension

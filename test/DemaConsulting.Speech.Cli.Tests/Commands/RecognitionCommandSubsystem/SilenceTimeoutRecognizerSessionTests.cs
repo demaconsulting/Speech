@@ -324,4 +324,106 @@ public sealed class SilenceTimeoutRecognizerSessionTests
         // Constructing does not throw and does not itself call Stop/dispose prematurely.
         Assert.Equal(0, recognizer.StopCallCount);
     }
+
+    /// <summary>Test that construction arms the idle timer with idleTimeout when startTimeout is omitted.</summary>
+    [Fact]
+    public void SilenceTimeoutRecognizerSession_Construct_StartTimeoutOmitted_ArmsTimerWithSilenceTimeout()
+    {
+        var recognizer = new FakeSpeechRecognizer();
+        var timeProvider = new FakeTimeProvider();
+
+        using var session = new SilenceTimeoutRecognizerSession(recognizer, TimeSpan.FromSeconds(7), timeProvider);
+
+        Assert.NotNull(timeProvider.LastTimer);
+        Assert.Equal(1, timeProvider.LastTimer.ChangeCallCount);
+        Assert.Equal(TimeSpan.FromSeconds(7), timeProvider.LastTimer.LastDueTime);
+    }
+
+    /// <summary>Test that construction arms the idle timer with the distinct startTimeout value when given.</summary>
+    [Fact]
+    public void SilenceTimeoutRecognizerSession_Construct_StartTimeoutGiven_ArmsTimerWithStartTimeout()
+    {
+        var recognizer = new FakeSpeechRecognizer();
+        var timeProvider = new FakeTimeProvider();
+
+        using var session = new SilenceTimeoutRecognizerSession(
+            recognizer,
+            TimeSpan.FromSeconds(5),
+            timeProvider,
+            startTimeout: TimeSpan.FromSeconds(2));
+
+        Assert.NotNull(timeProvider.LastTimer);
+        Assert.Equal(TimeSpan.FromSeconds(2), timeProvider.LastTimer.LastDueTime);
+    }
+
+    /// <summary>Test that the first result received re-arms the timer with idleTimeout, not startTimeout.</summary>
+    [Fact]
+    public void SilenceTimeoutRecognizerSession_FirstResultReceived_ReArmsWithSilenceTimeoutNotStartTimeout()
+    {
+        var recognizer = new FakeSpeechRecognizer();
+        var timeProvider = new FakeTimeProvider();
+        using var session = new SilenceTimeoutRecognizerSession(
+            recognizer,
+            TimeSpan.FromSeconds(5),
+            timeProvider,
+            startTimeout: TimeSpan.FromSeconds(2));
+
+        recognizer.RaiseResult("hel", isFinal: false);
+
+        Assert.Equal(TimeSpan.FromSeconds(5), timeProvider.LastTimer!.LastDueTime);
+    }
+
+    /// <summary>Test that a second result received stays re-armed with idleTimeout.</summary>
+    [Fact]
+    public void SilenceTimeoutRecognizerSession_SecondResultReceived_StaysOnSilenceTimeout()
+    {
+        var recognizer = new FakeSpeechRecognizer();
+        var timeProvider = new FakeTimeProvider();
+        using var session = new SilenceTimeoutRecognizerSession(
+            recognizer,
+            TimeSpan.FromSeconds(5),
+            timeProvider,
+            startTimeout: TimeSpan.FromSeconds(2));
+
+        recognizer.RaiseResult("hel", isFinal: false);
+        recognizer.RaiseResult("hello", isFinal: true);
+
+        Assert.Equal(TimeSpan.FromSeconds(5), timeProvider.LastTimer!.LastDueTime);
+        Assert.Equal(3, timeProvider.LastTimer.ChangeCallCount);
+    }
+
+    /// <summary>Test that the idle timer firing before any result uses startTimeout to stop the recognizer.</summary>
+    [Fact]
+    public void SilenceTimeoutRecognizerSession_IdleTimerFiresBeforeFirstResult_StopsRecognizerAndRaisesTimedOut()
+    {
+        var recognizer = new FakeSpeechRecognizer();
+        var timeProvider = new FakeTimeProvider();
+        using var session = new SilenceTimeoutRecognizerSession(
+            recognizer,
+            TimeSpan.FromSeconds(5),
+            timeProvider,
+            startTimeout: TimeSpan.FromSeconds(2));
+        var timedOutRaised = false;
+        session.TimedOut += (_, _) => timedOutRaised = true;
+
+        timeProvider.LastTimer!.Fire();
+
+        Assert.Equal(1, recognizer.StopCallCount);
+        Assert.True(timedOutRaised);
+    }
+
+    /// <summary>Test that a non-positive startTimeout is rejected.</summary>
+    [Fact]
+    public void SilenceTimeoutRecognizerSession_Construct_NonPositiveStartTimeout_ThrowsArgumentOutOfRangeException()
+    {
+        var recognizer = new FakeSpeechRecognizer();
+        var timeProvider = new FakeTimeProvider();
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => new SilenceTimeoutRecognizerSession(
+                recognizer,
+                TimeSpan.FromSeconds(5),
+                timeProvider,
+                startTimeout: TimeSpan.Zero));
+    }
 }
