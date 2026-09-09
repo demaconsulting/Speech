@@ -60,7 +60,11 @@ so adding a new engine is a new model class, not a redesign. Native runtimes res
 through the managed `org.k2fsa.sherpa.onnx` package; if one is missing for your target RID,
 composition still succeeds and the factory reports the engine as unavailable instead of crashing.
 None of the model bytes below are bundled with the library - `SpeechModelCatalog.DownloadAsync`
-fetches each one on demand and verifies its SHA-256 checksum before installing it.
+fetches each one on demand and verifies its SHA-256 checksum before installing it. It's safe to
+call on every launch: for an already-installed model it's a cheap no-op, returning an `Installed`
+result without touching the network. On first download it can instead return `Failed` (a
+transport or I/O failure, with the underlying exception in `SpeechModelDownloadResult.Error`) or
+`ChecksumMismatch`, or throw `ArgumentException` for an unrecognized model id.
 
 This release ships four models:
 
@@ -108,12 +112,9 @@ var descriptor = catalog.Enumerate().First(d => d.Role == SpeechModelRole.Recogn
 // instead: catalog.Enumerate().First(d => d.DisplayName.Contains("Zipformer"));
 var model = (IRecognitionModel)descriptor.Model;
 
-// 3. Ensure the chosen model is downloaded before first use. DownloadAsync is a safe no-op cost
-//    check to call on every launch once a model is installed.
-if (descriptor.State != SpeechModelState.Downloaded)
-{
-    await catalog.DownloadAsync(model.Id);
-}
+// 3. Ensure the chosen model is downloaded before first use. Safe to call unconditionally on
+//    every launch - it's a cheap no-op once installed (see above for details).
+await catalog.DownloadAsync(model.Id);
 
 // 4. Create a capture device matching the model's own required audio format - there is no
 //    manual mono/stereo or sample-rate configuration to get wrong.
@@ -154,11 +155,9 @@ var descriptor = catalog.Enumerate().First(d => d.Role == SpeechModelRole.Synthe
 // instead: catalog.Enumerate().First(d => d.DisplayName.Contains("Kokoro"));
 var model = (ISynthesisModel)descriptor.Model;
 
-// 3. Ensure the chosen model is downloaded before first use.
-if (descriptor.State != SpeechModelState.Downloaded)
-{
-    await catalog.DownloadAsync(model.Id);
-}
+// 3. Ensure the chosen model is downloaded before first use. Safe to call unconditionally on
+//    every launch - it's a cheap no-op once installed.
+await catalog.DownloadAsync(model.Id);
 
 // 4. Create a playback device matching the model's own preferred audio format hint.
 var playbackDevice = new AudioDeviceFactory().CreatePlaybackDevice(
