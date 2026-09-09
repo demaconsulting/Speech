@@ -58,7 +58,10 @@ namespace DemaConsulting.Speech.Cli.Commands.RecognitionCommandSubsystem;
 ///     <see cref="ManualResetEventSlim"/> set either by a <c>Ctrl+C</c> handler or, when
 ///     <c>--silence-timeout</c> was given, by a <see cref="SilenceTimeoutRecognizerSession"/>'s
 ///     <c>TimedOut</c> event (the session itself already called <c>Stop()</c> before raising that
-///     event).
+///     event). The session enforces two distinct idle windows: <c>--start-timeout</c> (defaulting
+///     to <c>--silence-timeout</c>'s value when omitted) governs the grace period before any
+///     result has arrived, and <c>--silence-timeout</c> governs every re-arm from the first
+///     result onward.
 ///     </para>
 ///     <para>
 ///     <b>Disposal.</b> Neither <see cref="IAudioCaptureDevice"/> nor
@@ -171,7 +174,13 @@ internal static class RecognizeCommand
                 {
                     if (options.Mic && options.SilenceTimeoutSeconds is { } seconds)
                     {
-                        session = new SilenceTimeoutRecognizerSession(recognizer, TimeSpan.FromSeconds(seconds));
+                        var startTimeout = options.StartTimeoutSeconds is { } startSeconds
+                            ? TimeSpan.FromSeconds(startSeconds)
+                            : (TimeSpan?)null;
+                        session = new SilenceTimeoutRecognizerSession(
+                            recognizer,
+                            TimeSpan.FromSeconds(seconds),
+                            startTimeout: startTimeout);
                         session.TimedOut += (_, _) => stopSignal.Set();
                     }
 
@@ -416,8 +425,8 @@ internal static class RecognizeCommand
 
     /// <summary>
     ///     Parses <c>recognize</c>'s own arguments: <c>--model</c>, <c>--input</c>, <c>--mic</c>,
-    ///     <c>--device</c>, <c>--silence-timeout</c>, repeatable <c>--param key=value</c>,
-    ///     <c>--interim</c>, <c>--final-only</c>, and <c>--output</c>.
+    ///     <c>--device</c>, <c>--silence-timeout</c>, <c>--start-timeout</c>, repeatable
+    ///     <c>--param key=value</c>, <c>--interim</c>, <c>--final-only</c>, and <c>--output</c>.
     /// </summary>
     /// <exception cref="ArgumentException">
     ///     Thrown when <c>--model</c> is missing, a flag's value is missing or malformed, or an
@@ -432,6 +441,7 @@ internal static class RecognizeCommand
         var mic = false;
         string? deviceName = null;
         double? silenceTimeoutSeconds = null;
+        double? startTimeoutSeconds = null;
         var interim = false;
         var finalOnly = false;
         string? outputPath = null;
@@ -461,6 +471,10 @@ internal static class RecognizeCommand
 
                 case "--silence-timeout":
                     silenceTimeoutSeconds = RequireDoubleValue(args, ref index, "--silence-timeout");
+                    break;
+
+                case "--start-timeout":
+                    startTimeoutSeconds = RequireDoubleValue(args, ref index, "--start-timeout");
                     break;
 
                 case "--param":
@@ -496,6 +510,7 @@ internal static class RecognizeCommand
             mic,
             deviceName,
             silenceTimeoutSeconds,
+            startTimeoutSeconds,
             rawParameters,
             interim,
             finalOnly,
@@ -538,6 +553,12 @@ internal static class RecognizeCommand
     /// <param name="Mic">Whether <c>--mic</c> was given.</param>
     /// <param name="DeviceName">The requested capture device name, or <see langword="null"/> for the system default. Only consulted in mic mode.</param>
     /// <param name="SilenceTimeoutSeconds">The idle timeout, in seconds, supplied via <c>--silence-timeout</c>, or <see langword="null"/> for none.</param>
+    /// <param name="StartTimeoutSeconds">
+    ///     The idle timeout, in seconds, used only before the first recognition result arrives,
+    ///     supplied via <c>--start-timeout</c>, or <see langword="null"/> to default to
+    ///     <paramref name="SilenceTimeoutSeconds"/>'s value. Only consulted when
+    ///     <paramref name="SilenceTimeoutSeconds"/> is also given, in mic mode.
+    /// </param>
     /// <param name="RawParameters">The raw, unresolved <c>--param key=value</c> tokens, in the order given.</param>
     /// <param name="InterimOnly">Whether <c>--interim</c> was given.</param>
     /// <param name="FinalOnly">Whether <c>--final-only</c> was given.</param>
@@ -548,6 +569,7 @@ internal static class RecognizeCommand
         bool Mic,
         string? DeviceName,
         double? SilenceTimeoutSeconds,
+        double? StartTimeoutSeconds,
         IReadOnlyList<(string Key, string Value)> RawParameters,
         bool InterimOnly,
         bool FinalOnly,

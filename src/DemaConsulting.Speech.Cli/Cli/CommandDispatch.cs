@@ -94,7 +94,7 @@ internal static class CommandDispatch
             SpeakCommand.Run),
         new CommandDescriptor(
             "recognize",
-            "recognize --model <id> (--input <wav-path> | --mic) [--device <name>] [--silence-timeout <seconds>] [--param key=value...] [--interim | --final-only] [--output <text-path>]",
+            "recognize --model <id> (--input <wav-path> | --mic) [--device <name>] [--silence-timeout <seconds>] [--start-timeout <seconds>] [--param key=value...] [--interim | --final-only] [--output <text-path>]",
             RecognizeCommand.Run)
     ];
 

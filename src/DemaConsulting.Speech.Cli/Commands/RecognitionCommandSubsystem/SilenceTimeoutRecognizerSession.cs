@@ -26,7 +26,8 @@ namespace DemaConsulting.Speech.Cli.Commands.RecognitionCommandSubsystem;
 ///     Observes an <see cref="ISpeechRecognizer"/>'s <see cref="ISpeechRecognizer.ResultReceived"/>
 ///     event and calls <see cref="ISpeechRecognizer.Stop"/>, then raises <see cref="TimedOut"/>,
 ///     when no result (partial or final) has arrived within a configured idle window - the
-///     mic-mode implementation of <c>recognize --mic --silence-timeout &lt;seconds&gt;</c>.
+///     mic-mode implementation of <c>recognize --mic --silence-timeout &lt;seconds&gt;</c> (and its
+///     companion <c>--start-timeout &lt;seconds&gt;</c> flag).
 /// </summary>
 /// <remarks>
 ///     <para>
@@ -43,10 +44,18 @@ namespace DemaConsulting.Speech.Cli.Commands.RecognitionCommandSubsystem;
 ///     <see cref="System.TimeProvider"/> and no real wall-clock delay.
 ///     </para>
 ///     <para>
-///     The single-shot timer is re-armed explicitly (<c>Change(idleTimeout,
-///     Timeout.InfiniteTimeSpan)</c>) on every <see cref="ISpeechRecognizer.ResultReceived"/>
-///     event, rather than relying on a periodic period, which is the simplest correct semantics
-///     for "reset the idle window on every event".
+///     This session enforces two distinct, sequential idle windows. Before any
+///     <see cref="ISpeechRecognizer.ResultReceived"/> event has arrived, the idle timer is armed
+///     with the <c>startTimeout</c> value - a grace period for the user to begin speaking, which
+///     is typically longer than the pause used to detect the end of an utterance. From the first
+///     <see cref="ISpeechRecognizer.ResultReceived"/> event onward (partial or final), the timer
+///     is re-armed with <c>idleTimeout</c> (the <c>--silence-timeout</c> value) on every
+///     subsequent event, which is the simplest correct semantics for "reset on every event". No
+///     extra "first result seen" flag is needed for this phase transition: construction and
+///     <see cref="OnResultReceived"/> are already distinct call sites, so arming with
+///     <c>startTimeout</c> once at construction and unconditionally re-arming with
+///     <c>idleTimeout</c> on every <see cref="OnResultReceived"/> call naturally implements the
+///     two-phase contract.
 ///     </para>
 /// </remarks>
 internal sealed class SilenceTimeoutRecognizerSession : IDisposable
@@ -112,29 +121,49 @@ internal sealed class SilenceTimeoutRecognizerSession : IDisposable
     /// <param name="recognizer">The recognizer to observe and, on timeout, stop. Must not be null.</param>
     /// <param name="idleTimeout">
     ///     The idle window after which, with no <see cref="ISpeechRecognizer.ResultReceived"/>
-    ///     event, this session calls <see cref="ISpeechRecognizer.Stop"/>. Must be greater than
-    ///     <see cref="TimeSpan.Zero"/>.
+    ///     event, this session calls <see cref="ISpeechRecognizer.Stop"/>. Used to re-arm the
+    ///     timer on every <see cref="ISpeechRecognizer.ResultReceived"/> event, and as the
+    ///     initial arming value when <paramref name="startTimeout"/> is <see langword="null"/>.
+    ///     Must be greater than <see cref="TimeSpan.Zero"/>.
     /// </param>
     /// <param name="timeProvider">
     ///     The time source to create the idle timer from, or <see langword="null"/> to use
     ///     <see cref="TimeProvider.System"/>, mirroring <c>AudioDeviceFactory</c>'s own "null seam
     ///     parameter defaults to the real backend" convention.
     /// </param>
+    /// <param name="startTimeout">
+    ///     The idle window used only for the initial timer arming, before any
+    ///     <see cref="ISpeechRecognizer.ResultReceived"/> event has arrived - a grace period for
+    ///     the user to begin speaking, which is typically longer than the pause used to detect
+    ///     the end of an utterance. Defaults to <paramref name="idleTimeout"/> when
+    ///     <see langword="null"/>, preserving today's single-timeout behavior when
+    ///     <c>--start-timeout</c> is not given. Must be greater than <see cref="TimeSpan.Zero"/>
+    ///     when supplied.
+    /// </param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="recognizer"/> is <see langword="null"/>.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="idleTimeout"/> is not greater than <see cref="TimeSpan.Zero"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    ///     Thrown when <paramref name="idleTimeout"/> is not greater than <see cref="TimeSpan.Zero"/>,
+    ///     or when <paramref name="startTimeout"/> has a value that is not greater than
+    ///     <see cref="TimeSpan.Zero"/>.
+    /// </exception>
     public SilenceTimeoutRecognizerSession(
         ISpeechRecognizer recognizer,
         TimeSpan idleTimeout,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        TimeSpan? startTimeout = null)
     {
         ArgumentNullException.ThrowIfNull(recognizer);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(idleTimeout, TimeSpan.Zero);
+        if (startTimeout.HasValue)
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(startTimeout.Value, TimeSpan.Zero);
+        }
 
         _recognizer = recognizer;
         _idleTimeout = idleTimeout;
 
         var provider = timeProvider ?? TimeProvider.System;
-        _timer = provider.CreateTimer(OnIdle, null, idleTimeout, Timeout.InfiniteTimeSpan);
+        _timer = provider.CreateTimer(OnIdle, null, startTimeout ?? idleTimeout, Timeout.InfiniteTimeSpan);
 
         _recognizer.ResultReceived += OnResultReceived;
     }

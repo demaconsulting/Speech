@@ -51,7 +51,9 @@ parameters, and `--no-tags` to strip inline emphasis/pause tags before synthesis
 
 One of `--input <wav-path>` or `--mic` supplies the audio to recognize; add `--device <name>` to
 pick a specific capture device, `--silence-timeout <seconds>` to stop microphone capture after a
-period of silence, `--param key=value` (repeatable) to set model-specific recognition parameters,
+period of silence, `--start-timeout <seconds>` to use a separate, typically longer grace period
+before the first result arrives (defaults to `--silence-timeout`'s value when omitted),
+`--param key=value` (repeatable) to set model-specific recognition parameters,
 `--interim`/`--final-only` to control whether interim (in-progress) results are printed, and
 `--output <text-path>` to write the final recognized text to a file.
 
@@ -78,10 +80,11 @@ Speak text through a real playback device, selecting a specific device by name (
 speech-cli speak --model vits-piper-en_US-libritts_r-medium --text "Hello there." --device "Speakers (Realtek)"
 ```
 
-Recognize speech live from the microphone, stopping automatically after five seconds of silence:
+Recognize speech live from the microphone, stopping automatically after five seconds of silence
+(and giving up to ten seconds to start speaking):
 
 ```bash
-speech-cli recognize --model streaming-zipformer-en-2023-06-26 --mic --silence-timeout 5
+speech-cli recognize --model streaming-zipformer-en-2023-06-26 --mic --silence-timeout 5 --start-timeout 10
 ```
 
 ## Documentation

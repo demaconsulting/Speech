@@ -148,6 +148,42 @@ public sealed class RecognizeCommandTests
             ["--model", "model-1", "--mic", "--silence-timeout", "not-a-number"]));
     }
 
+    /// <summary>Test that --start-timeout parses a positive number of seconds.</summary>
+    [Fact]
+    public void RecognizeCommand_ParseArguments_StartTimeoutFlag_ParsesSeconds()
+    {
+        var options = RecognizeCommand.ParseArguments(
+            ["--model", "model-1", "--mic", "--silence-timeout", "5", "--start-timeout", "2.5"]);
+
+        Assert.Equal(2.5, options.StartTimeoutSeconds);
+    }
+
+    /// <summary>Test that omitting --start-timeout defaults it to null.</summary>
+    [Fact]
+    public void RecognizeCommand_ParseArguments_StartTimeoutOmitted_DefaultsToNull()
+    {
+        var options = RecognizeCommand.ParseArguments(
+            ["--model", "model-1", "--mic", "--silence-timeout", "5"]);
+
+        Assert.Null(options.StartTimeoutSeconds);
+    }
+
+    /// <summary>Test that a non-positive --start-timeout throws.</summary>
+    [Fact]
+    public void RecognizeCommand_ParseArguments_NonPositiveStartTimeout_ThrowsArgumentException()
+    {
+        Assert.Throws<ArgumentException>(() => RecognizeCommand.ParseArguments(
+            ["--model", "model-1", "--mic", "--start-timeout", "0"]));
+    }
+
+    /// <summary>Test that a malformed --start-timeout throws.</summary>
+    [Fact]
+    public void RecognizeCommand_ParseArguments_MalformedStartTimeout_ThrowsArgumentException()
+    {
+        Assert.Throws<ArgumentException>(() => RecognizeCommand.ParseArguments(
+            ["--model", "model-1", "--mic", "--start-timeout", "not-a-number"]));
+    }
+
     /// <summary>Test that --interim and --final-only parse as flags.</summary>
     [Fact]
     public void RecognizeCommand_ParseArguments_InterimAndFinalOnlyFlags_ParseTrue()
