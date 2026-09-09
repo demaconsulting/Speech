@@ -255,15 +255,32 @@ and `osx-arm64` only.
 | `list-devices` / `devices test` / `doctor` | Inspect audio devices and overall environment health |
 | `speak` | Synthesize text to a real playback device or a WAV file |
 | `recognize` | Recognize speech from a WAV file or the microphone |
+| `ask` | Speak a prompt, then listen for the reply |
 
 ```bash
 speech-cli download streaming-zipformer-en-2023-06-26
-speech-cli recognize --model streaming-zipformer-en-2023-06-26 --input meeting.wav
+speech-cli recognize --stt-model streaming-zipformer-en-2023-06-26 --input meeting.wav
 ```
 
 Run `speech-cli --help` for the full flag reference. See the
 [CLI package README][link-cli-readme] and [user guide][link-user-guide] for install details, the
 full command reference, and worked examples.
+
+### Voice Conversation Example
+
+`speak` and `ask` together are the intended integration pattern for an AI agent holding a
+two-way voice conversation with a person through this CLI: `speak` for a one-way statement,
+`ask` when a reply is expected.
+
+```bash
+# Make a statement
+speech-cli speak --tts-model vits-piper-en_US-libritts_r-medium --text "Backup finished successfully."
+
+# Ask a question and read the reply, allowing up to 20 seconds to start speaking and
+# ending the turn after 1.5 seconds of silence
+speech-cli ask --tts-model vits-piper-en_US-libritts_r-medium --stt-model streaming-zipformer-en-2023-06-26 \
+  --text "Do you want me to continue?" --start-timeout 20 --silence-timeout 1.5
+```
 
 ## Documentation
 

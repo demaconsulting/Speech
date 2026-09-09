@@ -53,7 +53,7 @@ public sealed class SpeakCommandTests
 
     // --- ParseArguments ---
 
-    /// <summary>Test that --model is required.</summary>
+    /// <summary>Test that --tts-model is required.</summary>
     [Fact]
     public void SpeakCommand_ParseArguments_MissingModel_ThrowsArgumentException()
     {
@@ -64,18 +64,18 @@ public sealed class SpeakCommandTests
     [Fact]
     public void SpeakCommand_ParseArguments_TextFlag_ParsesText()
     {
-        var options = SpeakCommand.ParseArguments(["--model", "model-1", "--text", "hello world"]);
+        var options = SpeakCommand.ParseArguments(["--tts-model", "model-1", "--text", "hello world"]);
 
         Assert.Equal("model-1", options.ModelId);
         Assert.Equal("hello world", options.Text);
     }
 
-    /// <summary>Test that repeatable --param tokens accumulate in order.</summary>
+    /// <summary>Test that repeatable --tts-param tokens accumulate in order.</summary>
     [Fact]
     public void SpeakCommand_ParseArguments_RepeatedParamFlags_AccumulatesInOrder()
     {
         var options = SpeakCommand.ParseArguments(
-            ["--model", "model-1", "--text", "hi", "--param", "rate=1.2", "--param", "voice=bob"]);
+            ["--tts-model", "model-1", "--text", "hi", "--tts-param", "rate=1.2", "--tts-param", "voice=bob"]);
 
         Assert.Equal([("rate", "1.2"), ("voice", "bob")], options.RawParameters);
     }
@@ -84,7 +84,7 @@ public sealed class SpeakCommandTests
     [Fact]
     public void SpeakCommand_ParseArguments_NoTagsFlag_ParsesTrue()
     {
-        var options = SpeakCommand.ParseArguments(["--model", "model-1", "--text", "hi", "--no-tags"]);
+        var options = SpeakCommand.ParseArguments(["--tts-model", "model-1", "--text", "hi", "--no-tags"]);
 
         Assert.True(options.NoTags);
     }
@@ -93,14 +93,14 @@ public sealed class SpeakCommandTests
     [Fact]
     public void SpeakCommand_ParseArguments_UnsupportedArgument_ThrowsArgumentException()
     {
-        Assert.Throws<ArgumentException>(() => SpeakCommand.ParseArguments(["--model", "model-1", "--bogus"]));
+        Assert.Throws<ArgumentException>(() => SpeakCommand.ParseArguments(["--tts-model", "model-1", "--bogus"]));
     }
 
     /// <summary>Test that a flag missing its value throws.</summary>
     [Fact]
     public void SpeakCommand_ParseArguments_FlagMissingValue_ThrowsArgumentException()
     {
-        Assert.Throws<ArgumentException>(() => SpeakCommand.ParseArguments(["--model"]));
+        Assert.Throws<ArgumentException>(() => SpeakCommand.ParseArguments(["--tts-model"]));
     }
 
     // --- Text-source mutual exclusion ---
@@ -111,7 +111,7 @@ public sealed class SpeakCommandTests
     {
         var catalog = CreateCatalogWithModel();
         var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
-        using var context = Context.Create(["speak", "--model", "model-1", "--text", "hi", "--file", "in.txt"]);
+        using var context = Context.Create(["speak", "--tts-model", "model-1", "--text", "hi", "--file", "in.txt"]);
 
         await Assert.ThrowsAsync<ArgumentException>(
             () => SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None));
@@ -130,7 +130,7 @@ public sealed class SpeakCommandTests
 
         var catalog = CreateCatalogWithModel();
         var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
-        using var context = Context.Create(["speak", "--model", "model-1"]);
+        using var context = Context.Create(["speak", "--tts-model", "model-1"]);
 
         await Assert.ThrowsAsync<ArgumentException>(
             () => SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None));
@@ -144,7 +144,7 @@ public sealed class SpeakCommandTests
     {
         var catalog = new FakeCliModelCatalog();
         var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
-        using var context = Context.Create(["speak", "--model", "does-not-exist", "--text", "hi"]);
+        using var context = Context.Create(["speak", "--tts-model", "does-not-exist", "--text", "hi"]);
 
         var exception = await Assert.ThrowsAsync<ArgumentException>(
             () => SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None));
@@ -157,7 +157,7 @@ public sealed class SpeakCommandTests
     {
         var catalog = CreateCatalogWithModel(role: SpeechModelRole.Recognition);
         var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
-        using var context = Context.Create(["speak", "--model", "model-1", "--text", "hi"]);
+        using var context = Context.Create(["speak", "--tts-model", "model-1", "--text", "hi"]);
 
         var exception = await Assert.ThrowsAsync<ArgumentException>(
             () => SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None));
@@ -170,16 +170,16 @@ public sealed class SpeakCommandTests
     {
         var catalog = CreateCatalogWithModel(state: SpeechModelState.NotDownloaded);
         var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
-        using var context = Context.Create(["speak", "--model", "model-1", "--text", "hi"]);
+        using var context = Context.Create(["speak", "--tts-model", "model-1", "--text", "hi"]);
 
         var exception = await Assert.ThrowsAsync<ArgumentException>(
             () => SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None));
         Assert.Contains("download model-1", exception.Message);
     }
 
-    // --- --param validation wiring ---
+    // --- --tts-param validation wiring ---
 
-    /// <summary>Test that a valid --param is forwarded to CreateSynthesizer's parameterValues argument.</summary>
+    /// <summary>Test that a valid --tts-param is forwarded to CreateSynthesizer's parameterValues argument.</summary>
     [Fact]
     public async Task SpeakCommand_RunAsync_ValidParam_ForwardsToCreateSynthesizer()
     {
@@ -189,7 +189,7 @@ public sealed class SpeakCommandTests
         var synthesizer = new FakeSpeechSynthesizer();
         catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
         var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
-        using var context = Context.Create(["speak", "--model", "model-1", "--text", "hi", "--param", "rate=1.5"]);
+        using var context = Context.Create(["speak", "--tts-model", "model-1", "--text", "hi", "--tts-param", "rate=1.5"]);
 
         await SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None);
 
@@ -198,7 +198,7 @@ public sealed class SpeakCommandTests
         Assert.Equal(1.5, Assert.IsType<double>(parameterValues["rate"]));
     }
 
-    /// <summary>Test that an invalid --param value throws before any synthesizer is created.</summary>
+    /// <summary>Test that an invalid --tts-param value throws before any synthesizer is created.</summary>
     [Fact]
     public async Task SpeakCommand_RunAsync_InvalidParam_ThrowsArgumentException()
     {
@@ -206,7 +206,7 @@ public sealed class SpeakCommandTests
             "rate", "Rate", "Speaking rate", new NumericParameterBounds(0.5, 2.0, 0.1, 1.0));
         var catalog = CreateCatalogWithModel(parameters: [rateParameter]);
         var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
-        using var context = Context.Create(["speak", "--model", "model-1", "--text", "hi", "--param", "rate=100"]);
+        using var context = Context.Create(["speak", "--tts-model", "model-1", "--text", "hi", "--tts-param", "rate=100"]);
 
         await Assert.ThrowsAsync<ArgumentException>(
             () => SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None));
@@ -223,7 +223,7 @@ public sealed class SpeakCommandTests
         catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
         var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
         using var context = Context.Create(
-            ["speak", "--model", "model-1", "--text", "Hello [laughs] there", "--no-tags"]);
+            ["speak", "--tts-model", "model-1", "--text", "Hello [laughs] there", "--no-tags"]);
 
         await SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None);
 
@@ -239,7 +239,7 @@ public sealed class SpeakCommandTests
         var synthesizer = new FakeSpeechSynthesizer();
         catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
         var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
-        using var context = Context.Create(["speak", "--model", "model-1", "--text", "Hello [laughs] there"]);
+        using var context = Context.Create(["speak", "--tts-model", "model-1", "--text", "Hello [laughs] there"]);
 
         await SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None);
 
@@ -247,10 +247,10 @@ public sealed class SpeakCommandTests
         Assert.Equal("Hello [laughs] there", spokenText);
     }
 
-    // --- --output vs. device dispatch ---
+    // --- --output-audio vs. device dispatch ---
 
     /// <summary>
-    ///     Test that --output constructs a WavFileAudioPlaybackDevice sized from the model's
+    ///     Test that --output-audio constructs a WavFileAudioPlaybackDevice sized from the model's
     ///     preferred format and never touches the playback-device source's probe.
     /// </summary>
     [Fact]
@@ -265,13 +265,13 @@ public sealed class SpeakCommandTests
             capturedDevice = device;
             return synthesizer;
         };
-        // A probe that throws if enumerated, proving --output never touches real device probes.
+        // A probe that throws if enumerated, proving --output-audio never touches real device probes.
         var factory = new FakePlaybackDeviceSource(new ThrowingAudioPlaybackDeviceProbe());
         var outputPath = Path.Combine(Path.GetTempPath(), $"speak-test-{Guid.NewGuid():N}.wav");
 
         try
         {
-            using var context = Context.Create(["speak", "--model", "model-1", "--text", "hi", "--output", outputPath]);
+            using var context = Context.Create(["speak", "--tts-model", "model-1", "--text", "hi", "--output-audio", outputPath]);
 
             await SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None);
 
@@ -289,27 +289,27 @@ public sealed class SpeakCommandTests
         }
     }
 
-    /// <summary>Test that an unknown --device throws before any synthesizer is created.</summary>
+    /// <summary>Test that an unknown --playback-device throws before any synthesizer is created.</summary>
     [Fact]
     public async Task SpeakCommand_RunAsync_UnknownDevice_ThrowsArgumentException()
     {
         var catalog = CreateCatalogWithModel();
         var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
         using var context = Context.Create(
-            ["speak", "--model", "model-1", "--text", "hi", "--device", "does-not-exist"]);
+            ["speak", "--tts-model", "model-1", "--text", "hi", "--playback-device", "does-not-exist"]);
 
         var exception = await Assert.ThrowsAsync<ArgumentException>(
             () => SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None));
         Assert.Contains("does-not-exist", exception.Message);
     }
 
-    /// <summary>Test that no available playback device (and no --output) throws InvalidOperationException.</summary>
+    /// <summary>Test that no available playback device (and no --output-audio) throws InvalidOperationException.</summary>
     [Fact]
     public async Task SpeakCommand_RunAsync_NoPlaybackDeviceAvailable_ThrowsInvalidOperationException()
     {
         var catalog = CreateCatalogWithModel();
         var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe());
-        using var context = Context.Create(["speak", "--model", "model-1", "--text", "hi"]);
+        using var context = Context.Create(["speak", "--tts-model", "model-1", "--text", "hi"]);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None));
@@ -325,7 +325,7 @@ public sealed class SpeakCommandTests
         var synthesizer = new FakeSpeechSynthesizer { SpeakAsyncException = new OperationCanceledException() };
         catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
         var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
-        using var context = Context.Create(["speak", "--model", "model-1", "--text", "hi"]);
+        using var context = Context.Create(["speak", "--tts-model", "model-1", "--text", "hi"]);
 
         await SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None);
 
@@ -343,7 +343,7 @@ public sealed class SpeakCommandTests
         var synthesizer = new FakeSpeechSynthesizer();
         catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
         var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
-        using var context = Context.Create(["speak", "--model", "model-1", "--text", "hi"]);
+        using var context = Context.Create(["speak", "--tts-model", "model-1", "--text", "hi"]);
 
         await SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None);
 
@@ -365,7 +365,7 @@ public sealed class SpeakCommandTests
     [Fact]
     public async Task SpeakCommand_RunAsync_NullCatalog_ThrowsArgumentNullException()
     {
-        using var context = Context.Create(["speak", "--model", "model-1", "--text", "hi"]);
+        using var context = Context.Create(["speak", "--tts-model", "model-1", "--text", "hi"]);
         await Assert.ThrowsAsync<ArgumentNullException>(
             () => SpeakCommand.RunAsync(context, null!, new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe()), CancellationToken.None));
     }
@@ -374,7 +374,7 @@ public sealed class SpeakCommandTests
     [Fact]
     public async Task SpeakCommand_RunAsync_NullFactory_ThrowsArgumentNullException()
     {
-        using var context = Context.Create(["speak", "--model", "model-1", "--text", "hi"]);
+        using var context = Context.Create(["speak", "--tts-model", "model-1", "--text", "hi"]);
         await Assert.ThrowsAsync<ArgumentNullException>(
             () => SpeakCommand.RunAsync(context, new FakeCliModelCatalog(), null!, CancellationToken.None));
     }
@@ -389,11 +389,11 @@ public sealed class SpeakCommandTests
 
     /// <summary>
     ///     A fake playback device probe that throws if <see cref="Enumerate"/> is called, used
-    ///     to prove <c>--output</c> never touches the real audio device probes.
+    ///     to prove <c>--output-audio</c> never touches the real audio device probes.
     /// </summary>
     private sealed class ThrowingAudioPlaybackDeviceProbe : IAudioPlaybackDeviceProbe
     {
         public IReadOnlyList<AudioDeviceDescription> Enumerate() =>
-            throw new InvalidOperationException("--output must never enumerate real playback devices.");
+            throw new InvalidOperationException("--output-audio must never enumerate real playback devices.");
     }
 }

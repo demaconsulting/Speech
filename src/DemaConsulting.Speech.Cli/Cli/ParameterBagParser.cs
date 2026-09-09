@@ -24,37 +24,43 @@ using DemaConsulting.Speech.ModelManagementSubsystem;
 namespace DemaConsulting.Speech.Cli.Cli;
 
 /// <summary>
-///     Parses and validates the <c>speak</c> subcommand's repeatable <c>--param key=value</c>
-///     flags against a resolved model's declared <see cref="ISpeechModelParameter"/> set, into
-///     the untyped, boxed key-value bag <c>SpeechSynthesizerFactory.Create</c> expects.
+///     Parses and validates the <c>speak</c>/<c>recognize</c>/<c>ask</c> subcommands' repeatable
+///     <c>--tts-param</c>/<c>--stt-param key=value</c> flags against a resolved model's declared
+///     <see cref="ISpeechModelParameter"/> set, into the untyped, boxed key-value bag
+///     <c>SpeechSynthesizerFactory.Create</c> expects.
 /// </summary>
 /// <remarks>
 ///     Deliberately stricter than <c>SpeechSynthesizerFactory.Create</c>'s own "unrecognized key
-///     silently ignored, Info-logged" library-level contract: an unrecognized <c>--param</c> key
-///     is a CLI operator typo, which should fail loudly at the command line rather than silently
-///     mistune synthesis. This divergence is intentional; see this subsystem's design
-///     documentation for the full rationale.
+///     silently ignored, Info-logged" library-level contract: an unrecognized
+///     <c>--tts-param</c>/<c>--stt-param</c> key is a CLI operator typo, which should fail loudly
+///     at the command line rather than silently mistune synthesis. This divergence is
+///     intentional; see this subsystem's design documentation for the full rationale.
 /// </remarks>
 internal static class ParameterBagParser
 {
     /// <summary>
     ///     Splits one raw <c>key=value</c> token into its key and value halves.
     /// </summary>
-    /// <param name="token">The raw <c>--param</c> value token, e.g. <c>rate=1.2</c>.</param>
+    /// <param name="token">The raw key=value token supplied to the <paramref name="flagName"/> flag, e.g. <c>rate=1.2</c>.</param>
+    /// <param name="flagName">
+    ///     The exact flag string (e.g. <c>--tts-param</c> or <c>--stt-param</c>) the operator invoked,
+    ///     echoed verbatim into any thrown message so the operator can identify which flag to correct.
+    /// </param>
     /// <returns>The split key and value.</returns>
     /// <exception cref="ArgumentException">
     ///     Thrown when <paramref name="token"/> contains no <c>=</c> separator, or when the key
     ///     half is empty.
     /// </exception>
-    internal static (string Key, string Value) ParseToken(string token)
+    internal static (string Key, string Value) ParseToken(string token, string flagName)
     {
         ArgumentNullException.ThrowIfNull(token);
+        ArgumentNullException.ThrowIfNull(flagName);
 
         var separatorIndex = token.IndexOf('=', StringComparison.Ordinal);
         if (separatorIndex <= 0)
         {
             throw new ArgumentException(
-                $"--param value '{token}' must be in the form key=value.",
+                $"{flagName} value '{token}' must be in the form key=value.",
                 nameof(token));
         }
 
@@ -69,13 +75,18 @@ internal static class ParameterBagParser
     /// </summary>
     /// <param name="rawValues">The raw, unresolved tokens parsed by <see cref="ParseToken"/>.</param>
     /// <param name="declaredParameters">The resolved model's own declared parameter set.</param>
+    /// <param name="flagName">
+    ///     The exact flag string (e.g. <c>--tts-param</c> or <c>--stt-param</c>) the operator invoked,
+    ///     echoed verbatim into any thrown message so the operator can identify which flag to correct.
+    /// </param>
     /// <returns>
     ///     A boxed parameter-value bag: boxed <see cref="double"/> for a <see cref="NumericParameter"/>,
     ///     boxed <see cref="string"/> for a <see cref="ChoiceParameter"/>, boxed <see cref="bool"/>
     ///     for a <see cref="BooleanParameter"/>.
     /// </returns>
     /// <exception cref="ArgumentNullException">
-    ///     Thrown when <paramref name="rawValues"/> or <paramref name="declaredParameters"/> is <see langword="null"/>.
+    ///     Thrown when <paramref name="rawValues"/>, <paramref name="declaredParameters"/>, or
+    ///     <paramref name="flagName"/> is <see langword="null"/>.
     /// </exception>
     /// <exception cref="ArgumentException">
     ///     Thrown when a key matches no declared parameter, or when a value is malformed,
@@ -84,10 +95,12 @@ internal static class ParameterBagParser
     /// </exception>
     internal static IReadOnlyDictionary<string, object> Resolve(
         IReadOnlyList<(string Key, string Value)> rawValues,
-        IReadOnlyList<ISpeechModelParameter> declaredParameters)
+        IReadOnlyList<ISpeechModelParameter> declaredParameters,
+        string flagName)
     {
         ArgumentNullException.ThrowIfNull(rawValues);
         ArgumentNullException.ThrowIfNull(declaredParameters);
+        ArgumentNullException.ThrowIfNull(flagName);
 
         var result = new Dictionary<string, object>(StringComparer.Ordinal);
 
@@ -99,11 +112,11 @@ internal static class ParameterBagParser
             if (parameter is null)
             {
                 throw new ArgumentException(
-                    $"--param key '{key}' is not a parameter declared by this model.",
+                    $"{flagName} key '{key}' is not a parameter declared by this model.",
                     nameof(rawValues));
             }
 
-            result[key] = ResolveValue(parameter, value);
+            result[key] = ResolveValue(parameter, value, flagName);
         }
 
         return result;
@@ -112,14 +125,20 @@ internal static class ParameterBagParser
     /// <summary>
     ///     Resolves one raw string value against a single declared parameter's kind.
     /// </summary>
-    private static object ResolveValue(ISpeechModelParameter parameter, string value) =>
+    /// <param name="parameter">The resolved model's declared parameter to resolve against.</param>
+    /// <param name="value">The raw string value to resolve.</param>
+    /// <param name="flagName">
+    ///     The exact flag string (e.g. <c>--tts-param</c> or <c>--stt-param</c>) the operator invoked,
+    ///     echoed verbatim into any thrown message so the operator can identify which flag to correct.
+    /// </param>
+    private static object ResolveValue(ISpeechModelParameter parameter, string value, string flagName) =>
         parameter switch
         {
-            NumericParameter numeric => ResolveNumeric(numeric, value),
-            ChoiceParameter choice => ResolveChoice(choice, value),
-            BooleanParameter boolean => ResolveBoolean(boolean, value),
+            NumericParameter numeric => ResolveNumeric(numeric, value, flagName),
+            ChoiceParameter choice => ResolveChoice(choice, value, flagName),
+            BooleanParameter boolean => ResolveBoolean(boolean, value, flagName),
             _ => throw new ArgumentException(
-                $"Parameter '{parameter.Id}' has an unrecognized kind and cannot be set via --param.",
+                $"Parameter '{parameter.Id}' has an unrecognized kind and cannot be set via {flagName}.",
                 nameof(parameter))
         };
 
@@ -127,26 +146,32 @@ internal static class ParameterBagParser
     ///     Resolves a raw value against a <see cref="NumericParameter"/>'s range and
     ///     integer-only constraint.
     /// </summary>
-    private static object ResolveNumeric(NumericParameter numeric, string value)
+    /// <param name="numeric">The declared numeric parameter to resolve against.</param>
+    /// <param name="value">The raw string value to resolve.</param>
+    /// <param name="flagName">
+    ///     The exact flag string (e.g. <c>--tts-param</c> or <c>--stt-param</c>) the operator invoked,
+    ///     echoed verbatim into any thrown message so the operator can identify which flag to correct.
+    /// </param>
+    private static object ResolveNumeric(NumericParameter numeric, string value, string flagName)
     {
         if (!double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed))
         {
             throw new ArgumentException(
-                $"--param {numeric.Id}='{value}' is not a valid number.",
+                $"{flagName} {numeric.Id}='{value}' is not a valid number.",
                 nameof(value));
         }
 
         if (parsed < numeric.Minimum || parsed > numeric.Maximum)
         {
             throw new ArgumentException(
-                $"--param {numeric.Id}='{value}' must be within [{numeric.Minimum}, {numeric.Maximum}].",
+                $"{flagName} {numeric.Id}='{value}' must be within [{numeric.Minimum}, {numeric.Maximum}].",
                 nameof(value));
         }
 
         if (numeric.IsInteger && !double.IsInteger(parsed))
         {
             throw new ArgumentException(
-                $"--param {numeric.Id}='{value}' must be a whole number.",
+                $"{flagName} {numeric.Id}='{value}' must be a whole number.",
                 nameof(value));
         }
 
@@ -156,12 +181,18 @@ internal static class ParameterBagParser
     /// <summary>
     ///     Resolves a raw value against a <see cref="ChoiceParameter"/>'s declared options.
     /// </summary>
-    private static object ResolveChoice(ChoiceParameter choice, string value)
+    /// <param name="choice">The declared choice parameter to resolve against.</param>
+    /// <param name="value">The raw string value to resolve.</param>
+    /// <param name="flagName">
+    ///     The exact flag string (e.g. <c>--tts-param</c> or <c>--stt-param</c>) the operator invoked,
+    ///     echoed verbatim into any thrown message so the operator can identify which flag to correct.
+    /// </param>
+    private static object ResolveChoice(ChoiceParameter choice, string value, string flagName)
     {
         if (!choice.Options.Any(option => string.Equals(option.Value, value, StringComparison.Ordinal)))
         {
             throw new ArgumentException(
-                $"--param {choice.Id}='{value}' does not match any declared option.",
+                $"{flagName} {choice.Id}='{value}' does not match any declared option.",
                 nameof(value));
         }
 
@@ -171,12 +202,18 @@ internal static class ParameterBagParser
     /// <summary>
     ///     Resolves a raw value against a <see cref="BooleanParameter"/>.
     /// </summary>
-    private static object ResolveBoolean(BooleanParameter boolean, string value)
+    /// <param name="boolean">The declared boolean parameter to resolve against.</param>
+    /// <param name="value">The raw string value to resolve.</param>
+    /// <param name="flagName">
+    ///     The exact flag string (e.g. <c>--tts-param</c> or <c>--stt-param</c>) the operator invoked,
+    ///     echoed verbatim into any thrown message so the operator can identify which flag to correct.
+    /// </param>
+    private static object ResolveBoolean(BooleanParameter boolean, string value, string flagName)
     {
         if (!bool.TryParse(value, out var parsed))
         {
             throw new ArgumentException(
-                $"--param {boolean.Id}='{value}' must be 'true' or 'false'.",
+                $"{flagName} {boolean.Id}='{value}' must be 'true' or 'false'.",
                 nameof(value));
         }
 

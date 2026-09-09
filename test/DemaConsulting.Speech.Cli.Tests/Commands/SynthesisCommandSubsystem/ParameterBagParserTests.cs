@@ -25,7 +25,7 @@ namespace DemaConsulting.Speech.Cli.Tests.Commands.SynthesisCommandSubsystem;
 
 /// <summary>
 ///     Unit tests for <see cref="ParameterBagParser"/>: per-type parsing/validation of
-///     <c>--param key=value</c> tokens against a model's declared parameters.
+///     <c>--tts-param</c>/<c>--stt-param key=value</c> tokens against a model's declared parameters.
 /// </summary>
 [Collection("Sequential")]
 public sealed class ParameterBagParserTests
@@ -49,7 +49,7 @@ public sealed class ParameterBagParserTests
     [Fact]
     public void ParameterBagParser_ParseToken_WellFormedToken_SplitsKeyAndValue()
     {
-        var (key, value) = ParameterBagParser.ParseToken("rate=1.2");
+        var (key, value) = ParameterBagParser.ParseToken("rate=1.2", "--stt-param");
 
         Assert.Equal("rate", key);
         Assert.Equal("1.2", value);
@@ -59,21 +59,23 @@ public sealed class ParameterBagParserTests
     [Fact]
     public void ParameterBagParser_ParseToken_NoSeparator_ThrowsArgumentException()
     {
-        Assert.Throws<ArgumentException>(() => ParameterBagParser.ParseToken("rate"));
+        var exception = Assert.Throws<ArgumentException>(() => ParameterBagParser.ParseToken("rate", "--stt-param"));
+
+        Assert.Contains("--stt-param", exception.Message);
     }
 
     /// <summary>Test that a token with an empty key throws.</summary>
     [Fact]
     public void ParameterBagParser_ParseToken_EmptyKey_ThrowsArgumentException()
     {
-        Assert.Throws<ArgumentException>(() => ParameterBagParser.ParseToken("=1.2"));
+        Assert.Throws<ArgumentException>(() => ParameterBagParser.ParseToken("=1.2", "--stt-param"));
     }
 
     /// <summary>Test that a value with an empty half (trailing '=') is accepted as an empty value string.</summary>
     [Fact]
     public void ParameterBagParser_ParseToken_EmptyValueHalf_ReturnsEmptyValue()
     {
-        var (key, value) = ParameterBagParser.ParseToken("rate=");
+        var (key, value) = ParameterBagParser.ParseToken("rate=", "--stt-param");
 
         Assert.Equal("rate", key);
         Assert.Equal(string.Empty, value);
@@ -83,7 +85,7 @@ public sealed class ParameterBagParserTests
     [Fact]
     public void ParameterBagParser_Resolve_NumericInRange_ResolvesBoxedDouble()
     {
-        var result = ParameterBagParser.Resolve([("rate", "1.5")], [RateParameter]);
+        var result = ParameterBagParser.Resolve([("rate", "1.5")], [RateParameter], "--stt-param");
 
         Assert.Equal(1.5, Assert.IsType<double>(result["rate"]));
     }
@@ -92,14 +94,14 @@ public sealed class ParameterBagParserTests
     [Fact]
     public void ParameterBagParser_Resolve_NumericOutOfRange_ThrowsArgumentException()
     {
-        Assert.Throws<ArgumentException>(() => ParameterBagParser.Resolve([("rate", "5.0")], [RateParameter]));
+        Assert.Throws<ArgumentException>(() => ParameterBagParser.Resolve([("rate", "5.0")], [RateParameter], "--stt-param"));
     }
 
     /// <summary>Test that a malformed numeric value throws.</summary>
     [Fact]
     public void ParameterBagParser_Resolve_NumericMalformed_ThrowsArgumentException()
     {
-        Assert.Throws<ArgumentException>(() => ParameterBagParser.Resolve([("rate", "not-a-number")], [RateParameter]));
+        Assert.Throws<ArgumentException>(() => ParameterBagParser.Resolve([("rate", "not-a-number")], [RateParameter], "--stt-param"));
     }
 
     /// <summary>Test that a fractional value for an integer-only parameter throws.</summary>
@@ -107,14 +109,14 @@ public sealed class ParameterBagParserTests
     public void ParameterBagParser_Resolve_IntegerParameterFractionalValue_ThrowsArgumentException()
     {
         Assert.Throws<ArgumentException>(() =>
-            ParameterBagParser.Resolve([("speakerIndex", "1.5")], [SpeakerIndexParameter]));
+            ParameterBagParser.Resolve([("speakerIndex", "1.5")], [SpeakerIndexParameter], "--stt-param"));
     }
 
     /// <summary>Test that a whole-number value for an integer-only parameter resolves.</summary>
     [Fact]
     public void ParameterBagParser_Resolve_IntegerParameterWholeValue_ResolvesBoxedDouble()
     {
-        var result = ParameterBagParser.Resolve([("speakerIndex", "3")], [SpeakerIndexParameter]);
+        var result = ParameterBagParser.Resolve([("speakerIndex", "3")], [SpeakerIndexParameter], "--stt-param");
 
         Assert.Equal(3.0, Assert.IsType<double>(result["speakerIndex"]));
     }
@@ -123,7 +125,7 @@ public sealed class ParameterBagParserTests
     [Fact]
     public void ParameterBagParser_Resolve_ValidChoiceValue_ResolvesBoxedString()
     {
-        var result = ParameterBagParser.Resolve([("voice", "bob")], [VoiceParameter]);
+        var result = ParameterBagParser.Resolve([("voice", "bob")], [VoiceParameter], "--stt-param");
 
         Assert.Equal("bob", Assert.IsType<string>(result["voice"]));
     }
@@ -132,7 +134,7 @@ public sealed class ParameterBagParserTests
     [Fact]
     public void ParameterBagParser_Resolve_InvalidChoiceValue_ThrowsArgumentException()
     {
-        Assert.Throws<ArgumentException>(() => ParameterBagParser.Resolve([("voice", "carol")], [VoiceParameter]));
+        Assert.Throws<ArgumentException>(() => ParameterBagParser.Resolve([("voice", "carol")], [VoiceParameter], "--stt-param"));
     }
 
     /// <summary>Test that a valid boolean value resolves to a boxed bool.</summary>
@@ -142,7 +144,7 @@ public sealed class ParameterBagParserTests
     [InlineData("True", true)]
     public void ParameterBagParser_Resolve_ValidBooleanValue_ResolvesBoxedBool(string input, bool expected)
     {
-        var result = ParameterBagParser.Resolve([("denoise", input)], [DenoiseParameter]);
+        var result = ParameterBagParser.Resolve([("denoise", input)], [DenoiseParameter], "--stt-param");
 
         Assert.Equal(expected, Assert.IsType<bool>(result["denoise"]));
     }
@@ -151,7 +153,7 @@ public sealed class ParameterBagParserTests
     [Fact]
     public void ParameterBagParser_Resolve_InvalidBooleanValue_ThrowsArgumentException()
     {
-        Assert.Throws<ArgumentException>(() => ParameterBagParser.Resolve([("denoise", "maybe")], [DenoiseParameter]));
+        Assert.Throws<ArgumentException>(() => ParameterBagParser.Resolve([("denoise", "maybe")], [DenoiseParameter], "--stt-param"));
     }
 
     /// <summary>Test that an unrecognized key throws a clean ArgumentException naming the key.</summary>
@@ -159,16 +161,17 @@ public sealed class ParameterBagParserTests
     public void ParameterBagParser_Resolve_UnrecognizedKey_ThrowsArgumentException()
     {
         var exception = Assert.Throws<ArgumentException>(() =>
-            ParameterBagParser.Resolve([("bogus", "1")], [RateParameter]));
+            ParameterBagParser.Resolve([("bogus", "1")], [RateParameter], "--stt-param"));
 
         Assert.Contains("bogus", exception.Message);
+        Assert.Contains("--stt-param", exception.Message);
     }
 
     /// <summary>Test that an empty raw values list against declared parameters resolves an empty bag.</summary>
     [Fact]
     public void ParameterBagParser_Resolve_NoRawValues_ReturnsEmptyBag()
     {
-        var result = ParameterBagParser.Resolve([], [RateParameter]);
+        var result = ParameterBagParser.Resolve([], [RateParameter], "--stt-param");
 
         Assert.Empty(result);
     }
@@ -177,13 +180,13 @@ public sealed class ParameterBagParserTests
     [Fact]
     public void ParameterBagParser_Resolve_NullRawValues_ThrowsArgumentNullException()
     {
-        Assert.Throws<ArgumentNullException>(() => ParameterBagParser.Resolve(null!, [RateParameter]));
+        Assert.Throws<ArgumentNullException>(() => ParameterBagParser.Resolve(null!, [RateParameter], "--stt-param"));
     }
 
     /// <summary>Test that a null declared parameters list is rejected.</summary>
     [Fact]
     public void ParameterBagParser_Resolve_NullDeclaredParameters_ThrowsArgumentNullException()
     {
-        Assert.Throws<ArgumentNullException>(() => ParameterBagParser.Resolve([], null!));
+        Assert.Throws<ArgumentNullException>(() => ParameterBagParser.Resolve([], null!, "--stt-param"));
     }
 }

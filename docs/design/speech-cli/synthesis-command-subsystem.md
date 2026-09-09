@@ -8,9 +8,9 @@ The SynthesisCommandSubsystem implements the one text-to-speech subcommand dispa
 small seam over real playback-device resolution:
 
 - **`SpeakCommand`**: implements
-  `speak --model <id> (--text <string> | --file <path> | stdin) [--output <wav-path>]
-  [--device <name>] [--param key=value ...] [--no-tags]`
-- **`ParameterBagParser`**: parses and validates repeatable `--param key=value` tokens against a
+  `speak --tts-model <id> (--text <string> | --file <path> | stdin) [--output-audio <wav-path>]
+  [--playback-device <name>] [--tts-param key=value ...] [--no-tags]`
+- **`ParameterBagParser`**: parses and validates repeatable `--tts-param key=value` tokens against a
   resolved model's declared parameters
 - **`ICliModelCatalog.GetPreferredAudioFormat`/`CreateSynthesizer`**: the two new seam members
   (see _Extending the ModelCommandsSubsystem Seam_ below), implemented by
@@ -57,7 +57,7 @@ installed" or "no playback device" - it instead returns the library's own
 `UnavailableSpeechSynthesizer.Instance` singleton, a graceful-degradation contract `SpeakCommand`
 relies on rather than duplicates.
 
-This keeps `SpeakCommand`'s own logic - argument parsing, text-source resolution, `--param`
+This keeps `SpeakCommand`'s own logic - argument parsing, text-source resolution, `--tts-param`
 validation, tag stripping, device dispatch, disposal ordering, cancellation - fully unit-testable
 against `FakeCliModelCatalog`'s delegate overrides for the two new members, with no dependency on
 `ISynthesisModel` anywhere in the test project.
@@ -109,7 +109,7 @@ catalog.
 
 ### ParameterBagParser
 
-`--param key=value` is repeatable; each raw token is first split by `ParseToken` into a
+`--tts-param key=value` is repeatable; each raw token is first split by `ParseToken` into a
 `(key, value)` pair (throwing `ArgumentException` for a token with no `=` separator or an empty
 key half), then the full list of raw pairs is resolved by `Resolve` against the model's own
 `ISpeechModelParameter` collection (the same collection `model-info` already prints - see
@@ -122,20 +122,24 @@ _SpeechCli ModelCommandsSubsystem Design_). Resolution switches on the parameter
   boxed as `string`
 - **`BooleanParameter`**: parsed via `bool.TryParse` (case-insensitive) - boxed as `bool`
 
-An unrecognized `--param` key throws `ArgumentException` naming the key. This is a deliberate
+An unrecognized `--tts-param` key throws `ArgumentException` naming the key. This is a deliberate
 divergence from `SpeechSynthesizerFactory.Create`'s own library-level contract, which silently
 ignores (and Info-logs) an unrecognized parameter key rather than throwing: at the library level,
 silently ignoring an unrecognized key is the right graceful-degradation choice when parameter
 values are supplied programmatically and may target multiple engine versions, but at the CLI an
-unrecognized `--param` key is almost always an operator typo, and failing loudly at the command
+unrecognized `--tts-param` key is almost always an operator typo, and failing loudly at the command
 line - before any synthesis is attempted - is friendlier than silently mistuning (or not tuning at
 all) a five-minute synthesis run only to notice much later that a misspelled key was ignored.
+`ParseToken` and `Resolve` both take the invoking command's own flag name as an explicit parameter
+and echo it verbatim into every thrown message, so the shared function reports `--tts-param` when
+called from `speak` (or `ask`'s TTS side) and `--stt-param` when called from `recognize` (or
+`ask`'s STT side), rather than hard-coding one flag's name.
 
 ### SpeakCommand
 
-Parses its own flags (`--model`, `--text`, `--file`, `--output`, `--device`, `--no-tags`, and
-repeatable `--param`) via a hand-rolled loop matching the same style every other command in this
-tool already uses, requiring `--model` and rejecting an unsupported argument or a value-less flag
+Parses its own flags (`--tts-model`, `--text`, `--file`, `--output-audio`, `--playback-device`, `--no-tags`, and
+repeatable `--tts-param`) via a hand-rolled loop matching the same style every other command in this
+tool already uses, requiring `--tts-model` and rejecting an unsupported argument or a value-less flag
 with `ArgumentException`.
 
 **Text-source resolution runs before model resolution.** Exactly one of `--text`, `--file`, or a
@@ -147,11 +151,11 @@ it first avoids masking it behind an unrelated "unknown model id" error whenever
 happen to be present in the same invocation (for example, a placeholder model id typed alongside
 both `--text` and `--file` by accident).
 
-**Model resolution** looks up the requested `--model <id>` in `catalog.Enumerate()`, throwing a
+**Model resolution** looks up the requested `--tts-model <id>` in `catalog.Enumerate()`, throwing a
 user-facing `ArgumentException` for three distinct failure modes, each with an actionable message:
 an id absent from the catalog entirely (suggesting `list-models`), an id present but with the
 wrong role (suggesting `list-models --role tts`), and an id present with the synthesis role but
-not yet downloaded (suggesting `download <modelId>` by name). Once resolved, `--param` values are
+not yet downloaded (suggesting `download <modelId>` by name). Once resolved, `--tts-param` values are
 validated against the resolved model's own declared parameters via `ParameterBagParser.Resolve`.
 
 **`--no-tags`** forces Natural Language Audio Tag stripping unconditionally via
@@ -161,17 +165,17 @@ per `SpeechModelAudioTagSupport`). This is a deliberate, unconditional override:
 explicitly asks for tags to be stripped is asking for literal narration text only, and a model's
 own tag-support level should not silently override an explicit operator request.
 
-**Device dispatch**: when `--output <path>` is given, the model's `PreferredAudioFormat` is
+**Device dispatch**: when `--output-audio <path>` is given, the model's `PreferredAudioFormat` is
 resolved via the new `GetPreferredAudioFormat` seam member and used to size a
-`WavFileAudioPlaybackDevice` at that path; `--device` is documented, and enforced by construction,
+`WavFileAudioPlaybackDevice` at that path; `--playback-device` is documented, and enforced by construction,
 to be ignored in this case, since an explicit file destination unambiguously wins and no error is
 raised for supplying both. Otherwise, a real playback device is resolved from the injected
 `ICliPlaybackDeviceSource` (see _Deterministic Playback-Device Resolution_ above), reusing
 `DevicesTestCommand.ResolveDeviceSelectionOrThrow` (internal, same assembly, different namespace -
-no refactor needed) to validate any requested `--device` name against the enumerated playback
+no refactor needed) to validate any requested `--playback-device` name against the enumerated playback
 devices before a device is actually created, exactly mirroring `devices test`'s own
 validate-before-create pattern; an unavailable resolved device throws `InvalidOperationException`
-suggesting `--output` as an alternative.
+suggesting `--output-audio` as an alternative.
 
 **Disposal ordering.** `ISpeechSynthesizer.Dispose()` does not dispose the playback device it was
 constructed over (confirmed against the library's own `SherpaOnnxSpeechSynthesizer.Dispose()`
@@ -180,7 +184,7 @@ synthesizer first, in an inner `finally`, guaranteeing any in-flight playback/wr
 quiesced, then disposes the playback device, in an outer `finally`, via `(playbackDevice as
 IDisposable)?.Dispose()`. The conditional cast is necessary because `IAudioPlaybackDevice` itself
 does not declare `IDisposable` - a real device manages its own native stream lifecycle entirely
-through `Start()`/`Stop()` - but `WavFileAudioPlaybackDevice` (used for `--output`) additionally
+through `Start()`/`Stop()` - but `WavFileAudioPlaybackDevice` (used for `--output-audio`) additionally
 implements `IDisposable` to finalize its RIFF header, and the outer `finally` must dispose it
 unconditionally when present while remaining a safe no-op for every other device kind.
 

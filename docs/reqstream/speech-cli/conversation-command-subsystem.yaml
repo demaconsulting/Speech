@@ -1,0 +1,160 @@
+---
+# Software Subsystem Requirements for the SpeechCli ConversationCommandSubsystem
+#
+# These requirements describe the subsystem-level behavior of the one voice-conversation
+# subcommand (ask), decomposing the system-level dispatch requirements in
+# docs/reqstream/speech-cli.yaml.
+#
+# This subsystem introduces no new ICliModelCatalog seam member: it reuses
+# SynthesisCommandSubsystem's CreateSynthesizer and RecognitionCommandSubsystem's
+# CreateRecognizer members exactly as speak and recognize already do individually, since ask
+# requires exactly one synthesis-role model and exactly one recognition-role model, never a
+# single model serving both roles.
+
+sections:
+  - title: SpeechCli Requirements
+    sections:
+      - title: ConversationCommandSubsystem Requirements
+        requirements:
+          - id: SpeechCli-ConversationCommands-Ask
+            title: >-
+              The tool shall speak prompt text (from `--text` or `--file`) through a known,
+              downloaded synthesis model named by `--tts-model <id>` and then, once playback
+              finishes, listen for a reply through a known, downloaded recognition model named by
+              `--stt-model <id>`, when invoked with `ask`, rejecting a missing `--tts-model` or
+              `--stt-model`, an unknown/wrong-role/not-downloaded model id for either model, a
+              conflicting/missing text source, or any of `--interim`/`--final-only`/`--no-tags`/
+              `--input`/`--output-audio` (none of which `ask` supports), with a clean, actionable,
+              non-zero-exit-code error rather than a stack trace.
+            tags: [subsystem]
+            justification: |
+              An AI agent or operator scripting a voice conversation needs one command that
+              speaks a prompt and listens for the reply without needing to sequence two separate
+              CLI invocations or reason about which library types compose a synthesizer and a
+              recognizer. Both models must be validated the same way `speak`'s and `recognize`'s
+              own model resolution already validate a single model, with an actionable next step
+              (`list-models`, `list-models --role tts`/`--role stt`, or `download <modelId>`) so a
+              scripted invocation can react to the specific failure rather than a generic error.
+              Rejecting flags `ask` does not support (rather than silently ignoring them) avoids a
+              caller mistakenly believing an unsupported option took effect.
+            tests:
+              - AskCommand_ParseArguments_MissingTtsModel_ThrowsArgumentException
+              - AskCommand_ParseArguments_MissingSttModel_ThrowsArgumentException
+              - AskCommand_ParseArguments_TextFlag_ParsesText
+              - AskCommand_ParseArguments_Interim_ThrowsArgumentException
+              - AskCommand_ParseArguments_FinalOnly_ThrowsArgumentException
+              - AskCommand_ParseArguments_NoTags_ThrowsArgumentException
+              - AskCommand_ParseArguments_Input_ThrowsArgumentException
+              - AskCommand_ParseArguments_OutputAudio_ThrowsArgumentException
+              - AskCommand_ParseArguments_UnsupportedArgument_ThrowsArgumentException
+              - AskCommand_ParseArguments_FlagMissingValue_ThrowsArgumentException
+              - AskCommand_Run_TextAndFileBothGiven_ThrowsArgumentException
+              - AskCommand_Run_UnknownTtsModelId_ThrowsArgumentException
+              - AskCommand_Run_UnknownSttModelId_ThrowsArgumentException
+              - AskCommand_Run_WrongRoleTtsModel_ThrowsArgumentException
+              - AskCommand_Run_WrongRoleSttModel_ThrowsArgumentException
+              - AskCommand_Run_NotDownloadedTtsModel_ThrowsArgumentExceptionWithDownloadHint
+              - AskCommand_Run_NotDownloadedSttModel_ThrowsArgumentExceptionWithDownloadHint
+              - AskCommand_Run_Success_SpeaksThenListensAndPrintsFinalResult
+
+          - id: SpeechCli-ConversationCommands-ParamValidation
+            title: >-
+              The tool shall parse repeatable `--tts-param key=value` and `--stt-param key=value`
+              flags and validate each value against the respective resolved model's own declared
+              parameter set, reusing `ParameterBagParser` unmodified from the
+              SynthesisCommandSubsystem, forwarding each fully-resolved parameter bag to its own
+              `CreateSynthesizer`/`CreateRecognizer` call.
+            tags: [subsystem]
+            justification: |
+              Both synthesis and recognition models declare tunable parameters; reusing the
+              existing, already-verified `ParameterBagParser` rather than duplicating its
+              validation logic keeps a single source of truth for `--tts-param`/`--stt-param`
+              semantics across `speak`, `recognize`, and `ask`.
+            tests:
+              - AskCommand_ParseArguments_RepeatedParamFlags_AccumulateInOrderIndependently
+              - AskCommand_Run_ValidParams_ForwardToRespectiveCreateCalls
+              - AskCommand_Run_InvalidTtsParam_ThrowsArgumentException
+
+          - id: SpeechCli-ConversationCommands-ListenTermination
+            title: >-
+              The tool shall end its listen phase as soon as the first final recognition result
+              arrives, and shall additionally accept optional `--start-timeout <seconds>`/
+              `--silence-timeout <seconds>` flags with identical meaning and defaulting to
+              `recognize --mic`'s own flags, reusing `SilenceTimeoutRecognizerSession` unmodified
+              as a safety net for a reply that never finishes or never starts.
+            tags: [subsystem]
+            justification: |
+              `ask` models one bounded question/answer turn, not open-ended transcription, so
+              exactly one final result is always enough to end the turn; reusing
+              `recognize --mic`'s own idle-timeout session unmodified, rather than reimplementing
+              similar logic, keeps a single source of truth for the two-phase idle-window
+              semantics `--start-timeout`/`--silence-timeout` already established.
+            tests:
+              - AskCommand_ParseArguments_TimeoutFlags_ParseAsPositiveDoubles
+              - AskCommand_ParseArguments_NonPositiveSilenceTimeout_ThrowsArgumentException
+              - AskCommand_Run_SilenceTimeoutWithNoFinalResult_EndsTurnWithEmptyText
+
+          - id: SpeechCli-ConversationCommands-OutputDispatch
+            title: >-
+              The tool shall print the final recognized reply text to stdout by default, or write
+              it to the file named by `--output-text <text-path>` instead, mirroring `recognize`'s
+              own `--output-text` behavior exactly, including overwrite-not-append file semantics.
+            tags: [subsystem]
+            justification: |
+              A scripted caller of `ask` needs the same choice between console output and a
+              stable file destination that `recognize` already offers, so an agent can either
+              read the reply from the command's own output or from a known file path.
+            tests:
+              - AskCommand_ParseArguments_OutputTextFlag_ParsesPath
+              - AskCommand_Run_OutputText_WritesRecognizedTextToFile
+
+          - id: SpeechCli-ConversationCommands-DeviceDispatch
+            title: >-
+              The tool shall resolve and validate a real playback device (honoring
+              `--playback-device` when given) for its speak phase and a real capture device
+              (honoring `--capture-device` when given) for its listen phase, rejecting an unknown
+              device name or an unavailable resolved device with a clean, non-zero-exit-code
+              error rather than a stack trace.
+            tags: [subsystem]
+            justification: |
+              Validating an unknown/unavailable real playback or capture device before any
+              synthesis or recognition is attempted avoids a partially-run, undeliverable turn,
+              mirroring `speak`'s and `recognize`'s own validate-before-create pattern.
+            tests:
+              - AskCommand_Run_UnknownPlaybackDevice_ThrowsArgumentException
+              - AskCommand_Run_NoPlaybackDeviceAvailable_ThrowsInvalidOperationException
+              - AskCommand_Run_UnknownCaptureDevice_ThrowsArgumentException
+              - AskCommand_Run_NoCaptureDeviceAvailable_ThrowsInvalidOperationException
+
+          - id: SpeechCli-ConversationCommands-CancellationAndDisposal
+            title: >-
+              The tool shall cancel cleanly, with no partial recognized-text or playback state
+              leaked and no crash, when `Ctrl+C` is pressed at any point during either its speak
+              or listen phase, skipping the listen phase entirely when cancellation lands during
+              the speak phase, and shall dispose the synthesizer, playback device, recognizer, and
+              silence-timeout session (when present) exactly once on every exit path.
+            tags: [subsystem]
+            justification: |
+              A two-phase command must not leave a half-played prompt, an orphaned recognizer, or
+              a leaked audio device behind when interrupted; a single cooperative-cancellation
+              path spanning both phases, mirroring `speak`'s/`recognize`'s own pattern, keeps this
+              guarantee simple to reason about and verify.
+            tests:
+              - AskCommand_Run_CanceledDuringSpeak_SkipsListenPhase
+
+          - id: SpeechCli-ConversationCommands-NullGuards
+            title: >-
+              The ConversationCommandSubsystem shall reject a missing context, catalog, device
+              source, capture factory, or argument list immediately with
+              `ArgumentNullException`, so a programming error is never silently ignored.
+            tags: [subsystem]
+            justification: |
+              Consistent with every other subsystem in this tool, a missing required dependency
+              must fail immediately and specifically rather than surface later as a confusing
+              `NullReferenceException` deep inside synthesis, recognition, or device resolution
+              logic.
+            tests:
+              - AskCommand_Run_NullContext_ThrowsArgumentNullException
+              - AskCommand_Run_NullCatalog_ThrowsArgumentNullException
+              - AskCommand_Run_NullDeviceSource_ThrowsArgumentNullException
+              - AskCommand_Run_NullCaptureFactory_ThrowsArgumentNullException

@@ -17,7 +17,9 @@
 # subcommand's functional behavior are decomposed into
 # docs/reqstream/speech-cli/synthesis-command-subsystem.yaml; requirements for the recognize
 # subcommand's functional behavior are decomposed into
-# docs/reqstream/speech-cli/recognition-command-subsystem.yaml.
+# docs/reqstream/speech-cli/recognition-command-subsystem.yaml; requirements for the ask
+# subcommand's functional behavior are decomposed into
+# docs/reqstream/speech-cli/conversation-command-subsystem.yaml.
 
 sections:
   - title: SpeechCli Requirements
@@ -195,6 +197,31 @@ sections:
         tests:
           - RecognizeCommand_Run_ValidParam_ForwardsToCreateRecognizer
           - RecognizeCommand_Run_Success_DisposesRecognizerOnce
+
+      - id: SpeechCli-VoiceConversation
+        title: >-
+          The tool shall speak an operator-supplied prompt through a downloaded synthesis model
+          and then, once playback finishes, listen for a reply through a downloaded recognition
+          model, printing (or writing to a file) the recognized reply text, when invoked with the
+          `ask` subcommand.
+        tags: [system]
+        justification: |
+          A voice conversation - an agent speaking a prompt and then listening for a person's
+          spoken reply - is a natural combination of this tool's two core capabilities; an
+          operator or an AI agent scripting this tool must be able to run a full question/answer
+          turn as a single command rather than manually sequencing separate `speak` and
+          `recognize` invocations.
+        children:
+          - SpeechCli-ConversationCommands-Ask
+          - SpeechCli-ConversationCommands-ParamValidation
+          - SpeechCli-ConversationCommands-ListenTermination
+          - SpeechCli-ConversationCommands-OutputDispatch
+          - SpeechCli-ConversationCommands-DeviceDispatch
+          - SpeechCli-ConversationCommands-CancellationAndDisposal
+          - SpeechCli-ConversationCommands-NullGuards
+        tests:
+          - AskCommand_Run_Success_SpeaksThenListensAndPrintsFinalResult
+          - AskCommand_Run_OutputText_WritesRecognizedTextToFile
 
       - id: SpeechCli-Packaging-GlobalTool
         title: >-

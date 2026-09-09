@@ -28,7 +28,7 @@ the test. Out-of-process integration tests in `IntegrationTests.cs` invoke the b
 child process for the model-resolution and text-source error paths that matter most from an
 operator's perspective.
 
-Automated tests do **not** exercise a real, downloaded synthesis model's actual `--output`
+Automated tests do **not** exercise a real, downloaded synthesis model's actual `--output-audio`
 WAV-writing path end to end: CI has no cached TTS model available (downloading one requires
 network access this environment/CI runner is not guaranteed to have, and a multi-hundred-megabyte
 download is unsuitable for every test run regardless). This is manual/local verification only
@@ -72,7 +72,7 @@ documents for the same convention applied elsewhere).
 `SpeechCli_SpeakCommandWithConflictingTextSources_Invoked_ReturnsCleanError`,
 `Program_Run_WithSpeakCommand_DoesNotThrowNotImplemented`
 
-**Scenario/Expected**: A missing `--model`, an unsupported argument, or a value-less flag are all
+**Scenario/Expected**: A missing `--tts-model`, an unsupported argument, or a value-less flag are all
 rejected with `ArgumentException`; `--text` parses its value; supplying both `--text` and
 `--file`, or neither with stdin not redirected, throws `ArgumentException` before the model id is
 even looked up; an unknown model id, a wrong-role model id, and a not-yet-downloaded model id are
@@ -84,7 +84,7 @@ dispatched.
 
 **Requirement coverage**: `SpeechCli-SynthesisCommands-Speak`.
 
-#### ParameterBagParser and `--param` Validation
+#### ParameterBagParser and `--tts-param` Validation
 
 **Tests**: `ParameterBagParser_ParseToken_WellFormedToken_SplitsKeyAndValue`,
 `ParameterBagParser_ParseToken_NoSeparator_ThrowsArgumentException`,
@@ -112,7 +112,7 @@ value throws, and a fractional value for an integer-only parameter throws while 
 value succeeds; a `ChoiceParameter` value matching a declared option resolves to a boxed `string`,
 a non-matching value throws; a `BooleanParameter` accepts `true`/`false` (case-insensitively) as a
 boxed `bool` and rejects any other value; a key not declared by the resolved model throws
-`ArgumentException`; repeated `--param` flags accumulate in the order given and are forwarded,
+`ArgumentException`; repeated `--tts-param` flags accumulate in the order given and are forwarded,
 fully resolved, to `CreateSynthesizer`'s `parameterValues` argument; an invalid value for any
 declared parameter kind is rejected before synthesis is attempted.
 
@@ -134,17 +134,17 @@ level.
 
 **Requirement coverage**: `SpeechCli-SynthesisCommands-NoTags`.
 
-#### `--output` Versus Real Device Dispatch
+#### `--output-audio` Versus Real Device Dispatch
 
 **Tests**: `SpeakCommand_RunAsync_Output_ConstructsWavFileDeviceFromPreferredFormat`,
 `SpeakCommand_RunAsync_UnknownDevice_ThrowsArgumentException`,
 `SpeakCommand_RunAsync_NoPlaybackDeviceAvailable_ThrowsInvalidOperationException`
 
-**Scenario/Expected**: `--output <path>` constructs a `WavFileAudioPlaybackDevice` at the given
+**Scenario/Expected**: `--output-audio <path>` constructs a `WavFileAudioPlaybackDevice` at the given
 path, sized from the resolved model's `GetPreferredAudioFormat` result (proven via the fake
-catalog's override), ignoring any `--device` given alongside it; requesting an unrecognized
-`--device` name (no `--output` given) throws `ArgumentException` before any device is created;
-an unavailable resolved real device throws `InvalidOperationException` suggesting `--output` as
+catalog's override), ignoring any `--playback-device` given alongside it; requesting an unrecognized
+`--playback-device` name (no `--output-audio` given) throws `ArgumentException` before any device is created;
+an unavailable resolved real device throws `InvalidOperationException` suggesting `--output-audio` as
 an alternative. Every scenario here is exercised against `FakePlaybackDeviceSource`, never a real
 `AudioDeviceFactory`, so results do not depend on whether real playback hardware happens to be
 present on the machine running the test.
@@ -216,10 +216,10 @@ missing dependency.
 
 - **`SpeechCli-SynthesisCommands-Speak`**: see _SpeakCommand — Text Source, Model Resolution, and
   Argument Parsing_ above
-- **`SpeechCli-SynthesisCommands-ParamValidation`**: see _ParameterBagParser and `--param`
+- **`SpeechCli-SynthesisCommands-ParamValidation`**: see _ParameterBagParser and `--tts-param`
   Validation_ above
 - **`SpeechCli-SynthesisCommands-NoTags`**: see _`--no-tags` Stripping_ above
-- **`SpeechCli-SynthesisCommands-OutputDispatch`**: see _`--output` Versus Real Device Dispatch_
+- **`SpeechCli-SynthesisCommands-OutputDispatch`**: see _`--output-audio` Versus Real Device Dispatch_
   above
 - **`SpeechCli-SynthesisCommands-CancellationAndDisposal`**: see _Cancellation and Disposal
   Ordering_ above
@@ -230,9 +230,9 @@ missing dependency.
 ### Acceptance Criteria
 
 A SynthesisCommandSubsystem test run passes when: `speak` correctly enforces text-source mutual
-exclusion and reports actionable model-resolution errors; `--param` values are validated against
+exclusion and reports actionable model-resolution errors; `--tts-param` values are validated against
 each declared parameter kind's own constraints, rejecting an unrecognized key; `--no-tags` strips
-recognized tags exactly, leaving other text byte-for-byte unchanged; `--output` and real-device
+recognized tags exactly, leaving other text byte-for-byte unchanged; `--output-audio` and real-device
 dispatch each construct the correct device kind and reject an unknown/unavailable device; a
 cancellation is reported cleanly and the synthesizer is always disposed before the playback
 device; the two new `ICliModelCatalog` seam members correctly reject a non-synthesis model against
@@ -244,9 +244,9 @@ The following is verified manually, rather than by an automated test, because it
 downloaded text-to-speech model and this environment/CI has no cached TTS model available (per
 this pass's planning report, Assumption 4):
 
-- `dotnet run --project src/DemaConsulting.Speech.Cli -- speak --model <id> --text "hello world"
-  --output <path>.wav`, run against a real, downloaded synthesis model on a development machine
+- `dotnet run --project src/DemaConsulting.Speech.Cli -- speak --tts-model <id> --text "hello world"
+  --output-audio <path>.wav`, run against a real, downloaded synthesis model on a development machine
   with network access, produces a valid, non-trivial WAV file at the given path (correct RIFF
   header, non-zero sample count, audible speech on playback)
-- The same invocation without `--output`, on a machine with real audio playback hardware, plays
-  audible synthesized speech through the resolved (default or `--device`-selected) device
+- The same invocation without `--output-audio`, on a machine with real audio playback hardware, plays
+  audible synthesized speech through the resolved (default or `--playback-device`-selected) device

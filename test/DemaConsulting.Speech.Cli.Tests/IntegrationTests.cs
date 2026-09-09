@@ -34,7 +34,7 @@ namespace DemaConsulting.Speech.Cli.Tests;
 ///     real per-user model store or performs a real network access. <c>speak</c>'s and
 ///     <c>recognize</c>'s error paths (missing model, unknown/wrong-role/not-downloaded model id,
 ///     conflicting input/text sources) are covered here; a real, downloaded-model
-///     <c>speak --output</c>/<c>recognize --input</c> end-to-end run is a manual verification
+///     <c>speak --output-audio</c>/<c>recognize --input</c> end-to-end run is a manual verification
 ///     step only - see each subsystem's verification document for why.
 /// </remarks>
 [Collection("Sequential")]
@@ -615,7 +615,7 @@ public class IntegrationTests
     }
 
     /// <summary>
-    ///     Test that <c>speak</c> without <c>--model</c> returns a clean, non-zero-exit error
+    ///     Test that <c>speak</c> without <c>--tts-model</c> returns a clean, non-zero-exit error
     ///     naming the missing requirement, rather than a stack trace.
     /// </summary>
     [Fact]
@@ -626,11 +626,11 @@ public class IntegrationTests
 
         // Assert
         Assert.NotEqual(0, exitCode);
-        Assert.Contains("--model", output);
+        Assert.Contains("--tts-model", output);
     }
 
     /// <summary>
-    ///     Test that <c>speak --model &lt;unknown&gt;</c> returns a clean, non-zero-exit error
+    ///     Test that <c>speak --tts-model &lt;unknown&gt;</c> returns a clean, non-zero-exit error
     ///     naming the unrecognized model id, against an isolated, empty <c>--models-dir</c> so no
     ///     real network access occurs.
     /// </summary>
@@ -649,7 +649,7 @@ public class IntegrationTests
                 "--models-dir",
                 modelsDir,
                 "speak",
-                "--model",
+                "--tts-model",
                 "does-not-exist-model",
                 "--text",
                 "hello");
@@ -665,7 +665,7 @@ public class IntegrationTests
     }
 
     /// <summary>
-    ///     Test that <c>speak --model &lt;recognitionModel&gt;</c> returns a clean, non-zero-exit
+    ///     Test that <c>speak --tts-model &lt;recognitionModel&gt;</c> returns a clean, non-zero-exit
     ///     error reporting the wrong role, rather than attempting to load it as a synthesizer.
     /// </summary>
     [Fact]
@@ -700,7 +700,7 @@ public class IntegrationTests
                 "--models-dir",
                 modelsDir,
                 "speak",
-                "--model",
+                "--tts-model",
                 recognitionModelId,
                 "--text",
                 "hello");
@@ -716,7 +716,7 @@ public class IntegrationTests
     }
 
     /// <summary>
-    ///     Test that <c>speak --model &lt;notDownloaded&gt;</c> returns a clean, non-zero-exit
+    ///     Test that <c>speak --tts-model &lt;notDownloaded&gt;</c> returns a clean, non-zero-exit
     ///     error with an actionable <c>download</c> hint, against an isolated, empty
     ///     <c>--models-dir</c> so the model is genuinely not downloaded.
     /// </summary>
@@ -751,7 +751,7 @@ public class IntegrationTests
                 "--models-dir",
                 modelsDir,
                 "speak",
-                "--model",
+                "--tts-model",
                 synthesisModelId,
                 "--text",
                 "hello");
@@ -779,7 +779,7 @@ public class IntegrationTests
             "dotnet",
             _dllPath,
             "speak",
-            "--model",
+            "--tts-model",
             "any-model",
             "--text",
             "hello",
@@ -793,7 +793,7 @@ public class IntegrationTests
     }
 
     /// <summary>
-    ///     Test that <c>recognize</c> without <c>--model</c> returns a clean, non-zero-exit error
+    ///     Test that <c>recognize</c> without <c>--stt-model</c> returns a clean, non-zero-exit error
     ///     naming the missing requirement, rather than a stack trace.
     /// </summary>
     [Fact]
@@ -804,11 +804,11 @@ public class IntegrationTests
 
         // Assert
         Assert.NotEqual(0, exitCode);
-        Assert.Contains("--model", output);
+        Assert.Contains("--stt-model", output);
     }
 
     /// <summary>
-    ///     Test that <c>recognize --model &lt;unknown&gt;</c> returns a clean, non-zero-exit error
+    ///     Test that <c>recognize --stt-model &lt;unknown&gt;</c> returns a clean, non-zero-exit error
     ///     naming the unrecognized model id, against an isolated, empty <c>--models-dir</c> so no
     ///     real network access occurs.
     /// </summary>
@@ -827,7 +827,7 @@ public class IntegrationTests
                 "--models-dir",
                 modelsDir,
                 "recognize",
-                "--model",
+                "--stt-model",
                 "does-not-exist-model",
                 "--mic");
 
@@ -842,7 +842,7 @@ public class IntegrationTests
     }
 
     /// <summary>
-    ///     Test that <c>recognize --model &lt;synthesisModel&gt;</c> returns a clean,
+    ///     Test that <c>recognize --stt-model &lt;synthesisModel&gt;</c> returns a clean,
     ///     non-zero-exit error reporting the wrong role, rather than attempting to load it as a
     ///     recognizer.
     /// </summary>
@@ -878,7 +878,7 @@ public class IntegrationTests
                 "--models-dir",
                 modelsDir,
                 "recognize",
-                "--model",
+                "--stt-model",
                 synthesisModelId,
                 "--mic");
 
@@ -893,7 +893,7 @@ public class IntegrationTests
     }
 
     /// <summary>
-    ///     Test that <c>recognize --model &lt;notDownloaded&gt;</c> returns a clean, non-zero-exit
+    ///     Test that <c>recognize --stt-model &lt;notDownloaded&gt;</c> returns a clean, non-zero-exit
     ///     error with an actionable <c>download</c> hint, against an isolated, empty
     ///     <c>--models-dir</c> so the model is genuinely not downloaded.
     /// </summary>
@@ -928,7 +928,7 @@ public class IntegrationTests
                 "--models-dir",
                 modelsDir,
                 "recognize",
-                "--model",
+                "--stt-model",
                 recognitionModelId,
                 "--mic");
 
@@ -955,7 +955,7 @@ public class IntegrationTests
             "dotnet",
             _dllPath,
             "recognize",
-            "--model",
+            "--stt-model",
             "any-model",
             "--input",
             "some-file.wav",
@@ -968,7 +968,7 @@ public class IntegrationTests
     }
 
     /// <summary>
-    ///     Test that <c>recognize --model &lt;realSttModel&gt; --input &lt;fixture&gt;.wav</c>
+    ///     Test that <c>recognize --stt-model &lt;realSttModel&gt; --input &lt;fixture&gt;.wav</c>
     ///     produces non-empty recognized text, using a real, already-downloaded speech-to-text
     ///     model (skipped when none is available, e.g. in a network-isolated CI environment - see
     ///     this subsystem's verification document for the manual verification fallback).
@@ -1007,7 +1007,7 @@ public class IntegrationTests
             "dotnet",
             _dllPath,
             "recognize",
-            "--model",
+            "--stt-model",
             downloadedModelId,
             "--input",
             fixturePath);

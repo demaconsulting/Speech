@@ -85,16 +85,16 @@ namespace DemaConsulting.Speech.Cli.Commands.RecognitionCommandSubsystem;
 ///     results (still overwritten); <c>--final-only</c> prints only final results, one per line.
 ///     </para>
 ///     <para>
-///     <b><c>--output &lt;text-path&gt;</c></b> writes only final results to the file, one line
+///     <b><c>--output-text &lt;text-path&gt;</c></b> writes only final results to the file, one line
 ///     each, flushed immediately - interim results are a live-console-only concept and are never
 ///     written to the file, regardless of <c>--interim</c>/<c>--final-only</c>'s effect on
 ///     console output. The file is opened once with overwrite (not append) semantics, consistent
-///     with <c>speak --output</c>'s WAV semantics.
+///     with <c>speak --output-audio</c>'s WAV semantics.
 ///     </para>
 ///     <para>
-///     <c>--device</c> is not rejected when given alongside <c>--input</c>: it is simply inert in
+///     <c>--capture-device</c> is not rejected when given alongside <c>--input</c>: it is simply inert in
 ///     that case (file mode never consults it), mirroring <c>speak</c>'s own documented precedent
-///     that <c>--device</c> is silently ignored, not an error, when a file destination is also
+///     that <c>--playback-device</c> is silently ignored, not an error, when a file destination is also
 ///     given.
 ///     </para>
 /// </remarks>
@@ -130,7 +130,7 @@ internal static class RecognizeCommand
     /// <exception cref="ArgumentException">
     ///     Thrown for any usage error: missing/unknown/wrong-role/not-downloaded model,
     ///     conflicting or missing input source, conflicting <c>--interim</c>/<c>--final-only</c>,
-    ///     malformed/invalid <c>--param</c> value, or unknown <c>--device</c>.
+    ///     malformed/invalid <c>--stt-param</c> value, or unknown <c>--capture-device</c>.
     /// </exception>
     /// <exception cref="InvalidOperationException">Thrown when no real capture device is available in mic mode.</exception>
     internal static void Run(Context context, ICliModelCatalog catalog, AudioDeviceFactory factory)
@@ -149,7 +149,7 @@ internal static class RecognizeCommand
         ValidateVerbosityFlags(options);
 
         var descriptor = ResolveModel(catalog, options.ModelId);
-        var parameterValues = ParameterBagParser.Resolve(options.RawParameters, descriptor.Model.Parameters);
+        var parameterValues = ParameterBagParser.Resolve(options.RawParameters, descriptor.Model.Parameters, "--stt-param");
 
         using var stopSignal = new ManualResetEventSlim(initialState: false);
         var captureDevice = ResolveCaptureDevice(factory, options);
@@ -398,9 +398,9 @@ internal static class RecognizeCommand
     /// <summary>
     ///     Resolves the capture device for this session: a <see cref="WavFileAudioCaptureDevice"/>
     ///     over the given file when <c>--input</c> was given, otherwise a real device resolved
-    ///     from <paramref name="factory"/> (honoring <c>--device</c>).
+    ///     from <paramref name="factory"/> (honoring <c>--capture-device</c>).
     /// </summary>
-    /// <exception cref="ArgumentException">Thrown when <c>--device</c> names an unknown capture device.</exception>
+    /// <exception cref="ArgumentException">Thrown when <c>--capture-device</c> names an unknown capture device.</exception>
     /// <exception cref="InvalidOperationException">Thrown when no real capture device is available.</exception>
     private static IAudioCaptureDevice ResolveCaptureDevice(AudioDeviceFactory factory, RecognizeOptions options)
     {
@@ -424,12 +424,12 @@ internal static class RecognizeCommand
     }
 
     /// <summary>
-    ///     Parses <c>recognize</c>'s own arguments: <c>--model</c>, <c>--input</c>, <c>--mic</c>,
-    ///     <c>--device</c>, <c>--silence-timeout</c>, <c>--start-timeout</c>, repeatable
-    ///     <c>--param key=value</c>, <c>--interim</c>, <c>--final-only</c>, and <c>--output</c>.
+    ///     Parses <c>recognize</c>'s own arguments: <c>--stt-model</c>, <c>--input</c>, <c>--mic</c>,
+    ///     <c>--capture-device</c>, <c>--silence-timeout</c>, <c>--start-timeout</c>, repeatable
+    ///     <c>--stt-param key=value</c>, <c>--interim</c>, <c>--final-only</c>, and <c>--output-text</c>.
     /// </summary>
     /// <exception cref="ArgumentException">
-    ///     Thrown when <c>--model</c> is missing, a flag's value is missing or malformed, or an
+    ///     Thrown when <c>--stt-model</c> is missing, a flag's value is missing or malformed, or an
     ///     unsupported argument is given.
     /// </exception>
     internal static RecognizeOptions ParseArguments(IReadOnlyList<string> args)
@@ -453,8 +453,8 @@ internal static class RecognizeCommand
             var arg = args[index++];
             switch (arg)
             {
-                case "--model":
-                    modelId = RequireValue(args, ref index, "--model");
+                case "--stt-model":
+                    modelId = RequireValue(args, ref index, "--stt-model");
                     break;
 
                 case "--input":
@@ -465,8 +465,8 @@ internal static class RecognizeCommand
                     mic = true;
                     break;
 
-                case "--device":
-                    deviceName = RequireValue(args, ref index, "--device");
+                case "--capture-device":
+                    deviceName = RequireValue(args, ref index, "--capture-device");
                     break;
 
                 case "--silence-timeout":
@@ -477,9 +477,9 @@ internal static class RecognizeCommand
                     startTimeoutSeconds = RequireDoubleValue(args, ref index, "--start-timeout");
                     break;
 
-                case "--param":
-                    var token = RequireValue(args, ref index, "--param");
-                    rawParameters.Add(ParameterBagParser.ParseToken(token));
+                case "--stt-param":
+                    var token = RequireValue(args, ref index, "--stt-param");
+                    rawParameters.Add(ParameterBagParser.ParseToken(token, "--stt-param"));
                     break;
 
                 case "--interim":
@@ -490,8 +490,8 @@ internal static class RecognizeCommand
                     finalOnly = true;
                     break;
 
-                case "--output":
-                    outputPath = RequireValue(args, ref index, "--output");
+                case "--output-text":
+                    outputPath = RequireValue(args, ref index, "--output-text");
                     break;
 
                 default:
@@ -501,7 +501,7 @@ internal static class RecognizeCommand
 
         if (modelId is null)
         {
-            throw new ArgumentException("recognize requires a --model <id> argument.", nameof(args));
+            throw new ArgumentException("recognize requires a --stt-model <id> argument.", nameof(args));
         }
 
         return new RecognizeOptions(
@@ -559,10 +559,10 @@ internal static class RecognizeCommand
     ///     <paramref name="SilenceTimeoutSeconds"/>'s value. Only consulted when
     ///     <paramref name="SilenceTimeoutSeconds"/> is also given, in mic mode.
     /// </param>
-    /// <param name="RawParameters">The raw, unresolved <c>--param key=value</c> tokens, in the order given.</param>
+    /// <param name="RawParameters">The raw, unresolved <c>--stt-param key=value</c> tokens, in the order given.</param>
     /// <param name="InterimOnly">Whether <c>--interim</c> was given.</param>
     /// <param name="FinalOnly">Whether <c>--final-only</c> was given.</param>
-    /// <param name="OutputPath">The text output path supplied via <c>--output</c>, or <see langword="null"/> for console-only output.</param>
+    /// <param name="OutputPath">The text output path supplied via <c>--output-text</c>, or <see langword="null"/> for console-only output.</param>
     internal sealed record RecognizeOptions(
         string ModelId,
         string? InputPath,

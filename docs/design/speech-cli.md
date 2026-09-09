@@ -18,7 +18,9 @@ depend on it.
 This pass delivers only the tool's scaffolding: process entry point, global-option and subcommand
 dispatch, self-validation, and .NET global tool packaging. It recognizes all ten planned
 subcommand names for `--help` purposes; all ten subcommands are implemented as of the
-RecognitionCommandSubsystem pass described below.
+RecognitionCommandSubsystem pass described below. An eleventh subcommand, `ask`, was added after
+all ten scaffolded subcommands were implemented, described in the ConversationCommandSubsystem
+section below.
 
 ### Global Options and Subcommand Dispatch
 
@@ -69,15 +71,24 @@ This pass adds **RecognitionCommandSubsystem**, covering the one speech-to-text 
 to the synthesis pair, rather than introducing a second, competing seam. See _SpeechCli
 RecognitionCommandSubsystem Design_ for its full design.
 
+### ConversationCommandSubsystem
+
+This pass adds **ConversationCommandSubsystem**, covering the one voice-conversation subcommand -
+`ask` - which speaks a prompt and then listens for the reply, combining `speak`'s synthesis-then-
+play flow and `recognize --mic`'s mic-listen flow into a single invocation. It introduces no new
+`ICliModelCatalog` seam member: it reuses `SynthesisCommandSubsystem`'s `CreateSynthesizer` and
+`RecognitionCommandSubsystem`'s `CreateRecognizer` members exactly as `speak` and `recognize`
+already do individually. See _SpeechCli ConversationCommandSubsystem Design_ for its full design.
+
 ### Subcommand Dispatch Table
 
 `CommandDispatch` defines the fixed, ordered set of subcommands SpeechCli recognizes:
 `list-models`, `model-info`, `download`, `uninstall`, `clean`, `list-devices`, `devices`,
-`doctor`, `speak`, and `recognize`. Each entry pairs the subcommand's canonical name with a
-one-line usage summary (shown by `--help`) and a handler delegate. As of this pass, all ten
+`doctor`, `speak`, `recognize`, and `ask`. Each entry pairs the subcommand's canonical name with a
+one-line usage summary (shown by `--help`) and a handler delegate. As of this pass, all eleven
 subcommands' handlers are the real `ModelCommandsSubsystem`/`DeviceCommandsSubsystem`/
-`SynthesisCommandSubsystem`/`RecognitionCommandSubsystem` implementations described above - no
-subcommand handler remains a `NotImplementedException` stub.
+`SynthesisCommandSubsystem`/`RecognitionCommandSubsystem`/`ConversationCommandSubsystem`
+implementations described above - no subcommand handler remains a `NotImplementedException` stub.
 
 ## External Interfaces
 

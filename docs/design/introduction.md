@@ -360,7 +360,7 @@ src/DemaConsulting.Speech.Cli/
 ├── Cli/
 │   ├── Context.cs                             — Global-option parsing and per-invocation state
 │   ├── CommandDispatch.cs                     — Fixed subcommand name-to-handler dispatch table
-│   └── ParameterBagParser.cs                  — Shared `--param key=value` parsing/validation
+│   └── ParameterBagParser.cs                  — Shared `--tts-param`/`--stt-param key=value` parsing/validation
 ├── SelfTest/
 │   └── Validation.cs                          — CI-safe `--validate` self-check implementation
 ├── Utilities/

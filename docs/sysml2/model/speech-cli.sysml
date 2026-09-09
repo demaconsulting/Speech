@@ -16,7 +16,11 @@ package SpeechCli {
      * last remaining stub (recognize) with real behavior, and extends
      * ModelCommandsSubsystem's ICliModelCatalog seam with two further members
      * (GetAudioFormat, CreateRecognizer) symmetric to the synthesis pair - all ten
-     * subcommands are now implemented.
+     * subcommands are now implemented. Pass 7 adds the ConversationCommandSubsystem,
+     * an eleventh subcommand (ask) that speaks a prompt and then listens for the
+     * reply, combining the synthesis and recognition passes' own CreateSynthesizer/
+     * CreateRecognizer seam members into one invocation with no new seam member of
+     * its own.
      */
 
     part def SpeechCliSystem {
@@ -31,5 +35,6 @@ package SpeechCli {
         part deviceCommandsSubsystem : DeviceCommandsSubsystem;
         part synthesisCommandSubsystem : SynthesisCommandSubsystem;
         part recognitionCommandSubsystem : RecognitionCommandSubsystem;
+        part conversationCommandSubsystem : ConversationCommandSubsystem;
     }
 }
