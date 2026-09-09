@@ -16,12 +16,12 @@ package SpeechCli {
 
     part def RecognizeCommand {
         doc /* Implements recognize: resolves exactly one of --input/--mic, resolves and
-             * validates the requested recognition model, validates --param values via
+             * validates the requested recognition model, validates --stt-param values via
              * the reused ParameterBagParser, drives file-input mode to completion via
              * the capture device's own EndOfFileReached event (reentrant Stop()), wires
              * mic-input mode to Ctrl+C and an optional SilenceTimeoutRecognizerSession,
              * filters console output per --interim/--final-only, writes only final
-             * results to --output, and disposes the recognizer (and silence-timeout
+             * results to --output-text, and disposes the recognizer (and silence-timeout
              * session, when present) on every exit path. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech.Cli/Commands/RecognitionCommandSubsystem/RecognizeCommand.cs */

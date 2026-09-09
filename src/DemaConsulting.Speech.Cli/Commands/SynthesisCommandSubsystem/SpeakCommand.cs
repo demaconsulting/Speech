@@ -30,12 +30,12 @@ namespace DemaConsulting.Speech.Cli.Commands.SynthesisCommandSubsystem;
 /// <summary>
 ///     Implements the <c>speak</c> subcommand: synthesizes text (supplied via <c>--text</c>,
 ///     <c>--file</c>, or piped stdin) through a known, installed synthesis model, either playing
-///     it back on a real audio device or writing it to a WAV file via <c>--output</c>.
+///     it back on a real audio device or writing it to a WAV file via <c>--output-audio</c>.
 /// </summary>
 /// <remarks>
 ///     <para>
-///     <c>--device</c> is documented, and enforced by construction, to be ignored when
-///     <c>--output</c> is given: an explicit file destination unambiguously wins over the
+///     <c>--playback-device</c> is documented, and enforced by construction, to be ignored when
+///     <c>--output-audio</c> is given: an explicit file destination unambiguously wins over the
 ///     playback device selection, and no error is raised for supplying both.
 ///     </para>
 ///     <para>
@@ -46,6 +46,11 @@ namespace DemaConsulting.Speech.Cli.Commands.SynthesisCommandSubsystem;
 /// </remarks>
 internal static class SpeakCommand
 {
+    /// <summary>
+    ///     The repeatable flag used to set a TTS model parameter.
+    /// </summary>
+    private const string TtsParamFlag = "--tts-param";
+
     /// <summary>
     ///     Runs the <c>speak</c> subcommand against a real, composed
     ///     <see cref="SpeechModelCatalogAdapter"/> and <see cref="AudioDeviceFactory"/>, wiring
@@ -117,9 +122,9 @@ internal static class SpeakCommand
     /// </exception>
     /// <exception cref="ArgumentException">
     ///     Thrown for any usage error: missing/unknown/wrong-role/not-downloaded model, conflicting
-    ///     or missing text source, malformed/invalid <c>--param</c> value, or unknown <c>--device</c>.
+    ///     or missing text source, malformed/invalid <c>--tts-param</c> value, or unknown <c>--playback-device</c>.
     /// </exception>
-    /// <exception cref="InvalidOperationException">Thrown when no real playback device is available and <c>--output</c> was not given.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when no real playback device is available and <c>--output-audio</c> was not given.</exception>
     internal static async Task RunAsync(
         Context context,
         ICliModelCatalog catalog,
@@ -142,7 +147,7 @@ internal static class SpeakCommand
         }
 
         var descriptor = ResolveModel(catalog, options.ModelId);
-        var parameterValues = ParameterBagParser.Resolve(options.RawParameters, descriptor.Model.Parameters);
+        var parameterValues = ParameterBagParser.Resolve(options.RawParameters, descriptor.Model.Parameters, TtsParamFlag);
 
         var playbackDevice = ResolvePlaybackDevice(catalog, deviceSource, descriptor, options);
         try
@@ -171,7 +176,7 @@ internal static class SpeakCommand
         {
             // IAudioPlaybackDevice itself does not declare IDisposable (a real PortAudio-backed
             // device manages its own native stream lifecycle entirely through Start()/Stop()),
-            // but WavFileAudioPlaybackDevice - used for --output - additionally implements
+            // but WavFileAudioPlaybackDevice - used for --output-audio - additionally implements
             // IDisposable to finalize its RIFF header; disposing it here (via the conditional
             // cast) is required, and is a safe no-op for any device that does not implement it.
             (playbackDevice as IDisposable)?.Dispose();
@@ -180,8 +185,8 @@ internal static class SpeakCommand
 
     /// <summary>
     ///     Resolves the playback device for this session: a <see cref="WavFileAudioPlaybackDevice"/>
-    ///     sized from the model's preferred audio format when <c>--output</c> was given, otherwise
-    ///     a real device resolved from <paramref name="deviceSource"/> (honoring <c>--device</c>).
+    ///     sized from the model's preferred audio format when <c>--output-audio</c> was given, otherwise
+    ///     a real device resolved from <paramref name="deviceSource"/> (honoring <c>--playback-device</c>).
     /// </summary>
     private static IAudioPlaybackDevice ResolvePlaybackDevice(
         ICliModelCatalog catalog,
@@ -203,7 +208,7 @@ internal static class SpeakCommand
         {
             throw new InvalidOperationException(
                 "No audio playback device is available on this machine; cannot run 'speak'. " +
-                "Use --output to write to a WAV file instead.");
+                "Use --output-audio to write to a WAV file instead.");
         }
 
         return device;
@@ -297,11 +302,11 @@ internal static class SpeakCommand
             .Select(span => span.Text));
 
     /// <summary>
-    ///     Parses <c>speak</c>'s own arguments: <c>--model</c>, <c>--text</c>, <c>--file</c>,
-    ///     <c>--output</c>, <c>--device</c>, <c>--no-tags</c>, and repeatable <c>--param key=value</c>.
+    ///     Parses <c>speak</c>'s own arguments: <c>--tts-model</c>, <c>--text</c>, <c>--file</c>,
+    ///     <c>--output-audio</c>, <c>--playback-device</c>, <c>--no-tags</c>, and repeatable <c>--tts-param key=value</c>.
     /// </summary>
     /// <exception cref="ArgumentException">
-    ///     Thrown when <c>--model</c> is missing, a flag's value is missing, or an unsupported
+    ///     Thrown when <c>--tts-model</c> is missing, a flag's value is missing, or an unsupported
     ///     argument is given.
     /// </exception>
     internal static SpeakOptions ParseArguments(IReadOnlyList<string> args)
@@ -322,8 +327,8 @@ internal static class SpeakCommand
             var arg = args[index++];
             switch (arg)
             {
-                case "--model":
-                    modelId = RequireValue(args, ref index, "--model");
+                case "--tts-model":
+                    modelId = RequireValue(args, ref index, "--tts-model");
                     break;
 
                 case "--text":
@@ -334,21 +339,21 @@ internal static class SpeakCommand
                     filePath = RequireValue(args, ref index, "--file");
                     break;
 
-                case "--output":
-                    outputPath = RequireValue(args, ref index, "--output");
+                case "--output-audio":
+                    outputPath = RequireValue(args, ref index, "--output-audio");
                     break;
 
-                case "--device":
-                    deviceName = RequireValue(args, ref index, "--device");
+                case "--playback-device":
+                    deviceName = RequireValue(args, ref index, "--playback-device");
                     break;
 
                 case "--no-tags":
                     noTags = true;
                     break;
 
-                case "--param":
-                    var token = RequireValue(args, ref index, "--param");
-                    rawParameters.Add(ParameterBagParser.ParseToken(token));
+                case TtsParamFlag:
+                    var token = RequireValue(args, ref index, TtsParamFlag);
+                    rawParameters.Add(ParameterBagParser.ParseToken(token, TtsParamFlag));
                     break;
 
                 default:
@@ -358,7 +363,7 @@ internal static class SpeakCommand
 
         if (modelId is null)
         {
-            throw new ArgumentException("speak requires a --model <id> argument.", nameof(args));
+            throw new ArgumentException("speak requires a --tts-model <id> argument.", nameof(args));
         }
 
         return new SpeakOptions(modelId, text, filePath, outputPath, deviceName, noTags, rawParameters);
@@ -382,10 +387,10 @@ internal static class SpeakCommand
     /// <param name="ModelId">The requested model id (required).</param>
     /// <param name="Text">The text supplied via <c>--text</c>, or <see langword="null"/>.</param>
     /// <param name="FilePath">The file path supplied via <c>--file</c>, or <see langword="null"/>.</param>
-    /// <param name="OutputPath">The WAV output path supplied via <c>--output</c>, or <see langword="null"/> for real playback.</param>
+    /// <param name="OutputPath">The WAV output path supplied via <c>--output-audio</c>, or <see langword="null"/> for real playback.</param>
     /// <param name="DeviceName">The requested playback device name, or <see langword="null"/> for the system default. Ignored when <paramref name="OutputPath"/> is not <see langword="null"/>.</param>
     /// <param name="NoTags">Whether <c>--no-tags</c> was given.</param>
-    /// <param name="RawParameters">The raw, unresolved <c>--param key=value</c> tokens, in the order given.</param>
+    /// <param name="RawParameters">The raw, unresolved <c>--tts-param key=value</c> tokens, in the order given.</param>
     internal sealed record SpeakOptions(
         string ModelId,
         string? Text,

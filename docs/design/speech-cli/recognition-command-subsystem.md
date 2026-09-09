@@ -7,9 +7,9 @@ The RecognitionCommandSubsystem implements the one speech-to-text subcommand dis
 types and extends `ModelCommandsSubsystem`'s existing catalog seam with two further members:
 
 - **`RecognizeCommand`**: implements
-  `recognize --model <id> (--input <wav-path> | --mic) [--device <name>]
-  [--silence-timeout <seconds>] [--start-timeout <seconds>] [--param key=value ...]
-  [--interim | --final-only] [--output <text-path>]`
+  `recognize --stt-model <id> (--input <wav-path> | --mic) [--capture-device <name>]
+  [--silence-timeout <seconds>] [--start-timeout <seconds>] [--stt-param key=value ...]
+  [--interim | --final-only] [--output-text <text-path>]`
 - **`SilenceTimeoutRecognizerSession`**: a two-phase idle-timeout observer for mic-mode sessions,
   arming its timer with a start-timeout grace period before the first recognition result and a
   silence-timeout window (resetting on every result) thereafter, stopping the recognizer when the
@@ -41,16 +41,16 @@ retained for the same defensive reason `SpeakCommand`'s pass documented.
 `SpeechRecognizerFactory.Create(IRecognitionModel, SpeechModelCatalog, IAudioCaptureDevice,
 ISpeechDiagnostics?, IReadOnlyDictionary<string,object>?)` overload.
 
-This keeps `RecognizeCommand`'s own logic - argument parsing, input-source resolution, `--param`
+This keeps `RecognizeCommand`'s own logic - argument parsing, input-source resolution, `--stt-param`
 validation, verbosity filtering, capture device dispatch, disposal ordering, cancellation - fully
 unit-testable against `FakeCliModelCatalog`'s delegate overrides for the two new members, with no
 dependency on `IRecognitionModel` anywhere in the test project.
 
 ### RecognizeCommand
 
-Parses its own flags (`--model`, `--input`, `--mic`, `--device`, `--silence-timeout`,
-`--start-timeout`, repeatable `--param`, `--interim`, `--final-only`, `--output`) via the same
-hand-rolled loop style as every other command in this tool, requiring `--model` and rejecting an
+Parses its own flags (`--stt-model`, `--input`, `--mic`, `--capture-device`, `--silence-timeout`,
+`--start-timeout`, repeatable `--stt-param`, `--interim`, `--final-only`, `--output-text`) via the same
+hand-rolled loop style as every other command in this tool, requiring `--stt-model` and rejecting an
 unsupported argument or a value-less flag with `ArgumentException`. `--silence-timeout` and
 `--start-timeout` each additionally require a positive number of seconds when given.
 `--start-timeout` follows `--silence-timeout`'s own existing "inert without `--mic`" convention:
@@ -59,17 +59,17 @@ it parses and validates as its own positive-number flag but is only ever consult
 validator rejects `--start-timeout` given without `--silence-timeout` or `--mic`.
 
 **Validation ordering mirrors `SpeakCommand`'s own verified ordering exactly**: parse-time
-`--param` token shape is validated inline as each token is parsed; input-source mutual exclusion
+`--stt-param` token shape is validated inline as each token is parsed; input-source mutual exclusion
 (`--input`/`--mic`) is checked first among the semantic validations, then `--interim`/
 `--final-only` mutual exclusion, then model resolution. A cheap, input-independent usage mistake
 is reported before an unrelated "unknown model id" error whenever both happen to be present in
 the same invocation.
 
-**Model resolution** looks up the requested `--model <id>` in `catalog.Enumerate()`, throwing a
+**Model resolution** looks up the requested `--stt-model <id>` in `catalog.Enumerate()`, throwing a
 user-facing `ArgumentException` for the same three distinct failure modes `SpeakCommand`
 established: an id absent from the catalog entirely (suggesting `list-models`), an id present but
 with the wrong role (suggesting `list-models --role stt`), and an id present with the recognition
-role but not yet downloaded (suggesting `download <modelId>` by name). Once resolved, `--param`
+role but not yet downloaded (suggesting `download <modelId>` by name). Once resolved, `--stt-param`
 values are validated against the resolved model's own declared parameters, reusing
 `ParameterBagParser.Resolve` unmodified from the synthesis pass.
 
@@ -98,10 +98,10 @@ result arrives, then re-arms with `--silence-timeout` for every result from the 
 giving the user a separate, typically longer grace period to start speaking without weakening the
 brief end-of-utterance pause `--silence-timeout` alone controls. `Ctrl+C`
 is wired to cooperative cancellation via `Console.CancelKeyPress`, exactly mirroring
-`SpeakCommand.Run`'s own subscribe/unsubscribe-in-try/finally pattern. `--device` resolves a real
+`SpeakCommand.Run`'s own subscribe/unsubscribe-in-try/finally pattern. `--capture-device` resolves a real
 capture device from the injected `AudioDeviceFactory`, reusing
 `DevicesTestCommand.ResolveDeviceSelectionOrThrow` (internal, same assembly, different namespace)
-to validate any requested `--device` name before a device is actually created, exactly mirroring
+to validate any requested `--capture-device` name before a device is actually created, exactly mirroring
 `devices test`'s and `speak`'s own validate-before-create pattern; an unavailable resolved device
 throws `InvalidOperationException` suggesting `--input` as an alternative.
 
@@ -118,12 +118,12 @@ recent write), so a hypothesis that later shrinks (e.g. "hello world" revised to
 pads over every stale trailing character from the longer prior write before repositioning the
 cursor, rather than leaving them visible on the line.
 
-**`--output <text-path>`** writes only final results to the file, one line each, flushed
+**`--output-text <text-path>`** writes only final results to the file, one line each, flushed
 immediately - interim results are a live-console-only concept and are never written to the file,
 regardless of `--interim`/`--final-only`'s effect on console output. The file is opened once with
-overwrite (not append) semantics, consistent with `speak --output`'s WAV semantics. `--device` is
+overwrite (not append) semantics, consistent with `speak --output-audio`'s WAV semantics. `--capture-device` is
 not rejected when given alongside `--input`: it is simply inert in that case (file mode never
-consults it), mirroring `speak`'s own documented precedent that `--device` is silently ignored,
+consults it), mirroring `speak`'s own documented precedent that `--capture-device` is silently ignored,
 not an error, when a file destination is also given.
 
 **Disposal.** Neither `IAudioCaptureDevice`, `WavFileAudioCaptureDevice`, nor the real

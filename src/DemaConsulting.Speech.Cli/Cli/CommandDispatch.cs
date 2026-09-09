@@ -18,6 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+using DemaConsulting.Speech.Cli.Commands.ConversationCommandSubsystem;
 using DemaConsulting.Speech.Cli.Commands.DeviceCommandsSubsystem;
 using DemaConsulting.Speech.Cli.Commands.ModelCommandsSubsystem;
 using DemaConsulting.Speech.Cli.Commands.RecognitionCommandSubsystem;
@@ -90,12 +91,16 @@ internal static class CommandDispatch
             DoctorCommand.Run),
         new CommandDescriptor(
             "speak",
-            "speak --model <id> (--text <string> | --file <path> | stdin) [--output <wav-path>] [--device <name>] [--param key=value...] [--no-tags]",
+            "speak --tts-model <id> (--text <string> | --file <path> | stdin) [--output-audio <wav-path>] [--playback-device <name>] [--tts-param key=value...] [--no-tags]",
             SpeakCommand.Run),
         new CommandDescriptor(
             "recognize",
-            "recognize --model <id> (--input <wav-path> | --mic) [--device <name>] [--silence-timeout <seconds>] [--start-timeout <seconds>] [--param key=value...] [--interim | --final-only] [--output <text-path>]",
-            RecognizeCommand.Run)
+            "recognize --stt-model <id> (--input <wav-path> | --mic) [--capture-device <name>] [--silence-timeout <seconds>] [--start-timeout <seconds>] [--stt-param key=value...] [--interim | --final-only] [--output-text <text-path>]",
+            RecognizeCommand.Run),
+        new CommandDescriptor(
+            "ask",
+            "ask --tts-model <id> --stt-model <id> (--text <string> | --file <path> | stdin) [--playback-device <name>] [--capture-device <name>] [--tts-param key=value...] [--stt-param key=value...] [--silence-timeout <seconds>] [--start-timeout <seconds>] [--output-text <text-path>]",
+            AskCommand.Run)
     ];
 
     /// <summary>

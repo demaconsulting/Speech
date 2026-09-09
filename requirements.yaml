@@ -84,6 +84,7 @@ includes:
   - docs/reqstream/speech-cli/device-commands-subsystem.yaml
   - docs/reqstream/speech-cli/synthesis-command-subsystem.yaml
   - docs/reqstream/speech-cli/recognition-command-subsystem.yaml
+  - docs/reqstream/speech-cli/conversation-command-subsystem.yaml
   - docs/reqstream/ots/port-audio-sharp2.yaml
   - docs/reqstream/ots/sherpa-onnx.yaml
   - docs/reqstream/ots/sharp-compress.yaml

@@ -19,8 +19,8 @@ sections:
             title: >-
               The tool shall stream speech-to-text results from exactly one of a pre-recorded
               mono WAV file (`--input <wav-path>`) or a real microphone (`--mic`), through a
-              known, downloaded recognition model named by `--model <id>`, when invoked with
-              `recognize`, rejecting a missing `--model`, an unknown/wrong-role/not-downloaded
+              known, downloaded recognition model named by `--stt-model <id>`, when invoked with
+              `recognize`, rejecting a missing `--stt-model`, an unknown/wrong-role/not-downloaded
               model id, or a conflicting/missing input source with a clean, actionable,
               non-zero-exit-code error rather than a stack trace.
             tags: [subsystem]
@@ -53,16 +53,16 @@ sections:
 
           - id: SpeechCli-RecognitionCommands-ParamValidation
             title: >-
-              The tool shall parse repeatable `--param key=value` flags and validate each value
-              against the resolved recognition model's own declared parameter set, reusing
-              `ParameterBagParser` unmodified from the SynthesisCommandSubsystem, forwarding the
+              The tool shall parse repeatable `--stt-param key=value` flags and validate each value
+              against the resolved recognition model's own declared parameter set, reusing the
+              shared `ParameterBagParser` from the SynthesisCommandSubsystem, forwarding the
               fully-resolved parameter bag to `CreateRecognizer`.
             tags: [subsystem]
             justification: |
               Recognition models declare tunable parameters exactly as synthesis models do (e.g.
               decoding beam width); reusing the existing, already-verified `ParameterBagParser`
               rather than duplicating its validation logic keeps a single source of truth for
-              `--param` semantics across both `speak` and `recognize`.
+              `--stt-param` semantics across both `speak` and `recognize`.
             tests:
               - RecognizeCommand_ParseArguments_RepeatedParamFlags_AccumulatesInOrder
               - RecognizeCommand_Run_ValidParam_ForwardsToCreateRecognizer
@@ -149,13 +149,13 @@ sections:
               interim result overwritten in place, a final result settled on its own line); shall,
               given `--interim`, print only interim results; shall, given `--final-only`, print
               only final results; shall reject supplying both `--interim` and `--final-only`
-              together; and shall, given `--output <text-path>`, write only final results to the
+              together; and shall, given `--output-text <text-path>`, write only final results to the
               file, one per line, overwriting any prior file content, regardless of the console
               verbosity flags' effect on console output.
             tags: [subsystem]
             justification: |
               A live console benefits from seeing an evolving interim hypothesis, but a scripted
-              consumer of `--output` needs a stable, append-free record of only the settled,
+              consumer of `--output-text` needs a stable, append-free record of only the settled,
               final transcript - conflating the two would either clutter a script's output file
               with never-finalized partial guesses or deny an interactive operator useful
               real-time feedback.
@@ -172,7 +172,7 @@ sections:
           - id: SpeechCli-RecognitionCommands-DeviceDispatch
             title: >-
               The tool shall, in `--mic` mode, resolve and validate a real capture device
-              (honoring `--device` when given), rejecting an unknown device name or an
+              (honoring `--capture-device` when given), rejecting an unknown device name or an
               unavailable resolved device with a clean, non-zero-exit-code error rather than a
               stack trace.
             tags: [subsystem]

@@ -19,8 +19,8 @@ sections:
             title: >-
               The tool shall synthesize speech from text supplied via exactly one of `--text
               <string>`, `--file <path>`, or piped stdin, through a known, downloaded synthesis
-              model named by `--model <id>`, when invoked with `speak`, rejecting a missing
-              `--model`, an unknown/wrong-role/not-downloaded model id, or a conflicting/missing
+              model named by `--tts-model <id>`, when invoked with `speak`, rejecting a missing
+              `--tts-model`, an unknown/wrong-role/not-downloaded model id, or a conflicting/missing
               text source with a clean, actionable, non-zero-exit-code error rather than a stack
               trace.
             tags: [subsystem]
@@ -50,7 +50,7 @@ sections:
 
           - id: SpeechCli-SynthesisCommands-ParamValidation
             title: >-
-              The tool shall parse repeatable `--param key=value` flags and validate each value
+              The tool shall parse repeatable `--tts-param key=value` flags and validate each value
               against the resolved model's own declared parameter set - a numeric range and
               integer-only constraint for a `NumericParameter`, a declared option match for a
               `ChoiceParameter`, and `true`/`false` for a `BooleanParameter` - rejecting a
@@ -60,7 +60,7 @@ sections:
             tags: [subsystem]
             justification: |
               Every synthesis model declares its own tunable parameters with its own valid
-              ranges/options; validating `--param` against that declared set before synthesis
+              ranges/options; validating `--tts-param` against that declared set before synthesis
               starts catches an operator typo or out-of-range value immediately, rather than
               having it silently ignored (or fail deep inside the synthesis engine) minutes into
               a run. An unrecognized key is deliberately rejected here even though the library's
@@ -107,14 +107,14 @@ sections:
           - id: SpeechCli-SynthesisCommands-OutputDispatch
             title: >-
               The tool shall write synthesized audio to a WAV file sized from the resolved
-              model's preferred audio format when `--output <path>` is given (ignoring any
-              `--device` given alongside it), and shall otherwise resolve and validate a real
-              playback device (honoring `--device` when given), rejecting an unknown device name
+              model's preferred audio format when `--output-audio <path>` is given (ignoring any
+              `--playback-device` given alongside it), and shall otherwise resolve and validate a real
+              playback device (honoring `--playback-device` when given), rejecting an unknown device name
               or an unavailable resolved device with a clean, non-zero-exit-code error rather than
               a stack trace.
             tags: [subsystem]
             justification: |
-              `--output` unambiguously indicates the operator wants a file, not real playback, so
+              `--output-audio` unambiguously indicates the operator wants a file, not real playback, so
               silently requiring the two to agree (or erroring when both are given) would be an
               unnecessary usability trap; validating an unknown/unavailable real device before
               any synthesis is attempted avoids a partially-synthesized, undeliverable session.

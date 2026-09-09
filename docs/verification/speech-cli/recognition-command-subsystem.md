@@ -71,7 +71,7 @@ adding a cross-project `.csproj` content-copy item.
 `SpeechCli_RecognizeCommandWithRealSttModel_Invoked_ProducesNonEmptyRecognizedText`,
 `Program_Run_WithRecognizeCommand_DoesNotThrowNotImplemented`
 
-**Scenario/Expected**: A missing `--model`, an unsupported argument, or a value-less flag are all
+**Scenario/Expected**: A missing `--stt-model`, an unsupported argument, or a value-less flag are all
 rejected with `ArgumentException`; `--input`/`--mic` each parse correctly; supplying both
 `--input` and `--mic`, or neither, throws `ArgumentException` before the model id is even looked
 up; an unknown model id, a wrong-role model id, and a not-yet-downloaded model id are each
@@ -84,14 +84,14 @@ dispatched - the last of all 10 subcommands to reach that state.
 
 **Requirement coverage**: `SpeechCli-RecognitionCommands-Recognize`.
 
-#### `--param` Validation Reuse
+#### `--stt-param` Validation Reuse
 
 **Tests**: `RecognizeCommand_ParseArguments_RepeatedParamFlags_AccumulatesInOrder`,
 `RecognizeCommand_Run_ValidParam_ForwardsToCreateRecognizer`,
 `RecognizeCommand_Run_InvalidParam_ThrowsArgumentException`
 
-**Scenario/Expected**: Repeated `--param` flags accumulate in the order given and are forwarded,
-fully resolved via the unmodified `ParameterBagParser`, to `CreateRecognizer`'s `parameterValues`
+**Scenario/Expected**: Repeated `--stt-param` flags accumulate in the order given and are forwarded,
+fully resolved via the shared `ParameterBagParser`, to `CreateRecognizer`'s `parameterValues`
 argument; an invalid value for a declared parameter is rejected before any recognizer is created.
 Full `ParameterBagParser` scenario coverage (numeric range/integer checks, choice matching,
 boolean parsing, unrecognized-key rejection) already lives in
@@ -166,7 +166,7 @@ non-positive `startTimeout` is rejected at construction exactly like a non-posit
 
 **Requirement coverage**: `SpeechCli-RecognitionCommands-StartTimeout`.
 
-#### `--interim`/`--final-only`/`--output` Filtering and Writing
+#### `--interim`/`--final-only`/`--output-text` Filtering and Writing
 
 **Tests**: `RecognizeCommand_ParseArguments_InterimAndFinalOnlyFlags_ParseTrue`,
 `RecognizeCommand_ParseArguments_OutputFlag_ParsesOutputPath`,
@@ -180,7 +180,7 @@ non-positive `startTimeout` is rejected at construction exactly like a non-posit
 `ArgumentException`; by default both an interim and a final result are printed to the console;
 `--final-only` suppresses interim console output while still printing final results;
 `--interim` suppresses the final "settle" console output while still printing interim results;
-`--output <path>` writes only final results, one per line, to the file - never interim results -
+`--output-text <path>` writes only final results, one per line, to the file - never interim results -
 overwriting any prior file content, regardless of the console verbosity flags in effect.
 
 **Requirement coverage**: `SpeechCli-RecognitionCommands-VerbosityAndOutput`.
@@ -190,7 +190,7 @@ overwriting any prior file content, regardless of the console verbosity flags in
 **Tests**: `RecognizeCommand_Run_UnknownDevice_ThrowsArgumentException`,
 `RecognizeCommand_Run_NoCaptureDeviceAvailable_ThrowsInvalidOperationException`
 
-**Scenario/Expected**: Requesting an unrecognized `--device` name in `--mic` mode throws
+**Scenario/Expected**: Requesting an unrecognized `--capture-device` name in `--mic` mode throws
 `ArgumentException` before any device is created; an unavailable resolved real capture device
 throws `InvalidOperationException` suggesting `--input` as an alternative.
 
@@ -230,7 +230,7 @@ missing dependency.
 
 - **`SpeechCli-RecognitionCommands-Recognize`**: see _RecognizeCommand — Input Source, Model
   Resolution, and Argument Parsing_ above
-- **`SpeechCli-RecognitionCommands-ParamValidation`**: see _`--param` Validation Reuse_ above
+- **`SpeechCli-RecognitionCommands-ParamValidation`**: see _`--stt-param` Validation Reuse_ above
 - **`SpeechCli-RecognitionCommands-FileInputEofDrivenStop`**: see _File-Input EOF-Driven Stop
   Flow_ above
 - **`SpeechCli-RecognitionCommands-SilenceTimeout`**: see _Silence Timeout
@@ -238,7 +238,7 @@ missing dependency.
 - **`SpeechCli-RecognitionCommands-StartTimeout`**: see _Start Timeout (Two-Phase Idle Window)_
   above
 - **`SpeechCli-RecognitionCommands-VerbosityAndOutput`**: see _`--interim`/`--final-only`/
-  `--output` Filtering and Writing_ above
+  `--output-text` Filtering and Writing_ above
 - **`SpeechCli-RecognitionCommands-DeviceDispatch`**: see _Capture Device Dispatch_ above
 - **`SpeechCli-RecognitionCommands-CatalogSeamExtension`**: see _ICliModelCatalog Seam Extension
   (Real Catalog)_ above
@@ -247,13 +247,13 @@ missing dependency.
 ### Acceptance Criteria
 
 A RecognitionCommandSubsystem test run passes when: `recognize` correctly enforces input-source
-mutual exclusion and reports actionable model-resolution errors; `--param` values are forwarded
+mutual exclusion and reports actionable model-resolution errors; `--stt-param` values are forwarded
 through the reused `ParameterBagParser`; file-input mode drives a real capture device to
 completion and stops the recognizer reentrantly via `EndOfFileReached` with no added wait;
 silence-timeout logic resets and fires deterministically against a fake time provider;
 `--start-timeout` correctly arms the two-phase idle window (start-timeout before the first
 result, silence-timeout thereafter) deterministically against a fake time provider;
-`--interim`/`--final-only`/`--output` each filter/write exactly as specified; an unknown/
+`--interim`/`--final-only`/`--output-text` each filter/write exactly as specified; an unknown/
 unavailable capture device is rejected cleanly; the two new `ICliModelCatalog` seam members
 correctly reject a non-recognition model against a real catalog; every entry point rejects a
 missing required dependency; and, when a real downloaded speech-to-text model is present, a real
@@ -270,13 +270,13 @@ network-isolated CI runner that has never run `download`), that one test skips c
 nothing, rather than failing or fabricating a pass) and the following becomes a manual/local
 verification step instead:
 
-- `dotnet run --project src/DemaConsulting.Speech.Cli -- recognize --model <id> --input
+- `dotnet run --project src/DemaConsulting.Speech.Cli -- recognize --stt-model <id> --input
   test/DemaConsulting.Speech.Tests/TestData/crossing-the-bar-16k-mono.wav`, run against a real,
   downloaded recognition model, prints non-empty recognized text and exits cleanly
-- `recognize --model <id> --mic --silence-timeout <seconds>`, run on a machine with a real
+- `recognize --stt-model <id> --mic --silence-timeout <seconds>`, run on a machine with a real
   microphone, prints live interim/final results while speaking and ends the session automatically
   after the configured idle window once speech stops
-- `recognize --model <id> --mic --silence-timeout <seconds> --start-timeout <seconds>`, run on a
+- `recognize --stt-model <id> --mic --silence-timeout <seconds> --start-timeout <seconds>`, run on a
   machine with a real microphone, waits up to the `--start-timeout` grace period for speech to
   begin (verified by staying silent past `--silence-timeout`'s own, shorter value without the
   session ending early) and then, once speech has started, ends the session automatically after

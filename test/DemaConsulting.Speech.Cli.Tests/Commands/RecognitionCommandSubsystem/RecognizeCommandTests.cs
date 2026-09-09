@@ -85,7 +85,7 @@ public sealed class RecognizeCommandTests
 
     // --- ParseArguments ---
 
-    /// <summary>Test that --model is required.</summary>
+    /// <summary>Test that --stt-model is required.</summary>
     [Fact]
     public void RecognizeCommand_ParseArguments_MissingModel_ThrowsArgumentException()
     {
@@ -96,7 +96,7 @@ public sealed class RecognizeCommandTests
     [Fact]
     public void RecognizeCommand_ParseArguments_InputFlag_ParsesInputPath()
     {
-        var options = RecognizeCommand.ParseArguments(["--model", "model-1", "--input", "in.wav"]);
+        var options = RecognizeCommand.ParseArguments(["--stt-model", "model-1", "--input", "in.wav"]);
 
         Assert.Equal("model-1", options.ModelId);
         Assert.Equal("in.wav", options.InputPath);
@@ -107,17 +107,17 @@ public sealed class RecognizeCommandTests
     [Fact]
     public void RecognizeCommand_ParseArguments_MicFlag_ParsesTrue()
     {
-        var options = RecognizeCommand.ParseArguments(["--model", "model-1", "--mic"]);
+        var options = RecognizeCommand.ParseArguments(["--stt-model", "model-1", "--mic"]);
 
         Assert.True(options.Mic);
     }
 
-    /// <summary>Test that repeatable --param tokens accumulate in order.</summary>
+    /// <summary>Test that repeatable --stt-param tokens accumulate in order.</summary>
     [Fact]
     public void RecognizeCommand_ParseArguments_RepeatedParamFlags_AccumulatesInOrder()
     {
         var options = RecognizeCommand.ParseArguments(
-            ["--model", "model-1", "--mic", "--param", "beam=2", "--param", "lang=en"]);
+            ["--stt-model", "model-1", "--mic", "--stt-param", "beam=2", "--stt-param", "lang=en"]);
 
         Assert.Equal([("beam", "2"), ("lang", "en")], options.RawParameters);
     }
@@ -127,7 +127,7 @@ public sealed class RecognizeCommandTests
     public void RecognizeCommand_ParseArguments_SilenceTimeoutFlag_ParsesSeconds()
     {
         var options = RecognizeCommand.ParseArguments(
-            ["--model", "model-1", "--mic", "--silence-timeout", "2.5"]);
+            ["--stt-model", "model-1", "--mic", "--silence-timeout", "2.5"]);
 
         Assert.Equal(2.5, options.SilenceTimeoutSeconds);
     }
@@ -137,7 +137,7 @@ public sealed class RecognizeCommandTests
     public void RecognizeCommand_ParseArguments_NonPositiveSilenceTimeout_ThrowsArgumentException()
     {
         Assert.Throws<ArgumentException>(() => RecognizeCommand.ParseArguments(
-            ["--model", "model-1", "--mic", "--silence-timeout", "0"]));
+            ["--stt-model", "model-1", "--mic", "--silence-timeout", "0"]));
     }
 
     /// <summary>Test that a malformed --silence-timeout throws.</summary>
@@ -145,7 +145,7 @@ public sealed class RecognizeCommandTests
     public void RecognizeCommand_ParseArguments_MalformedSilenceTimeout_ThrowsArgumentException()
     {
         Assert.Throws<ArgumentException>(() => RecognizeCommand.ParseArguments(
-            ["--model", "model-1", "--mic", "--silence-timeout", "not-a-number"]));
+            ["--stt-model", "model-1", "--mic", "--silence-timeout", "not-a-number"]));
     }
 
     /// <summary>Test that --start-timeout parses a positive number of seconds.</summary>
@@ -153,7 +153,7 @@ public sealed class RecognizeCommandTests
     public void RecognizeCommand_ParseArguments_StartTimeoutFlag_ParsesSeconds()
     {
         var options = RecognizeCommand.ParseArguments(
-            ["--model", "model-1", "--mic", "--silence-timeout", "5", "--start-timeout", "2.5"]);
+            ["--stt-model", "model-1", "--mic", "--silence-timeout", "5", "--start-timeout", "2.5"]);
 
         Assert.Equal(2.5, options.StartTimeoutSeconds);
     }
@@ -163,7 +163,7 @@ public sealed class RecognizeCommandTests
     public void RecognizeCommand_ParseArguments_StartTimeoutOmitted_DefaultsToNull()
     {
         var options = RecognizeCommand.ParseArguments(
-            ["--model", "model-1", "--mic", "--silence-timeout", "5"]);
+            ["--stt-model", "model-1", "--mic", "--silence-timeout", "5"]);
 
         Assert.Null(options.StartTimeoutSeconds);
     }
@@ -173,7 +173,7 @@ public sealed class RecognizeCommandTests
     public void RecognizeCommand_ParseArguments_NonPositiveStartTimeout_ThrowsArgumentException()
     {
         Assert.Throws<ArgumentException>(() => RecognizeCommand.ParseArguments(
-            ["--model", "model-1", "--mic", "--start-timeout", "0"]));
+            ["--stt-model", "model-1", "--mic", "--start-timeout", "0"]));
     }
 
     /// <summary>Test that a malformed --start-timeout throws.</summary>
@@ -181,15 +181,15 @@ public sealed class RecognizeCommandTests
     public void RecognizeCommand_ParseArguments_MalformedStartTimeout_ThrowsArgumentException()
     {
         Assert.Throws<ArgumentException>(() => RecognizeCommand.ParseArguments(
-            ["--model", "model-1", "--mic", "--start-timeout", "not-a-number"]));
+            ["--stt-model", "model-1", "--mic", "--start-timeout", "not-a-number"]));
     }
 
     /// <summary>Test that --interim and --final-only parse as flags.</summary>
     [Fact]
     public void RecognizeCommand_ParseArguments_InterimAndFinalOnlyFlags_ParseTrue()
     {
-        var interimOptions = RecognizeCommand.ParseArguments(["--model", "model-1", "--mic", "--interim"]);
-        var finalOnlyOptions = RecognizeCommand.ParseArguments(["--model", "model-1", "--mic", "--final-only"]);
+        var interimOptions = RecognizeCommand.ParseArguments(["--stt-model", "model-1", "--mic", "--interim"]);
+        var finalOnlyOptions = RecognizeCommand.ParseArguments(["--stt-model", "model-1", "--mic", "--final-only"]);
 
         Assert.True(interimOptions.InterimOnly);
         Assert.False(interimOptions.FinalOnly);
@@ -197,11 +197,11 @@ public sealed class RecognizeCommandTests
         Assert.False(finalOnlyOptions.InterimOnly);
     }
 
-    /// <summary>Test that --output parses into the options.</summary>
+    /// <summary>Test that --output-text parses into the options.</summary>
     [Fact]
     public void RecognizeCommand_ParseArguments_OutputFlag_ParsesOutputPath()
     {
-        var options = RecognizeCommand.ParseArguments(["--model", "model-1", "--mic", "--output", "out.txt"]);
+        var options = RecognizeCommand.ParseArguments(["--stt-model", "model-1", "--mic", "--output-text", "out.txt"]);
 
         Assert.Equal("out.txt", options.OutputPath);
     }
@@ -210,14 +210,14 @@ public sealed class RecognizeCommandTests
     [Fact]
     public void RecognizeCommand_ParseArguments_UnsupportedArgument_ThrowsArgumentException()
     {
-        Assert.Throws<ArgumentException>(() => RecognizeCommand.ParseArguments(["--model", "model-1", "--bogus"]));
+        Assert.Throws<ArgumentException>(() => RecognizeCommand.ParseArguments(["--stt-model", "model-1", "--bogus"]));
     }
 
     /// <summary>Test that a flag missing its value throws.</summary>
     [Fact]
     public void RecognizeCommand_ParseArguments_FlagMissingValue_ThrowsArgumentException()
     {
-        Assert.Throws<ArgumentException>(() => RecognizeCommand.ParseArguments(["--model"]));
+        Assert.Throws<ArgumentException>(() => RecognizeCommand.ParseArguments(["--stt-model"]));
     }
 
     // --- Input-source mutual exclusion ---
@@ -228,7 +228,7 @@ public sealed class RecognizeCommandTests
     {
         var catalog = CreateCatalogWithModel();
         var factory = new AudioDeviceFactory(captureProbe: new FakeAudioCaptureDeviceProbe());
-        using var context = Context.Create(["recognize", "--model", "model-1", "--input", "in.wav", "--mic"]);
+        using var context = Context.Create(["recognize", "--stt-model", "model-1", "--input", "in.wav", "--mic"]);
 
         Assert.Throws<ArgumentException>(() => RecognizeCommand.Run(context, catalog, factory));
     }
@@ -239,7 +239,7 @@ public sealed class RecognizeCommandTests
     {
         var catalog = CreateCatalogWithModel();
         var factory = new AudioDeviceFactory(captureProbe: new FakeAudioCaptureDeviceProbe());
-        using var context = Context.Create(["recognize", "--model", "model-1"]);
+        using var context = Context.Create(["recognize", "--stt-model", "model-1"]);
 
         Assert.Throws<ArgumentException>(() => RecognizeCommand.Run(context, catalog, factory));
     }
@@ -253,7 +253,7 @@ public sealed class RecognizeCommandTests
         var catalog = CreateCatalogWithModel();
         var factory = new AudioDeviceFactory(captureProbe: new FakeAudioCaptureDeviceProbe());
         using var context = Context.Create(
-            ["recognize", "--model", "model-1", "--mic", "--interim", "--final-only"]);
+            ["recognize", "--stt-model", "model-1", "--mic", "--interim", "--final-only"]);
 
         Assert.Throws<ArgumentException>(() => RecognizeCommand.Run(context, catalog, factory));
     }
@@ -266,7 +266,7 @@ public sealed class RecognizeCommandTests
     {
         var catalog = new FakeCliModelCatalog();
         var factory = new AudioDeviceFactory(captureProbe: new FakeAudioCaptureDeviceProbe());
-        using var context = Context.Create(["recognize", "--model", "does-not-exist", "--mic"]);
+        using var context = Context.Create(["recognize", "--stt-model", "does-not-exist", "--mic"]);
 
         var exception = Assert.Throws<ArgumentException>(() => RecognizeCommand.Run(context, catalog, factory));
         Assert.Contains("does-not-exist", exception.Message);
@@ -278,7 +278,7 @@ public sealed class RecognizeCommandTests
     {
         var catalog = CreateCatalogWithModel(role: SpeechModelRole.Synthesis);
         var factory = new AudioDeviceFactory(captureProbe: new FakeAudioCaptureDeviceProbe());
-        using var context = Context.Create(["recognize", "--model", "model-1", "--mic"]);
+        using var context = Context.Create(["recognize", "--stt-model", "model-1", "--mic"]);
 
         var exception = Assert.Throws<ArgumentException>(() => RecognizeCommand.Run(context, catalog, factory));
         Assert.Contains("model-1", exception.Message);
@@ -290,15 +290,15 @@ public sealed class RecognizeCommandTests
     {
         var catalog = CreateCatalogWithModel(state: SpeechModelState.NotDownloaded);
         var factory = new AudioDeviceFactory(captureProbe: new FakeAudioCaptureDeviceProbe());
-        using var context = Context.Create(["recognize", "--model", "model-1", "--mic"]);
+        using var context = Context.Create(["recognize", "--stt-model", "model-1", "--mic"]);
 
         var exception = Assert.Throws<ArgumentException>(() => RecognizeCommand.Run(context, catalog, factory));
         Assert.Contains("download model-1", exception.Message);
     }
 
-    // --- --param validation wiring ---
+    // --- --stt-param validation wiring ---
 
-    /// <summary>Test that a valid --param is forwarded to CreateRecognizer's parameterValues argument.</summary>
+    /// <summary>Test that a valid --stt-param is forwarded to CreateRecognizer's parameterValues argument.</summary>
     [Fact]
     public void RecognizeCommand_Run_ValidParam_ForwardsToCreateRecognizer()
     {
@@ -311,7 +311,7 @@ public sealed class RecognizeCommandTests
         try
         {
             using var context = Context.Create(
-                ["recognize", "--model", "model-1", "--input", wavPath, "--param", "beam=6"]);
+                ["recognize", "--stt-model", "model-1", "--input", wavPath, "--stt-param", "beam=6"]);
 
             RecognizeCommand.Run(context, catalog, new AudioDeviceFactory());
 
@@ -325,7 +325,7 @@ public sealed class RecognizeCommandTests
         }
     }
 
-    /// <summary>Test that an invalid --param value throws before any recognizer is created.</summary>
+    /// <summary>Test that an invalid --stt-param value throws before any recognizer is created.</summary>
     [Fact]
     public void RecognizeCommand_Run_InvalidParam_ThrowsArgumentException()
     {
@@ -336,7 +336,7 @@ public sealed class RecognizeCommandTests
         try
         {
             using var context = Context.Create(
-                ["recognize", "--model", "model-1", "--input", wavPath, "--param", "beam=999"]);
+                ["recognize", "--stt-model", "model-1", "--input", wavPath, "--stt-param", "beam=999"]);
 
             Assert.Throws<ArgumentException>(() => RecognizeCommand.Run(context, catalog, new AudioDeviceFactory()));
         }
@@ -371,7 +371,7 @@ public sealed class RecognizeCommandTests
         var wavPath = WriteMinimalWavFile(sampleFrameCount: 160);
         try
         {
-            using var context = Context.Create(["recognize", "--model", "model-1", "--input", wavPath]);
+            using var context = Context.Create(["recognize", "--stt-model", "model-1", "--input", wavPath]);
 
             RecognizeCommand.Run(context, catalog, new AudioDeviceFactory());
 
@@ -404,7 +404,7 @@ public sealed class RecognizeCommandTests
         var wavPath = WriteMinimalWavFile();
         try
         {
-            using var context = Context.Create(["recognize", "--model", "model-1", "--input", wavPath]);
+            using var context = Context.Create(["recognize", "--stt-model", "model-1", "--input", wavPath]);
 
             RecognizeCommand.Run(context, catalog, new AudioDeviceFactory());
 
@@ -416,7 +416,7 @@ public sealed class RecognizeCommandTests
         }
     }
 
-    // --- --interim/--final-only/--output filtering and writing ---
+    // --- --interim/--final-only/--output-text filtering and writing ---
 
     /// <summary>Test that, by default, both interim and final results print (interim overwritten, final settled).</summary>
     [Fact]
@@ -438,7 +438,7 @@ public sealed class RecognizeCommandTests
         Console.SetOut(writer);
         try
         {
-            using var context = Context.Create(["recognize", "--model", "model-1", "--input", wavPath]);
+            using var context = Context.Create(["recognize", "--stt-model", "model-1", "--input", wavPath]);
 
             RecognizeCommand.Run(context, catalog, new AudioDeviceFactory());
         }
@@ -484,7 +484,7 @@ public sealed class RecognizeCommandTests
         Console.SetOut(writer);
         try
         {
-            using var context = Context.Create(["recognize", "--model", "model-1", "--input", wavPath]);
+            using var context = Context.Create(["recognize", "--stt-model", "model-1", "--input", wavPath]);
 
             RecognizeCommand.Run(context, catalog, new AudioDeviceFactory());
         }
@@ -535,7 +535,7 @@ public sealed class RecognizeCommandTests
         try
         {
             using var context = Context.Create(
-                ["recognize", "--model", "model-1", "--input", wavPath, "--final-only"]);
+                ["recognize", "--stt-model", "model-1", "--input", wavPath, "--final-only"]);
 
             RecognizeCommand.Run(context, catalog, new AudioDeviceFactory());
         }
@@ -573,7 +573,7 @@ public sealed class RecognizeCommandTests
         try
         {
             using var context = Context.Create(
-                ["recognize", "--model", "model-1", "--input", wavPath, "--interim"]);
+                ["recognize", "--stt-model", "model-1", "--input", wavPath, "--interim"]);
 
             RecognizeCommand.Run(context, catalog, new AudioDeviceFactory());
         }
@@ -591,7 +591,7 @@ public sealed class RecognizeCommandTests
         Assert.DoesNotContain("hello", printed);
     }
 
-    /// <summary>Test that --output writes only final results, one per line, overwriting any prior file content.</summary>
+    /// <summary>Test that --output-text writes only final results, one per line, overwriting any prior file content.</summary>
     [Fact]
     public void RecognizeCommand_Run_Output_WritesOnlyFinalResultsOverwritingPriorContent()
     {
@@ -613,7 +613,7 @@ public sealed class RecognizeCommandTests
         try
         {
             using var context = Context.Create(
-                ["recognize", "--model", "model-1", "--input", wavPath, "--output", outputPath]);
+                ["recognize", "--stt-model", "model-1", "--input", wavPath, "--output-text", outputPath]);
 
             RecognizeCommand.Run(context, catalog, new AudioDeviceFactory());
 
@@ -627,28 +627,28 @@ public sealed class RecognizeCommandTests
         }
     }
 
-    // --- --device error path ---
+    // --- --capture-device error path ---
 
-    /// <summary>Test that an unknown --device throws before any recognizer is created.</summary>
+    /// <summary>Test that an unknown --capture-device throws before any recognizer is created.</summary>
     [Fact]
     public void RecognizeCommand_Run_UnknownDevice_ThrowsArgumentException()
     {
         var catalog = CreateCatalogWithModel();
         var factory = new AudioDeviceFactory(captureProbe: new FakeAudioCaptureDeviceProbe());
         using var context = Context.Create(
-            ["recognize", "--model", "model-1", "--mic", "--device", "does-not-exist"]);
+            ["recognize", "--stt-model", "model-1", "--mic", "--capture-device", "does-not-exist"]);
 
         var exception = Assert.Throws<ArgumentException>(() => RecognizeCommand.Run(context, catalog, factory));
         Assert.Contains("does-not-exist", exception.Message);
     }
 
-    /// <summary>Test that no available capture device (mic mode, no --output/--input) throws InvalidOperationException.</summary>
+    /// <summary>Test that no available capture device (mic mode, no --output-text/--input) throws InvalidOperationException.</summary>
     [Fact]
     public void RecognizeCommand_Run_NoCaptureDeviceAvailable_ThrowsInvalidOperationException()
     {
         var catalog = CreateCatalogWithModel();
         var factory = new AudioDeviceFactory(captureProbe: new FakeAudioCaptureDeviceProbe());
-        using var context = Context.Create(["recognize", "--model", "model-1", "--mic"]);
+        using var context = Context.Create(["recognize", "--stt-model", "model-1", "--mic"]);
 
         Assert.Throws<InvalidOperationException>(() => RecognizeCommand.Run(context, catalog, factory));
     }
@@ -665,7 +665,7 @@ public sealed class RecognizeCommandTests
         var wavPath = WriteMinimalWavFile();
         try
         {
-            using var context = Context.Create(["recognize", "--model", "model-1", "--input", wavPath]);
+            using var context = Context.Create(["recognize", "--stt-model", "model-1", "--input", wavPath]);
 
             RecognizeCommand.Run(context, catalog, new AudioDeviceFactory());
 
@@ -691,7 +691,7 @@ public sealed class RecognizeCommandTests
     [Fact]
     public void RecognizeCommand_Run_NullCatalog_ThrowsArgumentNullException()
     {
-        using var context = Context.Create(["recognize", "--model", "model-1", "--mic"]);
+        using var context = Context.Create(["recognize", "--stt-model", "model-1", "--mic"]);
         Assert.Throws<ArgumentNullException>(
             () => RecognizeCommand.Run(context, null!, new AudioDeviceFactory()));
     }
@@ -700,7 +700,7 @@ public sealed class RecognizeCommandTests
     [Fact]
     public void RecognizeCommand_Run_NullFactory_ThrowsArgumentNullException()
     {
-        using var context = Context.Create(["recognize", "--model", "model-1", "--mic"]);
+        using var context = Context.Create(["recognize", "--stt-model", "model-1", "--mic"]);
         Assert.Throws<ArgumentNullException>(
             () => RecognizeCommand.Run(context, new FakeCliModelCatalog(), null!));
     }

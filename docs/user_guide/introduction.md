@@ -640,6 +640,7 @@ a healthy state on the current machine.
 | `doctor` | Report overall environment health (audio, native runtimes, model store) |
 | `speak` | Synthesize text to a real playback device or a WAV file |
 | `recognize` | Recognize speech from a WAV file or the microphone |
+| `ask` | Speak a prompt, then listen for the reply |
 
 Every command's exact flags are shown by `speech-cli --help`, which always reflects the installed
 version - run it locally rather than relying solely on the summary above, which is illustrative
@@ -651,28 +652,37 @@ Download a recognition model, then recognize speech from a WAV file:
 
 ```bash
 speech-cli download streaming-zipformer-en-2023-06-26
-speech-cli recognize --model streaming-zipformer-en-2023-06-26 --input meeting.wav
+speech-cli recognize --stt-model streaming-zipformer-en-2023-06-26 --input meeting.wav
 ```
 
 Speak text to a WAV file, without needing a playback device:
 
 ```bash
 speech-cli download vits-piper-en_US-libritts_r-medium
-speech-cli speak --model vits-piper-en_US-libritts_r-medium --text "Hello there." --output hello.wav
+speech-cli speak --tts-model vits-piper-en_US-libritts_r-medium --text "Hello there." --output-audio hello.wav
 ```
 
 Speak text through a real playback device, selecting a specific device by name (see
 `list-devices` for the exact names available on the current machine):
 
 ```bash
-speech-cli speak --model vits-piper-en_US-libritts_r-medium --text "Hello there." --device "Speakers (Realtek)"
+speech-cli speak --tts-model vits-piper-en_US-libritts_r-medium --text "Hello there." --playback-device "Speakers (Realtek)"
 ```
 
 Recognize speech live from the microphone, stopping automatically after five seconds of silence
 (and giving up to ten seconds to start speaking):
 
 ```bash
-speech-cli recognize --model streaming-zipformer-en-2023-06-26 --mic --silence-timeout 5 --start-timeout 10
+speech-cli recognize --stt-model streaming-zipformer-en-2023-06-26 --mic --silence-timeout 5 --start-timeout 10
+```
+
+Speak a prompt and listen for the reply in one invocation, giving up to 20 seconds to start
+speaking and ending capture after 1.5 seconds of silence - the intended pattern for an AI agent
+holding a two-way voice conversation with a person through this CLI:
+
+```bash
+speech-cli ask --tts-model vits-piper-en_US-libritts_r-medium --stt-model streaming-zipformer-en-2023-06-26 \
+  --text "Do you want me to continue?" --start-timeout 20 --silence-timeout 1.5
 ```
 
 ## Hardware Verification Boundary
