@@ -138,17 +138,18 @@ exit path (EOF stop, silence-timeout stop, `Ctrl+C`, or an error) disposes them 
 A pure event-driven observer composed alongside a recognizer, not a decorator around its
 lifecycle API: it never intercepts `Start()`/`Stop()` calls made by its owner, and calls
 `ISpeechRecognizer.Stop()` itself only proactively, on timeout. It enforces two distinct,
-sequential idle windows via two separate `TimeSpan` fields: `_startTimeout` (defaulting to
-`idleTimeout` when the constructor's optional `startTimeout` parameter is omitted) arms the
-single-shot idle timer exactly once, at construction, before `ResultReceived` is even subscribed;
-`_idleTimeout` (the `--silence-timeout` value) then re-arms the timer
-(`Change(idleTimeout, Timeout.InfiniteTimeSpan)`) on every subsequent `ResultReceived` event,
-partial or final, starting with the very first. When the timer fires with no reset since it was
-last armed, it calls `Stop()`, then raises its own `TimedOut` event. No additional "first result
-seen" boolean flag is needed to implement this phase transition: construction and
-`OnResultReceived` are already distinct call sites, so arming with `_startTimeout` once at
-construction and unconditionally re-arming with `_idleTimeout` on every `OnResultReceived` call
-naturally implements "start-timeout governs only the pre-first-result window; silence-timeout
+sequential idle windows using the constructor's `startTimeout` parameter (defaulting to
+`idleTimeout` when omitted) only once, to arm the single-shot idle timer at construction, before
+`ResultReceived` is even subscribed; the single stored `_idleTimeout` field (the
+`--silence-timeout` value) then re-arms the timer (`Change(idleTimeout,
+Timeout.InfiniteTimeSpan)`) on every subsequent `ResultReceived` event, partial or final, starting
+with the very first. `startTimeout` itself is never stored as a field - it is only read once,
+inline, at construction, since nothing after that point ever needs it again. When the timer fires
+with no reset since it was last armed, it calls `Stop()`, then raises its own `TimedOut` event. No
+additional "first result seen" boolean flag is needed to implement this phase transition:
+construction and `OnResultReceived` are already distinct call sites, so arming with `startTimeout`
+once at construction and unconditionally re-arming with `_idleTimeout` on every `OnResultReceived`
+call naturally implements "start-timeout governs only the pre-first-result window; silence-timeout
 governs every re-arm from the first result onward" with zero new mutable state and zero new
 lock-guarded reads/writes - the existing `_gate`/`_idleCallbackDone` concurrency design is
 unchanged.
