@@ -618,6 +618,10 @@ not a wrapper around the demo; it is separately packaged and versioned.
 dotnet tool install -g DemaConsulting.Speech.Cli
 ```
 
+The tool targets .NET 10 and bundles the native inference runtime for `win-x64`, `linux-x64`,
+and `osx-arm64` (the current `macos-latest` architecture) only, keeping the package a reasonable
+size instead of shipping every platform's native binaries.
+
 Once installed, the `speech-cli` command is available on the `PATH`. Run `speech-cli doctor` any
 time to check that the native audio backend, native inference runtime, and model store are all in
 a healthy state on the current machine.

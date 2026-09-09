@@ -242,6 +242,9 @@ command line - useful for scripting, CI smoke checks, or trying a model without 
 dotnet tool install -g DemaConsulting.Speech.Cli
 ```
 
+The tool targets .NET 10 and bundles the native inference runtime for `win-x64`, `linux-x64`,
+and `osx-arm64` only.
+
 | Command | Purpose |
 | --- | --- |
 | `list-models` | List known models, optionally filtered by role or download state |
