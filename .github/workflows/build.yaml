@@ -283,6 +283,16 @@ jobs:
           --results artifacts/fileassert-api-docs-${{ matrix.os }}.trx
           api-docs
 
+      # Gathers every project's *.nupkg/*.snupkg into one flat folder so the uploaded
+      # packages-${{ matrix.os }} artifact is a single flat zip on download, instead of
+      # nesting each project's own src/**/bin/Release path inside it.
+      - name: Collect packages
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifacts/packages | Out-Null
+          Get-ChildItem -Path src -Recurse -Include *.nupkg,*.snupkg |
+            Copy-Item -Destination artifacts/packages
+
       # === UPLOAD ARTIFACTS ===
       # This section uploads all generated artifacts for use by downstream jobs.
       # Downstream projects: Add any additional artifact uploads here.
@@ -298,10 +308,8 @@ jobs:
         with:
           name: packages-${{ matrix.os }}
           path: |
-            src/DemaConsulting.Speech/bin/Release/*.nupkg
-            src/DemaConsulting.Speech/bin/Release/*.snupkg
-            src/DemaConsulting.Speech.Cli/bin/Release/*.nupkg
-            src/DemaConsulting.Speech.Cli/bin/Release/*.snupkg
+            artifacts/packages/*.nupkg
+            artifacts/packages/*.snupkg
 
   # Runs CodeQL security and quality analysis, gathering results to include
   # in the code quality report.
