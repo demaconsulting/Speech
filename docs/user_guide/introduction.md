@@ -120,6 +120,9 @@ describing *which* models are available and their tunable parameters:
   (`NotDownloaded`, `Downloading`, `Downloaded`, or `FailedOrCorrupt`).
 - **`SpeechModelCatalog`**: enumerates the library's known/compiled-in models alongside each
   one's current install state, and orchestrates downloading a known model by id.
+  `DownloadAsync` is safe to call unconditionally on every launch - it's a cheap no-op once a
+  model is installed, and otherwise returns `Failed`/`ChecksumMismatch` on a real download
+  problem, or throws `ArgumentException` for an unrecognized model id.
 
 This release ships **four real, production model classes** across both roles it defines —
 `SpeechModelCatalog.KnownModels` is a compiled-in, non-empty list. The catalog/contract seam,
@@ -203,13 +206,8 @@ var descriptor = catalog.Enumerate().First(d => d.Role == SpeechModelRole.Recogn
 // instead: catalog.Enumerate().First(d => d.DisplayName.Contains("Zipformer"));
 var model = (IRecognitionModel)descriptor.Model;
 
-// 3. Ensure the chosen model is downloaded before first use. DownloadAsync is safe to call
-//    unconditionally on every launch: for an already-installed model it is a cheap check (no
-//    network access, no re-download) that returns an Installed result. It only does real work
-//    - and can fail - the first time a model is fetched: a transport failure returns a Failed
-//    result with an Error, and a checksum mismatch returns ChecksumMismatch. An unknown model
-//    id (not one of catalog.Enumerate()'s models) throws ArgumentException instead of
-//    returning a failed result, since that indicates a caller bug, not a runtime condition.
+// 3. Ensure the chosen model is downloaded before first use. Safe to call unconditionally on
+//    every launch - it's a cheap no-op once installed (see above for details).
 await catalog.DownloadAsync(model.Id);
 
 // 4. Create a capture device matching the model's own required audio format.
@@ -351,10 +349,8 @@ var descriptor = catalog.Enumerate().First(d => d.Role == SpeechModelRole.Synthe
 // instead: catalog.Enumerate().First(d => d.DisplayName.Contains("Kokoro"));
 var model = (ISynthesisModel)descriptor.Model;
 
-// 3. Ensure the chosen model is downloaded before first use. DownloadAsync is safe to call
-//    unconditionally on every launch: for an already-installed model it is a cheap check (no
-//    network access, no re-download) that returns an Installed result. See the recognition
-//    example above for the failure modes on a first-time download.
+// 3. Ensure the chosen model is downloaded before first use. Safe to call unconditionally on
+//    every launch - it's a cheap no-op once installed.
 await catalog.DownloadAsync(model.Id);
 
 // 4. Create a playback device matching the model's own preferred audio format hint.
