@@ -62,8 +62,9 @@ composition still succeeds and the factory reports the engine as unavailable ins
 None of the model bytes below are bundled with the library - `SpeechModelCatalog.DownloadAsync`
 fetches each one on demand and verifies its SHA-256 checksum before installing it. It's safe to
 call on every launch: for an already-installed model it's a cheap no-op, returning an `Installed`
-result without touching the network. On first download it can instead return `Failed` (transport
-error) or `ChecksumMismatch`, or throw `ArgumentException` for an unrecognized model id.
+result without touching the network. On first download it can instead return `Failed` (a
+transport or I/O failure, with the underlying exception in `SpeechModelDownloadResult.Error`) or
+`ChecksumMismatch`, or throw `ArgumentException` for an unrecognized model id.
 
 This release ships four models:
 
@@ -112,7 +113,7 @@ var descriptor = catalog.Enumerate().First(d => d.Role == SpeechModelRole.Recogn
 var model = (IRecognitionModel)descriptor.Model;
 
 // 3. Ensure the chosen model is downloaded before first use. Safe to call unconditionally on
-//    every launch - it's a cheap no-op once installed (see below for details).
+//    every launch - it's a cheap no-op once installed (see above for details).
 await catalog.DownloadAsync(model.Id);
 
 // 4. Create a capture device matching the model's own required audio format - there is no

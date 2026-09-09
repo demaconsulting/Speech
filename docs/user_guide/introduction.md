@@ -121,8 +121,9 @@ describing *which* models are available and their tunable parameters:
 - **`SpeechModelCatalog`**: enumerates the library's known/compiled-in models alongside each
   one's current install state, and orchestrates downloading a known model by id.
   `DownloadAsync` is safe to call unconditionally on every launch - it's a cheap no-op once a
-  model is installed, and otherwise returns `Failed`/`ChecksumMismatch` on a real download
-  problem, or throws `ArgumentException` for an unrecognized model id.
+  model is installed, and otherwise returns `Failed` (transport or I/O failure, with the
+  underlying exception in `SpeechModelDownloadResult.Error`) or `ChecksumMismatch` on a real
+  download problem, or throws `ArgumentException` for an unrecognized model id.
 
 This release ships **four real, production model classes** across both roles it defines —
 `SpeechModelCatalog.KnownModels` is a compiled-in, non-empty list. The catalog/contract seam,
