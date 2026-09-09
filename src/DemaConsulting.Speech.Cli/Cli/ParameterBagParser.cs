@@ -25,7 +25,7 @@ namespace DemaConsulting.Speech.Cli.Cli;
 
 /// <summary>
 ///     Parses and validates the <c>speak</c>/<c>recognize</c>/<c>ask</c> subcommands' repeatable
-///     <c>--tts-param</c>/<c>--stt-param key=value</c> flags against a resolved model's declared
+///     <c>--tts-param key=value</c>/<c>--stt-param key=value</c> flags against a resolved model's declared
 ///     <see cref="ISpeechModelParameter"/> set, into the untyped, boxed key-value bag a
 ///     <c>SpeechSynthesizerFactory.Create</c> or <c>SpeechRecognizerFactory.Create</c> call
 ///     expects.

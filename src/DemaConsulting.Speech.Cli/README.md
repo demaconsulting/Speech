@@ -63,8 +63,9 @@ before the first result arrives (defaults to `--silence-timeout`'s value when om
 `ask` speaks a prompt (from `--text <string>`, `--file <path>`, or piped stdin, resolved the same
 way as `speak`) through `--tts-model <id>` on `--playback-device <name>` (or the system default),
 then immediately listens on `--capture-device <name>` (or the system default) through
-`--stt-model <id>`, stopping on the first final recognition result, a `--silence-timeout
-<seconds>`/`--start-timeout <seconds>` timeout (same semantics as `recognize --mic`), or
+`--stt-model <id>`, stopping on the first final recognition result, a
+`--silence-timeout <seconds>`/`--start-timeout <seconds>` timeout (same semantics as
+`recognize --mic`), or
 `Ctrl+C`. Both `--tts-model` and `--stt-model` are required. `--tts-param key=value` and
 `--stt-param key=value` (each repeatable) set model-specific synthesis/recognition parameters,
 and `--output-text <path>` writes the recognized reply to a file instead of stdout. `ask` has no
