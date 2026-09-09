@@ -142,6 +142,10 @@ sections:
               guarantee simple to reason about and verify.
             tests:
               - AskCommand_Run_CanceledDuringSpeak_SkipsListenPhase
+              - AskCommand_RunAsync_CtrlCDuringListen_ReportsCanceledAndDoesNotPrintText
+              - AskCommand_RunAsync_CtrlCBeforeListenStarts_ReportsCanceledAndDoesNotPrintText
+              - AskCommand_RunAsync_CtrlCImmediatelyAfterListenReturns_ReportsCanceledAndDoesNotPrintText
+              - AskCommand_RunAsync_SilenceTimeoutWithNoCtrlC_ReportsSuccessNotCanceled
 
           - id: SpeechCli-ConversationCommands-NullGuards
             title: >-

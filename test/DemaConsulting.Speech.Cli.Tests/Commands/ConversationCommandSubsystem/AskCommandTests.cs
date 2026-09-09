@@ -726,6 +726,76 @@ public sealed class AskCommandTests
         }
     }
 
+    /// <summary>
+    ///     Test that a genuine <c>Ctrl+C</c> landing in the narrow window <em>after</em>
+    ///     <c>Listen</c> has already unblocked with a legitimate final result
+    ///     (<c>listenWasCanceled == false</c>) but <em>before</em> <c>RunAsync</c> writes the
+    ///     recognized text is still reported as a cancellation - via <see cref="Context.WriteError"/>
+    ///     and a non-zero exit code, with nothing printed - rather than silently succeeding.
+    ///     Simulated by canceling the shared token from within the
+    ///     <c>onRecognizerCreated(null)</c> callback: that call is the very last thing <c>Listen</c>
+    ///     does (in its outermost <c>finally</c>) before returning control to <c>RunAsync</c>, so
+    ///     canceling there reproduces the exact interleaving a real <see cref="Console.CancelKeyPress"/>
+    ///     could produce in that gap, distinct from the mid-listen race exercised by
+    ///     <see cref="AskCommand_RunAsync_CtrlCDuringListen_ReportsCanceledAndDoesNotPrintText"/>.
+    /// </summary>
+    [Fact]
+    public async Task AskCommand_RunAsync_CtrlCImmediatelyAfterListenReturns_ReportsCanceledAndDoesNotPrintText()
+    {
+        var catalog = CreateCatalogWithModels();
+        var synthesizer = new FakeSpeechSynthesizer();
+        catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
+
+        using var cancellationSource = new CancellationTokenSource();
+        using var stopSignal = new ManualResetEventSlim(initialState: false);
+
+        var recognizer = new FakeSpeechRecognizer
+        {
+            // A legitimate final result, with no Ctrl+C involved yet: Listen() will observe
+            // cancellationToken.IsCancellationRequested == false and return (text, false).
+            OnStart = self =>
+            {
+                self.RaiseResult("hello", isFinal: true);
+                stopSignal.Set();
+            }
+        };
+        catalog.CreateRecognizerOverride = (_, _, _) => recognizer;
+
+        var originalOut = Console.Out;
+        var writer = new StringWriter { NewLine = "\n" };
+        Console.SetOut(writer);
+        try
+        {
+            using var context = Context.Create(
+                ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi"]);
+
+            await AskCommand.RunAsync(
+                context,
+                catalog,
+                CreatePlaybackSource(),
+                CreateCaptureSource(),
+                stopSignal,
+                createdRecognizer =>
+                {
+                    // Listen() calls onRecognizerCreated(null) as the very last step in its
+                    // outermost finally block, immediately before returning control to
+                    // RunAsync: canceling here simulates Ctrl+C landing in that exact gap.
+                    if (createdRecognizer is null)
+                    {
+                        cancellationSource.Cancel();
+                    }
+                },
+                cancellationSource.Token);
+
+            Assert.Equal(1, context.ExitCode);
+            Assert.Equal(string.Empty, writer.ToString());
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+    }
+
     // --- Null argument guards ---
 
     /// <summary>Test that a null context is rejected.</summary>

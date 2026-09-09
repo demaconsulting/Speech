@@ -80,7 +80,12 @@ namespace DemaConsulting.Speech.Cli.Commands.ConversationCommandSubsystem;
 ///     by a timeout or a normal final result) once it unblocks, so a genuine <c>Ctrl+C</c>
 ///     during Phase 2 is reported the same way a Phase 1 cancellation is - via
 ///     <see cref="Cli.Context.WriteError"/> - rather than silently written out as an empty,
-///     successful result. The synthesizer, playback device, recognizer, silence-timeout
+///     successful result. <c>RunAsync</c> re-checks that same shared <see cref="CancellationToken"/>
+///     once more immediately after <c>Listen</c> returns, before writing/printing the recognized
+///     text, to close a narrow race where <c>Ctrl+C</c> lands after <c>Listen</c> has already
+///     unblocked with <c>listenWasCanceled == false</c> but before the result is written out; this
+///     final check is reported and handled identically to the Phase 1/Phase 2 cancellation cases.
+///     The synthesizer, playback device, recognizer, silence-timeout
 ///     session, and output writer are each disposed exactly once via nested <c>finally</c>
 ///     blocks, mirroring <see cref="SpeakCommand"/>'s and <see cref="RecognizeCommand"/>'s own
 ///     disposal ordering.
@@ -285,6 +290,16 @@ internal static class AskCommand
 
         if (listenWasCanceled)
         {
+            return;
+        }
+
+        // Listen() itself completed without observing cancellation, but Ctrl+C can still land in
+        // the narrow window after Listen() returns and before the recognized text is written out
+        // below: re-check the shared token here so that race is reported identically to a
+        // cancellation observed inside Listen(), rather than silently succeeding.
+        if (cancellationToken.IsCancellationRequested)
+        {
+            context.WriteError("Speech was canceled.");
             return;
         }
 
