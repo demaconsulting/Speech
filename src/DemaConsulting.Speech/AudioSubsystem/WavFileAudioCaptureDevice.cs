@@ -1,3 +1,6 @@
+using System.Numerics.Tensors;
+using System.Runtime.InteropServices;
+
 namespace DemaConsulting.Speech.AudioSubsystem;
 
 /// <summary>
@@ -157,14 +160,24 @@ public sealed class WavFileAudioCaptureDevice : IAudioCaptureDevice
         using var reader = OpenValidatedReader(out var dataByteCount);
 
         var remainingSamples = dataByteCount / BytesPerSample;
+
+        // Read each block's raw PCM bytes in one bulk call rather than one BinaryReader.ReadInt16()
+        // call per sample (each of which pays full BinaryReader/stream call overhead), then
+        // reinterpret and convert the whole block to float in two vectorized passes. WAV PCM data
+        // is always little-endian, matching the little-endian layout .NET always uses for in-memory
+        // short values on every platform this library targets, so the byte-to-short reinterpret
+        // cast below is safe without an explicit byte swap.
+        var byteBuffer = new byte[_frameSampleCount * BytesPerSample];
         while (remainingSamples > 0 && !_stopRequested)
         {
             var samplesToRead = Math.Min(_frameSampleCount, remainingSamples);
+            var byteSpan = byteBuffer.AsSpan(0, samplesToRead * BytesPerSample);
+            reader.BaseStream.ReadExactly(byteSpan);
+
             var samples = new float[samplesToRead];
-            for (var index = 0; index < samplesToRead; index++)
-            {
-                samples[index] = reader.ReadInt16() / (float)short.MaxValue;
-            }
+            var pcmSamples = MemoryMarshal.Cast<byte, short>(byteSpan);
+            TensorPrimitives.ConvertChecked<short, float>(pcmSamples, samples);
+            TensorPrimitives.Divide(samples, (float)short.MaxValue, samples);
 
             remainingSamples -= samplesToRead;
             FrameCaptured?.Invoke(this, new AudioCaptureFrameEventArgs(samples));
@@ -202,99 +215,197 @@ public sealed class WavFileAudioCaptureDevice : IAudioCaptureDevice
     /// </exception>
     private BinaryReader OpenValidatedReader(out int dataByteCount)
     {
-        FileStream stream;
+        var reader = new BinaryReader(OpenInputStream());
         try
         {
-            stream = new FileStream(_path, FileMode.Open, FileAccess.Read, FileShare.Read);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            throw new InvalidOperationException($"Cannot open WAV file '{_path}': {ex.Message}", ex);
-        }
-
-        var reader = new BinaryReader(stream);
-        try
-        {
-            if (!TagEquals(reader.ReadBytes(4), "RIFF"u8) || reader.BaseStream.Length < 12)
-            {
-                throw new InvalidOperationException($"'{_path}' is not a valid RIFF file.");
-            }
-
-            reader.ReadInt32(); // RIFF chunk size (unused: the data chunk size below is authoritative)
-            if (!TagEquals(reader.ReadBytes(4), "WAVE"u8))
-            {
-                throw new InvalidOperationException($"'{_path}' is not a valid WAVE file.");
-            }
-
-            var formatFound = false;
-            short audioFormat = 0;
-            short channelCount = 0;
-            var sampleRate = 0;
-            short bitsPerSample = 0;
-
-            while (true)
-            {
-                var chunkIdBytes = reader.ReadBytes(4);
-                if (chunkIdBytes.Length < 4)
-                {
-                    throw new InvalidOperationException($"'{_path}' has no 'data' chunk.");
-                }
-
-                var chunkSize = reader.ReadInt32();
-                if (TagEquals(chunkIdBytes, "fmt "u8))
-                {
-                    audioFormat = reader.ReadInt16();
-                    channelCount = reader.ReadInt16();
-                    sampleRate = reader.ReadInt32();
-                    reader.ReadInt32(); // byte rate (derivable from the fields already read)
-                    reader.ReadInt16(); // block align (derivable from the fields already read)
-                    bitsPerSample = reader.ReadInt16();
-                    SkipRemainder(reader, chunkSize, 16);
-                    formatFound = true;
-                }
-                else if (TagEquals(chunkIdBytes, "data"u8))
-                {
-                    if (!formatFound)
-                    {
-                        throw new InvalidOperationException($"'{_path}' has a 'data' chunk before its 'fmt ' chunk.");
-                    }
-
-                    dataByteCount = chunkSize;
-                    break;
-                }
-                else
-                {
-                    SkipRemainder(reader, chunkSize, 0);
-                }
-            }
-
-            if (audioFormat != 1)
-            {
-                throw new InvalidOperationException(
-                    $"'{_path}' uses an unsupported WAV format tag {audioFormat}; only uncompressed PCM (1) is supported.");
-            }
-
-            if (bitsPerSample != 16)
-            {
-                throw new InvalidOperationException(
-                    $"'{_path}' uses an unsupported bit depth of {bitsPerSample}; only 16-bit PCM is supported.");
-            }
-
-            if (channelCount != 1)
-            {
-                throw new InvalidOperationException(
-                    $"'{_path}' has {channelCount} channels; only mono WAV files are supported.");
-            }
-
-            ChannelCount = 1;
+            ValidateRiffHeader(reader);
+            ReadFormatAndLocateDataChunk(
+                reader,
+                out var audioFormat,
+                out var channelCount,
+                out var sampleRate,
+                out var bitsPerSample,
+                out dataByteCount);
+            ValidateSupportedFormat(audioFormat, bitsPerSample, channelCount);
+            ChannelCount = channelCount;
             SampleRate = sampleRate;
-
             return reader;
         }
         catch
         {
+            // Intentionally broad: any validation fault after the file opens must still dispose
+            // the reader so malformed input never leaks an open file handle.
             reader.Dispose();
             throw;
+        }
+    }
+
+    /// <summary>
+    ///     Opens the configured WAV file for shared read access so header validation can inspect
+    ///     its bytes without blocking other readers.
+    /// </summary>
+    /// <returns>An open read-only file stream for <see cref="_path"/>.</returns>
+    /// <exception cref="InvalidOperationException">
+    ///     Thrown when the file cannot be opened because it is missing, unreadable, or access is
+    ///     denied.
+    /// </exception>
+    private FileStream OpenInputStream()
+    {
+        try
+        {
+            return new FileStream(_path, FileMode.Open, FileAccess.Read, FileShare.Read);
+        }
+        catch (IOException ex)
+        {
+            throw new InvalidOperationException($"Cannot open WAV file '{_path}': {ex.Message}", ex);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            throw new InvalidOperationException($"Cannot open WAV file '{_path}': {ex.Message}", ex);
+        }
+    }
+
+    /// <summary>
+    ///     Validates the outer RIFF/WAVE container header before any chunk-level parsing occurs.
+    /// </summary>
+    /// <param name="reader">
+    ///     The reader positioned at the start of the file.
+    /// </param>
+    /// <exception cref="InvalidOperationException">
+    ///     Thrown when the file does not begin with a valid RIFF/WAVE header.
+    /// </exception>
+    private void ValidateRiffHeader(BinaryReader reader)
+    {
+        if (!TagEquals(reader.ReadBytes(4), "RIFF"u8) || reader.BaseStream.Length < 12)
+        {
+            throw new InvalidOperationException($"'{_path}' is not a valid RIFF file.");
+        }
+
+        reader.ReadInt32(); // RIFF chunk size (unused: the data chunk size below is authoritative)
+        if (!TagEquals(reader.ReadBytes(4), "WAVE"u8))
+        {
+            throw new InvalidOperationException($"'{_path}' is not a valid WAVE file.");
+        }
+    }
+
+    /// <summary>
+    ///     Reads chunks until both the required <c>fmt </c> metadata and the <c>data</c> chunk
+    ///     location have been discovered.
+    /// </summary>
+    /// <param name="reader">
+    ///     The reader positioned immediately after the RIFF/WAVE container header.
+    /// </param>
+    /// <param name="audioFormat">Receives the WAV format tag declared by the <c>fmt </c> chunk.</param>
+    /// <param name="channelCount">Receives the channel count declared by the <c>fmt </c> chunk.</param>
+    /// <param name="sampleRate">Receives the sample rate declared by the <c>fmt </c> chunk.</param>
+    /// <param name="bitsPerSample">Receives the bit depth declared by the <c>fmt </c> chunk.</param>
+    /// <param name="dataByteCount">Receives the number of audio bytes declared by the <c>data</c> chunk.</param>
+    /// <exception cref="InvalidOperationException">
+    ///     Thrown when the file omits the required chunks or presents them in an unsupported
+    ///     order.
+    /// </exception>
+    private void ReadFormatAndLocateDataChunk(
+        BinaryReader reader,
+        out short audioFormat,
+        out short channelCount,
+        out int sampleRate,
+        out short bitsPerSample,
+        out int dataByteCount)
+    {
+        var formatFound = false;
+        audioFormat = 0;
+        channelCount = 0;
+        sampleRate = 0;
+        bitsPerSample = 0;
+
+        while (true)
+        {
+            var chunkIdBytes = reader.ReadBytes(4);
+            if (chunkIdBytes.Length < 4)
+            {
+                throw new InvalidOperationException($"'{_path}' has no 'data' chunk.");
+            }
+
+            var chunkSize = reader.ReadInt32();
+            if (TagEquals(chunkIdBytes, "fmt "u8))
+            {
+                ReadFormatChunk(reader, chunkSize, out audioFormat, out channelCount, out sampleRate, out bitsPerSample);
+                formatFound = true;
+                continue;
+            }
+
+            if (TagEquals(chunkIdBytes, "data"u8))
+            {
+                if (!formatFound)
+                {
+                    throw new InvalidOperationException($"'{_path}' has a 'data' chunk before its 'fmt ' chunk.");
+                }
+
+                dataByteCount = chunkSize;
+                return;
+            }
+
+            SkipRemainder(reader, chunkSize, 0);
+        }
+    }
+
+    /// <summary>
+    ///     Reads the required fields from one <c>fmt </c> chunk and skips any optional trailing
+    ///     bytes the chunk may contain.
+    /// </summary>
+    /// <param name="reader">
+    ///     The reader positioned immediately after the <c>fmt </c> chunk size field.
+    /// </param>
+    /// <param name="chunkSize">The declared size of the <c>fmt </c> chunk.</param>
+    /// <param name="audioFormat">Receives the WAV format tag declared by the chunk.</param>
+    /// <param name="channelCount">Receives the channel count declared by the chunk.</param>
+    /// <param name="sampleRate">Receives the sample rate declared by the chunk.</param>
+    /// <param name="bitsPerSample">Receives the bit depth declared by the chunk.</param>
+    private static void ReadFormatChunk(
+        BinaryReader reader,
+        int chunkSize,
+        out short audioFormat,
+        out short channelCount,
+        out int sampleRate,
+        out short bitsPerSample)
+    {
+        audioFormat = reader.ReadInt16();
+        channelCount = reader.ReadInt16();
+        sampleRate = reader.ReadInt32();
+        reader.ReadInt32(); // byte rate (derivable from the fields already read)
+        reader.ReadInt16(); // block align (derivable from the fields already read)
+        bitsPerSample = reader.ReadInt16();
+        SkipRemainder(reader, chunkSize, 16);
+    }
+
+    /// <summary>
+    ///     Rejects WAV encodings the recognizer pipeline cannot consume, keeping file-format
+    ///     policy separate from chunk-parsing mechanics.
+    /// </summary>
+    /// <param name="audioFormat">The WAV format tag declared by the file.</param>
+    /// <param name="bitsPerSample">The WAV bit depth declared by the file.</param>
+    /// <param name="channelCount">The WAV channel count declared by the file.</param>
+    /// <exception cref="InvalidOperationException">
+    ///     Thrown when the file is not mono, 16-bit uncompressed PCM.
+    /// </exception>
+    private void ValidateSupportedFormat(short audioFormat, short bitsPerSample, short channelCount)
+    {
+        if (audioFormat != 1)
+        {
+            throw new InvalidOperationException(
+                $"'{_path}' uses an unsupported WAV format tag {audioFormat}; only uncompressed PCM (1) is supported.");
+        }
+
+        if (bitsPerSample != 16)
+        {
+            throw new InvalidOperationException(
+                $"'{_path}' uses an unsupported bit depth of {bitsPerSample}; only 16-bit PCM is supported.");
+        }
+
+        if (channelCount != 1)
+        {
+            throw new InvalidOperationException(
+                $"'{_path}' has {channelCount} channels; only mono WAV files are supported.");
         }
     }
 

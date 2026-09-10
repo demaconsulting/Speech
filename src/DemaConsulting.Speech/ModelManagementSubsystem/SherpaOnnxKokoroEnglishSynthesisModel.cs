@@ -233,7 +233,7 @@ public sealed class SherpaOnnxKokoroEnglishSynthesisModel : ISynthesisModel
     {
         ArgumentException.ThrowIfNullOrEmpty(stagedFilesDirectory);
 
-        var archivePath = Path.Combine(stagedFilesDirectory, ArchiveRelativeInstallPath);
+        var archivePath = Path.Join(stagedFilesDirectory, ArchiveRelativeInstallPath);
         return TarBz2ArchiveExtractor.ExtractAndDeleteAsync(archivePath, stagedFilesDirectory, cancellationToken);
     }
 
@@ -247,13 +247,13 @@ public sealed class SherpaOnnxKokoroEnglishSynthesisModel : ISynthesisModel
     {
         ArgumentException.ThrowIfNullOrEmpty(installedModelDirectory);
 
-        var modelDirectory = Path.Combine(installedModelDirectory, ExtractedFolderName);
+        var modelDirectory = Path.Join(installedModelDirectory, ExtractedFolderName);
 
         var config = new OfflineTtsConfig();
-        config.Model.Kokoro.Model = Path.Combine(modelDirectory, "model.int8.onnx");
-        config.Model.Kokoro.Voices = Path.Combine(modelDirectory, "voices.bin");
-        config.Model.Kokoro.Tokens = Path.Combine(modelDirectory, "tokens.txt");
-        config.Model.Kokoro.DataDir = Path.Combine(modelDirectory, "espeak-ng-data");
+        config.Model.Kokoro.Model = Path.Join(modelDirectory, "model.int8.onnx");
+        config.Model.Kokoro.Voices = Path.Join(modelDirectory, "voices.bin");
+        config.Model.Kokoro.Tokens = Path.Join(modelDirectory, "tokens.txt");
+        config.Model.Kokoro.DataDir = Path.Join(modelDirectory, "espeak-ng-data");
         config.Model.Kokoro.LengthScale = LengthScale;
         // Model.Kokoro.DictDir/Lexicon/Lang are deliberately left unset - this English-only
         // archive ships neither a Chinese jieba dictionary nor a lexicon file.

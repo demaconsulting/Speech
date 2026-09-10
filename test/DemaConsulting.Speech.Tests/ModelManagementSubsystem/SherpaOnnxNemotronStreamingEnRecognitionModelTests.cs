@@ -24,7 +24,7 @@ public sealed class SherpaOnnxNemotronStreamingEnRecognitionModelTests : IDispos
     /// </summary>
     public SherpaOnnxNemotronStreamingEnRecognitionModelTests()
     {
-        _testRoot = Path.Combine(Path.GetTempPath(), "DemaConsulting.Speech.Tests", Guid.NewGuid().ToString("N"));
+        _testRoot = Path.Join(Path.GetTempPath(), "DemaConsulting.Speech.Tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_testRoot);
     }
 
@@ -130,12 +130,12 @@ public sealed class SherpaOnnxNemotronStreamingEnRecognitionModelTests : IDispos
         var config = model.CreateEngineConfig(installedDirectory);
 
         // Assert
-        var modelFolder = Path.Combine(installedDirectory, ExtractedFolderName);
+        var modelFolder = Path.Join(installedDirectory, ExtractedFolderName);
         Assert.Equal(16000, config.FeatConfig.SampleRate);
-        Assert.Equal(Path.Combine(modelFolder, "encoder.int8.onnx"), config.ModelConfig.Transducer.Encoder);
-        Assert.Equal(Path.Combine(modelFolder, "decoder.int8.onnx"), config.ModelConfig.Transducer.Decoder);
-        Assert.Equal(Path.Combine(modelFolder, "joiner.int8.onnx"), config.ModelConfig.Transducer.Joiner);
-        Assert.Equal(Path.Combine(modelFolder, "tokens.txt"), config.ModelConfig.Tokens);
+        Assert.Equal(Path.Join(modelFolder, "encoder.int8.onnx"), config.ModelConfig.Transducer.Encoder);
+        Assert.Equal(Path.Join(modelFolder, "decoder.int8.onnx"), config.ModelConfig.Transducer.Decoder);
+        Assert.Equal(Path.Join(modelFolder, "joiner.int8.onnx"), config.ModelConfig.Transducer.Joiner);
+        Assert.Equal(Path.Join(modelFolder, "tokens.txt"), config.ModelConfig.Tokens);
         Assert.Equal("cpu", config.ModelConfig.Provider);
         Assert.Equal("greedy_search", config.DecodingMethod);
         Assert.Equal(1, config.EnableEndpoint);
@@ -209,14 +209,14 @@ public sealed class SherpaOnnxNemotronStreamingEnRecognitionModelTests : IDispos
         [
             (ExtractedFolderName + "/tokens.txt", tokensContent),
         ]);
-        var archivePath = Path.Combine(_testRoot, relativeInstallPath);
+        var archivePath = Path.Join(_testRoot, relativeInstallPath);
         await File.WriteAllBytesAsync(archivePath, archiveBytes, TestContext.Current.CancellationToken);
 
         // Act
         await model.InstallAsync(_testRoot, TestContext.Current.CancellationToken);
 
         // Assert
-        var extractedTokensPath = Path.Combine(_testRoot, ExtractedFolderName, "tokens.txt");
+        var extractedTokensPath = Path.Join(_testRoot, ExtractedFolderName, "tokens.txt");
         Assert.True(File.Exists(extractedTokensPath));
         Assert.Equal(
             tokensContent,

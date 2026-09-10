@@ -80,10 +80,10 @@ public sealed class FakeSynthesisModel : ISynthesisModel
         ArgumentException.ThrowIfNullOrEmpty(installedModelDirectory);
 
         var config = new OfflineTtsConfig();
-        config.Model.Vits.Model = Path.Combine(installedModelDirectory, "model.onnx");
-        config.Model.Vits.Lexicon = Path.Combine(installedModelDirectory, "lexicon.txt");
-        config.Model.Vits.Tokens = Path.Combine(installedModelDirectory, "tokens.txt");
-        config.Model.Vits.DataDir = Path.Combine(installedModelDirectory, "espeak-ng-data");
+        config.Model.Vits.Model = Path.Join(installedModelDirectory, "model.onnx");
+        config.Model.Vits.Lexicon = Path.Join(installedModelDirectory, "lexicon.txt");
+        config.Model.Vits.Tokens = Path.Join(installedModelDirectory, "tokens.txt");
+        config.Model.Vits.DataDir = Path.Join(installedModelDirectory, "espeak-ng-data");
         return config;
     }
 

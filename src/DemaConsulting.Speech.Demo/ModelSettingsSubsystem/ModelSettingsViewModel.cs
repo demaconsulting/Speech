@@ -63,7 +63,7 @@ public sealed partial class ModelSettingsViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(HasParameters))]
     [NotifyPropertyChangedFor(nameof(IsEmpty))]
     [NotifyPropertyChangedFor(nameof(EmptyMessage))]
-    private ISpeechModel? _model;
+    public partial ISpeechModel? Model { get; set; }
 
     /// <summary>
     ///     Gets a value indicating whether a model is currently selected.
@@ -97,10 +97,14 @@ public sealed partial class ModelSettingsViewModel : ObservableObject
     /// </param>
     public ModelSettingsViewModel(ISpeechModel? model = null)
     {
-        // Assign the backing field directly (rather than the Model property) so construction
-        // performs exactly one rebuild regardless of whether a model was supplied.
-        _model = model;
-        Rebuild();
+        // Assign through the generated property when a model is supplied so its change hook
+        // performs the one required rebuild; a null start still needs an explicit first rebuild
+        // because the generated property's default value is already null.
+        Model = model;
+        if (model is null)
+        {
+            Rebuild();
+        }
     }
 
     /// <summary>
@@ -144,20 +148,17 @@ public sealed partial class ModelSettingsViewModel : ObservableObject
 
         if (Model is not null)
         {
-            foreach (var parameter in Model.Parameters)
-            {
-                ParameterViewModelBase? presenter = parameter switch
+            foreach (var presenter in Model.Parameters
+                .Select(static parameter => (ParameterViewModelBase?)(parameter switch
                 {
                     NumericParameter numeric => new NumericParameterViewModel(numeric),
                     ChoiceParameter choice => new ChoiceParameterViewModel(choice),
                     BooleanParameter boolean => new BooleanParameterViewModel(boolean),
                     _ => null,
-                };
-
-                if (presenter is not null)
-                {
-                    Parameters.Add(presenter);
-                }
+                }))
+                .OfType<ParameterViewModelBase>())
+            {
+                Parameters.Add(presenter);
             }
         }
 

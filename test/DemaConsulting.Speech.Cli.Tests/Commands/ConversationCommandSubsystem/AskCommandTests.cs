@@ -442,7 +442,7 @@ public sealed class AskCommandTests
         var playbackSource = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]), playbackDevice);
 
         var originalOut = Console.Out;
-        var writer = new StringWriter { NewLine = "\n" };
+        using var writer = new StringWriter { NewLine = "\n" };
         Console.SetOut(writer);
         try
         {
@@ -506,7 +506,7 @@ public sealed class AskCommandTests
         };
 
         var originalOut = Console.Out;
-        var writer = new StringWriter { NewLine = "\n" };
+        using var writer = new StringWriter { NewLine = "\n" };
         Console.SetOut(writer);
         try
         {
@@ -541,7 +541,7 @@ public sealed class AskCommandTests
         };
         catalog.CreateRecognizerOverride = (_, _, _) => recognizer;
 
-        var outputPath = Path.Combine(Path.GetTempPath(), $"ask-test-{Guid.NewGuid():N}.txt");
+        var outputPath = Path.Join(Path.GetTempPath(), $"ask-test-{Guid.NewGuid():N}.txt");
         try
         {
             using var context = Context.Create(
@@ -638,7 +638,7 @@ public sealed class AskCommandTests
         };
         catalog.CreateRecognizerOverride = (_, _, _) => recognizer;
 
-        var outputPath = Path.Combine(Path.GetTempPath(), $"ask-test-{Guid.NewGuid():N}.txt");
+        var outputPath = Path.Join(Path.GetTempPath(), $"ask-test-{Guid.NewGuid():N}.txt");
         try
         {
             using var context = Context.Create(
@@ -844,7 +844,7 @@ public sealed class AskCommandTests
         catalog.CreateRecognizerOverride = (_, _, _) => recognizer;
 
         var originalOut = Console.Out;
-        var writer = new StringWriter { NewLine = "\n" };
+        using var writer = new StringWriter { NewLine = "\n" };
         Console.SetOut(writer);
         try
         {
@@ -894,7 +894,7 @@ public sealed class AskCommandTests
         stopSignal.Set();
 
         var originalOut = Console.Out;
-        var writer = new StringWriter { NewLine = "\n" };
+        using var writer = new StringWriter { NewLine = "\n" };
         Console.SetOut(writer);
         try
         {
@@ -944,7 +944,7 @@ public sealed class AskCommandTests
         catalog.CreateRecognizerOverride = (_, _, _) => recognizer;
 
         var originalOut = Console.Out;
-        var writer = new StringWriter { NewLine = "\n" };
+        using var writer = new StringWriter { NewLine = "\n" };
         Console.SetOut(writer);
         try
         {
@@ -1004,7 +1004,7 @@ public sealed class AskCommandTests
         catalog.CreateRecognizerOverride = (_, _, _) => recognizer;
 
         var originalOut = Console.Out;
-        var writer = new StringWriter { NewLine = "\n" };
+        using var writer = new StringWriter { NewLine = "\n" };
         Console.SetOut(writer);
         try
         {
@@ -1077,9 +1077,9 @@ public sealed class AskCommandTests
         };
         catalog.CreateRecognizerOverride = (_, _, _) => recognizer;
 
-        var outputPath = Path.Combine(Path.GetTempPath(), $"ask-test-{Guid.NewGuid():N}.txt");
+        var outputPath = Path.Join(Path.GetTempPath(), $"ask-test-{Guid.NewGuid():N}.txt");
         var originalOut = Console.Out;
-        var writer = new StringWriter { NewLine = "\n" };
+        using var writer = new StringWriter { NewLine = "\n" };
         Console.SetOut(writer);
         try
         {

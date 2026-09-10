@@ -25,6 +25,7 @@ sections:
               choice the user already made.
             tests:
               - RecognitionPanelViewModel_Refresh_MixedCatalog_OffersOnlyInstalledRecognitionModels
+              - RecognitionPanelViewModel_Refresh_ModelStillInstalled_PreservesSelection
 
           - id: SpeechDemo-Recognition-StartStopLifecycle
             title: >-

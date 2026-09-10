@@ -26,7 +26,7 @@ public class SynthesizerSessionFactoryTests
     /// <returns>A store isolated from any developer's real installed-model directory.</returns>
     private static SpeechModelStore IsolatedStore() => new(new SpeechModelStoreOptions
     {
-        RootPathOverride = Path.Combine(
+        RootPathOverride = Path.Join(
             AppContext.BaseDirectory, "SynthesizerSessionFactoryTests", Guid.NewGuid().ToString("N"))
     });
 

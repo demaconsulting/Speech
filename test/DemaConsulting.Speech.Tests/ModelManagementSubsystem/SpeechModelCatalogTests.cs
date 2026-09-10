@@ -19,7 +19,7 @@ public sealed class SpeechModelCatalogTests : IDisposable
     /// </summary>
     public SpeechModelCatalogTests()
     {
-        _testRoot = Path.Combine(Path.GetTempPath(), "DemaConsulting.Speech.Tests", Guid.NewGuid().ToString("N"));
+        _testRoot = Path.Join(Path.GetTempPath(), "DemaConsulting.Speech.Tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_testRoot);
     }
 
@@ -238,8 +238,8 @@ public sealed class SpeechModelCatalogTests : IDisposable
         Assert.Equal(SpeechModelDownloadOutcome.Installed, result.Outcome);
         Assert.Equal(SpeechModelState.Downloaded, catalog.GetState("model-zip-catalog"));
         var currentDirectory = store.GetCurrentDirectory("model-zip-catalog");
-        var extractedPath = Path.Combine(currentDirectory, FakeModelDescriptors.ZipArchiveEntryName);
-        var archivePath = Path.Combine(currentDirectory, FakeModelDescriptors.ZipArchiveRelativeInstallPath);
+        var extractedPath = Path.Join(currentDirectory, FakeModelDescriptors.ZipArchiveEntryName);
+        var archivePath = Path.Join(currentDirectory, FakeModelDescriptors.ZipArchiveRelativeInstallPath);
         Assert.True(File.Exists(extractedPath));
         var extractedBytes = await File.ReadAllBytesAsync(extractedPath, TestContext.Current.CancellationToken);
         Assert.Equal(FakeModelDescriptors.ZipArchiveEntryContent, extractedBytes);

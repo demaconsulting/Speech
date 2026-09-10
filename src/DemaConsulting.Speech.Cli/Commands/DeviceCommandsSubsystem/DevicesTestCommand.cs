@@ -19,6 +19,8 @@
 // SOFTWARE.
 
 using System.Globalization;
+using System.Numerics.Tensors;
+using System.Runtime.InteropServices;
 using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.Cli.Cli;
 
@@ -327,7 +329,17 @@ internal static class DevicesTestCommand
             device.FrameCaptured -= OnFrameCaptured;
         }
 
-        var peakAmplitude = samples.Count == 0 ? 0.0f : samples.Max(Math.Abs);
+        // NOSONAR (S2583): SonarQube's flow analysis cannot see that OnFrameCaptured mutates
+        // `samples` via the FrameCaptured event subscription above, so it believes the list can
+        // never be non-empty and reports the "samples.Count == 0" branch as always true. At
+        // runtime the capture device populates `samples` through the event before this line is
+        // reached, so both branches are genuinely reachable; the guard is required to avoid
+        // MaxMagnitude() throwing on an empty span when the device delivers no frames in time.
+        // CollectionsMarshal.AsSpan exposes the list's backing array with no copy, and
+        // TensorPrimitives.MaxMagnitude finds the largest-magnitude element in one vectorized
+        // pass instead of LINQ's Max(Math.Abs) invoking a delegate per element.
+        var sampleSpan = CollectionsMarshal.AsSpan(samples);
+        var peakAmplitude = sampleSpan.IsEmpty ? 0.0f : Math.Abs(TensorPrimitives.MaxMagnitude(sampleSpan)); // NOSONAR
 
         context.WriteLine(
             $"Recorded {CaptureDurationSeconds:0.#} second(s) from the resolved capture device " +

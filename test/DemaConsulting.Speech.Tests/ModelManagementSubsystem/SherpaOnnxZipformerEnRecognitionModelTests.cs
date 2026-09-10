@@ -23,7 +23,7 @@ public sealed class SherpaOnnxZipformerEnRecognitionModelTests : IDisposable
     /// </summary>
     public SherpaOnnxZipformerEnRecognitionModelTests()
     {
-        _testRoot = Path.Combine(Path.GetTempPath(), "DemaConsulting.Speech.Tests", Guid.NewGuid().ToString("N"));
+        _testRoot = Path.Join(Path.GetTempPath(), "DemaConsulting.Speech.Tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_testRoot);
     }
 
@@ -120,19 +120,19 @@ public sealed class SherpaOnnxZipformerEnRecognitionModelTests : IDisposable
         var config = model.CreateEngineConfig(installedDirectory);
 
         // Assert
-        var modelFolder = Path.Combine(installedDirectory, ExtractedFolderName);
+        var modelFolder = Path.Join(installedDirectory, ExtractedFolderName);
         Assert.Equal(16000, config.FeatConfig.SampleRate);
         Assert.Equal(80, config.FeatConfig.FeatureDim);
         Assert.Equal(
-            Path.Combine(modelFolder, "encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx"),
+            Path.Join(modelFolder, "encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx"),
             config.ModelConfig.Transducer.Encoder);
         Assert.Equal(
-            Path.Combine(modelFolder, "decoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx"),
+            Path.Join(modelFolder, "decoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx"),
             config.ModelConfig.Transducer.Decoder);
         Assert.Equal(
-            Path.Combine(modelFolder, "joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx"),
+            Path.Join(modelFolder, "joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx"),
             config.ModelConfig.Transducer.Joiner);
-        Assert.Equal(Path.Combine(modelFolder, "tokens.txt"), config.ModelConfig.Tokens);
+        Assert.Equal(Path.Join(modelFolder, "tokens.txt"), config.ModelConfig.Tokens);
         Assert.Equal("zipformer2", config.ModelConfig.ModelType);
         Assert.Equal("cpu", config.ModelConfig.Provider);
         Assert.Equal("greedy_search", config.DecodingMethod);
@@ -190,14 +190,14 @@ public sealed class SherpaOnnxZipformerEnRecognitionModelTests : IDisposable
         [
             (ExtractedFolderName + "/tokens.txt", tokensContent),
         ]);
-        var archivePath = Path.Combine(_testRoot, relativeInstallPath);
+        var archivePath = Path.Join(_testRoot, relativeInstallPath);
         await File.WriteAllBytesAsync(archivePath, archiveBytes, TestContext.Current.CancellationToken);
 
         // Act
         await model.InstallAsync(_testRoot, TestContext.Current.CancellationToken);
 
         // Assert
-        var extractedTokensPath = Path.Combine(_testRoot, ExtractedFolderName, "tokens.txt");
+        var extractedTokensPath = Path.Join(_testRoot, ExtractedFolderName, "tokens.txt");
         Assert.True(File.Exists(extractedTokensPath));
         Assert.Equal(
             tokensContent,

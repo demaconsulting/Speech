@@ -36,13 +36,21 @@ internal sealed class CaptureDebugRecorder : IDisposable
     private readonly IAudioCaptureDevice _device;
 
     /// <summary>The queue handing captured frames from the audio callback to the writer thread.</summary>
-    private readonly BlockingCollection<IReadOnlyList<float>> _queue = new();
+    private readonly BlockingCollection<IReadOnlyList<float>> _queue = [];
 
     /// <summary>The background thread that owns the writer and performs all file I/O.</summary>
     private readonly Thread _writerThread;
 
     /// <summary>The writer used exclusively by <see cref="_writerThread"/>.</summary>
     private readonly WavFileWriter _writer;
+
+    /// <summary>
+    ///     The maximum time <see cref="Dispose"/> waits for the writer thread to drain queued
+    ///     frames before giving up. Generous because this is off the critical recognition path,
+    ///     but bounded so a stalled disk cannot hang the caller (typically a UI-thread command)
+    ///     indefinitely.
+    /// </summary>
+    private static readonly TimeSpan DrainTimeout = TimeSpan.FromSeconds(10);
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="CaptureDebugRecorder"/> class and starts
@@ -98,7 +106,7 @@ internal sealed class CaptureDebugRecorder : IDisposable
 
             var suffix = Guid.NewGuid().ToString("N")[..6];
             var fileName = $"capture-{DateTime.Now:yyyyMMdd-HHmmss}-{suffix}.wav";
-            var path = Path.Combine(directory, fileName);
+            var path = Path.Join(directory, fileName);
 
             var writer = new WavFileWriter(path, captureDevice.SampleRate, captureDevice.ChannelCount);
 
@@ -159,15 +167,39 @@ internal sealed class CaptureDebugRecorder : IDisposable
     }
 
     /// <summary>
-    ///     Stops listening for captured frames, waits for the background writer thread to drain
-    ///     any queued frames, and finalizes the <c>.wav</c> file header.
+    ///     Stops listening for captured frames, waits (up to <see cref="DrainTimeout"/>) for the
+    ///     background writer thread to fully drain any queued frames, and finalizes the
+    ///     <c>.wav</c> file header.
     /// </summary>
+    /// <remarks>
+    ///     This is diagnostic/debug instrumentation off the critical recognition path, and
+    ///     <see cref="Dispose"/> is typically invoked synchronously from a UI-thread command, so
+    ///     the wait below is bounded rather than infinite: <see cref="_queue"/> is completed just
+    ///     above, guaranteeing <see cref="WriterThreadMain"/> will eventually observe
+    ///     <see cref="BlockingCollection{T}.GetConsumingEnumerable()"/> ending and exit, but a
+    ///     stalled disk (a disconnected network share, a failing drive, and so on) could otherwise
+    ///     block that exit indefinitely and hang the caller. When the writer thread finishes
+    ///     within the timeout, the writer and queue are finalized and disposed normally. When it
+    ///     does not, disposing the writer here would race with its still-in-flight write, so
+    ///     instead this logs a diagnostic and intentionally leaves the writer thread to finish and
+    ///     finalize the file on its own once the stalled write eventually completes, at the cost of
+    ///     a leaked queue/writer handle in that rare pathological case.
+    /// </remarks>
     public void Dispose()
     {
         _device.FrameCaptured -= OnFrameCaptured;
         _queue.CompleteAdding();
-        _writerThread.Join(TimeSpan.FromSeconds(2));
-        _writer.Dispose();
-        _queue.Dispose();
+
+        if (_writerThread.Join(DrainTimeout))
+        {
+            _writer.Dispose();
+            _queue.Dispose();
+        }
+        else
+        {
+            Console.WriteLine(
+                "[CaptureDebug] Writer thread did not drain within the timeout; leaving it to " +
+                "finish and finalize the file in the background.");
+        }
     }
 }

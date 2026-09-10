@@ -78,6 +78,7 @@ internal static class Program
         {
             // Create context from command-line arguments
             context = Context.Create(args);
+            using var contextLease = context;
 
             // Run the program logic
             Run(context);
@@ -116,10 +117,6 @@ internal static class Program
             }
 
             throw;
-        }
-        finally
-        {
-            context?.Dispose();
         }
     }
 

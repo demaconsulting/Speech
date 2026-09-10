@@ -1,3 +1,5 @@
+using System.Numerics.Tensors;
+
 namespace DemaConsulting.Speech.AudioSubsystem;
 
 /// <summary>
@@ -103,21 +105,94 @@ internal static class WindowedSincLowpassFilter
         }
 
         var filtered = new float[monoSamples.Length];
-        var radius = kernel.Length / 2;
-        var lastIndex = monoSamples.Length - 1;
-        for (var sampleIndex = 0; sampleIndex < monoSamples.Length; sampleIndex++)
-        {
-            var sum = 0.0;
-            for (var tap = 0; tap < kernel.Length; tap++)
-            {
-                var sourceIndex = Math.Clamp(sampleIndex + tap - radius, 0, lastIndex);
-                sum += monoSamples[sourceIndex] * kernel[tap];
-            }
+        ApplyLowpassFilter(monoSamples, kernel, filtered);
+        return filtered;
+    }
 
-            filtered[sampleIndex] = (float)sum;
+    /// <summary>
+    ///     Applies one symmetric FIR filter to a mono signal into a caller-supplied buffer,
+    ///     extending edges by replicating the nearest endpoint sample so the output length
+    ///     matches the input length exactly.
+    /// </summary>
+    /// <param name="monoSamples">
+    ///     The mono samples to filter. May be empty.
+    /// </param>
+    /// <param name="kernel">
+    ///     The normalized FIR kernel to apply. Must not be null and should typically come from
+    ///     <see cref="BuildLowpassKernel(double, int)"/>.
+    /// </param>
+    /// <param name="destination">
+    ///     The buffer to write the filtered signal into. Must be at least
+    ///     <paramref name="monoSamples"/>.Length long; this overload lets a caller supply an
+    ///     <see cref="System.Buffers.ArrayPool{T}"/>-rented buffer for a purely transient result
+    ///     instead of allocating a new array.
+    /// </param>
+    /// <exception cref="ArgumentException">
+    ///     Thrown when <paramref name="destination"/> is shorter than <paramref name="monoSamples"/>.
+    /// </exception>
+    internal static void ApplyLowpassFilter(ReadOnlySpan<float> monoSamples, float[] kernel, Span<float> destination)
+    {
+        ArgumentNullException.ThrowIfNull(kernel);
+
+        if (monoSamples.IsEmpty)
+        {
+            return;
         }
 
-        return filtered;
+        if (destination.Length < monoSamples.Length)
+        {
+            throw new ArgumentException(
+                "The destination buffer must be at least as long as monoSamples.",
+                nameof(destination));
+        }
+
+        var filtered = destination;
+        var radius = kernel.Length / 2;
+        var lastIndex = monoSamples.Length - 1;
+
+        // Samples whose full tap window (sampleIndex-radius .. sampleIndex+radius) lies entirely
+        // inside the input never need the per-tap boundary clamp, so their dot product can be
+        // computed with one vectorized call per sample instead of a scalar per-tap loop. Samples
+        // within `radius` of either end still need the original scalar, clamped-index path.
+        var interiorStart = Math.Min(radius, monoSamples.Length);
+        var interiorEndExclusive = Math.Max(interiorStart, monoSamples.Length - radius);
+
+        for (var sampleIndex = 0; sampleIndex < interiorStart; sampleIndex++)
+        {
+            filtered[sampleIndex] = ApplyClampedKernel(monoSamples, kernel, sampleIndex, radius, lastIndex);
+        }
+
+        for (var sampleIndex = interiorStart; sampleIndex < interiorEndExclusive; sampleIndex++)
+        {
+            filtered[sampleIndex] = TensorPrimitives.Dot(monoSamples.Slice(sampleIndex - radius, kernel.Length), kernel);
+        }
+
+        for (var sampleIndex = interiorEndExclusive; sampleIndex < monoSamples.Length; sampleIndex++)
+        {
+            filtered[sampleIndex] = ApplyClampedKernel(monoSamples, kernel, sampleIndex, radius, lastIndex);
+        }
+    }
+
+    /// <summary>
+    ///     Applies the FIR kernel to a single output sample using the original scalar,
+    ///     clamped-source-index path. Used only for samples within <paramref name="radius"/> of
+    ///     either end of the input, where the tap window would otherwise read out of bounds.
+    /// </summary>
+    private static float ApplyClampedKernel(
+        ReadOnlySpan<float> monoSamples,
+        float[] kernel,
+        int sampleIndex,
+        int radius,
+        int lastIndex)
+    {
+        var sum = 0.0;
+        for (var tap = 0; tap < kernel.Length; tap++)
+        {
+            var sourceIndex = Math.Clamp(sampleIndex + tap - radius, 0, lastIndex);
+            sum += monoSamples[sourceIndex] * kernel[tap];
+        }
+
+        return (float)sum;
     }
 
     /// <summary>

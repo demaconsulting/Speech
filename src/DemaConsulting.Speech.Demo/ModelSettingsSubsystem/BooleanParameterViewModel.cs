@@ -13,7 +13,7 @@ public sealed partial class BooleanParameterViewModel : ParameterViewModelBase
     ///     Gets or sets this parameter's current value.
     /// </summary>
     [ObservableProperty]
-    private bool _value;
+    public partial bool Value { get; set; }
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="BooleanParameterViewModel"/> class from a
@@ -26,7 +26,7 @@ public sealed partial class BooleanParameterViewModel : ParameterViewModelBase
     {
         ArgumentNullException.ThrowIfNull(parameter);
 
-        _value = parameter.Default;
+        Value = parameter.Default;
     }
 
     /// <inheritdoc/>

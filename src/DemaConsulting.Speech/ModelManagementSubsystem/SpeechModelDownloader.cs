@@ -244,7 +244,7 @@ public sealed class SpeechModelDownloader : IDisposable
             for (var fileIndex = 0; fileIndex < descriptor.Files.Count; fileIndex++)
             {
                 var file = descriptor.Files[fileIndex];
-                var destinationPath = Path.Combine(stagingDirectory, file.RelativeInstallPath);
+                var destinationPath = Path.Join(stagingDirectory, file.RelativeInstallPath);
                 Directory.CreateDirectory(Path.GetDirectoryName(destinationPath) ?? stagingDirectory);
 
                 await FetchFileAsync(
@@ -298,6 +298,9 @@ public sealed class SpeechModelDownloader : IDisposable
         }
         catch (Exception ex)
         {
+            // Intentionally broad: this top-level download/install boundary must convert any
+            // non-cancellation network, checksum, archive, or file-system failure into an honest
+            // Failed result after cleaning up the staging directory.
             _diagnostics.Report(
                 SpeechDiagnosticLevel.Error,
                 "ModelManagementSubsystem",

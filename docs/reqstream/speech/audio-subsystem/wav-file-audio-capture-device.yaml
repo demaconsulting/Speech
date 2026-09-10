@@ -76,6 +76,9 @@ sections:
                   - WavFileAudioCaptureDevice_Start_MissingFile_ThrowsInvalidOperationException
                   - WavFileAudioCaptureDevice_Start_NotARiffFile_ThrowsInvalidOperationException
                   - WavFileAudioCaptureDevice_Start_StereoFile_ThrowsInvalidOperationException
+                  - WavFileAudioCaptureDevice_Start_NonPcmFormatTag_ThrowsInvalidOperationException
+                  - WavFileAudioCaptureDevice_Start_EightBitDepth_ThrowsInvalidOperationException
+                  - WavFileAudioCaptureDevice_Start_TwentyFourBitDepth_ThrowsInvalidOperationException
 
               - id: Speech-Audio-WavFileAudioCaptureDevice-ArgumentValidation
                 title: >-

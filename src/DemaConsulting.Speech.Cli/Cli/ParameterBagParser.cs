@@ -72,7 +72,7 @@ internal static class ParameterBagParser
 
     /// <summary>
     ///     Resolves a list of raw <c>(key, value)</c> tokens against a model's declared
-    ///     parameters into a boxed <see cref="IReadOnlyDictionary{TKey,TValue}"/>.
+    ///     parameters into a boxed <see cref="Dictionary{TKey,TValue}"/>.
     /// </summary>
     /// <param name="rawValues">The raw, unresolved tokens parsed by <see cref="ParseToken"/>.</param>
     /// <param name="declaredParameters">The resolved model's own declared parameter set.</param>
@@ -94,7 +94,7 @@ internal static class ParameterBagParser
     ///     out of range, non-integral for an integer-only <see cref="NumericParameter"/>, or
     ///     does not match any declared <see cref="ChoiceParameter"/> option.
     /// </exception>
-    internal static IReadOnlyDictionary<string, object> Resolve(
+    internal static Dictionary<string, object> Resolve(
         IReadOnlyList<(string Key, string Value)> rawValues,
         IReadOnlyList<ISpeechModelParameter> declaredParameters,
         string flagName)

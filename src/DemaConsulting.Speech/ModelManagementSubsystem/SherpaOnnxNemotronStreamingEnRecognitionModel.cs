@@ -181,7 +181,7 @@ public sealed class SherpaOnnxNemotronStreamingEnRecognitionModel : IRecognition
     {
         ArgumentException.ThrowIfNullOrEmpty(stagedFilesDirectory);
 
-        var archivePath = Path.Combine(stagedFilesDirectory, ArchiveRelativeInstallPath);
+        var archivePath = Path.Join(stagedFilesDirectory, ArchiveRelativeInstallPath);
         return TarBz2ArchiveExtractor.ExtractAndDeleteAsync(archivePath, stagedFilesDirectory, cancellationToken);
     }
 
@@ -200,15 +200,15 @@ public sealed class SherpaOnnxNemotronStreamingEnRecognitionModel : IRecognition
     {
         ArgumentException.ThrowIfNullOrEmpty(installedModelDirectory);
 
-        var modelDirectory = Path.Combine(installedModelDirectory, ExtractedFolderName);
+        var modelDirectory = Path.Join(installedModelDirectory, ExtractedFolderName);
 
         var config = new OnlineRecognizerConfig();
         config.FeatConfig.SampleRate = ModelSampleRate;
 
-        config.ModelConfig.Transducer.Encoder = Path.Combine(modelDirectory, "encoder.int8.onnx");
-        config.ModelConfig.Transducer.Decoder = Path.Combine(modelDirectory, "decoder.int8.onnx");
-        config.ModelConfig.Transducer.Joiner = Path.Combine(modelDirectory, "joiner.int8.onnx");
-        config.ModelConfig.Tokens = Path.Combine(modelDirectory, "tokens.txt");
+        config.ModelConfig.Transducer.Encoder = Path.Join(modelDirectory, "encoder.int8.onnx");
+        config.ModelConfig.Transducer.Decoder = Path.Join(modelDirectory, "decoder.int8.onnx");
+        config.ModelConfig.Transducer.Joiner = Path.Join(modelDirectory, "joiner.int8.onnx");
+        config.ModelConfig.Tokens = Path.Join(modelDirectory, "tokens.txt");
         config.ModelConfig.Provider = "cpu";
         config.ModelConfig.NumThreads = 1;
 

@@ -101,6 +101,7 @@ sections:
               attempt further models after a deliberate interruption would be surprising and
               wasteful.
             tests:
+              - DownloadCommand_RunAsync_CanceledBeforeStart_ReportsErrorAndStopsBatch
               - DownloadCommand_RunAsync_Canceled_ReportsErrorAndStopsBatch
 
           - id: SpeechCli-ModelCommands-Uninstall

@@ -50,7 +50,7 @@ public sealed partial class DeviceSelectionViewModel : ObservableObject
     /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CaptureSelection))]
-    private AudioDeviceDescription? _selectedCaptureDevice;
+    public partial AudioDeviceDescription? SelectedCaptureDevice { get; set; }
 
     /// <summary>
     ///     Gets or sets the playback device the user has chosen, or <see langword="null"/> when no
@@ -58,19 +58,19 @@ public sealed partial class DeviceSelectionViewModel : ObservableObject
     /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PlaybackSelection))]
-    private AudioDeviceDescription? _selectedPlaybackDevice;
+    public partial AudioDeviceDescription? SelectedPlaybackDevice { get; set; }
 
     /// <summary>
     ///     Gets or sets the message describing the capture-device list's current state.
     /// </summary>
     [ObservableProperty]
-    private string _captureStatus = string.Empty;
+    public partial string CaptureStatus { get; set; } = string.Empty;
 
     /// <summary>
     ///     Gets or sets the message describing the playback-device list's current state.
     /// </summary>
     [ObservableProperty]
-    private string _playbackStatus = string.Empty;
+    public partial string PlaybackStatus { get; set; } = string.Empty;
 
     /// <summary>
     ///     Gets a value indicating whether at least one capture device is available to choose.

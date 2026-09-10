@@ -183,7 +183,7 @@ public sealed class HttpModelDownloadClientTests
         /// </summary>
         private static int GetFreeLoopbackPort()
         {
-            var probe = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
+            using var probe = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
             probe.Start();
             try
             {

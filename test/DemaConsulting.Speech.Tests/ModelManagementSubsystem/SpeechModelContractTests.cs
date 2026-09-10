@@ -22,11 +22,11 @@ public class SpeechModelContractTests
     public void IRecognitionModel_Role_IsRecognition()
     {
         // Arrange
-        ISpeechModel model = new FakeRecognitionModel();
+        var model = new FakeRecognitionModel();
 
         // Act & Assert
         Assert.Equal(SpeechModelRole.Recognition, model.Role);
-        Assert.IsAssignableFrom<IRecognitionModel>(model);
+        Assert.IsType<IRecognitionModel>(model, exactMatch: false);
     }
 
     /// <summary>
@@ -38,11 +38,11 @@ public class SpeechModelContractTests
     public void ISynthesisModel_Role_IsSynthesis()
     {
         // Arrange
-        ISpeechModel model = new FakeSynthesisModel();
+        var model = new FakeSynthesisModel();
 
         // Act & Assert
         Assert.Equal(SpeechModelRole.Synthesis, model.Role);
-        Assert.IsAssignableFrom<ISynthesisModel>(model);
+        Assert.IsType<ISynthesisModel>(model, exactMatch: false);
     }
 
     /// <summary>
@@ -53,10 +53,10 @@ public class SpeechModelContractTests
     public void IRecognitionModel_AudioFormat_DeclaredByModel_IsExposed()
     {
         // Arrange: a fake recognition model declaring a non-default engine input rate
-        IRecognitionModel model = new FakeRecognitionModel(sampleRate: 8000);
+        var model = new FakeRecognitionModel(sampleRate: 8000);
 
         // Act
-        var format = model.AudioFormat;
+        var format = ((IRecognitionModel)model).AudioFormat;
 
         // Assert
         Assert.Equal(new AudioFormat(8000, 1), format);
@@ -71,15 +71,15 @@ public class SpeechModelContractTests
     public void IRecognitionModel_CreateEngineConfig_InstalledDirectory_ResolvesPathsAndSampleRate()
     {
         // Arrange: a fake recognition model and an installed-model directory path
-        IRecognitionModel model = new FakeRecognitionModel();
-        var installedModelDirectory = Path.Combine(Path.GetTempPath(), "fake-installed-model");
+        var model = new FakeRecognitionModel();
+        var installedModelDirectory = Path.Join(Path.GetTempPath(), "fake-installed-model");
 
         // Act
-        var config = model.CreateEngineConfig(installedModelDirectory);
+        var config = ((IRecognitionModel)model).CreateEngineConfig(installedModelDirectory);
 
         // Assert: the declared rate and the resolved token path are both present
-        Assert.Equal(model.AudioFormat.SampleRate, config.FeatConfig.SampleRate);
-        Assert.Equal(Path.Combine(installedModelDirectory, "tokens.txt"), config.ModelConfig.Tokens);
+        Assert.Equal(((IRecognitionModel)model).AudioFormat.SampleRate, config.FeatConfig.SampleRate);
+        Assert.Equal(Path.Join(installedModelDirectory, "tokens.txt"), config.ModelConfig.Tokens);
     }
 
     /// <summary>
@@ -90,10 +90,10 @@ public class SpeechModelContractTests
     public void IRecognitionModel_CreateEngineConfig_EmptyDirectory_ThrowsArgumentException()
     {
         // Arrange
-        IRecognitionModel model = new FakeRecognitionModel();
+        var model = new FakeRecognitionModel();
 
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => model.CreateEngineConfig(string.Empty));
+        Assert.Throws<ArgumentException>(() => ((IRecognitionModel)model).CreateEngineConfig(string.Empty));
     }
 
     /// <summary>
@@ -104,15 +104,15 @@ public class SpeechModelContractTests
     public void ISynthesisModel_CreateEngineConfig_InstalledDirectory_ResolvesPaths()
     {
         // Arrange: a fake synthesis model and an installed-model directory path
-        ISynthesisModel model = new FakeSynthesisModel();
-        var installedModelDirectory = Path.Combine(Path.GetTempPath(), "fake-installed-synthesis-model");
+        var model = new FakeSynthesisModel();
+        var installedModelDirectory = Path.Join(Path.GetTempPath(), "fake-installed-synthesis-model");
 
         // Act
-        var config = model.CreateEngineConfig(installedModelDirectory);
+        var config = ((ISynthesisModel)model).CreateEngineConfig(installedModelDirectory);
 
         // Assert: the model's own file paths are resolved against the supplied directory
-        Assert.Equal(Path.Combine(installedModelDirectory, "model.onnx"), config.Model.Vits.Model);
-        Assert.Equal(Path.Combine(installedModelDirectory, "tokens.txt"), config.Model.Vits.Tokens);
+        Assert.Equal(Path.Join(installedModelDirectory, "model.onnx"), config.Model.Vits.Model);
+        Assert.Equal(Path.Join(installedModelDirectory, "tokens.txt"), config.Model.Vits.Tokens);
     }
 
     /// <summary>
@@ -123,10 +123,10 @@ public class SpeechModelContractTests
     public void ISynthesisModel_PreferredAudioFormat_DeclaredByModel_IsExposed()
     {
         // Arrange
-        ISynthesisModel model = new FakeSynthesisModel();
+        var model = new FakeSynthesisModel();
 
         // Act
-        var preferredFormat = model.PreferredAudioFormat;
+        var preferredFormat = ((ISynthesisModel)model).PreferredAudioFormat;
 
         // Assert
         Assert.Equal(new AudioFormat(24000, 1), preferredFormat);
@@ -140,10 +140,10 @@ public class SpeechModelContractTests
     public void ISynthesisModel_CreateEngineConfig_EmptyDirectory_ThrowsArgumentException()
     {
         // Arrange
-        ISynthesisModel model = new FakeSynthesisModel();
+        var model = new FakeSynthesisModel();
 
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => model.CreateEngineConfig(string.Empty));
+        Assert.Throws<ArgumentException>(() => ((ISynthesisModel)model).CreateEngineConfig(string.Empty));
     }
 
     /// <summary>
@@ -155,10 +155,10 @@ public class SpeechModelContractTests
     public void ISynthesisModel_CapabilityProfile_DefaultImplementation_ReturnsDefaultProfile()
     {
         // Arrange
-        ISynthesisModel model = new FakeSynthesisModel();
+        var model = new FakeSynthesisModel();
 
         // Act
-        var profile = model.CapabilityProfile;
+        var profile = ((ISynthesisModel)model).CapabilityProfile;
 
         // Assert
         Assert.Same(DefaultModelCapabilityProfile.Instance, profile);
@@ -172,7 +172,7 @@ public class SpeechModelContractTests
     public void ISpeechModel_Parameters_DeclaresEveryDescriptorKind()
     {
         // Arrange
-        ISpeechModel model = new FakeRecognitionModel();
+        var model = new FakeRecognitionModel();
 
         // Act
         var parameters = model.Parameters;
@@ -192,7 +192,7 @@ public class SpeechModelContractTests
     public void ISpeechModel_AudioTagSupportAndDownloadDescriptor_AreExposed()
     {
         // Arrange
-        ISpeechModel model = new FakeSynthesisModel();
+        var model = new FakeSynthesisModel();
 
         // Act & Assert
         Assert.Equal(SpeechModelAudioTagSupport.ParameterMapped, model.AudioTagSupport);
@@ -209,17 +209,17 @@ public class SpeechModelContractTests
     {
         // Arrange: a scratch directory with a file in it, standing in for a verified staging
         // directory containing a single downloaded, already-usable file.
-        ISpeechModel model = new FakeSynthesisModel();
-        var stagingDirectory = Path.Combine(Path.GetTempPath(), "DemaConsulting.Speech.Tests", Guid.NewGuid().ToString("N"));
+        var model = new FakeSynthesisModel();
+        var stagingDirectory = Path.Join(Path.GetTempPath(), "DemaConsulting.Speech.Tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(stagingDirectory);
         try
         {
-            var filePath = Path.Combine(stagingDirectory, "model.bin");
+            var filePath = Path.Join(stagingDirectory, "model.bin");
             await File.WriteAllBytesAsync(filePath, "unchanged"u8.ToArray(), TestContext.Current.CancellationToken);
             var beforeBytes = await File.ReadAllBytesAsync(filePath, TestContext.Current.CancellationToken);
 
             // Act
-            await model.InstallAsync(stagingDirectory, TestContext.Current.CancellationToken);
+            await ((ISpeechModel)model).InstallAsync(stagingDirectory, TestContext.Current.CancellationToken);
 
             // Assert: the directory's single file is byte-identical, and no other file appeared.
             var afterBytes = await File.ReadAllBytesAsync(filePath, TestContext.Current.CancellationToken);
@@ -240,11 +240,11 @@ public class SpeechModelContractTests
     public void ISpeechModel_NormalizeText_DefaultImplementation_ReturnsInputUnchanged()
     {
         // Arrange
-        ISpeechModel model = new FakeSynthesisModel();
+        var model = new FakeSynthesisModel();
         const string text = "Hello, world! <break/>";
 
         // Act
-        var normalized = model.NormalizeText(text);
+        var normalized = ((ISpeechModel)model).NormalizeText(text);
 
         // Assert
         Assert.Equal(text, normalized);
@@ -260,11 +260,11 @@ public class SpeechModelContractTests
     public void ISpeechModel_LicenseName_DefaultImplementation_ReturnsUnknownAndNullLicenseUrl()
     {
         // Arrange
-        ISpeechModel model = new FakeSynthesisModel();
+        var model = new FakeSynthesisModel();
 
         // Act & Assert
-        Assert.Equal("Unknown", model.LicenseName);
-        Assert.Null(model.LicenseUrl);
+        Assert.Equal("Unknown", ((ISpeechModel)model).LicenseName);
+        Assert.Null(((ISpeechModel)model).LicenseUrl);
     }
 
     /// <summary>
@@ -278,19 +278,19 @@ public class SpeechModelContractTests
     {
         // Arrange: populate a temp staging directory with the fake's declared zip archive, as if
         // it had already been downloaded and checksum-verified.
-        ISpeechModel model = new FakeRecognitionModel(useZipArchivePayload: true);
-        var stagingDirectory = Path.Combine(Path.GetTempPath(), "DemaConsulting.Speech.Tests", Guid.NewGuid().ToString("N"));
+        var model = new FakeRecognitionModel(useZipArchivePayload: true);
+        var stagingDirectory = Path.Join(Path.GetTempPath(), "DemaConsulting.Speech.Tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(stagingDirectory);
         try
         {
-            var archivePath = Path.Combine(stagingDirectory, FakeModelDescriptors.ZipArchiveRelativeInstallPath);
+            var archivePath = Path.Join(stagingDirectory, FakeModelDescriptors.ZipArchiveRelativeInstallPath);
             await File.WriteAllBytesAsync(archivePath, FakeModelDescriptors.ZipArchiveBytes, TestContext.Current.CancellationToken);
 
             // Act
-            await model.InstallAsync(stagingDirectory, TestContext.Current.CancellationToken);
+            await ((ISpeechModel)model).InstallAsync(stagingDirectory, TestContext.Current.CancellationToken);
 
             // Assert: the extracted entry exists with its expected content, and the zip is gone.
-            var extractedPath = Path.Combine(stagingDirectory, FakeModelDescriptors.ZipArchiveEntryName);
+            var extractedPath = Path.Join(stagingDirectory, FakeModelDescriptors.ZipArchiveEntryName);
             Assert.True(File.Exists(extractedPath));
             var extractedBytes = await File.ReadAllBytesAsync(extractedPath, TestContext.Current.CancellationToken);
             Assert.Equal(FakeModelDescriptors.ZipArchiveEntryContent, extractedBytes);
@@ -314,11 +314,11 @@ public class SpeechModelContractTests
     public void IRecognitionModel_NormalizeText_DefaultImplementation_ReturnsInputUnchanged(bool isFinal)
     {
         // Arrange
-        IRecognitionModel model = new FakeRecognitionModel();
+        var model = new FakeRecognitionModel();
         const string text = "HELLO WORLD";
 
         // Act
-        var normalized = model.NormalizeText(text, isFinal);
+        var normalized = ((IRecognitionModel)model).NormalizeText(text, isFinal);
 
         // Assert
         Assert.Equal(text, normalized);

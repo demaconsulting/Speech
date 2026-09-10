@@ -107,8 +107,8 @@ public class ModelSettingsViewModelTests
         viewModel.Model = second;
 
         // Assert: only the second model's parameter is presented
-        Assert.Single(viewModel.Parameters);
-        Assert.IsType<BooleanParameterViewModel>(viewModel.Parameters[0]);
+        var parameter = Assert.Single(viewModel.Parameters);
+        Assert.IsType<BooleanParameterViewModel>(parameter);
     }
 
     /// <summary>

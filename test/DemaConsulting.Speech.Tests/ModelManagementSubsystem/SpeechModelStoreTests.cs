@@ -15,7 +15,7 @@ public sealed class SpeechModelStoreTests : IDisposable
     /// </summary>
     public SpeechModelStoreTests()
     {
-        _testRoot = Path.Combine(Path.GetTempPath(), "DemaConsulting.Speech.Tests", Guid.NewGuid().ToString("N"));
+        _testRoot = Path.Join(Path.GetTempPath(), "DemaConsulting.Speech.Tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_testRoot);
     }
 
@@ -48,7 +48,7 @@ public sealed class SpeechModelStoreTests : IDisposable
         var store = new SpeechModelStore();
 
         // Assert
-        var expectedRoot = Path.Combine(
+        var expectedRoot = Path.Join(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "DemaConsulting.Speech",
             "Models");
@@ -98,7 +98,7 @@ public sealed class SpeechModelStoreTests : IDisposable
 
         // Assert
         Assert.True(store.IsInstalled("model-a"));
-        var installedFile = Path.Combine(store.GetCurrentDirectory("model-a"), "payload.bin");
+        var installedFile = Path.Join(store.GetCurrentDirectory("model-a"), "payload.bin");
         Assert.Equal("hello", File.ReadAllText(installedFile));
     }
 
@@ -119,7 +119,7 @@ public sealed class SpeechModelStoreTests : IDisposable
         store.CompleteInstall("model-a", secondOperationId, secondStaging, 9);
 
         // Assert: the new content is in place and no replaced-* leftover remains
-        var installedFile = Path.Combine(store.GetCurrentDirectory("model-a"), "payload.bin");
+        var installedFile = Path.Join(store.GetCurrentDirectory("model-a"), "payload.bin");
         Assert.Equal("version-2", File.ReadAllText(installedFile));
         Assert.True(store.IsInstalled("model-a"));
         Assert.Empty(Directory.EnumerateDirectories(store.GetModelDirectory("model-a"), "current.replaced-*"));
@@ -152,7 +152,7 @@ public sealed class SpeechModelStoreTests : IDisposable
         // Arrange: create current/ and a manifest file that is not valid JSON
         var store = NewStore();
         Directory.CreateDirectory(store.GetCurrentDirectory("model-a"));
-        var manifestPath = Path.Combine(store.GetModelDirectory("model-a"), "install-manifest.json");
+        var manifestPath = Path.Join(store.GetModelDirectory("model-a"), "install-manifest.json");
         File.WriteAllText(manifestPath, "not valid json");
 
         // Act & Assert
@@ -181,7 +181,7 @@ public sealed class SpeechModelStoreTests : IDisposable
         // Arrange: create current/ and a manifest file this process is denied read access to
         var store = NewStore();
         Directory.CreateDirectory(store.GetCurrentDirectory("model-a"));
-        var manifestPath = Path.Combine(store.GetModelDirectory("model-a"), "install-manifest.json");
+        var manifestPath = Path.Join(store.GetModelDirectory("model-a"), "install-manifest.json");
         File.WriteAllText(manifestPath, "{}");
 
         var fileInfo = new FileInfo(manifestPath);
@@ -282,7 +282,7 @@ public sealed class SpeechModelStoreTests : IDisposable
         var store = NewStore();
         var (operationId, stagingDirectory) = BeginStagingWithFile(store, "model-a", "payload.bin", "hello");
         store.CompleteInstall("model-a", operationId, stagingDirectory, 5);
-        var lockedFile = Path.Combine(store.GetCurrentDirectory("model-a"), "payload.bin");
+        var lockedFile = Path.Join(store.GetCurrentDirectory("model-a"), "payload.bin");
 
         using var handle = new FileStream(lockedFile, FileMode.Open, FileAccess.Read, FileShare.Read);
 
@@ -314,7 +314,7 @@ public sealed class SpeechModelStoreTests : IDisposable
         var store = NewStore();
         var (operationId, stagingDirectory) = BeginStagingWithFile(store, "model-a", "payload.bin", "hello");
         store.CompleteInstall("model-a", operationId, stagingDirectory, 5);
-        var manifestPath = Path.Combine(store.GetModelDirectory("model-a"), "install-manifest.json");
+        var manifestPath = Path.Join(store.GetModelDirectory("model-a"), "install-manifest.json");
         File.SetAttributes(manifestPath, FileAttributes.ReadOnly);
 
         try
@@ -347,7 +347,7 @@ public sealed class SpeechModelStoreTests : IDisposable
         string content)
     {
         var (operationId, stagingDirectory) = store.BeginStaging(modelId);
-        File.WriteAllText(Path.Combine(stagingDirectory, relativePath), content);
+        File.WriteAllText(Path.Join(stagingDirectory, relativePath), content);
         return (operationId, stagingDirectory);
     }
 }

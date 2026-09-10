@@ -21,7 +21,7 @@ public sealed partial class ChoiceParameterViewModel : ParameterViewModelBase
     ///     Gets or sets the option the user has chosen.
     /// </summary>
     [ObservableProperty]
-    private ChoiceParameterOption _selectedOption;
+    public partial ChoiceParameterOption SelectedOption { get; set; }
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="ChoiceParameterViewModel"/> class from a
@@ -35,7 +35,7 @@ public sealed partial class ChoiceParameterViewModel : ParameterViewModelBase
         ArgumentNullException.ThrowIfNull(parameter);
 
         Options = parameter.Options;
-        _selectedOption = parameter.Options.First(
+        SelectedOption = parameter.Options.First(
             option => string.Equals(option.Value, parameter.Default, StringComparison.Ordinal));
     }
 

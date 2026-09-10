@@ -131,10 +131,10 @@ public sealed class FakeRecognitionModel : IRecognitionModel
 
         var config = new OnlineRecognizerConfig();
         config.FeatConfig.SampleRate = _sampleRate;
-        config.ModelConfig.Tokens = Path.Combine(installedModelDirectory, "tokens.txt");
-        config.ModelConfig.Transducer.Encoder = Path.Combine(installedModelDirectory, "encoder.onnx");
-        config.ModelConfig.Transducer.Decoder = Path.Combine(installedModelDirectory, "decoder.onnx");
-        config.ModelConfig.Transducer.Joiner = Path.Combine(installedModelDirectory, "joiner.onnx");
+        config.ModelConfig.Tokens = Path.Join(installedModelDirectory, "tokens.txt");
+        config.ModelConfig.Transducer.Encoder = Path.Join(installedModelDirectory, "encoder.onnx");
+        config.ModelConfig.Transducer.Decoder = Path.Join(installedModelDirectory, "decoder.onnx");
+        config.ModelConfig.Transducer.Joiner = Path.Join(installedModelDirectory, "joiner.onnx");
         return config;
     }
 
@@ -154,7 +154,7 @@ public sealed class FakeRecognitionModel : IRecognitionModel
             return Task.CompletedTask;
         }
 
-        var archivePath = Path.Combine(stagedFilesDirectory, FakeModelDescriptors.ZipArchiveRelativeInstallPath);
+        var archivePath = Path.Join(stagedFilesDirectory, FakeModelDescriptors.ZipArchiveRelativeInstallPath);
         System.IO.Compression.ZipFile.ExtractToDirectory(archivePath, stagedFilesDirectory);
         File.Delete(archivePath);
         return Task.CompletedTask;

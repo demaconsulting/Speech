@@ -143,12 +143,8 @@ public sealed class WavFileAudioPlaybackDevice : IAudioPlaybackDevice, IDisposab
         ArgumentNullException.ThrowIfNull(samples);
         ObjectDisposedException.ThrowIf(_isDisposed, this);
 
-        foreach (var sample in samples)
+        foreach (var pcmValue in samples.Select(ConvertSampleToPcm))
         {
-            // Clamp before scaling: a sample at or beyond +/-1.0 must map to the nearest valid
-            // 16-bit value rather than overflow into an unrelated sample on the wire.
-            var clamped = Math.Clamp(sample, -1f, 1f);
-            var pcmValue = (short)Math.Round(clamped * short.MaxValue, MidpointRounding.AwayFromZero);
             _writer.Write(pcmValue);
         }
 
@@ -162,6 +158,23 @@ public sealed class WavFileAudioPlaybackDevice : IAudioPlaybackDevice, IDisposab
     ///     have.
     /// </remarks>
     public long PendingSampleCount => 0;
+
+    /// <summary>
+    ///     Converts one normalized sample to a 16-bit PCM value so the write loop can express
+    ///     its intent as a projection from caller-owned floats to on-disk PCM samples.
+    /// </summary>
+    /// <param name="sample">The normalized sample to convert.</param>
+    /// <returns>
+    ///     The nearest 16-bit PCM value after clamping <paramref name="sample"/> to
+    ///     <c>[-1.0, 1.0]</c>.
+    /// </returns>
+    private static short ConvertSampleToPcm(float sample)
+    {
+        // Clamp before scaling: a sample at or beyond +/-1.0 must map to the nearest valid
+        // 16-bit value rather than overflow into an unrelated sample on the wire.
+        var clamped = Math.Clamp(sample, -1f, 1f);
+        return (short)Math.Round(clamped * short.MaxValue, MidpointRounding.AwayFromZero);
+    }
 
     /// <summary>
     ///     Patches the RIFF and <c>data</c> chunk sizes with the now-known total byte count and

@@ -112,7 +112,7 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IDispo
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanStart))]
     [NotifyCanExecuteChangedFor(nameof(StartCommand))]
-    private ISpeechModel? _selectedModel;
+    public partial ISpeechModel? SelectedModel { get; set; }
 
     /// <summary>
     ///     Gets or sets the current streaming lifecycle state.
@@ -123,7 +123,7 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IDispo
     [NotifyPropertyChangedFor(nameof(CanChangeModel))]
     [NotifyCanExecuteChangedFor(nameof(StartCommand))]
     [NotifyCanExecuteChangedFor(nameof(StopCommand))]
-    private RecognitionStreamingState _state = RecognitionStreamingState.Idle;
+    public partial RecognitionStreamingState State { get; set; } = RecognitionStreamingState.Idle;
 
     /// <summary>
     ///     Gets or sets the status message describing the current or most recently failed
@@ -131,14 +131,14 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IDispo
     /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasStatusMessage))]
-    private string? _statusMessage;
+    public partial string? StatusMessage { get; set; }
 
     /// <summary>
     ///     Gets or sets the trailing provisional (not-yet-final) transcript text, or an empty
     ///     string when there is no in-progress utterance.
     /// </summary>
     [ObservableProperty]
-    private string _partial = string.Empty;
+    public partial string Partial { get; set; } = string.Empty;
 
     /// <summary>
     ///     Gets the ordered list of committed final transcript lines.
@@ -216,12 +216,13 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IDispo
         var previousId = SelectedModel?.Id;
 
         AvailableModels.Clear();
-        foreach (var descriptor in _catalogService.Enumerate())
+        foreach (var model in _catalogService.Enumerate()
+            .Where(static descriptor =>
+                descriptor.Role == SpeechModelRole.Recognition &&
+                descriptor.State == SpeechModelState.Downloaded)
+            .Select(static descriptor => descriptor.Model))
         {
-            if (descriptor.Role == SpeechModelRole.Recognition && descriptor.State == SpeechModelState.Downloaded)
-            {
-                AvailableModels.Add(descriptor.Model);
-            }
+            AvailableModels.Add(model);
         }
 
         SelectedModel = previousId is null

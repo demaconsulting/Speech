@@ -92,12 +92,10 @@ internal static class SpeechModelParameterDiagnostics
         // Validate every recognized parameter first, iterating in declared order so the first
         // invalid recognized value throws deterministically regardless of dictionary enumeration
         // order.
-        foreach (var parameter in declaredParameters)
+        foreach (var parameter in declaredParameters.Where(parameter =>
+                     parameterValues.ContainsKey(parameter.Id)))
         {
-            if (parameterValues.TryGetValue(parameter.Id, out var value))
-            {
-                ValidateValue(modelId, parameter, value, nameof(parameterValues));
-            }
+            ValidateValue(modelId, parameter, parameterValues[parameter.Id], nameof(parameterValues));
         }
 
         // Every recognized value validated successfully - now report (but never throw for) any

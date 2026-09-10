@@ -18,7 +18,7 @@ public sealed class TarBz2ArchiveExtractorTests : IDisposable
     /// </summary>
     public TarBz2ArchiveExtractorTests()
     {
-        _testRoot = Path.Combine(Path.GetTempPath(), "DemaConsulting.Speech.Tests", Guid.NewGuid().ToString("N"));
+        _testRoot = Path.Join(Path.GetTempPath(), "DemaConsulting.Speech.Tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_testRoot);
     }
 
@@ -48,7 +48,7 @@ public sealed class TarBz2ArchiveExtractorTests : IDisposable
     public async Task TarBz2ArchiveExtractor_ExtractAndDeleteAsync_SingleEntryArchive_ExtractsEntryAndDeletesArchive()
     {
         // Arrange
-        var archivePath = Path.Combine(_testRoot, "model.tar.bz2");
+        var archivePath = Path.Join(_testRoot, "model.tar.bz2");
         await File.WriteAllBytesAsync(
             archivePath,
             TarBz2ArchiveFixtures.SingleEntryArchiveBytes,
@@ -61,7 +61,7 @@ public sealed class TarBz2ArchiveExtractorTests : IDisposable
             TestContext.Current.CancellationToken);
 
         // Assert
-        var extractedPath = Path.Combine(
+        var extractedPath = Path.Join(
             _testRoot,
             TarBz2ArchiveFixtures.TopLevelFolderName,
             TarBz2ArchiveFixtures.SingleEntryName);
@@ -86,7 +86,7 @@ public sealed class TarBz2ArchiveExtractorTests : IDisposable
             ("model-folder/first.onnx", firstContent),
             ("model-folder/nested/second.txt", secondContent),
         ]);
-        var archivePath = Path.Combine(_testRoot, "multi.tar.bz2");
+        var archivePath = Path.Join(_testRoot, "multi.tar.bz2");
         await File.WriteAllBytesAsync(archivePath, archiveBytes, TestContext.Current.CancellationToken);
 
         // Act
@@ -96,8 +96,8 @@ public sealed class TarBz2ArchiveExtractorTests : IDisposable
             TestContext.Current.CancellationToken);
 
         // Assert
-        var firstPath = Path.Combine(_testRoot, "model-folder", "first.onnx");
-        var secondPath = Path.Combine(_testRoot, "model-folder", "nested", "second.txt");
+        var firstPath = Path.Join(_testRoot, "model-folder", "first.onnx");
+        var secondPath = Path.Join(_testRoot, "model-folder", "nested", "second.txt");
         Assert.Equal(firstContent, await File.ReadAllBytesAsync(firstPath, TestContext.Current.CancellationToken));
         Assert.Equal(secondContent, await File.ReadAllBytesAsync(secondPath, TestContext.Current.CancellationToken));
     }
@@ -123,7 +123,7 @@ public sealed class TarBz2ArchiveExtractorTests : IDisposable
     public async Task TarBz2ArchiveExtractor_ExtractAndDeleteAsync_EmptyDestinationDirectory_ThrowsArgumentException()
     {
         // Arrange
-        var archivePath = Path.Combine(_testRoot, "model.tar.bz2");
+        var archivePath = Path.Join(_testRoot, "model.tar.bz2");
         await File.WriteAllBytesAsync(
             archivePath,
             TarBz2ArchiveFixtures.SingleEntryArchiveBytes,

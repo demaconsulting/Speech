@@ -101,12 +101,14 @@ internal sealed class WavFileWriter : IDisposable
     /// </param>
     public void WriteSamples(IReadOnlyList<float> samples)
     {
-        foreach (var sample in samples)
+        foreach (var pcmValue in samples.Select(static sample =>
         {
             // Clamp before scaling: a sample at or beyond +/-1.0 must map to the nearest valid
             // 16-bit value rather than overflow into an unrelated sample on the wire
             var clamped = Math.Clamp(sample, -1f, 1f);
-            var pcmValue = (short)Math.Round(clamped * short.MaxValue, MidpointRounding.AwayFromZero);
+            return (short)Math.Round(clamped * short.MaxValue, MidpointRounding.AwayFromZero);
+        }))
+        {
             _writer.Write(pcmValue);
         }
 

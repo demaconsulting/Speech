@@ -20,7 +20,7 @@ public sealed class SpeechModelDownloaderTests : IDisposable
     /// </summary>
     public SpeechModelDownloaderTests()
     {
-        _testRoot = Path.Combine(Path.GetTempPath(), "DemaConsulting.Speech.Tests", Guid.NewGuid().ToString("N"));
+        _testRoot = Path.Join(Path.GetTempPath(), "DemaConsulting.Speech.Tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_testRoot);
     }
 
@@ -66,7 +66,7 @@ public sealed class SpeechModelDownloaderTests : IDisposable
         Assert.Equal(SpeechModelDownloadOutcome.Installed, result.Outcome);
         Assert.True(store.IsInstalled("model-a"));
         var installedBytes = await File.ReadAllBytesAsync(
-            Path.Combine(store.GetCurrentDirectory("model-a"), "model.bin"), TestContext.Current.CancellationToken);
+            Path.Join(store.GetCurrentDirectory("model-a"), "model.bin"), TestContext.Current.CancellationToken);
         Assert.Equal(payload, installedBytes);
         Assert.NotEmpty(reports);
         Assert.All(reports, r => Assert.Equal(0, r.FileIndex));
@@ -212,7 +212,7 @@ public sealed class SpeechModelDownloaderTests : IDisposable
         Assert.Equal(SpeechModelDownloadOutcome.Installed, secondResult.Outcome);
         Assert.True(store.IsInstalled("model-a"));
         var installedBytes = await File.ReadAllBytesAsync(
-            Path.Combine(store.GetCurrentDirectory("model-a"), "model.bin"), TestContext.Current.CancellationToken);
+            Path.Join(store.GetCurrentDirectory("model-a"), "model.bin"), TestContext.Current.CancellationToken);
         Assert.Equal(goodPayload, installedBytes);
     }
 
@@ -371,8 +371,8 @@ public sealed class SpeechModelDownloaderTests : IDisposable
         // Assert
         Assert.Equal(SpeechModelDownloadOutcome.Installed, result.Outcome);
         var currentDirectory = store.GetCurrentDirectory("model-zip");
-        var extractedPath = Path.Combine(currentDirectory, FakeModelDescriptors.ZipArchiveEntryName);
-        var archivePath = Path.Combine(currentDirectory, FakeModelDescriptors.ZipArchiveRelativeInstallPath);
+        var extractedPath = Path.Join(currentDirectory, FakeModelDescriptors.ZipArchiveEntryName);
+        var archivePath = Path.Join(currentDirectory, FakeModelDescriptors.ZipArchiveRelativeInstallPath);
         Assert.True(File.Exists(extractedPath));
         var extractedBytes = await File.ReadAllBytesAsync(extractedPath, TestContext.Current.CancellationToken);
         Assert.Equal(FakeModelDescriptors.ZipArchiveEntryContent, extractedBytes);
@@ -414,7 +414,7 @@ public sealed class SpeechModelDownloaderTests : IDisposable
         Assert.Null(secondResult.Error);
         Assert.True(store.IsInstalled("model-a"));
         var installedBytes = await File.ReadAllBytesAsync(
-            Path.Combine(store.GetCurrentDirectory("model-a"), "model.bin"), TestContext.Current.CancellationToken);
+            Path.Join(store.GetCurrentDirectory("model-a"), "model.bin"), TestContext.Current.CancellationToken);
         Assert.Equal(goodPayload, installedBytes);
     }
 
@@ -672,10 +672,10 @@ public sealed class SpeechModelDownloaderTests : IDisposable
         {
             InstallAsyncCalled = true;
             StagingDirectoryContainedVerifiedFileWhenInstallAsyncRan =
-                DownloadDescriptor.Files.All(file => File.Exists(Path.Combine(stagedFilesDirectory, file.RelativeInstallPath)));
+                DownloadDescriptor.Files.All(file => File.Exists(Path.Join(stagedFilesDirectory, file.RelativeInstallPath)));
 
             // The staging directory's own parent's "current" sibling must not exist yet.
-            var currentDirectory = Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(stagedFilesDirectory))!, "current");
+            var currentDirectory = Path.Join(Path.GetDirectoryName(Path.GetDirectoryName(stagedFilesDirectory))!, "current");
             CurrentDirectoryExistedWhenInstallAsyncRan = Directory.Exists(currentDirectory);
             return Task.CompletedTask;
         }

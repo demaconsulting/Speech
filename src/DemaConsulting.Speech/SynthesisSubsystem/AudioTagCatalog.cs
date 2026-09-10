@@ -19,7 +19,7 @@ public static class AudioTagCatalog
     ///     Normalized alias text (see <see cref="Normalize"/>) mapped to the canonical tag and
     ///     kind it resolves to.
     /// </summary>
-    private static readonly IReadOnlyDictionary<string, (NaturalLanguageAudioTag Tag, NaturalLanguageAudioTagKind Kind)> AliasLookup =
+    private static readonly Dictionary<string, (NaturalLanguageAudioTag Tag, NaturalLanguageAudioTagKind Kind)> AliasLookup =
         BuildAliasLookup();
 
     /// <summary>
@@ -96,7 +96,7 @@ public static class AudioTagCatalog
     /// <summary>
     ///     Builds the immutable alias-to-(tag, kind) lookup table once, at type initialization.
     /// </summary>
-    private static IReadOnlyDictionary<string, (NaturalLanguageAudioTag, NaturalLanguageAudioTagKind)> BuildAliasLookup()
+    private static Dictionary<string, (NaturalLanguageAudioTag, NaturalLanguageAudioTagKind)> BuildAliasLookup()
     {
         var lookup = new Dictionary<string, (NaturalLanguageAudioTag, NaturalLanguageAudioTagKind)>();
         foreach (var descriptor in BuildDescriptors())
@@ -114,7 +114,7 @@ public static class AudioTagCatalog
     ///     Builds the canonical tag/kind/alias descriptor list, the single source of truth this
     ///     class exposes both for lookup and for enumeration.
     /// </summary>
-    private static IReadOnlyList<AudioTagDescriptor> BuildDescriptors() =>
+    private static List<AudioTagDescriptor> BuildDescriptors() =>
     [
         Describe(NaturalLanguageAudioTag.Excited, NaturalLanguageAudioTagKind.Emotion, "excited", "excitedly"),
         Describe(NaturalLanguageAudioTag.Serious, NaturalLanguageAudioTagKind.Emotion, "serious"),

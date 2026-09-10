@@ -362,15 +362,15 @@ public class AudioFrameResamplerTests
     /// <param name="monoSamples">The mono samples to filter.</param>
     /// <param name="kernel">The kernel to apply.</param>
     /// <returns>The filtered signal.</returns>
-    private static float[] ApplyReferenceLowpassFilter(ReadOnlySpan<float> monoSamples, IReadOnlyList<float> kernel)
+    private static float[] ApplyReferenceLowpassFilter(ReadOnlySpan<float> monoSamples, float[] kernel)
     {
         var filtered = new float[monoSamples.Length];
-        var radius = kernel.Count / 2;
+        var radius = kernel.Length / 2;
         var lastIndex = monoSamples.Length - 1;
         for (var sampleIndex = 0; sampleIndex < monoSamples.Length; sampleIndex++)
         {
             var sum = 0.0;
-            for (var tap = 0; tap < kernel.Count; tap++)
+            for (var tap = 0; tap < kernel.Length; tap++)
             {
                 var sourceIndex = Math.Clamp(sampleIndex + tap - radius, 0, lastIndex);
                 sum += monoSamples[sourceIndex] * kernel[tap];

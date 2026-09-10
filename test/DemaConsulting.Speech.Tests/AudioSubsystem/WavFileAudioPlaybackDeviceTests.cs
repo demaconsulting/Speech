@@ -13,7 +13,7 @@ public class WavFileAudioPlaybackDeviceTests
     /// </summary>
     private static string CreateTempWavPath()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"{Path.GetRandomFileName()}.wav");
+        var path = Path.Join(Path.GetTempPath(), $"{Path.GetRandomFileName()}.wav");
         File.Delete(path);
         return path;
     }

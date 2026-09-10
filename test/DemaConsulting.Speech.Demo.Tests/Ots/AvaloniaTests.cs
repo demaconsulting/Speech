@@ -40,6 +40,6 @@ public class AvaloniaTests
         var application = new App();
 
         // Assert: it is an Avalonia application Avalonia can host
-        Assert.IsAssignableFrom<Application>(application);
+        Assert.IsType<Application>(application, exactMatch: false);
     }
 }

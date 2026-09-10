@@ -53,16 +53,16 @@ recognition model, and an installed synthesis model.
 
 **Expected**: Only the installed recognition model is offered and preselected.
 
-**Requirement coverage**: `SpeechDemo-Recognition-ModelSelection` (role-filtering half only - see
-the note below).
+**Requirement coverage**: `SpeechDemo-Recognition-ModelSelection`.
 
-> **Coverage note**: `SpeechDemo-Recognition-ModelSelection` also requires that a user's current
-> selection survive a refresh where the selected model is still installed. No test in this
-> project currently exercises that "selection preserved across refresh" behavior - the scenario
-> above proves only that a refresh offers exclusively installed recognition models, not that a
-> prior selection is retained across a subsequent refresh. This is a source/test gap, not a
-> documentation gap; see the completion report for the follow-up this leaves for the
-> source-code team.
+#### RecognitionPanelViewModel_Refresh_ModelStillInstalled_PreservesSelection
+
+**Scenario**: The catalog is refreshed while the previously selected recognition model is still
+installed.
+
+**Expected**: The previously selected model remains selected after the refresh.
+
+**Requirement coverage**: `SpeechDemo-Recognition-ModelSelection`.
 
 #### RecognitionPanelViewModel_Start_NoModelSelected_ReportsErrorState
 
@@ -238,9 +238,8 @@ to pick a different model after a failed attempt.
 ### Requirements Coverage
 
 - **`SpeechDemo-Recognition-ModelSelection`**:
-  `RecognitionPanelViewModel_Refresh_MixedCatalog_OffersOnlyInstalledRecognitionModels`
-  (role-filtering only; "selection preserved across refresh" is not yet covered by any test -
-  see the coverage note above)
+  `RecognitionPanelViewModel_Refresh_MixedCatalog_OffersOnlyInstalledRecognitionModels`,
+  `RecognitionPanelViewModel_Refresh_ModelStillInstalled_PreservesSelection`
 - **`SpeechDemo-Recognition-StartStopLifecycle`**:
   `RecognitionPanelViewModel_Start_SuccessfulSession_EntersListeningState`,
   `RecognitionPanelViewModel_Stop_DuringListening_StopsAndReleasesSession`,
@@ -285,9 +284,3 @@ recognizer released rather than leaked; the session seam validates its arguments
 role mismatch the same honest way the library reports an uninstalled model; a matching-role
 `ModelInstalled` event triggers an automatic refresh while a non-matching-role event does not; and
 `Dispose()` unsubscribes from `ModelInstalled` so a later event is never applied.
-
-> **Known gap**: "the selection survives a refresh" above is the acceptance intent of
-> `SpeechDemo-Recognition-ModelSelection`, but no automated test currently proves the
-> selection-preservation half of that requirement (see the coverage note under Test Scenarios).
-> Only the role-filtering half - offering exclusively installed recognition models - is
-> automated today.

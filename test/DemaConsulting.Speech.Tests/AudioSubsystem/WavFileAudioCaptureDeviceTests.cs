@@ -9,7 +9,7 @@ public class WavFileAudioCaptureDeviceTests
 {
     /// <summary>The existing 16 kHz mono test fixture, reused per Risk 3 instead of authoring new binary fixtures.</summary>
     private static readonly string FixturePath =
-        Path.Combine(AppContext.BaseDirectory, "TestData", "crossing-the-bar-16k-mono.wav");
+        Path.Join(AppContext.BaseDirectory, "TestData", "crossing-the-bar-16k-mono.wav");
 
     /// <summary>
     ///     Creates a unique temporary file path with a <c>.wav</c> extension for a single test,
@@ -17,9 +17,45 @@ public class WavFileAudioCaptureDeviceTests
     /// </summary>
     private static string CreateTempWavPath()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"{Path.GetRandomFileName()}.wav");
+        var path = Path.Join(Path.GetTempPath(), $"{Path.GetRandomFileName()}.wav");
         File.Delete(path);
         return path;
+    }
+
+    /// <summary>
+    ///     Writes a minimal mono RIFF/WAVE file at <paramref name="path"/> with an explicit
+    ///     format tag and bit depth, since <see cref="WavFileAudioPlaybackDevice"/> only ever
+    ///     writes 16-bit PCM (format tag 1) and therefore cannot produce the non-PCM/non-16-bit
+    ///     fixtures the format-rejection tests below require.
+    /// </summary>
+    /// <param name="path">The full path of the file to create.</param>
+    /// <param name="formatTag">The WAV format tag to declare in the <c>fmt </c> chunk.</param>
+    /// <param name="bitsPerSample">The bit depth to declare in the <c>fmt </c> chunk.</param>
+    private static void WriteMinimalWavFile(string path, short formatTag, short bitsPerSample)
+    {
+        const int sampleRate = 16000;
+        const short channelCount = 1;
+        var blockAlign = (short)(channelCount * (bitsPerSample / 8));
+        var byteRate = sampleRate * blockAlign;
+        var data = new byte[blockAlign * 4]; // A handful of silent sample bytes is sufficient
+
+        using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read);
+        using var writer = new BinaryWriter(stream);
+
+        writer.Write("RIFF"u8);
+        writer.Write(36 + data.Length);
+        writer.Write("WAVE"u8);
+        writer.Write("fmt "u8);
+        writer.Write(16);
+        writer.Write(formatTag);
+        writer.Write(channelCount);
+        writer.Write(sampleRate);
+        writer.Write(byteRate);
+        writer.Write(blockAlign);
+        writer.Write(bitsPerSample);
+        writer.Write("data"u8);
+        writer.Write(data.Length);
+        writer.Write(data);
     }
 
     /// <summary>
@@ -115,7 +151,7 @@ public class WavFileAudioCaptureDeviceTests
     public void WavFileAudioCaptureDevice_Start_MissingFile_ThrowsInvalidOperationException()
     {
         // Arrange: a device pointed at a file that does not exist
-        var device = new WavFileAudioCaptureDevice(Path.Combine(Path.GetTempPath(), Path.GetRandomFileName()));
+        var device = new WavFileAudioCaptureDevice(Path.Join(Path.GetTempPath(), Path.GetRandomFileName()));
 
         // Act & Assert: starting capture throws the documented, handled exception
         Assert.Throws<InvalidOperationException>(device.Start);
@@ -165,6 +201,82 @@ public class WavFileAudioCaptureDeviceTests
             var device = new WavFileAudioCaptureDevice(path);
 
             // Act & Assert: starting capture throws, since only mono files are supported
+            Assert.Throws<InvalidOperationException>(device.Start);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Proves that starting capture against a non-PCM WAV file (IEEE float, format tag 3)
+    ///     throws <see cref="InvalidOperationException"/>, since only uncompressed PCM is
+    ///     supported.
+    /// </summary>
+    [Fact]
+    public void WavFileAudioCaptureDevice_Start_NonPcmFormatTag_ThrowsInvalidOperationException()
+    {
+        // Arrange: a mono, 32-bit "PCM" file that actually declares format tag 3 (IEEE float)
+        var path = CreateTempWavPath();
+
+        try
+        {
+            WriteMinimalWavFile(path, formatTag: 3, bitsPerSample: 32);
+
+            var device = new WavFileAudioCaptureDevice(path);
+
+            // Act & Assert: starting capture throws, since only uncompressed PCM is supported
+            Assert.Throws<InvalidOperationException>(device.Start);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Proves that starting capture against a non-16-bit WAV file (8-bit PCM) throws
+    ///     <see cref="InvalidOperationException"/>, since only 16-bit PCM is supported.
+    /// </summary>
+    [Fact]
+    public void WavFileAudioCaptureDevice_Start_EightBitDepth_ThrowsInvalidOperationException()
+    {
+        // Arrange: a mono, 8-bit PCM file
+        var path = CreateTempWavPath();
+
+        try
+        {
+            WriteMinimalWavFile(path, formatTag: 1, bitsPerSample: 8);
+
+            var device = new WavFileAudioCaptureDevice(path);
+
+            // Act & Assert: starting capture throws, since only 16-bit PCM is supported
+            Assert.Throws<InvalidOperationException>(device.Start);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Proves that starting capture against a non-16-bit WAV file (24-bit PCM) throws
+    ///     <see cref="InvalidOperationException"/>, since only 16-bit PCM is supported.
+    /// </summary>
+    [Fact]
+    public void WavFileAudioCaptureDevice_Start_TwentyFourBitDepth_ThrowsInvalidOperationException()
+    {
+        // Arrange: a mono, 24-bit PCM file
+        var path = CreateTempWavPath();
+
+        try
+        {
+            WriteMinimalWavFile(path, formatTag: 1, bitsPerSample: 24);
+
+            var device = new WavFileAudioCaptureDevice(path);
+
+            // Act & Assert: starting capture throws, since only 16-bit PCM is supported
             Assert.Throws<InvalidOperationException>(device.Start);
         }
         finally

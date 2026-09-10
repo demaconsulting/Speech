@@ -28,8 +28,12 @@ public class AudioTagCatalogTests
         {
             foreach (var tag in allTags)
             {
-                Assert.True(descriptors.ContainsKey(tag), $"{tag} is missing from AudioTagCatalog.Tags.");
-                Assert.NotEmpty(descriptors[tag].Aliases);
+                var found = descriptors.TryGetValue(tag, out var descriptor);
+                Assert.True(found, $"{tag} is missing from AudioTagCatalog.Tags.");
+                if (found)
+                {
+                    Assert.NotEmpty(descriptor!.Aliases);
+                }
             }
         });
     }

@@ -110,12 +110,15 @@ missing-argument path are also proven, cleanly and non-zero-exit, against the bu
 
 #### DownloadCommand Cancellation
 
-**Test**: `DownloadCommand_RunAsync_Canceled_ReportsErrorAndStopsBatch`
+**Tests**: `DownloadCommand_RunAsync_CanceledBeforeStart_ReportsErrorAndStopsBatch`,
+`DownloadCommand_RunAsync_Canceled_ReportsErrorAndStopsBatch`
 
-**Scenario/Expected**: The cancellation token is canceled while a multi-model batch is in
-progress; the in-progress model's cancellation is reported and no further requested model is
-attempted, proving cancellation stops the whole batch rather than being treated as an ordinary
-per-model failure.
+**Scenario/Expected**: A token already canceled before the batch starts is reported and no model
+is attempted; separately, the cancellation token is canceled only after the first requested
+model's download has genuinely started and reported progress, proving the in-progress model's
+cancellation is reported and no further requested model is attempted - cancellation stops the
+whole batch rather than being treated as an ordinary per-model failure, whether it lands before
+or during a model's download.
 
 **Requirement coverage**: `SpeechCli-ModelCommands-DownloadCancellation`.
 

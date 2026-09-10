@@ -180,8 +180,9 @@ internal static class DoctorCommand
         {
             return NativeLibrary.TryLoad(SherpaOnnxNativeLibraryName, out _);
         }
-        // Generic catch is justified here: this is a best-effort environment probe that must
-        // never throw regardless of the underlying platform loader's failure mode.
+        // Intentionally broad: this CLI health probe must never crash because native-library
+        // resolution can fail through many platform-specific exception shapes that all mean the
+        // same user-facing result - report the runtime as unavailable and continue.
         catch (Exception)
         {
             return false;
@@ -209,10 +210,9 @@ internal static class DoctorCommand
             writable = true;
             context.WriteLine("  [ OK ] Model store root is writable.");
         }
-        // Generic catch is justified here: any file system failure (permissions, missing drive,
-        // invalid path) means the same thing for this check - the root is not writable - and
-        // should be reported as a clean, specific message rather than propagating a raw
-        // platform exception.
+        // Intentionally broad: this CLI command boundary collapses every file-system failure
+        // mode for the model-store writability probe into one clean "not writable" result so
+        // operators get a stable diagnostic instead of a raw platform exception.
         catch (Exception ex)
         {
             writable = false;
@@ -244,8 +244,9 @@ internal static class DoctorCommand
             var availableGigabytes = drive.AvailableFreeSpace / (1024.0 * 1024.0 * 1024.0);
             return $"{availableGigabytes.ToString("0.0", CultureInfo.InvariantCulture)} GB";
         }
-        // Generic catch is justified here: disk space reporting is informational only and must
-        // never turn a permission/mount-point quirk into an unhandled exception.
+        // Intentionally broad: this informational CLI probe must degrade cleanly for any
+        // filesystem/drive-query failure because free-space reporting is optional context, not a
+        // reason for the command itself to fail.
         catch (Exception)
         {
             return "(could not be determined)";

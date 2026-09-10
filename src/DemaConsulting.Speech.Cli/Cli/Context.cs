@@ -162,9 +162,9 @@ internal sealed class Context : IDisposable
             // even if the application terminates unexpectedly before Dispose is called
             _logWriter = new StreamWriter(logFile, append: false) { AutoFlush = true };
         }
-        // Generic catch is justified here to wrap any file system exception with context.
-        // Expected exceptions include IOException, UnauthorizedAccessException, ArgumentException,
-        // NotSupportedException, and other file system-related exceptions.
+        // Intentionally broad: this is a CLI setup boundary, so any file-system failure while
+        // opening the requested log sink must be wrapped into one clean, contextual error
+        // message instead of crashing the whole process with a raw platform exception.
         catch (Exception ex)
         {
             throw new InvalidOperationException($"Failed to open log file '{logFile}': {ex.Message}", ex);

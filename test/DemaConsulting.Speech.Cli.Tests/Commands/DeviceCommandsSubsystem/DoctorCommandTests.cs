@@ -33,7 +33,7 @@ namespace DemaConsulting.Speech.Cli.Tests.Commands.DeviceCommandsSubsystem;
 [Collection("Sequential")]
 public sealed class DoctorCommandTests : IDisposable
 {
-    private readonly string _tempDir = Path.Combine(Path.GetTempPath(), "DemaConsulting.Speech.Cli.Tests", Guid.NewGuid().ToString("N"));
+    private readonly string _tempDir = Path.Join(Path.GetTempPath(), "DemaConsulting.Speech.Cli.Tests", Guid.NewGuid().ToString("N"));
 
     /// <summary>
     ///     Test that a writable model store root reports overall health and exits cleanly

@@ -1,3 +1,4 @@
+using System.Numerics.Tensors;
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 using DemaConsulting.Speech.AudioSubsystem;
@@ -288,6 +289,8 @@ internal sealed class SherpaOnnxSpeechSynthesizer : ISpeechSynthesizer
             }
             catch (Exception ex)
             {
+                // Intentionally broad: stop runs during teardown against the native playback
+                // backend, and a stop fault must not mask the earlier playback outcome.
                 // Stopping the device is best-effort during teardown: a fault here must not mask
                 // an earlier, more meaningful exception from playback itself.
                 _diagnostics.Report(
@@ -304,7 +307,7 @@ internal sealed class SherpaOnnxSpeechSynthesizer : ISpeechSynthesizer
         ArgumentNullException.ThrowIfNull(text);
         ObjectDisposedException.ThrowIf(_isDisposed, this);
 
-        var session = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        using var session = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         lock (_syncRoot)
         {
             _sessionCancellation = session;
@@ -324,8 +327,6 @@ internal sealed class SherpaOnnxSpeechSynthesizer : ISpeechSynthesizer
                     _sessionCancellation = null;
                 }
             }
-
-            session.Dispose();
         }
     }
 
@@ -388,6 +389,9 @@ internal sealed class SherpaOnnxSpeechSynthesizer : ISpeechSynthesizer
         }
         catch (Exception ex)
         {
+            // Intentionally broad: segment synthesis crosses the native inference boundary, and
+            // any non-cancellation failure must fault the stream predictably instead of escaping
+            // the background producer unobserved.
             _diagnostics.Report(
                 SpeechDiagnosticLevel.Error,
                 DiagnosticsCategory,
@@ -465,7 +469,7 @@ internal sealed class SherpaOnnxSpeechSynthesizer : ISpeechSynthesizer
             var parameter = _model.Parameters
                 .OfType<NumericParameter>()
                 .FirstOrDefault(candidate => candidate.Id == parameterId);
-            if (parameter is null || parameter.Default == 0 || overriddenValue is not double doubleValue)
+            if (parameter is null || Math.Abs(parameter.Default) <= double.Epsilon || overriddenValue is not double doubleValue)
             {
                 continue;
             }
@@ -494,11 +498,9 @@ internal sealed class SherpaOnnxSpeechSynthesizer : ISpeechSynthesizer
     private static float[] ApplyVolume(float[] samples, double ratio)
     {
         var scaled = new float[samples.Length];
-        for (var i = 0; i < samples.Length; i++)
-        {
-            scaled[i] = Math.Clamp((float)(samples[i] * ratio), -1.0f, 1.0f);
-        }
-
+        var ratioF = (float)ratio;
+        TensorPrimitives.Multiply(samples, ratioF, scaled);
+        TensorPrimitives.Clamp(scaled, -1.0f, 1.0f, scaled);
         return scaled;
     }
 

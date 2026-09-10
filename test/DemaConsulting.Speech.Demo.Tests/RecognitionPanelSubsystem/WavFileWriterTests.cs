@@ -17,7 +17,7 @@ public class WavFileWriterTests
     ///     Builds a unique temporary file path inside this test run's own output directory.
     /// </summary>
     /// <returns>A path isolated from any other test run.</returns>
-    private static string TempFilePath() => Path.Combine(
+    private static string TempFilePath() => Path.Join(
         AppContext.BaseDirectory, "WavFileWriterTests", $"{Guid.NewGuid():N}.wav");
 
     /// <summary>

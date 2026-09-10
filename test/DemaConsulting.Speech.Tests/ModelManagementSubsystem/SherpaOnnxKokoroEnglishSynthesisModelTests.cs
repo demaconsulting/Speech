@@ -46,7 +46,7 @@ public sealed class SherpaOnnxKokoroEnglishSynthesisModelTests : IDisposable
     /// </summary>
     public SherpaOnnxKokoroEnglishSynthesisModelTests()
     {
-        _testRoot = Path.Combine(Path.GetTempPath(), "DemaConsulting.Speech.Tests", Guid.NewGuid().ToString("N"));
+        _testRoot = Path.Join(Path.GetTempPath(), "DemaConsulting.Speech.Tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_testRoot);
     }
 
@@ -154,11 +154,11 @@ public sealed class SherpaOnnxKokoroEnglishSynthesisModelTests : IDisposable
         var config = model.CreateEngineConfig(installedDirectory);
 
         // Assert
-        var modelFolder = Path.Combine(installedDirectory, ExtractedFolderName);
-        Assert.Equal(Path.Combine(modelFolder, "model.int8.onnx"), config.Model.Kokoro.Model);
-        Assert.Equal(Path.Combine(modelFolder, "voices.bin"), config.Model.Kokoro.Voices);
-        Assert.Equal(Path.Combine(modelFolder, "tokens.txt"), config.Model.Kokoro.Tokens);
-        Assert.Equal(Path.Combine(modelFolder, "espeak-ng-data"), config.Model.Kokoro.DataDir);
+        var modelFolder = Path.Join(installedDirectory, ExtractedFolderName);
+        Assert.Equal(Path.Join(modelFolder, "model.int8.onnx"), config.Model.Kokoro.Model);
+        Assert.Equal(Path.Join(modelFolder, "voices.bin"), config.Model.Kokoro.Voices);
+        Assert.Equal(Path.Join(modelFolder, "tokens.txt"), config.Model.Kokoro.Tokens);
+        Assert.Equal(Path.Join(modelFolder, "espeak-ng-data"), config.Model.Kokoro.DataDir);
         Assert.Equal(1.0f, config.Model.Kokoro.LengthScale);
         Assert.True(string.IsNullOrEmpty(config.Model.Kokoro.DictDir));
         Assert.True(string.IsNullOrEmpty(config.Model.Kokoro.Lexicon));
@@ -213,14 +213,14 @@ public sealed class SherpaOnnxKokoroEnglishSynthesisModelTests : IDisposable
         [
             (ExtractedFolderName + "/tokens.txt", tokensContent),
         ]);
-        var archivePath = Path.Combine(_testRoot, relativeInstallPath);
+        var archivePath = Path.Join(_testRoot, relativeInstallPath);
         await File.WriteAllBytesAsync(archivePath, archiveBytes, TestContext.Current.CancellationToken);
 
         // Act
         await model.InstallAsync(_testRoot, TestContext.Current.CancellationToken);
 
         // Assert
-        var extractedTokensPath = Path.Combine(_testRoot, ExtractedFolderName, "tokens.txt");
+        var extractedTokensPath = Path.Join(_testRoot, ExtractedFolderName, "tokens.txt");
         Assert.True(File.Exists(extractedTokensPath));
         Assert.Equal(
             tokensContent,
@@ -251,8 +251,16 @@ public sealed class SherpaOnnxKokoroEnglishSynthesisModelTests : IDisposable
     }
 
     /// <summary>Supplies every declared voice/expected-speaker-id pair for the theory above.</summary>
-    public static IEnumerable<object[]> VoiceIdTestCases() =>
-        ExpectedVoiceIds.Select(pair => new object[] { pair.Voice, pair.SpeakerId });
+    public static TheoryData<string, int> VoiceIdTestCases()
+    {
+        TheoryData<string, int> testCases = [];
+        foreach (var pair in ExpectedVoiceIds)
+        {
+            testCases.Add(pair.Voice, pair.SpeakerId);
+        }
+
+        return testCases;
+    }
 
     /// <summary>
     ///     Proves that an unrecognized voice value falls back to the default voice's speaker id

@@ -159,90 +159,75 @@ internal static class RecognizeCommand
         using var stopSignal = new ManualResetEventSlim(initialState: false);
         var captureDevice = ResolveCaptureDevice(factory, options);
 
-        StreamWriter? outputWriter = null;
+        using var outputWriter = options.OutputPath is null
+            ? null
+            : new StreamWriter(options.OutputPath, append: false) { AutoFlush = true };
+
+        using var recognizer = catalog.CreateRecognizer(descriptor, captureDevice, parameterValues);
+        var consoleLine = new ConsoleLineState();
+        EventHandler<SpeechRecognitionEvent> onResultReceived =
+            (_, e) => HandleResult(outputWriter, options, e, consoleLine);
+        recognizer.ResultReceived += onResultReceived;
         try
         {
-            if (options.OutputPath is not null)
+            var sessionStartTimeout = options.StartTimeoutSeconds is { } startSeconds
+                ? TimeSpan.FromSeconds(startSeconds)
+                : (TimeSpan?)null;
+            using var session = options.Mic && options.SilenceTimeoutSeconds is { } seconds
+                ? new SilenceTimeoutRecognizerSession(
+                    recognizer,
+                    TimeSpan.FromSeconds(seconds),
+                    startTimeout: sessionStartTimeout)
+                : null;
+
+            if (session is not null)
             {
-                outputWriter = new StreamWriter(options.OutputPath, append: false) { AutoFlush = true };
+                session.TimedOut += (_, _) => stopSignal.Set();
             }
 
-            var recognizer = catalog.CreateRecognizer(descriptor, captureDevice, parameterValues);
-            var consoleLine = new ConsoleLineState();
-            EventHandler<SpeechRecognitionEvent> onResultReceived =
-                (_, e) => HandleResult(outputWriter, options, e, consoleLine);
+            if (options.InputPath is not null && captureDevice is WavFileAudioCaptureDevice fileDevice)
+            {
+                fileDevice.EndOfFileReached += (_, _) => recognizer.Stop();
+            }
+
+            ConsoleCancelEventHandler onCancelKeyPress = (_, e) =>
+            {
+                e.Cancel = true;
+                recognizer.Stop();
+                stopSignal.Set();
+            };
+
+            Console.CancelKeyPress += onCancelKeyPress;
             try
             {
-                recognizer.ResultReceived += onResultReceived;
-                SilenceTimeoutRecognizerSession? session = null;
-                try
+                // File mode: Start() itself only returns once the whole file has been
+                // delivered and drained (see this type's remarks), so no wait is needed
+                // here. Mic mode: Start() returns quickly, so this thread blocks until
+                // Ctrl+C or a silence timeout signals stopSignal.
+                recognizer.Start();
+                if (options.Mic)
                 {
-                    if (options.Mic && options.SilenceTimeoutSeconds is { } seconds)
-                    {
-                        var startTimeout = options.StartTimeoutSeconds is { } startSeconds
-                            ? TimeSpan.FromSeconds(startSeconds)
-                            : (TimeSpan?)null;
-                        session = new SilenceTimeoutRecognizerSession(
-                            recognizer,
-                            TimeSpan.FromSeconds(seconds),
-                            startTimeout: startTimeout);
-                        session.TimedOut += (_, _) => stopSignal.Set();
-                    }
-
-                    if (options.InputPath is not null && captureDevice is WavFileAudioCaptureDevice fileDevice)
-                    {
-                        fileDevice.EndOfFileReached += (_, _) => recognizer.Stop();
-                    }
-
-                    ConsoleCancelEventHandler onCancelKeyPress = (_, e) =>
-                    {
-                        e.Cancel = true;
-                        recognizer.Stop();
-                        stopSignal.Set();
-                    };
-
-                    Console.CancelKeyPress += onCancelKeyPress;
-                    try
-                    {
-                        // File mode: Start() itself only returns once the whole file has been
-                        // delivered and drained (see this type's remarks), so no wait is needed
-                        // here. Mic mode: Start() returns quickly, so this thread blocks until
-                        // Ctrl+C or a silence timeout signals stopSignal.
-                        recognizer.Start();
-                        if (options.Mic)
-                        {
-                            stopSignal.Wait();
-                        }
-                    }
-                    finally
-                    {
-                        Console.CancelKeyPress -= onCancelKeyPress;
-                    }
+                    stopSignal.Wait();
                 }
-                finally
-                {
-                    session?.Dispose();
-                }
-
-                // Settle any interim line still pending (e.g. a session that ends right after an
-                // interim result with no final ever arriving) before printing the completion
-                // message, so it never visually concatenates onto leftover interim text either.
-                SettleConsoleLine(consoleLine);
-
-                context.WriteLine(options.OutputPath is null
-                    ? "Recognition finished."
-                    : $"Recognition results written to '{options.OutputPath}'.");
             }
             finally
             {
-                recognizer.ResultReceived -= onResultReceived;
-                recognizer.Dispose();
+                Console.CancelKeyPress -= onCancelKeyPress;
             }
         }
         finally
         {
-            outputWriter?.Dispose();
+            recognizer.ResultReceived -= onResultReceived;
         }
+
+        // Settle any interim line still pending (e.g. a session that ends right after an
+        // interim result with no final ever arriving) before printing the completion
+        // message, so it never visually concatenates onto leftover interim text either.
+        SettleConsoleLine(consoleLine);
+
+        context.WriteLine(options.OutputPath is null
+            ? "Recognition finished."
+            : $"Recognition results written to '{options.OutputPath}'.");
     }
 
     /// <summary>
