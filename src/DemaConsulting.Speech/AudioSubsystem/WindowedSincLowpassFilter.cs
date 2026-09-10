@@ -61,6 +61,14 @@ internal static class WindowedSincLowpassFilter
             throw new ArgumentException("The tap count must be odd.", nameof(tapCount));
         }
 
+        // A single-tap kernel has no window span to normalize against (the Hamming window's
+        // "tapCount - 1" divisor would be zero), so it is a trivial all-pass kernel: multiply
+        // every sample by 1.
+        if (tapCount == 1)
+        {
+            return [1f];
+        }
+
         var radius = tapCount / 2;
         var kernel = new float[tapCount];
         var sum = 0.0;

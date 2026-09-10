@@ -18,6 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+// cspell:ignore NOSONAR
 using System.Globalization;
 using System.Numerics.Tensors;
 using System.Runtime.InteropServices;
