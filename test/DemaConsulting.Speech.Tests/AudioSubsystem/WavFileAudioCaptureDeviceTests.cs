@@ -182,6 +182,43 @@ public class WavFileAudioCaptureDeviceTests
     }
 
     /// <summary>
+    ///     Proves that starting capture against a file whose <c>fmt </c> chunk is truncated (the
+    ///     header declares more bytes than the file actually contains) throws the documented
+    ///     <see cref="InvalidOperationException"/> rather than letting a <see cref="BinaryReader"/>
+    ///     <see cref="EndOfStreamException"/> escape unhandled.
+    /// </summary>
+    [Fact]
+    public void WavFileAudioCaptureDevice_Start_TruncatedFmtChunk_ThrowsInvalidOperationException()
+    {
+        // Arrange: a RIFF/WAVE file whose "fmt " chunk declares 16 bytes but the file ends
+        // partway through the chunk's fields.
+        var path = CreateTempWavPath();
+        using (var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read))
+        using (var writer = new BinaryWriter(stream))
+        {
+            writer.Write("RIFF"u8);
+            writer.Write(0);
+            writer.Write("WAVE"u8);
+            writer.Write("fmt "u8);
+            writer.Write(16); // Declares a full 16-byte fmt chunk...
+            writer.Write((short)1); // ...but the file ends after only the format-tag field.
+        }
+
+        try
+        {
+            var device = new WavFileAudioCaptureDevice(path);
+
+            // Act & Assert: starting capture throws the documented, handled exception, not a
+            // raw EndOfStreamException.
+            Assert.Throws<InvalidOperationException>(device.Start);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
     ///     Proves that starting capture against a stereo WAV file throws
     ///     <see cref="InvalidOperationException"/>, since only mono files are supported.
     /// </summary>

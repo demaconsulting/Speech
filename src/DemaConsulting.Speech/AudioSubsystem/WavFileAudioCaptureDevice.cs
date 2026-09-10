@@ -231,6 +231,16 @@ public sealed class WavFileAudioCaptureDevice : IAudioCaptureDevice
             SampleRate = sampleRate;
             return reader;
         }
+        catch (EndOfStreamException ex)
+        {
+            // BinaryReader.ReadInt32/ReadInt16/ReadBytes throw EndOfStreamException when a
+            // declared chunk is truncated (e.g. a fmt/data chunk whose header promises more
+            // bytes than the file actually contains). Wrap it so every malformed-input path -
+            // truncated or otherwise - surfaces through the single documented
+            // InvalidOperationException contract, not a leaked BCL I/O exception type.
+            reader.Dispose();
+            throw new InvalidOperationException($"'{_path}' is not a valid WAV file: truncated chunk data.", ex);
+        }
         catch
         {
             // Intentionally broad: any validation fault after the file opens must still dispose

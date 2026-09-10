@@ -26,7 +26,14 @@ public static class AudioTagCatalog
     ///     Every canonical tag, its kind, and its full alias list, in <see cref="NaturalLanguageAudioTag"/>
     ///     declaration order.
     /// </summary>
-    public static IReadOnlyList<AudioTagDescriptor> Tags { get; } = BuildDescriptors();
+    /// <remarks>
+    ///     Wrapped with <see cref="List{T}.AsReadOnly"/> (not just declared as
+    ///     <see cref="IReadOnlyList{T}"/>) so the runtime instance a caller observes is a genuine
+    ///     read-only wrapper, not the backing <see cref="List{T}"/> itself: without this, a caller
+    ///     could cast this property back to <c>List&lt;AudioTagDescriptor&gt;</c> and mutate the
+    ///     supposedly-static, single-source-of-truth tag table at runtime.
+    /// </remarks>
+    public static IReadOnlyList<AudioTagDescriptor> Tags { get; } = BuildDescriptors().AsReadOnly();
 
     /// <summary>
     ///     Normalizes raw bracket-interior text for alias lookup: trims leading/trailing
