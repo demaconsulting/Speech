@@ -28,7 +28,7 @@ public class SpeechDemoTests
     /// <returns>Options whose store root is a fresh directory under the test output folder.</returns>
     private static SpeechModelStoreOptions IsolatedOptions() => new()
     {
-        RootPathOverride = Path.Combine(
+        RootPathOverride = Path.Join(
             AppContext.BaseDirectory, "SpeechDemoTests", Guid.NewGuid().ToString("N"))
     };
 

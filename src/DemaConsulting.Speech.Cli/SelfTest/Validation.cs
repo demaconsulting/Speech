@@ -175,8 +175,8 @@ internal static class Validation
                 context.WriteError($"✗ SpeechCli_VersionDisplay - Failed: Exit code {exitCode}");
             }
         }
-        // Generic catch is justified here as this is a test framework - any exception should be
-        // recorded as a test failure to ensure robust test execution and reporting.
+        // Intentionally broad: this CLI self-test boundary must record any failure as a test
+        // result instead of aborting the whole validation run on the first unexpected exception.
         catch (Exception ex)
         {
             HandleTestException(test, context, "SpeechCli_VersionDisplay", ex);
@@ -252,8 +252,8 @@ internal static class Validation
                 context.WriteError($"✗ SpeechCli_HelpDisplay - Failed: Exit code {exitCode}");
             }
         }
-        // Generic catch is justified here as this is a test framework - any exception should be
-        // recorded as a test failure to ensure robust test execution and reporting.
+        // Intentionally broad: this CLI self-test boundary must record any failure as a test
+        // result instead of aborting the whole validation run on the first unexpected exception.
         catch (Exception ex)
         {
             HandleTestException(test, context, "SpeechCli_HelpDisplay", ex);
@@ -318,8 +318,8 @@ internal static class Validation
                 context.WriteError($"✗ SpeechCli_DispatchTableWellFormed - Failed: {test.ErrorMessage}");
             }
         }
-        // Generic catch is justified here as this is a test framework - any exception should be
-        // recorded as a test failure to ensure robust test execution and reporting.
+        // Intentionally broad: this CLI self-test boundary must record any failure as a test
+        // result instead of aborting the whole validation run on the first unexpected exception.
         catch (Exception ex)
         {
             HandleTestException(test, context, "SpeechCli_DispatchTableWellFormed", ex);
@@ -354,8 +354,8 @@ internal static class Validation
             test.Outcome = DemaConsulting.TestResults.TestOutcome.Passed;
             context.WriteLine("✓ SpeechCli_AudioBackendProbe - Passed");
         }
-        // Generic catch is justified here as this is a test framework - any exception should be
-        // recorded as a test failure to ensure robust test execution and reporting.
+        // Intentionally broad: this CLI self-test boundary must record any failure as a test
+        // result instead of aborting the whole validation run on the first unexpected exception.
         catch (Exception ex)
         {
             HandleTestException(test, context, "SpeechCli_AudioBackendProbe", ex);
@@ -389,8 +389,8 @@ internal static class Validation
             test.Outcome = DemaConsulting.TestResults.TestOutcome.Passed;
             context.WriteLine("✓ SpeechCli_ModelStoreRootWritable - Passed");
         }
-        // Generic catch is justified here as this is a test framework - any exception should be
-        // recorded as a test failure to ensure robust test execution and reporting.
+        // Intentionally broad: this CLI self-test boundary must record any failure as a test
+        // result instead of aborting the whole validation run on the first unexpected exception.
         catch (Exception ex)
         {
             HandleTestException(test, context, "SpeechCli_ModelStoreRootWritable", ex);
@@ -434,7 +434,8 @@ internal static class Validation
             File.WriteAllText(context.ResultsFile, content);
             context.WriteLine($"Results written to {context.ResultsFile}");
         }
-        // Generic catch is justified here as a top-level handler to log file write errors
+        // Intentionally broad: this CLI results-file boundary must surface any write failure as
+        // a clean validation error instead of terminating after the tests already ran.
         catch (Exception ex)
         {
             context.WriteError($"Error: Failed to write results file: {ex.Message}");

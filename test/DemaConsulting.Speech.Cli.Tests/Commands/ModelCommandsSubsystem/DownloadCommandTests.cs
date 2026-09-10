@@ -220,10 +220,11 @@ public sealed class DownloadCommandTests
     }
 
     /// <summary>
-    ///     Test that a canceled download is reported cleanly and stops the remaining batch.
+    ///     Test that a token already canceled before the batch starts is reported cleanly and
+    ///     stops the batch, without attempting any requested model.
     /// </summary>
     [Fact]
-    public async Task DownloadCommand_RunAsync_Canceled_ReportsErrorAndStopsBatch()
+    public async Task DownloadCommand_RunAsync_CanceledBeforeStart_ReportsErrorAndStopsBatch()
     {
         // Arrange
         using var cts = new CancellationTokenSource();
@@ -238,6 +239,50 @@ public sealed class DownloadCommandTests
 
         // Assert: canceled before it started - nothing was attempted, and the exit code reflects it
         Assert.Empty(catalog.DownloadCalls);
+        Assert.Equal(1, context.ExitCode);
+    }
+
+    /// <summary>
+    ///     Test that a genuine in-progress cancellation is reported cleanly and stops the
+    ///     remaining batch, distinct from the pre-start cancellation check.
+    /// </summary>
+    /// <remarks>
+    ///     The token is deliberately canceled from inside <see cref="FakeCliModelCatalog.OnDownload"/>
+    ///     - after <c>model-1</c>'s download has genuinely started and reported progress - rather
+    ///     than before <see cref="DownloadCommand.RunAsync"/> is even called, so this test proves
+    ///     the documented "stops the whole batch" behavior for a real in-flight cancellation, not
+    ///     just the trivial pre-start check.
+    /// </remarks>
+    [Fact]
+    public async Task DownloadCommand_RunAsync_Canceled_ReportsErrorAndStopsBatch()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        var catalog = new FakeCliModelCatalog
+        {
+            OnDownload = (modelId, progress) =>
+            {
+                if (modelId != "model-1")
+                {
+                    return;
+                }
+
+                // Prove the download genuinely started before canceling.
+                progress?.Report(new SpeechModelDownloadProgress(0, 1, 50, 100));
+                cts.Cancel();
+            },
+        };
+        catalog
+            .WithModel(new FakeSpeechModel("model-1"), SpeechModelState.NotDownloaded)
+            .WithModel(new FakeSpeechModel("model-2"), SpeechModelState.NotDownloaded);
+        using var context = Context.Create(["download", "model-1", "model-2"]);
+
+        // Act
+        await DownloadCommand.RunAsync(context, catalog, cts.Token);
+
+        // Assert: model-1 genuinely started and was then canceled mid-flight; model-2 was never
+        // attempted because a genuine cancellation stops the whole batch.
+        Assert.Equal(["model-1"], catalog.DownloadCalls);
         Assert.Equal(1, context.ExitCode);
     }
 

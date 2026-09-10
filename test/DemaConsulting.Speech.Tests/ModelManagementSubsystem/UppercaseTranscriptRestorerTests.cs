@@ -49,7 +49,8 @@ public class UppercaseTranscriptRestorerTests
     };
 
     /// <summary>Every form deliberately left alone, ported from the reference exclusion list.</summary>
-    public static TheoryData<string> DeliberatelyAmbiguousCases => new(UppercaseTranscriptRestorer.DeliberatelyAmbiguousForms());
+    public static TheoryData<string> DeliberatelyAmbiguousCases =>
+        [.. UppercaseTranscriptRestorer.DeliberatelyAmbiguousForms()];
 
     /// <summary>
     ///     Proves that <see cref="UppercaseTranscriptRestorer.RestoreFinal"/> restores every

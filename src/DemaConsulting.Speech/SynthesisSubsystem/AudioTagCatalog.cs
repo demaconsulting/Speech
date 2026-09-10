@@ -19,14 +19,21 @@ public static class AudioTagCatalog
     ///     Normalized alias text (see <see cref="Normalize"/>) mapped to the canonical tag and
     ///     kind it resolves to.
     /// </summary>
-    private static readonly IReadOnlyDictionary<string, (NaturalLanguageAudioTag Tag, NaturalLanguageAudioTagKind Kind)> AliasLookup =
+    private static readonly Dictionary<string, (NaturalLanguageAudioTag Tag, NaturalLanguageAudioTagKind Kind)> AliasLookup =
         BuildAliasLookup();
 
     /// <summary>
     ///     Every canonical tag, its kind, and its full alias list, in <see cref="NaturalLanguageAudioTag"/>
     ///     declaration order.
     /// </summary>
-    public static IReadOnlyList<AudioTagDescriptor> Tags { get; } = BuildDescriptors();
+    /// <remarks>
+    ///     Wrapped with <see cref="List{T}.AsReadOnly"/> (not just declared as
+    ///     <see cref="IReadOnlyList{T}"/>) so the runtime instance a caller observes is a genuine
+    ///     read-only wrapper, not the backing <see cref="List{T}"/> itself: without this, a caller
+    ///     could cast this property back to <c>List&lt;AudioTagDescriptor&gt;</c> and mutate the
+    ///     supposedly-static, single-source-of-truth tag table at runtime.
+    /// </remarks>
+    public static IReadOnlyList<AudioTagDescriptor> Tags { get; } = BuildDescriptors().AsReadOnly();
 
     /// <summary>
     ///     Normalizes raw bracket-interior text for alias lookup: trims leading/trailing
@@ -96,7 +103,7 @@ public static class AudioTagCatalog
     /// <summary>
     ///     Builds the immutable alias-to-(tag, kind) lookup table once, at type initialization.
     /// </summary>
-    private static IReadOnlyDictionary<string, (NaturalLanguageAudioTag, NaturalLanguageAudioTagKind)> BuildAliasLookup()
+    private static Dictionary<string, (NaturalLanguageAudioTag, NaturalLanguageAudioTagKind)> BuildAliasLookup()
     {
         var lookup = new Dictionary<string, (NaturalLanguageAudioTag, NaturalLanguageAudioTagKind)>();
         foreach (var descriptor in BuildDescriptors())
@@ -114,7 +121,7 @@ public static class AudioTagCatalog
     ///     Builds the canonical tag/kind/alias descriptor list, the single source of truth this
     ///     class exposes both for lookup and for enumeration.
     /// </summary>
-    private static IReadOnlyList<AudioTagDescriptor> BuildDescriptors() =>
+    private static List<AudioTagDescriptor> BuildDescriptors() =>
     [
         Describe(NaturalLanguageAudioTag.Excited, NaturalLanguageAudioTagKind.Emotion, "excited", "excitedly"),
         Describe(NaturalLanguageAudioTag.Serious, NaturalLanguageAudioTagKind.Emotion, "serious"),

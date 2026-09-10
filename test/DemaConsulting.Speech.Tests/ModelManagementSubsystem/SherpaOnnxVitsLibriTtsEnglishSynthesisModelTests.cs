@@ -25,7 +25,7 @@ public sealed class SherpaOnnxVitsLibriTtsEnglishSynthesisModelTests : IDisposab
     /// </summary>
     public SherpaOnnxVitsLibriTtsEnglishSynthesisModelTests()
     {
-        _testRoot = Path.Combine(Path.GetTempPath(), "DemaConsulting.Speech.Tests", Guid.NewGuid().ToString("N"));
+        _testRoot = Path.Join(Path.GetTempPath(), "DemaConsulting.Speech.Tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_testRoot);
     }
 
@@ -283,10 +283,10 @@ public sealed class SherpaOnnxVitsLibriTtsEnglishSynthesisModelTests : IDisposab
         var config = model.CreateEngineConfig(installedDirectory);
 
         // Assert
-        var modelFolder = Path.Combine(installedDirectory, ExtractedFolderName);
-        Assert.Equal(Path.Combine(modelFolder, "en_US-libritts_r-medium.onnx"), config.Model.Vits.Model);
-        Assert.Equal(Path.Combine(modelFolder, "tokens.txt"), config.Model.Vits.Tokens);
-        Assert.Equal(Path.Combine(modelFolder, "espeak-ng-data"), config.Model.Vits.DataDir);
+        var modelFolder = Path.Join(installedDirectory, ExtractedFolderName);
+        Assert.Equal(Path.Join(modelFolder, "en_US-libritts_r-medium.onnx"), config.Model.Vits.Model);
+        Assert.Equal(Path.Join(modelFolder, "tokens.txt"), config.Model.Vits.Tokens);
+        Assert.Equal(Path.Join(modelFolder, "espeak-ng-data"), config.Model.Vits.DataDir);
         Assert.True(string.IsNullOrEmpty(config.Model.Vits.Lexicon));
         Assert.Equal(0.333f, config.Model.Vits.NoiseScale);
         Assert.Equal(0.333f, config.Model.Vits.NoiseScaleW);
@@ -341,14 +341,14 @@ public sealed class SherpaOnnxVitsLibriTtsEnglishSynthesisModelTests : IDisposab
         [
             (ExtractedFolderName + "/tokens.txt", tokensContent),
         ]);
-        var archivePath = Path.Combine(_testRoot, relativeInstallPath);
+        var archivePath = Path.Join(_testRoot, relativeInstallPath);
         await File.WriteAllBytesAsync(archivePath, archiveBytes, TestContext.Current.CancellationToken);
 
         // Act
         await model.InstallAsync(_testRoot, TestContext.Current.CancellationToken);
 
         // Assert
-        var extractedTokensPath = Path.Combine(_testRoot, ExtractedFolderName, "tokens.txt");
+        var extractedTokensPath = Path.Join(_testRoot, ExtractedFolderName, "tokens.txt");
         Assert.True(File.Exists(extractedTokensPath));
         Assert.Equal(
             tokensContent,

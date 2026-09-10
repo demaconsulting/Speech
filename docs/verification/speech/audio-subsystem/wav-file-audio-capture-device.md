@@ -19,11 +19,12 @@ authoring new binary fixtures.
 Tests pass when starting capture against the fixture file delivers the exact total sample count
 declared by the file's `data` chunk, `EndOfFileReached` fires exactly once and only after the
 last `FrameCaptured` event, the reported format matches the fixture's known mono/16 kHz format,
-the reported format is zero before `Start` is called, a non-existent file, a non-RIFF file, and a
-stereo file all throw `InvalidOperationException` from `Start`, calling `Stop` from within a
-`FrameCaptured` handler interrupts delivery before the file is fully consumed and suppresses
-`EndOfFileReached`, the device always reports `IsAvailable = true`, and invalid constructor
-arguments throw the documented exceptions.
+the reported format is zero before `Start` is called, a non-existent file, a non-RIFF file, a
+stereo file, a non-PCM format tag, and a non-16-bit bit depth all throw
+`InvalidOperationException` from `Start`, calling `Stop` from within a `FrameCaptured` handler
+interrupts delivery before the file is fully consumed and suppresses `EndOfFileReached`, the
+device always reports `IsAvailable = true`, and invalid constructor arguments throw the
+documented exceptions.
 
 #### Test Scenarios
 
@@ -54,6 +55,18 @@ arguments throw the documented exceptions.
 ##### Start: Stereo File Throws InvalidOperationException
 
 **Test**: `WavFileAudioCaptureDevice_Start_StereoFile_ThrowsInvalidOperationException`
+
+##### Start: Non-PCM Format Tag Throws InvalidOperationException
+
+**Test**: `WavFileAudioCaptureDevice_Start_NonPcmFormatTag_ThrowsInvalidOperationException`
+
+##### Start: Eight-Bit Depth Throws InvalidOperationException
+
+**Test**: `WavFileAudioCaptureDevice_Start_EightBitDepth_ThrowsInvalidOperationException`
+
+##### Start: Twenty-Four-Bit Depth Throws InvalidOperationException
+
+**Test**: `WavFileAudioCaptureDevice_Start_TwentyFourBitDepth_ThrowsInvalidOperationException`
 
 ##### Stop: Called During FrameCaptured Interrupts Delivery Without EndOfFileReached
 

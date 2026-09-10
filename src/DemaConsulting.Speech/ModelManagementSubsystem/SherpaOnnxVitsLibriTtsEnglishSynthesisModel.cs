@@ -207,7 +207,7 @@ public sealed class SherpaOnnxVitsLibriTtsEnglishSynthesisModel : ISynthesisMode
     {
         ArgumentException.ThrowIfNullOrEmpty(stagedFilesDirectory);
 
-        var archivePath = Path.Combine(stagedFilesDirectory, ArchiveRelativeInstallPath);
+        var archivePath = Path.Join(stagedFilesDirectory, ArchiveRelativeInstallPath);
         return TarBz2ArchiveExtractor.ExtractAndDeleteAsync(archivePath, stagedFilesDirectory, cancellationToken);
     }
 
@@ -221,12 +221,12 @@ public sealed class SherpaOnnxVitsLibriTtsEnglishSynthesisModel : ISynthesisMode
     {
         ArgumentException.ThrowIfNullOrEmpty(installedModelDirectory);
 
-        var modelDirectory = Path.Combine(installedModelDirectory, ExtractedFolderName);
+        var modelDirectory = Path.Join(installedModelDirectory, ExtractedFolderName);
 
         var config = new OfflineTtsConfig();
-        config.Model.Vits.Model = Path.Combine(modelDirectory, "en_US-libritts_r-medium.onnx");
-        config.Model.Vits.Tokens = Path.Combine(modelDirectory, "tokens.txt");
-        config.Model.Vits.DataDir = Path.Combine(modelDirectory, "espeak-ng-data");
+        config.Model.Vits.Model = Path.Join(modelDirectory, "en_US-libritts_r-medium.onnx");
+        config.Model.Vits.Tokens = Path.Join(modelDirectory, "tokens.txt");
+        config.Model.Vits.DataDir = Path.Join(modelDirectory, "espeak-ng-data");
         config.Model.Vits.NoiseScale = NoiseScale;
         config.Model.Vits.NoiseScaleW = NoiseScaleW;
         config.Model.Vits.LengthScale = LengthScale;

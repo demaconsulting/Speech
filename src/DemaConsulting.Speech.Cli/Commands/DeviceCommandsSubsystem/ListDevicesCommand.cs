@@ -150,7 +150,7 @@ internal static class ListDevicesCommand
     ///     platform, or because a device direction genuinely has no devices - is reported as a
     ///     plain "no devices" message, never as an error.
     /// </remarks>
-    private static void WriteTable(Context context, IReadOnlyList<AudioDeviceDescription> devices)
+    private static void WriteTable(Context context, List<AudioDeviceDescription> devices)
     {
         if (devices.Count == 0)
         {
@@ -163,16 +163,15 @@ internal static class ListDevicesCommand
         var channelWidth = Math.Max("Channels".Length, devices.Max(d => d.ChannelCount.ToString(CultureInfo.InvariantCulture).Length));
         var sampleRateWidth = Math.Max("Sample Rate".Length, devices.Max(d => d.SampleRate.ToString(CultureInfo.InvariantCulture).Length));
 
-        context.WriteLine(FormatRow("Name", "Direction", "Channels", "Sample Rate", nameWidth, directionWidth, channelWidth, sampleRateWidth));
+        string FormatRow(string name, string direction, string channels, string sampleRate) =>
+            $"{name.PadRight(nameWidth)}  {direction.PadRight(directionWidth)}  {channels.PadRight(channelWidth)}  {sampleRate.PadRight(sampleRateWidth)}";
+
+        context.WriteLine(FormatRow("Name", "Direction", "Channels", "Sample Rate"));
         context.WriteLine(FormatRow(
             new string('-', nameWidth),
             new string('-', directionWidth),
             new string('-', channelWidth),
-            new string('-', sampleRateWidth),
-            nameWidth,
-            directionWidth,
-            channelWidth,
-            sampleRateWidth));
+            new string('-', sampleRateWidth)));
 
         foreach (var device in devices)
         {
@@ -180,25 +179,7 @@ internal static class ListDevicesCommand
                 device.Name,
                 device.Direction.ToString(),
                 device.ChannelCount.ToString(CultureInfo.InvariantCulture),
-                device.SampleRate.ToString(CultureInfo.InvariantCulture),
-                nameWidth,
-                directionWidth,
-                channelWidth,
-                sampleRateWidth));
+                device.SampleRate.ToString(CultureInfo.InvariantCulture)));
         }
     }
-
-    /// <summary>
-    ///     Formats one padded table row.
-    /// </summary>
-    private static string FormatRow(
-        string name,
-        string direction,
-        string channels,
-        string sampleRate,
-        int nameWidth,
-        int directionWidth,
-        int channelWidth,
-        int sampleRateWidth) =>
-        $"{name.PadRight(nameWidth)}  {direction.PadRight(directionWidth)}  {channels.PadRight(channelWidth)}  {sampleRate.PadRight(sampleRateWidth)}";
 }

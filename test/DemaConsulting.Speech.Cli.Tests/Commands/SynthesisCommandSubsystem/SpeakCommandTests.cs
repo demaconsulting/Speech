@@ -267,7 +267,7 @@ public sealed class SpeakCommandTests
         };
         // A probe that throws if enumerated, proving --output-audio never touches real device probes.
         var factory = new FakePlaybackDeviceSource(new ThrowingAudioPlaybackDeviceProbe());
-        var outputPath = Path.Combine(Path.GetTempPath(), $"speak-test-{Guid.NewGuid():N}.wav");
+        var outputPath = Path.Join(Path.GetTempPath(), $"speak-test-{Guid.NewGuid():N}.wav");
 
         try
         {

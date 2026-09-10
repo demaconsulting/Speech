@@ -28,8 +28,12 @@ public class AudioTagCatalogTests
         {
             foreach (var tag in allTags)
             {
-                Assert.True(descriptors.ContainsKey(tag), $"{tag} is missing from AudioTagCatalog.Tags.");
-                Assert.NotEmpty(descriptors[tag].Aliases);
+                var found = descriptors.TryGetValue(tag, out var descriptor);
+                Assert.True(found, $"{tag} is missing from AudioTagCatalog.Tags.");
+                if (found)
+                {
+                    Assert.NotEmpty(descriptor!.Aliases);
+                }
             }
         });
     }
@@ -147,5 +151,17 @@ public class AudioTagCatalogTests
 
         // Assert
         Assert.False(resolved);
+    }
+
+    /// <summary>
+    ///     Proves <see cref="AudioTagCatalog.Tags"/> is a genuine read-only wrapper - not the
+    ///     mutable backing <see cref="List{T}"/> itself - so a caller cannot cast the property's
+    ///     runtime instance back to <c>List&lt;AudioTagDescriptor&gt;</c> and mutate the
+    ///     supposedly-static, single-source-of-truth tag table.
+    /// </summary>
+    [Fact]
+    public void AudioTagCatalog_Tags_Always_IsNotCastableToMutableList()
+    {
+        Assert.Null(AudioTagCatalog.Tags as List<AudioTagDescriptor>);
     }
 }

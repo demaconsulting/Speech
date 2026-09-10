@@ -1,3 +1,4 @@
+using System.Buffers;
 using DemaConsulting.Speech.AudioSubsystem;
 
 namespace DemaConsulting.Speech.RecognitionSubsystem;
@@ -186,34 +187,52 @@ internal sealed class AudioFrameResampler
         }
 
         ReadOnlySpan<float> samplesToResample = monoSamples;
-        if (targetSampleRate < sourceSampleRate)
+        float[]? rentedFilterBuffer = null;
+        try
         {
-            var cutoffRatio = (double)targetSampleRate / sourceSampleRate;
-            var kernel = WindowedSincLowpassFilter.BuildLowpassKernel(cutoffRatio, WindowedSincLowpassFilter.DownsamplingFilterTapCount);
-            samplesToResample = WindowedSincLowpassFilter.ApplyLowpassFilter(monoSamples, kernel);
-        }
-
-        var resampled = new float[outputLength];
-        var step = (double)sourceSampleRate / targetSampleRate;
-        var lastIndex = samplesToResample.Length - 1;
-        for (var i = 0; i < outputLength; i++)
-        {
-            // Locate this output sample's fractional position in the input signal, then blend
-            // the two input samples on either side of it.
-            var position = i * step;
-            var lowerIndex = (int)position;
-            if (lowerIndex >= lastIndex)
+            if (targetSampleRate < sourceSampleRate)
             {
-                resampled[i] = samplesToResample[lastIndex];
-                continue;
+                var cutoffRatio = (double)targetSampleRate / sourceSampleRate;
+                var kernel = WindowedSincLowpassFilter.BuildLowpassKernel(cutoffRatio, WindowedSincLowpassFilter.DownsamplingFilterTapCount);
+
+                // The filtered signal is only ever read by the interpolation loop immediately
+                // below and then discarded, so a pooled buffer avoids allocating a full-size
+                // array for what is a purely transient intermediate result.
+                rentedFilterBuffer = ArrayPool<float>.Shared.Rent(monoSamples.Length);
+                var filteredDestination = rentedFilterBuffer.AsSpan(0, monoSamples.Length);
+                WindowedSincLowpassFilter.ApplyLowpassFilter(monoSamples, kernel, filteredDestination);
+                samplesToResample = filteredDestination;
             }
 
-            var fraction = position - lowerIndex;
-            var lower = samplesToResample[lowerIndex];
-            var upper = samplesToResample[lowerIndex + 1];
-            resampled[i] = (float)(lower + ((upper - lower) * fraction));
-        }
+            var resampled = new float[outputLength];
+            var step = (double)sourceSampleRate / targetSampleRate;
+            var lastIndex = samplesToResample.Length - 1;
+            for (var i = 0; i < outputLength; i++)
+            {
+                // Locate this output sample's fractional position in the input signal, then blend
+                // the two input samples on either side of it.
+                var position = i * step;
+                var lowerIndex = (int)position;
+                if (lowerIndex >= lastIndex)
+                {
+                    resampled[i] = samplesToResample[lastIndex];
+                    continue;
+                }
 
-        return resampled;
+                var fraction = position - lowerIndex;
+                var lower = samplesToResample[lowerIndex];
+                var upper = samplesToResample[lowerIndex + 1];
+                resampled[i] = (float)(lower + ((upper - lower) * fraction));
+            }
+
+            return resampled;
+        }
+        finally
+        {
+            if (rentedFilterBuffer is not null)
+            {
+                ArrayPool<float>.Shared.Return(rentedFilterBuffer);
+            }
+        }
     }
 }

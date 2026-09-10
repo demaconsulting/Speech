@@ -483,7 +483,7 @@ public class PortAudioPlaybackDeviceTests
     /// <summary>
     ///     Minimal fake PortAudio seam used by the playback-device tests.
     /// </summary>
-    private sealed class FakePortAudioApi(IReadOnlyList<PortAudioDeviceInfo> devices) : IPortAudioApi
+    private sealed class FakePortAudioApi(PortAudioDeviceInfo[] devices) : IPortAudioApi
     {
         /// <summary>
         ///     Gets or sets the host-API index returned by <see cref="FindHostApiIndex"/>.
@@ -517,7 +517,7 @@ public class PortAudioPlaybackDeviceTests
         public int HostApiCount => 1;
 
         /// <inheritdoc/>
-        public int DeviceCount => devices.Count;
+        public int DeviceCount => devices.Length;
 
         /// <inheritdoc/>
         public void Initialize()
@@ -631,7 +631,7 @@ public class PortAudioPlaybackDeviceTests
         /// </summary>
         /// <param name="sampleCount">The number of samples to request.</param>
         /// <returns>The samples returned by the managed playback callback.</returns>
-        internal IReadOnlyList<float> RequestSamples(int sampleCount)
+        internal float[] RequestSamples(int sampleCount)
         {
             return ProvideSamples?.Invoke(sampleCount) ?? [];
         }

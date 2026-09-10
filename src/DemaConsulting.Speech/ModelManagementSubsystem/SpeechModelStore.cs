@@ -45,7 +45,7 @@ public sealed class SpeechModelStore
     {
         RootPath = !string.IsNullOrEmpty(options?.RootPathOverride)
             ? options.RootPathOverride
-            : Path.Combine(
+            : Path.Join(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "DemaConsulting.Speech",
                 "Models");
@@ -67,7 +67,7 @@ public sealed class SpeechModelStore
     public string GetModelDirectory(string modelId)
     {
         ValidateModelId(modelId);
-        return Path.Combine(RootPath, modelId);
+        return Path.Join(RootPath, modelId);
     }
 
     /// <summary>
@@ -77,7 +77,7 @@ public sealed class SpeechModelStore
     /// <returns>The absolute path to the model's <c>current/</c> directory. The directory itself may not yet exist.</returns>
     /// <exception cref="ArgumentException">Thrown when <paramref name="modelId"/> is null, empty, or not a valid directory name.</exception>
     public string GetCurrentDirectory(string modelId) =>
-        Path.Combine(GetModelDirectory(modelId), CurrentDirectoryName);
+        Path.Join(GetModelDirectory(modelId), CurrentDirectoryName);
 
     /// <summary>
     ///     Determines whether a model is currently installed and ready to use.
@@ -110,7 +110,7 @@ public sealed class SpeechModelStore
     internal (string OperationId, string StagingDirectory) BeginStaging(string modelId)
     {
         var operationId = Guid.NewGuid().ToString("N");
-        var stagingDirectory = Path.Combine(GetModelDirectory(modelId), StagingRootName, operationId);
+        var stagingDirectory = Path.Join(GetModelDirectory(modelId), StagingRootName, operationId);
         Directory.CreateDirectory(stagingDirectory);
         return (operationId, stagingDirectory);
     }
@@ -144,7 +144,7 @@ public sealed class SpeechModelStore
         string? replacedDirectory = null;
         if (Directory.Exists(currentDirectory))
         {
-            replacedDirectory = Path.Combine(modelDirectory, ReplacedDirectoryPrefix + operationId);
+            replacedDirectory = Path.Join(modelDirectory, ReplacedDirectoryPrefix + operationId);
             Directory.Move(currentDirectory, replacedDirectory);
         }
 
@@ -253,7 +253,7 @@ public sealed class SpeechModelStore
             TryDeleteDirectoryRecursively(directory);
         }
 
-        var stagingRoot = Path.Combine(modelDirectory, StagingRootName);
+        var stagingRoot = Path.Join(modelDirectory, StagingRootName);
         if (Directory.Exists(stagingRoot))
         {
             foreach (var directory in Directory.EnumerateDirectories(stagingRoot))
@@ -294,7 +294,7 @@ public sealed class SpeechModelStore
     ///     Gets the absolute path to a model's install-manifest sidecar file.
     /// </summary>
     /// <param name="modelId">The model identifier. Must not be null, empty, or an invalid directory name.</param>
-    private string GetManifestPath(string modelId) => Path.Combine(GetModelDirectory(modelId), ManifestFileName);
+    private string GetManifestPath(string modelId) => Path.Join(GetModelDirectory(modelId), ManifestFileName);
 
     /// <summary>
     ///     Validates that a model identifier is non-empty and safe to use as a single directory

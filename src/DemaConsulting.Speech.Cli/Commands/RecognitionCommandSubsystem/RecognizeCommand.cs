@@ -55,21 +55,22 @@ namespace DemaConsulting.Speech.Cli.Commands.RecognitionCommandSubsystem;
 ///     </para>
 ///     <para>
 ///     <b>Mic-input mode (<c>--mic</c>)</b> blocks the calling thread on a
-///     <see cref="ManualResetEventSlim"/> set either by a <c>Ctrl+C</c> handler or, when
-///     <c>--silence-timeout</c> was given, by a <see cref="SilenceTimeoutRecognizerSession"/>'s
-///     <c>TimedOut</c> event (the session itself already called <c>Stop()</c> before raising that
-///     event). The session enforces two distinct idle windows: <c>--start-timeout</c> (defaulting
-///     to <c>--silence-timeout</c>'s value when omitted) governs the grace period before any
-///     result has arrived, and <c>--silence-timeout</c> governs every re-arm from the first
-///     result onward.
+///     <see cref="ManualResetEventSlim"/> set either by a <c>Ctrl+C</c> handler or by a
+///     <see cref="SilenceTimeoutRecognizerSession"/>'s <c>TimedOut</c> event (the session
+///     itself already called <c>Stop()</c> before raising that event). A session is always
+///     constructed in mic mode, even when <c>--silence-timeout</c>/<c>--start-timeout</c> are
+///     both omitted, so listening cannot block forever. The session enforces two distinct idle
+///     windows: <c>--start-timeout</c> (defaulting to 8 seconds when omitted) governs the
+///     grace period before any result has arrived, and <c>--silence-timeout</c> (defaulting to
+///     5 seconds when omitted) governs every re-arm from the first result onward.
 ///     </para>
 ///     <para>
 ///     <b>Disposal.</b> Neither <see cref="IAudioCaptureDevice"/> nor
 ///     <see cref="AudioSubsystem.WavFileAudioCaptureDevice"/> nor the real PortAudio-backed
 ///     capture device implement <see cref="IDisposable"/> (confirmed directly from all three
 ///     source files), so - unlike <c>speak</c>'s playback-device side - this command never needs
-///     a conditional capture-device disposal cast. Only the recognizer and, in mic mode with a
-///     silence timeout, the <see cref="SilenceTimeoutRecognizerSession"/> need disposal, both
+///     a conditional capture-device disposal cast. Only the recognizer and, in mic mode, the
+///     <see cref="SilenceTimeoutRecognizerSession"/> need disposal, both
 ///     handled in nested <c>finally</c> blocks so every exit path (EOF stop, silence-timeout stop,
 ///     <c>Ctrl+C</c>, or an error) disposes them exactly once.
 ///     </para>
@@ -104,6 +105,20 @@ internal static class RecognizeCommand
     ///     The repeatable flag used to set an STT model parameter.
     /// </summary>
     private const string SttParamFlag = "--stt-param";
+
+    /// <summary>
+    ///     The default <c>--start-timeout</c> value, in seconds, used in mic mode when the flag is
+    ///     omitted. Without a bounded default, mic mode with no speech ever detected would block
+    ///     forever with only <c>Ctrl+C</c> as an escape hatch.
+    /// </summary>
+    private const double DefaultStartTimeoutSeconds = 8.0;
+
+    /// <summary>
+    ///     The default <c>--silence-timeout</c> value, in seconds, used in mic mode when the flag
+    ///     is omitted. Without a bounded default, mic mode would listen forever once started, with
+    ///     only <c>Ctrl+C</c> as an escape hatch.
+    /// </summary>
+    private const double DefaultSilenceTimeoutSeconds = 5.0;
 
     /// <summary>
     ///     Runs the <c>recognize</c> subcommand against a real, composed
@@ -159,90 +174,77 @@ internal static class RecognizeCommand
         using var stopSignal = new ManualResetEventSlim(initialState: false);
         var captureDevice = ResolveCaptureDevice(factory, options);
 
-        StreamWriter? outputWriter = null;
+        using var outputWriter = options.OutputPath is null
+            ? null
+            : new StreamWriter(options.OutputPath, append: false) { AutoFlush = true };
+
+        using var recognizer = catalog.CreateRecognizer(descriptor, captureDevice, parameterValues);
+        var consoleLine = new ConsoleLineState();
+        EventHandler<SpeechRecognitionEvent> onResultReceived =
+            (_, e) => HandleResult(outputWriter, options, e, consoleLine);
+        recognizer.ResultReceived += onResultReceived;
         try
         {
-            if (options.OutputPath is not null)
+            // In mic mode, a silence-timeout session is always constructed - even when both
+            // flags are omitted - so listening cannot block "recognize --mic" forever with only
+            // Ctrl+C as an escape hatch. File-input mode still needs no session: it terminates on
+            // its own via EndOfFileReached.
+            var sessionStartTimeout = TimeSpan.FromSeconds(options.StartTimeoutSeconds ?? DefaultStartTimeoutSeconds);
+            using var session = options.Mic
+                ? new SilenceTimeoutRecognizerSession(
+                    recognizer,
+                    TimeSpan.FromSeconds(options.SilenceTimeoutSeconds ?? DefaultSilenceTimeoutSeconds),
+                    startTimeout: sessionStartTimeout)
+                : null;
+
+            if (session is not null)
             {
-                outputWriter = new StreamWriter(options.OutputPath, append: false) { AutoFlush = true };
+                session.TimedOut += (_, _) => stopSignal.Set();
             }
 
-            var recognizer = catalog.CreateRecognizer(descriptor, captureDevice, parameterValues);
-            var consoleLine = new ConsoleLineState();
-            EventHandler<SpeechRecognitionEvent> onResultReceived =
-                (_, e) => HandleResult(outputWriter, options, e, consoleLine);
+            if (options.InputPath is not null && captureDevice is WavFileAudioCaptureDevice fileDevice)
+            {
+                fileDevice.EndOfFileReached += (_, _) => recognizer.Stop();
+            }
+
+            ConsoleCancelEventHandler onCancelKeyPress = (_, e) =>
+            {
+                e.Cancel = true;
+                recognizer.Stop();
+                stopSignal.Set();
+            };
+
+            Console.CancelKeyPress += onCancelKeyPress;
             try
             {
-                recognizer.ResultReceived += onResultReceived;
-                SilenceTimeoutRecognizerSession? session = null;
-                try
+                // File mode: Start() itself only returns once the whole file has been
+                // delivered and drained (see this type's remarks), so no wait is needed
+                // here. Mic mode: Start() returns quickly, so this thread blocks until
+                // Ctrl+C or a silence timeout signals stopSignal.
+                recognizer.Start();
+                if (options.Mic)
                 {
-                    if (options.Mic && options.SilenceTimeoutSeconds is { } seconds)
-                    {
-                        var startTimeout = options.StartTimeoutSeconds is { } startSeconds
-                            ? TimeSpan.FromSeconds(startSeconds)
-                            : (TimeSpan?)null;
-                        session = new SilenceTimeoutRecognizerSession(
-                            recognizer,
-                            TimeSpan.FromSeconds(seconds),
-                            startTimeout: startTimeout);
-                        session.TimedOut += (_, _) => stopSignal.Set();
-                    }
-
-                    if (options.InputPath is not null && captureDevice is WavFileAudioCaptureDevice fileDevice)
-                    {
-                        fileDevice.EndOfFileReached += (_, _) => recognizer.Stop();
-                    }
-
-                    ConsoleCancelEventHandler onCancelKeyPress = (_, e) =>
-                    {
-                        e.Cancel = true;
-                        recognizer.Stop();
-                        stopSignal.Set();
-                    };
-
-                    Console.CancelKeyPress += onCancelKeyPress;
-                    try
-                    {
-                        // File mode: Start() itself only returns once the whole file has been
-                        // delivered and drained (see this type's remarks), so no wait is needed
-                        // here. Mic mode: Start() returns quickly, so this thread blocks until
-                        // Ctrl+C or a silence timeout signals stopSignal.
-                        recognizer.Start();
-                        if (options.Mic)
-                        {
-                            stopSignal.Wait();
-                        }
-                    }
-                    finally
-                    {
-                        Console.CancelKeyPress -= onCancelKeyPress;
-                    }
+                    stopSignal.Wait();
                 }
-                finally
-                {
-                    session?.Dispose();
-                }
-
-                // Settle any interim line still pending (e.g. a session that ends right after an
-                // interim result with no final ever arriving) before printing the completion
-                // message, so it never visually concatenates onto leftover interim text either.
-                SettleConsoleLine(consoleLine);
-
-                context.WriteLine(options.OutputPath is null
-                    ? "Recognition finished."
-                    : $"Recognition results written to '{options.OutputPath}'.");
             }
             finally
             {
-                recognizer.ResultReceived -= onResultReceived;
-                recognizer.Dispose();
+                Console.CancelKeyPress -= onCancelKeyPress;
             }
         }
         finally
         {
-            outputWriter?.Dispose();
+            recognizer.ResultReceived -= onResultReceived;
         }
+
+        // Settle any interim line still pending (e.g. a session that ends right after an
+        // interim result with no final ever arriving) before printing the completion
+        // message, so it never visually concatenates onto leftover interim text either.
+        SettleConsoleLine(consoleLine);
+
+        context.WriteLine(options.OutputPath is null
+            ? "Recognition finished."
+            : $"Recognition results written to '{options.OutputPath}'.");
     }
 
     /// <summary>
@@ -557,12 +559,15 @@ internal static class RecognizeCommand
     /// <param name="InputPath">The WAV file path supplied via <c>--input</c>, or <see langword="null"/> for mic mode.</param>
     /// <param name="Mic">Whether <c>--mic</c> was given.</param>
     /// <param name="DeviceName">The requested capture device name, or <see langword="null"/> for the system default. Only consulted in mic mode.</param>
-    /// <param name="SilenceTimeoutSeconds">The idle timeout, in seconds, supplied via <c>--silence-timeout</c>, or <see langword="null"/> for none.</param>
+    /// <param name="SilenceTimeoutSeconds">
+    ///     The idle timeout, in seconds, supplied via <c>--silence-timeout</c>, or
+    ///     <see langword="null"/> to use the 5-second default (see <c>DefaultSilenceTimeoutSeconds</c>)
+    ///     in mic mode. Ignored outside mic mode.
+    /// </param>
     /// <param name="StartTimeoutSeconds">
     ///     The idle timeout, in seconds, used only before the first recognition result arrives,
-    ///     supplied via <c>--start-timeout</c>, or <see langword="null"/> to default to
-    ///     <paramref name="SilenceTimeoutSeconds"/>'s value. Only consulted when
-    ///     <paramref name="SilenceTimeoutSeconds"/> is also given, in mic mode.
+    ///     supplied via <c>--start-timeout</c>, or <see langword="null"/> to use the 8-second
+    ///     default (see <c>DefaultStartTimeoutSeconds</c>) in mic mode. Ignored outside mic mode.
     /// </param>
     /// <param name="RawParameters">The raw, unresolved <c>--stt-param key=value</c> tokens, in the order given.</param>
     /// <param name="InterimOnly">Whether <c>--interim</c> was given.</param>

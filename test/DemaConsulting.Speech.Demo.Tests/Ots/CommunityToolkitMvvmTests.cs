@@ -74,7 +74,7 @@ public class CommunityToolkitMvvmTests
         var viewModel = new ModelCatalogViewModel(service);
 
         // Act: execute the generated async command and await its completion
-        var command = Assert.IsAssignableFrom<IAsyncRelayCommand>(viewModel.DownloadCommand);
+        var command = Assert.IsType<IAsyncRelayCommand>(viewModel.DownloadCommand, exactMatch: false);
         await command.ExecuteAsync(viewModel.Models[0]);
 
         // Assert: the awaited method completed and updated the row

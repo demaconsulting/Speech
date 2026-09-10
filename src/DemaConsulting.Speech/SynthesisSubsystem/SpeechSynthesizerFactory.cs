@@ -399,6 +399,9 @@ public static class SpeechSynthesizerFactory
         }
         catch (Exception ex)
         {
+            // Intentionally broad: engine creation crosses the native runtime/model-file
+            // boundary, and every load failure must degrade to the documented unavailable
+            // synthesizer rather than crash composition.
             sink.Report(
                 SpeechDiagnosticLevel.Error,
                 DiagnosticsCategory,

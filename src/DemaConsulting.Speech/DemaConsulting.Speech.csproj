@@ -5,6 +5,8 @@
     <LangVersion>latest</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <!-- Required by [LibraryImport] source-generated P/Invoke stubs (PortAudioNativeMethods) -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <RootNamespace>DemaConsulting.Speech</RootNamespace>
     <AssemblyName>DemaConsulting.Speech</AssemblyName>
 
@@ -65,6 +67,10 @@
          TarBz2ArchiveExtractor to unpack sherpa-onnx model archives (e.g. the streaming
          Zipformer/Nemotron recognition models) during model install. -->
     <PackageReference Include="SharpCompress" Version="1.0.0" />
+    <!-- Provides System.Numerics.Tensors.TensorPrimitives, used to vectorize the hottest
+         per-sample audio DSP loops (FIR filtering, volume scaling, PCM sample-format
+         conversion) instead of hand-rolled scalar loops. -->
+    <PackageReference Include="System.Numerics.Tensors" Version="10.0.12" />
   </ItemGroup>
 
   <!-- Code Analysis Dependencies -->

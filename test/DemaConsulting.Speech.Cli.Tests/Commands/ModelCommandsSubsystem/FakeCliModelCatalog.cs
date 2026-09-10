@@ -92,6 +92,12 @@ internal sealed class FakeCliModelCatalog : ICliModelCatalog
 
         OnDownload?.Invoke(modelId, progress);
 
+        // Re-checked after the hook above (not just before it) so a test can simulate a genuine
+        // in-progress cancellation - one that happens only after this model's download has
+        // demonstrably started - by canceling the token from within OnDownload itself, rather
+        // than only ever exercising the pre-start cancellation check above.
+        cancellationToken.ThrowIfCancellationRequested();
+
         if (!_descriptors.ContainsKey(modelId))
         {
             throw new ArgumentException(

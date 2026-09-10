@@ -155,7 +155,7 @@ internal static class ListModelsCommand
     /// <summary>
     ///     Writes the given descriptors as an aligned, human-readable table.
     /// </summary>
-    private static void WriteTable(Context context, IReadOnlyList<SpeechModelDescriptor> descriptors)
+    private static void WriteTable(Context context, List<SpeechModelDescriptor> descriptors)
     {
         if (descriptors.Count == 0)
         {
@@ -168,17 +168,16 @@ internal static class ListModelsCommand
         var roleWidth = Math.Max("Role".Length, descriptors.Max(d => d.Role.ToString().Length));
         var stateWidth = Math.Max("State".Length, descriptors.Max(d => d.State.ToString().Length));
 
-        context.WriteLine(FormatRow("Id", "Display Name", "Role", "State", "License", idWidth, nameWidth, roleWidth, stateWidth));
+        string FormatRow(string id, string displayName, string role, string state, string license) =>
+            $"{id.PadRight(idWidth)}  {displayName.PadRight(nameWidth)}  {role.PadRight(roleWidth)}  {state.PadRight(stateWidth)}  {license}";
+
+        context.WriteLine(FormatRow("Id", "Display Name", "Role", "State", "License"));
         context.WriteLine(FormatRow(
             new string('-', idWidth),
             new string('-', nameWidth),
             new string('-', roleWidth),
             new string('-', stateWidth),
-            new string('-', "License".Length),
-            idWidth,
-            nameWidth,
-            roleWidth,
-            stateWidth));
+            new string('-', "License".Length)));
 
         foreach (var descriptor in descriptors)
         {
@@ -187,33 +186,14 @@ internal static class ListModelsCommand
                 descriptor.DisplayName,
                 descriptor.Role.ToString(),
                 descriptor.State.ToString(),
-                descriptor.LicenseName,
-                idWidth,
-                nameWidth,
-                roleWidth,
-                stateWidth));
+                descriptor.LicenseName));
         }
     }
 
     /// <summary>
-    ///     Formats one padded table row.
-    /// </summary>
-    private static string FormatRow(
-        string id,
-        string displayName,
-        string role,
-        string state,
-        string license,
-        int idWidth,
-        int nameWidth,
-        int roleWidth,
-        int stateWidth) =>
-        $"{id.PadRight(idWidth)}  {displayName.PadRight(nameWidth)}  {role.PadRight(roleWidth)}  {state.PadRight(stateWidth)}  {license}";
-
-    /// <summary>
     ///     Writes the given descriptors as an indented JSON array.
     /// </summary>
-    private static void WriteJson(Context context, IReadOnlyList<SpeechModelDescriptor> descriptors)
+    private static void WriteJson(Context context, List<SpeechModelDescriptor> descriptors)
     {
         var rows = descriptors
             .Select(descriptor => new ModelRow(

@@ -51,13 +51,15 @@ namespace DemaConsulting.Speech.Cli.Commands.ConversationCommandSubsystem;
 ///     capture device directly from an injected <see cref="AudioDeviceFactory"/>).
 ///     </para>
 ///     <para>
-///     <b>Listen-termination rule.</b> Unlike <c>recognize --mic</c>, which listens indefinitely
-///     until <c>--silence-timeout</c>/<c>Ctrl+C</c>, <c>ask</c>'s Phase 2 additionally stops as
+///     <b>Listen-termination rule.</b> Unlike <c>recognize --mic</c>, which keeps listening
+///     across multiple recognition results until <c>--silence-timeout</c> elapses or
+///     <c>Ctrl+C</c> is pressed, <c>ask</c>'s Phase 2 additionally stops as
 ///     soon as the <em>first final</em> recognition result arrives: this command models a single
 ///     bounded question/answer turn ("listen for the reply"), not open-ended transcription, so
 ///     one final result is always enough to end the turn. <c>--silence-timeout</c>/
-///     <c>--start-timeout</c> retain their exact <c>recognize --mic</c> meaning as a safety net
-///     for a reply that never finishes (or never starts).
+///     <c>--start-timeout</c> retain their exact <c>recognize --mic</c> meaning (including
+///     their 5-second/8-second defaults) as a safety net for a reply that never finishes (or
+///     never starts).
 ///     </para>
 ///     <para>
 ///     <b>No <c>--output-audio</c>/<c>--input</c>/<c>--interim</c>/<c>--final-only</c>/<c>--no-tags</c>.</b>
@@ -117,6 +119,12 @@ namespace DemaConsulting.Speech.Cli.Commands.ConversationCommandSubsystem;
 internal static class AskCommand
 {
     /// <summary>
+    ///     The shared cancellation message reported when an <c>ask</c> session is stopped
+    ///     cooperatively via <c>Ctrl+C</c> or a cancellation token.
+    /// </summary>
+    private const string SpeechCanceledMessage = "Speech was canceled.";
+
+    /// <summary>
     ///     The repeatable flag used to set a <c>speak</c>-phase (TTS) model parameter.
     /// </summary>
     private const string TtsParamFlag = "--tts-param";
@@ -125,6 +133,20 @@ internal static class AskCommand
     ///     The repeatable flag used to set a <c>listen</c>-phase (STT) model parameter.
     /// </summary>
     private const string SttParamFlag = "--stt-param";
+
+    /// <summary>
+    ///     The default <c>--start-timeout</c> value, in seconds, used when the flag is omitted.
+    ///     Without a bounded default, an <c>ask</c> reply that never begins would block forever
+    ///     with only <c>Ctrl+C</c> as an escape hatch.
+    /// </summary>
+    private const double DefaultStartTimeoutSeconds = 8.0;
+
+    /// <summary>
+    ///     The default <c>--silence-timeout</c> value, in seconds, used when the flag is omitted.
+    ///     Without a bounded default, an <c>ask</c> reply that never finishes would block forever
+    ///     with only <c>Ctrl+C</c> as an escape hatch.
+    /// </summary>
+    private const double DefaultSilenceTimeoutSeconds = 5.0;
 
     /// <summary>
     ///     Runs the <c>ask</c> subcommand against a real, composed
@@ -338,6 +360,9 @@ internal static class AskCommand
             // this recognizer exactly once.
             recognizer = await prewarmTask.ConfigureAwait(false);
         }
+        // Intentionally broad: this is the command-level fail-fast boundary around Phase 1 and
+        // recognizer pre-warm adoption, so any exception must preserve its original type/message
+        // while still handing off the concurrently created recognizer for asynchronous cleanup.
         catch (Exception)
         {
             // SpeakPromptAsync (or any resolution logic reachable above, e.g. an unknown
@@ -367,20 +392,25 @@ internal static class AskCommand
         }
 
         // Listen() itself completed without observing cancellation, but Ctrl+C can still land in
-        // the narrow window after Listen() returns and before the recognized text is written out
-        // below: re-check the shared token here so that race is reported identically to a
-        // cancellation observed inside Listen(), rather than silently succeeding.
-        if (cancellationToken.IsCancellationRequested)
-        {
-            context.WriteError("Speech was canceled.");
-            return;
-        }
-
+        // the narrow window between here and either output path below: each path re-checks the
+        // shared token immediately before it actually writes/emits the reply, so that race is
+        // reported identically to a cancellation observed inside Listen(), rather than silently
+        // succeeding.
         if (options.OutputPath is not null)
         {
             var fileContents = recognizedText.Length == 0
                 ? string.Empty
                 : recognizedText + Environment.NewLine;
+
+            // Re-checked immediately before the write itself (not just once, earlier in this
+            // method) so a Ctrl+C landing right up to this point is still observed instead of
+            // silently writing the file and reporting success.
+            if (cancellationToken.IsCancellationRequested)
+            {
+                context.WriteError(SpeechCanceledMessage);
+                return;
+            }
+
             try
             {
                 // Pass the real token through so a Ctrl+C landing during the write itself is
@@ -393,7 +423,7 @@ internal static class AskCommand
             }
             catch (OperationCanceledException)
             {
-                context.WriteError("Speech was canceled.");
+                context.WriteError(SpeechCanceledMessage);
                 return;
             }
 
@@ -401,6 +431,15 @@ internal static class AskCommand
         }
         else
         {
+            // Re-checked immediately before emitting to stdout (not just once, earlier in this
+            // method) so a Ctrl+C landing right up to this point is still observed instead of
+            // silently emitting the reply and reporting success.
+            if (cancellationToken.IsCancellationRequested)
+            {
+                context.WriteError(SpeechCanceledMessage);
+                return;
+            }
+
             context.WriteLine(recognizedText);
         }
     }
@@ -434,32 +473,18 @@ internal static class AskCommand
                 "No audio playback device is available on this machine; cannot run 'ask'.");
         }
 
+        using var playbackDeviceLease = playbackDevice as IDisposable;
+        using var synthesizer = catalog.CreateSynthesizer(ttsDescriptor, playbackDevice, parameterValues);
+
         try
         {
-            var synthesizer = catalog.CreateSynthesizer(ttsDescriptor, playbackDevice, parameterValues);
-            try
-            {
-                try
-                {
-                    await synthesizer.SpeakAsync(text, cancellationToken).ConfigureAwait(false);
-                    return false;
-                }
-                catch (OperationCanceledException)
-                {
-                    context.WriteError("Speech was canceled.");
-                    return true;
-                }
-            }
-            finally
-            {
-                // Synthesizer disposal blocks until any in-flight playback has genuinely
-                // finished quiescing, so it must be disposed before the playback device.
-                synthesizer.Dispose();
-            }
+            await synthesizer.SpeakAsync(text, cancellationToken).ConfigureAwait(false);
+            return false;
         }
-        finally
+        catch (OperationCanceledException)
         {
-            (playbackDevice as IDisposable)?.Dispose();
+            context.WriteError(SpeechCanceledMessage);
+            return true;
         }
     }
 
@@ -520,15 +545,11 @@ internal static class AskCommand
     {
         try
         {
-            var recognizer = await prewarmTask.ConfigureAwait(false);
-            recognizer.Dispose();
+            using var recognizer = await prewarmTask.ConfigureAwait(false);
         }
-        // Generic catch is justified here: Phase 1's own cancellation has already been reported
-        // via WriteError before this method is called, and a concurrently failed pre-warm (an
-        // unknown/unavailable capture device, an invalid parameter, etc.) is not separately
-        // actionable once the whole call is already ending in cancellation - the only defect this
-        // method must prevent is silently leaking a *successfully* constructed recognizer, and a
-        // failed pre-warm never produces one.
+        // Intentionally broad: this asynchronous cleanup boundary exists only to observe the
+        // pre-warm task and dispose any successful recognizer result after the command has
+        // already decided to exit, so a failed pre-warm is non-actionable noise here.
         catch (Exception)
         {
             // No recognizer was produced, so there is nothing to dispose.
@@ -558,6 +579,7 @@ internal static class AskCommand
         var cancellationToken = invocation.CancellationToken;
 
         onRecognizerCreated(recognizer);
+        using var recognizerLease = recognizer;
         try
         {
             if (stopSignal.IsSet)
@@ -570,7 +592,7 @@ internal static class AskCommand
                 // never set before this point.
                 if (cancellationToken.IsCancellationRequested)
                 {
-                    context.WriteError("Speech was canceled.");
+                    context.WriteError(SpeechCanceledMessage);
                     return (string.Empty, true);
                 }
 
@@ -595,43 +617,34 @@ internal static class AskCommand
             recognizer.ResultReceived += onResultReceived;
             try
             {
-                SilenceTimeoutRecognizerSession? session = null;
+                // A silence-timeout session is always constructed - even when both flags are
+                // omitted - so a reply that never starts or never finishes cannot block "ask"
+                // forever with only Ctrl+C as an escape hatch.
+                var sessionStartTimeout = TimeSpan.FromSeconds(options.StartTimeoutSeconds ?? DefaultStartTimeoutSeconds);
+                using var session = new SilenceTimeoutRecognizerSession(
+                    recognizer,
+                    TimeSpan.FromSeconds(options.SilenceTimeoutSeconds ?? DefaultSilenceTimeoutSeconds),
+                    startTimeout: sessionStartTimeout);
+
+                session.TimedOut += (_, _) => stopSignal.Set();
+
+                recognizer.Start();
                 try
                 {
-                    if (options.SilenceTimeoutSeconds is { } seconds)
-                    {
-                        var startTimeout = options.StartTimeoutSeconds is { } startSeconds
-                            ? TimeSpan.FromSeconds(startSeconds)
-                            : (TimeSpan?)null;
-                        session = new SilenceTimeoutRecognizerSession(
-                            recognizer,
-                            TimeSpan.FromSeconds(seconds),
-                            startTimeout: startTimeout);
-                        session.TimedOut += (_, _) => stopSignal.Set();
-                    }
-
-                    recognizer.Start();
-                    try
-                    {
-                        stopSignal.Wait(cancellationToken);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        // Ctrl+C canceled the shared token while waiting; whether or not
-                        // stopSignal itself has already been set by the same handler is
-                        // irrelevant here - cancellationToken.IsCancellationRequested below is
-                        // what distinguishes this from a legitimate empty result. Stop the
-                        // recognizer explicitly here (mirroring onResultReceived above) so the
-                        // intent is obvious without requiring a reader to trace through
-                        // ISpeechRecognizer's disposal-implies-stop contract; the recognizer is
-                        // disposed unconditionally below regardless, so this call is redundant
-                        // but harmless given Stop() is documented as idempotent.
-                        recognizer.Stop();
-                    }
+                    stopSignal.Wait(cancellationToken);
                 }
-                finally
+                catch (OperationCanceledException)
                 {
-                    session?.Dispose();
+                    // Ctrl+C canceled the shared token while waiting; whether or not
+                    // stopSignal itself has already been set by the same handler is
+                    // irrelevant here - cancellationToken.IsCancellationRequested below is
+                    // what distinguishes this from a legitimate empty result. Stop the
+                    // recognizer explicitly here (mirroring onResultReceived above) so the
+                    // intent is obvious without requiring a reader to trace through
+                    // ISpeechRecognizer's disposal-implies-stop contract; the recognizer is
+                    // disposed unconditionally below regardless, so this call is redundant
+                    // but harmless given Stop() is documented as idempotent.
+                    recognizer.Stop();
                 }
             }
             finally
@@ -644,7 +657,7 @@ internal static class AskCommand
             // reliable way to distinguish a genuine cancellation from a legitimate empty result.
             if (cancellationToken.IsCancellationRequested)
             {
-                context.WriteError("Speech was canceled.");
+                context.WriteError(SpeechCanceledMessage);
                 return (recognizedText, true);
             }
 
@@ -653,7 +666,6 @@ internal static class AskCommand
         finally
         {
             onRecognizerCreated(null);
-            recognizer.Dispose();
         }
     }
 
@@ -919,12 +931,14 @@ internal static class AskCommand
     /// <param name="CaptureDeviceName">The requested capture device name, or <see langword="null"/> for the system default.</param>
     /// <param name="RawTtsParameters">The raw, unresolved <c>--tts-param key=value</c> tokens, in the order given.</param>
     /// <param name="RawSttParameters">The raw, unresolved <c>--stt-param key=value</c> tokens, in the order given.</param>
-    /// <param name="SilenceTimeoutSeconds">The idle timeout, in seconds, supplied via <c>--silence-timeout</c>, or <see langword="null"/> for none.</param>
+    /// <param name="SilenceTimeoutSeconds">
+    ///     The idle timeout, in seconds, supplied via <c>--silence-timeout</c>, or
+    ///     <see langword="null"/> to use the 5-second default (see <c>DefaultSilenceTimeoutSeconds</c>).
+    /// </param>
     /// <param name="StartTimeoutSeconds">
     ///     The idle timeout, in seconds, used only before the first recognition result arrives,
-    ///     supplied via <c>--start-timeout</c>, or <see langword="null"/> to default to
-    ///     <paramref name="SilenceTimeoutSeconds"/>'s value. Only consulted when
-    ///     <paramref name="SilenceTimeoutSeconds"/> is also given.
+    ///     supplied via <c>--start-timeout</c>, or <see langword="null"/> to use the 8-second
+    ///     default (see <c>DefaultStartTimeoutSeconds</c>).
     /// </param>
     /// <param name="OutputPath">The text output path supplied via <c>--output-text</c>, or <see langword="null"/> to print to stdout.</param>
     internal sealed record AskOptions(

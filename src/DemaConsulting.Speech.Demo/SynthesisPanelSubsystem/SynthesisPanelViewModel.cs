@@ -100,14 +100,14 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IDisposa
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanPlay))]
     [NotifyCanExecuteChangedFor(nameof(PlayCommand))]
-    private ISpeechModel? _selectedModel;
+    public partial ISpeechModel? SelectedModel { get; set; }
 
     /// <summary>
     ///     Gets or sets the text to synthesize, which may contain inline Natural Language Audio
     ///     Tags such as <c>[whispers]</c> or <c>[short pause]</c>.
     /// </summary>
     [ObservableProperty]
-    private string _text = string.Empty;
+    public partial string Text { get; set; } = string.Empty;
 
     /// <summary>
     ///     Gets or sets the current playback lifecycle state.
@@ -116,7 +116,7 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IDisposa
     [NotifyPropertyChangedFor(nameof(CanPlay))]
     [NotifyPropertyChangedFor(nameof(CanChangeModel))]
     [NotifyCanExecuteChangedFor(nameof(PlayCommand))]
-    private SynthesisPlaybackState _state = SynthesisPlaybackState.Idle;
+    public partial SynthesisPlaybackState State { get; set; } = SynthesisPlaybackState.Idle;
 
     /// <summary>
     ///     Gets or sets the status message describing the current or most recently failed
@@ -124,7 +124,7 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IDisposa
     /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasStatusMessage))]
-    private string? _statusMessage;
+    public partial string? StatusMessage { get; set; }
 
     /// <summary>
     ///     Gets a value indicating whether <see cref="StatusMessage"/> currently has content to
@@ -202,12 +202,13 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IDisposa
         var previousId = SelectedModel?.Id;
 
         AvailableModels.Clear();
-        foreach (var descriptor in _catalogService.Enumerate())
+        foreach (var model in _catalogService.Enumerate()
+            .Where(static descriptor =>
+                descriptor.Role == SpeechModelRole.Synthesis &&
+                descriptor.State == SpeechModelState.Downloaded)
+            .Select(static descriptor => descriptor.Model))
         {
-            if (descriptor.Role == SpeechModelRole.Synthesis && descriptor.State == SpeechModelState.Downloaded)
-            {
-                AvailableModels.Add(descriptor.Model);
-            }
+            AvailableModels.Add(model);
         }
 
         SelectedModel = previousId is null
@@ -252,10 +253,9 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IDisposa
             return;
         }
 
-        var synthesizer = _sessionFactory.Create(selectedModel, playbackDevice, Settings.BuildValueBag());
+        using var synthesizer = _sessionFactory.Create(selectedModel, playbackDevice, Settings.BuildValueBag());
         if (!synthesizer.IsAvailable)
         {
-            synthesizer.Dispose();
             StatusMessage = SynthesizerUnavailableMessage;
             State = SynthesisPlaybackState.Error;
             return;
@@ -282,8 +282,10 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IDisposa
         }
         finally
         {
+            // Disposal itself is left to the enclosing `using` (covering both this exit path and
+            // the early "unavailable" return above) so every exit path disposes exactly once
+            // through a single, unconditional mechanism instead of a duplicated manual call.
             _activeSynthesizer = null;
-            synthesizer.Dispose();
         }
     }
 

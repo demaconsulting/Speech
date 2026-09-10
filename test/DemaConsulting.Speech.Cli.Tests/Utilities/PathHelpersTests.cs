@@ -45,7 +45,7 @@ public sealed class PathHelpersTests
 
         // Assert: the returned path is the fully-qualified absolute equivalent, matching what
         // the containment check itself validated, not the unnormalized relative combination
-        var expected = Path.GetFullPath(Path.Combine(basePath, relativePath));
+        var expected = Path.GetFullPath(Path.Join(basePath, relativePath));
         Assert.Equal(expected, result);
         Assert.True(Path.IsPathRooted(result));
     }
@@ -57,14 +57,14 @@ public sealed class PathHelpersTests
     public void PathHelpers_SafePathCombine_AbsoluteBasePath_ReturnsAbsolutePath()
     {
         // Arrange: an absolute base path and a relative child path
-        var basePath = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "safe-path-combine-tests"));
+        var basePath = Path.GetFullPath(Path.Join(Path.GetTempPath(), "safe-path-combine-tests"));
         const string relativePath = "child.txt";
 
         // Act: combine the paths
         var result = PathHelpers.SafePathCombine(basePath, relativePath);
 
         // Assert: the returned path is the fully-qualified absolute equivalent
-        var expected = Path.GetFullPath(Path.Combine(basePath, relativePath));
+        var expected = Path.GetFullPath(Path.Join(basePath, relativePath));
         Assert.Equal(expected, result);
     }
 

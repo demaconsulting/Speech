@@ -1,4 +1,76 @@
 ---
 # CodeQL configuration for Speech
+#
+# NOTE ON SCOPING: GitHub's `query-filters` `exclude`/`include` blocks only filter by query
+# metadata (id, tags, precision, problem.severity, ...) - there is no supported way to scope an
+# `exclude` to specific source paths. (A `paths:` key nested under `exclude` is silently ignored
+# as an "Invalid property"; verified directly against demaconsulting/BuildTools/FileAssert's own
+# CodeQL Analysis run logs, which use that same nested-`paths` shape - the query never appears in
+# that run's "Interpreted problem query" list at all, confirming the exclude applies repo-wide,
+# not just to the paths listed in the (ignored) key.) Each `id` excluded below is therefore a
+# deliberate, repo-wide acceptance: every existing occurrence of that rule was individually
+# reviewed this session and confirmed to be an intentional design pattern rather than a bug (see
+# the per-rule comments), not a blanket "this rule doesn't matter" decision.
+#
+# Generated build output is instead excluded via the real, supported top-level `paths-ignore`,
+# which does work per-path but applies to every query rather than a specific one - appropriate
+# here since none of it is source this repository owns or can edit.
 
 name: "Speech CodeQL Config"
+
+paths-ignore:
+  - "**/obj/**"
+
+query-filters:
+  # Every catch clause flagged by this rule is a deliberately broad architectural boundary
+  # (native PortAudio/sherpa-onnx interop, top-level CLI command/self-test error isolation, or a
+  # presentation-layer fault boundary), each already documented in-place with an "Intentionally
+  # broad: ..." comment explaining why it must convert an arbitrary failure into a clean,
+  # contained result instead of crashing or crossing a native/UI boundary. Verified (this
+  # session) across all ~30 current occurrences in: PortAudioApi.cs, PortAudioEnvironment.cs,
+  # PortAudioCaptureDevice.cs, PortAudioPlaybackDevice.cs, SpeechModelDownloader.cs,
+  # SherpaOnnxSpeechRecognizer.cs, SpeechRecognizerFactory.cs, SherpaOnnxSpeechSynthesizer.cs,
+  # SpeechSynthesizerFactory.cs, Cli/Context.cs, AskCommand.cs, DoctorCommand.cs,
+  # DownloadCommand.cs, SelfTest/Validation.cs, ModelCatalogViewModel.cs, and
+  # tools/ModelDownloader/Program.cs.
+  - exclude:
+      id: cs/catch-of-all-exceptions
+  # PathHelpers.SafePathCombine deliberately relies on Path.Combine's "a rooted second argument
+  # replaces the first" behavior as part of its own containment check (see the method's own
+  # remarks) - the exact behavior this query warns about is the validated security mechanism,
+  # not a bug. Its only current occurrence is src/DemaConsulting.Speech.Cli/Utilities/PathHelpers.cs.
+  - exclude:
+      id: cs/path-combine
+  # PortAudioApi's whole purpose is to be the one file that calls into the native PortAudio
+  # library; "replace with managed code" is not possible for a native audio device binding. Its
+  # only current occurrences are in src/DemaConsulting.Speech/AudioSubsystem/PortAudio/PortAudioApi.cs.
+  - exclude:
+      id: cs/call-to-unmanaged-code
+  # CaptureDebugRecorder's WavFileWriter is deliberately disposed on the writer thread that
+  # exclusively owns it (see WriterThreadMain's own remarks), not on the thread that constructs
+  # it - an ownership-transfer-across-threads pattern a lexically-scoped `using` cannot express.
+  # This is its only remaining current occurrence (the one other flagged instance, in
+  # SynthesisPanelViewModel.cs, was fixed with an actual `using` declaration).
+  - exclude:
+      id: cs/missed-using-statement
+  # SpeechModelParameterDiagnostics.ValidateAndReport's foreach + TryGetValue loop was a
+  # deliberate, human-reviewed fix (see the method's own remarks) replacing an earlier
+  # Where(...)+ContainsKey+indexer pattern that performed a double dictionary lookup per
+  # parameter; reverting to .Where(...) here would reintroduce that exact overhead. Its only
+  # current occurrence is src/DemaConsulting.Speech/ModelManagementSubsystem/SpeechModelParameterDiagnostics.cs.
+  - exclude:
+      id: cs/linq/missed-where
+  # xUnit's Assert.Multiple defers throwing until the end of its lambda, so an Assert.True
+  # failure inside it does not stop execution the way a bare Assert.True would; the following
+  # `if (found)` guard is still required to avoid dereferencing a null descriptor, even though
+  # CodeQL's static model (which does not understand Assert.Multiple's semantics) treats it as
+  # unreachable. Its only current occurrence is
+  # test/DemaConsulting.Speech.Tests/SynthesisSubsystem/AudioTagCatalogTests.cs.
+  - exclude:
+      id: cs/constant-condition
+  # Tests that directly exercise Dispose()'s own behavior (idempotency, disposal ordering, etc.)
+  # necessarily call it unwrapped by a `using`/try-finally - wrapping the very call under test
+  # would defeat the test. This is a test-only pattern with no production resource-leak risk; all
+  # current occurrences are in test/**.
+  - exclude:
+      id: cs/dispose-not-called-on-throw

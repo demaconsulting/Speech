@@ -89,7 +89,7 @@ public sealed class SherpaOnnxRecognitionEngineAccuracyTests
     ///     without depending on that class's non-test-only construction path - mirrors
     ///     <see cref="SherpaOnnxRecognitionEngineTests"/>'s identically named helper.
     /// </summary>
-    private static string InstalledModelDirectory(string modelId) => Path.Combine(
+    private static string InstalledModelDirectory(string modelId) => Path.Join(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "DemaConsulting.Speech",
         "Models",
@@ -269,24 +269,24 @@ public sealed class SherpaOnnxRecognitionEngineAccuracyTests
     public void SherpaOnnxRecognitionEngine_Transcribe_RealCrossingTheBarRecording_WordErrorRateBelowTolerance()
     {
         // Arrange: skip if the real Zipformer model is not installed in this environment
-        IRecognitionModel model = new SherpaOnnxZipformerEnRecognitionModel();
+        var model = new SherpaOnnxZipformerEnRecognitionModel();
         if (!IsModelInstalled(model.Id))
         {
             Assert.Skip("The real streaming Zipformer model is not installed in this environment.");
         }
 
         var modelDirectory = InstalledModelDirectory(model.Id);
-        var config = model.CreateEngineConfig(modelDirectory);
+        var config = ((IRecognitionModel)model).CreateEngineConfig(modelDirectory);
         using var engine = new SherpaOnnxRecognitionEngine(
             config,
-            model.AudioFormat.SampleRate,
-            model.PostEndpointWarmupWindowMs);
+            ((IRecognitionModel)model).AudioFormat.SampleRate,
+            ((IRecognitionModel)model).PostEndpointWarmupWindowMs);
 
-        var wavPath = Path.Combine(AppContext.BaseDirectory, "TestData", "crossing-the-bar-16k-mono.wav");
+        var wavPath = Path.Join(AppContext.BaseDirectory, "TestData", "crossing-the-bar-16k-mono.wav");
         var samples = ReadMonoPcm16Wav(wavPath);
 
         // Act: stream the real recording through the real engine and score the result
-        var transcript = Transcribe(engine, samples, model.AudioFormat.SampleRate);
+        var transcript = Transcribe(engine, samples, ((IRecognitionModel)model).AudioFormat.SampleRate);
         var wordErrorRate = WordErrorRateCalculator.Compute(GroundTruthTranscript, transcript);
 
         // Assert: the real model transcribed clear studio-quality speech within tolerance
@@ -308,24 +308,24 @@ public sealed class SherpaOnnxRecognitionEngineAccuracyTests
     public void SherpaOnnxRecognitionEngine_Transcribe_RealCrossingTheBarRecording_NemotronWordErrorRateBelowTolerance()
     {
         // Arrange: skip if the real Nemotron model is not installed in this environment
-        IRecognitionModel model = new SherpaOnnxNemotronStreamingEnRecognitionModel();
+        var model = new SherpaOnnxNemotronStreamingEnRecognitionModel();
         if (!IsModelInstalled(model.Id))
         {
             Assert.Skip("The real streaming Nemotron model is not installed in this environment.");
         }
 
         var modelDirectory = InstalledModelDirectory(model.Id);
-        var config = model.CreateEngineConfig(modelDirectory);
+        var config = ((IRecognitionModel)model).CreateEngineConfig(modelDirectory);
         using var engine = new SherpaOnnxRecognitionEngine(
             config,
-            model.AudioFormat.SampleRate,
-            model.PostEndpointWarmupWindowMs);
+            ((IRecognitionModel)model).AudioFormat.SampleRate,
+            ((IRecognitionModel)model).PostEndpointWarmupWindowMs);
 
-        var wavPath = Path.Combine(AppContext.BaseDirectory, "TestData", "crossing-the-bar-16k-mono.wav");
+        var wavPath = Path.Join(AppContext.BaseDirectory, "TestData", "crossing-the-bar-16k-mono.wav");
         var samples = ReadMonoPcm16Wav(wavPath);
 
         // Act: stream the real recording through the real engine and score the result
-        var transcript = Transcribe(engine, samples, model.AudioFormat.SampleRate);
+        var transcript = Transcribe(engine, samples, ((IRecognitionModel)model).AudioFormat.SampleRate);
         var wordErrorRate = WordErrorRateCalculator.Compute(GroundTruthTranscript, transcript);
 
         // Assert: the real model transcribed clear studio-quality speech within tolerance

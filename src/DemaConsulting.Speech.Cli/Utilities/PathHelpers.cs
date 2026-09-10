@@ -47,7 +47,10 @@ internal static class PathHelpers
         ArgumentNullException.ThrowIfNull(basePath);
         ArgumentNullException.ThrowIfNull(relativePath);
 
-        // Combine the paths (preserves the caller's relative/absolute style)
+        // Combine the paths using Path.Combine (not Path.Join): a rooted relativePath must
+        // replace basePath entirely so the containment check below can detect and reject it.
+        // Path.Join would instead glue the rooted segment onto basePath, silently defeating
+        // this method's security boundary.
         var combinedPath = Path.Combine(basePath, relativePath);
 
         // Security check: resolve both paths to absolute form and verify the combined

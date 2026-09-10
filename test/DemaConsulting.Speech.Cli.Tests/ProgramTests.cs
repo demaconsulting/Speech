@@ -314,7 +314,7 @@ public class ProgramTests
     public void Program_Run_WithListModelsCommand_DoesNotThrowNotImplemented()
     {
         // Arrange: an isolated, empty models directory so no real network access occurs
-        var modelsDir = Path.Combine(Path.GetTempPath(), "DemaConsulting.Speech.Cli.Tests", Guid.NewGuid().ToString("N"));
+        var modelsDir = Path.Join(Path.GetTempPath(), "DemaConsulting.Speech.Cli.Tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(modelsDir);
         var originalOut = Console.Out;
         try
@@ -369,7 +369,7 @@ public class ProgramTests
     [Fact]
     public void Program_Run_WithDoctorCommand_DoesNotThrowNotImplemented()
     {
-        var modelsDir = Path.Combine(Path.GetTempPath(), "DemaConsulting.Speech.Cli.Tests", Guid.NewGuid().ToString("N"));
+        var modelsDir = Path.Join(Path.GetTempPath(), "DemaConsulting.Speech.Cli.Tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(modelsDir);
         var originalOut = Console.Out;
         try

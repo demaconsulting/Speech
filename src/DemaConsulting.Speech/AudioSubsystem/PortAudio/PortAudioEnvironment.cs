@@ -150,10 +150,20 @@ internal sealed class PortAudioEnvironment
         }
         catch (Exception ex)
         {
+            // Intentionally broad: initialization is the managed boundary around native
+            // PortAudio startup, so any interop fault must be cached as unavailability.
             return new PortAudioInitializationState(false, ex.Message);
         }
     }
 
+    /// <summary>
+    ///     Detects the current operating system so the shared production environment can choose
+    ///     the corresponding preferred PortAudio host API.
+    /// </summary>
+    /// <returns>
+    ///     The current desktop platform token when recognized; otherwise, an <c>UNKNOWN</c>
+    ///     token that intentionally resolves to no preferred host API.
+    /// </returns>
     private static OSPlatform DetectCurrentPlatform()
     {
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))

@@ -33,7 +33,7 @@ public sealed class SherpaOnnxRecognitionEngineTests
     ///     the same default store root <see cref="SpeechModelStore"/> uses, without depending on
     ///     that class's non-test-only construction path.
     /// </summary>
-    private static string InstalledModelDirectory => Path.Combine(
+    private static string InstalledModelDirectory => Path.Join(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "DemaConsulting.Speech",
         "Models",

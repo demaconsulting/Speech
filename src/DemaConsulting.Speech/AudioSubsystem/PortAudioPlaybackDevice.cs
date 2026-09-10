@@ -102,6 +102,16 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
     private long _pendingSampleCount;
 
     /// <summary>
+    ///     A reusable output buffer for <see cref="ProvideSamples"/>, replaced only when the
+    ///     PortAudio callback requests a different sample count than last time (which in practice
+    ///     is essentially never, since a stream's callback block size is fixed once opened). This
+    ///     avoids allocating a new array on every invocation of the real-time callback thread's
+    ///     hot path. Same single-consumer invariant as <see cref="_headBlock"/> applies: only ever
+    ///     touched from <see cref="ProvideSamples"/> on the callback thread.
+    /// </summary>
+    private float[] _providedSamplesBuffer = [];
+
+    /// <summary>
     ///     The PortAudio environment used to resolve and open the selected playback device.
     /// </summary>
     private readonly PortAudioEnvironment _environment;
@@ -187,6 +197,8 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
             }
             catch (Exception ex)
             {
+                // Intentionally broad: starting the managed/native audio stream is an interop
+                // resilience boundary, so any seam fault must degrade to unavailability.
                 _stream?.Dispose();
                 _stream = null;
                 _diagnostics.Report(
@@ -234,6 +246,8 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
             }
             catch (Exception ex)
             {
+                // Intentionally broad: stopping the native-backed stream must be contained so
+                // shutdown faults do not escape as arbitrary interop exceptions.
                 stopException = ex;
                 ClearQueuedSamples();
                 _diagnostics.Report(
@@ -248,6 +262,8 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
             }
             catch (Exception ex) when (stopException is null)
             {
+                // Intentionally broad: disposing the native-backed stream is the final interop
+                // cleanup boundary, so any managed/native fault must be wrapped consistently.
                 _diagnostics.Report(
                     SpeechDiagnosticLevel.Error,
                     DiagnosticsCategory,
@@ -258,6 +274,8 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
             }
             catch (Exception ex)
             {
+                // Intentionally broad: once stopping has already failed, disposal faults are
+                // logged and contained so callers still observe the primary stop failure.
                 _diagnostics.Report(
                     SpeechDiagnosticLevel.Error,
                     DiagnosticsCategory,
@@ -294,11 +312,21 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
         // Copy into a new array rather than trusting the caller's buffer: Write is documented as
         // fire-and-forget, so the caller must remain free to mutate or reuse its own buffer the
         // instant this call returns, and the queued block must own stable storage for however
-        // long it takes ProvideSamples to drain it.
+        // long it takes ProvideSamples to drain it. Most callers pass an array or List<float>, so
+        // fast-path the copy through CopyTo (a bulk Array.Copy/Buffer.BlockCopy under the hood)
+        // instead of an element-by-element loop; fall back to the loop only for arbitrary
+        // IReadOnlyList<float> implementations that aren't an ICollection<float>.
         var block = new float[samples.Count];
-        for (var index = 0; index < samples.Count; index++)
+        if (samples is ICollection<float> collection)
         {
-            block[index] = samples[index];
+            collection.CopyTo(block, 0);
+        }
+        else
+        {
+            for (var index = 0; index < samples.Count; index++)
+            {
+                block[index] = samples[index];
+            }
         }
 
         _queuedBlocks.Enqueue(block);
@@ -480,7 +508,11 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
     ///     The exact number of samples the PortAudio playback callback requested.
     /// </param>
     /// <returns>
-    ///     A buffer containing exactly <paramref name="sampleCount"/> samples.
+    ///     <see cref="_providedSamplesBuffer"/>, resized only if <paramref name="sampleCount"/>
+    ///     differs from its current length, containing exactly <paramref name="sampleCount"/>
+    ///     samples. The returned array is reused on the next call and must not be retained by the
+    ///     caller past that point - the native playback callback only ever copies it into the
+    ///     native output buffer before returning, matching this contract.
     /// </returns>
     private float[] ProvideSamples(int sampleCount)
     {
@@ -489,7 +521,12 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
             return [];
         }
 
-        var samples = new float[sampleCount];
+        if (_providedSamplesBuffer.Length != sampleCount)
+        {
+            _providedSamplesBuffer = new float[sampleCount];
+        }
+
+        var samples = _providedSamplesBuffer;
         var filledCount = 0;
 
         // Drain whatever remains of a previously partially consumed block first, then fully or
@@ -522,6 +559,14 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
         if (filledCount > 0)
         {
             Interlocked.Add(ref _pendingSampleCount, -filledCount);
+        }
+
+        // The buffer is reused across calls (see _providedSamplesBuffer), so any shortfall must be
+        // explicitly cleared here - a freshly allocated array is zero-initialized automatically,
+        // but a reused one may still hold stale samples from a prior call past filledCount.
+        if (filledCount < sampleCount)
+        {
+            Array.Clear(samples, filledCount, sampleCount - filledCount);
         }
 
         return samples;

@@ -101,11 +101,13 @@ internal sealed class WavFileWriter : IDisposable
     /// </param>
     public void WriteSamples(IReadOnlyList<float> samples)
     {
-        foreach (var sample in samples)
+        // An indexed loop avoids LINQ's per-sample iterator/delegate overhead: this runs in the
+        // writer thread's hot streaming-write loop.
+        for (var index = 0; index < samples.Count; index++)
         {
             // Clamp before scaling: a sample at or beyond +/-1.0 must map to the nearest valid
             // 16-bit value rather than overflow into an unrelated sample on the wire
-            var clamped = Math.Clamp(sample, -1f, 1f);
+            var clamped = Math.Clamp(samples[index], -1f, 1f);
             var pcmValue = (short)Math.Round(clamped * short.MaxValue, MidpointRounding.AwayFromZero);
             _writer.Write(pcmValue);
         }

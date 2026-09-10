@@ -147,7 +147,7 @@ public sealed class SherpaOnnxZipformerEnRecognitionModel : IRecognitionModel
     {
         ArgumentException.ThrowIfNullOrEmpty(stagedFilesDirectory);
 
-        var archivePath = Path.Combine(stagedFilesDirectory, ArchiveRelativeInstallPath);
+        var archivePath = Path.Join(stagedFilesDirectory, ArchiveRelativeInstallPath);
         return TarBz2ArchiveExtractor.ExtractAndDeleteAsync(archivePath, stagedFilesDirectory, cancellationToken);
     }
 
@@ -161,7 +161,7 @@ public sealed class SherpaOnnxZipformerEnRecognitionModel : IRecognitionModel
     {
         ArgumentException.ThrowIfNullOrEmpty(installedModelDirectory);
 
-        var modelDirectory = Path.Combine(installedModelDirectory, ExtractedFolderName);
+        var modelDirectory = Path.Join(installedModelDirectory, ExtractedFolderName);
 
         var config = new OnlineRecognizerConfig();
         config.FeatConfig.SampleRate = ModelSampleRate;
@@ -170,12 +170,12 @@ public sealed class SherpaOnnxZipformerEnRecognitionModel : IRecognitionModel
         // The int8-quantized triple, not the same archive's fp32 files, for a leaner default
         // download - see the type-level remarks for the end-to-end proof of this exact config.
         config.ModelConfig.Transducer.Encoder =
-            Path.Combine(modelDirectory, "encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx");
+            Path.Join(modelDirectory, "encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx");
         config.ModelConfig.Transducer.Decoder =
-            Path.Combine(modelDirectory, "decoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx");
+            Path.Join(modelDirectory, "decoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx");
         config.ModelConfig.Transducer.Joiner =
-            Path.Combine(modelDirectory, "joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx");
-        config.ModelConfig.Tokens = Path.Combine(modelDirectory, "tokens.txt");
+            Path.Join(modelDirectory, "joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx");
+        config.ModelConfig.Tokens = Path.Join(modelDirectory, "tokens.txt");
         config.ModelConfig.ModelType = "zipformer2";
         config.ModelConfig.Provider = "cpu";
         config.ModelConfig.NumThreads = 1;

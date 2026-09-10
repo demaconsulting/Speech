@@ -45,7 +45,7 @@ internal static class TarBz2ArchiveFixtures
     /// <returns>The raw bytes of the built <c>.tar.bz2</c> archive.</returns>
     public static byte[] BuildArchiveBytes(IReadOnlyList<(string RelativePath, byte[] Content)> entries)
     {
-        var tempFile = Path.Combine(Path.GetTempPath(), "DemaConsulting.Speech.Tests", Guid.NewGuid() + ".tar.bz2");
+        var tempFile = Path.Join(Path.GetTempPath(), "DemaConsulting.Speech.Tests", Guid.NewGuid() + ".tar.bz2");
         Directory.CreateDirectory(Path.GetDirectoryName(tempFile)!);
         try
         {

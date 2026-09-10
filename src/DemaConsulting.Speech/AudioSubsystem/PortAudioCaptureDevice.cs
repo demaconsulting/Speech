@@ -155,8 +155,28 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
             }
             catch (Exception ex)
             {
-                _stream?.Dispose();
-                _stream = null;
+                // Intentionally broad: starting the managed/native audio stream is an interop
+                // resilience boundary, so any seam fault must degrade to unavailability.
+                try
+                {
+                    _stream?.Dispose();
+                }
+                catch (Exception disposeEx)
+                {
+                    // Intentionally broad and contained: a disposal fault during start-failure
+                    // cleanup must never replace the original start failure below, nor escape
+                    // and leave the stream field unset.
+                    _diagnostics.Report(
+                        SpeechDiagnosticLevel.Error,
+                        DiagnosticsCategory,
+                        $"Failed to dispose PortAudio capture stream on '{_resolvedDevice.Name}' " +
+                        $"after a start failure: {disposeEx.Message}");
+                }
+                finally
+                {
+                    _stream = null;
+                }
+
                 _diagnostics.Report(
                     SpeechDiagnosticLevel.Error,
                     DiagnosticsCategory,
@@ -200,6 +220,8 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
             }
             catch (Exception ex)
             {
+                // Intentionally broad: stopping the native-backed stream must be contained so
+                // shutdown faults do not escape as arbitrary interop exceptions.
                 stopException = ex;
                 _diagnostics.Report(
                     SpeechDiagnosticLevel.Error,
@@ -213,6 +235,8 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
             }
             catch (Exception ex) when (stopException is null)
             {
+                // Intentionally broad: disposing the native-backed stream is the final interop
+                // cleanup boundary, so any managed/native fault must be wrapped consistently.
                 _diagnostics.Report(
                     SpeechDiagnosticLevel.Error,
                     DiagnosticsCategory,
@@ -223,6 +247,8 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
             }
             catch (Exception ex)
             {
+                // Intentionally broad: once stopping has already failed, disposal faults are
+                // logged and contained so callers still observe the primary stop failure.
                 _diagnostics.Report(
                     SpeechDiagnosticLevel.Error,
                     DiagnosticsCategory,
@@ -413,6 +439,8 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
         }
         catch (Exception ex)
         {
+            // Intentionally broad: event handlers run on the native callback path, so any user
+            // handler fault must be logged before it propagates back to the callback boundary.
             _diagnostics.Report(
                 SpeechDiagnosticLevel.Error,
                 DiagnosticsCategory,

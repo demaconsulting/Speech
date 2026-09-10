@@ -185,10 +185,9 @@ internal static class DownloadCommand
             context.WriteError($"Download of '{modelId}' was canceled.");
             return false;
         }
-        // Generic catch is justified here: any failure attempting one requested model (an
-        // unknown model id, a store I/O failure during a --force uninstall, etc.) must be
-        // reported and must not abort the remaining requested models, mirroring the
-        // ModelDownloader CI tool's own per-model failure isolation.
+        // Intentionally broad: this is the per-model CLI error-isolation boundary, so any
+        // failure while attempting one requested model must be reported cleanly and must not
+        // crash or abort later requested models in the same batch.
         catch (Exception ex)
         {
             context.WriteError($"Model '{modelId}' failed: {ex.Message}");

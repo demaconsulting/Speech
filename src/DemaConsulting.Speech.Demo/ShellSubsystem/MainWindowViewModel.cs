@@ -34,7 +34,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     ///     composed with no panels at all.
     /// </summary>
     [ObservableProperty]
-    private DemoPanelViewModel? _selectedPanel;
+    public partial DemoPanelViewModel? SelectedPanel { get; set; }
 
     /// <summary>
     ///     Gets the audio device-selection panel state.

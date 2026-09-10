@@ -19,7 +19,7 @@ public sealed class SpeechRecognizerFactoryTests : IDisposable
     ///     A scratch directory standing in for a model's installed <c>current/</c> directory,
     ///     created per test instance and removed on disposal.
     /// </summary>
-    private readonly string _installedModelDirectory = Path.Combine(
+    private readonly string _installedModelDirectory = Path.Join(
         Path.GetTempPath(),
         "DemaConsulting.Speech.Tests",
         Guid.NewGuid().ToString("N"));
@@ -28,7 +28,7 @@ public sealed class SpeechRecognizerFactoryTests : IDisposable
     ///     A scratch root directory for a real <see cref="SpeechModelStore"/>, created per test
     ///     instance and removed on disposal.
     /// </summary>
-    private readonly string _storeRoot = Path.Combine(
+    private readonly string _storeRoot = Path.Join(
         Path.GetTempPath(),
         "DemaConsulting.Speech.Tests",
         Guid.NewGuid().ToString("N"));
@@ -89,7 +89,7 @@ public sealed class SpeechRecognizerFactoryTests : IDisposable
         // Arrange: an available capture device but a directory that does not exist
         var captureDevice = CreateAvailableCaptureDevice();
         var engineFactory = new FakeRecognitionEngineFactory();
-        var missingDirectory = Path.Combine(_installedModelDirectory, "not-installed");
+        var missingDirectory = Path.Join(_installedModelDirectory, "not-installed");
 
         // Act: compose against the missing model directory
         var recognizer = SpeechRecognizerFactory.Create(

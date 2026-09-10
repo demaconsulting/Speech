@@ -85,7 +85,7 @@ public class SpeechModelDownloadFileTests
     {
         // Arrange
         var uri = new Uri("https://example.test/model.onnx");
-        var rooted = Path.Combine(Path.GetPathRoot(Directory.GetCurrentDirectory()) ?? "/", "escape.onnx");
+        var rooted = Path.Join(Path.GetPathRoot(Directory.GetCurrentDirectory()) ?? "/", "escape.onnx");
 
         // Act & Assert
         Assert.Throws<ArgumentException>(() => new SpeechModelDownloadFile(uri, ValidChecksum, rooted));

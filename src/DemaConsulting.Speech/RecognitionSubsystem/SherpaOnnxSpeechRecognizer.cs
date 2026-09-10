@@ -218,6 +218,9 @@ internal sealed class SherpaOnnxSpeechRecognizer : ISpeechRecognizer
         }
         catch (Exception ex)
         {
+            // Intentionally broad: the first device start crosses the native audio boundary, and
+            // any failure there must be contained and surfaced as the recognizer's documented
+            // unavailable exception rather than escaping with partial pipeline state left behind.
             // The device claimed to be available but failed on first use. Unwind everything this
             // call set up so a later retry starts from a clean state, then surface the failure.
             _captureDevice.FrameCaptured -= OnFrameCaptured;
@@ -316,6 +319,8 @@ internal sealed class SherpaOnnxSpeechRecognizer : ISpeechRecognizer
         }
         catch (Exception ex)
         {
+            // Intentionally broad: stop runs during teardown against the native audio backend,
+            // and teardown must complete even if that backend faults while stopping.
             // Stopping the device is best-effort during teardown: the recognizer is already
             // detached, so a device fault here must not prevent Stop/Dispose from completing.
             _diagnostics.Report(
@@ -348,6 +353,8 @@ internal sealed class SherpaOnnxSpeechRecognizer : ISpeechRecognizer
         }
         catch (Exception ex)
         {
+            // Intentionally broad: any consumer fault, whether from engine inference or a host
+            // callback, must be reported here without crashing the caller performing stop/drain.
             _diagnostics.Report(
                 SpeechDiagnosticLevel.Error,
                 DiagnosticsCategory,
@@ -381,6 +388,8 @@ internal sealed class SherpaOnnxSpeechRecognizer : ISpeechRecognizer
         }
         catch (Exception ex)
         {
+            // Intentionally broad: this event runs on the native audio callback thread, and no
+            // exception may be allowed to escape back into that callback.
             _diagnostics.Report(
                 SpeechDiagnosticLevel.Error,
                 DiagnosticsCategory,
@@ -440,6 +449,8 @@ internal sealed class SherpaOnnxSpeechRecognizer : ISpeechRecognizer
         }
         catch (Exception ex)
         {
+            // Intentionally broad: model inference and downstream result handlers both execute in
+            // this containment boundary, and a fault from either must not terminate recognition.
             _diagnostics.Report(
                 SpeechDiagnosticLevel.Error,
                 DiagnosticsCategory,

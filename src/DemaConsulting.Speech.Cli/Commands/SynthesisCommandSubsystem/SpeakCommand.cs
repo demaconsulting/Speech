@@ -150,36 +150,19 @@ internal static class SpeakCommand
         var parameterValues = ParameterBagParser.Resolve(options.RawParameters, descriptor.Model.Parameters, TtsParamFlag);
 
         var playbackDevice = ResolvePlaybackDevice(catalog, deviceSource, descriptor, options);
+        using var playbackDeviceLease = playbackDevice as IDisposable;
+        using var synthesizer = catalog.CreateSynthesizer(descriptor, playbackDevice, parameterValues);
+
         try
         {
-            var synthesizer = catalog.CreateSynthesizer(descriptor, playbackDevice, parameterValues);
-            try
-            {
-                await synthesizer.SpeakAsync(text, cancellationToken).ConfigureAwait(false);
-                context.WriteLine(options.OutputPath is null
-                    ? "Speech playback finished."
-                    : $"Speech written to '{options.OutputPath}'.");
-            }
-            catch (OperationCanceledException)
-            {
-                context.WriteError("Speech was canceled.");
-            }
-            finally
-            {
-                // Synthesizer disposal blocks until any in-flight playback has genuinely
-                // finished quiescing, so it must be disposed before the playback device to
-                // guarantee the device is never disposed out from under an in-flight write.
-                synthesizer.Dispose();
-            }
+            await synthesizer.SpeakAsync(text, cancellationToken).ConfigureAwait(false);
+            context.WriteLine(options.OutputPath is null
+                ? "Speech playback finished."
+                : $"Speech written to '{options.OutputPath}'.");
         }
-        finally
+        catch (OperationCanceledException)
         {
-            // IAudioPlaybackDevice itself does not declare IDisposable (a real PortAudio-backed
-            // device manages its own native stream lifecycle entirely through Start()/Stop()),
-            // but WavFileAudioPlaybackDevice - used for --output-audio - additionally implements
-            // IDisposable to finalize its RIFF header; disposing it here (via the conditional
-            // cast) is required, and is a safe no-op for any device that does not implement it.
-            (playbackDevice as IDisposable)?.Dispose();
+            context.WriteError("Speech was canceled.");
         }
     }
 

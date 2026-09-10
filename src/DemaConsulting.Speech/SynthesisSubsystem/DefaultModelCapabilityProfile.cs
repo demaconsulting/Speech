@@ -43,7 +43,7 @@ internal sealed class DefaultModelCapabilityProfile : IModelCapabilityProfile
     ///     numeric convention and are always silently stripped under
     ///     <see cref="SpeechModelAudioTagSupport.ParameterMapped"/>.
     /// </summary>
-    private static readonly IReadOnlyDictionary<NaturalLanguageAudioTag, (IReadOnlyList<string> Keywords, double Fraction)> TagParameterRules =
+    private static readonly Dictionary<NaturalLanguageAudioTag, (IReadOnlyList<string> Keywords, double Fraction)> TagParameterRules =
         new Dictionary<NaturalLanguageAudioTag, (IReadOnlyList<string>, double)>
         {
             [NaturalLanguageAudioTag.Fast] = (SpeechParameterConventions.SpeedKeywords, 0.15),

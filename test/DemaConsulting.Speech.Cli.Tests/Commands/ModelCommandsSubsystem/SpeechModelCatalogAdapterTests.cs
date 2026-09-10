@@ -40,7 +40,7 @@ public sealed class SpeechModelCatalogAdapterTests : IDisposable
     /// </summary>
     public SpeechModelCatalogAdapterTests()
     {
-        _testRoot = Path.Combine(Path.GetTempPath(), "DemaConsulting.Speech.Cli.Tests", Guid.NewGuid().ToString("N"));
+        _testRoot = Path.Join(Path.GetTempPath(), "DemaConsulting.Speech.Cli.Tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_testRoot);
     }
 
@@ -181,7 +181,7 @@ public sealed class SpeechModelCatalogAdapterTests : IDisposable
         // Arrange
         using var adapter = new SpeechModelCatalogAdapter(new SpeechModelStoreOptions { RootPathOverride = _testRoot });
         var descriptor = adapter.Enumerate().First(d => d.Role == SpeechModelRole.Recognition);
-        var wavPath = Path.Combine(_testRoot, "output.wav");
+        var wavPath = Path.Join(_testRoot, "output.wav");
         using var playbackDevice = new WavFileAudioPlaybackDevice(wavPath, 22050, 1);
 
         // Act & Assert
@@ -199,7 +199,7 @@ public sealed class SpeechModelCatalogAdapterTests : IDisposable
     {
         // Arrange
         using var adapter = new SpeechModelCatalogAdapter(new SpeechModelStoreOptions { RootPathOverride = _testRoot });
-        var wavPath = Path.Combine(_testRoot, "output.wav");
+        var wavPath = Path.Join(_testRoot, "output.wav");
         using var playbackDevice = new WavFileAudioPlaybackDevice(wavPath, 22050, 1);
 
         // Act & Assert
@@ -263,7 +263,7 @@ public sealed class SpeechModelCatalogAdapterTests : IDisposable
         // Arrange
         using var adapter = new SpeechModelCatalogAdapter(new SpeechModelStoreOptions { RootPathOverride = _testRoot });
         var descriptor = adapter.Enumerate().First(d => d.Role == SpeechModelRole.Synthesis);
-        var wavPath = Path.Combine(_testRoot, "input.wav");
+        var wavPath = Path.Join(_testRoot, "input.wav");
         WriteMinimalWavFile(wavPath);
         var captureDevice = new WavFileAudioCaptureDevice(wavPath);
 
@@ -282,7 +282,7 @@ public sealed class SpeechModelCatalogAdapterTests : IDisposable
     {
         // Arrange
         using var adapter = new SpeechModelCatalogAdapter(new SpeechModelStoreOptions { RootPathOverride = _testRoot });
-        var wavPath = Path.Combine(_testRoot, "input.wav");
+        var wavPath = Path.Join(_testRoot, "input.wav");
         WriteMinimalWavFile(wavPath);
         var captureDevice = new WavFileAudioCaptureDevice(wavPath);
 

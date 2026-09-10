@@ -56,7 +56,7 @@ public sealed class RecognizeCommandTests
     /// </summary>
     private static string WriteMinimalWavFile(int sampleFrameCount = 0)
     {
-        var path = Path.Combine(Path.GetTempPath(), $"recognize-test-{Guid.NewGuid():N}.wav");
+        var path = Path.Join(Path.GetTempPath(), $"recognize-test-{Guid.NewGuid():N}.wav");
         using (var stream = new FileStream(path, FileMode.Create, FileAccess.Write))
         using (var writer = new BinaryWriter(stream))
         {
@@ -434,7 +434,7 @@ public sealed class RecognizeCommandTests
         catalog.CreateRecognizerOverride = (_, _, _) => recognizer;
         var wavPath = WriteMinimalWavFile();
         var originalOut = Console.Out;
-        var writer = new StringWriter { NewLine = "\n" };
+        using var writer = new StringWriter { NewLine = "\n" };
         Console.SetOut(writer);
         try
         {
@@ -480,7 +480,7 @@ public sealed class RecognizeCommandTests
         catalog.CreateRecognizerOverride = (_, _, _) => recognizer;
         var wavPath = WriteMinimalWavFile();
         var originalOut = Console.Out;
-        var writer = new StringWriter { NewLine = "\n" };
+        using var writer = new StringWriter { NewLine = "\n" };
         Console.SetOut(writer);
         try
         {
@@ -530,7 +530,7 @@ public sealed class RecognizeCommandTests
         catalog.CreateRecognizerOverride = (_, _, _) => recognizer;
         var wavPath = WriteMinimalWavFile();
         var originalOut = Console.Out;
-        var writer = new StringWriter { NewLine = "\n" };
+        using var writer = new StringWriter { NewLine = "\n" };
         Console.SetOut(writer);
         try
         {
@@ -568,7 +568,7 @@ public sealed class RecognizeCommandTests
         catalog.CreateRecognizerOverride = (_, _, _) => recognizer;
         var wavPath = WriteMinimalWavFile();
         var originalOut = Console.Out;
-        var writer = new StringWriter { NewLine = "\n" };
+        using var writer = new StringWriter { NewLine = "\n" };
         Console.SetOut(writer);
         try
         {
@@ -608,7 +608,7 @@ public sealed class RecognizeCommandTests
         };
         catalog.CreateRecognizerOverride = (_, _, _) => recognizer;
         var wavPath = WriteMinimalWavFile();
-        var outputPath = Path.Combine(Path.GetTempPath(), $"recognize-output-{Guid.NewGuid():N}.txt");
+        var outputPath = Path.Join(Path.GetTempPath(), $"recognize-output-{Guid.NewGuid():N}.txt");
         File.WriteAllText(outputPath, "stale content that must be overwritten");
         try
         {

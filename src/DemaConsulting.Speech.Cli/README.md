@@ -51,12 +51,13 @@ parameters, and `--no-tags` to strip inline emphasis/pause tags before synthesis
 ### `recognize` flags
 
 One of `--input <wav-path>` or `--mic` supplies the audio to recognize; add `--capture-device <name>` to
-pick a specific capture device, `--silence-timeout <seconds>` to stop microphone capture after a
-period of silence, `--start-timeout <seconds>` to use a separate, typically longer grace period
-before the first result arrives (defaults to `--silence-timeout`'s value when omitted),
-`--stt-param key=value` (repeatable) to set model-specific recognition parameters,
-`--interim`/`--final-only` to control whether interim (in-progress) results are printed, and
-`--output-text <text-path>` to write the final recognized text to a file.
+pick a specific capture device. In `--mic` mode, `--silence-timeout <seconds>` sets the idle period
+(default 5 seconds) after which capture stops, and `--start-timeout <seconds>` sets a separate
+grace period (default 8 seconds) allowed before the first result arrives; both flags apply
+independently and always take effect in `--mic` mode, even when omitted, so mic mode can never
+listen forever with no words uttered. `--stt-param key=value` (repeatable) sets model-specific
+recognition parameters, `--interim`/`--final-only` control whether interim (in-progress) results
+are printed, and `--output-text <text-path>` writes the final recognized text to a file.
 
 ### `ask` flags
 
@@ -64,8 +65,8 @@ before the first result arrives (defaults to `--silence-timeout`'s value when om
 way as `speak`) through `--tts-model <id>` on `--playback-device <name>` (or the system default),
 then immediately listens on `--capture-device <name>` (or the system default) through
 `--stt-model <id>`, stopping on the first final recognition result, a
-`--silence-timeout <seconds>`/`--start-timeout <seconds>` timeout (same semantics as
-`recognize --mic`), or
+`--silence-timeout <seconds>`/`--start-timeout <seconds>` timeout (same semantics and 5s/8s
+defaults as `recognize --mic`), or
 `Ctrl+C`. Both `--tts-model` and `--stt-model` are required. `--tts-param key=value` and
 `--stt-param key=value` (each repeatable) set model-specific synthesis/recognition parameters,
 and `--output-text <path>` writes the recognized reply to a file instead of stdout. `ask` has no

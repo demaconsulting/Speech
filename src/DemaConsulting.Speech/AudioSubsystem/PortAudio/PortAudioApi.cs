@@ -34,7 +34,14 @@ internal sealed class PortAudioApi : IPortAudioApi
     }
 
     /// <inheritdoc/>
-    public int HostApiCount => NormalizeCount(PortAudioNativeMethods.Pa_GetHostApiCount(), "host API");
+    public int HostApiCount
+    {
+        get
+        {
+            // Intentional native interop: PortAudioSharp2 does not expose host-API counting.
+            return NormalizeCount(PortAudioNativeMethods.Pa_GetHostApiCount(), "host API");
+        }
+    }
 
     /// <inheritdoc/>
     public int DeviceCount => NormalizeCount(PortAudioRuntime.DeviceCount, "device");
@@ -49,6 +56,7 @@ internal sealed class PortAudioApi : IPortAudioApi
     /// <inheritdoc/>
     public int? FindHostApiIndex(PortAudioHostApiType hostApiType)
     {
+        // Intentional native interop: resolving a stable host-API type requires the PortAudio C API.
         var hostApiIndex = PortAudioNativeMethods.Pa_HostApiTypeIdToHostApiIndex(hostApiType);
         return hostApiIndex >= 0 ? hostApiIndex : null;
     }
@@ -56,6 +64,7 @@ internal sealed class PortAudioApi : IPortAudioApi
     /// <inheritdoc/>
     public PortAudioHostApiInfo GetHostApiInfo(int hostApiIndex)
     {
+        // Intentional native interop: PortAudioSharp2 does not surface host-API metadata.
         var hostApiInfoPointer = PortAudioNativeMethods.Pa_GetHostApiInfo(hostApiIndex);
         if (hostApiInfoPointer == nint.Zero)
         {
@@ -111,13 +120,20 @@ internal sealed class PortAudioApi : IPortAudioApi
         ArgumentNullException.ThrowIfNull(onSamplesCaptured);
 
         var deviceInfo = GetDeviceInfo(deviceIndex);
+
+        // Reused across every invocation of this stream's callback rather than allocated per
+        // call: PortAudio always calls back on a single dedicated thread per stream, one
+        // invocation at a time, and onSamplesCaptured (PortAudioCaptureDevice.OnSamplesCaptured)
+        // always makes its own defensive copy of the samples before this callback returns, so no
+        // caller ever observes this buffer being overwritten by the next callback.
+        var captureBuffer = new ReusableSampleBuffer();
         PortAudioStream.Callback callback = (
             nint input,
             nint output,
             uint frameCount,
             ref PortAudioStreamCallbackTimeInfo timeInfo,
             PortAudioStreamCallbackFlags statusFlags,
-            nint userData) => CaptureCallback(input, frameCount, channelCount, onSamplesCaptured);
+            nint userData) => CaptureCallback(input, frameCount, channelCount, onSamplesCaptured, captureBuffer);
 
         var stream = new PortAudioStream(
             CreateInputParameters(deviceIndex, channelCount, deviceInfo.DefaultLowInputLatency),
@@ -168,15 +184,33 @@ internal sealed class PortAudioApi : IPortAudioApi
         nint input,
         uint frameCount,
         int channelCount,
-        Action<IReadOnlyList<float>> onSamplesCaptured)
+        Action<IReadOnlyList<float>> onSamplesCaptured,
+        ReusableSampleBuffer captureBuffer)
     {
         try
         {
             var sampleCount = checked((int)frameCount * channelCount);
-            var samples = new float[sampleCount];
+
+            // A stream's callback block size is fixed once opened, so in steady state this never
+            // reallocates after the first call - it only ever allocates again if PortAudio were to
+            // request a different sample count than last time.
+            if (captureBuffer.Samples.Length != sampleCount)
+            {
+                captureBuffer.Samples = new float[sampleCount];
+            }
+
+            var samples = captureBuffer.Samples;
             if (input != nint.Zero && sampleCount > 0)
             {
                 Marshal.Copy(input, samples, 0, sampleCount);
+            }
+            else if (sampleCount > 0)
+            {
+                // PortAudio supplies a null input pointer when it has no capture data for this
+                // callback (e.g. a stream underrun); the reused buffer may still hold stale
+                // samples from a prior callback, so it must be zeroed here to preserve the
+                // documented "silence when no data" contract instead of forwarding stale audio.
+                Array.Clear(samples, 0, sampleCount);
             }
 
             onSamplesCaptured(samples);
@@ -184,6 +218,8 @@ internal sealed class PortAudioApi : IPortAudioApi
         }
         catch
         {
+            // Intentionally broad: any managed fault on the native callback thread must abort
+            // cleanly rather than let an arbitrary exception cross the unmanaged boundary.
             return PortAudioStreamCallbackResult.Abort;
         }
     }
@@ -211,8 +247,22 @@ internal sealed class PortAudioApi : IPortAudioApi
         }
         catch
         {
+            // Intentionally broad: any managed fault on the native callback thread must abort
+            // cleanly rather than let an arbitrary exception cross the unmanaged boundary.
             return PortAudioStreamCallbackResult.Abort;
         }
+    }
+
+    /// <summary>
+    ///     A single mutable slot holding one capture stream's reused sample buffer, so
+    ///     <see cref="CaptureCallback"/> (a <see langword="static"/> method, shared by every open
+    ///     stream) can hold per-stream buffer state via a closure without needing an instance
+    ///     field on this stateless adapter type.
+    /// </summary>
+    private sealed class ReusableSampleBuffer
+    {
+        /// <summary>Gets or sets the buffer reused across this stream's callback invocations.</summary>
+        internal float[] Samples { get; set; } = [];
     }
 
     /// <summary>
@@ -281,11 +331,14 @@ internal sealed class PortAudioApi : IPortAudioApi
 
             var inputParameters = isInput ? parametersPointer : nint.Zero;
             var outputParameters = isInput ? nint.Zero : parametersPointer;
+            // Intentional native interop: capability probing requires the PortAudio C API entry point.
             var result = PortAudioNativeMethods.Pa_IsFormatSupported(inputParameters, outputParameters, sampleRate);
             return result == 0;
         }
         catch
         {
+            // Intentionally broad: this best-effort native capability probe must fail safe on
+            // any interop fault rather than escape the unmanaged interoperability boundary.
             // A probe failure (for example a marshaling fault) must fail safe rather than
             // propagate, since the caller's fallback behavior is strictly no worse than the
             // un-negotiated forwarding this probe replaces.

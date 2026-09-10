@@ -45,7 +45,7 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
     ///     selected.
     /// </summary>
     [ObservableProperty]
-    private ModelListItemViewModel? _selectedModel;
+    public partial ModelListItemViewModel? SelectedModel { get; set; }
 
     /// <summary>
     ///     Gets a value indicating whether the catalog reported at least one known model.
@@ -91,9 +91,10 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
         var previousId = SelectedModel?.Id;
 
         Models.Clear();
-        foreach (var descriptor in _catalogService.Enumerate())
+        foreach (var model in _catalogService.Enumerate()
+            .Select(static descriptor => new ModelListItemViewModel(descriptor)))
         {
-            Models.Add(new ModelListItemViewModel(descriptor));
+            Models.Add(model);
         }
 
         SelectedModel = previousId is null
@@ -168,6 +169,8 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
             model.FailureMessage = "Download canceled.";
         }
 #pragma warning disable CA1031 // Presentation layer must not crash the application on any seam fault.
+        // Intentionally broad: this command is a UI fault-isolation boundary, so an unexpected
+        // catalog seam failure must be reported in-row instead of tearing down the whole demo.
         catch (Exception exception)
 #pragma warning restore CA1031
         {

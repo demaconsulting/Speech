@@ -1,4 +1,5 @@
-// cspell:ignore Alsa ALSA portaudio Cdecl
+// cspell:ignore Alsa ALSA portaudio Cdecl Conv Convs
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace DemaConsulting.Speech.AudioSubsystem.PortAudio;
@@ -11,7 +12,7 @@ namespace DemaConsulting.Speech.AudioSubsystem.PortAudio;
 ///     These declarations intentionally target the same <c>portaudio</c> shared-library name that
 ///     PortAudioSharp2 itself uses, so no additional native dependency is introduced.
 /// </remarks>
-internal static class PortAudioNativeMethods
+internal static partial class PortAudioNativeMethods
 {
     /// <summary>
     ///     The shared-library name used by both PortAudioSharp2 and the supplementary bindings in
@@ -22,23 +23,26 @@ internal static class PortAudioNativeMethods
     /// <summary>
     ///     Returns the number of host APIs exposed by the initialized PortAudio runtime.
     /// </summary>
-    [DllImport(PortAudioLibraryName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern int Pa_GetHostApiCount();
+    [LibraryImport(PortAudioLibraryName)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    internal static partial int Pa_GetHostApiCount();
 
     /// <summary>
     ///     Returns a pointer to immutable information describing one host API.
     /// </summary>
     /// <param name="hostApiIndex">The runtime-specific host-API index to inspect.</param>
-    [DllImport(PortAudioLibraryName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern nint Pa_GetHostApiInfo(int hostApiIndex);
+    [LibraryImport(PortAudioLibraryName)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    internal static partial nint Pa_GetHostApiInfo(int hostApiIndex);
 
     /// <summary>
     ///     Resolves a stable PortAudio host-API type identifier to the runtime's current host-
     ///     API index.
     /// </summary>
     /// <param name="type">The stable host-API type identifier to resolve.</param>
-    [DllImport(PortAudioLibraryName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern int Pa_HostApiTypeIdToHostApiIndex(PortAudioHostApiType type);
+    [LibraryImport(PortAudioLibraryName)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    internal static partial int Pa_HostApiTypeIdToHostApiIndex(PortAudioHostApiType type);
 
     /// <summary>
     ///     Determines whether the host API can actually open a stream for the given input and/or
@@ -54,8 +58,9 @@ internal static class PortAudioNativeMethods
     ///     side, or <see cref="nint.Zero"/> when the probe is input-only.
     /// </param>
     /// <param name="sampleRate">The sample rate, in Hz, to probe.</param>
-    [DllImport(PortAudioLibraryName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern int Pa_IsFormatSupported(nint inputParameters, nint outputParameters, double sampleRate);
+    [LibraryImport(PortAudioLibraryName)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    internal static partial int Pa_IsFormatSupported(nint inputParameters, nint outputParameters, double sampleRate);
 
     /// <summary>
     ///     Managed layout for PortAudio's native <c>PaHostApiInfo</c> structure.

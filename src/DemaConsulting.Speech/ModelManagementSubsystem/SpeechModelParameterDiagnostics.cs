@@ -91,7 +91,8 @@ internal static class SpeechModelParameterDiagnostics
 
         // Validate every recognized parameter first, iterating in declared order so the first
         // invalid recognized value throws deterministically regardless of dictionary enumeration
-        // order.
+        // order. TryGetValue avoids the double dictionary lookup a ContainsKey+indexer pair
+        // would otherwise perform for every declared parameter.
         foreach (var parameter in declaredParameters)
         {
             if (parameterValues.TryGetValue(parameter.Id, out var value))

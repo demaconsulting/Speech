@@ -150,7 +150,7 @@ public class SpeechTests
     public async Task Speech_SystemIntegration_ModelDownload_VerifiesAndAtomicallyInstallsModel()
     {
         // Arrange: a scratch store root and a fake download client serving a known payload
-        var testRoot = Path.Combine(Path.GetTempPath(), "DemaConsulting.Speech.Tests", Guid.NewGuid().ToString("N"));
+        var testRoot = Path.Join(Path.GetTempPath(), "DemaConsulting.Speech.Tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(testRoot);
         try
         {
@@ -171,7 +171,7 @@ public class SpeechTests
             Assert.Equal(SpeechModelDownloadOutcome.Installed, result.Outcome);
             Assert.True(store.IsInstalled("system-integration-model"));
             var installedBytes = await File.ReadAllBytesAsync(
-                Path.Combine(store.GetCurrentDirectory("system-integration-model"), "model.bin"),
+                Path.Join(store.GetCurrentDirectory("system-integration-model"), "model.bin"),
                 TestContext.Current.CancellationToken);
             Assert.Equal(payload, installedBytes);
         }
@@ -192,7 +192,7 @@ public class SpeechTests
     public async Task Speech_SystemIntegration_ModelCatalog_EnumeratesAndTracksDownloadState()
     {
         // Arrange: a scratch store root, one known fake model, and a fake download client
-        var testRoot = Path.Combine(Path.GetTempPath(), "DemaConsulting.Speech.Tests", Guid.NewGuid().ToString("N"));
+        var testRoot = Path.Join(Path.GetTempPath(), "DemaConsulting.Speech.Tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(testRoot);
         try
         {
@@ -240,7 +240,7 @@ public class SpeechTests
     {
         // Arrange: a scratch installed-model directory, an available capture device, and a
         // deterministic engine standing in for the native sherpa-onnx runtime
-        var installedModelDirectory = Path.Combine(
+        var installedModelDirectory = Path.Join(
             Path.GetTempPath(), "DemaConsulting.Speech.Tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(installedModelDirectory);
         try
@@ -291,7 +291,7 @@ public class SpeechTests
     {
         // Arrange: a scratch installed-model directory, an available playback device, and a
         // deterministic engine standing in for the native sherpa-onnx runtime
-        var installedModelDirectory = Path.Combine(
+        var installedModelDirectory = Path.Join(
             Path.GetTempPath(), "DemaConsulting.Speech.Tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(installedModelDirectory);
         try
@@ -352,7 +352,7 @@ public class SpeechTests
         {
             var config = new SherpaOnnx.OnlineRecognizerConfig();
             config.FeatConfig.SampleRate = 16000;
-            config.ModelConfig.Tokens = Path.Combine(installedModelDirectory, "tokens.txt");
+            config.ModelConfig.Tokens = Path.Join(installedModelDirectory, "tokens.txt");
             return config;
         }
     }

@@ -50,7 +50,7 @@ public class IntegrationTests
         // The DLL should be in the same directory as the test assembly
         // because the test project references the main project
         var baseDir = AppContext.BaseDirectory;
-        _dllPath = Path.Combine(baseDir, "DemaConsulting.Speech.Cli.dll");
+        _dllPath = Path.Join(baseDir, "DemaConsulting.Speech.Cli.dll");
 
         Assert.True(File.Exists(_dllPath), $"Could not find Speech CLI DLL at {_dllPath}");
     }
@@ -153,7 +153,7 @@ public class IntegrationTests
     public void SpeechCli_ValidateWithTrxResults_Requested_GeneratesTrxFile()
     {
         // Arrange: temporary TRX results file path
-        var resultsFile = Path.Combine(Path.GetTempPath(), $"speech_cli_integration_test_{Guid.NewGuid()}.trx");
+        var resultsFile = Path.Join(Path.GetTempPath(), $"speech_cli_integration_test_{Guid.NewGuid()}.trx");
 
         try
         {
@@ -1063,13 +1063,13 @@ public class IntegrationTests
     private static string FindRepositoryTestFixturePath(string fixtureFileName)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "Speech.slnx")))
+        while (directory is not null && !File.Exists(Path.Join(directory.FullName, "Speech.slnx")))
         {
             directory = directory.Parent;
         }
 
         Assert.NotNull(directory);
-        return Path.Combine(directory.FullName, "test", "DemaConsulting.Speech.Tests", "TestData", fixtureFileName);
+        return Path.Join(directory.FullName, "test", "DemaConsulting.Speech.Tests", "TestData", fixtureFileName);
     }
 
     /// <summary>
@@ -1096,7 +1096,7 @@ public class IntegrationTests
     /// </summary>
     private static string CreateTempModelsDir()
     {
-        var path = Path.Combine(Path.GetTempPath(), "DemaConsulting.Speech.Cli.Tests", Guid.NewGuid().ToString("N"));
+        var path = Path.Join(Path.GetTempPath(), "DemaConsulting.Speech.Cli.Tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(path);
         return path;
     }

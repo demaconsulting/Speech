@@ -40,7 +40,7 @@ public sealed partial class ModelListItemViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(StatusText))]
     [NotifyPropertyChangedFor(nameof(CanDownload))]
     [NotifyPropertyChangedFor(nameof(IsDownloading))]
-    private SpeechModelState _state;
+    public partial SpeechModelState State { get; set; }
 
     /// <summary>
     ///     Gets or sets the fraction of this model's download that has completed, from
@@ -48,7 +48,7 @@ public sealed partial class ModelListItemViewModel : ObservableObject
     ///     available (no download in flight, or a server that did not report a content length).
     /// </summary>
     [ObservableProperty]
-    private double? _progressFraction;
+    public partial double? ProgressFraction { get; set; }
 
     /// <summary>
     ///     Gets or sets the explanation of the most recent failed download attempt, or
@@ -56,7 +56,7 @@ public sealed partial class ModelListItemViewModel : ObservableObject
     /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasFailureMessage))]
-    private string? _failureMessage;
+    public partial string? FailureMessage { get; set; }
 
     /// <summary>
     ///     Gets a value indicating whether a failure explanation is available to display.
@@ -109,6 +109,6 @@ public sealed partial class ModelListItemViewModel : ObservableObject
         Id = descriptor.Id;
         DisplayName = descriptor.DisplayName;
         Role = descriptor.Role;
-        _state = descriptor.State;
+        State = descriptor.State;
     }
 }

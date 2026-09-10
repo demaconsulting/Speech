@@ -418,6 +418,9 @@ public static class SpeechRecognizerFactory
         }
         catch (Exception ex)
         {
+            // Intentionally broad: engine creation crosses the native runtime/model-file
+            // boundary, and every load failure must degrade to the documented unavailable
+            // recognizer rather than crash composition.
             sink.Report(
                 SpeechDiagnosticLevel.Error,
                 DiagnosticsCategory,
