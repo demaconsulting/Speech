@@ -339,7 +339,7 @@ public sealed class WavFileAudioCaptureDevice : IAudioCaptureDevice
             var chunkSize = reader.ReadInt32();
             if (TagEquals(chunkIdBytes, "fmt "u8))
             {
-                ReadFormatChunk(reader, chunkSize, out audioFormat, out channelCount, out sampleRate, out bitsPerSample);
+                ReadFormatChunk(reader, chunkSize, _path, out audioFormat, out channelCount, out sampleRate, out bitsPerSample);
                 formatFound = true;
                 continue;
             }
@@ -367,18 +367,38 @@ public sealed class WavFileAudioCaptureDevice : IAudioCaptureDevice
     ///     The reader positioned immediately after the <c>fmt </c> chunk size field.
     /// </param>
     /// <param name="chunkSize">The declared size of the <c>fmt </c> chunk.</param>
+    /// <param name="path">The file path, used only to compose a descriptive exception message.</param>
     /// <param name="audioFormat">Receives the WAV format tag declared by the chunk.</param>
     /// <param name="channelCount">Receives the channel count declared by the chunk.</param>
     /// <param name="sampleRate">Receives the sample rate declared by the chunk.</param>
     /// <param name="bitsPerSample">Receives the bit depth declared by the chunk.</param>
+    /// <exception cref="InvalidOperationException">
+    ///     Thrown when <paramref name="chunkSize"/> is smaller than the 16 bytes required to hold
+    ///     the fields read below, which would otherwise read past the chunk boundary and
+    ///     throw off all subsequent chunk parsing.
+    /// </exception>
     private static void ReadFormatChunk(
         BinaryReader reader,
         int chunkSize,
+        string path,
         out short audioFormat,
         out short channelCount,
         out int sampleRate,
         out short bitsPerSample)
     {
+        // The 16-byte PCM fmt payload (format tag, channels, sample rate, byte rate, block
+        // align, bits per sample) is read unconditionally below; a chunk declaring fewer bytes
+        // than that would otherwise be over-read past its own boundary, and SkipRemainder could
+        // not correct for it afterwards since the shortfall would already have been consumed
+        // from whatever data follows.
+        const int MinimumFormatChunkSize = 16;
+        if (chunkSize < MinimumFormatChunkSize)
+        {
+            throw new InvalidOperationException(
+                $"'{path}' declares a 'fmt ' chunk size of {chunkSize} bytes, which is smaller " +
+                $"than the minimum {MinimumFormatChunkSize} bytes required for a PCM format chunk.");
+        }
+
         audioFormat = reader.ReadInt16();
         channelCount = reader.ReadInt16();
         sampleRate = reader.ReadInt32();

@@ -19,7 +19,7 @@ namespace DemaConsulting.Speech.Demo.RecognitionPanelSubsystem;
 ///     bug live and hand over the exact audio that caused it for offline analysis, replaying it
 ///     through the real engine exactly as a recorded reproduction file would be.
 ///     <para>
-///     Writing to disk happens on a dedicated background thread via a producer/consumer queue so
+///     Writing to disk happens on a dedicated writer thread via a producer/consumer queue so
 ///     a slow or failing disk can never block or throw into the audio capture callback; any
 ///     writer failure is caught, logged, and otherwise ignored so live recognition is unaffected.
 ///     </para>
@@ -38,7 +38,7 @@ internal sealed class CaptureDebugRecorder : IDisposable
     /// <summary>The queue handing captured frames from the audio callback to the writer thread.</summary>
     private readonly BlockingCollection<IReadOnlyList<float>> _queue = [];
 
-    /// <summary>The background thread that owns the writer and performs all file I/O.</summary>
+    /// <summary>The thread that owns the writer and performs all file I/O.</summary>
     private readonly Thread _writerThread;
 
     /// <summary>The writer used exclusively by <see cref="_writerThread"/>.</summary>
@@ -54,8 +54,8 @@ internal sealed class CaptureDebugRecorder : IDisposable
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="CaptureDebugRecorder"/> class and starts
-    ///     its background writer thread. Private: use <see cref="TryStart"/>, which owns the
-    ///     opt-in check and failure handling this constructor assumes has already happened.
+    ///     its writer thread. Private: use <see cref="TryStart"/>, which owns the opt-in check
+    ///     and failure handling this constructor assumes has already happened.
     /// </summary>
     /// <param name="device">The capture device to independently listen to.</param>
     /// <param name="writer">The already-created writer to append captured frames to.</param>
@@ -66,7 +66,14 @@ internal sealed class CaptureDebugRecorder : IDisposable
 
         _writerThread = new Thread(WriterThreadMain)
         {
-            IsBackground = true,
+            // Deliberately NOT a background thread: WriterThreadMain's own `finally` is the only
+            // place the writer is disposed (finalizing the .wav header - see its remarks), and
+            // Dispose() below only waits up to DrainTimeout before giving up rather than blocking
+            // the caller indefinitely. If this were a background thread, the process could exit
+            // - abandoning this thread mid-drain - before that finally block ever runs, leaving
+            // the header never finalized. Keeping it a foreground thread instead makes the CLR wait
+            // for it to actually finish draining and finalize the file before the process can
+            // exit, no matter how the caller's own bounded wait turned out.
             Name = "CaptureDebugRecorder"
         };
         _writerThread.Start();
@@ -124,8 +131,8 @@ internal sealed class CaptureDebugRecorder : IDisposable
     }
 
     /// <summary>
-    ///     Enqueues one captured frame for the background writer thread. Runs on the capture
-    ///     device's own callback thread, so this must never block or throw.
+    ///     Enqueues one captured frame for the writer thread. Runs on the capture device's own
+    ///     callback thread, so this must never block or throw.
     /// </summary>
     /// <param name="sender">The raising capture device. Unused.</param>
     /// <param name="e">The event carrying the captured samples.</param>

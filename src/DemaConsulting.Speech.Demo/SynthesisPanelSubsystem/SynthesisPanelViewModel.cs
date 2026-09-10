@@ -253,10 +253,9 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IDisposa
             return;
         }
 
-        var synthesizer = _sessionFactory.Create(selectedModel, playbackDevice, Settings.BuildValueBag());
+        using var synthesizer = _sessionFactory.Create(selectedModel, playbackDevice, Settings.BuildValueBag());
         if (!synthesizer.IsAvailable)
         {
-            synthesizer.Dispose();
             StatusMessage = SynthesizerUnavailableMessage;
             State = SynthesisPlaybackState.Error;
             return;
@@ -283,8 +282,10 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IDisposa
         }
         finally
         {
+            // Disposal itself is left to the enclosing `using` (covering both this exit path and
+            // the early "unavailable" return above) so every exit path disposes exactly once
+            // through a single, unconditional mechanism instead of a duplicated manual call.
             _activeSynthesizer = null;
-            synthesizer.Dispose();
         }
     }
 

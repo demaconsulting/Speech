@@ -219,6 +219,49 @@ public class WavFileAudioCaptureDeviceTests
     }
 
     /// <summary>
+    ///     Proves that starting capture against a file whose <c>fmt </c> chunk declares a size
+    ///     smaller than the 16 bytes a PCM format chunk requires throws
+    ///     <see cref="InvalidOperationException"/> instead of over-reading past the chunk
+    ///     boundary and desynchronizing subsequent chunk parsing.
+    /// </summary>
+    [Fact]
+    public void WavFileAudioCaptureDevice_Start_UndersizedFmtChunk_ThrowsInvalidOperationException()
+    {
+        // Arrange: a RIFF/WAVE file whose "fmt " chunk declares only 14 bytes (2 bytes short of
+        // the 16 a PCM format chunk requires), followed by a well-formed "data" chunk.
+        var path = CreateTempWavPath();
+        using (var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read))
+        using (var writer = new BinaryWriter(stream))
+        {
+            writer.Write("RIFF"u8);
+            writer.Write(0);
+            writer.Write("WAVE"u8);
+            writer.Write("fmt "u8);
+            writer.Write(14); // Declares 2 bytes fewer than the 16 a PCM format chunk requires
+            writer.Write((short)1); // Format tag
+            writer.Write((short)1); // Channel count
+            writer.Write(16000); // Sample rate
+            writer.Write(32000); // Byte rate
+            writer.Write((short)2); // Block align
+            writer.Write("data"u8);
+            writer.Write(0); // Empty data chunk
+        }
+
+        try
+        {
+            var device = new WavFileAudioCaptureDevice(path);
+
+            // Act & Assert: starting capture throws the documented exception rather than
+            // silently desynchronizing subsequent chunk parsing.
+            Assert.Throws<InvalidOperationException>(device.Start);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
     ///     Proves that starting capture against a stereo WAV file throws
     ///     <see cref="InvalidOperationException"/>, since only mono files are supported.
     /// </summary>
