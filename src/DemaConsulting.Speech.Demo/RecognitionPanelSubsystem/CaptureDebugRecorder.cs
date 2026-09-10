@@ -45,6 +45,24 @@ internal sealed class CaptureDebugRecorder : IDisposable
     private readonly WavFileWriter _writer;
 
     /// <summary>
+    ///     Guards every access to <see cref="_writer"/> so <see cref="WriterThreadMain"/> and a
+    ///     timed-out <see cref="Dispose"/> can never touch it concurrently - whichever of the two
+    ///     acquires this lock first is the one that finalizes the file (see both methods' own
+    ///     remarks).
+    /// </summary>
+    private readonly object _writerLock = new();
+
+    /// <summary>
+    ///     Set, under <see cref="_writerLock"/>, by whichever of <see cref="WriterThreadMain"/> or
+    ///     <see cref="Dispose"/> disposes <see cref="_writer"/> first. Once set, the other backs
+    ///     off instead of touching the now-disposed writer.
+    /// </summary>
+    private bool _writerFinalized;
+
+    /// <summary>Guards <see cref="Dispose"/> against running more than once.</summary>
+    private bool _disposed;
+
+    /// <summary>
     ///     The maximum time <see cref="Dispose"/> waits for the writer thread to drain queued
     ///     frames before giving up. Generous because this is off the critical recognition path,
     ///     but bounded so a stalled disk cannot hang the caller (typically a UI-thread command)
@@ -66,14 +84,12 @@ internal sealed class CaptureDebugRecorder : IDisposable
 
         _writerThread = new Thread(WriterThreadMain)
         {
-            // Deliberately NOT a background thread: WriterThreadMain's own `finally` is the only
-            // place the writer is disposed (finalizing the .wav header - see its remarks), and
-            // Dispose() below only waits up to DrainTimeout before giving up rather than blocking
-            // the caller indefinitely. If this were a background thread, the process could exit
-            // - abandoning this thread mid-drain - before that finally block ever runs, leaving
-            // the header never finalized. Keeping it a foreground thread instead makes the CLR wait
-            // for it to actually finish draining and finalize the file before the process can
-            // exit, no matter how the caller's own bounded wait turned out.
+            // A background thread: correctness no longer depends on the CLR waiting for this
+            // thread at process exit, because Dispose() itself force-finalizes the header (see
+            // its own remarks) if the writer thread hasn't drained within DrainTimeout. Keeping
+            // this a background thread instead means a stalled disk can never block process
+            // shutdown, regardless of how long the stall lasts.
+            IsBackground = true,
             Name = "CaptureDebugRecorder"
         };
         _writerThread.Start();
@@ -152,9 +168,9 @@ internal sealed class CaptureDebugRecorder : IDisposable
     }
 
     /// <summary>
-    ///     Drains queued frames to the writer until <see cref="Dispose"/> completes the queue.
-    ///     Runs entirely on <see cref="_writerThread"/> so file I/O never touches the audio
-    ///     callback thread.
+    ///     Drains queued frames to the writer until <see cref="Dispose"/> completes the queue, or
+    ///     until a timed-out <see cref="Dispose"/> force-finalizes the file first. Runs entirely
+    ///     on <see cref="_writerThread"/> so file I/O never touches the audio callback thread.
     /// </summary>
     private void WriterThreadMain()
     {
@@ -162,7 +178,18 @@ internal sealed class CaptureDebugRecorder : IDisposable
         {
             foreach (var frame in _queue.GetConsumingEnumerable())
             {
-                _writer.WriteSamples(frame);
+                lock (_writerLock)
+                {
+                    // Dispose() may have already force-finalized (and disposed) the writer after
+                    // giving up waiting for this thread - any frame still arriving after that is
+                    // discarded rather than written to a now-disposed writer.
+                    if (_writerFinalized)
+                    {
+                        break;
+                    }
+
+                    _writer.WriteSamples(frame);
+                }
             }
         }
         catch (IOException ex)
@@ -173,20 +200,21 @@ internal sealed class CaptureDebugRecorder : IDisposable
         }
         finally
         {
-            // Dispose the writer here, on the thread that exclusively owns it, rather than in
-            // Dispose(): WavFileWriter only patches its RIFF/data chunk sizes on Dispose, so if
-            // Dispose() gave up waiting (see DrainTimeout below) and never disposed the writer,
-            // the file's header would never be finalized. Disposing here guarantees the header
-            // is always finalized once this thread's queue is drained, whether or not the caller
-            // was still waiting for it.
-            _writer.Dispose();
+            lock (_writerLock)
+            {
+                if (!_writerFinalized)
+                {
+                    _writerFinalized = true;
+                    _writer.Dispose();
+                }
+            }
         }
     }
 
     /// <summary>
     ///     Stops listening for captured frames, waits (up to <see cref="DrainTimeout"/>) for the
-    ///     background writer thread to fully drain any queued frames, and finalizes the
-    ///     <c>.wav</c> file header.
+    ///     writer thread to fully drain any queued frames, and finalizes the <c>.wav</c> file
+    ///     header. Idempotent: a second call does nothing.
     /// </summary>
     /// <remarks>
     ///     This is diagnostic/debug instrumentation off the critical recognition path, and
@@ -195,30 +223,70 @@ internal sealed class CaptureDebugRecorder : IDisposable
     ///     above, guaranteeing <see cref="WriterThreadMain"/> will eventually observe
     ///     <see cref="BlockingCollection{T}.GetConsumingEnumerable()"/> ending and exit, but a
     ///     stalled disk (a disconnected network share, a failing drive, and so on) could otherwise
-    ///     block that exit indefinitely and hang the caller. The writer itself is always disposed
-    ///     (and its <c>.wav</c> header finalized) by <see cref="WriterThreadMain"/>'s own
-    ///     <see langword="finally"/> block, not here, so the file is finalized correctly whether
-    ///     or not this method's wait times out. When the writer thread finishes within the
-    ///     timeout, the now-idle queue is also disposed here. When it does not, disposing the
-    ///     queue here would race with the writer thread's still-in-flight
-    ///     <see cref="BlockingCollection{T}.GetConsumingEnumerable()"/> enumeration, so instead
-    ///     this logs a diagnostic and intentionally leaves the queue to be finalized by the
-    ///     garbage collector, at the cost of a leaked queue handle in that rare pathological case.
+    ///     block that exit indefinitely and hang the caller. When the writer thread finishes
+    ///     within the timeout, it has already disposed the writer itself (see
+    ///     <see cref="WriterThreadMain"/>'s own remarks) and the now-idle queue is disposed here
+    ///     too. When it does not finish in time, this method attempts to force-finalize the
+    ///     header itself with whatever samples were already written - synchronized against
+    ///     <see cref="WriterThreadMain"/> via <see cref="_writerLock"/> so the two can never
+    ///     touch <see cref="_writer"/> concurrently - so the file is normally left as a valid,
+    ///     playable <c>.wav</c> rather than one with a never-finalized header. That attempt itself
+    ///     uses a short, separately-bounded <see cref="Monitor.TryEnter(object, TimeSpan)"/>
+    ///     rather than a blocking <see langword="lock"/>, because the one case this cannot solve
+    ///     is the writer thread being blocked *inside* a single <c>WriteSamples</c> call on a
+    ///     genuinely stalled disk while already holding <see cref="_writerLock"/> - a blocking
+    ///     <see langword="lock"/> here would wait for that call to return, which could once again
+    ///     be indefinite. In that one pathological case, this method still returns promptly
+    ///     (never waiting longer than <see cref="DrainTimeout"/> plus that short attempt) but the
+    ///     header is left never finalized, the same fundamentally unavoidable trade-off as leaving a
+    ///     synchronous file API call unable to be cancelled. The queue itself is intentionally
+    ///     left undisposed whenever the writer thread has not confirmed it is done, since it may
+    ///     still be between <see cref="BlockingCollection{T}.GetConsumingEnumerable()"/>
+    ///     iterations, and is instead left to the garbage collector.
     /// </remarks>
     public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+
         _device.FrameCaptured -= OnFrameCaptured;
         _queue.CompleteAdding();
 
         if (_writerThread.Join(DrainTimeout))
         {
             _queue.Dispose();
+            return;
         }
-        else
+
+        if (!Monitor.TryEnter(_writerLock, TimeSpan.FromSeconds(1)))
         {
             Console.WriteLine(
-                "[CaptureDebug] Writer thread did not drain within the timeout; leaving it to " +
-                "finish and finalize the file in the background.");
+                "[CaptureDebug] Writer thread did not drain within the timeout and is still " +
+                "busy; leaving the file with a never-finalized header rather than blocking further.");
+            return;
         }
+
+        try
+        {
+            if (_writerFinalized)
+            {
+                return;
+            }
+
+            _writerFinalized = true;
+            _writer.Dispose();
+        }
+        finally
+        {
+            Monitor.Exit(_writerLock);
+        }
+
+        Console.WriteLine(
+            "[CaptureDebug] Writer thread did not drain within the timeout; finalized the file " +
+            "with the samples captured so far and abandoned the remaining queued frames.");
     }
 }
