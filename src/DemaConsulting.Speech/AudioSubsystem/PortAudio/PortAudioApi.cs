@@ -204,6 +204,14 @@ internal sealed class PortAudioApi : IPortAudioApi
             {
                 Marshal.Copy(input, samples, 0, sampleCount);
             }
+            else if (sampleCount > 0)
+            {
+                // PortAudio supplies a null input pointer when it has no capture data for this
+                // callback (e.g. a stream underrun); the reused buffer may still hold stale
+                // samples from a prior callback, so it must be zeroed here to preserve the
+                // documented "silence when no data" contract instead of forwarding stale audio.
+                Array.Clear(samples, 0, sampleCount);
+            }
 
             onSamplesCaptured(samples);
             return PortAudioStreamCallbackResult.Continue;

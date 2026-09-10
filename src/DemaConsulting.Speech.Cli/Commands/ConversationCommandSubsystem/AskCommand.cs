@@ -51,13 +51,15 @@ namespace DemaConsulting.Speech.Cli.Commands.ConversationCommandSubsystem;
 ///     capture device directly from an injected <see cref="AudioDeviceFactory"/>).
 ///     </para>
 ///     <para>
-///     <b>Listen-termination rule.</b> Unlike <c>recognize --mic</c>, which listens indefinitely
-///     until <c>--silence-timeout</c>/<c>Ctrl+C</c>, <c>ask</c>'s Phase 2 additionally stops as
+///     <b>Listen-termination rule.</b> Unlike <c>recognize --mic</c>, which keeps listening
+///     across multiple recognition results until <c>--silence-timeout</c> elapses or
+///     <c>Ctrl+C</c> is pressed, <c>ask</c>'s Phase 2 additionally stops as
 ///     soon as the <em>first final</em> recognition result arrives: this command models a single
 ///     bounded question/answer turn ("listen for the reply"), not open-ended transcription, so
 ///     one final result is always enough to end the turn. <c>--silence-timeout</c>/
-///     <c>--start-timeout</c> retain their exact <c>recognize --mic</c> meaning as a safety net
-///     for a reply that never finishes (or never starts).
+///     <c>--start-timeout</c> retain their exact <c>recognize --mic</c> meaning (including
+///     their 5-second/8-second defaults) as a safety net for a reply that never finishes (or
+///     never starts).
 ///     </para>
 ///     <para>
 ///     <b>No <c>--output-audio</c>/<c>--input</c>/<c>--interim</c>/<c>--final-only</c>/<c>--no-tags</c>.</b>
@@ -131,6 +133,20 @@ internal static class AskCommand
     ///     The repeatable flag used to set a <c>listen</c>-phase (STT) model parameter.
     /// </summary>
     private const string SttParamFlag = "--stt-param";
+
+    /// <summary>
+    ///     The default <c>--start-timeout</c> value, in seconds, used when the flag is omitted.
+    ///     Without a bounded default, an <c>ask</c> reply that never begins would block forever
+    ///     with only <c>Ctrl+C</c> as an escape hatch.
+    /// </summary>
+    private const double DefaultStartTimeoutSeconds = 8.0;
+
+    /// <summary>
+    ///     The default <c>--silence-timeout</c> value, in seconds, used when the flag is omitted.
+    ///     Without a bounded default, an <c>ask</c> reply that never finishes would block forever
+    ///     with only <c>Ctrl+C</c> as an escape hatch.
+    /// </summary>
+    private const double DefaultSilenceTimeoutSeconds = 5.0;
 
     /// <summary>
     ///     Runs the <c>ask</c> subcommand against a real, composed
@@ -601,20 +617,16 @@ internal static class AskCommand
             recognizer.ResultReceived += onResultReceived;
             try
             {
-                var sessionStartTimeout = options.StartTimeoutSeconds is { } startSeconds
-                    ? TimeSpan.FromSeconds(startSeconds)
-                    : (TimeSpan?)null;
-                using var session = options.SilenceTimeoutSeconds is { } seconds
-                    ? new SilenceTimeoutRecognizerSession(
-                        recognizer,
-                        TimeSpan.FromSeconds(seconds),
-                        startTimeout: sessionStartTimeout)
-                    : null;
+                // A silence-timeout session is always constructed - even when both flags are
+                // omitted - so a reply that never starts or never finishes cannot block "ask"
+                // forever with only Ctrl+C as an escape hatch.
+                var sessionStartTimeout = TimeSpan.FromSeconds(options.StartTimeoutSeconds ?? DefaultStartTimeoutSeconds);
+                using var session = new SilenceTimeoutRecognizerSession(
+                    recognizer,
+                    TimeSpan.FromSeconds(options.SilenceTimeoutSeconds ?? DefaultSilenceTimeoutSeconds),
+                    startTimeout: sessionStartTimeout);
 
-                if (session is not null)
-                {
-                    session.TimedOut += (_, _) => stopSignal.Set();
-                }
+                session.TimedOut += (_, _) => stopSignal.Set();
 
                 recognizer.Start();
                 try
@@ -919,12 +931,14 @@ internal static class AskCommand
     /// <param name="CaptureDeviceName">The requested capture device name, or <see langword="null"/> for the system default.</param>
     /// <param name="RawTtsParameters">The raw, unresolved <c>--tts-param key=value</c> tokens, in the order given.</param>
     /// <param name="RawSttParameters">The raw, unresolved <c>--stt-param key=value</c> tokens, in the order given.</param>
-    /// <param name="SilenceTimeoutSeconds">The idle timeout, in seconds, supplied via <c>--silence-timeout</c>, or <see langword="null"/> for none.</param>
+    /// <param name="SilenceTimeoutSeconds">
+    ///     The idle timeout, in seconds, supplied via <c>--silence-timeout</c>, or
+    ///     <see langword="null"/> to use the 5-second default (see <c>DefaultSilenceTimeoutSeconds</c>).
+    /// </param>
     /// <param name="StartTimeoutSeconds">
     ///     The idle timeout, in seconds, used only before the first recognition result arrives,
-    ///     supplied via <c>--start-timeout</c>, or <see langword="null"/> to default to
-    ///     <paramref name="SilenceTimeoutSeconds"/>'s value. Only consulted when
-    ///     <paramref name="SilenceTimeoutSeconds"/> is also given.
+    ///     supplied via <c>--start-timeout</c>, or <see langword="null"/> to use the 8-second
+    ///     default (see <c>DefaultStartTimeoutSeconds</c>).
     /// </param>
     /// <param name="OutputPath">The text output path supplied via <c>--output-text</c>, or <see langword="null"/> to print to stdout.</param>
     internal sealed record AskOptions(

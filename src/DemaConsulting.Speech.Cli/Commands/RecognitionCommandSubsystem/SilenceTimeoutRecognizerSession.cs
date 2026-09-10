@@ -136,9 +136,10 @@ internal sealed class SilenceTimeoutRecognizerSession : IDisposable
     ///     <see cref="ISpeechRecognizer.ResultReceived"/> event has arrived - a grace period for
     ///     the user to begin speaking, which is typically longer than the pause used to detect
     ///     the end of an utterance. Defaults to <paramref name="idleTimeout"/> when
-    ///     <see langword="null"/>, preserving today's single-timeout behavior when
-    ///     <c>--start-timeout</c> is not given. Must be greater than <see cref="TimeSpan.Zero"/>
-    ///     when supplied.
+    ///     <see langword="null"/>. Callers such as <c>RecognizeCommand</c>/<c>AskCommand</c>
+    ///     instead resolve their own independent default before constructing this session, so
+    ///     this fallback is exercised only by callers that genuinely want one flag to imply the
+    ///     other. Must be greater than <see cref="TimeSpan.Zero"/> when supplied.
     /// </param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="recognizer"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException">

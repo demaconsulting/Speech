@@ -662,6 +662,37 @@ public sealed class AskCommandTests
         }
     }
 
+    /// <summary>
+    ///     Test that omitting both <c>--silence-timeout</c> and <c>--start-timeout</c> no longer
+    ///     blocks Phase 2 forever: a <see cref="DemaConsulting.Speech.Cli.Commands.RecognitionCommandSubsystem.SilenceTimeoutRecognizerSession"/>
+    ///     is still constructed using the built-in default idle window, so a reply that never
+    ///     finishes still ends the turn on its own - a real (if slower) wall-clock wait, exercising
+    ///     the exact default-resolution regression this test guards against.
+    /// </summary>
+    [Fact]
+    public void AskCommand_Run_NoTimeoutFlagsGiven_StillEndsTurnViaDefaultSilenceTimeout()
+    {
+        var catalog = CreateCatalogWithModels();
+        var synthesizer = new FakeSpeechSynthesizer();
+        catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
+
+        // OnStart raises only an interim (non-final) result and never a final one; with no
+        // --silence-timeout given, the command must still have armed a session using its
+        // built-in default idle window rather than blocking stopSignal.Wait() forever.
+        var recognizer = new FakeSpeechRecognizer
+        {
+            OnStart = self => self.RaiseResult("still talking", isFinal: false)
+        };
+        catalog.CreateRecognizerOverride = (_, _, _) => recognizer;
+
+        using var context = Context.Create(
+            ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi"]);
+
+        AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureSource());
+
+        Assert.Equal(1, recognizer.StopCallCount);
+    }
+
     // --- Cancellation ---
 
     /// <summary>
