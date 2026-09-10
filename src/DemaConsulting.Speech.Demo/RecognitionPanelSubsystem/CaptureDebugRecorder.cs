@@ -164,6 +164,16 @@ internal sealed class CaptureDebugRecorder : IDisposable
             // propagate anywhere near the audio pipeline - just stop writing and report why
             Console.WriteLine($"[CaptureDebug] Capture debug write failed: {ex.Message}");
         }
+        finally
+        {
+            // Dispose the writer here, on the thread that exclusively owns it, rather than in
+            // Dispose(): WavFileWriter only patches its RIFF/data chunk sizes on Dispose, so if
+            // Dispose() gave up waiting (see DrainTimeout below) and never disposed the writer,
+            // the file's header would never be finalized. Disposing here guarantees the header
+            // is always finalized once this thread's queue is drained, whether or not the caller
+            // was still waiting for it.
+            _writer.Dispose();
+        }
     }
 
     /// <summary>
@@ -178,12 +188,15 @@ internal sealed class CaptureDebugRecorder : IDisposable
     ///     above, guaranteeing <see cref="WriterThreadMain"/> will eventually observe
     ///     <see cref="BlockingCollection{T}.GetConsumingEnumerable()"/> ending and exit, but a
     ///     stalled disk (a disconnected network share, a failing drive, and so on) could otherwise
-    ///     block that exit indefinitely and hang the caller. When the writer thread finishes
-    ///     within the timeout, the writer and queue are finalized and disposed normally. When it
-    ///     does not, disposing the writer here would race with its still-in-flight write, so
-    ///     instead this logs a diagnostic and intentionally leaves the writer thread to finish and
-    ///     finalize the file on its own once the stalled write eventually completes, at the cost of
-    ///     a leaked queue/writer handle in that rare pathological case.
+    ///     block that exit indefinitely and hang the caller. The writer itself is always disposed
+    ///     (and its <c>.wav</c> header finalized) by <see cref="WriterThreadMain"/>'s own
+    ///     <see langword="finally"/> block, not here, so the file is finalized correctly whether
+    ///     or not this method's wait times out. When the writer thread finishes within the
+    ///     timeout, the now-idle queue is also disposed here. When it does not, disposing the
+    ///     queue here would race with the writer thread's still-in-flight
+    ///     <see cref="BlockingCollection{T}.GetConsumingEnumerable()"/> enumeration, so instead
+    ///     this logs a diagnostic and intentionally leaves the queue to be finalized by the
+    ///     garbage collector, at the cost of a leaked queue handle in that rare pathological case.
     /// </remarks>
     public void Dispose()
     {
@@ -192,7 +205,6 @@ internal sealed class CaptureDebugRecorder : IDisposable
 
         if (_writerThread.Join(DrainTimeout))
         {
-            _writer.Dispose();
             _queue.Dispose();
         }
         else

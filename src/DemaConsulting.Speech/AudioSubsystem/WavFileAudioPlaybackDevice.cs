@@ -143,9 +143,11 @@ public sealed class WavFileAudioPlaybackDevice : IAudioPlaybackDevice, IDisposab
         ArgumentNullException.ThrowIfNull(samples);
         ObjectDisposedException.ThrowIf(_isDisposed, this);
 
-        foreach (var pcmValue in samples.Select(ConvertSampleToPcm))
+        // An indexed loop avoids LINQ's per-sample iterator/delegate overhead on this hot,
+        // potentially large-volume write path.
+        for (var index = 0; index < samples.Count; index++)
         {
-            _writer.Write(pcmValue);
+            _writer.Write(ConvertSampleToPcm(samples[index]));
         }
 
         _dataBytesWritten += samples.Count * (long)BytesPerSample;
