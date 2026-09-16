@@ -172,6 +172,8 @@ sections:
               - Speech-Synthesis-SentenceChunker-BoundarySplitting
               - Speech-Synthesis-SentenceChunker-BoundaryHandling
               - Speech-Synthesis-SentenceChunker-ConsecutiveBoundaryMerging
+              - Speech-Synthesis-SentenceChunker-DegeneratePunctuationMerging
+              - Speech-Synthesis-SentenceChunker-EllipsisMetadata
               - Speech-Synthesis-SherpaOnnxSpeechSynthesizer-ChunkedPipeline
               - Speech-Synthesis-SherpaOnnxSpeechSynthesizer-PipelinedPlayback
               - Speech-Synthesis-SherpaOnnxSpeechSynthesizer-GenuinePlaybackDrainWait
