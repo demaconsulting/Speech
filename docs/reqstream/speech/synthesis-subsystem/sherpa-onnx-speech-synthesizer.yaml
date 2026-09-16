@@ -233,10 +233,10 @@ sections:
 
               - id: Speech-Synthesis-Layer2Rendering-EllipsisPause
                 title: >-
-                  The default Layer 2 rendering strategy shall render a longer, chunk-boundary
-                  -triggered pause after a chunk whose text ends in a genuine ellipsis, distinct
-                  from the tag-triggered short/long pause durations, while every other chunk
-                  boundary continues to add zero silence.
+                  The default Layer 2 rendering strategy shall render a longer,
+                  chunk-boundary-triggered pause after a chunk whose text ends in a genuine
+                  ellipsis, distinct from the tag-triggered short/long pause durations, while
+                  every other chunk boundary continues to add zero silence.
                 justification: |
                   A genuine ellipsis (three or more consecutive '.' characters, with or without
                   interspersed whitespace) models a speaker naturally trailing off, which reads
@@ -331,7 +331,7 @@ sections:
                   The SentenceChunker class shall expose, per chunk via ChunkWithMetadata, whether
                   the chunk's final text ends in a genuine ellipsis (three or more consecutive '.'
                   characters, with or without interspersed whitespace), while Chunk continues to
-                  return only chunk text, unchanged for every existing caller.
+                  return only chunk text with an unchanged signature for every existing caller.
                 justification: |
                   A genuine ellipsis warrants a longer rendered pause than an ordinary
                   sentence-ending terminator to sound natural; exposing this as per-chunk metadata

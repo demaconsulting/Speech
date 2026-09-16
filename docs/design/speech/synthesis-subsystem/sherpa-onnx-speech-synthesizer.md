@@ -268,7 +268,9 @@ call can reasonably handle.
 **Data Model**: A stateless static class; `Chunk(text, maxLength)`/`ChunkWithMetadata(text,
 maxLength)` take no configuration beyond their two arguments. `ChunkWithMetadata` returns a
 `SentenceChunk` record struct per chunk (`Text`, `EndsWithEllipsis`); `Chunk` is a pure projection
-of `ChunkWithMetadata`'s chunk text, so every existing caller of `Chunk` is unaffected.
+of `ChunkWithMetadata`'s chunk text, so its signature and call pattern are unaffected - existing
+callers of `Chunk` still receive plain chunk text with no code changes required, though the
+chunk boundaries themselves now differ (see the `synthesis-subsystem.md` design document).
 
 **Key Methods**:
 

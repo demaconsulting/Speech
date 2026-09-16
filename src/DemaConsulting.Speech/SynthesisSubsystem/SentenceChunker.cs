@@ -13,15 +13,18 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     is then <em>always</em> split further on clause punctuation (<c>,</c>, <c>;</c>, <c>:</c>),
 ///     unconditionally - not only when the piece exceeds the length budget - so every clause
 ///     becomes its own chunk, which keeps the audible gap at a clause boundary short and
-///     predictable regardless of overall sentence length. A piece still too long after both
-///     punctuation passes is split further on whitespace boundaries so no chunk exceeds the
-///     budget by more than one word. Finally, a piece produced by either punctuation pass whose
-///     trimmed text contains no letter or digit at all (i.e. it is nothing but punctuation and/or
-///     whitespace, such as a lone comma or a whitespace-spaced run of dots) is never emitted as
-///     its own chunk: its punctuation is instead appended to the immediately preceding non-empty
-///     chunk, or dropped entirely if there is no preceding chunk (a degenerate run at the very
-///     start of the text). This is a best-effort UX quality heuristic, not a correctness
-///     requirement: an oversized or undersized chunk still synthesizes and plays correctly.
+///     predictable regardless of overall sentence length. A punctuation character flanked by a
+///     digit on both sides (e.g. the <c>:</c> in <c>"12:30"</c> or the <c>,</c> in <c>"1,000"</c>)
+///     is never treated as a boundary at either pass, so numerals, times, and similar digit
+///     groups are never split apart. A piece still too long after both punctuation passes is
+///     split further on whitespace boundaries so no chunk exceeds the budget by more than one
+///     word. Finally, a piece produced by either punctuation pass whose trimmed text contains no
+///     letter or digit at all (i.e. it is nothing but punctuation and/or whitespace, such as a
+///     lone comma or a whitespace-spaced run of dots) is never emitted as its own chunk: its
+///     punctuation is instead appended to the immediately preceding non-empty chunk, or dropped
+///     entirely if there is no preceding chunk (a degenerate run at the very start of the text).
+///     This is a best-effort UX quality heuristic, not a correctness requirement: an oversized or
+///     undersized chunk still synthesizes and plays correctly.
 /// </remarks>
 internal static class SentenceChunker
 {
@@ -51,8 +54,11 @@ internal static class SentenceChunker
     /// </param>
     /// <returns>
     ///     An ordered, read-only list of non-empty, trimmed chunks that reconstruct
-    ///     <paramref name="text"/>'s words and punctuation in order. Empty when
-    ///     <paramref name="text"/> is empty or all whitespace.
+    ///     <paramref name="text"/>'s words and punctuation in order, except a degenerate,
+    ///     word-less punctuation run at the very start of the text (e.g. a stray leading comma),
+    ///     which is dropped rather than emitted as its own chunk - see
+    ///     <see cref="MergeDegeneratePunctuationPieces"/>. Empty when <paramref name="text"/> is
+    ///     empty or all whitespace.
     /// </returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException">
@@ -74,8 +80,11 @@ internal static class SentenceChunker
     /// </param>
     /// <returns>
     ///     An ordered, read-only list of non-empty, trimmed chunks with ellipsis metadata, that
-    ///     reconstruct <paramref name="text"/>'s words and punctuation in order. Empty when
-    ///     <paramref name="text"/> is empty or all whitespace.
+    ///     reconstruct <paramref name="text"/>'s words and punctuation in order, except a
+    ///     degenerate, word-less punctuation run at the very start of the text (e.g. a stray
+    ///     leading comma), which is dropped rather than emitted as its own chunk - see
+    ///     <see cref="MergeDegeneratePunctuationPieces"/>. Empty when <paramref name="text"/> is
+    ///     empty or all whitespace.
     /// </returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException">
@@ -209,6 +218,15 @@ internal static class SentenceChunker
                 continue;
             }
 
+            // A boundary character flanked by digits on both sides (e.g. the ":" in "12:30" or
+            // the "," in "1,000") is part of a numeral, not a clause/sentence boundary - leave it
+            // attached to its surrounding digits rather than splitting.
+            if (IsDigitFlanked(text, i))
+            {
+                i++;
+                continue;
+            }
+
             // Extend over a maximal run of consecutive boundary characters when requested, so
             // e.g. an ellipsis ("...") or a mixed terminator ("?!") splits once, not repeatedly.
             var end = i;
@@ -238,6 +256,18 @@ internal static class SentenceChunker
 
         return pieces;
     }
+
+    /// <summary>
+    ///     Determines whether the character at <paramref name="index"/> has a digit both
+    ///     immediately before and immediately after it, meaning it is embedded inside a numeral
+    ///     (e.g. the <c>:</c> in <c>"12:30"</c> or the <c>,</c> in <c>"1,000"</c>) rather than
+    ///     acting as a clause/sentence separator.
+    /// </summary>
+    /// <param name="text">The text being scanned.</param>
+    /// <param name="index">The index of the boundary character to check.</param>
+    /// <returns><see langword="true"/> when both neighboring characters are digits.</returns>
+    private static bool IsDigitFlanked(string text, int index) =>
+        index > 0 && index + 1 < text.Length && char.IsDigit(text[index - 1]) && char.IsDigit(text[index + 1]);
 
     /// <summary>
     ///     Splits text on whitespace boundaries so that no returned piece exceeds

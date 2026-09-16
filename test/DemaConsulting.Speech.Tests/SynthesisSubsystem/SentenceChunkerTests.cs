@@ -213,11 +213,15 @@ public class SentenceChunkerTests
 
     /// <summary>
     ///     Proves that a semicolon and a colon inside short sentences, well under the length
-    ///     budget, also unconditionally split, same as a comma.
+    ///     budget, also unconditionally split, same as a comma - including a comma or colon that
+    ///     sits right next to a numeral but is flanked by a digit on only one side (not part of
+    ///     the numeral itself, so it still splits normally).
     /// </summary>
     [Theory]
     [InlineData("Wait; then go.", "Wait;", "then go.")]
     [InlineData("Note: it works.", "Note:", "it works.")]
+    [InlineData("I have 5, but need more.", "I have 5,", "but need more.")]
+    [InlineData("Section 3: the results.", "Section 3:", "the results.")]
     public void SentenceChunker_Chunk_ShortSentenceWithSemicolonOrColon_SplitsEvenUnderBudget(
         string text, string expectedFirst, string expectedSecond)
     {
@@ -226,6 +230,25 @@ public class SentenceChunkerTests
 
         // Assert
         Assert.Equal([expectedFirst, expectedSecond], chunks);
+    }
+
+    /// <summary>
+    ///     Proves that clause punctuation embedded inside a numeral (a colon in a time, a comma
+    ///     as a thousands separator) is never treated as a clause boundary, so times and large
+    ///     numbers stay in one chunk rather than being split mid-numeral.
+    /// </summary>
+    [Theory]
+    [InlineData("The time is 12:30.", "The time is 12:30.")]
+    [InlineData("It costs 1,000 dollars.", "It costs 1,000 dollars.")]
+    [InlineData("The code is 12:30:45.", "The code is 12:30:45.")]
+    public void SentenceChunker_Chunk_ClausePunctuationEmbeddedInNumeral_StaysAttached(
+        string text, string expectedChunk)
+    {
+        // Act
+        var chunks = SentenceChunker.Chunk(text);
+
+        // Assert
+        Assert.Equal([expectedChunk], chunks);
     }
 
     /// <summary>

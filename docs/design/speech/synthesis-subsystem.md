@@ -128,9 +128,8 @@ path above, and every other chunk boundary still adds zero silence.
 `SentenceChunker.Chunk(text, maxLength)` (and its metadata-carrying sibling
 `ChunkWithMetadata(text, maxLength)`, see below) splits primary sentence-ending punctuation first,
 then **unconditionally** splits every resulting sentence-level piece further on secondary clause
-punctuation (commas, semicolons, colons) - not only when a piece is still over the length budget
-
-- so every clause becomes its own chunk regardless of overall sentence length. This keeps the
+punctuation (commas, semicolons, colons) - not only when a piece is still over the length budget -
+so every clause becomes its own chunk regardless of overall sentence length. This keeps the
 audible gap at a clause boundary short and predictable even for a long, multi-clause sentence,
 directly addressing reports of audible playback delay around sentence/clause boundaries during
 long dictated text-to-speech playback. Only after that does a piece still over `maxLength` fall
@@ -161,7 +160,9 @@ genuine ellipsis - three or more consecutive `.` characters, with or without int
 whitespace, found by scanning backward from the end of the chunk's text, skipping whitespace. This
 metadata (`SentenceChunk.EndsWithEllipsis`) feeds `DefaultModelCapabilityProfile.Render`'s
 ellipsis-triggered pause, described below; `Chunk` itself is a pure projection of
-`ChunkWithMetadata`'s chunk text, so every existing caller's plain chunk-text output is unchanged.
+`ChunkWithMetadata`'s chunk text, so its signature and return shape are unchanged - though the
+actual chunk boundaries it now produces differ from before this change, since clause punctuation
+is now always split.
 
 `SherpaOnnxSpeechSynthesizer`'s chunked, pipelined design mirrors
 `SherpaOnnxSpeechRecognizer`'s threading pattern but runs it in the synthesis direction. A

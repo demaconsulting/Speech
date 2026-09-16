@@ -547,17 +547,20 @@ public class SherpaOnnxSpeechSynthesizerTests
     }
 
     /// <summary>
-    ///     Proves that a long, multi-sentence input (well beyond the pending-segment channel's
-    ///     capacity of 8) still produces every segment, in the exact order the sentences appear in
-    ///     the source text, and that <see cref="ISynthesisEngine.Generate"/> is never called
-    ///     concurrently with itself - the pipeline must remain strictly sequential even when the
-    ///     look-ahead buffer lets synthesis run several chunks ahead of playback.
+    ///     Proves that a long, multi-sentence input still produces every segment, in the exact
+    ///     order the sentences appear in the source text, and that
+    ///     <see cref="ISynthesisEngine.Generate"/> is never called concurrently with itself - the
+    ///     pipeline must remain strictly sequential regardless of how many chunks the input
+    ///     produces. This test's consumer (<see cref="CollectAsync"/>) drains the stream as fast
+    ///     as segments are produced, so it does not exercise or distinguish the pending-segment
+    ///     channel's specific capacity (currently 8); it verifies ordering and single-threaded
+    ///     production hold at a scale well beyond a single chunk.
     /// </summary>
     [Fact]
     public async Task SynthesizeStreamAsync_LongMultiSentenceInput_ProducesOrderedSegmentsSequentially()
     {
-        // Arrange: 12 short, uniquely numbered sentences - more than the 8-segment look-ahead
-        // buffer, so the producer must genuinely block/refill rather than buffering everything.
+        // Arrange: 12 short, uniquely numbered sentences, so ordering across many chunks can be
+        // cross-checked against the source text.
         const int sentenceCount = 12;
         var sentences = Enumerable.Range(1, sentenceCount).Select(i => $"Sentence number {i}.");
         var text = string.Join(" ", sentences);
