@@ -47,8 +47,34 @@ internal sealed class SherpaOnnxSpeechSynthesizer : ISpeechSynthesizer
     ///     purely a buffer-size tuning change: it does not reduce the latency before the very
     ///     first word is spoken, which remains bounded by however long the first chunk alone
     ///     takes to synthesize.
+    ///     <para>
+    ///     Raised again from <c>5</c> to <c>8</c> once <see cref="SentenceChunker"/> started
+    ///     splitting clause punctuation (<c>,</c>/<c>;</c>/<c>:</c>) unconditionally rather than
+    ///     only past its length budget: a typical multi-clause sentence now yields roughly 1.5-2x
+    ///     as many, smaller chunks as before, so the same segment <em>count</em> now covers
+    ///     noticeably less audio duration than it used to, eroding the anti-starvation margin the
+    ///     <c>2</c>-to-<c>5</c> increase above was intended to provide. <c>8</c> restores an
+    ///     equivalent real-time look-ahead margin at the new, smaller average chunk size, while
+    ///     remaining a small, bounded constant fully within this field's "cap look-ahead memory"
+    ///     design intent.
+    ///     </para>
+    ///     <para>
+    ///     Bounded look-ahead <em>concurrency</em> (i.e. calling <see cref="ISynthesisEngine.Generate"/>
+    ///     for more than one segment at a time) was investigated and deliberately rejected, not
+    ///     implemented: <see cref="ISynthesisEngine"/>'s own remarks state that implementations
+    ///     are not thread-safe with respect to concurrent calls, and
+    ///     <c>SherpaOnnxSpeechSynthesizerTests.SynthesizeStreamAsync_LongMultiSentenceInput_ProducesOrderedSegmentsSequentially</c>
+    ///     already asserts <c>engine.MaxConcurrentGenerateCalls == 1</c> as a regression guard
+    ///     that real parallel <see cref="ISynthesisEngine.Generate"/> calls would immediately
+    ///     break. <see cref="ProduceAsync"/> already starts the next segment's
+    ///     <see cref="ISynthesisEngine.Generate"/> call immediately once the previous segment's
+    ///     channel write completes (which itself only blocks once this capacity is exhausted), so
+    ///     the "synthesize the next chunk while an earlier one plays" pipelining this capacity
+    ///     exists for is already achieved without any concurrent engine calls; only the buffer
+    ///     size above was tuned to compensate for smaller chunks, not the concurrency model.
+    ///     </para>
     /// </summary>
-    private const int PendingSegmentCapacity = 5;
+    private const int PendingSegmentCapacity = 8;
 
     /// <summary>The diagnostics category used for every event this synthesizer reports.</summary>
     private const string DiagnosticsCategory = "SynthesisSubsystem";

@@ -9,25 +9,36 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     run of consecutive sentence-ending characters (in any combination, e.g. an ellipsis
 ///     <c>...</c>, or mixed terminators such as <c>?!</c> or <c>!!</c>) is treated as a single
 ///     boundary: the split happens only once, after the last character of the run, and the whole
-///     run stays attached to the sentence that precedes it. A chunk that is still longer than the
-///     length budget after that pass is split further on clause punctuation (<c>,</c>, <c>;</c>,
-///     <c>:</c>), where each occurrence still splits individually; a chunk still too long after
-///     both passes is split on whitespace boundaries so no chunk exceeds the budget by more than
-///     one word. This is a best-effort UX quality heuristic, not a correctness requirement: an
-///     oversized or undersized chunk still synthesizes and plays correctly.
+///     run stays attached to the sentence that precedes it. Every resulting sentence-level piece
+///     is then <em>always</em> split further on clause punctuation (<c>,</c>, <c>;</c>, <c>:</c>),
+///     unconditionally - not only when the piece exceeds the length budget - so every clause
+///     becomes its own chunk, which keeps the audible gap at a clause boundary short and
+///     predictable regardless of overall sentence length. A piece still too long after both
+///     punctuation passes is split further on whitespace boundaries so no chunk exceeds the
+///     budget by more than one word. Finally, a piece produced by either punctuation pass whose
+///     trimmed text contains no letter or digit at all (i.e. it is nothing but punctuation and/or
+///     whitespace, such as a lone comma or a whitespace-spaced run of dots) is never emitted as
+///     its own chunk: its punctuation is instead appended to the immediately preceding non-empty
+///     chunk, or dropped entirely if there is no preceding chunk (a degenerate run at the very
+///     start of the text). This is a best-effort UX quality heuristic, not a correctness
+///     requirement: an oversized or undersized chunk still synthesizes and plays correctly.
 /// </remarks>
 internal static class SentenceChunker
 {
     /// <summary>
-    ///     The default maximum number of characters a chunk should contain before the secondary
-    ///     clause-boundary split is attempted.
+    ///     The default maximum number of characters a chunk should contain before the
+    ///     whitespace-budget fallback split is attempted.
     /// </summary>
     internal const int DefaultMaxChunkLength = 200;
 
     /// <summary>Primary, sentence-ending split boundaries.</summary>
     private static readonly char[] PrimaryBoundaries = ['.', '!', '?'];
 
-    /// <summary>Secondary, clause-level split boundaries, used only past the length budget.</summary>
+    /// <summary>
+    ///     Secondary, clause-level split boundaries. Unlike <see cref="PrimaryBoundaries"/>,
+    ///     these are applied unconditionally to every primary piece, regardless of the length
+    ///     budget, so every clause becomes its own chunk.
+    /// </summary>
     private static readonly char[] SecondaryBoundaries = [',', ';', ':'];
 
     /// <summary>
@@ -35,8 +46,8 @@ internal static class SentenceChunker
     /// </summary>
     /// <param name="text">The plain text to chunk. Must not be <see langword="null"/>.</param>
     /// <param name="maxChunkLength">
-    ///     The length budget, in characters, past which a chunk is split further. Must be greater
-    ///     than zero. Defaults to <see cref="DefaultMaxChunkLength"/>.
+    ///     The length budget, in characters, past which a chunk is split further on whitespace.
+    ///     Must be greater than zero. Defaults to <see cref="DefaultMaxChunkLength"/>.
     /// </param>
     /// <returns>
     ///     An ordered, read-only list of non-empty, trimmed chunks that reconstruct
@@ -47,7 +58,30 @@ internal static class SentenceChunker
     /// <exception cref="ArgumentOutOfRangeException">
     ///     Thrown when <paramref name="maxChunkLength"/> is less than or equal to zero.
     /// </exception>
-    internal static IReadOnlyList<string> Chunk(string text, int maxChunkLength = DefaultMaxChunkLength)
+    internal static IReadOnlyList<string> Chunk(string text, int maxChunkLength = DefaultMaxChunkLength) =>
+        ChunkWithMetadata(text, maxChunkLength).Select(chunk => chunk.Text).ToArray();
+
+    /// <summary>
+    ///     Splits <paramref name="text"/> into an ordered list of sentence/clause-sized chunks,
+    ///     same as <see cref="Chunk"/>, but additionally reports whether each chunk ends in a
+    ///     genuine ellipsis (see <see cref="SentenceChunk.EndsWithEllipsis"/>), so a caller can
+    ///     render a longer pause there.
+    /// </summary>
+    /// <param name="text">The plain text to chunk. Must not be <see langword="null"/>.</param>
+    /// <param name="maxChunkLength">
+    ///     The length budget, in characters, past which a chunk is split further on whitespace.
+    ///     Must be greater than zero. Defaults to <see cref="DefaultMaxChunkLength"/>.
+    /// </param>
+    /// <returns>
+    ///     An ordered, read-only list of non-empty, trimmed chunks with ellipsis metadata, that
+    ///     reconstruct <paramref name="text"/>'s words and punctuation in order. Empty when
+    ///     <paramref name="text"/> is empty or all whitespace.
+    /// </returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    ///     Thrown when <paramref name="maxChunkLength"/> is less than or equal to zero.
+    /// </exception>
+    internal static IReadOnlyList<SentenceChunk> ChunkWithMetadata(string text, int maxChunkLength = DefaultMaxChunkLength)
     {
         ArgumentNullException.ThrowIfNull(text);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(maxChunkLength, 0);
@@ -58,28 +92,93 @@ internal static class SentenceChunker
             return [];
         }
 
-        var chunks = new List<string>();
+        var pieces = new List<string>();
         foreach (var primaryPiece in SplitOnBoundaries(trimmed, PrimaryBoundaries, mergeConsecutive: true))
         {
-            if (primaryPiece.Length <= maxChunkLength)
-            {
-                chunks.Add(primaryPiece);
-                continue;
-            }
-
             foreach (var secondaryPiece in SplitOnBoundaries(primaryPiece, SecondaryBoundaries))
             {
                 if (secondaryPiece.Length <= maxChunkLength)
                 {
-                    chunks.Add(secondaryPiece);
+                    pieces.Add(secondaryPiece);
                     continue;
                 }
 
-                chunks.AddRange(SplitOnWhitespaceBudget(secondaryPiece, maxChunkLength));
+                pieces.AddRange(SplitOnWhitespaceBudget(secondaryPiece, maxChunkLength));
             }
         }
 
-        return chunks;
+        var merged = MergeDegeneratePunctuationPieces(pieces);
+        return merged.Select(piece => new SentenceChunk(piece, EndsWithEllipsis(piece))).ToArray();
+    }
+
+    /// <summary>
+    ///     Merges every piece whose trimmed text contains no letter or digit character at all
+    ///     (just punctuation and/or whitespace, e.g. a lone comma or a whitespace-spaced run of
+    ///     dots) onto the end of the immediately preceding non-empty piece, joined by a single
+    ///     space; drops such a piece entirely when there is no preceding piece to merge into (a
+    ///     degenerate run at the very start of the text).
+    /// </summary>
+    /// <param name="pieces">The ordered, already-split, non-empty pieces to merge.</param>
+    /// <returns>An ordered list of pieces with no degenerate, word-less entries.</returns>
+    private static List<string> MergeDegeneratePunctuationPieces(IReadOnlyList<string> pieces)
+    {
+        var merged = new List<string>();
+        foreach (var piece in pieces)
+        {
+            if (HasWordContent(piece))
+            {
+                merged.Add(piece);
+                continue;
+            }
+
+            if (merged.Count > 0)
+            {
+                merged[^1] = $"{merged[^1]} {piece}";
+            }
+
+            // No preceding piece to merge into: a leading degenerate run is dropped.
+        }
+
+        return merged;
+    }
+
+    /// <summary>
+    ///     Determines whether <paramref name="text"/> contains at least one letter or digit
+    ///     character, i.e. is not purely punctuation and/or whitespace.
+    /// </summary>
+    /// <param name="text">The text to inspect.</param>
+    /// <returns><see langword="true"/> when at least one letter or digit is present.</returns>
+    private static bool HasWordContent(string text) => text.Any(char.IsLetterOrDigit);
+
+    /// <summary>
+    ///     Determines whether <paramref name="text"/> ends in a genuine ellipsis: three or more
+    ///     consecutive <c>.</c> characters, optionally interspersed with whitespace (so both
+    ///     <c>"..."</c> and <c>". . ."</c>/<c>". . . . ."</c> count), found by scanning backward
+    ///     from the end of the text.
+    /// </summary>
+    /// <param name="text">The final, already-merged chunk text to inspect.</param>
+    /// <returns><see langword="true"/> when the chunk ends in a genuine ellipsis.</returns>
+    private static bool EndsWithEllipsis(string text)
+    {
+        var dotCount = 0;
+        for (var i = text.Length - 1; i >= 0; i--)
+        {
+            var c = text[i];
+            if (c == '.')
+            {
+                dotCount++;
+                continue;
+            }
+
+            if (char.IsWhiteSpace(c))
+            {
+                continue;
+            }
+
+            break;
+        }
+
+        return dotCount >= 3;
     }
 
     /// <summary>
@@ -178,3 +277,16 @@ internal static class SentenceChunker
         return pieces;
     }
 }
+
+/// <summary>
+///     One chunk produced by <see cref="SentenceChunker.ChunkWithMetadata"/>: its text, plus
+///     whether it ends in a genuine ellipsis so a caller can render a longer pause there.
+/// </summary>
+/// <param name="Text">The chunk's non-empty, trimmed text.</param>
+/// <param name="EndsWithEllipsis">
+///     <see langword="true"/> when <paramref name="Text"/> ends in a genuine ellipsis - three or
+///     more consecutive <c>.</c> characters, with or without interspersed whitespace (e.g.
+///     <c>"..."</c> or <c>". . ."</c>) - which should render a longer pause than an ordinary
+///     sentence-ending <c>.</c>/<c>!</c>/<c>?</c>.
+/// </param>
+internal readonly record struct SentenceChunk(string Text, bool EndsWithEllipsis);

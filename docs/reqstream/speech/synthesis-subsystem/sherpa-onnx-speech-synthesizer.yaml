@@ -231,23 +231,46 @@ sections:
                   - DefaultModelCapabilityProfile_Render_PlainTextOnly_RendersChunkedSegments
                   - DefaultModelCapabilityProfile_Render_NullArguments_ThrowsArgumentNullException
 
+              - id: Speech-Synthesis-Layer2Rendering-EllipsisPause
+                title: >-
+                  The default Layer 2 rendering strategy shall render a longer, chunk-boundary
+                  -triggered pause after a chunk whose text ends in a genuine ellipsis, distinct
+                  from the tag-triggered short/long pause durations, while every other chunk
+                  boundary continues to add zero silence.
+                justification: |
+                  A genuine ellipsis (three or more consecutive '.' characters, with or without
+                  interspersed whitespace) models a speaker naturally trailing off, which reads
+                  unnaturally abrupt if followed immediately by the next chunk with no added
+                  silence; this pause is driven purely by the shape of the already-chunked text,
+                  not by an explicit [pause]/[long-pause] tag, so it is a separate mechanism from
+                  - and does not reuse - the tag-triggered pause durations.
+                tests:
+                  - DefaultModelCapabilityProfile_Render_ChunkEndingInEllipsis_SetsLongerPostSilenceThanOrdinarySentenceEnd
+                  - DefaultModelCapabilityProfile_Render_ChunkEndingInSpacedEllipsis_AlsoSetsEllipsisPostSilence
+
           - title: SentenceChunker Requirements
             requirements:
               - id: Speech-Synthesis-SentenceChunker-BoundarySplitting
                 title: >-
                   The SentenceChunker class shall split text on primary sentence boundaries first,
-                  falling back to secondary clause boundaries and then a whitespace budget only
-                  when a segment still exceeds the configured maximum chunk length.
+                  then unconditionally split every resulting sentence-level piece further on
+                  secondary clause boundaries regardless of length, falling back to a whitespace
+                  budget only when a piece still exceeds the configured maximum chunk length.
                 justification: |
-                  Splitting on the coarsest natural boundary that still fits the configured budget
-                  keeps each chunk as large - and therefore as natural-sounding - as possible while
-                  guaranteeing no chunk exceeds the length a model or pipeline stage can handle in
-                  one synthesis call.
+                  Gating clause-level splitting behind the length budget let a long, multi-clause
+                  sentence remain a single chunk until pipelined playback caught up to it, causing
+                  an audible playback delay at the sentence boundary; splitting every clause
+                  unconditionally keeps the audible gap at a clause boundary short and predictable
+                  regardless of overall sentence length, while the whitespace-budget fallback still
+                  guarantees no chunk exceeds the length a model or pipeline stage can handle in one
+                  synthesis call.
                 tests:
                   - SentenceChunker_Chunk_ShortSingleSentence_ReturnsOneChunk
                   - SentenceChunker_Chunk_MultipleSentences_SplitsOnPrimaryBoundaries
                   - SentenceChunker_Chunk_LongSentenceWithClauses_SplitsOnSecondaryBoundaries
                   - SentenceChunker_Chunk_LongClauseWithNoPunctuation_SplitsOnWhitespaceBudget
+                  - SentenceChunker_Chunk_ShortSentenceWithComma_SplitsOnCommaEvenUnderBudget
+                  - SentenceChunker_Chunk_ShortSentenceWithSemicolonOrColon_SplitsEvenUnderBudget
 
               - id: Speech-Synthesis-SentenceChunker-BoundaryHandling
                 title: >-
@@ -284,6 +307,43 @@ sections:
                   - SentenceChunker_Chunk_RepeatedExclamations_StaysAttachedAsSingleChunk
                   - SentenceChunker_Chunk_SingleTerminators_NoRegression
                   - SentenceChunker_Chunk_TrailingEllipsis_NoDegenerateTrailingChunk
+
+              - id: Speech-Synthesis-SentenceChunker-DegeneratePunctuationMerging
+                title: >-
+                  The SentenceChunker class shall never emit a chunk whose trimmed text contains
+                  no letter or digit character at all, instead merging such a piece's text onto
+                  the immediately preceding non-empty chunk, or dropping it if there is no
+                  preceding chunk, uniformly for both primary and secondary boundary punctuation.
+                justification: |
+                  A piece that is nothing but punctuation and/or whitespace - for example a lone
+                  comma or a whitespace-spaced run of dots such as ". . . . ." - is not a
+                  meaningful unit of speech on its own; synthesizing it as its own chunk produces
+                  audible glitches/artifacts and unnecessary chunk-boundary gaps. Merging its
+                  punctuation onto the preceding chunk (or dropping it when nothing precedes it)
+                  preserves the punctuation's cue while eliminating the degenerate chunk.
+                tests:
+                  - SentenceChunker_Chunk_SpacedPunctuationRun_MergesIntoPrecedingChunk
+                  - SentenceChunker_Chunk_LoneSecondaryBoundaryWithNoWordContent_MergesIntoPrecedingChunk
+                  - SentenceChunker_Chunk_LeadingDegenerateRun_IsDropped
+
+              - id: Speech-Synthesis-SentenceChunker-EllipsisMetadata
+                title: >-
+                  The SentenceChunker class shall expose, per chunk via ChunkWithMetadata, whether
+                  the chunk's final text ends in a genuine ellipsis (three or more consecutive '.'
+                  characters, with or without interspersed whitespace), while Chunk continues to
+                  return only chunk text, unchanged for every existing caller.
+                justification: |
+                  A genuine ellipsis warrants a longer rendered pause than an ordinary
+                  sentence-ending terminator to sound natural; exposing this as per-chunk metadata
+                  lets a Layer 2 rendering strategy render that longer pause without SentenceChunker
+                  itself taking on any audio-rendering responsibility, and keeping Chunk a pure
+                  projection of ChunkWithMetadata's text guarantees no existing caller's output
+                  changes.
+                tests:
+                  - SentenceChunker_ChunkWithMetadata_TrailingAdjacentEllipsis_EndsWithEllipsisIsTrue
+                  - SentenceChunker_ChunkWithMetadata_TrailingSpacedEllipsis_EndsWithEllipsisIsTrue
+                  - SentenceChunker_ChunkWithMetadata_FewerThanThreeDots_EndsWithEllipsisIsFalse
+                  - SentenceChunker_Chunk_AndChunkWithMetadata_ProduceSameChunkText
 
           - title: PlaybackAudioResampler Requirements
             requirements:

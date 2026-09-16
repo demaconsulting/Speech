@@ -330,8 +330,8 @@ public class SherpaOnnxSpeechSynthesizerTests
     [Fact(Timeout = 5000)]
     public async Task SynthesizeStreamAsync_EnumerationAbandonedWithoutCancellation_DisposesPromptlyInsteadOfHanging()
     {
-        // Arrange: enough sentences to exceed the producer's bounded look-ahead capacity, so the
-        // producer is still blocked mid-stream, waiting for channel space that will never free up,
+        // Arrange: enough sentences to exceed the producer's bounded look-ahead capacity of 8, so
+        // the producer is still blocked mid-stream, waiting for channel space that will never free up,
         // by the time enumeration is abandoned below.
         var manySentences = string.Concat(Enumerable.Range(1, 12).Select(i => $"Sentence number {i}. "));
         var engine = new FakeSynthesisEngine();
@@ -548,7 +548,7 @@ public class SherpaOnnxSpeechSynthesizerTests
 
     /// <summary>
     ///     Proves that a long, multi-sentence input (well beyond the pending-segment channel's
-    ///     capacity of 5) still produces every segment, in the exact order the sentences appear in
+    ///     capacity of 8) still produces every segment, in the exact order the sentences appear in
     ///     the source text, and that <see cref="ISynthesisEngine.Generate"/> is never called
     ///     concurrently with itself - the pipeline must remain strictly sequential even when the
     ///     look-ahead buffer lets synthesis run several chunks ahead of playback.
@@ -556,7 +556,7 @@ public class SherpaOnnxSpeechSynthesizerTests
     [Fact]
     public async Task SynthesizeStreamAsync_LongMultiSentenceInput_ProducesOrderedSegmentsSequentially()
     {
-        // Arrange: 12 short, uniquely numbered sentences - more than the 5-segment look-ahead
+        // Arrange: 12 short, uniquely numbered sentences - more than the 8-segment look-ahead
         // buffer, so the producer must genuinely block/refill rather than buffering everything.
         const int sentenceCount = 12;
         var sentences = Enumerable.Range(1, sentenceCount).Select(i => $"Sentence number {i}.");
