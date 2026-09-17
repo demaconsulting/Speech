@@ -17,20 +17,30 @@ optional `parameterValues` bag (the session's selected voice/tunable-parameter v
 unchanged from `SpeechSynthesizerFactory.Create`), and a diagnostics sink. While a session is in
 flight it also holds a `CancellationTokenSource` linked to the caller's token (guarded by a lock,
 so `Stop()` can cancel it safely from another thread) and, per `SynthesizeStreamAsync` call, a
-bounded `Channel<SynthesizedSpeech>` of capacity 5 together with the background producer `Task`
+bounded `Channel<SynthesizedSpeech>` of capacity 8 together with the background producer `Task`
 filling it. `IsAvailable` is always `true`, because this type is only ever created after the
 engine loaded and the device reported itself available - every unavailable case is represented by
 `UnavailableSpeechSynthesizer` instead.
 
-The pending-segment channel holds at most 5 synthesized segments (raised from an original 2 to
-smooth pacing over long multi-sentence text, since 2 could let playback catch up to and stall on
-a still-synthesizing segment whenever one chunk took noticeably longer than its predecessor took
-to play) and uses `BoundedChannelFullMode.Wait`: unlike the recognition-direction capture queue,
+The pending-segment channel holds at most 8 synthesized segments (raised from an original 2 to 5
+to smooth pacing over long multi-sentence text, since 2 could let playback catch up to and stall
+on a still-synthesizing segment whenever one chunk took noticeably longer than its predecessor
+took to play; raised again from 5 to 8 once `SentenceChunker` started splitting clause
+punctuation unconditionally, since a typical multi-clause sentence now yields roughly 1.5-2x as
+many, smaller chunks, eroding the anti-starvation margin the 2-to-5 increase provided) and uses
+`BoundedChannelFullMode.Wait`: unlike the recognition-direction capture queue,
 which can drop the oldest live audio, a segment here has already cost real inference time and
 must never be silently discarded, so the producer simply waits for the consumer (playback) to
 catch up. This is purely a buffer-size tuning change: it does not reduce the latency before the
 very first word is spoken, which remains bounded by however long the first chunk alone takes to
-synthesize.
+synthesize. Bounded look-ahead *concurrency* (calling the engine for more than one segment at a
+time) was investigated and deliberately rejected rather than implemented: `ISynthesisEngine`'s own
+contract states implementations are not thread-safe with respect to concurrent calls, and a
+regression test (`SherpaOnnxSpeechSynthesizerTests.SynthesizeStreamAsync_LongMultiSentenceInput_ProducesOrderedSegmentsSequentially`)
+already asserts the engine is never called concurrently; the producer already starts the next
+segment's synthesis immediately once the previous segment's channel write completes, so the
+"pipeline synthesis with playback" goal this capacity exists for is already achieved without any
+concurrent engine calls.
 
 `DrainPollInterval` (15ms) and `DrainTailMargin` (40ms) are fixed constants governing
 `WaitForPlaybackDrainAsync`'s post-loop wait in `PlayStreamAsync` (see below): short enough that
@@ -196,7 +206,7 @@ native runtime for the current platform is absent or the model files are unusabl
 is what `SpeechSynthesizerFactory` converts into the honest unavailable fallback. Operational
 members throw `ObjectDisposedException` after disposal.
 
-**Dependencies**: The sherpa-onnx managed API (see _SherpaOnnx Design_); `ISynthesisModel` from
+**Dependencies**: The sherpa-onnx managed API (see *SherpaOnnx Design*); `ISynthesisModel` from
 the ModelManagementSubsystem.
 
 **Callers**: `SpeechSynthesizerFactory` constructs the factory; the factory constructs the
@@ -231,8 +241,11 @@ default, generically-correct behavior.
   `ParameterMapped`, consults `SpeechParameterConventions` for a matching numeric parameter on
   `model.Parameters` and attaches it as an override on the surrounding segment when one exists,
   otherwise strips the tag. If `None`, strips every non-pause tag. For each
-  `TaggedTextSpanKind.PlainText` span, delegates to `SentenceChunker.Chunk(...)` and emits one
-  `SpeechSegment` per resulting chunk.
+  `TaggedTextSpanKind.PlainText` span, delegates to `SentenceChunker.ChunkWithMetadata(...)` and
+  emits one `SpeechSegment` per resulting chunk, setting that segment's `PostSilenceMs` to a new
+  `EllipsisPauseMilliseconds` constant (500ms) when the chunk's `EndsWithEllipsis` flag is set,
+  or `0` otherwise - a chunk-boundary-triggered pause distinct from, and never reusing, the
+  tag-triggered short/long pause durations above.
 
 **Error Handling**: Rejects a null `spans` or `model` with `ArgumentNullException`. Every other
 input - any tag, any support level, any parameter set - is handled without throwing, per
@@ -252,16 +265,27 @@ ModelManagementSubsystem.
 pipelined synthesis has natural-sounding boundaries and no chunk exceeds a length a synthesis
 call can reasonably handle.
 
-**Data Model**: A stateless static class; `Chunk(text, maxLength)` takes no configuration beyond
-its two arguments.
+**Data Model**: A stateless static class; `Chunk(text, maxLength)`/`ChunkWithMetadata(text,
+maxLength)` take no configuration beyond their two arguments. `ChunkWithMetadata` returns a
+`SentenceChunk` record struct per chunk (`Text`, `EndsWithEllipsis`); `Chunk` is a pure projection
+of `ChunkWithMetadata`'s chunk text, so its signature and call pattern are unaffected - existing
+callers of `Chunk` still receive plain chunk text with no code changes required, though the
+chunk boundaries themselves now differ (see the `synthesis-subsystem.md` design document).
 
 **Key Methods**:
 
-- **Chunk(text, maxLength)**: Splits on primary sentence-ending punctuation (`.`, `!`, `?`)
-  first. A resulting piece still longer than `maxLength` is split further on secondary clause
-  punctuation (`,`, `;`, `:`). A piece still longer than `maxLength` with no punctuation at all is
-  split on a whitespace budget. A single word that alone exceeds `maxLength` is returned whole,
-  never split mid-word.
+- **Chunk(text, maxLength)** / **ChunkWithMetadata(text, maxLength)**: Splits on primary
+  sentence-ending punctuation (`.`, `!`, `?`) first, then **unconditionally** splits every
+  resulting piece further on secondary clause punctuation (`,`, `;`, `:`) - not only when the
+  piece is still over `maxLength` - so every clause becomes its own chunk. A piece still longer
+  than `maxLength` after both punctuation passes is split on a whitespace budget; a single word
+  that alone exceeds `maxLength` is returned whole, never split mid-word. Any resulting piece
+  whose trimmed text contains no letter or digit at all (just punctuation and/or whitespace, e.g.
+  a lone comma or a whitespace-spaced ellipsis like `". . ."`) is then merged onto the end of the
+  immediately preceding non-empty chunk (joined by a single space), or dropped if there is no
+  preceding chunk. `ChunkWithMetadata` additionally flags a chunk whose final text ends in three
+  or more consecutive `.` characters (with or without interspersed whitespace) as
+  `EndsWithEllipsis`.
 
 **Error Handling**: Rejects a non-positive `maxLength` with `ArgumentOutOfRangeException` and a
 null `text` with `ArgumentNullException`, since neither describes a meaningful chunking request.

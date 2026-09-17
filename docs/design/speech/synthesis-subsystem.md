@@ -118,32 +118,60 @@ model's declared support, per this library's explicit "pauses require no model c
 decision - no model text is spoken for a pause, so there is nothing for it to get wrong. Ordinary
 narration text between tags is split into `SpeechSegment`s by `SentenceChunker` so the resulting
 `SpeechPlan` already has chunk-sized boundaries lined up with natural speech units before the
-pipeline ever synthesizes anything.
+pipeline ever synthesizes anything. A plain-text chunk whose text ends in a genuine ellipsis (per
+`SentenceChunker`'s `ChunkWithMetadata`) additionally renders a longer, distinct
+`EllipsisPauseMilliseconds` pause (~500ms, between the tag-triggered short/long pause durations),
+modeling the natural, longer trailing-off pause a speaker takes at a genuine ellipsis; this is a
+chunk-boundary-triggered mechanism, independent from the explicit `[pause]`/`[long-pause]` tag
+path above, and every other chunk boundary still adds zero silence.
 
-`SentenceChunker.Chunk(text, maxLength)` splits on the coarsest natural boundary that still fits
-the budget: it tries primary sentence-ending punctuation first, falls back to secondary clause
-punctuation (commas, semicolons, colons) only for a sentence still over budget, and falls back
-further to a plain whitespace budget only for a clause with no punctuation at all. A single word
-that alone exceeds `maxLength` is still returned whole, never split mid-word, since a partial
-word cannot be synthesized intelligibly. Splitting on the coarsest boundary that fits keeps each
-chunk as large - and therefore as natural-sounding when read aloud - as the budget allows.
+`SentenceChunker.Chunk(text, maxLength)` (and its metadata-carrying sibling
+`ChunkWithMetadata(text, maxLength)`, see below) splits primary sentence-ending punctuation first,
+then **unconditionally** splits every resulting sentence-level piece further on secondary clause
+punctuation (commas, semicolons, colons) - not only when a piece is still over the length budget -
+so every clause becomes its own chunk regardless of overall sentence length. This keeps the
+audible gap at a clause boundary short and predictable even for a long, multi-clause sentence,
+directly addressing reports of audible playback delay around sentence/clause boundaries during
+long dictated text-to-speech playback. Only after that does a piece still over `maxLength` fall
+back further to a plain whitespace budget split. A single word that alone exceeds `maxLength` is
+still returned whole, never split mid-word, since a partial word cannot be synthesized
+intelligibly.
 
 The primary sentence-ending pass treats a maximal run of consecutive sentence-ending characters
 (any combination of `.`, `!`, `?` - e.g. an ellipsis `...`, or mixed terminators such as `?!` or
 `!!`) as a single boundary, splitting only once after the last character of the run rather than
-once per character. Without this, an ellipsis or repeated terminal punctuation would produce
-degenerate chunks that are just a single punctuation character with no other content, and
-synthesizing such a near-empty chunk produces audible glitches/artifacts regardless of which
-model is doing the synthesis. The whole run of punctuation stays attached to the sentence that
-precedes it, matching how a human naturally pauses once at an ellipsis rather than stopping
-three separate times. This merged-run handling applies only to the primary sentence-ending pass;
-the secondary clause-boundary pass still splits on every individual occurrence of `,`/`;`/`:`.
+once per character. The whole run of punctuation stays attached to the sentence that precedes it,
+matching how a human naturally pauses once at an ellipsis rather than stopping three separate
+times. This merged-run handling applies only to _immediately adjacent_ boundary characters; a
+whitespace-spaced punctuation run (e.g. `". . ."`, or a lone `,` surrounded by spaces) instead
+produces one or more separate, word-less pieces after both punctuation passes.
+
+Rather than emit those word-less pieces as their own degenerate chunks - which produced audible
+glitches/artifacts, since synthesizing a near-empty chunk of just punctuation is a poor unit of
+speech - `SentenceChunker` runs a final merge pass: any piece whose trimmed text contains no
+letter or digit character at all (checked with `char.IsLetterOrDigit`) has its text appended,
+joined by a single space, onto the immediately preceding non-empty chunk, or is dropped entirely
+if there is no preceding chunk (a degenerate run at the very start of the text). For example,
+`"Sentence one . . . . . Sentence two"` produces exactly two chunks,
+`"Sentence one . . . . ."` and `"Sentence two"`, not five near-empty punctuation chunks.
+
+`ChunkWithMetadata` additionally reports, per chunk, whether its final (merged) text ends in a
+genuine ellipsis - three or more consecutive `.` characters, with or without interspersed
+whitespace, found by scanning backward from the end of the chunk's text, skipping whitespace. This
+metadata (`SentenceChunk.EndsWithEllipsis`) feeds `DefaultModelCapabilityProfile.Render`'s
+ellipsis-triggered pause, described below; `Chunk` itself is a pure projection of
+`ChunkWithMetadata`'s chunk text, so its signature and return shape are unchanged - though the
+actual chunk boundaries it now produces differ from before this change, since clause punctuation
+is now always split.
 
 `SherpaOnnxSpeechSynthesizer`'s chunked, pipelined design mirrors
 `SherpaOnnxSpeechRecognizer`'s threading pattern but runs it in the synthesis direction. A
 producer task walks the `SpeechPlan` chunk by chunk, calling the engine to synthesize each
 `SpeechSegment` in turn and writing the resulting `SynthesizedSpeech` into a bounded
-`Channel<SynthesizedSpeech>` of capacity 5; the caller's own task drains that channel and plays
+`Channel<SynthesizedSpeech>` of capacity 8 (raised from an original 5 once `SentenceChunker`
+started splitting clause punctuation unconditionally, since a typical multi-clause sentence now
+yields roughly 1.5-2x as many, smaller chunks, so the same segment count now covers less audio
+duration than before); the caller's own task drains that channel and plays
 each segment as it arrives, so synthesis of a later chunk runs concurrently with playback of an
 earlier one. Unlike the recognition-direction channel, which uses `DropOldest` because live
 capture audio can tolerate drops, this channel uses `BoundedChannelFullMode.Wait`: synthesized

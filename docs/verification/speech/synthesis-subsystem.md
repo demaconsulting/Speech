@@ -53,8 +53,15 @@ A SynthesisSubsystem test run passes when:
   native support passes canonical bracket text through unchanged; parameter-mapped support maps
   the handful of tags with a numeric convention and strips every other tag; no support strips
   every non-pause tag; plain text is split into chunk-sized segments
-- `SentenceChunker.Chunk` splits on the coarsest boundary that still fits the configured budget,
-  never splits a single word, and rejects a non-positive budget or null text
+- `SentenceChunker.Chunk` splits on primary sentence-ending punctuation first, then
+  unconditionally splits every resulting sentence-level piece further on secondary clause
+  punctuation (commas, semicolons, colons) regardless of length, except where that punctuation
+  is flanked by a digit on both sides (a time such as `12:30` or a thousands separator such as
+  `1,000`); falls back to a whitespace-budget split only when a piece is still over budget;
+  merges a degenerate, word-less punctuation piece onto the preceding chunk (or drops it when
+  there is no preceding chunk); never splits a single word; and rejects a non-positive budget or
+  null text. `ChunkWithMetadata` additionally flags, per chunk, whether the chunk's text ends in
+  a genuine ellipsis
 - Composition returns a real synthesizer only when the model is installed, declares the
   synthesis role, the playback device is available, and the engine loads; every other outcome
   returns the honest unavailable synthesizer without throwing
@@ -69,7 +76,7 @@ A SynthesisSubsystem test run passes when:
   in order with correct pre/post silence, while a later chunk synthesizes during an earlier
   chunk's playback
 - A long, multi-sentence input still yields segments in the correct order at the increased
-  look-ahead capacity of 5 pending segments, and the single background producer never calls
+  look-ahead capacity of 8 pending segments, and the single background producer never calls
   `ISynthesisEngine.Generate` concurrently
 - `Stop()` cancels an in-flight session deterministically and is a safe no-op when idle; engine
   faults and an unavailable playback device fail the caller's task honestly rather than hanging
@@ -147,12 +154,17 @@ ordered tag and literal spans rather than merging or losing either.
 `DefaultModelCapabilityProfile_Render_ParameterMappedSupport_EmotionTag_StripsWithNoOverride`,
 `DefaultModelCapabilityProfile_Render_NoneSupport_StripsAllTags`,
 `DefaultModelCapabilityProfile_Render_PlainTextOnly_RendersChunkedSegments`,
-`DefaultModelCapabilityProfile_Render_NullArguments_ThrowsArgumentNullException`
+`DefaultModelCapabilityProfile_Render_NullArguments_ThrowsArgumentNullException`,
+`DefaultModelCapabilityProfile_Render_ChunkEndingInEllipsis_SetsLongerPostSilenceThanOrdinarySentenceEnd`,
+`DefaultModelCapabilityProfile_Render_ChunkEndingInSpacedEllipsis_AlsoSetsEllipsisPostSilence`
 
 Verifies that pauses always render as silence regardless of declared support, that native
 support passes tags through unchanged, that parameter-mapped support maps the tags with a
 built-in numeric convention and strips every other tag, that no support strips every non-pause
-tag, that plain text is split into chunked segments, and that null arguments are rejected.
+tag, that plain text is split into chunked segments, and that null arguments are rejected. Also
+verifies that a chunk whose text ends in a genuine ellipsis (adjacent or whitespace-spaced)
+renders a longer post-chunk silence (`EllipsisPauseMilliseconds`) than an ordinary
+single-terminator sentence end, while every other chunk boundary still adds zero silence.
 
 #### Chunking: Boundary Splitting and Edge Cases
 
@@ -167,17 +179,38 @@ tag, that plain text is split into chunked segments, and that null arguments are
 `SentenceChunker_Chunk_LongClauseWithNoPunctuation_SplitsOnWhitespaceBudget`,
 `SentenceChunker_Chunk_SingleWordExceedsBudget_ReturnsWholeWord`,
 `SentenceChunker_Chunk_NonPositiveMaxLength_ThrowsArgumentOutOfRangeException`,
-`SentenceChunker_Chunk_NullText_ThrowsArgumentNullException`
+`SentenceChunker_Chunk_NullText_ThrowsArgumentNullException`,
+`SentenceChunker_Chunk_ShortSentenceWithComma_SplitsOnCommaEvenUnderBudget`,
+`SentenceChunker_Chunk_ShortSentenceWithSemicolonOrColon_SplitsEvenUnderBudget`,
+`SentenceChunker_Chunk_ClausePunctuationEmbeddedInNumeral_StaysAttached`,
+`SentenceChunker_Chunk_SpacedPunctuationRun_MergesIntoPrecedingChunk`,
+`SentenceChunker_Chunk_LoneSecondaryBoundaryWithNoWordContent_MergesIntoPrecedingChunk`,
+`SentenceChunker_Chunk_LeadingDegenerateRun_IsDropped`,
+`SentenceChunker_ChunkWithMetadata_TrailingAdjacentEllipsis_EndsWithEllipsisIsTrue`,
+`SentenceChunker_ChunkWithMetadata_TrailingSpacedEllipsis_EndsWithEllipsisIsTrue`,
+`SentenceChunker_ChunkWithMetadata_FewerThanThreeDots_EndsWithEllipsisIsFalse`,
+`SentenceChunker_Chunk_AndChunkWithMetadata_ProduceSameChunkText`
 
-Verifies that chunking prefers the coarsest boundary that still fits the budget, falls back
-through clause punctuation to a whitespace budget only as needed, never splits a single
-over-length word, and rejects a non-positive budget or null text. Also verifies that a maximal
-run of consecutive primary sentence-ending characters (an ellipsis `...`, or mixed terminators
-such as `?!`/`!!`) is treated as a single boundary and stays attached to the preceding sentence
-as one piece - rather than producing degenerate single-punctuation-character chunks that cause
-audible synthesis glitches - both mid-text and at the very end of the text, while a normal
-single-terminator sentence is unaffected and the secondary/whitespace-budget passes remain
-unchanged.
+Verifies that chunking splits on primary sentence-ending punctuation first, then
+**unconditionally** splits every resulting sentence-level piece further on secondary clause
+punctuation (commas, semicolons, colons) regardless of whether the piece is still over budget, so
+every clause becomes its own chunk; falls back to a whitespace budget split only when a piece is
+still over-length after both punctuation passes; never splits a single over-length word; and
+rejects a non-positive budget or null text. Also verifies that clause punctuation flanked by a
+digit on both sides (a time such as `12:30` or a thousands separator such as `1,000`) is never
+treated as a boundary, so numerals stay intact, while the same punctuation still splits normally
+when only one side is a digit. Also verifies that a maximal run of consecutive primary
+sentence-ending characters (an ellipsis `...`, or mixed terminators such as `?!`/`!!`) is treated
+as a single boundary and stays attached to the preceding sentence as one piece - rather than
+producing degenerate single-punctuation-character chunks that cause audible synthesis glitches -
+both mid-text and at the very end of the text, while a normal single-terminator sentence is
+unaffected. Also verifies that a degenerate, word-less punctuation piece (produced by either
+punctuation pass, e.g. a whitespace-spaced ellipsis or a lone comma) is merged onto the
+immediately preceding non-empty chunk, or dropped entirely when it occurs at the very start of the
+text with no preceding chunk to merge into. Finally, verifies that `ChunkWithMetadata` correctly
+flags a chunk as ending in a genuine ellipsis (three or more consecutive `.` characters, adjacent
+or whitespace-spaced) and not for fewer than three, and that `Chunk` produces exactly the same
+chunk text as `ChunkWithMetadata`.
 
 #### Composition: Real Synthesizer for an Installed Model and Available Device
 
@@ -257,13 +290,17 @@ in order, and stopped on the playback device.
 
 **Test**: `SynthesizeStreamAsync_LongMultiSentenceInput_ProducesOrderedSegmentsSequentially`
 
-Verifies the `PendingSegmentCapacity` tuning change from `2` to `5`: for a long, 12-sentence
-input - producing more chunks than fit in the buffer at once - the yielded segments still arrive
-in the exact same order the sentences appear in the source text (cross-checked against each
-chunk's expected sample count from `FakeSynthesisEngine`), and `FakeSynthesisEngine`'s
-concurrency tracking (`MaxConcurrentGenerateCalls`) reports a maximum of exactly `1`, proving the
-single background producer never calls `ISynthesisEngine.Generate` concurrently even with up to
-5 chunks now pipelined ahead of playback.
+Verifies the `PendingSegmentCapacity` tuning change from `5` to `8` (raised because unconditional
+clause-punctuation splitting now yields more, smaller chunks per sentence): for a long,
+12-sentence input - producing more chunks than fit in the buffer at once - the yielded segments
+still arrive in the exact same order the sentences appear in the source text (cross-checked
+against each chunk's expected sample count from `FakeSynthesisEngine`), and
+`FakeSynthesisEngine`'s concurrency tracking (`MaxConcurrentGenerateCalls`) reports a maximum of
+exactly `1`, proving the single background producer never calls `ISynthesisEngine.Generate`
+concurrently. The test's fake playback device drains writes instantly, so it cannot itself
+distinguish a capacity of `5` from `8`; it verifies ordering and sequential production hold at
+scale, while the capacity value itself is simply the constant currently configured in
+`SherpaOnnxSpeechSynthesizer`.
 
 #### Pipeline: Fault Containment
 

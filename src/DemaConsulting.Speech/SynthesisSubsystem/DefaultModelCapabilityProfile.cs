@@ -21,7 +21,12 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     convention or no matching declared parameter; <see cref="SpeechModelAudioTagSupport.None"/>
 ///     always strips the tag. Stripping never removes the plain words themselves, so a reply is
 ///     never worse than plain narration regardless of what a given model can honor. Long runs of
-///     plain text are split into playback-sized segments by <see cref="SentenceChunker"/>.
+///     plain text are split into playback-sized segments by <see cref="SentenceChunker"/>; a
+///     segment whose chunk ends in a genuine ellipsis (per
+///     <see cref="SentenceChunk.EndsWithEllipsis"/>) renders a longer, distinct
+///     <see cref="EllipsisPauseMilliseconds"/> pause, separate from the tag-triggered
+///     <see cref="NaturalLanguageAudioTag.ShortPause"/>/<see cref="NaturalLanguageAudioTag.LongPause"/>
+///     mechanism above; every other chunk boundary still adds zero silence.
 ///     <para>
 ///     The type is stateless, so the shared <see cref="Instance"/> is safe to reuse for every
 ///     model and safe to share across threads.
@@ -34,6 +39,21 @@ internal sealed class DefaultModelCapabilityProfile : IModelCapabilityProfile
 
     /// <summary>The real silence, in milliseconds, a <see cref="NaturalLanguageAudioTag.LongPause"/> renders as.</summary>
     private const int LongPauseMilliseconds = 900;
+
+    /// <summary>
+    ///     The real silence, in milliseconds, appended after a plain-text chunk whose text ends
+    ///     in a genuine ellipsis (see <see cref="SentenceChunk.EndsWithEllipsis"/>).
+    ///     This models the natural, longer trailing-off pause a speaker takes at a genuine
+    ///     ellipsis, and is a distinct, chunk-boundary-triggered mechanism from the explicit
+    ///     <see cref="NaturalLanguageAudioTag.ShortPause"/>/<see cref="NaturalLanguageAudioTag.LongPause"/>
+    ///     Natural Language Audio Tag path above: it is driven purely by the shape of the text
+    ///     <see cref="SentenceChunker"/> already chunked, not by any explicit
+    ///     <c>[pause]</c>/<c>[long-pause]</c> tag, so it deliberately does not reuse
+    ///     <see cref="ShortPauseMilliseconds"/> or <see cref="LongPauseMilliseconds"/>. Chosen
+    ///     between those two values (300ms/900ms) as a middle-ground pause appropriate for a
+    ///     trailing-off ellipsis rather than a full deliberate pause.
+    /// </summary>
+    private const int EllipsisPauseMilliseconds = 500;
 
     /// <summary>
     ///     The conservative pace/volume tag mapping table: for each recognized tag, the parameter
@@ -91,10 +111,11 @@ internal sealed class DefaultModelCapabilityProfile : IModelCapabilityProfile
             var overrides = pendingOverrides;
             pendingOverrides = null;
 
-            var chunks = SentenceChunker.Chunk(text);
+            var chunks = SentenceChunker.ChunkWithMetadata(text);
             foreach (var chunk in chunks)
             {
-                segments.Add(new SpeechSegment(chunk, 0, 0, overrides));
+                var postSilenceMs = chunk.EndsWithEllipsis ? EllipsisPauseMilliseconds : 0;
+                segments.Add(new SpeechSegment(chunk.Text, 0, postSilenceMs, overrides));
             }
         }
 

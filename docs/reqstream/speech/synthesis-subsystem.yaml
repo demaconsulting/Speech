@@ -76,6 +76,7 @@ sections:
               - Speech-Synthesis-Layer2Rendering-ParameterMappedApproximation
               - Speech-Synthesis-Layer2Rendering-NoneStripsAll
               - Speech-Synthesis-Layer2Rendering-PlainTextChunking
+              - Speech-Synthesis-Layer2Rendering-EllipsisPause
             tests:
               - DefaultModelCapabilityProfile_Render_ShortPause_AlwaysRendersAsSilenceSegment
               - DefaultModelCapabilityProfile_Render_NativeSupport_PassesThroughCanonicalBracketText
@@ -172,6 +173,8 @@ sections:
               - Speech-Synthesis-SentenceChunker-BoundarySplitting
               - Speech-Synthesis-SentenceChunker-BoundaryHandling
               - Speech-Synthesis-SentenceChunker-ConsecutiveBoundaryMerging
+              - Speech-Synthesis-SentenceChunker-DegeneratePunctuationMerging
+              - Speech-Synthesis-SentenceChunker-EllipsisMetadata
               - Speech-Synthesis-SherpaOnnxSpeechSynthesizer-ChunkedPipeline
               - Speech-Synthesis-SherpaOnnxSpeechSynthesizer-PipelinedPlayback
               - Speech-Synthesis-SherpaOnnxSpeechSynthesizer-GenuinePlaybackDrainWait

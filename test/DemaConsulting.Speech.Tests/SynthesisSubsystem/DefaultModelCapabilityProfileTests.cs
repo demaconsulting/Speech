@@ -173,6 +173,51 @@ public class DefaultModelCapabilityProfileTests
     }
 
     /// <summary>
+    ///     Proves that a chunk ending in a genuine ellipsis renders a longer
+    ///     <see cref="SpeechSegment.PostSilenceMs"/> than an ordinary sentence-ending chunk,
+    ///     whose boundary still adds zero silence.
+    /// </summary>
+    [Fact]
+    public void DefaultModelCapabilityProfile_Render_ChunkEndingInEllipsis_SetsLongerPostSilenceThanOrdinarySentenceEnd()
+    {
+        // Arrange
+        var model = new StubSpeechModel(SpeechModelAudioTagSupport.None);
+        var spans = AudioTagParser.Parse("Wait for it... Then it happened.");
+
+        // Act
+        var plan = DefaultModelCapabilityProfile.Instance.Render(spans, model);
+
+        // Assert: the ellipsis-ending chunk gets a longer pause than the ordinary sentence end
+        var ellipsisSegment = plan.Segments.Single(segment => segment.Text.EndsWith("...", StringComparison.Ordinal));
+        var ordinarySegment = plan.Segments.Single(segment => segment.Text.EndsWith("happened.", StringComparison.Ordinal));
+        Assert.True(ellipsisSegment.PostSilenceMs > 0);
+        Assert.Equal(0, ordinarySegment.PostSilenceMs);
+        Assert.True(ellipsisSegment.PostSilenceMs > ordinarySegment.PostSilenceMs);
+    }
+
+    /// <summary>
+    ///     Proves that a chunk ending in a whitespace-spaced ellipsis (e.g. <c>". . ."</c>) also
+    ///     receives the same longer, ellipsis-triggered pause as an adjacent-dot ellipsis.
+    /// </summary>
+    [Fact]
+    public void DefaultModelCapabilityProfile_Render_ChunkEndingInSpacedEllipsis_AlsoSetsEllipsisPostSilence()
+    {
+        // Arrange
+        var model = new StubSpeechModel(SpeechModelAudioTagSupport.None);
+        var spans = AudioTagParser.Parse("Sentence one . . . . . Sentence two.");
+
+        // Act
+        var plan = DefaultModelCapabilityProfile.Instance.Render(spans, model);
+
+        // Assert: the first (spaced-ellipsis-ending) chunk gets the ellipsis pause; the final
+        // ordinary sentence end still adds zero silence
+        var firstSegment = plan.Segments.Single(segment => segment.Text.StartsWith("Sentence one", StringComparison.Ordinal));
+        var secondSegment = plan.Segments.Single(segment => segment.Text.StartsWith("Sentence two", StringComparison.Ordinal));
+        Assert.True(firstSegment.PostSilenceMs > 0);
+        Assert.Equal(0, secondSegment.PostSilenceMs);
+    }
+
+    /// <summary>
     ///     A minimal, declared-support-only <see cref="ISpeechModel"/> stand-in, so this test
     ///     class can drive every <see cref="SpeechModelAudioTagSupport"/> value directly without
     ///     depending on <see cref="FakeSynthesisModel"/>'s fixed <c>ParameterMapped</c> declaration.
