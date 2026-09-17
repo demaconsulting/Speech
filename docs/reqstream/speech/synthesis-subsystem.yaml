@@ -76,6 +76,7 @@ sections:
               - Speech-Synthesis-Layer2Rendering-ParameterMappedApproximation
               - Speech-Synthesis-Layer2Rendering-NoneStripsAll
               - Speech-Synthesis-Layer2Rendering-PlainTextChunking
+              - Speech-Synthesis-Layer2Rendering-EllipsisPause
             tests:
               - DefaultModelCapabilityProfile_Render_ShortPause_AlwaysRendersAsSilenceSegment
               - DefaultModelCapabilityProfile_Render_NativeSupport_PassesThroughCanonicalBracketText
