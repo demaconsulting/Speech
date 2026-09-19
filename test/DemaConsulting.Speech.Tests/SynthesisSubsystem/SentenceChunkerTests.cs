@@ -254,6 +254,7 @@ public class SentenceChunkerTests
     [InlineData("The time is 12:30.", "The time is 12:30.")]
     [InlineData("It costs 1,000 dollars.", "It costs 1,000 dollars.")]
     [InlineData("The code is 12:30:45.", "The code is 12:30:45.")]
+    [InlineData("0.5", "0.5")]
     [InlineData(".5", ".5")]
     [InlineData("It costs $.99.", "It costs $.99.")]
     [InlineData("The value is .5 units.", "The value is .5 units.")]

@@ -17,10 +17,14 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     digit on both sides (e.g. the <c>:</c> in <c>"12:30"</c> or the <c>,</c> in <c>"1,000"</c>)
 ///     is never treated as a boundary at either pass, so numerals, times, and similar digit
 ///     groups are never split apart. A decimal point immediately followed by a digit is also
-///     never treated as a boundary even without a leading digit (e.g. the <c>.</c> in a
-///     bare-fraction decimal such as <c>".5"</c> or <c>"$.99"</c>), so a leading decimal point is
-///     never mistaken for a sentence-ending period and dropped, which would otherwise silence the
-///     "point" when the number is spoken. A piece still too long after both punctuation passes is
+///     never treated as a boundary even without a leading digit, provided no letter immediately
+///     precedes it (e.g. the <c>.</c> in a bare-fraction decimal such as <c>".5"</c> or
+///     <c>"$.99"</c>, at start-of-text, after whitespace, a sign, or a currency symbol), so a
+///     leading decimal point is never mistaken for a sentence-ending period and dropped, which
+///     would otherwise silence the "point" when the number is spoken. A period directly preceded
+///     by a letter (e.g. after an abbreviation-like word, as in <c>"Wait.5 more."</c>) does not
+///     qualify for this exception and still splits as an ordinary sentence boundary. A piece
+///     still too long after both punctuation passes is
 ///     split further on whitespace boundaries so no chunk exceeds the budget by more than one
 ///     word. Finally, a piece produced by either punctuation pass whose trimmed text contains no
 ///     letter or digit at all (i.e. it is nothing but punctuation and/or whitespace, such as a
@@ -236,9 +240,11 @@ internal static class SentenceChunker
                 continue;
             }
 
-            // A boundary character flanked by digits on both sides (e.g. the ":" in "12:30" or
-            // the "," in "1,000") is part of a numeral, not a clause/sentence boundary - leave it
-            // attached to its surrounding digits rather than splitting.
+            // A boundary character embedded in a numeral - either flanked by digits on both sides
+            // (e.g. the ":" in "12:30" or the "," in "1,000"), or a decimal point followed by a
+            // digit with no digit (and no letter) before it (e.g. the leading "." in ".5") - is
+            // part of a numeral, not a clause/sentence boundary; leave it attached rather than
+            // splitting. See IsDigitFlanked for the exact discriminator.
             if (IsDigitFlanked(text, i))
             {
                 i++;
