@@ -215,13 +215,22 @@ public class SentenceChunkerTests
     ///     Proves that a semicolon and a colon inside short sentences, well under the length
     ///     budget, also unconditionally split, same as a comma - including a comma or colon that
     ///     sits right next to a numeral but is flanked by a digit on only one side (not part of
-    ///     the numeral itself, so it still splits normally).
+    ///     the numeral itself, so it still splits normally). Also proves that a genuine
+    ///     sentence-ending period directly followed by a digit with no space (e.g. after an
+    ///     abbreviation-like word) still splits normally as a sentence boundary, rather than
+    ///     being swallowed by the bare-fraction-decimal exception in
+    ///     <see cref="SentenceChunker_Chunk_ClausePunctuationEmbeddedInNumeral_StaysAttached"/>.
+    ///     This locks in the letter-preceded discriminator that makes that exception safe: only a
+    ///     period with no letter immediately before it (start-of-text, whitespace, a sign, or a
+    ///     currency symbol) is ever treated as part of a numeral.
     /// </summary>
     [Theory]
     [InlineData("Wait; then go.", "Wait;", "then go.")]
     [InlineData("Note: it works.", "Note:", "it works.")]
     [InlineData("I have 5, but need more.", "I have 5,", "but need more.")]
     [InlineData("Section 3: the results.", "Section 3:", "the results.")]
+    [InlineData("Wait.5 more.", "Wait.", "5 more.")]
+    [InlineData("See etc.5 for details.", "See etc.", "5 for details.")]
     public void SentenceChunker_Chunk_ShortSentenceWithSemicolonOrColon_SplitsEvenUnderBudget(
         string text, string expectedFirst, string expectedSecond)
     {
@@ -235,12 +244,19 @@ public class SentenceChunkerTests
     /// <summary>
     ///     Proves that clause punctuation embedded inside a numeral (a colon in a time, a comma
     ///     as a thousands separator) is never treated as a clause boundary, so times and large
-    ///     numbers stay in one chunk rather than being split mid-numeral.
+    ///     numbers stay in one chunk rather than being split mid-numeral. Also proves that a
+    ///     decimal point with no leading digit to flank it (a bare-fraction decimal such as ".5"
+    ///     or "$.99") is never treated as a sentence boundary either, so it is not dropped as a
+    ///     degenerate, word-less chunk - which would otherwise silence the "point" when the
+    ///     number is later spoken (e.g. ".5" reading as "five" instead of "point five").
     /// </summary>
     [Theory]
     [InlineData("The time is 12:30.", "The time is 12:30.")]
     [InlineData("It costs 1,000 dollars.", "It costs 1,000 dollars.")]
     [InlineData("The code is 12:30:45.", "The code is 12:30:45.")]
+    [InlineData(".5", ".5")]
+    [InlineData("It costs $.99.", "It costs $.99.")]
+    [InlineData("The value is .5 units.", "The value is .5 units.")]
     public void SentenceChunker_Chunk_ClausePunctuationEmbeddedInNumeral_StaysAttached(
         string text, string expectedChunk)
     {
