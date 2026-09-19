@@ -287,6 +287,29 @@ sections:
                   - SentenceChunker_Chunk_NonPositiveMaxLength_ThrowsArgumentOutOfRangeException
                   - SentenceChunker_Chunk_NullText_ThrowsArgumentNullException
 
+              - id: Speech-Synthesis-SentenceChunker-NumeralPunctuationRetention
+                title: >-
+                  The SentenceChunker class shall never treat primary or secondary boundary
+                  punctuation embedded in a numeral as a clause/sentence boundary: a punctuation
+                  character flanked by a digit on both sides (e.g. the ':' in "12:30", the ',' in
+                  "1,000", or the '.' in "0.5"), and a decimal point followed immediately by a
+                  digit with no digit and no letter before it (e.g. the leading '.' in ".5" or
+                  "$.99"), must both stay attached to their numeral rather than splitting.
+                justification: |
+                  Splitting a time, thousands separator, or decimal point mid-numeral produces
+                  meaningless fragments ("12:" / "30", "1," / "000", or "0" / "5") when the pieces
+                  are later synthesized as separate chunks. This is especially harmful for a
+                  bare-fraction decimal with no leading digit: before this exception, its leading
+                  "." was indistinguishable from a sentence-ending period and was dropped as a
+                  degenerate, word-less chunk by the DegeneratePunctuationMerging requirement
+                  above, silencing the "point" when the number was spoken (".5" read as "five"
+                  instead of "point five"). Excluding a letter-preceded period from this exception
+                  (e.g. "Wait.5 more.") keeps a genuine sentence-ending period, immediately
+                  followed by a digit with no space, splitting normally.
+                tests:
+                  - SentenceChunker_Chunk_ClausePunctuationEmbeddedInNumeral_StaysAttached
+                  - SentenceChunker_Chunk_ShortSentenceWithSemicolonOrColon_SplitsEvenUnderBudget
+
               - id: Speech-Synthesis-SentenceChunker-ConsecutiveBoundaryMerging
                 title: >-
                   The SentenceChunker class shall treat a maximal run of consecutive primary

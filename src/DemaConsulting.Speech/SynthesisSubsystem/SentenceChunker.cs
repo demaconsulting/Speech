@@ -16,7 +16,15 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     predictable regardless of overall sentence length. A punctuation character flanked by a
 ///     digit on both sides (e.g. the <c>:</c> in <c>"12:30"</c> or the <c>,</c> in <c>"1,000"</c>)
 ///     is never treated as a boundary at either pass, so numerals, times, and similar digit
-///     groups are never split apart. A piece still too long after both punctuation passes is
+///     groups are never split apart. A decimal point immediately followed by a digit is also
+///     never treated as a boundary even without a leading digit, provided no letter immediately
+///     precedes it (e.g. the <c>.</c> in a bare-fraction decimal such as <c>".5"</c> or
+///     <c>"$.99"</c>, at start-of-text, after whitespace, a sign, or a currency symbol), so a
+///     leading decimal point is never mistaken for a sentence-ending period and dropped, which
+///     would otherwise silence the "point" when the number is spoken. A period directly preceded
+///     by a letter (e.g. after an abbreviation-like word, as in <c>"Wait.5 more."</c>) does not
+///     qualify for this exception and still splits as an ordinary sentence boundary. A piece
+///     still too long after both punctuation passes is
 ///     split further on whitespace boundaries so no chunk exceeds the budget by more than one
 ///     word. Finally, a piece produced by either punctuation pass whose trimmed text contains no
 ///     letter or digit at all (i.e. it is nothing but punctuation and/or whitespace, such as a
@@ -25,6 +33,20 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     entirely if there is no preceding chunk (a degenerate run at the very start of the text).
 ///     This is a best-effort UX quality heuristic, not a correctness requirement: an oversized or
 ///     undersized chunk still synthesizes and plays correctly.
+/// </remarks>
+/// <remarks>
+///     The numeral exceptions above assume English/US-style numeral punctuation, where <c>,</c>
+///     is the thousands separator and <c>.</c> is the decimal point (e.g. <c>"1,000.5"</c>).
+///     Locales that swap these roles (e.g. many European locales, where <c>.</c> is the
+///     thousands separator and <c>,</c> is the decimal point, as in <c>"1.000,5"</c>) are not
+///     specially handled: text written in that convention would have its thousands-separator
+///     <c>.</c> correctly kept attached (it is still digit-flanked on both sides), but its
+///     decimal-point <c>,</c> would be treated as an ordinary, always-splitting clause boundary,
+///     not a numeral exception, splitting the fractional part into its own chunk. Every model in
+///     this library's current catalog is English-only, so this is not currently a defect, but a
+///     future non-English model or locale-aware caller would need to adjust these rules (e.g.
+///     swap which of <c>,</c>/<c>.</c> gets the one-sided, no-leading-digit exception) rather
+///     than assuming this class's heuristics generalize as-is.
 /// </remarks>
 internal static class SentenceChunker
 {
@@ -218,9 +240,11 @@ internal static class SentenceChunker
                 continue;
             }
 
-            // A boundary character flanked by digits on both sides (e.g. the ":" in "12:30" or
-            // the "," in "1,000") is part of a numeral, not a clause/sentence boundary - leave it
-            // attached to its surrounding digits rather than splitting.
+            // A boundary character embedded in a numeral - either flanked by digits on both sides
+            // (e.g. the ":" in "12:30" or the "," in "1,000"), or a decimal point followed by a
+            // digit with no digit (and no letter) before it (e.g. the leading "." in ".5") - is
+            // part of a numeral, not a clause/sentence boundary; leave it attached rather than
+            // splitting. See IsDigitFlanked for the exact discriminator.
             if (IsDigitFlanked(text, i))
             {
                 i++;
@@ -258,16 +282,34 @@ internal static class SentenceChunker
     }
 
     /// <summary>
-    ///     Determines whether the character at <paramref name="index"/> has a digit both
-    ///     immediately before and immediately after it, meaning it is embedded inside a numeral
-    ///     (e.g. the <c>:</c> in <c>"12:30"</c> or the <c>,</c> in <c>"1,000"</c>) rather than
-    ///     acting as a clause/sentence separator.
+    ///     Determines whether the character at <paramref name="index"/> is embedded inside a
+    ///     numeral rather than acting as a clause/sentence separator: either a digit both
+    ///     immediately before and immediately after it (e.g. the <c>:</c> in <c>"12:30"</c> or
+    ///     the <c>,</c> in <c>"1,000"</c>), or - for a decimal point only - a digit immediately
+    ///     after with no letter immediately before (e.g. the leading <c>.</c> in a bare-fraction
+    ///     decimal such as <c>".5"</c> or <c>"$.99"</c>, which has no leading digit to flank it on
+    ///     the left). Without this second case, a leading decimal point is indistinguishable from
+    ///     a sentence-ending period and gets dropped as a degenerate, word-less chunk, silencing
+    ///     the "point" when the number is later spoken (e.g. ".5" reads as "five" instead of
+    ///     "point five").
     /// </summary>
     /// <param name="text">The text being scanned.</param>
     /// <param name="index">The index of the boundary character to check.</param>
-    /// <returns><see langword="true"/> when both neighboring characters are digits.</returns>
-    private static bool IsDigitFlanked(string text, int index) =>
-        index > 0 && index + 1 < text.Length && char.IsDigit(text[index - 1]) && char.IsDigit(text[index + 1]);
+    /// <returns><see langword="true"/> when the character is part of a numeral.</returns>
+    private static bool IsDigitFlanked(string text, int index)
+    {
+        if (index + 1 >= text.Length || !char.IsDigit(text[index + 1]))
+        {
+            return false;
+        }
+
+        if (index > 0 && char.IsDigit(text[index - 1]))
+        {
+            return true;
+        }
+
+        return text[index] == '.' && (index == 0 || !char.IsLetter(text[index - 1]));
+    }
 
     /// <summary>
     ///     Splits text on whitespace boundaries so that no returned piece exceeds

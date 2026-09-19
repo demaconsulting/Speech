@@ -197,9 +197,16 @@ punctuation (commas, semicolons, colons) regardless of whether the piece is stil
 every clause becomes its own chunk; falls back to a whitespace budget split only when a piece is
 still over-length after both punctuation passes; never splits a single over-length word; and
 rejects a non-positive budget or null text. Also verifies that clause punctuation flanked by a
-digit on both sides (a time such as `12:30` or a thousands separator such as `1,000`) is never
-treated as a boundary, so numerals stay intact, while the same punctuation still splits normally
-when only one side is a digit. Also verifies that a maximal run of consecutive primary
+digit on both sides (a time such as `12:30` or a thousands separator such as `1,000`, including a
+decimal point such as `0.5`) is never treated as a boundary, so numerals stay intact, while a
+comma, semicolon, or colon still splits normally when only one side is a digit. Also verifies that a
+decimal point followed immediately by a digit is kept attached to its numeral even without a
+leading digit - a bare-fraction decimal such as `.5` or `$.99`, at start-of-text, after
+whitespace, a sign, or a currency symbol - so it is not mistaken for a sentence-ending period and
+dropped as a degenerate, word-less chunk (which would otherwise silence the "point" when the
+number is spoken); a period directly preceded by a letter (e.g. `Wait.5 more.`) does not qualify
+for this exception and still splits as an ordinary sentence boundary. Also verifies that a maximal
+run of consecutive primary
 sentence-ending characters (an ellipsis `...`, or mixed terminators such as `?!`/`!!`) is treated
 as a single boundary and stays attached to the preceding sentence as one piece - rather than
 producing degenerate single-punctuation-character chunks that cause audible synthesis glitches -

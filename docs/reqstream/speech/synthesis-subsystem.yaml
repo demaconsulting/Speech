@@ -172,6 +172,7 @@ sections:
             children:
               - Speech-Synthesis-SentenceChunker-BoundarySplitting
               - Speech-Synthesis-SentenceChunker-BoundaryHandling
+              - Speech-Synthesis-SentenceChunker-NumeralPunctuationRetention
               - Speech-Synthesis-SentenceChunker-ConsecutiveBoundaryMerging
               - Speech-Synthesis-SentenceChunker-DegeneratePunctuationMerging
               - Speech-Synthesis-SentenceChunker-EllipsisMetadata
