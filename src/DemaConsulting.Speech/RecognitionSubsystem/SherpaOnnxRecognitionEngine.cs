@@ -24,6 +24,14 @@ namespace DemaConsulting.Speech.RecognitionSubsystem;
 ///     Instances are not thread-safe and own unmanaged resources: exactly one caller thread may
 ///     use an instance at a time, and it must be disposed.
 ///     </para>
+///     <para>
+///     Two distinct reset paths exist and are deliberately not unified: the endpoint path inside
+///     <c>TryDecode</c> resets the existing stream in place (buffered pre/post-endpoint audio is
+///     wanted there, for warm-up replay), while the session-end <see cref="Reset"/> - called when
+///     a host stops a session - discards the stream entirely and creates a replacement, so any
+///     audio already accepted but not yet decoded from an abandoned utterance cannot bleed into
+///     the next session's decoding.
+///     </para>
 /// </remarks>
 internal sealed class SherpaOnnxRecognitionEngine : IRecognitionEngine
 {
@@ -98,8 +106,14 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionEngine
     /// <summary>The loaded native streaming recognizer that owns decoding and endpoint detection.</summary>
     private readonly OnlineRecognizer _recognizer;
 
-    /// <summary>The stream carrying the audio of the utterance currently being recognized.</summary>
-    private readonly OnlineStream _stream;
+    /// <summary>
+    ///     The stream carrying the audio of the utterance currently being recognized. Not
+    ///     <see langword="readonly"/>: the session-end <see cref="Reset"/> replaces it with a
+    ///     freshly created stream so that any audio already accepted via
+    ///     <c>AcceptWaveform</c> but not yet decoded is discarded along with the abandoned
+    ///     stream, rather than surviving into the next session (see <see cref="Reset"/>'s remarks).
+    /// </summary>
+    private OnlineStream _stream;
 
     /// <summary>
     ///     The rolling buffer of raw pre-endpoint samples awaiting replay, sized to
@@ -334,11 +348,26 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionEngine
 
     /// <inheritdoc/>
     /// <exception cref="ObjectDisposedException">Thrown when the engine has been disposed.</exception>
+    /// <remarks>
+    ///     Discards buffered, not-yet-decoded audio - not just the decoder's current hypothesis -
+    ///     by disposing the existing stream and creating a replacement, because
+    ///     <see cref="OnlineRecognizer.Reset(OnlineStream)"/> alone only clears the hypothesis:
+    ///     a streaming transducer buffers accepted audio it has not yet had enough future context
+    ///     to decode, and that buffered audio survives an in-place <c>Reset</c>. Left undiscarded,
+    ///     it would decode into the next session as soon as any audio (even silence) supplied the
+    ///     missing future context, making an abandoned utterance (for example a push-to-talk
+    ///     release with no trailing silence) bleed into the next <c>Start()</c>. This is
+    ///     deliberately distinct from the endpoint-triggered reset inside <see cref="TryDecode"/>,
+    ///     which resets the same stream in place because that path is a normal utterance boundary
+    ///     where the buffered pre/post-endpoint audio is wanted for <see cref="ReplayWarmupBuffer"/>.
+    /// </remarks>
     public void Reset()
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
 
-        _recognizer.Reset(_stream);
+        _stream.Dispose();
+        _stream = _recognizer.CreateStream();
+
         _lastReportedText = string.Empty;
         _hasRecognizedTextSinceReset = false;
         _warmupBuffer?.Clear();
@@ -348,7 +377,9 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionEngine
     /// <inheritdoc/>
     /// <remarks>
     ///     Releases the native stream and recognizer, in that order, because the stream is owned
-    ///     by the recognizer that created it. Safe to call more than once.
+    ///     by the recognizer that created it. Disposes whichever stream is current at the time of
+    ///     disposal - <see cref="_stream"/> may have been replaced since construction by a prior
+    ///     session-end <see cref="Reset"/> call. Safe to call more than once.
     /// </remarks>
     public void Dispose()
     {

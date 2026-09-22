@@ -127,8 +127,19 @@ configuration, so adding a model never requires changing the factory.
   (see "Replay eligibility is gated on genuine recognized text since the last reset" below).
   Otherwise the text is emitted as provisional, suppressed when empty or unchanged since the
   previous call.
-- **Reset()**: Resets the stream, clears the remembered provisional text, and (if enabled) clears
-  the warm-up buffer, the grace-period counter, and the `_hasRecognizedTextSinceReset` flag.
+- **Reset()**: The session-end reset (called by `SherpaOnnxSpeechRecognizer.StopCore`). Disposes
+  the existing stream and creates a replacement, clears the remembered provisional text, and (if
+  enabled) clears the warm-up buffer, the grace-period counter, and the
+  `_hasRecognizedTextSinceReset` flag. Recreating the stream - not just calling
+  `_recognizer.Reset(_stream)` - is required because that native call only clears the decoder's
+  hypothesis: audio already accepted via `AcceptWaveform` but not yet decoded (a streaming
+  transducer buffers audio pending future context) survives an in-place reset and would otherwise
+  decode into the next session as soon as any audio, even silence, supplied that missing future
+  context (a real regression: an abandoned utterance's tail bled into the next `Start()`). This is
+  distinct from the endpoint-triggered reset inside `TryDecode()`, which still calls
+  `_recognizer.Reset(_stream)` on the same stream in place, because that path is a normal
+  utterance boundary where the buffered pre/post-endpoint audio is wanted for the warm-up replay
+  described below.
 - **Dispose()**: Releases the stream and then the recognizer that owns it. Safe to call more than
   once.
 - **Create(...)**: Asks the model for its configuration, resolved against the installed-files
