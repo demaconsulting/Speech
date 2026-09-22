@@ -246,7 +246,9 @@ public class SherpaOnnxSpeechRecognizerTests
     ///     Proves that when the owned engine's <see cref="IRecognitionEngine.Reset"/> fails during
     ///     <see cref="SherpaOnnxSpeechRecognizer.Stop"/>, the recognizer marks itself permanently
     ///     disposed rather than silently allowing a later <see cref="SherpaOnnxSpeechRecognizer.Start"/>
-    ///     to report success while every frame is then rejected by the now-dead engine.
+    ///     to report success while every frame is then rejected by the now-dead engine - and a
+    ///     later <see cref="SherpaOnnxSpeechRecognizer.Dispose"/> still releases the engine rather
+    ///     than short-circuiting on that same disposed flag.
     /// </summary>
     [Fact]
     public void SherpaOnnxSpeechRecognizer_Stop_EngineResetFails_RecognizerBecomesPermanentlyDisposed()
@@ -263,6 +265,11 @@ public class SherpaOnnxSpeechRecognizerTests
         // Assert: a later Start() throws ObjectDisposedException instead of silently restarting a
         // pipeline that can never produce results again
         Assert.Throws<ObjectDisposedException>(() => recognizer.Start());
+
+        // Assert: a later Dispose() still releases the engine rather than skipping cleanup because
+        // Stop() already set the disposed flag
+        recognizer.Dispose();
+        Assert.Equal(1, engine.DisposeCallCount);
     }
 
     /// <summary>

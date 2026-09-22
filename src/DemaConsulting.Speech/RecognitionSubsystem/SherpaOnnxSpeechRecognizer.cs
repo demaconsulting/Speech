@@ -166,8 +166,17 @@ internal sealed class SherpaOnnxSpeechRecognizer : ISpeechRecognizer
     /// <summary>Whether capture is currently subscribed and the consumer task is running.</summary>
     private bool _isRunning;
 
-    /// <summary>Whether <see cref="Dispose"/> has already run.</summary>
+    /// <summary>Whether <see cref="Start"/> and <see cref="Dispose"/> must refuse further use.</summary>
+    /// <remarks>
+    ///     Distinct from <see cref="_disposeCalled"/>: this is also set by <see cref="StopCore"/>
+    ///     when a failed engine <c>Reset()</c> makes the engine permanently unusable, which must
+    ///     block a later <see cref="Start"/> without ever skipping the <see cref="Dispose"/> call
+    ///     that still needs to run to release the engine and capture device.
+    /// </remarks>
     private bool _isDisposed;
+
+    /// <summary>Whether <see cref="Dispose"/> has already fully run.</summary>
+    private bool _disposeCalled;
 
     /// <inheritdoc/>
     /// <remarks>
@@ -265,16 +274,20 @@ internal sealed class SherpaOnnxSpeechRecognizer : ISpeechRecognizer
     /// <remarks>
     ///     Stops the pipeline (if running) and disposes the owned engine. Idempotent: a second
     ///     call does nothing, so a host may safely dispose a recognizer it has already disposed.
+    ///     Still runs (and still disposes the engine) even if a prior <see cref="Stop"/> already
+    ///     set <see cref="_isDisposed"/> because its engine reset failed - that flag alone must
+    ///     not skip the engine cleanup this method is responsible for.
     /// </remarks>
     public void Dispose()
     {
         lock (_syncRoot)
         {
-            if (_isDisposed)
+            if (_disposeCalled)
             {
                 return;
             }
 
+            _disposeCalled = true;
             _isDisposed = true;
         }
 

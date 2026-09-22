@@ -40,7 +40,10 @@ keeps both memory and latency flat instead of letting them grow without limit.
   too rather than let a later `Start()` report success while every frame is then silently rejected
   by the dead engine.
 - **Dispose()**: Performs the stop sequence (if running) and disposes the owned engine.
-  Idempotent.
+  Idempotent, guarded by its own flag rather than the "disposed" flag `Start()` checks: `Stop()`
+  can set that flag on a failed reset without ever having called `Dispose()`, and `Dispose()` must
+  still run in full - including disposing the engine - the first time it is actually called
+  afterward, rather than short-circuiting as if it had already run.
 - **OnFrameCaptured(...)**: Runs on the audio callback thread. Copies the block and enqueues it;
   nothing else.
 - **ProcessFrame(...)**: Runs on the consumer thread. Converts the block through
