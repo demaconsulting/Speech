@@ -58,6 +58,7 @@ sections:
               - Speech-Recognition-RecognitionEngine-ModelOwnedConfiguration
               - Speech-Recognition-RecognitionEngine-PostEndpointWarmupReplay
               - Speech-Recognition-RecognitionEngine-RealSpeechAccuracy
+              - Speech-Recognition-RecognitionEngine-SessionEndResetDiscardsBufferedAudio
             tests:
               - SpeechRecognizerFactory_Create_ModelInstalledAndDeviceAvailable_ReturnsRealRecognizer
               - SpeechRecognizerFactory_Create_ModelNotInstalled_ReturnsUnavailableRecognizer
@@ -79,6 +80,7 @@ sections:
               - Speech-Recognition-SherpaOnnxSpeechRecognizer-ResultDelivery
               - Speech-Recognition-SherpaOnnxSpeechRecognizer-TextNormalization
               - Speech-Recognition-SherpaOnnxSpeechRecognizer-LifecycleDrain
+              - Speech-Recognition-SherpaOnnxSpeechRecognizer-TerminalResetFailure
               - Speech-Recognition-AudioFrameResampler-Downmix
               - Speech-Recognition-AudioFrameResampler-RateConversion
               - Speech-Recognition-AudioFrameResampler-BoundaryHandling
