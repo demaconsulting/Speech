@@ -243,6 +243,29 @@ public class SherpaOnnxSpeechRecognizerTests
     }
 
     /// <summary>
+    ///     Proves that when the owned engine's <see cref="IRecognitionEngine.Reset"/> fails during
+    ///     <see cref="SherpaOnnxSpeechRecognizer.Stop"/>, the recognizer marks itself permanently
+    ///     disposed rather than silently allowing a later <see cref="SherpaOnnxSpeechRecognizer.Start"/>
+    ///     to report success while every frame is then rejected by the now-dead engine.
+    /// </summary>
+    [Fact]
+    public void SherpaOnnxSpeechRecognizer_Stop_EngineResetFails_RecognizerBecomesPermanentlyDisposed()
+    {
+        // Arrange: a running recognizer whose engine's Reset() always fails
+        var captureDevice = CreateCaptureDevice(sampleRate: 16000, channelCount: 1);
+        var engine = new FakeRecognitionEngine(resetException: new InvalidOperationException("boom"));
+        var recognizer = new SherpaOnnxSpeechRecognizer(engine, captureDevice, 16000, new FakeRecognitionModel());
+        recognizer.Start();
+
+        // Act: stop the recognizer, which triggers the failing Reset()
+        recognizer.Stop();
+
+        // Assert: a later Start() throws ObjectDisposedException instead of silently restarting a
+        // pipeline that can never produce results again
+        Assert.Throws<ObjectDisposedException>(() => recognizer.Start());
+    }
+
+    /// <summary>
     ///     Proves that stopping a recognizer that is not running does not reset the engine,
     ///     matching the existing no-op behavior of that case.
     /// </summary>

@@ -376,7 +376,11 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionEngine
     ///     subsequent call throws <see cref="ObjectDisposedException"/> instead. This is a
     ///     deliberately fatal outcome for an engine instance: it is judged an acceptable trade-off
     ///     for a failure mode expected to be vanishingly rare, in exchange for never risking a
-    ///     silent audio-bleed regression.
+    ///     silent audio-bleed regression. The cleanup disposals in that path are deliberately not
+    ///     hardened against a second failure (for example the old stream also faulting while being
+    ///     disposed): this is already a doubly-unlikely compound native fault, and whatever
+    ///     exception results from it is an acceptable, equally terminal outcome, not a case worth
+    ///     adding complexity to distinguish from the first fault.
     ///     </para>
     /// </remarks>
     public void Reset()

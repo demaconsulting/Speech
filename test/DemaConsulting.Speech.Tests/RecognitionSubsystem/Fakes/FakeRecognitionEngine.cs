@@ -16,6 +16,9 @@ internal sealed class FakeRecognitionEngine : IRecognitionEngine
     /// <summary>The exception to throw from <see cref="AcceptSamples"/>, when one was scripted.</summary>
     private readonly Exception? _acceptSamplesException;
 
+    /// <summary>The exception to throw from <see cref="Reset"/>, when one was scripted.</summary>
+    private readonly Exception? _resetException;
+
     /// <summary>Every mono sample this engine has been fed, in the order it arrived.</summary>
     private readonly List<float> _acceptedSamples = [];
 
@@ -30,12 +33,18 @@ internal sealed class FakeRecognitionEngine : IRecognitionEngine
     ///     An exception for <see cref="AcceptSamples"/> to throw, or <see langword="null"/> to
     ///     accept samples normally. Used to prove the recognizer contains engine faults.
     /// </param>
+    /// <param name="resetException">
+    ///     An exception for <see cref="Reset"/> to throw, or <see langword="null"/> to reset
+    ///     normally. Used to prove the recognizer treats a failed engine reset as terminal.
+    /// </param>
     public FakeRecognitionEngine(
         IEnumerable<SpeechRecognitionResult>? scriptedResults = null,
-        Exception? acceptSamplesException = null)
+        Exception? acceptSamplesException = null,
+        Exception? resetException = null)
     {
         _scriptedResults = new Queue<SpeechRecognitionResult>(scriptedResults ?? []);
         _acceptSamplesException = acceptSamplesException;
+        _resetException = resetException;
     }
 
     /// <summary>Gets every mono sample this engine has been fed, in arrival order.</summary>
@@ -77,7 +86,15 @@ internal sealed class FakeRecognitionEngine : IRecognitionEngine
     }
 
     /// <inheritdoc/>
-    public void Reset() => ResetCallCount++;
+    public void Reset()
+    {
+        ResetCallCount++;
+
+        if (_resetException is not null)
+        {
+            throw _resetException;
+        }
+    }
 
     /// <inheritdoc/>
     public void Dispose() => DisposeCallCount++;

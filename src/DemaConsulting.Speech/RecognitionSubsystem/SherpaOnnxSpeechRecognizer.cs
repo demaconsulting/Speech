@@ -183,6 +183,11 @@ internal sealed class SherpaOnnxSpeechRecognizer : ISpeechRecognizer
     public event EventHandler<SpeechRecognitionEvent>? ResultReceived;
 
     /// <inheritdoc/>
+    /// <remarks>
+    ///     Also throws <see cref="ObjectDisposedException"/> if a prior <see cref="Stop"/> failed
+    ///     to reset the owned engine: see the <see cref="StopCore"/> remarks for why that failure
+    ///     makes this recognizer permanently unusable rather than silently restartable.
+    /// </remarks>
     public void Start()
     {
         Channel<float[]> frames;
@@ -290,6 +295,15 @@ internal sealed class SherpaOnnxSpeechRecognizer : ISpeechRecognizer
     ///     The running state is captured under the lock but the consumer is awaited outside it,
     ///     so a <see cref="ResultReceived"/> handler that calls back into the recognizer from the
     ///     consumer thread cannot deadlock against a concurrent stop.
+    ///     <para>
+    ///     If resetting the owned engine fails, the engine has made itself permanently unusable
+    ///     (see <c>SherpaOnnxRecognitionEngine.Reset()</c>) - every call it receives from now on
+    ///     throws <see cref="ObjectDisposedException"/>. Rather than let a later <see cref="Start"/>
+    ///     report success while every frame is then silently rejected by that dead engine, this
+    ///     recognizer marks itself disposed too, so <see cref="Start"/> throws
+    ///     <see cref="ObjectDisposedException"/> instead of restarting a pipeline that can never
+    ///     produce results again.
+    ///     </para>
     /// </remarks>
     private void StopCore(bool reportStopped)
     {
@@ -327,8 +341,15 @@ internal sealed class SherpaOnnxSpeechRecognizer : ISpeechRecognizer
         {
             // Intentionally broad: resetting crosses the native decoder boundary, and teardown
             // must complete even if that boundary faults while resetting.
-            // Resetting the engine is best-effort during teardown: the recognizer is already
-            // detached, so an engine fault here must not prevent Stop/Dispose from completing.
+            // A Reset() fault means the underlying engine has made itself permanently unusable
+            // (see SherpaOnnxRecognitionEngine.Reset()), so this recognizer can no longer honor a
+            // later Start(): mark it disposed too, rather than let a subsequent Start() report
+            // success while every frame is silently rejected by the dead engine.
+            lock (_syncRoot)
+            {
+                _isDisposed = true;
+            }
+
             _diagnostics.Report(
                 SpeechDiagnosticLevel.Error,
                 DiagnosticsCategory,

@@ -35,7 +35,10 @@ keeps both memory and latency flat instead of letting them grow without limit.
   Resetting the engine discards any partially decoded utterance or stale hypothesis left over
   from the session just stopped, so a later `Start()` on the same "hot" engine always begins
   decoding from a clean start-of-utterance state. Stopping a recognizer that is not running is a
-  no-op.
+  no-op. If resetting the engine fails, the engine has made itself permanently unusable (see the
+  `SherpaOnnxRecognitionEngine` **Reset()** bullet below), so the recognizer marks itself disposed
+  too rather than let a later `Start()` report success while every frame is then silently rejected
+  by the dead engine.
 - **Dispose()**: Performs the stop sequence (if running) and disposes the owned engine.
   Idempotent.
 - **OnFrameCaptured(...)**: Runs on the audio callback thread. Copies the block and enqueues it;
