@@ -353,7 +353,7 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionEngine
     ///     by disposing the existing stream and creating a replacement, because
     ///     <see cref="OnlineRecognizer.Reset(OnlineStream)"/> alone only clears the hypothesis:
     ///     a streaming transducer buffers accepted audio it has not yet had enough future context
-    ///     to decode, and that buffered audio survives an in-place <c>Reset</c>. Left undiscarded,
+    ///     to decode, and that buffered audio survives an in-place <c>Reset</c>. Left in place,
     ///     it would decode into the next session as soon as any audio (even silence) supplied the
     ///     missing future context, making an abandoned utterance (for example a push-to-talk
     ///     release with no trailing silence) bleed into the next <c>Start()</c>. This is
