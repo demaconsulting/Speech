@@ -360,13 +360,19 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionEngine
     ///     deliberately distinct from the endpoint-triggered reset inside <see cref="TryDecode"/>,
     ///     which resets the same stream in place because that path is a normal utterance boundary
     ///     where the buffered pre/post-endpoint audio is wanted for <see cref="ReplayWarmupBuffer"/>.
+    ///     The replacement stream is created before the current one is disposed, so a failure
+    ///     creating it (for example a native allocation fault) leaves the existing stream intact
+    ///     and usable rather than replacing a live stream with a disposed one the engine could
+    ///     never recover from - <see cref="SherpaOnnxSpeechRecognizer"/> treats a failed
+    ///     <see cref="Reset"/> as best-effort and still permits reuse afterward.
     /// </remarks>
     public void Reset()
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
 
+        var replacementStream = _recognizer.CreateStream();
         _stream.Dispose();
-        _stream = _recognizer.CreateStream();
+        _stream = replacementStream;
 
         _lastReportedText = string.Empty;
         _hasRecognizedTextSinceReset = false;

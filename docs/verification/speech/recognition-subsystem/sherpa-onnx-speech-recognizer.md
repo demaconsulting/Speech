@@ -25,15 +25,27 @@ The real sherpa-onnx engine adapter's core decode/reset loop is **not** covered 
 tests against arbitrary models: exercising it in general requires loading a real model through
 the native runtime, which is manual/local verification. The seam is what keeps that uncovered
 surface as small as possible - it contains only the interop calls, with all policy above it fully
-covered. The one exception is the post-endpoint warm-up-replay bookkeeping added to fix the
-Nemotron word-loss defect (see the design chapter): its rolling-buffer/replay/grace-period state
-machine is verified directly against the real, already-installed streaming Zipformer model in
-`SherpaOnnxRecognitionEngineTests`, using reflection to inspect the engine's private bookkeeping
-fields, because that state machine cannot be exercised meaningfully through a fake. Those tests
-skip (rather than fail) when the model is not installed in the running environment, and skip an
-individual real-endpoint assertion if the native endpoint detector does not fire within the
-test's bounded silence budget, since real endpoint timing depends on the native model's own rules
-rather than on this project's code.
+covered. Two exceptions require a real, installed model because they exercise the native
+`OnlineStream`/`OnlineRecognizer` themselves rather than policy the fake can stand in for:
+
+- The post-endpoint warm-up-replay bookkeeping added to fix the Nemotron word-loss defect (see
+  the design chapter): its rolling-buffer/replay/grace-period state machine is verified directly
+  against the real, already-installed streaming Zipformer model in
+  `SherpaOnnxRecognitionEngineTests`, using reflection to inspect the engine's private bookkeeping
+  fields, because that state machine cannot be exercised meaningfully through a fake. Those tests
+  skip (rather than fail) when the model is not installed in the running environment, and skip an
+  individual real-endpoint assertion if the native endpoint detector does not fire within the
+  test's bounded silence budget, since real endpoint timing depends on the native model's own
+  rules rather than on this project's code.
+- The session-end `Reset()` fix that recreates the underlying `OnlineStream` (rather than
+  resetting it in place) so buffered, not-yet-decoded audio from an abandoned utterance cannot
+  bleed into the next session (see the design chapter's `SherpaOnnxRecognitionEngine` **Reset()**
+  bullet): verified directly against the real, already-installed streaming
+  Zipformer model in
+  `SherpaOnnxRecognitionEngineAccuracyTests.SherpaOnnxRecognitionEngine_Reset_AbandonedUtteranceWithNoTrailingSilence_DoesNotBleedIntoNextSession`,
+  which feeds a real phrase with no trailing silence, calls `Reset()`, then feeds silence only and
+  asserts no word from the abandoned phrase is ever decoded. This test skips (rather than fails)
+  when the model is not installed in the running environment, matching the existing convention.
 
 #### Real-Recording Re-Verification Evidence (Nemotron Word-Loss Fix)
 
@@ -159,7 +171,9 @@ last reset never replays - the buffer is dropped and the grace period never arms
 post-replay grace period suppresses a same-tick spurious re-trigger. For real-speech transcription
 accuracy specifically: the real, installed Zipformer and Nemotron models each transcribe the real
 "Crossing the Bar" recording with a Word Error Rate, against its ground-truth text, that does not
-exceed the documented 20% tolerance.
+exceed the documented 20% tolerance. For the session-end `Reset()` fix specifically: an utterance
+fed with no trailing silence and then abandoned via `Reset()` never decodes any of its words into
+a subsequent session fed only silence, against the real, installed Zipformer model.
 
 #### Test Scenarios
 
@@ -175,4 +189,9 @@ exercised deterministically via direct reflection assertions on `_hasRecognizedT
 happens to transcribe a synthesized tone as non-empty text. `SherpaOnnxRecognitionEngineAccuracyTests`
 adds the "Real-Speech Transcription Accuracy" scenario: transcribing the real "Crossing the Bar"
 recording end to end through the real, installed Zipformer and Nemotron models and asserting the
-resulting Word Error Rate against the poem's ground-truth text stays within tolerance.
+resulting Word Error Rate against the poem's ground-truth text stays within tolerance. It also
+adds the "Session-End Reset Discards Buffered Audio" scenario
+(`SherpaOnnxRecognitionEngine_Reset_AbandonedUtteranceWithNoTrailingSilence_DoesNotBleedIntoNextSession`):
+feeding a real phrase with no trailing silence, calling `Reset()`, then feeding silence only and
+asserting no word from the abandoned phrase is ever decoded, guarding against the buffered-audio
+regression described above.
