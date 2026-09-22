@@ -367,7 +367,11 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionEngine
     ///     <see cref="Reset"/> as best-effort and still permits reuse afterward. The field is
     ///     also assigned to the replacement before the old stream is disposed, so a failure
     ///     disposing the old stream cannot leave <see cref="_stream"/> pointing at anything other
-    ///     than the valid, already-usable replacement.
+    ///     than the valid, already-usable replacement. The managed session bookkeeping below is
+    ///     cleared in a <c>finally</c> block so it always runs - even when disposing the old
+    ///     stream faults - rather than leaving stale session state (for example warm-up buffer
+    ///     contents) to leak into whatever the next session does with the already-swapped-in
+    ///     replacement stream.
     /// </remarks>
     public void Reset()
     {
@@ -376,12 +380,17 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionEngine
         var replacementStream = _recognizer.CreateStream();
         var previousStream = _stream;
         _stream = replacementStream;
-        previousStream.Dispose();
-
-        _lastReportedText = string.Empty;
-        _hasRecognizedTextSinceReset = false;
-        _warmupBuffer?.Clear();
-        _graceSamplesRemaining = 0;
+        try
+        {
+            previousStream.Dispose();
+        }
+        finally
+        {
+            _lastReportedText = string.Empty;
+            _hasRecognizedTextSinceReset = false;
+            _warmupBuffer?.Clear();
+            _graceSamplesRemaining = 0;
+        }
     }
 
     /// <inheritdoc/>
