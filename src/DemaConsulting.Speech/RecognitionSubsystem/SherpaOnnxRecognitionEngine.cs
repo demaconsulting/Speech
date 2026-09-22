@@ -364,15 +364,19 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionEngine
     ///     creating it (for example a native allocation fault) leaves the existing stream intact
     ///     and usable rather than replacing a live stream with a disposed one the engine could
     ///     never recover from - <see cref="SherpaOnnxSpeechRecognizer"/> treats a failed
-    ///     <see cref="Reset"/> as best-effort and still permits reuse afterward.
+    ///     <see cref="Reset"/> as best-effort and still permits reuse afterward. The field is
+    ///     also assigned to the replacement before the old stream is disposed, so a failure
+    ///     disposing the old stream cannot leave <see cref="_stream"/> pointing at anything other
+    ///     than the valid, already-usable replacement.
     /// </remarks>
     public void Reset()
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
 
         var replacementStream = _recognizer.CreateStream();
-        _stream.Dispose();
+        var previousStream = _stream;
         _stream = replacementStream;
+        previousStream.Dispose();
 
         _lastReportedText = string.Empty;
         _hasRecognizedTextSinceReset = false;
