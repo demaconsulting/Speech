@@ -139,7 +139,13 @@ configuration, so adding a model never requires changing the factory.
   distinct from the endpoint-triggered reset inside `TryDecode()`, which still calls
   `_recognizer.Reset(_stream)` on the same stream in place, because that path is a normal
   utterance boundary where the buffered pre/post-endpoint audio is wanted for the warm-up replay
-  described below.
+  described below. If creating the replacement stream itself fails (for example a native
+  allocation fault), no replacement exists to swap in and the old stream still carries the
+  abandoned session's buffered audio - so rather than leave that stale stream available for a
+  later `Start()` to silently reuse, the engine instance is disposed before the failure is
+  rethrown, making every subsequent call throw `ObjectDisposedException`. This is a deliberately
+  fatal outcome, accepted as the trade-off for a failure mode expected to be vanishingly rare, in
+  exchange for never risking a silent audio-bleed regression.
 - **Dispose()**: Releases the stream and then the recognizer that owns it. Safe to call more than
   once.
 - **Create(...)**: Asks the model for its configuration, resolved against the installed-files

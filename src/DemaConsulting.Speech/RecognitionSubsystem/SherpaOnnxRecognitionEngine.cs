@@ -360,24 +360,42 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionEngine
     ///     deliberately distinct from the endpoint-triggered reset inside <see cref="TryDecode"/>,
     ///     which resets the same stream in place because that path is a normal utterance boundary
     ///     where the buffered pre/post-endpoint audio is wanted for <see cref="ReplayWarmupBuffer"/>.
-    ///     The replacement stream is created before the current one is disposed, so a failure
-    ///     creating it (for example a native allocation fault) leaves the existing stream intact
-    ///     and usable rather than replacing a live stream with a disposed one the engine could
-    ///     never recover from - <see cref="SherpaOnnxSpeechRecognizer"/> treats a failed
-    ///     <see cref="Reset"/> as best-effort and still permits reuse afterward. The field is
-    ///     also assigned to the replacement before the old stream is disposed, so a failure
-    ///     disposing the old stream cannot leave <see cref="_stream"/> pointing at anything other
-    ///     than the valid, already-usable replacement. The managed session bookkeeping below is
-    ///     cleared in a <c>finally</c> block so it always runs - even when disposing the old
-    ///     stream faults - rather than leaving stale session state (for example warm-up buffer
-    ///     contents) to leak into whatever the next session does with the already-swapped-in
-    ///     replacement stream.
+    ///     The field is assigned to the replacement before the old stream is disposed, so a
+    ///     failure disposing the old stream cannot leave <see cref="_stream"/> pointing at
+    ///     anything other than the valid, already-usable replacement. The managed session
+    ///     bookkeeping below is cleared in a <c>finally</c> block so it always runs - even when
+    ///     disposing the old stream faults - rather than leaving stale session state (for example
+    ///     warm-up buffer contents) to leak into whatever the next session does with the
+    ///     already-swapped-in replacement stream.
+    ///     <para>
+    ///     If <see cref="OnlineRecognizer.CreateStream()"/> itself fails (for example a native
+    ///     allocation fault), no replacement exists to swap in and the old stream still carries
+    ///     the abandoned session's buffered audio - exactly the state this method exists to
+    ///     discard. Rather than leave that stale stream in place for a later <c>Start()</c> to
+    ///     silently reuse, this instance is disposed before the failure is rethrown, so every
+    ///     subsequent call throws <see cref="ObjectDisposedException"/> instead. This is a
+    ///     deliberately fatal outcome for an engine instance: it is judged an acceptable trade-off
+    ///     for a failure mode expected to be vanishingly rare, in exchange for never risking a
+    ///     silent audio-bleed regression.
+    ///     </para>
     /// </remarks>
     public void Reset()
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
 
-        var replacementStream = _recognizer.CreateStream();
+        OnlineStream replacementStream;
+        try
+        {
+            replacementStream = _recognizer.CreateStream();
+        }
+        catch
+        {
+            _isDisposed = true;
+            _stream.Dispose();
+            _recognizer.Dispose();
+            throw;
+        }
+
         var previousStream = _stream;
         _stream = replacementStream;
         try
