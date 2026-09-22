@@ -27,7 +27,9 @@ namespace DemaConsulting.Speech.RecognitionSubsystem;
 ///     <see cref="Stop"/> completes the channel and waits for the consumer to finish, so every
 ///     block accepted before the call has been decoded and every resulting event raised by the
 ///     time it returns. That makes the pipeline deterministic for both hosts and tests, with no
-///     polling or timing assumptions anywhere.
+///     polling or timing assumptions anywhere. <see cref="Stop"/> then also resets the owned
+///     engine's decoder state, so a subsequent <see cref="Start"/> on the same "hot" engine never
+///     inherits a partially decoded utterance or stale hypothesis left over from before the stop.
 ///     </para>
 ///     <para>
 ///     Exceptions raised anywhere in the pipeline - by a frame handler, by the engine, or by a
@@ -277,7 +279,7 @@ internal sealed class SherpaOnnxSpeechRecognizer : ISpeechRecognizer
 
     /// <summary>
     ///     Performs the shared stop sequence: unsubscribe, complete the queue, drain the
-    ///     consumer, and stop the capture device.
+    ///     consumer, reset the engine, and stop the capture device.
     /// </summary>
     /// <param name="reportStopped">
     ///     Whether to report a structural "stopped" event. Suppressed during disposal, where the
@@ -312,6 +314,26 @@ internal sealed class SherpaOnnxSpeechRecognizer : ISpeechRecognizer
         _captureDevice.FrameCaptured -= OnFrameCaptured;
         frames?.Writer.TryComplete();
         WaitForConsumer(consumerTask);
+
+        try
+        {
+            // Discard any partially decoded utterance and stale hypothesis left over from this
+            // session, so a subsequent Start() on the same "hot" engine always begins decoding
+            // from a clean start-of-utterance state rather than inheriting audio the caller has
+            // already abandoned.
+            _engine.Reset();
+        }
+        catch (Exception ex)
+        {
+            // Intentionally broad: resetting crosses the native decoder boundary, and teardown
+            // must complete even if that boundary faults while resetting.
+            // Resetting the engine is best-effort during teardown: the recognizer is already
+            // detached, so an engine fault here must not prevent Stop/Dispose from completing.
+            _diagnostics.Report(
+                SpeechDiagnosticLevel.Error,
+                DiagnosticsCategory,
+                $"Failed to reset the recognition engine after stopping: {ex.Message}");
+        }
 
         try
         {

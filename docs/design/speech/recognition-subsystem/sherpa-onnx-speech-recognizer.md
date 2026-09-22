@@ -29,10 +29,13 @@ keeps both memory and latency flat instead of letting them grow without limit.
   the capture device. Subscribing before starting guarantees no captured block can be raised
   before there is a handler to enqueue it. Starting an already-running recognizer is a no-op.
   Precondition: not disposed. Postcondition: capture is running and results will be raised.
-- **Stop()**: Unsubscribes, completes the queue, joins the consumer task, then stops the capture
-  device. Because the consumer drains everything already queued before exiting, every result
-  derived from audio captured before the call has been delivered when it returns. Stopping a
-  recognizer that is not running is a no-op.
+- **Stop()**: Unsubscribes, completes the queue, joins the consumer task, resets the engine, then
+  stops the capture device. Because the consumer drains everything already queued before exiting,
+  every result derived from audio captured before the call has been delivered when it returns.
+  Resetting the engine discards any partially decoded utterance or stale hypothesis left over
+  from the session just stopped, so a later `Start()` on the same "hot" engine always begins
+  decoding from a clean start-of-utterance state. Stopping a recognizer that is not running is a
+  no-op.
 - **Dispose()**: Performs the stop sequence (if running) and disposes the owned engine.
   Idempotent.
 - **OnFrameCaptured(...)**: Runs on the audio callback thread. Copies the block and enqueues it;

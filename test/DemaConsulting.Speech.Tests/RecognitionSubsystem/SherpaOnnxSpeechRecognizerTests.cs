@@ -97,6 +97,31 @@ public class SherpaOnnxSpeechRecognizerTests
     }
 
     /// <summary>
+    ///     Proves that every Start/Stop cycle resets the owned engine's decoder state, so a
+    ///     "hot" engine reused across repeated cycles never carries a partially decoded
+    ///     utterance from one cycle into the next.
+    /// </summary>
+    [Fact]
+    public void SherpaOnnxSpeechRecognizer_MultipleStartStopCycles_ResetsEngineEachCycle()
+    {
+        // Arrange: a single recognizer instance over a substitute device
+        var captureDevice = CreateCaptureDevice(sampleRate: 16000, channelCount: 1);
+        var engine = new FakeRecognitionEngine();
+        using var recognizer = new SherpaOnnxSpeechRecognizer(engine, captureDevice, 16000, new FakeRecognitionModel());
+
+        // Act: run three independent Start/Stop cycles on the same instance
+        recognizer.Start();
+        recognizer.Stop();
+        recognizer.Start();
+        recognizer.Stop();
+        recognizer.Start();
+        recognizer.Stop();
+
+        // Assert: the engine was reset exactly once per cycle
+        Assert.Equal(3, engine.ResetCallCount);
+    }
+
+    /// <summary>
     ///     Proves that a captured frame flows through downmixing and resampling into the engine,
     ///     converted to the mono rate the model declared.
     /// </summary>
@@ -197,6 +222,46 @@ public class SherpaOnnxSpeechRecognizerTests
     }
 
     /// <summary>
+    ///     Proves that stopping a running recognizer resets the owned engine's decoder state, so
+    ///     a subsequent <see cref="SherpaOnnxSpeechRecognizer.Start"/> on the same "hot" engine
+    ///     never inherits a partially decoded utterance from before the stop.
+    /// </summary>
+    [Fact]
+    public void SherpaOnnxSpeechRecognizer_Stop_Running_ResetsEngine()
+    {
+        // Arrange: a running recognizer with a fake engine
+        var captureDevice = CreateCaptureDevice(sampleRate: 16000, channelCount: 1);
+        var engine = new FakeRecognitionEngine();
+        using var recognizer = new SherpaOnnxSpeechRecognizer(engine, captureDevice, 16000, new FakeRecognitionModel());
+        recognizer.Start();
+
+        // Act: stop the recognizer
+        recognizer.Stop();
+
+        // Assert: the engine was reset exactly once
+        Assert.Equal(1, engine.ResetCallCount);
+    }
+
+    /// <summary>
+    ///     Proves that stopping a recognizer that is not running does not reset the engine,
+    ///     matching the existing no-op behavior of that case.
+    /// </summary>
+    [Fact]
+    public void SherpaOnnxSpeechRecognizer_Stop_NotRunning_DoesNotResetEngine()
+    {
+        // Arrange: a recognizer that has never been started
+        var captureDevice = CreateCaptureDevice(sampleRate: 16000, channelCount: 1);
+        var engine = new FakeRecognitionEngine();
+        using var recognizer = new SherpaOnnxSpeechRecognizer(engine, captureDevice, 16000, new FakeRecognitionModel());
+
+        // Act: stop without ever starting
+        recognizer.Stop();
+
+        // Assert: the engine was never reset
+        Assert.Equal(0, engine.ResetCallCount);
+    }
+
+    /// <summary>
     ///     Proves that disposal stops the pipeline, disposes the owned engine, and is idempotent.
     /// </summary>
     [Fact]
@@ -215,6 +280,27 @@ public class SherpaOnnxSpeechRecognizerTests
         // Assert: the device was stopped once and the engine disposed exactly once
         captureDevice.Received(1).Stop();
         Assert.Equal(1, engine.DisposeCallCount);
+    }
+
+    /// <summary>
+    ///     Proves that disposing a running recognizer resets the owned engine's decoder state
+    ///     exactly once, as part of the shared stop sequence <see cref="SherpaOnnxSpeechRecognizer.Dispose"/>
+    ///     performs before disposing the engine.
+    /// </summary>
+    [Fact]
+    public void SherpaOnnxSpeechRecognizer_Dispose_Running_ResetsEngineOnce()
+    {
+        // Arrange: a running recognizer with a fake engine
+        var captureDevice = CreateCaptureDevice(sampleRate: 16000, channelCount: 1);
+        var engine = new FakeRecognitionEngine();
+        var recognizer = new SherpaOnnxSpeechRecognizer(engine, captureDevice, 16000, new FakeRecognitionModel());
+        recognizer.Start();
+
+        // Act: dispose the recognizer
+        recognizer.Dispose();
+
+        // Assert: the engine was reset exactly once
+        Assert.Equal(1, engine.ResetCallCount);
     }
 
     /// <summary>
