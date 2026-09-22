@@ -73,6 +73,24 @@ sections:
                   - SherpaOnnxSpeechRecognizer_Dispose_CalledTwice_StopsAndDisposesEngineOnce
                   - SherpaOnnxSpeechRecognizer_Start_AfterDispose_ThrowsObjectDisposedException
 
+              - id: Speech-Recognition-SherpaOnnxSpeechRecognizer-TerminalResetFailure
+                title: >-
+                  The SherpaOnnxSpeechRecognizer class shall treat a failure resetting its owned
+                  engine during Stop() as making the recognizer permanently unusable, refusing a
+                  later Start() rather than silently reporting success while every subsequent
+                  frame is rejected by the dead engine, while still releasing the engine on a
+                  later Dispose().
+                justification: |
+                  A CreateStream() failure inside SherpaOnnxRecognitionEngine.Reset() (for example
+                  a native allocation fault) makes that engine instance permanently unusable.
+                  Without propagating that terminal state to the owning recognizer, a host that
+                  called Start() after such a Stop() would see a false "successfully started"
+                  pipeline that could never again produce recognition results - an unrecoverable
+                  and undetectable failure mode. Disposal must still run in full afterward so the
+                  now-dead engine's resources are not leaked.
+                tests:
+                  - SherpaOnnxSpeechRecognizer_Stop_EngineResetFails_RecognizerBecomesPermanentlyDisposed
+
               - id: Speech-Recognition-SherpaOnnxSpeechRecognizer-FaultContainment
                 title: >-
                   The SherpaOnnxSpeechRecognizer class shall report, and continue running after,
@@ -174,6 +192,23 @@ sections:
                   - SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_ReplayEligibility_GatedOnHasRecognizedTextSinceReset
                   - SherpaOnnxNemotronStreamingEnRecognitionModel_PostEndpointWarmupWindowMs_Is800
                   - SherpaOnnxZipformerEnRecognitionModel_PostEndpointWarmupWindowMs_IsDisabledDefault
+
+              - id: Speech-Recognition-RecognitionEngine-SessionEndResetDiscardsBufferedAudio
+                title: >-
+                  The recognition-engine seam's session-end Reset() shall discard audio that has
+                  been accepted but not yet decoded, so an utterance abandoned without a trailing
+                  endpoint can never decode into a subsequent session.
+                justification: |
+                  A real regression was found where Reset() called only
+                  OnlineRecognizer.Reset(_stream), which clears the decoder's current hypothesis
+                  but not audio already accepted via AcceptWaveform that a streaming transducer
+                  buffers pending future decoding context; that buffered audio survived an
+                  in-place reset and decoded into the next session as soon as any subsequent
+                  audio, even silence, supplied the missing context - for example a push-to-talk
+                  release with no trailing silence. The fix recreates the underlying OnlineStream
+                  instead of resetting it in place.
+                tests:
+                  - SherpaOnnxRecognitionEngine_Reset_AbandonedUtteranceWithNoTrailingSilence_DoesNotBleedIntoNextSession
 
               - id: Speech-Recognition-RecognitionEngine-RealSpeechAccuracy
                 title: >-
