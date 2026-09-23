@@ -495,12 +495,16 @@ public class SherpaOnnxSpeechRecognizerTests
 
     /// <summary>
     ///     Proves that a failed <see cref="SherpaOnnxSpeechRecognizer.Start"/> resets the engine
-    ///     as part of its rollback, so a later retry does not inherit a stream the consumer's
-    ///     unconditional trailing flush already marked finished despite no audio ever having been
-    ///     accepted (the capture device never actually started).
+    ///     as part of its rollback, exactly like a normal <see cref="SherpaOnnxSpeechRecognizer.Stop"/>
+    ///     would - the consumer's unconditional trailing flush would otherwise mark the real
+    ///     engine's stream finished even though no audio was ever accepted (the capture device
+    ///     never actually started), leaving a later retry unable to decode. This test proves only
+    ///     that <see cref="IRecognitionEngine.Reset"/> is invoked during the rollback; the fake
+    ///     engine does not model the real engine's "finished stream" semantics, so it cannot
+    ///     itself prove a subsequent retry can decode.
     /// </summary>
     [Fact]
-    public void SherpaOnnxSpeechRecognizer_Start_CaptureDeviceFails_ResetsEngineSoRetryCanStillDecode()
+    public void SherpaOnnxSpeechRecognizer_Start_CaptureDeviceFails_ResetsEngineDuringRollback()
     {
         // Arrange: a device whose Start throws
         var captureDevice = CreateCaptureDevice(sampleRate: 16000, channelCount: 1);
@@ -514,9 +518,7 @@ public class SherpaOnnxSpeechRecognizerTests
         // Act
         Assert.Throws<SpeechRecognizerUnavailableException>(recognizer.Start);
 
-        // Assert: the rollback reset the engine, exactly like a normal Stop() would, so a later
-        // retry begins from a clean, still-decodable state rather than a stream FlushFinal
-        // already marked finished.
+        // Assert: the rollback reset the engine, exactly like a normal Stop() would.
         Assert.Equal(1, engine.ResetCallCount);
     }
 

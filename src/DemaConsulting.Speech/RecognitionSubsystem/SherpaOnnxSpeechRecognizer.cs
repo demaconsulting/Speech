@@ -507,7 +507,7 @@ internal sealed class SherpaOnnxSpeechRecognizer : ISpeechRecognizer
             _diagnostics.Report(
                 SpeechDiagnosticLevel.Error,
                 DiagnosticsCategory,
-                $"Failed to flush the recognition engine's trailing audio while stopping: {ex.Message}");
+                $"Failed to flush the recognition engine's trailing audio during teardown: {ex.Message}");
         }
     }
 

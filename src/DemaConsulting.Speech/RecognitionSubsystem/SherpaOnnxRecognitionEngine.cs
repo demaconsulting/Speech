@@ -454,8 +454,9 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionEngine
     ///     any audio (even silence) supplied the missing future context, making an abandoned
     ///     utterance bleed into the next <c>Start()</c>. The replacement
     ///     is created - and published to <see cref="_stream"/> and every managed bookkeeping
-    ///     field - before the old stream is disposed, so the engine always remains holding some
-    ///     usable stream regardless of which side of that boundary faults: if <c>CreateStream()</c>
+    ///     field - before the old stream is disposed, so <see cref="_stream"/> always ends up
+    ///     holding some stream (never unassigned or disposed) regardless of which side of that
+    ///     boundary faults - though not always a usable one, see below: if <c>CreateStream()</c>
     ///     itself throws (native allocation failure), <see cref="_stream"/> is left untouched on
     ///     the old stream rather than an unassigned or disposed one; if instead the old stream's
     ///     own <c>Dispose()</c> throws (native teardown failure) after the replacement was already
