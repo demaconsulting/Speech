@@ -251,6 +251,24 @@ internal sealed class SherpaOnnxSpeechRecognizer : ISpeechRecognizer
             frames.Writer.TryComplete();
             WaitForConsumer(consumerToDrain);
 
+            try
+            {
+                // The consumer's last action before exiting was FlushFinal, which - on the real
+                // engine - marks the current stream finished even though capture never actually
+                // started and no genuine audio was ever accepted. Without this reset, a later
+                // retry of Start() on the same "hot" engine would feed that already-finished
+                // stream and never decode anything again. See StopCore's identical Reset() call
+                // for why this is best-effort and reported rather than thrown.
+                _engine.Reset();
+            }
+            catch (Exception resetEx)
+            {
+                _diagnostics.Report(
+                    SpeechDiagnosticLevel.Error,
+                    DiagnosticsCategory,
+                    $"Failed to reset the recognition engine after a failed start: {resetEx.Message}");
+            }
+
             _diagnostics.Report(
                 SpeechDiagnosticLevel.Error,
                 DiagnosticsCategory,

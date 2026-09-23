@@ -494,6 +494,33 @@ public class SherpaOnnxSpeechRecognizerTests
     }
 
     /// <summary>
+    ///     Proves that a failed <see cref="SherpaOnnxSpeechRecognizer.Start"/> resets the engine
+    ///     as part of its rollback, so a later retry does not inherit a stream the consumer's
+    ///     unconditional trailing flush already marked finished despite no audio ever having been
+    ///     accepted (the capture device never actually started).
+    /// </summary>
+    [Fact]
+    public void SherpaOnnxSpeechRecognizer_Start_CaptureDeviceFails_ResetsEngineSoRetryCanStillDecode()
+    {
+        // Arrange: a device whose Start throws
+        var captureDevice = CreateCaptureDevice(sampleRate: 16000, channelCount: 1);
+        captureDevice
+            .When(device => device.Start())
+            .Do(_ => throw new AudioDeviceUnavailableException("native stream open failed"));
+        var engine = new FakeRecognitionEngine();
+        using var recognizer = new SherpaOnnxSpeechRecognizer(
+            engine, captureDevice, 16000, new FakeRecognitionModel());
+
+        // Act
+        Assert.Throws<SpeechRecognizerUnavailableException>(recognizer.Start);
+
+        // Assert: the rollback reset the engine, exactly like a normal Stop() would, so a later
+        // retry begins from a clean, still-decodable state rather than a stream FlushFinal
+        // already marked finished.
+        Assert.Equal(1, engine.ResetCallCount);
+    }
+
+    /// <summary>
     ///     Proves that a host result handler which throws is contained and reported through the
     ///     diagnostics sink, never rethrown into the capture callback and never stopping the
     ///     recognizer.
