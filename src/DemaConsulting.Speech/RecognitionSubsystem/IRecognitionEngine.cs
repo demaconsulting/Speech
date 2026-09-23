@@ -54,12 +54,35 @@ internal interface IRecognitionEngine : IDisposable
     bool TryDecode(out SpeechRecognitionResult? result);
 
     /// <summary>
+    ///     Finalizes and decodes any buffered audio the engine has accepted but not yet decoded,
+    ///     reporting one last result if that produced or completed any text.
+    /// </summary>
+    /// <param name="result">
+    ///     When this method returns <see langword="true"/>, the final result produced by
+    ///     finalizing the trailing audio; otherwise <see langword="null"/>.
+    /// </param>
+    /// <returns>
+    ///     <see langword="true"/> when finalizing produced non-empty text; <see langword="false"/>
+    ///     when there was nothing buffered or finalizing it produced no text.
+    /// </returns>
+    /// <remarks>
+    ///     A streaming engine sometimes cannot decode the tail of an utterance without more audio
+    ///     that a caller who has just stopped will never supply - for example a push-to-talk
+    ///     release with no trailing silence. Call this once, at session end, before
+    ///     <see cref="Reset"/> discards the stream, so that trailing audio is finalized and
+    ///     delivered rather than silently discarded along with it.
+    /// </remarks>
+    bool TryFlush(out SpeechRecognitionResult? result);
+
+    /// <summary>
     ///     Discards any partially decoded utterance and returns the engine to its
     ///     start-of-utterance state.
     /// </summary>
     /// <remarks>
     ///     Used when a recognition session ends so a subsequent session does not inherit text
-    ///     from audio the caller has already abandoned.
+    ///     from audio the caller has already abandoned. Call <see cref="TryFlush"/> first to
+    ///     finalize and deliver whatever trailing audio can still be recovered - by the time this
+    ///     method runs, anything it discards was never delivered to a caller.
     /// </remarks>
     void Reset();
 }

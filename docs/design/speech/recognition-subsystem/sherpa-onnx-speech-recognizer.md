@@ -29,20 +29,27 @@ keeps both memory and latency flat instead of letting them grow without limit.
   the capture device. Subscribing before starting guarantees no captured block can be raised
   before there is a handler to enqueue it. Starting an already-running recognizer is a no-op.
   Precondition: not disposed. Postcondition: capture is running and results will be raised.
-- **Stop()**: Unsubscribes, completes the queue, joins the consumer task, resets the engine, then
-  stops the capture device. Because the consumer drains everything already queued before exiting,
-  every result derived from audio captured before the call has been delivered when it returns.
-  Resetting the engine discards any partially decoded utterance or stale hypothesis left over
-  from the session just stopped, so a later `Start()` on the same "hot" engine always begins
-  decoding from a clean start-of-utterance state. The reset is best-effort: it crosses the native
-  decoder boundary, and a fault there is reported through `ISpeechDiagnostics` rather than thrown,
-  so `Stop()` still completes and a later `Start()` is still permitted, but the engine's state
-  cannot be guaranteed clean in that one failure case. Stopping a recognizer that is not running
-  is a no-op.
-- **Dispose()**: Performs the stop sequence (if running, which resets the engine and reports the
-  same way if that reset faults) and disposes the owned engine. Terminal regardless of whether
-  that reset succeeded: `Dispose()` always disposes the engine and permanently blocks a later
-  `Start()`, so the restart guarantee above is specific to `Stop()`. Idempotent.
+- **Stop()**: Unsubscribes, completes the queue, joins the consumer task, then stops the capture
+  device. Draining the consumer does two things in order: first it processes every already
+  queued block through the engine as normal, then - as its last action, still on the same
+  background decoding thread - it flushes the engine (`TryFlush`), finalizing and delivering any
+  trailing audio the engine had accepted but not yet decoded, for example the tail of an
+  utterance released with no trailing silence, which a streaming engine cannot normally decode
+  without more audio it will now never receive. Because of that flush, every result derived
+  from audio captured before the call - including that trailing fragment - has been delivered
+  when `Stop()` returns. The engine is then reset, discarding whatever the flush could not
+  recover and any stale hypothesis left over from the session just stopped, so a later `Start()`
+  on the same "hot" engine always begins decoding from a clean start-of-utterance state,
+  equivalent to a freshly constructed stream without the cost of reloading the model. Both the
+  flush and the reset are best-effort: each crosses the native decoder boundary, and a fault
+  there is reported through `ISpeechDiagnostics` rather than thrown, so `Stop()` still completes
+  and a later `Start()` is still permitted, but in that one failure case the trailing fragment
+  may go undelivered and the engine's state cannot be guaranteed clean. Stopping a recognizer
+  that is not running is a no-op.
+- **Dispose()**: Performs the stop sequence (if running, which flushes and resets the engine and
+  reports the same way if either faults) and disposes the owned engine. Terminal regardless of
+  whether the flush or reset succeeded: `Dispose()` always disposes the engine and permanently
+  blocks a later `Start()`, so the restart guarantee above is specific to `Stop()`. Idempotent.
 - **OnFrameCaptured(...)**: Runs on the audio callback thread. Copies the block and enqueues it;
   nothing else.
 - **ProcessFrame(...)**: Runs on the consumer thread. Converts the block through
@@ -52,6 +59,13 @@ keeps both memory and latency flat instead of letting them grow without limit.
   punctuation restoration (see `UppercaseTranscriptRestorer`) surfaces readable text to every
   consumer instead of the engine's raw output; bounded at 32 results per block so a faulty engine
   cannot livelock the consumer.
+- **FlushFinal()**: Runs on the consumer thread, as the last action of the consumer loop once the
+  queue is drained and completed - so still before `Stop()`/`Dispose()` unblock their caller, and
+  still on the same background decoding thread as every other `ResultReceived` event. Calls the
+  engine's `TryFlush()` to finalize and decode any audio accepted but not yet decoded, and raises
+  the result the same way `ProcessFrame` does (same `NormalizeText` call) if there is one.
+  Contained the same way as `ProcessFrame`: a fault crossing the native decoder boundary, or from
+  a host's own handler, is reported rather than thrown.
 
 **Error Handling**: Every stage is contained. A failure enqueueing a block, converting it,
 running inference on it, or delivering a result to a host handler is caught and reported through

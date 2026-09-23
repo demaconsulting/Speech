@@ -70,6 +70,9 @@ sections:
                   - SherpaOnnxSpeechRecognizer_Start_AlreadyRunning_IsNoOp
                   - SherpaOnnxSpeechRecognizer_Stop_WhileRunning_UnsubscribesAndStopsCaptureDevice
                   - SherpaOnnxSpeechRecognizer_Stop_NotRunning_IsNoOp
+                  - SherpaOnnxSpeechRecognizer_Stop_EngineHasFlushableTrailingAudio_RaisesFlushedFinalResult
+                  - SherpaOnnxSpeechRecognizer_Stop_EngineHasNothingToFlush_RaisesNoExtraResult
+                  - SherpaOnnxSpeechRecognizer_Dispose_EngineHasFlushableTrailingAudio_RaisesFlushedFinalResult
                   - SherpaOnnxSpeechRecognizer_Dispose_CalledTwice_StopsAndDisposesEngineOnce
                   - SherpaOnnxSpeechRecognizer_Start_AfterDispose_ThrowsObjectDisposedException
 
@@ -102,6 +105,21 @@ sections:
                   is unconditionally terminal, so no restart guarantee applies to it.
                 tests:
                   - SherpaOnnxSpeechRecognizer_Stop_EngineResetFails_CompletesReportsFaultAndPermitsRestart
+
+              - id: Speech-Recognition-SherpaOnnxSpeechRecognizer-FlushFailureContainment
+                title: >-
+                  The SherpaOnnxSpeechRecognizer class shall report, rather than propagate, a
+                  fault raised while flushing the recognition engine's trailing audio during
+                  Stop()/Dispose() teardown, still complete that teardown, and still reset the
+                  engine afterward.
+                justification: |
+                  Flushing trailing audio (see Speech-Recognition-RecognitionEngine-
+                  TryFlushRecoversTrailingAudio) crosses the native decoder boundary during
+                  teardown, exactly like the reset that follows it, so a fault there must not
+                  prevent Stop()/Dispose() from completing or from still resetting the engine for
+                  the next session.
+                tests:
+                  - SherpaOnnxSpeechRecognizer_Stop_EngineFlushFails_CompletesResetsEngineAndReportsFault
 
               - id: Speech-Recognition-SherpaOnnxSpeechRecognizer-CaptureStartFailure
                 title: >-
@@ -156,6 +174,24 @@ sections:
                   next Start().
                 tests:
                   - SherpaOnnxRecognitionEngine_Reset_AbandonedUtteranceWithNoTrailingSilence_DoesNotBleedIntoNextSession
+
+              - id: Speech-Recognition-RecognitionEngine-TryFlushRecoversTrailingAudio
+                title: >-
+                  The recognition-engine seam's TryFlush() shall finalize and decode audio already
+                  accepted but not yet decoded, delivering it as a final result rather than
+                  losing it, before a session-end Reset() discards whatever remains.
+                justification: |
+                  A streaming transducer sometimes cannot decode the tail of an utterance without
+                  more audio a caller who has just stopped will never supply - for example a
+                  push-to-talk release with no trailing silence. Without a way to finalize that
+                  tail, the only alternative is to discard it unread (see
+                  Speech-Recognition-RecognitionEngine-SessionEndResetDiscardsBufferedAudio),
+                  silently losing the last word a user spoke. The native engine's own
+                  InputFinished mechanism exists precisely to force a decode of buffered audio
+                  without needing genuine future context, so this recovers that audio instead of
+                  losing it.
+                tests:
+                  - SherpaOnnxRecognitionEngine_TryFlush_AbandonedUtteranceWithNoTrailingSilence_RecoversTrailingWords
 
               - id: Speech-Recognition-RecognitionEngine-PostEndpointWarmupReplay
                 title: >-

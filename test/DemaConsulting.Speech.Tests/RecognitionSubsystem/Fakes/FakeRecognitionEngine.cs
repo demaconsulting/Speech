@@ -13,11 +13,17 @@ internal sealed class FakeRecognitionEngine : IRecognitionEngine
     /// <summary>The results this engine yields, in order, one per <see cref="TryDecode"/> call.</summary>
     private readonly Queue<SpeechRecognitionResult> _scriptedResults;
 
+    /// <summary>The result <see cref="TryFlush"/> yields, or <see langword="null"/> to yield none.</summary>
+    private readonly SpeechRecognitionResult? _scriptedFlushResult;
+
     /// <summary>The exception to throw from <see cref="AcceptSamples"/>, when one was scripted.</summary>
     private readonly Exception? _acceptSamplesException;
 
     /// <summary>The exception to throw from <see cref="Reset"/>, when one was scripted.</summary>
     private readonly Exception? _resetException;
+
+    /// <summary>The exception to throw from <see cref="TryFlush"/>, when one was scripted.</summary>
+    private readonly Exception? _flushException;
 
     /// <summary>Every mono sample this engine has been fed, in the order it arrived.</summary>
     private readonly List<float> _acceptedSamples = [];
@@ -38,14 +44,27 @@ internal sealed class FakeRecognitionEngine : IRecognitionEngine
     ///     normally. Used to prove the recognizer's teardown still completes and reports the
     ///     fault when the engine's reset fails.
     /// </param>
+    /// <param name="scriptedFlushResult">
+    ///     The result <see cref="TryFlush"/> yields, or <see langword="null"/> to yield none.
+    ///     Used to prove the recognizer delivers a flushed trailing result when stopping.
+    /// </param>
+    /// <param name="flushException">
+    ///     An exception for <see cref="TryFlush"/> to throw, or <see langword="null"/> to flush
+    ///     normally. Used to prove the recognizer's teardown still completes and reports the
+    ///     fault when the engine's flush fails.
+    /// </param>
     public FakeRecognitionEngine(
         IEnumerable<SpeechRecognitionResult>? scriptedResults = null,
         Exception? acceptSamplesException = null,
-        Exception? resetException = null)
+        Exception? resetException = null,
+        SpeechRecognitionResult? scriptedFlushResult = null,
+        Exception? flushException = null)
     {
         _scriptedResults = new Queue<SpeechRecognitionResult>(scriptedResults ?? []);
         _acceptSamplesException = acceptSamplesException;
         _resetException = resetException;
+        _scriptedFlushResult = scriptedFlushResult;
+        _flushException = flushException;
     }
 
     /// <summary>Gets every mono sample this engine has been fed, in arrival order.</summary>
@@ -56,6 +75,9 @@ internal sealed class FakeRecognitionEngine : IRecognitionEngine
 
     /// <summary>Gets the number of <see cref="Reset"/> calls this engine has received.</summary>
     public int ResetCallCount { get; private set; }
+
+    /// <summary>Gets the number of <see cref="TryFlush"/> calls this engine has received.</summary>
+    public int FlushCallCount { get; private set; }
 
     /// <summary>Gets the number of <see cref="Dispose"/> calls this engine has received.</summary>
     public int DisposeCallCount { get; private set; }
@@ -84,6 +106,20 @@ internal sealed class FakeRecognitionEngine : IRecognitionEngine
 
         result = _scriptedResults.Dequeue();
         return true;
+    }
+
+    /// <inheritdoc/>
+    public bool TryFlush(out SpeechRecognitionResult? result)
+    {
+        FlushCallCount++;
+
+        if (_flushException is not null)
+        {
+            throw _flushException;
+        }
+
+        result = _scriptedFlushResult;
+        return result is not null;
     }
 
     /// <inheritdoc/>

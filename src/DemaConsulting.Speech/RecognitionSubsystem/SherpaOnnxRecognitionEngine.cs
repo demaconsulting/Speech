@@ -28,9 +28,9 @@ namespace DemaConsulting.Speech.RecognitionSubsystem;
 ///     Two distinct reset paths exist and are deliberately not unified: the endpoint path inside
 ///     <c>TryDecode</c> resets the existing stream in place (buffered pre/post-endpoint audio is
 ///     wanted there, for warm-up replay), while the session-end <see cref="Reset"/> - called when
-///     a host stops a session - discards the stream entirely and creates a replacement, so any
-///     audio already accepted but not yet decoded from an abandoned utterance cannot bleed into
-///     the next session's decoding.
+///     a host stops a session, always preceded by <see cref="TryFlush"/> - discards the stream
+///     entirely and creates a replacement, so any audio accepted but still not decoded even
+///     after that flush cannot bleed into the next session's decoding.
 ///     </para>
 /// </remarks>
 internal sealed class SherpaOnnxRecognitionEngine : IRecognitionEngine
@@ -302,6 +302,42 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionEngine
         return true;
     }
 
+    /// <inheritdoc/>
+    /// <exception cref="ObjectDisposedException">Thrown when the engine has been disposed.</exception>
+    /// <remarks>
+    ///     Calls <see cref="OnlineStream.InputFinished"/>, which tells the native decoder no more
+    ///     audio for this stream is coming, so it pads and decodes whatever is still buffered
+    ///     instead of holding it back waiting for future context that will now never arrive. This
+    ///     is what lets a push-to-talk release with no trailing silence still produce a final
+    ///     result for the word it cut off, rather than losing it. Marks the stream finished as a
+    ///     side effect, so this is only ever called once, at session end, immediately before
+    ///     <see cref="Reset"/> replaces the stream.
+    /// </remarks>
+    public bool TryFlush(out SpeechRecognitionResult? result)
+    {
+        ObjectDisposedException.ThrowIf(_isDisposed, this);
+
+        result = null;
+
+        _stream.InputFinished();
+
+        // Same drain loop as TryDecode: IsReady goes false once the buffered audio (now padded
+        // by InputFinished) has been fully consumed, so this always terminates.
+        while (_recognizer.IsReady(_stream))
+        {
+            _recognizer.Decode(_stream);
+        }
+
+        var text = _recognizer.GetResult(_stream).Text ?? string.Empty;
+        if (text.Length == 0)
+        {
+            return false;
+        }
+
+        result = new SpeechRecognitionResult(text, IsFinal: true);
+        return true;
+    }
+
     /// <summary>
     ///     Silently replays the buffered pre-endpoint audio into the freshly reset stream,
     ///     pre-warming the model's internal decoding state before genuinely new audio arrives, and
@@ -353,10 +389,12 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionEngine
     ///     by creating a replacement stream and disposing the existing one, because
     ///     <see cref="OnlineRecognizer.Reset(OnlineStream)"/> alone only clears the hypothesis:
     ///     a streaming transducer buffers accepted audio it has not yet had enough future context
-    ///     to decode, and that buffered audio survives an in-place <c>Reset</c>. Left undiscarded,
-    ///     it would decode into the next session as soon as any audio (even silence) supplied the
-    ///     missing future context, making an abandoned utterance (for example a push-to-talk
-    ///     release with no trailing silence) bleed into the next <c>Start()</c>. The replacement
+    ///     to decode, and that buffered audio survives an in-place <c>Reset</c>. Callers call
+    ///     <see cref="TryFlush"/> first at session end so that buffered audio is finalized and
+    ///     delivered rather than lost here; what this method discards is only whatever a flush
+    ///     could not recover. Left undiscarded, it would decode into the next session as soon as
+    ///     any audio (even silence) supplied the missing future context, making an abandoned
+    ///     utterance bleed into the next <c>Start()</c>. The replacement
     ///     is created - and published to <see cref="_stream"/> and every managed bookkeeping
     ///     field - before the old stream is disposed, so the engine always remains usable
     ///     regardless of which side of that boundary faults: if <c>CreateStream()</c> itself
