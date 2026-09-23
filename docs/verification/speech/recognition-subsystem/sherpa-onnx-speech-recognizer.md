@@ -165,8 +165,9 @@ handler faults are reported without escaping, a capture-start failure surfaces t
 exception, and the converter produces the documented output for identity, upsampling,
 downsampling, multi-channel, and boundary inputs while rejecting non-positive rates and channel
 counts. A fault in the engine's session-end `Reset()` during `Stop()`/`Dispose()` is reported
-without escaping, teardown still completes, and a later `Start()` is still permitted. For the
-post-endpoint warm-up-replay feature specifically: a disabled (`0`) window
+without escaping and teardown still completes; a later `Start()` is still permitted after such a
+fault during `Stop()`, while `Dispose()` remains terminal regardless of whether its reset
+succeeds. For the post-endpoint warm-up-replay feature specifically: a disabled (`0`) window
 allocates no buffer and changes no observable behavior; an enabled window allocates a buffer sized
 to the configured duration that accumulates and trims fed samples; a real endpoint that occurs
 after genuine recognized text has been produced since the last reset consumes the buffer via a

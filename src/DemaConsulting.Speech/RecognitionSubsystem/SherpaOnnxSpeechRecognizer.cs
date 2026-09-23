@@ -32,9 +32,13 @@ namespace DemaConsulting.Speech.RecognitionSubsystem;
 ///     never inherits a partially decoded utterance or stale hypothesis left over from before
 ///     the stop. That reset is best-effort: it crosses the native decoder boundary, and a
 ///     fault there is reported through <see cref="ISpeechDiagnostics"/> rather than thrown, so
-///     <see cref="Stop"/>/<see cref="Dispose"/> still complete and a later <see cref="Start"/>
-///     is still permitted, but the engine's state cannot be guaranteed clean in that one
-///     failure case.
+///     <see cref="Stop"/> still completes and a later <see cref="Start"/> is still permitted,
+///     but the engine's state cannot be guaranteed clean in that one failure case. This
+///     restart guarantee is specific to <see cref="Stop"/>: <see cref="Dispose"/> also
+///     performs this reset as part of its teardown, and reports the same fault the same way,
+///     but is terminal regardless of whether that reset succeeds - it disposes the engine and
+///     permanently blocks a later <see cref="Start"/>, so there is nothing further to
+///     guarantee about restart in that case.
 ///     </para>
 ///     <para>
 ///     Exceptions raised anywhere in the pipeline - by a frame handler, by the engine, or by a

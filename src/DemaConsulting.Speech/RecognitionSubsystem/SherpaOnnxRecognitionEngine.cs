@@ -357,25 +357,28 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionEngine
     ///     it would decode into the next session as soon as any audio (even silence) supplied the
     ///     missing future context, making an abandoned utterance (for example a push-to-talk
     ///     release with no trailing silence) bleed into the next <c>Start()</c>. The replacement
-    ///     is created before the old stream is disposed, so if <c>CreateStream()</c> itself
-    ///     throws (native allocation failure), the existing stream is left untouched and the
-    ///     engine remains usable rather than being left with no stream at all. This is
-    ///     deliberately distinct from the endpoint-triggered reset inside <see cref="TryDecode"/>,
-    ///     which resets the same stream in place because that path is a normal utterance boundary
-    ///     where the buffered pre/post-endpoint audio is wanted for <see cref="ReplayWarmupBuffer"/>.
+    ///     is created - and published to <see cref="_stream"/> and every managed bookkeeping
+    ///     field - before the old stream is disposed, so a fault in either <c>CreateStream()</c>
+    ///     (native allocation failure) or the old stream's own <c>Dispose()</c> (native teardown
+    ///     failure) always leaves the engine holding a valid, freshly reset stream rather than an
+    ///     unassigned or disposed one. This is deliberately distinct from the endpoint-triggered
+    ///     reset inside <see cref="TryDecode"/>, which resets the same stream in place because
+    ///     that path is a normal utterance boundary where the buffered pre/post-endpoint audio is
+    ///     wanted for <see cref="ReplayWarmupBuffer"/>.
     /// </remarks>
     public void Reset()
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
 
-        var replacement = _recognizer.CreateStream();
-        _stream.Dispose();
-        _stream = replacement;
+        var previousStream = _stream;
+        _stream = _recognizer.CreateStream();
 
         _lastReportedText = string.Empty;
         _hasRecognizedTextSinceReset = false;
         _warmupBuffer?.Clear();
         _graceSamplesRemaining = 0;
+
+        previousStream.Dispose();
     }
 
     /// <inheritdoc/>

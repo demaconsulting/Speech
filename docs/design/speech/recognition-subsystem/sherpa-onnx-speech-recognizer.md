@@ -36,11 +36,13 @@ keeps both memory and latency flat instead of letting them grow without limit.
   from the session just stopped, so a later `Start()` on the same "hot" engine always begins
   decoding from a clean start-of-utterance state. The reset is best-effort: it crosses the native
   decoder boundary, and a fault there is reported through `ISpeechDiagnostics` rather than thrown,
-  so `Stop()`/`Dispose()` still complete and a later `Start()` is still permitted, but the
-  engine's state cannot be guaranteed clean in that one failure case. Stopping a recognizer that
-  is not running is a no-op.
-- **Dispose()**: Performs the stop sequence (if running) and disposes the owned engine.
-  Idempotent.
+  so `Stop()` still completes and a later `Start()` is still permitted, but the engine's state
+  cannot be guaranteed clean in that one failure case. Stopping a recognizer that is not running
+  is a no-op.
+- **Dispose()**: Performs the stop sequence (if running, which resets the engine and reports the
+  same way if that reset faults) and disposes the owned engine. Terminal regardless of whether
+  that reset succeeded: `Dispose()` always disposes the engine and permanently blocks a later
+  `Start()`, so the restart guarantee above is specific to `Stop()`. Idempotent.
 - **OnFrameCaptured(...)**: Runs on the audio callback thread. Copies the block and enqueues it;
   nothing else.
 - **ProcessFrame(...)**: Runs on the consumer thread. Converts the block through

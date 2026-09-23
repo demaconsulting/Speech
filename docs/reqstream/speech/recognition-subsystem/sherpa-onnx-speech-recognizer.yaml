@@ -91,12 +91,15 @@ sections:
                 title: >-
                   The SherpaOnnxSpeechRecognizer class shall report, rather than propagate, a
                   fault raised while resetting the recognition engine during Stop()/Dispose()
-                  teardown, still complete that teardown, and still permit a later Start().
+                  teardown and still complete that teardown; a failed reset during Stop() shall
+                  still permit a later Start(), while Dispose() remains terminal regardless of
+                  whether its reset succeeds.
                 justification: |
                   Resetting the engine crosses the native decoder boundary during teardown, so a
-                  fault there must not prevent Stop()/Dispose() from completing or block a host
-                  from restarting recognition, even though the engine's state cannot be
-                  guaranteed clean in that one failure case.
+                  fault there must not prevent Stop()/Dispose() from completing, and must not
+                  block a host from restarting recognition after a failed Stop(), even though the
+                  engine's state cannot be guaranteed clean in that one failure case. Dispose()
+                  is unconditionally terminal, so no restart guarantee applies to it.
                 tests:
                   - SherpaOnnxSpeechRecognizer_Stop_EngineResetFails_CompletesReportsFaultAndPermitsRestart
 
