@@ -102,7 +102,7 @@ public interface ISpeechRecognizer : IDisposable
     /// <remarks>
     ///     Guarantees zero carryover into the next session: even the tail of an utterance
     ///     released with no trailing silence - which a streaming engine cannot normally decode
-    ///     without more audio a caller who has just stopped will never supply - is finalized and
+    ///     without more audio that a caller who has just stopped will never supply - is finalized and
     ///     delivered as one last result here rather than left pending. This is best-effort: a
     ///     fault in the engine while finalizing or resetting is reported through diagnostics
     ///     rather than thrown, <see cref="Stop"/> still completes, and a later <see cref="Start"/>

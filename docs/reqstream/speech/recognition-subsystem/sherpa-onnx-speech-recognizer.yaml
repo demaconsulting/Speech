@@ -131,6 +131,7 @@ sections:
                   leaving the host believing recognition is running.
                 tests:
                   - SherpaOnnxSpeechRecognizer_Start_CaptureDeviceFails_ThrowsSpeechRecognizerUnavailableException
+                  - SherpaOnnxSpeechRecognizer_Start_CaptureDeviceFails_ResetsEngineDuringRollback
 
           - title: RecognitionEngine Requirements
             requirements:
@@ -241,6 +242,8 @@ sections:
                   - SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_ReplayEligibility_GatedOnHasRecognizedTextSinceReset
                   - SherpaOnnxNemotronStreamingEnRecognitionModel_PostEndpointWarmupWindowMs_Is800
                   - SherpaOnnxZipformerEnRecognitionModel_PostEndpointWarmupWindowMs_IsDisabledDefault
+                  - SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_TryFlushAfterReplayWithNoNewAudio_ReportsNothing
+                  - SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_TryDecodeAfterReplayWithNoNewAudio_ReportsNothing
 
               - id: Speech-Recognition-RecognitionEngine-RealSpeechAccuracy
                 title: >-

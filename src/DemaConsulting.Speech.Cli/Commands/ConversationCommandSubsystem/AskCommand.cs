@@ -647,6 +647,13 @@ internal static class AskCommand
                     // further is needed here.
                 }
 
+                // Detach before stopping: Stop() drains and flushes any trailing audio, which can
+                // raise one more final result. If the handler were still attached, that result
+                // would pass the IsFinal check and overwrite recognizedText, breaking the
+                // first-final-wins rule above. The finally block's own detach is then a harmless
+                // no-op cleanup for the paths that throw before reaching here.
+                recognizer.ResultReceived -= onResultReceived;
+
                 // Stop() is idempotent and always called here - whether the wait ended because
                 // of a final result, a silence/start timeout, or Ctrl+C - rather than from
                 // onResultReceived, because that handler runs on the recognizer's own background
