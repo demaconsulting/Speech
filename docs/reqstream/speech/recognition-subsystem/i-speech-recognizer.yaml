@@ -28,16 +28,23 @@ sections:
                 title: >-
                   The ISpeechRecognizer interface shall define Start/Stop lifecycle methods, a
                   ResultReceived event for delivering recognition results while running, and
-                  disposal of the resources a running recognizer holds.
+                  disposal of the resources a running recognizer holds. Stop shall finalize and
+                  deliver any trailing audio accepted but not yet decoded before it returns, rather
+                  than carrying it over into (or losing it between) sessions.
                 justification: |
                   A mockable streaming-recognition contract lets hosts and tests depend on
                   recognition behavior without tying themselves to a specific inference engine,
                   while still giving them a defined point at which engine resources are released.
+                  A streaming engine cannot decode the tail of an utterance released with no
+                  trailing silence without audio it will now never receive (for example a
+                  push-to-talk release), so without a defined finalization step that trailing
+                  audio would be silently lost rather than delivered as one last result.
                 tests:
                   - UnavailableSpeechRecognizer_Start_Always_ThrowsSpeechRecognizerUnavailableException
                   - UnavailableSpeechRecognizer_Stop_Always_ThrowsSpeechRecognizerUnavailableException
                   - SherpaOnnxSpeechRecognizer_Start_Always_SubscribesAndStartsCaptureDevice
                   - SherpaOnnxSpeechRecognizer_Stop_WhileRunning_UnsubscribesAndStopsCaptureDevice
+                  - SherpaOnnxSpeechRecognizer_Stop_EngineHasFlushableTrailingAudio_RaisesFlushedFinalResult
                   - SherpaOnnxSpeechRecognizer_Dispose_CalledTwice_StopsAndDisposesEngineOnce
 
               - id: Speech-Recognition-ISpeechRecognizer-ResultShape

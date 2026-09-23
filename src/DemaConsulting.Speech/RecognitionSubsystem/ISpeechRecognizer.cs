@@ -103,11 +103,11 @@ public interface ISpeechRecognizer : IDisposable
     ///     Guarantees zero carryover into the next session: even the tail of an utterance
     ///     released with no trailing silence - which a streaming engine cannot normally decode
     ///     without more audio a caller who has just stopped will never supply - is finalized and
-    ///     delivered as one last result here rather than left pending, so nothing can surface as
-    ///     a stray or late result after a later <see cref="Start"/>. That finalization is
-    ///     best-effort: a fault crossing the native decoder boundary is reported through
-    ///     diagnostics rather than thrown, in which case (only) an unrecoverable trailing
-    ///     fragment may be lost rather than delivered.
+    ///     delivered as one last result here rather than left pending. This is best-effort: a
+    ///     fault in the engine while finalizing or resetting is reported through diagnostics
+    ///     rather than thrown, <see cref="Stop"/> still completes, and a later <see cref="Start"/>
+    ///     is still permitted, but the trailing audio and/or the engine's clean state can no
+    ///     longer be guaranteed for that one call.
     /// </remarks>
     /// <exception cref="SpeechRecognizerUnavailableException">
     ///     Thrown when <see cref="IsAvailable"/> is <see langword="false"/>.

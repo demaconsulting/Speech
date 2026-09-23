@@ -174,6 +174,33 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionEngine
     /// </remarks>
     private bool _hasRecognizedTextSinceReset;
 
+    /// <summary>
+    ///     Whether the stream's current decoder hypothesis was produced only by
+    ///     <see cref="ReplayWarmupBuffer"/> silently pre-warming decoding state, with no
+    ///     genuinely-new audio accepted since. Always <see langword="false"/> when the
+    ///     warm-up-replay feature is disabled (<see cref="_warmupBuffer"/> is
+    ///     <see langword="null"/>), since <see cref="ReplayWarmupBuffer"/> is never called in
+    ///     that case.
+    /// </summary>
+    /// <remarks>
+    ///     <see cref="ReplayWarmupBuffer"/> feeds and decodes buffered audio purely to pre-warm
+    ///     native decoder state, and deliberately discards the resulting hypothesis text rather
+    ///     than ever surfacing it as a <see cref="SpeechRecognitionResult"/>. That hypothesis text
+    ///     does not vanish from the stream just because the caller who computed it chose to
+    ///     ignore it: it remains whatever <see cref="OnlineRecognizer.GetResult"/> would still
+    ///     report until genuinely new audio changes it. Without this flag, both
+    ///     <see cref="TryDecode"/> (called again with no intervening <see cref="AcceptSamples"/>,
+    ///     for example by a caller draining every result a single captured block produced) and
+    ///     <see cref="TryFlush"/> - which also call <c>GetResult</c>, each for a different,
+    ///     legitimate reason - would read and report that same still-discarded replay-only
+    ///     hypothesis as a result, silently breaking the "replay text is never reported"
+    ///     guarantee. Set immediately after a replay, and cleared as soon as
+    ///     <see cref="AcceptSamples"/> accepts genuinely new audio into the stream (replay itself
+    ///     feeds the native stream directly, bypassing this method, so it never clears its own
+    ///     flag).
+    /// </remarks>
+    private bool _hasReplayOnlyHypothesis;
+
     /// <summary>Whether <see cref="Dispose"/> has already released the native resources.</summary>
     private bool _isDisposed;
 
@@ -194,6 +221,12 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionEngine
         // be materialized as an array before it crosses the interop boundary.
         var samples = monoSamples.ToArray();
         _stream.AcceptWaveform(_sampleRate, samples);
+
+        // Genuinely new audio has now been accepted, so any prior replay-only hypothesis no
+        // longer stands alone - see `_hasReplayOnlyHypothesis` remarks. Cleared unconditionally
+        // (not gated on `_warmupBuffer`): the flag can only ever be true when the warm-up-replay
+        // feature is enabled, so clearing it here when disabled is simply always a no-op.
+        _hasReplayOnlyHypothesis = false;
 
         // Disabled models (`_warmupBuffer` null) skip this entirely: no buffer maintenance, no
         // grace-period bookkeeping, zero measurable behavior change from before this feature.
@@ -232,6 +265,16 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionEngine
 
         result = null;
 
+        // The stream's current hypothesis is still the one ReplayWarmupBuffer produced and
+        // this engine already discarded; without an intervening AcceptSamples call there is
+        // nothing new to decode or report - see `_hasReplayOnlyHypothesis` remarks. This
+        // matters because a caller may call this method again for the same captured block with
+        // no new audio in between (draining every result one block produced).
+        if (_hasReplayOnlyHypothesis)
+        {
+            return false;
+        }
+
         // Drain every frame the recognizer has enough buffered audio to decode. IsReady goes
         // false once the buffered audio has been consumed, so this loop always terminates.
         while (_recognizer.IsReady(_stream))
@@ -268,6 +311,7 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionEngine
             _recognizer.Reset(_stream);
             _lastReportedText = string.Empty;
             _hasRecognizedTextSinceReset = false;
+            _hasReplayOnlyHypothesis = false;
 
             // Disabled models (`_warmupBuffer` null) skip this entirely - no replay, no grace
             // period, zero measurable behavior change from before this feature existed.
@@ -312,6 +356,12 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionEngine
     ///     result for the word it cut off, rather than losing it. Marks the stream finished as a
     ///     side effect, so this is only ever called once, at session end, immediately before
     ///     <see cref="Reset"/> replaces the stream.
+    ///     <para>
+    ///     Reports nothing if the stream's only hypothesis is one <see cref="ReplayWarmupBuffer"/>
+    ///     silently produced and no genuinely-new audio has arrived since - see
+    ///     <see cref="_hasReplayOnlyHypothesis"/> - so a caller stopping immediately after a
+    ///     replay still never sees the discarded replay text resurface as a flushed result.
+    ///     </para>
     /// </remarks>
     public bool TryFlush(out SpeechRecognitionResult? result)
     {
@@ -326,6 +376,11 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionEngine
         while (_recognizer.IsReady(_stream))
         {
             _recognizer.Decode(_stream);
+        }
+
+        if (_hasReplayOnlyHypothesis)
+        {
+            return false;
         }
 
         var text = _recognizer.GetResult(_stream).Text ?? string.Empty;
@@ -376,8 +431,11 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionEngine
         }
 
         // Discarded deliberately: this replay exists purely to pre-warm decoding state, and its
-        // recognized text must never be raised to a caller.
+        // recognized text must never be raised to a caller. It also remains the stream's current
+        // hypothesis until genuinely new audio changes it - see `_hasReplayOnlyHypothesis`
+        // remarks for why `TryFlush` must not read it back out later.
         _ = _recognizer.GetResult(_stream);
+        _hasReplayOnlyHypothesis = true;
 
         _graceSamplesRemaining = _postReplayGraceSamples;
     }
@@ -396,13 +454,20 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionEngine
     ///     any audio (even silence) supplied the missing future context, making an abandoned
     ///     utterance bleed into the next <c>Start()</c>. The replacement
     ///     is created - and published to <see cref="_stream"/> and every managed bookkeeping
-    ///     field - before the old stream is disposed, so the engine always remains usable
-    ///     regardless of which side of that boundary faults: if <c>CreateStream()</c> itself
-    ///     throws (native allocation failure), <see cref="_stream"/> is left untouched on the old,
-    ///     unreset stream rather than an unassigned or disposed one - usable, but not the fresh
-    ///     reset this call was meant to produce; if instead the old stream's own <c>Dispose()</c>
-    ///     throws (native teardown failure) after the replacement was already published, the
-    ///     engine is left holding the new, freshly reset stream as intended. This is deliberately
+    ///     field - before the old stream is disposed, so the engine always remains holding some
+    ///     usable stream regardless of which side of that boundary faults: if <c>CreateStream()</c>
+    ///     itself throws (native allocation failure), <see cref="_stream"/> is left untouched on
+    ///     the old stream rather than an unassigned or disposed one; if instead the old stream's
+    ///     own <c>Dispose()</c> throws (native teardown failure) after the replacement was already
+    ///     published, the engine is left holding the new, freshly reset stream as intended. The
+    ///     two failures are not equally recoverable, because every caller of this method calls
+    ///     <see cref="TryFlush"/> on the same stream immediately beforehand: <c>TryFlush</c>
+    ///     calls <see cref="OnlineStream.InputFinished"/>, which marks that stream finished, so a
+    ///     <c>CreateStream()</c> failure here leaves the engine holding a stream that is not just
+    ///     unreset but already finished - unlike a bare <c>Reset()</c> call with no preceding
+    ///     flush, it cannot be relied on to accept and decode further audio at all, only to not
+    ///     throw doing so. The old-stream-<c>Dispose()</c>-failure case has no such limitation:
+    ///     the replacement stream is already current and fully usable. This is deliberately
     ///     distinct from the endpoint-triggered reset inside <see cref="TryDecode"/>, which resets
     ///     the same stream in place because that path is a normal utterance boundary where the
     ///     buffered pre/post-endpoint audio is wanted for <see cref="ReplayWarmupBuffer"/>.
@@ -416,6 +481,7 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionEngine
 
         _lastReportedText = string.Empty;
         _hasRecognizedTextSinceReset = false;
+        _hasReplayOnlyHypothesis = false;
         _warmupBuffer?.Clear();
         _graceSamplesRemaining = 0;
 

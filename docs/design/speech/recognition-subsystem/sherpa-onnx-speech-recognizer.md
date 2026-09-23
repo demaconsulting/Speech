@@ -44,8 +44,9 @@ keeps both memory and latency flat instead of letting them grow without limit.
   flush and the reset are best-effort: each crosses the native decoder boundary, and a fault
   there is reported through `ISpeechDiagnostics` rather than thrown, so `Stop()` still completes
   and a later `Start()` is still permitted, but in that one failure case the trailing fragment
-  may go undelivered and the engine's state cannot be guaranteed clean. Stopping a recognizer
-  that is not running is a no-op.
+  may go undelivered, the engine's state cannot be guaranteed clean, and in rare cases restart
+  may not fully recover the ability to decode. Stopping a recognizer that is not running is a
+  no-op.
 - **Dispose()**: Performs the stop sequence (if running, which flushes and resets the engine and
   reports the same way if either faults) and disposes the owned engine. Terminal regardless of
   whether the flush or reset succeeded: `Dispose()` always disposes the engine and permanently
@@ -105,6 +106,11 @@ for downloads.
   as possible and reports the next result, returning `false` when there is nothing new. Reporting
   "nothing new" instead of an empty result keeps the caller's event stream free of duplicates
   while silence is streaming. Callers may poll until it returns `false`.
+- **IRecognitionEngine.TryFlush(out SpeechRecognitionResult?)**: Finalizes and decodes any
+  buffered-but-undecoded audio - the tail of an utterance released with no trailing silence, which
+  `TryDecode` alone cannot decode without future context that will now never arrive - and reports
+  it as one last final result if it produced non-empty text, or `false` if there was nothing to
+  recover. Called once, at session end, immediately before `Reset()`.
 - **IRecognitionEngine.Reset()**: Discards a partially decoded utterance.
 - **IRecognitionEngineFactory.Create(IRecognitionModel, string installedModelDirectory)**: Loads
   an engine from the model's own declared configuration and required input `AudioFormat`.

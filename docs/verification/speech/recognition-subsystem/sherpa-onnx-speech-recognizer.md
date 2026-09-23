@@ -193,9 +193,10 @@ result, even the tail of an utterance a streaming engine could not otherwise dec
 audio it will now never receive (for example a push-to-talk release with no trailing silence) -
 before resetting the engine, so no accepted audio is silently lost; a fault in either that flush
 or the subsequent reset during `Stop()`/`Dispose()` is reported without escaping and teardown
-still completes, in which case only the trailing flush and/or the engine's clean state cannot be
-guaranteed. A later `Start()` is still permitted after such a fault during `Stop()`, while
-`Dispose()` remains terminal regardless of whether its flush or reset succeeds. For the
+still completes, in which case the trailing flush and/or the engine's clean state cannot be
+guaranteed, and in rare cases restart may not fully recover the ability to decode. A later
+`Start()` is still permitted after such a fault during `Stop()`, while `Dispose()` remains
+terminal regardless of whether its flush or reset succeeds. For the
 post-endpoint warm-up-replay feature specifically: a disabled (`0`) window allocates no buffer and
 changes no observable behavior; an enabled window allocates a buffer sized to the configured
 duration that accumulates and trims fed samples; a real endpoint that occurs after genuine

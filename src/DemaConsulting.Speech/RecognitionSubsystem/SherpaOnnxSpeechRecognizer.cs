@@ -36,12 +36,13 @@ namespace DemaConsulting.Speech.RecognitionSubsystem;
 ///     the native decoder boundary, and a fault there is reported through
 ///     <see cref="ISpeechDiagnostics"/> rather than thrown, so <see cref="Stop"/> still
 ///     completes and a later <see cref="Start"/> is still permitted, but neither the trailing
-///     flush nor the engine's clean state can be guaranteed in that one failure case. This
-///     restart guarantee is specific to <see cref="Stop"/>: <see cref="Dispose"/> also
-///     performs the same flush and reset as part of its teardown, and reports the same faults
-///     the same way, but is terminal regardless of whether either succeeds - it disposes the
-///     engine and permanently blocks a later <see cref="Start"/>, so there is nothing further to
-///     guarantee about restart in that case.
+///     flush nor the engine's clean state can be guaranteed in that one failure case, and in
+///     rare cases restart may not fully recover the ability to decode (see
+///     <see cref="SherpaOnnxRecognitionEngine.Reset"/> for when). This restart guarantee is specific to
+///     <see cref="Stop"/>: <see cref="Dispose"/> also performs the same flush and reset as part
+///     of its teardown, and reports the same faults the same way, but is terminal regardless of
+///     whether either succeeds - it disposes the engine and permanently blocks a later
+///     <see cref="Start"/>, so there is nothing further to guarantee about restart in that case.
 ///     </para>
 ///     <para>
 ///     Exceptions raised anywhere in the pipeline - by a frame handler, by the engine, or by a
