@@ -66,6 +66,15 @@ public interface ISpeechRecognizer : IDisposable
     ///     results. An exception thrown by a handler is caught and reported through the
     ///     recognizer's diagnostics sink; it never propagates and never stops the recognizer.
     ///     Handlers must therefore not rely on exceptions escaping.
+    ///     <para>
+    ///     Reentrantly calling <see cref="Start"/>, <see cref="Stop"/>, or
+    ///     <see cref="IDisposable.Dispose"/> from within a handler of this event is not supported
+    ///     and can deadlock: <see cref="Stop"/> and <see cref="IDisposable.Dispose"/> block their
+    ///     caller until this same background thread finishes draining, so a handler that calls
+    ///     back into one of them from that thread can end up waiting on itself. A host that needs
+    ///     to stop or dispose the recognizer in response to a result must do so from another
+    ///     thread rather than directly from this handler.
+    ///     </para>
     /// </remarks>
     event EventHandler<SpeechRecognitionEvent>? ResultReceived;
 

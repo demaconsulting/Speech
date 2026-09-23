@@ -87,6 +87,19 @@ sections:
                   - SherpaOnnxSpeechRecognizer_ResultReceived_HandlerThrows_ReportsFaultAndDoesNotRethrow
                   - SherpaOnnxSpeechRecognizer_FrameCaptured_EmptyBlock_IsIgnored
 
+              - id: Speech-Recognition-SherpaOnnxSpeechRecognizer-ResetFailureContainment
+                title: >-
+                  The SherpaOnnxSpeechRecognizer class shall report, rather than propagate, a
+                  fault raised while resetting the recognition engine during Stop()/Dispose()
+                  teardown, still complete that teardown, and still permit a later Start().
+                justification: |
+                  Resetting the engine crosses the native decoder boundary during teardown, so a
+                  fault there must not prevent Stop()/Dispose() from completing or block a host
+                  from restarting recognition, even though the engine's state cannot be
+                  guaranteed clean in that one failure case.
+                tests:
+                  - SherpaOnnxSpeechRecognizer_Stop_EngineResetFails_CompletesReportsFaultAndPermitsRestart
+
               - id: Speech-Recognition-SherpaOnnxSpeechRecognizer-CaptureStartFailure
                 title: >-
                   The SherpaOnnxSpeechRecognizer class shall throw the documented recognizer
@@ -125,6 +138,21 @@ sections:
                 tests:
                   - SpeechRecognizerFactory_Create_ModelInstalledAndDeviceAvailable_ReturnsRealRecognizer
                   - IRecognitionModel_CreateEngineConfig_InstalledDirectory_ResolvesPathsAndSampleRate
+
+              - id: Speech-Recognition-RecognitionEngine-SessionEndResetDiscardsBufferedAudio
+                title: >-
+                  The recognition-engine seam's session-end Reset() shall discard audio already
+                  accepted but not yet decoded, not just the decoder's current hypothesis, so an
+                  abandoned utterance cannot bleed into the next session's decoding.
+                justification: |
+                  A streaming transducer buffers accepted audio pending future context that the
+                  native Reset(stream) call does not discard; left undiscarded, that buffered
+                  audio decodes into the next session as soon as any audio - even silence -
+                  supplies the missing future context, so an abandoned utterance (for example a
+                  push-to-talk release with no trailing silence) would otherwise bleed into the
+                  next Start().
+                tests:
+                  - SherpaOnnxRecognitionEngine_Reset_AbandonedUtteranceWithNoTrailingSilence_DoesNotBleedIntoNextSession
 
               - id: Speech-Recognition-RecognitionEngine-PostEndpointWarmupReplay
                 title: >-

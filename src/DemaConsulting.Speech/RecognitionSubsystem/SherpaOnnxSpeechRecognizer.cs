@@ -185,15 +185,6 @@ internal sealed class SherpaOnnxSpeechRecognizer : ISpeechRecognizer
     public bool IsAvailable => true;
 
     /// <inheritdoc/>
-    /// <remarks>
-    ///     Raised synchronously on the background consumer thread (see this class's remarks).
-    ///     Reentrantly calling <see cref="Start"/>, <see cref="Stop"/>, or <see cref="Dispose"/>
-    ///     from within a handler of this event is not supported and can deadlock: <see cref="Stop"/>
-    ///     and <see cref="Dispose"/> block their caller until that same consumer thread finishes
-    ///     draining, so a handler that calls back into one of them from that thread can end up
-    ///     waiting on itself. A host that needs to stop or dispose the recognizer in response to a
-    ///     result must do so from another thread rather than directly from this handler.
-    /// </remarks>
     public event EventHandler<SpeechRecognitionEvent>? ResultReceived;
 
     /// <inheritdoc/>
