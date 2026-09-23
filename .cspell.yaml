@@ -149,6 +149,7 @@ words:
   - reentrantly
   - slnx
   - undiscarded
+  - unreset
 
 # Exclude common build artifacts, dependencies, and vendored third-party code
 ignorePaths:

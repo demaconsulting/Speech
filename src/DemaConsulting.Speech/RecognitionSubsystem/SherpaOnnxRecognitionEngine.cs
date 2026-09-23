@@ -358,13 +358,16 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionEngine
     ///     missing future context, making an abandoned utterance (for example a push-to-talk
     ///     release with no trailing silence) bleed into the next <c>Start()</c>. The replacement
     ///     is created - and published to <see cref="_stream"/> and every managed bookkeeping
-    ///     field - before the old stream is disposed, so a fault in either <c>CreateStream()</c>
-    ///     (native allocation failure) or the old stream's own <c>Dispose()</c> (native teardown
-    ///     failure) always leaves the engine holding a valid, freshly reset stream rather than an
-    ///     unassigned or disposed one. This is deliberately distinct from the endpoint-triggered
-    ///     reset inside <see cref="TryDecode"/>, which resets the same stream in place because
-    ///     that path is a normal utterance boundary where the buffered pre/post-endpoint audio is
-    ///     wanted for <see cref="ReplayWarmupBuffer"/>.
+    ///     field - before the old stream is disposed, so the engine always remains usable
+    ///     regardless of which side of that boundary faults: if <c>CreateStream()</c> itself
+    ///     throws (native allocation failure), <see cref="_stream"/> is left untouched on the old,
+    ///     unreset stream rather than an unassigned or disposed one - usable, but not the fresh
+    ///     reset this call was meant to produce; if instead the old stream's own <c>Dispose()</c>
+    ///     throws (native teardown failure) after the replacement was already published, the
+    ///     engine is left holding the new, freshly reset stream as intended. This is deliberately
+    ///     distinct from the endpoint-triggered reset inside <see cref="TryDecode"/>, which resets
+    ///     the same stream in place because that path is a normal utterance boundary where the
+    ///     buffered pre/post-endpoint audio is wanted for <see cref="ReplayWarmupBuffer"/>.
     /// </remarks>
     public void Reset()
     {
