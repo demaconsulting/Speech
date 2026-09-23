@@ -609,8 +609,12 @@ internal static class AskCommand
 
                 // "ask" models a single bounded question/answer turn: the first final result is
                 // always enough to end the turn, unlike "recognize --mic"'s open-ended listening.
+                // Do not call recognizer.Stop()/Dispose() here: ResultReceived is raised from the
+                // recognizer's own background decoding thread, and Stop() blocks its caller until
+                // that same thread finishes draining - calling it from this handler would wait on
+                // itself. Signal stopSignal instead and let the code below stop the recognizer
+                // from the calling thread once Wait() returns.
                 recognizedText = e.Result.Text;
-                recognizer.Stop();
                 stopSignal.Set();
             };
 
@@ -635,17 +639,21 @@ internal static class AskCommand
                 }
                 catch (OperationCanceledException)
                 {
-                    // Ctrl+C canceled the shared token while waiting; whether or not
-                    // stopSignal itself has already been set by the same handler is
-                    // irrelevant here - cancellationToken.IsCancellationRequested below is
-                    // what distinguishes this from a legitimate empty result. Stop the
-                    // recognizer explicitly here (mirroring onResultReceived above) so the
-                    // intent is obvious without requiring a reader to trace through
-                    // ISpeechRecognizer's disposal-implies-stop contract; the recognizer is
-                    // disposed unconditionally below regardless, so this call is redundant
-                    // but harmless given Stop() is documented as idempotent.
-                    recognizer.Stop();
+                    // Ctrl+C canceled the shared token while waiting; whether or not stopSignal
+                    // itself has already been set by the same handler is irrelevant here -
+                    // cancellationToken.IsCancellationRequested below is what distinguishes this
+                    // from a legitimate empty result. Stop() is called unconditionally below
+                    // regardless of which of the three ways this wait can end, so nothing
+                    // further is needed here.
                 }
+
+                // Stop() is idempotent and always called here - whether the wait ended because
+                // of a final result, a silence/start timeout, or Ctrl+C - rather than from
+                // onResultReceived, because that handler runs on the recognizer's own background
+                // decoding thread and Stop() blocks its caller until that same thread finishes
+                // draining; calling it from the handler would wait on itself. Calling it here,
+                // from this thread, is always safe.
+                recognizer.Stop();
             }
             finally
             {
