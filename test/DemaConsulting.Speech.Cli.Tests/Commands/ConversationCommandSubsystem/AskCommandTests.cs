@@ -649,7 +649,10 @@ public sealed class AskCommandTests
 
             AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureSource());
 
-            Assert.Equal(1, recognizer.StopCallCount);
+            // Two idempotent Stop() calls: one from the session's own timeout handler, one from
+            // Listen's unified post-wait call (which always runs from the calling thread, not
+            // from onResultReceived, to avoid a reentrant deadlock).
+            Assert.Equal(2, recognizer.StopCallCount);
             Assert.True(File.Exists(outputPath));
             Assert.Equal(string.Empty, File.ReadAllText(outputPath));
         }
@@ -690,7 +693,10 @@ public sealed class AskCommandTests
 
         AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureSource());
 
-        Assert.Equal(1, recognizer.StopCallCount);
+        // Two idempotent Stop() calls: one from the session's own default-timeout handler, one
+        // from Listen's unified post-wait call (which always runs from the calling thread, not
+        // from onResultReceived, to avoid a reentrant deadlock).
+        Assert.Equal(2, recognizer.StopCallCount);
     }
 
     // --- Cancellation ---

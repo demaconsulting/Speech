@@ -50,7 +50,11 @@ A RecognitionSubsystem test run passes when:
   above-target-Nyquist energy attenuated before downsampling decimation
 - Every recognition result is delivered, in order, with its provisional/final flag preserved
 - Start/stop/dispose behave idempotently, drain queued audio, and release engine resources
-- Engine faults and throwing host handlers are reported and contained rather than propagated
+- `Stop()`/`Dispose()` flush trailing audio the engine had accepted but not yet decoded - the tail
+  of an utterance released with no trailing silence - as one last final result before resetting the
+  engine for the next session, so no accepted audio is silently lost
+- Engine faults and throwing host handlers are reported and contained rather than propagated,
+  including a fault in the trailing-audio flush itself
 - The unavailable recognizer stays honest and safe to hold, subscribe to, and dispose
 - The automated verification boundary remains honest about the absence of real-speech coverage
 
@@ -156,6 +160,9 @@ model's returned text, not the engine's raw text, is what `ResultReceived` carri
 `SherpaOnnxSpeechRecognizer_Start_AlreadyRunning_IsNoOp`,
 `SherpaOnnxSpeechRecognizer_Stop_WhileRunning_UnsubscribesAndStopsCaptureDevice`,
 `SherpaOnnxSpeechRecognizer_Stop_NotRunning_IsNoOp`,
+`SherpaOnnxSpeechRecognizer_Stop_EngineHasFlushableTrailingAudio_RaisesFlushedFinalResult`,
+`SherpaOnnxSpeechRecognizer_Dispose_EngineHasFlushableTrailingAudio_RaisesFlushedFinalResult`,
+`SherpaOnnxSpeechRecognizer_Stop_EngineHasNothingToFlush_RaisesNoExtraResult`,
 `SherpaOnnxSpeechRecognizer_Dispose_CalledTwice_StopsAndDisposesEngineOnce`,
 `SherpaOnnxSpeechRecognizer_Start_AfterDispose_ThrowsObjectDisposedException`
 
@@ -167,11 +174,14 @@ stops once and releases the engine once, and starting after disposal is rejected
 
 **Tests**: `SherpaOnnxSpeechRecognizer_FrameCaptured_EngineThrows_ReportsFaultAndKeepsRunning`,
 `SherpaOnnxSpeechRecognizer_ResultReceived_HandlerThrows_ReportsFaultAndDoesNotRethrow`,
-`SherpaOnnxSpeechRecognizer_Start_CaptureDeviceFails_ThrowsSpeechRecognizerUnavailableException`
+`SherpaOnnxSpeechRecognizer_Start_CaptureDeviceFails_ThrowsSpeechRecognizerUnavailableException`,
+`SherpaOnnxSpeechRecognizer_Stop_EngineFlushFails_CompletesResetsEngineAndReportsFault`
 
 Verifies that engine faults and throwing host handlers are reported through the diagnostics sink
 and never escape into the capture path, while a capture device that fails on first use surfaces
-the documented recognizer exception with the device's failure as its inner exception.
+the documented recognizer exception with the device's failure as its inner exception. A fault in
+the trailing-audio flush itself is contained the same way: reported, not thrown, with teardown and
+the subsequent engine reset both still completing.
 
 #### Audio Conversion: Downmix, Rate Conversion, and Boundaries
 

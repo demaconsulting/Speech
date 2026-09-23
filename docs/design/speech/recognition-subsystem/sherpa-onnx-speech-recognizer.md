@@ -29,15 +29,28 @@ keeps both memory and latency flat instead of letting them grow without limit.
   the capture device. Subscribing before starting guarantees no captured block can be raised
   before there is a handler to enqueue it. Starting an already-running recognizer is a no-op.
   Precondition: not disposed. Postcondition: capture is running and results will be raised.
-- **Stop()**: Unsubscribes, completes the queue, joins the consumer task, resets the engine, then
-  stops the capture device. Because the consumer drains everything already queued before exiting,
-  every result derived from audio captured before the call has been delivered when it returns.
-  Resetting the engine discards any partially decoded utterance or stale hypothesis left over
-  from the session just stopped, so a later `Start()` on the same "hot" engine always begins
-  decoding from a clean start-of-utterance state. Stopping a recognizer that is not running is a
+- **Stop()**: Unsubscribes, completes the queue, joins the consumer task, then stops the capture
+  device. Draining the consumer does two things in order: first it processes every already
+  queued block through the engine as normal, then - as its last action, still on the same
+  background decoding thread - it flushes the engine (`TryFlush`), finalizing and delivering any
+  trailing audio the engine had accepted but not yet decoded, for example the tail of an
+  utterance released with no trailing silence, which a streaming engine cannot normally decode
+  without more audio it will now never receive. Because of that flush, every result derived
+  from audio captured before the call - including that trailing fragment - has been delivered
+  when `Stop()` returns. The engine is then reset, discarding whatever the flush could not
+  recover and any stale hypothesis left over from the session just stopped, so a later `Start()`
+  on the same "hot" engine always begins decoding from a clean start-of-utterance state,
+  equivalent to a freshly constructed stream without the cost of reloading the model. Both the
+  flush and the reset are best-effort: each crosses the native decoder boundary, and a fault
+  there is reported through `ISpeechDiagnostics` rather than thrown, so `Stop()` still completes
+  and a later `Start()` is still permitted, but in that one failure case the trailing fragment
+  may go undelivered, the engine's state cannot be guaranteed clean, and in rare cases restart
+  may not fully recover the ability to decode. Stopping a recognizer that is not running is a
   no-op.
-- **Dispose()**: Performs the stop sequence (if running) and disposes the owned engine.
-  Idempotent.
+- **Dispose()**: Performs the stop sequence (if running, which flushes and resets the engine and
+  reports the same way if either faults) and disposes the owned engine. Terminal regardless of
+  whether the flush or reset succeeded: `Dispose()` always disposes the engine and permanently
+  blocks a later `Start()`, so the restart guarantee above is specific to `Stop()`. Idempotent.
 - **OnFrameCaptured(...)**: Runs on the audio callback thread. Copies the block and enqueues it;
   nothing else.
 - **ProcessFrame(...)**: Runs on the consumer thread. Converts the block through
@@ -47,6 +60,13 @@ keeps both memory and latency flat instead of letting them grow without limit.
   punctuation restoration (see `UppercaseTranscriptRestorer`) surfaces readable text to every
   consumer instead of the engine's raw output; bounded at 32 results per block so a faulty engine
   cannot livelock the consumer.
+- **FlushFinal()**: Runs on the consumer thread, as the last action of the consumer loop once the
+  queue is drained and completed - so still before `Stop()`/`Dispose()` unblock their caller, and
+  still on the same background decoding thread as every other `ResultReceived` event. Calls the
+  engine's `TryFlush()` to finalize and decode any audio accepted but not yet decoded, and raises
+  the result the same way `ProcessFrame` does (same `NormalizeText` call) if there is one.
+  Contained the same way as `ProcessFrame`: a fault crossing the native decoder boundary, or from
+  a host's own handler, is reported rather than thrown.
 
 **Error Handling**: Every stage is contained. A failure enqueueing a block, converting it,
 running inference on it, or delivering a result to a host handler is caught and reported through
@@ -86,6 +106,11 @@ for downloads.
   as possible and reports the next result, returning `false` when there is nothing new. Reporting
   "nothing new" instead of an empty result keeps the caller's event stream free of duplicates
   while silence is streaming. Callers may poll until it returns `false`.
+- **IRecognitionEngine.TryFlush(out SpeechRecognitionResult?)**: Finalizes and decodes any
+  buffered-but-undecoded audio - the tail of an utterance released with no trailing silence, which
+  `TryDecode` alone cannot decode without future context that will now never arrive - and reports
+  it as one last final result if it produced non-empty text, or `false` if there was nothing to
+  recover. Called once, at session end, immediately before `Reset()`.
 - **IRecognitionEngine.Reset()**: Discards a partially decoded utterance.
 - **IRecognitionEngineFactory.Create(IRecognitionModel, string installedModelDirectory)**: Loads
   an engine from the model's own declared configuration and required input `AudioFormat`.
@@ -127,8 +152,20 @@ configuration, so adding a model never requires changing the factory.
   (see "Replay eligibility is gated on genuine recognized text since the last reset" below).
   Otherwise the text is emitted as provisional, suppressed when empty or unchanged since the
   previous call.
-- **Reset()**: Resets the stream, clears the remembered provisional text, and (if enabled) clears
-  the warm-up buffer, the grace-period counter, and the `_hasRecognizedTextSinceReset` flag.
+- **Reset()**: The session-end reset (called by `SherpaOnnxSpeechRecognizer.StopCore`). Creates a
+  replacement stream and disposes the existing one, clears the remembered provisional text, and
+  (if enabled) clears the warm-up buffer, the grace-period counter, and the
+  `_hasRecognizedTextSinceReset` flag. Recreating the stream - not just calling
+  `_recognizer.Reset(_stream)` - is required because that native call only clears the decoder's
+  hypothesis: audio already accepted via `AcceptWaveform` but not yet decoded (a streaming
+  transducer buffers audio pending future context) survives an in-place reset and would otherwise
+  decode into the next session as soon as any audio, even silence, supplied that missing future
+  context (a real regression: an abandoned utterance's tail bled into the next `Start()`). The
+  replacement is created before the old stream is disposed so a `CreateStream()` failure leaves
+  the existing stream intact. This is distinct from the endpoint-triggered reset inside
+  `TryDecode()`, which still calls `_recognizer.Reset(_stream)` on the same stream in place,
+  because that path is a normal utterance boundary where the buffered pre/post-endpoint audio is
+  wanted for the warm-up replay described below.
 - **Dispose()**: Releases the stream and then the recognizer that owns it. Safe to call more than
   once.
 - **Create(...)**: Asks the model for its configuration, resolved against the installed-files

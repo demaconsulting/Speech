@@ -56,6 +56,8 @@ sections:
               - Speech-Recognition-SpeechRecognizerFactory-ConcurrentPrewarmingSafety
               - Speech-Recognition-RecognitionEngine-MockableSeam
               - Speech-Recognition-RecognitionEngine-ModelOwnedConfiguration
+              - Speech-Recognition-RecognitionEngine-SessionEndResetDiscardsBufferedAudio
+              - Speech-Recognition-RecognitionEngine-TryFlushRecoversTrailingAudio
               - Speech-Recognition-RecognitionEngine-PostEndpointWarmupReplay
               - Speech-Recognition-RecognitionEngine-RealSpeechAccuracy
             tests:
@@ -98,6 +100,8 @@ sections:
               microphone or lose the rest of the session.
             children:
               - Speech-Recognition-SherpaOnnxSpeechRecognizer-FaultContainment
+              - Speech-Recognition-SherpaOnnxSpeechRecognizer-ResetFailureContainment
+              - Speech-Recognition-SherpaOnnxSpeechRecognizer-FlushFailureContainment
               - Speech-Recognition-SherpaOnnxSpeechRecognizer-CaptureStartFailure
             tests:
               - SherpaOnnxSpeechRecognizer_ResultReceived_HandlerThrows_ReportsFaultAndDoesNotRethrow

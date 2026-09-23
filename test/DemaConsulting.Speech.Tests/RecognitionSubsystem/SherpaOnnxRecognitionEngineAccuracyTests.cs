@@ -334,4 +334,209 @@ public sealed class SherpaOnnxRecognitionEngineAccuracyTests
             $"Word Error Rate {wordErrorRate:P1} exceeded the {MaximumAcceptableWordErrorRate:P0} tolerance. " +
             $"Recognized transcript: \"{transcript}\"");
     }
+
+    /// <summary>
+    ///     The words of the first line spoken in <c>TestData/crossing-the-bar-16k-mono.wav</c>,
+    ///     used only as a case-insensitive leak detector for
+    ///     <see cref="SherpaOnnxRecognitionEngine_Reset_AbandonedUtteranceWithNoTrailingSilence_DoesNotBleedIntoNextSession"/> -
+    ///     not as a transcription-accuracy ground truth (see
+    ///     <see cref="GroundTruthTranscript"/> and <see cref="WordErrorRateCalculator"/> for that).
+    /// </summary>
+    private static readonly string[] FirstLineWords =
+        "Sunset and evening star".Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+    /// <summary>
+    ///     Feeds every sample of <paramref name="samples"/> through <paramref name="engine"/> in
+    ///     fixed-size streaming chunks, draining (and discarding) every decode result after each
+    ///     chunk exactly like <c>SherpaOnnxSpeechRecognizer.ProcessFrame</c> does, but - unlike
+    ///     <see cref="Transcribe"/> - feeding no trailing silence afterward, so the call returns
+    ///     with the last spoken utterance still in-flight (not yet finalized by an endpoint) and
+    ///     its audio only partially decoded, mirroring a push-to-talk release with no pause before
+    ///     it.
+    /// </summary>
+    /// <param name="engine">The real engine to feed. Must not be <see langword="null"/>.</param>
+    /// <param name="samples">The utterance's normalized mono samples, at the engine's declared rate.</param>
+    /// <param name="sampleRate">The sample rate <paramref name="samples"/> is at, in Hz.</param>
+    private static void FeedWithoutTrailingSilence(IRecognitionEngine engine, float[] samples, int sampleRate)
+    {
+        var chunkSize = sampleRate / 10; // 0.1-second chunks, matching this project's existing test convention
+
+        for (var offset = 0; offset < samples.Length; offset += chunkSize)
+        {
+            var length = Math.Min(chunkSize, samples.Length - offset);
+            engine.AcceptSamples(samples.AsSpan(offset, length));
+
+            // Drain and discard: this step exists only to leave buffered, not-yet-decoded audio
+            // behind for Reset() to discard, not to collect a transcript.
+            while (engine.TryDecode(out _))
+            {
+                // Intentionally empty: discarding every result here is the point - see remarks.
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Feeds <paramref name="seconds"/> of digital silence through <paramref name="engine"/>
+    ///     in fixed-size chunks, draining every decode result (both provisional and finalized)
+    ///     after each chunk and appending any non-empty text to <paramref name="leakedText"/>.
+    /// </summary>
+    /// <remarks>
+    ///     Both provisional and finalized text are collected here - unlike
+    ///     <see cref="DrainFinalResults"/>, which only accumulates finalized text for a normal
+    ///     transcript - because a leaked tail of an abandoned utterance could plausibly surface as
+    ///     either a provisional hypothesis or (if silence happens to also trip the endpoint rule) a
+    ///     finalized result; either would prove the bug this test guards against.
+    /// </remarks>
+    private static void FeedSilenceCollectingAnyText(
+        IRecognitionEngine engine,
+        int sampleRate,
+        double seconds,
+        StringBuilder leakedText)
+    {
+        var chunkSize = sampleRate / 10;
+        var silence = new float[(int)(sampleRate * seconds)];
+
+        for (var offset = 0; offset < silence.Length; offset += chunkSize)
+        {
+            var length = Math.Min(chunkSize, silence.Length - offset);
+            engine.AcceptSamples(silence.AsSpan(offset, length));
+
+            while (engine.TryDecode(out var result))
+            {
+                if (result is { Text.Length: > 0 })
+                {
+                    leakedText.Append(' ').Append(result.Text);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Regression test for the bug where <see cref="SherpaOnnxRecognitionEngine.Reset"/> did
+    ///     not discard audio already accepted via <c>AcceptWaveform</c> but not yet decoded, so an
+    ///     abandoned utterance's tail (for example a push-to-talk release with no trailing
+    ///     silence) decoded into the next session instead of being discarded, even when only
+    ///     silence was fed after <see cref="IRecognitionEngine.Reset"/>. The fix makes
+    ///     session-end <c>Reset()</c> create a replacement stream and dispose the existing one
+    ///     rather than resetting the existing stream's hypothesis in place, discarding any
+    ///     buffered, not-yet-decoded audio along with it. A fake-engine test cannot exercise this:
+    ///     the bug lives in the real native stream's own buffered-audio lifetime, which only a
+    ///     real engine backed by a real, installed model can exhibit.
+    /// </summary>
+    [Fact]
+    public void SherpaOnnxRecognitionEngine_Reset_AbandonedUtteranceWithNoTrailingSilence_DoesNotBleedIntoNextSession()
+    {
+        // Arrange: skip if the real Zipformer model is not installed in this environment
+        var model = new SherpaOnnxZipformerEnRecognitionModel();
+        if (!IsModelInstalled(model.Id))
+        {
+            Assert.Skip("The real streaming Zipformer model is not installed in this environment.");
+        }
+
+        var modelDirectory = InstalledModelDirectory(model.Id);
+        var config = ((IRecognitionModel)model).CreateEngineConfig(modelDirectory);
+
+        // postEndpointWarmupWindowMs: 0 keeps the warm-up-replay paths inert and irrelevant to
+        // this test, which is exercised at the ordinary session-end Reset() call site only.
+        using var engine = new SherpaOnnxRecognitionEngine(
+            config,
+            ((IRecognitionModel)model).AudioFormat.SampleRate,
+            postEndpointWarmupWindowMs: 0);
+
+        var sampleRate = ((IRecognitionModel)model).AudioFormat.SampleRate;
+        var wavPath = Path.Join(AppContext.BaseDirectory, "TestData", "crossing-the-bar-16k-mono.wav");
+        var fullRecording = ReadMonoPcm16Wav(wavPath);
+
+        // Only the recording's first line ("Sunset and evening star,") is fed - short enough
+        // that the real endpoint detector (Rule1MinTrailingSilence 2.4s / Rule3MinUtteranceLength
+        // 20s, see SherpaOnnxZipformerEnRecognitionModel.CreateEngineConfig) has no opportunity to
+        // fire naturally during or after it. That is essential: an endpoint firing naturally
+        // during feeding would already reset the stream via TryDecode's own (correct, unchanged)
+        // endpoint-triggered reset path before this test's explicit engine.Reset() call ever
+        // runs, leaving nothing buffered for that call to fail to discard and silently defeating
+        // this regression test.
+        var abandonedUtteranceSeconds = 3.0;
+        var abandonedUtteranceLength = Math.Min(fullRecording.Length, (int)(sampleRate * abandonedUtteranceSeconds));
+        var samples = fullRecording[..abandonedUtteranceLength];
+
+        // Act: feed the abandoned utterance with no trailing silence, so it is left mid-decode -
+        // buffered audio has been accepted but not yet fully decoded, exactly the condition the
+        // bug report describes for a push-to-talk release. Then reset the session, as
+        // SherpaOnnxSpeechRecognizer.StopCore does on every Stop(), and feed only silence,
+        // collecting any text the engine reports.
+        FeedWithoutTrailingSilence(engine, samples, sampleRate);
+        engine.Reset();
+
+        var leakedText = new StringBuilder();
+        FeedSilenceCollectingAnyText(engine, sampleRate, seconds: 1.5, leakedText);
+        var leaked = leakedText.ToString();
+
+        // Assert: no text at all - and specifically none of the abandoned utterance's own first
+        // line - was reported from silence-only audio fed after Reset()
+        Assert.True(
+            leaked.Trim().Length == 0,
+            $"Expected no text after Reset() followed by silence only, but got: \"{leaked.Trim()}\"");
+        Assert.All(
+            FirstLineWords,
+            word => Assert.DoesNotContain(word, leaked, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    ///     Proves that <see cref="IRecognitionEngine.TryFlush"/> recovers the abandoned
+    ///     utterance's trailing words as a final result - rather than merely proving they are
+    ///     not lost into the next session, as
+    ///     <see cref="SherpaOnnxRecognitionEngine_Reset_AbandonedUtteranceWithNoTrailingSilence_DoesNotBleedIntoNextSession"/>
+    ///     does. This is the "does push-to-talk actually get the last word" guarantee:
+    ///     <c>SherpaOnnxSpeechRecognizer.FlushFinal</c> calls this before <c>Reset()</c> so a
+    ///     release with no trailing silence still delivers a final result for what was said. A
+    ///     fake-engine test cannot exercise this: recovering buffered audio via
+    ///     <c>OnlineStream.InputFinished</c> only exists in the real native stream.
+    /// </summary>
+    [Fact]
+    public void SherpaOnnxRecognitionEngine_TryFlush_AbandonedUtteranceWithNoTrailingSilence_RecoversTrailingWords()
+    {
+        // Arrange: skip if the real Zipformer model is not installed in this environment
+        var model = new SherpaOnnxZipformerEnRecognitionModel();
+        if (!IsModelInstalled(model.Id))
+        {
+            Assert.Skip("The real streaming Zipformer model is not installed in this environment.");
+        }
+
+        var modelDirectory = InstalledModelDirectory(model.Id);
+        var config = ((IRecognitionModel)model).CreateEngineConfig(modelDirectory);
+
+        // postEndpointWarmupWindowMs: 0 keeps the warm-up-replay paths inert and irrelevant here.
+        using var engine = new SherpaOnnxRecognitionEngine(
+            config,
+            ((IRecognitionModel)model).AudioFormat.SampleRate,
+            postEndpointWarmupWindowMs: 0);
+
+        var sampleRate = ((IRecognitionModel)model).AudioFormat.SampleRate;
+        var wavPath = Path.Join(AppContext.BaseDirectory, "TestData", "crossing-the-bar-16k-mono.wav");
+        var fullRecording = ReadMonoPcm16Wav(wavPath);
+
+        // Long enough to actually finish speaking the first line (unlike the sibling Reset()
+        // regression test above, which only needs enough audio to leave something buffered, not
+        // to finish the sentence), but still short of the real endpoint detector's 2.4-second
+        // trailing-silence rule, so the utterance remains genuinely abandoned mid-decode for this
+        // call's explicit TryFlush() to finalize rather than already finalized by a natural
+        // endpoint.
+        var abandonedUtteranceSeconds = 4.5;
+        var abandonedUtteranceLength = Math.Min(fullRecording.Length, (int)(sampleRate * abandonedUtteranceSeconds));
+        var samples = fullRecording[..abandonedUtteranceLength];
+
+        // Act: feed the abandoned utterance with no trailing silence, leaving it mid-decode, then
+        // flush - exactly as SherpaOnnxSpeechRecognizer.FlushFinal does on every Stop().
+        FeedWithoutTrailingSilence(engine, samples, sampleRate);
+        var flushed = engine.TryFlush(out var result);
+
+        // Assert: the flush produced a final result, and it recovered the abandoned utterance's
+        // own first line rather than reporting nothing (which is what Reset() alone would do).
+        Assert.True(flushed);
+        Assert.NotNull(result);
+        Assert.True(result.IsFinal);
+        Assert.All(
+            FirstLineWords,
+            word => Assert.Contains(word, result.Text, StringComparison.OrdinalIgnoreCase));
+    }
 }

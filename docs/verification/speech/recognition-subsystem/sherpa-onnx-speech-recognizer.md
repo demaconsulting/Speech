@@ -25,15 +25,22 @@ The real sherpa-onnx engine adapter's core decode/reset loop is **not** covered 
 tests against arbitrary models: exercising it in general requires loading a real model through
 the native runtime, which is manual/local verification. The seam is what keeps that uncovered
 surface as small as possible - it contains only the interop calls, with all policy above it fully
-covered. The one exception is the post-endpoint warm-up-replay bookkeeping added to fix the
-Nemotron word-loss defect (see the design chapter): its rolling-buffer/replay/grace-period state
-machine is verified directly against the real, already-installed streaming Zipformer model in
-`SherpaOnnxRecognitionEngineTests`, using reflection to inspect the engine's private bookkeeping
-fields, because that state machine cannot be exercised meaningfully through a fake. Those tests
-skip (rather than fail) when the model is not installed in the running environment, and skip an
-individual real-endpoint assertion if the native endpoint detector does not fire within the
-test's bounded silence budget, since real endpoint timing depends on the native model's own rules
-rather than on this project's code.
+covered. Three exceptions exist, each verified directly against the real, already-installed
+streaming Zipformer model because they cannot be exercised meaningfully through a fake: the
+post-endpoint warm-up-replay bookkeeping added to fix the Nemotron word-loss defect (see the
+design chapter), whose rolling-buffer/replay/grace-period state machine is verified in
+`SherpaOnnxRecognitionEngineTests` using reflection to inspect the engine's private bookkeeping
+fields; the session-end `Reset()` fix that discards buffered, not-yet-decoded audio (see the
+design chapter's **Reset()** bullet), verified in `SherpaOnnxRecognitionEngineAccuracyTests` by
+feeding a real recording without trailing silence, resetting, and asserting no text from the
+abandoned utterance leaks through silence fed afterward; and `TryFlush()`'s recovery of that same
+buffered audio as a delivered final result (see the design chapter's **Stop()** bullet), verified
+in the same class by feeding the same kind of recording without trailing silence, flushing, and
+asserting the abandoned utterance's own words come back as final text. Those tests skip (rather
+than fail) when the model is not installed in the running environment, and skip an individual
+real-endpoint assertion if the native endpoint detector does not fire within the test's bounded
+silence budget, since real endpoint timing depends on the native model's own rules rather than on
+this project's code.
 
 #### Real-Recording Re-Verification Evidence (Nemotron Word-Loss Fix)
 
@@ -129,6 +136,38 @@ near-homophone substitutions observed (for example "boundless" recognized as "bo
 Nemotron, and archaic "bourne" recognized as "born" by both models) - exactly the kind of
 acceptable, non-regression-indicating error the 20% tolerance is designed to absorb.
 
+#### Session-End Reset Buffered-Audio Regression Evidence
+
+`SherpaOnnxRecognitionEngine_Reset_AbandonedUtteranceWithNoTrailingSilence_DoesNotBleedIntoNextSession`
+(`SherpaOnnxRecognitionEngineAccuracyTests`) closes the gap the fix addresses: it feeds the real,
+installed streaming Zipformer model the first line of the "Crossing the Bar" recording with no
+trailing silence (leaving audio accepted but not yet decoded, mirroring a push-to-talk release),
+calls `Reset()`, then feeds silence only and asserts no text at all - and specifically none of the
+abandoned line's own words - is reported. Confirmed by reverting only the fix and re-running: the
+test fails, reproducing the original leak (the abandoned utterance's tail decoding from
+silence-only audio); it passes again with the fix restored.
+
+#### Trailing-Audio Flush Recovery Evidence
+
+Discarding buffered audio on session-end `Reset()` is necessary but, on its own, means a
+push-to-talk release with no trailing silence loses the last thing the user said - it is
+recovered nowhere. `SherpaOnnxRecognitionEngine_TryFlush_AbandonedUtteranceWithNoTrailingSilence_RecoversTrailingWords`
+(`SherpaOnnxRecognitionEngineAccuracyTests`) verifies the fix for that: feeding the real,
+installed streaming Zipformer model the same kind of abandoned, no-trailing-silence utterance,
+then calling `TryFlush()` instead of `Reset()` directly, produces a final result whose text
+contains every word of the abandoned line - proving the native `OnlineStream.InputFinished`
+mechanism genuinely recovers audio that would otherwise be silently discarded, not merely that
+nothing crashes. `SherpaOnnxSpeechRecognizer_Stop_EngineHasFlushableTrailingAudio_RaisesFlushedFinalResult`
+(`SherpaOnnxSpeechRecognizerTests`, against the fake engine) separately verifies the pipeline
+wiring: `Stop()` raises the engine's flushed result through `ResultReceived` before resetting,
+`SherpaOnnxSpeechRecognizer_Dispose_EngineHasFlushableTrailingAudio_RaisesFlushedFinalResult`
+verifies `Dispose()` shares the same flush wiring rather than skipping it because it is terminal,
+`SherpaOnnxSpeechRecognizer_Stop_EngineHasNothingToFlush_RaisesNoExtraResult` verifies a quiet
+session raises nothing extra, and
+`SherpaOnnxSpeechRecognizer_Stop_EngineFlushFails_CompletesResetsEngineAndReportsFault` verifies a
+faulting flush is contained the same way a faulting reset already was - reported, not thrown,
+with teardown and the subsequent engine reset both still completing.
+
 #### Test Environment
 
 - **Framework**: xUnit v3 running under the .NET SDK
@@ -149,17 +188,30 @@ intact, start/stop/dispose are idempotent and drain queued audio before returnin
 handler faults are reported without escaping, a capture-start failure surfaces the documented
 exception, and the converter produces the documented output for identity, upsampling,
 downsampling, multi-channel, and boundary inputs while rejecting non-positive rates and channel
-counts. For the post-endpoint warm-up-replay feature specifically: a disabled (`0`) window
-allocates no buffer and changes no observable behavior; an enabled window allocates a buffer sized
-to the configured duration that accumulates and trims fed samples; a real endpoint that occurs
-after genuine recognized text has been produced since the last reset consumes the buffer via a
-replay that never raises more than one final `SpeechRecognitionResult` per utterance; a real
-endpoint that fires on pure/near-silence before any genuine text has been recognized since the
-last reset never replays - the buffer is dropped and the grace period never arms; and the
-post-replay grace period suppresses a same-tick spurious re-trigger. For real-speech transcription
-accuracy specifically: the real, installed Zipformer and Nemotron models each transcribe the real
-"Crossing the Bar" recording with a Word Error Rate, against its ground-truth text, that does not
-exceed the documented 20% tolerance.
+counts. `Stop()`/`Dispose()` flush the engine's trailing audio - recovering, as one last final
+result, even the tail of an utterance a streaming engine could not otherwise decode without
+audio it will now never receive (for example a push-to-talk release with no trailing silence) -
+before resetting the engine, so no accepted audio is silently lost; a fault in either that flush
+or the subsequent reset during `Stop()`/`Dispose()` is reported without escaping and teardown
+still completes, in which case the trailing flush and/or the engine's clean state cannot be
+guaranteed, and in rare cases restart may not fully recover the ability to decode. A later
+`Start()` is still permitted after such a fault during `Stop()`, while `Dispose()` remains
+terminal regardless of whether its flush or reset succeeds. For the
+post-endpoint warm-up-replay feature specifically: a disabled (`0`) window allocates no buffer and
+changes no observable behavior; an enabled window allocates a buffer sized to the configured
+duration that accumulates and trims fed samples; a real endpoint that occurs after genuine
+recognized text has been produced since the last reset consumes the buffer via a replay that
+never raises more than one final `SpeechRecognitionResult` per utterance; a real endpoint that
+fires on pure/near-silence before any genuine text has been recognized since the last reset never
+replays - the buffer is dropped and the grace period never arms; and the post-replay grace period
+suppresses a same-tick spurious re-trigger. For real-speech transcription accuracy specifically:
+the real, installed Zipformer and Nemotron models each transcribe the real "Crossing the Bar"
+recording with a Word Error Rate, against its ground-truth text, that does not exceed the
+documented 20% tolerance. For the session-end `Reset()` fix specifically: audio accepted but not
+yet decoded before a session-end reset never surfaces as text once only silence follows the
+reset. For the `TryFlush()` recovery fix specifically: audio accepted but not yet decoded is
+recovered as a final result's text when flushed before that reset, rather than only proving it is
+not lost.
 
 #### Test Scenarios
 
@@ -175,4 +227,17 @@ exercised deterministically via direct reflection assertions on `_hasRecognizedT
 happens to transcribe a synthesized tone as non-empty text. `SherpaOnnxRecognitionEngineAccuracyTests`
 adds the "Real-Speech Transcription Accuracy" scenario: transcribing the real "Crossing the Bar"
 recording end to end through the real, installed Zipformer and Nemotron models and asserting the
-resulting Word Error Rate against the poem's ground-truth text stays within tolerance.
+resulting Word Error Rate against the poem's ground-truth text stays within tolerance; the
+"Session-End Reset Buffered-Audio Regression" scenario
+(`Reset_AbandonedUtteranceWithNoTrailingSilence_DoesNotBleedIntoNextSession`) described above; and
+the "Trailing-Audio Flush Recovery" scenario
+(`TryFlush_AbandonedUtteranceWithNoTrailingSilence_RecoversTrailingWords`) described above.
+"Pipeline: Fault Containment" also covers
+`SherpaOnnxSpeechRecognizer_Stop_EngineResetFails_CompletesReportsFaultAndPermitsRestart` (a
+faulting engine `Reset()` during teardown is reported, `Stop()` still completes, and a later
+`Start()` is still permitted) and, for the flush,
+`SherpaOnnxSpeechRecognizer_Stop_EngineFlushFails_CompletesResetsEngineAndReportsFault`.
+"Pipeline: Lifecycle and Draining" also covers
+`SherpaOnnxSpeechRecognizer_Stop_EngineHasFlushableTrailingAudio_RaisesFlushedFinalResult`,
+`SherpaOnnxSpeechRecognizer_Dispose_EngineHasFlushableTrailingAudio_RaisesFlushedFinalResult`, and
+`SherpaOnnxSpeechRecognizer_Stop_EngineHasNothingToFlush_RaisesNoExtraResult`.

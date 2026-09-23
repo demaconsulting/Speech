@@ -26,10 +26,23 @@ namespace DemaConsulting.Speech.RecognitionSubsystem;
 ///     <para>
 ///     <see cref="Stop"/> completes the channel and waits for the consumer to finish, so every
 ///     block accepted before the call has been decoded and every resulting event raised by the
-///     time it returns. That makes the pipeline deterministic for both hosts and tests, with no
-///     polling or timing assumptions anywhere. <see cref="Stop"/> then also resets the owned
-///     engine's decoder state, so a subsequent <see cref="Start"/> on the same "hot" engine never
-///     inherits a partially decoded utterance or stale hypothesis left over from before the stop.
+///     time it returns - including one last flushed result for a trailing utterance that had not
+///     yet been decoded, for example a push-to-talk release with no trailing silence (see
+///     <see cref="IRecognitionEngine.TryFlush"/>). That makes the pipeline deterministic for
+///     both hosts and tests, with no polling or timing assumptions anywhere. <see cref="Stop"/>
+///     then also resets the owned engine's decoder state, so a subsequent <see cref="Start"/> on
+///     the same "hot" engine never inherits a partially decoded utterance or stale hypothesis
+///     left over from before the stop. Flushing and resetting are each best-effort: they cross
+///     the native decoder boundary, and a fault there is reported through
+///     <see cref="ISpeechDiagnostics"/> rather than thrown, so <see cref="Stop"/> still
+///     completes and a later <see cref="Start"/> is still permitted, but neither the trailing
+///     flush nor the engine's clean state can be guaranteed in that one failure case, and in
+///     rare cases restart may not fully recover the ability to decode (see
+///     <see cref="SherpaOnnxRecognitionEngine.Reset"/> for when). This restart guarantee is specific to
+///     <see cref="Stop"/>: <see cref="Dispose"/> also performs the same flush and reset as part
+///     of its teardown, and reports the same faults the same way, but is terminal regardless of
+///     whether either succeeds - it disposes the engine and permanently blocks a later
+///     <see cref="Start"/>, so there is nothing further to guarantee about restart in that case.
 ///     </para>
 ///     <para>
 ///     Exceptions raised anywhere in the pipeline - by a frame handler, by the engine, or by a
@@ -238,6 +251,24 @@ internal sealed class SherpaOnnxSpeechRecognizer : ISpeechRecognizer
             frames.Writer.TryComplete();
             WaitForConsumer(consumerToDrain);
 
+            try
+            {
+                // The consumer's last action before exiting was FlushFinal, which - on the real
+                // engine - marks the current stream finished even though capture never actually
+                // started and no genuine audio was ever accepted. Without this reset, a later
+                // retry of Start() on the same "hot" engine would feed that already-finished
+                // stream and never decode anything again. See StopCore's identical Reset() call
+                // for why this is best-effort and reported rather than thrown.
+                _engine.Reset();
+            }
+            catch (Exception resetEx)
+            {
+                _diagnostics.Report(
+                    SpeechDiagnosticLevel.Error,
+                    DiagnosticsCategory,
+                    $"Failed to reset the recognition engine after a failed start: {resetEx.Message}");
+            }
+
             _diagnostics.Report(
                 SpeechDiagnosticLevel.Error,
                 DiagnosticsCategory,
@@ -310,17 +341,18 @@ internal sealed class SherpaOnnxSpeechRecognizer : ISpeechRecognizer
         }
 
         // Detach first so no further blocks are queued, then let the consumer drain what is
-        // already queued and exit.
+        // already queued and exit. The consumer's last action before exiting is flushing and
+        // delivering any trailing audio it could not otherwise decode - see FlushFinal.
         _captureDevice.FrameCaptured -= OnFrameCaptured;
         frames?.Writer.TryComplete();
         WaitForConsumer(consumerTask);
 
         try
         {
-            // Discard any partially decoded utterance and stale hypothesis left over from this
-            // session, so a subsequent Start() on the same "hot" engine always begins decoding
-            // from a clean start-of-utterance state rather than inheriting audio the caller has
-            // already abandoned.
+            // Discard whatever the flush above could not recover, and any stale hypothesis left
+            // over from this session, so a subsequent Start() on the same "hot" engine always
+            // begins decoding from a clean start-of-utterance state rather than inheriting audio
+            // the caller has already abandoned.
             _engine.Reset();
         }
         catch (Exception ex)
@@ -430,6 +462,52 @@ internal sealed class SherpaOnnxSpeechRecognizer : ISpeechRecognizer
         await foreach (var frame in reader.ReadAllAsync().ConfigureAwait(false))
         {
             ProcessFrame(frame);
+        }
+
+        FlushFinal();
+    }
+
+    /// <summary>
+    ///     Finalizes and delivers any trailing audio the engine has accepted but not yet decoded,
+    ///     as the very last action of the consumer loop, before the queue is reported drained.
+    /// </summary>
+    /// <remarks>
+    ///     Runs on this same background decoding thread, preserving <see cref="ResultReceived"/>'s
+    ///     documented "always raised from the recognizer's own background decoding thread"
+    ///     guarantee. Without this, a streaming engine's inability to decode the tail of an
+    ///     utterance without more audio it will now never receive - for example a push-to-talk
+    ///     release with no trailing silence - would mean that tail is simply lost when
+    ///     <see cref="StopCore"/> subsequently resets the engine for the next session. All
+    ///     failures are contained here for the same reason as <see cref="ProcessFrame"/>: this
+    ///     crosses the native decoder boundary and may invoke a host's own handler, and a fault
+    ///     from either must not prevent the consumer loop - and therefore <see cref="Stop"/> or
+    ///     <see cref="Dispose"/> - from completing.
+    /// </remarks>
+    private void FlushFinal()
+    {
+        try
+        {
+            if (!_engine.TryFlush(out var result) || result is null)
+            {
+                return;
+            }
+
+            // Apply the owning model's own text restoration, exactly as ProcessFrame does for
+            // every other decoded result, so this final flushed result is normalized the same way.
+            var restoredText = _model.NormalizeText(result.Text, result.IsFinal);
+            var restoredResult = restoredText == result.Text ? result : result with { Text = restoredText };
+
+            ResultReceived?.Invoke(this, new SpeechRecognitionEvent(restoredResult));
+        }
+        catch (Exception ex)
+        {
+            // Intentionally broad: finalizing crosses the native decoder boundary, and a fault
+            // there must not prevent the consumer loop (and therefore Stop/Dispose) from
+            // completing.
+            _diagnostics.Report(
+                SpeechDiagnosticLevel.Error,
+                DiagnosticsCategory,
+                $"Failed to flush the recognition engine's trailing audio during teardown: {ex.Message}");
         }
     }
 

@@ -310,6 +310,115 @@ public sealed class SherpaOnnxRecognitionEngineTests
     }
 
     /// <summary>
+    ///     Proves that <see cref="SherpaOnnxRecognitionEngine.TryFlush"/> never resurfaces a
+    ///     replay-only hypothesis: stopping immediately after a real endpoint-triggered replay,
+    ///     with no genuinely-new audio fed in between, must not report the replay's own
+    ///     deliberately-discarded text as a flushed final result.
+    /// </summary>
+    [Fact]
+    public void SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_TryFlushAfterReplayWithNoNewAudio_ReportsNothing()
+    {
+        // Arrange
+        using var engine = CreateEngine(postEndpointWarmupWindowMs: 800);
+        engine.AcceptSamples(ToneBlock());
+        engine.TryDecode(out _);
+
+        // See the identical rationale on `EndpointReplaysAndArmsGracePeriod` above: force replay
+        // eligibility directly so this test deterministically exercises the real replay
+        // mechanism instead of depending on whether the tone happens to transcribe as text.
+        SetPrivateField(engine, "_hasRecognizedTextSinceReset", true);
+
+        // Act: feed enough trailing silence for the real endpoint detector to fire an endpoint
+        // and trigger a replay, without feeding any further audio afterward.
+        var endpointObserved = false;
+        for (var i = 0; i < 60 && !endpointObserved; i++)
+        {
+            engine.AcceptSamples(SilenceBlock());
+            var gracedBefore = GetPrivateField<int>(engine, "_graceSamplesRemaining");
+            engine.TryDecode(out _);
+            var gracedAfter = GetPrivateField<int>(engine, "_graceSamplesRemaining");
+
+            if (gracedBefore == 0 && gracedAfter > 0)
+            {
+                endpointObserved = true;
+            }
+        }
+
+        if (!endpointObserved)
+        {
+            Assert.Skip("The real endpoint detector did not fire within this test's bounded silence budget.");
+        }
+
+        // Sanity check on the mechanism under test: the replay must have left its marker set.
+        Assert.True(GetPrivateField<bool>(engine, "_hasReplayOnlyHypothesis"));
+
+        // Act: flush with no genuinely-new audio fed since the replay.
+        var gotResult = engine.TryFlush(out var result);
+
+        // Assert: nothing is reported - the replay's own discarded hypothesis must not resurface.
+        Assert.False(gotResult);
+        Assert.Null(result);
+    }
+
+    /// <summary>
+    ///     Proves that <see cref="SherpaOnnxRecognitionEngine.TryDecode"/> never resurfaces a
+    ///     replay-only hypothesis either: a caller drains every result one captured block
+    ///     produced by calling this method repeatedly with no intervening
+    ///     <see cref="SherpaOnnxRecognitionEngine.AcceptSamples"/> call, so the call immediately
+    ///     following an endpoint-triggered replay must not report the replay's own
+    ///     deliberately-discarded text as a spurious result. With a synthesized tone the
+    ///     replayed audio's own hypothesis is empty regardless of this guard, so the behavioral
+    ///     assertion below does not by itself discriminate the fix; the reflection-based
+    ///     assertion on <c>_hasReplayOnlyHypothesis</c> is what proves the guard's precondition
+    ///     is genuinely reached.
+    /// </summary>
+    [Fact]
+    public void SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_TryDecodeAfterReplayWithNoNewAudio_ReportsNothing()
+    {
+        // Arrange
+        using var engine = CreateEngine(postEndpointWarmupWindowMs: 800);
+        engine.AcceptSamples(ToneBlock());
+        engine.TryDecode(out _);
+
+        // See the identical rationale on `EndpointReplaysAndArmsGracePeriod` above: force replay
+        // eligibility directly so this test deterministically exercises the real replay
+        // mechanism instead of depending on whether the tone happens to transcribe as text.
+        SetPrivateField(engine, "_hasRecognizedTextSinceReset", true);
+
+        // Act: feed enough trailing silence for the real endpoint detector to fire an endpoint
+        // and trigger a replay, without feeding any further audio afterward.
+        var endpointObserved = false;
+        for (var i = 0; i < 60 && !endpointObserved; i++)
+        {
+            engine.AcceptSamples(SilenceBlock());
+            var gracedBefore = GetPrivateField<int>(engine, "_graceSamplesRemaining");
+            engine.TryDecode(out _);
+            var gracedAfter = GetPrivateField<int>(engine, "_graceSamplesRemaining");
+
+            if (gracedBefore == 0 && gracedAfter > 0)
+            {
+                endpointObserved = true;
+            }
+        }
+
+        if (!endpointObserved)
+        {
+            Assert.Skip("The real endpoint detector did not fire within this test's bounded silence budget.");
+        }
+
+        // Sanity check on the mechanism under test: the replay must have left its marker set.
+        Assert.True(GetPrivateField<bool>(engine, "_hasReplayOnlyHypothesis"));
+
+        // Act: call TryDecode again, exactly as a drain loop would, with no genuinely-new audio
+        // fed since the replay.
+        var gotResult = engine.TryDecode(out var result);
+
+        // Assert: nothing is reported - the replay's own discarded hypothesis must not resurface.
+        Assert.False(gotResult);
+        Assert.Null(result);
+    }
+
+    /// <summary>
     ///     Proves that the grace period suppresses a same-tick spurious re-trigger: immediately
     ///     after a replay arms the grace counter, continuing to feed the same kind of near-silent
     ///     audio must not immediately produce a second final result before genuinely new audio

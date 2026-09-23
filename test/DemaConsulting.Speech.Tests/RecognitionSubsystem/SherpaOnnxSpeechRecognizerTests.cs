@@ -304,6 +304,154 @@ public class SherpaOnnxSpeechRecognizerTests
     }
 
     /// <summary>
+    ///     Proves that disposing a running recognizer flushes trailing audio the same way
+    ///     <see cref="SherpaOnnxSpeechRecognizer.Stop"/> does - <see cref="SherpaOnnxSpeechRecognizer.Dispose"/>
+    ///     shares the same flush-then-reset teardown path, so it must not skip the flush just
+    ///     because it is terminal.
+    /// </summary>
+    [Fact]
+    public void SherpaOnnxSpeechRecognizer_Dispose_EngineHasFlushableTrailingAudio_RaisesFlushedFinalResult()
+    {
+        // Arrange: a running recognizer whose engine yields a flushed final result on TryFlush
+        var captureDevice = CreateCaptureDevice(sampleRate: 16000, channelCount: 1);
+        var engine = new FakeRecognitionEngine(
+            scriptedFlushResult: new SpeechRecognitionResult("cut off", IsFinal: true));
+        var recognizer = new SherpaOnnxSpeechRecognizer(engine, captureDevice, 16000, new FakeRecognitionModel());
+        var received = new List<SpeechRecognitionResult>();
+        recognizer.ResultReceived += (_, args) => received.Add(args.Result);
+        recognizer.Start();
+
+        // Act: dispose
+        recognizer.Dispose();
+
+        // Assert: the flush was invoked once and its result was raised as a final result, before
+        // the engine was reset
+        Assert.Equal(1, engine.FlushCallCount);
+        Assert.Equal([new SpeechRecognitionResult("cut off", IsFinal: true)], received);
+        Assert.Equal(1, engine.ResetCallCount);
+    }
+
+    /// <summary>
+    ///     Proves that a fault in the engine's <see cref="IRecognitionEngine.Reset"/> during
+    ///     teardown is contained and reported rather than propagated, and that <see cref="SherpaOnnxSpeechRecognizer.Stop"/>
+    ///     still completes and still permits a later <see cref="SherpaOnnxSpeechRecognizer.Start"/>
+    ///     - matching the best-effort reset guarantee documented on the class and in the design
+    ///     doc.
+    /// </summary>
+    [Fact]
+    public void SherpaOnnxSpeechRecognizer_Stop_EngineResetFails_CompletesReportsFaultAndPermitsRestart()
+    {
+        // Arrange: a running recognizer whose engine always faults on Reset()
+        var captureDevice = CreateCaptureDevice(sampleRate: 16000, channelCount: 1);
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        var engine = new FakeRecognitionEngine(resetException: new InvalidOperationException("reset failed"));
+        using var recognizer = new SherpaOnnxSpeechRecognizer(engine, captureDevice, 16000, new FakeRecognitionModel(), diagnostics);
+        recognizer.Start();
+
+        // Act: stop despite the faulting reset, then start again
+        var exception = Record.Exception(() =>
+        {
+            recognizer.Stop();
+            recognizer.Start();
+        });
+
+        // Assert: nothing escaped, the fault was reported, and the capture device was still
+        // stopped and restarted as part of the (best-effort) teardown and later restart
+        Assert.Null(exception);
+        Assert.Equal(1, engine.ResetCallCount);
+        captureDevice.Received(1).Stop();
+        captureDevice.Received(2).Start();
+        diagnostics.Received(1).Report(
+            SpeechDiagnosticLevel.Error,
+            "RecognitionSubsystem",
+            Arg.Is<string>(message => message.Contains("Failed to reset the recognition engine", StringComparison.Ordinal)));
+    }
+
+    /// <summary>
+    ///     Proves that stopping delivers a final result flushed from trailing audio the engine
+    ///     had accepted but not yet decoded - for example the tail of an utterance released with
+    ///     no trailing silence - rather than silently discarding it when the engine is reset.
+    /// </summary>
+    [Fact]
+    public void SherpaOnnxSpeechRecognizer_Stop_EngineHasFlushableTrailingAudio_RaisesFlushedFinalResult()
+    {
+        // Arrange: a running recognizer whose engine yields a flushed final result on TryFlush
+        var captureDevice = CreateCaptureDevice(sampleRate: 16000, channelCount: 1);
+        var engine = new FakeRecognitionEngine(
+            scriptedFlushResult: new SpeechRecognitionResult("cut off", IsFinal: true));
+        using var recognizer = new SherpaOnnxSpeechRecognizer(engine, captureDevice, 16000, new FakeRecognitionModel());
+        var received = new List<SpeechRecognitionResult>();
+        recognizer.ResultReceived += (_, args) => received.Add(args.Result);
+        recognizer.Start();
+
+        // Act: stop
+        recognizer.Stop();
+
+        // Assert: the flush was invoked once and its result was raised as a final result, before
+        // the engine was reset for the next session
+        Assert.Equal(1, engine.FlushCallCount);
+        Assert.Equal([new SpeechRecognitionResult("cut off", IsFinal: true)], received);
+        Assert.Equal(1, engine.ResetCallCount);
+    }
+
+    /// <summary>
+    ///     Proves that stopping raises nothing extra when the engine has nothing to flush,
+    ///     matching the existing "no new result" behavior for a quiet session.
+    /// </summary>
+    [Fact]
+    public void SherpaOnnxSpeechRecognizer_Stop_EngineHasNothingToFlush_RaisesNoExtraResult()
+    {
+        // Arrange: a running recognizer whose engine yields no flushed result
+        var captureDevice = CreateCaptureDevice(sampleRate: 16000, channelCount: 1);
+        var engine = new FakeRecognitionEngine();
+        using var recognizer = new SherpaOnnxSpeechRecognizer(engine, captureDevice, 16000, new FakeRecognitionModel());
+        var received = new List<SpeechRecognitionResult>();
+        recognizer.ResultReceived += (_, args) => received.Add(args.Result);
+        recognizer.Start();
+
+        // Act: stop
+        recognizer.Stop();
+
+        // Assert: the flush was still attempted, but nothing was raised
+        Assert.Equal(1, engine.FlushCallCount);
+        Assert.Empty(received);
+    }
+
+    /// <summary>
+    ///     Proves that a fault in the engine's <see cref="IRecognitionEngine.TryFlush"/> during
+    ///     teardown is contained and reported rather than propagated, and that
+    ///     <see cref="SherpaOnnxSpeechRecognizer.Stop"/> still completes and still resets the
+    ///     engine afterward, matching the same best-effort containment already proven for
+    ///     <see cref="IRecognitionEngine.Reset"/> faults.
+    /// </summary>
+    [Fact]
+    public void SherpaOnnxSpeechRecognizer_Stop_EngineFlushFails_CompletesResetsEngineAndReportsFault()
+    {
+        // Arrange: a running recognizer whose engine always faults on TryFlush()
+        var captureDevice = CreateCaptureDevice(sampleRate: 16000, channelCount: 1);
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        var engine = new FakeRecognitionEngine(flushException: new InvalidOperationException("flush failed"));
+        using var recognizer = new SherpaOnnxSpeechRecognizer(engine, captureDevice, 16000, new FakeRecognitionModel(), diagnostics);
+        var received = new List<SpeechRecognitionResult>();
+        recognizer.ResultReceived += (_, args) => received.Add(args.Result);
+        recognizer.Start();
+
+        // Act: stop despite the faulting flush
+        var exception = Record.Exception(recognizer.Stop);
+
+        // Assert: nothing escaped, nothing was raised, the engine was still reset, and the fault
+        // was reported
+        Assert.Null(exception);
+        Assert.Empty(received);
+        Assert.Equal(1, engine.FlushCallCount);
+        Assert.Equal(1, engine.ResetCallCount);
+        diagnostics.Received(1).Report(
+            SpeechDiagnosticLevel.Error,
+            "RecognitionSubsystem",
+            Arg.Is<string>(message => message.Contains("Failed to flush the recognition engine", StringComparison.Ordinal)));
+    }
+
+    /// <summary>
     ///     Proves that starting a disposed recognizer throws
     ///     <see cref="ObjectDisposedException"/> rather than silently doing nothing.
     /// </summary>
@@ -343,6 +491,35 @@ public class SherpaOnnxSpeechRecognizerTests
             SpeechDiagnosticLevel.Error,
             "RecognitionSubsystem",
             Arg.Is<string>(message => message.Contains("capture device could not start", StringComparison.Ordinal)));
+    }
+
+    /// <summary>
+    ///     Proves that a failed <see cref="SherpaOnnxSpeechRecognizer.Start"/> resets the engine
+    ///     as part of its rollback, exactly like a normal <see cref="SherpaOnnxSpeechRecognizer.Stop"/>
+    ///     would - the consumer's unconditional trailing flush would otherwise mark the real
+    ///     engine's stream finished even though no audio was ever accepted (the capture device
+    ///     never actually started), leaving a later retry unable to decode. This test proves only
+    ///     that <see cref="IRecognitionEngine.Reset"/> is invoked during the rollback; the fake
+    ///     engine does not model the real engine's "finished stream" semantics, so it cannot
+    ///     itself prove a subsequent retry can decode.
+    /// </summary>
+    [Fact]
+    public void SherpaOnnxSpeechRecognizer_Start_CaptureDeviceFails_ResetsEngineDuringRollback()
+    {
+        // Arrange: a device whose Start throws
+        var captureDevice = CreateCaptureDevice(sampleRate: 16000, channelCount: 1);
+        captureDevice
+            .When(device => device.Start())
+            .Do(_ => throw new AudioDeviceUnavailableException("native stream open failed"));
+        var engine = new FakeRecognitionEngine();
+        using var recognizer = new SherpaOnnxSpeechRecognizer(
+            engine, captureDevice, 16000, new FakeRecognitionModel());
+
+        // Act
+        Assert.Throws<SpeechRecognizerUnavailableException>(recognizer.Start);
+
+        // Assert: the rollback reset the engine, exactly like a normal Stop() would.
+        Assert.Equal(1, engine.ResetCallCount);
     }
 
     /// <summary>
