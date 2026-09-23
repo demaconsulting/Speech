@@ -28,8 +28,13 @@ namespace DemaConsulting.Speech.RecognitionSubsystem;
 ///     block accepted before the call has been decoded and every resulting event raised by the
 ///     time it returns. That makes the pipeline deterministic for both hosts and tests, with no
 ///     polling or timing assumptions anywhere. <see cref="Stop"/> then also resets the owned
-///     engine's decoder state, so a subsequent <see cref="Start"/> on the same "hot" engine never
-///     inherits a partially decoded utterance or stale hypothesis left over from before the stop.
+///     engine's decoder state, so a subsequent <see cref="Start"/> on the same "hot" engine
+///     never inherits a partially decoded utterance or stale hypothesis left over from before
+///     the stop. That reset is best-effort: it crosses the native decoder boundary, and a
+///     fault there is reported through <see cref="ISpeechDiagnostics"/> rather than thrown, so
+///     <see cref="Stop"/>/<see cref="Dispose"/> still complete and a later <see cref="Start"/>
+///     is still permitted, but the engine's state cannot be guaranteed clean in that one
+///     failure case.
 ///     </para>
 ///     <para>
 ///     Exceptions raised anywhere in the pipeline - by a frame handler, by the engine, or by a
@@ -180,6 +185,15 @@ internal sealed class SherpaOnnxSpeechRecognizer : ISpeechRecognizer
     public bool IsAvailable => true;
 
     /// <inheritdoc/>
+    /// <remarks>
+    ///     Raised synchronously on the background consumer thread (see this class's remarks).
+    ///     Reentrantly calling <see cref="Start"/>, <see cref="Stop"/>, or <see cref="Dispose"/>
+    ///     from within a handler of this event is not supported and can deadlock: <see cref="Stop"/>
+    ///     and <see cref="Dispose"/> block their caller until that same consumer thread finishes
+    ///     draining, so a handler that calls back into one of them from that thread can end up
+    ///     waiting on itself. A host that needs to stop or dispose the recognizer in response to a
+    ///     result must do so from another thread rather than directly from this handler.
+    /// </remarks>
     public event EventHandler<SpeechRecognitionEvent>? ResultReceived;
 
     /// <inheritdoc/>

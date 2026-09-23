@@ -304,6 +304,42 @@ public class SherpaOnnxSpeechRecognizerTests
     }
 
     /// <summary>
+    ///     Proves that a fault in the engine's <see cref="IRecognitionEngine.Reset"/> during
+    ///     teardown is contained and reported rather than propagated, and that <see cref="SherpaOnnxSpeechRecognizer.Stop"/>
+    ///     still completes and still permits a later <see cref="SherpaOnnxSpeechRecognizer.Start"/>
+    ///     - matching the best-effort reset guarantee documented on the class and in the design
+    ///     doc.
+    /// </summary>
+    [Fact]
+    public void SherpaOnnxSpeechRecognizer_Stop_EngineResetFails_CompletesReportsFaultAndPermitsRestart()
+    {
+        // Arrange: a running recognizer whose engine always faults on Reset()
+        var captureDevice = CreateCaptureDevice(sampleRate: 16000, channelCount: 1);
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        var engine = new FakeRecognitionEngine(resetException: new InvalidOperationException("reset failed"));
+        using var recognizer = new SherpaOnnxSpeechRecognizer(engine, captureDevice, 16000, new FakeRecognitionModel(), diagnostics);
+        recognizer.Start();
+
+        // Act: stop despite the faulting reset, then start again
+        var exception = Record.Exception(() =>
+        {
+            recognizer.Stop();
+            recognizer.Start();
+        });
+
+        // Assert: nothing escaped, the fault was reported, and the capture device was still
+        // stopped and restarted as part of the (best-effort) teardown and later restart
+        Assert.Null(exception);
+        Assert.Equal(1, engine.ResetCallCount);
+        captureDevice.Received(1).Stop();
+        captureDevice.Received(2).Start();
+        diagnostics.Received(1).Report(
+            SpeechDiagnosticLevel.Error,
+            "RecognitionSubsystem",
+            Arg.Is<string>(message => message.Contains("Failed to reset the recognition engine", StringComparison.Ordinal)));
+    }
+
+    /// <summary>
     ///     Proves that starting a disposed recognizer throws
     ///     <see cref="ObjectDisposedException"/> rather than silently doing nothing.
     /// </summary>
