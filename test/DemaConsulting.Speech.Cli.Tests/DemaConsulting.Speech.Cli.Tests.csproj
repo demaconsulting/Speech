@@ -71,11 +71,14 @@
 
   <!-- Speech Engine Native Runtime Dependencies.
        DemaConsulting.Speech deliberately does NOT bundle a sherpa-onnx native runtime package
-       (see its own csproj). This test project's self-validation and audio-backend-probe
-       integration tests exercise DemaConsulting.Speech.Cli's AudioDeviceFactory composition
-       path, which only needs the PortAudioSharp2 native runtime (carried transitively through
-       the CLI's own project reference to DemaConsulting.Speech) - no sherpa-onnx runtime
-       package is required in this pass because no command in this scaffold loads a speech
-       model. -->
+       directly (see its own csproj), but org.k2fsa.sherpa.onnx's own nuspec unconditionally
+       depends on every RID's org.k2fsa.sherpa.onnx.runtime.* package regardless of the consuming
+       project's target RID, so those native assets already flow transitively into every project
+       that references DemaConsulting.Speech (including this one, via its reference to
+       DemaConsulting.Speech.Cli) without needing an explicit PackageReference here. This is the
+       same mechanism the real installed tool relies on, so it is not test-only or incidental:
+       DoctorCommand_Run_ReportsSherpaOnnxNativeLibraryResolvable exercises the real native load
+       on whichever of CI's win-x64/linux-x64/osx-arm64 runners it executes on, deterministically,
+       because every one of those RID packages is always present. -->
 
 </Project>
