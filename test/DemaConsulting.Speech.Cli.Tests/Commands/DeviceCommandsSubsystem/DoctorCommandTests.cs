@@ -102,6 +102,64 @@ public sealed class DoctorCommandTests : IDisposable
     }
 
     /// <summary>
+    ///     Test that the SherpaOnnx native inference library is reported resolvable end to end
+    ///     through <see cref="DoctorCommand.Run(Context, IAudioCaptureDeviceProbe, IAudioPlaybackDeviceProbe, ICliModelCatalog, string)"/> -
+    ///     exercising the real
+    ///     <c>TryProbeSherpaOnnxNativeLibrary</c>/<c>CheckNativeRuntimes</c> load path, not just
+    ///     path resolution. Deterministic on every CI runner (win-x64/linux-x64/osx-arm64)
+    ///     because <c>org.k2fsa.sherpa.onnx</c>'s own nuspec unconditionally depends on every
+    ///     RID's runtime package, so the real native asset always flows transitively into this
+    ///     test project's own output via its reference to <c>DemaConsulting.Speech.Cli</c> - see
+    ///     this project's csproj remarks.
+    /// </summary>
+    [Fact]
+    public void DoctorCommand_Run_ReportsSherpaOnnxNativeLibraryResolvable()
+    {
+        var context = Context.Create(["doctor"]);
+        var catalog = new FakeCliModelCatalog();
+
+        var output = RunCapturingOutput(context, new FakeAudioCaptureDeviceProbe(), new FakeAudioPlaybackDeviceProbe(), catalog, _tempDir);
+
+        Assert.Contains("[ OK ] SherpaOnnx native inference library is resolvable.", output);
+    }
+
+    /// <summary>
+    ///     Test that <see cref="DoctorCommand.ResolveSherpaOnnxNativeLibraryPath"/> resolves the
+    ///     RID-specific native asset path against a fixture directory laid out to match NuGet's
+    ///     <c>runtimes/&lt;rid&gt;/native/</c> convention, deterministically and independent of
+    ///     whether this test project happens to carry a real SherpaOnnx native asset transitively.
+    /// </summary>
+    [Fact]
+    public void DoctorCommand_ResolveSherpaOnnxNativeLibraryPath_AssetPresent_ReturnsPath()
+    {
+        var runtimeIdentifier = DoctorCommand.ResolveRuntimeIdentifier();
+        Assert.NotNull(runtimeIdentifier);
+
+        var fileName = DoctorCommand.ResolveSherpaOnnxNativeLibraryFileName();
+        var nativeDir = Path.Join(_tempDir, "runtimes", runtimeIdentifier, "native");
+        Directory.CreateDirectory(nativeDir);
+        var assetPath = Path.Join(nativeDir, fileName);
+        File.WriteAllText(assetPath, string.Empty);
+
+        var resolved = DoctorCommand.ResolveSherpaOnnxNativeLibraryPath(_tempDir);
+
+        Assert.Equal(assetPath, resolved);
+    }
+
+    /// <summary>
+    ///     Test that <see cref="DoctorCommand.ResolveSherpaOnnxNativeLibraryPath"/> returns
+    ///     <see langword="null"/> when the expected RID-specific asset is absent, rather than
+    ///     resolving to a path that does not exist.
+    /// </summary>
+    [Fact]
+    public void DoctorCommand_ResolveSherpaOnnxNativeLibraryPath_AssetAbsent_ReturnsNull()
+    {
+        var resolved = DoctorCommand.ResolveSherpaOnnxNativeLibraryPath(_tempDir);
+
+        Assert.Null(resolved);
+    }
+
+    /// <summary>
     ///     Test that an unavailable PortAudio probe (the library's honest fallback singleton) is
     ///     reported as informational, not a hard failure.
     /// </summary>

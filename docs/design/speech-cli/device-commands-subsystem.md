@@ -72,8 +72,8 @@ Runs a broader environment/health check than `--validate`'s five CI-safe checks 
 1. **Native runtimes**: whether PortAudio is resolvable (inferred from whether the resolved probe
    types are the library's `Unavailable*` fallback singletons - a safe, public proxy signal,
    since the library's own `PortAudioEnvironment` init status is `internal` and not exposed to
-   the CLI) and whether the native `sherpa-onnx-c-api` shared library is loadable via
-   `NativeLibrary.TryLoad`
+   the CLI) and whether the native `sherpa-onnx-c-api` shared library is loadable, preferring its
+   concrete `runtimes/<rid>/native/` path (see [SherpaOnnx Resolvability Scope](#sherpaonnx-resolvability-scope))
 2. **Model store**: root path, writability (a temporary marker file is written to and deleted
    from the root), and available disk space at that location
 3. **Audio devices**: input/output device counts only (not a full enumeration - that is
@@ -87,11 +87,20 @@ Each check is printed as a `[ OK ]`/`[INFO]`/`[FAIL]` line, followed by an overa
 
 There is no public, model-independent way to probe SherpaOnnx from the library - constructing a
 `SherpaOnnxRecognitionEngine`/synthesizer requires an installed model and performs a real native
-load. `doctor` instead attempts `NativeLibrary.TryLoad("sherpa-onnx-c-api", out _)`, a lightweight
-probe that only proves the native binary for the current platform/architecture is present and
-loadable; it does not prove a recognizer or synthesizer can actually be constructed or run
-inference. This is a necessary-but-not-sufficient signal, and is documented as such directly in
-`DoctorCommand`'s class remarks rather than presented as a full inference-path verification.
+load. `doctor` instead probes the native `sherpa-onnx-c-api` shared library directly. A bare
+`NativeLibrary.TryLoad("sherpa-onnx-c-api", out _)` call alone under-reports availability for a
+framework-dependent build: NuGet copies the platform-specific native asset to
+`runtimes/<rid>/native/` under the application's base directory, not to the base directory
+itself, and a bare-name probe never searches that nested folder (unlike ordinary P/Invoke
+resolution, which consults it via the app's `deps.json`). `doctor` therefore first resolves the
+current platform/architecture's runtime identifier (for example `win-x64`) and loads the
+concrete `runtimes/<rid>/native/<file>` path directly when present, falling back to the bare-name
+probe for other layouts (for example self-contained or single-file publishes, where native assets
+are flattened into the base directory). Either way, this only proves the native binary for the
+current platform/architecture is present and loadable; it does not prove a recognizer or
+synthesizer can actually be constructed or run inference. This is a necessary-but-not-sufficient
+signal, and is documented as such directly in `DoctorCommand`'s class remarks rather than
+presented as a full inference-path verification.
 
 #### Hard Failure Versus Informational Note
 
