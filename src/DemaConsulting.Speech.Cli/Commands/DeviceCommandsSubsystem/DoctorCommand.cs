@@ -195,13 +195,23 @@ internal static class DoctorCommand
     {
         try
         {
-            var ridSpecificPath = ResolveSherpaOnnxNativeLibraryPath();
-            if (ridSpecificPath is not null && NativeLibrary.TryLoad(ridSpecificPath, out _))
+            var ridSpecificPath = ResolveSherpaOnnxNativeLibraryPath(AppContext.BaseDirectory);
+            if (ridSpecificPath is not null && NativeLibrary.TryLoad(ridSpecificPath, out var ridSpecificHandle))
             {
+                // The probe only needs to know the library loads successfully; it does not need
+                // to keep it mapped for the rest of the process's lifetime, so free the handle
+                // immediately rather than leaking a native module reference on every doctor run.
+                NativeLibrary.Free(ridSpecificHandle);
                 return true;
             }
 
-            return NativeLibrary.TryLoad(SherpaOnnxNativeLibraryName, out _);
+            if (NativeLibrary.TryLoad(SherpaOnnxNativeLibraryName, out var bareNameHandle))
+            {
+                NativeLibrary.Free(bareNameHandle);
+                return true;
+            }
+
+            return false;
         }
         // Intentionally broad: this CLI health probe must never crash because native-library
         // resolution can fail through many platform-specific exception shapes that all mean the
@@ -214,14 +224,18 @@ internal static class DoctorCommand
 
     /// <summary>
     ///     Resolves the on-disk path of the RID-specific SherpaOnnx native asset NuGet copies
-    ///     under the application's base directory, when present.
+    ///     under <paramref name="baseDirectory"/>, when present. Internal (rather than private)
+    ///     and parameterized by <paramref name="baseDirectory"/> so tests can verify the path
+    ///     resolution logic deterministically against a fixture directory, without depending on
+    ///     the real application's base directory or any transitive NuGet native-asset dependency.
     /// </summary>
+    /// <param name="baseDirectory">The base directory to resolve the <c>runtimes/</c> folder under.</param>
     /// <returns>
     ///     The full path to the native library file when the current platform/architecture is
     ///     recognized and the file exists at the expected NuGet layout path; otherwise
     ///     <see langword="null"/>.
     /// </returns>
-    private static string? ResolveSherpaOnnxNativeLibraryPath()
+    internal static string? ResolveSherpaOnnxNativeLibraryPath(string baseDirectory)
     {
         var runtimeIdentifier = ResolveRuntimeIdentifier();
         if (runtimeIdentifier is null)
@@ -229,22 +243,28 @@ internal static class DoctorCommand
             return null;
         }
 
-        string fileName;
+        var candidatePath = Path.Combine(baseDirectory, "runtimes", runtimeIdentifier, "native", ResolveSherpaOnnxNativeLibraryFileName());
+        return File.Exists(candidatePath) ? candidatePath : null;
+    }
+
+    /// <summary>
+    ///     Resolves the platform-conventional native library file name for the SherpaOnnx C API
+    ///     shared library (for example <c>sherpa-onnx-c-api.dll</c> on Windows).
+    /// </summary>
+    /// <returns>The platform-conventional native library file name.</returns>
+    internal static string ResolveSherpaOnnxNativeLibraryFileName()
+    {
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            fileName = $"{SherpaOnnxNativeLibraryName}.dll";
-        }
-        else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-        {
-            fileName = $"lib{SherpaOnnxNativeLibraryName}.dylib";
-        }
-        else
-        {
-            fileName = $"lib{SherpaOnnxNativeLibraryName}.so";
+            return $"{SherpaOnnxNativeLibraryName}.dll";
         }
 
-        var candidatePath = Path.Combine(AppContext.BaseDirectory, "runtimes", runtimeIdentifier, "native", fileName);
-        return File.Exists(candidatePath) ? candidatePath : null;
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            return $"lib{SherpaOnnxNativeLibraryName}.dylib";
+        }
+
+        return $"lib{SherpaOnnxNativeLibraryName}.so";
     }
 
     /// <summary>
@@ -256,7 +276,7 @@ internal static class DoctorCommand
     ///     The runtime identifier when the current OS platform and process architecture are both
     ///     recognized; otherwise <see langword="null"/>.
     /// </returns>
-    private static string? ResolveRuntimeIdentifier()
+    internal static string? ResolveRuntimeIdentifier()
     {
         string osPart;
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))

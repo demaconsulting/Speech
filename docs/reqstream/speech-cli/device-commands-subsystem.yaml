@@ -116,7 +116,8 @@ sections:
               - DoctorCommand_Run_ReportsModelStoreRootPath
               - DoctorCommand_Run_ReportsInstalledVersusKnownModelCounts
               - DoctorCommand_Run_ReportsAudioDeviceCounts
-              - DoctorCommand_Run_ReportsSherpaOnnxNativeLibraryResolvable
+              - DoctorCommand_ResolveSherpaOnnxNativeLibraryPath_AssetPresent_ReturnsPath
+              - DoctorCommand_ResolveSherpaOnnxNativeLibraryPath_AssetAbsent_ReturnsNull
               - DoctorCommand_Run_UnavailablePortAudio_ReportsInformationalNoteNotFailure
               - DoctorCommand_Run_UnwritableModelStore_ReportsUnhealthyAndNonZeroExitCode
               - DoctorCommand_Run_ExtraArgument_ThrowsArgumentException

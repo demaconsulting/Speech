@@ -113,7 +113,8 @@ underlying the output-direction test tone entirely in-process, with no audio har
 `DoctorCommand_Run_ReportsModelStoreRootPath`,
 `DoctorCommand_Run_ReportsInstalledVersusKnownModelCounts`,
 `DoctorCommand_Run_ReportsAudioDeviceCounts`,
-`DoctorCommand_Run_ReportsSherpaOnnxNativeLibraryResolvable`,
+`DoctorCommand_ResolveSherpaOnnxNativeLibraryPath_AssetPresent_ReturnsPath`,
+`DoctorCommand_ResolveSherpaOnnxNativeLibraryPath_AssetAbsent_ReturnsNull`,
 `DoctorCommand_Run_UnavailablePortAudio_ReportsInformationalNoteNotFailure`,
 `DoctorCommand_Run_UnwritableModelStore_ReportsUnhealthyAndNonZeroExitCode`,
 `DoctorCommand_Run_ExtraArgument_ThrowsArgumentException`,
@@ -122,10 +123,10 @@ underlying the output-direction test tone entirely in-process, with no audio har
 **Scenario/Expected**: A writable model store root reports overall `HEALTHY` and exit code `0`;
 the root path, installed-versus-known model counts (backed by a `FakeCliModelCatalog` with a mix
 of downloaded/not-downloaded models), and input/output audio device counts (backed by fake
-probes) are all present in the output; the SherpaOnnx native library probe reports `[ OK ]`
-resolvable against this test project's own build output, proving the RID-specific
-`runtimes/<rid>/native/` path resolution finds the real native asset a bare
-`NativeLibrary.TryLoad` name-only probe would miss; the library's own
+probes) are all present in the output; `ResolveSherpaOnnxNativeLibraryPath` resolves the
+RID-specific `runtimes/<rid>/native/<file>` path against a fixture directory when the asset is
+present, and returns `null` when absent - deterministically, independent of whether this test
+project happens to carry a real SherpaOnnx native asset transitively; the library's own
 `UnavailableAudioCaptureDeviceProbe`/`UnavailableAudioPlaybackDeviceProbe` fallback singletons are
 reported as an `[INFO]` note, not a failure, and still leave the run `HEALTHY`; a model store root
 occupied by a plain file (so `Directory.CreateDirectory` fails) is reported as the sole `[FAIL]`

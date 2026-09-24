@@ -102,21 +102,39 @@ public sealed class DoctorCommandTests : IDisposable
     }
 
     /// <summary>
-    ///     Test that the SherpaOnnx native inference library is reported resolvable, verifying
-    ///     the RID-specific <c>runtimes/&lt;rid&gt;/native/</c> probe path finds the real native
-    ///     asset this test project's own build output carries (a bare
-    ///     <see cref="System.Runtime.InteropServices.NativeLibrary"/> name-only probe would not,
-    ///     since NuGet copies it to that nested folder rather than the base directory).
+    ///     Test that <see cref="DoctorCommand.ResolveSherpaOnnxNativeLibraryPath"/> resolves the
+    ///     RID-specific native asset path against a fixture directory laid out to match NuGet's
+    ///     <c>runtimes/&lt;rid&gt;/native/</c> convention, deterministically and independent of
+    ///     whether this test project happens to carry a real SherpaOnnx native asset transitively.
     /// </summary>
     [Fact]
-    public void DoctorCommand_Run_ReportsSherpaOnnxNativeLibraryResolvable()
+    public void DoctorCommand_ResolveSherpaOnnxNativeLibraryPath_AssetPresent_ReturnsPath()
     {
-        var context = Context.Create(["doctor"]);
-        var catalog = new FakeCliModelCatalog();
+        var runtimeIdentifier = DoctorCommand.ResolveRuntimeIdentifier();
+        Assert.NotNull(runtimeIdentifier);
 
-        var output = RunCapturingOutput(context, new FakeAudioCaptureDeviceProbe(), new FakeAudioPlaybackDeviceProbe(), catalog, _tempDir);
+        var fileName = DoctorCommand.ResolveSherpaOnnxNativeLibraryFileName();
+        var nativeDir = Path.Join(_tempDir, "runtimes", runtimeIdentifier, "native");
+        Directory.CreateDirectory(nativeDir);
+        var assetPath = Path.Join(nativeDir, fileName);
+        File.WriteAllText(assetPath, string.Empty);
 
-        Assert.Contains("[ OK ] SherpaOnnx native inference library is resolvable.", output);
+        var resolved = DoctorCommand.ResolveSherpaOnnxNativeLibraryPath(_tempDir);
+
+        Assert.Equal(assetPath, resolved);
+    }
+
+    /// <summary>
+    ///     Test that <see cref="DoctorCommand.ResolveSherpaOnnxNativeLibraryPath"/> returns
+    ///     <see langword="null"/> when the expected RID-specific asset is absent, rather than
+    ///     resolving to a path that does not exist.
+    /// </summary>
+    [Fact]
+    public void DoctorCommand_ResolveSherpaOnnxNativeLibraryPath_AssetAbsent_ReturnsNull()
+    {
+        var resolved = DoctorCommand.ResolveSherpaOnnxNativeLibraryPath(_tempDir);
+
+        Assert.Null(resolved);
     }
 
     /// <summary>
