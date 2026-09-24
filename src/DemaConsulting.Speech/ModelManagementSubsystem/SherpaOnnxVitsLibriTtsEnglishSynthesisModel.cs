@@ -70,8 +70,7 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     is materially different from ShareAlike (CC BY-SA) - attribution is required, but
 ///     downstream relicensing under different terms is not restricted - and different again from
 ///     the NVIDIA Open Model License's custom, non-OSI redistribution terms; see
-///     <c>docs/user_guide/introduction.md</c> and <c>README.md</c> for the consumer-facing
-///     attribution text.
+///     <c>README.md</c> and the user guide it links to for the consumer-facing attribution text.
 ///     </para>
 /// </remarks>
 public sealed class SherpaOnnxVitsLibriTtsEnglishSynthesisModel : ISynthesisModel

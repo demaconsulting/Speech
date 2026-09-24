@@ -206,6 +206,28 @@ public class PlaybackAudioResamplerTests
     }
 
     /// <summary>
+    ///     Proves that a single output channel skips the upmix step entirely and returns the
+    ///     resampled signal directly, matching the independently recomputed resampled output.
+    /// </summary>
+    [Fact]
+    public void PlaybackAudioResampler_Convert_SingleChannelTarget_ReturnsResampledWithoutUpmix()
+    {
+        // Arrange: mono 8 kHz source converted to mono 16 kHz
+        var resampler = new PlaybackAudioResampler(
+            sourceSampleRate: 8000,
+            targetSampleRate: 16000,
+            targetChannelCount: 1);
+        float[] samples = [0.5f, 1.0f];
+        var expected = ResampleReference(samples, sourceSampleRate: 8000, targetSampleRate: 16000);
+
+        // Act
+        var result = resampler.Convert(samples);
+
+        // Assert: the result matches resampling alone, with no upmix pass
+        Assert.Equal(expected, result, new FloatToleranceComparer());
+    }
+
+    /// <summary>
     ///     Proves that the constructor rejects a non-positive source rate, target rate, or
     ///     target channel count.
     /// </summary>

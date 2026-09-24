@@ -272,12 +272,23 @@ session and is safe to share across threads.
 - **Convert(ReadOnlySpan&lt;float&gt;)**: Downmixes then resamples. Downmixing first means the
   interpolation runs over one signal rather than once per channel, which is both cheaper and
   removes any possibility of channels drifting out of alignment. Returns an empty array when the
-  input contains no complete frame.
+  input contains no complete frame. A single-channel source skips the downmix step entirely and
+  resamples the input directly, since `Resample` already copies or allocates as needed and a
+  downmix pass would only duplicate the input. For a multi-channel source, the downmixed
+  intermediate is written into an `ArrayPool<float>`-rented buffer rather than a newly allocated
+  array, since it is read only by `Resample` immediately afterward and then discarded; only the
+  final resampled result is allocated.
 - **DownmixToMono(ReadOnlySpan&lt;float&gt;, int channelCount)**: Averages each frame's channels,
   accumulating in double precision so a high channel count cannot lose low-level detail to
   repeated single-precision rounding. A trailing partial frame is discarded, since it has no
   defined average. A single-channel input is copied unchanged. Averaging values in `[-1.0, 1.0]`
-  stays in range, so no clipping step is needed.
+  stays in range, so no clipping step is needed. Delegates its per-frame averaging loop to the
+  destination-buffer overload below.
+- **DownmixToMono(ReadOnlySpan&lt;float&gt;, int channelCount, Span&lt;float&gt; destination)**:
+  Writes the same averaged frames as the array-returning overload into a caller-supplied buffer,
+  letting a caller (such as `Convert`) supply an `ArrayPool<float>`-rented buffer for a purely
+  transient result instead of allocating a new array. Throws `ArgumentException` when
+  `destination` is shorter than the number of complete input frames.
 - **Resample(ReadOnlySpan&lt;float&gt;, int sourceSampleRate, int targetSampleRate)**: Produces
   `floor(length * target / source)` samples, each the linear blend of the two input samples
   straddling its position, with the final positions clamped to the last input sample. Equal rates

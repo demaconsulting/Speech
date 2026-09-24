@@ -331,7 +331,10 @@ instance serves a whole playback session.
 - **UpmixToChannels(samples, channelCount)**: Replicates each mono sample across every output
   channel, interleaved. A single required channel copies the input unchanged.
 - **Convert(samples)**: Composes `Resample` then `UpmixToChannels` into the single operation the
-  synthesis pipeline needs for every segment it plays.
+  synthesis pipeline needs for every segment it plays. When the target channel count is 1,
+  `UpmixToChannels` is skipped entirely and the resampled result is returned directly, since
+  `UpmixToChannels`'s own single-channel case would only make a redundant copy of an array
+  `Convert` already owns exclusively.
 
 **Error Handling**: A non-positive sample rate or channel count throws
 `ArgumentOutOfRangeException`. Empty input returns an empty result rather than throwing, since a

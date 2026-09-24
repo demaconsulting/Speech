@@ -16,7 +16,10 @@
     <Authors>DEMA Consulting</Authors>
     <Company>DEMA Consulting</Company>
     <Description>Cross-platform .NET library providing local, offline speech-to-text and
-      text-to-speech services for desktop applications.</Description>
+      text-to-speech services for desktop applications. Start here: SpeechModelCatalog,
+      AudioDeviceFactory, SpeechRecognizerFactory and SpeechSynthesizerFactory. None of these
+      throw for an ordinary machine state such as missing hardware or an uninstalled model; check
+      IsAvailable instead. See the README and user guide for a full walkthrough.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/demaconsulting/Speech</PackageProjectUrl>
     <RepositoryUrl>https://github.com/demaconsulting/Speech</RepositoryUrl>
@@ -56,7 +59,7 @@
     <PackageReference Include="Microsoft.Sbom.Targets" Version="4.1.12" PrivateAssets="All" />
     <PackageReference Include="Polyfill" Version="11.4.0" PrivateAssets="All" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.401" PrivateAssets="All" />
-    <PackageReference Include="DemaConsulting.ApiMark.MSBuild" Version="0.5.0" PrivateAssets="All" />
+    <PackageReference Include="DemaConsulting.ApiMark.MSBuild" Version="0.5.1" PrivateAssets="All" />
     <PackageReference Include="PortAudioSharp2" Version="1.0.6" />
     <!-- Managed sherpa-onnx API only. The matching org.k2fsa.sherpa.onnx.runtime.{RID} native
          package is deliberately NOT referenced here: this library does NOT bundle sherpa-onnx
@@ -138,6 +141,25 @@
          <summary>, so gaps are visible before this is tightened to Error. -->
     <ApiMarkEnforceDocs Condition="'$(TargetFramework)' == '$(ApiDocsTargetFramework)'">Public</ApiMarkEnforceDocs>
     <ApiMarkEnforceDocsSeverity Condition="'$(TargetFramework)' == '$(ApiDocsTargetFramework)'">Warning</ApiMarkEnforceDocsSeverity>
+    <!-- Fuller "start here" intro shown at the top of the generated api.md, distinct from the
+         shorter NuGet-listing <Description> above. Fixed in ApiMark 0.5.1 (previously this was
+         silently ignored in favor of the compiled AssemblyDescriptionAttribute for .NET
+         assemblies). Links are absolute GitHub URLs because api.md is packed into the NuGet
+         package, which has no access to repository-relative paths. -->
+    <ApiMarkLibraryDescription Condition="'$(TargetFramework)' == '$(ApiDocsTargetFramework)'">DemaConsulting.Speech is a cross-platform .NET library providing local, offline
+      speech-to-text (STT) and text-to-speech (TTS) services for desktop applications.
+
+      Start here: `SpeechModelCatalog` (enumerate/download STT/TTS models), `AudioDeviceFactory`
+      (create capture/playback audio devices), `SpeechRecognizerFactory` (compose a speech
+      recognizer from a model and capture device), and `SpeechSynthesizerFactory` (compose a
+      speech synthesizer from a model and playback device). None of these throw for an ordinary
+      machine state such as missing hardware or an uninstalled model; check `IsAvailable`
+      instead.
+
+      See the [README](https://github.com/demaconsulting/Speech/blob/main/README.md) and the
+      [user guide](https://github.com/demaconsulting/Speech/blob/main/docs/user_guide/introduction.md)
+      for a full walkthrough, including the inline Natural Language Audio Tags used for
+      expressive synthesis.</ApiMarkLibraryDescription>
   </PropertyGroup>
 
 </Project>

@@ -27,6 +27,26 @@ public class AudioFrameResamplerTests
     }
 
     /// <summary>
+    ///     Proves that a mono source at a different rate is resampled directly, without going
+    ///     through the downmix step, and still matches the independently recomputed anti-aliased
+    ///     output.
+    /// </summary>
+    [Fact]
+    public void AudioFrameResampler_Convert_MonoAtDifferentRate_ResamplesWithoutDownmix()
+    {
+        // Arrange: a mono 32 kHz source feeding a 16 kHz model
+        var resampler = new AudioFrameResampler(32000, 1, 16000);
+        float[] samples = [0.0f, 1.0f, 2.0f, 3.0f];
+        var expected = ResampleReference(samples, 32000, 16000);
+
+        // Act: convert one block
+        var converted = resampler.Convert(samples);
+
+        // Assert: the result matches resampling the input directly, with no downmix pass
+        Assert.Equal(expected, converted, new FloatToleranceComparer());
+    }
+
+    /// <summary>
     ///     Proves that an empty capture block converts to an empty result rather than throwing,
     ///     since a device may legitimately deliver a zero-length block.
     /// </summary>
@@ -90,6 +110,40 @@ public class AudioFrameResamplerTests
 
         // Assert: the samples are unchanged
         Assert.Equal(interleaved, mono);
+    }
+
+    /// <summary>
+    ///     Proves that the destination-buffer overload of <c>DownmixToMono</c> writes the same
+    ///     averaged frames as the array-returning overload, into a caller-supplied buffer.
+    /// </summary>
+    [Fact]
+    public void AudioFrameResampler_DownmixToMono_DestinationOverload_StereoInput_WritesAveragedFrames()
+    {
+        // Arrange: two interleaved stereo frames, (0.0, 1.0) and (-1.0, 0.0), and an
+        // oversized destination buffer to prove only the frame count is written
+        float[] interleaved = [0.0f, 1.0f, -1.0f, 0.0f];
+        var destination = new float[3];
+
+        // Act: collapse to mono directly into the destination buffer
+        AudioFrameResampler.DownmixToMono(interleaved, 2, destination);
+
+        // Assert: the first two entries hold the per-frame means; the third is untouched
+        Assert.Equal([0.5f, -0.5f, 0.0f], destination);
+    }
+
+    /// <summary>
+    ///     Proves that the destination-buffer overload rejects a buffer shorter than the number
+    ///     of complete input frames, since writing past it would corrupt caller memory.
+    /// </summary>
+    [Fact]
+    public void AudioFrameResampler_DownmixToMono_DestinationOverload_DestinationTooShort_ThrowsArgumentException()
+    {
+        // Arrange: two stereo frames but a destination sized for only one
+        float[] interleaved = [0.0f, 1.0f, -1.0f, 0.0f];
+        var destination = new float[1];
+
+        // Act & Assert: the undersized destination is rejected
+        Assert.Throws<ArgumentException>(() => AudioFrameResampler.DownmixToMono(interleaved, 2, destination));
     }
 
     /// <summary>

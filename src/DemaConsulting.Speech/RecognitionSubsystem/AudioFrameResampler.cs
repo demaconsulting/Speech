@@ -77,15 +77,44 @@ internal sealed class AudioFrameResampler
     ///     A newly allocated array of mono samples at <see cref="TargetSampleRate"/>. Empty when
     ///     the input contains no complete frame.
     /// </returns>
-    /// <remarks>Allocates one intermediate array and one result array; performs no I/O.</remarks>
+    /// <remarks>
+    ///     When <see cref="SourceChannelCount"/> is 1 the input is already mono, so the downmix
+    ///     step is skipped entirely and the input is resampled directly - <see cref="Resample"/>
+    ///     already copies or allocates as needed, so this avoids one fully redundant copy of the
+    ///     block. Otherwise, the downmixed intermediate is written into an
+    ///     <see cref="ArrayPool{T}"/>-rented buffer rather than a newly allocated array, since it
+    ///     is only ever read by <see cref="Resample"/> immediately afterward and then discarded.
+    ///     Only the final resampled result is allocated; performs no I/O.
+    /// </remarks>
     internal float[] Convert(ReadOnlySpan<float> interleavedSamples)
     {
-        // Collapse channels first: downmixing before resampling means the interpolation runs
-        // over one signal instead of once per channel, which is both cheaper and avoids any
-        // chance of the channels drifting out of alignment with each other.
-        var mono = DownmixToMono(interleavedSamples, SourceChannelCount);
+        // A single-channel source is already mono: resampling it directly avoids allocating and
+        // copying into an intermediate downmix buffer that would just duplicate the input.
+        if (SourceChannelCount == 1)
+        {
+            return Resample(interleavedSamples, SourceSampleRate, TargetSampleRate);
+        }
 
-        return Resample(mono, SourceSampleRate, TargetSampleRate);
+        var frameCount = interleavedSamples.Length / SourceChannelCount;
+        if (frameCount == 0)
+        {
+            return [];
+        }
+
+        // The downmixed signal is only ever read by Resample immediately below and then
+        // discarded, so a pooled buffer avoids allocating a full-size array for what is a
+        // purely transient intermediate result.
+        var rentedMonoBuffer = ArrayPool<float>.Shared.Rent(frameCount);
+        try
+        {
+            var mono = rentedMonoBuffer.AsSpan(0, frameCount);
+            DownmixToMono(interleavedSamples, SourceChannelCount, mono);
+            return Resample(mono, SourceSampleRate, TargetSampleRate);
+        }
+        finally
+        {
+            ArrayPool<float>.Shared.Return(rentedMonoBuffer);
+        }
     }
 
     /// <summary>
@@ -107,7 +136,12 @@ internal sealed class AudioFrameResampler
     ///     Averaging (rather than picking a single channel) is used because a speaker is
     ///     typically present in every channel of a desktop microphone array, so the mean both
     ///     preserves the voice and partially cancels uncorrelated per-channel noise. The mean of
-    ///     values in <c>[-1.0, 1.0]</c> stays in that range, so no clipping step is needed.
+    ///     values in <c>[-1.0, 1.0]</c> stays in that range, so no clipping step is needed. For
+    ///     <paramref name="channelCount"/> greater than one, this allocates the result array and
+    ///     delegates the per-frame averaging loop to the
+    ///     <see cref="DownmixToMono(ReadOnlySpan{float}, int, Span{float})"/> overload, so callers
+    ///     that already own a reusable buffer (such as <see cref="Convert"/>) should call that
+    ///     overload directly instead to avoid this array allocation.
     /// </remarks>
     internal static float[] DownmixToMono(ReadOnlySpan<float> interleavedSamples, int channelCount)
     {
@@ -127,6 +161,47 @@ internal sealed class AudioFrameResampler
         }
 
         var mono = new float[frameCount];
+        DownmixToMono(interleavedSamples, channelCount, mono);
+        return mono;
+    }
+
+    /// <summary>
+    ///     Collapses interleaved multi-channel samples into mono by averaging each frame's
+    ///     channels, writing the result into a caller-supplied buffer.
+    /// </summary>
+    /// <param name="interleavedSamples">
+    ///     The interleaved samples. A trailing partial frame is discarded.
+    /// </param>
+    /// <param name="channelCount">The interleaving stride. Must be greater than zero.</param>
+    /// <param name="destination">
+    ///     The buffer to write the downmixed mono frames into. Must be at least
+    ///     <c>interleavedSamples.Length / channelCount</c> long; this overload lets a caller
+    ///     supply an <see cref="ArrayPool{T}"/>-rented buffer for a purely transient result
+    ///     instead of allocating a new array.
+    /// </param>
+    /// <exception cref="ArgumentOutOfRangeException">
+    ///     Thrown when <paramref name="channelCount"/> is less than or equal to zero.
+    /// </exception>
+    /// <exception cref="ArgumentException">
+    ///     Thrown when <paramref name="destination"/> is shorter than the number of complete
+    ///     input frames.
+    /// </exception>
+    /// <remarks>
+    ///     Shares the same double-precision-accumulation averaging logic as the array-returning
+    ///     overload, so both overloads produce bit-identical results for the same input.
+    /// </remarks>
+    internal static void DownmixToMono(ReadOnlySpan<float> interleavedSamples, int channelCount, Span<float> destination)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(channelCount, 0);
+
+        var frameCount = interleavedSamples.Length / channelCount;
+        if (destination.Length < frameCount)
+        {
+            throw new ArgumentException(
+                "The destination buffer must be at least as long as the number of complete input frames.",
+                nameof(destination));
+        }
+
         for (var frame = 0; frame < frameCount; frame++)
         {
             // Accumulate in double precision so a high channel count cannot lose low-level
@@ -138,10 +213,8 @@ internal sealed class AudioFrameResampler
                 sum += interleavedSamples[offset + channel];
             }
 
-            mono[frame] = (float)(sum / channelCount);
+            destination[frame] = (float)(sum / channelCount);
         }
-
-        return mono;
     }
 
     /// <summary>
