@@ -70,10 +70,16 @@ internal sealed class PlaybackAudioResampler
     ///     A newly allocated array of interleaved samples, with a stride of
     ///     <see cref="TargetChannelCount"/>. Empty when the input is empty.
     /// </returns>
+    /// <remarks>
+    ///     When <see cref="TargetChannelCount"/> is 1 the resampled signal is already in its
+    ///     final, single-channel form, so <see cref="UpmixToChannels"/> is skipped entirely -
+    ///     calling it in that case would only make a redundant copy via <c>.ToArray()</c> of an
+    ///     array this method already owns exclusively.
+    /// </remarks>
     internal float[] Convert(ReadOnlySpan<float> monoSamples)
     {
         var resampled = Resample(monoSamples, SourceSampleRate, TargetSampleRate);
-        return UpmixToChannels(resampled, TargetChannelCount);
+        return TargetChannelCount == 1 ? resampled : UpmixToChannels(resampled, TargetChannelCount);
     }
 
     /// <summary>

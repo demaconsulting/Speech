@@ -415,6 +415,38 @@ the selected model's own declared audio-tag support (`IModelCapabilityProfile`):
 - A pause tag (`[short pause]`/`[long pause]`) always renders as a real timed silence segment
   regardless of a model's declared support, since honoring a pause requires no model cooperation.
 
+**Both models this release ships declare `None`** (`SherpaOnnxVitsLibriTtsEnglishSynthesisModel`
+and `SherpaOnnxKokoroEnglishSynthesisModel`), so today every non-pause tag is stripped to plain
+narration for both of them - the plain words are always spoken regardless, per the
+"never worse than plain narration" guarantee above. `Native`/`ParameterMapped` are fully
+implemented and exercised by tests, ready for a future or host-supplied model to declare, but no
+shipped model currently opts into either.
+
+For a host implementing its own `ISynthesisModel` that declares `ParameterMapped`, only seven
+tags have a built-in conservative mapping - every other non-pause tag (all emotion and non-verbal
+tags, `[emphasis]`, and `[breathy]`) has no built-in convention and is always silently stripped
+even under `ParameterMapped`; pause tags are never affected by this stripping and always render
+as timed silence, per the pause-handling rule above.
+
+| Tag | Mapped parameter convention | Shift |
+| --- | --- | --- |
+| `[fast]` | pace parameter (id contains `tempo`, `rate`, or `speed`) | `+15%` of declared range |
+| `[very fast]` | same | `+30%` of declared range |
+| `[slow]` | same | `-15%` of declared range |
+| `[very slow]` | same | `-30%` of declared range |
+| `[loud]`/`[shouting]`/`[screams]` | volume parameter (id: `volume`, `loudness`, `gain`) | `+20%` of declared range |
+| `[soft]` | same | `-20%` of declared range |
+| `[whispers]`/`[whispering]` | same | `-35%` of declared range |
+
+Each shift is applied once, to the model's own declared default value for that parameter, clamped
+to the parameter's `Minimum`/`Maximum`. The override is not scoped to a single sentence: it applies
+to every `SpeechSegment` produced from the text accumulated since the previous flush point (a
+`[pause]`/`[long-pause]` tag, or the end of the input), including text already buffered before the
+tag - and a later tag mapped to the same parameter before the next flush overwrites the earlier
+value rather than combining with it. A model with no `NumericParameter` matching one of these id
+conventions simply never receives the override for that tag, and the tag is silently stripped
+instead - consistent with the "never worse than plain narration" guarantee.
+
 The rendered result is an ordered `SpeechPlan` of `SpeechSegment`s, which a sentence/clause-sized
 chunker further splits so that synthesis and playback can pipeline: an earlier chunk plays on the
 playback device while a later chunk is still being synthesized, rather than waiting for an entire
