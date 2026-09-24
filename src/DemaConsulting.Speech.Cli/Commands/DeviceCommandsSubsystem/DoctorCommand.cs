@@ -51,12 +51,26 @@ namespace DemaConsulting.Speech.Cli.Commands.DeviceCommandsSubsystem;
 ///     </para>
 ///     <para>
 ///     <b>SherpaOnnx resolvability scope</b>: this check attempts to load the native
-///     <c>sherpa-onnx-c-api</c> shared library by name via
-///     <see cref="NativeLibrary.TryLoad(string, out nint)"/>, which only proves the native binary
-///     for the current platform/architecture is present and loadable - it does not construct a
+///     <c>sherpa-onnx-c-api</c> shared library, which only proves the native binary for the
+///     current platform/architecture is present and loadable - it does not construct a
 ///     recognizer or synthesizer, which requires an installed model and is out of scope until
 ///     the <c>speak</c>/<c>recognize</c> passes. This is a necessary-but-not-sufficient signal,
 ///     documented here rather than presented as a full inference-path verification.
+///     </para>
+///     <para>
+///     <b>Why a bare <see cref="NativeLibrary.TryLoad(string, out nint)"/> call is not enough</b>:
+///     for a framework-dependent build, NuGet copies the platform-specific native asset to
+///     <c>runtimes/&lt;rid&gt;/native/</c> under the application's base directory, not to the base
+///     directory itself. Ordinary P/Invoke resolution (used by the actual recognizer/synthesizer
+///     code paths) knows to consult that nested, RID-specific folder via the app's
+///     <c>deps.json</c>, but a bare <c>NativeLibrary.TryLoad("sherpa-onnx-c-api", ...)</c> call
+///     only searches the base directory and OS-default paths - it never finds the nested file, so
+///     it would always report the runtime as unavailable even when synthesis/recognition would
+///     actually succeed. To avoid that false negative, this check first resolves the concrete
+///     <c>runtimes/&lt;rid&gt;/native/&lt;file&gt;</c> path for the current platform/architecture
+///     and loads it directly when present, falling back to the bare-name probe for other layouts
+///     (for example self-contained or single-file publishes, where native assets are flattened
+///     into the base directory).
 ///     </para>
 /// </remarks>
 internal static class DoctorCommand
@@ -168,7 +182,10 @@ internal static class DoctorCommand
     }
 
     /// <summary>
-    ///     Attempts to load the native SherpaOnnx C API shared library by name, never throwing.
+    ///     Attempts to load the native SherpaOnnx C API shared library, never throwing. Prefers
+    ///     the concrete <c>runtimes/&lt;rid&gt;/native/&lt;file&gt;</c> path NuGet copies for a
+    ///     framework-dependent build (see the class remarks for why a bare-name probe alone would
+    ///     under-report availability), falling back to a bare-name probe for other layouts.
     /// </summary>
     /// <returns>
     ///     <see langword="true"/> when the native library for the current platform/architecture
@@ -178,6 +195,12 @@ internal static class DoctorCommand
     {
         try
         {
+            var ridSpecificPath = ResolveSherpaOnnxNativeLibraryPath();
+            if (ridSpecificPath is not null && NativeLibrary.TryLoad(ridSpecificPath, out _))
+            {
+                return true;
+            }
+
             return NativeLibrary.TryLoad(SherpaOnnxNativeLibraryName, out _);
         }
         // Intentionally broad: this CLI health probe must never crash because native-library
@@ -187,6 +210,82 @@ internal static class DoctorCommand
         {
             return false;
         }
+    }
+
+    /// <summary>
+    ///     Resolves the on-disk path of the RID-specific SherpaOnnx native asset NuGet copies
+    ///     under the application's base directory, when present.
+    /// </summary>
+    /// <returns>
+    ///     The full path to the native library file when the current platform/architecture is
+    ///     recognized and the file exists at the expected NuGet layout path; otherwise
+    ///     <see langword="null"/>.
+    /// </returns>
+    private static string? ResolveSherpaOnnxNativeLibraryPath()
+    {
+        var runtimeIdentifier = ResolveRuntimeIdentifier();
+        if (runtimeIdentifier is null)
+        {
+            return null;
+        }
+
+        string fileName;
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            fileName = $"{SherpaOnnxNativeLibraryName}.dll";
+        }
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            fileName = $"lib{SherpaOnnxNativeLibraryName}.dylib";
+        }
+        else
+        {
+            fileName = $"lib{SherpaOnnxNativeLibraryName}.so";
+        }
+
+        var candidatePath = Path.Combine(AppContext.BaseDirectory, "runtimes", runtimeIdentifier, "native", fileName);
+        return File.Exists(candidatePath) ? candidatePath : null;
+    }
+
+    /// <summary>
+    ///     Resolves the NuGet-style runtime identifier (for example <c>win-x64</c>) for the
+    ///     current process, matching the <c>runtimes/&lt;rid&gt;/native/</c> folder naming
+    ///     convention NuGet uses when copying platform-specific native assets.
+    /// </summary>
+    /// <returns>
+    ///     The runtime identifier when the current OS platform and process architecture are both
+    ///     recognized; otherwise <see langword="null"/>.
+    /// </returns>
+    private static string? ResolveRuntimeIdentifier()
+    {
+        string osPart;
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            osPart = "win";
+        }
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            osPart = "osx";
+        }
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            osPart = "linux";
+        }
+        else
+        {
+            return null;
+        }
+
+        var archPart = RuntimeInformation.ProcessArchitecture switch
+        {
+            Architecture.X64 => "x64",
+            Architecture.X86 => "x86",
+            Architecture.Arm64 => "arm64",
+            Architecture.Arm => "arm",
+            _ => null,
+        };
+
+        return archPart is null ? null : $"{osPart}-{archPart}";
     }
 
     /// <summary>

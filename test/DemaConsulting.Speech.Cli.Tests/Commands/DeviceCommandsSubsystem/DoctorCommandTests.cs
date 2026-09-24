@@ -102,6 +102,24 @@ public sealed class DoctorCommandTests : IDisposable
     }
 
     /// <summary>
+    ///     Test that the SherpaOnnx native inference library is reported resolvable, verifying
+    ///     the RID-specific <c>runtimes/&lt;rid&gt;/native/</c> probe path finds the real native
+    ///     asset this test project's own build output carries (a bare
+    ///     <see cref="System.Runtime.InteropServices.NativeLibrary"/> name-only probe would not,
+    ///     since NuGet copies it to that nested folder rather than the base directory).
+    /// </summary>
+    [Fact]
+    public void DoctorCommand_Run_ReportsSherpaOnnxNativeLibraryResolvable()
+    {
+        var context = Context.Create(["doctor"]);
+        var catalog = new FakeCliModelCatalog();
+
+        var output = RunCapturingOutput(context, new FakeAudioCaptureDeviceProbe(), new FakeAudioPlaybackDeviceProbe(), catalog, _tempDir);
+
+        Assert.Contains("[ OK ] SherpaOnnx native inference library is resolvable.", output);
+    }
+
+    /// <summary>
     ///     Test that an unavailable PortAudio probe (the library's honest fallback singleton) is
     ///     reported as informational, not a hard failure.
     /// </summary>
