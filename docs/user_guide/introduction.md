@@ -429,13 +429,13 @@ under `ParameterMapped`:
 
 | Tag | Mapped parameter convention | Shift |
 | --- | --- | --- |
-| `[fast]` | a declared `NumericParameter` whose id contains `tempo`, `rate`, or `speed` | `+15%` of the parameter's declared range |
-| `[very fast]` | same | `+30%` of the parameter's declared range |
-| `[slow]` | same | `-15%` of the parameter's declared range |
-| `[very slow]` | same | `-30%` of the parameter's declared range |
-| `[loud]`/`[shouting]`/`[screams]` | a declared `NumericParameter` whose id contains `volume`, `loudness`, or `gain` | `+20%` of the parameter's declared range |
-| `[soft]` | same | `-20%` of the parameter's declared range |
-| `[whispers]`/`[whispering]` | same | `-35%` of the parameter's declared range |
+| `[fast]` | pace parameter (id contains `tempo`, `rate`, or `speed`) | `+15%` of declared range |
+| `[very fast]` | same | `+30%` of declared range |
+| `[slow]` | same | `-15%` of declared range |
+| `[very slow]` | same | `-30%` of declared range |
+| `[loud]`/`[shouting]`/`[screams]` | volume parameter (id: `volume`, `loudness`, `gain`) | `+20%` of declared range |
+| `[soft]` | same | `-20%` of declared range |
+| `[whispers]`/`[whispering]` | same | `-35%` of declared range |
 
 Each shift is applied once, to the model's own declared default value for that parameter, clamped
 to the parameter's `Minimum`/`Maximum`, and only for the segment of narration the tag immediately
