@@ -439,10 +439,13 @@ as timed silence, per the pause-handling rule above.
 | `[whispers]`/`[whispering]` | same | `-35%` of declared range |
 
 Each shift is applied once, to the model's own declared default value for that parameter, clamped
-to the parameter's `Minimum`/`Maximum`, and only for the segment of narration the tag immediately
-precedes (it does not persist past that segment). A model with no `NumericParameter` matching one
-of these id conventions simply never receives the override for that tag, and the tag is silently
-stripped instead - consistent with the "never worse than plain narration" guarantee.
+to the parameter's `Minimum`/`Maximum`. The override is not scoped to a single sentence: it applies
+to every `SpeechSegment` produced from the text accumulated since the previous flush point (a
+`[pause]`/`[long-pause]` tag, or the end of the input), including text already buffered before the
+tag - and a later tag mapped to the same parameter before the next flush overwrites the earlier
+value rather than combining with it. A model with no `NumericParameter` matching one of these id
+conventions simply never receives the override for that tag, and the tag is silently stripped
+instead - consistent with the "never worse than plain narration" guarantee.
 
 The rendered result is an ordered `SpeechPlan` of `SpeechSegment`s, which a sentence/clause-sized
 chunker further splits so that synthesis and playback can pipeline: an earlier chunk plays on the
