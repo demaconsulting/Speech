@@ -16,10 +16,12 @@
     <Authors>DEMA Consulting</Authors>
     <Company>DEMA Consulting</Company>
     <Description>Cross-platform .NET library providing local, offline speech-to-text and
-      text-to-speech services for desktop applications. Start here: SpeechModelCatalog,
-      AudioDeviceFactory, SpeechRecognizerFactory and SpeechSynthesizerFactory. None of these
-      throw for an ordinary machine state such as missing hardware or an uninstalled model; check
-      IsAvailable instead. See the README and user guide for a full walkthrough.</Description>
+      text-to-speech services for desktop applications. Start here: SpeechModelCatalog (enumerate
+      and download models), and AudioDeviceFactory, SpeechRecognizerFactory and
+      SpeechSynthesizerFactory (compose devices/recognizers/synthesizers). None of the latter
+      three throw for an ordinary machine state such as missing hardware or an uninstalled model;
+      check the returned instance's IsAvailable instead. See the README and user guide for a full
+      walkthrough.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/demaconsulting/Speech</PackageProjectUrl>
     <RepositoryUrl>https://github.com/demaconsulting/Speech</RepositoryUrl>
@@ -152,9 +154,9 @@
       Start here: `SpeechModelCatalog` (enumerate/download STT/TTS models), `AudioDeviceFactory`
       (create capture/playback audio devices), `SpeechRecognizerFactory` (compose a speech
       recognizer from a model and capture device), and `SpeechSynthesizerFactory` (compose a
-      speech synthesizer from a model and playback device). None of these throw for an ordinary
-      machine state such as missing hardware or an uninstalled model; check `IsAvailable`
-      instead.
+      speech synthesizer from a model and playback device). None of the latter three throw for an
+      ordinary machine state such as missing hardware or an uninstalled model; check the returned
+      instance's `IsAvailable` instead.
 
       See the [README](https://github.com/demaconsulting/Speech/blob/main/README.md) and the
       [user guide](https://github.com/demaconsulting/Speech/blob/main/docs/user_guide/introduction.md)

@@ -189,6 +189,8 @@ the subsequent engine reset both still completing.
 `AudioFrameResampler_DownmixToMono_TrailingPartialFrame_DiscardsPartialFrame`,
 `AudioFrameResampler_DownmixToMono_SingleChannel_ReturnsSamplesUnchanged`,
 `AudioFrameResampler_DownmixToMono_NonPositiveChannelCount_ThrowsArgumentOutOfRangeException`,
+`AudioFrameResampler_DownmixToMono_DestinationOverload_StereoInput_WritesAveragedFrames`,
+`AudioFrameResampler_DownmixToMono_DestinationOverload_DestinationTooShort_ThrowsArgumentException`,
 `AudioFrameResampler_Resample_Downsampling_ProducesProportionallyFewerSamples`,
 `AudioFrameResampler_Resample_Upsampling_LinearlyInterpolatesBetweenSamples`,
 `AudioFrameResampler_Resample_SingleSample_ClampsToThatSample`,
@@ -196,16 +198,18 @@ the subsequent engine reset both still completing.
 `AudioFrameResampler_Resample_AboveTargetNyquistTone_IsAttenuated`,
 `AudioFrameResampler_Resample_ShortInputDuringDownsampling_DoesNotThrow`,
 `AudioFrameResampler_Convert_MonoAtTargetRate_ReturnsSamplesUnchanged`,
+`AudioFrameResampler_Convert_MonoAtDifferentRate_ResamplesWithoutDownmix`,
 `AudioFrameResampler_Convert_EmptyInput_ReturnsEmptyResult`,
 `AudioFrameResampler_Convert_StereoAtHigherRate_DownmixesAndResamples`,
 `AudioFrameResampler_Constructor_NonPositiveSourceRate_ThrowsArgumentOutOfRangeException`,
 `AudioFrameResampler_Constructor_NonPositiveTargetRate_ThrowsArgumentOutOfRangeException`,
 `AudioFrameResampler_Constructor_NonPositiveChannelCount_ThrowsArgumentOutOfRangeException`
 
-Verifies channel averaging, partial-frame discard, exact identity pass-through, proportional
+Verifies channel averaging, partial-frame discard, exact identity pass-through, the
+destination-buffer downmix overload (including its undersized-buffer rejection), proportional
 up/down conversion with linear interpolation, anti-aliased downsampling, short-input safety,
-empty/single-sample/rounds-to-empty boundaries, and rejection of non-positive rates and channel
-counts.
+empty/single-sample/rounds-to-empty boundaries, the mono fast path that resamples without an
+intermediate downmix, and rejection of non-positive rates and channel counts.
 
 #### Unavailable Fallback: Honest Degradation
 

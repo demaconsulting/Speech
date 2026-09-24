@@ -421,3 +421,4 @@ sections:
                   correctly sequence resample-then-upmix itself.
                 tests:
                   - PlaybackAudioResampler_Convert_DifferentRateAndChannels_ResamplesThenUpmixes
+                  - PlaybackAudioResampler_Convert_SingleChannelTarget_ReturnsResampledWithoutUpmix

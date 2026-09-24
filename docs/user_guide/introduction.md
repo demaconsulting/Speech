@@ -423,9 +423,10 @@ implemented and exercised by tests, ready for a future or host-supplied model to
 shipped model currently opts into either.
 
 For a host implementing its own `ISynthesisModel` that declares `ParameterMapped`, only seven
-tags have a built-in conservative mapping - every other tag (all emotion and non-verbal tags,
-`[emphasis]`, and `[breathy]`) has no built-in convention and is always silently stripped even
-under `ParameterMapped`:
+tags have a built-in conservative mapping - every other non-pause tag (all emotion and non-verbal
+tags, `[emphasis]`, and `[breathy]`) has no built-in convention and is always silently stripped
+even under `ParameterMapped`; pause tags are never affected by this stripping and always render
+as timed silence, per the pause-handling rule above.
 
 | Tag | Mapped parameter convention | Shift |
 | --- | --- | --- |

@@ -365,11 +365,13 @@ synthesizer immediately afterward and asserts no exception, and that only the on
 `PlaybackAudioResampler_UpmixToChannels_EmptyInput_ReturnsEmpty`,
 `PlaybackAudioResampler_UpmixToChannels_NonPositiveChannelCount_ThrowsArgumentOutOfRangeException`,
 `PlaybackAudioResampler_Convert_DifferentRateAndChannels_ResamplesThenUpmixes`,
+`PlaybackAudioResampler_Convert_SingleChannelTarget_ReturnsResampledWithoutUpmix`,
 `PlaybackAudioResampler_Constructor_NonPositiveArgument_ThrowsArgumentOutOfRangeException`
 
 Verifies identity pass-through at equal rates, interpolation-only upsampling, anti-aliased
 downsampling, short-input safety, empty-input handling, single/multi-channel upmix, rejection of
-non-positive arguments, and the composed resample-then-upmix conversion.
+non-positive arguments, the composed resample-then-upmix conversion, and the single-channel-target
+fast path that skips the upmix step entirely.
 
 #### Unavailable Fallback: Honest Degradation
 

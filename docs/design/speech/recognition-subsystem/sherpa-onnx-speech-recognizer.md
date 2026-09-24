@@ -276,8 +276,9 @@ session and is safe to share across threads.
   resamples the input directly, since `Resample` already copies or allocates as needed and a
   downmix pass would only duplicate the input. For a multi-channel source, the downmixed
   intermediate is written into an `ArrayPool<float>`-rented buffer rather than a newly allocated
-  array, since it is read only by `Resample` immediately afterward and then discarded; only the
-  final resampled result is allocated.
+  array, since it is read only by `Resample` immediately afterward and then discarded. This only
+  removes that redundant downmix-buffer allocation: the final resampled result is still allocated,
+  and (when downsampling) so is the FIR lowpass kernel that `Resample` builds fresh on every call.
 - **DownmixToMono(ReadOnlySpan&lt;float&gt;, int channelCount)**: Averages each frame's channels,
   accumulating in double precision so a high channel count cannot lose low-level detail to
   repeated single-precision rounding. A trailing partial frame is discarded, since it has no

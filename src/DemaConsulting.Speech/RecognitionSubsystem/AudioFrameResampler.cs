@@ -84,7 +84,9 @@ internal sealed class AudioFrameResampler
     ///     block. Otherwise, the downmixed intermediate is written into an
     ///     <see cref="ArrayPool{T}"/>-rented buffer rather than a newly allocated array, since it
     ///     is only ever read by <see cref="Resample"/> immediately afterward and then discarded.
-    ///     Only the final resampled result is allocated; performs no I/O.
+    ///     The final resampled result is still allocated, and (when downsampling) so is the FIR
+    ///     lowpass kernel that <see cref="Resample"/> builds fresh on every call; this method only
+    ///     removes the redundant downmix-buffer allocation, not those two. Performs no I/O.
     /// </remarks>
     internal float[] Convert(ReadOnlySpan<float> interleavedSamples)
     {

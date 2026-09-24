@@ -282,6 +282,7 @@ sections:
                   - AudioFrameResampler_DownmixToMono_StereoInput_AveragesChannelsPerFrame
                   - AudioFrameResampler_DownmixToMono_TrailingPartialFrame_DiscardsPartialFrame
                   - AudioFrameResampler_DownmixToMono_SingleChannel_ReturnsSamplesUnchanged
+                  - AudioFrameResampler_DownmixToMono_DestinationOverload_StereoInput_WritesAveragedFrames
 
               - id: Speech-Recognition-AudioFrameResampler-RateConversion
                 title: >-
@@ -300,18 +301,20 @@ sections:
                   - AudioFrameResampler_Resample_ShortInputDuringDownsampling_DoesNotThrow
                   - AudioFrameResampler_Resample_Upsampling_LinearlyInterpolatesBetweenSamples
                   - AudioFrameResampler_Convert_MonoAtTargetRate_ReturnsSamplesUnchanged
+                  - AudioFrameResampler_Convert_MonoAtDifferentRate_ResamplesWithoutDownmix
                   - AudioFrameResampler_Convert_StereoAtHigherRate_DownmixesAndResamples
 
               - id: Speech-Recognition-AudioFrameResampler-BoundaryHandling
                 title: >-
                   The AudioFrameResampler class shall handle empty, single-sample, and
                   rounds-to-empty conversions without throwing, and shall reject a non-positive
-                  sample rate or channel count.
+                  sample rate or channel count, or a destination buffer too small for the input.
                 justification: |
                   A capture device may legitimately deliver an empty or very short block, which
                   must not interrupt a recognition session; a non-positive rate or channel count
                   describes no meaningful audio and must be rejected rather than silently
-                  producing corrupt output.
+                  producing corrupt output, and an undersized destination buffer must be rejected
+                  rather than written past its bounds.
                 tests:
                   - AudioFrameResampler_Convert_EmptyInput_ReturnsEmptyResult
                   - AudioFrameResampler_Resample_SingleSample_ClampsToThatSample
@@ -320,3 +323,4 @@ sections:
                   - AudioFrameResampler_Constructor_NonPositiveTargetRate_ThrowsArgumentOutOfRangeException
                   - AudioFrameResampler_Constructor_NonPositiveChannelCount_ThrowsArgumentOutOfRangeException
                   - AudioFrameResampler_DownmixToMono_NonPositiveChannelCount_ThrowsArgumentOutOfRangeException
+                  - AudioFrameResampler_DownmixToMono_DestinationOverload_DestinationTooShort_ThrowsArgumentException
