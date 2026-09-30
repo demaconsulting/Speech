@@ -18,5 +18,7 @@ tests.
 
 ##### Test Scenarios
 
-See the PortAudio-level scenarios "Environment: Platform Mapping and Host API Resolution" and
-"Seam: Capture and Playback Devices Interact Through Fake Streams".
+See the PortAudio-level scenarios "Environment: Platform Mapping and Host API Resolution",
+"Environment: Refresh Success and Refusal" (`Terminate()` is exercised indirectly through
+`PortAudioEnvironment.Refresh()`), and "Seam: Capture and Playback Devices Interact Through Fake
+Streams".

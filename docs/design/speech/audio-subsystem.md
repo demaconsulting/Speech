@@ -19,13 +19,17 @@ subsystem:
 - **IAudioCaptureDeviceProbe** / **IAudioPlaybackDeviceProbe**: public device-enumeration
   contracts
 - **AudioDeviceFactory**: composition root that exposes real PortAudio-backed defaults when the
-  runtime initializes, otherwise honest unavailable fallbacks
+  runtime initializes, otherwise honest unavailable fallbacks, and can re-scan the PortAudio
+  device table on demand through `RefreshDevices()`
 - **PortAudioCaptureDeviceProbe** / **PortAudioPlaybackDeviceProbe**: preferred-host filtered
   device enumeration implementations
 - **PortAudioCaptureDevice** / **PortAudioPlaybackDevice**: real capture/playback implementations
 - **UnavailableAudioCaptureDevice** / **UnavailableAudioPlaybackDevice** and their probes, plus
   **AudioDeviceUnavailableException**: honest fallback behavior when no real backend or no device
   is available
+- **AudioDeviceInUseException**: refuses a device-table refresh while a capture/playback device
+  created from the factory currently has an active stream - the one deliberate exception to this
+  library's "never throws at composition" policy
 - **WavFileAudioPlaybackDevice** / **WavFileAudioCaptureDevice**: file-backed
   `IAudioPlaybackDevice`/`IAudioCaptureDevice` implementations that write/read a mono, 16-bit PCM
   `.wav` file instead of using real hardware, for deterministic file-based synthesis/recognition
@@ -37,8 +41,9 @@ subsystem:
 
 The subsystem exposes `IAudioCaptureDevice`, `IAudioPlaybackDevice`,
 `IAudioCaptureDeviceProbe`, `IAudioPlaybackDeviceProbe`, `AudioFormat`,
-`AudioDeviceDescription`, `AudioDeviceSelection`, `AudioDeviceFactory`, and
-`AudioDeviceUnavailableException` as its public API. It consumes `ISpeechDiagnostics` from the
+`AudioDeviceDescription`, `AudioDeviceSelection`, `AudioDeviceFactory`,
+`AudioDeviceUnavailableException`, and `AudioDeviceInUseException` as its public API. It consumes
+`ISpeechDiagnostics` from the
 Diagnostics subsystem to report structural selection, start/stop, and fallback facts without
 ever exposing raw audio content. The ModelManagementSubsystem also consumes `AudioFormat` as a
 narrow plain-data dependency for model format declarations, rather than duplicating another
@@ -69,6 +74,23 @@ Device construction first attempts an exact ordinal match on `AudioDeviceSelecti
 If that match fails, it falls back to the host API's default input or output device. If neither
 is available, the real device still composes but reports `IsAvailable = false` and throws
 `AudioDeviceUnavailableException` only when operational members are invoked.
+
+A host application can force the PortAudio device table to be re-scanned - for example after a
+user plugs in a headset - by calling `AudioDeviceFactory.RefreshDevices()`. This is the one
+deliberate exception to this library's "never throws at composition" policy: refreshing requires
+tearing down and reinitializing the native PortAudio runtime, which cannot safely happen while any
+device created from the factory's environment currently has an open/started stream. When a stream
+is active, the call is refused outright with `AudioDeviceInUseException` describing the in-use
+device(s) only in its message (it exposes no structured device list), and neither the environment
+nor the factory's probes are modified; the caller can stop the active stream(s) via
+`IAudioCaptureDevice.Stop()`/`IAudioPlaybackDevice.Stop()` and retry. `PortAudioCaptureDevice.Start()`/`Stop()`
+and `PortAudioPlaybackDevice.Start()`/`Stop()` register/unregister themselves with the environment
+for exactly this purpose. Calling `Enumerate()` on `CaptureProbe`/`PlaybackProbe` alone, without
+first calling `RefreshDevices()`, never detects newly attached or removed hardware. When the
+refresh succeeds, `RefreshDevices()` re-evaluates `CaptureProbe`/`PlaybackProbe` against the new
+initialization outcome, but only for a probe that was not explicitly injected at construction - an
+explicitly injected probe is never replaced, so it will not reflect new hardware unless the
+caller's own probe implementation handles that itself.
 
 #### WindowedSincLowpassFilter
 
@@ -192,6 +214,30 @@ than throwing.
 
 **Callers**: The unavailable fallback devices and real PortAudio devices when first-use native
 failures occur.
+
+#### AudioDeviceInUseException
+
+**Purpose**: Refuse a PortAudio device-table refresh while any capture/playback device created
+from the environment currently has an active (open/started) stream.
+
+**Data Model**: No additional fields beyond the standard `Exception` base members.
+
+**Key Methods**: Standard three-constructor exception pattern (default, message, message with
+inner exception), mirroring `AudioDeviceUnavailableException`.
+
+**Error Handling**: This type is itself the error-handling mechanism, and is the one deliberate
+exception to this library's "never throws at composition" policy. Refreshing PortAudio's device
+table requires tearing down and reinitializing the native runtime, which would invalidate any
+stream currently open against it; rather than silently tearing down a live stream, the refresh is
+refused outright. Unlike `AudioDeviceUnavailableException`, this is caller-driven, recoverable
+misuse - the caller can stop the active capture/playback session(s) via `IAudioCaptureDevice.Stop()`/
+`IAudioPlaybackDevice.Stop()` and retry `RefreshDevices()` - not an honest composition-time
+unavailability. It exposes no structured device list; any identifying detail is only ever present
+as free-form text in the exception's message.
+
+**Dependencies**: `Exception`.
+
+**Callers**: `PortAudioEnvironment.Refresh()`, `AudioDeviceFactory.RefreshDevices()`.
 
 #### WavFileAudioPlaybackDevice
 

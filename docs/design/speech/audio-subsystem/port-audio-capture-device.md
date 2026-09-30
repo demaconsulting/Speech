@@ -20,12 +20,18 @@ time.
   diagnostic, and clamps any preferred channel count down to the device's maximum input-channel
   capability. Construction never throws.
 - **Start()**: Opens a capture-only PortAudio stream through `IPortAudioApi`, starts it, and
-  forwards managed sample blocks through `FrameCaptured`.
-- **Stop()**: Stops and disposes the active capture stream when one exists.
+  forwards managed sample blocks through `FrameCaptured`. Registers this instance with
+  `PortAudioEnvironment.RegisterActiveStream(...)` before opening the native stream, and
+  unregisters it if the open fails, so a concurrent `AudioDeviceFactory.RefreshDevices()` knows
+  a stream is active.
+- **Stop()**: Stops and disposes the active capture stream when one exists, then unregisters this
+  instance via `PortAudioEnvironment.UnregisterActiveStream(...)`.
 
 **Error Handling**: When no device could be resolved, `IsAvailable` is `false` and operational
 members throw `AudioDeviceUnavailableException`. Native stream-open or stream-stop failures are
-wrapped in `AudioDeviceUnavailableException` with the original exception as `InnerException`.
+wrapped in `AudioDeviceUnavailableException` with the original exception as `InnerException`. A
+`RefreshDevices()` call made while this device's stream is active is refused with
+`AudioDeviceInUseException` by `PortAudioEnvironment`, indirectly via `AudioDeviceFactory`.
 
 **Dependencies**: `PortAudioEnvironment`, `IPortAudioApi`, `IPortAudioStream`,
 `AudioDeviceSelection`, `AudioFormat`, `AudioCaptureFrameEventArgs`, and `ISpeechDiagnostics`.

@@ -40,3 +40,19 @@ initialization failure is cached, and preferred-host metadata resolves when the 
 ##### Shared Environment: Read Twice Returns Same Instance
 
 **Test**: `PortAudioEnvironment_Shared_ReadTwice_ReturnsSameInstance`
+
+##### Refresh: Reinitializes and Reflects New Outcome When No Stream Is Active
+
+**Test**: `PortAudioEnvironment_Refresh_NoActiveStreams_ReinitializesAndReflectsNewOutcome`
+
+##### Refresh: Refused With AudioDeviceInUseException While a Stream Is Active
+
+**Test**: `PortAudioEnvironment_Refresh_ActiveStreamRegistered_ThrowsAudioDeviceInUseExceptionAndDoesNotTerminate`
+
+##### Refresh: Skips Terminate When Never Previously Initialized
+
+**Test**: `PortAudioEnvironment_Refresh_NotPreviouslyInitialized_SkipsTerminateAndReinitializes`
+
+##### Refresh: Succeeds Once a Registered Stream Is Unregistered
+
+**Test**: `PortAudioEnvironment_RegisterThenUnregisterActiveStream_Refresh_Succeeds`

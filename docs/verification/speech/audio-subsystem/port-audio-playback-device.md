@@ -88,3 +88,11 @@ Info-level diagnostic.
 ##### Stop: Partially Consumed Block Never Replays Stale Audio After Restart
 
 **Test**: `PortAudioPlaybackDevice_Stop_PartiallyConsumedBlock_RestartNeverReplaysStaleAudio`
+
+##### Start: Registers an Active Stream With the Environment, Refresh Throws While Started
+
+**Test**: `PortAudioPlaybackDevice_Start_RegistersActiveStreamWithEnvironment_RefreshThrowsWhileStarted`
+
+##### Stop: Unregisters the Active Stream, Refresh Succeeds After Stop
+
+**Test**: `PortAudioPlaybackDevice_Stop_UnregistersActiveStream_RefreshSucceedsAfterStop`

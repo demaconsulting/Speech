@@ -175,7 +175,9 @@ if (synthesizer.IsAvailable)
 
 Both `Create(...)` factories never throw for an ordinary machine state: a model that isn't
 installed, a machine with no microphone/speakers, and a missing speech-engine native runtime all
-return `IsAvailable == false` instead of an exception.
+return `IsAvailable == false` instead of an exception. `AudioDeviceFactory` also exposes
+`RefreshDevices()` to re-scan for hot-plugged hardware, surfacing `AudioDeviceInUseException` if a
+device from the factory is currently active.
 
 `SpeakAsync` recognizes Natural Language Audio Tags (such as `[whispers]`, `[short pause]`, or
 `[excited]`), renders each one per the model's own declared capability, chunks narration into

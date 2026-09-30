@@ -169,3 +169,20 @@ sections:
                 tests:
                   - SynthesisPanelViewModel_Play_SuccessfulSession_CanChangeModelTogglesAcrossLifecycle
                   - SynthesisPanelViewModel_CanChangeModel_ErrorState_IsTrue
+
+              - id: SpeechDemo-Synthesis-StopsBeforeDeviceRefresh
+                title: >-
+                  The SynthesisPanelViewModel shall register a pre-refresh hook with the shared
+                  device-selection panel at construction that stops an in-flight Play and awaits
+                  its actual completion before a device refresh proceeds, and shall unregister it
+                  on disposal.
+                justification: |
+                  Unlike the recognition panel's Stop(), this panel's Stop() only requests
+                  cancellation; the playback device is not actually closed until the in-flight
+                  PlayAsync's own finally block runs. Awaiting PlayCommand.ExecutionTask after
+                  requesting Stop() is what makes it safe for a shared "Refresh devices" click to
+                  proceed deterministically instead of relying on the AudioDeviceInUseException
+                  fallback, since the hook does not return until the playback device is genuinely
+                  closed.
+                tests:
+                  - SynthesisPanelViewModel_PreRefreshHook_WhilePlaying_StopsAndAwaitsExecutionTaskBeforeDeviceRefreshSucceeds

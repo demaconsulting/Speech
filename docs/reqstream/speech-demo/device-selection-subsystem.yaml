@@ -102,3 +102,48 @@ sections:
               selection for exactly this case.
             tests:
               - DeviceSelectionViewModel_Selections_NoDevices_ReturnSystemDefault
+
+          - id: SpeechDemo-Devices-RefreshDelegation
+            title: >-
+              The DeviceSelectionSubsystem shall force the library to re-scan its device table
+              before re-enumerating, by calling AudioDeviceFactory.RefreshDevices() (through the
+              AudioDeviceService seam) at the start of every refresh.
+            justification: |
+              Re-enumerating the demo's own cached lists without first asking the library to
+              re-scan hardware would never reveal a newly attached or removed device between
+              refreshes, defeating the purpose of a manual "Refresh" action.
+            tests:
+              - AudioDeviceService_RefreshDevices_Always_DelegatesToFactoryRefreshDevices
+              - DeviceSelectionViewModel_Refresh_CallsRefreshDevicesBeforeEnumerating
+
+          - id: SpeechDemo-Devices-RefreshInUseHandling
+            title: >-
+              The DeviceSelectionSubsystem shall surface an AudioDeviceInUseException raised by
+              a refresh through the existing capture/playback status-text pattern, without
+              clearing or re-enumerating either device list.
+            justification: |
+              A refresh refused because a device is actively streaming is an ordinary,
+              recoverable condition, not a crash; re-enumerating anyway could not have found
+              anything new (the library refused to re-scan), so leaving both lists and
+              selections untouched while explaining why is the honest, crash-free choice.
+            tests:
+              - DeviceSelectionViewModel_Refresh_ServiceThrowsAudioDeviceInUseException_SurfacesMessageViaStatusAndDoesNotClearLists
+
+          - id: SpeechDemo-Devices-RefreshPreHooks
+            title: >-
+              The DeviceSelectionSubsystem shall invoke and await every registered pre-refresh
+              hook, in registration order, before forcing the backend to re-scan its device
+              table, so a caller with an active session can stop it deterministically before a
+              refresh is attempted.
+            justification: |
+              Both the recognition and synthesis panels share this device-selection state over
+              the same underlying device factory; clicking "Refresh devices" while either panel
+              is actively streaming has a real chance of refusing the refresh with
+              AudioDeviceInUseException. Awaiting each registered hook to completion before the
+              backend re-scan lets a panel stop its own active session first, making that
+              exception a rare defensive fallback rather than the primary way a refresh
+              succeeds.
+            tests:
+              - DeviceSelectionViewModel_Refresh_RegisteredHook_InvokedAndAwaitedBeforeRefreshDevices
+              - DeviceSelectionViewModel_Refresh_UnregisteredHook_NotInvoked
+              - DeviceSelectionViewModel_Refresh_HookCannotStopInUseDevice_FallsBackToStatusMessage

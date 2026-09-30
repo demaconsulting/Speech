@@ -278,3 +278,25 @@ sections:
               - UnavailableAudioPlaybackDevice_IsAvailable_Read_ReturnsFalse
               - UnavailableAudioCaptureDeviceProbe_Enumerate_Always_ReturnsEmptyList
               - UnavailableAudioPlaybackDeviceProbe_Enumerate_Always_ReturnsEmptyList
+
+          - id: Speech-Audio-DeviceRefresh
+            title: >-
+              The AudioSubsystem shall allow a caller to force the PortAudio device table to be
+              re-scanned on demand, refusing the refresh with a documented exception rather than
+              tearing down a stream that is currently in use.
+            justification: |
+              Audio devices are hot-pluggable; a host application that has already composed an
+              AudioDeviceFactory needs a way to make newly attached or removed hardware visible
+              without recomposing the whole factory, while never silently invalidating a stream
+              that is currently open.
+            children:
+              - Speech-Audio-AudioDeviceRefresh-RefreshesSuccessfully
+              - Speech-Audio-AudioDeviceRefresh-RefusesWhileInUse
+              - Speech-Audio-AudioDeviceRefresh-ActiveStreamTracking
+              - Speech-Audio-AudioDeviceRefresh-PreservesExplicitProbes
+              - Speech-Audio-AudioDeviceInUseException-Constructors
+            tests:
+              - AudioDeviceFactory_RefreshDevices_DelegatesToEnvironmentRefresh
+              - AudioDeviceFactory_RefreshDevices_ActiveStreamInUse_PropagatesAudioDeviceInUseException
+              - PortAudioEnvironment_Refresh_NoActiveStreams_ReinitializesAndReflectsNewOutcome
+              - PortAudioEnvironment_Refresh_ActiveStreamRegistered_ThrowsAudioDeviceInUseExceptionAndDoesNotTerminate

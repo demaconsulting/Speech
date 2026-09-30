@@ -398,6 +398,11 @@ public class SpeechTests
         }
 
         /// <inheritdoc/>
+        public void Terminate()
+        {
+        }
+
+        /// <inheritdoc/>
         public int? FindHostApiIndex(PortAudioHostApiType hostApiType)
         {
             return 5;

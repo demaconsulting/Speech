@@ -31,10 +31,14 @@ stream-stop call has already blocked until the callback thread finished.
   Info-level diagnostic, and clamps any preferred channel count down to the device's maximum
   output-channel capability. Construction never throws.
 - **Start()**: Opens a playback-only PortAudio stream through `IPortAudioApi` and starts it.
+  Registers this instance with `PortAudioEnvironment.RegisterActiveStream(...)` before opening
+  the native stream, and unregisters it if the open fails, so a concurrent
+  `AudioDeviceFactory.RefreshDevices()` knows a stream is active.
 - **Write(IReadOnlyList&lt;float&gt;)**: Enqueues interleaved samples for the PortAudio callback to
   drain later and increments `_pendingSampleCount` by however many samples were enqueued.
 - **Stop()**: Stops and disposes the active playback stream and clears any queued stale audio,
-  resetting `_pendingSampleCount` to zero.
+  resetting `_pendingSampleCount` to zero, then unregisters this instance via
+  `PortAudioEnvironment.UnregisterActiveStream(...)`.
 - **PendingSampleCount**: Reports `Interlocked.Read(ref _pendingSampleCount)`, or `0` when no
   device was resolved. `ProvideSamples` (the PortAudio callback) decrements it by exactly the
   number of samples it actually dequeued - never by a zero-fill shortfall - each time it runs, so
@@ -45,7 +49,9 @@ stream-stop call has already blocked until the callback thread finished.
 
 **Error Handling**: When no device could be resolved, `IsAvailable` is `false` and operational
 members throw `AudioDeviceUnavailableException`. Native stream-open or stream-stop failures are
-wrapped in `AudioDeviceUnavailableException`.
+wrapped in `AudioDeviceUnavailableException`. A `RefreshDevices()` call made while this device's
+stream is active is refused with `AudioDeviceInUseException` by `PortAudioEnvironment`, indirectly
+via `AudioDeviceFactory`.
 
 **Dependencies**: `PortAudioEnvironment`, `IPortAudioApi`, `IPortAudioStream`,
 `AudioDeviceSelection`, `AudioFormat`, `ConcurrentQueue<float[]>`, and `ISpeechDiagnostics`.

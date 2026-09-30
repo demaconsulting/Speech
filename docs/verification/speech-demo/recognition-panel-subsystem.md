@@ -235,6 +235,19 @@ to pick a different model after a failed attempt.
 
 **Requirement coverage**: `SpeechDemo-Recognition-ModelSwitchGuard`.
 
+#### RecognitionPanelViewModel_PreRefreshHook_WhileListening_StopsSessionBeforeDeviceRefreshSucceeds
+
+**Scenario**: The panel is actively listening, sharing a `DeviceSelectionViewModel` whose device
+service refuses `RefreshDevices()` with `AudioDeviceInUseException` only while a "still
+listening" flag is true; the recognizer's `Stop()` flips that flag false. The shared
+`DeviceSelectionViewModel.Refresh()` is then invoked, as the "Refresh devices" button would.
+
+**Expected**: The panel's registered pre-refresh hook calls `Stop()` on the recognizer before the
+device refresh is attempted, so the refresh completes without throwing; the panel returns to
+`Idle` with `CanStop` false.
+
+**Requirement coverage**: `SpeechDemo-Recognition-StopsBeforeDeviceRefresh`.
+
 ### Requirements Coverage
 
 - **`SpeechDemo-Recognition-ModelSelection`**:
@@ -271,6 +284,8 @@ to pick a different model after a failed attempt.
 - **`SpeechDemo-Recognition-ModelSwitchGuard`**:
   `RecognitionPanelViewModel_CanChangeModel_TogglesAcrossStateTransitions`,
   `RecognitionPanelViewModel_CanChangeModel_ErrorState_IsTrue`
+- **`SpeechDemo-Recognition-StopsBeforeDeviceRefresh`**:
+  `RecognitionPanelViewModel_PreRefreshHook_WhileListening_StopsSessionBeforeDeviceRefreshSucceeds`
 
 ### Acceptance Criteria
 
@@ -282,5 +297,7 @@ once without throwing, and are safe no-ops with nothing active; every unavailabl
 model, no device, an unavailable recognizer, a throwing `Start()` - is reported honestly with the
 recognizer released rather than leaked; the session seam validates its arguments and reports a
 role mismatch the same honest way the library reports an uninstalled model; a matching-role
-`ModelInstalled` event triggers an automatic refresh while a non-matching-role event does not; and
-`Dispose()` unsubscribes from `ModelInstalled` so a later event is never applied.
+`ModelInstalled` event triggers an automatic refresh while a non-matching-role event does not;
+`Dispose()` unsubscribes from `ModelInstalled` so a later event is never applied; and the panel's
+registered pre-refresh hook stops an actively listening session before a shared device refresh is
+attempted, so the refresh succeeds deterministically.

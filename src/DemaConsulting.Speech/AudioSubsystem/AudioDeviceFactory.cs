@@ -57,6 +57,8 @@ public sealed class AudioDeviceFactory
 
         _diagnostics = diagnostics ?? NullSpeechDiagnostics.Instance;
         _environment = environment;
+        _captureProbeIsExplicit = captureProbe is not null;
+        _playbackProbeIsExplicit = playbackProbe is not null;
         var useRealPortAudio = _environment.IsInitialized;
 
         if (!useRealPortAudio)
@@ -67,14 +69,8 @@ public sealed class AudioDeviceFactory
                 $"PortAudio initialization failed; using unavailable audio fallbacks. {_environment.InitializationFailureMessage}");
         }
 
-        CaptureProbe = captureProbe ??
-            (useRealPortAudio
-                ? new PortAudioCaptureDeviceProbe(_environment)
-                : UnavailableAudioCaptureDeviceProbe.Instance);
-        PlaybackProbe = playbackProbe ??
-            (useRealPortAudio
-                ? new PortAudioPlaybackDeviceProbe(_environment)
-                : UnavailableAudioPlaybackDeviceProbe.Instance);
+        _captureProbe = captureProbe ?? SelectCaptureProbe(useRealPortAudio);
+        _playbackProbe = playbackProbe ?? SelectPlaybackProbe(useRealPortAudio);
     }
 
     /// <summary>
@@ -88,14 +84,150 @@ public sealed class AudioDeviceFactory
     private readonly PortAudioEnvironment _environment;
 
     /// <summary>
+    ///     Indicates whether the caller explicitly injected <see cref="CaptureProbe"/> at
+    ///     construction, so <see cref="RefreshDevices"/> must not overwrite it.
+    /// </summary>
+    private readonly bool _captureProbeIsExplicit;
+
+    /// <summary>
+    ///     Indicates whether the caller explicitly injected <see cref="PlaybackProbe"/> at
+    ///     construction, so <see cref="RefreshDevices"/> must not overwrite it.
+    /// </summary>
+    private readonly bool _playbackProbeIsExplicit;
+
+    /// <summary>
+    ///     The backing field for <see cref="CaptureProbe"/>, re-assigned by
+    ///     <see cref="RefreshDevices"/> unless <see cref="_captureProbeIsExplicit"/>.
+    /// </summary>
+    private IAudioCaptureDeviceProbe _captureProbe;
+
+    /// <summary>
+    ///     The backing field for <see cref="PlaybackProbe"/>, re-assigned by
+    ///     <see cref="RefreshDevices"/> unless <see cref="_playbackProbeIsExplicit"/>.
+    /// </summary>
+    private IAudioPlaybackDeviceProbe _playbackProbe;
+
+    /// <summary>
     ///     Gets the probe used to enumerate available capture devices.
     /// </summary>
-    public IAudioCaptureDeviceProbe CaptureProbe { get; }
+    public IAudioCaptureDeviceProbe CaptureProbe => _captureProbe;
 
     /// <summary>
     ///     Gets the probe used to enumerate available playback devices.
     /// </summary>
-    public IAudioPlaybackDeviceProbe PlaybackProbe { get; }
+    public IAudioPlaybackDeviceProbe PlaybackProbe => _playbackProbe;
+
+    /// <summary>
+    ///     Forces the underlying PortAudio device table to be re-scanned so newly attached or
+    ///     removed hardware becomes visible to subsequent <see cref="CaptureProbe"/>/
+    ///     <see cref="PlaybackProbe"/> enumeration and to <see cref="CreateCaptureDevice"/>/
+    ///     <see cref="CreatePlaybackDevice"/>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         This is the one deliberate exception to this library's "never throws at
+    ///         composition" policy: refreshing requires tearing down and reinitializing the native
+    ///         PortAudio runtime, which cannot safely happen while any device created from this
+    ///         factory's environment currently has an open/started stream.
+    ///     </para>
+    ///     <para>
+    ///         Calling <see cref="IAudioCaptureDeviceProbe.Enumerate"/>/
+    ///         <see cref="IAudioPlaybackDeviceProbe.Enumerate"/> on <see cref="CaptureProbe"/>/
+    ///         <see cref="PlaybackProbe"/> alone, without first calling this method, will never
+    ///         reveal newly attached or removed hardware: enumeration only reads the device table
+    ///         as it stood at the last successful <see cref="RefreshDevices"/> call (or at
+    ///         construction). To pick up a hot-plugged device, a caller must, in order: (1) stop
+    ///         any active capture/playback streams so the refresh is not refused, (2) call
+    ///         <see cref="RefreshDevices"/>, (3) re-enumerate <see cref="CaptureProbe"/>/
+    ///         <see cref="PlaybackProbe"/>, and (4) update any UI or persisted device selection
+    ///         from that fresh enumeration.
+    ///     </para>
+    ///     <para>
+    ///         Probes supplied explicitly at construction (rather than defaulted) are never
+    ///         replaced by this call, matching this factory's general policy of never overriding
+    ///         an explicitly injected dependency. The practical consequence is that an explicitly
+    ///         injected probe (for example, a mock or other custom <see cref="IAudioCaptureDeviceProbe"/>/
+    ///         <see cref="IAudioPlaybackDeviceProbe"/> supplied at construction) will not reflect
+    ///         newly attached or removed hardware after a successful <see cref="RefreshDevices"/>
+    ///         call: this method only re-evaluates the PortAudio-backed default probes it selected
+    ///         itself, never a caller-supplied instance. A caller that injects its own probe owns
+    ///         making that probe reflect hardware changes.
+    ///     </para>
+    /// </remarks>
+    /// <exception cref="AudioDeviceInUseException">
+    ///     Thrown when any capture/playback device created from this factory's environment
+    ///     currently has an open/started stream. No probe or state is modified when this is
+    ///     thrown. This exception exposes no structured list of the in-use device(s); any details
+    ///     are contained only in its <see cref="Exception.Message"/>. The caller can resolve this
+    ///     by stopping the active stream(s) via <see cref="IAudioCaptureDevice.Stop"/>/
+    ///     <see cref="IAudioPlaybackDevice.Stop"/> and retrying.
+    /// </exception>
+    public void RefreshDevices()
+    {
+        _environment.Refresh();
+
+        var useRealPortAudio = _environment.IsInitialized;
+        if (!useRealPortAudio)
+        {
+            _diagnostics.Report(
+                SpeechDiagnosticLevel.Warning,
+                "AudioSubsystem",
+                $"PortAudio refresh completed but initialization failed; using unavailable audio fallbacks. {_environment.InitializationFailureMessage}");
+        }
+        else
+        {
+            _diagnostics.Report(
+                SpeechDiagnosticLevel.Info,
+                "AudioSubsystem",
+                "PortAudio devices refreshed successfully.");
+        }
+
+        if (!_captureProbeIsExplicit)
+        {
+            _captureProbe = SelectCaptureProbe(useRealPortAudio);
+        }
+
+        if (!_playbackProbeIsExplicit)
+        {
+            _playbackProbe = SelectPlaybackProbe(useRealPortAudio);
+        }
+    }
+
+    /// <summary>
+    ///     Selects the default capture probe for the given PortAudio availability.
+    /// </summary>
+    /// <param name="useRealPortAudio">
+    ///     <see langword="true"/> when PortAudio initialized successfully.
+    /// </param>
+    /// <returns>
+    ///     A real PortAudio-backed probe bound to <see cref="_environment"/> when
+    ///     <paramref name="useRealPortAudio"/> is <see langword="true"/>; otherwise,
+    ///     <see cref="UnavailableAudioCaptureDeviceProbe.Instance"/>.
+    /// </returns>
+    private IAudioCaptureDeviceProbe SelectCaptureProbe(bool useRealPortAudio)
+    {
+        return useRealPortAudio
+            ? new PortAudioCaptureDeviceProbe(_environment)
+            : UnavailableAudioCaptureDeviceProbe.Instance;
+    }
+
+    /// <summary>
+    ///     Selects the default playback probe for the given PortAudio availability.
+    /// </summary>
+    /// <param name="useRealPortAudio">
+    ///     <see langword="true"/> when PortAudio initialized successfully.
+    /// </param>
+    /// <returns>
+    ///     A real PortAudio-backed probe bound to <see cref="_environment"/> when
+    ///     <paramref name="useRealPortAudio"/> is <see langword="true"/>; otherwise,
+    ///     <see cref="UnavailableAudioPlaybackDeviceProbe.Instance"/>.
+    /// </returns>
+    private IAudioPlaybackDeviceProbe SelectPlaybackProbe(bool useRealPortAudio)
+    {
+        return useRealPortAudio
+            ? new PortAudioPlaybackDeviceProbe(_environment)
+            : UnavailableAudioPlaybackDeviceProbe.Instance;
+    }
 
     /// <summary>
     ///     Creates a capture device for the given selection.

@@ -64,7 +64,12 @@ This release ships the `Diagnostics` subsystem and a real `AudioSubsystem` imple
 - **`AudioDeviceFactory`** (`DemaConsulting.Speech.AudioSubsystem`): the composition entry point
   for creating audio capture/playback devices and probes. When PortAudio initializes
   successfully, it returns real devices backed by PortAudio; otherwise it falls back to honest
-  unavailable implementations.
+  unavailable implementations. Its `RefreshDevices()` method forces PortAudio to re-scan its
+  device table, so hardware attached or removed after start-up becomes visible to devices and
+  probes created afterward; already-created device instances are unaffected. This is the one
+  deliberate exception to the library's "never throws at composition" policy: it throws
+  `AudioDeviceInUseException` if any device created from the factory currently has an open or
+  started stream, and the caller must stop that device before retrying.
 - **`AudioDeviceDescription`** and **`AudioDeviceSelection`**: immutable, name-only
   representations of an audio device and a persistable user device preference.
 
@@ -614,10 +619,13 @@ dotnet run --project src/DemaConsulting.Speech.Demo
 The application opens with four panels, one of which embeds a fifth:
 
 - **Audio Devices**: lists the capture and playback devices reported by `AudioDeviceFactory`'s
-  probes, preselects the first device in each direction, and offers a refresh button so a headset
-  connected after start-up appears without restarting the application. Each picker reports how
-  many devices were found; when a direction reports none, it explains that the audio backend may
-  be unavailable or no device of that kind is connected, rather than showing a blank list.
+  probes, preselects the first device in each direction, and offers a refresh button that now
+  genuinely forces a hardware re-scan via `AudioDeviceFactory.RefreshDevices()`, so a headset
+  connected after start-up reliably appears without restarting the application. If a capture or
+  playback device is currently started when refresh is clicked, the refresh is refused with an
+  explanatory status message rather than crashing. Each picker reports how many devices were
+  found; when a direction reports none, it explains that the audio backend may be unavailable or
+  no device of that kind is connected, rather than showing a blank list.
 - **Model Catalog**: lists the models `SpeechModelCatalog` knows about, each with its
   installation state (not downloaded, downloading, installed, or failed or corrupt), and offers a
   download action that reports progress and reports failure with an explanation.

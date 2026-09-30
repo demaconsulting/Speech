@@ -67,4 +67,21 @@ public interface IAudioDeviceService
     /// </returns>
     /// <remarks>Never throws; an unavailable audio backend degrades to an unavailable device.</remarks>
     IAudioPlaybackDevice CreatePlaybackDevice(AudioDeviceSelection? selection);
+
+    /// <summary>
+    ///     Forces the underlying audio backend to re-scan its device table so newly attached or
+    ///     removed hardware becomes visible to subsequent enumeration/creation calls on this
+    ///     service.
+    /// </summary>
+    /// <remarks>
+    ///     Forwards to <see cref="AudioDeviceFactory.RefreshDevices"/>. This is the one deliberate
+    ///     exception to this seam's "never throws" contract, inherited directly from the library:
+    ///     a refresh is refused when any device created through this service currently has an
+    ///     open/started stream.
+    /// </remarks>
+    /// <exception cref="AudioDeviceInUseException">
+    ///     Thrown when any capture/playback device created through this service currently has an
+    ///     open/started stream. The caller can stop the reported device(s) and retry.
+    /// </exception>
+    void RefreshDevices();
 }

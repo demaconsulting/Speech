@@ -32,12 +32,22 @@ successfully, and `_diagnostics` records structural selection and fallback event
   is acceptable"), matching `AudioDeviceSelection.Resolve`'s treatment of an empty name: an
   empty name can never exactly match a real device, so `Resolve` always falls back to the
   system default for it, and this check must not demand an impossible exact match instead.
+- **RefreshDevices()**: Forces the underlying PortAudio device table to be re-scanned by
+  delegating to `PortAudioEnvironment.Refresh()`, then re-evaluates `CaptureProbe`/`PlaybackProbe`
+  against the new `IsInitialized` outcome - but only for a probe that was not explicitly injected
+  at construction. Reports a Warning diagnostic when the post-refresh runtime is still
+  unavailable, or an Info diagnostic on success, through the same `ISpeechDiagnostics` sink and
+  `"AudioSubsystem"` category used elsewhere in this type.
 
 **Error Handling**: No member throws during composition. PortAudio initialization failure is
 reported through diagnostics and represented by unavailable fallback return values.
+`RefreshDevices()` is the one deliberate exception to this "never throws" policy: it propagates
+`AudioDeviceInUseException` from `PortAudioEnvironment.Refresh()` untouched when any capture or
+playback device created from this factory's environment currently has an open/started stream, and
+in that case neither the environment nor this factory's probes are modified.
 
 **Dependencies**: `AudioFormat`, `PortAudioEnvironment`, `PortAudioCaptureDeviceProbe`,
 `PortAudioPlaybackDeviceProbe`, `PortAudioCaptureDevice`, `PortAudioPlaybackDevice`, the
-`Unavailable*` fallbacks, and `ISpeechDiagnostics`.
+`Unavailable*` fallbacks, `AudioDeviceInUseException`, and `ISpeechDiagnostics`.
 
 **Callers**: Hosts that need audio devices, and later speech-recognition/synthesis subsystems.

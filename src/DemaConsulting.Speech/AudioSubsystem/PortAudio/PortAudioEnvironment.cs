@@ -4,12 +4,15 @@ using System.Runtime.InteropServices;
 namespace DemaConsulting.Speech.AudioSubsystem.PortAudio;
 
 /// <summary>
-///     Holds the current PortAudio runtime seam and caches one initialization attempt so callers
+///     Holds the current PortAudio runtime seam and caches an initialization attempt so callers
 ///     can compose probes and devices without risking composition-time exceptions.
 /// </summary>
 /// <remarks>
 ///     Tests construct their own instances around fake <see cref="IPortAudioApi"/> implementations.
-///     Production code uses a shared instance backed by the real PortAudio runtime wrapper.
+///     Production code uses a shared instance backed by the real PortAudio runtime wrapper. The
+///     cached initialization result is re-created on demand by <see cref="Refresh"/>, which also
+///     tracks currently active (started) streams via <see cref="RegisterActiveStream"/>/
+///     <see cref="UnregisterActiveStream"/> so a refresh can refuse to tear down a live stream.
 /// </remarks>
 internal sealed class PortAudioEnvironment
 {
@@ -35,14 +38,30 @@ internal sealed class PortAudioEnvironment
     }
 
     /// <summary>
+    ///     Synchronizes the active-stream registry and <see cref="Refresh"/> so a refresh cannot
+    ///     tear down the native runtime while a stream registered before it began is still active.
+    /// </summary>
+    private readonly object _syncRoot = new();
+
+    /// <summary>
+    ///     The set of currently active (started) streams, keyed by the owning device instance
+    ///     (reference identity), with each value holding the resolved device name used to build a
+    ///     refusal message. Guarded by <see cref="_syncRoot"/>.
+    /// </summary>
+    private readonly Dictionary<object, string> _activeStreams = new();
+
+    /// <summary>
     ///     The PortAudio seam implementation used by this environment.
     /// </summary>
     private readonly IPortAudioApi _api;
 
     /// <summary>
-    ///     The cached one-time initialization result.
+    ///     The cached initialization result, re-created by <see cref="Refresh"/>. Reads and writes
+    ///     are guarded by <see cref="_syncRoot"/> for writes; volatile so unsynchronized readers
+    ///     (<see cref="IsInitialized"/>, <see cref="InitializationFailureMessage"/>,
+    ///     <see cref="TryResolvePreferredHostApi"/>) observe a reassigned instance promptly.
     /// </summary>
-    private readonly Lazy<PortAudioInitializationState> _initializationState;
+    private volatile Lazy<PortAudioInitializationState> _initializationState;
 
     /// <summary>
     ///     Gets the current operating-system platform associated with this environment.
@@ -132,6 +151,89 @@ internal sealed class PortAudioEnvironment
         hostApiIndex = resolvedIndex.Value;
         hostApiInfo = _api.GetHostApiInfo(hostApiIndex);
         return true;
+    }
+
+    /// <summary>
+    ///     Registers one device instance as currently holding an active (started) stream, so a
+    ///     concurrent or later <see cref="Refresh"/> refuses to tear down the native runtime.
+    /// </summary>
+    /// <param name="owner">
+    ///     The device instance registering itself, used only as a reference-identity key.
+    /// </param>
+    /// <param name="deviceName">
+    ///     The resolved device name, used to build a <see cref="AudioDeviceInUseException"/>
+    ///     message if a refresh is refused while this registration is active.
+    /// </param>
+    internal void RegisterActiveStream(object owner, string deviceName)
+    {
+        lock (_syncRoot)
+        {
+            _activeStreams[owner] = deviceName;
+        }
+    }
+
+    /// <summary>
+    ///     Unregisters one device instance previously registered via
+    ///     <see cref="RegisterActiveStream"/>, once its stream has stopped or failed to start.
+    /// </summary>
+    /// <param name="owner">
+    ///     The device instance unregistering itself, matching the key previously passed to
+    ///     <see cref="RegisterActiveStream"/>.
+    /// </param>
+    internal void UnregisterActiveStream(object owner)
+    {
+        lock (_syncRoot)
+        {
+            _activeStreams.Remove(owner);
+        }
+    }
+
+    /// <summary>
+    ///     Forces PortAudio to re-scan its device table by terminating and reinitializing the
+    ///     native runtime, so newly attached/removed hardware becomes visible to subsequent
+    ///     device enumeration and creation.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Thread safety: refusal/re-initialization is performed atomically under this
+    ///         environment's internal lock, so a stream registered before this call began can
+    ///         never be torn down by it. This call does not, however, provide linearizability
+    ///         against concurrent <c>Enumerate()</c>/device-creation calls that do not take the
+    ///         same lock; those may observe a transient mix of pre- and post-refresh native state
+    ///         when racing a concurrent <see cref="Refresh"/>.
+    ///     </para>
+    ///     <para>
+    ///         If the underlying <see cref="IPortAudioApi.Terminate"/> call itself throws, this
+    ///         environment's cached initialization state is left untouched (still reporting the
+    ///         previous successful result) even though the native runtime may have partially torn
+    ///         down - a narrow, expected-to-be-rare edge case that this method intentionally does
+    ///         not attempt to paper over with speculative recovery logic.
+    ///     </para>
+    /// </remarks>
+    /// <exception cref="AudioDeviceInUseException">
+    ///     Thrown when any capture/playback device created from this environment currently has an
+    ///     open/started stream. The message identifies the distinct in-use device name(s).
+    /// </exception>
+    internal void Refresh()
+    {
+        lock (_syncRoot)
+        {
+            if (_activeStreams.Count > 0)
+            {
+                var inUseDeviceNames = _activeStreams.Values.Distinct(StringComparer.Ordinal).ToArray();
+                throw new AudioDeviceInUseException(
+                    "Cannot refresh PortAudio devices while a stream is active on: " +
+                    string.Join(", ", inUseDeviceNames) +
+                    ". Stop the device(s) and retry.");
+            }
+
+            if (_initializationState.IsValueCreated && _initializationState.Value.IsInitialized)
+            {
+                _api.Terminate();
+            }
+
+            _initializationState = new Lazy<PortAudioInitializationState>(Initialize, true);
+        }
     }
 
     /// <summary>

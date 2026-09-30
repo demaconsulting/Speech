@@ -66,3 +66,11 @@ sample rate with an Info-level diagnostic.
 ##### Construction: Supported Preferred Sample Rate Is Used
 
 **Test**: `PortAudioCaptureDevice_Constructor_PreferredSampleRateSupported_UsesPreferredFormat`
+
+##### Start: Registers an Active Stream With the Environment, Refresh Throws While Started
+
+**Test**: `PortAudioCaptureDevice_Start_RegistersActiveStreamWithEnvironment_RefreshThrowsWhileStarted`
+
+##### Stop: Unregisters the Active Stream, Refresh Succeeds After Stop
+
+**Test**: `PortAudioCaptureDevice_Stop_UnregistersActiveStream_RefreshSucceedsAfterStop`

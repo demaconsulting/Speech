@@ -481,6 +481,55 @@ public class PortAudioPlaybackDeviceTests
     }
 
     /// <summary>
+    ///     Proves that starting a playback device registers an active stream with its
+    ///     environment, so a refresh attempted while the stream is running is refused.
+    /// </summary>
+    [Fact]
+    public void PortAudioPlaybackDevice_Start_RegistersActiveStreamWithEnvironment_RefreshThrowsWhileStarted()
+    {
+        // Arrange: a real environment and device, with a playback stream ready to start
+        var api = new FakePortAudioApi([new PortAudioDeviceInfo("Speaker", 5, 0, 2, 48000, 0.0, 0.01)])
+        {
+            FindHostApiIndexResult = 5,
+            HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, -1, 0)
+        };
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+        var device = new PortAudioPlaybackDevice(environment);
+
+        // Act: start the device
+        device.Start();
+
+        // Assert: a refresh while the stream is active is refused
+        var exception = Assert.Throws<AudioDeviceInUseException>(environment.Refresh);
+        Assert.Contains("Speaker", exception.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Proves that stopping a playback device unregisters its active stream, so a refresh
+    ///     attempted afterward succeeds.
+    /// </summary>
+    [Fact]
+    public void PortAudioPlaybackDevice_Stop_UnregistersActiveStream_RefreshSucceedsAfterStop()
+    {
+        // Arrange: a real environment and device, started and then stopped
+        var api = new FakePortAudioApi([new PortAudioDeviceInfo("Speaker", 5, 0, 2, 48000, 0.0, 0.01)])
+        {
+            FindHostApiIndexResult = 5,
+            HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, -1, 0)
+        };
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+        var device = new PortAudioPlaybackDevice(environment);
+        device.Start();
+        device.Stop();
+
+        // Act: refresh after the stream has stopped
+        var exception = Record.Exception(environment.Refresh);
+
+        // Assert: the refresh succeeds because no active stream remains registered
+        Assert.Null(exception);
+    }
+
+    /// <summary>
     ///     Minimal fake PortAudio seam used by the playback-device tests.
     /// </summary>
     private sealed class FakePortAudioApi(PortAudioDeviceInfo[] devices) : IPortAudioApi
@@ -521,6 +570,11 @@ public class PortAudioPlaybackDeviceTests
 
         /// <inheritdoc/>
         public void Initialize()
+        {
+        }
+
+        /// <inheritdoc/>
+        public void Terminate()
         {
         }
 

@@ -52,7 +52,7 @@ package SpeechDemo {
         comment sourceRef /* Source: src/DemaConsulting.Speech.Demo/SynthesisPanelSubsystem/SynthesisPanelViewModel.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Demo.Tests/SynthesisPanelSubsystem/SynthesisPanelViewModelTests.cs */
         comment designRef /* Design: docs/design/speech-demo/synthesis-panel-subsystem/synthesis-panel-view-model.md */
-        comment verificationRef /* Verification: docs/verification/speech-demo/synthesis-panel-subsystem/synthesis-panel-view-model.md */
+        comment verificationRef /* Verification: docs/verification/speech-demo/synthesis-panel-subsystem.md (consolidated at subsystem level) */
         comment reqRef /* Requirements: docs/reqstream/speech-demo/synthesis-panel-subsystem/synthesis-panel-view-model.yaml */
     }
 }

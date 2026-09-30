@@ -149,3 +149,19 @@ sections:
             tests:
               - RecognitionPanelViewModel_CanChangeModel_TogglesAcrossStateTransitions
               - RecognitionPanelViewModel_CanChangeModel_ErrorState_IsTrue
+
+          - id: SpeechDemo-Recognition-StopsBeforeDeviceRefresh
+            title: >-
+              The RecognitionPanelSubsystem shall register a pre-refresh hook with the shared
+              device-selection panel at construction that stops an active listening session
+              before a device refresh proceeds, and shall unregister it on disposal.
+            justification: |
+              The recognition panel shares a device-selection panel (and its underlying device
+              factory) with the synthesis panel; clicking "Refresh devices" while this panel is
+              actively listening has a real chance of the backend refusing the refresh because
+              the capture device is in use. Stop() on this panel is fully synchronous down to
+              the capture device's own closure, so registering it as a pre-refresh hook lets a
+              shared refresh proceed deterministically instead of relying on the
+              AudioDeviceInUseException fallback.
+            tests:
+              - RecognitionPanelViewModel_PreRefreshHook_WhileListening_StopsSessionBeforeDeviceRefreshSucceeds

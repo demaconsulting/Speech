@@ -26,6 +26,7 @@ package Speech {
         part unavailableAudioCaptureDeviceProbe : UnavailableAudioCaptureDeviceProbe;
         part unavailableAudioPlaybackDeviceProbe : UnavailableAudioPlaybackDeviceProbe;
         part audioDeviceUnavailableException : AudioDeviceUnavailableException;
+        part audioDeviceInUseException : AudioDeviceInUseException;
         part wavFileAudioPlaybackDevice : WavFileAudioPlaybackDevice;
         part wavFileAudioCaptureDevice : WavFileAudioCaptureDevice;
         part portAudio : PortAudio;

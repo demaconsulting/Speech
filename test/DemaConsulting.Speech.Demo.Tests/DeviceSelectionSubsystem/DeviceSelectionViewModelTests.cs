@@ -144,14 +144,14 @@ public class DeviceSelectionViewModelTests
     ///     losing the user's existing choice.
     /// </summary>
     [Fact]
-    public void DeviceSelectionViewModel_Refresh_DeviceAdded_KeepsExistingSelection()
+    public async Task DeviceSelectionViewModel_Refresh_DeviceAdded_KeepsExistingSelection()
     {
         // Arrange: a service that reports one capture device, then two
         var service = SequencedService([MicA], [MicA, MicB], [Speaker], [Speaker]);
         var viewModel = new DeviceSelectionViewModel(service);
 
         // Act: re-enumerate after the second device appears
-        viewModel.Refresh();
+        await viewModel.Refresh();
 
         // Assert: the new device is listed and the original selection survived
         Assert.Equal([MicA, MicB], viewModel.CaptureDevices);
@@ -163,7 +163,7 @@ public class DeviceSelectionViewModelTests
     ///     reports the same device with a re-detected audio format.
     /// </summary>
     [Fact]
-    public void DeviceSelectionViewModel_Refresh_SameDeviceReportedWithNewFormat_SelectsMatchingNameAgain()
+    public async Task DeviceSelectionViewModel_Refresh_SameDeviceReportedWithNewFormat_SelectsMatchingNameAgain()
     {
         // Arrange: a service reporting the second device first, then the same device name with a
         // different resolved sample rate
@@ -172,7 +172,7 @@ public class DeviceSelectionViewModelTests
         var viewModel = new DeviceSelectionViewModel(service) { SelectedCaptureDevice = MicB };
 
         // Act: re-enumerate, receiving the same device name with a new format
-        viewModel.Refresh();
+        await viewModel.Refresh();
 
         // Assert: the freshly reported description for the same name is selected
         Assert.Same(replacement, viewModel.SelectedCaptureDevice);
@@ -183,14 +183,14 @@ public class DeviceSelectionViewModelTests
     ///     rather than leaving the picker blank.
     /// </summary>
     [Fact]
-    public void DeviceSelectionViewModel_Refresh_SelectedDeviceRemoved_FallsBackToFirstAvailable()
+    public async Task DeviceSelectionViewModel_Refresh_SelectedDeviceRemoved_FallsBackToFirstAvailable()
     {
         // Arrange: a service that reports both devices, then only the second
         var service = SequencedService([MicA, MicB], [MicB], [Speaker], [Speaker]);
         var viewModel = new DeviceSelectionViewModel(service);
 
         // Act: re-enumerate after the originally selected device disappears
-        viewModel.Refresh();
+        await viewModel.Refresh();
 
         // Assert: the remaining device is selected instead of nothing
         Assert.Same(MicB, viewModel.SelectedCaptureDevice);
@@ -201,14 +201,14 @@ public class DeviceSelectionViewModelTests
     ///     empty-state message.
     /// </summary>
     [Fact]
-    public void DeviceSelectionViewModel_Refresh_AllDevicesRemoved_ClearsSelectionAndExplains()
+    public async Task DeviceSelectionViewModel_Refresh_AllDevicesRemoved_ClearsSelectionAndExplains()
     {
         // Arrange: a service that reports a device, then nothing
         var service = SequencedService([MicA], [], [Speaker], []);
         var viewModel = new DeviceSelectionViewModel(service);
 
         // Act: re-enumerate after the backend loses every device
-        viewModel.Refresh();
+        await viewModel.Refresh();
 
         // Assert: the panel honestly reports the loss instead of showing a stale selection
         Assert.Null(viewModel.SelectedCaptureDevice);
@@ -292,5 +292,133 @@ public class DeviceSelectionViewModelTests
 
         // Assert: the derived selection was announced as changed
         Assert.Contains(nameof(DeviceSelectionViewModel.PlaybackSelection), changed);
+    }
+
+    /// <summary>
+    ///     Proves that <see cref="DeviceSelectionViewModel.Refresh"/> forces the backend to
+    ///     re-scan its device table via <see cref="IAudioDeviceService.RefreshDevices"/> before
+    ///     re-enumerating either device list.
+    /// </summary>
+    [Fact]
+    public async Task DeviceSelectionViewModel_Refresh_CallsRefreshDevicesBeforeEnumerating()
+    {
+        // Arrange: a service reporting one device, then two, with a recorded call order
+        var service = SequencedService([MicA], [MicA, MicB], [Speaker], [Speaker]);
+        var viewModel = new DeviceSelectionViewModel(service);
+
+        // Act: refresh again
+        await viewModel.Refresh();
+
+        // Assert: the backend refresh was invoked once per Refresh() call (construction + explicit call)
+        service.Received(2).RefreshDevices();
+        Assert.Equal([MicA, MicB], viewModel.CaptureDevices);
+    }
+
+    /// <summary>
+    ///     Proves that when the service refuses a refresh because a device is in use, the
+    ///     refusal's message is surfaced through the existing status-text pattern and neither
+    ///     device list nor selection is disturbed, rather than crashing the UI.
+    /// </summary>
+    [Fact]
+    public async Task DeviceSelectionViewModel_Refresh_ServiceThrowsAudioDeviceInUseException_SurfacesMessageViaStatusAndDoesNotClearLists()
+    {
+        // Arrange: a panel already populated, then a service that refuses the next refresh
+        var service = Service([MicA, MicB], [Speaker]);
+        var viewModel = new DeviceSelectionViewModel(service);
+        const string inUseMessage = "Cannot refresh PortAudio devices while a stream is active on: Mic A.";
+        service.When(s => s.RefreshDevices()).Do(_ => throw new AudioDeviceInUseException(inUseMessage));
+
+        // Act: attempt a refresh that the backend refuses
+        var exception = await Record.ExceptionAsync(() => viewModel.Refresh());
+
+        // Assert: the refusal does not escape as an unhandled exception, the message is surfaced
+        // via both status properties, and the existing lists/selection are left untouched
+        Assert.Null(exception);
+        Assert.Equal(inUseMessage, viewModel.CaptureStatus);
+        Assert.Equal(inUseMessage, viewModel.PlaybackStatus);
+        Assert.Equal([MicA, MicB], viewModel.CaptureDevices);
+        Assert.Same(MicA, viewModel.SelectedCaptureDevice);
+    }
+
+    /// <summary>
+    ///     Proves that <see cref="DeviceSelectionViewModel.Refresh"/> genuinely invokes and awaits
+    ///     a registered pre-refresh hook to completion before calling
+    ///     <see cref="IAudioDeviceService.RefreshDevices"/>, rather than firing the hook without
+    ///     waiting for it.
+    /// </summary>
+    [Fact]
+    public async Task DeviceSelectionViewModel_Refresh_RegisteredHook_InvokedAndAwaitedBeforeRefreshDevices()
+    {
+        // Arrange: a panel with a registered hook backed by a TaskCompletionSource so its
+        // completion can be controlled from the test
+        var service = Service([MicA], [Speaker]);
+        var viewModel = new DeviceSelectionViewModel(service);
+        service.ClearReceivedCalls();
+        var hookGate = new TaskCompletionSource();
+        viewModel.RegisterPreRefreshHook(() => hookGate.Task);
+
+        // Act: start the refresh without awaiting it yet
+        var refreshTask = viewModel.Refresh();
+
+        // Assert: RefreshDevices() has not yet been called while the hook is unresolved
+        service.DidNotReceive().RefreshDevices();
+
+        // Act: complete the hook and let the refresh proceed
+        hookGate.SetResult();
+        await refreshTask;
+
+        // Assert: RefreshDevices() was called exactly once, after the hook completed
+        service.Received(1).RefreshDevices();
+    }
+
+    /// <summary>
+    ///     Proves that a hook unregistered via <see cref="DeviceSelectionViewModel.UnregisterPreRefreshHook"/>
+    ///     is never invoked by a subsequent <see cref="DeviceSelectionViewModel.Refresh"/>.
+    /// </summary>
+    [Fact]
+    public async Task DeviceSelectionViewModel_Refresh_UnregisteredHook_NotInvoked()
+    {
+        // Arrange: a panel with a hook registered then immediately unregistered
+        var viewModel = new DeviceSelectionViewModel(Service([MicA], [Speaker]));
+        var invoked = false;
+        Task Hook()
+        {
+            invoked = true;
+            return Task.CompletedTask;
+        }
+
+        viewModel.RegisterPreRefreshHook(Hook);
+        viewModel.UnregisterPreRefreshHook(Hook);
+
+        // Act: refresh
+        await viewModel.Refresh();
+
+        // Assert: the unregistered hook was never invoked
+        Assert.False(invoked);
+    }
+
+    /// <summary>
+    ///     Proves that the existing <see cref="AudioDeviceInUseException"/> fallback still
+    ///     surfaces its status message when a registered hook cannot stop the in-use session,
+    ///     preserving the safety net alongside the new hook mechanism.
+    /// </summary>
+    [Fact]
+    public async Task DeviceSelectionViewModel_Refresh_HookCannotStopInUseDevice_FallsBackToStatusMessage()
+    {
+        // Arrange: a panel with a no-op hook (simulating a hook unable to help) and a service
+        // that unconditionally refuses the refresh
+        var service = Service([MicA, MicB], [Speaker]);
+        var viewModel = new DeviceSelectionViewModel(service);
+        const string inUseMessage = "Cannot refresh PortAudio devices while a stream is active on: Mic A.";
+        service.When(s => s.RefreshDevices()).Do(_ => throw new AudioDeviceInUseException(inUseMessage));
+        viewModel.RegisterPreRefreshHook(() => Task.CompletedTask);
+
+        // Act: attempt a refresh that the hook could not prevent from being refused
+        var exception = await Record.ExceptionAsync(() => viewModel.Refresh());
+
+        // Assert: the fallback status-message behavior still fires
+        Assert.Null(exception);
+        Assert.Equal(inUseMessage, viewModel.CaptureStatus);
+        Assert.Equal(inUseMessage, viewModel.PlaybackStatus);
     }
 }

@@ -54,6 +54,12 @@ internal sealed class PortAudioApi : IPortAudioApi
     }
 
     /// <inheritdoc/>
+    public void Terminate()
+    {
+        PortAudioRuntime.Terminate();
+    }
+
+    /// <inheritdoc/>
     public int? FindHostApiIndex(PortAudioHostApiType hostApiType)
     {
         // Intentional native interop: resolving a stable host-API type requires the PortAudio C API.

@@ -89,6 +89,8 @@ words:
   - espeak
   - fakeable
   - rethrowing
+  - reassignable
+  - linearizability
   - axaml
   - Mvvm
   - hotplug

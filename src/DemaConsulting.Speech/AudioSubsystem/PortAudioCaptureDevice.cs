@@ -139,6 +139,8 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
                 return;
             }
 
+            _environment.RegisterActiveStream(this, _resolvedDevice.Name);
+
             try
             {
                 _stream = _environment.Api.OpenCaptureStream(
@@ -175,6 +177,7 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
                 finally
                 {
                     _stream = null;
+                    _environment.UnregisterActiveStream(this);
                 }
 
                 _diagnostics.Report(
@@ -203,6 +206,7 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
         {
             var streamToStop = _stream;
             _stream = null;
+            _environment.UnregisterActiveStream(this);
 
             if (streamToStop is null)
             {

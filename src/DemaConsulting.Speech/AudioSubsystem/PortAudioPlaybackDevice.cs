@@ -181,6 +181,8 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
                 return;
             }
 
+            _environment.RegisterActiveStream(this, _resolvedDevice.Name);
+
             try
             {
                 _stream = _environment.Api.OpenPlaybackStream(
@@ -201,6 +203,7 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
                 // resilience boundary, so any seam fault must degrade to unavailability.
                 _stream?.Dispose();
                 _stream = null;
+                _environment.UnregisterActiveStream(this);
                 _diagnostics.Report(
                     SpeechDiagnosticLevel.Error,
                     DiagnosticsCategory,
@@ -227,6 +230,7 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
         {
             var streamToStop = _stream;
             _stream = null;
+            _environment.UnregisterActiveStream(this);
 
             if (streamToStop is null)
             {

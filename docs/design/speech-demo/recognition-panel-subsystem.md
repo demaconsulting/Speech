@@ -84,6 +84,16 @@ otherwise guaranteed. This is what lets a newly downloaded recognition model com
 Model Catalog panel appear in `AvailableModels` automatically, without a manual Refresh click or
 app restart. `Dispose()` unsubscribes this handler.
 
+**Stops deterministically before a shared device refresh.** The constructor also registers a
+pre-refresh hook with the shared `DeviceSelectionViewModel` via `RegisterPreRefreshHook`,
+mirroring the `ModelInstalled` subscription precedent above. The hook calls `Stop()` when
+`CanStop` is `true`, wrapped to satisfy the hook's `Func<Task>` contract by returning
+`Task.CompletedTask`: `Stop()` is fully synchronous down to the capture device's own closure (it
+blocks on draining the recognizer before returning), so no real awaiting is ever needed here. This
+is what lets the `DeviceSelectionViewModel.Refresh()` clicked from the "Refresh devices" button
+stop an actively listening session deterministically before the shared device table is re-scanned,
+rather than relying on the `AudioDeviceInUseException` fallback. `Dispose()` unregisters this hook.
+
 **Start algorithm.** `Start()`:
 
 1. Reports `NoModelSelectedMessage` and enters `Error` when no model is selected

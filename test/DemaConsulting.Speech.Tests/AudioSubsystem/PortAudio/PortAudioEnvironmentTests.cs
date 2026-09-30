@@ -1,5 +1,6 @@
 // cspell:ignore Alsa ALSA portaudio
 using System.Runtime.InteropServices;
+using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.AudioSubsystem.PortAudio;
 
 namespace DemaConsulting.Speech.Tests.AudioSubsystem.PortAudio;
@@ -170,6 +171,96 @@ public class PortAudioEnvironmentTests
     }
 
     /// <summary>
+    ///     Proves that a refresh with no active streams terminates and reinitializes the runtime,
+    ///     so subsequent reads reflect the new initialization attempt's outcome.
+    /// </summary>
+    [Fact]
+    public void PortAudioEnvironment_Refresh_NoActiveStreams_ReinitializesAndReflectsNewOutcome()
+    {
+        // Arrange: an environment whose first initialization succeeds
+        var api = new FakePortAudioApi();
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+        Assert.True(environment.IsInitialized);
+
+        // Act: refresh, then make the next initialization attempt fail
+        environment.Refresh();
+
+        // Assert: the prior successful runtime was terminated and a fresh initialization occurred
+        // (accessing IsInitialized first forces the lazily-deferred re-initialization attempt)
+        Assert.True(environment.IsInitialized);
+        Assert.Equal(1, api.TerminateCallCount);
+        Assert.Equal(2, api.InitializeCallCount);
+    }
+
+    /// <summary>
+    ///     Proves that refreshing while an active stream is registered throws
+    ///     <see cref="AudioDeviceInUseException"/> and does not terminate or reinitialize the
+    ///     runtime.
+    /// </summary>
+    [Fact]
+    public void PortAudioEnvironment_Refresh_ActiveStreamRegistered_ThrowsAudioDeviceInUseExceptionAndDoesNotTerminate()
+    {
+        // Arrange: an initialized environment with one registered active stream
+        var api = new FakePortAudioApi();
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+        Assert.True(environment.IsInitialized);
+        var owner = new object();
+        environment.RegisterActiveStream(owner, "Mic");
+
+        // Act & Assert: the refresh is refused, naming the in-use device
+        var exception = Assert.Throws<AudioDeviceInUseException>(environment.Refresh);
+        Assert.Contains("Mic", exception.Message, StringComparison.Ordinal);
+        Assert.Equal(0, api.TerminateCallCount);
+        Assert.Equal(1, api.InitializeCallCount);
+    }
+
+    /// <summary>
+    ///     Proves that refreshing an environment whose initialization never previously succeeded
+    ///     skips calling <see cref="IPortAudioApi.Terminate"/> and still re-attempts initialization.
+    /// </summary>
+    [Fact]
+    public void PortAudioEnvironment_Refresh_NotPreviouslyInitialized_SkipsTerminateAndReinitializes()
+    {
+        // Arrange: an environment whose first initialization fails
+        var api = new FakePortAudioApi { InitializeException = new InvalidOperationException("PortAudio init failed.") };
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+        Assert.False(environment.IsInitialized);
+
+        // Act: refresh without ever having successfully initialized
+        environment.Refresh();
+
+        // Assert: Terminate is never called for a runtime that never successfully initialized,
+        // but a fresh initialization attempt is still made (accessing IsInitialized forces the
+        // lazily-deferred re-initialization attempt)
+        Assert.False(environment.IsInitialized);
+        Assert.Equal(0, api.TerminateCallCount);
+        Assert.Equal(2, api.InitializeCallCount);
+    }
+
+    /// <summary>
+    ///     Proves that registering then unregistering an active stream allows a subsequent
+    ///     refresh to succeed.
+    /// </summary>
+    [Fact]
+    public void PortAudioEnvironment_RegisterThenUnregisterActiveStream_Refresh_Succeeds()
+    {
+        // Arrange: an initialized environment with a stream registered and then unregistered
+        var api = new FakePortAudioApi();
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+        Assert.True(environment.IsInitialized);
+        var owner = new object();
+        environment.RegisterActiveStream(owner, "Mic");
+        environment.UnregisterActiveStream(owner);
+
+        // Act: refresh after the stream was unregistered
+        var exception = Record.Exception(environment.Refresh);
+
+        // Assert: the refresh proceeds normally, since no active stream remains registered
+        Assert.Null(exception);
+        Assert.Equal(1, api.TerminateCallCount);
+    }
+
+    /// <summary>
     ///     Minimal fake implementation of <see cref="IPortAudioApi"/> used by these unit tests.
     /// </summary>
     private sealed class FakePortAudioApi : IPortAudioApi
@@ -195,6 +286,11 @@ public class PortAudioEnvironmentTests
         /// </summary>
         internal int InitializeCallCount { get; private set; }
 
+        /// <summary>
+        ///     Gets the number of times <see cref="Terminate"/> has been called.
+        /// </summary>
+        internal int TerminateCallCount { get; private set; }
+
         /// <inheritdoc/>
         public int HostApiCount => 0;
 
@@ -210,6 +306,12 @@ public class PortAudioEnvironmentTests
             {
                 throw InitializeException;
             }
+        }
+
+        /// <inheritdoc/>
+        public void Terminate()
+        {
+            TerminateCallCount++;
         }
 
         /// <inheritdoc/>
