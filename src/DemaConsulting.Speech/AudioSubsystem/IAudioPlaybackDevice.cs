@@ -54,6 +54,15 @@ public interface IAudioPlaybackDevice
     /// <summary>
     ///     Prepares the device to accept audio via <see cref="Write"/>.
     /// </summary>
+    /// <remarks>
+    ///     Implementations do not implement <see cref="IDisposable"/> and provide no automatic
+    ///     safety net for a stream left started and abandoned (for example, discarded without a
+    ///     matching <see cref="Stop"/> call): the caller is responsible for calling
+    ///     <see cref="Stop"/> once playback is no longer needed, both to release the underlying
+    ///     native resources and because <see cref="AudioDeviceFactory.RefreshDevices"/> refuses
+    ///     to proceed while any device created from the same factory's environment still has an
+    ///     active stream.
+    /// </remarks>
     /// <exception cref="AudioDeviceUnavailableException">
     ///     Thrown when <see cref="IsAvailable"/> is <see langword="false"/>, or when the device
     ///     reported itself as available but the underlying native playback stream later failed to

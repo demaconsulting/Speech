@@ -92,6 +92,18 @@ initialization outcome, but only for a probe that was not explicitly injected at
 explicitly injected probe is never replaced, so it will not reflect new hardware unless the
 caller's own probe implementation handles that itself.
 
+**Thread safety**: `PortAudioEnvironment.Refresh()` performs its active-stream refusal check and
+runtime termination/reinitialization atomically under an internal lock, so a stream registered
+before a `Refresh()` call began can never be torn down by it. `AudioDeviceFactory.RefreshDevices()`
+itself, however, is not safe to call concurrently with another `RefreshDevices()` call or with a
+concurrent read of `CaptureProbe`/`PlaybackProbe` on the same factory instance: the factory
+re-assigns its own `_captureProbe`/`_playbackProbe` fields without a lock after delegating to the
+environment, so a caller that refreshes and reads these properties from multiple threads without
+its own external synchronization may observe a stale or torn-looking probe reference. A host
+application driving `RefreshDevices()` from a UI or background thread should serialize its own
+calls (for example, by routing every refresh through one thread or its own lock) rather than
+relying on the factory to do so.
+
 #### WindowedSincLowpassFilter
 
 **Purpose**: Provide the shared, direction-agnostic windowed-sinc Hamming lowpass FIR primitive

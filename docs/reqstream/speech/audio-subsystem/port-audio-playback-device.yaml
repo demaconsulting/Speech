@@ -123,3 +123,21 @@ sections:
                   - PortAudioPlaybackDevice_Write_BlockLargerThanRequest_DrainsRemainderOnNextCall
                   - PortAudioPlaybackDevice_Write_SmallBlockFollowedByAnotherWrite_ConcatenatesAcrossBoundary
                   - PortAudioPlaybackDevice_Stop_PartiallyConsumedBlock_RestartNeverReplaysStaleAudio
+
+              - id: Speech-Audio-PortAudioPlaybackDevice-ActiveStreamRegistration
+                title: >-
+                  The PortAudioPlaybackDevice class shall register itself with the environment's
+                  active-stream tracking before Start opens a native stream, and unregister
+                  itself once Stop completes (or Start's open attempt fails), so a concurrent or
+                  later PortAudioEnvironment.Refresh() knows whether this device's stream is
+                  genuinely active.
+                justification: |
+                  PortAudioEnvironment.Refresh()'s refusal behavior (see
+                  Speech-Audio-PortAudio-PortAudioEnvironment-Refresh) is only correct if this
+                  device accurately reports its own active/inactive state to the shared
+                  environment; an unregistered active stream would let a refresh silently tear
+                  down live audio, and a stream left registered after Stop would block every
+                  future refresh indefinitely.
+                tests:
+                  - PortAudioPlaybackDevice_Start_RegistersActiveStreamWithEnvironment_RefreshThrowsWhileStarted
+                  - PortAudioPlaybackDevice_Stop_UnregistersActiveStream_RefreshSucceedsAfterStop

@@ -214,6 +214,13 @@ internal sealed class PortAudioEnvironment
     ///     Thrown when any capture/playback device created from this environment currently has an
     ///     open/started stream. The message identifies the distinct in-use device name(s).
     /// </exception>
+    /// <exception cref="Exception">
+    ///     Propagated when the underlying <see cref="IPortAudioApi.Terminate"/> call itself
+    ///     throws (see the remarks above for the resulting cached-state guarantee). The
+    ///     subsequent re-initialization attempt made by <see cref="Initialize"/> never throws;
+    ///     any native initialization fault is instead captured and reported through
+    ///     <see cref="IsInitialized"/>/<see cref="InitializationFailureMessage"/>.
+    /// </exception>
     internal void Refresh()
     {
         lock (_syncRoot)

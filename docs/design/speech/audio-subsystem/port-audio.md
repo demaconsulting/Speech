@@ -14,7 +14,8 @@ Contained units:
 
 - **IPortAudioApi**: internal seam for PortAudio initialization, metadata access, and stream opening
 - **IPortAudioStream**: internal seam for stream lifecycle
-- **PortAudioEnvironment**: shared initialization state and preferred-host resolver
+- **PortAudioEnvironment**: shared initialization state, preferred-host resolver, and
+  active-stream-aware hot-plug refresh
 - **PortAudioApi**: real PortAudioSharp2 + supplementary P/Invoke adapter
 - **PortAudioDeviceInfo**, **PortAudioHostApiInfo**, **PortAudioHostApiType**, and
   **PortAudioNativeMethods**: supporting metadata and interop declarations
@@ -31,6 +32,20 @@ narrow seam consumed by `PortAudioCaptureDeviceProbe`, `PortAudioPlaybackDeviceP
 `IPortAudioApi` implementation and caches one initialization attempt so callers can query
 `IsInitialized` and `InitializationFailureMessage` without handling native exceptions. It also
 contains the policy that maps Windows to `WASAPI`, Linux to `ALSA`, and macOS to `CoreAudio`.
+
+`PortAudioEnvironment` also owns the subsystem's hot-plug refresh capability. It tracks every
+currently active (started) capture/playback stream in an internal active-stream registry, keyed
+by owning device instance, that `PortAudioCaptureDevice`/`PortAudioPlaybackDevice` populate via
+`RegisterActiveStream`/`UnregisterActiveStream` around their own `Start`/`Stop` lifecycle.
+`Refresh()` uses this registry to decide, under an internal lock, whether a caller-requested
+device-table re-scan can proceed: with no active stream, it terminates the native runtime (only
+if it had previously initialized successfully) and reassigns the cached initialization state so
+the next access re-attempts initialization and reflects any new outcome; with any active stream,
+it refuses the refresh by throwing `AudioDeviceInUseException` naming the in-use device(s),
+touching neither the runtime nor the cached initialization state. Refusal/re-initialization is
+atomic under this lock, but `Refresh()` does not provide linearizability against concurrent
+`Enumerate()`/device-creation calls made without the same lock, which may observe a transient mix
+of pre- and post-refresh native state.
 
 `PortAudioApi` is the concrete adapter used in production. It composes PortAudioSharp2's managed
 `PortAudio` and `Stream` types with repository-local `PortAudioNativeMethods` P/Invoke bindings

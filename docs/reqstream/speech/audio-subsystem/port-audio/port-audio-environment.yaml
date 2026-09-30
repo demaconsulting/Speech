@@ -69,3 +69,5 @@ sections:
                       - PortAudioEnvironment_Refresh_ActiveStreamRegistered_ThrowsAudioDeviceInUseExceptionAndDoesNotTerminate
                       - PortAudioEnvironment_Refresh_NotPreviouslyInitialized_SkipsTerminateAndReinitializes
                       - PortAudioEnvironment_RegisterThenUnregisterActiveStream_Refresh_Succeeds
+                      - PortAudioEnvironment_Refresh_OutcomeChanges_ReflectsNewInitializationResult
+                      - PortAudioEnvironment_Refresh_TerminateThrows_PropagatesAndLeavesCachedStateUntouched

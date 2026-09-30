@@ -1,20 +1,29 @@
 ---
-# Software Unit Requirements for the Audio Device Refresh Behavior
+# Software Unit Requirements for the Device Refresh Seam
 #
 # Groups requirements for on-demand PortAudio device-table refresh - spanning
-# PortAudioEnvironment.Refresh(), AudioDeviceFactory.RefreshDevices(), the active-stream
-# registration performed by PortAudioCaptureDevice/PortAudioPlaybackDevice around Start/Stop,
-# and the new AudioDeviceInUseException - into a single file, per design-documentation.md's
-# allowance for small supporting behaviors documented inline within their subsystem's design
-# doc. Each unit's requirement subset is called out in its own subsection below so every unit
-# still has requirements tracing to it individually.
+# PortAudioEnvironment.Refresh(), AudioDeviceFactory.RefreshDevices(), and the new
+# AudioDeviceInUseException - into a single file. This is a deliberate, narrower exception to
+# per-unit requirement ownership, not a literal application of sysml2-modeling.md's "Units
+# without a dedicated companion doc" allowance (that allowance is scoped to small data-model
+# types documented inline, not cross-cutting behavior): PortAudioEnvironment and
+# AudioDeviceFactory jointly implement one indivisible seam-level capability (a refresh request
+# that must be refused atomically whenever either side's active-stream bookkeeping reports a
+# device in use), so splitting these two requirements across their two owning units' files would
+# duplicate the same justification and test list without adding traceability value. The
+# active-stream registration behavior contributed by PortAudioCaptureDevice/PortAudioPlaybackDevice
+# is genuinely per-unit and is owned directly by those units' own requirement files instead (see
+# `Speech-Audio-PortAudioCaptureDevice-ActiveStreamRegistration` /
+# `Speech-Audio-PortAudioPlaybackDevice-ActiveStreamRegistration`). Each remaining unit's
+# requirement subset is called out in its own subsection below so every unit still has
+# requirements tracing to it individually.
 
 sections:
   - title: Speech Requirements
     sections:
       - title: AudioSubsystem Requirements
         sections:
-          - title: AudioDeviceRefresh Requirements
+          - title: Device Refresh Seam Requirements
             requirements:
               - id: Speech-Audio-AudioDeviceRefresh-RefreshesSuccessfully
                 title: >-
@@ -46,25 +55,6 @@ sections:
                 tests:
                   - PortAudioEnvironment_Refresh_ActiveStreamRegistered_ThrowsAudioDeviceInUseExceptionAndDoesNotTerminate
                   - AudioDeviceFactory_RefreshDevices_ActiveStreamInUse_PropagatesAudioDeviceInUseException
-
-              - id: Speech-Audio-AudioDeviceRefresh-ActiveStreamTracking
-                title: >-
-                  The PortAudioCaptureDevice and PortAudioPlaybackDevice classes shall register
-                  themselves with the environment's active-stream tracking before Start opens a
-                  native stream, and unregister themselves once Stop completes (or Start's open
-                  attempt fails), so a refresh knows whether any stream is genuinely active.
-                justification: |
-                  The refusal behavior above is only correct if every real device accurately
-                  reports its own active/inactive state to the shared environment; an
-                  unregistered active stream would let a refresh silently tear down live audio,
-                  and a stream left registered after Stop would block every future refresh
-                  indefinitely.
-                tests:
-                  - PortAudioEnvironment_RegisterThenUnregisterActiveStream_Refresh_Succeeds
-                  - PortAudioCaptureDevice_Start_RegistersActiveStreamWithEnvironment_RefreshThrowsWhileStarted
-                  - PortAudioCaptureDevice_Stop_UnregistersActiveStream_RefreshSucceedsAfterStop
-                  - PortAudioPlaybackDevice_Start_RegistersActiveStreamWithEnvironment_RefreshThrowsWhileStarted
-                  - PortAudioPlaybackDevice_Stop_UnregistersActiveStream_RefreshSucceedsAfterStop
 
               - id: Speech-Audio-AudioDeviceRefresh-PreservesExplicitProbes
                 title: >-

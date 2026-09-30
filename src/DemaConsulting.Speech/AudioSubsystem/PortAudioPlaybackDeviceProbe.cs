@@ -9,6 +9,8 @@ namespace DemaConsulting.Speech.AudioSubsystem;
 /// <remarks>
 ///     Enumeration never throws. When PortAudio cannot initialize, the preferred host API is not
 ///     present, or no output-capable devices exist on that host API, callers receive an empty list.
+///     Calling <see cref="Enumerate"/> alone never detects newly attached or removed hardware;
+///     see <see cref="AudioDeviceFactory.RefreshDevices"/> for how to force a re-scan first.
 /// </remarks>
 internal sealed class PortAudioPlaybackDeviceProbe : IAudioPlaybackDeviceProbe
 {

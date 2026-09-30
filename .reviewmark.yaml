@@ -1107,7 +1107,7 @@ reviews:
     paths:
       - "docs/reqstream/speech-demo/synthesis-panel-subsystem/synthesis-panel-view-model.yaml"
       - "docs/design/speech-demo/synthesis-panel-subsystem/synthesis-panel-view-model.md"
-      - "docs/verification/speech-demo/synthesis-panel-subsystem/synthesis-panel-view-model.md"
+      - "docs/verification/speech-demo/synthesis-panel-subsystem.md"
       - "src/DemaConsulting.Speech.Demo/SynthesisPanelSubsystem/SynthesisPanelViewModel.cs"
       - "src/DemaConsulting.Speech.Demo/SynthesisPanelSubsystem/SynthesisPlaybackState.cs"
       - "src/DemaConsulting.Speech.Demo/SynthesisPanelSubsystem/SynthesisPanelView.axaml.cs"

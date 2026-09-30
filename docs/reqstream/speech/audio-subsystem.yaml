@@ -292,8 +292,10 @@ sections:
             children:
               - Speech-Audio-AudioDeviceRefresh-RefreshesSuccessfully
               - Speech-Audio-AudioDeviceRefresh-RefusesWhileInUse
-              - Speech-Audio-AudioDeviceRefresh-ActiveStreamTracking
+              - Speech-Audio-PortAudioCaptureDevice-ActiveStreamRegistration
+              - Speech-Audio-PortAudioPlaybackDevice-ActiveStreamRegistration
               - Speech-Audio-AudioDeviceRefresh-PreservesExplicitProbes
+              - Speech-Audio-AudioDeviceFactory-RefreshDevices
               - Speech-Audio-AudioDeviceInUseException-Constructors
             tests:
               - AudioDeviceFactory_RefreshDevices_DelegatesToEnvironmentRefresh

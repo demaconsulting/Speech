@@ -12,7 +12,10 @@
   no devices can be enumerated.
 
 **Error Handling**: Every shipped implementation treats "cannot enumerate" as
-"enumerate zero devices" rather than throwing.
+"enumerate zero devices" rather than throwing. An implementation may not reflect newly attached
+or removed hardware without an explicit refresh of its own underlying device table; see an
+individual implementation's own documentation (for example `PortAudioCaptureDeviceProbe`) for
+whether and how that applies to it.
 
 **Dependencies**: `AudioDeviceDescription`.
 

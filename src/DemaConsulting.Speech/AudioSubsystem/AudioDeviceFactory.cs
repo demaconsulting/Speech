@@ -15,6 +15,19 @@ namespace DemaConsulting.Speech.AudioSubsystem;
 ///     PortAudio-backed probes and devices behind the public interfaces. When PortAudio itself
 ///     cannot initialize, the factory degrades to the honest <c>Unavailable*</c> fallbacks without
 ///     ever throwing at composition time.
+///     <para>
+///         <b>Thread safety</b>: unlike <see cref="PortAudioEnvironment.Refresh"/>, which guards
+///         its own state under an internal lock, this class's <see cref="_captureProbe"/>/
+///         <see cref="_playbackProbe"/> backing fields are plain (non-<see langword="volatile"/>)
+///         fields reassigned by <see cref="RefreshDevices"/> without any synchronization. A
+///         caller that invokes <see cref="RefreshDevices"/> concurrently with another
+///         <see cref="RefreshDevices"/> call, or with a concurrent read of <see cref="CaptureProbe"/>/
+///         <see cref="PlaybackProbe"/>, from multiple threads without its own external
+///         synchronization may observe a stale probe reference or an unpredictable interleaving
+///         of the two calls. Callers that refresh from more than one thread must provide their
+///         own external synchronization (for example, routing every refresh through one thread or
+///         a caller-owned lock).
+///     </para>
 /// </remarks>
 public sealed class AudioDeviceFactory
 {

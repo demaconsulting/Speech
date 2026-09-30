@@ -13,7 +13,10 @@ API and access device metadata through the `IPortAudioApi` seam.
   `AudioDeviceDescription`.
 
 **Error Handling**: Returns an empty list when the PortAudio runtime is unavailable, the
-preferred host API is missing, or no playback-capable devices exist.
+preferred host API is missing, or no playback-capable devices exist. Calling `Enumerate()` alone
+never detects newly attached or removed hardware; it only reads the device table as it stood at
+the last successful `AudioDeviceFactory.RefreshDevices()` call (or at construction). A host must
+call `RefreshDevices()` first to pick up a hot-plugged device.
 
 **Dependencies**: `PortAudioEnvironment`, `IPortAudioApi`, and `AudioDeviceDescription`.
 

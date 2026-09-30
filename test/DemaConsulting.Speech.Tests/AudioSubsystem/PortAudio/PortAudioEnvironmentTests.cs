@@ -171,8 +171,7 @@ public class PortAudioEnvironmentTests
     }
 
     /// <summary>
-    ///     Proves that a refresh with no active streams terminates and reinitializes the runtime,
-    ///     so subsequent reads reflect the new initialization attempt's outcome.
+    ///     Proves that a refresh with no active streams terminates and reinitializes the runtime.
     /// </summary>
     [Fact]
     public void PortAudioEnvironment_Refresh_NoActiveStreams_ReinitializesAndReflectsNewOutcome()
@@ -182,7 +181,7 @@ public class PortAudioEnvironmentTests
         var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
         Assert.True(environment.IsInitialized);
 
-        // Act: refresh, then make the next initialization attempt fail
+        // Act: refresh while nothing about the underlying fake has changed
         environment.Refresh();
 
         // Assert: the prior successful runtime was terminated and a fresh initialization occurred
@@ -190,6 +189,54 @@ public class PortAudioEnvironmentTests
         Assert.True(environment.IsInitialized);
         Assert.Equal(1, api.TerminateCallCount);
         Assert.Equal(2, api.InitializeCallCount);
+    }
+
+    /// <summary>
+    ///     Proves that a refresh genuinely reflects a changed initialization outcome: an
+    ///     environment whose first initialization failed reports success once the underlying
+    ///     fault is cleared and a refresh is requested.
+    /// </summary>
+    [Fact]
+    public void PortAudioEnvironment_Refresh_OutcomeChanges_ReflectsNewInitializationResult()
+    {
+        // Arrange: an environment whose first initialization fails
+        var api = new FakePortAudioApi { InitializeException = new InvalidOperationException("PortAudio init failed.") };
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+        Assert.False(environment.IsInitialized);
+
+        // Act: clear the fault, then refresh so a fresh initialization attempt is made
+        api.InitializeException = null;
+        environment.Refresh();
+
+        // Assert: the cached outcome flips from failure to success, and Terminate was never
+        // called since the runtime had never previously initialized successfully
+        Assert.True(environment.IsInitialized);
+        Assert.Equal(0, api.TerminateCallCount);
+        Assert.Equal(2, api.InitializeCallCount);
+    }
+
+    /// <summary>
+    ///     Proves that a native <see cref="IPortAudioApi.Terminate"/> fault during refresh
+    ///     propagates to the caller unchanged and leaves the previously cached initialization
+    ///     state untouched.
+    /// </summary>
+    [Fact]
+    public void PortAudioEnvironment_Refresh_TerminateThrows_PropagatesAndLeavesCachedStateUntouched()
+    {
+        // Arrange: an initialized environment whose Terminate call always fails
+        var api = new FakePortAudioApi { TerminateException = new InvalidOperationException("Terminate failed.") };
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+        Assert.True(environment.IsInitialized);
+
+        // Act & Assert: the native fault propagates unchanged
+        var exception = Assert.Throws<InvalidOperationException>(environment.Refresh);
+        Assert.Equal("Terminate failed.", exception.Message);
+
+        // Assert: the previously cached successful initialization state is left untouched, and
+        // no re-initialization attempt was ever made
+        Assert.True(environment.IsInitialized);
+        Assert.Equal(1, api.TerminateCallCount);
+        Assert.Equal(1, api.InitializeCallCount);
     }
 
     /// <summary>
@@ -268,7 +315,12 @@ public class PortAudioEnvironmentTests
         /// <summary>
         ///     Gets or sets the exception to throw when <see cref="Initialize"/> is called.
         /// </summary>
-        internal Exception? InitializeException { get; init; }
+        internal Exception? InitializeException { get; set; }
+
+        /// <summary>
+        ///     Gets or sets the exception to throw when <see cref="Terminate"/> is called.
+        /// </summary>
+        internal Exception? TerminateException { get; init; }
 
         /// <summary>
         ///     Gets or sets the host-API index returned by <see cref="FindHostApiIndex"/>.
@@ -312,6 +364,11 @@ public class PortAudioEnvironmentTests
         public void Terminate()
         {
             TerminateCallCount++;
+
+            if (TerminateException is not null)
+            {
+                throw TerminateException;
+            }
         }
 
         /// <inheritdoc/>

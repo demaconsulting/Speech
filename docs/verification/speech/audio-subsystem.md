@@ -33,6 +33,10 @@ An AudioSubsystem test run passes when:
 - Capture frame delivery and playback queue draining work through the seam
 - PortAudio initialization failures and stream-open failures degrade to the documented fallback
   behavior and `AudioDeviceUnavailableException`
+- A device-table refresh succeeds and reflects a new initialization outcome while idle, is
+  refused with `AudioDeviceInUseException` (without terminating the native runtime) while any
+  capture/playback device has an active stream, and succeeds again once every active stream is
+  unregistered
 - The automated verification boundary remains honest about the absence of hardware I/O coverage
 
 ### Test Scenarios

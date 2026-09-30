@@ -206,66 +206,76 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
         {
             var streamToStop = _stream;
             _stream = null;
-            _environment.UnregisterActiveStream(this);
 
             if (streamToStop is null)
             {
                 return;
             }
 
-            Exception? stopException = null;
+            // Unregistered only once the native stop/dispose sequence below has genuinely
+            // completed (success or failure) - never before - so a concurrent RefreshDevices()
+            // can never observe this stream as "inactive" and tear down the native runtime while
+            // it is still shutting down.
             try
             {
-                streamToStop.Stop();
-                _diagnostics.Report(
-                    SpeechDiagnosticLevel.Info,
-                    DiagnosticsCategory,
-                    $"Stopped PortAudio capture on '{_resolvedDevice.Name}'.");
-            }
-            catch (Exception ex)
-            {
-                // Intentionally broad: stopping the native-backed stream must be contained so
-                // shutdown faults do not escape as arbitrary interop exceptions.
-                stopException = ex;
-                _diagnostics.Report(
-                    SpeechDiagnosticLevel.Error,
-                    DiagnosticsCategory,
-                    $"Failed to stop PortAudio capture on '{_resolvedDevice.Name}': {ex.Message}");
-            }
+                Exception? stopException = null;
+                try
+                {
+                    streamToStop.Stop();
+                    _diagnostics.Report(
+                        SpeechDiagnosticLevel.Info,
+                        DiagnosticsCategory,
+                        $"Stopped PortAudio capture on '{_resolvedDevice.Name}'.");
+                }
+                catch (Exception ex)
+                {
+                    // Intentionally broad: stopping the native-backed stream must be contained so
+                    // shutdown faults do not escape as arbitrary interop exceptions.
+                    stopException = ex;
+                    _diagnostics.Report(
+                        SpeechDiagnosticLevel.Error,
+                        DiagnosticsCategory,
+                        $"Failed to stop PortAudio capture on '{_resolvedDevice.Name}': {ex.Message}");
+                }
 
-            try
-            {
-                streamToStop.Dispose();
-            }
-            catch (Exception ex) when (stopException is null)
-            {
-                // Intentionally broad: disposing the native-backed stream is the final interop
-                // cleanup boundary, so any managed/native fault must be wrapped consistently.
-                _diagnostics.Report(
-                    SpeechDiagnosticLevel.Error,
-                    DiagnosticsCategory,
-                    $"Failed to dispose PortAudio capture stream on '{_resolvedDevice.Name}': {ex.Message}");
-                throw new AudioDeviceUnavailableException(
-                    $"Failed to dispose capture stream on '{_resolvedDevice.Name}' after stopping it.",
-                    ex);
-            }
-            catch (Exception ex)
-            {
-                // Intentionally broad: once stopping has already failed, disposal faults are
-                // logged and contained so callers still observe the primary stop failure.
-                _diagnostics.Report(
-                    SpeechDiagnosticLevel.Error,
-                    DiagnosticsCategory,
-                    $"Failed to dispose PortAudio capture stream on '{_resolvedDevice.Name}' " +
-                    "after a stop failure: " +
-                    $"{ex.Message}");
-            }
+                try
+                {
+                    streamToStop.Dispose();
+                }
+                catch (Exception ex) when (stopException is null)
+                {
+                    // Intentionally broad: disposing the native-backed stream is the final interop
+                    // cleanup boundary, so any managed/native fault must be wrapped consistently.
+                    _diagnostics.Report(
+                        SpeechDiagnosticLevel.Error,
+                        DiagnosticsCategory,
+                        $"Failed to dispose PortAudio capture stream on '{_resolvedDevice.Name}': {ex.Message}");
+                    throw new AudioDeviceUnavailableException(
+                        $"Failed to dispose capture stream on '{_resolvedDevice.Name}' after stopping it.",
+                        ex);
+                }
+                catch (Exception ex)
+                {
+                    // Intentionally broad: once stopping has already failed, disposal faults are
+                    // logged and contained so callers still observe the primary stop failure.
+                    _diagnostics.Report(
+                        SpeechDiagnosticLevel.Error,
+                        DiagnosticsCategory,
+                        $"Failed to dispose PortAudio capture stream on '{_resolvedDevice.Name}' " +
+                        "after a stop failure: " +
+                        $"{ex.Message}");
+                }
 
-            if (stopException is not null)
+                if (stopException is not null)
+                {
+                    throw new AudioDeviceUnavailableException(
+                        $"Failed to stop capture on '{_resolvedDevice.Name}'.",
+                        stopException);
+                }
+            }
+            finally
             {
-                throw new AudioDeviceUnavailableException(
-                    $"Failed to stop capture on '{_resolvedDevice.Name}'.",
-                    stopException);
+                _environment.UnregisterActiveStream(this);
             }
         }
     }

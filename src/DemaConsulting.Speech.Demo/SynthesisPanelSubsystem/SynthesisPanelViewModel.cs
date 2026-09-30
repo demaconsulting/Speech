@@ -321,12 +321,12 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IDisposa
     ///     Unlike <see cref="RecognitionPanelSubsystem.RecognitionPanelViewModel"/>'s equivalent
     ///     hook, <see cref="Stop"/> alone does not guarantee the playback device is actually
     ///     closed by the time it returns: <see cref="Stop"/> only cancels the synthesizer's
-    ///     internal token and requests cancellation of <see cref="PlayCommand"/>; the real
-    ///     <c>_playbackDevice.Stop()</c> call happens later, inside <see cref="PlayAsync"/>'s own
-    ///     <c>finally</c> block, as part of the already-in-flight task. So this hook must also
-    ///     await <see cref="IAsyncRelayCommand.ExecutionTask"/> to observe that completion before
-    ///     returning, swallowing the expected <see cref="OperationCanceledException"/> that
-    ///     <see cref="Stop"/>'s cancellation causes.
+    ///     internal token and requests cancellation of <see cref="PlayCommand"/>; the device is
+    ///     actually stopped later, one layer deeper inside the synthesizer's own streaming
+    ///     playback implementation, as part of the already-in-flight task's own cleanup. So this
+    ///     hook must also await <see cref="IAsyncRelayCommand.ExecutionTask"/> to observe that
+    ///     completion before returning, swallowing the expected
+    ///     <see cref="OperationCanceledException"/> that <see cref="Stop"/>'s cancellation causes.
     /// </remarks>
     private async Task StopBeforeDeviceRefreshAsync()
     {

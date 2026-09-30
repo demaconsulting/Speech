@@ -4,7 +4,12 @@ package Speech {
              * exposes real PortAudio-backed defaults when the runtime initializes and otherwise
              * degrades safely to the Unavailable* fallbacks without throwing at composition. The
              * factory also accepts an optional preferred AudioFormat hint for capture/playback
-             * device construction, defaulting to device-native behavior when omitted. */
+             * device construction, defaulting to device-native behavior when omitted.
+             * RefreshDevices() forces the underlying PortAudio device table to be re-scanned on
+             * demand (hot-plug support), refusing with AudioDeviceInUseException while any
+             * created device has an active stream; this method is not safe to call
+             * concurrently with itself or with concurrent CaptureProbe/PlaybackProbe reads
+             * without the caller's own external synchronization. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech/AudioSubsystem/AudioDeviceFactory.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Tests/AudioSubsystem/AudioDeviceFactoryTests.cs */

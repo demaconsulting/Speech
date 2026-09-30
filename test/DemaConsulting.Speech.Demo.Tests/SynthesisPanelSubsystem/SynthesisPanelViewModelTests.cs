@@ -459,6 +459,38 @@ public class SynthesisPanelViewModelTests
     }
 
     /// <summary>
+    ///     Proves that the registered pre-refresh hook is a safe no-op when no Play session is in
+    ///     flight, so a "Refresh devices" click while the panel is idle never calls Stop or awaits
+    ///     anything it doesn't need to.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisPanelViewModel_PreRefreshHook_WhileIdle_IsNoOpAndDeviceRefreshSucceeds()
+    {
+        // Arrange: a panel with no Play session ever started, sharing its own device-selection
+        // panel so Refresh() exercises the real registered hook
+        var descriptor = FakeSpeechModel.Descriptor("tts", SpeechModelState.Downloaded, role: SpeechModelRole.Synthesis);
+        var deviceService = Substitute.For<IAudioDeviceService>();
+        var availableDevice = PlaybackDevice();
+        deviceService.CreatePlaybackDevice(Arg.Any<AudioDeviceSelection?>()).Returns(availableDevice);
+        var synthesizer = Substitute.For<ISpeechSynthesizer>();
+        synthesizer.IsAvailable.Returns(true);
+        var sessionFactory = Substitute.For<ISynthesizerSessionFactory>();
+        sessionFactory.Create(Arg.Any<ISpeechModel>(), Arg.Any<IAudioPlaybackDevice>(), Arg.Any<IReadOnlyDictionary<string, object>>()).Returns(synthesizer);
+        var deviceSelection = DeviceSelection();
+        var viewModel = new SynthesisPanelViewModel(
+            Catalog(descriptor), deviceService, deviceSelection, sessionFactory);
+
+        // Act: refresh the shared device-selection panel while idle, with no Play ever started
+        var exception = await Record.ExceptionAsync(() => deviceSelection.Refresh());
+
+        // Assert: the refresh completes without throwing, Stop is never requested on a
+        // synthesizer that was never even created, and the panel remains idle
+        Assert.Null(exception);
+        synthesizer.DidNotReceive().Stop();
+        Assert.Equal(SynthesisPlaybackState.Idle, viewModel.State);
+    }
+
+    /// <summary>
     ///     Proves that the example tag hints are drawn from the library's closed Natural Language
     ///     Audio Tag vocabulary and include the tags this phase's task explicitly calls out.
     /// </summary>
