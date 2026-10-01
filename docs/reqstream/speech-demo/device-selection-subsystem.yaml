@@ -147,3 +147,18 @@ sections:
               - DeviceSelectionViewModel_Refresh_RegisteredHook_InvokedAndAwaitedBeforeRefreshDevices
               - DeviceSelectionViewModel_Refresh_UnregisteredHook_NotInvoked
               - DeviceSelectionViewModel_Refresh_HookCannotStopInUseDevice_FallsBackToStatusMessage
+
+          - id: SpeechDemo-Devices-RefreshGeneralFaultHandling
+            title: >-
+              The DeviceSelectionSubsystem shall surface any exception raised by a refresh - not
+              only AudioDeviceInUseException - through the existing capture/playback status-text
+              pattern, without clearing or re-enumerating either device list.
+            justification: |
+              PortAudioEnvironment.Refresh() (via AudioDeviceFactory.RefreshDevices(), see the
+              library-level Speech-Audio-AudioDeviceRefresh-RefusesWhileInUse design) can also
+              propagate a general exception - for example, a native Terminate() failure - that
+              is not AudioDeviceInUseException. Treating every refresh fault the same way keeps
+              the UI crash-free and the explanation honest regardless of which failure mode the
+              native runtime reports.
+            tests:
+              - DeviceSelectionViewModel_Refresh_ServiceThrowsGeneralException_SurfacesMessageViaStatusAndDoesNotClearLists

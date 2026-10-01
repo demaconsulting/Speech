@@ -166,6 +166,15 @@ public sealed class AudioDeviceFactory
     ///         itself, never a caller-supplied instance. A caller that injects its own probe owns
     ///         making that probe reflect hardware changes.
     ///     </para>
+    ///     <para>
+    ///         A successful call also advances <see cref="PortAudioEnvironment.Generation"/> on
+    ///         this factory's environment. Any <see cref="IAudioCaptureDevice"/>/
+    ///         <see cref="IAudioPlaybackDevice"/> instance created before that point (via
+    ///         <see cref="CreateCaptureDevice"/>/<see cref="CreatePlaybackDevice"/>) has its own
+    ///         device index invalidated as a result and throws
+    ///         <see cref="AudioDeviceUnavailableException"/> if <c>Start</c> is later called on
+    ///         it; such an instance must be discarded and a replacement created afterward.
+    ///     </para>
     /// </remarks>
     /// <exception cref="AudioDeviceInUseException">
     ///     Thrown when any capture/playback device created from this factory's environment

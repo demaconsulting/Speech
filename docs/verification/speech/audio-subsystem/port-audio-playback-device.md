@@ -19,9 +19,12 @@ formats are honored when within device capability, excessive preferred channel c
 clamped, omitted preferences fall back to the device default, the reported channel count and
 sample rate match the requested open format (or are zero when nothing was resolved),
 `PendingSampleCount` honestly tracks how many written samples the callback has genuinely
-dequeued, a preferred sample rate the host API confirms it can open is honored, and a preferred
+dequeued, a preferred sample rate the host API confirms it can open is honored, a preferred
 sample rate the host API cannot open falls back to the device's default sample rate with an
-Info-level diagnostic.
+Info-level diagnostic, a native `Dispose()` fault during start-failure cleanup still releases the
+active-stream registration and reports the original start failure rather than the dispose
+failure, and a device whose environment was refreshed after construction refuses to start with
+`AudioDeviceUnavailableException` while a device resolved after the refresh starts normally.
 
 #### Test Scenarios
 
@@ -96,3 +99,15 @@ Info-level diagnostic.
 ##### Stop: Unregisters the Active Stream, Refresh Succeeds After Stop
 
 **Test**: `PortAudioPlaybackDevice_Stop_UnregistersActiveStream_RefreshSucceedsAfterStop`
+
+##### Start: Dispose Throws During Start-Failure Cleanup, Still Unregisters and Throws Original Failure
+
+**Test**: `PortAudioPlaybackDevice_Start_DisposeThrowsDuringStartFailureCleanup_UnregistersActiveStreamAndThrowsOriginalStartFailure`
+
+##### Start: Environment Refreshed After Construction Throws AudioDeviceUnavailableException
+
+**Test**: `PortAudioPlaybackDevice_Start_EnvironmentRefreshedAfterConstruction_ThrowsAudioDeviceUnavailableException`
+
+##### Start: Constructed After Refresh Starts Normally
+
+**Test**: `PortAudioPlaybackDevice_Start_ConstructedAfterRefresh_StartsNormally`

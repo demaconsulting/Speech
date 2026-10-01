@@ -349,6 +349,53 @@ public class PortAudioCaptureDeviceTests
     }
 
     /// <summary>
+    ///     Proves that a capture device resolved before a device-table refresh refuses to start
+    ///     afterward, because its cached device index may no longer be valid.
+    /// </summary>
+    [Fact]
+    public void PortAudioCaptureDevice_Start_EnvironmentRefreshedAfterConstruction_ThrowsAudioDeviceUnavailableException()
+    {
+        // Arrange: a device resolved before the environment is refreshed
+        var api = new FakePortAudioApi([new PortAudioDeviceInfo("Mic", 5, 1, 0, 16000, 0.01, 0.0)])
+        {
+            FindHostApiIndexResult = 5,
+            HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, 0, -1)
+        };
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+        var device = new PortAudioCaptureDevice(environment);
+
+        // Act: refresh the environment after the device was resolved
+        environment.Refresh();
+
+        // Assert: starting the now-stale device throws, and the stream was never registered active
+        var exception = Assert.Throws<AudioDeviceUnavailableException>(device.Start);
+        Assert.Contains("Mic", exception.Message, StringComparison.Ordinal);
+        Assert.Null(Record.Exception(environment.Refresh));
+    }
+
+    /// <summary>
+    ///     Proves that a capture device resolved after a device-table refresh starts normally,
+    ///     because its captured generation matches the environment's current generation.
+    /// </summary>
+    [Fact]
+    public void PortAudioCaptureDevice_Start_ConstructedAfterRefresh_StartsNormally()
+    {
+        // Arrange: refresh the environment first, then resolve the device afterward
+        var api = new FakePortAudioApi([new PortAudioDeviceInfo("Mic", 5, 1, 0, 16000, 0.01, 0.0)])
+        {
+            FindHostApiIndexResult = 5,
+            HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, 0, -1)
+        };
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+        environment.Refresh();
+        var device = new PortAudioCaptureDevice(environment);
+
+        // Act / Assert: starting the freshly-resolved device does not throw
+        var exception = Record.Exception(device.Start);
+        Assert.Null(exception);
+    }
+
+    /// <summary>
     ///     Minimal fake PortAudio seam used by the capture-device tests.
     /// </summary>
     private sealed class FakePortAudioApi(IReadOnlyList<PortAudioDeviceInfo> devices) : IPortAudioApi

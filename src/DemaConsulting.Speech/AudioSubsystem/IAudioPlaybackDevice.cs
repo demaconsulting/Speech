@@ -66,7 +66,11 @@ public interface IAudioPlaybackDevice
     /// <exception cref="AudioDeviceUnavailableException">
     ///     Thrown when <see cref="IsAvailable"/> is <see langword="false"/>, or when the device
     ///     reported itself as available but the underlying native playback stream later failed to
-    ///     open or start.
+    ///     open or start. PortAudio-backed implementations also throw this when the device was
+    ///     resolved before a device-table refresh (for example a
+    ///     <c>AudioDeviceFactory.RefreshDevices()</c> call) completed afterward: the cached
+    ///     device may no longer refer to the same physical device, so a caller must create a new
+    ///     instance rather than start the stale one.
     /// </exception>
     void Start();
 

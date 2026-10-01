@@ -13,6 +13,17 @@ namespace DemaConsulting.Speech.AudioSubsystem;
 ///     resolved for the current selection or host-API default, the instance honestly reports
 ///     <see cref="IsAvailable"/> as <see langword="false"/> and operational members throw
 ///     <see cref="AudioDeviceUnavailableException"/> only when invoked.
+///     <para>
+///         <b>Device-table refresh</b>: this instance resolves and caches one device's metadata
+///         at construction time and never re-resolves it. If
+///         <see cref="PortAudioEnvironment.Refresh"/> completes after this instance was
+///         constructed, the cached device index may no longer refer to the same physical device
+///         (or may no longer be valid at all), so <see cref="Start"/> detects the environment's
+///         advanced <see cref="PortAudioEnvironment.Generation"/> and throws
+///         <see cref="AudioDeviceUnavailableException"/> rather than opening a stream against
+///         possibly-stale device-table data. A caller that needs to keep capturing across a
+///         refresh must create a new instance via <see cref="AudioDeviceFactory"/> afterward.
+///     </para>
 /// </remarks>
 internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
 {
@@ -137,6 +148,14 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
             if (_stream is not null)
             {
                 return;
+            }
+
+            if (_resolvedDevice.Generation != _environment.Generation)
+            {
+                throw new AudioDeviceUnavailableException(
+                    $"Cannot start capture on '{_resolvedDevice.Name}': the PortAudio device " +
+                    "table was refreshed after this device was created; create a new device via " +
+                    "AudioDeviceFactory instead.");
             }
 
             _environment.RegisterActiveStream(this, _resolvedDevice.Name);
@@ -329,7 +348,8 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
             selectedDeviceIndex,
             selectedDeviceInfo.Name,
             resolvedChannelCount,
-            ResolveSampleRate(selectedDeviceIndex, resolvedChannelCount, selectedDeviceInfo));
+            ResolveSampleRate(selectedDeviceIndex, resolvedChannelCount, selectedDeviceInfo),
+            _environment.Generation);
 
         var resolutionBasis = string.Equals(resolvedDevice.Name, _selection.DeviceName, StringComparison.Ordinal)
             ? "selection"
@@ -470,5 +490,16 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
     /// <param name="Name">The PortAudio-reported device name.</param>
     /// <param name="ChannelCount">The capture channel count to request.</param>
     /// <param name="SampleRate">The capture sample rate to request.</param>
-    private sealed record ResolvedCaptureDevice(int DeviceIndex, string Name, int ChannelCount, int SampleRate);
+    /// <param name="Generation">
+    ///     The <see cref="PortAudioEnvironment.Generation"/> observed at the moment this device
+    ///     was resolved, captured so <see cref="Start"/> can detect a later
+    ///     <see cref="PortAudioEnvironment.Refresh"/> that may have invalidated
+    ///     <paramref name="DeviceIndex"/>.
+    /// </param>
+    private sealed record ResolvedCaptureDevice(
+        int DeviceIndex,
+        string Name,
+        int ChannelCount,
+        int SampleRate,
+        long Generation);
 }

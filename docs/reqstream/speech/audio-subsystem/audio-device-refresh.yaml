@@ -69,6 +69,27 @@ sections:
                 tests:
                   - AudioDeviceFactory_RefreshDevices_ExplicitlyInjectedProbe_IsNotReplaced
 
+              - id: Speech-Audio-AudioDeviceRefresh-InvalidatesPreRefreshInstances
+                title: >-
+                  A completed device-table refresh shall invalidate every capture/playback device
+                  instance created before it, causing Start() on such an instance to throw
+                  AudioDeviceUnavailableException rather than open a stream against possibly
+                  reused or invalid device-table data.
+                justification: |
+                  PortAudio device indices are runtime-assigned and can be reused for a different
+                  physical device (or become invalid entirely) once the device table is
+                  re-scanned. Without this guard, a pre-refresh instance's cached device index
+                  could silently resolve to the wrong hardware after a hot-plug-driven refresh,
+                  rather than failing safely and directing the caller to create a fresh instance
+                  via AudioDeviceFactory.
+                tests:
+                  - PortAudioEnvironment_Refresh_NoActiveStreams_IncrementsGeneration
+                  - PortAudioEnvironment_Refresh_ActiveStreamRegistered_DoesNotIncrementGeneration
+                  - PortAudioCaptureDevice_Start_EnvironmentRefreshedAfterConstruction_ThrowsAudioDeviceUnavailableException
+                  - PortAudioCaptureDevice_Start_ConstructedAfterRefresh_StartsNormally
+                  - PortAudioPlaybackDevice_Start_EnvironmentRefreshedAfterConstruction_ThrowsAudioDeviceUnavailableException
+                  - PortAudioPlaybackDevice_Start_ConstructedAfterRefresh_StartsNormally
+
           - title: AudioDeviceInUseException Requirements
             requirements:
               - id: Speech-Audio-AudioDeviceInUseException-Constructors

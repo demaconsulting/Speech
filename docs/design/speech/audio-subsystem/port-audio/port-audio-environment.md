@@ -3,11 +3,13 @@
 
 **Purpose**: Cache PortAudio initialization state and apply the library's preferred-host policy.
 
-**Data Model**: Holds an `IPortAudioApi` instance, the current `OSPlatform`, a `volatile` lazy
-cached initialization result containing `IsInitialized` and `InitializationFailureMessage` that
-is reassigned (rather than mutated) by `Refresh`, an internal `object` sync root, and an
-active-stream registry (a dictionary keyed by owning device instance, valued by resolved device
-name) that `Refresh` consults before tearing down the native runtime.
+**Data Model**: Holds an `IPortAudioApi` instance, the current `OSPlatform`, a lazy cached
+initialization result containing `IsInitialized` and `InitializationFailureMessage` that is
+reassigned (rather than mutated) by `Refresh` and always read under the sync root, an internal
+`object` sync root, an active-stream registry (a dictionary keyed by owning device instance,
+valued by resolved device name) that `Refresh` consults before tearing down the native runtime,
+and a `Generation` counter (`internal long`, read under the sync root) that `Refresh` advances by
+exactly one every time it actually reinitializes the runtime.
 
 **Key Methods**:
 
@@ -21,10 +23,17 @@ name) that `Refresh` consults before tearing down the native runtime.
   identity, so a concurrent or later `Refresh` call knows whether it is safe to tear down the
   native runtime.
 - **Refresh()**: Under the sync root, throws `AudioDeviceInUseException` naming the distinct
-  in-use device(s) when the active-stream registry is non-empty, touching neither the runtime nor
-  the cached initialization state; otherwise calls `IPortAudioApi.Terminate()` only when the
-  runtime had previously initialized successfully, then always reassigns the cached
-  initialization state to a new lazy value so the next access re-attempts initialization.
+  in-use device(s) when the active-stream registry is non-empty, touching neither the runtime,
+  the cached initialization state, nor `Generation`; otherwise calls `IPortAudioApi.Terminate()`
+  only when the runtime had previously initialized successfully, reassigns the cached
+  initialization state to a new lazy value so the next access re-attempts initialization, and
+  then increments `Generation` - all inside the same lock, so a refresh that proceeds always
+  advances `Generation` exactly once and one that is refused never does.
+- **IsInitialized** / **InitializationFailureMessage** / **Generation**: Each acquires the sync
+  root before reading the underlying cached state, so a first (lazy) evaluation of the cached
+  initialization result can never race a concurrent `Refresh()` call into an inconsistent outcome
+  or an unbalanced `Initialize()`/`Terminate()` pair; every evaluation of the cached state is
+  fully serialized with every `Refresh()` call under the one lock.
 - **Shared**: Production singleton using the real `PortAudioApi` adapter.
 
 **Error Handling**: Converts initialization failure into cached state instead of propagating the
@@ -37,4 +46,5 @@ stream.
 `AudioDeviceInUseException`.
 
 **Callers**: `AudioDeviceFactory`, `PortAudioCaptureDeviceProbe`, `PortAudioPlaybackDeviceProbe`,
-`PortAudioCaptureDevice`, and `PortAudioPlaybackDevice`.
+`PortAudioCaptureDevice`, and `PortAudioPlaybackDevice` (the latter two also read `Generation` at
+device-resolution time so `Start()` can detect a later refresh).

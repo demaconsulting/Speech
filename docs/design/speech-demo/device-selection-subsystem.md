@@ -69,7 +69,11 @@ still in use despite every hook having run — the rare case a hook could not pr
 was registered for whatever is holding the device), `CaptureStatus` and `PlaybackStatus` are both
 set to the exception's message and `RefreshCore()` returns immediately, leaving both lists and
 selections untouched - a crash-free, honest degrade rather than a re-enumeration that could not
-have found anything new anyway. Otherwise it captures the currently chosen device *name* in each
+have found anything new anyway. Any other exception the backend raises (for example, a native
+`Terminate()` failure during `PortAudioEnvironment.Refresh()`) is handled identically: both
+status properties are set to that exception's message and `RefreshCore()` returns immediately
+with both lists and selections untouched, so a general refresh fault degrades the same way as the
+in-use case rather than escaping and crashing the UI. Otherwise it captures the currently chosen device *name* in each
 direction,
 re-enumerates both lists in place, and then restores the selection:
 

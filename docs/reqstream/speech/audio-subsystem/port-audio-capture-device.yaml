@@ -115,3 +115,18 @@ sections:
                 tests:
                   - PortAudioCaptureDevice_Start_RegistersActiveStreamWithEnvironment_RefreshThrowsWhileStarted
                   - PortAudioCaptureDevice_Stop_UnregistersActiveStream_RefreshSucceedsAfterStop
+
+              - id: Speech-Audio-PortAudioCaptureDevice-StaleAfterRefreshThrows
+                title: >-
+                  The PortAudioCaptureDevice class shall throw AudioDeviceUnavailableException
+                  from Start when the PortAudioEnvironment it was resolved against has completed
+                  a device-table refresh since this instance was constructed.
+                justification: |
+                  See Speech-Audio-AudioDeviceRefresh-InvalidatesPreRefreshInstances: a device
+                  resolved before a refresh caches a device index that the refresh may have
+                  invalidated (reused for a different physical device, or removed entirely), so
+                  starting it afterward without this check risks opening a stream against the
+                  wrong hardware rather than failing safely.
+                tests:
+                  - PortAudioCaptureDevice_Start_EnvironmentRefreshedAfterConstruction_ThrowsAudioDeviceUnavailableException
+                  - PortAudioCaptureDevice_Start_ConstructedAfterRefresh_StartsNormally

@@ -341,6 +341,33 @@ public class DeviceSelectionViewModelTests
     }
 
     /// <summary>
+    ///     Proves that when the service throws any other exception during a refresh (not only
+    ///     <see cref="AudioDeviceInUseException"/>), the exception's message is surfaced through
+    ///     the same status-text pattern and neither device list nor selection is disturbed,
+    ///     rather than crashing the UI.
+    /// </summary>
+    [Fact]
+    public async Task DeviceSelectionViewModel_Refresh_ServiceThrowsGeneralException_SurfacesMessageViaStatusAndDoesNotClearLists()
+    {
+        // Arrange: a panel already populated, then a service that faults with a general exception
+        var service = Service([MicA, MicB], [Speaker]);
+        var viewModel = new DeviceSelectionViewModel(service);
+        const string faultMessage = "Native PortAudio Terminate() failed.";
+        service.When(s => s.RefreshDevices()).Do(_ => throw new InvalidOperationException(faultMessage));
+
+        // Act: attempt a refresh that the backend faults during
+        var exception = await Record.ExceptionAsync(() => viewModel.Refresh());
+
+        // Assert: the fault does not escape as an unhandled exception, the message is surfaced
+        // via both status properties, and the existing lists/selection are left untouched
+        Assert.Null(exception);
+        Assert.Equal(faultMessage, viewModel.CaptureStatus);
+        Assert.Equal(faultMessage, viewModel.PlaybackStatus);
+        Assert.Equal([MicA, MicB], viewModel.CaptureDevices);
+        Assert.Same(MicA, viewModel.SelectedCaptureDevice);
+    }
+
+    /// <summary>
     ///     Proves that <see cref="DeviceSelectionViewModel.Refresh"/> genuinely invokes and awaits
     ///     a registered pre-refresh hook to completion before calling
     ///     <see cref="IAudioDeviceService.RefreshDevices"/>, rather than firing the hook without

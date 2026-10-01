@@ -13,6 +13,18 @@ namespace DemaConsulting.Speech.AudioSubsystem;
 ///     resolved for the current selection or host-API default, the instance honestly reports
 ///     <see cref="IsAvailable"/> as <see langword="false"/> and operational members throw
 ///     <see cref="AudioDeviceUnavailableException"/> only when invoked.
+///     <para>
+///         <b>Device-table refresh</b>: this instance resolves and caches one device's metadata
+///         at construction time and never re-resolves it. If
+///         <see cref="PortAudioEnvironment.Refresh"/> completes after this instance was
+///         constructed, the cached device index may no longer refer to the same physical device
+///         (or may no longer be valid at all), so <see cref="Start"/> detects the environment's
+///         advanced <see cref="PortAudioEnvironment.Generation"/> and throws
+///         <see cref="AudioDeviceUnavailableException"/> rather than opening a stream against
+///         possibly-stale device-table data. A caller that needs to keep playing back audio
+///         across a refresh must create a new instance via <see cref="AudioDeviceFactory"/>
+///         afterward.
+///     </para>
 /// </remarks>
 internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
 {
@@ -181,6 +193,14 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
                 return;
             }
 
+            if (_resolvedDevice.Generation != _environment.Generation)
+            {
+                throw new AudioDeviceUnavailableException(
+                    $"Cannot start playback on '{_resolvedDevice.Name}': the PortAudio device " +
+                    "table was refreshed after this device was created; create a new device via " +
+                    "AudioDeviceFactory instead.");
+            }
+
             _environment.RegisterActiveStream(this, _resolvedDevice.Name);
 
             try
@@ -201,9 +221,27 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
             {
                 // Intentionally broad: starting the managed/native audio stream is an interop
                 // resilience boundary, so any seam fault must degrade to unavailability.
-                _stream?.Dispose();
-                _stream = null;
-                _environment.UnregisterActiveStream(this);
+                try
+                {
+                    _stream?.Dispose();
+                }
+                catch (Exception disposeEx)
+                {
+                    // Intentionally broad and contained: a disposal fault during start-failure
+                    // cleanup must never replace the original start failure below, nor escape
+                    // and leave the stream field unset.
+                    _diagnostics.Report(
+                        SpeechDiagnosticLevel.Error,
+                        DiagnosticsCategory,
+                        $"Failed to dispose PortAudio playback stream on '{_resolvedDevice.Name}' " +
+                        $"after a start failure: {disposeEx.Message}");
+                }
+                finally
+                {
+                    _stream = null;
+                    _environment.UnregisterActiveStream(this);
+                }
+
                 _diagnostics.Report(
                     SpeechDiagnosticLevel.Error,
                     DiagnosticsCategory,
@@ -405,7 +443,8 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
             selectedDeviceIndex,
             selectedDeviceInfo.Name,
             resolvedChannelCount,
-            ResolveSampleRate(selectedDeviceIndex, resolvedChannelCount, selectedDeviceInfo));
+            ResolveSampleRate(selectedDeviceIndex, resolvedChannelCount, selectedDeviceInfo),
+            _environment.Generation);
 
         var resolutionBasis = string.Equals(resolvedDevice.Name, _selection.DeviceName, StringComparison.Ordinal)
             ? "selection"
@@ -604,5 +643,16 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
     /// <param name="Name">The PortAudio-reported device name.</param>
     /// <param name="ChannelCount">The playback channel count to request.</param>
     /// <param name="SampleRate">The playback sample rate to request.</param>
-    private sealed record ResolvedPlaybackDevice(int DeviceIndex, string Name, int ChannelCount, int SampleRate);
+    /// <param name="Generation">
+    ///     The <see cref="PortAudioEnvironment.Generation"/> observed at the moment this device
+    ///     was resolved, captured so <see cref="Start"/> can detect a later
+    ///     <see cref="PortAudioEnvironment.Refresh"/> that may have invalidated
+    ///     <paramref name="DeviceIndex"/>.
+    /// </param>
+    private sealed record ResolvedPlaybackDevice(
+        int DeviceIndex,
+        string Name,
+        int ChannelCount,
+        int SampleRate,
+        long Generation);
 }

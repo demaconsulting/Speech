@@ -44,7 +44,14 @@ reported through diagnostics and represented by unavailable fallback return valu
 `RefreshDevices()` is the one deliberate exception to this "never throws" policy: it propagates
 `AudioDeviceInUseException` from `PortAudioEnvironment.Refresh()` untouched when any capture or
 playback device created from this factory's environment currently has an open/started stream, and
-in that case neither the environment nor this factory's probes are modified.
+in that case neither the environment nor this factory's probes are modified. A successful call
+also advances `PortAudioEnvironment.Generation`, which invalidates every capture/playback device
+instance created before it: such an instance's cached device index may no longer be valid, so its
+`Start()` throws `AudioDeviceUnavailableException` afterward rather than opening a stream against
+possibly-stale device-table data (see `PortAudioCaptureDevice`/`PortAudioPlaybackDevice` and
+`PortAudioEnvironment`'s `Generation` field for the full mechanism). A caller that needs to keep
+operating a device across a refresh must create a replacement via `CreateCaptureDevice`/
+`CreatePlaybackDevice` afterward.
 
 **Dependencies**: `AudioFormat`, `PortAudioEnvironment`, `PortAudioCaptureDeviceProbe`,
 `PortAudioPlaybackDeviceProbe`, `PortAudioCaptureDevice`, `PortAudioPlaybackDevice`, the

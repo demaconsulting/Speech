@@ -308,6 +308,92 @@ public class PortAudioEnvironmentTests
     }
 
     /// <summary>
+    ///     Proves that each refresh that actually proceeds (rather than being refused) advances
+    ///     <see cref="PortAudioEnvironment.Generation"/> by exactly one, so devices resolved
+    ///     before it can detect staleness.
+    /// </summary>
+    [Fact]
+    public void PortAudioEnvironment_Refresh_NoActiveStreams_IncrementsGeneration()
+    {
+        // Arrange: a freshly constructed environment starting at generation zero
+        var api = new FakePortAudioApi();
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+        Assert.Equal(0, environment.Generation);
+
+        // Act: refresh twice with no active streams
+        environment.Refresh();
+        var afterFirst = environment.Generation;
+        environment.Refresh();
+        var afterSecond = environment.Generation;
+
+        // Assert: each completed refresh advances the generation by exactly one
+        Assert.Equal(1, afterFirst);
+        Assert.Equal(2, afterSecond);
+    }
+
+    /// <summary>
+    ///     Proves that a refresh refused because an active stream is registered does not advance
+    ///     <see cref="PortAudioEnvironment.Generation"/>, since no device-table change actually
+    ///     occurred.
+    /// </summary>
+    [Fact]
+    public void PortAudioEnvironment_Refresh_ActiveStreamRegistered_DoesNotIncrementGeneration()
+    {
+        // Arrange: an initialized environment with one registered active stream
+        var api = new FakePortAudioApi();
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+        var owner = new object();
+        environment.RegisterActiveStream(owner, "Mic");
+        var generationBefore = environment.Generation;
+
+        // Act: attempt a refresh that is refused
+        Assert.Throws<AudioDeviceInUseException>(environment.Refresh);
+
+        // Assert: the generation counter is unchanged because the refresh never proceeded
+        Assert.Equal(generationBefore, environment.Generation);
+    }
+
+    /// <summary>
+    ///     Proves that a concurrent first evaluation of the cached initialization state and a
+    ///     concurrent <see cref="PortAudioEnvironment.Refresh"/> call are fully serialized by the
+    ///     shared lock, rather than racing into an unbalanced pair of native
+    ///     <see cref="IPortAudioApi.Initialize"/>/<see cref="IPortAudioApi.Terminate"/> calls.
+    /// </summary>
+    [Fact]
+    public async Task PortAudioEnvironment_IsInitialized_ConcurrentWithRefresh_SerializesAndPreservesInitializeTerminateBalance()
+    {
+        // Arrange: an environment whose native Initialize() call blocks until released, so a
+        // concurrent Refresh() call can be reliably interleaved with the first evaluation
+        using var startedSignal = new ManualResetEventSlim(false);
+        using var releaseGate = new ManualResetEventSlim(false);
+        var api = new FakePortAudioApi
+        {
+            InitializeStartedSignal = startedSignal,
+            InitializeReleaseGate = releaseGate
+        };
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+        var cancellationToken = TestContext.Current.CancellationToken;
+
+        // Act: start the first IsInitialized evaluation on a background thread, wait until it has
+        // genuinely entered Initialize(), then start a concurrent Refresh() and release the gate
+        var firstEvaluation = Task.Run(() => environment.IsInitialized, cancellationToken);
+        Assert.True(
+            startedSignal.Wait(TimeSpan.FromSeconds(5), cancellationToken),
+            "The first IsInitialized evaluation never entered Initialize() within the timeout.");
+        var refreshTask = Task.Run(environment.Refresh, cancellationToken);
+        releaseGate.Set();
+        await Task.WhenAll(firstEvaluation, refreshTask).WaitAsync(TimeSpan.FromSeconds(5), cancellationToken);
+
+        // Force one more evaluation so the post-refresh Lazy is evaluated too
+        _ = environment.IsInitialized;
+
+        // Assert: exactly one Initialize()/Terminate() pair ran for the first evaluation, plus one
+        // more Initialize() for the post-refresh re-initialization - never an unbalanced count
+        Assert.Equal(2, api.InitializeCallCount);
+        Assert.Equal(1, api.TerminateCallCount);
+    }
+
+    /// <summary>
     ///     Minimal fake implementation of <see cref="IPortAudioApi"/> used by these unit tests.
     /// </summary>
     private sealed class FakePortAudioApi : IPortAudioApi
@@ -316,6 +402,20 @@ public class PortAudioEnvironmentTests
         ///     Gets or sets the exception to throw when <see cref="Initialize"/> is called.
         /// </summary>
         internal Exception? InitializeException { get; set; }
+
+        /// <summary>
+        ///     Gets or sets a signal that <see cref="Initialize"/> sets once it has been entered,
+        ///     before waiting on <see cref="InitializeReleaseGate"/>, so a test can prove a
+        ///     concurrent evaluation has genuinely started before proceeding.
+        /// </summary>
+        internal ManualResetEventSlim? InitializeStartedSignal { get; set; }
+
+        /// <summary>
+        ///     Gets or sets a gate that <see cref="Initialize"/> waits on (after signaling
+        ///     <see cref="InitializeStartedSignal"/>) before continuing, so a test can hold one
+        ///     evaluation open while starting a concurrent operation.
+        /// </summary>
+        internal ManualResetEventSlim? InitializeReleaseGate { get; set; }
 
         /// <summary>
         ///     Gets or sets the exception to throw when <see cref="Terminate"/> is called.
@@ -353,6 +453,9 @@ public class PortAudioEnvironmentTests
         public void Initialize()
         {
             InitializeCallCount++;
+
+            InitializeStartedSignal?.Set();
+            InitializeReleaseGate?.Wait();
 
             if (InitializeException is not null)
             {

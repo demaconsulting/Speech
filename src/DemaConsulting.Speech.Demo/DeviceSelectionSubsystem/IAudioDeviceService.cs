@@ -83,5 +83,14 @@ public interface IAudioDeviceService
     ///     Thrown when any capture/playback device created through this service currently has an
     ///     open/started stream. The caller can stop the reported device(s) and retry.
     /// </exception>
+    /// <exception cref="Exception">
+    ///     Real (non-fake) implementations may also propagate other exceptions raised while
+    ///     tearing down or reinitializing the underlying native PortAudio runtime (for example, a
+    ///     failure terminating the native library before it is re-initialized). Such failures are
+    ///     not modeled as a dedicated exception type; callers should treat any exception other
+    ///     than <see cref="AudioDeviceInUseException"/> from this method as an unexpected,
+    ///     non-recoverable refresh fault and surface its message rather than assume a specific
+    ///     failure mode.
+    /// </exception>
     void RefreshDevices();
 }

@@ -12,7 +12,13 @@ namespace DemaConsulting.Speech.AudioSubsystem.PortAudio;
 ///     Production code uses a shared instance backed by the real PortAudio runtime wrapper. The
 ///     cached initialization result is re-created on demand by <see cref="Refresh"/>, which also
 ///     tracks currently active (started) streams via <see cref="RegisterActiveStream"/>/
-///     <see cref="UnregisterActiveStream"/> so a refresh can refuse to tear down a live stream.
+///     <see cref="UnregisterActiveStream"/> so a refresh can refuse to tear down a live stream,
+///     and increments <see cref="Generation"/> once per completed refresh so capture/playback
+///     devices created before it can detect that their cached device index may no longer be
+///     valid. Every read and write of the cached initialization state is serialized under this
+///     environment's internal lock, so a first-ever evaluation in flight on one thread can never
+///     race a concurrent <see cref="Refresh"/> into an unbalanced pair of native
+///     <see cref="IPortAudioApi.Initialize"/>/<see cref="IPortAudioApi.Terminate"/> calls.
 /// </remarks>
 internal sealed class PortAudioEnvironment
 {
@@ -56,12 +62,23 @@ internal sealed class PortAudioEnvironment
     private readonly IPortAudioApi _api;
 
     /// <summary>
-    ///     The cached initialization result, re-created by <see cref="Refresh"/>. Reads and writes
-    ///     are guarded by <see cref="_syncRoot"/> for writes; volatile so unsynchronized readers
-    ///     (<see cref="IsInitialized"/>, <see cref="InitializationFailureMessage"/>,
-    ///     <see cref="TryResolvePreferredHostApi"/>) observe a reassigned instance promptly.
+    ///     The cached initialization result, re-created by <see cref="Refresh"/>. Every read and
+    ///     every write is guarded by <see cref="_syncRoot"/>: evaluating a first-ever access to
+    ///     the cached <see cref="Lazy{T}"/>'s <c>Value</c> (which calls <see cref="Initialize"/>)
+    ///     must be serialized against <see cref="Refresh"/> reassigning this field, otherwise a
+    ///     first evaluation already in flight on another thread and a concurrent
+    ///     <see cref="Refresh"/> can race into an unbalanced pair of native
+    ///     <see cref="IPortAudioApi.Initialize"/>/<see cref="IPortAudioApi.Terminate"/> calls.
     /// </summary>
-    private volatile Lazy<PortAudioInitializationState> _initializationState;
+    private Lazy<PortAudioInitializationState> _initializationState;
+
+    /// <summary>
+    ///     The generation counter incremented under <see cref="_syncRoot"/> each time
+    ///     <see cref="Refresh"/> completes and replaces <see cref="_initializationState"/>, so
+    ///     capture/playback devices created before a refresh can detect that their cached device
+    ///     index may no longer be valid. Guarded by <see cref="_syncRoot"/>.
+    /// </summary>
+    private long _generation;
 
     /// <summary>
     ///     Gets the current operating-system platform associated with this environment.
@@ -76,13 +93,49 @@ internal sealed class PortAudioEnvironment
     /// <summary>
     ///     Gets a value indicating whether the PortAudio runtime initialized successfully.
     /// </summary>
-    internal bool IsInitialized => _initializationState.Value.IsInitialized;
+    internal bool IsInitialized
+    {
+        get
+        {
+            lock (_syncRoot)
+            {
+                return _initializationState.Value.IsInitialized;
+            }
+        }
+    }
 
     /// <summary>
     ///     Gets the initialization-failure message when <see cref="IsInitialized"/> is
     ///     <see langword="false"/>; otherwise, <see langword="null"/>.
     /// </summary>
-    internal string? InitializationFailureMessage => _initializationState.Value.FailureMessage;
+    internal string? InitializationFailureMessage
+    {
+        get
+        {
+            lock (_syncRoot)
+            {
+                return _initializationState.Value.FailureMessage;
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Gets the current device-table generation, incremented each time <see cref="Refresh"/>
+    ///     completes and replaces the cached initialization state. Capture/playback devices
+    ///     capture this value when they resolve their device at construction time, and compare it
+    ///     again in <c>Start()</c> to detect that a refresh has since invalidated their cached
+    ///     device index.
+    /// </summary>
+    internal long Generation
+    {
+        get
+        {
+            lock (_syncRoot)
+            {
+                return _generation;
+            }
+        }
+    }
 
     /// <summary>
     ///     Resolves the single preferred PortAudio host API for one platform.
@@ -209,6 +262,13 @@ internal sealed class PortAudioEnvironment
     ///         down - a narrow, expected-to-be-rare edge case that this method intentionally does
     ///         not attempt to paper over with speculative recovery logic.
     ///     </para>
+    ///     <para>
+    ///         Every completed (non-refused) call increments <see cref="Generation"/> by exactly
+    ///         one under the same lock, so a capture/playback device created before this call can
+    ///         detect, in its own <c>Start()</c>, that its cached device index may no longer refer
+    ///         to the same physical device and should be re-created via <see cref="AudioDeviceFactory"/>
+    ///         instead of opened as-is.
+    ///     </para>
     /// </remarks>
     /// <exception cref="AudioDeviceInUseException">
     ///     Thrown when any capture/playback device created from this environment currently has an
@@ -240,6 +300,7 @@ internal sealed class PortAudioEnvironment
             }
 
             _initializationState = new Lazy<PortAudioInitializationState>(Initialize, true);
+            _generation++;
         }
     }
 

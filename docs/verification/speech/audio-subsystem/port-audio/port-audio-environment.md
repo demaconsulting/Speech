@@ -14,7 +14,11 @@ implementations and through singleton access tests for the shared production env
 ##### Acceptance Criteria
 
 Tests pass when supported-platform mappings are correct, unsupported platforms return `null`,
-initialization failure is cached, and preferred-host metadata resolves when the host API exists.
+initialization failure is cached, preferred-host metadata resolves when the host API exists, a
+refresh that actually proceeds advances the `Generation` counter by exactly one while a refresh
+refused as in-use leaves it unchanged, and a concurrent first evaluation of the cached
+initialization state and a concurrent `Refresh()` call are fully serialized rather than producing
+an unbalanced `Initialize()`/`Terminate()` pair.
 
 ##### Test Scenarios
 
@@ -56,3 +60,15 @@ initialization failure is cached, and preferred-host metadata resolves when the 
 ##### Refresh: Succeeds Once a Registered Stream Is Unregistered
 
 **Test**: `PortAudioEnvironment_RegisterThenUnregisterActiveStream_Refresh_Succeeds`
+
+##### Refresh: No Active Streams Increments Generation
+
+**Test**: `PortAudioEnvironment_Refresh_NoActiveStreams_IncrementsGeneration`
+
+##### Refresh: Refused Refresh Does Not Increment Generation
+
+**Test**: `PortAudioEnvironment_Refresh_ActiveStreamRegistered_DoesNotIncrementGeneration`
+
+##### IsInitialized: Concurrent Evaluation With Refresh Serializes and Preserves Initialize/Terminate Balance
+
+**Test**: `PortAudioEnvironment_IsInitialized_ConcurrentWithRefresh_SerializesAndPreservesInitializeTerminateBalance`

@@ -216,6 +216,13 @@ public sealed partial class DeviceSelectionViewModel : ObservableObject
     ///     that is refused because a device is currently in use, both lists and selections are
     ///     left untouched and the refusal's message is surfaced through the existing status-text
     ///     pattern instead of re-enumerating or crashing.
+    ///     <para>
+    ///         Any other exception raised by <see cref="IAudioDeviceService.RefreshDevices"/> (for
+    ///         example, a native PortAudio teardown/reinitialization failure) is handled the same
+    ///         way: both lists and selections are left untouched and the exception's message is
+    ///         surfaced through the same status-text pattern instead of propagating and crashing
+    ///         the UI.
+    ///     </para>
     /// </remarks>
     private void RefreshCore()
     {
@@ -224,6 +231,12 @@ public sealed partial class DeviceSelectionViewModel : ObservableObject
             _deviceService.RefreshDevices();
         }
         catch (AudioDeviceInUseException ex)
+        {
+            CaptureStatus = ex.Message;
+            PlaybackStatus = ex.Message;
+            return;
+        }
+        catch (Exception ex)
         {
             CaptureStatus = ex.Message;
             PlaybackStatus = ex.Message;

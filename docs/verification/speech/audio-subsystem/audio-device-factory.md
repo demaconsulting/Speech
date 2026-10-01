@@ -19,7 +19,13 @@ initialization succeeds, injected probes are exposed exactly as supplied, option
 formats are forwarded to the concrete devices, omitting the preference preserves device-native
 format behavior, initialization failure degrades to the unavailable probes/devices, and device
 creation is genuinely resolved consistently with whichever probe was injected (not silently
-ignored in favor of an independent real-environment scan).
+ignored in favor of an independent real-environment scan). The `RefreshDevices()` staleness
+contract for devices resolved before a successful refresh is verified directly against
+`PortAudioEnvironment.Generation` and the capture/playback devices' own `Start()` behavior in
+`PortAudioEnvironmentTests.cs`, `PortAudioCaptureDeviceTests.cs`, and
+`PortAudioPlaybackDeviceTests.cs` (see `port-audio-environment.md`,
+`port-audio-capture-device.md`, and `port-audio-playback-device.md`), rather than being
+independently re-verified here.
 
 #### Test Scenarios
 

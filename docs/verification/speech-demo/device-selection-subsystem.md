@@ -196,6 +196,18 @@ re-enumeration that could not have found anything new anyway.
 
 **Requirement coverage**: `SpeechDemo-Devices-RefreshInUseHandling`.
 
+#### DeviceSelectionViewModel_Refresh_ServiceThrowsGeneralException_SurfacesMessageViaStatusAndDoesNotClearLists
+
+**Scenario**: `IAudioDeviceService.RefreshDevices()` throws a general exception (for example,
+`InvalidOperationException` simulating a native `Terminate()` failure) rather than
+`AudioDeviceInUseException`.
+
+**Expected**: Both `CaptureStatus` and `PlaybackStatus` are set to the exception's message, and
+neither list nor either selection is touched - the same crash-free, honest degrade as the
+`AudioDeviceInUseException` case, applied to any other refresh fault.
+
+**Requirement coverage**: `SpeechDemo-Devices-RefreshGeneralFaultHandling`.
+
 #### DeviceSelectionViewModel_Refresh_RegisteredHook_InvokedAndAwaitedBeforeRefreshDevices
 
 **Scenario**: A pre-refresh hook backed by a `TaskCompletionSource` is registered, then `Refresh()`
@@ -259,6 +271,8 @@ hook mechanism does not weaken the existing safety net.
 - **`SpeechDemo-Devices-RefreshInUseHandling`**:
   `DeviceSelectionViewModel_Refresh_ServiceThrowsAudioDeviceInUseException_SurfacesMessageViaStatusAndDoesNotClearLists`,
   `DeviceSelectionViewModel_Refresh_HookCannotStopInUseDevice_FallsBackToStatusMessage`
+- **`SpeechDemo-Devices-RefreshGeneralFaultHandling`**:
+  `DeviceSelectionViewModel_Refresh_ServiceThrowsGeneralException_SurfacesMessageViaStatusAndDoesNotClearLists`
 - **`SpeechDemo-Devices-RefreshPreHooks`**:
   `DeviceSelectionViewModel_Refresh_RegisteredHook_InvokedAndAwaitedBeforeRefreshDevices`,
   `DeviceSelectionViewModel_Refresh_UnregisteredHook_NotInvoked`,
@@ -272,6 +286,8 @@ still-present selection by name and falls back correctly when it is gone; an emp
 carries an explanatory message and reports the library's system-default selection; every derived
 selection value is re-announced when the chosen device changes; a refresh first invokes and
 awaits every registered pre-refresh hook, in order, before forcing the backend to re-scan its
-device table; an unregistered hook is never invoked; and a refusal reported as
+device table; an unregistered hook is never invoked; a refusal reported as
 `AudioDeviceInUseException` - whether or not a hook was registered to try to prevent it - is
-surfaced through the existing status-text pattern without clearing either list or selection.
+surfaced through the existing status-text pattern without clearing either list or selection; and
+any other exception a refresh raises (for example, a native `Terminate()` failure) is surfaced
+through that same status-text pattern without clearing either list or selection.
