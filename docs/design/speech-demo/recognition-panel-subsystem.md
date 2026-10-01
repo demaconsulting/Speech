@@ -155,6 +155,8 @@ running recognizer bound to a model no longer reflected in `SelectedModel`.
 `DeviceSelectionViewModel`, and `IRecognizerSessionFactory` — never on the library's recognition
 concretes directly. This is what allows the whole Start/Stop lifecycle, the partial-then-final
 transcript sequencing, every unavailable-state path, and the auto-refresh-on-install behavior to
-be verified with no downloaded model, no native runtime, and no real microphone. The view
-(`RecognitionPanelView.axaml`) binds a "Refresh" button to `RefreshCommand` alongside Start/Stop -
-a mechanical XAML addition requiring no new command logic, since `RefreshCommand` already existed.
+be verified with no downloaded model, no native runtime, and no real microphone. `RefreshCommand`
+is not bound to a visible button in `RecognitionPanelView.axaml` - it exists solely for the
+auto-refresh-on-install path above and is not a user-facing control, since a manually clickable
+refresh beside Start/Stop/the model dropdown proved to be a redundant, confusingly placed control
+once auto-refresh-on-install existed.

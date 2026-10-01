@@ -110,5 +110,8 @@ the whole Play/Stop lifecycle, including every unavailable-state path and the
 auto-refresh-on-install behavior, to be verified with no downloaded model, no native runtime, and
 no real speakers.
 
-**Callers**: `SynthesisPanelView.axaml` (binds "Refresh"/Play/Stop and the model/settings
-controls to this presentation state).
+**Callers**: `SynthesisPanelView.axaml` (binds Play/Stop and the model/settings controls to this
+presentation state). `RefreshCommand` is not bound to a visible button - it exists solely for the
+auto-refresh-on-install path above, since a manually clickable refresh beside Play/Stop/the model
+dropdown proved to be a redundant, confusingly placed control once auto-refresh-on-install
+existed.
