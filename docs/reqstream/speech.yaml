@@ -172,6 +172,7 @@ sections:
           class ships yet, so end-to-end behavior is proven against a test model.
         children:
           - Speech-Recognition-MockableContract
+          - Speech-Recognition-EngineExclusivity
           - Speech-Recognition-Composition
           - Speech-Recognition-StreamingPipeline
           - Speech-Recognition-FaultContainment
@@ -225,13 +226,14 @@ sections:
         children:
           - Speech-Synthesis-Layer2Rendering
           - Speech-Synthesis-MockableContract
+          - Speech-Synthesis-EngineExclusivity
           - Speech-Synthesis-Composition
           - Speech-Synthesis-VoiceSelection
           - Speech-Synthesis-ChunkedPipeline
+          - Speech-Synthesis-SessionOverlapAndLifecycle
           - Speech-Synthesis-FaultContainment
           - Speech-Synthesis-UnavailableFallback
           - Speech-Models-SpeechModelContract-SynthesisEngineDeclaration
           - Speech-Audio-PlaybackFormatDisclosure
         tests:
-          - SynthesizeStreamAsync_PlainText_YieldsAudioSegment
-          - PlayStreamAsync_OrderedSegments_StartsWritesInOrderAndStops
+          - Speech_SystemIntegration_StreamingSynthesis_TextProducesPlayedAudio

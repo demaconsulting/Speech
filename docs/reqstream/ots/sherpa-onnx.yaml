@@ -32,5 +32,5 @@ sections:
               recognition contract so the engine backend stays swappable.
             tags: [ots]
             tests:
-              - SpeechRecognizerFactory_Create_ModelInstalledAndDeviceAvailable_ReturnsRealRecognizer
-              - SpeechRecognizerFactory_Create_EngineLoadFails_ReturnsUnavailableRecognizerAndDoesNotThrow
+              - SpeechRecognizerFactory_LoadAsync_ModelInstalled_ReturnsRealEngine
+              - SpeechRecognizerFactory_LoadAsync_EngineLoadFails_ReturnsUnavailableEngineAndDoesNotFaultTask

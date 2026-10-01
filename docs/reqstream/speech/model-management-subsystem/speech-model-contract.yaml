@@ -147,7 +147,7 @@ sections:
                   generically correct Natural Language Audio Tag rendering, and may override it
                   only for bespoke, non-generic behavior.
                 tests:
-                  - SpeechSynthesizerFactory_Create_ModelInstalledAndDeviceAvailable_ReturnsRealSynthesizer
+                  - SpeechSynthesizerFactory_LoadAsync_ModelInstalled_ReturnsRealEngine
                   - ISynthesisModel_CreateEngineConfig_InstalledDirectory_ResolvesPaths
                   - ISynthesisModel_CreateEngineConfig_EmptyDirectory_ThrowsArgumentException
                   - ISynthesisModel_CapabilityProfile_DefaultImplementation_ReturnsDefaultProfile
