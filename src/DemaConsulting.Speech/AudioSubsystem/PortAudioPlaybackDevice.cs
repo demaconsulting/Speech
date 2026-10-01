@@ -405,6 +405,12 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
     /// </returns>
     private ResolvedPlaybackDevice? ResolveDevice()
     {
+        // Captured before any device-table query below (not after) so a Refresh() that overlaps
+        // this resolution is always caught: if a refresh completes mid-resolution, the generation
+        // recorded here is already stale relative to the (possibly also stale) table data just
+        // read, and Start() will reject the instance rather than silently accept it.
+        var generation = _environment.Generation;
+
         if (!_environment.TryResolvePreferredHostApi(out var hostApiIndex, out var hostApiInfo))
         {
             _diagnostics.Report(
@@ -446,7 +452,7 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
             selectedDeviceInfo.Name,
             resolvedChannelCount,
             ResolveSampleRate(selectedDeviceIndex, resolvedChannelCount, selectedDeviceInfo),
-            _environment.Generation);
+            generation);
 
         var resolutionBasis = string.Equals(resolvedDevice.Name, _selection.DeviceName, StringComparison.Ordinal)
             ? "selection"
@@ -646,10 +652,13 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
     /// <param name="ChannelCount">The playback channel count to request.</param>
     /// <param name="SampleRate">The playback sample rate to request.</param>
     /// <param name="Generation">
-    ///     The <see cref="PortAudioEnvironment.Generation"/> observed at the moment this device
-    ///     was resolved, captured so <see cref="Start"/> can detect a later
-    ///     <see cref="PortAudioEnvironment.Refresh"/> that may have invalidated
-    ///     <paramref name="DeviceIndex"/>.
+    ///     The <see cref="PortAudioEnvironment.Generation"/> observed immediately before the
+    ///     device-table queries that resolved this instance, captured so <see cref="Start"/> can
+    ///     detect a later <see cref="PortAudioEnvironment.Refresh"/> that may have invalidated
+    ///     <paramref name="DeviceIndex"/>. Captured before, not after, those queries: a
+    ///     <see cref="PortAudioEnvironment.Refresh"/> that overlaps resolution can only ever make
+    ///     this value stale relative to the current generation, never newer, so an overlapping
+    ///     refresh is always rejected by <see cref="Start"/> rather than silently accepted.
     /// </param>
     private sealed record ResolvedPlaybackDevice(
         int DeviceIndex,
