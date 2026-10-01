@@ -8,6 +8,7 @@
 **Key Methods**:
 
 - **Initialize()**: Calls the managed PortAudioSharp2 initialization path.
+- **Terminate()**: Calls the managed PortAudioSharp2 termination path (`PortAudioSharp.PortAudio.Terminate()`).
 - **GetHostApiInfo(...)**: Reads a native `PaHostApiInfo` structure through
   `PortAudioNativeMethods` and converts it to a managed `PortAudioHostApiInfo` record.
 - **GetDeviceInfo(...)**: Converts PortAudioSharp2 device metadata into a managed

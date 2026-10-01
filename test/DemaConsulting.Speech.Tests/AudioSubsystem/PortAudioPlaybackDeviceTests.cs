@@ -481,6 +481,144 @@ public class PortAudioPlaybackDeviceTests
     }
 
     /// <summary>
+    ///     Proves that starting a playback device registers an active stream with its
+    ///     environment, so a refresh attempted while the stream is running is refused.
+    /// </summary>
+    [Fact]
+    public void PortAudioPlaybackDevice_Start_RegistersActiveStreamWithEnvironment_RefreshThrowsWhileStarted()
+    {
+        // Arrange: a real environment and device, with a playback stream ready to start
+        var api = new FakePortAudioApi([new PortAudioDeviceInfo("Speaker", 5, 0, 2, 48000, 0.0, 0.01)])
+        {
+            FindHostApiIndexResult = 5,
+            HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, -1, 0)
+        };
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+        var device = new PortAudioPlaybackDevice(environment);
+
+        // Act: start the device
+        device.Start();
+
+        // Assert: a refresh while the stream is active is refused
+        var exception = Assert.Throws<AudioDeviceInUseException>(environment.Refresh);
+        Assert.Contains("Speaker", exception.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Proves that stopping a playback device unregisters its active stream, so a refresh
+    ///     attempted afterward succeeds.
+    /// </summary>
+    [Fact]
+    public void PortAudioPlaybackDevice_Stop_UnregistersActiveStream_RefreshSucceedsAfterStop()
+    {
+        // Arrange: a real environment and device, started and then stopped
+        var api = new FakePortAudioApi([new PortAudioDeviceInfo("Speaker", 5, 0, 2, 48000, 0.0, 0.01)])
+        {
+            FindHostApiIndexResult = 5,
+            HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, -1, 0)
+        };
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+        var device = new PortAudioPlaybackDevice(environment);
+        device.Start();
+        device.Stop();
+
+        // Act: refresh after the stream has stopped
+        var exception = Record.Exception(environment.Refresh);
+
+        // Assert: the refresh succeeds because no active stream remains registered
+        Assert.Null(exception);
+    }
+
+    /// <summary>
+    ///     Proves that when the native stream both fails to start and then fails to dispose
+    ///     during start-failure cleanup, the device still unregisters its active-stream
+    ///     registration and reports/throws the original start failure rather than the dispose
+    ///     failure.
+    /// </summary>
+    [Fact]
+    public void PortAudioPlaybackDevice_Start_DisposeThrowsDuringStartFailureCleanup_UnregistersActiveStreamAndThrowsOriginalStartFailure()
+    {
+        // Arrange: a stream whose Start() and Dispose() both throw
+        var startException = new InvalidOperationException("Native start failed.");
+        var disposeException = new InvalidOperationException("Native dispose failed.");
+        var api = new FakePortAudioApi([new PortAudioDeviceInfo("Speaker", 5, 0, 2, 48000, 0.0, 0.01)])
+        {
+            FindHostApiIndexResult = 5,
+            HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, -1, 0),
+            PlaybackStream = new FakePortAudioStream
+            {
+                StartException = startException,
+                DisposeException = disposeException
+            }
+        };
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+        var device = new PortAudioPlaybackDevice(environment, diagnostics: diagnostics);
+
+        // Act: start the device, which fails to open the stream and then fails to dispose it
+        var exception = Assert.Throws<AudioDeviceUnavailableException>(device.Start);
+
+        // Assert: the thrown exception wraps the original start failure, not the dispose failure
+        Assert.Same(startException, exception.InnerException);
+        diagnostics.Received().Report(
+            SpeechDiagnosticLevel.Error,
+            "AudioSubsystem",
+            Arg.Is<string>(message => message.Contains("Native dispose failed.", StringComparison.Ordinal)));
+
+        // Assert: the active-stream registration was still released despite the dispose fault, so
+        // a subsequent refresh succeeds rather than being refused as in-use
+        var refreshException = Record.Exception(environment.Refresh);
+        Assert.Null(refreshException);
+    }
+
+    /// <summary>
+    ///     Proves that a playback device resolved before a device-table refresh refuses to start
+    ///     afterward, because its cached device index may no longer be valid.
+    /// </summary>
+    [Fact]
+    public void PortAudioPlaybackDevice_Start_EnvironmentRefreshedAfterConstruction_ThrowsAudioDeviceUnavailableException()
+    {
+        // Arrange: a device resolved before the environment is refreshed
+        var api = new FakePortAudioApi([new PortAudioDeviceInfo("Speaker", 5, 0, 2, 48000, 0.0, 0.01)])
+        {
+            FindHostApiIndexResult = 5,
+            HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, -1, 0)
+        };
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+        var device = new PortAudioPlaybackDevice(environment);
+
+        // Act: refresh the environment after the device was resolved
+        environment.Refresh();
+
+        // Assert: starting the now-stale device throws, and the stream was never registered active
+        var exception = Assert.Throws<AudioDeviceUnavailableException>(device.Start);
+        Assert.Contains("Speaker", exception.Message, StringComparison.Ordinal);
+        Assert.Null(Record.Exception(environment.Refresh));
+    }
+
+    /// <summary>
+    ///     Proves that a playback device resolved after a device-table refresh starts normally,
+    ///     because its captured generation matches the environment's current generation.
+    /// </summary>
+    [Fact]
+    public void PortAudioPlaybackDevice_Start_ConstructedAfterRefresh_StartsNormally()
+    {
+        // Arrange: refresh the environment first, then resolve the device afterward
+        var api = new FakePortAudioApi([new PortAudioDeviceInfo("Speaker", 5, 0, 2, 48000, 0.0, 0.01)])
+        {
+            FindHostApiIndexResult = 5,
+            HostApiInfo = new PortAudioHostApiInfo("Windows WASAPI", PortAudioHostApiType.Wasapi, -1, 0)
+        };
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+        environment.Refresh();
+        var device = new PortAudioPlaybackDevice(environment);
+
+        // Act / Assert: starting the freshly-resolved device does not throw
+        var exception = Record.Exception(device.Start);
+        Assert.Null(exception);
+    }
+
+    /// <summary>
     ///     Minimal fake PortAudio seam used by the playback-device tests.
     /// </summary>
     private sealed class FakePortAudioApi(PortAudioDeviceInfo[] devices) : IPortAudioApi
@@ -521,6 +659,11 @@ public class PortAudioPlaybackDeviceTests
 
         /// <inheritdoc/>
         public void Initialize()
+        {
+        }
+
+        /// <inheritdoc/>
+        public void Terminate()
         {
         }
 
@@ -608,10 +751,28 @@ public class PortAudioPlaybackDeviceTests
         /// </summary>
         internal int DisposeCallCount { get; private set; }
 
+        /// <summary>
+        ///     Gets or sets the exception thrown by <see cref="Start"/>, or <see langword="null"/>
+        ///     for the default no-op behavior.
+        /// </summary>
+        internal Exception? StartException { get; set; }
+
+        /// <summary>
+        ///     Gets or sets the exception thrown by <see cref="Dispose"/> after
+        ///     <see cref="DisposeCallCount"/> is incremented, or <see langword="null"/> for the
+        ///     default no-op behavior.
+        /// </summary>
+        internal Exception? DisposeException { get; set; }
+
         /// <inheritdoc/>
         public void Start()
         {
             StartCallCount++;
+
+            if (StartException is not null)
+            {
+                throw StartException;
+            }
         }
 
         /// <inheritdoc/>
@@ -621,9 +782,18 @@ public class PortAudioPlaybackDeviceTests
         }
 
         /// <inheritdoc/>
+        [System.Diagnostics.CodeAnalysis.SuppressMessage(
+            "Major Code Smell",
+            "S3877:Exceptions should not be thrown from unexpected methods",
+            Justification = "Deliberately simulates a faulting native Dispose() to test start-failure cleanup.")]
         public void Dispose()
         {
             DisposeCallCount++;
+
+            if (DisposeException is not null)
+            {
+                throw DisposeException;
+            }
         }
 
         /// <summary>

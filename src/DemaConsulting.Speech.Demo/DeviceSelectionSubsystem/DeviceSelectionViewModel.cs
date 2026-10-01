@@ -35,6 +35,19 @@ public sealed partial class DeviceSelectionViewModel : ObservableObject
     private readonly IAudioDeviceService _deviceService;
 
     /// <summary>
+    ///     The pre-refresh hooks registered by other panels sharing this device-selection state.
+    /// </summary>
+    /// <remarks>
+    ///     A list of delegates is used instead of a plain multicast event because
+    ///     <see cref="Refresh"/> must genuinely <c>await</c> each hook to completion, in order,
+    ///     before calling <see cref="IAudioDeviceService.RefreshDevices"/>; a standard C# event
+    ///     cannot be meaningfully awaited (invoking a multicast delegate only returns the last
+    ///     subscriber's return value, discarding the others), so an explicit, awaitable
+    ///     registration list is used instead.
+    /// </remarks>
+    private readonly List<Func<Task>> _preRefreshHooks = [];
+
+    /// <summary>
     ///     Gets the capture (input) devices currently offered to the user.
     /// </summary>
     public ObservableCollection<AudioDeviceDescription> CaptureDevices { get; } = [];
@@ -114,24 +127,142 @@ public sealed partial class DeviceSelectionViewModel : ObservableObject
     ///     Enumerating during construction means the window shows real device names the instant it
     ///     opens rather than an empty list the user must manually refresh.
     /// </remarks>
-    public DeviceSelectionViewModel(IAudioDeviceService deviceService)
+    internal DeviceSelectionViewModel(IAudioDeviceService deviceService)
     {
         ArgumentNullException.ThrowIfNull(deviceService);
 
         _deviceService = deviceService;
-        Refresh();
+
+        // Calls EnumerateCore() directly (not RefreshCore()/the async Refresh() command) so
+        // construction-time population only reads the already-initialized device table instead
+        // of forcing a native PortAudio terminate/reinitialize cycle. Forcing a refresh here
+        // would throw AudioDeviceInUseException if any other device created from the shared
+        // environment already has an active stream, leaving this newly constructed view model
+        // with empty lists even though the backend is perfectly usable for enumeration. No
+        // pre-refresh hook can be registered yet at this point either way (every hook owner
+        // receives this already-constructed instance via its own constructor, so registration
+        // can only happen after this constructor returns), and calling a Task-returning method
+        // without awaiting it here would otherwise be a CS4014 warning-as-error.
+        EnumerateCore();
     }
 
     /// <summary>
-    ///     Re-reads both device lists from the audio backend, preserving the user's current
+    ///     Registers a hook to be invoked and awaited by <see cref="Refresh"/> before it forces
+    ///     the backend to re-scan its device table.
+    /// </summary>
+    /// <param name="hook">
+    ///     The asynchronous hook to register. Must not be <see langword="null"/>. Should return a
+    ///     completed or near-instantly-completing task once it has no more active work to
+    ///     protect (a hook with nothing active should be a fast no-op).
+    /// </param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="hook"/> is <see langword="null"/>.</exception>
+    /// <remarks>
+    ///     Intended for panels sharing this device-selection state (e.g. recognition or synthesis
+    ///     panels) to deterministically stop their own active session - and confirm the
+    ///     underlying device is actually closed - before a device refresh is attempted, so the
+    ///     <see cref="AudioDeviceInUseException"/> fallback below becomes a rare defensive path
+    ///     rather than the primary way a refresh succeeds.
+    /// </remarks>
+    internal void RegisterPreRefreshHook(Func<Task> hook)
+    {
+        ArgumentNullException.ThrowIfNull(hook);
+        _preRefreshHooks.Add(hook);
+    }
+
+    /// <summary>
+    ///     Unregisters a hook previously registered with <see cref="RegisterPreRefreshHook"/>.
+    /// </summary>
+    /// <param name="hook">The exact hook instance previously registered. Must not be <see langword="null"/>.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="hook"/> is <see langword="null"/>.</exception>
+    /// <remarks>
+    ///     A safe no-op when <paramref name="hook"/> was never registered or was already
+    ///     unregistered, matching the tolerant unsubscribe pattern used elsewhere in this demo.
+    /// </remarks>
+    internal void UnregisterPreRefreshHook(Func<Task> hook)
+    {
+        ArgumentNullException.ThrowIfNull(hook);
+        _preRefreshHooks.Remove(hook);
+    }
+
+    /// <summary>
+    ///     Invokes and awaits every registered pre-refresh hook, in registration order, then
+    ///     re-reads both device lists from the audio backend, preserving the user's current
     ///     choices where those devices are still present.
     /// </summary>
     /// <remarks>
     ///     Exposed as a command because audio devices are hot-pluggable: a user who connects a
     ///     headset after the window opened must be able to see it without restarting the demo.
+    ///     Each registered hook (see <see cref="RegisterPreRefreshHook"/>) is awaited to
+    ///     completion before the next one runs and before the backend re-scan is attempted, so a
+    ///     panel with an active session gets a deterministic chance to stop it - and confirm the
+    ///     device is closed - first. The existing <see cref="AudioDeviceInUseException"/> handling
+    ///     in <see cref="RefreshCore"/> remains as a defensive fallback for any session the hooks
+    ///     could not stop.
     /// </remarks>
     [RelayCommand]
-    public void Refresh()
+    public async Task Refresh()
+    {
+        foreach (var hook in _preRefreshHooks.ToArray())
+        {
+            await hook().ConfigureAwait(true);
+        }
+
+        RefreshCore();
+    }
+
+    /// <summary>
+    ///     Forces the backend to re-scan its device table and re-enumerates both device lists.
+    /// </summary>
+    /// <remarks>
+    ///     Used by <see cref="Refresh"/>, which is the only caller that should force a native
+    ///     PortAudio teardown/reinitialization; construction instead uses
+    ///     <see cref="EnumerateCore"/> to read the already-initialized table without forcing a
+    ///     re-scan. First forces the backend to re-scan its device table via
+    ///     <see cref="IAudioDeviceService.RefreshDevices"/>; when that is refused because a device
+    ///     is currently in use, both lists and selections are left untouched and the refusal's
+    ///     message is surfaced through the existing status-text pattern instead of re-enumerating
+    ///     or crashing.
+    ///     <para>
+    ///         Any other exception raised by <see cref="IAudioDeviceService.RefreshDevices"/> (for
+    ///         example, a native PortAudio teardown/reinitialization failure) is handled the same
+    ///         way: both lists and selections are left untouched and the exception's message is
+    ///         surfaced through the same status-text pattern instead of propagating and crashing
+    ///         the UI.
+    ///     </para>
+    /// </remarks>
+    private void RefreshCore()
+    {
+        try
+        {
+            _deviceService.RefreshDevices();
+        }
+        catch (AudioDeviceInUseException ex)
+        {
+            CaptureStatus = ex.Message;
+            PlaybackStatus = ex.Message;
+            return;
+        }
+        catch (Exception ex)
+        {
+            CaptureStatus = ex.Message;
+            PlaybackStatus = ex.Message;
+            return;
+        }
+
+        EnumerateCore();
+    }
+
+    /// <summary>
+    ///     Re-enumerates both device lists from the backend's already-initialized device table,
+    ///     without forcing a native re-scan.
+    /// </summary>
+    /// <remarks>
+    ///     Shared by the constructor (which must not force a native PortAudio
+    ///     teardown/reinitialization before anything else has had a chance to run) and
+    ///     <see cref="RefreshCore"/> (which calls this only after a forced
+    ///     <see cref="IAudioDeviceService.RefreshDevices"/> re-scan has already succeeded).
+    /// </remarks>
+    private void EnumerateCore()
     {
         // Capture the current choices by name so a device that survived the refresh stays
         // selected; name is the library's only stable device identity.

@@ -123,3 +123,37 @@ sections:
                   - PortAudioPlaybackDevice_Write_BlockLargerThanRequest_DrainsRemainderOnNextCall
                   - PortAudioPlaybackDevice_Write_SmallBlockFollowedByAnotherWrite_ConcatenatesAcrossBoundary
                   - PortAudioPlaybackDevice_Stop_PartiallyConsumedBlock_RestartNeverReplaysStaleAudio
+
+              - id: Speech-Audio-PortAudioPlaybackDevice-ActiveStreamRegistration
+                title: >-
+                  The PortAudioPlaybackDevice class shall register itself with the environment's
+                  active-stream tracking before Start opens a native stream, and unregister
+                  itself once Stop completes (or Start's open attempt fails), so a concurrent or
+                  later PortAudioEnvironment.Refresh() knows whether this device's stream is
+                  genuinely active.
+                justification: |
+                  PortAudioEnvironment.Refresh()'s refusal behavior (see
+                  Speech-Audio-PortAudio-PortAudioEnvironment-Refresh) is only correct if this
+                  device accurately reports its own active/inactive state to the shared
+                  environment; an unregistered active stream would let a refresh silently tear
+                  down live audio, and a stream left registered after Stop would block every
+                  future refresh indefinitely.
+                tests:
+                  - PortAudioPlaybackDevice_Start_RegistersActiveStreamWithEnvironment_RefreshThrowsWhileStarted
+                  - PortAudioPlaybackDevice_Stop_UnregistersActiveStream_RefreshSucceedsAfterStop
+                  - PortAudioPlaybackDevice_Start_DisposeThrowsDuringStartFailureCleanup_UnregistersActiveStreamAndThrowsOriginalStartFailure
+
+              - id: Speech-Audio-PortAudioPlaybackDevice-StaleAfterRefreshThrows
+                title: >-
+                  The PortAudioPlaybackDevice class shall throw AudioDeviceUnavailableException
+                  from Start when the PortAudioEnvironment it was resolved against has completed
+                  a device-table refresh since this instance was constructed.
+                justification: |
+                  See Speech-Audio-AudioDeviceRefresh-InvalidatesPreRefreshInstances: a device
+                  resolved before a refresh caches a device index that the refresh may have
+                  invalidated (reused for a different physical device, or removed entirely), so
+                  starting it afterward without this check risks opening a stream against the
+                  wrong hardware rather than failing safely.
+                tests:
+                  - PortAudioPlaybackDevice_Start_EnvironmentRefreshedAfterConstruction_ThrowsAudioDeviceUnavailableException
+                  - PortAudioPlaybackDevice_Start_ConstructedAfterRefresh_StartsNormally

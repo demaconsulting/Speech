@@ -49,6 +49,7 @@ sections:
           - Speech-Audio-FormatValue
           - Speech-Audio-NameOnlyIdentity
           - Speech-Audio-SelectionFallback
+          - Speech-Audio-DeviceRefresh
           - Speech-Audio-MockableContracts
           - Speech-Audio-PreferredHostApiEnumeration
           - Speech-Audio-RealCaptureDevice

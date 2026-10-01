@@ -20,7 +20,9 @@ interpret it.
 **Error Handling**: Real implementations and the unavailable fallback both use
 `AudioDeviceUnavailableException` when an operational call is invalid because no usable device is
 available or the native stream fails at first use. Reading `IsAvailable`, `ChannelCount`, or
-`SampleRate` never throws.
+`SampleRate` never throws. Implementations do not implement `IDisposable`; the caller is
+responsible for calling `Stop()` once capture is no longer needed rather than leaving a stream
+started and abandoned.
 
 **Dependencies**: `AudioCaptureFrameEventArgs`.
 

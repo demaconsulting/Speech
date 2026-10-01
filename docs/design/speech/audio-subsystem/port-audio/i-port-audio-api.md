@@ -9,6 +9,8 @@ Speech library needs.
 **Key Methods**:
 
 - **Initialize()**: Initializes the PortAudio runtime.
+- **Terminate()**: Terminates the PortAudio runtime, releasing its cached device table so a
+  subsequent `Initialize()` call re-scans available hardware.
 - **HostApiCount / DeviceCount**: Expose runtime metadata counts.
 - **FindHostApiIndex(...) / GetHostApiInfo(...) / GetDeviceInfo(...)**: Resolve stable host-API
   identifiers and per-device metadata.

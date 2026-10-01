@@ -76,6 +76,9 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="DemaConsulting.Speech.Demo.Tests" />
+    <!-- NSubstitute dynamically proxies internal interfaces (e.g. IAudioDeviceService) via
+         Castle DynamicProxy; this unsigned-assembly target is required for that to work. -->
+    <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
   </ItemGroup>
 
 </Project>

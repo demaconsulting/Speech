@@ -339,6 +339,89 @@ public class RecognitionPanelViewModelTests
     }
 
     /// <summary>
+    ///     Proves that clicking the shared device-selection panel's Refresh while this panel is
+    ///     actively listening stops the session first - deterministically, via the registered
+    ///     pre-refresh hook - letting the device refresh succeed rather than being refused with
+    ///     an <see cref="AudioDeviceInUseException"/>.
+    /// </summary>
+    [Fact]
+    public async Task RecognitionPanelViewModel_PreRefreshHook_WhileListening_StopsSessionBeforeDeviceRefreshSucceeds()
+    {
+        // Arrange: a device service whose RefreshDevices() refuses while a "still listening" flag
+        // is true, and a recognizer whose Stop() flips that flag false - standing in for the real
+        // library's "refuses a refresh while a stream is active" contract
+        var stillListening = false;
+        var deviceService = Substitute.For<IAudioDeviceService>();
+        deviceService.EnumerateCaptureDevices().Returns([]);
+        deviceService.EnumeratePlaybackDevices().Returns([]);
+        deviceService.When(s => s.RefreshDevices()).Do(_ =>
+        {
+            if (stillListening)
+            {
+                throw new AudioDeviceInUseException("Cannot refresh PortAudio devices while a stream is active on: Mic A.");
+            }
+        });
+        var deviceSelection = new DeviceSelectionViewModel(deviceService);
+
+        var descriptor = FakeSpeechModel.Descriptor("stt", SpeechModelState.Downloaded, role: SpeechModelRole.Recognition);
+        var availableDevice = CaptureDevice();
+        var captureDeviceService = Substitute.For<IAudioDeviceService>();
+        captureDeviceService.CreateCaptureDevice(Arg.Any<AudioDeviceSelection?>()).Returns(availableDevice);
+        var recognizer = Substitute.For<ISpeechRecognizer>();
+        recognizer.IsAvailable.Returns(true);
+        recognizer.When(r => r.Stop()).Do(_ => stillListening = false);
+        var sessionFactory = Substitute.For<IRecognizerSessionFactory>();
+        sessionFactory.Create(Arg.Any<ISpeechModel>(), Arg.Any<IAudioCaptureDevice>()).Returns(recognizer);
+        var viewModel = new RecognitionPanelViewModel(
+            Catalog(descriptor), captureDeviceService, deviceSelection, sessionFactory);
+
+        // Act: start listening, mark the session as actively streaming, then refresh the shared
+        // device-selection panel (as the "Refresh devices" button would)
+        viewModel.StartCommand.Execute(null);
+        stillListening = true;
+        var exception = await Record.ExceptionAsync(() => deviceSelection.Refresh());
+
+        // Assert: the session was stopped by the hook, the refresh completed without throwing,
+        // and the panel returned to idle
+        Assert.Null(exception);
+        recognizer.Received(1).Stop();
+        Assert.Equal(RecognitionStreamingState.Idle, viewModel.State);
+        Assert.False(viewModel.CanStop);
+    }
+
+    /// <summary>
+    ///     Proves that the registered pre-refresh hook is a safe no-op when no listening session
+    ///     is in flight, so a "Refresh devices" click while the panel is idle never calls Stop on
+    ///     a recognizer that was never even created.
+    /// </summary>
+    [Fact]
+    public async Task RecognitionPanelViewModel_PreRefreshHook_WhileIdle_IsNoOpAndDeviceRefreshSucceeds()
+    {
+        // Arrange: a panel with no listening session ever started, sharing its own
+        // device-selection panel so Refresh() exercises the real registered hook
+        var descriptor = FakeSpeechModel.Descriptor("stt", SpeechModelState.Downloaded, role: SpeechModelRole.Recognition);
+        var deviceService = Substitute.For<IAudioDeviceService>();
+        var availableDevice = CaptureDevice();
+        deviceService.CreateCaptureDevice(Arg.Any<AudioDeviceSelection?>()).Returns(availableDevice);
+        var recognizer = Substitute.For<ISpeechRecognizer>();
+        recognizer.IsAvailable.Returns(true);
+        var sessionFactory = Substitute.For<IRecognizerSessionFactory>();
+        sessionFactory.Create(Arg.Any<ISpeechModel>(), Arg.Any<IAudioCaptureDevice>()).Returns(recognizer);
+        var deviceSelection = DeviceSelection();
+        var viewModel = new RecognitionPanelViewModel(
+            Catalog(descriptor), deviceService, deviceSelection, sessionFactory);
+
+        // Act: refresh the shared device-selection panel while idle, with listening never started
+        var exception = await Record.ExceptionAsync(() => deviceSelection.Refresh());
+
+        // Assert: the refresh completes without throwing, Stop is never requested on a
+        // recognizer that was never even created, and the panel remains idle
+        Assert.Null(exception);
+        recognizer.DidNotReceive().Stop();
+        Assert.Equal(RecognitionStreamingState.Idle, viewModel.State);
+    }
+
+    /// <summary>
     ///     Proves that Stop ends an in-flight session deterministically, releasing the
     ///     recognizer and reporting the stop rather than an error.
     /// </summary>

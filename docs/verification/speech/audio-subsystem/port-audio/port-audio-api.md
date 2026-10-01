@@ -26,3 +26,8 @@ logic that depends on its contract behaves as documented.
 **Tests**: `AudioDeviceFactory_Constructor_PortAudioInitialized_ExposesRealProbes`,
 `AudioDeviceFactory_CreateCaptureDevice_PortAudioInitialized_ReturnsRealDevice`,
 `AudioDeviceFactory_CreatePlaybackDevice_PortAudioInitialized_ReturnsRealDevice`
+
+##### Integration: Terminate Is Exercised Through a Refresh
+
+**Tests**: `PortAudioEnvironment_Refresh_NoActiveStreams_ReinitializesAndReflectsNewOutcome`,
+`PortAudioEnvironment_Refresh_NotPreviouslyInitialized_SkipsTerminateAndReinitializes`

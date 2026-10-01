@@ -49,3 +49,48 @@ sections:
                     tests:
                       - PortAudioEnvironment_TryResolvePreferredHostApi_InitializedAndMapped_ReturnsHostApiInfo
                       - PortAudioEnvironment_TryResolvePreferredHostApi_PreferredHostApiMissing_ReturnsFalse
+
+                  - id: Speech-Audio-PortAudio-PortAudioEnvironment-Refresh
+                    title: >-
+                      The PortAudioEnvironment class shall expose an internal Refresh() method
+                      that reinitializes the native runtime (terminating it first only if it was
+                      previously initialized), reflects a new initialization outcome, and
+                      advances an internal generation counter exactly once for every refresh
+                      that actually proceeds (not one refused via AudioDeviceInUseException), but
+                      refuses with AudioDeviceInUseException without terminating while any
+                      registered capture/playback device currently has an active stream.
+                    justification: |
+                      See the AudioSubsystem-level Speech-Audio-DeviceRefresh requirement and the
+                      dedicated audio-device-refresh.yaml requirement file for the full
+                      rationale shared with AudioDeviceFactory.RefreshDevices(); this entry ties
+                      that behavior specifically to PortAudioEnvironment's own Refresh()/
+                      RegisterActiveStream()/UnregisterActiveStream() members, which is why it is
+                      not duplicated here beyond this cross-reference. The generation counter is
+                      what lets PortAudioCaptureDevice/PortAudioPlaybackDevice detect that they
+                      were resolved before a refresh invalidated the device table (see
+                      Speech-Audio-AudioDeviceRefresh-InvalidatesPreRefreshInstances).
+                    tests:
+                      - PortAudioEnvironment_Refresh_NoActiveStreams_ReinitializesAndReflectsNewOutcome
+                      - PortAudioEnvironment_Refresh_ActiveStreamRegistered_ThrowsAudioDeviceInUseExceptionAndDoesNotTerminate
+                      - PortAudioEnvironment_Refresh_NotPreviouslyInitialized_SkipsTerminateAndReinitializes
+                      - PortAudioEnvironment_RegisterThenUnregisterActiveStream_Refresh_Succeeds
+                      - PortAudioEnvironment_Refresh_OutcomeChanges_ReflectsNewInitializationResult
+                      - PortAudioEnvironment_Refresh_TerminateThrows_PropagatesAndLeavesCachedStateUntouched
+                      - PortAudioEnvironment_Refresh_NoActiveStreams_IncrementsGeneration
+                      - PortAudioEnvironment_Refresh_ActiveStreamRegistered_DoesNotIncrementGeneration
+
+                  - id: Speech-Audio-PortAudio-PortAudioEnvironment-SerializedInitializationEvaluation
+                    title: >-
+                      The PortAudioEnvironment class shall serialize every evaluation of its
+                      cached initialization state with Refresh() under the same lock, so a
+                      concurrent first evaluation can never race Refresh() into an unbalanced
+                      Initialize()/Terminate() pair.
+                    justification: |
+                      IsInitialized and InitializationFailureMessage previously read the backing
+                      Lazy's Value directly, unsynchronized with Refresh()'s lock. A first
+                      evaluation racing a concurrent Refresh() could observe or produce an
+                      inconsistent initialization outcome, or cause Initialize()/Terminate() to
+                      be invoked an unbalanced number of times relative to each other. Acquiring
+                      the same lock around every read closes that race.
+                    tests:
+                      - PortAudioEnvironment_IsInitialized_ConcurrentWithRefresh_SerializesAndPreservesInitializeTerminateBalance

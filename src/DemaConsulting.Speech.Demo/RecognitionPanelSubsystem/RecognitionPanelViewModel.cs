@@ -101,6 +101,12 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IDispo
     private SynchronizationContext? _uiContext;
 
     /// <summary>
+    ///     The pre-refresh hook registered with <see cref="_deviceSelection"/>, retained so the
+    ///     exact same delegate instance can be unregistered in <see cref="Dispose"/>.
+    /// </summary>
+    private readonly Func<Task> _preRefreshHook;
+
+    /// <summary>
     ///     Gets the installed recognition models available to choose from.
     /// </summary>
     public ObservableCollection<ISpeechModel> AvailableModels { get; } = [];
@@ -185,7 +191,7 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IDispo
     /// <param name="deviceSelection">The shared device-selection panel state. Must not be <see langword="null"/>.</param>
     /// <param name="sessionFactory">The seam used to compose a recognizer. Must not be <see langword="null"/>.</param>
     /// <exception cref="ArgumentNullException">Thrown when any parameter is <see langword="null"/>.</exception>
-    public RecognitionPanelViewModel(
+    internal RecognitionPanelViewModel(
         IModelCatalogService catalogService,
         IAudioDeviceService deviceService,
         DeviceSelectionViewModel deviceSelection,
@@ -202,6 +208,9 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IDispo
         _sessionFactory = sessionFactory;
 
         _catalogService.ModelInstalled += OnModelInstalled;
+
+        _preRefreshHook = StopBeforeDeviceRefreshAsync;
+        _deviceSelection.RegisterPreRefreshHook(_preRefreshHook);
 
         Refresh();
     }
@@ -325,6 +334,30 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IDispo
     }
 
     /// <summary>
+    ///     Stops an actively listening session, if any, so the shared device-selection panel can
+    ///     safely force the audio backend to re-scan its device table.
+    /// </summary>
+    /// <returns>
+    ///     A synchronously completed task: <see cref="Stop"/> is documented to be fully
+    ///     synchronous down to the capture device's own closure (it blocks on draining the
+    ///     recognizer before returning), so by the time this method returns the capture device is
+    ///     already closed and no real awaiting ever occurs. The <see cref="Func{TResult}"/>
+    ///     shape exists only to satisfy the
+    ///     <see cref="DeviceSelectionSubsystem.DeviceSelectionViewModel.RegisterPreRefreshHook"/>
+    ///     contract, which must support hooks that do need to await (see
+    ///     <see cref="SynthesisPanelSubsystem.SynthesisPanelViewModel"/>'s equivalent hook).
+    /// </returns>
+    private Task StopBeforeDeviceRefreshAsync()
+    {
+        if (CanStop)
+        {
+            Stop();
+        }
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
     ///     Marshals one recognition result onto the UI thread and applies it to the transcript.
     /// </summary>
     /// <param name="sender">The raising recognizer. Unused.</param>
@@ -411,6 +444,7 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IDispo
     public void Dispose()
     {
         _catalogService.ModelInstalled -= OnModelInstalled;
+        _deviceSelection.UnregisterPreRefreshHook(_preRefreshHook);
 
         _captureDebugRecorder?.Dispose();
         _captureDebugRecorder = null;

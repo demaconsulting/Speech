@@ -50,4 +50,7 @@ public sealed class AudioDeviceService : IAudioDeviceService
     /// <inheritdoc/>
     public IAudioPlaybackDevice CreatePlaybackDevice(AudioDeviceSelection? selection) =>
         _factory.CreatePlaybackDevice(selection);
+
+    /// <inheritdoc/>
+    public void RefreshDevices() => _factory.RefreshDevices();
 }

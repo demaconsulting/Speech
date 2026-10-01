@@ -424,6 +424,88 @@ public class AudioDeviceFactoryTests
     }
 
     /// <summary>
+    ///     Proves that <see cref="AudioDeviceFactory.RefreshDevices"/> delegates to the
+    ///     environment's refresh so the native device table is re-scanned.
+    /// </summary>
+    [Fact]
+    public void AudioDeviceFactory_RefreshDevices_DelegatesToEnvironmentRefresh()
+    {
+        // Arrange: a factory over a fake environment that initializes successfully
+        var api = new FakePortAudioApi([]);
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+        var factory = new AudioDeviceFactory(null, null, null, environment);
+
+        // Act: refresh the devices
+        factory.RefreshDevices();
+
+        // Assert: the underlying PortAudio runtime was terminated and reinitialized
+        Assert.Equal(1, api.TerminateCallCount);
+        Assert.Equal(2, api.InitializeCallCount);
+    }
+
+    /// <summary>
+    ///     Proves that a refresh refused because a device is in use propagates
+    ///     <see cref="AudioDeviceInUseException"/> to the caller unchanged.
+    /// </summary>
+    [Fact]
+    public void AudioDeviceFactory_RefreshDevices_ActiveStreamInUse_PropagatesAudioDeviceInUseException()
+    {
+        // Arrange: a factory over an environment with one registered active stream
+        var api = new FakePortAudioApi([]);
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+        var factory = new AudioDeviceFactory(null, null, null, environment);
+        environment.RegisterActiveStream(new object(), "Mic");
+
+        // Act & Assert: the refusal propagates unchanged and no termination/reinitialization occurs
+        Assert.Throws<AudioDeviceInUseException>(factory.RefreshDevices);
+        Assert.Equal(0, api.TerminateCallCount);
+    }
+
+    /// <summary>
+    ///     Proves that a refresh that makes PortAudio become available upgrades the factory's
+    ///     default probes from the unavailable fallbacks to the real PortAudio-backed probes.
+    /// </summary>
+    [Fact]
+    public void AudioDeviceFactory_RefreshDevices_PortAudioBecomesAvailable_UpgradesProbesFromUnavailableToReal()
+    {
+        // Arrange: a factory constructed while PortAudio initialization fails
+        var api = new FakePortAudioApi([], new InvalidOperationException("PortAudio init failed."));
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+        var factory = new AudioDeviceFactory(null, null, null, environment);
+        Assert.Same(UnavailableAudioCaptureDeviceProbe.Instance, factory.CaptureProbe);
+        Assert.Same(UnavailableAudioPlaybackDeviceProbe.Instance, factory.PlaybackProbe);
+
+        // Act: clear the failure and refresh
+        api.InitializeException = null;
+        factory.RefreshDevices();
+
+        // Assert: the default probes are upgraded to the real PortAudio-backed implementations
+        Assert.IsType<PortAudioCaptureDeviceProbe>(factory.CaptureProbe);
+        Assert.IsType<PortAudioPlaybackDeviceProbe>(factory.PlaybackProbe);
+    }
+
+    /// <summary>
+    ///     Proves that an explicitly injected probe is never replaced by
+    ///     <see cref="AudioDeviceFactory.RefreshDevices"/>, even when PortAudio's availability
+    ///     changes.
+    /// </summary>
+    [Fact]
+    public void AudioDeviceFactory_RefreshDevices_ExplicitlyInjectedProbe_IsNotReplaced()
+    {
+        // Arrange: a factory constructed with an explicitly injected capture probe
+        var captureProbe = Substitute.For<IAudioCaptureDeviceProbe>();
+        var api = new FakePortAudioApi([]);
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+        var factory = new AudioDeviceFactory(captureProbe, null, null, environment);
+
+        // Act: refresh the devices
+        factory.RefreshDevices();
+
+        // Assert: the explicitly injected probe is preserved
+        Assert.Same(captureProbe, factory.CaptureProbe);
+    }
+
+    /// <summary>
     ///     Minimal fake PortAudio seam used by the factory tests.
     /// </summary>
     private sealed class FakePortAudioApi(
@@ -441,6 +523,23 @@ public class AudioDeviceFactoryTests
         internal PortAudioHostApiInfo HostApiInfo { get; init; } =
             new("Windows WASAPI", PortAudioHostApiType.Wasapi, -1, -1);
 
+        /// <summary>
+        ///     Gets or sets the exception thrown by the next <see cref="Initialize"/> call,
+        ///     initially the constructor-supplied exception but reassignable so tests can prove a
+        ///     later refresh observes a different initialization outcome.
+        /// </summary>
+        internal Exception? InitializeException { get; set; } = initializeException;
+
+        /// <summary>
+        ///     Gets the number of times <see cref="Initialize"/> has been called.
+        /// </summary>
+        internal int InitializeCallCount { get; private set; }
+
+        /// <summary>
+        ///     Gets the number of times <see cref="Terminate"/> has been called.
+        /// </summary>
+        internal int TerminateCallCount { get; private set; }
+
         /// <inheritdoc/>
         public int HostApiCount => 1;
 
@@ -450,10 +549,18 @@ public class AudioDeviceFactoryTests
         /// <inheritdoc/>
         public void Initialize()
         {
-            if (initializeException is not null)
+            InitializeCallCount++;
+
+            if (InitializeException is not null)
             {
-                throw initializeException;
+                throw InitializeException;
             }
+        }
+
+        /// <inheritdoc/>
+        public void Terminate()
+        {
+            TerminateCallCount++;
         }
 
         /// <inheritdoc/>

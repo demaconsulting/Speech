@@ -23,6 +23,8 @@ sections:
                   - Speech-Audio-PortAudio-IPortAudioApi-AbstractsNativeRuntime
                   - Speech-Audio-PortAudio-IPortAudioStream-AbstractsStreamLifecycle
                   - Speech-Audio-PortAudio-PortAudioEnvironment-CachesInitialization
+                  - Speech-Audio-PortAudio-PortAudioEnvironment-Refresh
+                  - Speech-Audio-PortAudio-PortAudioEnvironment-SerializedInitializationEvaluation
                   - Speech-Audio-PortAudio-PortAudioApi-BridgesManagedAndNativeCalls
                   - Speech-Audio-PortAudio-SupportingTypes-DescribeInteropMetadata
                 tests:

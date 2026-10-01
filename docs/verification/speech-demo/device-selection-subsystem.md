@@ -55,6 +55,14 @@ verification activity on hardware-equipped machines.
 
 **Requirement coverage**: `SpeechDemo-Devices-EmptyStateExplanation`.
 
+#### AudioDeviceService_RefreshDevices_Always_DelegatesToFactoryRefreshDevices
+
+**Scenario**: `RefreshDevices()` is called on the adapter.
+
+**Expected**: The call is forwarded to `AudioDeviceFactory.RefreshDevices()` exactly once.
+
+**Requirement coverage**: `SpeechDemo-Devices-RefreshDelegation`.
+
 #### DeviceSelectionViewModel_Constructor_NullService_ThrowsArgumentNullException
 
 **Scenario**: The panel is constructed with no enumeration seam.
@@ -168,6 +176,69 @@ has to special-case the no-device machine.
 
 **Requirement coverage**: `SpeechDemo-Devices-EmptySelectionFallback`.
 
+#### DeviceSelectionViewModel_Refresh_CallsRefreshDevicesBeforeEnumerating
+
+**Scenario**: `Refresh()` is invoked (including via the bound `RefreshCommand`).
+
+**Expected**: `IAudioDeviceService.RefreshDevices()` is called before either direction is
+re-enumerated.
+
+**Requirement coverage**: `SpeechDemo-Devices-RefreshDelegation`.
+
+#### DeviceSelectionViewModel_Refresh_ServiceThrowsAudioDeviceInUseException_SurfacesMessageViaStatusAndDoesNotClearLists
+
+**Scenario**: `IAudioDeviceService.RefreshDevices()` throws `AudioDeviceInUseException` because a
+device is currently streaming.
+
+**Expected**: Both `CaptureStatus` and `PlaybackStatus` are set to the exception's message, and
+neither list nor either selection is touched - a crash-free, honest degrade rather than a
+re-enumeration that could not have found anything new anyway.
+
+**Requirement coverage**: `SpeechDemo-Devices-RefreshInUseHandling`.
+
+#### DeviceSelectionViewModel_Refresh_ServiceThrowsGeneralException_SurfacesMessageViaStatusAndDoesNotClearLists
+
+**Scenario**: `IAudioDeviceService.RefreshDevices()` throws a general exception (for example,
+`InvalidOperationException` simulating a native `Terminate()` failure) rather than
+`AudioDeviceInUseException`.
+
+**Expected**: Both `CaptureStatus` and `PlaybackStatus` are set to the exception's message, and
+neither list nor either selection is touched - the same crash-free, honest degrade as the
+`AudioDeviceInUseException` case, applied to any other refresh fault.
+
+**Requirement coverage**: `SpeechDemo-Devices-RefreshGeneralFaultHandling`.
+
+#### DeviceSelectionViewModel_Refresh_RegisteredHook_InvokedAndAwaitedBeforeRefreshDevices
+
+**Scenario**: A pre-refresh hook backed by a `TaskCompletionSource` is registered, then `Refresh()`
+is called.
+
+**Expected**: `IAudioDeviceService.RefreshDevices()` is not called while the hook's task is
+unresolved; once the hook completes, `Refresh()` proceeds and calls `RefreshDevices()` exactly
+once - proving the hook is genuinely awaited to completion before the backend call, not just
+fired without waiting.
+
+**Requirement coverage**: `SpeechDemo-Devices-RefreshPreHooks`.
+
+#### DeviceSelectionViewModel_Refresh_UnregisteredHook_NotInvoked
+
+**Scenario**: A hook is registered, then unregistered via `UnregisterPreRefreshHook` before
+`Refresh()` is called.
+
+**Expected**: The unregistered hook is never invoked.
+
+**Requirement coverage**: `SpeechDemo-Devices-RefreshPreHooks`.
+
+#### DeviceSelectionViewModel_Refresh_HookCannotStopInUseDevice_FallsBackToStatusMessage
+
+**Scenario**: A registered no-op hook cannot help, and `IAudioDeviceService.RefreshDevices()`
+unconditionally refuses with `AudioDeviceInUseException`.
+
+**Expected**: The existing fallback status-message behavior still fires - proving the
+hook mechanism does not weaken the existing safety net.
+
+**Requirement coverage**: `SpeechDemo-Devices-RefreshInUseHandling`, `SpeechDemo-Devices-RefreshPreHooks`.
+
 ### Requirements Coverage
 
 - **`SpeechDemo-Devices-Enumeration`**:
@@ -194,11 +265,29 @@ has to special-case the no-device machine.
   `AudioDeviceService_Enumerate_ProbesReportNothing_ReturnsEmptyLists`
 - **`SpeechDemo-Devices-EmptySelectionFallback`**:
   `DeviceSelectionViewModel_Selections_NoDevices_ReturnSystemDefault`
+- **`SpeechDemo-Devices-RefreshDelegation`**:
+  `AudioDeviceService_RefreshDevices_Always_DelegatesToFactoryRefreshDevices`,
+  `DeviceSelectionViewModel_Refresh_CallsRefreshDevicesBeforeEnumerating`
+- **`SpeechDemo-Devices-RefreshInUseHandling`**:
+  `DeviceSelectionViewModel_Refresh_ServiceThrowsAudioDeviceInUseException_SurfacesMessageViaStatusAndDoesNotClearLists`,
+  `DeviceSelectionViewModel_Refresh_HookCannotStopInUseDevice_FallsBackToStatusMessage`
+- **`SpeechDemo-Devices-RefreshGeneralFaultHandling`**:
+  `DeviceSelectionViewModel_Refresh_ServiceThrowsGeneralException_SurfacesMessageViaStatusAndDoesNotClearLists`
+- **`SpeechDemo-Devices-RefreshPreHooks`**:
+  `DeviceSelectionViewModel_Refresh_RegisteredHook_InvokedAndAwaitedBeforeRefreshDevices`,
+  `DeviceSelectionViewModel_Refresh_UnregisteredHook_NotInvoked`,
+  `DeviceSelectionViewModel_Refresh_HookCannotStopInUseDevice_FallsBackToStatusMessage`
 
 ### Acceptance Criteria
 
 A DeviceSelectionSubsystem test run passes when: the adapter returns exactly what the library's
 probes report; the panel lists and preselects devices on construction; a refresh preserves a
 still-present selection by name and falls back correctly when it is gone; an empty direction
-carries an explanatory message and reports the library's system-default selection; and every
-derived selection value is re-announced when the chosen device changes.
+carries an explanatory message and reports the library's system-default selection; every derived
+selection value is re-announced when the chosen device changes; a refresh first invokes and
+awaits every registered pre-refresh hook, in order, before forcing the backend to re-scan its
+device table; an unregistered hook is never invoked; a refusal reported as
+`AudioDeviceInUseException` - whether or not a hook was registered to try to prevent it - is
+surfaced through the existing status-text pattern without clearing either list or selection; and
+any other exception a refresh raises (for example, a native `Terminate()` failure) is surfaced
+through that same status-text pattern without clearing either list or selection.

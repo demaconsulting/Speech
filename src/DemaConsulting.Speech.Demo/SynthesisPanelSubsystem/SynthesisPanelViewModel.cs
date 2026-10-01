@@ -89,6 +89,12 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IDisposa
     private ISpeechSynthesizer? _activeSynthesizer;
 
     /// <summary>
+    ///     The pre-refresh hook registered with <see cref="_deviceSelection"/>, retained so the
+    ///     exact same delegate instance can be unregistered in <see cref="Dispose"/>.
+    /// </summary>
+    private readonly Func<Task> _preRefreshHook;
+
+    /// <summary>
     ///     Gets the installed synthesis models available to choose from.
     /// </summary>
     public ObservableCollection<ISpeechModel> AvailableModels { get; } = [];
@@ -171,7 +177,7 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IDisposa
     /// <param name="deviceSelection">The shared device-selection panel state. Must not be <see langword="null"/>.</param>
     /// <param name="sessionFactory">The seam used to compose a synthesizer. Must not be <see langword="null"/>.</param>
     /// <exception cref="ArgumentNullException">Thrown when any parameter is <see langword="null"/>.</exception>
-    public SynthesisPanelViewModel(
+    internal SynthesisPanelViewModel(
         IModelCatalogService catalogService,
         IAudioDeviceService deviceService,
         DeviceSelectionViewModel deviceSelection,
@@ -188,6 +194,9 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IDisposa
         _sessionFactory = sessionFactory;
 
         _catalogService.ModelInstalled += OnModelInstalled;
+
+        _preRefreshHook = StopBeforeDeviceRefreshAsync;
+        _deviceSelection.RegisterPreRefreshHook(_preRefreshHook);
 
         Refresh();
     }
@@ -301,6 +310,48 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IDisposa
     }
 
     /// <summary>
+    ///     Stops an in-flight Play, if any, and awaits its actual completion so the shared
+    ///     device-selection panel can safely force the audio backend to re-scan its device table.
+    /// </summary>
+    /// <returns>
+    ///     A task that completes once the in-flight <see cref="PlayCommand"/> execution (if any)
+    ///     has itself completed.
+    /// </returns>
+    /// <remarks>
+    ///     Unlike <see cref="RecognitionPanelSubsystem.RecognitionPanelViewModel"/>'s equivalent
+    ///     hook, <see cref="Stop"/> alone does not guarantee the playback device is actually
+    ///     closed by the time it returns: <see cref="Stop"/> only cancels the synthesizer's
+    ///     internal token and requests cancellation of <see cref="PlayCommand"/>; the device is
+    ///     actually stopped later, one layer deeper inside the synthesizer's own streaming
+    ///     playback implementation, as part of the already-in-flight task's own cleanup. So this
+    ///     hook must also await <see cref="IAsyncRelayCommand.ExecutionTask"/> to observe that
+    ///     completion before returning, swallowing the expected
+    ///     <see cref="OperationCanceledException"/> that <see cref="Stop"/>'s cancellation causes.
+    /// </remarks>
+    private async Task StopBeforeDeviceRefreshAsync()
+    {
+        if (!PlayCommand.IsRunning)
+        {
+            return;
+        }
+
+        Stop();
+
+        if (PlayCommand.ExecutionTask is { } executionTask)
+        {
+            try
+            {
+                await executionTask.ConfigureAwait(true);
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected: Stop() cancels the in-flight PlayAsync, which surfaces as
+                // OperationCanceledException from its awaited ExecutionTask.
+            }
+        }
+    }
+
+    /// <summary>
     ///     Marshals a matching-role <see cref="IModelCatalogService.ModelInstalled"/> event onto
     ///     the UI thread and calls <see cref="Refresh"/>; ignored when the installed model's role
     ///     is not <see cref="SpeechModelRole.Synthesis"/>.
@@ -333,6 +384,7 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IDisposa
     public void Dispose()
     {
         _catalogService.ModelInstalled -= OnModelInstalled;
+        _deviceSelection.UnregisterPreRefreshHook(_preRefreshHook);
         _activeSynthesizer?.Dispose();
         _activeSynthesizer = null;
     }

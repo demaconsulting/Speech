@@ -33,6 +33,10 @@ An AudioSubsystem test run passes when:
 - Capture frame delivery and playback queue draining work through the seam
 - PortAudio initialization failures and stream-open failures degrade to the documented fallback
   behavior and `AudioDeviceUnavailableException`
+- A device-table refresh succeeds and reflects a new initialization outcome while idle, is
+  refused with `AudioDeviceInUseException` (without terminating the native runtime) while any
+  capture/playback device has an active stream, and succeeds again once every active stream is
+  unregistered
 - The automated verification boundary remains honest about the absence of hardware I/O coverage
 
 ### Test Scenarios
@@ -145,6 +149,19 @@ instantly.
 Verifies deterministic preferred-host mapping, runtime host-API metadata resolution, and cached
 non-throwing initialization-failure behavior.
 
+#### PortAudio Environment: Refresh Success and Refusal
+
+**Tests**: `PortAudioEnvironment_Refresh_NoActiveStreams_ReinitializesAndReflectsNewOutcome`,
+`PortAudioEnvironment_Refresh_ActiveStreamRegistered_ThrowsAudioDeviceInUseExceptionAndDoesNotTerminate`,
+`PortAudioEnvironment_Refresh_NotPreviouslyInitialized_SkipsTerminateAndReinitializes`,
+`PortAudioEnvironment_RegisterThenUnregisterActiveStream_Refresh_Succeeds`
+
+Verifies that `Refresh()` terminates and reinitializes the native runtime (reflecting a new
+initialization outcome) when no stream is active, skips the terminate call when the runtime was
+never previously initialized, refuses the refresh with `AudioDeviceInUseException` (without
+terminating) while any registered stream is active, and succeeds again once every previously
+registered stream has been unregistered.
+
 #### Factory: Real Defaults and Initialization Fallback
 
 **Tests**: `AudioDeviceFactory_Constructor_CustomEnvironment_DoesNotThrow`,
@@ -162,6 +179,38 @@ Verifies the real default composition path, injection support, and graceful fall
 PortAudio runtime cannot initialize, while also proving that optional preferred-format hints are
 forwarded to the concrete devices and that omitting the hint preserves the prior device-native
 behavior.
+
+#### Factory: RefreshDevices Delegation, In-Use Propagation, and Probe Re-Evaluation
+
+**Tests**: `AudioDeviceFactory_RefreshDevices_DelegatesToEnvironmentRefresh`,
+`AudioDeviceFactory_RefreshDevices_ActiveStreamInUse_PropagatesAudioDeviceInUseException`,
+`AudioDeviceFactory_RefreshDevices_PortAudioBecomesAvailable_UpgradesProbesFromUnavailableToReal`,
+`AudioDeviceFactory_RefreshDevices_ExplicitlyInjectedProbe_IsNotReplaced`
+
+Verifies that `RefreshDevices()` delegates to `PortAudioEnvironment.Refresh()`, propagates
+`AudioDeviceInUseException` untouched when the environment refuses the refresh, upgrades a
+previously unavailable default probe to the real PortAudio-backed implementation once the runtime
+becomes available, and never replaces a probe the caller explicitly injected at construction.
+
+#### Capture/Playback Device: Active-Stream Registration Around Start/Stop
+
+**Tests**: `PortAudioCaptureDevice_Start_RegistersActiveStreamWithEnvironment_RefreshThrowsWhileStarted`,
+`PortAudioCaptureDevice_Stop_UnregistersActiveStream_RefreshSucceedsAfterStop`,
+`PortAudioPlaybackDevice_Start_RegistersActiveStreamWithEnvironment_RefreshThrowsWhileStarted`,
+`PortAudioPlaybackDevice_Stop_UnregistersActiveStream_RefreshSucceedsAfterStop`
+
+Verifies that a started capture or playback device registers itself with the environment's
+active-stream tracking (causing a concurrent `Refresh()` to throw `AudioDeviceInUseException`),
+and that `Stop()` unregisters it so a subsequent `Refresh()` succeeds.
+
+#### AudioDeviceInUseException: Standard Exception Conformance
+
+**Tests**: `AudioDeviceInUseException_Constructor_WithMessage_ExposesMessage`,
+`AudioDeviceInUseException_Constructor_WithInnerException_ExposesBoth`,
+`AudioDeviceInUseException_Constructor_Default_HasNonEmptyMessage`
+
+Verifies the standard three-constructor exception pattern (default, message, message with inner
+exception), mirroring `AudioDeviceUnavailableException`'s identical test shape.
 
 #### Unavailable Fallbacks: Honest Degradation
 

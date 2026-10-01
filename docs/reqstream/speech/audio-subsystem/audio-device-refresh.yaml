@@ -1,0 +1,109 @@
+---
+# Software Unit Requirements for the Device Refresh Seam
+#
+# Groups requirements for on-demand PortAudio device-table refresh - spanning
+# PortAudioEnvironment.Refresh(), AudioDeviceFactory.RefreshDevices(), and the new
+# AudioDeviceInUseException - into a single file. This is a deliberate, narrower exception to
+# per-unit requirement ownership, not a literal application of sysml2-modeling.md's "Units
+# without a dedicated companion doc" allowance (that allowance is scoped to small data-model
+# types documented inline, not cross-cutting behavior): PortAudioEnvironment and
+# AudioDeviceFactory jointly implement one indivisible seam-level capability (a refresh request
+# that must be refused atomically whenever either side's active-stream bookkeeping reports a
+# device in use), so splitting these two requirements across their two owning units' files would
+# duplicate the same justification and test list without adding traceability value. The
+# active-stream registration behavior contributed by PortAudioCaptureDevice/PortAudioPlaybackDevice
+# is genuinely per-unit and is owned directly by those units' own requirement files instead (see
+# `Speech-Audio-PortAudioCaptureDevice-ActiveStreamRegistration` /
+# `Speech-Audio-PortAudioPlaybackDevice-ActiveStreamRegistration`). Each remaining unit's
+# requirement subset is called out in its own subsection below so every unit still has
+# requirements tracing to it individually.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: AudioSubsystem Requirements
+        sections:
+          - title: Device Refresh Seam Requirements
+            requirements:
+              - id: Speech-Audio-AudioDeviceRefresh-RefreshesSuccessfully
+                title: >-
+                  The AudioSubsystem shall allow a caller to force the PortAudio device table to
+                  be re-scanned, reinitializing the native runtime and reflecting any new
+                  initialization outcome, without terminating a runtime that was never
+                  previously initialized.
+                justification: |
+                  Audio devices are hot-pluggable; a host application that has already composed
+                  an AudioDeviceFactory needs a way to make newly attached or removed hardware
+                  visible without recomposing the whole factory.
+                tests:
+                  - PortAudioEnvironment_Refresh_NoActiveStreams_ReinitializesAndReflectsNewOutcome
+                  - PortAudioEnvironment_Refresh_NotPreviouslyInitialized_SkipsTerminateAndReinitializes
+                  - AudioDeviceFactory_RefreshDevices_DelegatesToEnvironmentRefresh
+                  - AudioDeviceFactory_RefreshDevices_PortAudioBecomesAvailable_UpgradesProbesFromUnavailableToReal
+
+              - id: Speech-Audio-AudioDeviceRefresh-RefusesWhileInUse
+                title: >-
+                  The AudioSubsystem shall refuse a device-table refresh with
+                  AudioDeviceInUseException, without terminating the native runtime, while any
+                  capture/playback device created from the environment currently has an
+                  open/started stream.
+                justification: |
+                  Refreshing PortAudio's device table requires tearing down and reinitializing
+                  the native runtime, which would invalidate any stream currently open against
+                  it. Rather than silently tearing down a live stream, the refresh must be
+                  refused outright so the caller can stop the reported device(s) and retry.
+                tests:
+                  - PortAudioEnvironment_Refresh_ActiveStreamRegistered_ThrowsAudioDeviceInUseExceptionAndDoesNotTerminate
+                  - AudioDeviceFactory_RefreshDevices_ActiveStreamInUse_PropagatesAudioDeviceInUseException
+
+              - id: Speech-Audio-AudioDeviceRefresh-PreservesExplicitProbes
+                title: >-
+                  The AudioDeviceFactory class shall never replace a capture/playback probe that
+                  was explicitly injected at construction when RefreshDevices() re-evaluates
+                  default probes.
+                justification: |
+                  A caller who explicitly supplied a probe (for example, a test double) did so
+                  deliberately; RefreshDevices() re-evaluating only the factory's own defaulted
+                  probes keeps this consistent with the factory's general policy of never
+                  overriding an explicitly injected dependency.
+                tests:
+                  - AudioDeviceFactory_RefreshDevices_ExplicitlyInjectedProbe_IsNotReplaced
+
+              - id: Speech-Audio-AudioDeviceRefresh-InvalidatesPreRefreshInstances
+                title: >-
+                  A completed device-table refresh shall invalidate every capture/playback device
+                  instance created before it, causing Start() on such an instance to throw
+                  AudioDeviceUnavailableException rather than open a stream against possibly
+                  reused or invalid device-table data.
+                justification: |
+                  PortAudio device indices are runtime-assigned and can be reused for a different
+                  physical device (or become invalid entirely) once the device table is
+                  re-scanned. Without this guard, a pre-refresh instance's cached device index
+                  could silently resolve to the wrong hardware after a hot-plug-driven refresh,
+                  rather than failing safely and directing the caller to create a fresh instance
+                  via AudioDeviceFactory.
+                children:
+                  - Speech-Audio-PortAudioCaptureDevice-StaleAfterRefreshThrows
+                  - Speech-Audio-PortAudioPlaybackDevice-StaleAfterRefreshThrows
+                tests:
+                  - PortAudioEnvironment_Refresh_NoActiveStreams_IncrementsGeneration
+                  - PortAudioEnvironment_Refresh_ActiveStreamRegistered_DoesNotIncrementGeneration
+                  - PortAudioCaptureDevice_Start_EnvironmentRefreshedAfterConstruction_ThrowsAudioDeviceUnavailableException
+                  - PortAudioCaptureDevice_Start_ConstructedAfterRefresh_StartsNormally
+                  - PortAudioPlaybackDevice_Start_EnvironmentRefreshedAfterConstruction_ThrowsAudioDeviceUnavailableException
+                  - PortAudioPlaybackDevice_Start_ConstructedAfterRefresh_StartsNormally
+
+          - title: AudioDeviceInUseException Requirements
+            requirements:
+              - id: Speech-Audio-AudioDeviceInUseException-Constructors
+                title: >-
+                  The AudioDeviceInUseException class shall provide standard exception
+                  constructors (default, message, message with inner exception).
+                justification: |
+                  Standard exception conformance lets callers construct, catch, and inspect this
+                  exception like any other .NET exception type, mirroring
+                  AudioDeviceUnavailableException's identical constructor pattern.
+                tests:
+                  - AudioDeviceInUseException_Constructor_WithMessage_ExposesMessage
+                  - AudioDeviceInUseException_Constructor_WithInnerException_ExposesBoth
+                  - AudioDeviceInUseException_Constructor_Default_HasNonEmptyMessage

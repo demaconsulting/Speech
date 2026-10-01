@@ -227,6 +227,19 @@ a user can pick a different model after a failed attempt.
 
 **Requirement coverage**: `SpeechDemo-Synthesis-ModelSwitchGuard`.
 
+#### SynthesisPanelViewModel_PreRefreshHook_WhilePlaying_StopsAndAwaitsExecutionTaskBeforeDeviceRefreshSucceeds
+
+**Scenario**: A `PlayAsync` execution is in flight (an indefinitely long `SpeakAsync` awaiting
+cancellation), sharing the panel's own `DeviceSelectionViewModel`. The shared
+`DeviceSelectionViewModel.Refresh()` is then invoked, as the "Refresh devices" button would.
+
+**Expected**: The panel's registered pre-refresh hook calls `Stop()` on the synthesizer and awaits
+the in-flight `PlayCommand.ExecutionTask` to its actual completion (not merely its cancellation
+request) before the device refresh proceeds, so the refresh completes without throwing and the
+panel settles on `Idle`.
+
+**Requirement coverage**: `SpeechDemo-Synthesis-StopsBeforeDeviceRefresh`.
+
 ### Requirements Coverage
 
 - **`SpeechDemo-Synthesis-ModelSelection`**:
@@ -263,6 +276,8 @@ a user can pick a different model after a failed attempt.
 - **`SpeechDemo-Synthesis-ModelSwitchGuard`**:
   `SynthesisPanelViewModel_Play_SuccessfulSession_CanChangeModelTogglesAcrossLifecycle`,
   `SynthesisPanelViewModel_CanChangeModel_ErrorState_IsTrue`
+- **`SpeechDemo-Synthesis-StopsBeforeDeviceRefresh`**:
+  `SynthesisPanelViewModel_PreRefreshHook_WhilePlaying_StopsAndAwaitsExecutionTaskBeforeDeviceRefreshSucceeds`
 
 ### Acceptance Criteria
 
@@ -276,5 +291,7 @@ validates its arguments and reports a role mismatch the same honest way the libr
 uninstalled model, regardless of whether a `parameterValues` bag is supplied; the settings
 panel's current value bag genuinely reaches the session factory when Play is invoked; a
 matching-role `ModelInstalled` event triggers an automatic refresh while a non-matching-role
-event does not; and `Dispose()` - now implemented on this class for the first time - is safe and
-idempotent, and unsubscribes from `ModelInstalled` so a later event is never applied.
+event does not; `Dispose()` - now implemented on this class for the first time - is safe and
+idempotent, and unsubscribes from `ModelInstalled` so a later event is never applied; and the
+panel's registered pre-refresh hook stops an in-flight Play and genuinely awaits its completion
+before a shared device refresh is attempted, so the refresh succeeds deterministically.

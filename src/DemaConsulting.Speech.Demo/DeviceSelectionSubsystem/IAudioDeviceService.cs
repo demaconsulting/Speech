@@ -14,7 +14,7 @@ namespace DemaConsulting.Speech.Demo.DeviceSelectionSubsystem;
 ///     public API to <c>DemaConsulting.Speech</c> and deliberately mirrors, rather than extends,
 ///     the library's behavior.
 /// </remarks>
-public interface IAudioDeviceService
+internal interface IAudioDeviceService
 {
     /// <summary>
     ///     Enumerates the audio capture (input) devices currently offered to the user.
@@ -67,4 +67,30 @@ public interface IAudioDeviceService
     /// </returns>
     /// <remarks>Never throws; an unavailable audio backend degrades to an unavailable device.</remarks>
     IAudioPlaybackDevice CreatePlaybackDevice(AudioDeviceSelection? selection);
+
+    /// <summary>
+    ///     Forces the underlying audio backend to re-scan its device table so newly attached or
+    ///     removed hardware becomes visible to subsequent enumeration/creation calls on this
+    ///     service.
+    /// </summary>
+    /// <remarks>
+    ///     Forwards to <see cref="AudioDeviceFactory.RefreshDevices"/>. This is the one deliberate
+    ///     exception to this seam's "never throws" contract, inherited directly from the library:
+    ///     a refresh is refused when any device created through this service currently has an
+    ///     open/started stream.
+    /// </remarks>
+    /// <exception cref="AudioDeviceInUseException">
+    ///     Thrown when any capture/playback device created through this service currently has an
+    ///     open/started stream. The caller can stop the reported device(s) and retry.
+    /// </exception>
+    /// <exception cref="Exception">
+    ///     Real (non-fake) implementations may also propagate other exceptions raised while
+    ///     tearing down or reinitializing the underlying native PortAudio runtime (for example, a
+    ///     failure terminating the native library before it is re-initialized). Such failures are
+    ///     not modeled as a dedicated exception type; callers should treat any exception other
+    ///     than <see cref="AudioDeviceInUseException"/> from this method as an unexpected,
+    ///     non-recoverable refresh fault and surface its message rather than assume a specific
+    ///     failure mode.
+    /// </exception>
+    void RefreshDevices();
 }

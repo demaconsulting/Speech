@@ -18,8 +18,10 @@ resolvable device yields `IsAvailable = false`, preferred formats are honored wh
 capability, excessive preferred channel counts are clamped, omitted preferences fall back to the
 device default, the reported channel count and sample rate match the requested open format (or
 are zero when nothing was resolved), a preferred sample rate the host API confirms it can open is
-honored, and a preferred sample rate the host API cannot open falls back to the device's default
-sample rate with an Info-level diagnostic.
+honored, a preferred sample rate the host API cannot open falls back to the device's default
+sample rate with an Info-level diagnostic, and a device whose environment was refreshed after
+construction refuses to start with `AudioDeviceUnavailableException` while a device resolved
+after the refresh starts normally.
 
 #### Test Scenarios
 
@@ -66,3 +68,19 @@ sample rate with an Info-level diagnostic.
 ##### Construction: Supported Preferred Sample Rate Is Used
 
 **Test**: `PortAudioCaptureDevice_Constructor_PreferredSampleRateSupported_UsesPreferredFormat`
+
+##### Start: Registers an Active Stream With the Environment, Refresh Throws While Started
+
+**Test**: `PortAudioCaptureDevice_Start_RegistersActiveStreamWithEnvironment_RefreshThrowsWhileStarted`
+
+##### Stop: Unregisters the Active Stream, Refresh Succeeds After Stop
+
+**Test**: `PortAudioCaptureDevice_Stop_UnregistersActiveStream_RefreshSucceedsAfterStop`
+
+##### Start: Environment Refreshed After Construction Throws AudioDeviceUnavailableException
+
+**Test**: `PortAudioCaptureDevice_Start_EnvironmentRefreshedAfterConstruction_ThrowsAudioDeviceUnavailableException`
+
+##### Start: Constructed After Refresh Starts Normally
+
+**Test**: `PortAudioCaptureDevice_Start_ConstructedAfterRefresh_StartsNormally`

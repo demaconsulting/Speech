@@ -28,6 +28,20 @@ internal interface IPortAudioApi
     void Initialize();
 
     /// <summary>
+    ///     Terminates the underlying PortAudio runtime, releasing its cached device table so a
+    ///     subsequent <see cref="Initialize"/> call re-scans available hardware.
+    /// </summary>
+    /// <remarks>
+    ///     Mirrors <c>Pa_Terminate()</c>. Only safe to call when no stream opened against this
+    ///     runtime is currently active; callers above this seam (<see cref="PortAudioEnvironment"/>)
+    ///     are responsible for refusing to call this while any stream is open.
+    /// </remarks>
+    /// <exception cref="Exception">
+    ///     Thrown when the underlying PortAudio runtime fails to terminate cleanly.
+    /// </exception>
+    void Terminate();
+
+    /// <summary>
     ///     Gets the number of host APIs visible to the initialized PortAudio runtime.
     /// </summary>
     /// <remarks>

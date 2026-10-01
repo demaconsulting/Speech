@@ -3,6 +3,13 @@
 #
 # These requirements describe the design-level behavior of the IAudioPlaybackDeviceProbe
 # unit, decomposing the parent AudioSubsystem requirements.
+#
+# Deliberate decision: no requirement here covers the "Enumerate() alone never detects
+# newly attached/removed hardware" staleness caveat. That behavior is specific to the
+# PortAudio-backed implementation (see port-audio-playback-device-probe.yaml) and is not part of
+# this interface's own contract - UnavailableAudioPlaybackDeviceProbe is unaffected, since it
+# always enumerates zero devices regardless of hardware state. Adding a requirement here would
+# misleadingly imply every implementation must exhibit this staleness.
 
 sections:
   - title: Speech Requirements

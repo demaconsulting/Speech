@@ -108,6 +108,11 @@ public class PortAudioCaptureDeviceProbeTests
         }
 
         /// <inheritdoc/>
+        public void Terminate()
+        {
+        }
+
+        /// <inheritdoc/>
         public int? FindHostApiIndex(PortAudioHostApiType hostApiType)
         {
             return FindHostApiIndexResult;

@@ -33,6 +33,23 @@ and mockable stream interactions behave as documented.
 
 **Test**: `PortAudioEnvironment_TryResolvePreferredHostApi_InitializationFails_ReturnsFalseAndCachesFailure`
 
+##### Environment: Refresh Success and Refusal
+
+**Tests**: `PortAudioEnvironment_Refresh_NoActiveStreams_ReinitializesAndReflectsNewOutcome`,
+`PortAudioEnvironment_Refresh_ActiveStreamRegistered_ThrowsAudioDeviceInUseExceptionAndDoesNotTerminate`,
+`PortAudioEnvironment_Refresh_NotPreviouslyInitialized_SkipsTerminateAndReinitializes`,
+`PortAudioEnvironment_RegisterThenUnregisterActiveStream_Refresh_Succeeds`,
+`PortAudioEnvironment_Refresh_OutcomeChanges_ReflectsNewInitializationResult`,
+`PortAudioEnvironment_Refresh_TerminateThrows_PropagatesAndLeavesCachedStateUntouched`
+
+Verifies that `Refresh()` terminates and reinitializes the native runtime (reflecting a new
+initialization outcome, including a genuine fail-to-succeed transition) when no stream is active,
+skips the terminate call when the runtime was never previously initialized, refuses the refresh
+with `AudioDeviceInUseException` (without terminating) while any registered stream is active,
+succeeds again once every previously registered stream has been unregistered, and propagates a
+native `Terminate()` fault unchanged while leaving the previously cached initialization state
+untouched.
+
 ##### Seam: Capture and Playback Devices Interact Through Fake Streams
 
 **Tests**: `PortAudioCaptureDevice_Start_StreamCapturesSamples_RaisesFrameCaptured`,

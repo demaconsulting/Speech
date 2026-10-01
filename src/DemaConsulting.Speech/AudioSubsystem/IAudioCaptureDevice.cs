@@ -72,10 +72,25 @@ public interface IAudioCaptureDevice
     ///     Begins capturing audio, after which <see cref="FrameCaptured"/> is raised for each
     ///     captured block until <see cref="Stop"/> is called.
     /// </summary>
+    /// <remarks>
+    ///     Implementations do not implement <see cref="IDisposable"/> and provide no automatic
+    ///     safety net for a stream left started and abandoned (for example, discarded without a
+    ///     matching <see cref="Stop"/> call): the caller is responsible for calling
+    ///     <see cref="Stop"/> once capture is no longer needed, both to release the underlying
+    ///     native resources and because <see cref="AudioDeviceFactory.RefreshDevices"/> refuses
+    ///     to proceed while any device created from the same factory's environment still has an
+    ///     active stream. PortAudio-backed implementations validate the device-table generation
+    ///     and register the active stream atomically under one lock, so a concurrent refresh can
+    ///     never land between the two and let a stale device open a native stream.
+    /// </remarks>
     /// <exception cref="AudioDeviceUnavailableException">
     ///     Thrown when <see cref="IsAvailable"/> is <see langword="false"/>, or when the device
     ///     reported itself as available but the underlying native capture stream later failed to
-    ///     open or start.
+    ///     open or start. PortAudio-backed implementations also throw this when the device was
+    ///     resolved before a device-table refresh (for example a
+    ///     <c>AudioDeviceFactory.RefreshDevices()</c> call) completed afterward: the cached
+    ///     device may no longer refer to the same physical device, so a caller must create a new
+    ///     instance rather than start the stale one.
     /// </exception>
     void Start();
 

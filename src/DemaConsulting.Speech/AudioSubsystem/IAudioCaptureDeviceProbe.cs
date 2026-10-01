@@ -17,7 +17,10 @@ public interface IAudioCaptureDeviceProbe
     /// <returns>
     ///     A read-only list of <see cref="AudioDeviceDescription"/>, one per available capture
     ///     device. Never <see langword="null"/>; an empty list means no capture devices could be
-    ///     enumerated.
+    ///     enumerated. An implementation may not reflect newly attached or removed hardware
+    ///     without an explicit refresh of its own underlying device table; see an individual
+    ///     implementation's own documentation (for example <see cref="PortAudioCaptureDeviceProbe"/>)
+    ///     for whether and how that applies to it.
     /// </returns>
     IReadOnlyList<AudioDeviceDescription> Enumerate();
 }

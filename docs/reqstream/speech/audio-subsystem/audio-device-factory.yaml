@@ -99,3 +99,21 @@ sections:
                   - AudioDeviceFactory_CreatePlaybackDevice_InjectedProbeReportsNoDevices_ReturnsUnavailableDevice
                   - AudioDeviceFactory_CreatePlaybackDevice_InjectedProbeKnowsRequestedDevice_ReturnsRealDevice
                   - AudioDeviceFactory_CreateCaptureDevice_SelectionHasEmptyDeviceName_ReturnsRealDevice
+
+              - id: Speech-Audio-AudioDeviceFactory-RefreshDevices
+                title: >-
+                  The AudioDeviceFactory class shall expose a RefreshDevices() method that
+                  delegates to the environment's Refresh(), propagates
+                  AudioDeviceInUseException untouched when the environment refuses, and
+                  re-evaluates only its own defaulted (non-explicitly-injected)
+                  capture/playback probes against the new initialization outcome on success.
+                justification: |
+                  See the AudioSubsystem-level Speech-Audio-DeviceRefresh requirement in
+                  audio-subsystem.yaml and the dedicated audio-device-refresh.yaml requirement
+                  file for the full rationale; this entry ties that shared behavior to the
+                  AudioDeviceFactory unit specifically.
+                tests:
+                  - AudioDeviceFactory_RefreshDevices_DelegatesToEnvironmentRefresh
+                  - AudioDeviceFactory_RefreshDevices_ActiveStreamInUse_PropagatesAudioDeviceInUseException
+                  - AudioDeviceFactory_RefreshDevices_PortAudioBecomesAvailable_UpgradesProbesFromUnavailableToReal
+                  - AudioDeviceFactory_RefreshDevices_ExplicitlyInjectedProbe_IsNotReplaced

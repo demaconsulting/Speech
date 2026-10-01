@@ -9,7 +9,9 @@ could be resolved. `ChannelCount` and `SampleRate`, added in Sub-phase 4b mirror
 playback stream is opened: either the resolved device's own default/full-capacity format, or the
 caller-preferred format with channel count clamped down to device capability and sample rate
 negotiated against the device/host API's actual capability. They report `0` when nothing was
-resolved. A `ConcurrentQueue<float[]>` buffers whole sample blocks written by callers - one
+resolved. The resolved device metadata also captures the environment's `Generation` at the moment
+resolution succeeded, so `Start()` can detect a later `PortAudioEnvironment.Refresh()`. A
+`ConcurrentQueue<float[]>` buffers whole sample blocks written by callers - one
 enqueue per `Write` call rather than one per sample - until the PortAudio callback requests them,
 alongside a `_headBlock`/`_headOffset` cursor that lets the callback drain queued blocks in bulk
 (via `Array.Copy`) instead of dequeuing one sample at a time, and a `long` `_pendingSampleCount`
@@ -29,12 +31,28 @@ stream-stop call has already blocked until the callback thread finished.
   actual capability via `IPortAudioApi.IsPlaybackFormatSupported`, honoring it only when
   confirmed openable and otherwise falling back to the device's own default sample rate with an
   Info-level diagnostic, and clamps any preferred channel count down to the device's maximum
-  output-channel capability. Construction never throws.
-- **Start()**: Opens a playback-only PortAudio stream through `IPortAudioApi` and starts it.
+  output-channel capability. Captures the environment's current `Generation` alongside the
+  resolved device metadata. Construction never throws.
+- **Start()**: Atomically validates the resolved device's captured `Generation` against the
+  environment's current `Generation` and registers this instance as holding an active stream via
+  `PortAudioEnvironment.TryRegisterActiveStream(...)`, all under one acquisition of the
+  environment's lock, so a concurrent `AudioDeviceFactory.RefreshDevices()` can never land
+  between the generation check and the registration. When the generation no longer matches (a
+  refresh completed after this instance was resolved), `TryRegisterActiveStream` leaves this
+  instance unregistered and returns `false`, and `Start()` throws
+  `AudioDeviceUnavailableException` rather than opening a stream against possibly-stale
+  device-table data. Otherwise it opens a playback-only PortAudio stream through `IPortAudioApi`
+  and starts it, unregistering the already-successful registration if the native open fails. When
+  the native stream fails to open or start, a guarded inner try/catch disposes the
+  partially-opened stream (reporting, but never propagating, any exception the dispose itself
+  raises) inside a `finally` that clears the stream reference and unregisters the active-stream
+  entry, so a throwing `Dispose()` can never leave this device stuck registered as active; the
+  original start failure is what is ultimately reported and thrown.
 - **Write(IReadOnlyList&lt;float&gt;)**: Enqueues interleaved samples for the PortAudio callback to
   drain later and increments `_pendingSampleCount` by however many samples were enqueued.
 - **Stop()**: Stops and disposes the active playback stream and clears any queued stale audio,
-  resetting `_pendingSampleCount` to zero.
+  resetting `_pendingSampleCount` to zero, then unregisters this instance via
+  `PortAudioEnvironment.UnregisterActiveStream(...)`.
 - **PendingSampleCount**: Reports `Interlocked.Read(ref _pendingSampleCount)`, or `0` when no
   device was resolved. `ProvideSamples` (the PortAudio callback) decrements it by exactly the
   number of samples it actually dequeued - never by a zero-fill shortfall - each time it runs, so
@@ -45,7 +63,13 @@ stream-stop call has already blocked until the callback thread finished.
 
 **Error Handling**: When no device could be resolved, `IsAvailable` is `false` and operational
 members throw `AudioDeviceUnavailableException`. Native stream-open or stream-stop failures are
-wrapped in `AudioDeviceUnavailableException`.
+wrapped in `AudioDeviceUnavailableException`, with the guarded-dispose/finally cleanup described
+under `Start()` above ensuring the active-stream registration is always released even if the
+cleanup-time `Dispose()` call itself throws. A stale `Generation` at `Start()` time is likewise
+reported as `AudioDeviceUnavailableException`, directing the caller to create a fresh instance
+via `AudioDeviceFactory` instead. A `RefreshDevices()` call made while this device's stream is
+active is refused with `AudioDeviceInUseException` by `PortAudioEnvironment`, indirectly via
+`AudioDeviceFactory`.
 
 **Dependencies**: `PortAudioEnvironment`, `IPortAudioApi`, `IPortAudioStream`,
 `AudioDeviceSelection`, `AudioFormat`, `ConcurrentQueue<float[]>`, and `ISpeechDiagnostics`.

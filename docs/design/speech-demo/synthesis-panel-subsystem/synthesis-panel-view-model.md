@@ -60,6 +60,21 @@ back to calling `Refresh()` synchronously when none was captured), mirroring
 `RecognitionPanelViewModel`'s identical pattern - since the event's raising thread is not
 otherwise guaranteed.
 
+**Stops deterministically before a shared device refresh.** The constructor also registers a
+pre-refresh hook with the shared `DeviceSelectionViewModel` via `RegisterPreRefreshHook`,
+mirroring the `ModelInstalled` subscription precedent above. Unlike
+`RecognitionPanelViewModel`'s equivalent hook, calling `Stop()` alone here does not guarantee the
+playback device is actually closed by the time the hook returns: `Stop()` only cancels the
+synthesizer's internal token and requests cancellation of `PlayCommand` — the real
+`_playbackDevice.Stop()` call happens later, inside `PlayAsync`'s own `finally` block, as part of
+the already-in-flight task. So the hook first checks `PlayCommand.IsRunning`; when `true`, it
+calls `Stop()` and then awaits `PlayCommand.ExecutionTask` (from `IAsyncRelayCommand`), swallowing
+the expected `OperationCanceledException` that `Stop()`'s cancellation causes, before returning.
+This is what lets the `DeviceSelectionViewModel.Refresh()` clicked from the "Refresh devices"
+button stop an in-flight Play and wait for the playback device to genuinely close before the
+shared device table is re-scanned, rather than relying on the `AudioDeviceInUseException`
+fallback. `Dispose()` unregisters this hook.
+
 **Embedded settings.** Assigning `SelectedModel` also assigns the embedded `Settings.Model`, so
 the settings panel always presents the currently selected voice's declared parameters, reusing
 the ModelSettingsSubsystem instead of duplicating its rendering logic.

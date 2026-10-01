@@ -19,7 +19,13 @@ initialization succeeds, injected probes are exposed exactly as supplied, option
 formats are forwarded to the concrete devices, omitting the preference preserves device-native
 format behavior, initialization failure degrades to the unavailable probes/devices, and device
 creation is genuinely resolved consistently with whichever probe was injected (not silently
-ignored in favor of an independent real-environment scan).
+ignored in favor of an independent real-environment scan). The `RefreshDevices()` staleness
+contract for devices resolved before a successful refresh is verified directly against
+`PortAudioEnvironment.Generation` and the capture/playback devices' own `Start()` behavior in
+`PortAudioEnvironmentTests.cs`, `PortAudioCaptureDeviceTests.cs`, and
+`PortAudioPlaybackDeviceTests.cs` (see `port-audio-environment.md`,
+`port-audio-capture-device.md`, and `port-audio-playback-device.md`), rather than being
+independently re-verified here.
 
 #### Test Scenarios
 
@@ -89,3 +95,26 @@ the real environment could otherwise resolve a device by that name.
 
 Proves the fix does not regress the common case where the injected probe agrees with the real
 environment: a selection the probe does know about still resolves to a real, available device.
+
+##### RefreshDevices: Delegates to the Environment's Refresh
+
+**Test**: `AudioDeviceFactory_RefreshDevices_DelegatesToEnvironmentRefresh`
+
+##### RefreshDevices: Active-Stream In Use Propagates AudioDeviceInUseException
+
+**Test**: `AudioDeviceFactory_RefreshDevices_ActiveStreamInUse_PropagatesAudioDeviceInUseException`
+
+Proves the factory does not swallow or wrap the environment's refusal: the caller sees the same
+`AudioDeviceInUseException` the environment throws, and can inspect it to learn which device(s)
+are in use.
+
+##### RefreshDevices: PortAudio Becoming Available Upgrades Default Probes From Unavailable to Real
+
+**Test**: `AudioDeviceFactory_RefreshDevices_PortAudioBecomesAvailable_UpgradesProbesFromUnavailableToReal`
+
+##### RefreshDevices: An Explicitly Injected Probe Is Never Replaced
+
+**Test**: `AudioDeviceFactory_RefreshDevices_ExplicitlyInjectedProbe_IsNotReplaced`
+
+Proves that a probe supplied explicitly at construction survives a refresh unchanged, matching
+this factory's general policy of never overriding an explicitly injected dependency.

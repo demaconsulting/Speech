@@ -25,7 +25,9 @@ not requested or probed ones - and both report `0` when the device is unavailabl
 **Error Handling**: Real implementations and the unavailable fallback both use
 `AudioDeviceUnavailableException` when an operational call is invalid because no usable device is
 available or the native stream fails at first use. Reading `IsAvailable`, `ChannelCount`,
-`SampleRate`, or `PendingSampleCount` never throws.
+`SampleRate`, or `PendingSampleCount` never throws. Implementations do not implement `IDisposable`;
+the caller is responsible for calling `Stop()` once playback is no longer needed rather than
+leaving a stream started and abandoned.
 
 **Dependencies**: None beyond built-in types.
 

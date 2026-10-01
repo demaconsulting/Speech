@@ -13,6 +13,21 @@ namespace DemaConsulting.Speech.AudioSubsystem;
 ///     resolved for the current selection or host-API default, the instance honestly reports
 ///     <see cref="IsAvailable"/> as <see langword="false"/> and operational members throw
 ///     <see cref="AudioDeviceUnavailableException"/> only when invoked.
+///     <para>
+///         <b>Device-table refresh</b>: this instance resolves and caches one device's metadata
+///         at construction time and never re-resolves it. If
+///         <see cref="PortAudioEnvironment.Refresh"/> completes after this instance was
+///         constructed, the cached device index may no longer refer to the same physical device
+///         (or may no longer be valid at all), so <see cref="Start"/> atomically validates its
+///         captured generation against the environment's current
+///         <see cref="PortAudioEnvironment.Generation"/> and registers itself as an active
+///         stream in one call to <see cref="PortAudioEnvironment.TryRegisterActiveStream"/>,
+///         so a concurrent <see cref="PortAudioEnvironment.Refresh"/> can never land between
+///         the generation check and the registration. A stale generation throws
+///         <see cref="AudioDeviceUnavailableException"/> rather than opening a stream against
+///         possibly-stale device-table data. A caller that needs to keep capturing across a
+///         refresh must create a new instance via <see cref="AudioDeviceFactory"/> afterward.
+///     </para>
 /// </remarks>
 internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
 {
@@ -139,6 +154,14 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
                 return;
             }
 
+            if (!_environment.TryRegisterActiveStream(this, _resolvedDevice.Name, _resolvedDevice.Generation))
+            {
+                throw new AudioDeviceUnavailableException(
+                    $"Cannot start capture on '{_resolvedDevice.Name}': the PortAudio device " +
+                    "table was refreshed after this device was created; create a new device via " +
+                    "AudioDeviceFactory instead.");
+            }
+
             try
             {
                 _stream = _environment.Api.OpenCaptureStream(
@@ -175,6 +198,7 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
                 finally
                 {
                     _stream = null;
+                    _environment.UnregisterActiveStream(this);
                 }
 
                 _diagnostics.Report(
@@ -209,59 +233,70 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
                 return;
             }
 
-            Exception? stopException = null;
+            // Unregistered only once the native stop/dispose sequence below has genuinely
+            // completed (success or failure) - never before - so a concurrent RefreshDevices()
+            // can never observe this stream as "inactive" and tear down the native runtime while
+            // it is still shutting down.
             try
             {
-                streamToStop.Stop();
-                _diagnostics.Report(
-                    SpeechDiagnosticLevel.Info,
-                    DiagnosticsCategory,
-                    $"Stopped PortAudio capture on '{_resolvedDevice.Name}'.");
-            }
-            catch (Exception ex)
-            {
-                // Intentionally broad: stopping the native-backed stream must be contained so
-                // shutdown faults do not escape as arbitrary interop exceptions.
-                stopException = ex;
-                _diagnostics.Report(
-                    SpeechDiagnosticLevel.Error,
-                    DiagnosticsCategory,
-                    $"Failed to stop PortAudio capture on '{_resolvedDevice.Name}': {ex.Message}");
-            }
+                Exception? stopException = null;
+                try
+                {
+                    streamToStop.Stop();
+                    _diagnostics.Report(
+                        SpeechDiagnosticLevel.Info,
+                        DiagnosticsCategory,
+                        $"Stopped PortAudio capture on '{_resolvedDevice.Name}'.");
+                }
+                catch (Exception ex)
+                {
+                    // Intentionally broad: stopping the native-backed stream must be contained so
+                    // shutdown faults do not escape as arbitrary interop exceptions.
+                    stopException = ex;
+                    _diagnostics.Report(
+                        SpeechDiagnosticLevel.Error,
+                        DiagnosticsCategory,
+                        $"Failed to stop PortAudio capture on '{_resolvedDevice.Name}': {ex.Message}");
+                }
 
-            try
-            {
-                streamToStop.Dispose();
-            }
-            catch (Exception ex) when (stopException is null)
-            {
-                // Intentionally broad: disposing the native-backed stream is the final interop
-                // cleanup boundary, so any managed/native fault must be wrapped consistently.
-                _diagnostics.Report(
-                    SpeechDiagnosticLevel.Error,
-                    DiagnosticsCategory,
-                    $"Failed to dispose PortAudio capture stream on '{_resolvedDevice.Name}': {ex.Message}");
-                throw new AudioDeviceUnavailableException(
-                    $"Failed to dispose capture stream on '{_resolvedDevice.Name}' after stopping it.",
-                    ex);
-            }
-            catch (Exception ex)
-            {
-                // Intentionally broad: once stopping has already failed, disposal faults are
-                // logged and contained so callers still observe the primary stop failure.
-                _diagnostics.Report(
-                    SpeechDiagnosticLevel.Error,
-                    DiagnosticsCategory,
-                    $"Failed to dispose PortAudio capture stream on '{_resolvedDevice.Name}' " +
-                    "after a stop failure: " +
-                    $"{ex.Message}");
-            }
+                try
+                {
+                    streamToStop.Dispose();
+                }
+                catch (Exception ex) when (stopException is null)
+                {
+                    // Intentionally broad: disposing the native-backed stream is the final interop
+                    // cleanup boundary, so any managed/native fault must be wrapped consistently.
+                    _diagnostics.Report(
+                        SpeechDiagnosticLevel.Error,
+                        DiagnosticsCategory,
+                        $"Failed to dispose PortAudio capture stream on '{_resolvedDevice.Name}': {ex.Message}");
+                    throw new AudioDeviceUnavailableException(
+                        $"Failed to dispose capture stream on '{_resolvedDevice.Name}' after stopping it.",
+                        ex);
+                }
+                catch (Exception ex)
+                {
+                    // Intentionally broad: once stopping has already failed, disposal faults are
+                    // logged and contained so callers still observe the primary stop failure.
+                    _diagnostics.Report(
+                        SpeechDiagnosticLevel.Error,
+                        DiagnosticsCategory,
+                        $"Failed to dispose PortAudio capture stream on '{_resolvedDevice.Name}' " +
+                        "after a stop failure: " +
+                        $"{ex.Message}");
+                }
 
-            if (stopException is not null)
+                if (stopException is not null)
+                {
+                    throw new AudioDeviceUnavailableException(
+                        $"Failed to stop capture on '{_resolvedDevice.Name}'.",
+                        stopException);
+                }
+            }
+            finally
             {
-                throw new AudioDeviceUnavailableException(
-                    $"Failed to stop capture on '{_resolvedDevice.Name}'.",
-                    stopException);
+                _environment.UnregisterActiveStream(this);
             }
         }
     }
@@ -275,6 +310,12 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
     /// </returns>
     private ResolvedCaptureDevice? ResolveDevice()
     {
+        // Captured before any device-table query below (not after) so a Refresh() that overlaps
+        // this resolution is always caught: if a refresh completes mid-resolution, the generation
+        // recorded here is already stale relative to the (possibly also stale) table data just
+        // read, and Start() will reject the instance rather than silently accept it.
+        var generation = _environment.Generation;
+
         if (!_environment.TryResolvePreferredHostApi(out var hostApiIndex, out var hostApiInfo))
         {
             _diagnostics.Report(
@@ -315,7 +356,8 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
             selectedDeviceIndex,
             selectedDeviceInfo.Name,
             resolvedChannelCount,
-            ResolveSampleRate(selectedDeviceIndex, resolvedChannelCount, selectedDeviceInfo));
+            ResolveSampleRate(selectedDeviceIndex, resolvedChannelCount, selectedDeviceInfo),
+            generation);
 
         var resolutionBasis = string.Equals(resolvedDevice.Name, _selection.DeviceName, StringComparison.Ordinal)
             ? "selection"
@@ -456,5 +498,19 @@ internal sealed class PortAudioCaptureDevice : IAudioCaptureDevice
     /// <param name="Name">The PortAudio-reported device name.</param>
     /// <param name="ChannelCount">The capture channel count to request.</param>
     /// <param name="SampleRate">The capture sample rate to request.</param>
-    private sealed record ResolvedCaptureDevice(int DeviceIndex, string Name, int ChannelCount, int SampleRate);
+    /// <param name="Generation">
+    ///     The <see cref="PortAudioEnvironment.Generation"/> observed immediately before the
+    ///     device-table queries that resolved this instance, captured so <see cref="Start"/> can
+    ///     detect a later <see cref="PortAudioEnvironment.Refresh"/> that may have invalidated
+    ///     <paramref name="DeviceIndex"/>. Captured before, not after, those queries: a
+    ///     <see cref="PortAudioEnvironment.Refresh"/> that overlaps resolution can only ever make
+    ///     this value stale relative to the current generation, never newer, so an overlapping
+    ///     refresh is always rejected by <see cref="Start"/> rather than silently accepted.
+    /// </param>
+    private sealed record ResolvedCaptureDevice(
+        int DeviceIndex,
+        string Name,
+        int ChannelCount,
+        int SampleRate,
+        long Generation);
 }

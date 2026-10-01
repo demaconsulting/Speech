@@ -1,4 +1,6 @@
+using System.Runtime.InteropServices;
 using DemaConsulting.Speech.AudioSubsystem;
+using DemaConsulting.Speech.AudioSubsystem.PortAudio;
 using DemaConsulting.Speech.Demo.DeviceSelectionSubsystem;
 using NSubstitute;
 
@@ -88,5 +90,111 @@ public class AudioDeviceServiceTests
         // Assert: both are honestly empty
         Assert.Empty(capture);
         Assert.Empty(playback);
+    }
+
+    /// <summary>
+    ///     Proves that <see cref="AudioDeviceService.RefreshDevices"/> delegates to
+    ///     <see cref="AudioDeviceFactory.RefreshDevices"/>, so the demo's refresh button actually
+    ///     forces the backend to re-scan its device table.
+    /// </summary>
+    [Fact]
+    public void AudioDeviceService_RefreshDevices_Always_DelegatesToFactoryRefreshDevices()
+    {
+        // Arrange: a factory over a deterministic PortAudio environment so the delegation can be
+        // observed without touching a real audio backend
+        var api = new FakePortAudioApi();
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+        var factory = new AudioDeviceFactory(null, null, null, environment);
+        var service = new AudioDeviceService(factory);
+
+        // Act: refresh through the demo's seam
+        service.RefreshDevices();
+
+        // Assert: the factory's own refresh was performed (proved by the environment's runtime
+        // being terminated and reinitialized)
+        Assert.Equal(1, api.TerminateCallCount);
+        Assert.Equal(2, api.InitializeCallCount);
+    }
+
+    /// <summary>
+    ///     Minimal fake PortAudio seam used only by the refresh delegation test.
+    /// </summary>
+    private sealed class FakePortAudioApi : IPortAudioApi
+    {
+        /// <summary>Gets the number of times <see cref="Initialize"/> has been called.</summary>
+        internal int InitializeCallCount { get; private set; }
+
+        /// <summary>Gets the number of times <see cref="Terminate"/> has been called.</summary>
+        internal int TerminateCallCount { get; private set; }
+
+        /// <inheritdoc/>
+        public int HostApiCount => 0;
+
+        /// <inheritdoc/>
+        public int DeviceCount => 0;
+
+        /// <inheritdoc/>
+        public void Initialize()
+        {
+            InitializeCallCount++;
+        }
+
+        /// <inheritdoc/>
+        public void Terminate()
+        {
+            TerminateCallCount++;
+        }
+
+        /// <inheritdoc/>
+        public int? FindHostApiIndex(PortAudioHostApiType hostApiType)
+        {
+            return null;
+        }
+
+        /// <inheritdoc/>
+        public PortAudioHostApiInfo GetHostApiInfo(int hostApiIndex)
+        {
+            throw new NotSupportedException("Host API metadata is outside this test scope.");
+        }
+
+        /// <inheritdoc/>
+        public PortAudioDeviceInfo GetDeviceInfo(int deviceIndex)
+        {
+            throw new NotSupportedException("Device enumeration is outside this test scope.");
+        }
+
+        /// <inheritdoc/>
+        public bool IsCaptureFormatSupported(int deviceIndex, int channelCount, int sampleRate)
+        {
+            throw new NotSupportedException("Format negotiation is outside this test scope.");
+        }
+
+        /// <inheritdoc/>
+        public bool IsPlaybackFormatSupported(int deviceIndex, int channelCount, int sampleRate)
+        {
+            throw new NotSupportedException("Format negotiation is outside this test scope.");
+        }
+
+        /// <inheritdoc/>
+        public IPortAudioStream OpenCaptureStream(
+            int deviceIndex,
+            int channelCount,
+            int sampleRate,
+            uint framesPerBuffer,
+            Action<IReadOnlyList<float>> onSamplesCaptured)
+        {
+            throw new NotSupportedException("Stream opening is outside this test scope.");
+        }
+
+        /// <inheritdoc/>
+        public IPortAudioStream OpenPlaybackStream(
+            int deviceIndex,
+            int channelCount,
+            int sampleRate,
+            uint framesPerBuffer,
+            Func<int, float[]> provideSamples)
+        {
+            throw new NotSupportedException("Stream opening is outside this test scope.");
+        }
     }
 }
