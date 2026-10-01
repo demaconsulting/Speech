@@ -66,7 +66,7 @@ external interfaces are its user interface and the interfaces it consumes.
 | `SpeechSynthesizerFactory.LoadAsync(...)` | Outbound | Method call/return | Consumed; never throws |
 | `SpeechRecognizerFactory.LoadAsync(...)` | Outbound | Method call/return | Consumed; never throws |
 | `ISynthesisSession.SpeakAsync(...)` | Outbound | Method call/return | Consumed; cancellation stops playback |
-| `IRecognitionSession.StartAsync()` / `StopAsync()` / `GetResultsAsync()` | Outbound | Method call/`IAsyncEnumerable` | Consumed; UI-marshaled via `StateChanged` |
+| `IRecognitionSession.Start/Stop/GetResultsAsync()` | Outbound | `IAsyncEnumerable` | UI-marshaled via `StateChanged` |
 
 ## Dependencies
 

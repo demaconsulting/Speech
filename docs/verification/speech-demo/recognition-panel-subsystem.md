@@ -409,4 +409,3 @@ event does not; `DisposeAsync()` unsubscribes from `ModelInstalled` so a later e
 applied; and the panel's registered pre-refresh hook stops an actively listening session before a
 shared device refresh is attempted (and is a safe no-op while idle), so the refresh succeeds
 deterministically.
-

@@ -154,6 +154,12 @@ words:
   - undiscarded
   - unreset
   - undecoded
+  - overwritable
+  - provisionals
+  - precheck
+  - unrequested
+  - unawaited
+  - unconfigured
 
 # Exclude common build artifacts, dependencies, and vendored third-party code
 ignorePaths:

@@ -41,7 +41,7 @@ are added to `ICliModelCatalog`:
 | Member | Returns | Behavior |
 | --- | --- | --- |
 | `GetPreferredAudioFormat(descriptor)` | `AudioFormat` | Throws for a non-synthesis model |
-| `CreateSynthesizerEngineAsync(descriptor, parameterValues, cancellationToken)` | `Task<ISpeechSynthesizerEngine>` | Throws for a non-synthesis model; no playback device bound yet |
+| `CreateSynthesizerEngineAsync(...)` | `Task<ISpeechSynthesizerEngine>` | Non-synthesis model throws; no device bound |
 
 `SpeechModelCatalogAdapter` implements both via a private `RequireSynthesisModel` helper that
 performs the cast once and throws a clean `ArgumentException` naming the offending model id when

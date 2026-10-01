@@ -135,16 +135,16 @@ The system exposes the following public API to external consumers:
 | `IModelDownloadClient.DownloadAsync(...)` | Inbound | Method call | Throws on any non-success/transport failure |
 | `SpeechModelCatalog.Enumerate()` | Outbound | Method call/return | Never throws |
 | `SpeechModelCatalog.DownloadAsync(...)` | Inbound/Outbound | Method call/return | Throws for unknown model id |
-| `SpeechRecognizerFactory.LoadAsync(...)` | Inbound/Outbound | Method call/return (`Task`) | Never throws for unavailable states |
-| `ISpeechRecognizerEngine.CreateSessionAsync(...)` | Inbound/Outbound | Method call/return (`Task`) | Never throws for unavailable states; throws `RecognitionEngineBusyException` if leased |
-| `IRecognitionSession.StartAsync()`/`.StopAsync()` | Inbound | Method call (`Task`) | Throws only on unavailable, use-after-dispose, or restart-after-stop |
-| `IRecognitionSession.GetResultsAsync(...)` | Outbound | `IAsyncEnumerable<SpeechRecognitionEvent>` | Single-consumer; flushes before `StopAsync()` completes; faults surface to the active enumerator |
-| `IRecognitionSession.DisposeAsync()` | Inbound | Method call (`ValueTask`) | Idempotent; implies `StopAsync()` |
+| `SpeechRecognizerFactory.LoadAsync(...)` | Inbound/Outbound | Method call | Never throws for unavailable states |
+| `ISpeechRecognizerEngine.CreateSessionAsync(...)` | Inbound/Outbound | Method call | Never throws; throws if leased |
+| `IRecognitionSession.StartAsync()`/`.StopAsync()` | Inbound | Method call | Throws only unavailable/dispose/restart |
+| `IRecognitionSession.GetResultsAsync(...)` | Outbound | `IAsyncEnumerable<T>` | Single-consumer; flushes before stop |
+| `IRecognitionSession.DisposeAsync()` | Inbound | Method call | Idempotent; implies `StopAsync()` |
 | `AudioTagParser.Parse(...)` | Inbound/Outbound | Method call/return | Never throws; folds unmatched brackets |
-| `SpeechSynthesizerFactory.LoadAsync(...)` | Inbound/Outbound | Method call/return (`Task`) | Never throws for unavailable states |
-| `ISpeechSynthesizerEngine.CreateSessionAsync(...)` | Inbound/Outbound | Method call/return (`Task`) | Never throws for unavailable states; throws `SynthesisEngineBusyException` if leased |
-| `ISynthesisSession.SpeakAsync(...)`/`.SynthesizeAsync(...)` | Inbound/Outbound | Method call/return (`Task`) | Throws only on unavailable/first-use; overlap disallowed |
-| `ISynthesisSession.DisposeAsync()` | Inbound | Method call (`ValueTask`) | Idempotent |
+| `SpeechSynthesizerFactory.LoadAsync(...)` | Inbound/Outbound | Method call | Never throws for unavailable states |
+| `ISpeechSynthesizerEngine.CreateSessionAsync(...)` | Inbound/Outbound | Method call | Never throws; throws if leased |
+| `ISynthesisSession.SpeakAsync`/`.SynthesizeAsync` | Inbound/Outbound | Method call | Unavailable-only; no overlap |
+| `ISynthesisSession.DisposeAsync()` | Inbound | Method call | Idempotent |
 
 ## Dependencies
 

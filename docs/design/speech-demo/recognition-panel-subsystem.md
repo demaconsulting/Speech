@@ -25,7 +25,8 @@ The subsystem exposes one presentation surface, `RecognitionPanelViewModel`, con
 - `IRecognizerSessionFactory` (below) — the demo-owned recognizer-engine composition seam
 
 The library composes a recognizer engine through the static
-`SpeechRecognizerFactory.LoadAsync(IRecognitionModel, SpeechModelStore, ISpeechDiagnostics?, IReadOnlyDictionary<string,object>?, CancellationToken)`
+`SpeechRecognizerFactory.LoadAsync(IRecognitionModel, SpeechModelStore, ISpeechDiagnostics?,
+IReadOnlyDictionary<string,object>?, CancellationToken)`
 method, which requires an `IRecognitionModel` — an interface whose members are partly `internal`
 to the library, so only the library's own assemblies can implement it. A demo-owned seam
 therefore accepts the common `ISpeechModel` contract instead and performs the narrowing itself:
@@ -54,7 +55,7 @@ an installed model with the wrong role must still get a working, if unavailable,
 
 | Member | Type | Purpose |
 | --- | --- | --- |
-| `NoModelsMessage` etc. | `const string` | Explanation per honest outcome (no models, no selection, no device, unavailable engine, session faulted) |
+| `NoModelsMessage` etc. | `const string` | Honest-outcome text (no models/selection/device, unavailable, faulted) |
 | `AvailableModels` | `ObservableCollection<ISpeechModel>` | The installed recognition models |
 | `SelectedModel` | `ISpeechModel?` | The chosen model |
 | `State` | `RecognitionStreamingState` | The current lifecycle state: `Idle`, `Listening`, `Error` |
@@ -111,6 +112,7 @@ pre-refresh hook (`StopBeforeDeviceRefreshAsync`) with the shared `DeviceSelecti
 `RegisterPreRefreshHook`, mirroring the `ModelInstalled` subscription precedent above. The hook
 delegates to the same stop-then-invalidate-session path used for a capture-device change, so an
 actively listening session is stopped and released before the shared device table is re-scanned
+
 - its bound capture device would otherwise become stale the instant the refresh completes. This
 is what lets the `DeviceSelectionViewModel.Refresh()` clicked from the "Refresh devices" button
 stop an actively listening session deterministically, rather than relying on the

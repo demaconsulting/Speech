@@ -72,7 +72,7 @@ defaulting to the system default device exactly as `speak` does), awaits
 `catalog.CreateSynthesizerEngineAsync(...)` then `engine.CreateSessionAsync(playbackDevice, ...)`,
 and calls `session.SpeakAsync(text, cancellationToken)`, waiting for it to complete before Phase
 2's listen phase can begin - Phase 2's recognizer engine/session construction runs concurrently
-with Phase 1's wait, but the two phases' *listening* remains strictly sequential, matching a
+with Phase 1's wait, but the two phases' _listening_ remains strictly sequential, matching a
 natural question-then-answer conversational turn - `ask` never starts real microphone capture
 while the prompt is still being spoken. Once Phase 1 completes, `RunAsync` adopts the pre-warmed
 `PrewarmedRecognizer` (engine + session) and calls `Listen`, which drives the already-constructed
@@ -99,13 +99,13 @@ pre-warm step alongside engine/session construction because `ISpeechRecognizerEn
 requires an already-constructed `IAudioCaptureDevice` as an argument - it cannot be deferred
 independently of the engine itself. If session creation fails after the engine has already loaded,
 `PrewarmRecognizerAsync` disposes the orphaned engine before rethrowing, so a session-creation
-failure never leaks the engine. Critically, only the model *load* and session creation are
+failure never leaks the engine. Critically, only the model _load_ and session creation are
 pre-warmed: `session.StartAsync(...)` (which begins real microphone capture) is still called only
 once Phase 2's `Listen` genuinely runs, so pre-warming never risks capturing audio - including any
 acoustic bleed from the prompt still being played - while Phase 1 is in progress.
 
 On every exit path, the pre-warm task's result and any exception it raises are always eventually
-observed and never left unobserved, but `RunAsync` only *synchronously* awaits it on the success
+observed and never left unobserved, but `RunAsync` only _synchronously_ awaits it on the success
 path (Phase 2 genuinely starting); on the canceled/failed paths it hands the cleanup off
 fire-and-forget so a slow in-flight model load never delays `Ctrl+C`/fast-failure responsiveness:
 
@@ -143,7 +143,7 @@ Unlike `RecognizeCommand`, which resolves its capture device directly from an in
 small, CLI-owned seam introduced in this pass and mirroring `ICliPlaybackDeviceSource` exactly
 (same `*Probe` property/`Create*Device(selection)` method shape, same rationale). This exists
 because `AudioDeviceFactory.CreateCaptureDevice` checks real PortAudio initialization state
-*before* even consulting an injected probe, so a test that only fakes the probe (as
+_before_ even consulting an injected probe, so a test that only fakes the probe (as
 `RecognizeCommandTests` does for its own, narrower error-path-only coverage) still resolves to the
 honestly unavailable fallback on any machine - including every headless CI runner - where real
 PortAudio never initializes, regardless of the fake probe. `ICliCaptureDeviceSource` lets a test

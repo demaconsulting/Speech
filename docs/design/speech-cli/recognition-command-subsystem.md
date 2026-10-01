@@ -31,7 +31,7 @@ are added to `ICliModelCatalog`:
 | Member | Returns | Behavior |
 | --- | --- | --- |
 | `GetAudioFormat(descriptor)` | `AudioFormat` | Throws for a non-recognition model |
-| `CreateRecognizerEngineAsync(descriptor, parameterValues, cancellationToken)` | `Task<ISpeechRecognizerEngine>` | Throws for a non-recognition model; no capture device bound yet |
+| `CreateRecognizerEngineAsync(...)` | `Task<ISpeechRecognizerEngine>` | Non-recognition model throws; no device bound |
 
 `SpeechModelCatalogAdapter` implements both via a private `RequireRecognitionModel` helper,
 mirroring `RequireSynthesisModel` exactly: it performs the cast once and throws a clean

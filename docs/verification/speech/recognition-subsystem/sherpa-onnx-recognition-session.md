@@ -239,4 +239,3 @@ ground-truth text stays within tolerance; the "Session-End Reset Buffered-Audio 
 scenario (`Reset_AbandonedUtteranceWithNoTrailingSilence_DoesNotBleedIntoNextSession`) described
 above; and the "Trailing-Audio Flush Recovery" scenario
 (`TryFlush_AbandonedUtteranceWithNoTrailingSilence_RecoversTrailingWords`) described above.
-

@@ -126,9 +126,9 @@ genuinely absent capability where the library itself would return a graceful fal
 | Member | Returns | Behavior |
 | --- | --- | --- |
 | `GetPreferredAudioFormat(descriptor)` | `AudioFormat` | Throws for a non-synthesis model |
-| `CreateSynthesizerEngineAsync(descriptor, parameterValues, cancellationToken)` | `Task<ISpeechSynthesizerEngine>` | Throws for a non-synthesis model; no device bound yet |
+| `CreateSynthesizerEngineAsync(...)` | `Task<ISpeechSynthesizerEngine>` | Non-synthesis model throws; no device bound |
 | `GetAudioFormat(descriptor)` | `AudioFormat` | Throws for a non-recognition model |
-| `CreateRecognizerEngineAsync(descriptor, parameterValues, cancellationToken)` | `Task<ISpeechRecognizerEngine>` | Throws for a non-recognition model; no device bound yet |
+| `CreateRecognizerEngineAsync(...)` | `Task<ISpeechRecognizerEngine>` | Non-recognition model throws; no device bound |
 
 `SpeechModelCatalogAdapter` implements all four through private `RequireSynthesisModel`/
 `RequireRecognitionModel` helpers that perform the respective `is ISynthesisModel`/

@@ -343,4 +343,3 @@ idempotent, releases the cached engine/session, and unsubscribes from `ModelInst
 event is never applied; and the panel's registered pre-refresh hook stops an in-flight Play and
 genuinely awaits its completion before a shared device refresh is attempted (and is a safe no-op
 while idle), so the refresh succeeds deterministically.
-
