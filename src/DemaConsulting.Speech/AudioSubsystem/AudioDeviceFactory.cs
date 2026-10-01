@@ -173,7 +173,11 @@ public sealed class AudioDeviceFactory
     ///         <see cref="CreateCaptureDevice"/>/<see cref="CreatePlaybackDevice"/>) has its own
     ///         device index invalidated as a result and throws
     ///         <see cref="AudioDeviceUnavailableException"/> if <c>Start</c> is later called on
-    ///         it; such an instance must be discarded and a replacement created afterward.
+    ///         it; such an instance must be discarded and a replacement created afterward. The
+    ///         generation check such an instance performs on <c>Start</c> is atomic with the
+    ///         active-stream registration (see <see cref="PortAudioEnvironment.TryRegisterActiveStream"/>),
+    ///         so a <c>Start</c> call racing a concurrent <see cref="RefreshDevices"/> can never
+    ///         register and open a stream against a device index that refresh just invalidated.
     ///     </para>
     /// </remarks>
     /// <exception cref="AudioDeviceInUseException">

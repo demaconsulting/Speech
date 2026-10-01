@@ -354,6 +354,56 @@ public class PortAudioEnvironmentTests
     }
 
     /// <summary>
+    ///     Proves that <see cref="PortAudioEnvironment.TryRegisterActiveStream"/> registers the
+    ///     owner and returns <see langword="true"/> when the expected generation still matches
+    ///     the current generation.
+    /// </summary>
+    [Fact]
+    public void PortAudioEnvironment_TryRegisterActiveStream_GenerationMatches_RegistersAndReturnsTrue()
+    {
+        // Arrange: a freshly constructed environment at generation zero
+        var api = new FakePortAudioApi();
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+        var owner = new object();
+
+        // Act: register with the current (matching) generation
+        var registered = environment.TryRegisterActiveStream(owner, "Mic", environment.Generation);
+
+        // Assert: registration succeeded, and the owner is now treated as an active stream that
+        // refuses a subsequent refresh
+        Assert.True(registered);
+        var exception = Assert.Throws<AudioDeviceInUseException>(environment.Refresh);
+        Assert.Contains("Mic", exception.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Proves that <see cref="PortAudioEnvironment.TryRegisterActiveStream"/> returns
+    ///     <see langword="false"/> and does not register the owner when the expected generation
+    ///     is already stale (a refresh already completed), closing the race where a stale
+    ///     <c>Start()</c> would otherwise register and open a stream against an invalidated
+    ///     device index.
+    /// </summary>
+    [Fact]
+    public void PortAudioEnvironment_TryRegisterActiveStream_GenerationStale_DoesNotRegisterAndReturnsFalse()
+    {
+        // Arrange: an environment that has already been refreshed once, advancing its generation
+        var api = new FakePortAudioApi();
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+        var staleGeneration = environment.Generation;
+        environment.Refresh();
+        var owner = new object();
+
+        // Act: attempt to register using the stale (pre-refresh) generation
+        var registered = environment.TryRegisterActiveStream(owner, "Mic", staleGeneration);
+
+        // Assert: registration was refused, and the owner was never added to the active-stream
+        // registry, so a subsequent refresh is not refused by a phantom registration
+        Assert.False(registered);
+        var exception = Record.Exception(environment.Refresh);
+        Assert.Null(exception);
+    }
+
+    /// <summary>
     ///     Proves that a concurrent first evaluation of the cached initialization state and a
     ///     concurrent <see cref="PortAudioEnvironment.Refresh"/> call are fully serialized by the
     ///     shared lock, rather than racing into an unbalanced pair of native

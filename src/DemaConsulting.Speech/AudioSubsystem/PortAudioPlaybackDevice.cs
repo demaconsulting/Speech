@@ -18,8 +18,12 @@ namespace DemaConsulting.Speech.AudioSubsystem;
 ///         at construction time and never re-resolves it. If
 ///         <see cref="PortAudioEnvironment.Refresh"/> completes after this instance was
 ///         constructed, the cached device index may no longer refer to the same physical device
-///         (or may no longer be valid at all), so <see cref="Start"/> detects the environment's
-///         advanced <see cref="PortAudioEnvironment.Generation"/> and throws
+///         (or may no longer be valid at all), so <see cref="Start"/> atomically validates its
+///         captured generation against the environment's current
+///         <see cref="PortAudioEnvironment.Generation"/> and registers itself as an active
+///         stream in one call to <see cref="PortAudioEnvironment.TryRegisterActiveStream"/>,
+///         so a concurrent <see cref="PortAudioEnvironment.Refresh"/> can never land between
+///         the generation check and the registration. A stale generation throws
 ///         <see cref="AudioDeviceUnavailableException"/> rather than opening a stream against
 ///         possibly-stale device-table data. A caller that needs to keep playing back audio
 ///         across a refresh must create a new instance via <see cref="AudioDeviceFactory"/>
@@ -193,15 +197,13 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
                 return;
             }
 
-            if (_resolvedDevice.Generation != _environment.Generation)
+            if (!_environment.TryRegisterActiveStream(this, _resolvedDevice.Name, _resolvedDevice.Generation))
             {
                 throw new AudioDeviceUnavailableException(
                     $"Cannot start playback on '{_resolvedDevice.Name}': the PortAudio device " +
                     "table was refreshed after this device was created; create a new device via " +
                     "AudioDeviceFactory instead.");
             }
-
-            _environment.RegisterActiveStream(this, _resolvedDevice.Name);
 
             try
             {

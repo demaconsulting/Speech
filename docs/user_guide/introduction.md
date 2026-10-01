@@ -66,8 +66,10 @@ This release ships the `Diagnostics` subsystem and a real `AudioSubsystem` imple
   successfully, it returns real devices backed by PortAudio; otherwise it falls back to honest
   unavailable implementations. Its `RefreshDevices()` method forces PortAudio to re-scan its
   device table, so hardware attached or removed after start-up becomes visible to devices and
-  probes created afterward; already-created device instances are unaffected. This is the one
-  deliberate exception to the library's "never throws at composition" policy: it throws
+  probes created afterward; already-created device instances are not re-resolved by a refresh,
+  so calling `Start()` on one afterward throws `AudioDeviceUnavailableException` and it must be
+  replaced via `AudioDeviceFactory.CreateCaptureDevice()`/`CreatePlaybackDevice()` before starting
+  again. This is the one deliberate exception to the library's "never throws at composition" policy: it throws
   `AudioDeviceInUseException` if any device created from the factory currently has an open or
   started stream, and the caller must stop that device before retrying.
 - **`AudioDeviceDescription`** and **`AudioDeviceSelection`**: immutable, name-only

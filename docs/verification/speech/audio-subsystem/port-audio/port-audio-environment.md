@@ -16,7 +16,9 @@ implementations and through singleton access tests for the shared production env
 Tests pass when supported-platform mappings are correct, unsupported platforms return `null`,
 initialization failure is cached, preferred-host metadata resolves when the host API exists, a
 refresh that actually proceeds advances the `Generation` counter by exactly one while a refresh
-refused as in-use leaves it unchanged, and a concurrent first evaluation of the cached
+refused as in-use leaves it unchanged, `TryRegisterActiveStream` registers and returns `true` only
+when the caller's expected generation still matches the current generation and otherwise leaves
+the registry untouched and returns `false`, and a concurrent first evaluation of the cached
 initialization state and a concurrent `Refresh()` call are fully serialized rather than producing
 an unbalanced `Initialize()`/`Terminate()` pair.
 
@@ -68,6 +70,14 @@ an unbalanced `Initialize()`/`Terminate()` pair.
 ##### Refresh: Refused Refresh Does Not Increment Generation
 
 **Test**: `PortAudioEnvironment_Refresh_ActiveStreamRegistered_DoesNotIncrementGeneration`
+
+##### TryRegisterActiveStream: Matching Generation Registers and Returns True
+
+**Test**: `PortAudioEnvironment_TryRegisterActiveStream_GenerationMatches_RegistersAndReturnsTrue`
+
+##### TryRegisterActiveStream: Stale Generation Does Not Register and Returns False
+
+**Test**: `PortAudioEnvironment_TryRegisterActiveStream_GenerationStale_DoesNotRegisterAndReturnsFalse`
 
 ##### IsInitialized: Concurrent Evaluation With Refresh Serializes and Preserves Initialize/Terminate Balance
 

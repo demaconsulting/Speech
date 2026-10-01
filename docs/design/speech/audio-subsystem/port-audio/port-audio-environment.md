@@ -22,6 +22,14 @@ exactly one every time it actually reinitializes the runtime.
   remove one device instance's active (started) stream under the sync root, keyed by reference
   identity, so a concurrent or later `Refresh` call knows whether it is safe to tear down the
   native runtime.
+- **TryRegisterActiveStream(owner, deviceName, expectedGeneration)**: Under one acquisition of the
+  sync root, compares `expectedGeneration` against the current `Generation` and, only if they
+  still match, registers the active stream exactly as `RegisterActiveStream` would; returns
+  `false` without registering when the generation has already advanced. Because both the
+  generation check and the registration happen under the same lock, a concurrent `Refresh` can
+  never land between them, closing the race through which a capture/playback device's `Start()`
+  could otherwise register and open a native stream against a device index a refresh had already
+  invalidated.
 - **Refresh()**: Under the sync root, throws `AudioDeviceInUseException` naming the distinct
   in-use device(s) when the active-stream registry is non-empty, touching neither the runtime,
   the cached initialization state, nor `Generation`; otherwise calls `IPortAudioApi.Terminate()`
@@ -47,4 +55,5 @@ stream.
 
 **Callers**: `AudioDeviceFactory`, `PortAudioCaptureDeviceProbe`, `PortAudioPlaybackDeviceProbe`,
 `PortAudioCaptureDevice`, and `PortAudioPlaybackDevice` (the latter two also read `Generation` at
-device-resolution time so `Start()` can detect a later refresh).
+device-resolution time and call `TryRegisterActiveStream` from `Start()` so the staleness check
+and the active-stream registration are atomic with respect to a concurrent refresh).

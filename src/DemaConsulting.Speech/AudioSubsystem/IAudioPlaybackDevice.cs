@@ -61,7 +61,9 @@ public interface IAudioPlaybackDevice
     ///     <see cref="Stop"/> once playback is no longer needed, both to release the underlying
     ///     native resources and because <see cref="AudioDeviceFactory.RefreshDevices"/> refuses
     ///     to proceed while any device created from the same factory's environment still has an
-    ///     active stream.
+    ///     active stream. PortAudio-backed implementations validate the device-table generation
+    ///     and register the active stream atomically under one lock, so a concurrent refresh can
+    ///     never land between the two and let a stale device open a native stream.
     /// </remarks>
     /// <exception cref="AudioDeviceUnavailableException">
     ///     Thrown when <see cref="IsAvailable"/> is <see langword="false"/>, or when the device

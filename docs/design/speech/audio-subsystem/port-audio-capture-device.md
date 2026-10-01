@@ -21,18 +21,21 @@ The active stream reference is synchronized so only one capture stream can run a
   diagnostic, and clamps any preferred channel count down to the device's maximum input-channel
   capability. Captures the environment's current `Generation` alongside the resolved device
   metadata. Construction never throws.
-- **Start()**: First compares the resolved device's captured `Generation` against the
-  environment's current `Generation`, throwing `AudioDeviceUnavailableException` when they no
-  longer match (a refresh completed after this instance was resolved) rather than opening a
-  stream against possibly-stale device-table data. Otherwise opens a capture-only PortAudio
-  stream through `IPortAudioApi`, starts it, and forwards managed sample blocks through
-  `FrameCaptured`. Registers this instance with `PortAudioEnvironment.RegisterActiveStream(...)`
-  before opening the native stream, and unregisters it if the open fails, so a concurrent
-  `AudioDeviceFactory.RefreshDevices()` knows a stream is active. When the native stream fails to
-  open or start, a guarded inner try/catch disposes the partially-opened stream (reporting, but
-  never propagating, any exception the dispose itself raises) inside a `finally` that clears the
-  stream reference and unregisters the active-stream entry, so a throwing `Dispose()` can never
-  leave this device stuck registered as active; the original start failure is what is ultimately
+- **Start()**: Atomically validates the resolved device's captured `Generation` against the
+  environment's current `Generation` and registers this instance as holding an active stream via
+  `PortAudioEnvironment.TryRegisterActiveStream(...)`, all under one acquisition of the
+  environment's lock, so a concurrent `AudioDeviceFactory.RefreshDevices()` can never land
+  between the generation check and the registration. When the generation no longer matches (a
+  refresh completed after this instance was resolved), `TryRegisterActiveStream` leaves this
+  instance unregistered and returns `false`, and `Start()` throws
+  `AudioDeviceUnavailableException` rather than opening a stream against possibly-stale
+  device-table data. Otherwise it opens a capture-only PortAudio stream through `IPortAudioApi`,
+  starts it, and forwards managed sample blocks through `FrameCaptured`, unregistering the
+  already-successful registration if the native open fails. When the native stream fails to open
+  or start, a guarded inner try/catch disposes the partially-opened stream (reporting, but never
+  propagating, any exception the dispose itself raises) inside a `finally` that clears the stream
+  reference and unregisters the active-stream entry, so a throwing `Dispose()` can never leave
+  this device stuck registered as active; the original start failure is what is ultimately
   reported and thrown.
 - **Stop()**: Stops and disposes the active capture stream when one exists, then unregisters this
   instance via `PortAudioEnvironment.UnregisterActiveStream(...)`.

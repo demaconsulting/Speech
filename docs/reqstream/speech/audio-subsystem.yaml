@@ -295,6 +295,7 @@ sections:
               - Speech-Audio-PortAudioCaptureDevice-ActiveStreamRegistration
               - Speech-Audio-PortAudioPlaybackDevice-ActiveStreamRegistration
               - Speech-Audio-AudioDeviceRefresh-PreservesExplicitProbes
+              - Speech-Audio-AudioDeviceRefresh-InvalidatesPreRefreshInstances
               - Speech-Audio-AudioDeviceFactory-RefreshDevices
               - Speech-Audio-AudioDeviceInUseException-Constructors
             tests:

@@ -226,6 +226,44 @@ internal sealed class PortAudioEnvironment
     }
 
     /// <summary>
+    ///     Atomically validates that <paramref name="expectedGeneration"/> still matches the
+    ///     current <see cref="Generation"/> and, if so, registers <paramref name="owner"/> as
+    ///     holding an active stream - both steps performed under a single acquisition of
+    ///     <see cref="_syncRoot"/>, so a concurrent <see cref="Refresh"/> can never land in the
+    ///     gap between a generation check and the active-stream registration and let a device
+    ///     open a native stream against a stale, pre-refresh device index.
+    /// </summary>
+    /// <param name="owner">
+    ///     The device instance registering itself, used only as a reference-identity key.
+    /// </param>
+    /// <param name="deviceName">
+    ///     The resolved device name, used to build a <see cref="AudioDeviceInUseException"/>
+    ///     message if a refresh is refused while this registration is active.
+    /// </param>
+    /// <param name="expectedGeneration">
+    ///     The <see cref="Generation"/> value the caller resolved its device against.
+    /// </param>
+    /// <returns>
+    ///     <see langword="true"/> when <paramref name="expectedGeneration"/> matched the current
+    ///     generation and the registration succeeded; <see langword="false"/> when the generation
+    ///     had already advanced, in which case no registration was performed and the caller must
+    ///     not open a native stream.
+    /// </returns>
+    internal bool TryRegisterActiveStream(object owner, string deviceName, long expectedGeneration)
+    {
+        lock (_syncRoot)
+        {
+            if (_generation != expectedGeneration)
+            {
+                return false;
+            }
+
+            _activeStreams[owner] = deviceName;
+            return true;
+        }
+    }
+
+    /// <summary>
     ///     Unregisters one device instance previously registered via
     ///     <see cref="RegisterActiveStream"/>, once its stream has stopped or failed to start.
     /// </summary>
@@ -267,7 +305,12 @@ internal sealed class PortAudioEnvironment
     ///         one under the same lock, so a capture/playback device created before this call can
     ///         detect, in its own <c>Start()</c>, that its cached device index may no longer refer
     ///         to the same physical device and should be re-created via <see cref="AudioDeviceFactory"/>
-    ///         instead of opened as-is.
+    ///         instead of opened as-is. Because <see cref="TryRegisterActiveStream"/> validates
+    ///         that captured generation and performs the active-stream registration under this
+    ///         same lock, this increment can never land in a window between a device's generation
+    ///         check and its registration - a device's <c>Start()</c> either completes its
+    ///         generation check and registration entirely before this increment, or observes the
+    ///         new generation and refuses to open a native stream at all.
     ///     </para>
     /// </remarks>
     /// <exception cref="AudioDeviceInUseException">
