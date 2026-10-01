@@ -82,6 +82,9 @@ sections:
                   could silently resolve to the wrong hardware after a hot-plug-driven refresh,
                   rather than failing safely and directing the caller to create a fresh instance
                   via AudioDeviceFactory.
+                children:
+                  - Speech-Audio-PortAudioCaptureDevice-StaleAfterRefreshThrows
+                  - Speech-Audio-PortAudioPlaybackDevice-StaleAfterRefreshThrows
                 tests:
                   - PortAudioEnvironment_Refresh_NoActiveStreams_IncrementsGeneration
                   - PortAudioEnvironment_Refresh_ActiveStreamRegistered_DoesNotIncrementGeneration

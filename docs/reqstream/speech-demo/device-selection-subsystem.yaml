@@ -56,6 +56,11 @@ sections:
               Devices are hot-plugged while an application is running. Discarding a still-valid
               selection on every refresh would be visibly wrong, and keeping a selection the
               machine no longer reports would hand the library a stale device name.
+            children:
+              - SpeechDemo-Devices-RefreshDelegation
+              - SpeechDemo-Devices-RefreshInUseHandling
+              - SpeechDemo-Devices-RefreshPreHooks
+              - SpeechDemo-Devices-RefreshGeneralFaultHandling
             tests:
               - DeviceSelectionViewModel_Refresh_DeviceAdded_KeepsExistingSelection
               - DeviceSelectionViewModel_Refresh_SameDeviceReportedWithNewFormat_SelectsMatchingNameAgain
@@ -143,6 +148,9 @@ sections:
               backend re-scan lets a panel stop its own active session first, making that
               exception a rare defensive fallback rather than the primary way a refresh
               succeeds.
+            children:
+              - SpeechDemo-Recognition-StopsBeforeDeviceRefresh
+              - SpeechDemo-Synthesis-StopsBeforeDeviceRefresh
             tests:
               - DeviceSelectionViewModel_Refresh_RegisteredHook_InvokedAndAwaitedBeforeRefreshDevices
               - DeviceSelectionViewModel_Refresh_UnregisteredHook_NotInvoked
