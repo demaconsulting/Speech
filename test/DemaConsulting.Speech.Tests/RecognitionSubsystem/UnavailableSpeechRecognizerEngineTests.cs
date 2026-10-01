@@ -1,79 +1,79 @@
+using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.RecognitionSubsystem;
+using NSubstitute;
 
 namespace DemaConsulting.Speech.Tests.RecognitionSubsystem;
 
 /// <summary>
-///     Unit tests for <see cref="UnavailableSpeechRecognizer"/> and
+///     Unit tests for <see cref="UnavailableSpeechRecognizerEngine"/> and
 ///     <see cref="SpeechRecognizerUnavailableException"/>.
 /// </summary>
-public class UnavailableSpeechRecognizerTests
+public class UnavailableSpeechRecognizerEngineTests
 {
     /// <summary>
-    ///     Proves that <see cref="UnavailableSpeechRecognizer.Instance"/> reports itself as
+    ///     Proves that <see cref="UnavailableSpeechRecognizerEngine.Instance"/> reports itself as
     ///     unavailable.
     /// </summary>
     [Fact]
-    public void UnavailableSpeechRecognizer_IsAvailable_Read_ReturnsFalse()
+    public void UnavailableSpeechRecognizerEngine_IsAvailable_Read_ReturnsFalse()
     {
         // Arrange & Act: read the availability flag from the shared instance
-        var isAvailable = UnavailableSpeechRecognizer.Instance.IsAvailable;
+        var isAvailable = UnavailableSpeechRecognizerEngine.Instance.IsAvailable;
 
-        // Assert: the recognizer honestly reports itself as unavailable
+        // Assert: the engine honestly reports itself as unavailable
         Assert.False(isAvailable);
     }
 
     /// <summary>
-    ///     Proves that calling <see cref="ISpeechRecognizer.Start"/> on the unavailable recognizer
-    ///     throws <see cref="SpeechRecognizerUnavailableException"/>.
+    ///     Proves that <see cref="UnavailableSpeechRecognizerEngine.CreateSessionAsync"/> never
+    ///     throws for ordinary unavailability, instead always returning the shared
+    ///     <see cref="UnavailableRecognitionSession.Instance"/>.
     /// </summary>
     [Fact]
-    public void UnavailableSpeechRecognizer_Start_Always_ThrowsSpeechRecognizerUnavailableException()
+    public async Task UnavailableSpeechRecognizerEngine_CreateSessionAsync_Always_ReturnsUnavailableSession()
     {
-        // Arrange: the shared unavailable recognizer
-        var recognizer = UnavailableSpeechRecognizer.Instance;
+        // Arrange: the shared unavailable engine and an arbitrary device
+        var engine = UnavailableSpeechRecognizerEngine.Instance;
+        var device = Substitute.For<IAudioCaptureDevice>();
 
-        // Act & Assert: starting an unavailable recognizer throws the documented exception
-        Assert.Throws<SpeechRecognizerUnavailableException>(recognizer.Start);
+        // Act: create a session
+        var session = await engine.CreateSessionAsync(device, TestContext.Current.CancellationToken);
+
+        // Assert: the shared unavailable session was returned
+        Assert.Same(UnavailableRecognitionSession.Instance, session);
     }
 
     /// <summary>
-    ///     Proves that calling <see cref="ISpeechRecognizer.Stop"/> on the unavailable recognizer
-    ///     throws <see cref="SpeechRecognizerUnavailableException"/>.
+    ///     Proves that <see cref="UnavailableSpeechRecognizerEngine.CreateSessionAsync"/> still
+    ///     rejects a null device, since that is a genuine caller error rather than an ordinary
+    ///     unavailable state.
     /// </summary>
     [Fact]
-    public void UnavailableSpeechRecognizer_Stop_Always_ThrowsSpeechRecognizerUnavailableException()
+    public async Task UnavailableSpeechRecognizerEngine_CreateSessionAsync_NullDevice_ThrowsArgumentNullException()
     {
-        // Arrange: the shared unavailable recognizer
-        var recognizer = UnavailableSpeechRecognizer.Instance;
+        // Arrange: the shared unavailable engine
+        var engine = UnavailableSpeechRecognizerEngine.Instance;
 
-        // Act & Assert: stopping an unavailable recognizer throws the documented exception
-        Assert.Throws<SpeechRecognizerUnavailableException>(recognizer.Stop);
+        // Act & Assert
+        await Assert.ThrowsAsync<ArgumentNullException>(() => engine.CreateSessionAsync(null!, TestContext.Current.CancellationToken));
     }
 
     /// <summary>
-    ///     Proves that subscribing to and unsubscribing from
-    ///     <see cref="ISpeechRecognizer.ResultReceived"/>, and disposing the shared instance
-    ///     repeatedly, are all safe no-ops that never throw or invalidate the instance.
+    ///     Proves that calling <see cref="UnavailableSpeechRecognizerEngine.DisposeAsync"/> twice
+    ///     is a safe no-op that never invalidates the shared instance.
     /// </summary>
     [Fact]
-    public void UnavailableSpeechRecognizer_SubscriptionAndDispose_Always_AreSafeNoOps()
+    public async Task UnavailableSpeechRecognizerEngine_DisposeAsync_CalledTwice_DoesNotThrow()
     {
-        // Arrange: the shared unavailable recognizer and a handler to (un)subscribe
-        var recognizer = UnavailableSpeechRecognizer.Instance;
-        EventHandler<SpeechRecognitionEvent> handler = (_, _) => { };
+        // Arrange: the shared unavailable engine
+        var engine = UnavailableSpeechRecognizerEngine.Instance;
 
-        // Act: subscribe, unsubscribe, and dispose twice
-        var exception = Record.Exception(() =>
-        {
-            recognizer.ResultReceived += handler;
-            recognizer.ResultReceived -= handler;
-            recognizer.Dispose();
-            recognizer.Dispose();
-        });
+        // Act
+        await engine.DisposeAsync();
+        await engine.DisposeAsync();
 
-        // Assert: nothing throws and the shared instance is still usable
-        Assert.Null(exception);
-        Assert.False(UnavailableSpeechRecognizer.Instance.IsAvailable);
+        // Assert: the shared instance is still usable
+        Assert.False(UnavailableSpeechRecognizerEngine.Instance.IsAvailable);
     }
 
     /// <summary>

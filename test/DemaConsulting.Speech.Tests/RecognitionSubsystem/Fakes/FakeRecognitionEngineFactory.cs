@@ -4,11 +4,11 @@ using DemaConsulting.Speech.RecognitionSubsystem;
 namespace DemaConsulting.Speech.Tests.RecognitionSubsystem.Fakes;
 
 /// <summary>
-///     Deterministic <see cref="IRecognitionEngineFactory"/> test double that hands out a
+///     Deterministic <see cref="IRecognitionBackendFactory"/> test double that hands out a
 ///     pre-configured <see cref="FakeRecognitionEngine"/> and records the arguments it was asked
 ///     to load, so composition can be verified without a model directory or a native runtime.
 /// </summary>
-internal sealed class FakeRecognitionEngineFactory : IRecognitionEngineFactory
+internal sealed class FakeRecognitionEngineFactory : IRecognitionBackendFactory
 {
     /// <summary>The exception to throw from <see cref="Create"/>, when one was scripted.</summary>
     private readonly Exception? _createException;
@@ -58,7 +58,7 @@ internal sealed class FakeRecognitionEngineFactory : IRecognitionEngineFactory
     public int CreateCallCount { get; private set; }
 
     /// <inheritdoc/>
-    public IRecognitionEngine Create(
+    public IRecognitionBackend Create(
         IRecognitionModel model,
         string installedModelDirectory,
         IReadOnlyDictionary<string, object>? parameterValues = null)

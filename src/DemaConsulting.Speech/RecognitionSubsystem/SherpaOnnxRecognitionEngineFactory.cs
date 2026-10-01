@@ -3,7 +3,7 @@ using DemaConsulting.Speech.ModelManagementSubsystem;
 namespace DemaConsulting.Speech.RecognitionSubsystem;
 
 /// <summary>
-///     Real <see cref="IRecognitionEngineFactory"/> implementation that builds a
+///     Real <see cref="IRecognitionBackendFactory"/> implementation that builds a
 ///     <see cref="SherpaOnnxRecognitionEngine"/> from a model's own declared engine
 ///     configuration.
 /// </summary>
@@ -17,14 +17,14 @@ namespace DemaConsulting.Speech.RecognitionSubsystem;
 ///     Loading failures - a missing <c>org.k2fsa.sherpa.onnx.runtime.{RID}</c> native binary, an
 ///     unsupported RID, or corrupt model files - propagate to the caller.
 ///     <see cref="SpeechRecognizerFactory"/> catches them and returns
-///     <see cref="UnavailableSpeechRecognizer.Instance"/>, so composition still never throws.
+///     <see cref="UnavailableSpeechRecognizerEngine.Instance"/>, so composition still never throws.
 ///     </para>
 ///     <para>The type is stateless and safe for concurrent use.</para>
 /// </remarks>
-internal sealed class SherpaOnnxRecognitionEngineFactory : IRecognitionEngineFactory
+internal sealed class SherpaOnnxRecognitionEngineFactory : IRecognitionBackendFactory
 {
     /// <inheritdoc/>
-    public IRecognitionEngine Create(
+    public IRecognitionBackend Create(
         IRecognitionModel model,
         string installedModelDirectory,
         IReadOnlyDictionary<string, object>? parameterValues = null)

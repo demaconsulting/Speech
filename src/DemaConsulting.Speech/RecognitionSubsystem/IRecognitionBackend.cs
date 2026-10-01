@@ -1,26 +1,27 @@
 namespace DemaConsulting.Speech.RecognitionSubsystem;
 
 /// <summary>
-///     Internal, mockable seam over one loaded streaming recognition engine: accepts mono audio
+///     Internal, mockable seam over one loaded streaming recognition backend: accepts mono audio
 ///     samples and reports the recognition results decoded from them.
 /// </summary>
 /// <remarks>
 ///     This seam exists for the same reason as <c>IPortAudioApi</c> (Phase 1b) and
 ///     <c>IModelDownloadClient</c> (Phase 2a): it confines every sherpa-onnx interop call to a
 ///     single implementation (<see cref="SherpaOnnxRecognitionEngine"/>) so
-///     <see cref="SherpaOnnxSpeechRecognizer"/>'s threading, resampling, and event-emission logic
-///     is fully unit-testable with a pure managed fake. No native sherpa-onnx runtime binary and
-///     no downloaded model are ever required to run the recognition subsystem's tests.
+///     <see cref="SherpaOnnxRecognitionSession"/>'s threading, resampling, and event-emission
+///     logic is fully unit-testable with a pure managed fake. No native sherpa-onnx runtime
+///     binary and no downloaded model are ever required to run the recognition subsystem's
+///     tests.
 ///     <para>
-///     Implementations are not thread-safe: <see cref="SherpaOnnxSpeechRecognizer"/> calls them
-///     from exactly one background consumer thread at a time and never concurrently, which
-///     matches the single-stream ownership model of the underlying engine.
+///     Implementations are not thread-safe: <see cref="SherpaOnnxRecognitionSession"/> calls them
+///     from exactly one background pump thread at a time and never concurrently, which matches
+///     the single-stream ownership model of the underlying engine.
 ///     </para>
 /// </remarks>
-internal interface IRecognitionEngine : IDisposable
+internal interface IRecognitionBackend : IDisposable
 {
     /// <summary>
-    ///     Feeds one block of mono audio into the engine's current utterance stream.
+    ///     Feeds one block of mono audio into the backend's current utterance stream.
     /// </summary>
     /// <param name="monoSamples">
     ///     Normalized single-channel samples in the range <c>[-1.0, 1.0]</c>, already resampled to
@@ -33,7 +34,7 @@ internal interface IRecognitionEngine : IDisposable
     void AcceptSamples(ReadOnlySpan<float> monoSamples);
 
     /// <summary>
-    ///     Decodes as much buffered audio as the engine currently can and reports the next
+    ///     Decodes as much buffered audio as the backend currently can and reports the next
     ///     recognition result, if any.
     /// </summary>
     /// <param name="result">
@@ -42,7 +43,7 @@ internal interface IRecognitionEngine : IDisposable
     /// </param>
     /// <returns>
     ///     <see langword="true"/> when a result is available; <see langword="false"/> when the
-    ///     engine has nothing new to report (no buffered audio, no text yet, or text unchanged
+    ///     backend has nothing new to report (no buffered audio, no text yet, or text unchanged
     ///     since the previous call).
     /// </returns>
     /// <remarks>
@@ -54,7 +55,7 @@ internal interface IRecognitionEngine : IDisposable
     bool TryDecode(out SpeechRecognitionResult? result);
 
     /// <summary>
-    ///     Finalizes and decodes any buffered audio the engine has accepted but not yet decoded,
+    ///     Finalizes and decodes any buffered audio the backend has accepted but not yet decoded,
     ///     reporting one last result if that produced or completed any text.
     /// </summary>
     /// <param name="result">
@@ -66,16 +67,16 @@ internal interface IRecognitionEngine : IDisposable
     ///     when there was nothing buffered or finalizing it produced no text.
     /// </returns>
     /// <remarks>
-    ///     A streaming engine sometimes cannot decode the tail of an utterance without more audio
-    ///     that a caller who has just stopped will never supply - for example a push-to-talk
-    ///     release with no trailing silence. Call this once, at session end, before
+    ///     A streaming backend sometimes cannot decode the tail of an utterance without more
+    ///     audio that a caller who has just stopped will never supply - for example a
+    ///     push-to-talk release with no trailing silence. Call this once, at session end, before
     ///     <see cref="Reset"/> discards the stream, so that trailing audio is finalized and
     ///     delivered rather than silently discarded along with it.
     /// </remarks>
     bool TryFlush(out SpeechRecognitionResult? result);
 
     /// <summary>
-    ///     Discards any partially decoded utterance and returns the engine to its
+    ///     Discards any partially decoded utterance and returns the backend to its
     ///     start-of-utterance state.
     /// </summary>
     /// <remarks>

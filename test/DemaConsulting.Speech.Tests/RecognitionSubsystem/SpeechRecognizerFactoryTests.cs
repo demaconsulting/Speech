@@ -11,7 +11,7 @@ namespace DemaConsulting.Speech.Tests.RecognitionSubsystem;
 /// <summary>
 ///     Unit tests for <see cref="SpeechRecognizerFactory"/>, proving that composition never
 ///     throws for an ordinary machine state and honestly degrades to
-///     <see cref="UnavailableSpeechRecognizer"/> instead.
+///     <see cref="UnavailableSpeechRecognizerEngine"/> instead.
 /// </summary>
 public sealed class SpeechRecognizerFactoryTests : IDisposable
 {
@@ -81,89 +81,60 @@ public sealed class SpeechRecognizerFactoryTests : IDisposable
 
     /// <summary>
     ///     Proves that a model whose files are not installed composes to the honest unavailable
-    ///     recognizer, and that the engine is never loaded.
+    ///     engine, and that the backend is never loaded.
     /// </summary>
     [Fact]
-    public void SpeechRecognizerFactory_Create_ModelNotInstalled_ReturnsUnavailableRecognizer()
+    public async Task SpeechRecognizerFactory_LoadAsync_ModelNotInstalled_ReturnsUnavailableEngine()
     {
-        // Arrange: an available capture device but a directory that does not exist
-        var captureDevice = CreateAvailableCaptureDevice();
-        var engineFactory = new FakeRecognitionEngineFactory();
+        // Arrange: a directory that does not exist
+        var backendFactory = new FakeRecognitionEngineFactory();
         var missingDirectory = Path.Join(_installedModelDirectory, "not-installed");
 
         // Act: compose against the missing model directory
-        var recognizer = SpeechRecognizerFactory.Create(
-            new FakeRecognitionModel(), missingDirectory, captureDevice, null, engineFactory);
+        await using var engine = await SpeechRecognizerFactory.LoadAsync(new FakeRecognitionModel(), missingDirectory, null, backendFactory, cancellationToken: TestContext.Current.CancellationToken);
 
-        // Assert: the honest fallback is returned and no engine was loaded
-        Assert.Same(UnavailableSpeechRecognizer.Instance, recognizer);
-        Assert.Equal(0, engineFactory.CreateCallCount);
-    }
-
-    /// <summary>
-    ///     Proves that a machine with no usable capture device composes to the honest unavailable
-    ///     recognizer rather than loading a model that could never be fed.
-    /// </summary>
-    [Fact]
-    public void SpeechRecognizerFactory_Create_CaptureDeviceUnavailable_ReturnsUnavailableRecognizer()
-    {
-        // Arrange: an installed model but the shared unavailable capture device
-        var engineFactory = new FakeRecognitionEngineFactory();
-
-        // Act: compose against the unavailable device
-        var recognizer = SpeechRecognizerFactory.Create(
-            new FakeRecognitionModel(),
-            _installedModelDirectory,
-            UnavailableAudioCaptureDevice.Instance,
-            null,
-            engineFactory);
-
-        // Assert: the honest fallback is returned and no engine was loaded
-        Assert.Same(UnavailableSpeechRecognizer.Instance, recognizer);
-        Assert.Equal(0, engineFactory.CreateCallCount);
+        // Assert: the honest fallback is returned and no backend was loaded
+        Assert.Same(UnavailableSpeechRecognizerEngine.Instance, engine);
+        Assert.Equal(0, backendFactory.CreateCallCount);
     }
 
     /// <summary>
     ///     Proves that a model declaring a non-recognition role composes to the honest unavailable
-    ///     recognizer.
+    ///     engine.
     /// </summary>
     [Fact]
-    public void SpeechRecognizerFactory_Create_ModelRoleIsNotRecognition_ReturnsUnavailableRecognizer()
+    public async Task SpeechRecognizerFactory_LoadAsync_ModelRoleIsNotRecognition_ReturnsUnavailableEngine()
     {
-        // Arrange: an installed model that declares the synthesis role, and an available device
-        var captureDevice = CreateAvailableCaptureDevice();
-        var engineFactory = new FakeRecognitionEngineFactory();
+        // Arrange: an installed model that declares the synthesis role
+        var backendFactory = new FakeRecognitionEngineFactory();
 
         // Act: compose against the wrong-role model
-        var recognizer = SpeechRecognizerFactory.Create(
-            new WrongRoleRecognitionModel(), _installedModelDirectory, captureDevice, null, engineFactory);
+        await using var engine = await SpeechRecognizerFactory.LoadAsync(new WrongRoleRecognitionModel(), _installedModelDirectory, null, backendFactory, cancellationToken: TestContext.Current.CancellationToken);
 
-        // Assert: the honest fallback is returned and no engine was loaded
-        Assert.Same(UnavailableSpeechRecognizer.Instance, recognizer);
-        Assert.Equal(0, engineFactory.CreateCallCount);
+        // Assert: the honest fallback is returned and no backend was loaded
+        Assert.Same(UnavailableSpeechRecognizerEngine.Instance, engine);
+        Assert.Equal(0, backendFactory.CreateCallCount);
     }
 
     /// <summary>
     ///     Proves that a native-runtime or model-file load failure degrades to the honest
-    ///     unavailable recognizer instead of propagating out of composition.
+    ///     unavailable engine instead of faulting the returned task.
     /// </summary>
     [Fact]
-    public void SpeechRecognizerFactory_Create_EngineLoadFails_ReturnsUnavailableRecognizerAndDoesNotThrow()
+    public async Task SpeechRecognizerFactory_LoadAsync_EngineLoadFails_ReturnsUnavailableEngineAndDoesNotFaultTask()
     {
-        // Arrange: an installed model, an available device, and an engine factory that faults
-        var captureDevice = CreateAvailableCaptureDevice();
+        // Arrange: an installed model and a backend factory that faults
         var diagnostics = Substitute.For<ISpeechDiagnostics>();
-        var engineFactory = new FakeRecognitionEngineFactory(
+        var backendFactory = new FakeRecognitionEngineFactory(
             createException: new DllNotFoundException("sherpa-onnx-c-api"));
 
         // Act: compose, capturing any exception that escapes
-        ISpeechRecognizer? recognizer = null;
-        var exception = Record.Exception(() => recognizer = SpeechRecognizerFactory.Create(
-            new FakeRecognitionModel(), _installedModelDirectory, captureDevice, diagnostics, engineFactory));
+        ISpeechRecognizerEngine? engine = null;
+        var exception = await Record.ExceptionAsync(async () => engine = await SpeechRecognizerFactory.LoadAsync(new FakeRecognitionModel(), _installedModelDirectory, diagnostics, backendFactory, cancellationToken: TestContext.Current.CancellationToken));
 
         // Assert: composition succeeded honestly and reported the fault as a structural fact
         Assert.Null(exception);
-        Assert.Same(UnavailableSpeechRecognizer.Instance, recognizer);
+        Assert.Same(UnavailableSpeechRecognizerEngine.Instance, engine);
         diagnostics.Received().Report(
             SpeechDiagnosticLevel.Error,
             "RecognitionSubsystem",
@@ -171,53 +142,48 @@ public sealed class SpeechRecognizerFactoryTests : IDisposable
     }
 
     /// <summary>
-    ///     Proves that an installed recognition model plus an available capture device composes a
-    ///     real recognizer wired to the injected engine factory, with the installed-model
-    ///     directory passed through unchanged.
+    ///     Proves that an installed recognition model composes a real engine wired to the
+    ///     injected backend factory, with the installed-model directory passed through unchanged.
     /// </summary>
     [Fact]
-    public void SpeechRecognizerFactory_Create_ModelInstalledAndDeviceAvailable_ReturnsRealRecognizer()
+    public async Task SpeechRecognizerFactory_LoadAsync_ModelInstalled_ReturnsRealEngine()
     {
-        // Arrange: an installed model, an available device, and a fake engine factory
-        var captureDevice = CreateAvailableCaptureDevice();
-        var engineFactory = new FakeRecognitionEngineFactory();
+        // Arrange: an installed model and a fake backend factory
+        var backendFactory = new FakeRecognitionEngineFactory();
         var model = new FakeRecognitionModel();
 
-        // Act: compose a recognizer
-        using var recognizer = SpeechRecognizerFactory.Create(
-            model, _installedModelDirectory, captureDevice, null, engineFactory);
+        // Act: compose an engine
+        await using var engine = await SpeechRecognizerFactory.LoadAsync(model, _installedModelDirectory, null, backendFactory, cancellationToken: TestContext.Current.CancellationToken);
 
-        // Assert: a real recognizer was built from the injected engine, for the right model
-        Assert.IsType<SherpaOnnxSpeechRecognizer>(recognizer);
-        Assert.True(recognizer.IsAvailable);
-        Assert.Equal(1, engineFactory.CreateCallCount);
-        Assert.Same(model, engineFactory.RequestedModel);
-        Assert.Equal(_installedModelDirectory, engineFactory.RequestedInstalledModelDirectory);
+        // Assert: a real engine was built from the injected backend, for the right model
+        Assert.IsType<SherpaOnnxSpeechRecognizerEngine>(engine);
+        Assert.True(engine.IsAvailable);
+        Assert.Equal(1, backendFactory.CreateCallCount);
+        Assert.Same(model, backendFactory.RequestedModel);
+        Assert.Equal(_installedModelDirectory, backendFactory.RequestedInstalledModelDirectory);
     }
 
     /// <summary>
-    ///     Proves that an unrecognized parameter id is silently ignored (never throws) and is
+    ///     Proves that an unrecognized parameter id is silently ignored (never faults) and is
     ///     reported at <see cref="SpeechDiagnosticLevel.Info"/> when a diagnostics sink is
     ///     supplied - preserving this library's deliberate cross-model settings-dictionary-reuse
     ///     contract.
     /// </summary>
     [Fact]
-    public void SpeechRecognizerFactory_Create_UnrecognizedParameterId_ComposesAndReportsInfo()
+    public async Task SpeechRecognizerFactory_LoadAsync_UnrecognizedParameterId_ComposesAndReportsInfo()
     {
         // Arrange
-        var captureDevice = CreateAvailableCaptureDevice();
-        var engineFactory = new FakeRecognitionEngineFactory();
+        var backendFactory = new FakeRecognitionEngineFactory();
         var model = new FakeRecognitionModel();
         var diagnostics = Substitute.For<ISpeechDiagnostics>();
         IReadOnlyDictionary<string, object> parameterValues = new Dictionary<string, object> { ["typo-id"] = 1 };
 
         // Act
-        using var recognizer = SpeechRecognizerFactory.Create(
-            model, _installedModelDirectory, captureDevice, diagnostics, engineFactory, parameterValues);
+        await using var engine = await SpeechRecognizerFactory.LoadAsync(model, _installedModelDirectory, diagnostics, backendFactory, parameterValues, TestContext.Current.CancellationToken);
 
-        // Assert: still a real, working recognizer, plus the observability diagnostic
-        Assert.IsType<SherpaOnnxSpeechRecognizer>(recognizer);
-        Assert.True(recognizer.IsAvailable);
+        // Assert: still a real, working engine, plus the observability diagnostic
+        Assert.IsType<SherpaOnnxSpeechRecognizerEngine>(engine);
+        Assert.True(engine.IsAvailable);
         diagnostics.Received(1).Report(
             SpeechDiagnosticLevel.Info,
             "RecognitionSubsystem",
@@ -225,376 +191,317 @@ public sealed class SpeechRecognizerFactoryTests : IDisposable
     }
 
     /// <summary>
-    ///     Proves that an out-of-range value for a recognized numeric parameter throws
-    ///     <see cref="ArgumentException"/> synchronously from <c>Create</c>, rather than
-    ///     silently clamping.
+    ///     Proves that an out-of-range value for a recognized numeric parameter faults the
+    ///     returned task with <see cref="ArgumentException"/>, rather than silently clamping.
     /// </summary>
     [Fact]
-    public void SpeechRecognizerFactory_Create_RecognizedNumericParameterOutOfRange_Throws()
+    public async Task SpeechRecognizerFactory_LoadAsync_RecognizedNumericParameterOutOfRange_FaultsWithArgumentException()
     {
         // Arrange
-        var captureDevice = CreateAvailableCaptureDevice();
-        var engineFactory = new FakeRecognitionEngineFactory();
+        var backendFactory = new FakeRecognitionEngineFactory();
         var model = new FakeRecognitionModel();
         IReadOnlyDictionary<string, object> parameterValues = new Dictionary<string, object> { ["sensitivity"] = 5.0 };
 
         // Act / Assert
-        var exception = Assert.Throws<ArgumentException>(() => SpeechRecognizerFactory.Create(
-            model, _installedModelDirectory, captureDevice, null, engineFactory, parameterValues));
+        var exception = await Assert.ThrowsAsync<ArgumentException>(() => SpeechRecognizerFactory.LoadAsync(model, _installedModelDirectory, null, backendFactory, parameterValues, TestContext.Current.CancellationToken));
         Assert.Contains("sensitivity", exception.Message, StringComparison.Ordinal);
-        Assert.Equal(0, engineFactory.CreateCallCount);
+        Assert.Equal(0, backendFactory.CreateCallCount);
     }
 
     /// <summary>
-    ///     Proves that a value not matching any declared choice option throws
-    ///     <see cref="ArgumentException"/> synchronously from <c>Create</c>.
+    ///     Proves that a value not matching any declared choice option faults the returned task
+    ///     with <see cref="ArgumentException"/>.
     /// </summary>
     [Fact]
-    public void SpeechRecognizerFactory_Create_RecognizedChoiceParameterInvalidOption_Throws()
+    public async Task SpeechRecognizerFactory_LoadAsync_RecognizedChoiceParameterInvalidOption_FaultsWithArgumentException()
     {
         // Arrange
-        var captureDevice = CreateAvailableCaptureDevice();
-        var engineFactory = new FakeRecognitionEngineFactory();
+        var backendFactory = new FakeRecognitionEngineFactory();
         var model = new FakeRecognitionModel();
         IReadOnlyDictionary<string, object> parameterValues = new Dictionary<string, object> { ["language"] = "klingon" };
 
         // Act / Assert
-        var exception = Assert.Throws<ArgumentException>(() => SpeechRecognizerFactory.Create(
-            model, _installedModelDirectory, captureDevice, null, engineFactory, parameterValues));
+        var exception = await Assert.ThrowsAsync<ArgumentException>(() => SpeechRecognizerFactory.LoadAsync(model, _installedModelDirectory, null, backendFactory, parameterValues, TestContext.Current.CancellationToken));
         Assert.Contains("language", exception.Message, StringComparison.Ordinal);
         Assert.Contains("klingon", exception.Message, StringComparison.Ordinal);
-        Assert.Equal(0, engineFactory.CreateCallCount);
+        Assert.Equal(0, backendFactory.CreateCallCount);
     }
 
     /// <summary>
-    ///     Proves that a non-boolean value for a recognized <see cref="BooleanParameter"/> throws
-    ///     <see cref="ArgumentException"/> synchronously from <c>Create</c>.
+    ///     Proves that a non-boolean value for a recognized <see cref="BooleanParameter"/> faults
+    ///     the returned task with <see cref="ArgumentException"/>.
     /// </summary>
     [Fact]
-    public void SpeechRecognizerFactory_Create_RecognizedBooleanParameterWrongType_Throws()
+    public async Task SpeechRecognizerFactory_LoadAsync_RecognizedBooleanParameterWrongType_FaultsWithArgumentException()
     {
         // Arrange
-        var captureDevice = CreateAvailableCaptureDevice();
-        var engineFactory = new FakeRecognitionEngineFactory();
+        var backendFactory = new FakeRecognitionEngineFactory();
         var model = new FakeRecognitionModel();
         IReadOnlyDictionary<string, object> parameterValues = new Dictionary<string, object> { ["denoise"] = "yes" };
 
         // Act / Assert
-        var exception = Assert.Throws<ArgumentException>(() => SpeechRecognizerFactory.Create(
-            model, _installedModelDirectory, captureDevice, null, engineFactory, parameterValues));
+        var exception = await Assert.ThrowsAsync<ArgumentException>(() => SpeechRecognizerFactory.LoadAsync(model, _installedModelDirectory, null, backendFactory, parameterValues, TestContext.Current.CancellationToken));
         Assert.Contains("denoise", exception.Message, StringComparison.Ordinal);
-        Assert.Equal(0, engineFactory.CreateCallCount);
+        Assert.Equal(0, backendFactory.CreateCallCount);
     }
 
     /// <summary>
-    ///     Proves that a wrong CLR type for a recognized numeric parameter throws
-    ///     <see cref="ArgumentException"/> synchronously from <c>Create</c>.
+    ///     Proves that a wrong CLR type for a recognized numeric parameter faults the returned
+    ///     task with <see cref="ArgumentException"/>.
     /// </summary>
     [Fact]
-    public void SpeechRecognizerFactory_Create_RecognizedNumericParameterWrongType_Throws()
+    public async Task SpeechRecognizerFactory_LoadAsync_RecognizedNumericParameterWrongType_FaultsWithArgumentException()
     {
         // Arrange
-        var captureDevice = CreateAvailableCaptureDevice();
-        var engineFactory = new FakeRecognitionEngineFactory();
+        var backendFactory = new FakeRecognitionEngineFactory();
         var model = new FakeRecognitionModel();
         IReadOnlyDictionary<string, object> parameterValues = new Dictionary<string, object> { ["sensitivity"] = "high" };
 
         // Act / Assert
-        var exception = Assert.Throws<ArgumentException>(() => SpeechRecognizerFactory.Create(
-            model, _installedModelDirectory, captureDevice, null, engineFactory, parameterValues));
+        var exception = await Assert.ThrowsAsync<ArgumentException>(() => SpeechRecognizerFactory.LoadAsync(model, _installedModelDirectory, null, backendFactory, parameterValues, TestContext.Current.CancellationToken));
         Assert.Contains("sensitivity", exception.Message, StringComparison.Ordinal);
-        Assert.Equal(0, engineFactory.CreateCallCount);
+        Assert.Equal(0, backendFactory.CreateCallCount);
     }
 
     /// <summary>
     ///     Proves that a supplied <c>parameterValues</c> bag genuinely reaches the model's own
-    ///     two-argument <c>CreateEngineConfig</c> override, not merely the engine factory.
+    ///     two-argument <c>CreateEngineConfig</c> override, not merely the backend factory.
     /// </summary>
     [Fact]
-    public void SpeechRecognizerFactory_Create_ParameterValuesSupplied_ReachesModelCreateEngineConfig()
+    public async Task SpeechRecognizerFactory_LoadAsync_ParameterValuesSupplied_ReachesModelCreateEngineConfig()
     {
         // Arrange: an installed model whose CreateEngineConfig override encodes the language value
-        var captureDevice = CreateAvailableCaptureDevice();
-        var engineFactory = new FakeRecognitionEngineFactory();
+        var backendFactory = new FakeRecognitionEngineFactory();
         var model = new ParameterCapturingRecognitionModel();
         IReadOnlyDictionary<string, object> parameterValues = new Dictionary<string, object> { ["language"] = "en-gb" };
 
-        // Act: compose a recognizer, supplying parameterValues
-        using var recognizer = SpeechRecognizerFactory.Create(
-            model, _installedModelDirectory, captureDevice, null, engineFactory, parameterValues);
+        // Act: compose an engine, supplying parameterValues
+        await using var engine = await SpeechRecognizerFactory.LoadAsync(model, _installedModelDirectory, null, backendFactory, parameterValues, TestContext.Current.CancellationToken);
 
         // Assert: the value reached the model's own CreateEngineConfig override
-        Assert.IsType<SherpaOnnxSpeechRecognizer>(recognizer);
-        Assert.Equal("en-gb", engineFactory.RequestedConfig?.ModelConfig.ModelType);
+        Assert.IsType<SherpaOnnxSpeechRecognizerEngine>(engine);
+        Assert.Equal("en-gb", backendFactory.RequestedConfig?.ModelConfig.ModelType);
     }
 
     /// <summary>
-    ///     Proves that the public composition overload rejects a null model, since a null
-    ///     argument is a programming error rather than an ordinary machine state.
+    ///     Proves that the public composition overload faults the returned task with
+    ///     <see cref="ArgumentNullException"/> for a null model, since a null argument is a
+    ///     programming error rather than an ordinary machine state.
     /// </summary>
     [Fact]
-    public void SpeechRecognizerFactory_Create_NullModel_ThrowsArgumentNullException()
+    public async Task SpeechRecognizerFactory_LoadAsync_NullModel_FaultsWithArgumentNullException()
     {
-        // Arrange: an available capture device
-        var captureDevice = CreateAvailableCaptureDevice();
-
         // Act & Assert: a null model is rejected
-        Assert.Throws<ArgumentNullException>(
-            () => SpeechRecognizerFactory.Create(null!, _installedModelDirectory, captureDevice));
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => SpeechRecognizerFactory.LoadAsync(null!, _installedModelDirectory, cancellationToken: TestContext.Current.CancellationToken));
     }
 
     /// <summary>
-    ///     Proves that the public composition overload rejects a null capture device.
+    ///     Proves that a cancelled token faults the returned task with
+    ///     <see cref="OperationCanceledException"/> rather than letting composition proceed.
     /// </summary>
     [Fact]
-    public void SpeechRecognizerFactory_Create_NullCaptureDevice_ThrowsArgumentNullException()
+    public async Task SpeechRecognizerFactory_LoadAsync_CancelledToken_FaultsWithOperationCanceledException()
     {
-        // Act & Assert: a null capture device is rejected
-        Assert.Throws<ArgumentNullException>(
-            () => SpeechRecognizerFactory.Create(new FakeRecognitionModel(), _installedModelDirectory, null!));
+        // Arrange: a token already cancelled before the call
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        // Act & Assert: the cancellation is honored rather than silently ignored
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => SpeechRecognizerFactory.LoadAsync(
+                new FakeRecognitionModel(), _installedModelDirectory, cancellationToken: cts.Token));
     }
 
     /// <summary>
     ///     Proves that a model not yet installed in the store composes to the honest unavailable
-    ///     recognizer, and that the engine is never loaded.
+    ///     engine, and that the backend is never loaded.
     /// </summary>
     [Fact]
-    public void SpeechRecognizerFactory_Create_WithStoreModelNotInstalled_ReturnsUnavailableRecognizer()
+    public async Task SpeechRecognizerFactory_LoadAsync_WithStoreModelNotInstalled_ReturnsUnavailableEngine()
     {
-        // Arrange: an available capture device and a store with no installed model directory
-        var captureDevice = CreateAvailableCaptureDevice();
-        var engineFactory = new FakeRecognitionEngineFactory();
+        // Arrange: a store with no installed model directory
+        var backendFactory = new FakeRecognitionEngineFactory();
         var model = new FakeRecognitionModel();
 
         // Act: compose against the store, which resolves to a directory that does not exist
-        var recognizer = SpeechRecognizerFactory.Create(model, _store, captureDevice, null, engineFactory);
+        await using var engine = await SpeechRecognizerFactory.LoadAsync(model, _store, null, backendFactory, cancellationToken: TestContext.Current.CancellationToken);
 
-        // Assert: the honest fallback is returned and no engine was loaded
-        Assert.Same(UnavailableSpeechRecognizer.Instance, recognizer);
-        Assert.Equal(0, engineFactory.CreateCallCount);
+        // Assert: the honest fallback is returned and no backend was loaded
+        Assert.Same(UnavailableSpeechRecognizerEngine.Instance, engine);
+        Assert.Equal(0, backendFactory.CreateCallCount);
     }
 
     /// <summary>
-    ///     Proves that an installed recognition model plus an available capture device composes a
-    ///     real recognizer wired to the injected engine factory, with the directory resolved
-    ///     through the store rather than hard-coded.
+    ///     Proves that an installed recognition model composes a real engine wired to the
+    ///     injected backend factory, with the directory resolved through the store rather than
+    ///     hard-coded.
     /// </summary>
     [Fact]
-    public void SpeechRecognizerFactory_Create_WithStoreModelInstalledAndDeviceAvailable_ReturnsRealRecognizer()
+    public async Task SpeechRecognizerFactory_LoadAsync_WithStoreModelInstalled_ReturnsRealEngine()
     {
-        // Arrange: a model installed via the store, an available device, and a fake engine factory
-        var captureDevice = CreateAvailableCaptureDevice();
-        var engineFactory = new FakeRecognitionEngineFactory();
+        // Arrange: a model installed via the store, and a fake backend factory
+        var backendFactory = new FakeRecognitionEngineFactory();
         var model = new FakeRecognitionModel();
         Directory.CreateDirectory(_store.GetCurrentDirectory(model.Id));
 
-        // Act: compose a recognizer through the store overload
-        using var recognizer = SpeechRecognizerFactory.Create(model, _store, captureDevice, null, engineFactory);
+        // Act: compose an engine through the store overload
+        await using var engine = await SpeechRecognizerFactory.LoadAsync(model, _store, null, backendFactory, cancellationToken: TestContext.Current.CancellationToken);
 
-        // Assert: a real recognizer was built, and the directory was resolved through the store
-        Assert.IsType<SherpaOnnxSpeechRecognizer>(recognizer);
-        Assert.Equal(1, engineFactory.CreateCallCount);
-        Assert.Equal(_store.GetCurrentDirectory(model.Id), engineFactory.RequestedInstalledModelDirectory);
+        // Assert: a real engine was built, and the directory was resolved through the store
+        Assert.IsType<SherpaOnnxSpeechRecognizerEngine>(engine);
+        Assert.Equal(1, backendFactory.CreateCallCount);
+        Assert.Equal(_store.GetCurrentDirectory(model.Id), backendFactory.RequestedInstalledModelDirectory);
     }
 
     /// <summary>
     ///     Proves that a supplied <c>parameterValues</c> bag genuinely reaches the model's own
     ///     two-argument <c>CreateEngineConfig</c> override when composed through the PUBLIC
-    ///     store-based composition overload (with no injected <c>engineFactory</c>), so the real
+    ///     store-based composition overload (with no injected <c>backendFactory</c>), so the real
     ///     production delegation chain (public store overload → public string overload →
-    ///     internal string+engineFactory overload → real
+    ///     internal string+backendFactory overload → real
     ///     <see cref="Fakes.FakeRecognitionEngineFactory"/>-free <c>SherpaOnnxRecognitionEngineFactory</c>)
     ///     is exercised end to end. The model throws from within its own
     ///     <c>CreateEngineConfig</c> override, after recording the received parameter bag, so the
     ///     test never reaches a real native sherpa-onnx engine construction.
     /// </summary>
     [Fact]
-    public void SpeechRecognizerFactory_Create_WithStoreParameterValuesSupplied_ReachesModelCreateEngineConfig()
+    public async Task SpeechRecognizerFactory_LoadAsync_WithStoreParameterValuesSupplied_ReachesModelCreateEngineConfig()
     {
-        // Arrange: a throwing parameter-capturing model installed via the store, an available device, and a parameter bag
-        var captureDevice = CreateAvailableCaptureDevice();
+        // Arrange: a throwing parameter-capturing model installed via the store, and a parameter bag
         var model = new ThrowingParameterCapturingRecognitionModel();
         Directory.CreateDirectory(_store.GetCurrentDirectory(model.Id));
         IReadOnlyDictionary<string, object> parameterValues = new Dictionary<string, object> { ["language"] = "en-gb" };
 
-        // Act: compose a recognizer through the genuine public store overload, supplying
-        // parameterValues, with no engineFactory argument so overload resolution can only bind
+        // Act: compose an engine through the genuine public store overload, supplying
+        // parameterValues, with no backendFactory argument so overload resolution can only bind
         // to the real public overload
-        var recognizer = SpeechRecognizerFactory.Create(model, _store, captureDevice, null, parameterValues);
+        await using var engine = await SpeechRecognizerFactory.LoadAsync(model, _store, null, parameterValues, TestContext.Current.CancellationToken);
 
         // Assert: the value reached the model's own CreateEngineConfig override via the real
         // production chain, and the model's throw was honestly swallowed into the unavailable
-        // fallback rather than propagating
-        Assert.Same(UnavailableSpeechRecognizer.Instance, recognizer);
+        // fallback rather than faulting the task
+        Assert.Same(UnavailableSpeechRecognizerEngine.Instance, engine);
         Assert.Equal(parameterValues, model.RequestedParameterValues);
     }
 
     /// <summary>
-    ///     Proves that the public store-based composition overload rejects a null model.
+    ///     Proves that the public store-based composition overload faults the returned task with
+    ///     <see cref="ArgumentNullException"/> for a null model.
     /// </summary>
     [Fact]
-    public void SpeechRecognizerFactory_Create_WithStoreNullModel_ThrowsArgumentNullException()
+    public async Task SpeechRecognizerFactory_LoadAsync_WithStoreNullModel_FaultsWithArgumentNullException()
     {
-        // Arrange: an available capture device
-        var captureDevice = CreateAvailableCaptureDevice();
-
         // Act & Assert: a null model is rejected
-        Assert.Throws<ArgumentNullException>(
-            () => SpeechRecognizerFactory.Create(null!, _store, captureDevice));
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => SpeechRecognizerFactory.LoadAsync(null!, _store, cancellationToken: TestContext.Current.CancellationToken));
     }
 
     /// <summary>
-    ///     Proves that the public store-based composition overload rejects a null store.
+    ///     Proves that the public store-based composition overload faults the returned task with
+    ///     <see cref="ArgumentNullException"/> for a null store.
     /// </summary>
     [Fact]
-    public void SpeechRecognizerFactory_Create_WithStoreNullStore_ThrowsArgumentNullException()
+    public async Task SpeechRecognizerFactory_LoadAsync_WithStoreNullStore_FaultsWithArgumentNullException()
     {
-        // Arrange: an available capture device
-        var captureDevice = CreateAvailableCaptureDevice();
-
         // Act & Assert: a null store is rejected
-        Assert.Throws<ArgumentNullException>(
-            () => SpeechRecognizerFactory.Create(new FakeRecognitionModel(), (SpeechModelStore)null!, captureDevice));
-    }
-
-    /// <summary>
-    ///     Proves that the public store-based composition overload rejects a null capture device,
-    ///     confirming the delegation still reaches the string-overload's own null check.
-    /// </summary>
-    [Fact]
-    public void SpeechRecognizerFactory_Create_WithStoreNullCaptureDevice_ThrowsArgumentNullException()
-    {
-        // Act & Assert: a null capture device is rejected
-        Assert.Throws<ArgumentNullException>(
-            () => SpeechRecognizerFactory.Create(new FakeRecognitionModel(), _store, null!));
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => SpeechRecognizerFactory.LoadAsync(new FakeRecognitionModel(), (SpeechModelStore)null!, cancellationToken: TestContext.Current.CancellationToken));
     }
 
     /// <summary>
     ///     Proves that a model not yet installed in the catalog's store composes to the honest
-    ///     unavailable recognizer, and that the engine is never loaded.
+    ///     unavailable engine, and that the backend is never loaded.
     /// </summary>
     [Fact]
-    public void SpeechRecognizerFactory_Create_WithCatalogModelNotInstalled_ReturnsUnavailableRecognizer()
+    public async Task SpeechRecognizerFactory_LoadAsync_WithCatalogModelNotInstalled_ReturnsUnavailableEngine()
     {
-        // Arrange: an available capture device and a catalog whose store has no installed model directory
-        var captureDevice = CreateAvailableCaptureDevice();
-        var engineFactory = new FakeRecognitionEngineFactory();
+        // Arrange: a catalog whose store has no installed model directory
+        var backendFactory = new FakeRecognitionEngineFactory();
         var model = new FakeRecognitionModel();
 
         // Act: compose against the catalog, which resolves to a directory that does not exist
-        var recognizer = SpeechRecognizerFactory.Create(model, _catalog, captureDevice, null, engineFactory);
+        await using var engine = await SpeechRecognizerFactory.LoadAsync(model, _catalog, null, backendFactory, cancellationToken: TestContext.Current.CancellationToken);
 
-        // Assert: the honest fallback is returned and no engine was loaded
-        Assert.Same(UnavailableSpeechRecognizer.Instance, recognizer);
-        Assert.Equal(0, engineFactory.CreateCallCount);
+        // Assert: the honest fallback is returned and no backend was loaded
+        Assert.Same(UnavailableSpeechRecognizerEngine.Instance, engine);
+        Assert.Equal(0, backendFactory.CreateCallCount);
     }
 
     /// <summary>
-    ///     Proves that an installed recognition model plus an available capture device composes a
-    ///     real recognizer wired to the injected engine factory, with the directory resolved
-    ///     through the catalog's own store rather than a second, disconnected store.
+    ///     Proves that an installed recognition model composes a real engine wired to the
+    ///     injected backend factory, with the directory resolved through the catalog's own store
+    ///     rather than a second, disconnected store.
     /// </summary>
     [Fact]
-    public void SpeechRecognizerFactory_Create_WithCatalogModelInstalledAndDeviceAvailable_ReturnsRealRecognizer()
+    public async Task SpeechRecognizerFactory_LoadAsync_WithCatalogModelInstalled_ReturnsRealEngine()
     {
-        // Arrange: a model installed via the catalog's store, an available device, and a fake engine factory
-        var captureDevice = CreateAvailableCaptureDevice();
-        var engineFactory = new FakeRecognitionEngineFactory();
+        // Arrange: a model installed via the catalog's store, and a fake backend factory
+        var backendFactory = new FakeRecognitionEngineFactory();
         var model = new FakeRecognitionModel();
         Directory.CreateDirectory(_store.GetCurrentDirectory(model.Id));
 
-        // Act: compose a recognizer through the catalog overload
-        using var recognizer = SpeechRecognizerFactory.Create(model, _catalog, captureDevice, null, engineFactory);
+        // Act: compose an engine through the catalog overload
+        await using var engine = await SpeechRecognizerFactory.LoadAsync(model, _catalog, null, backendFactory, cancellationToken: TestContext.Current.CancellationToken);
 
-        // Assert: a real recognizer was built, and the directory was resolved through the catalog's store
-        Assert.IsType<SherpaOnnxSpeechRecognizer>(recognizer);
-        Assert.Equal(1, engineFactory.CreateCallCount);
-        Assert.Equal(_catalog.Store.GetCurrentDirectory(model.Id), engineFactory.RequestedInstalledModelDirectory);
+        // Assert: a real engine was built, and the directory was resolved through the catalog's store
+        Assert.IsType<SherpaOnnxSpeechRecognizerEngine>(engine);
+        Assert.Equal(1, backendFactory.CreateCallCount);
+        Assert.Equal(_catalog.Store.GetCurrentDirectory(model.Id), backendFactory.RequestedInstalledModelDirectory);
     }
 
     /// <summary>
     ///     Proves that a supplied <c>parameterValues</c> bag genuinely reaches the model's own
     ///     two-argument <c>CreateEngineConfig</c> override when composed through the PUBLIC
-    ///     catalog-based composition overload (with no injected <c>engineFactory</c>), so the real
+    ///     catalog-based composition overload (with no injected <c>backendFactory</c>), so the real
     ///     production delegation chain (public catalog overload → public store overload → public
-    ///     string overload → internal string+engineFactory overload → real
+    ///     string overload → internal string+backendFactory overload → real
     ///     <c>SherpaOnnxRecognitionEngineFactory</c>) is exercised end to end. The model throws
     ///     from within its own <c>CreateEngineConfig</c> override, after recording the received
     ///     parameter bag, so the test never reaches a real native sherpa-onnx engine construction.
     /// </summary>
     [Fact]
-    public void SpeechRecognizerFactory_Create_WithCatalogParameterValuesSupplied_ReachesModelCreateEngineConfig()
+    public async Task SpeechRecognizerFactory_LoadAsync_WithCatalogParameterValuesSupplied_ReachesModelCreateEngineConfig()
     {
-        // Arrange: a throwing parameter-capturing model installed via the catalog's store, an available device, and a parameter bag
-        var captureDevice = CreateAvailableCaptureDevice();
+        // Arrange: a throwing parameter-capturing model installed via the catalog's store, and a parameter bag
         var model = new ThrowingParameterCapturingRecognitionModel();
         Directory.CreateDirectory(_store.GetCurrentDirectory(model.Id));
         IReadOnlyDictionary<string, object> parameterValues = new Dictionary<string, object> { ["language"] = "en-gb" };
 
-        // Act: compose a recognizer through the genuine public catalog overload, supplying
-        // parameterValues, with no engineFactory argument so overload resolution can only bind
+        // Act: compose an engine through the genuine public catalog overload, supplying
+        // parameterValues, with no backendFactory argument so overload resolution can only bind
         // to the real public overload
-        var recognizer = SpeechRecognizerFactory.Create(model, _catalog, captureDevice, null, parameterValues);
+        await using var engine = await SpeechRecognizerFactory.LoadAsync(model, _catalog, null, parameterValues, TestContext.Current.CancellationToken);
 
         // Assert: the value reached the model's own CreateEngineConfig override via the real
         // production chain, and the model's throw was honestly swallowed into the unavailable
-        // fallback rather than propagating
-        Assert.Same(UnavailableSpeechRecognizer.Instance, recognizer);
+        // fallback rather than faulting the task
+        Assert.Same(UnavailableSpeechRecognizerEngine.Instance, engine);
         Assert.Equal(parameterValues, model.RequestedParameterValues);
     }
 
     /// <summary>
-    ///     Proves that the public catalog-based composition overload rejects a null model.
+    ///     Proves that the public catalog-based composition overload faults the returned task
+    ///     with <see cref="ArgumentNullException"/> for a null model.
     /// </summary>
     [Fact]
-    public void SpeechRecognizerFactory_Create_WithCatalogNullModel_ThrowsArgumentNullException()
+    public async Task SpeechRecognizerFactory_LoadAsync_WithCatalogNullModel_FaultsWithArgumentNullException()
     {
-        // Arrange: an available capture device
-        var captureDevice = CreateAvailableCaptureDevice();
-
         // Act & Assert: a null model is rejected
-        Assert.Throws<ArgumentNullException>(
-            () => SpeechRecognizerFactory.Create(null!, _catalog, captureDevice));
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => SpeechRecognizerFactory.LoadAsync(null!, _catalog, cancellationToken: TestContext.Current.CancellationToken));
     }
 
     /// <summary>
-    ///     Proves that the public catalog-based composition overload rejects a null catalog.
+    ///     Proves that the public catalog-based composition overload faults the returned task
+    ///     with <see cref="ArgumentNullException"/> for a null catalog.
     /// </summary>
     [Fact]
-    public void SpeechRecognizerFactory_Create_WithCatalogNullCatalog_ThrowsArgumentNullException()
+    public async Task SpeechRecognizerFactory_LoadAsync_WithCatalogNullCatalog_FaultsWithArgumentNullException()
     {
-        // Arrange: an available capture device
-        var captureDevice = CreateAvailableCaptureDevice();
-
         // Act & Assert: a null catalog is rejected
-        Assert.Throws<ArgumentNullException>(
-            () => SpeechRecognizerFactory.Create(new FakeRecognitionModel(), (SpeechModelCatalog)null!, captureDevice));
-    }
-
-    /// <summary>
-    ///     Proves that the public catalog-based composition overload rejects a null capture
-    ///     device, confirming the delegation still reaches the store-overload's own null check.
-    /// </summary>
-    [Fact]
-    public void SpeechRecognizerFactory_Create_WithCatalogNullCaptureDevice_ThrowsArgumentNullException()
-    {
-        // Act & Assert: a null capture device is rejected
-        Assert.Throws<ArgumentNullException>(
-            () => SpeechRecognizerFactory.Create(new FakeRecognitionModel(), _catalog, null!));
-    }
-
-    /// <summary>
-    ///     Builds a substitute capture device that reports itself available with a realistic
-    ///     stereo 48 kHz capture format.
-    /// </summary>
-    /// <returns>The configured substitute capture device.</returns>
-    private static IAudioCaptureDevice CreateAvailableCaptureDevice()
-    {
-        var captureDevice = Substitute.For<IAudioCaptureDevice>();
-        captureDevice.IsAvailable.Returns(true);
-        captureDevice.SampleRate.Returns(48000);
-        captureDevice.ChannelCount.Returns(2);
-        return captureDevice;
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => SpeechRecognizerFactory.LoadAsync(new FakeRecognitionModel(), (SpeechModelCatalog)null!, cancellationToken: TestContext.Current.CancellationToken));
     }
 
     /// <summary>
@@ -634,8 +541,8 @@ public sealed class SpeechRecognizerFactoryTests : IDisposable
     ///     Test-only recognition model whose two-argument <c>CreateEngineConfig</c> override
     ///     encodes a supplied <c>"language"</c> parameter value into the returned config's
     ///     <c>ModelConfig.ModelType</c>, used to prove a <c>parameterValues</c> bag supplied to
-    ///     <see cref="SpeechRecognizerFactory.Create(IRecognitionModel,string,IAudioCaptureDevice,ISpeechDiagnostics,IRecognitionEngineFactory,IReadOnlyDictionary{string,object}?)"/>
-    ///     genuinely reaches the model, not merely the engine factory.
+    ///     <see cref="SpeechRecognizerFactory"/>'s <c>LoadAsync</c> overloads genuinely reaches
+    ///     the model, not merely the backend factory.
     /// </summary>
     private sealed class ParameterCapturingRecognitionModel : IRecognitionModel
     {
@@ -668,7 +575,7 @@ public sealed class SpeechRecognizerFactoryTests : IDisposable
         /// <summary>
         ///     Encodes a supplied <c>"language"</c> string value into the returned config's
         ///     <c>ModelConfig.ModelType</c> field, so a test can assert the value it passed as
-        ///     <c>parameterValues</c> reached this method, not merely the engine factory that
+        ///     <c>parameterValues</c> reached this method, not merely the backend factory that
         ///     called it.
         /// </summary>
         /// <inheritdoc/>
@@ -694,7 +601,7 @@ public sealed class SpeechRecognizerFactoryTests : IDisposable
     ///     and then throws, short-circuiting before any real native sherpa-onnx engine
     ///     construction could occur. Used to prove that a <c>parameterValues</c> bag supplied to
     ///     the genuine PUBLIC store/catalog composition overloads (with no injected
-    ///     <c>engineFactory</c> test seam) reaches this model through the real production
+    ///     <c>backendFactory</c> test seam) reaches this model through the real production
     ///     delegation chain, without requiring a working native engine.
     /// </summary>
     private sealed class ThrowingParameterCapturingRecognitionModel : IRecognitionModel

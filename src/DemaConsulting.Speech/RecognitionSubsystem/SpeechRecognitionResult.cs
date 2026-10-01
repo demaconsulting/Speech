@@ -2,7 +2,7 @@ namespace DemaConsulting.Speech.RecognitionSubsystem;
 
 /// <summary>
 ///     One recognition result produced while streaming audio through an
-///     <see cref="ISpeechRecognizer"/>.
+///     <see cref="IRecognitionSession"/>.
 /// </summary>
 /// <param name="Text">
 ///     The recognized text for the current utterance. Never <see langword="null"/>; may be an

@@ -230,16 +230,16 @@ public class SpeechTests
 
     /// <summary>
     ///     Proves that the system composes the full streaming recognition pipeline end to end:
-    ///     <see cref="SpeechRecognizerFactory"/> builds a real recognizer over an installed model
-    ///     and an available capture device, a captured audio block flows through resampling into
-    ///     the engine, and the resulting recognition text is surfaced through
-    ///     <see cref="ISpeechRecognizer.ResultReceived"/>.
+    ///     <see cref="SpeechRecognizerFactory"/> loads a real engine over an installed model, an
+    ///     <see cref="IRecognitionSession"/> is bound to an available capture device, a captured
+    ///     audio block flows through resampling into the backend, and the resulting recognition
+    ///     text is surfaced through <see cref="IRecognitionSession.GetResultsAsync"/>.
     /// </summary>
     [Fact]
-    public void Speech_SystemIntegration_StreamingRecognition_CapturedAudioProducesRecognitionResults()
+    public async Task Speech_SystemIntegration_StreamingRecognition_CapturedAudioProducesRecognitionResults()
     {
         // Arrange: a scratch installed-model directory, an available capture device, and a
-        // deterministic engine standing in for the native sherpa-onnx runtime
+        // deterministic backend standing in for the native sherpa-onnx runtime
         var installedModelDirectory = Path.Join(
             Path.GetTempPath(), "DemaConsulting.Speech.Tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(installedModelDirectory);
@@ -249,29 +249,43 @@ public class SpeechTests
             captureDevice.IsAvailable.Returns(true);
             captureDevice.SampleRate.Returns(16000);
             captureDevice.ChannelCount.Returns(1);
-            var engineFactory = new FakeRecognitionEngineFactory(new FakeRecognitionEngine(
+            var backendFactory = new FakeRecognitionEngineFactory(new FakeRecognitionEngine(
             [
                 new SpeechRecognitionResult("hello", IsFinal: false),
                 new SpeechRecognitionResult("hello world", IsFinal: true)
             ]));
 
-            // Act: compose the recognizer, stream one captured block, and drain the pipeline
-            using var recognizer = SpeechRecognizerFactory.Create(
-                new FakeRecognitionModel(), installedModelDirectory, captureDevice, null, engineFactory);
+            // Act: load the engine, create a session, stream one captured block, and drain the pipeline
+            var cancellationToken = TestContext.Current.CancellationToken;
+            await using var engine = await SpeechRecognizerFactory.LoadAsync(
+                new FakeRecognitionModel(), installedModelDirectory, null, backendFactory,
+                cancellationToken: cancellationToken);
+            await using var session = await engine.CreateSessionAsync(captureDevice, cancellationToken);
+
             var received = new List<SpeechRecognitionResult>();
-            recognizer.ResultReceived += (_, args) => received.Add(args.Result);
-            recognizer.Start();
+            var pump = Task.Run(async () =>
+            {
+                await foreach (var evt in session.GetResultsAsync(cancellationToken))
+                {
+                    received.Add(evt.Result);
+                }
+            }, cancellationToken);
+
+            await session.StartAsync(cancellationToken);
             captureDevice.FrameCaptured += Raise.Event<EventHandler<AudioCaptureFrameEventArgs>>(
                 captureDevice,
                 new AudioCaptureFrameEventArgs([0.1f, 0.2f, 0.3f]));
-            recognizer.Stop();
+            await session.StopAsync(cancellationToken);
+            await pump;
 
-            // Assert: the system produced a provisional and a final result from the captured audio
-            Assert.True(recognizer.IsAvailable);
+            // Assert: the system produced both a provisional and a final result from the
+            // captured audio. Order between the coalesced "latest provisional" slot and the
+            // final-results FIFO is not guaranteed when both arrive before the consumer starts
+            // draining (Decision #5), so this asserts content/membership rather than position.
+            Assert.True(session.IsAvailable);
             Assert.Equal(2, received.Count);
-            Assert.False(received[0].IsFinal);
-            Assert.Equal("hello world", received[1].Text);
-            Assert.True(received[1].IsFinal);
+            Assert.Contains(received, r => !r.IsFinal && r.Text == "hello");
+            Assert.Contains(received, r => r.IsFinal && r.Text == "hello world");
         }
         finally
         {
@@ -281,16 +295,16 @@ public class SpeechTests
 
     /// <summary>
     ///     Proves that the system composes the full chunked streaming synthesis pipeline end to
-    ///     end: <see cref="SpeechSynthesizerFactory"/> builds a real synthesizer over an
-    ///     installed model and an available playback device, text flows through Layer 2
-    ///     rendering and the synthesis engine, and the resulting audio is written to the playback
-    ///     device in order.
+    ///     end: <see cref="SpeechSynthesizerFactory"/> loads a real engine over an installed
+    ///     model, an <see cref="ISynthesisSession"/> is bound to an available playback device,
+    ///     text flows through Layer 2 rendering and the synthesis backend, and the resulting
+    ///     audio is written to the playback device in order.
     /// </summary>
     [Fact]
     public async Task Speech_SystemIntegration_StreamingSynthesis_TextProducesPlayedAudio()
     {
         // Arrange: a scratch installed-model directory, an available playback device, and a
-        // deterministic engine standing in for the native sherpa-onnx runtime
+        // deterministic backend standing in for the native sherpa-onnx runtime
         var installedModelDirectory = Path.Join(
             Path.GetTempPath(), "DemaConsulting.Speech.Tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(installedModelDirectory);
@@ -300,13 +314,16 @@ public class SpeechTests
             playbackDevice.IsAvailable.Returns(true);
             playbackDevice.SampleRate.Returns(16000);
             playbackDevice.ChannelCount.Returns(1);
-            var engineFactory = new FakeSynthesisEngineFactory(new FakeSynthesisEngine(sampleRate: 16000));
+            var backendFactory = new FakeSynthesisEngineFactory(new FakeSynthesisEngine(sampleRate: 16000));
 
-            // Act: compose the synthesizer and speak one plain-text utterance end to end
-            using var synthesizer = SpeechSynthesizerFactory.Create(
-                new FakeSynthesisModel(), installedModelDirectory, playbackDevice, null, engineFactory);
-            Assert.True(synthesizer.IsAvailable);
-            await synthesizer.SpeakAsync("hello world", TestContext.Current.CancellationToken);
+            // Act: load the engine, create a session, and speak one plain-text utterance end to end
+            var cancellationToken = TestContext.Current.CancellationToken;
+            await using var engine = await SpeechSynthesizerFactory.LoadAsync(
+                new FakeSynthesisModel(), installedModelDirectory, null, backendFactory,
+                cancellationToken: cancellationToken);
+            Assert.True(engine.IsAvailable);
+            await using var session = await engine.CreateSessionAsync(playbackDevice, cancellationToken);
+            await session.SpeakAsync("hello world", cancellationToken);
 
             // Assert: the system started the device, wrote at least one block of audio, and stopped it
             playbackDevice.Received(1).Start();

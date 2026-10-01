@@ -1,8 +1,8 @@
 namespace DemaConsulting.Speech.RecognitionSubsystem;
 
 /// <summary>
-///     Event data carrying one <see cref="SpeechRecognitionResult"/> raised by an
-///     <see cref="ISpeechRecognizer"/>.
+///     Event data carrying one <see cref="SpeechRecognitionResult"/> produced by an
+///     <see cref="IRecognitionSession"/>.
 /// </summary>
 /// <param name="Result">
 ///     The recognition result this event reports. Never <see langword="null"/>.

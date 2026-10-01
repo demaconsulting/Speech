@@ -214,7 +214,7 @@ public sealed class SherpaOnnxRecognitionEngineAccuracyTests
     ///     is fed once the real audio is exhausted so the last in-flight utterance's endpoint
     ///     fires and its final result is not silently lost.
     /// </remarks>
-    private static string Transcribe(IRecognitionEngine engine, float[] samples, int sampleRate)
+    private static string Transcribe(IRecognitionBackend engine, float[] samples, int sampleRate)
     {
         var chunkSize = sampleRate / 10; // 0.1-second chunks, matching this project's existing test convention
         var transcript = new StringBuilder();
@@ -240,10 +240,10 @@ public sealed class SherpaOnnxRecognitionEngineAccuracyTests
     }
 
     /// <summary>
-    ///     Repeatedly calls <see cref="IRecognitionEngine.TryDecode"/> until it reports nothing
+    ///     Repeatedly calls <see cref="IRecognitionBackend.TryDecode"/> until it reports nothing
     ///     new, appending every finalized result's text to <paramref name="transcript"/>.
     /// </summary>
-    private static void DrainFinalResults(IRecognitionEngine engine, StringBuilder transcript)
+    private static void DrainFinalResults(IRecognitionBackend engine, StringBuilder transcript)
     {
         while (engine.TryDecode(out var result))
         {
@@ -357,7 +357,7 @@ public sealed class SherpaOnnxRecognitionEngineAccuracyTests
     /// <param name="engine">The real engine to feed. Must not be <see langword="null"/>.</param>
     /// <param name="samples">The utterance's normalized mono samples, at the engine's declared rate.</param>
     /// <param name="sampleRate">The sample rate <paramref name="samples"/> is at, in Hz.</param>
-    private static void FeedWithoutTrailingSilence(IRecognitionEngine engine, float[] samples, int sampleRate)
+    private static void FeedWithoutTrailingSilence(IRecognitionBackend engine, float[] samples, int sampleRate)
     {
         var chunkSize = sampleRate / 10; // 0.1-second chunks, matching this project's existing test convention
 
@@ -388,7 +388,7 @@ public sealed class SherpaOnnxRecognitionEngineAccuracyTests
     ///     finalized result; either would prove the bug this test guards against.
     /// </remarks>
     private static void FeedSilenceCollectingAnyText(
-        IRecognitionEngine engine,
+        IRecognitionBackend engine,
         int sampleRate,
         double seconds,
         StringBuilder leakedText)
@@ -416,7 +416,7 @@ public sealed class SherpaOnnxRecognitionEngineAccuracyTests
     ///     not discard audio already accepted via <c>AcceptWaveform</c> but not yet decoded, so an
     ///     abandoned utterance's tail (for example a push-to-talk release with no trailing
     ///     silence) decoded into the next session instead of being discarded, even when only
-    ///     silence was fed after <see cref="IRecognitionEngine.Reset"/>. The fix makes
+    ///     silence was fed after <see cref="IRecognitionBackend.Reset"/>. The fix makes
     ///     session-end <c>Reset()</c> create a replacement stream and dispose the existing one
     ///     rather than resetting the existing stream's hypothesis in place, discarding any
     ///     buffered, not-yet-decoded audio along with it. A fake-engine test cannot exercise this:
@@ -482,7 +482,7 @@ public sealed class SherpaOnnxRecognitionEngineAccuracyTests
     }
 
     /// <summary>
-    ///     Proves that <see cref="IRecognitionEngine.TryFlush"/> recovers the abandoned
+    ///     Proves that <see cref="IRecognitionBackend.TryFlush"/> recovers the abandoned
     ///     utterance's trailing words as a final result - rather than merely proving they are
     ///     not lost into the next session, as
     ///     <see cref="SherpaOnnxRecognitionEngine_Reset_AbandonedUtteranceWithNoTrailingSilence_DoesNotBleedIntoNextSession"/>

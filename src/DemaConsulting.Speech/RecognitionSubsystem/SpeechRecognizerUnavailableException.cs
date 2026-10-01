@@ -7,12 +7,15 @@ namespace DemaConsulting.Speech.RecognitionSubsystem;
 /// </summary>
 /// <remarks>
 ///     Per this library's "nothing throws at composition" decision, obtaining and holding an
-///     <see cref="ISpeechRecognizer"/> never throws - <see cref="SpeechRecognizerFactory"/>
-///     returns <see cref="UnavailableSpeechRecognizer.Instance"/> for every ordinary
+///     <see cref="ISpeechRecognizerEngine"/> or an <see cref="IRecognitionSession"/> never
+///     throws - <see cref="SpeechRecognizerFactory"/> returns
+///     <see cref="UnavailableSpeechRecognizerEngine.Instance"/>, and its
+///     <see cref="ISpeechRecognizerEngine.CreateSessionAsync"/> returns
+///     <see cref="UnavailableRecognitionSession.Instance"/>, for every ordinary
 ///     "cannot recognize on this machine right now" state (model not installed, native runtime
 ///     absent, no capture device). This exception is reserved for the two genuine error cases:
 ///     a caller that ignored <c>IsAvailable == false</c> and invoked an operational member
-///     anyway, and a recognizer whose underlying capture device failed when actually started.
+///     anyway, and a session whose underlying capture device failed when actually started.
 ///     It mirrors <c>AudioDeviceUnavailableException</c> so both subsystems signal misuse the
 ///     same way.
 /// </remarks>
