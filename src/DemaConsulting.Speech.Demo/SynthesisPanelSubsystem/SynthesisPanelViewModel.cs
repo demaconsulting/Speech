@@ -177,7 +177,7 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IDisposa
     /// <param name="deviceSelection">The shared device-selection panel state. Must not be <see langword="null"/>.</param>
     /// <param name="sessionFactory">The seam used to compose a synthesizer. Must not be <see langword="null"/>.</param>
     /// <exception cref="ArgumentNullException">Thrown when any parameter is <see langword="null"/>.</exception>
-    public SynthesisPanelViewModel(
+    internal SynthesisPanelViewModel(
         IModelCatalogService catalogService,
         IAudioDeviceService deviceService,
         DeviceSelectionViewModel deviceSelection,

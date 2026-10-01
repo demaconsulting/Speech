@@ -60,11 +60,8 @@ active.
 **Refresh algorithm.** `Refresh()` is the `[RelayCommand]`-generated, `async Task`-returning
 method bound to `RefreshCommand`; it awaits every registered pre-refresh hook in turn, then calls
 the synchronous `RefreshCore()`, which holds the previously existing refresh logic unchanged.
-`RefreshCore()` is also called directly (not through `Refresh()`) from the constructor, so both
-device lists remain populated synchronously at construction time with no awaited step — a
-documented, test-asserted contract — since no hook can be registered before this constructor has
-returned. `RefreshCore()` first calls `IAudioDeviceService.RefreshDevices()` to force the backend
-to re-scan its device table. If that call throws `AudioDeviceInUseException` (because a device is
+`RefreshCore()` first calls `IAudioDeviceService.RefreshDevices()` to force the backend to
+re-scan its device table. If that call throws `AudioDeviceInUseException` (because a device is
 still in use despite every hook having run — the rare case a hook could not prevent, or no hook
 was registered for whatever is holding the device), `CaptureStatus` and `PlaybackStatus` are both
 set to the exception's message and `RefreshCore()` returns immediately, leaving both lists and
@@ -73,13 +70,21 @@ have found anything new anyway. Any other exception the backend raises (for exam
 `Terminate()` failure during `PortAudioEnvironment.Refresh()`) is handled identically: both
 status properties are set to that exception's message and `RefreshCore()` returns immediately
 with both lists and selections untouched, so a general refresh fault degrades the same way as the
-in-use case rather than escaping and crashing the UI. Otherwise it captures the currently chosen device *name* in each
-direction,
+in-use case rather than escaping and crashing the UI. Otherwise `RefreshCore()` delegates to
+`EnumerateCore()`, which captures the currently chosen device *name* in each direction,
 re-enumerates both lists in place, and then restores the selection:
 
 1. If a device with the captured name is still reported, select it
 2. Otherwise select the first remaining device
 3. Otherwise leave the selection empty
+
+`EnumerateCore()` is also called directly (not through `RefreshCore()`/`Refresh()`) from the
+constructor, so both device lists remain populated synchronously at construction time with no
+awaited step and without forcing a native PortAudio terminate/reinitialize cycle — a documented,
+test-asserted contract. Forcing a refresh at construction would throw `AudioDeviceInUseException`
+if any other device created from the shared environment already had an active stream, leaving a
+newly constructed view model with empty lists even though the backend is perfectly usable for
+enumeration; `EnumerateCore()` instead reads the already-initialized device table directly.
 
 Name is used as the identity key because name is the library's only stable device identity;
 comparing object references would drop a still-present device whose reported format changed, and

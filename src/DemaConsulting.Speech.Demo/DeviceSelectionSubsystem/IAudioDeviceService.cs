@@ -14,7 +14,7 @@ namespace DemaConsulting.Speech.Demo.DeviceSelectionSubsystem;
 ///     public API to <c>DemaConsulting.Speech</c> and deliberately mirrors, rather than extends,
 ///     the library's behavior.
 /// </remarks>
-public interface IAudioDeviceService
+internal interface IAudioDeviceService
 {
     /// <summary>
     ///     Enumerates the audio capture (input) devices currently offered to the user.

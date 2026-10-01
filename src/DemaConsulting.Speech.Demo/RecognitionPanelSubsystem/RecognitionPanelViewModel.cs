@@ -191,7 +191,7 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IDispo
     /// <param name="deviceSelection">The shared device-selection panel state. Must not be <see langword="null"/>.</param>
     /// <param name="sessionFactory">The seam used to compose a recognizer. Must not be <see langword="null"/>.</param>
     /// <exception cref="ArgumentNullException">Thrown when any parameter is <see langword="null"/>.</exception>
-    public RecognitionPanelViewModel(
+    internal RecognitionPanelViewModel(
         IModelCatalogService catalogService,
         IAudioDeviceService deviceService,
         DeviceSelectionViewModel deviceSelection,

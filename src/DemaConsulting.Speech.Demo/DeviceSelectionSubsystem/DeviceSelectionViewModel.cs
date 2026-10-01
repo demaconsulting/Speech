@@ -127,7 +127,7 @@ public sealed partial class DeviceSelectionViewModel : ObservableObject
     ///     Enumerating during construction means the window shows real device names the instant it
     ///     opens rather than an empty list the user must manually refresh.
     /// </remarks>
-    public DeviceSelectionViewModel(IAudioDeviceService deviceService)
+    internal DeviceSelectionViewModel(IAudioDeviceService deviceService)
     {
         ArgumentNullException.ThrowIfNull(deviceService);
 
