@@ -70,35 +70,37 @@ namespace DemaConsulting.Speech.Cli.Commands.ConversationCommandSubsystem;
 ///     does not carry the same tag-stripping concern <c>speak</c>'s general-purpose text does.
 ///     </para>
 ///     <para>
-///     <b>Recognizer pre-warming.</b> Phase 2's recognizer - including resolving its capture
-///     device - is constructed concurrently with Phase 1's speak/playback wait, via a background
-///     <see cref="Task"/> kicked off immediately after both phases' parameters are resolved,
-///     rather than only once playback finishes: loading a recognition model into native memory
-///     is the expensive step (see <see cref="SpeechRecognizerFactory"/>'s own remarks), so
-///     overlapping that load with the time a person spends listening to the
-///     prompt removes an otherwise-unavoidable turnaround gap between finishing speaking and
-///     starting to listen. Only the model *load* is pre-warmed: <see cref="ISpeechRecognizer.Start"/>
-///     (which begins real microphone capture) is still called only once Phase 2 genuinely
-///     begins, so pre-warming never captures audio while the prompt is still being spoken. A
-///     pre-warm failure (an unknown/unavailable capture device, an invalid <c>--stt-param</c>
-///     value, etc.) is not thrown from the background task itself; it surfaces when <c>RunAsync</c>
-///     awaits the pre-warm task at the start of Phase 2, with the same exception type and message
-///     a synchronous failure would have produced.
+///     <b>Recognizer pre-warming.</b> Phase 2's recognizer engine and session - including
+///     resolving its capture device - are constructed concurrently with Phase 1's
+///     speak/playback wait, via a background <see cref="Task"/> kicked off immediately after both
+///     phases' parameters are resolved, rather than only once playback finishes: loading a
+///     recognition model into native memory is the expensive step (see
+///     <see cref="SpeechRecognizerFactory"/>'s own remarks), so overlapping that load with the
+///     time a person spends listening to the prompt removes an otherwise-unavoidable turnaround
+///     gap between finishing speaking and starting to listen. Only the model *load* and session
+///     creation are pre-warmed: <see cref="IRecognitionSession.StartAsync"/> (which begins real
+///     microphone capture) is still called only once Phase 2 genuinely begins, so pre-warming
+///     never captures audio while the prompt is still being spoken. A pre-warm failure (an
+///     unknown/unavailable capture device, an invalid <c>--stt-param</c> value, etc.) is not
+///     thrown from the background task itself; it surfaces when <c>RunAsync</c> awaits the
+///     pre-warm task at the start of Phase 2, with the same exception type and message a
+///     synchronous failure would have produced.
 ///     </para>
 ///     <para>
 ///     <b>Cancellation and disposal.</b> A single <see cref="Console.CancelKeyPress"/> handler,
 ///     installed once for the whole call, cancels a shared <see cref="CancellationTokenSource"/>
-///     (aborting an in-flight <c>SpeakAsync</c> during Phase 1) and, once the recognizer has been
-///     constructed, also calls <see cref="ISpeechRecognizer.Stop"/> and signals the same
+///     (aborting an in-flight <c>SpeakAsync</c> during Phase 1) and, once the session has been
+///     constructed, also calls <see cref="IRecognitionSession.StopAsync"/> (fire-and-forget,
+///     since the handler itself is synchronous) and signals the same
 ///     <see cref="ManualResetEventSlim"/> the mic-wait blocks on, so <c>Ctrl+C</c> cancels
 ///     cleanly whether it lands during playback or during listening. When Phase 1 is canceled or
-///     throws, the pre-warmed recognizer - which may already have been constructed by the
+///     throws, the pre-warmed engine/session - which may already have been constructed by the
 ///     concurrent background task, or may still be in flight - is never awaited synchronously by
 ///     <c>RunAsync</c>: doing so would block <c>Ctrl+C</c>/fast-failure responsiveness on the
 ///     expensive model-load step finishing. Instead a background continuation observes the
-///     pre-warm task's eventual result (or exception) and disposes any recognizer it produces,
-///     so <c>RunAsync</c> returns promptly while the recognizer is still guaranteed to be disposed
-///     - just asynchronously - rather than leaked or left as an unobserved faulted
+///     pre-warm task's eventual result (or exception) and disposes any engine/session it
+///     produces, so <c>RunAsync</c> returns promptly while they are still guaranteed to be
+///     disposed - just asynchronously - rather than leaked or left as an unobserved faulted
 ///     <see cref="Task"/>. Because a final recognition result, a silence/start timeout, and
 ///     <c>Ctrl+C</c> all unblock the same <see cref="ManualResetEventSlim"/> identically,
 ///     <c>Listen</c> re-checks the shared <see cref="CancellationToken"/> (only ever canceled by
@@ -110,10 +112,10 @@ namespace DemaConsulting.Speech.Cli.Commands.ConversationCommandSubsystem;
 ///     writing/printing the recognized text, to close a narrow race where <c>Ctrl+C</c> lands
 ///     after <c>Listen</c> has already unblocked with <c>listenWasCanceled == false</c> but before
 ///     the result is written out; this final check is reported and handled identically to the
-///     Phase 1/Phase 2 cancellation cases. The synthesizer, playback device, recognizer,
-///     silence-timeout session, and output writer are each disposed exactly once via nested
-///     <c>finally</c> blocks, mirroring <see cref="SpeakCommand"/>'s and
-///     <see cref="RecognizeCommand"/>'s own disposal ordering.
+///     Phase 1/Phase 2 cancellation cases. The synthesis engine/session, playback device,
+///     recognition engine/session, silence-timeout wrapper, and output writer are each disposed
+///     exactly once via nested <c>await using</c>/<c>finally</c> blocks, mirroring
+///     <see cref="SpeakCommand"/>'s and <see cref="RecognizeCommand"/>'s own disposal ordering.
 ///     </para>
 /// </remarks>
 internal static class AskCommand
@@ -202,12 +204,12 @@ internal static class AskCommand
         using var cancellationSource = new CancellationTokenSource();
         using var stopSignal = new ManualResetEventSlim(initialState: false);
 
-        // Tracks the live recognizer (once Phase 2 has constructed one) so a Ctrl+C landing
-        // during listening can stop it; guarded because the recognizer is created on this same
+        // Tracks the live session (once Phase 2 has constructed one) so a Ctrl+C landing
+        // during listening can stop it; guarded because the session is created on this same
         // thread but a Ctrl+C handler runs on a separate thread and could otherwise observe a
         // torn/stale reference.
-        ISpeechRecognizer? recognizer = null;
-        var recognizerGate = new object();
+        IRecognitionSession? session = null;
+        var sessionGate = new object();
 
         // Ask an in-flight speak/listen session to cancel cooperatively rather than letting the
         // runtime kill the process outright, so partially-played audio, an in-flight capture, and
@@ -218,9 +220,25 @@ internal static class AskCommand
             e.Cancel = true;
             cancellationSource.Cancel();
 
-            lock (recognizerGate)
+            // Fire-and-forget: this handler must stay synchronous. StopAsync is idempotent and
+            // safe to call concurrently per IRecognitionSession's own contract. The lock is only
+            // used to read the torn/stale-reference-safe snapshot; the async call itself is
+            // started outside the lock.
+            IRecognitionSession? currentSession;
+            lock (sessionGate)
             {
-                recognizer?.Stop();
+                currentSession = session;
+            }
+
+            if (currentSession is not null)
+            {
+                // Intentional fire-and-forget: this handler must stay synchronous (the
+                // ConsoleCancelEventHandler delegate signature is non-async), and StopAsync is
+                // idempotent and safe to call concurrently per IRecognitionSession's own
+                // contract, so neither the result nor any exception needs to be observed here.
+#pragma warning disable S1854
+                _ = currentSession.StopAsync(CancellationToken.None);
+#pragma warning restore S1854
             }
 
             stopSignal.Set();
@@ -235,11 +253,11 @@ internal static class AskCommand
                 deviceSource,
                 captureSource,
                 stopSignal,
-                r =>
+                s =>
                 {
-                    lock (recognizerGate)
+                    lock (sessionGate)
                     {
-                        recognizer = r;
+                        session = s;
                     }
                 },
                 cancellationSource.Token).GetAwaiter().GetResult();
@@ -264,6 +282,15 @@ internal static class AskCommand
         ICliModelCatalog Catalog,
         AskOptions Options,
         CancellationToken CancellationToken);
+
+    /// <summary>
+    ///     Bundles a pre-warmed Phase 2 recognizer engine and the session created from it, so
+    ///     <see cref="PrewarmRecognizerAsync"/>/<see cref="DisposePrewarmedRecognizerAsync"/> can
+    ///     hand both back as one unit without an intermediate tuple at every call site.
+    /// </summary>
+    /// <param name="Engine">The loaded recognition engine. Owned by <c>RunAsync</c> once adopted.</param>
+    /// <param name="Session">The session created from <paramref name="Engine"/>, bound to the resolved capture device.</param>
+    private readonly record struct PrewarmedRecognizer(ISpeechRecognizerEngine Engine, IRecognitionSession Session);
 
     /// <summary>
     ///     Runs the <c>ask</c> subcommand's full text-source resolution, model resolution,
@@ -291,7 +318,7 @@ internal static class AskCommand
         ICliPlaybackDeviceSource deviceSource,
         ICliCaptureDeviceSource captureSource,
         ManualResetEventSlim stopSignal,
-        Action<ISpeechRecognizer?> onRecognizerCreated,
+        Action<IRecognitionSession?> onRecognizerCreated,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -315,24 +342,25 @@ internal static class AskCommand
 
         var invocation = new AskInvocation(context, catalog, options, cancellationToken);
 
-        // Kick off Phase 2's recognizer construction (including its capture-device resolution)
-        // on a background task now, so the expensive model-load step overlaps with Phase 1's
-        // speak/playback wait below instead of only starting once playback finishes - closing the
-        // turnaround-gap latency between finishing speaking and starting to listen. Real
-        // microphone capture (Start()) still only begins once Phase 2 genuinely starts, inside
-        // Listen. Only the "adopt the pre-warm result" exit path below (Phase 2 genuinely
-        // starting) awaits this task directly. The "Phase 1 canceled" and "Phase 1 (or anything
-        // between here and adopting the pre-warm result) threw" exit paths deliberately do NOT
-        // await this task - blocking RunAsync's return on the expensive model-load finishing
-        // would delay Ctrl+C/fast-failure responsiveness for no benefit - and instead hand it to
-        // DisposePrewarmedRecognizerAsync fire-and-forget: that method's own continuation still
-        // always observes this task's result/exception and disposes any recognizer it produces,
-        // just asynchronously in the background rather than before RunAsync returns.
+        // Kick off Phase 2's recognizer engine/session construction (including its
+        // capture-device resolution) on a background task now, so the expensive model-load step
+        // overlaps with Phase 1's speak/playback wait below instead of only starting once
+        // playback finishes - closing the turnaround-gap latency between finishing speaking and
+        // starting to listen. Real microphone capture (StartAsync) still only begins once Phase
+        // 2 genuinely starts, inside Listen. Only the "adopt the pre-warm result" exit path
+        // below (Phase 2 genuinely starting) awaits this task directly. The "Phase 1 canceled"
+        // and "Phase 1 (or anything between here and adopting the pre-warm result) threw" exit
+        // paths deliberately do NOT await this task - blocking RunAsync's return on the expensive
+        // model-load finishing would delay Ctrl+C/fast-failure responsiveness for no benefit -
+        // and instead hand it to DisposePrewarmedRecognizerAsync fire-and-forget: that method's
+        // own continuation still always observes this task's result/exception and disposes any
+        // engine/session it produces, just asynchronously in the background rather than before
+        // RunAsync returns.
         var prewarmTask = Task.Run(
-            () => PrewarmRecognizer(invocation, captureSource, sttDescriptor, sttParameterValues),
+            () => PrewarmRecognizerAsync(invocation, captureSource, sttDescriptor, sttParameterValues),
             CancellationToken.None);
 
-        ISpeechRecognizer recognizer;
+        PrewarmedRecognizer prewarmed;
         try
         {
             // Phase 1: speak the prompt through a real playback device and wait for it to finish.
@@ -342,9 +370,9 @@ internal static class AskCommand
             if (wasCanceled)
             {
                 // Phase 1 was canceled, so Phase 2 never runs: the concurrently pre-warmed
-                // recognizer (whether already constructed, still in flight, or never going to
-                // succeed) must still eventually be disposed, but RunAsync must not block its own
-                // return on the (possibly still-loading) model finishing - that would delay
+                // engine/session (whether already constructed, still in flight, or never going
+                // to succeed) must still eventually be disposed, but RunAsync must not block its
+                // own return on the (possibly still-loading) model finishing - that would delay
                 // Ctrl+C responsiveness for exactly the scenario where instant feedback matters
                 // most. Hand it off fire-and-forget: DisposePrewarmedRecognizerAsync's own
                 // continuation disposes it once construction eventually completes.
@@ -353,38 +381,41 @@ internal static class AskCommand
             }
 
             // Adopt the pre-warm task's result now that Phase 2 is genuinely starting: this
-            // re-throws (with its original type and message) any failure PrewarmRecognizer
+            // re-throws (with its original type and message) any failure PrewarmRecognizerAsync
             // raised - an unknown/unavailable capture device, an invalid --stt-param value,
             // etc. - at Phase 2's start, exactly as a synchronous call to the same logic would
             // have. Once assigned here, Listen's own finally block takes ownership of disposing
-            // this recognizer exactly once.
-            recognizer = await prewarmTask.ConfigureAwait(false);
+            // this session exactly once; the engine is disposed by RunAsync itself afterward.
+            prewarmed = await prewarmTask.ConfigureAwait(false);
         }
         // Intentionally broad: this is the command-level fail-fast boundary around Phase 1 and
         // recognizer pre-warm adoption, so any exception must preserve its original type/message
-        // while still handing off the concurrently created recognizer for asynchronous cleanup.
+        // while still handing off the concurrently created engine/session for asynchronous
+        // cleanup.
         catch (Exception)
         {
             // SpeakPromptAsync (or any resolution logic reachable above, e.g. an unknown
-            // --playback-device, or PrewarmRecognizer's own failure surfacing when its result is
-            // adopted) threw instead of returning a normal wasCanceled result: the pre-warmed
-            // recognizer - whether already constructed, still in flight, or never going to
-            // succeed - must still eventually be disposed and prewarmTask's result/exception must
-            // still eventually be observed, but RunAsync must not block this fast-failure exit on
-            // the (possibly still-loading) model finishing. Hand it off fire-and-forget, same as
-            // the Phase 1 cancellation path above; this is a no-op once it runs if prewarmTask
-            // never produces a recognizer. Rethrow immediately to preserve the original
-            // exception's type, message, and stack trace unchanged.
+            // --playback-device, or PrewarmRecognizerAsync's own failure surfacing when its
+            // result is adopted) threw instead of returning a normal wasCanceled result: the
+            // pre-warmed engine/session - whether already constructed, still in flight, or never
+            // going to succeed - must still eventually be disposed and prewarmTask's
+            // result/exception must still eventually be observed, but RunAsync must not block
+            // this fast-failure exit on the (possibly still-loading) model finishing. Hand it off
+            // fire-and-forget, same as the Phase 1 cancellation path above; this is a no-op once
+            // it runs if prewarmTask never produces an engine/session. Rethrow immediately to
+            // preserve the original exception's type, message, and stack trace unchanged.
             _ = DisposePrewarmedRecognizerAsync(prewarmTask);
             throw;
         }
 
-        // Phase 2: listen for the reply through the already-constructed recognizer.
-        var (recognizedText, listenWasCanceled) = Listen(
+        await using var engineLease = prewarmed.Engine;
+
+        // Phase 2: listen for the reply through the already-constructed session.
+        var (recognizedText, listenWasCanceled) = await Listen(
             invocation,
-            recognizer,
+            prewarmed.Session,
             stopSignal,
-            onRecognizerCreated);
+            onRecognizerCreated).ConfigureAwait(false);
 
         if (listenWasCanceled)
         {
@@ -474,11 +505,13 @@ internal static class AskCommand
         }
 
         using var playbackDeviceLease = playbackDevice as IDisposable;
-        using var synthesizer = catalog.CreateSynthesizer(ttsDescriptor, playbackDevice, parameterValues);
+        await using var engine = await catalog.CreateSynthesizerEngineAsync(ttsDescriptor, parameterValues, cancellationToken)
+            .ConfigureAwait(false);
+        await using var session = await engine.CreateSessionAsync(playbackDevice, cancellationToken).ConfigureAwait(false);
 
         try
         {
-            await synthesizer.SpeakAsync(text, cancellationToken).ConfigureAwait(false);
+            await session.SpeakAsync(text, cancellationToken).ConfigureAwait(false);
             return false;
         }
         catch (OperationCanceledException)
@@ -489,18 +522,18 @@ internal static class AskCommand
     }
 
     /// <summary>
-    ///     Constructs Phase 2's recognizer - resolving a real capture device from
-    ///     <paramref name="captureSource"/> (honoring <c>--capture-device</c>) first, since
-    ///     <see cref="ICliModelCatalog.CreateRecognizer"/> requires an already-constructed
+    ///     Constructs Phase 2's recognition engine and session - resolving a real capture device
+    ///     from <paramref name="captureSource"/> (honoring <c>--capture-device</c>) first, since
+    ///     <see cref="ISpeechRecognizerEngine.CreateSessionAsync"/> requires an already-constructed
     ///     <see cref="AudioSubsystem.IAudioCaptureDevice"/> - without starting real microphone
     ///     capture. Run on a background <see cref="Task"/> concurrently with Phase 1's
     ///     speak/playback wait (see the class remarks' "Recognizer pre-warming" paragraph) so the
     ///     expensive model-load step overlaps with the time a person spends listening to the
     ///     prompt, rather than only starting once playback finishes.
     /// </summary>
-    /// <returns>The constructed recognizer, not yet started.</returns>
+    /// <returns>The constructed engine and a session bound to the resolved capture device, not yet started.</returns>
     /// <exception cref="InvalidOperationException">Thrown when no real capture device is available.</exception>
-    private static ISpeechRecognizer PrewarmRecognizer(
+    private static async Task<PrewarmedRecognizer> PrewarmRecognizerAsync(
         AskInvocation invocation,
         ICliCaptureDeviceSource captureSource,
         SpeechModelDescriptor sttDescriptor,
@@ -508,6 +541,7 @@ internal static class AskCommand
     {
         var catalog = invocation.Catalog;
         var options = invocation.Options;
+        var cancellationToken = invocation.CancellationToken;
 
         var knownDevices = captureSource.CaptureProbe.Enumerate();
         var selection = DevicesTestCommand.ResolveDeviceSelectionOrThrow(knownDevices, options.CaptureDeviceName, "capture");
@@ -519,12 +553,25 @@ internal static class AskCommand
                 "No audio capture device is available on this machine; cannot run 'ask'.");
         }
 
-        return catalog.CreateRecognizer(sttDescriptor, captureDevice, parameterValues);
+        var engine = await catalog.CreateRecognizerEngineAsync(sttDescriptor, parameterValues, cancellationToken)
+            .ConfigureAwait(false);
+        try
+        {
+            var session = await engine.CreateSessionAsync(captureDevice, cancellationToken).ConfigureAwait(false);
+            return new PrewarmedRecognizer(engine, session);
+        }
+        catch (Exception)
+        {
+            // Session creation failed: the engine would otherwise be leaked since no
+            // PrewarmedRecognizer is ever returned to adopt it.
+            await engine.DisposeAsync().ConfigureAwait(false);
+            throw;
+        }
     }
 
     /// <summary>
-    ///     Fire-and-forget cleanup for a concurrently pre-warmed recognizer, for use when Phase 1
-    ///     is canceled or throws and Phase 2 will never run: the recognizer
+    ///     Fire-and-forget cleanup for a concurrently pre-warmed recognizer engine/session, for
+    ///     use when Phase 1 is canceled or throws and Phase 2 will never run: the engine/session
     ///     <paramref name="prewarmTask"/> produces (if construction succeeds at all) would
     ///     otherwise be leaked, and the task itself would otherwise go unobserved.
     /// </summary>
@@ -535,29 +582,31 @@ internal static class AskCommand
     ///     until that load finishes, even though the caller has already decided to exit. Instead,
     ///     this method's own <see langword="await"/> below attaches a continuation that runs
     ///     whenever <paramref name="prewarmTask"/> eventually completes - immediately, if it has
-    ///     already finished by the time this method is called - disposing any recognizer it
+    ///     already finished by the time this method is called - disposing any engine/session it
     ///     produced and observing (via the <see langword="catch"/> below) any exception it
     ///     raised, so <paramref name="prewarmTask"/> is never left as an unobserved faulted
-    ///     <see cref="Task"/> and a successfully constructed recognizer is never leaked - just
+    ///     <see cref="Task"/> and a successfully constructed engine/session is never leaked - just
     ///     disposed asynchronously in the background instead of before the caller returns.
     /// </remarks>
-    private static async Task DisposePrewarmedRecognizerAsync(Task<ISpeechRecognizer> prewarmTask)
+    private static async Task DisposePrewarmedRecognizerAsync(Task<PrewarmedRecognizer> prewarmTask)
     {
         try
         {
-            using var recognizer = await prewarmTask.ConfigureAwait(false);
+            var prewarmed = await prewarmTask.ConfigureAwait(false);
+            await prewarmed.Session.DisposeAsync().ConfigureAwait(false);
+            await prewarmed.Engine.DisposeAsync().ConfigureAwait(false);
         }
         // Intentionally broad: this asynchronous cleanup boundary exists only to observe the
-        // pre-warm task and dispose any successful recognizer result after the command has
+        // pre-warm task and dispose any successful engine/session result after the command has
         // already decided to exit, so a failed pre-warm is non-actionable noise here.
         catch (Exception)
         {
-            // No recognizer was produced, so there is nothing to dispose.
+            // No engine/session was produced, so there is nothing to dispose.
         }
     }
 
     /// <summary>
-    ///     Runs Phase 2: listens through the already-constructed <paramref name="recognizer"/>
+    ///     Runs Phase 2: listens through the already-constructed <paramref name="session"/>
     ///     until the first final recognition result arrives, a silence/start timeout fires, or
     ///     <c>Ctrl+C</c> is pressed (signaled externally via <paramref name="stopSignal"/>).
     /// </summary>
@@ -568,28 +617,28 @@ internal static class AskCommand
     ///     already been reported via <see cref="Cli.Context.WriteError"/> and the returned text
     ///     must not be written to <c>--output-text</c>/stdout.
     /// </returns>
-    private static (string Text, bool WasCanceled) Listen(
+    private static async Task<(string Text, bool WasCanceled)> Listen(
         AskInvocation invocation,
-        ISpeechRecognizer recognizer,
+        IRecognitionSession session,
         ManualResetEventSlim stopSignal,
-        Action<ISpeechRecognizer?> onRecognizerCreated)
+        Action<IRecognitionSession?> onRecognizerCreated)
     {
         var context = invocation.Context;
         var options = invocation.Options;
         var cancellationToken = invocation.CancellationToken;
 
-        onRecognizerCreated(recognizer);
-        using var recognizerLease = recognizer;
+        onRecognizerCreated(session);
+        await using var sessionLease = session;
         try
         {
             if (stopSignal.IsSet)
             {
                 // Ctrl+C already landed during Phase 1, during the concurrent recognizer
                 // pre-warm, or in the narrow window between pre-warm finishing and Phase 2
-                // starting: skip listening entirely rather than starting a recognizer session
-                // that would be stopped again immediately. Only report this as a cancellation
-                // when the shared token confirms Ctrl+C is the reason - the flag is otherwise
-                // never set before this point.
+                // starting: skip listening entirely rather than starting a session that would be
+                // stopped again immediately. Only report this as a cancellation when the shared
+                // token confirms Ctrl+C is the reason - the flag is otherwise never set before
+                // this point.
                 if (cancellationToken.IsCancellationRequested)
                 {
                     context.WriteError(SpeechCanceledMessage);
@@ -600,76 +649,65 @@ internal static class AskCommand
             }
 
             var recognizedText = string.Empty;
-            EventHandler<SpeechRecognitionEvent> onResultReceived = (_, e) =>
-            {
-                if (!e.Result.IsFinal)
-                {
-                    return;
-                }
 
-                // "ask" models a single bounded question/answer turn: the first final result is
-                // always enough to end the turn, unlike "recognize --mic"'s open-ended listening.
-                // Do not call recognizer.Stop()/Dispose() here: ResultReceived is raised from the
-                // recognizer's own background decoding thread, and Stop() blocks its caller until
-                // that same thread finishes draining - calling it from this handler would wait on
-                // itself. Signal stopSignal instead and let the code below stop the recognizer
-                // from the calling thread once Wait() returns.
-                recognizedText = e.Result.Text;
-                stopSignal.Set();
-            };
+            // A silence-timeout wrapper is always constructed - even when both flags are omitted -
+            // so a reply that never starts or never finishes cannot block "ask" forever with only
+            // Ctrl+C as an escape hatch.
+            var sessionStartTimeout = TimeSpan.FromSeconds(options.StartTimeoutSeconds ?? DefaultStartTimeoutSeconds);
+            var timeoutSession = new SilenceTimeoutRecognizerSession(
+                session,
+                TimeSpan.FromSeconds(options.SilenceTimeoutSeconds ?? DefaultSilenceTimeoutSeconds),
+                startTimeout: sessionStartTimeout);
 
-            recognizer.ResultReceived += onResultReceived;
+            timeoutSession.TimedOut += (_, _) => stopSignal.Set();
+
+            // StartAsync blocks the calling thread until the session stops (it drives the real
+            // microphone capture loop), so it is started as a background Task here rather than
+            // awaited directly - mirroring RecognizeCommand's own mic-mode pump-before-start
+            // ordering - letting this method concurrently pump GetResultsAsync below.
+            var startTask = session.StartAsync(cancellationToken);
             try
             {
-                // A silence-timeout session is always constructed - even when both flags are
-                // omitted - so a reply that never starts or never finishes cannot block "ask"
-                // forever with only Ctrl+C as an escape hatch.
-                var sessionStartTimeout = TimeSpan.FromSeconds(options.StartTimeoutSeconds ?? DefaultStartTimeoutSeconds);
-                using var session = new SilenceTimeoutRecognizerSession(
-                    recognizer,
-                    TimeSpan.FromSeconds(options.SilenceTimeoutSeconds ?? DefaultSilenceTimeoutSeconds),
-                    startTimeout: sessionStartTimeout);
-
-                session.TimedOut += (_, _) => stopSignal.Set();
-
-                recognizer.Start();
-                try
+                await foreach (var result in timeoutSession.GetResultsAsync(cancellationToken).ConfigureAwait(false))
                 {
-                    stopSignal.Wait(cancellationToken);
-                }
-                catch (OperationCanceledException)
-                {
-                    // Ctrl+C canceled the shared token while waiting; whether or not stopSignal
-                    // itself has already been set by the same handler is irrelevant here -
-                    // cancellationToken.IsCancellationRequested below is what distinguishes this
-                    // from a legitimate empty result. Stop() is called unconditionally below
-                    // regardless of which of the three ways this wait can end, so nothing
-                    // further is needed here.
-                }
+                    if (!result.Result.IsFinal)
+                    {
+                        continue;
+                    }
 
-                // Detach before stopping: Stop() drains and flushes any trailing audio, which can
-                // raise one more final result. If the handler were still attached, that result
-                // would pass the IsFinal check and overwrite recognizedText, breaking the
-                // first-final-wins rule above. The finally block's own detach is then a harmless
-                // no-op cleanup for the paths that throw before reaching here.
-                recognizer.ResultReceived -= onResultReceived;
-
-                // Stop() is idempotent and always called here - whether the wait ended because
-                // of a final result, a silence/start timeout, or Ctrl+C - rather than from
-                // onResultReceived, because that handler runs on the recognizer's own background
-                // decoding thread and Stop() blocks its caller until that same thread finishes
-                // draining; calling it from the handler would wait on itself. Calling it here,
-                // from this thread, is always safe.
-                recognizer.Stop();
+                    // "ask" models a single bounded question/answer turn: the first final result
+                    // is always enough to end the turn, unlike "recognize --mic"'s open-ended
+                    // listening.
+                    recognizedText = result.Result.Text;
+                    stopSignal.Set();
+                    break;
+                }
             }
-            finally
+            catch (OperationCanceledException)
             {
-                recognizer.ResultReceived -= onResultReceived;
+                // Ctrl+C canceled the shared token while pumping results; cancellationToken's own
+                // IsCancellationRequested below is what distinguishes this from a legitimate
+                // empty result.
             }
 
-            // stopSignal.Wait() above unblocks identically for a final result, a silence/start
-            // timeout, or Ctrl+C: only Ctrl+C ever cancels the shared token, so this is the sole
-            // reliable way to distinguish a genuine cancellation from a legitimate empty result.
+            // StopAsync is idempotent and always called here - whether the loop ended because of
+            // a final result, a silence/start timeout (which already called it internally inside
+            // timeoutSession), or Ctrl+C - so this is always safe, including the already-stopped
+            // case.
+            await session.StopAsync(CancellationToken.None).ConfigureAwait(false);
+
+            try
+            {
+                await startTask.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // Ctrl+C canceled the shared token passed into StartAsync; already handled above.
+            }
+
+            // The loop above can end identically for a final result, a silence/start timeout, or
+            // Ctrl+C: only Ctrl+C ever cancels the shared token, so this is the sole reliable way
+            // to distinguish a genuine cancellation from a legitimate empty result.
             if (cancellationToken.IsCancellationRequested)
             {
                 context.WriteError(SpeechCanceledMessage);

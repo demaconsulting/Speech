@@ -36,43 +36,46 @@ namespace DemaConsulting.Speech.Cli.Commands.RecognitionCommandSubsystem;
 /// <remarks>
 ///     <para>
 ///     <b>File-input mode (<c>--input</c>) requires no explicit "wait until done" loop.</b>
-///     <see cref="ISpeechRecognizer.Start"/> calls the supplied capture device's own
-///     <c>Start()</c> synchronously (not on a background thread); a
+///     <see cref="IRecognitionSession.StartAsync"/> calls the bound capture device's own
+///     <c>Start()</c> synchronously on the awaiting thread (not on a background thread); a
 ///     <see cref="AudioSubsystem.WavFileAudioCaptureDevice"/>'s own <c>Start()</c> is itself fully
-///     synchronous and blocking, delivering every frame before returning. This command subscribes
-///     its own handler directly to the device instance's own <c>EndOfFileReached</c> event (a
-///     member additional to <see cref="IAudioCaptureDevice"/>, not the recognizer's internal
-///     subscription) and that handler calls <c>recognizer.Stop()</c> - which runs <b>reentrantly,
-///     on the same thread, from inside <see cref="ISpeechRecognizer.Start"/>'s own call to the
-///     device's <c>Start()</c></b>, immediately after the last frame is delivered and immediately
-///     before the device's own <c>Start()</c> returns. <see cref="ISpeechRecognizer.Stop"/>'s
-///     drain is a genuine, synchronous block (confirmed by reading
-///     <c>SherpaOnnxSpeechRecognizer.StopCore</c>/<c>WaitForConsumer</c>, which calls
-///     <c>consumerTask.GetAwaiter().GetResult()</c>), so by the time
-///     <see cref="ISpeechRecognizer.Start"/> returns to this command, every result derived from
-///     the whole file has already been raised and the recognizer has already fully stopped. No
-///     settle-wait or fixed sleep is added anywhere in this design; none is needed.
+///     synchronous and blocking, delivering every frame - and raising its own internal
+///     <c>EndOfFileReached</c> event - before returning. By the time
+///     <c>await session.StartAsync(...)</c> returns to this command in file mode, the whole file
+///     has already been delivered into the recognition backend, so this command no longer needs
+///     to subscribe to the device's own <c>EndOfFileReached</c> event at all (the previous,
+///     pre-redesign version of this type did); it simply follows <c>StartAsync</c> with an
+///     explicit <c>await session.StopAsync(...)</c> to drain any remaining buffered-but-not-yet-
+///     decoded audio through the backend, exactly mirroring <see cref="IRecognitionSession.StopAsync"/>'s
+///     own documented drain contract.
 ///     </para>
 ///     <para>
-///     <b>Mic-input mode (<c>--mic</c>)</b> blocks the calling thread on a
-///     <see cref="ManualResetEventSlim"/> set either by a <c>Ctrl+C</c> handler or by a
-///     <see cref="SilenceTimeoutRecognizerSession"/>'s <c>TimedOut</c> event (the session
-///     itself already called <c>Stop()</c> before raising that event). A session is always
-///     constructed in mic mode, even when <c>--silence-timeout</c>/<c>--start-timeout</c> are
-///     both omitted, so listening cannot block forever. The session enforces two distinct idle
-///     windows: <c>--start-timeout</c> (defaulting to 8 seconds when omitted) governs the
-///     grace period before any result has arrived, and <c>--silence-timeout</c> (defaulting to
-///     5 seconds when omitted) governs every re-arm from the first result onward.
+///     <b>Mic-input mode (<c>--mic</c>)</b> relies on a <see cref="SilenceTimeoutRecognizerSession"/>
+///     wrapper, which itself calls <see cref="IRecognitionSession.StopAsync"/> on an idle timeout -
+///     which completes the session's result stream, which in turn ends the <c>await foreach</c>
+///     pump below naturally - or on a <c>Ctrl+C</c> handler that stops the session directly. A
+///     wrapper is always constructed in mic mode, even when <c>--silence-timeout</c>/
+///     <c>--start-timeout</c> are both omitted, so listening cannot block forever. It enforces two
+///     distinct idle windows: <c>--start-timeout</c> (defaulting to 8 seconds when omitted)
+///     governs the grace period before any result has arrived, and <c>--silence-timeout</c>
+///     (defaulting to 5 seconds when omitted) governs every re-arm from the first result onward.
 ///     </para>
 ///     <para>
-///     <b>Disposal.</b> Neither <see cref="IAudioCaptureDevice"/> nor
-///     <see cref="AudioSubsystem.WavFileAudioCaptureDevice"/> nor the real PortAudio-backed
-///     capture device implement <see cref="IDisposable"/> (confirmed directly from all three
-///     source files), so - unlike <c>speak</c>'s playback-device side - this command never needs
-///     a conditional capture-device disposal cast. Only the recognizer and, in mic mode, the
-///     <see cref="SilenceTimeoutRecognizerSession"/> need disposal, both
-///     handled in nested <c>finally</c> blocks so every exit path (EOF stop, silence-timeout stop,
-///     <c>Ctrl+C</c>, or an error) disposes them exactly once.
+///     <b>Live interim printing.</b> The result-pumping loop is started - as a genuinely async,
+///     non-blocking <see cref="Task"/> - before <see cref="IRecognitionSession.StartAsync"/> is
+///     awaited, not after. The session's own result buffer coalesces rapid interim/provisional
+///     updates down to only the latest one whenever its single consumer is not actively reading;
+///     starting the pump first ensures every interim update is still observed roughly as it is
+///     produced, preserving the same "live hypothesis redraw" console UX the old synchronous
+///     <c>ResultReceived</c> event gave for free.
+///     </para>
+///     <para>
+///     <b>Disposal.</b> Both the recognizer engine and session are <see cref="IAsyncDisposable"/>
+///     and disposed via <c>await using</c>, which also guarantees their disposal happens even when
+///     an exception propagates out of this method. <see cref="IAudioCaptureDevice"/> and its
+///     concrete implementations do not implement <see cref="IDisposable"/>, so - unlike
+///     <c>speak</c>'s playback-device side - this command never needs a conditional
+///     capture-device disposal cast.
 ///     </para>
 ///     <para>
 ///     <b><c>--interim</c>/<c>--final-only</c> console UX.</b> The default (neither flag) prints
@@ -140,6 +143,15 @@ internal static class RecognizeCommand
     ///     factory, for unit testing without a real model catalog, network access, or audio
     ///     hardware.
     /// </summary>
+    /// <remarks>
+    ///     This overload stays synchronous at its boundary, mirroring <c>SpeakCommand</c>'s own
+    ///     established "sync entry wraps async inner via <c>GetAwaiter().GetResult()</c> once"
+    ///     convention: it owns a <see cref="CancellationTokenSource"/> and
+    ///     <see cref="Console.CancelKeyPress"/> subscription for the whole call, then blocks on
+    ///     <see cref="RunAsync"/> exactly once. <c>CommandDispatch</c>'s own handler signature
+    ///     (<c>Action&lt;Context&gt;</c>) is unchanged by this redesign, so this remains the one
+    ///     place a blocking wait is unavoidable.
+    /// </remarks>
     /// <param name="context">The invocation context. Must not be null.</param>
     /// <param name="catalog">The catalog seam to resolve the model through. Must not be null.</param>
     /// <param name="factory">The audio device factory to resolve a real capture device through. Must not be null.</param>
@@ -159,6 +171,53 @@ internal static class RecognizeCommand
         ArgumentNullException.ThrowIfNull(catalog);
         ArgumentNullException.ThrowIfNull(factory);
 
+        using var cancellationSource = new CancellationTokenSource();
+        ConsoleCancelEventHandler onCancelKeyPress = (_, e) =>
+        {
+            e.Cancel = true;
+            cancellationSource.Cancel();
+        };
+
+        Console.CancelKeyPress += onCancelKeyPress;
+        try
+        {
+            RunAsync(context, catalog, factory, cancellationSource.Token).GetAwaiter().GetResult();
+        }
+        finally
+        {
+            Console.CancelKeyPress -= onCancelKeyPress;
+        }
+    }
+
+    /// <summary>
+    ///     Runs the <c>recognize</c> subcommand's full async implementation: resolves the model
+    ///     and capture device, loads a recognition engine, binds a session to the device, and
+    ///     pumps results until the session ends (file-drained, idle-timed-out, or cancelled).
+    /// </summary>
+    /// <param name="context">The invocation context. Must not be null.</param>
+    /// <param name="catalog">The catalog seam to resolve the model through. Must not be null.</param>
+    /// <param name="factory">The audio device factory to resolve a real capture device through. Must not be null.</param>
+    /// <param name="cancellationToken">A token that, when cancelled, stops the session cooperatively.</param>
+    /// <exception cref="ArgumentNullException">
+    ///     Thrown when <paramref name="context"/>, <paramref name="catalog"/>, or
+    ///     <paramref name="factory"/> is <see langword="null"/>.
+    /// </exception>
+    /// <exception cref="ArgumentException">
+    ///     Thrown for any usage error: missing/unknown/wrong-role/not-downloaded model,
+    ///     conflicting or missing input source, conflicting <c>--interim</c>/<c>--final-only</c>,
+    ///     malformed/invalid <c>--stt-param</c> value, or unknown <c>--capture-device</c>.
+    /// </exception>
+    /// <exception cref="InvalidOperationException">Thrown when no real capture device is available in mic mode.</exception>
+    internal static async Task RunAsync(
+        Context context,
+        ICliModelCatalog catalog,
+        AudioDeviceFactory factory,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(catalog);
+        ArgumentNullException.ThrowIfNull(factory);
+
         var options = ParseArguments(context.CommandArgs);
 
         // Flag mutual-exclusion checks run before model resolution: a malformed flag shape is a
@@ -171,70 +230,77 @@ internal static class RecognizeCommand
         var descriptor = ResolveModel(catalog, options.ModelId);
         var parameterValues = ParameterBagParser.Resolve(options.RawParameters, descriptor.Model.Parameters, SttParamFlag);
 
-        using var stopSignal = new ManualResetEventSlim(initialState: false);
         var captureDevice = ResolveCaptureDevice(factory, options);
 
         using var outputWriter = options.OutputPath is null
             ? null
             : new StreamWriter(options.OutputPath, append: false) { AutoFlush = true };
 
-        using var recognizer = catalog.CreateRecognizer(descriptor, captureDevice, parameterValues);
+        await using var engine = await catalog
+            .CreateRecognizerEngineAsync(descriptor, parameterValues, cancellationToken)
+            .ConfigureAwait(false);
+        await using var session = await engine
+            .CreateSessionAsync(captureDevice, cancellationToken)
+            .ConfigureAwait(false);
+
         var consoleLine = new ConsoleLineState();
-        EventHandler<SpeechRecognitionEvent> onResultReceived =
-            (_, e) => HandleResult(outputWriter, options, e, consoleLine);
-        recognizer.ResultReceived += onResultReceived;
+
+        // In mic mode, a silence-timeout wrapper is always constructed - even when both flags
+        // are omitted - so listening cannot block "recognize --mic" forever with only Ctrl+C as
+        // an escape hatch. File-input mode needs no wrapper: it terminates on its own once
+        // StartAsync (which blocks until the whole file is delivered) and the explicit drain
+        // StopAsync below both complete.
+        SilenceTimeoutRecognizerSession? silenceTimeout = null;
+        if (options.Mic)
+        {
+            var sessionStartTimeout = TimeSpan.FromSeconds(options.StartTimeoutSeconds ?? DefaultStartTimeoutSeconds);
+            silenceTimeout = new SilenceTimeoutRecognizerSession(
+                session,
+                TimeSpan.FromSeconds(options.SilenceTimeoutSeconds ?? DefaultSilenceTimeoutSeconds),
+                startTimeout: sessionStartTimeout);
+        }
+
+        // Ctrl+C stops the session cooperatively (fire-and-forget: this handler is synchronous
+        // and must not block). Stopping the session completes its result stream, which ends the
+        // pump below naturally; cancellationToken is also forwarded into GetResultsAsync as a
+        // belt-and-suspenders safety net for the documented edge case where StopAsync called
+        // while the session never started does not itself complete that stream.
+        ConsoleCancelEventHandler onCancelKeyPress = (_, _) => _ = session.StopAsync(CancellationToken.None);
+
+        var results = silenceTimeout?.GetResultsAsync(cancellationToken) ?? session.GetResultsAsync(cancellationToken);
+
+        // Started before StartAsync is awaited (see this type's remarks on live interim
+        // printing): this is a genuinely async, non-blocking call, not a background thread - it
+        // suspends immediately since no result exists yet, handing control straight back here.
+        var pumpTask = PumpResultsAsync(results, outputWriter, options, consoleLine, cancellationToken);
+
+        Console.CancelKeyPress += onCancelKeyPress;
         try
         {
-            // In mic mode, a silence-timeout session is always constructed - even when both
-            // flags are omitted - so listening cannot block "recognize --mic" forever with only
-            // Ctrl+C as an escape hatch. File-input mode still needs no session: it terminates on
-            // its own via EndOfFileReached.
-            var sessionStartTimeout = TimeSpan.FromSeconds(options.StartTimeoutSeconds ?? DefaultStartTimeoutSeconds);
-            using var session = options.Mic
-                ? new SilenceTimeoutRecognizerSession(
-                    recognizer,
-                    TimeSpan.FromSeconds(options.SilenceTimeoutSeconds ?? DefaultSilenceTimeoutSeconds),
-                    startTimeout: sessionStartTimeout)
-                : null;
-
-            if (session is not null)
-            {
-                session.TimedOut += (_, _) => stopSignal.Set();
-            }
-
-            if (options.InputPath is not null && captureDevice is WavFileAudioCaptureDevice fileDevice)
-            {
-                fileDevice.EndOfFileReached += (_, _) => recognizer.Stop();
-            }
-
-            ConsoleCancelEventHandler onCancelKeyPress = (_, e) =>
-            {
-                e.Cancel = true;
-                recognizer.Stop();
-                stopSignal.Set();
-            };
-
-            Console.CancelKeyPress += onCancelKeyPress;
             try
             {
-                // File mode: Start() itself only returns once the whole file has been
-                // delivered and drained (see this type's remarks), so no wait is needed
-                // here. Mic mode: Start() returns quickly, so this thread blocks until
-                // Ctrl+C or a silence timeout signals stopSignal.
-                recognizer.Start();
-                if (options.Mic)
-                {
-                    stopSignal.Wait();
-                }
+                await session.StartAsync(cancellationToken).ConfigureAwait(false);
             }
-            finally
+            catch (OperationCanceledException)
             {
-                Console.CancelKeyPress -= onCancelKeyPress;
+                // Ctrl+C (or an already-cancelled token) landed before/while starting; ensure the
+                // session still reaches a terminal state so the pump below is guaranteed to end.
+                await session.StopAsync(CancellationToken.None).ConfigureAwait(false);
             }
+
+            if (!options.Mic)
+            {
+                // File mode: StartAsync already blocked until the whole file was delivered (see
+                // this type's remarks); drain any buffered-but-not-yet-decoded audio now so every
+                // result is produced before the pump below settles.
+                await session.StopAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            await pumpTask.ConfigureAwait(false);
         }
         finally
         {
-            recognizer.ResultReceived -= onResultReceived;
+            Console.CancelKeyPress -= onCancelKeyPress;
         }
 
         // Settle any interim line still pending (e.g. a session that ends right after an
@@ -245,6 +311,37 @@ internal static class RecognizeCommand
         context.WriteLine(options.OutputPath is null
             ? "Recognition finished."
             : $"Recognition results written to '{options.OutputPath}'.");
+    }
+
+    /// <summary>
+    ///     Consumes <paramref name="results"/> via <c>await foreach</c>, calling
+    ///     <see cref="HandleResult"/> for each one, until the sequence ends or
+    ///     <paramref name="cancellationToken"/> is cancelled.
+    /// </summary>
+    /// <remarks>
+    ///     A cancellation that ends the enumeration is expected and graceful here - the same
+    ///     Ctrl+C handler that cancels <paramref name="cancellationToken"/> also calls
+    ///     <c>session.StopAsync()</c> directly, so this is a belt-and-suspenders safety net, not
+    ///     the primary termination path.
+    /// </remarks>
+    private static async Task PumpResultsAsync(
+        IAsyncEnumerable<SpeechRecognitionEvent> results,
+        StreamWriter? outputWriter,
+        RecognizeOptions options,
+        ConsoleLineState consoleLine,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await foreach (var e in results.WithCancellation(cancellationToken).ConfigureAwait(false))
+            {
+                HandleResult(outputWriter, options, e, consoleLine);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected, graceful termination triggered by Ctrl+C; nothing further to do.
+        }
     }
 
     /// <summary>

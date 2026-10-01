@@ -23,18 +23,18 @@ using DemaConsulting.Speech.SynthesisSubsystem;
 namespace DemaConsulting.Speech.Cli.Tests.Commands.SynthesisCommandSubsystem;
 
 /// <summary>
-///     Deterministic, in-memory fake <see cref="ISpeechSynthesizer"/> used by <c>speak</c>
-///     command unit tests, so no test depends on a real, native sherpa-onnx engine.
+///     Deterministic, in-memory fake <see cref="ISynthesisSession"/> used by <c>speak</c>/
+///     <c>ask</c> command unit tests, so no test depends on a real, native sherpa-onnx engine.
 /// </summary>
-internal sealed class FakeSpeechSynthesizer : ISpeechSynthesizer
+internal sealed class FakeSynthesisSession : ISynthesisSession
 {
     /// <summary>Gets the ordered list of text values passed to <see cref="SpeakAsync"/>.</summary>
     public List<string> SpeakAsyncCalls { get; } = [];
 
-    /// <summary>Gets the number of times <see cref="Stop"/> was called.</summary>
+    /// <summary>Gets the number of times <see cref="StopAsync"/> was called.</summary>
     public int StopCallCount { get; private set; }
 
-    /// <summary>Gets the number of times <see cref="Dispose"/> was called.</summary>
+    /// <summary>Gets the number of times <see cref="DisposeAsync"/> was called.</summary>
     public int DisposeCallCount { get; private set; }
 
     /// <summary>Gets or sets an exception to throw from <see cref="SpeakAsync"/>, or <see langword="null"/> for none.</summary>
@@ -53,12 +53,14 @@ internal sealed class FakeSpeechSynthesizer : ISpeechSynthesizer
     public bool IsAvailable { get; set; } = true;
 
     /// <inheritdoc/>
-    public IAsyncEnumerable<SynthesizedSpeech> SynthesizeStreamAsync(string text, CancellationToken cancellationToken = default) =>
-        throw new NotSupportedException($"{nameof(FakeSpeechSynthesizer)} only supports {nameof(SpeakAsync)}.");
+    public SynthesisSessionState State { get; private set; } = SynthesisSessionState.Created;
 
     /// <inheritdoc/>
-    public Task PlayStreamAsync(IAsyncEnumerable<SynthesizedSpeech> stream, CancellationToken cancellationToken = default) =>
-        throw new NotSupportedException($"{nameof(FakeSpeechSynthesizer)} only supports {nameof(SpeakAsync)}.");
+    public event EventHandler<SessionStateChangedEventArgs>? StateChanged;
+
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<SynthesizedSpeech>> SynthesizeAsync(string text, CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException($"{nameof(FakeSynthesisSession)} only supports {nameof(SpeakAsync)}.");
 
     /// <inheritdoc/>
     public async Task SpeakAsync(string text, CancellationToken cancellationToken = default)
@@ -66,8 +68,11 @@ internal sealed class FakeSpeechSynthesizer : ISpeechSynthesizer
         SpeakAsyncCalls.Add(text);
         cancellationToken.ThrowIfCancellationRequested();
 
+        SetState(SynthesisSessionState.Running);
+
         if (SpeakAsyncException is not null)
         {
+            SetState(SynthesisSessionState.Faulted);
             throw SpeakAsyncException;
         }
 
@@ -75,11 +80,30 @@ internal sealed class FakeSpeechSynthesizer : ISpeechSynthesizer
         {
             await SpeakAsyncAwaiter().ConfigureAwait(false);
         }
+
+        SetState(SynthesisSessionState.Stopped);
     }
 
     /// <inheritdoc/>
-    public void Stop() => StopCallCount++;
+    public Task StopAsync(CancellationToken cancellationToken = default)
+    {
+        StopCallCount++;
+        SetState(SynthesisSessionState.Stopped);
+        return Task.CompletedTask;
+    }
 
     /// <inheritdoc/>
-    public void Dispose() => DisposeCallCount++;
+    public ValueTask DisposeAsync()
+    {
+        DisposeCallCount++;
+        return ValueTask.CompletedTask;
+    }
+
+    /// <summary>Updates <see cref="State"/> and raises <see cref="StateChanged"/>.</summary>
+    private void SetState(SynthesisSessionState newState)
+    {
+        var previous = State;
+        State = newState;
+        StateChanged?.Invoke(this, new SessionStateChangedEventArgs(previous, newState));
+    }
 }

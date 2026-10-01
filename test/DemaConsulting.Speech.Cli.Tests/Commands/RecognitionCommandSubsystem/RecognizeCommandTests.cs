@@ -32,8 +32,9 @@ namespace DemaConsulting.Speech.Cli.Tests.Commands.RecognitionCommandSubsystem;
 
 /// <summary>
 ///     Unit tests for <see cref="RecognizeCommand"/>, using <see cref="FakeCliModelCatalog"/>,
-///     <see cref="FakeSpeechRecognizer"/>, and fake audio device probes so every scenario runs
-///     deterministically with no real catalog, network access, native engine, or audio hardware.
+///     <see cref="FakeRecognitionSession"/>/<see cref="FakeSpeechRecognizerEngine"/>, and fake
+///     audio device probes so every scenario runs deterministically with no real catalog, network
+///     access, native engine, or audio hardware.
 /// </summary>
 [Collection("Sequential")]
 public sealed class RecognizeCommandTests
@@ -81,6 +82,20 @@ public sealed class RecognizeCommandTests
         }
 
         return path;
+    }
+
+    /// <summary>
+    ///     Creates a <see cref="FakeRecognitionSession"/> wrapped in a <see cref="FakeSpeechRecognizerEngine"/>,
+    ///     and wires the catalog's <see cref="FakeCliModelCatalog.CreateRecognizerEngineOverride"/>
+    ///     to return the engine.
+    /// </summary>
+    private static (FakeRecognitionSession Session, FakeSpeechRecognizerEngine Engine) WireRecognizer(
+        FakeCliModelCatalog catalog)
+    {
+        var session = new FakeRecognitionSession();
+        var engine = new FakeSpeechRecognizerEngine(session);
+        catalog.CreateRecognizerEngineOverride = (_, _, _) => Task.FromResult<ISpeechRecognizerEngine>(engine);
+        return (session, engine);
     }
 
     // --- ParseArguments ---
@@ -298,15 +313,14 @@ public sealed class RecognizeCommandTests
 
     // --- --stt-param validation wiring ---
 
-    /// <summary>Test that a valid --stt-param is forwarded to CreateRecognizer's parameterValues argument.</summary>
+    /// <summary>Test that a valid --stt-param is forwarded to CreateRecognizerEngineAsync's parameterValues argument.</summary>
     [Fact]
-    public void RecognizeCommand_Run_ValidParam_ForwardsToCreateRecognizer()
+    public void RecognizeCommand_Run_ValidParam_ForwardsToCreateRecognizerEngine()
     {
         var beamParameter = new NumericParameter(
             "beam", "Beam", "Beam width", new NumericParameterBounds(1.0, 10.0, 1.0, 4.0));
         var catalog = CreateCatalogWithModel(parameters: [beamParameter]);
-        var recognizer = new FakeSpeechRecognizer();
-        catalog.CreateRecognizerOverride = (_, _, _) => recognizer;
+        WireRecognizer(catalog);
         var wavPath = WriteMinimalWavFile();
         try
         {
@@ -325,7 +339,7 @@ public sealed class RecognizeCommandTests
         }
     }
 
-    /// <summary>Test that an invalid --stt-param value throws before any recognizer is created.</summary>
+    /// <summary>Test that an invalid --stt-param value throws before any recognizer engine is created.</summary>
     [Fact]
     public void RecognizeCommand_Run_InvalidParam_ThrowsArgumentException()
     {
@@ -346,28 +360,19 @@ public sealed class RecognizeCommandTests
         }
     }
 
-    // --- File-input EOF-driven stop flow ---
+    // --- File-input explicit-drain stop flow ---
 
     /// <summary>
-    ///     Test that file-input mode drives a real <see cref="WavFileAudioCaptureDevice"/> to
-    ///     completion, the recognizer is started and stopped exactly once (via the device's own
-    ///     <c>EndOfFileReached</c>), and disposed exactly once, with no explicit wait needed.
+    ///     Test that file-input mode starts the session once and then explicitly drains it with a
+    ///     single <c>StopAsync</c> call - no longer relying on a separate end-of-file event, since
+    ///     <see cref="IRecognitionSession.StartAsync"/> itself now delivers the whole file before
+    ///     returning - and disposes both the engine and the session exactly once.
     /// </summary>
     [Fact]
-    public void RecognizeCommand_Run_FileInput_StartsAndStopsRecognizerViaEndOfFile()
+    public void RecognizeCommand_Run_FileInput_StartsAndStopsRecognizerViaExplicitDrain()
     {
         var catalog = CreateCatalogWithModel();
-        var recognizer = new FakeSpeechRecognizer();
-        // The real recognizer's Start() drives the supplied capture device's own Start() to
-        // completion before returning (see RecognizeCommand's remarks); simulate that here so
-        // the device's own EndOfFileReached event - which RecognizeCommand subscribes
-        // recognizer.Stop() to reentrantly - actually fires within this call, exactly as it
-        // would with a real SherpaOnnxSpeechRecognizer and WavFileAudioCaptureDevice pair.
-        catalog.CreateRecognizerOverride = (_, device, _) =>
-        {
-            recognizer.OnStart = _ => device.Start();
-            return recognizer;
-        };
+        var (session, engine) = WireRecognizer(catalog);
         var wavPath = WriteMinimalWavFile(sampleFrameCount: 160);
         try
         {
@@ -375,9 +380,10 @@ public sealed class RecognizeCommandTests
 
             RecognizeCommand.Run(context, catalog, new AudioDeviceFactory());
 
-            Assert.Equal(1, recognizer.StartCallCount);
-            Assert.Equal(1, recognizer.StopCallCount);
-            Assert.Equal(1, recognizer.DisposeCallCount);
+            Assert.Equal(1, session.StartCallCount);
+            Assert.Equal(1, session.StopCallCount);
+            Assert.Equal(1, session.DisposeCallCount);
+            Assert.Equal(1, engine.DisposeCallCount);
             Assert.Equal(0, context.ExitCode);
         }
         finally
@@ -388,19 +394,13 @@ public sealed class RecognizeCommandTests
 
     /// <summary>
     ///     Test that file-input mode passes a real <see cref="WavFileAudioCaptureDevice"/> over
-    ///     the given path into <see cref="ICliModelCatalog.CreateRecognizer"/>.
+    ///     the given path into <see cref="ISpeechRecognizerEngine.CreateSessionAsync"/>.
     /// </summary>
     [Fact]
-    public void RecognizeCommand_Run_FileInput_PassesWavFileCaptureDeviceToCreateRecognizer()
+    public void RecognizeCommand_Run_FileInput_PassesWavFileCaptureDeviceToCreateSession()
     {
         var catalog = CreateCatalogWithModel();
-        var recognizer = new FakeSpeechRecognizer();
-        IAudioCaptureDevice? capturedDevice = null;
-        catalog.CreateRecognizerOverride = (_, device, _) =>
-        {
-            capturedDevice = device;
-            return recognizer;
-        };
+        var (_, engine) = WireRecognizer(catalog);
         var wavPath = WriteMinimalWavFile();
         try
         {
@@ -408,7 +408,7 @@ public sealed class RecognizeCommandTests
 
             RecognizeCommand.Run(context, catalog, new AudioDeviceFactory());
 
-            Assert.IsType<WavFileAudioCaptureDevice>(capturedDevice);
+            Assert.IsType<WavFileAudioCaptureDevice>(engine.LastDevice);
         }
         finally
         {
@@ -423,15 +423,12 @@ public sealed class RecognizeCommandTests
     public void RecognizeCommand_Run_DefaultVerbosity_PrintsBothInterimAndFinal()
     {
         var catalog = CreateCatalogWithModel();
-        var recognizer = new FakeSpeechRecognizer
+        var (session, _) = WireRecognizer(catalog);
+        session.OnStart = self =>
         {
-            OnStart = self =>
-            {
-                self.RaiseResult("hel", isFinal: false);
-                self.RaiseResult("hello", isFinal: true);
-            }
+            self.RaiseResult("hel", isFinal: false);
+            self.RaiseResult("hello", isFinal: true);
         };
-        catalog.CreateRecognizerOverride = (_, _, _) => recognizer;
         var wavPath = WriteMinimalWavFile();
         var originalOut = Console.Out;
         using var writer = new StringWriter { NewLine = "\n" };
@@ -468,16 +465,13 @@ public sealed class RecognizeCommandTests
     public void RecognizeCommand_Run_ShrinkingInterimSequence_DoesNotLeaveStaleCharacters()
     {
         var catalog = CreateCatalogWithModel();
-        var recognizer = new FakeSpeechRecognizer
+        var (session, _) = WireRecognizer(catalog);
+        session.OnStart = self =>
         {
-            OnStart = self =>
-            {
-                self.RaiseResult("hello world", isFinal: false);
-                self.RaiseResult("hello", isFinal: false);
-                self.RaiseResult("hello", isFinal: true);
-            }
+            self.RaiseResult("hello world", isFinal: false);
+            self.RaiseResult("hello", isFinal: false);
+            self.RaiseResult("hello", isFinal: true);
         };
-        catalog.CreateRecognizerOverride = (_, _, _) => recognizer;
         var wavPath = WriteMinimalWavFile();
         var originalOut = Console.Out;
         using var writer = new StringWriter { NewLine = "\n" };
@@ -519,15 +513,12 @@ public sealed class RecognizeCommandTests
     public void RecognizeCommand_Run_FinalOnly_SuppressesInterimConsoleOutput()
     {
         var catalog = CreateCatalogWithModel();
-        var recognizer = new FakeSpeechRecognizer
+        var (session, _) = WireRecognizer(catalog);
+        session.OnStart = self =>
         {
-            OnStart = self =>
-            {
-                self.RaiseResult("hel", isFinal: false);
-                self.RaiseResult("hello", isFinal: true);
-            }
+            self.RaiseResult("hel", isFinal: false);
+            self.RaiseResult("hello", isFinal: true);
         };
-        catalog.CreateRecognizerOverride = (_, _, _) => recognizer;
         var wavPath = WriteMinimalWavFile();
         var originalOut = Console.Out;
         using var writer = new StringWriter { NewLine = "\n" };
@@ -557,15 +548,12 @@ public sealed class RecognizeCommandTests
     public void RecognizeCommand_Run_Interim_SuppressesFinalSettleConsoleOutput()
     {
         var catalog = CreateCatalogWithModel();
-        var recognizer = new FakeSpeechRecognizer
+        var (session, _) = WireRecognizer(catalog);
+        session.OnStart = self =>
         {
-            OnStart = self =>
-            {
-                self.RaiseResult("hel", isFinal: false);
-                self.RaiseResult("hello", isFinal: true);
-            }
+            self.RaiseResult("hel", isFinal: false);
+            self.RaiseResult("hello", isFinal: true);
         };
-        catalog.CreateRecognizerOverride = (_, _, _) => recognizer;
         var wavPath = WriteMinimalWavFile();
         var originalOut = Console.Out;
         using var writer = new StringWriter { NewLine = "\n" };
@@ -596,17 +584,14 @@ public sealed class RecognizeCommandTests
     public void RecognizeCommand_Run_Output_WritesOnlyFinalResultsOverwritingPriorContent()
     {
         var catalog = CreateCatalogWithModel();
-        var recognizer = new FakeSpeechRecognizer
+        var (session, _) = WireRecognizer(catalog);
+        session.OnStart = self =>
         {
-            OnStart = self =>
-            {
-                self.RaiseResult("hel", isFinal: false);
-                self.RaiseResult("hello", isFinal: true);
-                self.RaiseResult("wor", isFinal: false);
-                self.RaiseResult("world", isFinal: true);
-            }
+            self.RaiseResult("hel", isFinal: false);
+            self.RaiseResult("hello", isFinal: true);
+            self.RaiseResult("wor", isFinal: false);
+            self.RaiseResult("world", isFinal: true);
         };
-        catalog.CreateRecognizerOverride = (_, _, _) => recognizer;
         var wavPath = WriteMinimalWavFile();
         var outputPath = Path.Join(Path.GetTempPath(), $"recognize-output-{Guid.NewGuid():N}.txt");
         File.WriteAllText(outputPath, "stale content that must be overwritten");
@@ -629,7 +614,7 @@ public sealed class RecognizeCommandTests
 
     // --- --capture-device error path ---
 
-    /// <summary>Test that an unknown --capture-device throws before any recognizer is created.</summary>
+    /// <summary>Test that an unknown --capture-device throws before any recognizer engine is created.</summary>
     [Fact]
     public void RecognizeCommand_Run_UnknownDevice_ThrowsArgumentException()
     {
@@ -655,13 +640,12 @@ public sealed class RecognizeCommandTests
 
     // --- Disposal ordering ---
 
-    /// <summary>Test that the recognizer is disposed exactly once after a successful file-input run.</summary>
+    /// <summary>Test that both the engine and the session are disposed exactly once after a successful file-input run.</summary>
     [Fact]
-    public void RecognizeCommand_Run_Success_DisposesRecognizerOnce()
+    public void RecognizeCommand_Run_Success_DisposesEngineAndSessionOnce()
     {
         var catalog = CreateCatalogWithModel();
-        var recognizer = new FakeSpeechRecognizer();
-        catalog.CreateRecognizerOverride = (_, _, _) => recognizer;
+        var (session, engine) = WireRecognizer(catalog);
         var wavPath = WriteMinimalWavFile();
         try
         {
@@ -669,7 +653,8 @@ public sealed class RecognizeCommandTests
 
             RecognizeCommand.Run(context, catalog, new AudioDeviceFactory());
 
-            Assert.Equal(1, recognizer.DisposeCallCount);
+            Assert.Equal(1, session.DisposeCallCount);
+            Assert.Equal(1, engine.DisposeCallCount);
         }
         finally
         {
