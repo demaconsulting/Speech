@@ -39,7 +39,7 @@ sections:
               alone.
             tests:
               - RecognitionPanelViewModel_Start_SuccessfulSession_EntersListeningState
-              - RecognitionPanelViewModel_Stop_DuringListening_StopsAndReleasesSession
+              - RecognitionPanelViewModel_Stop_DuringListening_StopsWithoutDisposingSession
               - RecognitionPanelViewModel_Stop_NothingListening_IsSafeNoOp
 
           - id: SpeechDemo-Recognition-TranscriptSequencing
