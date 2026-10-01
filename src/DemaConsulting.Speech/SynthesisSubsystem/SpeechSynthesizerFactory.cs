@@ -9,10 +9,14 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     installed synthesis model.
 /// </summary>
 /// <remarks>
-///     Hosts call <see cref="LoadAsync(ISynthesisModel,string,ISpeechDiagnostics,System.Collections.Generic.IReadOnlyDictionary{string,object}?,System.Threading.CancellationToken)"/>,
-///     <see cref="LoadAsync(ISynthesisModel,SpeechModelStore,ISpeechDiagnostics,System.Collections.Generic.IReadOnlyDictionary{string,object}?,System.Threading.CancellationToken)"/>,
-///     or <see cref="LoadAsync(ISynthesisModel,SpeechModelCatalog,ISpeechDiagnostics,System.Collections.Generic.IReadOnlyDictionary{string,object}?,System.Threading.CancellationToken)"/>
-///     rather than constructing an engine directly, so all of the "can this machine actually speak
+///     Hosts call one of this factory's three <c>LoadAsync</c> overloads - taking an
+///     <c>installedModelDirectory</c> path directly
+///     (<see cref="LoadAsync(ISynthesisModel,string,ISpeechDiagnostics,System.Collections.Generic.IReadOnlyDictionary{string,object}?,System.Threading.CancellationToken)"/>),
+///     a <see cref="SpeechModelStore"/>
+///     (<see cref="LoadAsync(ISynthesisModel,SpeechModelStore,ISpeechDiagnostics,System.Collections.Generic.IReadOnlyDictionary{string,object}?,System.Threading.CancellationToken)"/>),
+///     or a <see cref="SpeechModelCatalog"/>
+///     (<see cref="LoadAsync(ISynthesisModel,SpeechModelCatalog,ISpeechDiagnostics,System.Collections.Generic.IReadOnlyDictionary{string,object}?,System.Threading.CancellationToken)"/>)
+///     - rather than constructing an engine directly, so all of the "can this machine actually speak
 ///     right now?" logic lives in one reviewable place. Per this library's "nothing throws at
 ///     composition" decision this method never throws for an ordinary machine state - a model
 ///     that is not installed, a model whose role is not synthesis, and a machine missing the
@@ -21,8 +25,8 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     programming error rather than a machine state, and still throws; so does cancelling the
 ///     supplied cancellation token via <see cref="OperationCanceledException"/>.
 ///     <para>
-///     Unlike the former synchronous factory, this type no longer takes a playback device: an
-///     engine loaded here can create many sessions over its life, each bound to its own device, via
+///     This factory takes no playback device: an engine loaded here can create many sessions over
+///     its life, each bound to its own device, via
 ///     <see cref="ISpeechSynthesizerEngine.CreateSessionAsync"/>.
 ///     </para>
 ///     <para>

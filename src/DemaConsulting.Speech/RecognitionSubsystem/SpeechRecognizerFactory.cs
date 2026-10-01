@@ -8,11 +8,14 @@ namespace DemaConsulting.Speech.RecognitionSubsystem;
 ///     installed recognition model.
 /// </summary>
 /// <remarks>
-///     Hosts call
-///     <see cref="LoadAsync(IRecognitionModel,string,ISpeechDiagnostics,System.Collections.Generic.IReadOnlyDictionary{string,object}?,CancellationToken)"/>,
-///     <see cref="LoadAsync(IRecognitionModel,SpeechModelStore,ISpeechDiagnostics,System.Collections.Generic.IReadOnlyDictionary{string,object}?,CancellationToken)"/>, or
-///     <see cref="LoadAsync(IRecognitionModel,SpeechModelCatalog,ISpeechDiagnostics,System.Collections.Generic.IReadOnlyDictionary{string,object}?,CancellationToken)"/>
-///     rather than constructing an engine directly, so all of the "can this machine actually
+///     Hosts call one of this factory's three <c>LoadAsync</c> overloads - taking an
+///     <c>installedModelDirectory</c> path directly
+///     (<see cref="LoadAsync(IRecognitionModel,string,ISpeechDiagnostics,System.Collections.Generic.IReadOnlyDictionary{string,object}?,CancellationToken)"/>),
+///     a <see cref="SpeechModelStore"/>
+///     (<see cref="LoadAsync(IRecognitionModel,SpeechModelStore,ISpeechDiagnostics,System.Collections.Generic.IReadOnlyDictionary{string,object}?,CancellationToken)"/>),
+///     or a <see cref="SpeechModelCatalog"/>
+///     (<see cref="LoadAsync(IRecognitionModel,SpeechModelCatalog,ISpeechDiagnostics,System.Collections.Generic.IReadOnlyDictionary{string,object}?,CancellationToken)"/>)
+///     - rather than constructing an engine directly, so all of the "can this machine actually
 ///     recognize speech right now?" logic lives in one reviewable place. Per this library's
 ///     "nothing throws at composition" decision, these methods never fault their returned task
 ///     for an ordinary machine state - a model that is not installed, a model whose role is not
