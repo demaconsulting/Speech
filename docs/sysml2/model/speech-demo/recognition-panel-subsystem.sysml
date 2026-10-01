@@ -42,8 +42,13 @@ package SpeechDemo {
         doc /* Presentation state for the speech-to-text panel: installed recognition models,
              * the Start/Stop streaming lifecycle, the progressive partial-then-final transcript,
              * a CanChangeModel guard that disables model selection while Listening, and honest
-             * unavailable-state reporting. Implements IDisposable to release an active
-             * recognizer and its capture device deterministically. */
+             * unavailable-state reporting. Caches at most one composed recognizer and reuses it
+             * across repeated Start/Stop cycles instead of recomposing it on every click,
+             * invalidating the cache - stopping an active session first, even while Listening -
+             * whenever the selected model changes, the selected capture device changes, or a
+             * shared device refresh replaces the underlying capture device. Implements
+             * IDisposable to release an active recognizer and its capture device
+             * deterministically. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech.Demo/RecognitionPanelSubsystem/RecognitionPanelViewModel.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Demo.Tests/RecognitionPanelSubsystem/RecognitionPanelViewModelTests.cs */

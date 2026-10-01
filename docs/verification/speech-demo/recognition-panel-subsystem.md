@@ -358,8 +358,9 @@ device refresh is attempted, so the refresh completes without throwing; the pane
 A RecognitionPanelSubsystem test run passes when: only installed recognition models are offered
 and the selection survives a refresh; a successful Start enters the listening state and invokes
 the recognizer exactly once; partial results replace the trailing transcript line while finals
-commit permanently in order; Stop and Dispose both stop and release an active recognizer exactly
-once without throwing, and are safe no-ops with nothing active; every unavailable state - no
+commit permanently in order; Stop stops an active recognizer without disposing it, retaining it
+cached for reuse, while Dispose releases an active recognizer exactly once; both are safe no-ops
+with nothing active and neither throws; every unavailable state - no
 model, no device, an unavailable recognizer, a throwing `Start()` - is reported honestly with the
 recognizer released rather than leaked; a cached recognizer is reused across repeated Start/Stop
 cycles for the same model and device, but is invalidated - stopping an active session first if

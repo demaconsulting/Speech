@@ -32,10 +32,11 @@ sections:
               The RecognitionPanelSubsystem shall start a streaming transcription session for the
               selected model through the selected capture device when Start is invoked, shall let
               a user stop it deterministically at any time, shall reuse the composed recognizer
-              across Start/Stop cycles rather than recomposing it on every click, and shall stop
-              an active session and invalidate the cached recognizer whenever the selected model
-              or capture device changes - even while actively listening - rather than leaving the
-              panel stuck in a listening state it can no longer stop.
+              across Start/Stop cycles rather than recomposing it on every click, and shall
+              invalidate the cached recognizer - stopping an active session first, even while
+              actively listening, rather than leaving the panel stuck in a listening state it can
+              no longer stop - whenever the selected model changes, the selected capture device
+              changes, or a shared device refresh replaces the underlying capture device.
             justification: |
               Streaming speech-to-text is only useful as a start/stop lifecycle a user directly
               controls; this is the demonstrable proof that a host can drive the library's
@@ -45,7 +46,10 @@ sections:
               reuse across Start/Stop" guidance; caching it instead makes repeated Start/Stop
               cycles cheap. A model or device change can arrive mid-session (neither property is
               guarded at the model level, only disabled in the view), so invalidation must stop
-              the session first or the panel would be left listening with no way to stop it.
+              the session first or the panel would be left listening with no way to stop it. A
+              device refresh can also replace the underlying capture device object without
+              changing the selected name, so it must invalidate the cache too even though no
+              selection property actually changed.
             tests:
               - RecognitionPanelViewModel_Start_SuccessfulSession_EntersListeningState
               - RecognitionPanelViewModel_Stop_DuringListening_StopsWithoutDisposingSession
