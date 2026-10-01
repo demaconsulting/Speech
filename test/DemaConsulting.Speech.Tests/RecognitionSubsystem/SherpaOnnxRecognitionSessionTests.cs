@@ -65,7 +65,9 @@ public class SherpaOnnxRecognitionSessionTests
     public async Task SherpaOnnxRecognitionSession_StopAsync_CalledConcurrentlyTwice_BothCompleteOnceStopped()
     {
         // Arrange
-        await using var session = CreateSession(new FakeRecognitionEngine(), CreateCaptureDevice());
+        var engine = new FakeRecognitionEngine();
+        var device = CreateCaptureDevice();
+        await using var session = CreateSession(engine, device);
         await session.StartAsync(TestContext.Current.CancellationToken);
 
         // Act: stop concurrently from two callers
@@ -73,8 +75,11 @@ public class SherpaOnnxRecognitionSessionTests
         var second = session.StopAsync(TestContext.Current.CancellationToken);
         await Task.WhenAll(first, second).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
 
-        // Assert
+        // Assert: both callers converged, and the non-idempotent teardown steps ran exactly once -
+        // the second caller must not have repeated them after observing the Stopping state
         Assert.Equal(RecognitionSessionState.Stopped, session.State);
+        Assert.Equal(1, engine.ResetCallCount);
+        device.Received(1).Stop();
     }
 
     /// <summary>

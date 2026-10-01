@@ -245,6 +245,7 @@ internal sealed class SherpaOnnxRecognitionSession : IRecognitionSession
     {
         Task? pumpTask;
         CancellationTokenSource? pumpCts;
+        bool ownsTeardown;
         lock (_syncRoot)
         {
             switch (_state)
@@ -260,11 +261,14 @@ internal sealed class SherpaOnnxRecognitionSession : IRecognitionSession
                     // Idempotent: already converged on a terminal-for-Stop state.
                     return;
                 case RecognitionSessionState.Stopping:
-                    // Another caller is already stopping; fall through and await the same pump
-                    // task so every caller's returned Task completes once that happens.
+                    // Another caller is already tearing down; only await the same pump task below
+                    // so every caller's returned Task completes once that happens, without
+                    // repeating the (non-idempotent) teardown steps a second time.
+                    ownsTeardown = false;
                     break;
                 default:
                     TransitionTo(RecognitionSessionState.Stopping);
+                    ownsTeardown = true;
                     break;
             }
 
@@ -272,18 +276,21 @@ internal sealed class SherpaOnnxRecognitionSession : IRecognitionSession
             pumpCts = _pumpCts;
         }
 
-        _device.FrameCaptured -= OnFrameCaptured;
-        _pendingFrames?.Writer.TryComplete();
-
-        // Cancelling here is purely the abandon-timeout deadline for DedicatedWorker (Decision
-        // #4): PumpLoop itself never observes this token while draining (see its own remarks), so
-        // every block already accepted is still decoded and buffered normally; this cancellation
-        // only matters if the pump thread is genuinely stuck inside a blocking backend call that
-        // never returns, in which case the worker is abandoned after its timeout rather than
-        // hanging this call forever.
-        if (pumpCts is not null)
+        if (ownsTeardown)
         {
-            await pumpCts.CancelAsync().ConfigureAwait(false);
+            _device.FrameCaptured -= OnFrameCaptured;
+            _pendingFrames?.Writer.TryComplete();
+
+            // Cancelling here is purely the abandon-timeout deadline for DedicatedWorker (Decision
+            // #4): PumpLoop itself never observes this token while draining (see its own remarks),
+            // so every block already accepted is still decoded and buffered normally; this
+            // cancellation only matters if the pump thread is genuinely stuck inside a blocking
+            // backend call that never returns, in which case the worker is abandoned after its
+            // timeout rather than hanging this call forever.
+            if (pumpCts is not null)
+            {
+                await pumpCts.CancelAsync().ConfigureAwait(false);
+            }
         }
 
         if (pumpTask is not null)
@@ -304,6 +311,13 @@ internal sealed class SherpaOnnxRecognitionSession : IRecognitionSession
                     DiagnosticsCategory,
                     $"The recognition pump loop ended with a fault: {ex.Message}");
             }
+        }
+
+        if (!ownsTeardown)
+        {
+            // Another caller owns the destructive teardown steps below (not safe to call twice
+            // concurrently); this caller only needed to observe the pump task converge.
+            return;
         }
 
         pumpCts?.Dispose();

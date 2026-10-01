@@ -283,6 +283,41 @@ public class SherpaOnnxSynthesisSessionTests
     }
 
     /// <summary>
+    ///     Proves that a <see cref="ISynthesisSession.StopAsync"/> call racing against the
+    ///     in-flight operation's own completion never surfaces an unhandled
+    ///     <see cref="ObjectDisposedException"/> - closing the check-then-act race window in which
+    ///     <c>StopAsync</c>/<c>DisposeAsync</c> read the operation's cancellation source outside
+    ///     the lock and call <c>CancelAsync</c> on it just as the operation's own <c>finally</c>
+    ///     block disposes that same source.
+    /// </summary>
+    /// <remarks>
+    ///     Repeated many times with a backend that completes near-instantly to maximize the
+    ///     chance of landing inside the narrow race window if the fix ever regressed.
+    /// </remarks>
+    [Fact]
+    public async Task SherpaOnnxSynthesisSession_StopAsync_RacingOperationCompletion_NeverThrowsObjectDisposedException()
+    {
+        for (var i = 0; i < 200; i++)
+        {
+            // Arrange
+            var backend = new FakeSynthesisEngine();
+            var device = CreateAvailablePlaybackDevice();
+            await using var session = CreateSession(backend, device);
+
+            // Act: fire the operation and race a Stop against its completion with no synchronization
+            var speakTask = session.SpeakAsync("Hi.", TestContext.Current.CancellationToken);
+            var stopTask = session.StopAsync(TestContext.Current.CancellationToken);
+
+            var speakException = await Record.ExceptionAsync(() => speakTask);
+            var stopException = await Record.ExceptionAsync(() => stopTask);
+
+            // Assert: neither task ever surfaces an ObjectDisposedException from the race
+            Assert.IsNotType<ObjectDisposedException>(speakException);
+            Assert.IsNotType<ObjectDisposedException>(stopException);
+        }
+    }
+
+    /// <summary>
     ///     Proves that calling <see cref="ISynthesisSession.SpeakAsync"/> while another
     ///     <see cref="ISynthesisSession.SpeakAsync"/> call is already in flight on the same
     ///     session throws <see cref="InvalidOperationException"/> rather than producing undefined
@@ -413,6 +448,51 @@ public class SherpaOnnxSynthesisSessionTests
         // Assert
         Assert.Equal(1, releaseCount);
         Assert.Equal(SynthesisSessionState.Disposed, session.State);
+    }
+
+    /// <summary>
+    ///     Proves that <c>DisposeAsync</c> does not release the engine's exclusivity lease while
+    ///     an in-flight operation's backend call is still demonstrably running - closing the race
+    ///     in which a prior implementation released the lease the instant cancellation was
+    ///     requested, before the operation had genuinely stopped.
+    /// </summary>
+    /// <remarks>
+    ///     A <c>Timeout</c> is set as a safety net: if disposal ever regressed to not awaiting the
+    ///     in-flight operation at all, this test would still pass trivially, but if it regressed to
+    ///     awaiting indefinitely (ignoring the abandon policy), this would fail fast instead of
+    ///     hanging the whole test run forever.
+    /// </remarks>
+    [Fact(Timeout = 5000)]
+    public async Task SherpaOnnxSynthesisSession_DisposeAsync_WhileSpeaking_DoesNotReleaseLeaseBeforeOperationSettles()
+    {
+        // Arrange: a backend that blocks inside Generate until explicitly released, simulating a
+        // native call still genuinely in flight when disposal is requested.
+        using var generateStarted = new SemaphoreSlim(0, 1);
+        using var generateRelease = new SemaphoreSlim(0, 1);
+        var backend = new BlockingSynthesisEngine(generateStarted, generateRelease, TestContext.Current.CancellationToken);
+        var device = CreateAvailablePlaybackDevice();
+        var releaseCount = 0;
+        var session = new SherpaOnnxSynthesisSession(
+            backend, device, new FakeSynthesisModel(), null, NullSpeechDiagnostics.Instance, () => releaseCount++);
+
+        // Act: start speaking, wait until the backend call has begun, then start disposing
+        var speakTask = session.SpeakAsync("Hello world.", TestContext.Current.CancellationToken);
+        await generateStarted.WaitAsync(TestContext.Current.CancellationToken);
+        var disposeTask = session.DisposeAsync().AsTask();
+
+        // Let the in-flight backend call finish so neither task hangs for the rest of the test
+        generateRelease.Release();
+        await disposeTask;
+
+        // Assert: by the time DisposeAsync returned, the backend call had genuinely finished and
+        // the operation had settled (whichever way it settled), so the lease was never released
+        // while the operation was still running
+        Assert.True(backend.GenerateReturned);
+        Assert.True(speakTask.IsCompleted);
+        Assert.Equal(1, releaseCount);
+
+        // Observe the task's outcome so it is never reported as an unobserved exception
+        await Record.ExceptionAsync(() => speakTask);
     }
 
     /// <summary>

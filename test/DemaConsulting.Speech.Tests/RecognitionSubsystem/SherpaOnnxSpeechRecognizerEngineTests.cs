@@ -68,11 +68,18 @@ public class SherpaOnnxSpeechRecognizerEngineTests
     [Fact]
     public async Task SherpaOnnxSpeechRecognizerEngine_CreateSessionAsync_PriorSessionDisposing_ThrowsRecognitionEngineBusyException()
     {
-        // Arrange: a running session whose capture device blocks for a while when stopped,
-        // standing in for teardown work that has not yet completed
+        // Arrange: a running session whose capture device blocks when stopped, standing in for
+        // teardown work that has not yet completed. The block is lifted only by this test's own
+        // explicit stopGate.Set() (in the finally below), never by a timeout - a bounded wait here
+        // would race against this test's own continuation under heavy parallel test-run CPU
+        // contention: if that continuation were delayed past the bound, Stop() would return (and
+        // the lease would be released) before the Act below ever ran, intermittently passing for
+        // the wrong reason. The capture device's own TestContext cancellation token is observed
+        // purely as a safety net so a failed/aborted test run cannot leave this thread blocked
+        // forever, not as part of the behavior under test.
         using var stopGate = new ManualResetEventSlim(false);
         var device = CreateCaptureDevice();
-        device.When(d => d.Stop()).Do(_ => stopGate.Wait(TimeSpan.FromSeconds(5)));
+        device.When(d => d.Stop()).Do(_ => stopGate.Wait(TestContext.Current.CancellationToken));
         var engine = new SherpaOnnxSpeechRecognizerEngine(
             new FakeRecognitionEngine(), new FakeRecognitionModel(), NullSpeechDiagnostics.Instance);
         var session = await engine.CreateSessionAsync(device, TestContext.Current.CancellationToken);

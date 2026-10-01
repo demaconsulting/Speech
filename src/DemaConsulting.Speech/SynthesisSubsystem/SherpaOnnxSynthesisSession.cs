@@ -72,6 +72,15 @@ internal sealed class SherpaOnnxSynthesisSession : ISynthesisSession
     /// <summary>The cancellation source for the currently in-flight operation, if any.</summary>
     private CancellationTokenSource? _operationCancellation;
 
+    /// <summary>
+    ///     The <see cref="Task"/> backing the currently in-flight <see cref="SpeakAsync"/>/
+    ///     <see cref="SynthesizeAsync"/> call, if any. Tracked so <see cref="StopAsync"/> and
+    ///     <see cref="DisposeAsync"/> can await genuine completion of the operation - including
+    ///     the underlying <see cref="DedicatedWorker"/> call it may still be waiting on - rather
+    ///     than merely requesting cancellation and returning while native work is still running.
+    /// </summary>
+    private Task? _operationTask;
+
     /// <summary>The exception that faulted this session, if <see cref="_state"/> is <see cref="SynthesisSessionState.Faulted"/>.</summary>
     private Exception? _fault;
 
@@ -146,21 +155,47 @@ internal sealed class SherpaOnnxSynthesisSession : ISynthesisSession
     public event EventHandler<SessionStateChangedEventArgs>? StateChanged;
 
     /// <inheritdoc/>
-    public async Task SpeakAsync(string text, CancellationToken cancellationToken = default)
+    public Task SpeakAsync(string text, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(text);
-        await RunOperationAsync(text, playAfterSynthesis: true, cancellationToken).ConfigureAwait(false);
+        return TrackOperation(RunOperationAsync(text, playAfterSynthesis: true, cancellationToken));
     }
 
     /// <inheritdoc/>
-    public async Task<IReadOnlyList<SynthesizedSpeech>> SynthesizeAsync(string text, CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<SynthesizedSpeech>> SynthesizeAsync(string text, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(text);
-        return await RunOperationAsync(text, playAfterSynthesis: false, cancellationToken).ConfigureAwait(false);
+        return TrackOperation(RunOperationAsync(text, playAfterSynthesis: false, cancellationToken));
+    }
+
+    /// <summary>
+    ///     Records <paramref name="task"/> as this session's currently in-flight operation (see
+    ///     <see cref="_operationTask"/>) and returns it unchanged. By the time
+    ///     <see cref="RunOperationAsync"/> returns a task to its caller, its own synchronous
+    ///     validation/state-transition prologue has already run, so this is always safe to record
+    ///     immediately.
+    /// </summary>
+    private Task<IReadOnlyList<SynthesizedSpeech>> TrackOperation(Task<IReadOnlyList<SynthesizedSpeech>> task)
+    {
+        lock (_syncRoot)
+        {
+            _operationTask = task;
+        }
+
+        return task;
     }
 
     /// <inheritdoc/>
-    public Task StopAsync(CancellationToken cancellationToken = default)
+    /// <remarks>
+    ///     Requests cancellation of any in-flight operation and returns immediately - it does not
+    ///     await the operation's genuine completion. The operation's own completion (whenever it
+    ///     genuinely arrives, bounded by <see cref="DedicatedWorker"/>'s cooperative-cancel-then-abandon
+    ///     policy) is observed by <see cref="RunOperationAsync"/> itself, which transitions the
+    ///     session back to <see cref="SynthesisSessionState.Stopped"/>. Only
+    ///     <see cref="DisposeAsync"/> - which must guarantee the engine's exclusivity lease is not
+    ///     released early - awaits genuine completion; see <see cref="CancelAndAwaitOperationAsync"/>.
+    /// </remarks>
+    public async Task StopAsync(CancellationToken cancellationToken = default)
     {
         CancellationTokenSource? operationCancellation;
         lock (_syncRoot)
@@ -168,8 +203,57 @@ internal sealed class SherpaOnnxSynthesisSession : ISynthesisSession
             operationCancellation = _operationCancellation;
         }
 
-        operationCancellation?.Cancel();
-        return Task.CompletedTask;
+        await CancelOperationAsync(operationCancellation).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    ///     Requests cancellation of <paramref name="operationCancellation"/> (if any), tolerating
+    ///     the case where the in-flight operation has already completed and disposed it
+    ///     concurrently.
+    /// </summary>
+    private static async Task CancelOperationAsync(CancellationTokenSource? operationCancellation)
+    {
+        try
+        {
+            if (operationCancellation is not null)
+            {
+                await operationCancellation.CancelAsync().ConfigureAwait(false);
+            }
+        }
+        catch (ObjectDisposedException)
+        {
+            // The in-flight operation completed and disposed its own cancellation source
+            // concurrently with this call; there is nothing left to cancel.
+        }
+    }
+
+    /// <summary>
+    ///     Requests cancellation of <paramref name="operationCancellation"/> (if any) and then
+    ///     awaits <paramref name="operationTask"/> (if any) to genuine completion, so that
+    ///     <see cref="DisposeAsync"/> cannot release the engine's exclusivity lease while the
+    ///     operation's native call may still be running on an abandoned <see cref="DedicatedWorker"/>
+    ///     thread. Unlike <see cref="StopAsync"/>, disposal must make this guarantee: the lease
+    ///     exists precisely to prevent a new session's native call from overlapping this one's.
+    /// </summary>
+    private static async Task CancelAndAwaitOperationAsync(
+        CancellationTokenSource? operationCancellation,
+        Task? operationTask)
+    {
+        await CancelOperationAsync(operationCancellation).ConfigureAwait(false);
+
+        if (operationTask is not null)
+        {
+            try
+            {
+                await operationTask.ConfigureAwait(false);
+            }
+            catch
+            {
+                // RunOperationAsync already transitions state and reports diagnostics for its own
+                // failure/cancellation; the caller here only needs to know the operation has
+                // actually finished.
+            }
+        }
     }
 
     /// <summary>
@@ -227,6 +311,7 @@ internal sealed class SherpaOnnxSynthesisSession : ISynthesisSession
             lock (_syncRoot)
             {
                 _operationCancellation = null;
+                _operationTask = null;
             }
 
             TransitionTo(SynthesisSessionState.Stopping);
@@ -238,6 +323,7 @@ internal sealed class SherpaOnnxSynthesisSession : ISynthesisSession
             lock (_syncRoot)
             {
                 _operationCancellation = null;
+                _operationTask = null;
             }
 
             TransitionTo(SynthesisSessionState.Stopping);
@@ -249,6 +335,7 @@ internal sealed class SherpaOnnxSynthesisSession : ISynthesisSession
             lock (_syncRoot)
             {
                 _operationCancellation = null;
+                _operationTask = null;
                 _fault = ex;
             }
 
@@ -519,26 +606,32 @@ internal sealed class SherpaOnnxSynthesisSession : ISynthesisSession
 
     /// <inheritdoc/>
     /// <remarks>
-    ///     Requests cancellation of any in-flight operation, transitions through
-    ///     <see cref="SynthesisSessionState.Disposing"/> to <see cref="SynthesisSessionState.Disposed"/>,
-    ///     and releases the engine's exclusivity lease exactly once. Idempotent: a second call does
-    ///     nothing.
+    ///     Requests cancellation of any in-flight operation and awaits its completion (bounded by
+    ///     <see cref="DedicatedWorker"/>'s cooperative-cancel-then-abandon policy, so this never
+    ///     blocks indefinitely even if the underlying native call does not honor cancellation),
+    ///     transitions through <see cref="SynthesisSessionState.Disposing"/> to
+    ///     <see cref="SynthesisSessionState.Disposed"/>, and releases the engine's exclusivity
+    ///     lease exactly once - only after the operation has settled, so the lease is never
+    ///     released while this session's own call into the backend is still demonstrably in
+    ///     flight. Idempotent: a second call does nothing.
     /// </remarks>
-    public ValueTask DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         CancellationTokenSource? operationCancellation;
+        Task? operationTask;
         lock (_syncRoot)
         {
             if (_isDisposed)
             {
-                return ValueTask.CompletedTask;
+                return;
             }
 
             _isDisposed = true;
             operationCancellation = _operationCancellation;
+            operationTask = _operationTask;
         }
 
-        operationCancellation?.Cancel();
+        await CancelAndAwaitOperationAsync(operationCancellation, operationTask).ConfigureAwait(false);
 
         TransitionTo(SynthesisSessionState.Disposing);
         TransitionTo(SynthesisSessionState.Disposed);
@@ -547,13 +640,12 @@ internal sealed class SherpaOnnxSynthesisSession : ISynthesisSession
         {
             if (_leaseReleased)
             {
-                return ValueTask.CompletedTask;
+                return;
             }
 
             _leaseReleased = true;
         }
 
         _releaseLease();
-        return ValueTask.CompletedTask;
     }
 }
