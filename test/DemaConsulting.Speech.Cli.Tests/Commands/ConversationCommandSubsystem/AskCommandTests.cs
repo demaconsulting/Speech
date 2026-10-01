@@ -462,8 +462,8 @@ public sealed class AskCommandTests
     {
         var catalog = CreateCatalogWithModels();
         var (synthSession, synthEngine) = WireSynthesizer(catalog);
-        var (recogSession, recogEngine) = WireRecognizer(catalog);
-        recogSession.OnStart = self => self.RaiseResult("hello there", isFinal: true);
+        var (recognitionSession, recognitionEngine) = WireRecognizer(catalog);
+        recognitionSession.OnStart = self => self.RaiseResult("hello there", isFinal: true);
 
         var playbackDevice = new FakeAudioPlaybackDevice();
         var playbackSource = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]), playbackDevice);
@@ -487,10 +487,10 @@ public sealed class AskCommandTests
         Assert.Equal(1, synthSession.DisposeCallCount);
         Assert.Equal(1, synthEngine.DisposeCallCount);
         Assert.Equal(1, playbackDevice.DisposeCallCount);
-        Assert.Equal(1, recogSession.StartCallCount);
-        Assert.Equal(1, recogSession.StopCallCount);
-        Assert.Equal(1, recogSession.DisposeCallCount);
-        Assert.Equal(1, recogEngine.DisposeCallCount);
+        Assert.Equal(1, recognitionSession.StartCallCount);
+        Assert.Equal(1, recognitionSession.StopCallCount);
+        Assert.Equal(1, recognitionSession.DisposeCallCount);
+        Assert.Equal(1, recognitionEngine.DisposeCallCount);
 
         var printed = writer.ToString();
         Assert.Contains("hello there", printed);
@@ -525,15 +525,15 @@ public sealed class AskCommandTests
         var synthEngine = new FakeSpeechSynthesizerEngine(synthSession);
         catalog.CreateSynthesizerEngineOverride = (_, _, _) => Task.FromResult<ISpeechSynthesizerEngine>(synthEngine);
 
-        var recogSession = new FakeRecognitionSession
+        var recognitionSession = new FakeRecognitionSession
         {
             OnStart = self => self.RaiseResult("hello", isFinal: true)
         };
-        var recogEngine = new FakeSpeechRecognizerEngine(recogSession);
+        var recognitionEngine = new FakeSpeechRecognizerEngine(recognitionSession);
         catalog.CreateRecognizerEngineOverride = (_, _, _) =>
         {
             recognizerCreatedSignal.Set();
-            return Task.FromResult<ISpeechRecognizerEngine>(recogEngine);
+            return Task.FromResult<ISpeechRecognizerEngine>(recognitionEngine);
         };
 
         var originalOut = Console.Out;
@@ -554,8 +554,8 @@ public sealed class AskCommandTests
         }
 
         Assert.Equal(["hi"], synthSession.SpeakAsyncCalls);
-        Assert.Equal(1, recogSession.StartCallCount);
-        Assert.Equal(1, recogSession.DisposeCallCount);
+        Assert.Equal(1, recognitionSession.StartCallCount);
+        Assert.Equal(1, recognitionSession.DisposeCallCount);
         Assert.Contains("hello", writer.ToString());
     }
 
@@ -565,8 +565,8 @@ public sealed class AskCommandTests
     {
         var catalog = CreateCatalogWithModels();
         WireSynthesizer(catalog);
-        var (recogSession, _) = WireRecognizer(catalog);
-        recogSession.OnStart = self => self.RaiseResult("the reply", isFinal: true);
+        var (recognitionSession, _) = WireRecognizer(catalog);
+        recognitionSession.OnStart = self => self.RaiseResult("the reply", isFinal: true);
 
         var outputPath = Path.Join(Path.GetTempPath(), $"ask-test-{Guid.NewGuid():N}.txt");
         try
@@ -601,8 +601,8 @@ public sealed class AskCommandTests
             "beam", "Beam", "Beam width", new NumericParameterBounds(1.0, 10.0, 1.0, 4.0));
         var catalog = CreateCatalogWithModels(ttsParameters: [rateParameter], sttParameters: [beamParameter]);
         WireSynthesizer(catalog);
-        var (recogSession, _) = WireRecognizer(catalog);
-        recogSession.OnStart = self => self.RaiseResult("ok", isFinal: true);
+        var (recognitionSession, _) = WireRecognizer(catalog);
+        recognitionSession.OnStart = self => self.RaiseResult("ok", isFinal: true);
 
         using var context = Context.Create(
             [
@@ -654,8 +654,8 @@ public sealed class AskCommandTests
         // OnStart synchronously raises only an interim (non-final) result, then never a final
         // one: the idle timer re-arms once on that event and then fires for real (a small but
         // real wall-clock delay), calling StopAsync() and ending the turn with no recognized text.
-        var (recogSession, _) = WireRecognizer(catalog);
-        recogSession.OnStart = self => self.RaiseResult("still talking", isFinal: false);
+        var (recognitionSession, _) = WireRecognizer(catalog);
+        recognitionSession.OnStart = self => self.RaiseResult("still talking", isFinal: false);
 
         var outputPath = Path.Join(Path.GetTempPath(), $"ask-test-{Guid.NewGuid():N}.txt");
         try
@@ -671,7 +671,7 @@ public sealed class AskCommandTests
             // Two idempotent StopAsync() calls: one from the session's own timeout handler, one
             // from Listen's unified post-wait call (which always runs from the calling thread,
             // not from the result callback, to avoid a reentrant deadlock).
-            Assert.Equal(2, recogSession.StopCallCount);
+            Assert.Equal(2, recognitionSession.StopCallCount);
             Assert.True(File.Exists(outputPath));
             Assert.Equal(string.Empty, File.ReadAllText(outputPath));
         }
@@ -700,8 +700,8 @@ public sealed class AskCommandTests
         // OnStart raises only an interim (non-final) result and never a final one; with no
         // --silence-timeout given, the command must still have armed a session using its
         // built-in default idle window rather than blocking stopSignal.Wait() forever.
-        var (recogSession, _) = WireRecognizer(catalog);
-        recogSession.OnStart = self => self.RaiseResult("still talking", isFinal: false);
+        var (recognitionSession, _) = WireRecognizer(catalog);
+        recognitionSession.OnStart = self => self.RaiseResult("still talking", isFinal: false);
 
         using var context = Context.Create(
             ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi"]);
@@ -711,7 +711,7 @@ public sealed class AskCommandTests
         // Two idempotent StopAsync() calls: one from the session's own default-timeout handler,
         // one from Listen's unified post-wait call (which always runs from the calling thread,
         // not from the result callback, to avoid a reentrant deadlock).
-        Assert.Equal(2, recogSession.StopCallCount);
+        Assert.Equal(2, recognitionSession.StopCallCount);
     }
 
     // --- Cancellation ---
@@ -814,8 +814,8 @@ public sealed class AskCommandTests
         var (synthSession, _) = WireSynthesizer(catalog);
         synthSession.SpeakAsyncException = new OperationCanceledException();
 
-        var recogSession = new FakeRecognitionSession();
-        var recogEngine = new FakeSpeechRecognizerEngine(recogSession);
+        var recognitionSession = new FakeRecognitionSession();
+        var recognitionEngine = new FakeSpeechRecognizerEngine(recognitionSession);
         catalog.CreateRecognizerEngineOverride = (_, _, _) =>
         {
             // Simulates the expensive recognizer model-load step still being in flight when
@@ -823,7 +823,7 @@ public sealed class AskCommandTests
             Assert.True(
                 holdPrewarm.Wait(TimeSpan.FromSeconds(10)),
                 "Test setup failure: the hold signal was never released.");
-            return Task.FromResult<ISpeechRecognizerEngine>(recogEngine);
+            return Task.FromResult<ISpeechRecognizerEngine>(recognitionEngine);
         };
 
         using var context = Context.Create(
@@ -853,7 +853,7 @@ public sealed class AskCommandTests
             await runTask;
 
             Assert.Equal(1, context.ExitCode);
-            Assert.Equal(0, recogSession.DisposeCallCount);
+            Assert.Equal(0, recognitionSession.DisposeCallCount);
         }
         finally
         {
@@ -864,7 +864,7 @@ public sealed class AskCommandTests
 
         Assert.True(
             await WaitForConditionAsync(
-                () => recogSession.DisposeCallCount == 1 && recogEngine.DisposeCallCount == 1,
+                () => recognitionSession.DisposeCallCount == 1 && recognitionEngine.DisposeCallCount == 1,
                 TimeSpan.FromSeconds(5)),
             "The pre-warmed recognizer engine/session was never disposed by the background continuation once construction completed.");
     }
@@ -888,11 +888,11 @@ public sealed class AskCommandTests
         using var cancellationSource = new CancellationTokenSource();
         using var stopSignal = new ManualResetEventSlim(initialState: false);
 
-        var (recogSession, _) = WireRecognizer(catalog);
+        var (recognitionSession, _) = WireRecognizer(catalog);
         // Simulates the exact interleaving AskCommand's own onCancelKeyPress handler produces
         // when Ctrl+C lands during Phase 2: cancel the shared token, stop the session, then
         // signal stopSignal - all without ever raising a final result.
-        recogSession.OnStart = self =>
+        recognitionSession.OnStart = self =>
         {
             cancellationSource.Cancel();
             _ = self.StopAsync();
@@ -937,7 +937,7 @@ public sealed class AskCommandTests
     {
         var catalog = CreateCatalogWithModels();
         WireSynthesizer(catalog);
-        var (recogSession, _) = WireRecognizer(catalog);
+        var (recognitionSession, _) = WireRecognizer(catalog);
 
         using var cancellationSource = new CancellationTokenSource();
         using var stopSignal = new ManualResetEventSlim(initialState: false);
@@ -974,7 +974,7 @@ public sealed class AskCommandTests
                 cancellationSource.Token);
 
             Assert.Equal(1, context.ExitCode);
-            Assert.Equal(0, recogSession.StartCallCount);
+            Assert.Equal(0, recognitionSession.StartCallCount);
             Assert.Equal(string.Empty, writer.ToString());
         }
         finally
@@ -997,10 +997,10 @@ public sealed class AskCommandTests
         using var cancellationSource = new CancellationTokenSource();
         using var stopSignal = new ManualResetEventSlim(initialState: false);
 
-        var (recogSession, _) = WireRecognizer(catalog);
+        var (recognitionSession, _) = WireRecognizer(catalog);
         // No Ctrl+C involved: the timeout session (armed by --silence-timeout) is what sets
         // stopSignal here, exactly as the production TimedOut handler does.
-        recogSession.OnStart = _ => stopSignal.Set();
+        recognitionSession.OnStart = _ => stopSignal.Set();
 
         var originalOut = Console.Out;
         using var writer = new StringWriter { NewLine = "\n" };
@@ -1049,10 +1049,10 @@ public sealed class AskCommandTests
         using var cancellationSource = new CancellationTokenSource();
         using var stopSignal = new ManualResetEventSlim(initialState: false);
 
-        var (recogSession, _) = WireRecognizer(catalog);
+        var (recognitionSession, _) = WireRecognizer(catalog);
         // A legitimate final result, with no Ctrl+C involved yet: Listen() will observe
         // cancellationToken.IsCancellationRequested == false and return (text, false).
-        recogSession.OnStart = self =>
+        recognitionSession.OnStart = self =>
         {
             self.RaiseResult("hello", isFinal: true);
             stopSignal.Set();
@@ -1119,10 +1119,10 @@ public sealed class AskCommandTests
         using var cancellationSource = new CancellationTokenSource();
         using var stopSignal = new ManualResetEventSlim(initialState: false);
 
-        var (recogSession, _) = WireRecognizer(catalog);
+        var (recognitionSession, _) = WireRecognizer(catalog);
         // A legitimate final result, with no Ctrl+C involved yet: Listen() will observe
         // cancellationToken.IsCancellationRequested == false and return (text, false).
-        recogSession.OnStart = self =>
+        recognitionSession.OnStart = self =>
         {
             self.RaiseResult("hello", isFinal: true);
             stopSignal.Set();
