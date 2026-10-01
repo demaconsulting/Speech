@@ -1,4 +1,3 @@
-using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.RecognitionSubsystem;
 
@@ -12,12 +11,12 @@ namespace DemaConsulting.Speech.Demo.RecognitionPanelSubsystem;
 ///     This adapter resolves the model's installed-files directory from the shared
 ///     <see cref="SpeechModelStore"/>, narrows <see cref="ISpeechModel"/> to the
 ///     <see cref="IRecognitionModel"/> the library's factory requires, and forwards to
-///     <see cref="SpeechRecognizerFactory.Create(IRecognitionModel,SpeechModelStore,IAudioCaptureDevice,Diagnostics.ISpeechDiagnostics?,System.Collections.Generic.IReadOnlyDictionary{string,object}?)"/>,
+///     <see cref="SpeechRecognizerFactory.LoadAsync(IRecognitionModel,SpeechModelStore,Diagnostics.ISpeechDiagnostics?,System.Collections.Generic.IReadOnlyDictionary{string,object}?,CancellationToken)"/>,
 ///     inheriting that factory's "nothing throws at composition" contract. A model that declares
 ///     a role other than recognition (and therefore is not an <see cref="IRecognitionModel"/>) is
 ///     an honest unavailable outcome, exactly like a model that is not installed, rather than a
 ///     defect: a host that lets a user choose an installed model with the wrong role must still
-///     get a working, if unavailable, recognizer back.
+///     get a working, if unavailable, engine back.
 /// </remarks>
 public sealed class RecognizerSessionFactory : IRecognizerSessionFactory
 {
@@ -37,16 +36,16 @@ public sealed class RecognizerSessionFactory : IRecognizerSessionFactory
     }
 
     /// <inheritdoc/>
-    public ISpeechRecognizer Create(ISpeechModel model, IAudioCaptureDevice captureDevice)
+    public async Task<ISpeechRecognizerEngine> LoadAsync(ISpeechModel model, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(model);
-        ArgumentNullException.ThrowIfNull(captureDevice);
 
         if (model is not IRecognitionModel recognitionModel)
         {
-            return UnavailableSpeechRecognizer.Instance;
+            return UnavailableSpeechRecognizerEngine.Instance;
         }
 
-        return SpeechRecognizerFactory.Create(recognitionModel, _store, captureDevice);
+        return await SpeechRecognizerFactory.LoadAsync(recognitionModel, _store, cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
     }
 }

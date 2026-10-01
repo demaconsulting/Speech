@@ -78,11 +78,15 @@ public sealed class App : Application
             desktop.MainWindow = new MainWindow { DataContext = viewModel };
 
             // Release the catalog's download machinery and each panel ViewModel's own
-            // subscriptions/resources when the application exits.
-            desktop.ShutdownRequested += (_, _) =>
+            // subscriptions/resources when the application exits. Each ViewModel's disposal is
+            // inherently asynchronous (it awaits the library's own async engine/session
+            // teardown), so this handler is itself async; Avalonia's ShutdownRequested event has
+            // no async-aware overload, but this is the same accepted fire-and-forget pattern used
+            // throughout this demo's ViewModels for handlers whose signature cannot be async.
+            desktop.ShutdownRequested += async (_, _) =>
             {
-                viewModel.Synthesis.Dispose();
-                viewModel.Recognition.Dispose();
+                await viewModel.Synthesis.DisposeAsync();
+                await viewModel.Recognition.DisposeAsync();
                 _catalog?.Dispose();
             };
         }

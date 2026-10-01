@@ -1,9 +1,7 @@
-using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.Demo.RecognitionPanelSubsystem;
 using DemaConsulting.Speech.Demo.Tests.Fakes;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.RecognitionSubsystem;
-using NSubstitute;
 
 namespace DemaConsulting.Speech.Demo.Tests.RecognitionPanelSubsystem;
 
@@ -11,7 +9,7 @@ namespace DemaConsulting.Speech.Demo.Tests.RecognitionPanelSubsystem;
 ///     Unit tests for <see cref="RecognizerSessionFactory"/>.
 /// </summary>
 /// <remarks>
-///     The "correct role composes a working recognizer" path delegates to the library's own
+///     The "correct role composes a working engine" path delegates to the library's own
 ///     <see cref="SpeechRecognizerFactory"/>, which requires an <see cref="IRecognitionModel"/> -
 ///     an interface only the library's own assemblies can implement (see the type's remarks).
 ///     That path is therefore outside this test project's reach and remains covered by the
@@ -41,50 +39,36 @@ public class RecognizerSessionFactoryTests
     }
 
     /// <summary>
-    ///     Proves that Create rejects a missing model.
+    ///     Proves that LoadAsync rejects a missing model.
     /// </summary>
     [Fact]
-    public void RecognizerSessionFactory_Create_NullModel_ThrowsArgumentNullException()
-    {
-        // Arrange
-        var factory = new RecognizerSessionFactory(IsolatedStore());
-        var device = Substitute.For<IAudioCaptureDevice>();
-
-        // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => factory.Create(null!, device));
-    }
-
-    /// <summary>
-    ///     Proves that Create rejects a missing capture device.
-    /// </summary>
-    [Fact]
-    public void RecognizerSessionFactory_Create_NullDevice_ThrowsArgumentNullException()
+    public async Task RecognizerSessionFactory_LoadAsync_NullModel_ThrowsArgumentNullException()
     {
         // Arrange
         var factory = new RecognizerSessionFactory(IsolatedStore());
 
         // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => factory.Create(new FakeSpeechModel(), null!));
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => factory.LoadAsync(null!, TestContext.Current.CancellationToken));
     }
 
     /// <summary>
-    ///     Proves that Create honestly reports a model that does not implement the library's
-    ///     recognition role as an unavailable recognizer, exactly like a model that is not
-    ///     installed, rather than throwing.
+    ///     Proves that LoadAsync honestly reports a model that does not implement the library's
+    ///     recognition role as an unavailable engine, exactly like a model that is not installed,
+    ///     rather than throwing.
     /// </summary>
     [Fact]
-    public void RecognizerSessionFactory_Create_ModelNotRecognitionRole_ReturnsUnavailableRecognizer()
+    public async Task RecognizerSessionFactory_LoadAsync_ModelNotRecognitionRole_ReturnsUnavailableEngine()
     {
         // Arrange: a fake model that only ever implements the public ISpeechModel contract
         var factory = new RecognizerSessionFactory(IsolatedStore());
-        var device = Substitute.For<IAudioCaptureDevice>();
         var model = new FakeSpeechModel(role: SpeechModelRole.Recognition);
 
         // Act
-        var recognizer = factory.Create(model, device);
+        var engine = await factory.LoadAsync(model, TestContext.Current.CancellationToken);
 
-        // Assert: the honest unavailable fallback, not a real recognizer or an exception
-        Assert.Same(UnavailableSpeechRecognizer.Instance, recognizer);
-        Assert.False(recognizer.IsAvailable);
+        // Assert: the honest unavailable fallback, not a real engine or an exception
+        Assert.Same(UnavailableSpeechRecognizerEngine.Instance, engine);
+        Assert.False(engine.IsAvailable);
     }
 }

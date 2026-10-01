@@ -1,15 +1,14 @@
-using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.SynthesisSubsystem;
 
 namespace DemaConsulting.Speech.Demo.SynthesisPanelSubsystem;
 
 /// <summary>
-///     Demo-owned seam over the library's synthesis-session composition surface.
+///     Demo-owned seam over the library's synthesis-engine composition surface.
 /// </summary>
 /// <remarks>
-///     The library exposes synthesizer composition through the static
-///     <see cref="SpeechSynthesizerFactory.Create(ISynthesisModel,SpeechModelStore,IAudioPlaybackDevice,Diagnostics.ISpeechDiagnostics?,System.Collections.Generic.IReadOnlyDictionary{string,object}?)"/>
+///     The library exposes engine composition through the static
+///     <see cref="SpeechSynthesizerFactory.LoadAsync(ISynthesisModel,SpeechModelStore,Diagnostics.ISpeechDiagnostics?,System.Collections.Generic.IReadOnlyDictionary{string,object}?,CancellationToken)"/>
 ///     method, which requires an <see cref="ISynthesisModel"/> - an interface whose members are
 ///     partly <see langword="internal"/> to the library, so only the library's own assemblies can
 ///     implement it. This seam therefore accepts the common <see cref="ISpeechModel"/> contract
@@ -20,37 +19,36 @@ namespace DemaConsulting.Speech.Demo.SynthesisPanelSubsystem;
 ///     implementation supplies the shared <see cref="SpeechModelStore"/> itself and delegates
 ///     straight to that factory, which resolves the model's installed-files directory
 ///     internally, while tests substitute a fake that returns a controlled
-///     <see cref="ISpeechSynthesizer"/> without a downloaded model, a native runtime, or a real
-///     playback device. It adds no public API to <c>DemaConsulting.Speech</c>.
+///     <see cref="ISpeechSynthesizerEngine"/> without a downloaded model, a native runtime, or a
+///     real playback device. It adds no public API to <c>DemaConsulting.Speech</c>.
+///     <para>
+///     Only the <em>engine</em> is composed here - a playback device is bound later, per run, via
+///     <see cref="ISpeechSynthesizerEngine.CreateSessionAsync"/> directly against the returned
+///     engine, so a host can load one engine per model/parameter combination and reuse it across
+///     many sessions instead of reloading the model on every Play.
+///     </para>
 /// </remarks>
 public interface ISynthesizerSessionFactory
 {
     /// <summary>
-    ///     Creates a speech synthesizer for an installed model, playing back through the supplied
-    ///     device.
+    ///     Loads a speech synthesizer engine for an installed model.
     /// </summary>
     /// <param name="model">The model to load. Must not be <see langword="null"/>.</param>
-    /// <param name="playbackDevice">
-    ///     The playback device to play synthesized audio through. Must not be <see langword="null"/>.
-    /// </param>
     /// <param name="parameterValues">
     ///     An optional session-level parameter value bag (for example a selected voice, built by
     ///     a host's settings UI from the model's declared <see cref="ISpeechModel.Parameters"/>),
-    ///     forwarded unchanged to the library's synthesizer composition, or <see langword="null"/>
-    ///     to use the model's own default voice/speaker.
+    ///     forwarded unchanged to the library's engine composition, or <see langword="null"/> to
+    ///     use the model's own default voice/speaker.
     /// </param>
+    /// <param name="cancellationToken">A token to observe for cancellation of this call.</param>
     /// <returns>
-    ///     A real synthesizer when the model is installed, implements the library's synthesis
-    ///     role, and the device is available; otherwise an honest <c>IsAvailable == false</c>
-    ///     synthesizer.
+    ///     A task that completes with a real engine when the model is installed and implements
+    ///     the library's synthesis role; otherwise an honest <c>IsAvailable == false</c> engine.
     /// </returns>
-    /// <exception cref="ArgumentNullException">
-    ///     Thrown when <paramref name="model"/> or <paramref name="playbackDevice"/> is
-    ///     <see langword="null"/>.
-    /// </exception>
-    /// <remarks>Never throws; every honest unavailable state is reported through <c>IsAvailable</c>.</remarks>
-    ISpeechSynthesizer Create(
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="model"/> is <see langword="null"/>.</exception>
+    /// <remarks>Never throws for an ordinary unavailable state; every such state is reported through <c>IsAvailable</c>.</remarks>
+    Task<ISpeechSynthesizerEngine> LoadAsync(
         ISpeechModel model,
-        IAudioPlaybackDevice playbackDevice,
-        IReadOnlyDictionary<string, object>? parameterValues = null);
+        IReadOnlyDictionary<string, object>? parameterValues,
+        CancellationToken cancellationToken = default);
 }
