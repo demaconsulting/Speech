@@ -306,12 +306,36 @@ public class DeviceSelectionViewModelTests
         var service = SequencedService([MicA], [MicA, MicB], [Speaker], [Speaker]);
         var viewModel = new DeviceSelectionViewModel(service);
 
-        // Act: refresh again
+        // Act: refresh
         await viewModel.Refresh();
 
-        // Assert: the backend refresh was invoked once per Refresh() call (construction + explicit call)
-        service.Received(2).RefreshDevices();
+        // Assert: the backend refresh was invoked exactly once, by the explicit Refresh() call
+        // (construction only enumerates and never forces a native re-scan; see
+        // DeviceSelectionViewModel_Constructor_NeverCallsRefreshDevices below)
+        service.Received(1).RefreshDevices();
         Assert.Equal([MicA, MicB], viewModel.CaptureDevices);
+    }
+
+    /// <summary>
+    ///     Proves that construction only enumerates the already-initialized device table and
+    ///     never forces a native PortAudio re-scan, so a device already active elsewhere on the
+    ///     shared environment cannot cause construction to leave both lists empty.
+    /// </summary>
+    [Fact]
+    public void DeviceSelectionViewModel_Constructor_NeverCallsRefreshDevices()
+    {
+        // Arrange: a service that would throw if a refresh were ever forced during construction
+        var service = Service([MicA, MicB], [Speaker]);
+        service.When(s => s.RefreshDevices()).Do(_ => throw new AudioDeviceInUseException("in use"));
+
+        // Act: construct the panel
+        var viewModel = new DeviceSelectionViewModel(service);
+
+        // Assert: RefreshDevices() was never called, and both lists were populated anyway via
+        // the already-initialized table
+        service.DidNotReceive().RefreshDevices();
+        Assert.Equal([MicA, MicB], viewModel.CaptureDevices);
+        Assert.Equal([Speaker], viewModel.PlaybackDevices);
     }
 
     /// <summary>

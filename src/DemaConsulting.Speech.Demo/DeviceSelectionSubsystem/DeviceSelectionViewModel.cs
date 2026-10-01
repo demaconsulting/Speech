@@ -133,13 +133,17 @@ public sealed partial class DeviceSelectionViewModel : ObservableObject
 
         _deviceService = deviceService;
 
-        // Calls RefreshCore() directly (not the async Refresh() command) so construction-time
-        // population remains synchronous: no pre-refresh hook can be registered yet at this
-        // point (every hook owner receives this already-constructed instance via its own
-        // constructor, so registration can only happen after this constructor returns), and
-        // calling a Task-returning method without awaiting it here would otherwise be a
-        // CS4014 warning-as-error.
-        RefreshCore();
+        // Calls EnumerateCore() directly (not RefreshCore()/the async Refresh() command) so
+        // construction-time population only reads the already-initialized device table instead
+        // of forcing a native PortAudio terminate/reinitialize cycle. Forcing a refresh here
+        // would throw AudioDeviceInUseException if any other device created from the shared
+        // environment already has an active stream, leaving this newly constructed view model
+        // with empty lists even though the backend is perfectly usable for enumeration. No
+        // pre-refresh hook can be registered yet at this point either way (every hook owner
+        // receives this already-constructed instance via its own constructor, so registration
+        // can only happen after this constructor returns), and calling a Task-returning method
+        // without awaiting it here would otherwise be a CS4014 warning-as-error.
+        EnumerateCore();
     }
 
     /// <summary>
@@ -210,12 +214,14 @@ public sealed partial class DeviceSelectionViewModel : ObservableObject
     ///     Forces the backend to re-scan its device table and re-enumerates both device lists.
     /// </summary>
     /// <remarks>
-    ///     Split out of <see cref="Refresh"/> so the constructor can populate both lists
-    ///     synchronously at construction time without awaiting anything. First forces the backend
-    ///     to re-scan its device table via <see cref="IAudioDeviceService.RefreshDevices"/>; when
-    ///     that is refused because a device is currently in use, both lists and selections are
-    ///     left untouched and the refusal's message is surfaced through the existing status-text
-    ///     pattern instead of re-enumerating or crashing.
+    ///     Used by <see cref="Refresh"/>, which is the only caller that should force a native
+    ///     PortAudio teardown/reinitialization; construction instead uses
+    ///     <see cref="EnumerateCore"/> to read the already-initialized table without forcing a
+    ///     re-scan. First forces the backend to re-scan its device table via
+    ///     <see cref="IAudioDeviceService.RefreshDevices"/>; when that is refused because a device
+    ///     is currently in use, both lists and selections are left untouched and the refusal's
+    ///     message is surfaced through the existing status-text pattern instead of re-enumerating
+    ///     or crashing.
     ///     <para>
     ///         Any other exception raised by <see cref="IAudioDeviceService.RefreshDevices"/> (for
     ///         example, a native PortAudio teardown/reinitialization failure) is handled the same
@@ -243,6 +249,21 @@ public sealed partial class DeviceSelectionViewModel : ObservableObject
             return;
         }
 
+        EnumerateCore();
+    }
+
+    /// <summary>
+    ///     Re-enumerates both device lists from the backend's already-initialized device table,
+    ///     without forcing a native re-scan.
+    /// </summary>
+    /// <remarks>
+    ///     Shared by the constructor (which must not force a native PortAudio
+    ///     teardown/reinitialization before anything else has had a chance to run) and
+    ///     <see cref="RefreshCore"/> (which calls this only after a forced
+    ///     <see cref="IAudioDeviceService.RefreshDevices"/> re-scan has already succeeded).
+    /// </remarks>
+    private void EnumerateCore()
+    {
         // Capture the current choices by name so a device that survived the refresh stays
         // selected; name is the library's only stable device identity.
         var previousCaptureName = SelectedCaptureDevice?.Name;

@@ -19,6 +19,20 @@ namespace DemaConsulting.Speech.AudioSubsystem.PortAudio;
 ///     environment's internal lock, so a first-ever evaluation in flight on one thread can never
 ///     race a concurrent <see cref="Refresh"/> into an unbalanced pair of native
 ///     <see cref="IPortAudioApi.Initialize"/>/<see cref="IPortAudioApi.Terminate"/> calls.
+///     <para>
+///         <b>Concurrency contract:</b> the lock above only ever guards this environment's own
+///         cached state (initialization result, active-stream registry, and
+///         <see cref="Generation"/>). It does not, and cannot, cover the native PortAudio queries
+///         a device issues while resolving itself against an already-initialized runtime (for
+///         example, device-count/device-info lookups performed between reading
+///         <see cref="Generation"/> and calling <see cref="TryRegisterActiveStream"/>). Callers
+///         that drive <see cref="Refresh"/> from one thread while concurrently resolving or
+///         starting devices from another are responsible for externally serializing those calls;
+///         this environment does not itself make cross-thread <see cref="Refresh"/> plus
+///         device-resolution/<c>Start()</c> safe. All current callers in this codebase (the demo
+///         view model, speech recognizer, and speech synthesizer) already serialize refresh and
+///         device use on a single thread, so this gap is not exercised in practice.
+///     </para>
 /// </remarks>
 internal sealed class PortAudioEnvironment
 {
