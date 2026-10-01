@@ -128,21 +128,82 @@ line.
 
 **Requirement coverage**: `SpeechDemo-Recognition-TranscriptSequencing`.
 
-#### RecognitionPanelViewModel_Stop_DuringListening_StopsAndReleasesSession
+#### RecognitionPanelViewModel_Stop_DuringListening_StopsWithoutDisposingSession
 
 **Scenario**: Stop is invoked while listening.
 
-**Expected**: The recognizer's `Stop()` is invoked, the recognizer is disposed, and `State`
-returns to `Idle`.
+**Expected**: The recognizer's `Stop()` is invoked, but the recognizer is **not** disposed and
+remains cached so a subsequent Start can reuse it; `State` returns to `Idle`.
 
-**Requirement coverage**: `SpeechDemo-Recognition-StartStopLifecycle`,
-`SpeechDemo-Recognition-ResourceLifetime`.
+**Requirement coverage**: `SpeechDemo-Recognition-StartStopLifecycle`.
 
 #### RecognitionPanelViewModel_Stop_NothingListening_IsSafeNoOp
 
 **Scenario**: Stop is invoked with no active session.
 
 **Expected**: No exception and no state change.
+
+**Requirement coverage**: `SpeechDemo-Recognition-StartStopLifecycle`.
+
+#### RecognitionPanelViewModel_StartStopStart_SameSelection_ReusesRecognizer
+
+**Scenario**: Start, Stop, then Start again, with the same model and capture device selected
+throughout.
+
+**Expected**: The session seam composes a recognizer exactly once; the second Start reuses the
+cached instance rather than recomposing (and reloading the model) a second time.
+
+**Requirement coverage**: `SpeechDemo-Recognition-StartStopLifecycle`.
+
+#### RecognitionPanelViewModel_DeviceRefresh_InvalidatesCachedRecognizer
+
+**Scenario**: A recognizer is cached (idle) for the current capture device, then the shared
+`DeviceSelectionViewModel.Refresh()` runs.
+
+**Expected**: The cached recognizer is disposed, so a subsequent Start composes a fresh one
+bound to the post-refresh device table rather than reusing one for a now-stale device.
+
+**Requirement coverage**: `SpeechDemo-Recognition-StartStopLifecycle`.
+
+#### RecognitionPanelViewModel_SelectedModelChanged_InvalidatesCachedRecognizer
+
+**Scenario**: The selected recognition model is changed while idle, with a recognizer already
+cached for the previously selected model.
+
+**Expected**: The recognizer cached for the previous model is disposed, so a subsequent Start
+composes one for the newly selected model instead of reusing a stale instance.
+
+**Requirement coverage**: `SpeechDemo-Recognition-StartStopLifecycle`.
+
+#### RecognitionPanelViewModel_SelectedModelChanged_WhileListening_StopsAndInvalidatesRecognizer
+
+**Scenario**: The selected recognition model is changed while a session is actively listening -
+bypassing the view's disabled model picker, since `SelectedModel`'s setter remains public and is
+not guarded at the model level.
+
+**Expected**: The active recognizer is stopped, then disposed; `State` returns to `Idle` rather
+than remaining stuck at `Listening` with no cached recognizer for a later Stop to find.
+
+**Requirement coverage**: `SpeechDemo-Recognition-StartStopLifecycle`.
+
+#### RecognitionPanelViewModel_SelectedCaptureDeviceChanged_InvalidatesCachedRecognizer
+
+**Scenario**: The shared `DeviceSelectionViewModel`'s selected capture device is changed while
+idle, with a recognizer already cached for the previously selected device.
+
+**Expected**: The recognizer cached for the previous device is disposed, so a subsequent Start
+composes one bound to the newly selected device instead of reusing a stale instance.
+
+**Requirement coverage**: `SpeechDemo-Recognition-StartStopLifecycle`.
+
+#### RecognitionPanelViewModel_SelectedCaptureDeviceChanged_WhileListening_StopsAndInvalidatesRecognizer
+
+**Scenario**: The shared `DeviceSelectionViewModel`'s selected capture device is changed while a
+session is actively listening - the capture-device picker, unlike the model picker, is never
+disabled while listening, so this is reachable directly from the view.
+
+**Expected**: The active recognizer is stopped, then disposed; `State` returns to `Idle` rather
+than remaining stuck at `Listening` bound to an abandoned device.
 
 **Requirement coverage**: `SpeechDemo-Recognition-StartStopLifecycle`.
 
@@ -255,8 +316,14 @@ device refresh is attempted, so the refresh completes without throwing; the pane
   `RecognitionPanelViewModel_Refresh_ModelStillInstalled_PreservesSelection`
 - **`SpeechDemo-Recognition-StartStopLifecycle`**:
   `RecognitionPanelViewModel_Start_SuccessfulSession_EntersListeningState`,
-  `RecognitionPanelViewModel_Stop_DuringListening_StopsAndReleasesSession`,
-  `RecognitionPanelViewModel_Stop_NothingListening_IsSafeNoOp`
+  `RecognitionPanelViewModel_Stop_DuringListening_StopsWithoutDisposingSession`,
+  `RecognitionPanelViewModel_Stop_NothingListening_IsSafeNoOp`,
+  `RecognitionPanelViewModel_StartStopStart_SameSelection_ReusesRecognizer`,
+  `RecognitionPanelViewModel_DeviceRefresh_InvalidatesCachedRecognizer`,
+  `RecognitionPanelViewModel_SelectedModelChanged_InvalidatesCachedRecognizer`,
+  `RecognitionPanelViewModel_SelectedModelChanged_WhileListening_StopsAndInvalidatesRecognizer`,
+  `RecognitionPanelViewModel_SelectedCaptureDeviceChanged_InvalidatesCachedRecognizer`,
+  `RecognitionPanelViewModel_SelectedCaptureDeviceChanged_WhileListening_StopsAndInvalidatesRecognizer`
 - **`SpeechDemo-Recognition-TranscriptSequencing`**:
   `RecognitionPanelViewModel_ResultReceived_PartialThenFinal_UpdatesTranscriptInOrder`,
   `RecognitionPanelViewModel_BuildTranscriptText_FinalsAndPartial_RendersInOrder`
@@ -269,7 +336,6 @@ device refresh is attempted, so the refresh completes without throwing; the pane
   `RecognitionPanelViewModel_Constructor_NoInstalledRecognitionModel_ReportsHonestEmptyState`
 - **`SpeechDemo-Recognition-ResourceLifetime`**:
   `RecognitionPanelViewModel_Start_RecognizerStartThrows_ReportsErrorStateAndDisposes`,
-  `RecognitionPanelViewModel_Stop_DuringListening_StopsAndReleasesSession`,
   `RecognitionPanelViewModel_Dispose_ReleasesActiveSessionWithoutThrowing`
 - **`SpeechDemo-Recognition-SessionSeam`**:
   `RecognitionPanelViewModel_Constructor_NullDependency_ThrowsArgumentNullException`,
@@ -295,7 +361,11 @@ the recognizer exactly once; partial results replace the trailing transcript lin
 commit permanently in order; Stop and Dispose both stop and release an active recognizer exactly
 once without throwing, and are safe no-ops with nothing active; every unavailable state - no
 model, no device, an unavailable recognizer, a throwing `Start()` - is reported honestly with the
-recognizer released rather than leaked; the session seam validates its arguments and reports a
+recognizer released rather than leaked; a cached recognizer is reused across repeated Start/Stop
+cycles for the same model and device, but is invalidated - stopping an active session first if
+one is in progress, never leaving the panel stuck in `Listening` - whenever the selected model,
+the selected capture device, or a pending device refresh requires a different recognizer; the
+session seam validates its arguments and reports a
 role mismatch the same honest way the library reports an uninstalled model; a matching-role
 `ModelInstalled` event triggers an automatic refresh while a non-matching-role event does not;
 `Dispose()` unsubscribes from `ModelInstalled` so a later event is never applied; and the panel's

@@ -236,28 +236,52 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IDispo
     }
 
     /// <summary>
-    ///     Invalidates the cached recognizer, if any, when the user picks a different capture
-    ///     device - it was built against the previously selected device and must not be reused
-    ///     against a new one.
+    ///     Stops an actively listening session, if any, and invalidates the cached recognizer
+    ///     when the user picks a different capture device - it was built against the previously
+    ///     selected device and must not be reused against a new one. The capture picker is not
+    ///     disabled while <see cref="State"/> is <see cref="RecognitionStreamingState.Listening"/>
+    ///     (unlike the model picker; see <see cref="CanChangeModel"/>), so a change can arrive
+    ///     mid-session and must stop that session rather than leaving the cached recognizer
+    ///     silently bound to the old device until some other trigger invalidates it.
     /// </summary>
     /// <param name="sender">The raising device-selection panel. Unused.</param>
     /// <param name="e">The event naming the property that changed.</param>
     private void OnDeviceSelectionChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(DeviceSelectionViewModel.CaptureSelection) && State != RecognitionStreamingState.Listening)
+        if (e.PropertyName != nameof(DeviceSelectionViewModel.CaptureSelection))
         {
-            InvalidateRecognizer();
+            return;
         }
+
+        if (CanStop)
+        {
+            Stop();
+        }
+
+        InvalidateRecognizer();
     }
 
     /// <summary>
-    ///     Invalidates the cached recognizer, if any, when the user picks a different recognition
-    ///     model - it was built against the previously selected model and must not be reused
-    ///     against a new one. The model picker is disabled while listening (see
-    ///     <see cref="CanChangeModel"/>), so this never fires while a session is active.
+    ///     Stops an actively listening session, if any, and invalidates the cached recognizer
+    ///     when the user picks a different recognition model - it was built against the
+    ///     previously selected model and must not be reused against a new one. The model picker
+    ///     is disabled in the view while listening (see <see cref="CanChangeModel"/>), but
+    ///     <see cref="SelectedModel"/> has a public setter and can still be set directly (for
+    ///     example, programmatically or via <see cref="Refresh"/> repopulating the catalog), so
+    ///     this must not assume Stop has already run: disposing the recognizer without stopping
+    ///     it first would leave <see cref="State"/> stuck at <see cref="RecognitionStreamingState.Listening"/>
+    ///     forever, since a later <see cref="Stop"/> would see no cached recognizer and no-op.
     /// </summary>
     /// <param name="value">The newly selected model.</param>
-    partial void OnSelectedModelChanged(ISpeechModel? value) => InvalidateRecognizer();
+    partial void OnSelectedModelChanged(ISpeechModel? value)
+    {
+        if (CanStop)
+        {
+            Stop();
+        }
+
+        InvalidateRecognizer();
+    }
 
     /// <summary>
     ///     Disposes and clears the cached recognizer and its bound capture device, if any, so the

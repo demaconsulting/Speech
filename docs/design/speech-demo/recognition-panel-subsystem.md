@@ -98,6 +98,16 @@ the selected model changes (`OnSelectedModelChanged`), the selected capture devi
 reports `SpeechRecognizerUnavailableException` from `Start()` is also invalidated immediately,
 rather than retried, since that failure means the specific cached instance is now known-broken.
 
+Both `OnSelectedModelChanged` and `OnDeviceSelectionChanged` call `Stop()` first when `CanStop` is
+`true`, before invalidating - defensively, not merely for tidiness: `SelectedModel` and the shared
+`DeviceSelectionViewModel.SelectedCaptureDevice`/`CaptureSelection` both have public setters and
+are only *disabled in the view* while listening (`CanChangeModel` for the model picker; the
+capture picker is never disabled at all), so either change can genuinely arrive while a session is
+active - not just programmatically, but from the capture picker, which has no `Listening` guard.
+Disposing the recognizer without stopping it first would leave `State` stuck at `Listening`
+forever, since a later `Stop()` would see no cached recognizer and no-op while the native
+recognizer kept running, unreachable and unstoppable from the UI.
+
 **Stops deterministically before a shared device refresh.** The constructor also registers a
 pre-refresh hook with the shared `DeviceSelectionViewModel` via `RegisterPreRefreshHook`,
 mirroring the `ModelInstalled` subscription precedent above. The hook calls `Stop()` when
@@ -146,8 +156,10 @@ computed via `[NotifyPropertyChangedFor(nameof(CanChangeModel))]` on the generat
 partial property (the same pattern `CanStart`/`CanStop` already use), so it recomputes on every
 state transition with no manual notification code. `RecognitionPanelView.axaml` binds the
 model-selection `ComboBox`'s `IsEnabled` to it, so a user cannot switch the selected recognition
-model while a streaming session is active - switching models mid-session would otherwise leave a
-running recognizer bound to a model no longer reflected in `SelectedModel`.
+model through the view while a streaming session is active. This is a view-level convenience, not
+the sole safeguard: `SelectedModel`'s setter remains public, so `OnSelectedModelChanged` (see
+"Recognizer reuse" above) still stops an active session defensively before invalidating, rather
+than assuming the view's guard makes a mid-session change unreachable.
 
 #### Testability
 
