@@ -636,20 +636,19 @@ The application opens with four panels, one of which embeds a fifth:
   `[short pause]`, and `[excited]`), and Play/Stop controls that compose an `ISpeechSynthesizer`
   through a demo-owned seam over `SpeechSynthesizerFactory`. Playback status reflects
   synthesizing, playing, idle, or an honest error; the panel explains itself if no synthesis
-  model is installed or no playback device is available. A Refresh button lets a user re-check
-  installed models on demand, and the panel also refreshes itself automatically the moment a
-  synthesis model finishes downloading from the Model Catalog panel, with no manual click or
-  application restart needed. The model picker and its Model Settings controls disable while
-  audio is synthesizing or playing, so a voice/speaker cannot be changed mid-playback.
+  model is installed or no playback device is available. The panel refreshes itself
+  automatically the moment a synthesis model finishes downloading from the Model Catalog panel,
+  with no manual click or application restart needed. The model picker and its Model Settings
+  controls disable while audio is synthesizing or playing, so a voice/speaker cannot be changed
+  mid-playback.
 - **Speech-to-Text**: offers Start/Stop streaming transcription that composes an
   `ISpeechRecognizer` through a demo-owned seam over `SpeechRecognizerFactory`. Committed final
   results accumulate in order while a trailing partial line updates live as the recognizer
   refines it. The panel explains itself if no recognition model is installed or no capture
-  device is available. A Refresh button lets a user re-check installed models on demand, and the
-  panel also refreshes itself automatically the moment a recognition model finishes downloading
-  from the Model Catalog panel, with no manual click or application restart needed. The model
-  picker disables while transcription is actively listening, so a model cannot be switched
-  mid-session.
+  device is available. The panel refreshes itself automatically the moment a recognition model
+  finishes downloading from the Model Catalog panel, with no manual click or application restart
+  needed. The model picker disables while transcription is actively listening, so a model cannot
+  be switched mid-session.
 - **Model Settings** (embedded in the Text-to-Speech and Speech-to-Text panels): renders whichever
   numeric, choice, and boolean parameters the currently selected model declares, as generic
   sliders/numeric up-downs, combo boxes, and checkboxes bound two-way to the parameter's current
