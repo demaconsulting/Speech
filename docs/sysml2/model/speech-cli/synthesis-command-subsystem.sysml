@@ -3,10 +3,10 @@ package SpeechCli {
         doc /* The one text-to-speech subcommand (speak), plus the ParameterBagParser
              * --tts-param validation utility, extending the ModelCommandsSubsystem's
              * ICliModelCatalog seam with two further members (GetPreferredAudioFormat,
-             * CreateSynthesizer) rather than introducing a second, competing seam, and
-             * its own small ICliPlaybackDeviceSource seam over real playback-device
-             * resolution, letting speak's device-dispatch logic be unit tested
-             * deterministically without depending on real PortAudio hardware. */
+             * CreateSynthesizerEngineAsync) rather than introducing a second, competing
+             * seam, and its own small ICliPlaybackDeviceSource seam over real
+             * playback-device resolution, letting speak's device-dispatch logic be unit
+             * tested deterministically without depending on real PortAudio hardware. */
 
         comment designRef /* Design: docs/design/speech-cli/synthesis-command-subsystem.md */
         comment verificationRef /* Verification: docs/verification/speech-cli/synthesis-command-subsystem.md */
@@ -23,8 +23,11 @@ package SpeechCli {
              * exclusive), resolves and validates the requested synthesis model, validates
              * --tts-param values, strips audio tags when --no-tags is given, dispatches to
              * either a WAV file (--output-audio) or a real playback device
-             * (--playback-device/default), and disposes the synthesizer before the
-             * playback device. */
+             * (--playback-device/default), loads an ISpeechSynthesizerEngine via
+             * ICliModelCatalog.CreateSynthesizerEngineAsync, binds an ISynthesisSession to
+             * the resolved device, awaits session.SpeakAsync, and disposes the session,
+             * then the engine, then the playback device (await using in declaration
+             * order, reversed) on every exit path. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech.Cli/Commands/SynthesisCommandSubsystem/SpeakCommand.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Cli.Tests/Commands/SynthesisCommandSubsystem/SpeakCommandTests.cs */

@@ -47,7 +47,7 @@ content - however malformed - ever throws or is discarded; it always becomes lit
 **Dependencies**: None outside this unit's own types. The parser and catalog have no reference to
 any model, engine, or audio device.
 
-**Callers**: `SherpaOnnxSpeechSynthesizer` calls `AudioTagParser.Parse` as its Layer 1 tag-parsing
+**Callers**: `SherpaOnnxSynthesisSession` calls `AudioTagParser.Parse` as its Layer 1 tag-parsing
 step before Layer 2 rendering builds a `SpeechPlan` from the resulting spans, per
 this library's Layer 1 (model-independent parsing) / Layer 2 (model-specific rendering)
 split.

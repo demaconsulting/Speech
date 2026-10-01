@@ -94,7 +94,7 @@ documentation anticipated.
   synthesizer) rather than here.
 - **ISynthesisModel.PreferredAudioFormat** *(public)*: a best-effort mono playback-format hint a
   host may use before the native engine is loaded. This is deliberately not authoritative: the
-  true output rate remains the loaded engine's `ISynthesisEngine.SampleRate`, which may differ
+  true output rate remains the loaded engine's `ISynthesisBackend.SampleRate`, which may differ
   and therefore still drive playback resampling.
 - **ISynthesisModel.CapabilityProfile** *(internal)*: the `IModelCapabilityProfile` this model
   uses to render Natural Language Audio Tags into a `SpeechPlan`. Defaults to
@@ -112,7 +112,8 @@ documentation anticipated.
   fault synthesis.
 
 Every `internal` member is deliberately not public. The design scopes the "must not leak
-sherpa-onnx types" constraint to `ISpeechRecognizer`/`ISpeechSynthesizer`, and makes each model's
+sherpa-onnx types" constraint to `ISpeechRecognizerEngine`/`IRecognitionSession`/
+`ISpeechSynthesizerEngine`/`ISynthesisSession`, and makes each model's
 backing class responsible for "sherpa-onnx configuration for its own model architecture", so
 returning a real recognizer/synthesizer configuration here is consistent with the approved
 design. Keeping those members internal keeps every sherpa-onnx type out of the library's public

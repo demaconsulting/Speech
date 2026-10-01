@@ -12,8 +12,8 @@ small seam over real playback-device resolution:
   [--playback-device <name>] [--tts-param key=value ...] [--no-tags]`
 - **`ParameterBagParser`**: parses and validates repeatable `--tts-param key=value` tokens against a
   resolved model's declared parameters
-- **`ICliModelCatalog.GetPreferredAudioFormat`/`CreateSynthesizer`**: the two new seam members
-  (see _Extending the ModelCommandsSubsystem Seam_ below), implemented by
+- **`ICliModelCatalog.GetPreferredAudioFormat`/`CreateSynthesizerEngineAsync`**: the two new seam
+  members (see _Extending the ModelCommandsSubsystem Seam_ below), implemented by
   `SpeechModelCatalogAdapter`
 - **`ICliPlaybackDeviceSource`**/**`AudioDeviceFactoryPlaybackDeviceSource`**: a small CLI-owned
   seam over real-playback-device resolution (see _Deterministic Playback-Device Resolution_
@@ -22,10 +22,10 @@ small seam over real playback-device resolution:
 
 ### Extending the ModelCommandsSubsystem Seam
 
-`speak` needs to construct a real `ISpeechSynthesizer`, which requires an `ISynthesisModel` -
+`speak` needs to load a real `ISpeechSynthesizerEngine`, which requires an `ISynthesisModel` -
 the library's synthesis-capable model interface. `ISynthesisModel` itself, and the members
-`speak` needs from it (`PreferredAudioFormat`, and the constructor path
-`SpeechSynthesizerFactory.Create` requires), are only reachable once a `SpeechModelDescriptor.Model`
+`speak` needs from it (`PreferredAudioFormat`, and the loader path
+`SpeechSynthesizerFactory.LoadAsync` requires), are only reachable once a `SpeechModelDescriptor.Model`
 is known to implement that interface. That cast is safe to perform inside
 `SpeechModelCatalogAdapter` (which lives in the same assembly as the library's own internal
 model types, so its `is ISynthesisModel` check compiles), but is **not** safe to perform inside a
@@ -41,7 +41,7 @@ are added to `ICliModelCatalog`:
 | Member | Returns | Behavior |
 | --- | --- | --- |
 | `GetPreferredAudioFormat(descriptor)` | `AudioFormat` | Throws for a non-synthesis model |
-| `CreateSynthesizer(descriptor, device, values)` | `ISpeechSynthesizer` | Throws for a non-synthesis model |
+| `CreateSynthesizerEngineAsync(descriptor, parameterValues, cancellationToken)` | `Task<ISpeechSynthesizerEngine>` | Throws for a non-synthesis model; no playback device bound yet |
 
 `SpeechModelCatalogAdapter` implements both via a private `RequireSynthesisModel` helper that
 performs the cast once and throws a clean `ArgumentException` naming the offending model id when
@@ -49,13 +49,14 @@ it fails. In production this branch is unreachable through the CLI's own dispatc
 already validates `descriptor.Role == SpeechModelRole.Synthesis` itself before calling either new
 member - but is retained because `ICliModelCatalog` is an interface any future caller could
 misuse, and a defensive, well-worded exception is preferable to an unhandled `InvalidCastException`
-surfacing as a stack trace. `CreateSynthesizer`'s production implementation forwards to the
-public `SpeechSynthesizerFactory.Create(ISynthesisModel, SpeechModelCatalog, IAudioPlaybackDevice,
-ISpeechDiagnostics?, IReadOnlyDictionary<string,object>?)` overload, which resolves the model's
-installed directory internally via the composed catalog's own store and never throws for "not
-installed" or "no playback device" - it instead returns the library's own
-`UnavailableSpeechSynthesizer.Instance` singleton, a graceful-degradation contract `SpeakCommand`
-relies on rather than duplicates.
+surfacing as a stack trace. `CreateSynthesizerEngineAsync`'s production implementation forwards
+unchanged to `SpeechSynthesizerFactory.LoadAsync(ISynthesisModel, SpeechModelCatalog,
+ISpeechDiagnostics?, IReadOnlyDictionary<string,object>?, CancellationToken)`, returning an
+`ISpeechSynthesizerEngine` with no device bound yet; `SpeakCommand` later binds the resolved
+playback device by calling `engine.CreateSessionAsync(playbackDevice, cancellationToken)`. The
+loader never throws for "not installed" or "no playback device" - it instead returns the
+library's own honestly-unavailable engine per `SpeechSynthesizerFactory`'s own contract, a
+graceful-degradation contract `SpeakCommand` relies on rather than duplicates.
 
 This keeps `SpeakCommand`'s own logic - argument parsing, text-source resolution, `--tts-param`
 validation, tag stripping, device dispatch, disposal ordering, cancellation - fully unit-testable
@@ -177,16 +178,19 @@ devices before a device is actually created, exactly mirroring `devices test`'s 
 validate-before-create pattern; an unavailable resolved device throws `InvalidOperationException`
 suggesting `--output-audio` as an alternative.
 
-**Disposal ordering.** `ISpeechSynthesizer.Dispose()` does not dispose the playback device it was
-constructed over (confirmed against the library's own `SherpaOnnxSpeechSynthesizer.Dispose()`
-implementation, which disposes only its own inference engine) - so `SpeakCommand` disposes the
-synthesizer first, in an inner `finally`, guaranteeing any in-flight playback/write has genuinely
-quiesced, then disposes the playback device, in an outer `finally`, via `(playbackDevice as
-IDisposable)?.Dispose()`. The conditional cast is necessary because `IAudioPlaybackDevice` itself
-does not declare `IDisposable` - a real device manages its own native stream lifecycle entirely
-through `Start()`/`Stop()` - but `WavFileAudioPlaybackDevice` (used for `--output-audio`) additionally
-implements `IDisposable` to finalize its RIFF header, and the outer `finally` must dispose it
-unconditionally when present while remaining a safe no-op for every other device kind.
+**Async composition flow and disposal ordering.** `Run` resolves the playback device, then awaits
+`catalog.CreateSynthesizerEngineAsync(descriptor, parameterValues, cancellationToken)` followed by
+`engine.CreateSessionAsync(playbackDevice, cancellationToken)`, both bound with `await using`
+immediately after the playback device's own conditional `using var playbackDeviceLease =
+playbackDevice as IDisposable` lease - so disposal, in declaration order reversed, runs
+**session first, then engine, then the playback device lease**, guaranteeing any in-flight
+playback/write has genuinely quiesced (session disposal) before the engine is torn down, which in
+turn happens before the device itself is disposed. The conditional cast for the playback-device
+lease is necessary because `IAudioPlaybackDevice` itself does not declare `IDisposable` - a real
+device manages its own native stream lifecycle entirely through its session's `StartAsync`-driven
+playback - but `WavFileAudioPlaybackDevice` (used for `--output-audio`) additionally implements
+`IDisposable` to finalize its RIFF header, and the lease must dispose it unconditionally when
+present while remaining a safe no-op for every other device kind.
 
 **Cancellation.** `Ctrl+C` is wired to a `CancellationTokenSource` via `Console.CancelKeyPress`,
 mirroring `DownloadCommand.Run`'s exact subscribe/unsubscribe-in-try/finally pattern (see
@@ -197,9 +201,9 @@ propagating as a stack trace.
 ### Interactions with Other Units
 
 `SpeakCommand` depends on the `ICliModelCatalog` seam (both its original five members and the two
-new ones added by this pass), the library's public `AudioFormat`/`ISpeechSynthesizer`/
-`AudioTagParser`/`TaggedTextSpan` types, its own `ICliPlaybackDeviceSource` seam (composed over
-`AudioDeviceFactory` from the library's audio subsystem in production, via
+new ones added by this pass), the library's public `AudioFormat`/`ISpeechSynthesizerEngine`/
+`ISynthesisSession`/`AudioTagParser`/`TaggedTextSpan` types, its own `ICliPlaybackDeviceSource`
+seam (composed over `AudioDeviceFactory` from the library's audio subsystem in production, via
 `AudioDeviceFactoryPlaybackDeviceSource`), `WavFileAudioPlaybackDevice`, and reuses
 `DeviceCommandsSubsystem`'s `DevicesTestCommand.ResolveDeviceSelectionOrThrow` internal helper
 rather than duplicating device resolution logic. `ParameterBagParser` depends only on the

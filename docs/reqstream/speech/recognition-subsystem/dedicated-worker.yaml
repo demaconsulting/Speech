@@ -1,0 +1,53 @@
+---
+# Software Unit Requirements for DedicatedWorker
+#
+# These requirements describe the design-level behavior of the internal DedicatedWorker unit,
+# decomposing the parent RecognitionSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: RecognitionSubsystem Requirements
+        sections:
+          - title: DedicatedWorker Requirements
+            requirements:
+              - id: Speech-Recognition-DedicatedWorker-LongRunningDedicatedThread
+                title: >-
+                  The DedicatedWorker class shall run each native call on a dedicated,
+                  long-running task rather than a thread-pool task, so a stuck native call can
+                  never starve the shared thread pool.
+                justification: |
+                  Every call into the sherpa-onnx native runtime (decode, reset, flush) is a
+                  potentially blocking, non-cooperative native call; running it on an ordinary
+                  pooled task risks the pool's limited thread budget being consumed by stuck
+                  native calls, starving unrelated work across the whole process.
+                tests:
+                  - DedicatedWorker_Run_UsesLongRunningTaskCreationOption
+
+              - id: Speech-Recognition-DedicatedWorker-CooperativeCancellation
+                title: >-
+                  The DedicatedWorker class shall complete promptly when a cooperative delegate
+                  observes and honors cancellation.
+                justification: |
+                  A delegate that checks its own cancellation token and returns in response to it
+                  is the common, well-behaved case, and must not pay the cost of the abandon
+                  timeout merely because it was asked to cancel.
+                tests:
+                  - DedicatedWorker_Run_CooperativeCancellation_CompletesPromptly
+
+              - id: Speech-Recognition-DedicatedWorker-AbandonAfterTimeout
+                title: >-
+                  The DedicatedWorker class shall abandon a non-cooperative delegate that ignores
+                  cancellation after a configurable timeout, letting its caller's await complete
+                  while the native call itself keeps running orphaned in the background, and
+                  shall report a Warning diagnostic naming the abandonment.
+                justification: |
+                  A native call can block indefinitely despite a cancellation request being
+                  honored at the managed boundary; without a bounded abandon timeout, a single
+                  stuck native call would hang its caller (for example session teardown)
+                  indefinitely. Abandoning the await, rather than the underlying native call
+                  itself (which cannot be forcibly terminated), is the only way to bound the
+                  caller's wait, so the abandonment must be surfaced as a diagnostic rather than
+                  silently swallowed.
+                tests:
+                  - DedicatedWorker_Run_NonCooperativeDelegate_AbandonsAfterTimeoutAndReportsDiagnostics

@@ -36,8 +36,8 @@ configuration through an internal member of `IRecognitionModel`, matching this l
 RecognitionSubsystem then consumes that configuration behind its internal
 `IRecognitionEngine`/`IRecognitionEngineFactory` seam, implemented for real by
 `SherpaOnnxRecognitionEngine`/`SherpaOnnxRecognitionEngineFactory`. No sherpa-onnx type appears
-anywhere in the library's public API: public callers interact only through `ISpeechRecognizer`,
-`SpeechRecognitionResult`, and `SpeechRecognizerFactory`, keeping this library's "engine
+anywhere in the library's public API: public callers interact only through `ISpeechRecognizerEngine`,
+`IRecognitionSession`, `SpeechRecognitionResult`, and `SpeechRecognizerFactory`, keeping this library's "engine
 backend stays swappable at the public API surface" promise intact. See
 _RecognitionSubsystem Design_ for the seam's structure.
 

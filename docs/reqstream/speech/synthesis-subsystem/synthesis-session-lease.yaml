@@ -1,0 +1,69 @@
+---
+# Software Unit Requirements for engine session exclusivity (lease) and SynthesisEngineBusyException
+#
+# Describes the design-level behavior of SherpaOnnxSpeechSynthesizerEngine's own session-creation
+# and lease-tracking logic: an engine hosts at most one live ISynthesisSession at a time, and
+# SynthesisEngineBusyException is the documented signal for a caller that requests a second
+# session while the first is still live. Mirrors the recognition direction's equivalent lease
+# requirements file for the async Engine/Session redesign.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: SynthesisSubsystem Requirements
+        sections:
+          - title: SherpaOnnxSpeechSynthesizerEngine Requirements
+            requirements:
+              - id: Speech-Synthesis-SherpaOnnxSpeechSynthesizerEngine-SessionExclusivity
+                title: >-
+                  The SherpaOnnxSpeechSynthesizerEngine class shall allow at most one live
+                  ISynthesisSession to be leased from it at a time, throwing
+                  SynthesisEngineBusyException synchronously from CreateSessionAsync when a
+                  session is requested while an earlier leased session has not yet been disposed,
+                  and succeeding again once that session is disposed.
+                justification: |
+                  A single loaded model (Layer 3 engine) owns one native inference context; two
+                  concurrently live sessions bound to two different playback devices would race
+                  against that same native context and corrupt either or both synthesis streams.
+                  Failing the second CreateSessionAsync call fast and synchronously, rather than
+                  queuing or silently sharing the engine, gives a caller an unambiguous signal to
+                  dispose its current session before requesting another.
+                children:
+                  - Speech-Synthesis-ISpeechSynthesizerEngine-SessionCreationContract
+                tests:
+                  - SherpaOnnxSpeechSynthesizerEngine_CreateSessionAsync_NoLeaseHeld_ReturnsRealSession
+                  - SherpaOnnxSpeechSynthesizerEngine_CreateSessionAsync_LeaseAlreadyHeld_ThrowsSynthesisEngineBusyException
+                  - SherpaOnnxSpeechSynthesizerEngine_CreateSessionAsync_AfterPriorSessionDisposed_SucceedsAgain
+                  - SherpaOnnxSpeechSynthesizerEngine_CreateSessionAsync_NullDevice_ThrowsArgumentNullException
+
+              - id: Speech-Synthesis-SherpaOnnxSpeechSynthesizerEngine-DisposalOrdering
+                title: >-
+                  The SherpaOnnxSpeechSynthesizerEngine class shall dispose its active leased
+                  session, if any, before disposing its owned backend, and shall dispose its
+                  backend exactly once across repeated DisposeAsync calls.
+                justification: |
+                  Disposing the backend (and its native inference context) while a leased session
+                  may still be mid-operation would leave the session holding a reference to
+                  already-freed native resources; disposing the session first guarantees any
+                  in-flight native call has genuinely returned before the backend itself is torn
+                  down. Repeated disposal must remain a safe no-op, matching every other
+                  disposable type in this library.
+                tests:
+                  - SherpaOnnxSpeechSynthesizerEngine_DisposeAsync_WithActiveLeasedSession_DisposesSessionFirst
+                  - SherpaOnnxSpeechSynthesizerEngine_DisposeAsync_CalledTwice_DisposesBackendOnce
+
+          - title: SynthesisEngineBusyException Requirements
+            requirements:
+              - id: Speech-Synthesis-SynthesisEngineBusyException-Thrown
+                title: >-
+                  The SynthesisEngineBusyException class shall be the documented exception type
+                  thrown by CreateSessionAsync when a session is requested while an earlier
+                  leased session is still live, and shall provide standard exception
+                  constructors.
+                justification: |
+                  A distinct, documented exception type lets a caller distinguish "the engine is
+                  busy with another session" from any other failure mode, and lets it decide
+                  whether to retry after disposing its current session rather than treating the
+                  failure as fatal.
+                tests:
+                  - SherpaOnnxSpeechSynthesizerEngine_CreateSessionAsync_LeaseAlreadyHeld_ThrowsSynthesisEngineBusyException

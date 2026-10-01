@@ -41,17 +41,18 @@ SpeechCli command-line tool system and its constituent software items, specifica
   catalog/contract seam: typed tunable-parameter descriptors, the common per-model contract
   and its role-marker interfaces, and catalog enumeration of the compiled-in known-model
   registry alongside install state
-- **RecognitionSubsystem (Subsystem)** — Streaming speech-to-text: the public recognizer
-  contract and result types, the composition root with honest unavailable fallback, the
-  capture-to-engine pipeline with its audio-format converter, and the mockable
-  recognition-engine seam
+- **RecognitionSubsystem (Subsystem)** — Streaming speech-to-text: the public async
+  Engine/Session recognizer contract and result types, the composition root (`LoadAsync`/
+  `CreateSessionAsync`) with honest unavailable fallbacks and engine exclusivity lease, the
+  capture-to-engine pipeline with its audio-format converter, and the mockable internal
+  recognition-backend seam
 - **SynthesisSubsystem (Subsystem)** — Text-to-speech: the closed, fixed Natural Language Audio
   Tag vocabulary grouped into kinds and the model-independent Layer 1 parser that recognizes
   bracket syntax against it, the Layer 2 rendering strategy that turns a parsed span sequence
   into a model-appropriate `SpeechPlan`, sentence chunking for pipelined synthesis, the public
-  `ISpeechSynthesizer` streaming/playback contract with its composition root and honest
-  unavailable fallback, the mockable synthesis-engine seam, the real sherpa-onnx synthesis
-  engine, and the playback-format converter
+  async Engine/Session streaming/playback contract with its composition root and honest
+  unavailable fallbacks, the mockable internal synthesis-backend seam, the real sherpa-onnx
+  synthesis engine, and the playback-format converter
 
 The following software items of the SpeechDemo system are also covered:
 
@@ -156,19 +157,22 @@ four concrete models covering both roles - two recognition models
 two synthesis models (`SherpaOnnxVitsLibriTtsEnglishSynthesisModel`,
 `SherpaOnnxKokoroEnglishSynthesisModel`) - so a host may use the compiled-in registry directly
 or supply its own. A fourth subsystem,
-`RecognitionSubsystem`, consumes both of the above: it defines the public streaming
-speech-to-text contract, composes a recognizer for an installed recognition model and a capture
-device without ever throwing, and converts captured audio into the format a model requires before
-streaming it through an internal, mockable recognition-engine seam. A fifth subsystem,
+`RecognitionSubsystem`, consumes both of the above: it defines the public async Engine/Session
+streaming speech-to-text contract (`ISpeechRecognizerEngine`/`IRecognitionSession`), composing a
+recognizer engine for an installed recognition model via `LoadAsync` and then a session bound to
+a capture device via the engine's `CreateSessionAsync` without ever throwing for an ordinary
+machine state, and converts captured audio into the format a model requires before streaming it
+through an internal, mockable recognition-backend seam. A fifth subsystem,
 `SynthesisSubsystem`, provides the text-to-speech side: its closed, fixed Natural Language Audio
 Tag vocabulary and the model-independent Layer 1 parser (`AudioTagCatalog`/`AudioTagParser`) that
 recognizes bracket syntax against it, its Layer 2 rendering strategy
 (`IModelCapabilityProfile`/`DefaultModelCapabilityProfile`) that turns a parsed span sequence
 into a model-appropriate `SpeechPlan` of `SpeechSegment`s, its `SentenceChunker` for
-pipeline-friendly chunk boundaries, and its public `ISpeechSynthesizer` streaming/playback
-contract, which composes a synthesizer for an installed synthesis model and a playback device
-without ever throwing and pipelines chunked synthesis with playback through an internal, mockable
-synthesis-engine seam.
+pipeline-friendly chunk boundaries, and its public async Engine/Session streaming/playback
+contract (`ISpeechSynthesizerEngine`/`ISynthesisSession`), which composes a synthesizer engine
+for an installed synthesis model via `LoadAsync` and then a session bound to a playback device
+via the engine's `CreateSessionAsync` without ever throwing and pipelines chunked synthesis with
+playback through an internal, mockable synthesis-backend seam.
 
 A second, sibling system, `SpeechDemo`, sits alongside `Speech` in the model. It is the Avalonia
 desktop application that consumes the library's public API and demonstrates it, and it is
@@ -261,18 +265,27 @@ src/DemaConsulting.Speech/
 ```text
 src/DemaConsulting.Speech/
 └── RecognitionSubsystem/
-    ├── ISpeechRecognizer.cs                     — Streaming speech-to-text contract
-    ├── SpeechRecognitionResult.cs               — Recognized text plus provisional/final flag
-    ├── SpeechRecognitionEvent.cs                — Result-carrying recognition event payload
-    ├── SpeechRecognizerUnavailableException.cs  — Thrown by unavailable recognizers when misused
-    ├── SpeechRecognizerFactory.cs               — Composition entry point for recognizer creation
-    ├── UnavailableSpeechRecognizer.cs           — Honest unavailable recognizer fallback
-    ├── IRecognitionEngine.cs                    — Mockable speech-inference seam
-    ├── IRecognitionEngineFactory.cs             — Mockable engine-loading seam
-    ├── SherpaOnnxRecognitionEngine.cs           — Real sherpa-onnx streaming engine adapter
-    ├── SherpaOnnxRecognitionEngineFactory.cs    — Real model-driven engine loader
-    ├── AudioFrameResampler.cs                   — Downmix and rate conversion for captured audio
-    └── SherpaOnnxSpeechRecognizer.cs            — Real streaming recognition pipeline
+    ├── ISpeechRecognizerEngine.cs                — Loaded-model engine contract (Layer 3)
+    ├── IRecognitionSession.cs                    — Per-device session contract (Layer 5)
+    ├── RecognitionSessionState.cs                — Session state machine enum
+    ├── SessionStateChangedEventArgs.cs           — StateChanged event payload
+    ├── SpeechRecognitionResult.cs                — Recognized text plus provisional/final flag
+    ├── SpeechRecognitionEvent.cs                 — Result-carrying recognition event payload
+    ├── SpeechRecognizerUnavailableException.cs   — Thrown by unavailable engines/sessions when misused
+    ├── RecognitionEngineBusyException.cs         — Thrown by a concurrent CreateSessionAsync while leased
+    ├── RecognitionSessionFaultedException.cs     — Surfaced through GetResultsAsync on worker fault
+    ├── SpeechRecognizerFactory.cs                — Composition entry point: LoadAsync returns an engine
+    ├── UnavailableSpeechRecognizerEngine.cs       — Honest unavailable engine fallback
+    ├── UnavailableRecognitionSession.cs          — Honest unavailable session fallback
+    ├── IRecognitionBackend.cs                    — Mockable speech-inference seam (internal)
+    ├── IRecognitionBackendFactory.cs             — Mockable engine-loading seam (internal)
+    ├── SherpaOnnxRecognitionEngine.cs            — Real sherpa-onnx streaming engine adapter
+    ├── SherpaOnnxRecognitionEngineFactory.cs     — Real model-driven engine loader
+    ├── SherpaOnnxSpeechRecognizerEngine.cs       — Real ISpeechRecognizerEngine implementation
+    ├── SherpaOnnxRecognitionSession.cs           — Real IRecognitionSession streaming pipeline
+    ├── RecognitionResultBuffer.cs                — Byte-capped backpressure buffer for GetResultsAsync
+    ├── DedicatedWorker.cs                        — Long-running worker thread with cooperative-cancel-then-abandon
+    └── AudioFrameResampler.cs                    — Downmix and rate conversion for captured audio
 ```
 
 ```text
@@ -292,17 +305,25 @@ src/DemaConsulting.Speech/
     ├── DefaultModelCapabilityProfile.cs          — Generically-correct default rendering strategy
     ├── SentenceChunker.cs                        — Sentence/clause-sized chunking for pipelining
     ├── EngineAudio.cs                             — Raw engine output: samples plus produced rate
-    ├── ISynthesisEngine.cs                        — Mockable speech-synthesis seam
-    ├── ISynthesisEngineFactory.cs                 — Mockable engine-loading seam
+    ├── ISpeechSynthesizerEngine.cs                — Loaded-model engine contract (Layer 3)
+    ├── ISynthesisSession.cs                       — Per-device session contract (Layer 5)
+    ├── SynthesisSessionState.cs                   — Session state machine enum
+    ├── SessionStateChangedEventArgs.cs            — StateChanged event payload
+    ├── SpeechSynthesizerUnavailableException.cs   — Thrown by unavailable engines/sessions when misused
+    ├── SynthesisEngineBusyException.cs            — Thrown by a concurrent CreateSessionAsync while leased
+    ├── SynthesisSessionFaultedException.cs        — Surfaced on worker fault
+    ├── SpeechSynthesizerFactory.cs                — Composition entry point: LoadAsync returns an engine
+    ├── UnavailableSpeechSynthesizerEngine.cs       — Honest unavailable engine fallback
+    ├── UnavailableSynthesisSession.cs             — Honest unavailable session fallback
+    ├── ISynthesisBackend.cs                       — Mockable speech-synthesis seam (internal)
+    ├── ISynthesisBackendFactory.cs                — Mockable engine-loading seam (internal)
     ├── SherpaOnnxSynthesisEngine.cs               — Real sherpa-onnx offline-TTS engine adapter
     ├── SherpaOnnxSynthesisEngineFactory.cs        — Real model-driven engine loader
+    ├── SherpaOnnxSpeechSynthesizerEngine.cs        — Real ISpeechSynthesizerEngine implementation
+    ├── SherpaOnnxSynthesisSession.cs              — Real ISynthesisSession chunked/pipelined synthesis
+    ├── DedicatedWorker.cs                         — Long-running worker thread with cooperative-cancel-then-abandon
     ├── PlaybackAudioResampler.cs                  — Rate conversion and upmix for playback audio
-    ├── SynthesizedSpeech.cs                       — One synthesized segment's audio and silence
-    ├── ISpeechSynthesizer.cs                      — Chunked/streaming synthesis-and-playback contract
-    ├── SpeechSynthesizerUnavailableException.cs   — Thrown by unavailable synthesizers when misused
-    ├── SpeechSynthesizerFactory.cs                — Composition entry point for synthesizer creation
-    ├── UnavailableSpeechSynthesizer.cs            — Honest unavailable synthesizer fallback
-    └── SherpaOnnxSpeechSynthesizer.cs             — Real chunked/pipelined synthesis pipeline
+    └── SynthesizedSpeech.cs                       — One synthesized segment's audio and silence
 ```
 
 The SpeechDemo application's folder structure likewise mirrors its software structure:

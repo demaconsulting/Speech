@@ -63,10 +63,10 @@ external interfaces are its user interface and the interfaces it consumes.
 | `AudioDeviceSelection` | Outbound | Value construction | Name-only device identity |
 | `SpeechModelCatalog.Enumerate()` | Outbound | Method call/return | Consumed; never throws |
 | `SpeechModelCatalog.DownloadAsync(...)` | Outbound | Method call/return | Throws for unknown model id |
-| `SpeechSynthesizerFactory.Create(...)` | Outbound | Method call/return | Consumed; never throws |
-| `SpeechRecognizerFactory.Create(...)` | Outbound | Method call/return | Consumed; never throws |
-| `ISpeechSynthesizer.SpeakAsync(...)` | Outbound | Method call/return | Consumed; cancellation stops playback |
-| `ISpeechRecognizer.Start()` / `Stop()` / `ResultReceived` | Outbound | Method call/event | Consumed; UI-marshaled |
+| `SpeechSynthesizerFactory.LoadAsync(...)` | Outbound | Method call/return | Consumed; never throws |
+| `SpeechRecognizerFactory.LoadAsync(...)` | Outbound | Method call/return | Consumed; never throws |
+| `ISynthesisSession.SpeakAsync(...)` | Outbound | Method call/return | Consumed; cancellation stops playback |
+| `IRecognitionSession.StartAsync()` / `StopAsync()` / `GetResultsAsync()` | Outbound | Method call/`IAsyncEnumerable` | Consumed; UI-marshaled via `StateChanged` |
 
 ## Dependencies
 

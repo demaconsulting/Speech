@@ -24,20 +24,22 @@ consists of five subsystems:
   `SpeechModelCatalog`'s enumeration of the compiled-in known-model registry (four real,
   production models covering both roles) alongside install state — see
   _ModelManagementSubsystem Design_
-- **RecognitionSubsystem**: the public streaming speech-to-text contract
-  (`ISpeechRecognizer`/`SpeechRecognitionResult`), the `SpeechRecognizerFactory` composition root
-  that returns either a real recognizer or an honest unavailable fallback, the
-  `SherpaOnnxSpeechRecognizer` pipeline that converts captured audio to the model's required
-  format and streams it through a mockable recognition-engine seam, and
-  `UnavailableSpeechRecognizer` — see _RecognitionSubsystem Design_
+- **RecognitionSubsystem**: the public async Engine/Session streaming speech-to-text contract
+  (`ISpeechRecognizerEngine`/`IRecognitionSession`/`SpeechRecognitionResult`), the
+  `SpeechRecognizerFactory` composition root whose `LoadAsync` returns either a real engine or
+  an honest unavailable fallback, the `SherpaOnnxRecognitionSession` pipeline that converts
+  captured audio to the model's required format and streams it through a mockable internal
+  `IRecognitionBackend` seam, and `UnavailableSpeechRecognizerEngine`/
+  `UnavailableRecognitionSession` — see _RecognitionSubsystem Design_
 - **SynthesisSubsystem**: the closed, fixed Natural Language Audio Tag vocabulary and the
   model-independent Layer 1 parser (`AudioTagCatalog`/`AudioTagParser`) that recognizes bracket
   syntax against it, the Layer 2 rendering strategy
   (`IModelCapabilityProfile`/`DefaultModelCapabilityProfile`) that turns a parsed span sequence
   into a model-appropriate `SpeechPlan` of `SpeechSegment`s, the `SentenceChunker` used for
-  pipeline-friendly chunk boundaries, and the public `ISpeechSynthesizer` streaming/playback
-  contract, whose `SpeechSynthesizerFactory` composition root returns either the real
-  `SherpaOnnxSpeechSynthesizer` pipeline or the honest `UnavailableSpeechSynthesizer` fallback —
+  pipeline-friendly chunk boundaries, and the public async Engine/Session streaming/playback
+  contract (`ISpeechSynthesizerEngine`/`ISynthesisSession`), whose `SpeechSynthesizerFactory`
+  composition root's `LoadAsync` returns either the real `SherpaOnnxSynthesisSession` pipeline
+  or the honest `UnavailableSpeechSynthesizerEngine`/`UnavailableSynthesisSession` fallback —
   see _SynthesisSubsystem Design_
 
 Within AudioSubsystem, a child **PortAudio** subsystem isolates PortAudioSharp2 and the
@@ -82,23 +84,38 @@ The system exposes the following public API to external consumers:
 - **SpeechModelCatalog**: enumerates the compiled-in known-model registry (four real,
   production models covering both roles) alongside install state, and orchestrates downloading
   a known model by id
-- **ISpeechRecognizer** / **SpeechRecognitionResult** / **SpeechRecognitionEvent**: the streaming
-  speech-to-text contract and the immutable result/event types it delivers
-- **SpeechRecognizerFactory**: the composition entry point for obtaining a speech recognizer for
-  an installed recognition model and a capture device
-- **UnavailableSpeechRecognizer** / **SpeechRecognizerUnavailableException**: the honest
-  unavailable recognizer fallback and the exception thrown when an operational member of an
-  unavailable recognizer is invoked
+- **ISpeechRecognizerEngine** / **IRecognitionSession** / **SpeechRecognitionResult** /
+  **SpeechRecognitionEvent**: the loaded-model engine and per-device session halves of the
+  streaming speech-to-text contract, their state enums (`RecognitionSessionState`,
+  `SessionStateChangedEventArgs`), and the immutable result/event types a session's
+  `GetResultsAsync()` delivers
+- **SpeechRecognizerFactory**: the composition entry point whose `LoadAsync` obtains a speech
+  recognizer engine for an installed recognition model, with the engine's own
+  `CreateSessionAsync` binding it to a capture device for a session's lifetime
+- **UnavailableSpeechRecognizerEngine** / **UnavailableRecognitionSession** /
+  **SpeechRecognizerUnavailableException** / **RecognitionEngineBusyException** /
+  **RecognitionSessionFaultedException**: the honest unavailable engine/session fallbacks, the
+  exception thrown when an operational member of an unavailable engine/session is invoked, the
+  exception thrown by a concurrent `CreateSessionAsync` while the engine's one session lease is
+  already held, and the exception/fault surfaced through a session's result stream when its
+  dedicated worker faults
 - **NaturalLanguageAudioTag** / **NaturalLanguageAudioTagKind** / **AudioTagDescriptor** /
   **AudioTagCatalog** / **TaggedTextSpanKind** / **TaggedTextSpan** / **AudioTagParser**: the
   closed, fixed inline audio-tag vocabulary and the model-independent parser that recognizes it
-- **ISpeechSynthesizer** / **SynthesizedSpeech**: the streaming synthesis-and-playback contract
-  and the immutable value type it yields
-- **SpeechSynthesizerFactory**: the composition entry point for obtaining a speech synthesizer
-  for an installed synthesis model and a playback device
-- **UnavailableSpeechSynthesizer** / **SpeechSynthesizerUnavailableException**: the honest
-  unavailable synthesizer fallback and the exception thrown when an operational member of an
-  unavailable synthesizer is invoked
+- **ISpeechSynthesizerEngine** / **ISynthesisSession** / **SynthesizedSpeech**: the loaded-model
+  engine and per-device session halves of the streaming synthesis-and-playback contract, their
+  state enums (`SynthesisSessionState`, `SessionStateChangedEventArgs`), and the immutable value
+  type a session's `SpeakAsync`/`SynthesizeAsync` yields
+- **SpeechSynthesizerFactory**: the composition entry point whose `LoadAsync` obtains a speech
+  synthesizer engine for an installed synthesis model, with the engine's own
+  `CreateSessionAsync` binding it to a playback device for a session's lifetime
+- **UnavailableSpeechSynthesizerEngine** / **UnavailableSynthesisSession** /
+  **SpeechSynthesizerUnavailableException** / **SynthesisEngineBusyException** /
+  **SynthesisSessionFaultedException**: the honest unavailable engine/session fallbacks, the
+  exception thrown when an operational member of an unavailable engine/session is invoked, the
+  exception thrown by a concurrent `CreateSessionAsync` while the engine's one session lease is
+  already held, and the exception/fault surfaced through a session's result stream when its
+  dedicated worker faults
 
 | Interface | Direction | Format | Constraints |
 | --- | --- | --- | --- |
@@ -118,14 +135,16 @@ The system exposes the following public API to external consumers:
 | `IModelDownloadClient.DownloadAsync(...)` | Inbound | Method call | Throws on any non-success/transport failure |
 | `SpeechModelCatalog.Enumerate()` | Outbound | Method call/return | Never throws |
 | `SpeechModelCatalog.DownloadAsync(...)` | Inbound/Outbound | Method call/return | Throws for unknown model id |
-| `SpeechRecognizerFactory.Create(...)` | Inbound/Outbound | Method call/return | Never throws for unavailable states |
-| `ISpeechRecognizer.Start()`/`.Stop()` | Inbound | Method call | Throws only on unavailable or first-use faults |
-| `ISpeechRecognizer.ResultReceived` | Outbound | Event | Raised off the audio callback thread |
-| `ISpeechRecognizer.Dispose()` | Inbound | Method call | Idempotent; implies `Stop()` |
+| `SpeechRecognizerFactory.LoadAsync(...)` | Inbound/Outbound | Method call/return (`Task`) | Never throws for unavailable states |
+| `ISpeechRecognizerEngine.CreateSessionAsync(...)` | Inbound/Outbound | Method call/return (`Task`) | Never throws for unavailable states; throws `RecognitionEngineBusyException` if leased |
+| `IRecognitionSession.StartAsync()`/`.StopAsync()` | Inbound | Method call (`Task`) | Throws only on unavailable, use-after-dispose, or restart-after-stop |
+| `IRecognitionSession.GetResultsAsync(...)` | Outbound | `IAsyncEnumerable<SpeechRecognitionEvent>` | Single-consumer; flushes before `StopAsync()` completes; faults surface to the active enumerator |
+| `IRecognitionSession.DisposeAsync()` | Inbound | Method call (`ValueTask`) | Idempotent; implies `StopAsync()` |
 | `AudioTagParser.Parse(...)` | Inbound/Outbound | Method call/return | Never throws; folds unmatched brackets |
-| `SpeechSynthesizerFactory.Create(...)` | Inbound/Outbound | Method call/return | Never throws for unavailable states |
-| `ISpeechSynthesizer.SpeakAsync(...)` | Inbound/Outbound | Method call/return | Throws only on unavailable/first-use |
-| `ISpeechSynthesizer.Dispose()` | Inbound | Method call | Idempotent |
+| `SpeechSynthesizerFactory.LoadAsync(...)` | Inbound/Outbound | Method call/return (`Task`) | Never throws for unavailable states |
+| `ISpeechSynthesizerEngine.CreateSessionAsync(...)` | Inbound/Outbound | Method call/return (`Task`) | Never throws for unavailable states; throws `SynthesisEngineBusyException` if leased |
+| `ISynthesisSession.SpeakAsync(...)`/`.SynthesizeAsync(...)` | Inbound/Outbound | Method call/return (`Task`) | Throws only on unavailable/first-use; overlap disallowed |
+| `ISynthesisSession.DisposeAsync()` | Inbound | Method call (`ValueTask`) | Idempotent |
 
 ## Dependencies
 
@@ -232,37 +251,48 @@ direct safety impact.
 
 **Streaming recognition path:**
 
-1. **Input**: A host passes an installed `IRecognitionModel`, that model's installed-files
-   directory, and an `IAudioCaptureDevice` to `SpeechRecognizerFactory.Create(...)`
-2. **Composition**: The factory checks installation, model role, and device availability, then
-   loads the model's own engine configuration through the internal `IRecognitionEngineFactory`
-   seam; any failure returns `UnavailableSpeechRecognizer.Instance` with a structural diagnostic
-3. **Capture**: `Start()` subscribes to `FrameCaptured` and starts the device; each captured
+1. **Input**: A host passes an installed `IRecognitionModel` and that model's installed-files
+   directory to `SpeechRecognizerFactory.LoadAsync(...)`, then passes an `IAudioCaptureDevice`
+   to the returned engine's `CreateSessionAsync(...)`
+2. **Composition**: `LoadAsync` checks installation and model role, then loads the model's own
+   engine configuration through the internal `IRecognitionBackendFactory` seam; any failure
+   returns `UnavailableSpeechRecognizerEngine.Instance` with a structural diagnostic.
+   `CreateSessionAsync` checks device availability and the engine's single-session lease,
+   returning `UnavailableRecognitionSession.Instance` or throwing
+   `RecognitionEngineBusyException` for a concurrent second lease attempt
+3. **Capture**: `StartAsync()` subscribes to `FrameCaptured` and starts the device; each captured
    block is copied onto a bounded queue on the audio callback thread and nothing more
-4. **Conversion and inference**: A single background consumer downmixes and resamples each block
-   from the device's reported `ChannelCount`/`SampleRate` to the model's declared `AudioFormat`
-   via `AudioFrameResampler`, feeds it to the `IRecognitionEngine`, and polls for results
-5. **Output**: `ResultReceived` raises each provisional and final `SpeechRecognitionResult` off
-   the audio callback thread; `Stop()` drains the queue so no result derived from already-captured
-   audio is lost
+4. **Conversion and inference**: A dedicated long-running worker thread downmixes and resamples
+   each block from the device's reported `ChannelCount`/`SampleRate` to the model's declared
+   `AudioFormat` via `AudioFrameResampler`, feeds it to the `IRecognitionBackend`, and polls for
+   results
+5. **Output**: `GetResultsAsync()` yields each provisional and final `SpeechRecognitionResult`
+   through a byte-capped backpressure buffer that coalesces provisional results but never drops a
+   final one; `StopAsync()` drains the queue so no result derived from already-captured audio is
+   lost before the result stream completes
 
 **Streaming synthesis path:**
 
-1. **Input**: A host passes an installed `ISynthesisModel`, that model's installed-files
-   directory, and an `IAudioPlaybackDevice` to `SpeechSynthesizerFactory.Create(...)`
-2. **Composition**: The factory checks installation, model role, and device availability, then
-   loads the model's own engine configuration through the internal `ISynthesisEngineFactory` seam;
-   any failure returns `UnavailableSpeechSynthesizer.Instance` with a structural diagnostic
+1. **Input**: A host passes an installed `ISynthesisModel` and that model's installed-files
+   directory to `SpeechSynthesizerFactory.LoadAsync(...)`, then passes an `IAudioPlaybackDevice`
+   to the returned engine's `CreateSessionAsync(...)`
+2. **Composition**: `LoadAsync` checks installation and model role, then loads the model's own
+   engine configuration through the internal `ISynthesisBackendFactory` seam; any failure returns
+   `UnavailableSpeechSynthesizerEngine.Instance` with a structural diagnostic.
+   `CreateSessionAsync` checks device availability and the engine's single-session lease,
+   returning `UnavailableSynthesisSession.Instance` or throwing `SynthesisEngineBusyException`
+   for a concurrent second lease attempt
 3. **Parsing and rendering**: `AudioTagParser` recognizes inline audio-tag bracket syntax against
    the fixed vocabulary, and the selected model's `IModelCapabilityProfile` renders the parsed
    span sequence into a `SpeechPlan` of `SpeechSegment`s, honoring the model's own declared
    audio-tag support
 4. **Chunked synthesis and playback**: `SentenceChunker` splits synthesis-ready text into
-   pipeline-friendly chunks; each chunk streams through the `ISynthesisEngine` and the resulting
-   audio is resampled via `PlaybackAudioResampler` to the playback device's required format before
-   being written to it
-5. **Output**: The playback device renders the synthesized audio as it streams; `Stop()` halts an
-   in-progress synthesis/playback cycle
+   pipeline-friendly chunks; each chunk streams through the `ISynthesisBackend` on a dedicated
+   long-running worker thread and the resulting audio is resampled via `PlaybackAudioResampler`
+   to the playback device's required format before being written to it
+5. **Output**: The playback device renders the synthesized audio as it streams via
+   `SpeakAsync(...)` (or is returned as `SynthesizedSpeech` segments via `SynthesizeAsync(...)`);
+   `StopAsync()` halts an in-progress synthesis/playback cycle
 
 ## Design Constraints
 

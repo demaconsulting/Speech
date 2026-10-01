@@ -5,8 +5,8 @@
 # (speak), decomposing the system-level dispatch requirements in docs/reqstream/speech-cli.yaml.
 #
 # This subsystem extends the ModelCommandsSubsystem seam (ICliModelCatalog) with two further
-# members - GetPreferredAudioFormat and CreateSynthesizer - rather than introduce a second,
-# competing seam, since a resolved model must still be cast to the library's internal
+# members - GetPreferredAudioFormat and CreateSynthesizerEngineAsync - rather than introduce a
+# second, competing seam, since a resolved model must still be cast to the library's internal
 # ISynthesisModel before either operation is possible, and that cast belongs in the same
 # assembly-scoped adapter that already owns the original five members.
 
@@ -40,7 +40,7 @@ sections:
               - SpeakCommand_RunAsync_UnknownModelId_ThrowsArgumentException
               - SpeakCommand_RunAsync_WrongRoleModel_ThrowsArgumentException
               - SpeakCommand_RunAsync_NotDownloadedModel_ThrowsArgumentExceptionWithDownloadHint
-              - SpeakCommand_RunAsync_Success_DisposesSynthesizerOnce
+              - SpeakCommand_RunAsync_Success_DisposesEngineAndSessionOnce
               - SpeechCli_SpeakCommandWithoutModel_Invoked_ReturnsCleanError
               - SpeechCli_SpeakCommandWithUnknownModel_Invoked_ReturnsCleanError
               - SpeechCli_SpeakCommandWithWrongRoleModel_Invoked_ReturnsCleanError
@@ -84,7 +84,7 @@ sections:
               - ParameterBagParser_Resolve_UnrecognizedKey_ThrowsArgumentException
               - ParameterBagParser_Resolve_NoRawValues_ReturnsEmptyBag
               - SpeakCommand_ParseArguments_RepeatedParamFlags_AccumulatesInOrder
-              - SpeakCommand_RunAsync_ValidParam_ForwardsToCreateSynthesizer
+              - SpeakCommand_RunAsync_ValidParam_ForwardsToCreateSynthesizerEngine
               - SpeakCommand_RunAsync_InvalidParam_ThrowsArgumentException
 
           - id: SpeechCli-SynthesisCommands-NoTags
@@ -141,14 +141,14 @@ sections:
               `DownloadCommand` already established for its own cancellation handling.
             tests:
               - SpeakCommand_RunAsync_Canceled_ReportsErrorCleanly
-              - SpeakCommand_RunAsync_Success_DisposesSynthesizerOnce
+              - SpeakCommand_RunAsync_Success_DisposesEngineAndSessionOnce
 
           - id: SpeechCli-SynthesisCommands-CatalogSeamExtension
             title: >-
               The tool shall resolve a synthesis-role model's preferred audio format and construct
-              its `ISpeechSynthesizer` exclusively through the `ICliModelCatalog` seam's
-              `GetPreferredAudioFormat`/`CreateSynthesizer` members, which shall reject a
-              descriptor whose model is not a synthesis model with a clean `ArgumentException`.
+              its `ISynthesisSession` exclusively through the `ICliModelCatalog` seam's
+              `GetPreferredAudioFormat`/`CreateSynthesizerEngineAsync` members, which shall reject
+              a descriptor whose model is not a synthesis model with a clean `ArgumentException`.
             tags: [subsystem]
             justification: |
               `SpeakCommand` cannot itself distinguish a synthesis-capable model without internal
@@ -160,9 +160,8 @@ sections:
             tests:
               - SpeechModelCatalogAdapter_GetPreferredAudioFormat_RecognitionRoleModel_ThrowsArgumentException
               - SpeechModelCatalogAdapter_GetPreferredAudioFormat_NullDescriptor_ThrowsArgumentNullException
-              - SpeechModelCatalogAdapter_CreateSynthesizer_RecognitionRoleModel_ThrowsArgumentException
-              - SpeechModelCatalogAdapter_CreateSynthesizer_NullDescriptor_ThrowsArgumentNullException
-              - SpeechModelCatalogAdapter_CreateSynthesizer_NullPlaybackDevice_ThrowsArgumentNullException
+              - SpeechModelCatalogAdapter_CreateSynthesizerEngineAsync_RecognitionRoleModel_ThrowsArgumentException
+              - SpeechModelCatalogAdapter_CreateSynthesizerEngineAsync_NullDescriptor_ThrowsArgumentNullException
 
           - id: SpeechCli-SynthesisCommands-NullGuards
             title: >-
@@ -178,6 +177,5 @@ sections:
               - SpeakCommand_RunAsync_NullContext_ThrowsArgumentNullException
               - SpeakCommand_RunAsync_NullCatalog_ThrowsArgumentNullException
               - SpeakCommand_RunAsync_NullFactory_ThrowsArgumentNullException
-              - SpeakCommand_Run_NullContext_ThrowsArgumentNullException
               - ParameterBagParser_Resolve_NullRawValues_ThrowsArgumentNullException
               - ParameterBagParser_Resolve_NullDeclaredParameters_ThrowsArgumentNullException

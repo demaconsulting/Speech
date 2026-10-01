@@ -169,7 +169,7 @@ sections:
           - id: SpeechCli-ModelCommands-SynthesisSeamExtension
             title: >-
               The `ICliModelCatalog` seam shall additionally expose a resolved model's preferred
-              audio format and construct its `ISpeechSynthesizer`, for use by
+              audio format and construct its `ISpeechSynthesizerEngine`, for use by
               `SynthesisCommandSubsystem`'s `speak` subcommand, rejecting a descriptor whose model
               is not a synthesis model with a clean `ArgumentException` rather than an unhandled
               cast exception.
@@ -184,6 +184,5 @@ sections:
             tests:
               - SpeechModelCatalogAdapter_GetPreferredAudioFormat_RecognitionRoleModel_ThrowsArgumentException
               - SpeechModelCatalogAdapter_GetPreferredAudioFormat_NullDescriptor_ThrowsArgumentNullException
-              - SpeechModelCatalogAdapter_CreateSynthesizer_RecognitionRoleModel_ThrowsArgumentException
-              - SpeechModelCatalogAdapter_CreateSynthesizer_NullDescriptor_ThrowsArgumentNullException
-              - SpeechModelCatalogAdapter_CreateSynthesizer_NullPlaybackDevice_ThrowsArgumentNullException
+              - SpeechModelCatalogAdapter_CreateSynthesizerEngineAsync_RecognitionRoleModel_ThrowsArgumentException
+              - SpeechModelCatalogAdapter_CreateSynthesizerEngineAsync_NullDescriptor_ThrowsArgumentNullException

@@ -5,10 +5,11 @@
 # (recognize), decomposing the system-level dispatch requirements in docs/reqstream/speech-cli.yaml.
 #
 # This subsystem extends the ModelCommandsSubsystem seam (ICliModelCatalog) with two further
-# members - GetAudioFormat and CreateRecognizer - rather than introduce a second, competing seam,
-# since a resolved model must still be cast to the library's internal IRecognitionModel before
-# either operation is possible, and that cast belongs in the same assembly-scoped adapter that
-# already owns the original five members plus the two added by the SynthesisCommandSubsystem.
+# members - GetAudioFormat and CreateRecognizerEngineAsync - rather than introduce a second,
+# competing seam, since a resolved model must still be cast to the library's internal
+# IRecognitionModel before either operation is possible, and that cast belongs in the same
+# assembly-scoped adapter that already owns the original five members plus the two added by the
+# SynthesisCommandSubsystem.
 
 sections:
   - title: SpeechCli Requirements
@@ -42,7 +43,7 @@ sections:
               - RecognizeCommand_Run_UnknownModelId_ThrowsArgumentException
               - RecognizeCommand_Run_WrongRoleModel_ThrowsArgumentException
               - RecognizeCommand_Run_NotDownloadedModel_ThrowsArgumentExceptionWithDownloadHint
-              - RecognizeCommand_Run_Success_DisposesRecognizerOnce
+              - RecognizeCommand_Run_Success_DisposesEngineAndSessionOnce
               - SpeechCli_RecognizeCommandWithoutModel_Invoked_ReturnsCleanError
               - SpeechCli_RecognizeCommandWithUnknownModel_Invoked_ReturnsCleanError
               - SpeechCli_RecognizeCommandWithWrongRoleModel_Invoked_ReturnsCleanError
@@ -56,7 +57,7 @@ sections:
               The tool shall parse repeatable `--stt-param key=value` flags and validate each value
               against the resolved recognition model's own declared parameter set, reusing the
               shared `ParameterBagParser` from the SynthesisCommandSubsystem, forwarding the
-              fully-resolved parameter bag to `CreateRecognizer`.
+              fully-resolved parameter bag to `CreateRecognizerEngineAsync`.
             tags: [subsystem]
             justification: |
               Recognition models declare tunable parameters exactly as synthesis models do (e.g.
@@ -65,17 +66,17 @@ sections:
               `--stt-param` semantics across both `speak` and `recognize`.
             tests:
               - RecognizeCommand_ParseArguments_RepeatedParamFlags_AccumulatesInOrder
-              - RecognizeCommand_Run_ValidParam_ForwardsToCreateRecognizer
+              - RecognizeCommand_Run_ValidParam_ForwardsToCreateRecognizerEngine
               - RecognizeCommand_Run_InvalidParam_ThrowsArgumentException
 
           - id: SpeechCli-RecognitionCommands-FileInputEofDrivenStop
             title: >-
               The tool shall, in `--input` mode, drive the supplied `WavFileAudioCaptureDevice` to
-              completion via `ISpeechRecognizer.Start()`'s own synchronous, blocking call chain,
-              stopping the recognizer reentrantly from the device's own `EndOfFileReached` event
-              and returning control to the caller only once every result derived from the whole
-              file has already been raised and the recognizer has fully stopped, with no
-              additional wait or fixed sleep.
+              completion by explicitly draining the session after the capture device itself has
+              reported `EndOfFileReached`, awaiting `IRecognitionSession.StopAsync()` so that the
+              `GetResultsAsync()` stream completes and every result derived from the whole file
+              has already been consumed before returning control to the caller, with no additional
+              wait or fixed sleep.
             tags: [subsystem]
             justification: |
               A file-input recognition session is inherently finite and must terminate on its own
@@ -83,16 +84,18 @@ sections:
               command needing an arbitrary settle delay that would be either too short (truncating
               results) or too long (wasting time) for an unknown file duration.
             tests:
-              - RecognizeCommand_Run_FileInput_StartsAndStopsRecognizerViaEndOfFile
-              - RecognizeCommand_Run_FileInput_PassesWavFileCaptureDeviceToCreateRecognizer
+              - RecognizeCommand_Run_FileInput_StartsAndStopsRecognizerViaExplicitDrain
+              - RecognizeCommand_Run_FileInput_PassesWavFileCaptureDeviceToCreateSession
 
           - id: SpeechCli-RecognitionCommands-SilenceTimeout
             title: >-
               The tool shall, in `--mic` mode with `--silence-timeout <seconds>` given, stop the
-              recognizer and end the session automatically once no recognition result (partial or
-              final) has arrived within the given idle window since the last result (or session
-              start), via `SilenceTimeoutRecognizerSession`, which shall re-arm its idle timer on
-              every result and never fire after `Dispose()`.
+              session and end its result stream automatically once no recognition result (partial
+              or final) has been yielded within the given idle window since the last result (or
+              session start), via `SilenceTimeoutRecognizerSession`, a stateless
+              `IAsyncEnumerable<SpeechRecognitionEvent>` decorator that re-arms a fresh idle timer
+              on every yielded result and raises `TimedOut` exactly once, after calling
+              `IRecognitionSession.StopAsync()`.
             tags: [subsystem]
             justification: |
               An unattended microphone session with no natural end-of-file signal needs an
@@ -102,26 +105,22 @@ sections:
               - RecognizeCommand_ParseArguments_SilenceTimeoutFlag_ParsesSeconds
               - RecognizeCommand_ParseArguments_NonPositiveSilenceTimeout_ThrowsArgumentException
               - RecognizeCommand_ParseArguments_MalformedSilenceTimeout_ThrowsArgumentException
-              - SilenceTimeoutRecognizerSession_Construct_ArmsTimerWithGivenTimeout
-              - SilenceTimeoutRecognizerSession_PartialResultReceived_ResetsIdleTimer
-              - SilenceTimeoutRecognizerSession_FinalResultReceived_ResetsIdleTimer
-              - SilenceTimeoutRecognizerSession_IdleTimerFires_StopsRecognizerAndRaisesTimedOut
-              - SilenceTimeoutRecognizerSession_ResetThenFire_StopsOnlyOnActualFire
-              - SilenceTimeoutRecognizerSession_Dispose_UnsubscribesAndDisposesTimer
-              - SilenceTimeoutRecognizerSession_FireAfterDispose_DoesNotCallStopOrRaiseTimedOut
-              - SilenceTimeoutRecognizerSession_Construct_NullRecognizer_ThrowsArgumentNullException
-              - SilenceTimeoutRecognizerSession_Construct_NonPositiveTimeout_ThrowsArgumentOutOfRangeException
-              - SilenceTimeoutRecognizerSession_Construct_NullTimeProvider_UsesSystemTimeProvider
+              - SilenceTimeoutRecognizerSession_Construct_NullSession_ThrowsArgumentNullException
+              - SilenceTimeoutRecognizerSession_Construct_NonPositiveIdleTimeout_ThrowsArgumentOutOfRangeException
+              - SilenceTimeoutRecognizerSession_Construct_NullTimeProvider_DoesNotThrow
+              - SilenceTimeoutRecognizerSession_GetResultsAsync_TimeoutBeforeAnyResult_StopsSessionAndRaisesTimedOutOnce
+              - SilenceTimeoutRecognizerSession_GetResultsAsync_TimeoutAfterResult_StopsSessionAndRaisesTimedOutOnce
+              - SilenceTimeoutRecognizerSession_GetResultsAsync_CancellationRequested_PropagatesOperationCanceledException
 
           - id: SpeechCli-RecognitionCommands-StartTimeout
             title: >-
               The tool shall, in `--mic` mode with `--silence-timeout` given, accept an optional
               `--start-timeout <seconds>` flag configuring a separate idle window used only
-              before the first recognition result arrives (defaulting to `--silence-timeout`'s
+              before the first recognition result is yielded (defaulting to `--silence-timeout`'s
               value when omitted), via `SilenceTimeoutRecognizerSession`, which shall arm its idle
-              timer with the start-timeout value at construction and switch to the
-              silence-timeout value for every re-arm from the first result onward, rejecting a
-              non-positive or malformed `--start-timeout` with a clean error.
+              timer with the start-timeout value for the first iteration and switch to the
+              idle-timeout value for every re-arm from the first yielded result onward, rejecting
+              a non-positive or malformed `--start-timeout` with a clean error.
             tags: [subsystem]
             justification: |
               A grace period for a user to begin speaking is typically much longer than the brief
@@ -136,12 +135,11 @@ sections:
               - RecognizeCommand_ParseArguments_StartTimeoutOmitted_DefaultsToNull
               - RecognizeCommand_ParseArguments_NonPositiveStartTimeout_ThrowsArgumentException
               - RecognizeCommand_ParseArguments_MalformedStartTimeout_ThrowsArgumentException
-              - SilenceTimeoutRecognizerSession_Construct_StartTimeoutOmitted_ArmsTimerWithSilenceTimeout
-              - SilenceTimeoutRecognizerSession_Construct_StartTimeoutGiven_ArmsTimerWithStartTimeout
-              - SilenceTimeoutRecognizerSession_FirstResultReceived_ReArmsWithSilenceTimeoutNotStartTimeout
-              - SilenceTimeoutRecognizerSession_SecondResultReceived_StaysOnSilenceTimeout
-              - SilenceTimeoutRecognizerSession_IdleTimerFiresBeforeFirstResult_StopsRecognizerAndRaisesTimedOut
               - SilenceTimeoutRecognizerSession_Construct_NonPositiveStartTimeout_ThrowsArgumentOutOfRangeException
+              - SilenceTimeoutRecognizerSession_GetResultsAsync_StartTimeoutOmitted_ArmsTimerWithIdleTimeout
+              - SilenceTimeoutRecognizerSession_GetResultsAsync_StartTimeoutGiven_ArmsTimerWithStartTimeout
+              - SilenceTimeoutRecognizerSession_GetResultsAsync_FirstResultReceived_ReArmsWithIdleTimeoutNotStartTimeout
+              - SilenceTimeoutRecognizerSession_GetResultsAsync_SecondResultReceived_StaysOnIdleTimeout
 
           - id: SpeechCli-RecognitionCommands-VerbosityAndOutput
             title: >-
@@ -187,9 +185,9 @@ sections:
           - id: SpeechCli-RecognitionCommands-CatalogSeamExtension
             title: >-
               The tool shall resolve a recognition-role model's audio format and construct its
-              `ISpeechRecognizer` exclusively through the `ICliModelCatalog` seam's
-              `GetAudioFormat`/`CreateRecognizer` members, which shall reject a descriptor whose
-              model is not a recognition model with a clean `ArgumentException`.
+              `IRecognitionSession` exclusively through the `ICliModelCatalog` seam's
+              `GetAudioFormat`/`CreateRecognizerEngineAsync` members, which shall reject a
+              descriptor whose model is not a recognition model with a clean `ArgumentException`.
             tags: [subsystem]
             justification: |
               `RecognizeCommand` cannot itself distinguish a recognition-capable model without
@@ -201,9 +199,8 @@ sections:
             tests:
               - SpeechModelCatalogAdapter_GetAudioFormat_SynthesisRoleModel_ThrowsArgumentException
               - SpeechModelCatalogAdapter_GetAudioFormat_NullDescriptor_ThrowsArgumentNullException
-              - SpeechModelCatalogAdapter_CreateRecognizer_SynthesisRoleModel_ThrowsArgumentException
-              - SpeechModelCatalogAdapter_CreateRecognizer_NullDescriptor_ThrowsArgumentNullException
-              - SpeechModelCatalogAdapter_CreateRecognizer_NullCaptureDevice_ThrowsArgumentNullException
+              - SpeechModelCatalogAdapter_CreateRecognizerEngineAsync_SynthesisRoleModel_ThrowsArgumentException
+              - SpeechModelCatalogAdapter_CreateRecognizerEngineAsync_NullDescriptor_ThrowsArgumentNullException
 
           - id: SpeechCli-RecognitionCommands-NullGuards
             title: >-

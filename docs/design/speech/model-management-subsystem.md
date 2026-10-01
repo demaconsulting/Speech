@@ -145,7 +145,7 @@ model's required format without leaking native engine configuration into the pub
 `ISynthesisModel` similarly exposes a public best-effort `PreferredAudioFormat` hint, while
 keeping `CreateEngineConfig`, `CapabilityProfile`, and `ResolveSpeakerId(parameterValues)`
 internal. The hint is intentionally non-authoritative: the real synthesis output rate is still
-the loaded engine's `ISynthesisEngine.SampleRate`.
+the loaded engine's `ISynthesisBackend.SampleRate`.
 
 `SpeechModelCatalog` composes a compiled-in `KnownModels` list - as of Phase 7a, this phase's two
 real recognition models - with a `SpeechModelStore` and a `SpeechModelDownloader`. `Enumerate()`

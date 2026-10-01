@@ -171,7 +171,14 @@ internal sealed class SilenceTimeoutRecognizerSession
             var delayTask = Task.Delay(timeout, _timeProvider, cancellationToken);
             var winner = await Task.WhenAny(moveNextTask, delayTask).ConfigureAwait(false);
 
-            if (winner == delayTask && !timedOut)
+            // A delayTask that "wins" because cancellationToken was cancelled (rather than
+            // because the idle window genuinely elapsed) is not a timeout: it is
+            // IsCompletedSuccessfully only when the idle window itself ran to completion, while a
+            // cancellation instead leaves it Canceled. Treating a cancellation-triggered delayTask
+            // as a timeout would wrongly call StopAsync here, racing the wrapped session's result
+            // stream completion against moveNextTask's own cancellation and sometimes swallowing
+            // the OperationCanceledException this enumeration's caller is entitled to observe.
+            if (winner == delayTask && delayTask.IsCompletedSuccessfully && !timedOut)
             {
                 // The idle window elapsed with no result yielded since the previous iteration (or
                 // since this method started, for the first iteration). Stop the session - which

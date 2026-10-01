@@ -112,26 +112,31 @@ progress-reporting behavior of all five commands to be verified deterministicall
 access and no real model download, using a fake `ICliModelCatalog` (see each command's own test
 file under `test/DemaConsulting.Speech.Cli.Tests/Commands/ModelCommandsSubsystem/`).
 
-### Addendum (Pass 5): Seam Extension for SynthesisCommandSubsystem
+### Addendum (Pass 5): Seam Extension for SynthesisCommandSubsystem and RecognitionCommandSubsystem
 
-Pass 5's `speak` subcommand needs to construct a real `ISpeechSynthesizer`, which requires casting
-a resolved model to the library's internal `ISynthesisModel` interface - a cast that is only
-compilable inside this same assembly (`DemaConsulting.Speech.Cli`), not inside
-`DemaConsulting.Speech.Cli.Tests`, which is not granted `InternalsVisibleTo` access to it. Rather
-than introduce a second, competing seam interface for `SynthesisCommandSubsystem`, `ICliModelCatalog`
-is extended with two further members that keep the same shape as the original five - a narrow,
-purpose-specific operation, never throwing for a genuinely absent capability where the library
-itself would return a graceful fallback:
+`speak` needs to load a real `ISpeechSynthesizerEngine`, and `recognize` needs to load a real
+`ISpeechRecognizerEngine`, each of which requires casting a resolved model to the library's
+internal `ISynthesisModel`/`IRecognitionModel` interface - a cast that is only compilable inside
+this same assembly (`DemaConsulting.Speech.Cli`), not inside `DemaConsulting.Speech.Cli.Tests`,
+which is not granted `InternalsVisibleTo` access to either. Rather than introduce competing seam
+interfaces for each subsystem, `ICliModelCatalog` is extended with four further members that keep
+the same shape as the original five - narrow, purpose-specific operations, never throwing for a
+genuinely absent capability where the library itself would return a graceful fallback:
 
 | Member | Returns | Behavior |
 | --- | --- | --- |
 | `GetPreferredAudioFormat(descriptor)` | `AudioFormat` | Throws for a non-synthesis model |
-| `CreateSynthesizer(descriptor, device, values)` | `ISpeechSynthesizer` | Throws for a non-synthesis model |
+| `CreateSynthesizerEngineAsync(descriptor, parameterValues, cancellationToken)` | `Task<ISpeechSynthesizerEngine>` | Throws for a non-synthesis model; no device bound yet |
+| `GetAudioFormat(descriptor)` | `AudioFormat` | Throws for a non-recognition model |
+| `CreateRecognizerEngineAsync(descriptor, parameterValues, cancellationToken)` | `Task<ISpeechRecognizerEngine>` | Throws for a non-recognition model; no device bound yet |
 
-`SpeechModelCatalogAdapter` implements both through a private `RequireSynthesisModel` helper that
-performs the `is ISynthesisModel` cast once, throwing a clean, model-id-naming `ArgumentException`
-when it fails. `CreateSynthesizer`'s implementation forwards to the library's public
-`SpeechSynthesizerFactory.Create(ISynthesisModel, SpeechModelCatalog, IAudioPlaybackDevice,
-ISpeechDiagnostics?, IReadOnlyDictionary<string,object>?)` overload, resolving the model's
-installed directory internally via the adapter's own composed catalog. See _SpeechCli
-SynthesisCommandSubsystem Design_ for how `SpeakCommand` consumes these two members.
+`SpeechModelCatalogAdapter` implements all four through private `RequireSynthesisModel`/
+`RequireRecognitionModel` helpers that perform the respective `is ISynthesisModel`/
+`is IRecognitionModel` cast once, throwing a clean, model-id-naming `ArgumentException` when it
+fails. `CreateSynthesizerEngineAsync`/`CreateRecognizerEngineAsync` forward unchanged to the
+library's `SpeechSynthesizerFactory.LoadAsync`/`SpeechRecognizerFactory.LoadAsync` static methods,
+each returning an engine with no device bound yet; the caller (`SpeakCommand`/`RecognizeCommand`/
+`AskCommand`) binds the resolved playback/capture device afterward via
+`engine.CreateSessionAsync(device, cancellationToken)`. See _SpeechCli SynthesisCommandSubsystem
+Design_ and _SpeechCli RecognitionCommandSubsystem Design_ for how each command consumes its two
+members.

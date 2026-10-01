@@ -106,8 +106,8 @@ consumes.
 | `SpeechModelCatalog` (model commands) | Outbound | Constructor/method call | Consumed via seam; no native runtime |
 | `IAudioCaptureDeviceProbe`/`IAudioPlaybackDeviceProbe` (device commands) | Outbound | Method call | Never throws |
 | Audio device hardware (`devices test`) | Bidirectional | PCM samples | Real I/O; fails cleanly if unavailable |
-| `ISpeechSynthesizer` (`speak`) | Outbound | Method call | Real inference/audio I/O; graceful fallback |
-| `ISpeechRecognizer` (`recognize`) | Outbound | Method call | Real inference/audio I/O; graceful fallback |
+| `ISpeechSynthesizerEngine`/`ISynthesisSession` (`speak`) | Outbound | Method call | Real inference/audio I/O; graceful fallback |
+| `ISpeechRecognizerEngine`/`IRecognitionSession` (`recognize`) | Outbound | Method call | Real inference/audio I/O; graceful fallback |
 
 ## Dependencies
 

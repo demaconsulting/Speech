@@ -1,0 +1,76 @@
+---
+# Software Unit Requirements for UnavailableSpeechSynthesizerEngine
+#
+# Groups requirements for UnavailableSpeechSynthesizerEngine and
+# SpeechSynthesizerUnavailableException into a single file, per design-documentation.md's
+# allowance for small supporting types documented inline within their subsystem's design doc.
+# Splits the former unavailable-speech-synthesizer.yaml between this file and
+# unavailable-synthesis-session.yaml to match the async Engine/Session redesign.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: SynthesisSubsystem Requirements
+        sections:
+          - title: UnavailableSpeechSynthesizerEngine Requirements
+            requirements:
+              - id: Speech-Synthesis-UnavailableSpeechSynthesizerEngine-ReportsUnavailable
+                title: >-
+                  The UnavailableSpeechSynthesizerEngine class shall report IsAvailable as false
+                  and never throw merely for being obtained or held.
+                justification: |
+                  A caller must always be able to safely obtain and hold a fallback engine, per
+                  this library's "nothing throws at composition" decision.
+                tests:
+                  - UnavailableSpeechSynthesizerEngine_IsAvailable_Read_ReturnsFalse
+
+              - id: Speech-Synthesis-UnavailableSpeechSynthesizerEngine-CreateSessionSucceeds
+                title: >-
+                  The UnavailableSpeechSynthesizerEngine class shall succeed when
+                  CreateSessionAsync is invoked with a non-null device, returning the shared
+                  UnavailableSynthesisSession, while rejecting a null device.
+                justification: |
+                  Binding a device to an already unavailable engine is an ordinary (if useless)
+                  composition, not an error; only a null device argument is a programming error
+                  at the call site.
+                tests:
+                  - UnavailableSpeechSynthesizerEngine_CreateSessionAsync_Always_ReturnsUnavailableSession
+                  - UnavailableSpeechSynthesizerEngine_CreateSessionAsync_NullDevice_ThrowsArgumentNullException
+
+              - id: Speech-Synthesis-UnavailableSpeechSynthesizerEngine-OperationsThrow
+                title: >-
+                  The UnavailableSpeechSynthesizerEngine class shall throw
+                  SpeechSynthesizerUnavailableException when SpeakAsync or SynthesizeAsync is
+                  invoked.
+                justification: |
+                  A caller that ignores the IsAvailable flag and invokes a one-shot operational
+                  member has made a programming error that must surface immediately rather than
+                  silently speaking nothing.
+                tests:
+                  - UnavailableSpeechSynthesizerEngine_SpeakAsync_Always_ThrowsSpeechSynthesizerUnavailableException
+                  - UnavailableSpeechSynthesizerEngine_SynthesizeAsync_Always_ThrowsSpeechSynthesizerUnavailableException
+
+              - id: Speech-Synthesis-UnavailableSpeechSynthesizerEngine-SafeDispose
+                title: >-
+                  The UnavailableSpeechSynthesizerEngine class shall treat disposal as a safe
+                  no-op that never throws and never invalidates the shared fallback.
+                justification: |
+                  A host that wraps its engine in a disposal scope must be able to run that same
+                  code unchanged on a machine where synthesis is unavailable.
+                tests:
+                  - UnavailableSpeechSynthesizerEngine_DisposeAsync_CalledTwice_DoesNotThrow
+
+          - title: SpeechSynthesizerUnavailableException Requirements
+            requirements:
+              - id: Speech-Synthesis-SpeechSynthesizerUnavailableException-Thrown
+                title: >-
+                  The SpeechSynthesizerUnavailableException class shall provide standard
+                  exception constructors (default, message, message with inner exception).
+                justification: |
+                  Standard exception conformance lets callers construct, catch, and inspect this
+                  exception like any other .NET exception type, including wrapping an underlying
+                  playback-device failure as the inner exception.
+                tests:
+                  - SpeechSynthesizerUnavailableException_Constructor_WithMessage_ExposesMessage
+                  - SpeechSynthesizerUnavailableException_Constructor_WithInnerException_ExposesBoth
+                  - SpeechSynthesizerUnavailableException_Constructor_Default_HasNonEmptyMessage

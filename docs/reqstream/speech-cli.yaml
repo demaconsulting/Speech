@@ -195,8 +195,8 @@ sections:
           - SpeechCli-RecognitionCommands-CatalogSeamExtension
           - SpeechCli-RecognitionCommands-NullGuards
         tests:
-          - RecognizeCommand_Run_ValidParam_ForwardsToCreateRecognizer
-          - RecognizeCommand_Run_Success_DisposesRecognizerOnce
+          - RecognizeCommand_Run_ValidParam_ForwardsToCreateRecognizerEngine
+          - RecognizeCommand_Run_Success_DisposesEngineAndSessionOnce
 
       - id: SpeechCli-VoiceConversation
         title: >-

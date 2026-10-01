@@ -56,12 +56,14 @@ sections:
                 title: >-
                   The SynthesisPanelSubsystem shall synthesize and speak the entered text through
                   the selected playback device when Play is invoked, and shall report every
-                  lifecycle transition from synthesizing through playing back to idle.
+                  lifecycle transition from synthesizing through playing back to idle, driven by
+                  the ISynthesisSession.StateChanged event rather than ad hoc assignment.
                 justification: |
                   A play button with no feedback leaves a user unsure whether anything is
                   happening. Reporting each transition is the demonstrable proof that a host can
-                  drive the library's synthesis contract from a UI thread with ordinary
-                  property-changed notification alone.
+                  drive the library's async synthesis engine/session contract from a UI thread
+                  with ordinary property-changed notification alone, with the session itself -
+                  not the ViewModel - as the single source of truth for lifecycle state.
                 tests:
                   - SynthesisPanelViewModel_Play_SuccessfulSession_TransitionsThroughLifecycleToIdle
 
@@ -75,13 +77,34 @@ sections:
                 tests:
                   - SynthesisPanelViewModel_Stop_DuringPlayback_CancelsSessionAndReportsStopped
 
+              - id: SpeechDemo-Synthesis-EngineSessionReuse
+                title: >-
+                  The SynthesisPanelSubsystem shall load a synthesizer engine at most once per
+                  selected model/parameter-value combination and create a session at most once
+                  per engine/playback-device combination, reusing both across many Play calls
+                  instead of reloading the model and recreating the session on every Play.
+                justification: |
+                  A prior design composed a brand-new synthesizer (and therefore reloaded the
+                  model) on every single Play call, even when nothing about the selection had
+                  changed - directly contradicting the library's own "construct once, reuse
+                  across many sessions" guidance for ISpeechSynthesizerEngine and
+                  ISynthesisSession, and making repeated Play clicks needlessly expensive. Lazily
+                  detecting a reload reason on the next Play call (rather than proactively on
+                  every property change) keeps the common case - replaying the same text with the
+                  same voice - cheap, while still reloading the engine when the model or its
+                  built parameter values genuinely change, and recreating only the session (never
+                  the engine) when just the playback device changes.
+                tests:
+                  - SynthesisPanelViewModel_Play_CalledTwiceWithUnchangedModelAndParameters_ReusesSameSessionWithoutReload
+                  - SynthesisPanelViewModel_Play_ParameterValueChanged_ReloadsEngineAndRecreatesSession
+                  - SynthesisPanelViewModel_Play_PlaybackDeviceChanged_RecreatesSessionButNotEngine
+
               - id: SpeechDemo-Synthesis-HonestUnavailableStates
                 title: >-
                   The SynthesisPanelSubsystem shall report an honest, explanatory outcome -
                   rather than a crash or a silent no-op - when no synthesis model is selected, no
-                  playback device is available, or the composed synthesizer honestly reports
-                  itself unavailable, and shall release any synthesizer it created for a failed
-                  attempt.
+                  playback device is available, or the loaded engine honestly reports itself
+                  unavailable, and shall release any engine it loaded for a failed attempt.
                 justification: |
                   A user evaluating the library on a machine with no installed voice, no
                   speaker, or an engine fault beyond the library's control must see why Play did
@@ -122,37 +145,41 @@ sections:
                 title: >-
                   The SynthesisPanelSubsystem shall forward the embedded settings panel's
                   current parameter value bag (Settings.BuildValueBag()) to
-                  ISynthesizerSessionFactory.Create when composing a synthesizer, so a voice
-                  selected through the panel's generic ChoiceParameter control genuinely changes
-                  what is synthesized.
+                  ISynthesizerSessionFactory.LoadAsync when loading a synthesizer engine, so a
+                  voice selected through the panel's generic ChoiceParameter control genuinely
+                  changes what is synthesized.
                 justification: |
                   Prior to this requirement, the demo's ChoiceParameter -> ComboBox UI rendering
                   existed but was not wired to any real consumer: the selected value bag was
                   built and exercised by unit tests but never reached a real synthesis or
                   recognition call. Threading it through to the library's
-                  SpeechSynthesizerFactory.Create (and, from there, to
+                  SpeechSynthesizerFactory.LoadAsync (and, from there, to
                   ISynthesisModel.ResolveSpeakerId) closes that gap for synthesis models such as
                   SherpaOnnxKokoroEnglishSynthesisModel that own real per-voice knowledge.
                 tests:
                   - SynthesisPanelViewModel_Play_ModelDeclaresChoiceParameter_ForwardsValueBagToSessionFactory
-                  - SynthesizerSessionFactory_Create_ModelNotSynthesisRoleWithParameterValues_ReturnsUnavailableSynthesizer
+                  - SynthesizerSessionFactory_LoadAsync_ModelNotSynthesisRoleWithParameterValues_ReturnsUnavailableEngine
 
               - id: SpeechDemo-Synthesis-ResourceLifetime
                 title: >-
-                  The SynthesisPanelSubsystem shall implement IDisposable, unsubscribing from
-                  IModelCatalogService.ModelInstalled and defensively disposing an active
-                  synthesizer if one is still held, idempotently.
+                  The SynthesisPanelSubsystem shall implement IAsyncDisposable, unsubscribing
+                  from IModelCatalogService.ModelInstalled and the shared device-selection
+                  panel's pre-refresh hook, stopping and awaiting an in-flight Play if any, and
+                  releasing the cached session and the cached engine, idempotently.
                 justification: |
-                  SynthesisPanelViewModel did not previously implement IDisposable, since it held
-                  no resource or subscription that outlived a single Play call; it now holds a
-                  ModelInstalled subscription for its own lifetime, which must be released the
-                  same way a disposed RecognitionPanelViewModel already releases its own
-                  subscriptions, or a disposed panel would keep refreshing itself in response to
-                  later installs. Idempotent disposal keeps a duplicate Dispose call - however it
-                  is triggered by the shell - from faulting.
+                  SynthesisPanelViewModel did not previously implement any disposable contract,
+                  since it held no resource or subscription that outlived a single Play call; it
+                  now caches an engine and a session across Play calls and holds a
+                  ModelInstalled subscription and a registered pre-refresh hook for its own
+                  lifetime, all of which must be released the same way a disposed
+                  RecognitionPanelViewModel already releases its own resources, or a disposed
+                  panel would keep refreshing itself in response to later installs, leak the
+                  cached engine/session, or interfere with a shared device refresh. Idempotent
+                  disposal keeps a duplicate DisposeAsync call - however it is triggered by the
+                  shell - from faulting.
                 tests:
-                  - SynthesisPanelViewModel_Dispose_UnsubscribesFromModelInstalled_NoRefreshAfterDispose
-                  - SynthesisPanelViewModel_Dispose_NoActiveSynthesizer_IsSafeAndIdempotent
+                  - SynthesisPanelViewModel_DisposeAsync_UnsubscribesFromModelInstalled_NoRefreshAfterDispose
+                  - SynthesisPanelViewModel_DisposeAsync_NoActiveSession_IsSafeAndIdempotent
 
               - id: SpeechDemo-Synthesis-ModelSwitchGuard
                 title: >-
@@ -174,15 +201,18 @@ sections:
                 title: >-
                   The SynthesisPanelViewModel shall register a pre-refresh hook with the shared
                   device-selection panel at construction that stops an in-flight Play and awaits
-                  its actual completion before a device refresh proceeds, and shall unregister it
-                  on disposal.
+                  its actual completion before a device refresh proceeds (a safe no-op while
+                  idle), and shall unregister it on disposal.
                 justification: |
-                  Unlike the recognition panel's Stop(), this panel's Stop() only requests
-                  cancellation; the playback device is not actually closed until the in-flight
-                  PlayAsync's own finally block runs. Awaiting PlayCommand.ExecutionTask after
-                  requesting Stop() is what makes it safe for a shared "Refresh devices" click to
-                  proceed deterministically instead of relying on the AudioDeviceInUseException
-                  fallback, since the hook does not return until the playback device is genuinely
-                  closed.
+                  Unlike the recognition panel's StopAsync(), this panel's session StopAsync()
+                  only requests cancellation of the in-flight SpeakAsync; the playback device is
+                  not actually closed until the in-flight PlayAsync task itself settles. Awaiting
+                  PlayCommand.ExecutionTask after requesting Stop is what makes it safe for a
+                  shared "Refresh devices" click to proceed deterministically instead of relying
+                  on the AudioDeviceInUseException fallback, since the hook does not return until
+                  the playback device is genuinely closed; the hook must also be provably inert
+                  while idle so an unrelated Refresh click never awaits a Play task that was
+                  never started.
                 tests:
                   - SynthesisPanelViewModel_PreRefreshHook_WhilePlaying_StopsAndAwaitsExecutionTaskBeforeDeviceRefreshSucceeds
+                  - SynthesisPanelViewModel_PreRefreshHook_WhileIdle_IsNoOpAndDeviceRefreshSucceeds

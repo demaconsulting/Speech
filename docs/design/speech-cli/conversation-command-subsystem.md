@@ -6,9 +6,10 @@ The ConversationCommandSubsystem implements the one voice-conversation subcomman
 by `CommandDispatch`: `ask` - a new, eleventh subcommand added after all ten scaffolded
 subcommands were implemented. It contains one type, `AskCommand`, and introduces **no new
 `ICliModelCatalog` seam member**: `ask` combines `SynthesisCommandSubsystem`'s existing
-`GetPreferredAudioFormat`/`CreateSynthesizer` members and `RecognitionCommandSubsystem`'s existing
-`GetAudioFormat`/`CreateRecognizer` members - both already extending the original
-`ModelCommandsSubsystem` seam - to run a speak-then-listen turn as one CLI invocation.
+`GetPreferredAudioFormat`/`CreateSynthesizerEngineAsync` members and
+`RecognitionCommandSubsystem`'s existing `GetAudioFormat`/`CreateRecognizerEngineAsync` members -
+both already extending the original `ModelCommandsSubsystem` seam - to run a speak-then-listen
+turn as one CLI invocation, built entirely on the async Engine/Session API.
 
 - **`AskCommand`**: implements
   `ask --tts-model <id> --stt-model <id> (--text <text> | --file <path>)
@@ -26,12 +27,14 @@ subcommands were implemented. It contains one type, `AskCommand`, and introduces
 
 ### Reuse of the Existing ModelCommandsSubsystem Seam (No New Member)
 
-`ask` needs to construct both a real `ISpeechSynthesizer` and a real `ISpeechRecognizer` for its
-two phases. Both capabilities already exist on `ICliModelCatalog`, added by the synthesis and
-recognition passes respectively: `CreateSynthesizer(descriptor, playbackDevice, parameterValues)`
-and `CreateRecognizer(descriptor, captureDevice, parameterValues)`, each already validating (via
-`SpeechModelCatalogAdapter`'s own internal casts) that the resolved model actually has the
-corresponding role. Because `ask` requires exactly one synthesis-role model and exactly one
+`ask` needs to load both a real `ISpeechSynthesizerEngine` and a real `ISpeechRecognizerEngine` for
+its two phases. Both capabilities already exist on `ICliModelCatalog`, added by the synthesis and
+recognition passes respectively: `CreateSynthesizerEngineAsync(descriptor, parameterValues,
+cancellationToken)` and `CreateRecognizerEngineAsync(descriptor, parameterValues,
+cancellationToken)`, each already validating (via `SpeechModelCatalogAdapter`'s own internal
+casts) that the resolved model actually has the corresponding role, and each returning an engine
+with no device bound yet - the device is bound afterward via `engine.CreateSessionAsync(device,
+cancellationToken)`. Because `ask` requires exactly one synthesis-role model and exactly one
 recognition-role model - never a single model serving both roles - it has no need for a third,
 combined seam member; it simply calls the two existing members once each, exactly as `speak` and
 `recognize` already do individually. This keeps `AskCommand`'s own logic fully unit-testable
@@ -62,39 +65,44 @@ next step (`list-models --role tts`/`--role stt`, or `download <modelId>`) is al
 parameters, reusing `ParameterBagParser.Resolve` unmodified from the synthesis pass, exactly as
 `recognize`'s own `--stt-param` handling already does.
 
-**Two-phase execution.** Phase 1 (speak) resolves a real playback device from the injected
-`ICliPlaybackDeviceSource` (honoring `--playback-device`, defaulting to the system default device
-exactly as `speak` does), constructs the TTS synthesizer via `CreateSynthesizer`, and calls
-`SpeakAsync` on the resolved text, waiting for it to complete before Phase 2's listen phase can
-end - Phase 2's recognizer construction now begins concurrently with Phase 1's wait rather than
-strictly once it finishes (see "Recognizer Pre-Warming" below); the two phases' *listening*
-remains strictly sequential, matching a natural question-then-answer conversational turn - `ask`
-never starts real microphone capture while the prompt is still being spoken. Phase 2 (listen)
-resolves a real capture device from the injected `ICliCaptureDeviceSource` (honoring
-`--capture-device`, defaulting to the system default device exactly as `recognize --mic` does),
-constructs the STT recognizer via `CreateRecognizer`, and blocks on a `ManualResetEventSlim` until
-one of: the first **final** recognition result arrives, a `SilenceTimeoutRecognizerSession`
+**Two-phase execution.** `RunAsync` kicks off Phase 2's recognizer engine/session pre-warm on a
+background `Task.Run` immediately (see _Recognizer Pre-Warming_ below), then runs Phase 1: resolves
+a real playback device from the injected `ICliPlaybackDeviceSource` (honoring `--playback-device`,
+defaulting to the system default device exactly as `speak` does), awaits
+`catalog.CreateSynthesizerEngineAsync(...)` then `engine.CreateSessionAsync(playbackDevice, ...)`,
+and calls `session.SpeakAsync(text, cancellationToken)`, waiting for it to complete before Phase
+2's listen phase can begin - Phase 2's recognizer engine/session construction runs concurrently
+with Phase 1's wait, but the two phases' *listening* remains strictly sequential, matching a
+natural question-then-answer conversational turn - `ask` never starts real microphone capture
+while the prompt is still being spoken. Once Phase 1 completes, `RunAsync` adopts the pre-warmed
+`PrewarmedRecognizer` (engine + session) and calls `Listen`, which drives the already-constructed
+session via `StartAsync`/`GetResultsAsync`/`StopAsync`, wrapped in a `SilenceTimeoutRecognizerSession`
 (constructed and armed exactly as `recognize --mic`'s own, reused unmodified from
-`RecognitionCommandSubsystem`) times out, or `Ctrl+C` is pressed.
+`RecognitionCommandSubsystem`), blocking until one of: the first **final** recognition result
+arrives, the silence/start timeout fires, or `Ctrl+C` is pressed (signaled externally via a shared
+`ManualResetEventSlim`).
 
-### Recognizer Pre-Warming (Concurrent Phase 1/Phase 2 Model Load)
+### Recognizer Pre-Warming (Concurrent Phase 1/Phase 2 Engine Load)
 
-Loading a recognition model into native memory - not `Start()`, which merely begins streaming
-audio through an already-loaded model - is the expensive step in constructing an
-`ISpeechRecognizer` (see `SpeechRecognizerFactory`'s own remarks). Deferring that load until
+Loading a recognition model into native memory - not `StartAsync`, which merely begins streaming
+audio through an already-loaded engine - is the expensive step in constructing an
+`ISpeechRecognizerEngine` (see `SpeechRecognizerFactory`'s own remarks). Deferring that load until
 strictly after Phase 1's playback finishes therefore introduced an avoidable turnaround-gap
-latency between finishing speaking and starting to listen. `AskCommand.RunAsync` now kicks off a
-private `PrewarmRecognizer` method - which resolves Phase 2's capture device (via
-`ICliCaptureDeviceSource`, honoring `--capture-device`) and then calls `CreateRecognizer`, exactly
-what `Listen` used to do at its own start - on a background `Task.Run` immediately after both
-phases' parameters are resolved, so this work overlaps with the `await SpeakPromptAsync(...)` call
-that follows it. Capture-device resolution moved into this pre-warm step alongside recognizer
-construction because `ICliModelCatalog.CreateRecognizer` requires an already-constructed
-`IAudioCaptureDevice` as an argument - it cannot be deferred independently of the recognizer
-itself. Critically, only the model *load* is pre-warmed: `ISpeechRecognizer.Start()` (which begins
-real microphone capture) is still called only once Phase 2's `Listen` genuinely runs, so
-pre-warming never risks capturing audio - including any acoustic bleed from the prompt still being
-played - while Phase 1 is in progress.
+latency between finishing speaking and starting to listen. `AskCommand.RunAsync` kicks off a
+private `PrewarmRecognizerAsync` method - which resolves Phase 2's capture device (via
+`ICliCaptureDeviceSource`, honoring `--capture-device`), calls
+`catalog.CreateRecognizerEngineAsync(...)`, then `engine.CreateSessionAsync(captureDevice, ...)`,
+bundling both into a `PrewarmedRecognizer(Engine, Session)` record struct - on a background
+`Task.Run` immediately after both phases' parameters are resolved, so this work overlaps with the
+`await SpeakPromptAsync(...)` call that follows it. Capture-device resolution moved into this
+pre-warm step alongside engine/session construction because `ISpeechRecognizerEngine.CreateSessionAsync`
+requires an already-constructed `IAudioCaptureDevice` as an argument - it cannot be deferred
+independently of the engine itself. If session creation fails after the engine has already loaded,
+`PrewarmRecognizerAsync` disposes the orphaned engine before rethrowing, so a session-creation
+failure never leaks the engine. Critically, only the model *load* and session creation are
+pre-warmed: `session.StartAsync(...)` (which begins real microphone capture) is still called only
+once Phase 2's `Listen` genuinely runs, so pre-warming never risks capturing audio - including any
+acoustic bleed from the prompt still being played - while Phase 1 is in progress.
 
 On every exit path, the pre-warm task's result and any exception it raises are always eventually
 observed and never left unobserved, but `RunAsync` only *synchronously* awaits it on the success
@@ -106,25 +114,27 @@ fire-and-forget so a slow in-flight model load never delays `Ctrl+C`/fast-failur
   `DisposePrewarmedRecognizerAsync` helper via `_ = DisposePrewarmedRecognizerAsync(prewarmTask);`,
   so `RunAsync` can return/rethrow immediately instead of blocking on the recognizer's model load
   finishing. `DisposePrewarmedRecognizerAsync` itself still awaits the task in the background and,
-  if it produced a recognizer, disposes it, swallowing any pre-warm exception - Phase 1's own
-  cancellation/failure has already been reported, and a concurrently failed pre-warm is not
-  separately actionable once the call is already ending that way.
+  if it produced a `PrewarmedRecognizer`, disposes its session and then its engine (via
+  `DisposeAsync`), swallowing any pre-warm exception - Phase 1's own cancellation/failure has
+  already been reported, and a concurrently failed pre-warm is not separately actionable once the
+  call is already ending that way.
 - **Phase 1 succeeds**: `RunAsync` awaits the pre-warm task directly, which re-throws (with its
-  original exception type, message, and stack trace) any failure `PrewarmRecognizer` raised - an
-  unknown/unavailable `--capture-device`, an invalid `--stt-param` value, etc. - at the start of
-  Phase 2, exactly as a synchronous call to the same logic would have. `Listen` itself is
-  simplified to accept the already-constructed recognizer directly, rather than constructing one
-  of its own; it still checks `stopSignal.IsSet` first (now also covering the case where `Ctrl+C`
-  landed during the concurrent pre-warm itself) before ever calling `Start()`, and still calls
-  `onRecognizerCreated`/disposes the recognizer in its own `finally` block exactly as before, so
-  the disposal-ordering/callback-timing contract several unit tests depend on is unchanged.
+  original exception type, message, and stack trace) any failure `PrewarmRecognizerAsync` raised -
+  an unknown/unavailable `--capture-device`, an invalid `--stt-param` value, etc. - at the start
+  of Phase 2, exactly as a synchronous call to the same logic would have. `RunAsync` adopts the
+  engine via `await using`, then calls `Listen` with the already-constructed session; `Listen`
+  itself still checks `stopSignal.IsSet` first (now also covering the case where `Ctrl+C` landed
+  during the concurrent pre-warm itself) before ever calling `StartAsync`, and still calls
+  `onRecognizerCreated`/disposes the session in its own `finally` block exactly as before, so the
+  disposal-ordering/callback-timing contract several unit tests depend on is unchanged.
 
 This is a design note for future `ICliModelCatalog` implementers: `SpeechModelCatalogAdapter`
 (the only production implementation) wraps a read-mostly `SpeechModelCatalog` with no documented
-thread-safety concerns for concurrent `CreateSynthesizer`/`CreateRecognizer` calls on the same
-instance, which is what makes running `CreateRecognizer` concurrently with Phase 1's
-`CreateSynthesizer`-backed playback safe today; a future catalog implementation with non-thread-safe
-side effects shared across both calls would need to account for this concurrency.
+thread-safety concerns for concurrent `CreateSynthesizerEngineAsync`/`CreateRecognizerEngineAsync`
+calls on the same instance, which is what makes running `CreateRecognizerEngineAsync` concurrently
+with Phase 1's `CreateSynthesizerEngineAsync`-backed playback safe today; a future catalog
+implementation with non-thread-safe side effects shared across both calls would need to account
+for this concurrency.
 
 ### Capture-Device Resolution Through `ICliCaptureDeviceSource` (New Seam)
 
@@ -165,16 +175,18 @@ stdout by default, or written to the file named by `--output-text` instead - mir
 so no carriage-return-overwrite console logic from `recognize` is reused here.
 
 **Cancellation and disposal.** `Ctrl+C` is wired to cooperative cancellation via
-`Console.CancelKeyPress`, exactly mirroring `SpeakCommand.Run`'s and `RecognizeCommand.Run`'s own
-subscribe/unsubscribe-in-try/finally pattern, for the whole call rather than per-phase: a single
-handler both cancels a shared `CancellationTokenSource` (aborting an in-flight `SpeakAsync` during
-Phase 1) and, once a recognizer has been constructed, calls its own `Stop()` and signals the same
-`ManualResetEventSlim` Phase 2 blocks on - so `Ctrl+C` cancels cleanly whether it lands during
-playback or during listening, with no partial recognized-text or playback state ever leaked. A
-canceled Phase 1 skips Phase 2 entirely (a canceled prompt is never followed by a listen attempt).
-The synthesizer, playback device, recognizer, silence-timeout session (when present), and output
-writer are each disposed exactly once via nested `finally` blocks in the same disposal order
-`SpeakCommand`/`RecognizeCommand` each already established for their own resources.
+`Console.CancelKeyPress` in `AskCommand.Run(Context)`, for the whole call rather than per-phase: a
+single handler cancels a shared `CancellationTokenSource`, calls `StopAsync(CancellationToken.None)`
+(fire-and-forget) on the live session once Phase 2 has created one (tracked under a lock since the
+handler runs on a separate thread), and signals the same `ManualResetEventSlim` Phase 2 blocks on -
+so `Ctrl+C` cancels cleanly whether it lands during playback or during listening, with no partial
+recognized-text or playback state ever leaked. A canceled Phase 1 skips Phase 2 entirely (a
+canceled prompt is never followed by a listen attempt), and the concurrently pre-warmed
+engine/session is disposed via the fire-and-forget `DisposePrewarmedRecognizerAsync` path described
+above. Phase 1's own session, engine, and playback-device lease are disposed via `await using`/
+`using` in `SpeakPromptAsync`; Phase 2's session is disposed inside `Listen`'s own `finally` block,
+and its engine is disposed by `RunAsync` itself (via `await using var engineLease = prewarmed.Engine;`)
+once `Listen` returns.
 
 **Distinguishing a genuine `Ctrl+C` from a legitimate empty Phase 2 result.** The same
 `ManualResetEventSlim` unblocks Phase 2's wait identically whether the final wake-up came from a
@@ -201,7 +213,8 @@ reporting a false "Recognized text written" success.
 ### Interactions with Other Units
 
 `AskCommand` depends on the `ICliModelCatalog` seam (all members added by both the synthesis and
-recognition passes; no new member of its own), `SynthesisCommandSubsystem`'s
+recognition passes; no new member of its own), the library's public `ISpeechSynthesizerEngine`/
+`ISynthesisSession`/`ISpeechRecognizerEngine`/`IRecognitionSession` types, `SynthesisCommandSubsystem`'s
 `ICliPlaybackDeviceSource`/`ParameterBagParser`, `RecognitionCommandSubsystem`'s
 `SilenceTimeoutRecognizerSession`, and `DeviceCommandsSubsystem`'s
 `DevicesTestCommand.ResolveDeviceSelectionOrThrow` internal helper - all four reused entirely

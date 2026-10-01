@@ -8,11 +8,12 @@ The SynthesisPanelSubsystem provides the demo's text-to-speech panel. It contain
 units, each documented in its own file:
 
 - **SynthesizerSessionFactory** (`ISynthesizerSessionFactory` / `SynthesizerSessionFactory`): the
-  demo-owned synthesizer composition seam and its real implementation over the library's
+  demo-owned synthesizer-engine composition seam and its real implementation over the library's
   `SpeechModelStore` and `SpeechSynthesizerFactory` — see _SynthesizerSessionFactory Design_
 - **SynthesisPanelViewModel**: the panel's presentation state — the installed synthesis models,
-  the embedded `ModelSettingsViewModel`, the text input, the audio-tag hints, and the Play/Stop
-  lifecycle — see _SynthesisPanelViewModel Design_
+  the embedded `ModelSettingsViewModel`, the text input, the audio-tag hints, and the async
+  Play/Stop lifecycle over a cached `ISpeechSynthesizerEngine` and `ISynthesisSession` reused
+  across many Play calls — see _SynthesisPanelViewModel Design_
 
 ### Interfaces
 
@@ -29,9 +30,10 @@ consumes the library's `SpeechModelStore`, `SpeechSynthesizerFactory`, `ISpeechM
 
 `SynthesisPanelViewModel` depends only on the seam interface, the shared device/settings view
 models, and the library's public `ISpeechModel` contract — never on the library's synthesis
-concretes directly. This is what allows the whole Play/Stop lifecycle, including every
-unavailable-state path and the auto-refresh-on-install behavior, to be verified with no
-downloaded model, no native runtime, and no real speakers. `SynthesizerSessionFactory` is the
-sole unit that narrows a public model to `ISynthesisModel` and calls into the library's
-synthesizer composition. See each unit's own design document for its data model, algorithms, and
-error handling.
+concretes directly. This is what allows the whole Play/Stop lifecycle, including state derivation
+from `ISynthesisSession.StateChanged`, every unavailable-state path, the engine/session reuse
+across Play calls, and the auto-refresh-on-install behavior, to be verified with no downloaded
+model, no native runtime, and no real speakers. `SynthesizerSessionFactory` is the sole unit that
+narrows a public model to `ISynthesisModel` and calls into the library's synthesizer-engine
+composition. See each unit's own design document for its data model, algorithms, and error
+handling.

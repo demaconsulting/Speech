@@ -3,30 +3,31 @@
 ### Verification Approach
 
 The SynthesisCommandSubsystem is verified through deterministic unit tests against a
-hand-written `FakeSpeechSynthesizer` (recording `SpeakAsync` calls and `Stop`/`Dispose` call
-counts, with settable `IsAvailable`/`SpeakAsyncException`) and `FakeCliModelCatalog`'s two new
-delegate overrides (`GetPreferredAudioFormatOverride`/`CreateSynthesizerOverride`), reused from
-`ModelCommandsSubsystem`'s own tests. Real-device dispatch is verified against a `FakePlaybackDeviceSource`
-(a hand-written `ICliPlaybackDeviceSource` fake resolving purely from an in-memory device list,
-touching no real PortAudio state at all) and a `FakeAudioPlaybackDevice`, so every `speak`
-device-dispatch scenario is deterministic on every machine, headless or not - unlike constructing
-a real `AudioDeviceFactory` with an injected probe, which still resolves to the honestly
-unavailable fallback whenever `PortAudioEnvironment.Shared.IsInitialized` is `false`, regardless
-of the injected probe (the exact bug this pass fixed; see `AudioDeviceFactoryPlaybackDeviceSourceTests`
-below for the seam's own forwarding proof). `ParameterBagParser` is verified entirely in isolation
-against hand-built `NumericParameter`/`ChoiceParameter`/`BooleanParameter` instances, with no
-model catalog or synthesizer involved at all. The two new `ICliModelCatalog` seam members
-(`GetPreferredAudioFormat`/`CreateSynthesizer`) are additionally verified against a **real**
-`SpeechModelCatalogAdapter`, proving the production `is ISynthesisModel` cast genuinely throws for
-a real, compiled-in recognition-role model, in
-`SpeechModelCatalogAdapterTests.cs`. `AudioDeviceFactoryPlaybackDeviceSource` - the production
-`ICliPlaybackDeviceSource` implementation - is separately verified against a **real**, composed
-`AudioDeviceFactory` in `AudioDeviceFactoryPlaybackDeviceSourceTests.cs`, proving it is a pure
-pass-through and does not alter `AudioDeviceFactory`'s own hardware-detection behavior in any way,
-without asserting on whether real playback hardware happens to be present on the machine running
-the test. Out-of-process integration tests in `IntegrationTests.cs` invoke the built tool as a
-child process for the model-resolution and text-source error paths that matter most from an
-operator's perspective.
+hand-written `FakeSynthesisSession`/`FakeSpeechSynthesizerEngine` pair (recording `SpeakAsync`
+calls and `DisposeAsync` call counts, with settable `IsAvailable`/`SpeakAsyncException`) and
+`FakeCliModelCatalog`'s two new delegate overrides (`GetPreferredAudioFormatOverride`/
+`CreateSynthesizerEngineOverride`), reused from `ModelCommandsSubsystem`'s own tests. Real-device
+dispatch is verified against a `FakePlaybackDeviceSource` (a hand-written `ICliPlaybackDeviceSource`
+fake resolving purely from an in-memory device list, touching no real PortAudio state at all) and
+a `FakeAudioPlaybackDevice`, so every `speak` device-dispatch scenario is deterministic on every
+machine, headless or not - unlike constructing a real `AudioDeviceFactory` with an injected probe,
+which still resolves to the honestly unavailable fallback whenever
+`PortAudioEnvironment.Shared.IsInitialized` is `false`, regardless of the injected probe (the
+exact bug this pass fixed; see `AudioDeviceFactoryPlaybackDeviceSourceTests` below for the seam's
+own forwarding proof). `ParameterBagParser` is verified entirely in isolation against hand-built
+`NumericParameter`/`ChoiceParameter`/`BooleanParameter` instances, with no model catalog or
+synthesizer involved at all. The two new `ICliModelCatalog` seam members
+(`GetPreferredAudioFormat`/`CreateSynthesizerEngineAsync`) are additionally verified against a
+**real** `SpeechModelCatalogAdapter`, proving the production `is ISynthesisModel` cast genuinely
+throws for a real, compiled-in recognition-role model, in `SpeechModelCatalogAdapterTests.cs`.
+`AudioDeviceFactoryPlaybackDeviceSource` - the production `ICliPlaybackDeviceSource`
+implementation - is separately verified against a **real**, composed `AudioDeviceFactory` in
+`AudioDeviceFactoryPlaybackDeviceSourceTests.cs`, proving it is a pure pass-through and does not
+alter `AudioDeviceFactory`'s own hardware-detection behavior in any way, without asserting on
+whether real playback hardware happens to be present on the machine running the test.
+Out-of-process integration tests in `IntegrationTests.cs` invoke the built tool as a child process
+for the model-resolution and text-source error paths that matter most from an operator's
+perspective.
 
 Automated tests do **not** exercise a real, downloaded synthesis model's actual `--output-audio`
 WAV-writing path end to end: CI has no cached TTS model available (downloading one requires
@@ -41,15 +42,15 @@ documents for the same convention applied elsewhere).
 
 - **Framework**: xUnit v3 running under the .NET SDK
 - **Execution**: `dotnet test` invoked by `build.ps1` and the CI pipeline
-- **Isolation**: Every unit test constructs its own fake catalog/synthesizer/audio probes;
+- **Isolation**: Every unit test constructs its own fake catalog/engine/session/audio probes;
   `SpeechModelCatalogAdapterTests` uses a freshly created, uniquely named temporary directory as
   its model-store root, deleted afterward via `IDisposable`
-- **Test doubles**: `FakeSpeechSynthesizer` (hand-written `ISpeechSynthesizer` fake),
-  `FakeCliModelCatalog` (extended with `GetPreferredAudioFormatOverride`/
-  `CreateSynthesizerOverride`), `FakePlaybackDeviceSource` (hand-written `ICliPlaybackDeviceSource`
-  fake resolving purely from an in-memory device list), `FakeAudioPlaybackDevice` (hand-written
-  `IAudioPlaybackDevice` fake), `FakeAudioPlaybackDeviceProbe` (reused from
-  `DeviceCommandsSubsystem`'s own tests)
+- **Test doubles**: `FakeSynthesisSession`/`FakeSpeechSynthesizerEngine` (hand-written
+  `ISynthesisSession`/`ISpeechSynthesizerEngine` fakes), `FakeCliModelCatalog` (extended with
+  `GetPreferredAudioFormatOverride`/`CreateSynthesizerEngineOverride`), `FakePlaybackDeviceSource`
+  (hand-written `ICliPlaybackDeviceSource` fake resolving purely from an in-memory device list),
+  `FakeAudioPlaybackDevice` (hand-written `IAudioPlaybackDevice` fake),
+  `FakeAudioPlaybackDeviceProbe` (reused from `DeviceCommandsSubsystem`'s own tests)
 
 ### Test Scenarios
 
@@ -64,7 +65,7 @@ documents for the same convention applied elsewhere).
 `SpeakCommand_RunAsync_UnknownModelId_ThrowsArgumentException`,
 `SpeakCommand_RunAsync_WrongRoleModel_ThrowsArgumentException`,
 `SpeakCommand_RunAsync_NotDownloadedModel_ThrowsArgumentExceptionWithDownloadHint`,
-`SpeakCommand_RunAsync_Success_DisposesSynthesizerOnce`,
+`SpeakCommand_RunAsync_Success_DisposesEngineAndSessionOnce`,
 `SpeechCli_SpeakCommandWithoutModel_Invoked_ReturnsCleanError`,
 `SpeechCli_SpeakCommandWithUnknownModel_Invoked_ReturnsCleanError`,
 `SpeechCli_SpeakCommandWithWrongRoleModel_Invoked_ReturnsCleanError`,
@@ -78,9 +79,9 @@ rejected with `ArgumentException`; `--text` parses its value; supplying both `--
 even looked up; an unknown model id, a wrong-role model id, and a not-yet-downloaded model id are
 each rejected with a distinct, actionable `ArgumentException` message (suggesting `list-models`,
 `list-models --role tts`, and `download <modelId>` respectively); a successful run disposes the
-fake synthesizer exactly once; every error path is proven both in-process and, cleanly and
-non-zero-exit, against the built tool; `speak` no longer throws `NotImplementedException` when
-dispatched.
+fake engine and session exactly once each, in declaration order (session, then engine, then the
+playback-device lease); every error path is proven both in-process and, cleanly and non-zero-exit,
+against the built tool; `speak` no longer throws `NotImplementedException` when dispatched.
 
 **Requirement coverage**: `SpeechCli-SynthesisCommands-Speak`.
 
@@ -102,7 +103,7 @@ dispatched.
 `ParameterBagParser_Resolve_UnrecognizedKey_ThrowsArgumentException`,
 `ParameterBagParser_Resolve_NoRawValues_ReturnsEmptyBag`,
 `SpeakCommand_ParseArguments_RepeatedParamFlags_AccumulatesInOrder`,
-`SpeakCommand_RunAsync_ValidParam_ForwardsToCreateSynthesizer`,
+`SpeakCommand_RunAsync_ValidParam_ForwardsToCreateSynthesizerEngine`,
 `SpeakCommand_RunAsync_InvalidParam_ThrowsArgumentException`
 
 **Scenario/Expected**: A well-formed `key=value` token splits correctly; a token with no `=` or
@@ -113,8 +114,8 @@ value succeeds; a `ChoiceParameter` value matching a declared option resolves to
 a non-matching value throws; a `BooleanParameter` accepts `true`/`false` (case-insensitively) as a
 boxed `bool` and rejects any other value; a key not declared by the resolved model throws
 `ArgumentException`; repeated `--tts-param` flags accumulate in the order given and are forwarded,
-fully resolved, to `CreateSynthesizer`'s `parameterValues` argument; an invalid value for any
-declared parameter kind is rejected before synthesis is attempted.
+fully resolved, to `CreateSynthesizerEngineAsync`'s `parameterValues` argument; an invalid value
+for any declared parameter kind is rejected before an engine is loaded.
 
 **Requirement coverage**: `SpeechCli-SynthesisCommands-ParamValidation`.
 
@@ -170,12 +171,13 @@ test; a `null` factory is rejected with `ArgumentNullException`.
 #### Cancellation and Disposal Ordering
 
 **Tests**: `SpeakCommand_RunAsync_Canceled_ReportsErrorCleanly`,
-`SpeakCommand_RunAsync_Success_DisposesSynthesizerOnce`
+`SpeakCommand_RunAsync_Success_DisposesEngineAndSessionOnce`
 
-**Scenario/Expected**: A `FakeSpeechSynthesizer` configured to throw `OperationCanceledException`
+**Scenario/Expected**: A `FakeSynthesisSession` configured to throw `OperationCanceledException`
 from `SpeakAsync` results in a clean, one-line cancellation message rather than an unhandled
-exception propagating out of `RunAsync`; a successful run disposes the synthesizer exactly once,
-proving the synthesizer-before-device disposal ordering never double-disposes or skips disposal.
+exception propagating out of `RunAsync`; a successful run disposes the session, then the engine,
+then the playback-device lease, proving the session-before-engine-before-device disposal ordering
+never double-disposes or skips disposal.
 
 **Requirement coverage**: `SpeechCli-SynthesisCommands-CancellationAndDisposal`.
 
@@ -183,17 +185,16 @@ proving the synthesizer-before-device disposal ordering never double-disposes or
 
 **Tests**: `SpeechModelCatalogAdapter_GetPreferredAudioFormat_RecognitionRoleModel_ThrowsArgumentException`,
 `SpeechModelCatalogAdapter_GetPreferredAudioFormat_NullDescriptor_ThrowsArgumentNullException`,
-`SpeechModelCatalogAdapter_CreateSynthesizer_RecognitionRoleModel_ThrowsArgumentException`,
-`SpeechModelCatalogAdapter_CreateSynthesizer_NullDescriptor_ThrowsArgumentNullException`,
-`SpeechModelCatalogAdapter_CreateSynthesizer_NullPlaybackDevice_ThrowsArgumentNullException`
+`SpeechModelCatalogAdapter_CreateSynthesizerEngineAsync_RecognitionRoleModel_ThrowsArgumentException`,
+`SpeechModelCatalogAdapter_CreateSynthesizerEngineAsync_NullDescriptor_ThrowsArgumentNullException`
 
 **Scenario/Expected**: Against a real, temp-directory-rooted `SpeechModelCatalogAdapter`, calling
 either new seam member with a real, compiled-in recognition-role model's descriptor throws
 `ArgumentException` naming the `descriptor` parameter, proving the adapter's `is ISynthesisModel`
 cast genuinely rejects a non-synthesis model rather than only being exercised through a fake; a
-`null` descriptor or playback device is rejected with `ArgumentNullException` before the cast is
-even attempted. No automated test exercises a real, downloaded synthesis-role model against these
-two members - see _Manual / Build-Time Verification_ below.
+`null` descriptor is rejected with `ArgumentNullException` before the cast is even attempted. No
+automated test exercises a real, downloaded synthesis-role model against these two members - see
+_Manual / Build-Time Verification_ below.
 
 **Requirement coverage**: `SpeechCli-SynthesisCommands-CatalogSeamExtension`.
 
@@ -234,9 +235,9 @@ exclusion and reports actionable model-resolution errors; `--tts-param` values a
 each declared parameter kind's own constraints, rejecting an unrecognized key; `--no-tags` strips
 recognized tags exactly, leaving other text byte-for-byte unchanged; `--output-audio` and real-device
 dispatch each construct the correct device kind and reject an unknown/unavailable device; a
-cancellation is reported cleanly and the synthesizer is always disposed before the playback
-device; the two new `ICliModelCatalog` seam members correctly reject a non-synthesis model against
-a real catalog; and every entry point rejects a missing required dependency.
+cancellation is reported cleanly and the session, engine, and playback device are always disposed
+in that order; the two new `ICliModelCatalog` seam members correctly reject a non-synthesis model
+against a real catalog; and every entry point rejects a missing required dependency.
 
 ## Manual / Build-Time Verification
 
