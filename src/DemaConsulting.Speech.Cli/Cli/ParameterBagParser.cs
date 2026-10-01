@@ -27,11 +27,11 @@ namespace DemaConsulting.Speech.Cli.Cli;
 ///     Parses and validates the <c>speak</c>/<c>recognize</c>/<c>ask</c> subcommands' repeatable
 ///     <c>--tts-param key=value</c>/<c>--stt-param key=value</c> flags against a resolved model's declared
 ///     <see cref="ISpeechModelParameter"/> set, into the untyped, boxed key-value bag a
-///     <c>SpeechSynthesizerFactory.Create</c> or <c>SpeechRecognizerFactory.Create</c> call
+///     <c>SpeechSynthesizerFactory.LoadAsync</c> or <c>SpeechRecognizerFactory.LoadAsync</c> call
 ///     expects.
 /// </summary>
 /// <remarks>
-///     Deliberately stricter than <c>SpeechSynthesizerFactory.Create</c>/<c>SpeechRecognizerFactory.Create</c>'s
+///     Deliberately stricter than <c>SpeechSynthesizerFactory.LoadAsync</c>/<c>SpeechRecognizerFactory.LoadAsync</c>'s
 ///     own "unrecognized key silently ignored, Info-logged" library-level contract: an unrecognized
 ///     <c>--tts-param</c>/<c>--stt-param</c> key is a CLI operator typo, which should fail loudly
 ///     at the command line rather than silently mistune synthesis or recognition. This divergence is

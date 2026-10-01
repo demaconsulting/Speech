@@ -150,7 +150,7 @@ public sealed class SherpaOnnxVitsLibriTtsEnglishSynthesisModel : ISynthesisMode
     ///     <see cref="SherpaOnnxKokoroEnglishSynthesisModel"/>'s small, named voice set. The
     ///     default speed/volume conventions <see cref="SynthesisSubsystem.DefaultModelCapabilityProfile"/>
     ///     already looks for are not declared here, since this class relies on the caller's own
-    ///     <c>speed</c>/volume-scaling arguments to <c>ISynthesisEngine.Generate</c> rather than a
+    ///     <c>speed</c>/volume-scaling arguments to <c>ISynthesisBackend.Generate</c> rather than a
     ///     model-declared numeric parameter for those.
     /// </remarks>
     public IReadOnlyList<ISpeechModelParameter> Parameters { get; } =
@@ -241,7 +241,7 @@ public sealed class SherpaOnnxVitsLibriTtsEnglishSynthesisModel : ISynthesisMode
     ///     to this model's plain numeric sherpa-onnx speaker id.
     /// </summary>
     /// <param name="parameterValues">
-    ///     The untyped key-value bag supplied to <c>SpeechSynthesizerFactory.Create</c> (for
+    ///     The untyped key-value bag supplied to <c>SpeechSynthesizerFactory.LoadAsync</c> (for
     ///     example built from a host's settings UI via this model's declared
     ///     <see cref="NumericParameter"/>), or <see langword="null"/> when the caller supplied
     ///     none.

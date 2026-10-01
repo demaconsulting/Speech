@@ -64,7 +64,7 @@ sections:
               starts catches an operator typo or out-of-range value immediately, rather than
               having it silently ignored (or fail deep inside the synthesis engine) minutes into
               a run. An unrecognized key is deliberately rejected here even though the library's
-              own `SpeechSynthesizerFactory.Create` silently ignores one, since an unrecognized
+              own `SpeechSynthesizerFactory.LoadAsync` silently ignores one, since an unrecognized
               CLI flag value is almost always an operator mistake that should fail loudly at the
               command line.
             tests:

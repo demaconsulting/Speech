@@ -89,7 +89,7 @@ public interface IRecognitionModel : ISpeechModel
     ///     absolute encoder/decoder/joiner/tokens paths the engine requires.
     /// </param>
     /// <param name="parameterValues">
-    ///     The untyped key-value bag supplied to <c>SpeechRecognizerFactory.Create</c> (for
+    ///     The untyped key-value bag supplied to <c>SpeechRecognizerFactory.LoadAsync</c> (for
     ///     example built from a host's settings UI via a declared <see cref="ISpeechModel.Parameters"/>
     ///     entry), or <see langword="null"/> when the caller supplied none.
     /// </param>

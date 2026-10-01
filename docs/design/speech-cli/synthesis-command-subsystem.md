@@ -124,7 +124,7 @@ _SpeechCli ModelCommandsSubsystem Design_). Resolution switches on the parameter
 - **`BooleanParameter`**: parsed via `bool.TryParse` (case-insensitive) - boxed as `bool`
 
 An unrecognized `--tts-param` key throws `ArgumentException` naming the key. This is a deliberate
-divergence from `SpeechSynthesizerFactory.Create`'s own library-level contract, which silently
+divergence from `SpeechSynthesizerFactory.LoadAsync`'s own library-level contract, which silently
 ignores (and Info-logs) an unrecognized parameter key rather than throwing: at the library level,
 silently ignoring an unrecognized key is the right graceful-degradation choice when parameter
 values are supplied programmatically and may target multiple engine versions, but at the CLI an

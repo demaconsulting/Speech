@@ -34,7 +34,7 @@ Sherpa-onnx types are confined to two places. Each model's backing class produce
 configuration through an internal member of `IRecognitionModel`, matching this library's
 "sherpa-onnx configuration for its own model architecture" responsibility. The
 RecognitionSubsystem then consumes that configuration behind its internal
-`IRecognitionEngine`/`IRecognitionEngineFactory` seam, implemented for real by
+`IRecognitionBackend`/`IRecognitionBackendFactory` seam, implemented for real by
 `SherpaOnnxRecognitionEngine`/`SherpaOnnxRecognitionEngineFactory`. No sherpa-onnx type appears
 anywhere in the library's public API: public callers interact only through `ISpeechRecognizerEngine`,
 `IRecognitionSession`, `SpeechRecognitionResult`, and `SpeechRecognizerFactory`, keeping this library's "engine

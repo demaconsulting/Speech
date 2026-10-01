@@ -73,4 +73,4 @@ depend on none beyond each other (`ChoiceParameter` depends on `ChoiceParameterO
 **Callers**: `ISpeechModel.Parameters`; a model's own backing class declares instances of these
 types; a host UI renders controls from them and supplies values back in an untyped key-value bag
 keyed by `Id`. `SpeechModelParameterDiagnostics.ValidateAndReport` is called exclusively by
-`SpeechRecognizerFactory.Create` and `SpeechSynthesizerFactory.Create`'s innermost overloads.
+`SpeechRecognizerFactory.LoadAsync` and `SpeechSynthesizerFactory.LoadAsync`'s innermost overloads.

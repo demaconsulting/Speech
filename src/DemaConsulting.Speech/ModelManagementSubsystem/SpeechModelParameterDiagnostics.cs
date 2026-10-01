@@ -13,8 +13,8 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     Per this library's "typed, self-describing descriptor set" grouping, this type is
 ///     co-located with <see cref="ISpeechModelParameter"/>/<see cref="NumericParameter"/>/
 ///     <see cref="ChoiceParameter"/>/<see cref="BooleanParameter"/>. It is called exactly once,
-///     up front, from <c>SpeechRecognizerFactory.Create</c> and
-///     <c>SpeechSynthesizerFactory.Create</c>, before either factory constructs a recognizer or
+///     up front, from <c>SpeechRecognizerFactory.LoadAsync</c> and
+///     <c>SpeechSynthesizerFactory.LoadAsync</c>, before either factory constructs a recognizer or
 ///     synthesizer - so an invalid recognized value is surfaced synchronously from <c>Create</c>
 ///     rather than later, silently, from a per-call runtime hook.
 ///     <para>
@@ -51,8 +51,8 @@ internal static class SpeechModelParameterDiagnostics
     /// <param name="parameterValues">
     ///     The caller's untyped parameter value bag, or <see langword="null"/>/empty to skip
     ///     validation entirely (there is nothing to validate). Named to match the caller-facing
-    ///     <c>parameterValues</c> parameter on every <c>SpeechRecognizerFactory.Create</c>/
-    ///     <c>SpeechSynthesizerFactory.Create</c> overload, so a thrown
+    ///     <c>parameterValues</c> parameter on every <c>SpeechRecognizerFactory.LoadAsync</c>/
+    ///     <c>SpeechSynthesizerFactory.LoadAsync</c> overload, so a thrown
     ///     <see cref="ArgumentException"/>'s <see cref="ArgumentException.ParamName"/> names the
     ///     argument the caller actually supplied.
     /// </param>

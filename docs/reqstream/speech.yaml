@@ -196,7 +196,7 @@ sections:
           intend as a tag (a typo, an unsupported bracket phrase, an unbalanced bracket) is never
           silently dropped or rejected. This requirement covers the closed vocabulary and the
           model-independent Layer 1 parser; Layer 2 per-model rendering and the public
-          ISpeechSynthesizer streaming/playback pipeline are described by
+          ISynthesisSession streaming/playback pipeline are described by
           Speech-Synthesis-StreamingSynthesizer below.
         children:
           - Speech-Synthesis-ClosedVocabulary

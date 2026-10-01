@@ -12,7 +12,7 @@ namespace DemaConsulting.Speech.AudioSubsystem;
 ///     <para>
 ///         This is the correct layer for this capability (not a CLI-only helper) because
 ///         <see cref="IAudioCaptureDevice"/> is exactly the seam
-///         <c>SpeechRecognizerFactory.Create</c> already requires, so any host application - not
+///         <c>SpeechRecognizerFactory.LoadAsync</c> already requires, so any host application - not
 ///         only a future command-line tool - can drive speech recognition from a pre-recorded
 ///         file deterministically by supplying this class wherever a real capture device would
 ///         otherwise be used.

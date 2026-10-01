@@ -140,7 +140,7 @@ N/A - SpeechDemo provides no safety-critical functionality requiring risk contro
 1. **Input**: The synthesis panel is constructed, or its refresh, Play, or Stop command is
    invoked
 2. **Composition**: The demo's synthesizer session seam resolves the selected model's installed
-   directory and forwards to `SpeechSynthesizerFactory.Create(...)`, narrowing the model to the
+   directory and forwards to `SpeechSynthesizerFactory.LoadAsync(...)`, narrowing the model to the
    library's synthesis role
 3. **Playback**: The composed synthesizer speaks the entered text (which may contain inline
    Natural Language Audio Tags) through the selected playback device, reporting each lifecycle
@@ -153,7 +153,7 @@ N/A - SpeechDemo provides no safety-critical functionality requiring risk contro
 1. **Input**: The recognition panel is constructed, or its refresh, Start, or Stop command is
    invoked
 2. **Composition**: The demo's recognizer session seam resolves the selected model's installed
-   directory and forwards to `SpeechRecognizerFactory.Create(...)`, narrowing the model to the
+   directory and forwards to `SpeechRecognizerFactory.LoadAsync(...)`, narrowing the model to the
    library's recognition role
 3. **Streaming**: The composed recognizer streams audio from the selected capture device,
    raising progressive partial and final results

@@ -88,7 +88,7 @@ deliberately avoids claiming an emotion-control capability this model does not h
 **Voice Selection Resolved**: unlike the sibling VITS/Piper model, this model's voice selection
 is genuinely wired end-to-end: `SherpaOnnxSpeechSynthesizer.GenerateSegment` now calls
 `ISynthesisModel.ResolveSpeakerId` (a new, non-breaking default-hook interface member) instead of
-hard-coding `speakerId: 0`, and `SpeechSynthesizerFactory.Create` threads an optional
+hard-coding `speakerId: 0`, and `SpeechSynthesizerFactory.LoadAsync` threads an optional
 `parameterValues` bag through to the synthesizer for this purpose. See
 `sherpa-onnx-speech-synthesizer.md` for the full mechanism.
 

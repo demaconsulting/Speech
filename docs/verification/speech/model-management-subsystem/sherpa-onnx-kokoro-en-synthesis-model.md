@@ -41,7 +41,7 @@ and removes the archive file afterward; `ResolveSpeakerId` resolves every one of
 voices to its confirmed speaker id, and falls back to the default voice's id for an unknown
 value, a missing key, or a `null` bag; and - proven once, empirically, outside the automated
 suite - selecting two different voices against the same input sentence through the real
-`SpeechSynthesizerFactory.Create` genuinely produces two different, non-silent audio outputs.
+`SpeechSynthesizerFactory.LoadAsync` genuinely produces two different, non-silent audio outputs.
 
 #### Test Scenarios
 
@@ -119,7 +119,7 @@ convention of leaving no scratch artifacts in the working tree).
     byte-identical, proving that selecting a different voice genuinely changes the synthesized
     output rather than the configuration field being silently ignored
 - **Full pipeline confirmed**: the same distinction was independently reproduced end-to-end
-  through the real `SpeechSynthesizerFactory.Create` with a `parameterValues` bag selecting each
+  through the real `SpeechSynthesizerFactory.LoadAsync` with a `parameterValues` bag selecting each
   voice by name, `SherpaOnnxSpeechSynthesizer.GenerateSegment` calling
   `ISynthesisModel.ResolveSpeakerId` once per segment instead of a hard-coded `speakerId: 0`, and
   producing the same two distinct, non-silent outputs described above - not merely the isolated
