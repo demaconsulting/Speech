@@ -355,4 +355,23 @@ public sealed class SherpaOnnxVitsLibriTtsEnglishSynthesisModelTests : IDisposab
             await File.ReadAllBytesAsync(extractedTokensPath, TestContext.Current.CancellationToken));
         Assert.False(File.Exists(archivePath));
     }
+
+    /// <summary>
+    ///     Proves that <see cref="ISpeechModel.InstallAsync"/> throws <see cref="ArgumentException"/>
+    ///     for a null or empty staged-files directory, rather than attempting to resolve an
+    ///     archive path against it.
+    /// </summary>
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public async Task SherpaOnnxVitsLibriTtsEnglishSynthesisModel_InstallAsync_NullOrEmptyDirectory_ThrowsArgumentException(string? stagedFilesDirectory)
+    {
+        // Arrange
+        ISpeechModel model = new SherpaOnnxVitsLibriTtsEnglishSynthesisModel();
+
+        // Act & Assert: ArgumentException.ThrowIfNullOrEmpty throws ArgumentNullException for
+        // null and ArgumentException for empty, so accept either via the shared base type.
+        await Assert.ThrowsAnyAsync<ArgumentException>(
+            () => model.InstallAsync(stagedFilesDirectory!, TestContext.Current.CancellationToken));
+    }
 }

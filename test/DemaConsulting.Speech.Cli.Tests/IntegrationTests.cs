@@ -104,6 +104,7 @@ public class IntegrationTests
         Assert.Contains("doctor", output);
         Assert.Contains("speak", output);
         Assert.Contains("recognize", output);
+        Assert.Contains("ask", output);
     }
 
     /// <summary>

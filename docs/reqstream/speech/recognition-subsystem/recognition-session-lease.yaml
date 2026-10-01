@@ -74,3 +74,17 @@ sections:
                 tests:
                   - SherpaOnnxSpeechRecognizerEngine_CreateSessionAsync_SessionAlreadyLeased_ThrowsRecognitionEngineBusyException
                   - SherpaOnnxSpeechRecognizerEngine_CreateSessionAsync_PriorSessionDisposing_ThrowsRecognitionEngineBusyException
+
+              - id: Speech-Recognition-RecognitionEngineBusyException-Constructors
+                title: >-
+                  The RecognitionEngineBusyException class shall provide standard exception
+                  constructors (default, message, message with inner exception).
+                justification: |
+                  Standard exception conformance lets callers construct, catch, and inspect this
+                  exception like any other .NET exception type, mirroring the identical
+                  constructor pattern used by this library's other custom exception types (for
+                  example AudioDeviceInUseException).
+                tests:
+                  - RecognitionEngineBusyException_Constructor_Default_HasNonEmptyMessage
+                  - RecognitionEngineBusyException_Constructor_WithMessage_ExposesMessage
+                  - RecognitionEngineBusyException_Constructor_WithInnerException_ExposesBoth

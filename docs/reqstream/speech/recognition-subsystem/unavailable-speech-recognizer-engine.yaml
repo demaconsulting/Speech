@@ -27,15 +27,19 @@ sections:
                 title: >-
                   The UnavailableSpeechRecognizerEngine class shall return
                   UnavailableRecognitionSession.Instance from CreateSessionAsync, without
-                  faulting the returned task, for any non-null device, while still rejecting a
-                  null device with ArgumentNullException.
+                  faulting the returned task, for any non-null device with a non-cancelled token,
+                  while still rejecting a null device with ArgumentNullException and an
+                  already-cancelled token with OperationCanceledException.
                 justification: |
                   A caller composing against this fallback engine must be able to reuse the same
                   create-session call unchanged regardless of availability; only a programming
-                  error (a null device argument) should surface as a fault.
+                  error (a null device argument or an already-cancelled token) should surface as
+                  a fault, matching the ISpeechRecognizerEngine.CreateSessionAsync contract every
+                  implementation - including this fallback - must honor.
                 tests:
                   - UnavailableSpeechRecognizerEngine_CreateSessionAsync_Always_ReturnsUnavailableSession
                   - UnavailableSpeechRecognizerEngine_CreateSessionAsync_NullDevice_ThrowsArgumentNullException
+                  - UnavailableSpeechRecognizerEngine_CreateSessionAsync_CancelledToken_ThrowsOperationCanceledException
 
               - id: Speech-Recognition-UnavailableSpeechRecognizerEngine-DisposalIdempotent
                 title: >-

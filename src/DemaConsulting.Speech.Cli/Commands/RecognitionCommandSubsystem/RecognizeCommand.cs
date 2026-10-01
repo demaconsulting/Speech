@@ -124,6 +124,25 @@ internal static class RecognizeCommand
     private const double DefaultSilenceTimeoutSeconds = 5.0;
 
     /// <summary>
+    ///     Resolves the idle-timeout window used to re-arm the mic-mode timer after every yielded
+    ///     result: <paramref name="options"/>'s own <c>--silence-timeout</c> value, or
+    ///     <see cref="DefaultSilenceTimeoutSeconds"/> when omitted.
+    /// </summary>
+    internal static TimeSpan ResolveSilenceTimeout(RecognizeOptions options) =>
+        TimeSpan.FromSeconds(options.SilenceTimeoutSeconds ?? DefaultSilenceTimeoutSeconds);
+
+    /// <summary>
+    ///     Resolves the idle-timeout window used only for the initial mic-mode timer arming,
+    ///     before any result has arrived: <paramref name="options"/>'s own <c>--start-timeout</c>
+    ///     value, or <see cref="DefaultStartTimeoutSeconds"/> when omitted. This default is a
+    ///     fixed value independent of <see cref="ResolveSilenceTimeout"/>'s own result - it never
+    ///     borrows <c>--silence-timeout</c>'s value, even when that flag is given and
+    ///     <c>--start-timeout</c> is not.
+    /// </summary>
+    internal static TimeSpan ResolveStartTimeout(RecognizeOptions options) =>
+        TimeSpan.FromSeconds(options.StartTimeoutSeconds ?? DefaultStartTimeoutSeconds);
+
+    /// <summary>
     ///     Runs the <c>recognize</c> subcommand against a real, composed
     ///     <see cref="SpeechModelCatalogAdapter"/> and <see cref="AudioDeviceFactory"/>.
     /// </summary>
@@ -253,11 +272,10 @@ internal static class RecognizeCommand
         SilenceTimeoutRecognizerSession? silenceTimeout = null;
         if (options.Mic)
         {
-            var sessionStartTimeout = TimeSpan.FromSeconds(options.StartTimeoutSeconds ?? DefaultStartTimeoutSeconds);
             silenceTimeout = new SilenceTimeoutRecognizerSession(
                 session,
-                TimeSpan.FromSeconds(options.SilenceTimeoutSeconds ?? DefaultSilenceTimeoutSeconds),
-                startTimeout: sessionStartTimeout);
+                ResolveSilenceTimeout(options),
+                startTimeout: ResolveStartTimeout(options));
         }
 
         // Ctrl+C stops the session cooperatively (fire-and-forget: this handler is synchronous

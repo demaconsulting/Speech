@@ -177,6 +177,36 @@ public class SherpaOnnxSpeechRecognizerEngineTests
     }
 
     /// <summary>
+    ///     Proves that <see cref="SherpaOnnxSpeechRecognizerEngine.CreateSessionAsync"/> returns
+    ///     the honest <see cref="UnavailableRecognitionSession.Instance"/> fallback, reporting a
+    ///     Warning diagnostic rather than attempting to lease the backend, when the supplied
+    ///     capture device itself reports unavailable.
+    /// </summary>
+    [Fact]
+    public async Task SherpaOnnxSpeechRecognizerEngine_CreateSessionAsync_DeviceUnavailable_ReturnsFallbackAndReportsWarning()
+    {
+        // Arrange: an engine over a fake backend, an unavailable capture device, and a substitute diagnostics sink
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        var engine = new SherpaOnnxSpeechRecognizerEngine(
+            new FakeRecognitionEngine(), new FakeRecognitionModel(), diagnostics);
+        var device = Substitute.For<IAudioCaptureDevice>();
+        device.IsAvailable.Returns(false);
+
+        // Act
+        var session = await engine.CreateSessionAsync(device, TestContext.Current.CancellationToken);
+
+        // Assert: the honest unavailable fallback was returned, and a Warning was reported
+        Assert.Same(UnavailableRecognitionSession.Instance, session);
+        diagnostics.Received().Report(
+            SpeechDiagnosticLevel.Warning,
+            "RecognitionSubsystem",
+            Arg.Is<string>(message => message.Contains("unavailable", StringComparison.OrdinalIgnoreCase)));
+
+        // Cleanup
+        await engine.DisposeAsync();
+    }
+
+    /// <summary>
     ///     Builds a substitute capture device reporting itself available at a plain mono 16 kHz
     ///     format.
     /// </summary>

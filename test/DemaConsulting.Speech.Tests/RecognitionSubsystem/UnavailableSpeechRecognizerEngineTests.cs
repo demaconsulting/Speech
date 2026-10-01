@@ -59,6 +59,25 @@ public class UnavailableSpeechRecognizerEngineTests
     }
 
     /// <summary>
+    ///     Proves that <see cref="UnavailableSpeechRecognizerEngine.CreateSessionAsync"/> still
+    ///     honors an already-cancelled token, since that is a genuine caller error rather than
+    ///     an ordinary unavailable state - matching the <see cref="ISpeechRecognizerEngine.CreateSessionAsync"/>
+    ///     contract every implementation must honor.
+    /// </summary>
+    [Fact]
+    public async Task UnavailableSpeechRecognizerEngine_CreateSessionAsync_CancelledToken_ThrowsOperationCanceledException()
+    {
+        // Arrange: the shared unavailable engine, an arbitrary device, and an already-cancelled token
+        var engine = UnavailableSpeechRecognizerEngine.Instance;
+        var device = Substitute.For<IAudioCaptureDevice>();
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        // Act & Assert
+        await Assert.ThrowsAsync<OperationCanceledException>(() => engine.CreateSessionAsync(device, cts.Token));
+    }
+
+    /// <summary>
     ///     Proves that calling <see cref="UnavailableSpeechRecognizerEngine.DisposeAsync"/> twice
     ///     is a safe no-op that never invalidates the shared instance.
     /// </summary>

@@ -199,6 +199,53 @@ public sealed class RecognizeCommandTests
             ["--stt-model", "model-1", "--mic", "--start-timeout", "not-a-number"]));
     }
 
+    /// <summary>
+    ///     Test that <see cref="RecognizeCommand.RunAsync"/>'s mic-mode start-timeout default
+    ///     resolves to a fixed 8 seconds when <c>--start-timeout</c> is omitted, independent of
+    ///     whatever value <c>--silence-timeout</c> is given - it never borrows
+    ///     <c>--silence-timeout</c>'s own value, proving the requirement's corrected wording.
+    /// </summary>
+    [Fact]
+    public void RecognizeCommand_Run_StartTimeoutOmitted_ResolvesToFixedEightSecondDefault()
+    {
+        var options = RecognizeCommand.ParseArguments(
+            ["--stt-model", "model-1", "--mic", "--silence-timeout", "2.5"]);
+
+        var startTimeout = RecognizeCommand.ResolveStartTimeout(options);
+
+        Assert.Equal(TimeSpan.FromSeconds(8), startTimeout);
+        Assert.NotEqual(RecognizeCommand.ResolveSilenceTimeout(options), startTimeout);
+    }
+
+    /// <summary>
+    ///     Test that <see cref="RecognizeCommand.RunAsync"/>'s mic-mode silence-timeout default
+    ///     resolves to a fixed 5 seconds when <c>--silence-timeout</c> is omitted.
+    /// </summary>
+    [Fact]
+    public void RecognizeCommand_Run_SilenceTimeoutOmitted_ResolvesToFixedFiveSecondDefault()
+    {
+        var options = RecognizeCommand.ParseArguments(["--stt-model", "model-1", "--mic"]);
+
+        var silenceTimeout = RecognizeCommand.ResolveSilenceTimeout(options);
+
+        Assert.Equal(TimeSpan.FromSeconds(5), silenceTimeout);
+    }
+
+    /// <summary>
+    ///     Test that an explicit <c>--start-timeout</c> is resolved verbatim, overriding the fixed
+    ///     default.
+    /// </summary>
+    [Fact]
+    public void RecognizeCommand_Run_StartTimeoutGiven_ResolvesToGivenValue()
+    {
+        var options = RecognizeCommand.ParseArguments(
+            ["--stt-model", "model-1", "--mic", "--start-timeout", "2.5"]);
+
+        var startTimeout = RecognizeCommand.ResolveStartTimeout(options);
+
+        Assert.Equal(TimeSpan.FromSeconds(2.5), startTimeout);
+    }
+
     /// <summary>Test that --interim and --final-only parse as flags.</summary>
     [Fact]
     public void RecognizeCommand_ParseArguments_InterimAndFinalOnlyFlags_ParseTrue()

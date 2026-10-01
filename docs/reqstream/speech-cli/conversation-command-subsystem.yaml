@@ -56,6 +56,8 @@ sections:
               - AskCommand_Run_NotDownloadedTtsModel_ThrowsArgumentExceptionWithDownloadHint
               - AskCommand_Run_NotDownloadedSttModel_ThrowsArgumentExceptionWithDownloadHint
               - AskCommand_Run_Success_SpeaksThenListensAndPrintsFinalResult
+              - Program_Run_WithAskCommand_DoesNotThrowNotImplemented
+              - SpeechCli_HelpFlag_Provided_ListsAllSubcommands
 
           - id: SpeechCli-ConversationCommands-ParamValidation
             title: >-

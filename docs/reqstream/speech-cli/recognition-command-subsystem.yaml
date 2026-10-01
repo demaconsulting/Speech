@@ -137,6 +137,9 @@ sections:
               - RecognizeCommand_ParseArguments_StartTimeoutOmitted_DefaultsToNull
               - RecognizeCommand_ParseArguments_NonPositiveStartTimeout_ThrowsArgumentException
               - RecognizeCommand_ParseArguments_MalformedStartTimeout_ThrowsArgumentException
+              - RecognizeCommand_Run_StartTimeoutOmitted_ResolvesToFixedEightSecondDefault
+              - RecognizeCommand_Run_SilenceTimeoutOmitted_ResolvesToFixedFiveSecondDefault
+              - RecognizeCommand_Run_StartTimeoutGiven_ResolvesToGivenValue
               - SilenceTimeoutRecognizerSession_Construct_NonPositiveStartTimeout_ThrowsArgumentOutOfRangeException
               - SilenceTimeoutRecognizerSession_GetResultsAsync_StartTimeoutOmitted_ArmsTimerWithIdleTimeout
               - SilenceTimeoutRecognizerSession_GetResultsAsync_StartTimeoutGiven_ArmsTimerWithStartTimeout

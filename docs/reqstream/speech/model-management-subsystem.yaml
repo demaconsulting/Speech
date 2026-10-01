@@ -408,11 +408,13 @@ sections:
               - Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-PreferredAudioFormat
               - Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-EngineConfigArgumentValidation
               - Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-InstallAsync
+              - Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-InstallAsync-ArgumentValidation
               - Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-ResolveSpeakerId
             tests:
               - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_Identity_DeclaresExpectedValues
               - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_CreateEngineConfig_ResolvesVitsFilesAndConfig
               - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_InstallAsync_SyntheticArchive_ExtractsFilesAndRemovesArchive
+              - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_InstallAsync_NullOrEmptyDirectory_ThrowsArgumentException
               - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_ResolveSpeakerId_ValidValue_ReturnsThatValue
 
           - id: Speech-Models-RealKokoroSynthesisModelWithVoiceSelection
