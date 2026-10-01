@@ -1,7 +1,7 @@
 namespace DemaConsulting.Speech.SynthesisSubsystem;
 
 /// <summary>
-///     The plain-data audio result of one <see cref="ISynthesisEngine.Generate"/> call.
+///     The plain-data audio result of one <see cref="ISynthesisBackend.Generate"/> call.
 /// </summary>
 /// <param name="Samples">
 ///     The synthesized mono samples, normalized to <c>[-1.0, 1.0]</c>. Never null; may be empty.

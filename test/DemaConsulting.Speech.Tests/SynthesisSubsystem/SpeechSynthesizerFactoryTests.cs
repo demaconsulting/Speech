@@ -11,7 +11,7 @@ namespace DemaConsulting.Speech.Tests.SynthesisSubsystem;
 /// <summary>
 ///     Unit tests for <see cref="SpeechSynthesizerFactory"/>, proving that composition never
 ///     throws for an ordinary machine state and honestly degrades to
-///     <see cref="UnavailableSpeechSynthesizer"/> instead.
+///     <see cref="UnavailableSpeechSynthesizerEngine"/> instead.
 /// </summary>
 public sealed class SpeechSynthesizerFactoryTests : IDisposable
 {
@@ -81,89 +81,63 @@ public sealed class SpeechSynthesizerFactoryTests : IDisposable
 
     /// <summary>
     ///     Proves that a model whose files are not installed composes to the honest unavailable
-    ///     synthesizer, and that the engine is never loaded.
+    ///     engine, and that the backend is never loaded.
     /// </summary>
     [Fact]
-    public void SpeechSynthesizerFactory_Create_ModelNotInstalled_ReturnsUnavailableSynthesizer()
+    public async Task SpeechSynthesizerFactory_LoadAsync_ModelNotInstalled_ReturnsUnavailableEngine()
     {
-        // Arrange: an available playback device but a directory that does not exist
-        var playbackDevice = CreateAvailablePlaybackDevice();
-        var engineFactory = new FakeSynthesisEngineFactory();
+        // Arrange: a directory that does not exist
+        var backendFactory = new FakeSynthesisEngineFactory();
         var missingDirectory = Path.Join(_installedModelDirectory, "not-installed");
 
         // Act: compose against the missing model directory
-        var synthesizer = SpeechSynthesizerFactory.Create(
-            new FakeSynthesisModel(), missingDirectory, playbackDevice, null, engineFactory);
+        var engine = await SpeechSynthesizerFactory.LoadAsync(
+            new FakeSynthesisModel(), missingDirectory, null, backendFactory, null, TestContext.Current.CancellationToken);
 
-        // Assert: the honest fallback is returned and no engine was loaded
-        Assert.Same(UnavailableSpeechSynthesizer.Instance, synthesizer);
-        Assert.Equal(0, engineFactory.CreateCallCount);
-    }
-
-    /// <summary>
-    ///     Proves that a machine with no usable playback device composes to the honest
-    ///     unavailable synthesizer rather than loading a model that could never be heard.
-    /// </summary>
-    [Fact]
-    public void SpeechSynthesizerFactory_Create_PlaybackDeviceUnavailable_ReturnsUnavailableSynthesizer()
-    {
-        // Arrange: an installed model but the shared unavailable playback device
-        var engineFactory = new FakeSynthesisEngineFactory();
-
-        // Act: compose against the unavailable device
-        var synthesizer = SpeechSynthesizerFactory.Create(
-            new FakeSynthesisModel(),
-            _installedModelDirectory,
-            UnavailableAudioPlaybackDevice.Instance,
-            null,
-            engineFactory);
-
-        // Assert: the honest fallback is returned and no engine was loaded
-        Assert.Same(UnavailableSpeechSynthesizer.Instance, synthesizer);
-        Assert.Equal(0, engineFactory.CreateCallCount);
+        // Assert: the honest fallback is returned and no backend was loaded
+        Assert.Same(UnavailableSpeechSynthesizerEngine.Instance, engine);
+        Assert.Equal(0, backendFactory.CreateCallCount);
     }
 
     /// <summary>
     ///     Proves that a model declaring a non-synthesis role composes to the honest unavailable
-    ///     synthesizer.
+    ///     engine.
     /// </summary>
     [Fact]
-    public void SpeechSynthesizerFactory_Create_ModelRoleIsNotSynthesis_ReturnsUnavailableSynthesizer()
+    public async Task SpeechSynthesizerFactory_LoadAsync_ModelRoleIsNotSynthesis_ReturnsUnavailableEngine()
     {
-        // Arrange: an installed model that declares the recognition role, and an available device
-        var playbackDevice = CreateAvailablePlaybackDevice();
-        var engineFactory = new FakeSynthesisEngineFactory();
+        // Arrange: an installed model that declares the recognition role
+        var backendFactory = new FakeSynthesisEngineFactory();
 
         // Act: compose against the wrong-role model
-        var synthesizer = SpeechSynthesizerFactory.Create(
-            new WrongRoleSynthesisModel(), _installedModelDirectory, playbackDevice, null, engineFactory);
+        var engine = await SpeechSynthesizerFactory.LoadAsync(
+            new WrongRoleSynthesisModel(), _installedModelDirectory, null, backendFactory, null, TestContext.Current.CancellationToken);
 
-        // Assert: the honest fallback is returned and no engine was loaded
-        Assert.Same(UnavailableSpeechSynthesizer.Instance, synthesizer);
-        Assert.Equal(0, engineFactory.CreateCallCount);
+        // Assert: the honest fallback is returned and no backend was loaded
+        Assert.Same(UnavailableSpeechSynthesizerEngine.Instance, engine);
+        Assert.Equal(0, backendFactory.CreateCallCount);
     }
 
     /// <summary>
     ///     Proves that a native-runtime or model-file load failure degrades to the honest
-    ///     unavailable synthesizer instead of propagating out of composition.
+    ///     unavailable engine instead of propagating out of composition.
     /// </summary>
     [Fact]
-    public void SpeechSynthesizerFactory_Create_EngineLoadFails_ReturnsUnavailableSynthesizerAndDoesNotThrow()
+    public async Task SpeechSynthesizerFactory_LoadAsync_EngineLoadFails_ReturnsUnavailableEngineAndDoesNotThrow()
     {
-        // Arrange: an installed model, an available device, and an engine factory that faults
-        var playbackDevice = CreateAvailablePlaybackDevice();
+        // Arrange: an installed model and a backend factory that faults
         var diagnostics = Substitute.For<ISpeechDiagnostics>();
-        var engineFactory = new FakeSynthesisEngineFactory(
+        var backendFactory = new FakeSynthesisEngineFactory(
             createException: new DllNotFoundException("sherpa-onnx-c-api"));
 
         // Act: compose, capturing any exception that escapes
-        ISpeechSynthesizer? synthesizer = null;
-        var exception = Record.Exception(() => synthesizer = SpeechSynthesizerFactory.Create(
-            new FakeSynthesisModel(), _installedModelDirectory, playbackDevice, diagnostics, engineFactory));
+        ISpeechSynthesizerEngine? engine = null;
+        var exception = await Record.ExceptionAsync(async () => engine = await SpeechSynthesizerFactory.LoadAsync(
+            new FakeSynthesisModel(), _installedModelDirectory, diagnostics, backendFactory, null, TestContext.Current.CancellationToken));
 
         // Assert: composition succeeded honestly and reported the fault as a structural fact
         Assert.Null(exception);
-        Assert.Same(UnavailableSpeechSynthesizer.Instance, synthesizer);
+        Assert.Same(UnavailableSpeechSynthesizerEngine.Instance, engine);
         diagnostics.Received().Report(
             SpeechDiagnosticLevel.Error,
             "SynthesisSubsystem",
@@ -171,28 +145,25 @@ public sealed class SpeechSynthesizerFactoryTests : IDisposable
     }
 
     /// <summary>
-    ///     Proves that an installed synthesis model plus an available playback device composes a
-    ///     real synthesizer wired to the injected engine factory, with the installed-model
-    ///     directory passed through unchanged.
+    ///     Proves that an installed synthesis model composes a real engine wired to the injected
+    ///     backend factory, with the installed-model directory passed through unchanged.
     /// </summary>
     [Fact]
-    public void SpeechSynthesizerFactory_Create_ModelInstalledAndDeviceAvailable_ReturnsRealSynthesizer()
+    public async Task SpeechSynthesizerFactory_LoadAsync_ModelInstalled_ReturnsRealEngine()
     {
-        // Arrange: an installed model, an available device, and a fake engine factory
-        var playbackDevice = CreateAvailablePlaybackDevice();
-        var engineFactory = new FakeSynthesisEngineFactory();
+        // Arrange: an installed model and a fake backend factory
+        var backendFactory = new FakeSynthesisEngineFactory();
         var model = new FakeSynthesisModel();
 
-        // Act: compose a synthesizer
-        using var synthesizer = SpeechSynthesizerFactory.Create(
-            model, _installedModelDirectory, playbackDevice, null, engineFactory);
+        // Act: compose an engine
+        await using var engine = await SpeechSynthesizerFactory.LoadAsync(
+            model, _installedModelDirectory, null, backendFactory, null, TestContext.Current.CancellationToken);
 
-        // Assert: a real synthesizer was built from the injected engine, for the right model
-        Assert.IsType<SherpaOnnxSpeechSynthesizer>(synthesizer);
-        Assert.True(synthesizer.IsAvailable);
-        Assert.Equal(1, engineFactory.CreateCallCount);
-        Assert.Same(model, engineFactory.RequestedModel);
-        Assert.Equal(_installedModelDirectory, engineFactory.RequestedInstalledModelDirectory);
+        // Assert: a real engine was built from the injected backend, for the right model
+        Assert.True(engine.IsAvailable);
+        Assert.Equal(1, backendFactory.CreateCallCount);
+        Assert.Same(model, backendFactory.RequestedModel);
+        Assert.Equal(_installedModelDirectory, backendFactory.RequestedInstalledModelDirectory);
     }
 
     /// <summary>
@@ -200,52 +171,52 @@ public sealed class SpeechSynthesizerFactoryTests : IDisposable
     ///     argument is a programming error rather than an ordinary machine state.
     /// </summary>
     [Fact]
-    public void SpeechSynthesizerFactory_Create_NullModel_ThrowsArgumentNullException()
+    public async Task SpeechSynthesizerFactory_LoadAsync_NullModel_ThrowsArgumentNullException()
     {
-        // Arrange: an available playback device
-        var playbackDevice = CreateAvailablePlaybackDevice();
-
         // Act & Assert: a null model is rejected
-        Assert.Throws<ArgumentNullException>(
-            () => SpeechSynthesizerFactory.Create(null!, _installedModelDirectory, playbackDevice));
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => SpeechSynthesizerFactory.LoadAsync(null!, _installedModelDirectory, cancellationToken: TestContext.Current.CancellationToken));
     }
 
     /// <summary>
-    ///     Proves that the public composition overload rejects a null playback device.
+    ///     Proves that an already-cancelled token throws <see cref="OperationCanceledException"/>
+    ///     synchronously from composition, rather than composing anyway.
     /// </summary>
     [Fact]
-    public void SpeechSynthesizerFactory_Create_NullPlaybackDevice_ThrowsArgumentNullException()
-    {
-        // Act & Assert: a null playback device is rejected
-        Assert.Throws<ArgumentNullException>(
-            () => SpeechSynthesizerFactory.Create(new FakeSynthesisModel(), _installedModelDirectory, null!));
-    }
-
-    /// <summary>
-    ///     Proves that <c>parameterValues</c> passed to <see cref="SpeechSynthesizerFactory.Create(ISynthesisModel,string,IAudioPlaybackDevice,ISpeechDiagnostics,ISynthesisEngineFactory,IReadOnlyDictionary{string,object}?)"/>
-    ///     reaches the constructed synthesizer's synthesis calls, by round-tripping it through a
-    ///     fake model's <c>ResolveSpeakerId</c> hook into the fake engine's captured speaker id.
-    /// </summary>
-    [Fact]
-    public async Task SpeechSynthesizerFactory_Create_ParameterValuesSupplied_ForwardedToSynthesizer()
+    public async Task SpeechSynthesizerFactory_LoadAsync_CancelledToken_ThrowsOperationCanceledException()
     {
         // Arrange
-        var playbackDevice = CreateAvailablePlaybackDevice();
-        var engineFactory = new FakeSynthesisEngineFactory();
+        var backendFactory = new FakeSynthesisEngineFactory();
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        // Act & Assert
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => SpeechSynthesizerFactory.LoadAsync(
+            new FakeSynthesisModel(), _installedModelDirectory, null, backendFactory, null, cts.Token));
+    }
+
+    /// <summary>
+    ///     Proves that <c>parameterValues</c> passed to
+    ///     <see cref="SpeechSynthesizerFactory.LoadAsync(ISynthesisModel,string,ISpeechDiagnostics,ISynthesisBackendFactory,IReadOnlyDictionary{string,object}?,CancellationToken)"/>
+    ///     reaches the constructed engine's synthesis calls, by round-tripping it through a fake
+    ///     model's <c>ResolveSpeakerId</c> hook into the fake engine's captured speaker id.
+    /// </summary>
+    [Fact]
+    public async Task SpeechSynthesizerFactory_LoadAsync_ParameterValuesSupplied_ForwardedToEngine()
+    {
+        // Arrange
+        var backendFactory = new FakeSynthesisEngineFactory();
         var model = new FakeSynthesisModel(
             resolveSpeakerId: values => values is not null && values.TryGetValue("voice", out var value) && value is int id ? id : 0);
         IReadOnlyDictionary<string, object> parameterValues = new Dictionary<string, object> { ["voice"] = 4 };
 
         // Act
-        using var synthesizer = SpeechSynthesizerFactory.Create(
-            model, _installedModelDirectory, playbackDevice, null, engineFactory, parameterValues);
-        await foreach (var _ in synthesizer.SynthesizeStreamAsync("Hello.", TestContext.Current.CancellationToken))
-        {
-            // Draining is enough to trigger the engine call.
-        }
+        await using var engine = await SpeechSynthesizerFactory.LoadAsync(
+            model, _installedModelDirectory, null, backendFactory, parameterValues, TestContext.Current.CancellationToken);
+        await engine.SynthesizeAsync("Hello.", TestContext.Current.CancellationToken);
 
         // Assert
-        var call = Assert.Single(engineFactory.Engine.GenerateCalls);
+        var call = Assert.Single(backendFactory.Engine.GenerateCalls);
         Assert.Equal(4, call.SpeakerId);
     }
 
@@ -255,21 +226,20 @@ public sealed class SpeechSynthesizerFactoryTests : IDisposable
     ///     supplied.
     /// </summary>
     [Fact]
-    public void SpeechSynthesizerFactory_Create_UnrecognizedParameterId_ComposesAndReportsInfo()
+    public async Task SpeechSynthesizerFactory_LoadAsync_UnrecognizedParameterId_ComposesAndReportsInfo()
     {
         // Arrange
-        var playbackDevice = CreateAvailablePlaybackDevice();
-        var engineFactory = new FakeSynthesisEngineFactory();
+        var backendFactory = new FakeSynthesisEngineFactory();
         var model = new FakeSynthesisModel();
         var diagnostics = Substitute.For<ISpeechDiagnostics>();
         IReadOnlyDictionary<string, object> parameterValues = new Dictionary<string, object> { ["typo-id"] = 1 };
 
         // Act
-        using var synthesizer = SpeechSynthesizerFactory.Create(
-            model, _installedModelDirectory, playbackDevice, diagnostics, engineFactory, parameterValues);
+        await using var engine = await SpeechSynthesizerFactory.LoadAsync(
+            model, _installedModelDirectory, diagnostics, backendFactory, parameterValues, TestContext.Current.CancellationToken);
 
-        // Assert: still a real, working synthesizer, plus the observability diagnostic
-        Assert.True(synthesizer.IsAvailable);
+        // Assert: still a real, working engine, plus the observability diagnostic
+        Assert.True(engine.IsAvailable);
         diagnostics.Received(1).Report(
             SpeechDiagnosticLevel.Info,
             "SynthesisSubsystem",
@@ -278,58 +248,55 @@ public sealed class SpeechSynthesizerFactoryTests : IDisposable
 
     /// <summary>
     ///     Proves that an out-of-range value for a recognized numeric parameter throws
-    ///     <see cref="ArgumentException"/> synchronously from <c>Create</c>, rather than
-    ///     silently defaulting, and that the engine is never loaded.
+    ///     <see cref="ArgumentException"/> synchronously from <c>LoadAsync</c>, rather than
+    ///     silently defaulting, and that the backend is never loaded.
     /// </summary>
     [Fact]
-    public void SpeechSynthesizerFactory_Create_RecognizedNumericParameterOutOfRange_Throws()
+    public async Task SpeechSynthesizerFactory_LoadAsync_RecognizedNumericParameterOutOfRange_Throws()
     {
         // Arrange: FakeSynthesisModel declares "tempo" bounded to [0.5, 2.0]
-        var playbackDevice = CreateAvailablePlaybackDevice();
-        var engineFactory = new FakeSynthesisEngineFactory();
+        var backendFactory = new FakeSynthesisEngineFactory();
         var model = new FakeSynthesisModel();
         IReadOnlyDictionary<string, object> parameterValues = new Dictionary<string, object> { ["tempo"] = 5.0 };
 
         // Act / Assert
-        var exception = Assert.Throws<ArgumentException>(() => SpeechSynthesizerFactory.Create(
-            model, _installedModelDirectory, playbackDevice, null, engineFactory, parameterValues));
+        var exception = await Assert.ThrowsAsync<ArgumentException>(() => SpeechSynthesizerFactory.LoadAsync(
+            model, _installedModelDirectory, null, backendFactory, parameterValues, TestContext.Current.CancellationToken));
         Assert.Contains("tempo", exception.Message, StringComparison.Ordinal);
-        Assert.Equal(0, engineFactory.CreateCallCount);
+        Assert.Equal(0, backendFactory.CreateCallCount);
     }
 
     /// <summary>
     ///     Proves that a wrong CLR type for a recognized numeric parameter throws
-    ///     <see cref="ArgumentException"/> synchronously from <c>Create</c>.
+    ///     <see cref="ArgumentException"/> synchronously from <c>LoadAsync</c>.
     /// </summary>
     [Fact]
-    public void SpeechSynthesizerFactory_Create_RecognizedNumericParameterWrongType_Throws()
+    public async Task SpeechSynthesizerFactory_LoadAsync_RecognizedNumericParameterWrongType_Throws()
     {
         // Arrange
-        var playbackDevice = CreateAvailablePlaybackDevice();
-        var engineFactory = new FakeSynthesisEngineFactory();
+        var backendFactory = new FakeSynthesisEngineFactory();
         var model = new FakeSynthesisModel();
         IReadOnlyDictionary<string, object> parameterValues = new Dictionary<string, object> { ["tempo"] = "fast" };
 
         // Act / Assert
-        var exception = Assert.Throws<ArgumentException>(() => SpeechSynthesizerFactory.Create(
-            model, _installedModelDirectory, playbackDevice, null, engineFactory, parameterValues));
+        var exception = await Assert.ThrowsAsync<ArgumentException>(() => SpeechSynthesizerFactory.LoadAsync(
+            model, _installedModelDirectory, null, backendFactory, parameterValues, TestContext.Current.CancellationToken));
         Assert.Contains("tempo", exception.Message, StringComparison.Ordinal);
-        Assert.Equal(0, engineFactory.CreateCallCount);
+        Assert.Equal(0, backendFactory.CreateCallCount);
     }
 
     /// <summary>
     ///     Proves that a non-integral value for the real, shipped
     ///     <see cref="SherpaOnnxVitsLibriTtsEnglishSynthesisModel"/>'s integer-only
     ///     <c>speaker</c> parameter throws <see cref="ArgumentException"/> synchronously from
-    ///     <c>Create</c>, rather than silently rounding it (this library's previous, now
+    ///     <c>LoadAsync</c>, rather than silently rounding it (this library's previous,
     ///     deliberately superseded, behavior for this exact case).
     /// </summary>
     [Fact]
-    public void SpeechSynthesizerFactory_Create_RecognizedIntegerParameterFractionalValue_Throws()
+    public async Task SpeechSynthesizerFactory_LoadAsync_RecognizedIntegerParameterFractionalValue_Throws()
     {
         // Arrange
-        var playbackDevice = CreateAvailablePlaybackDevice();
-        var engineFactory = new FakeSynthesisEngineFactory();
+        var backendFactory = new FakeSynthesisEngineFactory();
         var model = new SherpaOnnxVitsLibriTtsEnglishSynthesisModel();
         IReadOnlyDictionary<string, object> parameterValues = new Dictionary<string, object>
         {
@@ -337,24 +304,23 @@ public sealed class SpeechSynthesizerFactoryTests : IDisposable
         };
 
         // Act / Assert
-        var exception = Assert.Throws<ArgumentException>(() => SpeechSynthesizerFactory.Create(
-            model, _installedModelDirectory, playbackDevice, null, engineFactory, parameterValues));
+        var exception = await Assert.ThrowsAsync<ArgumentException>(() => SpeechSynthesizerFactory.LoadAsync(
+            model, _installedModelDirectory, null, backendFactory, parameterValues, TestContext.Current.CancellationToken));
         Assert.Contains(SherpaOnnxVitsLibriTtsEnglishSynthesisModel.SpeakerParameterId, exception.Message, StringComparison.Ordinal);
         Assert.Contains("whole number", exception.Message, StringComparison.Ordinal);
-        Assert.Equal(0, engineFactory.CreateCallCount);
+        Assert.Equal(0, backendFactory.CreateCallCount);
     }
 
     /// <summary>
     ///     Proves that a value not matching any declared voice for the real, shipped
     ///     <see cref="SherpaOnnxKokoroEnglishSynthesisModel"/>'s <c>ChoiceParameter</c> throws
-    ///     <see cref="ArgumentException"/> synchronously from <c>Create</c>.
+    ///     <see cref="ArgumentException"/> synchronously from <c>LoadAsync</c>.
     /// </summary>
     [Fact]
-    public void SpeechSynthesizerFactory_Create_RecognizedChoiceParameterInvalidOption_Throws()
+    public async Task SpeechSynthesizerFactory_LoadAsync_RecognizedChoiceParameterInvalidOption_Throws()
     {
         // Arrange
-        var playbackDevice = CreateAvailablePlaybackDevice();
-        var engineFactory = new FakeSynthesisEngineFactory();
+        var backendFactory = new FakeSynthesisEngineFactory();
         var model = new SherpaOnnxKokoroEnglishSynthesisModel();
         IReadOnlyDictionary<string, object> parameterValues = new Dictionary<string, object>
         {
@@ -362,190 +328,139 @@ public sealed class SpeechSynthesizerFactoryTests : IDisposable
         };
 
         // Act / Assert
-        var exception = Assert.Throws<ArgumentException>(() => SpeechSynthesizerFactory.Create(
-            model, _installedModelDirectory, playbackDevice, null, engineFactory, parameterValues));
+        var exception = await Assert.ThrowsAsync<ArgumentException>(() => SpeechSynthesizerFactory.LoadAsync(
+            model, _installedModelDirectory, null, backendFactory, parameterValues, TestContext.Current.CancellationToken));
         Assert.Contains("not-a-declared-voice", exception.Message, StringComparison.Ordinal);
-        Assert.Equal(0, engineFactory.CreateCallCount);
+        Assert.Equal(0, backendFactory.CreateCallCount);
     }
 
     /// <summary>
     ///     Proves that a model not yet installed in the store composes to the honest unavailable
-    ///     synthesizer, and that the engine is never loaded.
+    ///     engine, and that the backend is never loaded.
     /// </summary>
     [Fact]
-    public void SpeechSynthesizerFactory_Create_WithStoreModelNotInstalled_ReturnsUnavailableSynthesizer()
+    public async Task SpeechSynthesizerFactory_LoadAsync_WithStoreModelNotInstalled_ReturnsUnavailableEngine()
     {
-        // Arrange: an available playback device and a store with no installed model directory
-        var playbackDevice = CreateAvailablePlaybackDevice();
-        var engineFactory = new FakeSynthesisEngineFactory();
+        // Arrange: a store with no installed model directory
+        var backendFactory = new FakeSynthesisEngineFactory();
         var model = new FakeSynthesisModel();
 
         // Act: compose against the store, which resolves to a directory that does not exist
-        var synthesizer = SpeechSynthesizerFactory.Create(model, _store, playbackDevice, null, engineFactory);
+        var engine = await SpeechSynthesizerFactory.LoadAsync(
+            model, _store, null, backendFactory, null, TestContext.Current.CancellationToken);
 
-        // Assert: the honest fallback is returned and no engine was loaded
-        Assert.Same(UnavailableSpeechSynthesizer.Instance, synthesizer);
-        Assert.Equal(0, engineFactory.CreateCallCount);
+        // Assert: the honest fallback is returned and no backend was loaded
+        Assert.Same(UnavailableSpeechSynthesizerEngine.Instance, engine);
+        Assert.Equal(0, backendFactory.CreateCallCount);
     }
 
     /// <summary>
-    ///     Proves that an installed synthesis model plus an available playback device composes a
-    ///     real synthesizer wired to the injected engine factory, with the directory resolved
-    ///     through the store rather than hard-coded.
+    ///     Proves that an installed synthesis model composes a real engine wired to the injected
+    ///     backend factory, with the directory resolved through the store rather than hard-coded.
     /// </summary>
     [Fact]
-    public void SpeechSynthesizerFactory_Create_WithStoreModelInstalledAndDeviceAvailable_ReturnsRealSynthesizer()
+    public async Task SpeechSynthesizerFactory_LoadAsync_WithStoreModelInstalled_ReturnsRealEngine()
     {
-        // Arrange: a model installed via the store, an available device, and a fake engine factory
-        var playbackDevice = CreateAvailablePlaybackDevice();
-        var engineFactory = new FakeSynthesisEngineFactory();
+        // Arrange: a model installed via the store, and a fake backend factory
+        var backendFactory = new FakeSynthesisEngineFactory();
         var model = new FakeSynthesisModel();
         Directory.CreateDirectory(_store.GetCurrentDirectory(model.Id));
 
-        // Act: compose a synthesizer through the store overload
-        using var synthesizer = SpeechSynthesizerFactory.Create(model, _store, playbackDevice, null, engineFactory);
+        // Act: compose an engine through the store overload
+        await using var engine = await SpeechSynthesizerFactory.LoadAsync(
+            model, _store, null, backendFactory, null, TestContext.Current.CancellationToken);
 
-        // Assert: a real synthesizer was built, and the directory was resolved through the store
-        Assert.IsType<SherpaOnnxSpeechSynthesizer>(synthesizer);
-        Assert.Equal(1, engineFactory.CreateCallCount);
-        Assert.Equal(_store.GetCurrentDirectory(model.Id), engineFactory.RequestedInstalledModelDirectory);
+        // Assert: a real engine was built, and the directory was resolved through the store
+        Assert.True(engine.IsAvailable);
+        Assert.Equal(1, backendFactory.CreateCallCount);
+        Assert.Equal(_store.GetCurrentDirectory(model.Id), backendFactory.RequestedInstalledModelDirectory);
     }
 
     /// <summary>
     ///     Proves that the public store-based composition overload rejects a null model.
     /// </summary>
     [Fact]
-    public void SpeechSynthesizerFactory_Create_WithStoreNullModel_ThrowsArgumentNullException()
+    public async Task SpeechSynthesizerFactory_LoadAsync_WithStoreNullModel_ThrowsArgumentNullException()
     {
-        // Arrange: an available playback device
-        var playbackDevice = CreateAvailablePlaybackDevice();
-
         // Act & Assert: a null model is rejected
-        Assert.Throws<ArgumentNullException>(
-            () => SpeechSynthesizerFactory.Create(null!, _store, playbackDevice));
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => SpeechSynthesizerFactory.LoadAsync(null!, _store, cancellationToken: TestContext.Current.CancellationToken));
     }
 
     /// <summary>
     ///     Proves that the public store-based composition overload rejects a null store.
     /// </summary>
     [Fact]
-    public void SpeechSynthesizerFactory_Create_WithStoreNullStore_ThrowsArgumentNullException()
+    public async Task SpeechSynthesizerFactory_LoadAsync_WithStoreNullStore_ThrowsArgumentNullException()
     {
-        // Arrange: an available playback device
-        var playbackDevice = CreateAvailablePlaybackDevice();
-
         // Act & Assert: a null store is rejected
-        Assert.Throws<ArgumentNullException>(
-            () => SpeechSynthesizerFactory.Create(new FakeSynthesisModel(), (SpeechModelStore)null!, playbackDevice));
-    }
-
-    /// <summary>
-    ///     Proves that the public store-based composition overload rejects a null playback
-    ///     device, confirming the delegation still reaches the string-overload's own null check.
-    /// </summary>
-    [Fact]
-    public void SpeechSynthesizerFactory_Create_WithStoreNullPlaybackDevice_ThrowsArgumentNullException()
-    {
-        // Act & Assert: a null playback device is rejected
-        Assert.Throws<ArgumentNullException>(
-            () => SpeechSynthesizerFactory.Create(new FakeSynthesisModel(), _store, null!));
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => SpeechSynthesizerFactory.LoadAsync(new FakeSynthesisModel(), (SpeechModelStore)null!, cancellationToken: TestContext.Current.CancellationToken));
     }
 
     /// <summary>
     ///     Proves that a model not yet installed in the catalog's store composes to the honest
-    ///     unavailable synthesizer, and that the engine is never loaded.
+    ///     unavailable engine, and that the backend is never loaded.
     /// </summary>
     [Fact]
-    public void SpeechSynthesizerFactory_Create_WithCatalogModelNotInstalled_ReturnsUnavailableSynthesizer()
+    public async Task SpeechSynthesizerFactory_LoadAsync_WithCatalogModelNotInstalled_ReturnsUnavailableEngine()
     {
-        // Arrange: an available playback device and a catalog whose store has no installed model directory
-        var playbackDevice = CreateAvailablePlaybackDevice();
-        var engineFactory = new FakeSynthesisEngineFactory();
+        // Arrange: a catalog whose store has no installed model directory
+        var backendFactory = new FakeSynthesisEngineFactory();
         var model = new FakeSynthesisModel();
 
         // Act: compose against the catalog, which resolves to a directory that does not exist
-        var synthesizer = SpeechSynthesizerFactory.Create(model, _catalog, playbackDevice, null, engineFactory);
+        var engine = await SpeechSynthesizerFactory.LoadAsync(
+            model, _catalog, null, backendFactory, null, TestContext.Current.CancellationToken);
 
-        // Assert: the honest fallback is returned and no engine was loaded
-        Assert.Same(UnavailableSpeechSynthesizer.Instance, synthesizer);
-        Assert.Equal(0, engineFactory.CreateCallCount);
+        // Assert: the honest fallback is returned and no backend was loaded
+        Assert.Same(UnavailableSpeechSynthesizerEngine.Instance, engine);
+        Assert.Equal(0, backendFactory.CreateCallCount);
     }
 
     /// <summary>
-    ///     Proves that an installed synthesis model plus an available playback device composes a
-    ///     real synthesizer wired to the injected engine factory, with the directory resolved
-    ///     through the catalog's own store rather than a second, disconnected store.
+    ///     Proves that an installed synthesis model composes a real engine wired to the injected
+    ///     backend factory, with the directory resolved through the catalog's own store rather
+    ///     than a second, disconnected store.
     /// </summary>
     [Fact]
-    public void SpeechSynthesizerFactory_Create_WithCatalogModelInstalledAndDeviceAvailable_ReturnsRealSynthesizer()
+    public async Task SpeechSynthesizerFactory_LoadAsync_WithCatalogModelInstalled_ReturnsRealEngine()
     {
-        // Arrange: a model installed via the catalog's store, an available device, and a fake engine factory
-        var playbackDevice = CreateAvailablePlaybackDevice();
-        var engineFactory = new FakeSynthesisEngineFactory();
+        // Arrange: a model installed via the catalog's store, and a fake backend factory
+        var backendFactory = new FakeSynthesisEngineFactory();
         var model = new FakeSynthesisModel();
         Directory.CreateDirectory(_store.GetCurrentDirectory(model.Id));
 
-        // Act: compose a synthesizer through the catalog overload
-        using var synthesizer = SpeechSynthesizerFactory.Create(model, _catalog, playbackDevice, null, engineFactory);
+        // Act: compose an engine through the catalog overload
+        await using var engine = await SpeechSynthesizerFactory.LoadAsync(
+            model, _catalog, null, backendFactory, null, TestContext.Current.CancellationToken);
 
-        // Assert: a real synthesizer was built, and the directory was resolved through the catalog's store
-        Assert.IsType<SherpaOnnxSpeechSynthesizer>(synthesizer);
-        Assert.Equal(1, engineFactory.CreateCallCount);
-        Assert.Equal(_catalog.Store.GetCurrentDirectory(model.Id), engineFactory.RequestedInstalledModelDirectory);
+        // Assert: a real engine was built, and the directory was resolved through the catalog's store
+        Assert.True(engine.IsAvailable);
+        Assert.Equal(1, backendFactory.CreateCallCount);
+        Assert.Equal(_catalog.Store.GetCurrentDirectory(model.Id), backendFactory.RequestedInstalledModelDirectory);
     }
 
     /// <summary>
     ///     Proves that the public catalog-based composition overload rejects a null model.
     /// </summary>
     [Fact]
-    public void SpeechSynthesizerFactory_Create_WithCatalogNullModel_ThrowsArgumentNullException()
+    public async Task SpeechSynthesizerFactory_LoadAsync_WithCatalogNullModel_ThrowsArgumentNullException()
     {
-        // Arrange: an available playback device
-        var playbackDevice = CreateAvailablePlaybackDevice();
-
         // Act & Assert: a null model is rejected
-        Assert.Throws<ArgumentNullException>(
-            () => SpeechSynthesizerFactory.Create(null!, _catalog, playbackDevice));
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => SpeechSynthesizerFactory.LoadAsync(null!, _catalog, cancellationToken: TestContext.Current.CancellationToken));
     }
 
     /// <summary>
     ///     Proves that the public catalog-based composition overload rejects a null catalog.
     /// </summary>
     [Fact]
-    public void SpeechSynthesizerFactory_Create_WithCatalogNullCatalog_ThrowsArgumentNullException()
+    public async Task SpeechSynthesizerFactory_LoadAsync_WithCatalogNullCatalog_ThrowsArgumentNullException()
     {
-        // Arrange: an available playback device
-        var playbackDevice = CreateAvailablePlaybackDevice();
-
         // Act & Assert: a null catalog is rejected
-        Assert.Throws<ArgumentNullException>(
-            () => SpeechSynthesizerFactory.Create(new FakeSynthesisModel(), (SpeechModelCatalog)null!, playbackDevice));
-    }
-
-    /// <summary>
-    ///     Proves that the public catalog-based composition overload rejects a null playback
-    ///     device, confirming the delegation still reaches the store-overload's own null check.
-    /// </summary>
-    [Fact]
-    public void SpeechSynthesizerFactory_Create_WithCatalogNullPlaybackDevice_ThrowsArgumentNullException()
-    {
-        // Act & Assert: a null playback device is rejected
-        Assert.Throws<ArgumentNullException>(
-            () => SpeechSynthesizerFactory.Create(new FakeSynthesisModel(), _catalog, null!));
-    }
-
-    /// <summary>
-    ///     Builds a substitute playback device that reports itself available with a realistic
-    ///     stereo 48 kHz playback format.
-    /// </summary>
-    /// <returns>The configured substitute playback device.</returns>
-    private static IAudioPlaybackDevice CreateAvailablePlaybackDevice()
-    {
-        var playbackDevice = Substitute.For<IAudioPlaybackDevice>();
-        playbackDevice.IsAvailable.Returns(true);
-        playbackDevice.SampleRate.Returns(48000);
-        playbackDevice.ChannelCount.Returns(2);
-        return playbackDevice;
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => SpeechSynthesizerFactory.LoadAsync(new FakeSynthesisModel(), (SpeechModelCatalog)null!, cancellationToken: TestContext.Current.CancellationToken));
     }
 
     /// <summary>

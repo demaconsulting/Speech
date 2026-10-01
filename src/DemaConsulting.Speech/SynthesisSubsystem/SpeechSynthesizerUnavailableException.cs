@@ -6,14 +6,17 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     use.
 /// </summary>
 /// <remarks>
-///     Per this library's "nothing throws at composition" decision, obtaining and holding an
-///     <see cref="ISpeechSynthesizer"/> never throws - <see cref="SpeechSynthesizerFactory"/>
-///     returns <see cref="UnavailableSpeechSynthesizer.Instance"/> for every ordinary
-///     "cannot synthesize on this machine right now" state (model not installed, native runtime
-///     absent, no playback device). This exception is reserved for the two genuine error cases:
-///     a caller that ignored <c>IsAvailable == false</c> and invoked an operational member
-///     anyway, and a synthesizer whose underlying engine or playback device failed when actually
-///     used. It mirrors <see cref="RecognitionSubsystem.SpeechRecognizerUnavailableException"/>
+///     Per this library's "nothing throws at composition" decision, loading an
+///     <see cref="ISpeechSynthesizerEngine"/> never throws for an ordinary machine state -
+///     <see cref="SpeechSynthesizerFactory"/> returns
+///     <see cref="UnavailableSpeechSynthesizerEngine.Instance"/> for every ordinary "cannot
+///     synthesize on this machine right now" state (model not installed, native runtime absent).
+///     <see cref="UnavailableSpeechSynthesizerEngine"/> and <see cref="UnavailableSynthesisSession"/>
+///     report themselves honestly through <c>IsAvailable == false</c> rather than throwing this
+///     exception on an operational call. This exception is reserved for a
+///     <see cref="SherpaOnnxSynthesisSession"/> whose underlying backend or playback device failed
+///     when actually used, and for a caller who continued to use a session after it reported a
+///     terminal state. It mirrors <see cref="RecognitionSubsystem.SpeechRecognizerUnavailableException"/>
 ///     so both subsystems signal misuse the same way.
 /// </remarks>
 public sealed class SpeechSynthesizerUnavailableException : Exception

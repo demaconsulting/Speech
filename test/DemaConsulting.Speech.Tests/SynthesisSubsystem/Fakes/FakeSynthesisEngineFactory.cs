@@ -4,11 +4,11 @@ using DemaConsulting.Speech.SynthesisSubsystem;
 namespace DemaConsulting.Speech.Tests.SynthesisSubsystem.Fakes;
 
 /// <summary>
-///     Deterministic <see cref="ISynthesisEngineFactory"/> test double that hands out a
+///     Deterministic <see cref="ISynthesisBackendFactory"/> test double that hands out a
 ///     pre-configured <see cref="FakeSynthesisEngine"/> and records the arguments it was asked
 ///     to load, so composition can be verified without a model directory or a native runtime.
 /// </summary>
-internal sealed class FakeSynthesisEngineFactory : ISynthesisEngineFactory
+internal sealed class FakeSynthesisEngineFactory : ISynthesisBackendFactory
 {
     /// <summary>The exception to throw from <see cref="Create"/>, when one was scripted.</summary>
     private readonly Exception? _createException;
@@ -46,7 +46,7 @@ internal sealed class FakeSynthesisEngineFactory : ISynthesisEngineFactory
     public int CreateCallCount { get; private set; }
 
     /// <inheritdoc/>
-    public ISynthesisEngine Create(ISynthesisModel model, string installedModelDirectory)
+    public ISynthesisBackend Create(ISynthesisModel model, string installedModelDirectory)
     {
         CreateCallCount++;
         RequestedModel = model;

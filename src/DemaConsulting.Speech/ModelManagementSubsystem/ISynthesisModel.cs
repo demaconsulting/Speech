@@ -43,7 +43,7 @@ public interface ISynthesisModel : ISpeechModel
     ///     so the playback device attempts to open near the model's expected output format before
     ///     synthesis starts, potentially reducing or eliminating later resampling work. The real
     ///     source of truth remains the constructed engine's
-    ///     <see cref="SynthesisSubsystem.ISynthesisEngine.SampleRate"/>, which is read only after
+    ///     <see cref="SynthesisSubsystem.ISynthesisBackend.SampleRate"/>, which is read only after
     ///     <see cref="CreateEngineConfig"/> has been used to load the native engine. Callers must
     ///     therefore still handle a mismatch by resampling playback audio after construction.
     /// </remarks>

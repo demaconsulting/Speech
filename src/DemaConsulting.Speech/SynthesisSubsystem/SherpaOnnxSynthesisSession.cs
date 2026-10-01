@@ -1,0 +1,559 @@
+using System.Numerics.Tensors;
+using DemaConsulting.Speech.AudioSubsystem;
+using DemaConsulting.Speech.Diagnostics;
+using DemaConsulting.Speech.ModelManagementSubsystem;
+
+namespace DemaConsulting.Speech.SynthesisSubsystem;
+
+/// <summary>
+///     Real <see cref="ISynthesisSession"/> implementation that chunks text into
+///     <see cref="SpeechSegment"/>s, synthesizes each one on a dedicated worker thread (bounding
+///     how long a non-cooperative native call is waited on), and - for <see cref="SpeakAsync"/> -
+///     plays the resulting audio through this session's bound playback device.
+/// </summary>
+/// <remarks>
+///     Moved here from the former <c>SherpaOnnxSpeechSynthesizer</c>: the chunking/pipelined-
+///     generation logic and playback-device ownership are unchanged in substance, now wrapped in
+///     an explicit state machine (<see cref="SynthesisSessionState"/>), an overlap guard (at most
+///     one <see cref="SpeakAsync"/>/<see cref="SynthesizeAsync"/> call in flight at a time), and
+///     per-segment native calls routed through <see cref="DedicatedWorker"/> for the
+///     cooperative-cancel-then-abandon policy.
+///     <para>
+///     Unlike the former streaming pipeline, this session does not pipeline synthesis ahead of
+///     playback across an unbounded channel: each segment is synthesized, then (for
+///     <see cref="SpeakAsync"/>) written to the playback device, before the next segment's
+///     synthesis begins. This keeps the per-call state machine simple (one worker call in flight
+///     at a time) while still overlapping this call's own synthesis-then-playback work normally.
+///     </para>
+/// </remarks>
+internal sealed class SherpaOnnxSynthesisSession : ISynthesisSession
+{
+    /// <summary>The diagnostics category used for every event this session reports.</summary>
+    private const string DiagnosticsCategory = "SynthesisSubsystem";
+
+    /// <summary>
+    ///     How often <see cref="WaitForPlaybackDrainAsync"/> polls
+    ///     <see cref="IAudioPlaybackDevice.PendingSampleCount"/> while waiting for the playback
+    ///     device to finish rendering every queued sample.
+    /// </summary>
+    private static readonly TimeSpan DrainPollInterval = TimeSpan.FromMilliseconds(15);
+
+    /// <summary>
+    ///     An additional wait applied once <see cref="IAudioPlaybackDevice.PendingSampleCount"/>
+    ///     first reports <c>0</c>, before playback is considered drained, covering a real
+    ///     playback backend's residual host-buffer latency.
+    /// </summary>
+    private static readonly TimeSpan DrainTailMargin = TimeSpan.FromMilliseconds(40);
+
+    /// <summary>The synthesis backend this session uses for every native call.</summary>
+    private readonly ISynthesisBackend _backend;
+
+    /// <summary>The playback device this session is bound to for its entire life.</summary>
+    private readonly IAudioPlaybackDevice _device;
+
+    /// <summary>The model driving text normalization, tag rendering, and parameter conventions.</summary>
+    private readonly ISynthesisModel _model;
+
+    /// <summary>The session-level parameter value bag, or <see langword="null"/> when none was supplied.</summary>
+    private readonly IReadOnlyDictionary<string, object>? _parameterValues;
+
+    /// <summary>The sink for structural lifecycle and fault events.</summary>
+    private readonly ISpeechDiagnostics _diagnostics;
+
+    /// <summary>Invoked exactly once, from <see cref="DisposeAsync"/>, to release the engine's exclusivity lease.</summary>
+    private readonly Action _releaseLease;
+
+    /// <summary>Guards every field below against concurrent <see cref="SpeakAsync"/>/<see cref="SynthesizeAsync"/>/<see cref="StopAsync"/>/<see cref="DisposeAsync"/> calls.</summary>
+    private readonly object _syncRoot = new();
+
+    /// <summary>This session's current lifecycle state.</summary>
+    private SynthesisSessionState _state = SynthesisSessionState.Created;
+
+    /// <summary>The cancellation source for the currently in-flight operation, if any.</summary>
+    private CancellationTokenSource? _operationCancellation;
+
+    /// <summary>The exception that faulted this session, if <see cref="_state"/> is <see cref="SynthesisSessionState.Faulted"/>.</summary>
+    private Exception? _fault;
+
+    /// <summary>Whether <see cref="DisposeAsync"/> has already run.</summary>
+    private bool _isDisposed;
+
+    /// <summary>Whether the exclusivity lease has already been released.</summary>
+    private bool _leaseReleased;
+
+    /// <summary>
+    ///     Initializes a new instance of the <see cref="SherpaOnnxSynthesisSession"/> class, bound
+    ///     to one playback device for its entire life.
+    /// </summary>
+    /// <param name="backend">The loaded synthesis backend to synthesize with. Must not be null.</param>
+    /// <param name="device">The playback device this session is bound to. Must not be null.</param>
+    /// <param name="model">The model to normalize text and render tags with. Must not be null.</param>
+    /// <param name="parameterValues">The session-level parameter value bag, or <see langword="null"/>.</param>
+    /// <param name="diagnostics">The sink for structural lifecycle and fault events. Must not be null.</param>
+    /// <param name="releaseLease">Invoked exactly once, from <see cref="DisposeAsync"/>, to release the engine's exclusivity lease.</param>
+    internal SherpaOnnxSynthesisSession(
+        ISynthesisBackend backend,
+        IAudioPlaybackDevice device,
+        ISynthesisModel model,
+        IReadOnlyDictionary<string, object>? parameterValues,
+        ISpeechDiagnostics diagnostics,
+        Action releaseLease)
+    {
+        ArgumentNullException.ThrowIfNull(backend);
+        ArgumentNullException.ThrowIfNull(device);
+        ArgumentNullException.ThrowIfNull(model);
+        ArgumentNullException.ThrowIfNull(diagnostics);
+        ArgumentNullException.ThrowIfNull(releaseLease);
+
+        _backend = backend;
+        _device = device;
+        _model = model;
+        _parameterValues = parameterValues;
+        _diagnostics = diagnostics;
+        _releaseLease = releaseLease;
+    }
+
+    /// <inheritdoc/>
+    /// <remarks>
+    ///     <see langword="false"/> once this session has been disposed or has faulted; otherwise
+    ///     always <see langword="true"/> - this type is only ever constructed with a real, loaded
+    ///     backend by <see cref="SherpaOnnxSpeechSynthesizerEngine"/>.
+    /// </remarks>
+    public bool IsAvailable
+    {
+        get
+        {
+            lock (_syncRoot)
+            {
+                return !_isDisposed && _state != SynthesisSessionState.Faulted;
+            }
+        }
+    }
+
+    /// <inheritdoc/>
+    public SynthesisSessionState State
+    {
+        get
+        {
+            lock (_syncRoot)
+            {
+                return _state;
+            }
+        }
+    }
+
+    /// <inheritdoc/>
+    public event EventHandler<SessionStateChangedEventArgs>? StateChanged;
+
+    /// <inheritdoc/>
+    public async Task SpeakAsync(string text, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        await RunOperationAsync(text, playAfterSynthesis: true, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<SynthesizedSpeech>> SynthesizeAsync(string text, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        return await RunOperationAsync(text, playAfterSynthesis: false, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc/>
+    public Task StopAsync(CancellationToken cancellationToken = default)
+    {
+        CancellationTokenSource? operationCancellation;
+        lock (_syncRoot)
+        {
+            operationCancellation = _operationCancellation;
+        }
+
+        operationCancellation?.Cancel();
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    ///     Runs one <see cref="SpeakAsync"/>/<see cref="SynthesizeAsync"/> operation end-to-end:
+    ///     validates the overlap rule and current state, transitions through
+    ///     <see cref="SynthesisSessionState.Starting"/>/<see cref="SynthesisSessionState.Running"/>,
+    ///     synthesizes (and optionally plays) every segment, then transitions through
+    ///     <see cref="SynthesisSessionState.Stopping"/> back to <see cref="SynthesisSessionState.Stopped"/>
+    ///     on success, or to <see cref="SynthesisSessionState.Faulted"/> on any non-cancellation
+    ///     failure.
+    /// </summary>
+    /// <param name="text">The text to synthesize.</param>
+    /// <param name="playAfterSynthesis">Whether to play each segment through the bound device as it is produced.</param>
+    /// <param name="callerToken">The caller's own cancellation token for this call.</param>
+    /// <returns>The ordered synthesized segments.</returns>
+    private async Task<IReadOnlyList<SynthesizedSpeech>> RunOperationAsync(
+        string text,
+        bool playAfterSynthesis,
+        CancellationToken callerToken)
+    {
+        var operationCancellation = CancellationTokenSource.CreateLinkedTokenSource(callerToken);
+        lock (_syncRoot)
+        {
+            if (_isDisposed)
+            {
+                operationCancellation.Dispose();
+                throw new ObjectDisposedException(nameof(SherpaOnnxSynthesisSession));
+            }
+
+            if (_state == SynthesisSessionState.Faulted)
+            {
+                operationCancellation.Dispose();
+                throw new SynthesisSessionFaultedException(
+                    "Cannot perform a synthesis operation: this session has faulted.", _fault!);
+            }
+
+            if (_state is SynthesisSessionState.Starting or SynthesisSessionState.Running or SynthesisSessionState.Stopping)
+            {
+                operationCancellation.Dispose();
+                throw new InvalidOperationException(
+                    "session already has an operation in progress; await completion before calling again");
+            }
+
+            _operationCancellation = operationCancellation;
+        }
+
+        TransitionTo(SynthesisSessionState.Starting);
+        TransitionTo(SynthesisSessionState.Running);
+
+        try
+        {
+            var results = await GenerateAndOptionallyPlayAsync(text, playAfterSynthesis, operationCancellation.Token)
+                .ConfigureAwait(false);
+
+            lock (_syncRoot)
+            {
+                _operationCancellation = null;
+            }
+
+            TransitionTo(SynthesisSessionState.Stopping);
+            TransitionTo(SynthesisSessionState.Stopped);
+            return results;
+        }
+        catch (OperationCanceledException)
+        {
+            lock (_syncRoot)
+            {
+                _operationCancellation = null;
+            }
+
+            TransitionTo(SynthesisSessionState.Stopping);
+            TransitionTo(SynthesisSessionState.Stopped);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            lock (_syncRoot)
+            {
+                _operationCancellation = null;
+                _fault = ex;
+            }
+
+            TransitionTo(SynthesisSessionState.Faulted);
+
+            // Intentionally broad: a synthesis or playback fault must transition the session to
+            // the terminal Faulted state and be reported as a structural fact rather than escape
+            // unobserved.
+            _diagnostics.Report(
+                SpeechDiagnosticLevel.Error,
+                DiagnosticsCategory,
+                $"Synthesis session faulted: {ex.Message}");
+            throw;
+        }
+        finally
+        {
+            operationCancellation.Dispose();
+        }
+    }
+
+    /// <summary>
+    ///     Synthesizes every segment of the rendered plan in order, writing each to the playback
+    ///     device immediately when <paramref name="playAfterSynthesis"/> is <see langword="true"/>,
+    ///     and waiting for genuine playback drain once every segment has been written.
+    /// </summary>
+    private async Task<IReadOnlyList<SynthesizedSpeech>> GenerateAndOptionallyPlayAsync(
+        string text,
+        bool playAfterSynthesis,
+        CancellationToken cancellationToken)
+    {
+        var normalized = _model.NormalizeText(text);
+        var spans = AudioTagParser.Parse(normalized);
+        var plan = _model.CapabilityProfile.Render(spans, _model);
+
+        List<SynthesizedSpeech> results = [];
+
+        if (!playAfterSynthesis)
+        {
+            foreach (var segment in plan.Segments)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                results.Add(await GenerateSegmentAsync(segment, cancellationToken).ConfigureAwait(false));
+            }
+
+            return results;
+        }
+
+        try
+        {
+            _device.Start();
+
+            var resampler = new PlaybackAudioResampler(
+                _backend.SampleRate,
+                _device.SampleRate > 0 ? _device.SampleRate : _backend.SampleRate,
+                _device.ChannelCount > 0 ? _device.ChannelCount : 1);
+
+            foreach (var segment in plan.Segments)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var synthesized = await GenerateSegmentAsync(segment, cancellationToken).ConfigureAwait(false);
+                results.Add(synthesized);
+                PlaySegment(synthesized, resampler);
+            }
+
+            await WaitForPlaybackDrainAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            try
+            {
+                _device.Stop();
+            }
+            catch (Exception ex)
+            {
+                // Intentionally broad: stopping the device during teardown is best-effort against
+                // the native playback backend, and a stop fault must not mask the earlier outcome.
+                _diagnostics.Report(
+                    SpeechDiagnosticLevel.Error,
+                    DiagnosticsCategory,
+                    $"Failed to stop the playback device after synthesis: {ex.Message}");
+            }
+        }
+
+        return results;
+    }
+
+    /// <summary>
+    ///     Synthesizes one segment, applying any speed/volume parameter overrides it carries,
+    ///     resolving the session-level speaker id, or producing pure silence for an empty-text
+    ///     pause segment without calling the backend at all. The backend call itself runs on a
+    ///     <see cref="DedicatedWorker"/> so a non-cooperative native call is bounded by the
+    ///     cooperative-cancel-then-abandon policy rather than awaited indefinitely.
+    /// </summary>
+    private async Task<SynthesizedSpeech> GenerateSegmentAsync(SpeechSegment segment, CancellationToken cancellationToken)
+    {
+        if (segment.Text.Length == 0)
+        {
+            return new SynthesizedSpeech(
+                [],
+                _backend.SampleRate,
+                TimeSpan.FromMilliseconds(segment.PreSilenceMs),
+                TimeSpan.FromMilliseconds(segment.PostSilenceMs));
+        }
+
+        var (speedRatio, volumeRatio) = ResolveOverrideRatios(segment.ParameterOverrides);
+        var speakerId = _model.ResolveSpeakerId(_parameterValues);
+
+        var generated = await DedicatedWorker.Run(
+            _ => _backend.Generate(segment.Text, speedRatio, speakerId),
+            cancellationToken,
+            _diagnostics,
+            DiagnosticsCategory).ConfigureAwait(false);
+
+        var samples = generated.Samples;
+        if (Math.Abs(volumeRatio - 1.0) > double.Epsilon)
+        {
+            samples = ApplyVolume(samples, volumeRatio);
+        }
+
+        return new SynthesizedSpeech(
+            samples,
+            generated.SampleRate,
+            TimeSpan.FromMilliseconds(segment.PreSilenceMs),
+            TimeSpan.FromMilliseconds(segment.PostSilenceMs));
+    }
+
+    /// <summary>
+    ///     Resolves a segment's parameter overrides into a backend speed ratio and a post-hoc
+    ///     volume (amplitude) ratio, by matching each overridden parameter id against
+    ///     <see cref="SpeechParameterConventions"/>.
+    /// </summary>
+    private (float SpeedRatio, double VolumeRatio) ResolveOverrideRatios(IReadOnlyDictionary<string, object>? overrides)
+    {
+        var speedRatio = 1.0f;
+        var volumeRatio = 1.0;
+        if (overrides is null || overrides.Count == 0)
+        {
+            return (speedRatio, volumeRatio);
+        }
+
+        foreach (var (parameterId, overriddenValue) in overrides)
+        {
+            var parameter = _model.Parameters
+                .OfType<NumericParameter>()
+                .FirstOrDefault(candidate => candidate.Id == parameterId);
+            if (parameter is null || Math.Abs(parameter.Default) <= double.Epsilon || overriddenValue is not double doubleValue)
+            {
+                continue;
+            }
+
+            var ratio = doubleValue / parameter.Default;
+            if (SpeechParameterConventions.IsSpeedParameter(parameterId))
+            {
+                speedRatio = (float)ratio;
+            }
+            else if (SpeechParameterConventions.IsVolumeParameter(parameterId))
+            {
+                volumeRatio = ratio;
+            }
+        }
+
+        return (speedRatio, volumeRatio);
+    }
+
+    /// <summary>
+    ///     Scales sample amplitude by a ratio, clamping to <c>[-1.0, 1.0]</c> so a boosted segment
+    ///     never clips into an invalid sample value.
+    /// </summary>
+    private static float[] ApplyVolume(float[] samples, double ratio)
+    {
+        var scaled = new float[samples.Length];
+        var ratioF = (float)ratio;
+        TensorPrimitives.Multiply(samples, ratioF, scaled);
+        TensorPrimitives.Clamp(scaled, -1.0f, 1.0f, scaled);
+        return scaled;
+    }
+
+    /// <summary>
+    ///     Polls <see cref="IAudioPlaybackDevice.PendingSampleCount"/> until every sample written
+    ///     during this operation has genuinely been rendered by the playback hardware, then
+    ///     applies a small additional tail wait for residual host buffering.
+    /// </summary>
+    private async Task WaitForPlaybackDrainAsync(CancellationToken cancellationToken)
+    {
+        while (_device.PendingSampleCount > 0)
+        {
+            await Task.Delay(DrainPollInterval, cancellationToken).ConfigureAwait(false);
+        }
+
+        await Task.Delay(DrainTailMargin, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    ///     Writes one segment's pre-silence, resampled audio, and post-silence to the playback
+    ///     device in order.
+    /// </summary>
+    private void PlaySegment(SynthesizedSpeech segment, PlaybackAudioResampler resampler)
+    {
+        WriteSilence(segment.PreSilence);
+
+        if (segment.Samples.Count > 0)
+        {
+            var interleaved = resampler.Convert(segment.Samples is float[] array ? array : [.. segment.Samples]);
+            if (interleaved.Length > 0)
+            {
+                _device.Write(interleaved);
+            }
+        }
+
+        WriteSilence(segment.PostSilence);
+    }
+
+    /// <summary>
+    ///     Writes a block of zero-valued samples to the playback device representing a duration
+    ///     of real silence, sized for the device's resolved sample rate and channel count.
+    /// </summary>
+    private void WriteSilence(TimeSpan duration)
+    {
+        if (duration <= TimeSpan.Zero)
+        {
+            return;
+        }
+
+        var sampleRate = _device.SampleRate > 0 ? _device.SampleRate : _backend.SampleRate;
+        var channelCount = _device.ChannelCount > 0 ? _device.ChannelCount : 1;
+        var frameCount = (int)(duration.TotalSeconds * sampleRate);
+        if (frameCount <= 0)
+        {
+            return;
+        }
+
+        _device.Write(new float[frameCount * channelCount]);
+    }
+
+    /// <summary>
+    ///     Updates <see cref="_state"/> and raises <see cref="StateChanged"/>, with handler
+    ///     exceptions caught and routed to diagnostics rather than propagated, mirroring this
+    ///     library's other event-exception-isolation conventions.
+    /// </summary>
+    private void TransitionTo(SynthesisSessionState newState)
+    {
+        SynthesisSessionState previous;
+        lock (_syncRoot)
+        {
+            previous = _state;
+            _state = newState;
+        }
+
+        if (previous == newState)
+        {
+            return;
+        }
+
+        try
+        {
+            StateChanged?.Invoke(this, new SessionStateChangedEventArgs(previous, newState));
+        }
+        catch (Exception ex)
+        {
+            // Intentionally broad: a host's StateChanged handler must never be able to destabilize
+            // this session's own lifecycle.
+            _diagnostics.Report(
+                SpeechDiagnosticLevel.Warning,
+                DiagnosticsCategory,
+                $"A StateChanged handler threw: {ex.Message}");
+        }
+    }
+
+    /// <inheritdoc/>
+    /// <remarks>
+    ///     Requests cancellation of any in-flight operation, transitions through
+    ///     <see cref="SynthesisSessionState.Disposing"/> to <see cref="SynthesisSessionState.Disposed"/>,
+    ///     and releases the engine's exclusivity lease exactly once. Idempotent: a second call does
+    ///     nothing.
+    /// </remarks>
+    public ValueTask DisposeAsync()
+    {
+        CancellationTokenSource? operationCancellation;
+        lock (_syncRoot)
+        {
+            if (_isDisposed)
+            {
+                return ValueTask.CompletedTask;
+            }
+
+            _isDisposed = true;
+            operationCancellation = _operationCancellation;
+        }
+
+        operationCancellation?.Cancel();
+
+        TransitionTo(SynthesisSessionState.Disposing);
+        TransitionTo(SynthesisSessionState.Disposed);
+
+        lock (_syncRoot)
+        {
+            if (_leaseReleased)
+            {
+                return ValueTask.CompletedTask;
+            }
+
+            _leaseReleased = true;
+        }
+
+        _releaseLease();
+        return ValueTask.CompletedTask;
+    }
+}

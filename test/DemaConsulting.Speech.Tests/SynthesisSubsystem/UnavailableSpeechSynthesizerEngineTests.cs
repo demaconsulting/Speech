@@ -1,101 +1,108 @@
+using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.SynthesisSubsystem;
+using NSubstitute;
 
 namespace DemaConsulting.Speech.Tests.SynthesisSubsystem;
 
 /// <summary>
-///     Unit tests for <see cref="UnavailableSpeechSynthesizer"/> and
+///     Unit tests for <see cref="UnavailableSpeechSynthesizerEngine"/> and
 ///     <see cref="SpeechSynthesizerUnavailableException"/>.
 /// </summary>
-public class UnavailableSpeechSynthesizerTests
+public class UnavailableSpeechSynthesizerEngineTests
 {
     /// <summary>
-    ///     Proves that <see cref="UnavailableSpeechSynthesizer.Instance"/> reports itself as
-    ///     unavailable.
+    ///     Proves that <see cref="UnavailableSpeechSynthesizerEngine.Instance"/> reports itself
+    ///     as unavailable.
     /// </summary>
     [Fact]
-    public void UnavailableSpeechSynthesizer_IsAvailable_Read_ReturnsFalse()
+    public void UnavailableSpeechSynthesizerEngine_IsAvailable_Read_ReturnsFalse()
     {
         // Act
-        var isAvailable = UnavailableSpeechSynthesizer.Instance.IsAvailable;
+        var isAvailable = UnavailableSpeechSynthesizerEngine.Instance.IsAvailable;
 
         // Assert
         Assert.False(isAvailable);
     }
 
     /// <summary>
-    ///     Proves that calling <see cref="ISpeechSynthesizer.SynthesizeStreamAsync"/> throws
-    ///     <see cref="SpeechSynthesizerUnavailableException"/>.
+    ///     Proves that <see cref="ISpeechSynthesizerEngine.CreateSessionAsync"/> always succeeds,
+    ///     returning <see cref="UnavailableSynthesisSession.Instance"/> rather than throwing.
     /// </summary>
     [Fact]
-    public void UnavailableSpeechSynthesizer_SynthesizeStreamAsync_Always_ThrowsSpeechSynthesizerUnavailableException()
+    public async Task UnavailableSpeechSynthesizerEngine_CreateSessionAsync_Always_ReturnsUnavailableSession()
     {
         // Arrange
-        var synthesizer = UnavailableSpeechSynthesizer.Instance;
+        var engine = UnavailableSpeechSynthesizerEngine.Instance;
+        var device = Substitute.For<IAudioPlaybackDevice>();
 
-        // Act & Assert
-        Assert.Throws<SpeechSynthesizerUnavailableException>(
-            () => synthesizer.SynthesizeStreamAsync("hello", TestContext.Current.CancellationToken));
+        // Act
+        var session = await engine.CreateSessionAsync(device, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Same(UnavailableSynthesisSession.Instance, session);
     }
 
     /// <summary>
-    ///     Proves that calling <see cref="ISpeechSynthesizer.PlayStreamAsync"/> throws
+    ///     Proves that <see cref="ISpeechSynthesizerEngine.CreateSessionAsync"/> rejects a null
+    ///     device.
+    /// </summary>
+    [Fact]
+    public async Task UnavailableSpeechSynthesizerEngine_CreateSessionAsync_NullDevice_ThrowsArgumentNullException()
+    {
+        // Arrange
+        var engine = UnavailableSpeechSynthesizerEngine.Instance;
+
+        // Act & Assert
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => engine.CreateSessionAsync(null!, TestContext.Current.CancellationToken));
+    }
+
+    /// <summary>
+    ///     Proves that calling <see cref="ISpeechSynthesizerEngine.SpeakAsync"/> throws
     ///     <see cref="SpeechSynthesizerUnavailableException"/>.
     /// </summary>
     [Fact]
-    public async Task UnavailableSpeechSynthesizer_PlayStreamAsync_Always_ThrowsSpeechSynthesizerUnavailableException()
+    public async Task UnavailableSpeechSynthesizerEngine_SpeakAsync_Always_ThrowsSpeechSynthesizerUnavailableException()
     {
         // Arrange
-        var synthesizer = UnavailableSpeechSynthesizer.Instance;
+        var engine = UnavailableSpeechSynthesizerEngine.Instance;
+        var device = Substitute.For<IAudioPlaybackDevice>();
 
         // Act & Assert
         await Assert.ThrowsAsync<SpeechSynthesizerUnavailableException>(
-            () => synthesizer.PlayStreamAsync(EmptyStream(), TestContext.Current.CancellationToken));
+            () => engine.SpeakAsync(device, "hello", TestContext.Current.CancellationToken));
     }
 
     /// <summary>
-    ///     Proves that calling <see cref="ISpeechSynthesizer.SpeakAsync"/> throws
+    ///     Proves that calling <see cref="ISpeechSynthesizerEngine.SynthesizeAsync"/> throws
     ///     <see cref="SpeechSynthesizerUnavailableException"/>.
     /// </summary>
     [Fact]
-    public async Task UnavailableSpeechSynthesizer_SpeakAsync_Always_ThrowsSpeechSynthesizerUnavailableException()
+    public async Task UnavailableSpeechSynthesizerEngine_SynthesizeAsync_Always_ThrowsSpeechSynthesizerUnavailableException()
     {
         // Arrange
-        var synthesizer = UnavailableSpeechSynthesizer.Instance;
+        var engine = UnavailableSpeechSynthesizerEngine.Instance;
 
         // Act & Assert
         await Assert.ThrowsAsync<SpeechSynthesizerUnavailableException>(
-            () => synthesizer.SpeakAsync("hello", TestContext.Current.CancellationToken));
-    }
-
-    /// <summary>
-    ///     Proves that calling <see cref="ISpeechSynthesizer.Stop"/> throws
-    ///     <see cref="SpeechSynthesizerUnavailableException"/>.
-    /// </summary>
-    [Fact]
-    public void UnavailableSpeechSynthesizer_Stop_Always_ThrowsSpeechSynthesizerUnavailableException()
-    {
-        // Arrange
-        var synthesizer = UnavailableSpeechSynthesizer.Instance;
-
-        // Act & Assert
-        Assert.Throws<SpeechSynthesizerUnavailableException>(synthesizer.Stop);
+            () => engine.SynthesizeAsync("hello", TestContext.Current.CancellationToken));
     }
 
     /// <summary>
     ///     Proves that disposing the shared instance is a safe no-op, even when called more than
-    ///     once, so a host wrapping it in a <c>using</c> block never fails.
+    ///     once, so a host wrapping it in an <c>await using</c> block never fails.
     /// </summary>
     [Fact]
-    public void UnavailableSpeechSynthesizer_Dispose_CalledTwice_DoesNotThrow()
+    public async Task UnavailableSpeechSynthesizerEngine_DisposeAsync_CalledTwice_DoesNotThrow()
     {
         // Arrange
-        var synthesizer = UnavailableSpeechSynthesizer.Instance;
+        var engine = UnavailableSpeechSynthesizerEngine.Instance;
 
         // Act
-        var exception = Record.Exception(() =>
+        var exception = await Record.ExceptionAsync(async () =>
         {
-            synthesizer.Dispose();
-            synthesizer.Dispose();
+            await engine.DisposeAsync();
+            await engine.DisposeAsync();
         });
 
         // Assert
@@ -151,12 +158,5 @@ public class UnavailableSpeechSynthesizerTests
 
         // Assert
         Assert.False(string.IsNullOrEmpty(exception.Message));
-    }
-
-    /// <summary>An empty asynchronous stream, standing in for a real synthesized-speech sequence.</summary>
-    private static async IAsyncEnumerable<SynthesizedSpeech> EmptyStream()
-    {
-        await Task.CompletedTask;
-        yield break;
     }
 }
