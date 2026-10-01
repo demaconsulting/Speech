@@ -422,11 +422,13 @@ public class RecognitionPanelViewModelTests
     }
 
     /// <summary>
-    ///     Proves that Stop ends an in-flight session deterministically, releasing the
-    ///     recognizer and reporting the stop rather than an error.
+    ///     Proves that Stop ends an in-flight session deterministically without disposing the
+    ///     recognizer - it is cached and reused across Start/Stop cycles (see
+    ///     <see cref="RecognitionPanelViewModel"/>'s "Recognizer reuse" remarks) - and reports the
+    ///     stop rather than an error.
     /// </summary>
     [Fact]
-    public void RecognitionPanelViewModel_Stop_DuringListening_StopsAndReleasesSession()
+    public void RecognitionPanelViewModel_Stop_DuringListening_StopsWithoutDisposingSession()
     {
         // Arrange: a listening session
         var descriptor = FakeSpeechModel.Descriptor("stt", SpeechModelState.Downloaded, role: SpeechModelRole.Recognition);
@@ -443,11 +445,140 @@ public class RecognitionPanelViewModelTests
         // Act: stop
         viewModel.StopCommand.Execute(null);
 
-        // Assert: the session was stopped and released, and the panel reports the stop
+        // Assert: the session was stopped but the recognizer itself is kept alive (model stays
+        // loaded), and the panel reports the stop
         recognizer.Received(1).Stop();
-        recognizer.Received(1).Dispose();
+        recognizer.DidNotReceive().Dispose();
         Assert.Equal(RecognitionStreamingState.Idle, viewModel.State);
         Assert.Equal(RecognitionPanelViewModel.StoppedMessage, viewModel.StatusMessage);
+    }
+
+    /// <summary>
+    ///     Proves the central "Recognizer reuse" guarantee: starting, stopping, and starting
+    ///     again for the same model/capture-device selection builds the recognizer only once,
+    ///     instead of reloading its model on every Start click.
+    /// </summary>
+    [Fact]
+    public void RecognitionPanelViewModel_StartStopStart_SameSelection_ReusesRecognizer()
+    {
+        // Arrange: a panel ready to listen
+        var descriptor = FakeSpeechModel.Descriptor("stt", SpeechModelState.Downloaded, role: SpeechModelRole.Recognition);
+        var deviceService = Substitute.For<IAudioDeviceService>();
+        var availableDevice = CaptureDevice();
+        deviceService.CreateCaptureDevice(Arg.Any<AudioDeviceSelection?>()).Returns(availableDevice);
+        var recognizer = Substitute.For<ISpeechRecognizer>();
+        recognizer.IsAvailable.Returns(true);
+        var sessionFactory = Substitute.For<IRecognizerSessionFactory>();
+        sessionFactory.Create(Arg.Any<ISpeechModel>(), Arg.Any<IAudioCaptureDevice>()).Returns(recognizer);
+        var viewModel = new RecognitionPanelViewModel(Catalog(descriptor), deviceService, DeviceSelection(), sessionFactory);
+
+        // Act: start, stop, start again - the same selection throughout
+        viewModel.StartCommand.Execute(null);
+        viewModel.StopCommand.Execute(null);
+        viewModel.StartCommand.Execute(null);
+
+        // Assert: the expensive composition step ran exactly once; Start/Stop ran on the same
+        // cached instance twice each
+        sessionFactory.Received(1).Create(Arg.Any<ISpeechModel>(), Arg.Any<IAudioCaptureDevice>());
+        recognizer.Received(2).Start();
+        recognizer.Received(1).Stop();
+    }
+
+    /// <summary>
+    ///     Proves that a device refresh invalidates the cached recognizer: a Start after the
+    ///     refresh builds a fresh recognizer/device pair rather than reusing one bound to a now-
+    ///     stale device.
+    /// </summary>
+    [Fact]
+    public async Task RecognitionPanelViewModel_DeviceRefresh_InvalidatesCachedRecognizer()
+    {
+        // Arrange: a panel with a cached (idle) recognizer from a prior Start/Stop cycle
+        var descriptor = FakeSpeechModel.Descriptor("stt", SpeechModelState.Downloaded, role: SpeechModelRole.Recognition);
+        var deviceService = Substitute.For<IAudioDeviceService>();
+        deviceService.CreateCaptureDevice(Arg.Any<AudioDeviceSelection?>()).Returns(_ => CaptureDevice());
+        var firstRecognizer = Substitute.For<ISpeechRecognizer>();
+        firstRecognizer.IsAvailable.Returns(true);
+        var secondRecognizer = Substitute.For<ISpeechRecognizer>();
+        secondRecognizer.IsAvailable.Returns(true);
+        var sessionFactory = Substitute.For<IRecognizerSessionFactory>();
+        sessionFactory.Create(Arg.Any<ISpeechModel>(), Arg.Any<IAudioCaptureDevice>())
+            .Returns(firstRecognizer, secondRecognizer);
+        var deviceSelection = DeviceSelection();
+        var viewModel = new RecognitionPanelViewModel(Catalog(descriptor), deviceService, deviceSelection, sessionFactory);
+        viewModel.StartCommand.Execute(null);
+        viewModel.StopCommand.Execute(null);
+
+        // Act: refresh the shared device-selection panel while idle, then start again
+        await deviceSelection.Refresh();
+        viewModel.StartCommand.Execute(null);
+
+        // Assert: the stale recognizer was disposed by the refresh, and the second Start
+        // composed an entirely new recognizer rather than reusing the stale one
+        firstRecognizer.Received(1).Dispose();
+        sessionFactory.Received(2).Create(Arg.Any<ISpeechModel>(), Arg.Any<IAudioCaptureDevice>());
+        secondRecognizer.Received(1).Start();
+    }
+
+    /// <summary>
+    ///     Proves that changing the selected recognition model invalidates a cached (idle)
+    ///     recognizer, so the next Start builds a recognizer for the newly selected model instead
+    ///     of reusing one loaded for the previous model.
+    /// </summary>
+    [Fact]
+    public void RecognitionPanelViewModel_SelectedModelChanged_InvalidatesCachedRecognizer()
+    {
+        // Arrange: a panel with two installed models and a cached (idle) recognizer for the first
+        var firstDescriptor = FakeSpeechModel.Descriptor("stt-a", SpeechModelState.Downloaded, role: SpeechModelRole.Recognition);
+        var secondDescriptor = FakeSpeechModel.Descriptor("stt-b", SpeechModelState.Downloaded, role: SpeechModelRole.Recognition);
+        var deviceService = Substitute.For<IAudioDeviceService>();
+        deviceService.CreateCaptureDevice(Arg.Any<AudioDeviceSelection?>()).Returns(_ => CaptureDevice());
+        var recognizer = Substitute.For<ISpeechRecognizer>();
+        recognizer.IsAvailable.Returns(true);
+        var sessionFactory = Substitute.For<IRecognizerSessionFactory>();
+        sessionFactory.Create(Arg.Any<ISpeechModel>(), Arg.Any<IAudioCaptureDevice>()).Returns(recognizer);
+        var viewModel = new RecognitionPanelViewModel(
+            Catalog(firstDescriptor, secondDescriptor), deviceService, DeviceSelection(), sessionFactory);
+        viewModel.StartCommand.Execute(null);
+        viewModel.StopCommand.Execute(null);
+
+        // Act: pick the other installed model while idle
+        viewModel.SelectedModel = viewModel.AvailableModels.Single(model => model.Id == "stt-b");
+
+        // Assert: the recognizer cached for the previous model was disposed
+        recognizer.Received(1).Dispose();
+    }
+
+    /// <summary>
+    ///     Proves that changing the selected capture device invalidates a cached (idle)
+    ///     recognizer, so the next Start builds a recognizer bound to the newly selected device
+    ///     instead of reusing one bound to the previous device.
+    /// </summary>
+    [Fact]
+    public void RecognitionPanelViewModel_SelectedCaptureDeviceChanged_InvalidatesCachedRecognizer()
+    {
+        // Arrange: a panel sharing a device-selection panel reporting two capture devices, with a
+        // cached (idle) recognizer bound to the first
+        var descriptor = FakeSpeechModel.Descriptor("stt", SpeechModelState.Downloaded, role: SpeechModelRole.Recognition);
+        var deviceA = new AudioDeviceDescription("Mic A", AudioDeviceDirection.Capture, 1, 48_000);
+        var deviceB = new AudioDeviceDescription("Mic B", AudioDeviceDirection.Capture, 1, 48_000);
+        var deviceService = Substitute.For<IAudioDeviceService>();
+        deviceService.EnumerateCaptureDevices().Returns([deviceA, deviceB]);
+        deviceService.EnumeratePlaybackDevices().Returns([]);
+        deviceService.CreateCaptureDevice(Arg.Any<AudioDeviceSelection?>()).Returns(_ => CaptureDevice());
+        var recognizer = Substitute.For<ISpeechRecognizer>();
+        recognizer.IsAvailable.Returns(true);
+        var sessionFactory = Substitute.For<IRecognizerSessionFactory>();
+        sessionFactory.Create(Arg.Any<ISpeechModel>(), Arg.Any<IAudioCaptureDevice>()).Returns(recognizer);
+        var deviceSelection = new DeviceSelectionViewModel(deviceService);
+        var viewModel = new RecognitionPanelViewModel(Catalog(descriptor), deviceService, deviceSelection, sessionFactory);
+        viewModel.StartCommand.Execute(null);
+        viewModel.StopCommand.Execute(null);
+
+        // Act: pick the other capture device while idle
+        deviceSelection.SelectedCaptureDevice = deviceB;
+
+        // Assert: the recognizer cached for the previous device was disposed
+        recognizer.Received(1).Dispose();
     }
 
     /// <summary>

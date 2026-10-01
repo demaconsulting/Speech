@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Text;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -44,6 +45,16 @@ namespace DemaConsulting.Speech.Demo.RecognitionPanelSubsystem;
 ///     <see cref="SynchronizationContext"/> pattern as <see cref="ISpeechRecognizer.ResultReceived"/>
 ///     handling above. <see cref="Dispose"/> unsubscribes this handler.
 ///     </para>
+///     <para>
+///     <b>Recognizer reuse.</b> Per <see cref="ISpeechRecognizer"/>'s own "hot reuse" guidance,
+///     this ViewModel constructs a recognizer at most once per selected model/capture-device pair
+///     and calls <see cref="ISpeechRecognizer.Start"/>/<see cref="ISpeechRecognizer.Stop"/>
+///     repeatedly on that same instance across many Start/Stop clicks, instead of composing and
+///     disposing a new one - and reloading its model - on every click. The cached recognizer is
+///     invalidated (disposed and rebuilt on the next Start) only when the selected model changes,
+///     the selected capture device changes, or the shared device-selection panel forces a device
+///     refresh - each of which genuinely requires a different underlying recognizer/device pair.
+///     </para>
 /// </remarks>
 public sealed partial class RecognitionPanelViewModel : ObservableObject, IDisposable
 {
@@ -85,8 +96,16 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IDispo
     /// </summary>
     private readonly SynchronizationContext? _catalogEventUiContext = SynchronizationContext.Current;
 
-    /// <summary>The recognizer currently streaming, if any.</summary>
-    private ISpeechRecognizer? _activeRecognizer;
+    /// <summary>
+    ///     The cached recognizer, bound to <see cref="_captureDevice"/>, reused across many
+    ///     Start/Stop cycles; see the "Recognizer reuse" remarks above. <see langword="null"/>
+    ///     before the first Start, or after invalidation by a model/device change or a device
+    ///     refresh.
+    /// </summary>
+    private ISpeechRecognizer? _recognizer;
+
+    /// <summary>The capture device <see cref="_recognizer"/> was constructed with, if any.</summary>
+    private IAudioCaptureDevice? _captureDevice;
 
     /// <summary>
     ///     TEMPORARY diagnostic instrumentation for investigating a reported dropped-word bug
@@ -208,11 +227,53 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IDispo
         _sessionFactory = sessionFactory;
 
         _catalogService.ModelInstalled += OnModelInstalled;
+        _deviceSelection.PropertyChanged += OnDeviceSelectionChanged;
 
         _preRefreshHook = StopBeforeDeviceRefreshAsync;
         _deviceSelection.RegisterPreRefreshHook(_preRefreshHook);
 
         Refresh();
+    }
+
+    /// <summary>
+    ///     Invalidates the cached recognizer, if any, when the user picks a different capture
+    ///     device - it was built against the previously selected device and must not be reused
+    ///     against a new one.
+    /// </summary>
+    /// <param name="sender">The raising device-selection panel. Unused.</param>
+    /// <param name="e">The event naming the property that changed.</param>
+    private void OnDeviceSelectionChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(DeviceSelectionViewModel.CaptureSelection) && State != RecognitionStreamingState.Listening)
+        {
+            InvalidateRecognizer();
+        }
+    }
+
+    /// <summary>
+    ///     Invalidates the cached recognizer, if any, when the user picks a different recognition
+    ///     model - it was built against the previously selected model and must not be reused
+    ///     against a new one. The model picker is disabled while listening (see
+    ///     <see cref="CanChangeModel"/>), so this never fires while a session is active.
+    /// </summary>
+    /// <param name="value">The newly selected model.</param>
+    partial void OnSelectedModelChanged(ISpeechModel? value) => InvalidateRecognizer();
+
+    /// <summary>
+    ///     Disposes and clears the cached recognizer and its bound capture device, if any, so the
+    ///     next Start builds a fresh pair. Safe to call when nothing is cached.
+    /// </summary>
+    private void InvalidateRecognizer()
+    {
+        if (_recognizer is null)
+        {
+            return;
+        }
+
+        _recognizer.ResultReceived -= OnResultReceived;
+        _recognizer.Dispose();
+        _recognizer = null;
+        _captureDevice = null;
     }
 
     /// <summary>
@@ -244,7 +305,8 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IDispo
 
     /// <summary>
     ///     Starts a streaming transcription session for the currently selected model through the
-    ///     currently selected capture device.
+    ///     currently selected capture device, building a new recognizer only if none is already
+    ///     cached for this model/device pair (see the "Recognizer reuse" remarks above).
     /// </summary>
     [RelayCommand(CanExecute = nameof(CanStart))]
     private void Start()
@@ -257,21 +319,28 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IDispo
             return;
         }
 
-        var captureDevice = _deviceService.CreateCaptureDevice(_deviceSelection.CaptureSelection);
-        if (!captureDevice.IsAvailable)
+        if (_recognizer is null)
         {
-            StatusMessage = NoCaptureDeviceMessage;
-            State = RecognitionStreamingState.Error;
-            return;
-        }
+            var captureDevice = _deviceService.CreateCaptureDevice(_deviceSelection.CaptureSelection);
+            if (!captureDevice.IsAvailable)
+            {
+                StatusMessage = NoCaptureDeviceMessage;
+                State = RecognitionStreamingState.Error;
+                return;
+            }
 
-        var recognizer = _sessionFactory.Create(selectedModel, captureDevice);
-        if (!recognizer.IsAvailable)
-        {
-            recognizer.Dispose();
-            StatusMessage = RecognizerUnavailableMessage;
-            State = RecognitionStreamingState.Error;
-            return;
+            var recognizer = _sessionFactory.Create(selectedModel, captureDevice);
+            if (!recognizer.IsAvailable)
+            {
+                recognizer.Dispose();
+                StatusMessage = RecognizerUnavailableMessage;
+                State = RecognitionStreamingState.Error;
+                return;
+            }
+
+            recognizer.ResultReceived += OnResultReceived;
+            _recognizer = recognizer;
+            _captureDevice = captureDevice;
         }
 
         Finals.Clear();
@@ -279,49 +348,46 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IDispo
         StatusMessage = null;
 
         _uiContext = SynchronizationContext.Current;
-        _activeRecognizer = recognizer;
-        recognizer.ResultReceived += OnResultReceived;
 
         // TEMPORARY diagnostic instrumentation: an independent tap on the same capture device,
         // used only when DEMASPEECH_CAPTURE_DEBUG_DIR is set (see CaptureDebugRecorder), for
         // investigating a reported dropped-word bug after a mid-sentence pause. Subscribing here
         // does not affect the recognizer above, which owns the device's Start/Stop lifecycle.
-        _captureDebugRecorder = CaptureDebugRecorder.TryStart(captureDevice);
+        _captureDebugRecorder = CaptureDebugRecorder.TryStart(_captureDevice!);
 
         try
         {
-            recognizer.Start();
+            _recognizer.Start();
             State = RecognitionStreamingState.Listening;
         }
         catch (SpeechRecognizerUnavailableException ex)
         {
             _captureDebugRecorder?.Dispose();
             _captureDebugRecorder = null;
-            recognizer.ResultReceived -= OnResultReceived;
-            _activeRecognizer = null;
-            recognizer.Dispose();
+
+            // The cached recognizer itself reported a hard failure starting its device - treat it
+            // as unusable for the rest of its life rather than retrying the same broken instance;
+            // the next Start attempt builds a fresh recognizer/device pair.
+            InvalidateRecognizer();
             StatusMessage = ex.Message;
             State = RecognitionStreamingState.Error;
         }
     }
 
     /// <summary>
-    ///     Stops the in-flight streaming transcription session, if any. A safe no-op when nothing
-    ///     is listening.
+    ///     Stops the in-flight streaming transcription session, if any, without discarding the
+    ///     underlying recognizer - it remains cached, with its model still loaded, so the next
+    ///     Start is cheap. A safe no-op when nothing is listening.
     /// </summary>
     [RelayCommand(CanExecute = nameof(CanStop))]
     private void Stop()
     {
-        var recognizer = _activeRecognizer;
-        if (recognizer is null)
+        if (_recognizer is null)
         {
             return;
         }
 
-        recognizer.Stop();
-        recognizer.ResultReceived -= OnResultReceived;
-        recognizer.Dispose();
-        _activeRecognizer = null;
+        _recognizer.Stop();
         _uiContext = null;
 
         // TEMPORARY diagnostic instrumentation: finalize the independent raw-capture recording
@@ -334,8 +400,10 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IDispo
     }
 
     /// <summary>
-    ///     Stops an actively listening session, if any, so the shared device-selection panel can
-    ///     safely force the audio backend to re-scan its device table.
+    ///     Stops an actively listening session, if any, and invalidates the cached recognizer so
+    ///     the shared device-selection panel can safely force the audio backend to re-scan its
+    ///     device table: the recognizer's bound capture device would otherwise become stale the
+    ///     instant the refresh completes, so it must not be reused once one is pending.
     /// </summary>
     /// <returns>
     ///     A synchronously completed task: <see cref="Stop"/> is documented to be fully
@@ -353,6 +421,8 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IDispo
         {
             Stop();
         }
+
+        InvalidateRecognizer();
 
         return Task.CompletedTask;
     }
@@ -438,24 +508,19 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IDispo
     }
 
     /// <summary>
-    ///     Stops any in-flight session and releases the recognizer and capture device it holds,
-    ///     and unsubscribes from <see cref="IModelCatalogService.ModelInstalled"/>.
+    ///     Stops any in-flight session and releases the cached recognizer and capture device it
+    ///     holds, and unsubscribes from <see cref="IModelCatalogService.ModelInstalled"/> and the
+    ///     device-selection panel's change notifications.
     /// </summary>
     public void Dispose()
     {
         _catalogService.ModelInstalled -= OnModelInstalled;
+        _deviceSelection.PropertyChanged -= OnDeviceSelectionChanged;
         _deviceSelection.UnregisterPreRefreshHook(_preRefreshHook);
 
         _captureDebugRecorder?.Dispose();
         _captureDebugRecorder = null;
 
-        if (_activeRecognizer is null)
-        {
-            return;
-        }
-
-        _activeRecognizer.ResultReceived -= OnResultReceived;
-        _activeRecognizer.Dispose();
-        _activeRecognizer = null;
+        InvalidateRecognizer();
     }
 }
