@@ -38,7 +38,7 @@ rules for what counts as a valid supplied value.
 - **BooleanParameter(id, displayName, description, default)**: Validates only the common fields.
 - **SpeechModelParameterDiagnostics.ValidateAndReport(modelId, declaredParameters,
   parameterValues, diagnostics, category)**: Called once, up front, by both composition factories'
-  innermost `Create` overloads (before either factory does any other work). Iterates
+  innermost `LoadAsync` overloads (before either factory does any other work). Iterates
   `declaredParameters` in their declared order; for each one present as a key in
   `parameterValues`, validates the supplied value against that parameter's own rules - a
   `NumericParameter` value must be a `double`/`int`/`float` within `[Minimum, Maximum]`, and

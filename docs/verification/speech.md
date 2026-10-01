@@ -26,8 +26,8 @@ or synthesis engine instead of a real model, so CI never depends on a real, mult
 download or the native sherpa-onnx runtime.
 
 System tests reside in `SpeechTests.cs` within the `DemaConsulting.Speech.Tests` project, with the
-Natural Language Audio Tag and streaming-synthesis scenarios additionally proven by
-`AudioTagParserTests.cs` and `SherpaOnnxSpeechSynthesizerTests.cs` in the same project.
+Natural Language Audio Tag scenarios additionally proven by `AudioTagParserTests.cs` in the same
+project.
 
 ## Test Environment
 
@@ -136,21 +136,16 @@ Verifies that a bracketed word outside the closed vocabulary is passed through a
 text rather than dropped or rejected, proving the "never worse than plain narration" guarantee for
 unrecognized or malformed bracket content.
 
-### Unit: Plain Text Synthesis Yields an Audio Segment
+### Unit: Streaming Synthesis Produces Played Audio
 
-**Test**: `SynthesizeStreamAsync_PlainText_YieldsAudioSegment`
+**Test**: `Speech_SystemIntegration_StreamingSynthesis_TextProducesPlayedAudio`
 
-Verifies that `SherpaOnnxSpeechSynthesizer.SynthesizeStreamAsync` yields at least one audio segment
-for plain text with no audio tags, proving the Layer 2 rendering and chunked synthesis pipeline
-produce audio for the simplest input.
-
-### Unit: Ordered Segments Start, Write in Order, and Stop Playback
-
-**Test**: `PlayStreamAsync_OrderedSegments_StartsWritesInOrderAndStops`
-
-Verifies that `SherpaOnnxSpeechSynthesizer.PlayStreamAsync` starts the playback device, writes a
-mono 16 kHz silence segment followed by an audio segment to the device in order, and stops the
-device once playback completes.
+Verifies that composing `SpeechSynthesizerFactory.LoadAsync` with an installed test model and a
+fake synthesis engine, then creating a session via `ISpeechSynthesizerEngine.CreateSessionAsync`
+and speaking plain text via `ISynthesisSession.SpeakAsync`, starts the playback device, writes at
+least one block of audio to it, and stops the device once playback completes - proving the
+Layer 2 rendering and chunked streaming-synthesis pipeline produce and play audio for the
+simplest input end to end through the current async Engine/Session API.
 
 ## Acceptance Criteria
 

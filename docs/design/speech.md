@@ -334,7 +334,7 @@ direct safety impact.
   hardware resolved, and a recognition model accepts exactly one mono rate, so the
   RecognitionSubsystem - not the AudioSubsystem and not the host - converts between them. The
   converter uses channel averaging and linear interpolation, a deliberate simplicity/quality
-  trade-off recorded in _SherpaOnnxSpeechRecognizer Design_
+  trade-off recorded in _SherpaOnnxRecognitionSession Design_
 - **Recognition and synthesis models both ship in the compiled-in catalog**: The recognition
   pipeline is proven end to end against the two real, production recognition models
   (`SherpaOnnxZipformerEnRecognitionModel`, `SherpaOnnxNemotronStreamingEnRecognitionModel`), and

@@ -9,9 +9,12 @@ is private, since the type carries no state and multiple instances would provide
 
 **Key Methods**:
 
-- **CreateSessionAsync(IAudioCaptureDevice, CancellationToken)**: Never throws; returns a
-  completed task holding `UnavailableRecognitionSession.Instance` regardless of the supplied
-  device, so a caller that composes without checking `IsAvailable` first still receives a usable,
+- **CreateSessionAsync(IAudioCaptureDevice, CancellationToken)**: Throws `ArgumentNullException`
+  synchronously if `device` is `null`, and throws `OperationCanceledException` synchronously if
+  `cancellationToken` is already cancelled - both are programming/caller errors, not machine
+  states. Otherwise never throws; returns a completed task holding
+  `UnavailableRecognitionSession.Instance` regardless of the supplied device's own availability,
+  so a caller that composes without checking `IsAvailable` first still receives a usable,
   honestly-unavailable session rather than an exception.
 
 **Error Handling**: Obtaining and holding the instance never throws. The returned session is the

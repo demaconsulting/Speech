@@ -105,6 +105,9 @@ The following software items of the SpeechCli system are also covered:
   (`recognize`) plus the `SilenceTimeoutRecognizerSession` idle-timeout utility, extending
   `ModelCommandsSubsystem`'s `ICliModelCatalog` seam with recognition-side members symmetric to
   the synthesis pair
+- **ConversationCommandSubsystem (Subsystem)** — The one voice-conversation subcommand (`ask`),
+  running a speak-then-listen turn as one invocation by reusing `SynthesisCommandSubsystem`'s
+  and `RecognitionCommandSubsystem`'s existing seam members rather than introducing a new one
 
 The following OTS items are also covered:
 
@@ -188,13 +191,16 @@ nor knows about `SpeechDemo`.
 
 A third, sibling system, `SpeechCli`, also sits alongside `Speech` in the model. It is the
 cross-platform .NET global tool (`speech-cli`) that exposes the library's capabilities from the
-command line, and it is structured with four subsystems: `ModelCommandsSubsystem` (the five
+command line, and it is structured with five subsystems: `ModelCommandsSubsystem` (the five
 model-management subcommands over a CLI-owned catalog seam), `DeviceCommandsSubsystem` (the
 three device-related subcommands consuming the library's probe/factory interfaces directly),
 `SynthesisCommandSubsystem` (the `speak` subcommand, extending the catalog seam with synthesis
-members), and `RecognitionCommandSubsystem` (the `recognize` subcommand and its silence-timeout
-utility, extending the same seam with recognition members). As with `SpeechDemo`, the dependency
-runs one way only: `SpeechCli` references `Speech`, and `Speech` neither references nor knows
+members), `RecognitionCommandSubsystem` (the `recognize` subcommand and its silence-timeout
+utility, extending the same seam with recognition members), and `ConversationCommandSubsystem`
+(the `ask` subcommand, a speak-then-listen conversation turn reusing the synthesis and
+recognition subsystems' existing seam members rather than introducing a new one). As with
+`SpeechDemo`, the dependency runs one way only: `SpeechCli` references `Speech`, and `Speech`
+neither references nor knows
 about `SpeechCli`.
 
 ## Folder Layout
@@ -402,9 +408,13 @@ src/DemaConsulting.Speech.Cli/
 │   │   └── DoctorCommand.cs                   — `doctor` implementation
 │   ├── SynthesisCommandSubsystem/
 │   │   └── SpeakCommand.cs                    — `speak` implementation
-│   └── RecognitionCommandSubsystem/
-│       ├── RecognizeCommand.cs                — `recognize` implementation
-│       └── SilenceTimeoutRecognizerSession.cs — Mic idle-timeout utility for `recognize --mic`
+│   ├── RecognitionCommandSubsystem/
+│   │   ├── RecognizeCommand.cs                — `recognize` implementation
+│   │   └── SilenceTimeoutRecognizerSession.cs — Mic idle-timeout utility for `recognize --mic`
+│   └── ConversationCommandSubsystem/
+│       ├── AskCommand.cs                                — `ask` implementation
+│       ├── ICliCaptureDeviceSource.cs                   — CLI-owned capture-device seam contract
+│       └── AudioDeviceFactoryCaptureDeviceSource.cs     — Real seam over AudioDeviceFactory
 ```
 
 ## Document Conventions

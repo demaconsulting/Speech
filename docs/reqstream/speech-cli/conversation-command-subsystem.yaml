@@ -93,6 +93,7 @@ sections:
               - AskCommand_ParseArguments_TimeoutFlags_ParseAsPositiveDoubles
               - AskCommand_ParseArguments_NonPositiveSilenceTimeout_ThrowsArgumentException
               - AskCommand_Run_SilenceTimeoutWithNoFinalResult_EndsTurnWithEmptyText
+              - AskCommand_Run_NoTimeoutFlagsGiven_StillEndsTurnViaDefaultSilenceTimeout
 
           - id: SpeechCli-ConversationCommands-OutputDispatch
             title: >-
@@ -189,3 +190,9 @@ sections:
               - AskCommand_Run_NullDeviceSource_ThrowsArgumentNullException
               - AskCommand_Run_NullCaptureSource_ThrowsArgumentNullException
               - AskCommand_ParseArguments_NullArgs_ThrowsArgumentNullException
+              - AskCommand_RunAsync_NullContext_ThrowsArgumentNullException
+              - AskCommand_RunAsync_NullCatalog_ThrowsArgumentNullException
+              - AskCommand_RunAsync_NullDeviceSource_ThrowsArgumentNullException
+              - AskCommand_RunAsync_NullCaptureSource_ThrowsArgumentNullException
+              - AskCommand_RunAsync_NullStopSignal_ThrowsArgumentNullException
+              - AskCommand_RunAsync_NullOnRecognizerCreated_ThrowsArgumentNullException

@@ -114,13 +114,13 @@ sections:
 
           - id: SpeechCli-RecognitionCommands-StartTimeout
             title: >-
-              The tool shall, in `--mic` mode with `--silence-timeout` given, accept an optional
-              `--start-timeout <seconds>` flag configuring a separate idle window used only
-              before the first recognition result is yielded (defaulting to `--silence-timeout`'s
-              value when omitted), via `SilenceTimeoutRecognizerSession`, which shall arm its idle
-              timer with the start-timeout value for the first iteration and switch to the
-              idle-timeout value for every re-arm from the first yielded result onward, rejecting
-              a non-positive or malformed `--start-timeout` with a clean error.
+              The tool shall, in `--mic` mode, accept an optional `--start-timeout <seconds>`
+              flag configuring a separate idle window used only before the first recognition
+              result is yielded, defaulting to a fixed 8-second value - independent of
+              `--silence-timeout` - when omitted, via `SilenceTimeoutRecognizerSession`, which
+              shall arm its idle timer with the start-timeout value for the first iteration and
+              switch to the idle-timeout value for every re-arm from the first yielded result
+              onward, rejecting a non-positive or malformed `--start-timeout` with a clean error.
             tags: [subsystem]
             justification: |
               A grace period for a user to begin speaking is typically much longer than the brief
@@ -129,7 +129,9 @@ sections:
               up too quickly on a slow starter or one that lingers too long after the user has
               actually stopped talking. A separate, optional `--start-timeout` resolves this
               without changing `--silence-timeout`'s own existing behavior when the new flag is
-              not used.
+              not used, and a fixed default (rather than borrowing `--silence-timeout`'s value)
+              keeps the start-timeout's own meaning independent of whatever silence-timeout an
+              operator happens to choose.
             tests:
               - RecognizeCommand_ParseArguments_StartTimeoutFlag_ParsesSeconds
               - RecognizeCommand_ParseArguments_StartTimeoutOmitted_DefaultsToNull
@@ -184,10 +186,15 @@ sections:
 
           - id: SpeechCli-RecognitionCommands-CatalogSeamExtension
             title: >-
-              The tool shall resolve a recognition-role model's audio format and construct its
-              `IRecognitionSession` exclusively through the `ICliModelCatalog` seam's
-              `GetAudioFormat`/`CreateRecognizerEngineAsync` members, which shall reject a
-              descriptor whose model is not a recognition model with a clean `ArgumentException`.
+              The `ICliModelCatalog` seam shall expose a `GetAudioFormat` member, for a
+              recognition-role model's required audio format, and a
+              `CreateRecognizerEngineAsync` member constructing its `ISpeechRecognizerEngine`,
+              both rejecting a descriptor whose model is not a recognition model with a clean
+              `ArgumentException`. The tool shall construct every recognition session exclusively
+              through `CreateRecognizerEngineAsync`; `GetAudioFormat` is not currently consumed by
+              any production call site, mirroring `GetPreferredAudioFormat`'s symmetric synthesis
+              member and reserved for the same future/defensive uses (e.g. a host validating audio
+              compatibility before composing a session).
             tags: [subsystem]
             justification: |
               `RecognizeCommand` cannot itself distinguish a recognition-capable model without
@@ -195,7 +202,9 @@ sections:
               introducing a second, competing one) keeps a single, narrow, already-established
               boundary between the CLI and the library's internal model types, letting
               `RecognizeCommand`'s own logic remain fully testable against a fake catalog with no
-              dependency on `IRecognitionModel`.
+              dependency on `IRecognitionModel`. `GetAudioFormat` is retained unconsumed for
+              symmetry with the synthesis seam and to keep both roles' seams equally capable,
+              even though `RecognizeCommand` currently only needs `CreateRecognizerEngineAsync`.
             tests:
               - SpeechModelCatalogAdapter_GetAudioFormat_SynthesisRoleModel_ThrowsArgumentException
               - SpeechModelCatalogAdapter_GetAudioFormat_NullDescriptor_ThrowsArgumentNullException

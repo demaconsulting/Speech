@@ -186,3 +186,25 @@ sections:
               - SpeechModelCatalogAdapter_GetPreferredAudioFormat_NullDescriptor_ThrowsArgumentNullException
               - SpeechModelCatalogAdapter_CreateSynthesizerEngineAsync_RecognitionRoleModel_ThrowsArgumentException
               - SpeechModelCatalogAdapter_CreateSynthesizerEngineAsync_NullDescriptor_ThrowsArgumentNullException
+
+          - id: SpeechCli-ModelCommands-RecognitionSeamExtension
+            title: >-
+              The `ICliModelCatalog` seam shall additionally expose a resolved model's required
+              audio format and construct its `ISpeechRecognizerEngine`, for use by
+              `RecognitionCommandSubsystem`'s `recognize` subcommand, rejecting a descriptor whose
+              model is not a recognition model with a clean `ArgumentException` rather than an
+              unhandled cast exception.
+            tags: [subsystem]
+            justification: |
+              Added in Pass 6 alongside `RecognitionCommandSubsystem`, symmetric to the synthesis
+              extension above: a resolved model must be cast to the library's internal
+              `IRecognitionModel` before either operation is possible, and that cast is only
+              compilable inside this same assembly, not inside the test project. Extending this
+              existing seam - rather than introducing a third, competing one - keeps a single,
+              narrow, already-established boundary between the CLI and the library's internal
+              model types.
+            tests:
+              - SpeechModelCatalogAdapter_GetAudioFormat_SynthesisRoleModel_ThrowsArgumentException
+              - SpeechModelCatalogAdapter_GetAudioFormat_NullDescriptor_ThrowsArgumentNullException
+              - SpeechModelCatalogAdapter_CreateRecognizerEngineAsync_SynthesisRoleModel_ThrowsArgumentException
+              - SpeechModelCatalogAdapter_CreateRecognizerEngineAsync_NullDescriptor_ThrowsArgumentNullException

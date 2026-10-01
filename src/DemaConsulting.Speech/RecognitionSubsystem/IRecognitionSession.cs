@@ -15,7 +15,12 @@ namespace DemaConsulting.Speech.RecognitionSubsystem;
 ///     A session that cannot function honestly reports <see cref="IsAvailable"/> as
 ///     <see langword="false"/>; see <see cref="UnavailableRecognitionSession"/> for the canonical
 ///     fallback. Implementations own unmanaged inference resources reached through their owning
-///     engine, so callers must dispose them; disposal is idempotent.
+///     engine, so callers must dispose them; disposal is idempotent. Disposing a session that is
+///     still running or stopping implicitly performs the same
+///     <see cref="RecognitionSessionState.Stopping"/> -&gt;
+///     <see cref="RecognitionSessionState.Stopped"/> drain as an explicit <see cref="StopAsync"/>
+///     call before the engine's lease is released, so a caller never needs to call
+///     <see cref="StopAsync"/> before disposing.
 ///     </para>
 /// </remarks>
 public interface IRecognitionSession : IAsyncDisposable
@@ -38,7 +43,8 @@ public interface IRecognitionSession : IAsyncDisposable
     /// <remarks>
     ///     Raised from the session's own background pump thread and handlers are invoked
     ///     serially, never concurrently with each other - the same threading and fault-isolation
-    ///     convention <c>ISpeechRecognizer.ResultReceived</c> used before the Engine/Session split.
+    ///     convention this library used for synchronous result delivery before the Engine/Session
+    ///     split.
     ///     An exception thrown by a handler is caught and reported through the session's
     ///     diagnostics sink; it never propagates and never faults the session.
     /// </remarks>

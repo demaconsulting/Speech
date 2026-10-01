@@ -64,9 +64,13 @@ sink when that sink is itself safe for concurrent use from multiple threads.
 plus a structural diagnostic, never as an exception, per this library's "nothing throws at
 composition" decision. A backend load failure - the missing-native-runtime case for a missing
 `org.k2fsa.sherpa.onnx.runtime.{RID}` binary or unusable model files - is caught and degraded
-identically to a missing model. Only a null `model`, `store`, `catalog`, or backend factory faults
-the returned task with `ArgumentNullException`, since a null argument is a programming error
-rather than a machine state. A supplied key in `parameterValues` that names a parameter *not*
+identically to a missing model. A null `model`, `store`, `catalog`, or backend factory results in
+an `ArgumentNullException`: for the `string`-based overload this faults the returned task (the
+null check lives inside its `async` implementation), while for the `SpeechModelStore`-/
+`SpeechModelCatalog`-based overloads it is thrown synchronously, before any task is created, since
+those overloads are ordinary synchronous methods that validate their own arguments and delegate
+to the `string`-based overload. Either way the exception is a programming error, never a machine
+state, and is indistinguishable to an `await`-based caller. A supplied key in `parameterValues` that names a parameter *not*
 declared by `model` is silently ignored (this deliberately preserves the documented
 cross-model-compatibility contract - a host reusing one settings bag across different models must
 not break just because model B doesn't declare a parameter model A had) but reports an `Info`

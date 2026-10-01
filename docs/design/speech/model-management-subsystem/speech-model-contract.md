@@ -26,7 +26,7 @@ documentation anticipated.
   `SpeechModelDownloader`'s `ISpeechModel`-aware `DownloadAsync` overload after checksum
   verification and before the atomic swap.
 - **ISpeechModel.NormalizeText(text)**: applies this model's own text normalization/correction
-  before inference. Defaults to the identity function. `SherpaOnnxSpeechSynthesizer` calls this
+  before inference. Defaults to the identity function. `SherpaOnnxSynthesisSession` calls this
   hook before Layer 1 tag parsing, so a synthesis model may correct punctuation or spelling
   without the SynthesisSubsystem needing to know how.
 - **ISpeechModel.LicenseName / LicenseUrl**: a model's declared license name/identifier and an

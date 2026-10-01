@@ -187,7 +187,7 @@ playbackDevice as IDisposable` lease - so disposal, in declaration order reverse
 playback/write has genuinely quiesced (session disposal) before the engine is torn down, which in
 turn happens before the device itself is disposed. The conditional cast for the playback-device
 lease is necessary because `IAudioPlaybackDevice` itself does not declare `IDisposable` - a real
-device manages its own native stream lifecycle entirely through its session's `StartAsync`-driven
+device manages its own native stream lifecycle entirely through its session's `SpeakAsync`-driven
 playback - but `WavFileAudioPlaybackDevice` (used for `--output-audio`) additionally implements
 `IDisposable` to finalize its RIFF header, and the lease must dispose it unconditionally when
 present while remaining a safe no-op for every other device kind.

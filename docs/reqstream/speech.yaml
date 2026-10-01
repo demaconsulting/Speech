@@ -233,7 +233,8 @@ sections:
           - Speech-Synthesis-SessionOverlapAndLifecycle
           - Speech-Synthesis-FaultContainment
           - Speech-Synthesis-UnavailableFallback
-          - Speech-Models-SpeechModelContract-SynthesisEngineDeclaration
+          - Speech-Models-SpeechModelContract-SynthesisEngineConfigDeclaration
+          - Speech-Models-SpeechModelContract-SynthesisCapabilityProfileDeclaration
           - Speech-Audio-PlaybackFormatDisclosure
         tests:
           - Speech_SystemIntegration_StreamingSynthesis_TextProducesPlayedAudio

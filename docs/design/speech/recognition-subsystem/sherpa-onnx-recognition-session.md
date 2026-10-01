@@ -105,14 +105,18 @@ and `ISpeechDiagnostics` from the Diagnostics subsystem.
 subsystem-level design doc's "Engine exclusivity and lease behavior").
 
 **Data Model**: Holds the loaded `IRecognitionBackend`, the owning `IRecognitionModel`, a
-`SemaphoreSlim(1, 1)` lease, a `DedicatedWorker` shared by every session it creates, and a
-diagnostics sink. `IsAvailable` is always `true`, because this type is only ever created after the
+`SemaphoreSlim(1, 1)` lease, and a diagnostics sink; constructs a new `DedicatedWorker` per
+session it creates. `IsAvailable` is always `true`, because this type is only ever created after the
 backend loaded successfully - every unavailable case is represented by
 `UnavailableSpeechRecognizerEngine` instead.
 
 **Key Methods**:
 
-- **CreateSessionAsync(IAudioCaptureDevice, CancellationToken)**: Attempts `_lease.Wait(0, ...)` -
+- **CreateSessionAsync(IAudioCaptureDevice, CancellationToken)**: When the supplied device
+  reports `IsAvailable` as `false` (no microphone or no working audio backend - an ordinary
+  machine state, exactly like a model not being installed), reports a Warning diagnostic and
+  returns `UnavailableRecognitionSession.Instance` without attempting the backend lease. Otherwise
+  attempts `_lease.Wait(0, ...)` -
   a zero-timeout, fail-fast acquire with no queueing. On success, constructs and returns a new
   `SherpaOnnxRecognitionSession` wrapping the shared backend, device, model, resampler
   configuration, diagnostics sink, pump worker, and a release-lease callback that calls
@@ -195,8 +199,8 @@ through the returned task exactly as `Task.Run` would.
 **Dependencies**: `ISpeechDiagnostics`.
 
 **Callers**: `SpeechRecognizerFactory.LoadAsync(...)` for model loading;
-`SherpaOnnxRecognitionSession` for its pump loop (one worker shared across every session created
-by the same `SherpaOnnxSpeechRecognizerEngine`).
+`SherpaOnnxRecognitionSession` for its pump loop (one new worker constructed per session by
+`SherpaOnnxSpeechRecognizerEngine.CreateSessionAsync`).
 
 #### IRecognitionBackend and IRecognitionBackendFactory
 

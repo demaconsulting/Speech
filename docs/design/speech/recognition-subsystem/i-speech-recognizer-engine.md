@@ -9,21 +9,24 @@ create a session at all.
 
 **Key Methods**:
 
-- **CreateSessionAsync(IAudioCaptureDevice captureDevice, CancellationToken
+- **CreateSessionAsync(IAudioCaptureDevice device, CancellationToken
   cancellationToken = default)**: Leases exclusive use of the loaded backend to a new
-  `IRecognitionSession` bound to `captureDevice`, and returns a task that completes with that
+  `IRecognitionSession` bound to `device`, and returns a task that completes with that
   session. Never throws for an ordinary unavailable machine state - an unavailable engine returns
   `UnavailableRecognitionSession.Instance` instead - but throws (faulting the returned task)
   `RecognitionEngineBusyException` when another live session already holds the engine's lease,
   since the backend cannot usefully decode two concurrent streams and this type never silently
-  queues a caller behind an unbounded wait. Precondition: `captureDevice` is non-null.
+  queues a caller behind an unbounded wait. Precondition: `device` is non-null.
   Postcondition: the returned session is never null, and either owns the leased backend or is the
   shared unavailable instance.
+- **DisposeAsync()**: Idempotent; disposes any still-active session this engine created before
+  releasing the engine's own native resources, so a host that disposes the engine directly (without
+  first disposing a session it is still holding) never leaks that session's native resources.
 
 **Error Handling**: `RecognitionEngineBusyException` is the one condition this contract
 represents as an exception rather than a fallback value, because a concurrent lease attempt is a
 caller-sequencing bug (create, use, and dispose one session before creating the next) rather than
-an ordinary machine state. A null `captureDevice` throws (faulting the returned task)
+an ordinary machine state. A null `device` throws (faulting the returned task)
 `ArgumentNullException`.
 
 **Dependencies**: `IAudioCaptureDevice` from the AudioSubsystem; `IRecognitionSession`,

@@ -15,7 +15,7 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     <see cref="ChoiceParameter"/>/<see cref="BooleanParameter"/>. It is called exactly once,
 ///     up front, from <c>SpeechRecognizerFactory.LoadAsync</c> and
 ///     <c>SpeechSynthesizerFactory.LoadAsync</c>, before either factory constructs a recognizer or
-///     synthesizer - so an invalid recognized value is surfaced synchronously from <c>Create</c>
+///     synthesizer - so an invalid recognized value is surfaced synchronously from <c>LoadAsync</c>
 ///     rather than later, silently, from a per-call runtime hook.
 ///     <para>
 ///     <b>Deliberate split, and why</b>: a supplied key with no matching declared parameter

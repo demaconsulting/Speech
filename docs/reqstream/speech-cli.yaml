@@ -7,10 +7,10 @@
 # ships as a separately packaged .NET global tool (`speech-cli`).
 #
 # This pass covers only the scaffold-level behavior actually implemented: subcommand dispatch,
-# global options, version/help display, self-validation, and global-tool packaging. The ten
+# global options, version/help display, self-validation, and global-tool packaging. The eleven
 # recognized subcommands (list-models, model-info, download, uninstall, clean, list-devices,
-# devices, doctor, speak, recognize) are dispatched to by name and listed in --help, and all ten
-# are now implemented. Requirements for the five model-management subcommands' functional
+# devices, doctor, speak, recognize, ask) are dispatched to by name and listed in --help, and all
+# eleven are now implemented. Requirements for the five model-management subcommands' functional
 # behavior are decomposed into docs/reqstream/speech-cli/model-commands-subsystem.yaml;
 # requirements for the three device-related subcommands' functional behavior are decomposed into
 # docs/reqstream/speech-cli/device-commands-subsystem.yaml; requirements for the speak
@@ -129,6 +129,7 @@ sections:
           - SpeechCli-ModelCommands-Clean
           - SpeechCli-ModelCommands-LibraryDelegation
           - SpeechCli-ModelCommands-SynthesisSeamExtension
+          - SpeechCli-ModelCommands-RecognitionSeamExtension
         tests:
           - SpeechCli_ListModelsCommand_Invoked_ListsKnownModelsAsTable
           - DownloadCommand_RunAsync_MultipleModels_DownloadsEachSequentially

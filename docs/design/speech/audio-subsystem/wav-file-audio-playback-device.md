@@ -1,8 +1,8 @@
 ### WavFileAudioPlaybackDevice
 
 **Purpose**: Write synthesized speech to a `.wav` file as 16-bit PCM instead of rendering it to
-real playback hardware, so any host application - not only the future `speak --output-audio` CLI
-command - can capture synthesized audio deterministically.
+real playback hardware, so any host application - including the shipped `speak --output-audio`
+CLI command - can capture synthesized audio deterministically.
 
 **Data Model**: Holds the constructor-supplied `sampleRate`/`channelCount`, an open `FileStream`
 and `BinaryWriter` created immediately at construction, and a running total of sample data bytes
@@ -35,6 +35,6 @@ never throw `AudioDeviceUnavailableException` the way a real device's operationa
 **Dependencies**: The Base Class Library's `FileStream`/`BinaryWriter` only; implements
 `IAudioPlaybackDevice` and `IDisposable`.
 
-**Callers**: Any host composing `IAudioPlaybackDevice`-consuming code (for example, a future
+**Callers**: Any host composing `IAudioPlaybackDevice`-consuming code (for example, the shipped
 `speak --output-audio <wav-path>` CLI command) that needs synthesized speech captured to a file instead
 of played through real hardware.

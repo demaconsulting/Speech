@@ -137,8 +137,8 @@ public static class SpeechRecognizerFactory
     ///     overload for the full behavior.
     /// </returns>
     /// <exception cref="ArgumentNullException">
-    ///     Thrown (faulting the returned task) when <paramref name="model"/> or
-    ///     <paramref name="store"/> is <see langword="null"/>.
+    ///     Thrown synchronously, before the returned task is created, when
+    ///     <paramref name="model"/> or <paramref name="store"/> is <see langword="null"/>.
     /// </exception>
     /// <exception cref="ArgumentException">
     ///     Thrown (faulting the returned task) when <paramref name="parameterValues"/> contains an
@@ -191,8 +191,8 @@ public static class SpeechRecognizerFactory
     ///     overload for the full behavior.
     /// </returns>
     /// <exception cref="ArgumentNullException">
-    ///     Thrown (faulting the returned task) when <paramref name="model"/> or
-    ///     <paramref name="catalog"/> is <see langword="null"/>.
+    ///     Thrown synchronously, before the returned task is created, when
+    ///     <paramref name="model"/> or <paramref name="catalog"/> is <see langword="null"/>.
     /// </exception>
     /// <exception cref="ArgumentException">
     ///     Thrown (faulting the returned task) when <paramref name="parameterValues"/> contains an
@@ -235,9 +235,9 @@ public static class SpeechRecognizerFactory
     ///     for any honest unavailable state.
     /// </returns>
     /// <exception cref="ArgumentNullException">
-    ///     Thrown (faulting the returned task) when <paramref name="model"/>,
-    ///     <paramref name="store"/>, or <paramref name="backendFactory"/> is
-    ///     <see langword="null"/>.
+    ///     Thrown synchronously, before the returned task is created, when
+    ///     <paramref name="model"/>, <paramref name="store"/>, or
+    ///     <paramref name="backendFactory"/> is <see langword="null"/>.
     /// </exception>
     /// <exception cref="ArgumentException">
     ///     Thrown (faulting the returned task) when <paramref name="parameterValues"/> contains an
@@ -283,9 +283,9 @@ public static class SpeechRecognizerFactory
     ///     for any honest unavailable state.
     /// </returns>
     /// <exception cref="ArgumentNullException">
-    ///     Thrown (faulting the returned task) when <paramref name="model"/>,
-    ///     <paramref name="catalog"/>, or <paramref name="backendFactory"/> is
-    ///     <see langword="null"/>.
+    ///     Thrown synchronously, before the returned task is created, when
+    ///     <paramref name="model"/>, <paramref name="catalog"/>, or
+    ///     <paramref name="backendFactory"/> is <see langword="null"/>.
     /// </exception>
     /// <exception cref="ArgumentException">
     ///     Thrown (faulting the returned task) when <paramref name="parameterValues"/> contains an

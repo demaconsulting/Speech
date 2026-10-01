@@ -148,7 +148,7 @@ public sealed class SpeechModelCatalog : IDisposable
     ///     a second, potentially divergent <see cref="SpeechModelStore"/>. See
     ///     <see cref="RecognitionSubsystem.SpeechRecognizerFactory"/> and
     ///     <see cref="SynthesisSubsystem.SpeechSynthesizerFactory"/>, whose catalog-based
-    ///     <c>Create</c> overloads use this property internally.
+    ///     <c>LoadAsync</c> overloads use this property internally.
     /// </remarks>
     public SpeechModelStore Store => _store;
 

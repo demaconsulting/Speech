@@ -14,7 +14,7 @@ case is represented by `UnavailableSpeechSynthesizerEngine` instead.
 **Key Methods**:
 
 - **CreateSessionAsync(device, cancellationToken)**: Attempts to acquire the lease with
-  `SemaphoreSlim.WaitAsync(0, cancellationToken)` (zero timeout - fails immediately rather than
+  `SemaphoreSlim.Wait(0, cancellationToken)` (zero timeout - fails immediately rather than
   queueing). On success, constructs and returns a new `SherpaOnnxSynthesisSession` bound to
   `device`, with a release callback that releases the lease exactly once when that session is
   disposed. On failure (lease already held), throws `SynthesisEngineBusyException` immediately.
@@ -23,7 +23,7 @@ case is represented by `UnavailableSpeechSynthesizerEngine` instead.
   lease as a side effect of that session's own `DisposeAsync`), then disposes the owned backend.
   Idempotent: a second call disposes the backend exactly once.
 
-The fail-fast design (zero-timeout `WaitAsync` rather than an unbounded or timed wait) means a
+The fail-fast design (zero-timeout `Wait` rather than an unbounded or timed wait) means a
 caller's `CreateSessionAsync` latency never depends on how long an unrelated, already-leased
 session takes to be disposed; a caller that genuinely needs concurrent sessions must load a
 second engine instance instead.

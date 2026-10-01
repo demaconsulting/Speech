@@ -1,8 +1,8 @@
 ### WavFileAudioCaptureDevice
 
 **Purpose**: Read a mono, 16-bit PCM `.wav` file and deliver it as normalized capture frames
-instead of capturing from real microphone hardware, so any host application - not only the future
-`recognize --input` CLI command - can drive speech recognition from a pre-recorded file
+instead of capturing from real microphone hardware, so any host application - including the
+shipped `recognize --input` CLI command - can drive speech recognition from a pre-recorded file
 deterministically.
 
 **Data Model**: Holds the constructor-supplied file path and per-frame sample count. Resolved
@@ -40,7 +40,7 @@ caller-configuration error to surface clearly, not a backend-availability failur
 **Dependencies**: The Base Class Library's `FileStream`/`BinaryReader` only; implements
 `IAudioCaptureDevice`.
 
-**Callers**: Any host composing `IAudioCaptureDevice`-consuming code (for example, a future
+**Callers**: Any host composing `IAudioCaptureDevice`-consuming code (for example, the shipped
 `recognize --input <wav-path>` CLI command, which subscribes to `EndOfFileReached` to know when
 to call `Stop()` and stop waiting for further recognition results) that needs speech recognition
 driven from a pre-recorded file instead of real microphone hardware.

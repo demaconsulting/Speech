@@ -102,8 +102,9 @@ documented default-seconds value) - so listening cannot block `recognize --mic` 
 directly) concurrently with `await session.StartAsync(cancellationToken)`, started first as a
 genuinely async, non-blocking call so live interim results print as they arrive rather than only
 once `StartAsync` returns. The session enforces two distinct idle windows: it races the wrapped
-enumerator's `MoveNextAsync` against `--start-timeout` (defaulting to `--silence-timeout`'s value
-when `--start-timeout` is omitted) until the first recognition result arrives, then re-arms with
+enumerator's `MoveNextAsync` against `--start-timeout` (defaulting to a fixed 8 seconds,
+independent of `--silence-timeout`, when `--start-timeout` is omitted) until the first
+recognition result arrives, then re-arms with
 `--silence-timeout` for every result from the first onward - giving the user a separate,
 typically longer grace period to start speaking without weakening the brief end-of-utterance
 pause `--silence-timeout` alone controls. `Ctrl+C` is wired to cooperative cancellation via a

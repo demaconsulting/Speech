@@ -190,10 +190,14 @@ is private. `IsAvailable` always returns `false`.
 
 - **CreateSessionAsync(IAudioCaptureDevice, CancellationToken)**: Never throws for the ordinary
   unavailable machine state; returns a completed task holding
-  `UnavailableRecognitionSession.Instance` regardless of the supplied device.
+  `UnavailableRecognitionSession.Instance` regardless of the supplied device's own availability.
+  Still throws `ArgumentNullException` synchronously for a null device, and
+  `OperationCanceledException` synchronously for an already-cancelled token, since those are
+  caller errors rather than machine states.
 
-**Error Handling**: Never throws from an operational member; unavailability is represented
-entirely by the returned session's own behavior.
+**Error Handling**: Never throws for an ordinary unavailable machine state; unavailability is
+represented entirely by the returned session's own behavior. A null device or an
+already-cancelled token is still a caller error and throws synchronously, same as the real engine.
 
 **Dependencies**: `UnavailableRecognitionSession`; implements `ISpeechRecognizerEngine`.
 
@@ -206,15 +210,18 @@ entirely by the returned session's own behavior.
 
 **Data Model**: No instance fields other than the never-invoked backing field for
 `StateChanged`. Exposes a single static `Instance` singleton; the constructor is private.
-`IsAvailable` always returns `false`; `State` always reports `Faulted`.
+`IsAvailable` always returns `false`; `State` always reports `Created`, since this session never
+runs and so never reaches any other state.
 
 **Key Methods**:
 
-- **StartAsync()** / **StopAsync()** / **GetResultsAsync()**: Always throw (or, for
-  `GetResultsAsync`, fault its enumeration with) `SpeechRecognizerUnavailableException`.
-- **DisposeAsync()**: A no-op that completes synchronously. Disposal must never throw or
-  invalidate the shared instance, because a host that wraps its session in a disposal scope
-  receives this instance and may dispose it repeatedly.
+- **StartAsync()**: Always throws `SpeechRecognizerUnavailableException`.
+- **StopAsync()** / **DisposeAsync()**: Safe no-ops that complete synchronously; this session
+  was never running and owns no engine, thread, or native resource, so there is nothing to stop
+  or release. Disposal must never throw or invalidate the shared instance, because a host that
+  wraps its session in a disposal scope receives this instance and may dispose it repeatedly.
+- **GetResultsAsync()**: Throws `SpeechRecognizerUnavailableException` synchronously at the
+  point of invocation (not deferred to the first `MoveNextAsync`).
 - **StateChanged**: Never raised; subscribing and unsubscribing are safe no-ops.
 
 **Error Handling**: Signals misuse of a known-unavailable session with
