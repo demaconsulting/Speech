@@ -54,6 +54,7 @@ sections:
               - Speech-Recognition-EngineExclusivity-FailFastNotQueued
               - Speech-Recognition-EngineExclusivity-DisposalOwnsSession
               - Speech-Recognition-RecognitionEngineBusyException-Thrown
+              - Speech-Recognition-RecognitionEngineBusyException-Constructors
             tests:
               - SherpaOnnxSpeechRecognizerEngine_CreateSessionAsync_SessionAlreadyLeased_ThrowsRecognitionEngineBusyException
               - SherpaOnnxSpeechRecognizerEngine_CreateSessionAsync_AfterPriorSessionFullyDisposed_ReturnsNewSession
@@ -160,6 +161,7 @@ sections:
               - Speech-Recognition-UnavailableRecognitionSession-OperationsThrow
               - Speech-Recognition-UnavailableRecognitionSession-SafeNoOps
               - Speech-Recognition-SpeechRecognizerUnavailableException-Thrown
+              - Speech-Recognition-RecognitionBackend-UnavailableDeviceFallback
             tests:
               - UnavailableSpeechRecognizerEngine_IsAvailable_Read_ReturnsFalse
               - UnavailableSpeechRecognizerEngine_CreateSessionAsync_Always_ReturnsUnavailableSession
