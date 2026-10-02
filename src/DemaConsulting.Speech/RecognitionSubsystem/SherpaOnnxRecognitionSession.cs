@@ -100,17 +100,19 @@ internal sealed class SherpaOnnxRecognitionSession : IRecognitionSession
     private Task? _pumpRawCompletion;
 
     /// <summary>
-    ///     The task - run through <see cref="_worker"/>, exactly like the pump loop - for the
-    ///     native, potentially slow <see cref="IAudioCaptureDevice.Start"/> call made by
-    ///     <see cref="StartAsync"/>, set under <see cref="_syncRoot"/> before that call ever
-    ///     releases the lock so <see cref="RunTeardownAsync"/> can await this same task before it
-    ///     ever stops the device: this is what still prevents a concurrent <see cref="StopAsync"/>/
-    ///     <see cref="DisposeAsync"/> from converging this session to
+    ///     The device-start worker's own raw completion, set alongside the abandon-aware task
+    ///     <see cref="StartAsync"/> itself awaits - exactly like <see cref="_pumpRawCompletion"/>
+    ///     mirrors <see cref="_pumpTask"/>. Set under <see cref="_syncRoot"/> before
+    ///     <see cref="StartAsync"/> ever releases the lock, so <see cref="RunTeardownAsync"/> can
+    ///     await this - the device's own <see cref="IAudioCaptureDevice.Start"/> call genuinely
+    ///     returning, even if <see cref="StartAsync"/>'s own abandon-aware task completed early as
+    ///     cancelled - before it ever stops the device: this is what still prevents a concurrent
+    ///     <see cref="StopAsync"/>/<see cref="DisposeAsync"/> from converging this session to
     ///     <see cref="RecognitionSessionState.Stopped"/> and returning while the device is still
-    ///     being started, now that <see cref="StartAsync"/> no longer blocks the caller for the
-    ///     life of that native call (see its own remarks).
+    ///     genuinely starting, now that <see cref="StartAsync"/> no longer blocks the caller for
+    ///     the life of that native call (see its own remarks).
     /// </summary>
-    private Task? _deviceStartTask;
+    private Task? _deviceStartRawCompletion;
 
     /// <summary>
     ///     Set only when the pump worker was abandoned (finding 24): the continuation of
@@ -232,15 +234,21 @@ internal sealed class SherpaOnnxRecognitionSession : IRecognitionSession
     ///     <see cref="RunTeardownAsync"/> already use) and awaited <em>without</em> holding
     ///     <see cref="_syncRoot"/>, so this method no longer blocks its caller for the life of that
     ///     native call (for example PortAudio's native stream open/start, or a file-backed device
-    ///     synchronously replaying an entire file). The resulting task is published to
-    ///     <see cref="_deviceStartTask"/> before the lock is released, and <see cref="RunTeardownAsync"/>
-    ///     always awaits that same task before it ever stops the device: a concurrent
-    ///     <see cref="StopAsync"/> or <see cref="DisposeAsync"/> call can therefore still never
-    ///     converge this session to <see cref="RecognitionSessionState.Stopped"/> and return while
-    ///     this call is still starting the device, even though the two calls no longer literally
-    ///     serialize on one lock for the device call's entire duration. Only this call's own
-    ///     continuation (once the device-start task completes) transitions this session onward
-    ///     from <see cref="RecognitionSessionState.Starting"/> to
+    ///     synchronously replaying an entire file). The call is also given this method's own
+    ///     <paramref name="cancellationToken"/>, so the same cooperative-cancel-then-abandon policy
+    ///     <see cref="PumpLoop"/> relies on applies here too: a caller that cancels while the device
+    ///     is still starting is given <see cref="DedicatedWorker.AbandonTimeout"/> before this call
+    ///     gives up waiting and reports cancellation/failure, rather than ignoring the request
+    ///     indefinitely. The worker's raw completion - which completes only once
+    ///     <see cref="IAudioCaptureDevice.Start"/> genuinely returns, even if abandoned - is
+    ///     published to <see cref="_deviceStartRawCompletion"/> before the lock is released, and
+    ///     <see cref="RunTeardownAsync"/> always awaits that before it ever stops the device: a
+    ///     concurrent <see cref="StopAsync"/> or <see cref="DisposeAsync"/> call can therefore still
+    ///     never converge this session to <see cref="RecognitionSessionState.Stopped"/> and return
+    ///     while the device is still genuinely starting, even though the two calls no longer
+    ///     literally serialize on one lock for the device call's entire duration. Only this call's
+    ///     own continuation (once the abandon-aware device-start task completes) transitions this
+    ///     session onward from <see cref="RecognitionSessionState.Starting"/> to
     ///     <see cref="RecognitionSessionState.Running"/>/<see cref="RecognitionSessionState.Faulted"/>,
     ///     and only if a concurrent teardown has not already moved this session on first - so a
     ///     torn-down session is never forced back to <see cref="RecognitionSessionState.Running"/>.
@@ -289,10 +297,13 @@ internal sealed class SherpaOnnxRecognitionSession : IRecognitionSession
 
             // Run the native, potentially slow device.Start() call through the same dedicated
             // worker the pump loop uses, rather than inline on this caller's thread (see this
-            // method's remarks). Published to _deviceStartTask before the lock is released so
-            // RunTeardownAsync can still await it before ever stopping the device.
-            deviceStartTask = _worker.RunAsync(_ => _device.Start(), CancellationToken.None);
-            _deviceStartTask = deviceStartTask;
+            // method's remarks). Given this call's own cancellationToken so a cancelled start is
+            // genuinely abandoned (not silently ignored) rather than always running to completion
+            // regardless of the caller's request. The raw completion is published to
+            // _deviceStartRawCompletion before the lock is released so RunTeardownAsync can still
+            // await it before ever stopping the device.
+            deviceStartTask = _worker.RunAsync(_ => _device.Start(), cancellationToken, out var deviceStartRawCompletion);
+            _deviceStartRawCompletion = deviceStartRawCompletion;
         }
 
         // Raised only after _syncRoot has been released (finding 21): invoking a host's
@@ -445,7 +456,7 @@ internal sealed class SherpaOnnxRecognitionSession : IRecognitionSession
         Task? PumpTask,
         Task? PumpRawCompletion,
         CancellationTokenSource? PumpCts,
-        Task? DeviceStartTask,
+        Task? DeviceStartRawCompletion,
         bool PreserveFault,
         TaskCompletionSource CompletionSource);
 
@@ -507,7 +518,7 @@ internal sealed class SherpaOnnxRecognitionSession : IRecognitionSession
         // starts running it, and only after leaving this lock (see this method's remarks).
         var completionSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         _teardownTask = completionSource.Task;
-        var start = new TeardownStart(_pumpTask, _pumpRawCompletion, _pumpCts, _deviceStartTask, preserveFault, completionSource);
+        var start = new TeardownStart(_pumpTask, _pumpRawCompletion, _pumpCts, _deviceStartRawCompletion, preserveFault, completionSource);
         return (_teardownTask, stoppingArgs, start);
     }
 
@@ -546,7 +557,7 @@ internal sealed class SherpaOnnxRecognitionSession : IRecognitionSession
     /// </remarks>
     private async Task RunTeardownAsync(TeardownStart start)
     {
-        var (pumpTask, pumpRawCompletion, pumpCts, deviceStartTask, preserveFault, completionSource) = start;
+        var (pumpTask, pumpRawCompletion, pumpCts, deviceStartRawCompletion, preserveFault, completionSource) = start;
         try
         {
             // Every caller invokes this fire-and-forget (`_ = RunTeardownAsync(...)`), relying on
@@ -563,18 +574,24 @@ internal sealed class SherpaOnnxRecognitionSession : IRecognitionSession
             // Awaited before anything below ever touches the device: StartAsync may still be
             // mid-flight on its own native IAudioCaptureDevice.Start() call (run through _worker,
             // never under _syncRoot - see its remarks), and device.Stop() below must never run
-            // concurrently with that still-in-progress device.Start() call. This is also what
-            // keeps this session's documented invariant intact now that StartAsync no longer
-            // blocks its own caller for the device call's duration: this shared teardown task -
-            // and therefore any concurrent StopAsync/DisposeAsync awaiting it - cannot complete
-            // until the device has genuinely finished starting. Any exception from a failed start
-            // is already reported and surfaced by StartAsync itself; nothing further to do with
-            // it here.
-            if (deviceStartTask is not null)
+            // concurrently with that still-in-progress device.Start() call. Awaiting the raw
+            // completion here (not StartAsync's own abandon-aware task) is deliberate: if a
+            // caller cancelled StartAsync while the device was still starting and the abandon
+            // timeout has already elapsed, StartAsync's own task completes early as cancelled/
+            // faulted while the device-start worker thread may still genuinely be inside
+            // IAudioCaptureDevice.Start() - this raw completion only resolves once that thread has
+            // truly exited, exactly mirroring _pumpRawCompletion's role for the pump thread. This
+            // is also what keeps this session's documented invariant intact now that StartAsync no
+            // longer blocks its own caller for the device call's duration: this shared teardown
+            // task - and therefore any concurrent StopAsync/DisposeAsync awaiting it - cannot
+            // complete until the device has genuinely finished starting. Any exception from a
+            // failed/abandoned start is already reported and surfaced by StartAsync's own
+            // continuation; nothing further to do with it here.
+            if (deviceStartRawCompletion is not null)
             {
                 try
                 {
-                    await deviceStartTask.ConfigureAwait(false);
+                    await deviceStartRawCompletion.ConfigureAwait(false);
                 }
                 catch
                 {

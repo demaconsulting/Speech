@@ -328,6 +328,59 @@ public class SherpaOnnxRecognitionSessionTests
     }
 
     /// <summary>
+    ///     Proves that cancelling <see cref="SherpaOnnxRecognitionSession.StartAsync"/>'s own
+    ///     <see cref="CancellationToken"/> while <see cref="IAudioCaptureDevice.Start"/> is still
+    ///     blocking is actually honored - closing the review finding that the device-start worker
+    ///     call used <see cref="CancellationToken.None"/>, so a caller's cancellation request was
+    ///     ignored indefinitely rather than bounded by the abandon-timeout policy every other
+    ///     dedicated-worker call in this session already uses.
+    /// </summary>
+    [Fact]
+    public async Task SherpaOnnxRecognitionSession_StartAsync_CancelledWhileDeviceStarting_AbandonsWithinTimeout()
+    {
+        // Arrange: a device whose Start() blocks forever (standing in for a stuck native call,
+        // consistent with IAudioCaptureDevice.Start() having no cancellation token of its own),
+        // and a worker with a near-zero abandon timeout so the test stays fast
+        using var startEntered = new ManualResetEventSlim(false);
+        using var neverReturns = new ManualResetEventSlim(false);
+        var device = CreateCaptureDevice();
+        device.When(d => d.Start()).Do(_ =>
+        {
+            startEntered.Set();
+            neverReturns.Wait();
+        });
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        var worker = new DedicatedWorker(
+            abandonTimeout: TimeSpan.FromMilliseconds(1),
+            diagnostics: diagnostics,
+            diagnosticsCategory: "RecognitionSubsystem");
+        await using var session = CreateSession(new FakeRecognitionEngine(), device, worker: worker, diagnostics: diagnostics);
+
+        using var startCts = new CancellationTokenSource();
+        var startTask = session.StartAsync(startCts.Token);
+        var enteredInTime = startEntered.Wait(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        Assert.True(enteredInTime, "The capture device's Start() was never entered.");
+
+        // Act: cancel the caller's own token while Start() is still blocked; the call must
+        // complete within a bounded time rather than waiting forever for a device call that never
+        // honors cancellation
+        await startCts.CancelAsync();
+
+        // Assert: the abandoned start surfaces as a failure to start, not a silent hang, and the
+        // abandonment was reported
+        await Assert.ThrowsAsync<SpeechRecognizerUnavailableException>(
+            () => startTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
+        Assert.Equal(RecognitionSessionState.Faulted, session.State);
+        diagnostics.Received().Report(
+            SpeechDiagnosticLevel.Warning,
+            "RecognitionSubsystem",
+            Arg.Is<string>(message => message.Contains("abandon", StringComparison.OrdinalIgnoreCase)));
+
+        // Cleanup: release the abandoned background thread so it can exit
+        neverReturns.Set();
+    }
+
+    /// <summary>
     ///     Proves that a capture device going unavailable mid-session transitions the session to
     ///     <see cref="RecognitionSessionState.Faulted"/>.
     /// </summary>

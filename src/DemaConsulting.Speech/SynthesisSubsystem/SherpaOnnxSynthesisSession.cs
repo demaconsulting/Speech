@@ -255,15 +255,13 @@ internal sealed class SherpaOnnxSynthesisSession : ISynthesisSession
     {
         CancellationTokenSource? operationCancellation;
         Task? operationTask;
-        Task? pendingNativeCompletion;
         lock (_syncRoot)
         {
             operationCancellation = _operationCancellation;
             operationTask = _operationTask;
-            pendingNativeCompletion = _pendingNativeCompletion;
         }
 
-        var stopTask = CancelAndAwaitOperationAsync(operationCancellation, operationTask, pendingNativeCompletion);
+        var stopTask = CancelAndAwaitOperationAsync(operationCancellation, operationTask);
 
         return cancellationToken.CanBeCanceled
             ? stopTask.WaitAsync(cancellationToken)
@@ -292,53 +290,69 @@ internal sealed class SherpaOnnxSynthesisSession : ISynthesisSession
     }
 
     /// <summary>
-    ///     Requests cancellation of <paramref name="operationCancellation"/> (if any) and then
-    ///     awaits <paramref name="operationTask"/> (if any) and, when supplied,
-    ///     <paramref name="pendingNativeCompletion"/> to genuine completion.
+    ///     Requests cancellation of <paramref name="operationCancellation"/> (if any), then awaits
+    ///     <paramref name="operationTask"/> (if any) and, once it has settled, the operation's raw
+    ///     native-call completion (see <see cref="_pendingNativeCompletion"/>) to genuine
+    ///     completion.
     /// </summary>
     /// <param name="operationCancellation">The in-flight operation's cancellation source, if any.</param>
     /// <param name="operationTask">The in-flight operation's abandon-aware task, if any.</param>
-    /// <param name="pendingNativeCompletion">
-    ///     The in-flight operation's raw native-call completion (see <see cref="_pendingNativeCompletion"/>),
-    ///     if any. Both <see cref="StopAsync"/> and <see cref="DisposeAsync"/> supply this: an
-    ///     abandoned <see cref="DedicatedWorker"/> native call must have genuinely returned before
-    ///     either is allowed to report the operation as stopped, since <see cref="StopAsync"/>'s
-    ///     documented contract requires genuine quiescence and <see cref="DisposeAsync"/> must not
-    ///     release the engine's exclusivity lease while it may still be running.
-    /// </param>
-    private static async Task CancelAndAwaitOperationAsync(
+    /// <remarks>
+    ///     <see cref="_pendingNativeCompletion"/> is deliberately re-read here - under
+    ///     <see cref="_syncRoot"/> - only after <paramref name="operationTask"/> has settled,
+    ///     rather than accepted as a snapshot taken by the caller before this method began
+    ///     awaiting: <see cref="GenerateSegmentAsync"/> always publishes that field on the same
+    ///     execution path strictly before it awaits the native call itself, so it is guaranteed to
+    ///     already reflect this operation's (possibly still-running, if abandoned) native call by
+    ///     the time <paramref name="operationTask"/> completes. A snapshot taken any earlier - for
+    ///     example at the very start of <see cref="StopAsync"/>/<see cref="DisposeAsync"/>, before
+    ///     <see cref="GenerateSegmentAsync"/> has necessarily reached that publish - can still be
+    ///     <see langword="null"/> even though the operation is genuinely in flight, letting
+    ///     <see cref="StopAsync"/>/<see cref="DisposeAsync"/> report the operation as stopped while
+    ///     an abandoned native call is still demonstrably running.
+    /// </remarks>
+    private async Task CancelAndAwaitOperationAsync(
         CancellationTokenSource? operationCancellation,
-        Task? operationTask,
-        Task? pendingNativeCompletion = null)
+        Task? operationTask)
     {
         await CancelOperationAsync(operationCancellation).ConfigureAwait(false);
 
-        if (operationTask is not null)
+        if (operationTask is null)
         {
-            try
-            {
-                await operationTask.ConfigureAwait(false);
-            }
-            catch
-            {
-                // RunOperationAsync already transitions state and reports diagnostics for its own
-                // failure/cancellation; the caller here only needs to know the operation has
-                // actually finished.
-            }
+            return;
         }
 
-        if (pendingNativeCompletion is not null)
+        try
         {
-            try
-            {
-                await pendingNativeCompletion.ConfigureAwait(false);
-            }
-            catch
-            {
-                // Already reported (if it genuinely faulted) by GenerateSegmentAsync's own
-                // caller; this await exists purely to prove the native call has genuinely
-                // returned, not to re-surface its outcome.
-            }
+            await operationTask.ConfigureAwait(false);
+        }
+        catch
+        {
+            // RunOperationAsync already transitions state and reports diagnostics for its own
+            // failure/cancellation; the caller here only needs to know the operation has
+            // actually finished.
+        }
+
+        Task? pendingNativeCompletion;
+        lock (_syncRoot)
+        {
+            pendingNativeCompletion = _pendingNativeCompletion;
+        }
+
+        if (pendingNativeCompletion is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await pendingNativeCompletion.ConfigureAwait(false);
+        }
+        catch
+        {
+            // Already reported (if it genuinely faulted) by GenerateSegmentAsync's own
+            // caller; this await exists purely to prove the native call has genuinely
+            // returned, not to re-surface its outcome.
         }
     }
 
@@ -760,15 +774,13 @@ internal sealed class SherpaOnnxSynthesisSession : ISynthesisSession
     {
         CancellationTokenSource? operationCancellation;
         Task? operationTask;
-        Task? pendingNativeCompletion;
         lock (_syncRoot)
         {
             operationCancellation = _operationCancellation;
             operationTask = _operationTask;
-            pendingNativeCompletion = _pendingNativeCompletion;
         }
 
-        await CancelAndAwaitOperationAsync(operationCancellation, operationTask, pendingNativeCompletion).ConfigureAwait(false);
+        await CancelAndAwaitOperationAsync(operationCancellation, operationTask).ConfigureAwait(false);
 
         TransitionTo(SynthesisSessionState.Disposing);
         TransitionTo(SynthesisSessionState.Disposed);
