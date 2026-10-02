@@ -240,23 +240,34 @@ internal sealed class SherpaOnnxSynthesisSession : ISynthesisSession
     /// <inheritdoc/>
     /// <remarks>
     ///     Requests cancellation of any in-flight operation and awaits the tracked operation's own
-    ///     completion (bounded by <see cref="DedicatedWorker"/>'s cooperative-cancel-then-abandon
-    ///     policy, so this never blocks indefinitely even if the underlying native call does not
-    ///     honor cancellation promptly) before returning, matching the documented
-    ///     <see cref="ISynthesisSession.StopAsync"/> contract that the returned task completes
-    ///     once the in-flight operation has stopped.
+    ///     completion, including its raw native-call completion (see
+    ///     <see cref="_pendingNativeCompletion"/>) so an abandoned <see cref="DedicatedWorker"/>
+    ///     native call cannot still be running once this returns (finding 27), before returning,
+    ///     matching the documented <see cref="ISynthesisSession.StopAsync"/> contract that the
+    ///     returned task completes once the in-flight operation has genuinely stopped.
+    ///     <paramref name="cancellationToken"/> bounds only this caller's own wait for that
+    ///     teardown (finding 28), mirroring the recognition session's <c>StopAsync</c>: it never
+    ///     aborts the underlying cancel-and-await work itself, which every other concurrent caller
+    ///     (and <see cref="DisposeAsync"/>) still needs to complete regardless of whether this
+    ///     particular caller stopped waiting for it.
     /// </remarks>
-    public async Task StopAsync(CancellationToken cancellationToken = default)
+    public Task StopAsync(CancellationToken cancellationToken = default)
     {
         CancellationTokenSource? operationCancellation;
         Task? operationTask;
+        Task? pendingNativeCompletion;
         lock (_syncRoot)
         {
             operationCancellation = _operationCancellation;
             operationTask = _operationTask;
+            pendingNativeCompletion = _pendingNativeCompletion;
         }
 
-        await CancelAndAwaitOperationAsync(operationCancellation, operationTask).ConfigureAwait(false);
+        var stopTask = CancelAndAwaitOperationAsync(operationCancellation, operationTask, pendingNativeCompletion);
+
+        return cancellationToken.CanBeCanceled
+            ? stopTask.WaitAsync(cancellationToken)
+            : stopTask;
     }
 
     /// <summary>
@@ -289,10 +300,11 @@ internal sealed class SherpaOnnxSynthesisSession : ISynthesisSession
     /// <param name="operationTask">The in-flight operation's abandon-aware task, if any.</param>
     /// <param name="pendingNativeCompletion">
     ///     The in-flight operation's raw native-call completion (see <see cref="_pendingNativeCompletion"/>),
-    ///     if any. Only <see cref="DisposeAsync"/> supplies this: releasing the engine's
-    ///     exclusivity lease must wait for the native call to have genuinely stopped even if it
-    ///     was abandoned, whereas <see cref="StopAsync"/> only needs to honor the documented
-    ///     "operation has stopped" contract via <paramref name="operationTask"/>.
+    ///     if any. Both <see cref="StopAsync"/> and <see cref="DisposeAsync"/> supply this: an
+    ///     abandoned <see cref="DedicatedWorker"/> native call must have genuinely returned before
+    ///     either is allowed to report the operation as stopped, since <see cref="StopAsync"/>'s
+    ///     documented contract requires genuine quiescence and <see cref="DisposeAsync"/> must not
+    ///     release the engine's exclusivity lease while it may still be running.
     /// </param>
     private static async Task CancelAndAwaitOperationAsync(
         CancellationTokenSource? operationCancellation,
@@ -335,8 +347,11 @@ internal sealed class SherpaOnnxSynthesisSession : ISynthesisSession
     ///     transitions through <see cref="SynthesisSessionState.Starting"/>/<see cref="SynthesisSessionState.Running"/>,
     ///     synthesizes (and optionally plays) every segment, then transitions through
     ///     <see cref="SynthesisSessionState.Stopping"/> back to <see cref="SynthesisSessionState.Stopped"/>
-    ///     on success or genuine cancellation, or to <see cref="SynthesisSessionState.Faulted"/>
-    ///     on any other failure.
+    ///     on success or genuine, promptly-honored cancellation, or to
+    ///     <see cref="SynthesisSessionState.Faulted"/> on any other failure - including a
+    ///     cancellation request the native <c>Generate</c> call did not honor within
+    ///     <see cref="DedicatedWorker"/>'s abandon timeout (finding 26), since that leaves the
+    ///     shared backend not safely reusable until the abandoned call genuinely returns.
     /// </summary>
     /// <param name="text">The text to synthesize.</param>
     /// <param name="playAfterSynthesis">Whether to play each segment through the bound device as it is produced.</param>
@@ -368,10 +383,48 @@ internal sealed class SherpaOnnxSynthesisSession : ISynthesisSession
         {
             // Only an exception that corresponds to this operation's own cancellation request
             // (from a caller's token, StopAsync, or DisposeAsync - all of which cancel this same
-            // linked source) is normal cancellation. An OperationCanceledException the backend
-            // throws on its own initiative, with no cancellation actually requested, falls
-            // through to the general fault handler below instead, since silently treating it as
-            // a clean stop would let a genuinely broken backend be reused.
+            // linked source) is even a candidate for normal cancellation. An
+            // OperationCanceledException the backend throws on its own initiative, with no
+            // cancellation actually requested, falls through to the general fault handler below
+            // instead (finding 9), since silently treating it as a clean stop would let a
+            // genuinely broken backend be reused.
+            Task? pendingNativeCompletion;
+            lock (_syncRoot)
+            {
+                pendingNativeCompletion = _pendingNativeCompletion;
+            }
+
+            if (pendingNativeCompletion is not null && !pendingNativeCompletion.IsCompleted)
+            {
+                // The native Generate call did not honor this request within DedicatedWorker's
+                // abandon timeout and is still running in the background (finding 26): the shared
+                // backend is not safely reusable until that raw completion genuinely finishes, so
+                // - unlike a native call that stopped promptly - this is not a clean cancellation
+                // this session can return to Stopped from. Fault instead, which both reports the
+                // condition and (via StartOperation's Faulted check) keeps this session from
+                // starting a second native call concurrently with the still-running abandoned
+                // one; _pendingNativeCompletion itself is left set so StopAsync/DisposeAsync still
+                // await its genuine completion.
+                var abandonFault = new TimeoutException(
+                    "A native Generate call did not honor a cancellation request within the " +
+                    "dedicated worker's abandon timeout and was abandoned while still running.");
+
+                lock (_syncRoot)
+                {
+                    _operationCancellation = null;
+                    _operationTask = null;
+                    _fault = abandonFault;
+                }
+
+                TransitionTo(SynthesisSessionState.Faulted);
+
+                _diagnostics.Report(
+                    SpeechDiagnosticLevel.Error,
+                    DiagnosticsCategory,
+                    $"Synthesis session faulted: {abandonFault.Message}");
+                throw;
+            }
+
             ClearOperation();
 
             TransitionTo(SynthesisSessionState.Stopping);

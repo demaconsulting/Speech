@@ -464,6 +464,63 @@ public sealed class SpeechSynthesizerFactoryTests : IDisposable
     }
 
     /// <summary>
+    ///     Proves that when <see cref="ISynthesisBackendFactory.Create"/> ignores cancellation but
+    ///     still finishes within the dedicated worker's abandon grace period - so the worker
+    ///     genuinely completes rather than being abandoned - <c>LoadAsync</c> still honors the
+    ///     cancellation request (finding 31) rather than reporting a loaded engine, and disposes
+    ///     the backend that was created so it does not leak.
+    /// </summary>
+    [Fact(Timeout = 10000)]
+    public async Task SpeechSynthesizerFactory_LoadAsync_CancelledDuringGraceWindowCreateSucceeds_ThrowsAndDisposesBackend()
+    {
+        // Arrange: a backend factory whose Create blocks until released, then succeeds, ignoring
+        // cancellation entirely - exactly like the real native binding, which has no in-flight
+        // cancellation primitive of its own.
+        using var createStarted = new SemaphoreSlim(0, 1);
+        using var createRelease = new SemaphoreSlim(0, 1);
+        var engine = new FakeSynthesisEngine();
+        var backendFactory = new BlockingSynthesisEngineFactory(createStarted, createRelease, engine);
+        using var cts = new CancellationTokenSource();
+
+        // Act: start loading, wait until Create has begun, cancel, then let Create finish quickly
+        // (well within the worker's default abandon timeout) so the worker is not abandoned
+        var loadTask = SpeechSynthesizerFactory.LoadAsync(
+            new FakeSynthesisModel(), _installedModelDirectory, null, backendFactory, null, cts.Token);
+        await createStarted.WaitAsync(TestContext.Current.CancellationToken);
+        await cts.CancelAsync();
+        createRelease.Release();
+
+        // Assert: the cancellation is still honored even though backend creation genuinely
+        // succeeded, and the backend that was created is disposed rather than leaked
+        await Assert.ThrowsAsync<OperationCanceledException>(() => loadTask);
+        Assert.Equal(1, engine.DisposeCallCount);
+    }
+
+    /// <summary>
+    ///     Test-only <see cref="ISynthesisBackendFactory"/> whose <see cref="Create"/> signals a
+    ///     semaphore once called, then blocks until the test explicitly releases a second
+    ///     semaphore before returning the pre-configured engine - simulating a native load call
+    ///     that ignores cancellation but still finishes within the dedicated worker's abandon
+    ///     grace period.
+    /// </summary>
+    private sealed class BlockingSynthesisEngineFactory(
+        SemaphoreSlim createStarted,
+        SemaphoreSlim createRelease,
+        FakeSynthesisEngine engine) : ISynthesisBackendFactory
+    {
+        public ISynthesisBackend Create(ISynthesisModel model, string installedModelDirectory)
+        {
+            createStarted.Release();
+
+            // Bounded wait purely as a safety net so a failed/timed-out test cannot leave this
+            // dedicated worker thread blocked forever; the behavior under test only relies on the
+            // release happening promptly.
+            createRelease.Wait(TimeSpan.FromSeconds(30));
+            return engine;
+        }
+    }
+
+    /// <summary>
     ///     Test-only synthesis model whose declared role contradicts the synthesis interface it
     ///     implements, used to prove the factory rejects it honestly.
     /// </summary>

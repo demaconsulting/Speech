@@ -653,12 +653,12 @@ public class SherpaOnnxSynthesisSessionTests
         var session = new SherpaOnnxSynthesisSession(
             backend, device, new FakeSynthesisModel(), null, NullSpeechDiagnostics.Instance, () => releaseCount++);
 
-        // Act: start speaking, wait until the backend call has begun, then stop (which completes
-        // quickly via the abandon policy, without the native call ever genuinely returning), then
-        // begin disposing
+        // Act: start speaking, wait until the backend call has begun, then begin disposing
+        // directly (DisposeAsync requests its own cancellation and - per finding 27 - must wait
+        // for the native call's genuine raw completion, not just the abandon-aware operation
+        // task, before releasing the lease)
         var speakTask = session.SpeakAsync("Hello world.", TestContext.Current.CancellationToken);
         await generateStarted.WaitAsync(TestContext.Current.CancellationToken);
-        await session.StopAsync(TestContext.Current.CancellationToken).WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
         var disposeTask = session.DisposeAsync().AsTask();
 
         // Assert: the lease must not be released while the abandoned worker is still stuck inside
@@ -677,6 +677,130 @@ public class SherpaOnnxSynthesisSessionTests
 
         // Observe the task's outcome so it is never reported as an unobserved exception
         await Record.ExceptionAsync(() => speakTask);
+    }
+
+    /// <summary>
+    ///     Proves that an abandoned native <c>Generate</c> call (finding 26) faults the session
+    ///     rather than returning it to the reusable <see cref="SynthesisSessionState.Stopped"/>
+    ///     state, so a subsequent <see cref="ISynthesisSession.SpeakAsync"/>/
+    ///     <see cref="ISynthesisSession.SynthesizeAsync"/> call can never start a second native
+    ///     call concurrently with the still-running abandoned one - it is instead rejected with
+    ///     <see cref="SynthesisSessionFaultedException"/> immediately, with no need to wait.
+    /// </summary>
+    [Fact(Timeout = 10000)]
+    public async Task SherpaOnnxSynthesisSession_AbandonedGenerate_FaultsSessionAndRejectsReuseImmediately()
+    {
+        // Arrange: a backend whose Generate blocks well past the default 2s abandon timeout
+        using var generateStarted = new SemaphoreSlim(0, 1);
+        using var generateRelease = new SemaphoreSlim(0, 1);
+        var backend = new BlockingSynthesisEngine(generateStarted, generateRelease, TestContext.Current.CancellationToken);
+        var device = CreateAvailablePlaybackDevice();
+        await using var session = CreateSession(backend, device);
+
+        // Act: start speaking, wait until the backend call has begun, then stop - the real
+        // backend never honors cancellation, so the dedicated worker abandons it after its
+        // default 2s timeout
+        var speakTask = session.SpeakAsync("Hello world.", TestContext.Current.CancellationToken);
+        await generateStarted.WaitAsync(TestContext.Current.CancellationToken);
+        _ = session.StopAsync(TestContext.Current.CancellationToken);
+
+        // Assert: once the abandon-aware operation task has settled (bounded by the default 2s
+        // abandon timeout plus margin), the session is Faulted - not the reusable Stopped state -
+        // and a new call is rejected immediately rather than needing to wait for the still-running
+        // abandoned native call
+        await WaitForStateAsync(session, SynthesisSessionState.Faulted, TimeSpan.FromSeconds(5));
+
+        var reuseException = await Record.ExceptionAsync(
+            () => session.SynthesizeAsync("Second call.", TestContext.Current.CancellationToken));
+        Assert.IsType<SynthesisSessionFaultedException>(reuseException);
+
+        // Cleanup: release the abandoned background call so disposal does not hang
+        generateRelease.Release();
+        await Record.ExceptionAsync(() => speakTask);
+    }
+
+    /// <summary>
+    ///     Proves that <see cref="ISynthesisSession.StopAsync"/> does not complete merely because
+    ///     the abandon-aware operation task has settled (finding 27): while the native
+    ///     <c>Generate</c> call is still genuinely running in the background past the abandon
+    ///     timeout, the task <c>StopAsync</c> returns must remain incomplete, matching its
+    ///     documented "operation has stopped" contract.
+    /// </summary>
+    [Fact(Timeout = 10000)]
+    public async Task SherpaOnnxSynthesisSession_StopAsync_AbandonedGenerate_DoesNotCompleteUntilNativeCallGenuinelyReturns()
+    {
+        // Arrange
+        using var generateStarted = new SemaphoreSlim(0, 1);
+        using var generateRelease = new SemaphoreSlim(0, 1);
+        var backend = new BlockingSynthesisEngine(generateStarted, generateRelease, TestContext.Current.CancellationToken);
+        var device = CreateAvailablePlaybackDevice();
+        await using var session = CreateSession(backend, device);
+
+        // Act: start speaking, wait until synthesis has begun, then stop
+        var speakTask = session.SpeakAsync("Hello world.", TestContext.Current.CancellationToken);
+        await generateStarted.WaitAsync(TestContext.Current.CancellationToken);
+        var stopTask = session.StopAsync(TestContext.Current.CancellationToken);
+
+        // Assert: even once the default 2s abandon timeout has elapsed and the session has
+        // faulted, StopAsync's own task must still not be complete, because the native call is
+        // still genuinely running against the backend
+        await WaitForStateAsync(session, SynthesisSessionState.Faulted, TimeSpan.FromSeconds(5));
+        Assert.False(stopTask.IsCompleted);
+
+        // Act: only now let the in-flight native-style call finish
+        generateRelease.Release();
+
+        // Assert: StopAsync completes only once the native call has genuinely returned
+        await stopTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        Assert.True(backend.GenerateReturned);
+
+        await Record.ExceptionAsync(() => speakTask);
+    }
+
+    /// <summary>
+    ///     Proves that a canceled caller token passed to <see cref="ISynthesisSession.StopAsync"/>
+    ///     only bounds that caller's own wait (finding 28) rather than aborting the shared
+    ///     cancel-and-await teardown: the caller observes <see cref="OperationCanceledException"/>
+    ///     promptly, but the in-flight operation is still genuinely requested to cancel and the
+    ///     session still converges normally afterward.
+    /// </summary>
+    [Fact]
+    public async Task SherpaOnnxSynthesisSession_StopAsync_CallerTokenPreCanceled_ThrowsButOperationStillStops()
+    {
+        // Arrange
+        var backend = new FakeSynthesisEngine();
+        var device = CreateAvailablePlaybackDevice();
+        await using var session = CreateSession(backend, device);
+
+        var speakTask = session.SpeakAsync("Hello world.", TestContext.Current.CancellationToken);
+
+        using var preCanceled = new CancellationTokenSource();
+        await preCanceled.CancelAsync();
+
+        // Act & Assert: the caller's own wait is bounded by its own token and throws promptly
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => session.StopAsync(preCanceled.Token));
+
+        // Assert: the operation itself was still genuinely requested to stop and settles normally
+        await Record.ExceptionAsync(() => speakTask);
+        Assert.NotEqual(SynthesisSessionState.Running, session.State);
+    }
+
+    /// <summary>
+    ///     Polls <paramref name="session"/>'s <see cref="ISynthesisSession.State"/> until it
+    ///     equals <paramref name="expected"/> or <paramref name="timeout"/> elapses, used only to
+    ///     bound a wait for an asynchronous state transition driven by
+    ///     <see cref="DedicatedWorker"/>'s own abandon-timeout delay, not as a substitute for
+    ///     awaiting a task directly.
+    /// </summary>
+    private static async Task WaitForStateAsync(ISynthesisSession session, SynthesisSessionState expected, TimeSpan timeout)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+        while (session.State != expected && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(20), TestContext.Current.CancellationToken);
+        }
+
+        Assert.Equal(expected, session.State);
     }
 
     /// <summary>

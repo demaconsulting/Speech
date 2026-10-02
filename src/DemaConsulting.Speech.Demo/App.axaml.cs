@@ -103,6 +103,13 @@ public sealed class App : Application
                     return;
                 }
 
+                // Set synchronously, before the first await inside CompleteShutdownAsync runs
+                // (finding 29): a second ShutdownRequested racing in during that first await -
+                // for example, the user closing the window again while cleanup is still pending -
+                // must see this guard already set, rather than finding it still false and
+                // starting a second concurrent cleanup task against the same ViewModels/catalog.
+                _shuttingDown = true;
+
                 e.Cancel = true;
                 CompleteShutdownAsync(desktop, viewModel).ConfigureAwait(false);
             };
@@ -116,6 +123,12 @@ public sealed class App : Application
     ///     deferred shutdown this type requested in <see cref="OnFrameworkInitializationCompleted"/>
     ///     proceed.
     /// </summary>
+    /// <remarks>
+    ///     <see cref="_shuttingDown"/> is already set to <see langword="true"/> by the caller
+    ///     before this method starts (finding 29), so no field assignment is needed here; this
+    ///     method's own <see langword="finally"/> only has to resume shutdown once cleanup has
+    ///     settled, whether it succeeded or faulted.
+    /// </remarks>
     /// <param name="desktop">The desktop lifetime to resume shutdown on once cleanup has completed.</param>
     /// <param name="viewModel">The main window's view model owning the panels to dispose.</param>
     private async Task CompleteShutdownAsync(IClassicDesktopStyleApplicationLifetime desktop, MainWindowViewModel viewModel)
@@ -133,7 +146,6 @@ public sealed class App : Application
         }
         finally
         {
-            _shuttingDown = true;
             desktop.Shutdown();
         }
     }

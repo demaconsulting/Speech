@@ -128,7 +128,7 @@ convention of leaving no scratch artifacts in the working tree).
     output rather than the configuration field being silently ignored
 - **Full pipeline confirmed**: this distinction was produced end-to-end through the real
   `SpeechSynthesizerFactory.LoadAsync` with a `parameterValues` bag selecting each speaker by
-  numeric index, `SherpaOnnxSpeechSynthesizer.GenerateSegment` calling
+  numeric index, `SherpaOnnxSynthesisSession.GenerateSegmentAsync` calling
   `ISynthesisModel.ResolveSpeakerId` once per segment instead of a hard-coded `speakerId: 0`, and
   producing the two distinct, non-silent outputs described above - not merely an isolated engine
   call

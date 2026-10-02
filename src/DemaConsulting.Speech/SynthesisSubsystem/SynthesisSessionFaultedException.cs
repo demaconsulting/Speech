@@ -7,9 +7,12 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 /// <remarks>
 ///     A session faults when an in-flight <see cref="ISynthesisSession.SpeakAsync"/> or
 ///     <see cref="ISynthesisSession.SynthesizeAsync"/> operation fails for a reason other than its
-///     own requested cancellation - including a native call that did not stop cooperatively within
-///     the dedicated worker's abandon timeout and was detached without ever being requested to stop
-///     via <see cref="ISynthesisSession.StopAsync"/> or <see cref="IAsyncDisposable.DisposeAsync"/>.
+///     own promptly-honored cancellation - including a native call that did not stop cooperatively
+///     within the dedicated worker's abandon timeout and was detached, whether or not it was ever
+///     requested to stop via <see cref="ISynthesisSession.StopAsync"/> or
+///     <see cref="IAsyncDisposable.DisposeAsync"/>: either way, the native call may still be
+///     running against the shared backend, so the session cannot safely be treated as a clean,
+///     reusable stop.
 ///     Once faulted, the session is terminal: every subsequent
 ///     <see cref="ISynthesisSession.SpeakAsync"/>/<see cref="ISynthesisSession.SynthesizeAsync"/>
 ///     call throws this exception (carrying the original fault as its inner exception) rather than

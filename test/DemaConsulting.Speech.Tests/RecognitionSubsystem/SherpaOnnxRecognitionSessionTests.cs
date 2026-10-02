@@ -5,6 +5,7 @@ using DemaConsulting.Speech.RecognitionSubsystem;
 using DemaConsulting.Speech.Tests.ModelManagementSubsystem.Fakes;
 using DemaConsulting.Speech.Tests.RecognitionSubsystem.Fakes;
 using NSubstitute;
+using NSubstitute.Core;
 
 namespace DemaConsulting.Speech.Tests.RecognitionSubsystem;
 
@@ -327,6 +328,40 @@ public class SherpaOnnxRecognitionSessionTests
             (RecognitionSessionState.Running, RecognitionSessionState.Stopping),
             (RecognitionSessionState.Stopping, RecognitionSessionState.Stopped)
         ], transitions);
+    }
+
+    /// <summary>
+    ///     Proves, across many iterations, that the Stopping transition is always raised before
+    ///     the Stopped transition it logically precedes (findings 32/33): with every dependency
+    ///     trivially fast to complete (as here), the teardown that produces the Stopped transition
+    ///     can genuinely run to completion synchronously the instant it is started, so only
+    ///     starting it strictly after Stopping has already been raised - never racing that
+    ///     ordering on whether the underlying tasks happen to complete synchronously - keeps every
+    ///     iteration below in order.
+    /// </summary>
+    [Fact]
+    public async Task SherpaOnnxRecognitionSession_StateChanged_StoppingAlwaysPrecedesStoppedAcrossManyIterations()
+    {
+        for (var iteration = 0; iteration < 200; iteration++)
+        {
+            // Arrange
+            await using var session = CreateSession(new FakeRecognitionEngine(), CreateCaptureDevice());
+            var transitions = new List<RecognitionSessionState>();
+            session.StateChanged += (_, args) => transitions.Add(args.Current);
+
+            // Act
+            await session.StartAsync(TestContext.Current.CancellationToken);
+            await session.StopAsync(TestContext.Current.CancellationToken);
+
+            // Assert: Stopping must appear, and strictly before Stopped
+            var stoppingIndex = transitions.IndexOf(RecognitionSessionState.Stopping);
+            var stoppedIndex = transitions.IndexOf(RecognitionSessionState.Stopped);
+            Assert.True(stoppingIndex >= 0, $"Iteration {iteration}: Stopping transition was never raised.");
+            Assert.True(stoppedIndex >= 0, $"Iteration {iteration}: Stopped transition was never raised.");
+            Assert.True(
+                stoppingIndex < stoppedIndex,
+                $"Iteration {iteration}: Stopped (index {stoppedIndex}) was raised before or alongside Stopping (index {stoppingIndex}): [{string.Join(", ", transitions)}]");
+        }
     }
 
     /// <summary>
@@ -668,6 +703,175 @@ public class SherpaOnnxRecognitionSessionTests
         Assert.Equal(1, engine.ResetCallCount);
         device.Received(1).Stop();
         Assert.Equal(1, releaseCount);
+    }
+
+    /// <summary>
+    ///     Proves that a <see cref="SherpaOnnxRecognitionSession.StateChanged"/> handler calling
+    ///     back into this session (for example <see cref="SherpaOnnxRecognitionSession.StopAsync"/>)
+    ///     and then synchronously blocking on the result does not deadlock (finding 21): the event
+    ///     must be raised only after <c>_syncRoot</c> has been released.
+    /// </summary>
+    [Fact(Timeout = 5000)]
+    public async Task SherpaOnnxRecognitionSession_StateChangedHandlerBlocksOnStopAsync_DoesNotDeadlock()
+    {
+        // Arrange
+        var session = CreateSession(new FakeRecognitionEngine(), CreateCaptureDevice());
+        var handlerCompleted = false;
+        session.StateChanged += (_, args) =>
+        {
+            if (args.Current == RecognitionSessionState.Running)
+            {
+                // A host handler that synchronously blocks on the result of calling back into
+                // this very session must not deadlock against the state lock.
+                session.StopAsync(CancellationToken.None).GetAwaiter().GetResult();
+                handlerCompleted = true;
+            }
+        };
+
+        try
+        {
+            // Act
+            await session.StartAsync(TestContext.Current.CancellationToken);
+
+            // Assert
+            Assert.True(handlerCompleted);
+            Assert.Equal(RecognitionSessionState.Stopped, session.State);
+        }
+        finally
+        {
+            await session.DisposeAsync();
+        }
+    }
+
+    /// <summary>
+    ///     Proves that a backend exception thrown from <see cref="IRecognitionBackend.AcceptSamples"/>
+    ///     faults the session and completes <see cref="SherpaOnnxRecognitionSession.GetResultsAsync"/>
+    ///     with <see cref="RecognitionSessionFaultedException"/>, rather than leaving the session
+    ///     <see cref="RecognitionSessionState.Running"/> with its result buffer open forever
+    ///     (finding 22).
+    /// </summary>
+    [Fact]
+    public async Task SherpaOnnxRecognitionSession_BackendThrowsFromAcceptSamples_FaultsSessionAndCompletesResultBuffer()
+    {
+        // Arrange
+        var engine = new FakeRecognitionEngine(acceptSamplesException: new InvalidOperationException("Backend failure."));
+        var device = CreateCaptureDevice();
+        await using var session = CreateSession(engine, device);
+        await session.StartAsync(TestContext.Current.CancellationToken);
+
+        // Act: a captured block reaches the pump thread and the backend throws while accepting it
+        RaiseFrameCaptured(device, [0.1f]);
+        SpinWait.SpinUntil(() => session.State == RecognitionSessionState.Faulted, TimeSpan.FromSeconds(5));
+
+        // Assert: the session faulted, and a consumer of GetResultsAsync is unblocked with the fault
+        // rather than hanging forever
+        Assert.Equal(RecognitionSessionState.Faulted, session.State);
+        await Assert.ThrowsAsync<RecognitionSessionFaultedException>(async () =>
+        {
+            await foreach (var _ in session.GetResultsAsync(TestContext.Current.CancellationToken))
+            {
+                // No iterations are expected to survive the fault.
+            }
+        });
+    }
+
+    /// <summary>
+    ///     Proves that calling <see cref="SherpaOnnxRecognitionSession.StopAsync"/> on a session
+    ///     that was never started still completes its result buffer, so
+    ///     <see cref="SherpaOnnxRecognitionSession.GetResultsAsync"/> returns instead of hanging
+    ///     forever (finding 23).
+    /// </summary>
+    [Fact]
+    public async Task SherpaOnnxRecognitionSession_StopAsync_BeforeStartAsync_CompletesResultBuffer()
+    {
+        // Arrange
+        await using var session = CreateSession(new FakeRecognitionEngine(), CreateCaptureDevice());
+
+        // Act
+        await session.StopAsync(TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(RecognitionSessionState.Stopped, session.State);
+        using var bounded = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await foreach (var _ in session.GetResultsAsync(bounded.Token))
+        {
+            // No results are expected: the buffer should complete immediately and empty.
+        }
+    }
+
+    /// <summary>
+    ///     Proves that when the dedicated pump worker is abandoned after its timeout, the shared
+    ///     recognition backend is not reset (nor the device stopped) until the pump thread has
+    ///     genuinely exited, closing the race in which the raw pump thread could still be inside
+    ///     <see cref="IRecognitionBackend.AcceptSamples"/> while teardown concurrently reset the
+    ///     same backend (finding 24).
+    /// </summary>
+    [Fact(Timeout = 10000)]
+    public async Task SherpaOnnxRecognitionSession_AbandonedPumpWorker_DoesNotResetBackendUntilWorkerExits()
+    {
+        // Arrange: a backend whose AcceptSamples blocks forever, and a worker with a near-zero
+        // abandon timeout so the test stays fast
+        using var neverSignaled = new ManualResetEvent(false);
+        var engine = new FakeRecognitionEngine(acceptSamplesBlock: neverSignaled);
+        var worker = new DedicatedWorker(
+            abandonTimeout: TimeSpan.FromMilliseconds(1),
+            diagnostics: NullSpeechDiagnostics.Instance,
+            diagnosticsCategory: "RecognitionSubsystem");
+        var device = CreateCaptureDevice();
+        await using var session = CreateSession(engine, device, worker: worker);
+        await session.StartAsync(TestContext.Current.CancellationToken);
+        RaiseFrameCaptured(device, [0.1f]);
+        await Task.Delay(TimeSpan.FromMilliseconds(50), TestContext.Current.CancellationToken);
+
+        // Act: stop completes quickly via the abandon policy
+        await session.StopAsync(TestContext.Current.CancellationToken).WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+        // Assert: the backend must not be reset, nor the device stopped, while the abandoned pump
+        // thread may still be inside the blocking backend call
+        await Task.Delay(TimeSpan.FromMilliseconds(100), TestContext.Current.CancellationToken);
+        Assert.Equal(0, engine.ResetCallCount);
+        device.DidNotReceive().Stop();
+
+        // Act: release the abandoned background thread so it can genuinely exit
+        neverSignaled.Set();
+
+        // Waits for both the backend reset and the device stop (not merely the first of the two
+        // sequential calls ResetBackendAndStopDeviceCore makes) so this assertion cannot flake on
+        // the brief window between them.
+        SpinWait.SpinUntil(
+            () => engine.ResetCallCount >= 1 && device.ReceivedCalls().Any(call => call.GetMethodInfo().Name == nameof(IAudioCaptureDevice.Stop)),
+            TimeSpan.FromSeconds(5));
+
+        // Assert: only once the worker genuinely exited was the backend reset and device stopped
+        Assert.Equal(1, engine.ResetCallCount);
+        device.Received(1).Stop();
+    }
+
+    /// <summary>
+    ///     Proves that passing an already-canceled token to <see cref="SherpaOnnxRecognitionSession.StopAsync"/>
+    ///     only bounds this caller's own wait - the call throws <see cref="OperationCanceledException"/>
+    ///     immediately rather than waiting for teardown - while the shared teardown itself still
+    ///     converges for every other observer (findings 19/25).
+    /// </summary>
+    [Fact]
+    public async Task SherpaOnnxRecognitionSession_StopAsync_PreCanceledToken_ThrowsButTeardownStillConverges()
+    {
+        // Arrange
+        var engine = new FakeRecognitionEngine();
+        var device = CreateCaptureDevice();
+        await using var session = CreateSession(engine, device);
+        await session.StartAsync(TestContext.Current.CancellationToken);
+
+        using var preCanceled = new CancellationTokenSource();
+        await preCanceled.CancelAsync();
+
+        // Act & Assert: this caller's own wait is bounded by its already-canceled token
+        await Assert.ThrowsAsync<TaskCanceledException>(() => session.StopAsync(preCanceled.Token));
+
+        // Assert: the shared teardown was never aborted by that caller's canceled wait - it still
+        // converges for every other observer
+        SpinWait.SpinUntil(() => session.State == RecognitionSessionState.Stopped, TimeSpan.FromSeconds(5));
+        Assert.Equal(RecognitionSessionState.Stopped, session.State);
     }
 
     /// <summary>

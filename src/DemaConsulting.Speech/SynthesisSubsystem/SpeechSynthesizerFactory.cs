@@ -396,6 +396,18 @@ public static class SpeechSynthesizerFactory
             return UnavailableSpeechSynthesizerEngine.Instance;
         }
 
+        if (cancellationToken.IsCancellationRequested)
+        {
+            // Finding 31: the worker's delegate finished within the abandon grace period - so
+            // run.Task above returned normally with a genuinely created backend - but
+            // cancellation was still requested before that happened. The caller must not
+            // receive a loaded engine for a call it asked to cancel; dispose the backend that
+            // was created so this does not leak native model resources, then honor the
+            // cancellation rather than falling through to report success.
+            backend.Dispose();
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+
         sink.Report(
             SpeechDiagnosticLevel.Info,
             DiagnosticsCategory,
