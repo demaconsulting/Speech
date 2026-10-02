@@ -415,6 +415,207 @@ public class SherpaOnnxRecognitionSessionTests
     }
 
     /// <summary>
+    ///     Proves that a concurrent <see cref="SherpaOnnxRecognitionSession.StopAsync"/> cannot
+    ///     observe a <see cref="SherpaOnnxRecognitionSession.StartAsync"/> call's intermediate
+    ///     <see cref="RecognitionSessionState.Starting"/> state, converge the session to
+    ///     <see cref="RecognitionSessionState.Stopped"/>, and return while the device is still
+    ///     being started - closing the review finding that this race could leave capture running
+    ///     against a session the caller believes is stopped.
+    /// </summary>
+    [Fact]
+    public async Task SherpaOnnxRecognitionSession_StopAsync_ConcurrentWithStartAsync_DeviceEndsGenuinelyStopped()
+    {
+        // Arrange: a device whose Start() blocks until this test explicitly releases it,
+        // standing in for a slow synchronous device start that a concurrent StopAsync could
+        // otherwise race past.
+        using var startEntered = new ManualResetEventSlim(false);
+        using var startRelease = new ManualResetEventSlim(false);
+        var device = CreateCaptureDevice();
+        device.When(d => d.Start()).Do(_ =>
+        {
+            startEntered.Set();
+            startRelease.Wait(TestContext.Current.CancellationToken);
+        });
+        var engine = new FakeRecognitionEngine();
+        await using var session = CreateSession(engine, device);
+
+        // Act: begin starting, wait until Start() has genuinely been entered, then begin
+        // stopping concurrently before Start() returns. Both calls are dispatched through
+        // Task.Run: StartAsync's body (and therefore the lock it holds) runs synchronously on
+        // its own thread, and StopAsync - a synchronous method that itself blocks acquiring the
+        // same lock before it can even return a Task - must run on a thread other than this
+        // test's own, or this test's own thread would deadlock waiting on the very lock whose
+        // release depends on this test later calling startRelease.Set().
+        var startTask = Task.Run(() => session.StartAsync(TestContext.Current.CancellationToken), TestContext.Current.CancellationToken);
+        startEntered.Wait(TestContext.Current.CancellationToken);
+        var stopTask = Task.Run(
+            async () => await session.StopAsync(TestContext.Current.CancellationToken),
+            TestContext.Current.CancellationToken);
+
+        // Assert: StopAsync cannot race ahead of the still-in-flight StartAsync - both calls
+        // serialize on the same lock, so StopAsync has not completed while Start() is blocked
+        await Task.Delay(TimeSpan.FromMilliseconds(50), TestContext.Current.CancellationToken);
+        Assert.False(stopTask.IsCompleted);
+
+        // Act: let the device start complete
+        startRelease.Set();
+        await startTask;
+        await stopTask.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+
+        // Assert: the session converged to genuinely Stopped, and the device was genuinely
+        // started then genuinely stopped exactly once each - never left running
+        Assert.Equal(RecognitionSessionState.Stopped, session.State);
+        device.Received(1).Start();
+        device.Received(1).Stop();
+    }
+
+    /// <summary>
+    ///     Proves that the pump is draining the pending-frame channel before a synchronous-replay
+    ///     capture device (for example, a file-backed device) emits its blocks from within
+    ///     <c>Start()</c>, so a file longer than the bounded channel's capacity does not silently
+    ///     drop its earliest blocks before anything exists to read them.
+    /// </summary>
+    [Fact]
+    public async Task SherpaOnnxRecognitionSession_StartAsync_DeviceEmitsManyBlocksSynchronouslyFromStart_NoneAreDropped()
+    {
+        // Arrange: a device whose Start() synchronously raises far more FrameCaptured blocks than
+        // the pump's bounded channel can hold at once, exactly like a file-backed device replaying
+        // an entire file before Start() returns. Each block is only raised once the previous one
+        // has genuinely been accepted by the backend - deterministically proving the pump is
+        // already draining the channel concurrently with Start(), rather than racing an
+        // unsynchronized flood against however fast the pump thread happens to be scheduled.
+        const int blockCount = 200;
+        var device = CreateCaptureDevice();
+        IAudioCaptureDevice? capturedDevice = null;
+        var engine = new FakeRecognitionEngine();
+        device.When(d => d.Start()).Do(_ =>
+        {
+            for (var i = 0; i < blockCount; i++)
+            {
+                RaiseFrameCaptured(capturedDevice!, [0.1f]);
+
+                var expected = i + 1;
+                Assert.True(
+                    SpinWait.SpinUntil(() => engine.AcceptSamplesCallCount >= expected, TimeSpan.FromSeconds(5)),
+                    $"The pump never accepted block {expected} of {blockCount}; it was not draining the channel concurrently with Start().");
+            }
+        });
+        capturedDevice = device;
+        await using var session = CreateSession(engine, device);
+
+        // Act: start (synchronously emitting every block before returning, each one drained
+        // before the next is raised), then stop to converge the pump
+        await session.StartAsync(TestContext.Current.CancellationToken);
+        await session.StopAsync(TestContext.Current.CancellationToken).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+
+        // Assert: every block emitted from within Start() was still accepted by the backend -
+        // none were dropped because the pump was already draining the channel before Start() ran
+        Assert.Equal(blockCount, engine.AcceptSamplesCallCount);
+    }
+
+    /// <summary>
+    ///     Proves that a session faulted mid-stream (for example, by the capture device becoming
+    ///     unavailable) still runs the full teardown - resetting the shared backend and stopping
+    ///     the device - once disposed, rather than releasing the engine's lease while the capture
+    ///     stream and pump could still be active.
+    /// </summary>
+    [Fact]
+    public async Task SherpaOnnxRecognitionSession_DeviceLostMidSession_DisposeAsyncStillTearsDownBackendAndDevice()
+    {
+        // Arrange: a running session whose device later reports itself unavailable
+        var device = CreateCaptureDevice();
+        var engine = new FakeRecognitionEngine();
+        var releaseCount = 0;
+        await using var session = CreateSession(engine, device, releaseLease: () => releaseCount++);
+        await session.StartAsync(TestContext.Current.CancellationToken);
+
+        // Act: fault the session, then dispose it
+        device.IsAvailable.Returns(false);
+        RaiseFrameCaptured(device, [0.1f]);
+        Assert.Equal(RecognitionSessionState.Faulted, session.State);
+        await session.DisposeAsync();
+
+        // Assert: teardown genuinely ran - the backend was reset and the device stopped - and
+        // the fault was preserved through to Disposed, with the lease released exactly once
+        Assert.Equal(RecognitionSessionState.Disposed, session.State);
+        Assert.Equal(1, engine.ResetCallCount);
+        device.Received(1).Stop();
+        Assert.Equal(1, releaseCount);
+    }
+
+    /// <summary>
+    ///     Proves that the engine's exclusivity lease is not released until the dedicated pump
+    ///     worker has genuinely exited - not merely been abandoned after its timeout - so a new
+    ///     session (or engine disposal) can never touch or dispose the shared backend while an
+    ///     abandoned pump thread is still inside a blocking backend call.
+    /// </summary>
+    [Fact(Timeout = 10000)]
+    public async Task SherpaOnnxRecognitionSession_DisposeAsync_AbandonedPumpWorker_DoesNotReleaseLeaseUntilWorkerExits()
+    {
+        // Arrange: a backend whose AcceptSamples blocks forever (until this test releases it),
+        // and a worker with a near-zero abandon timeout so the test stays fast
+        using var neverSignaled = new ManualResetEvent(false);
+        var engine = new FakeRecognitionEngine(acceptSamplesBlock: neverSignaled);
+        var worker = new DedicatedWorker(
+            abandonTimeout: TimeSpan.FromMilliseconds(1),
+            diagnostics: NullSpeechDiagnostics.Instance,
+            diagnosticsCategory: "RecognitionSubsystem");
+        var device = CreateCaptureDevice();
+        var releaseCount = 0;
+        var session = CreateSession(engine, device, worker: worker, releaseLease: () => releaseCount++);
+        await session.StartAsync(TestContext.Current.CancellationToken);
+        RaiseFrameCaptured(device, [0.1f]);
+        await Task.Delay(TimeSpan.FromMilliseconds(50), TestContext.Current.CancellationToken);
+
+        // Act: stop (completes quickly via the abandon policy) then begin disposing
+        await session.StopAsync(TestContext.Current.CancellationToken).WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        var disposeTask = session.DisposeAsync().AsTask();
+
+        // Assert: the lease must not be released while the abandoned pump thread is still stuck
+        // inside the backend's blocking call
+        await Task.Delay(TimeSpan.FromMilliseconds(100), TestContext.Current.CancellationToken);
+        Assert.Equal(0, releaseCount);
+        Assert.False(disposeTask.IsCompleted);
+
+        // Act: release the abandoned background thread so it can genuinely exit
+        neverSignaled.Set();
+        await disposeTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+        // Assert: only once the worker genuinely exited was the lease released
+        Assert.Equal(1, releaseCount);
+    }
+
+    /// <summary>
+    ///     Proves that two concurrent <see cref="SherpaOnnxRecognitionSession.DisposeAsync"/>
+    ///     calls share the exact same in-flight teardown, rather than the second call returning
+    ///     the instant the first merely begins - both complete only once the real teardown (and
+    ///     the lease release it gates) is genuinely done.
+    /// </summary>
+    [Fact]
+    public async Task SherpaOnnxRecognitionSession_DisposeAsync_CalledConcurrentlyTwice_BothCompleteAfterSingleTeardown()
+    {
+        // Arrange
+        var engine = new FakeRecognitionEngine();
+        var device = CreateCaptureDevice();
+        var releaseCount = 0;
+        var session = CreateSession(engine, device, releaseLease: () => releaseCount++);
+        await session.StartAsync(TestContext.Current.CancellationToken);
+
+        // Act: dispose concurrently from two callers
+        async Task DisposeOnceAsync() => await session.DisposeAsync();
+        var first = DisposeOnceAsync();
+        var second = DisposeOnceAsync();
+        await Task.WhenAll(first, second).WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+
+        // Assert: both callers converged, the destructive teardown steps ran exactly once, and
+        // the lease was released exactly once
+        Assert.Equal(RecognitionSessionState.Disposed, session.State);
+        Assert.Equal(1, engine.ResetCallCount);
+        device.Received(1).Stop();
+        Assert.Equal(1, releaseCount);
+    }
+
+    /// <summary>
     ///     Builds a substitute capture device reporting itself available with the given capture
     ///     format.
     /// </summary>
@@ -448,13 +649,14 @@ public class SherpaOnnxRecognitionSessionTests
         IAudioCaptureDevice device,
         IRecognitionModel? model = null,
         ISpeechDiagnostics? diagnostics = null,
-        DedicatedWorker? worker = null) =>
+        DedicatedWorker? worker = null,
+        Action? releaseLease = null) =>
         new(
             engine,
             device,
             targetSampleRate: 16000,
             model ?? new FakeRecognitionModel(),
-            releaseLease: static () => { },
+            releaseLease: releaseLease ?? (static () => { }),
             diagnostics ?? NullSpeechDiagnostics.Instance,
             worker ?? new DedicatedWorker(diagnostics: diagnostics ?? NullSpeechDiagnostics.Instance));
 

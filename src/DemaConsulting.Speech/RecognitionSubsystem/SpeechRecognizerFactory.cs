@@ -393,22 +393,41 @@ public static class SpeechRecognizerFactory
         IRecognitionBackend? backend = null;
         Exception? loadFailure = null;
         var worker = new DedicatedWorker(diagnostics: sink, diagnosticsCategory: DiagnosticsCategory);
-        await worker.RunAsync(
-            _ =>
-            {
-                try
+        Task completion = Task.CompletedTask;
+        try
+        {
+            await worker.RunAsync(
+                _ =>
                 {
-                    backend = backendFactory.Create(model, installedModelDirectory, parameterValues);
-                }
-                catch (Exception ex)
-                {
-                    // Intentionally broad: backend creation crosses the native runtime/model-file
-                    // boundary, and every load failure must degrade to the documented unavailable
-                    // engine rather than crash composition.
-                    loadFailure = ex;
-                }
-            },
-            cancellationToken).ConfigureAwait(false);
+                    try
+                    {
+                        backend = backendFactory.Create(model, installedModelDirectory, parameterValues);
+                    }
+                    catch (Exception ex)
+                    {
+                        // Intentionally broad: backend creation crosses the native runtime/model-file
+                        // boundary, and every load failure must degrade to the documented unavailable
+                        // engine rather than crash composition.
+                        loadFailure = ex;
+                    }
+                },
+                cancellationToken,
+                out completion).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // Abandoned: backendFactory.Create ignored cancellation past the worker's abandon
+            // timeout, so it may still create and assign a native backend after this call has
+            // already faulted with cancellation. Nothing else observes that eventual backend, so
+            // dispose it here once it genuinely arrives rather than leaking native model
+            // resources on a canceled load.
+            _ = completion.ContinueWith(
+                _ => backend?.Dispose(),
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+            throw;
+        }
 
         if (loadFailure is not null)
         {

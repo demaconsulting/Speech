@@ -8,7 +8,7 @@ namespace DemaConsulting.Speech.RecognitionSubsystem;
 /// </summary>
 /// <remarks>
 ///     An async signature does not make a blocking native call interruptible, so this utility
-///     does not pretend otherwise: when <see cref="RunAsync"/>'s <c>cancellationToken</c> is
+///     does not pretend otherwise: when <see cref="RunAsync(Action{CancellationToken}, CancellationToken)"/>'s <c>cancellationToken</c> is
 ///     cancelled, the delegate - which is expected to observe that same token cooperatively at
 ///     its own natural boundaries - is given <see cref="AbandonTimeout"/> to finish. If it does,
 ///     the returned task completes normally (or with whatever the delegate itself produced). If
@@ -83,7 +83,36 @@ internal sealed class DedicatedWorker
     ///     while the delegate is abandoned to finish in the background.
     /// </returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="action"/> is null.</exception>
-    internal Task RunAsync(Action<CancellationToken> action, CancellationToken cancellationToken = default)
+    internal Task RunAsync(Action<CancellationToken> action, CancellationToken cancellationToken = default) =>
+        RunAsync(action, cancellationToken, out _);
+
+    /// <summary>
+    ///     Runs <paramref name="action"/> to completion on a dedicated, long-running thread,
+    ///     additionally exposing the raw, non-abandon-aware completion of that thread.
+    /// </summary>
+    /// <param name="action">
+    ///     The delegate to run, given <paramref name="cancellationToken"/> so it can observe
+    ///     cancellation cooperatively at its own natural boundaries. Must not be null.
+    /// </param>
+    /// <param name="cancellationToken">
+    ///     A token whose cancellation requests the delegate stop. The delegate is given
+    ///     <see cref="AbandonTimeout"/> to honor the request before being abandoned.
+    /// </param>
+    /// <param name="completion">
+    ///     Set to the dedicated thread's own task, which completes only once
+    ///     <paramref name="action"/> genuinely returns - even if it is abandoned. A caller that
+    ///     must not touch a resource <paramref name="action"/> shares with another session (for
+    ///     example, a "hot" backend reused across sessions) until that thread has truly exited -
+    ///     regardless of whether the returned task completed early as abandoned - should await
+    ///     this instead of (or as well as) the returned task.
+    /// </param>
+    /// <returns>
+    ///     A task that completes once the delegate finishes, or - if the delegate does not honor
+    ///     a cancellation request within <see cref="AbandonTimeout"/> - completes as cancelled
+    ///     while the delegate is abandoned to finish in the background.
+    /// </returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="action"/> is null.</exception>
+    internal Task RunAsync(Action<CancellationToken> action, CancellationToken cancellationToken, out Task completion)
     {
         ArgumentNullException.ThrowIfNull(action);
 
@@ -93,6 +122,7 @@ internal sealed class DedicatedWorker
             TaskCreationOptions.LongRunning,
             TaskScheduler.Default);
 
+        completion = worker;
         return AwaitWithAbandonAsync(worker, cancellationToken);
     }
 

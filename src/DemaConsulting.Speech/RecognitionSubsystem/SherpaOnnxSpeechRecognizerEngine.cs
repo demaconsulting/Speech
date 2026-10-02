@@ -79,6 +79,15 @@ internal sealed class SherpaOnnxSpeechRecognizerEngine : ISpeechRecognizerEngine
     ///     including while that session is still tearing down via its own
     ///     <see cref="IAsyncDisposable.DisposeAsync"/>.
     /// </exception>
+    /// <remarks>
+    ///     The disposed check, lease acquisition, session construction, and registration as
+    ///     <see cref="_currentSession"/> all happen inside one <see cref="_syncRoot"/> critical
+    ///     section - this method does no awaiting, so holding the lock for its entire body is
+    ///     safe and closes the race where a concurrent <see cref="DisposeAsync"/> could otherwise
+    ///     observe "not yet disposed", dispose the shared backend and lease, and let this call
+    ///     continue on to acquire a now-disposed lease or hand out a session over a disposed
+    ///     backend.
+    /// </remarks>
     public Task<IRecognitionSession> CreateSessionAsync(
         IAudioCaptureDevice device,
         CancellationToken cancellationToken = default)
@@ -89,63 +98,72 @@ internal sealed class SherpaOnnxSpeechRecognizerEngine : ISpeechRecognizerEngine
         lock (_syncRoot)
         {
             ObjectDisposedException.ThrowIf(_isDisposed, this);
-        }
 
-        // No microphone (or no working audio backend) is an ordinary machine state, exactly like
-        // a model not being installed - there is nothing to stream, so return the honest fallback
-        // rather than a session doomed to fail the instant it is started.
-        if (!device.IsAvailable)
-        {
-            _diagnostics.Report(
-                SpeechDiagnosticLevel.Warning,
-                DiagnosticsCategory,
-                "Cannot create a recognition session because the supplied capture device is unavailable.");
-            return Task.FromResult<IRecognitionSession>(UnavailableRecognitionSession.Instance);
-        }
-
-        // Fail fast rather than queue: waiting here would make this call's latency depend on an
-        // unrelated session's teardown, with no way to bound that wait distinctly from the
-        // caller's own cancellationToken (Decision #2).
-        if (!_lease.Wait(0, CancellationToken.None))
-        {
-            throw new RecognitionEngineBusyException(
-                "Cannot create a recognition session: this engine's backend is already leased by another " +
-                "active session. Dispose that session before creating a new one.");
-        }
-
-        var released = 0;
-        void ReleaseLease()
-        {
-            // Idempotent: DisposeAsync's own best-effort teardown could in principle invoke this
-            // more than once on some error paths, and the lease must only ever be released once.
-            if (Interlocked.Exchange(ref released, 1) != 0)
+            // No microphone (or no working audio backend) is an ordinary machine state, exactly
+            // like a model not being installed - there is nothing to stream, so return the
+            // honest fallback rather than a session doomed to fail the instant it is started.
+            if (!device.IsAvailable)
             {
-                return;
+                _diagnostics.Report(
+                    SpeechDiagnosticLevel.Warning,
+                    DiagnosticsCategory,
+                    "Cannot create a recognition session because the supplied capture device is unavailable.");
+                return Task.FromResult<IRecognitionSession>(UnavailableRecognitionSession.Instance);
             }
 
-            lock (_syncRoot)
+            // Fail fast rather than queue: waiting here would make this call's latency depend on
+            // an unrelated session's teardown, with no way to bound that wait distinctly from
+            // the caller's own cancellationToken (Decision #2).
+            if (!_lease.Wait(0, CancellationToken.None))
             {
-                _currentSession = null;
+                throw new RecognitionEngineBusyException(
+                    "Cannot create a recognition session: this engine's backend is already leased by another " +
+                    "active session. Dispose that session before creating a new one.");
             }
 
-            _lease.Release();
-        }
+            var released = 0;
+            void ReleaseLease()
+            {
+                // Idempotent: DisposeAsync's own best-effort teardown could in principle invoke
+                // this more than once on some error paths, and the lease must only ever be
+                // released once.
+                if (Interlocked.Exchange(ref released, 1) != 0)
+                {
+                    return;
+                }
 
-        var session = new SherpaOnnxRecognitionSession(
-            _backend,
-            device,
-            _model.AudioFormat.SampleRate,
-            _model,
-            ReleaseLease,
-            _diagnostics,
-            new DedicatedWorker(diagnostics: _diagnostics, diagnosticsCategory: DiagnosticsCategory));
+                lock (_syncRoot)
+                {
+                    _currentSession = null;
+                }
 
-        lock (_syncRoot)
-        {
+                _lease.Release();
+            }
+
+            SherpaOnnxRecognitionSession session;
+            try
+            {
+                session = new SherpaOnnxRecognitionSession(
+                    _backend,
+                    device,
+                    _model.AudioFormat.SampleRate,
+                    _model,
+                    ReleaseLease,
+                    _diagnostics,
+                    new DedicatedWorker(diagnostics: _diagnostics, diagnosticsCategory: DiagnosticsCategory));
+            }
+            catch
+            {
+                // Construction failed before the session could ever release its own lease
+                // itself; roll the acquired lease back so a construction failure cannot strand
+                // this engine permanently busy.
+                _lease.Release();
+                throw;
+            }
+
             _currentSession = session;
+            return Task.FromResult<IRecognitionSession>(session);
         }
-
-        return Task.FromResult<IRecognitionSession>(session);
     }
 
     /// <summary>Releases resources held by this engine.</summary>
