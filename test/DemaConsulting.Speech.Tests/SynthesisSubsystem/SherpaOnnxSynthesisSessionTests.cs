@@ -799,6 +799,56 @@ public class SherpaOnnxSynthesisSessionTests
     }
 
     /// <summary>
+    ///     Proves that <c>DisposeAsync</c>, called after an abandoned native <c>Generate</c> call
+    ///     has already faulted the session (finding 30), still waits for that native call's
+    ///     genuine raw completion before releasing the engine's exclusivity lease. The session's
+    ///     abandon-fault handling clears the operation's tracked task eagerly, alongside the
+    ///     Faulted transition, so a naive re-read of that cleared task (without also re-checking
+    ///     the raw native-call completion) would incorrectly let a caller that disposes only after
+    ///     observing the fault conclude there is nothing left to await.
+    /// </summary>
+    [Fact(Timeout = 10000)]
+    public async Task SherpaOnnxSynthesisSession_DisposeAsync_CalledAfterAbandonmentFault_DoesNotReleaseLeaseUntilNativeCallGenuinelyReturns()
+    {
+        // Arrange
+        using var generateStarted = new SemaphoreSlim(0, 1);
+        using var generateRelease = new SemaphoreSlim(0, 1);
+        var backend = new BlockingSynthesisEngine(generateStarted, generateRelease, TestContext.Current.CancellationToken);
+        var device = CreateAvailablePlaybackDevice();
+        var releaseCount = 0;
+        var session = new SherpaOnnxSynthesisSession(
+            backend, device, new FakeSynthesisModel(), null, NullSpeechDiagnostics.Instance, () => releaseCount++);
+
+        // Act: start speaking, wait until the backend call has begun, then stop - the real
+        // backend never honors cancellation, so the dedicated worker abandons it after its
+        // default 2s timeout, faulting the session and clearing its tracked operation task
+        var speakTask = session.SpeakAsync("Hello world.", TestContext.Current.CancellationToken);
+        await generateStarted.WaitAsync(TestContext.Current.CancellationToken);
+        _ = session.StopAsync(TestContext.Current.CancellationToken);
+        await WaitForStateAsync(session, SynthesisSessionState.Faulted, TimeSpan.FromSeconds(5));
+
+        // Act: only now - after the fault, with the tracked operation task already cleared -
+        // begin disposing
+        var disposeTask = session.DisposeAsync().AsTask();
+
+        // Assert: the lease must not be released while the abandoned native call is still
+        // genuinely running, even though there is no tracked operation task left to await
+        await Task.Delay(TimeSpan.FromMilliseconds(100), TestContext.Current.CancellationToken);
+        Assert.Equal(0, releaseCount);
+        Assert.False(disposeTask.IsCompleted);
+
+        // Act: release the abandoned background call so it can genuinely finish
+        generateRelease.Release();
+        await disposeTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+        // Assert: only once the native call genuinely returned was the lease released
+        Assert.True(backend.GenerateReturned);
+        Assert.Equal(1, releaseCount);
+
+        await Record.ExceptionAsync(() => speakTask);
+    }
+
+    /// <summary>
     ///     Proves that an abandoned playback <see cref="IAudioPlaybackDevice.Start"/> call (the
     ///     device-start review finding mirroring finding 27, but for the one-shot playback-device
     ///     startup rather than the per-segment native <c>Generate</c> call) is routed through the

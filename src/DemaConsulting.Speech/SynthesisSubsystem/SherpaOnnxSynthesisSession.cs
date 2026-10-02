@@ -290,8 +290,9 @@ internal sealed class SherpaOnnxSynthesisSession : ISynthesisSession
     }
 
     /// <summary>
-    ///     Requests cancellation of <paramref name="operationCancellation"/> (if any), then awaits
-    ///     <paramref name="operationTask"/> (if any) and, once it has settled, the operation's raw
+    ///     Requests cancellation of <paramref name="operationCancellation"/> (if any), awaits
+    ///     <paramref name="operationTask"/> (if any), and then - regardless of whether
+    ///     <paramref name="operationTask"/> was present - re-reads and awaits the operation's raw
     ///     native-call completion (see <see cref="_pendingNativeCompletion"/>) to genuine
     ///     completion.
     /// </summary>
@@ -299,17 +300,31 @@ internal sealed class SherpaOnnxSynthesisSession : ISynthesisSession
     /// <param name="operationTask">The in-flight operation's abandon-aware task, if any.</param>
     /// <remarks>
     ///     <see cref="_pendingNativeCompletion"/> is deliberately re-read here - under
-    ///     <see cref="_syncRoot"/> - only after <paramref name="operationTask"/> has settled,
-    ///     rather than accepted as a snapshot taken by the caller before this method began
-    ///     awaiting: <see cref="GenerateSegmentAsync"/> always publishes that field on the same
-    ///     execution path strictly before it awaits the native call itself, so it is guaranteed to
-    ///     already reflect this operation's (possibly still-running, if abandoned) native call by
-    ///     the time <paramref name="operationTask"/> completes. A snapshot taken any earlier - for
-    ///     example at the very start of <see cref="StopAsync"/>/<see cref="DisposeAsync"/>, before
-    ///     <see cref="GenerateSegmentAsync"/> has necessarily reached that publish - can still be
-    ///     <see langword="null"/> even though the operation is genuinely in flight, letting
-    ///     <see cref="StopAsync"/>/<see cref="DisposeAsync"/> report the operation as stopped while
-    ///     an abandoned native call is still demonstrably running.
+    ///     <see cref="_syncRoot"/> - only after <paramref name="operationTask"/> has settled (when
+    ///     present), rather than accepted as a snapshot taken by the caller before this method
+    ///     began awaiting: <see cref="GenerateSegmentAsync"/> always publishes that field on the
+    ///     same execution path strictly before it awaits the native call itself, so it is
+    ///     guaranteed to already reflect this operation's (possibly still-running, if abandoned)
+    ///     native call by the time <paramref name="operationTask"/> completes. A snapshot taken
+    ///     any earlier - for example at the very start of <see cref="StopAsync"/>/<see cref="DisposeAsync"/>,
+    ///     before <see cref="GenerateSegmentAsync"/> has necessarily reached that publish - can
+    ///     still be <see langword="null"/> even though the operation is genuinely in flight,
+    ///     letting <see cref="StopAsync"/>/<see cref="DisposeAsync"/> report the operation as
+    ///     stopped while an abandoned native call is still demonstrably running.
+    ///     <para>
+    ///     This re-read, and the subsequent await, must happen even when
+    ///     <paramref name="operationTask"/> is itself <see langword="null"/> (finding 30):
+    ///     <see cref="RunOperationAsync"/>'s abandon-fault handler clears <c>_operationTask</c>
+    ///     (and <c>_operationCancellation</c>) as part of transitioning to
+    ///     <see cref="SynthesisSessionState.Faulted"/>, while deliberately leaving
+    ///     <see cref="_pendingNativeCompletion"/> set to the still-running native call. A caller
+    ///     that reads <c>_operationTask</c> as <see langword="null"/> after that point (for
+    ///     example <see cref="StopAsync"/>/<see cref="DisposeAsync"/> invoked after the fault has
+    ///     already been observed) must not treat that as proof there is nothing left to await:
+    ///     skipping the <see cref="_pendingNativeCompletion"/> check in that case would let
+    ///     <see cref="DisposeAsync"/> release the engine's exclusivity lease (and let the backend
+    ///     be reused) while the abandoned native call is still demonstrably executing.
+    ///     </para>
     /// </remarks>
     private async Task CancelAndAwaitOperationAsync(
         CancellationTokenSource? operationCancellation,
@@ -317,22 +332,29 @@ internal sealed class SherpaOnnxSynthesisSession : ISynthesisSession
     {
         await CancelOperationAsync(operationCancellation).ConfigureAwait(false);
 
-        if (operationTask is null)
+        if (operationTask is not null)
         {
-            return;
+            try
+            {
+                await operationTask.ConfigureAwait(false);
+            }
+            catch
+            {
+                // RunOperationAsync already transitions state and reports diagnostics for its own
+                // failure/cancellation; the caller here only needs to know the operation has
+                // actually finished.
+            }
         }
 
-        try
-        {
-            await operationTask.ConfigureAwait(false);
-        }
-        catch
-        {
-            // RunOperationAsync already transitions state and reports diagnostics for its own
-            // failure/cancellation; the caller here only needs to know the operation has
-            // actually finished.
-        }
-
+        // operationTask can already be null here even though a native call is still genuinely
+        // running: RunOperationAsync's abandon-fault handler clears _operationTask (and
+        // _operationCancellation) eagerly, alongside the Faulted transition, so a later
+        // Start can be distinguished from "this operation is still in flight" - but it
+        // deliberately leaves _pendingNativeCompletion set. Re-reading and awaiting that field
+        // unconditionally (not only when operationTask was non-null) is what actually proves the
+        // abandoned native call has genuinely returned before this method lets the caller
+        // (StopAsync/DisposeCoreAsync) release the engine lease or consider the backend reusable
+        // (finding 30).
         Task? pendingNativeCompletion;
         lock (_syncRoot)
         {
