@@ -404,6 +404,48 @@ public class SherpaOnnxSynthesisSessionTests
     }
 
     /// <summary>
+    ///     Proves that an overlapping call rejected with <see cref="InvalidOperationException"/>
+    ///     never overwrites the session's tracked in-flight operation: a concurrent
+    ///     <see cref="IAsyncDisposable.DisposeAsync"/> issued immediately after the rejection
+    ///     still awaits the original, still-in-flight operation (and its raw native completion)
+    ///     before disposing the backend/releasing the lease, rather than observing only the
+    ///     rejected call's already-completed (faulted) task and disposing the backend out from
+    ///     under the original call (finding 20).
+    /// </summary>
+    [Fact]
+    public async Task SherpaOnnxSynthesisSession_DisposeAsync_AfterRejectedOverlappingCall_StillAwaitsOriginalOperation()
+    {
+        // Arrange: a backend that blocks the first (accepted) call in flight
+        using var generateStarted = new SemaphoreSlim(0, 1);
+        using var generateRelease = new SemaphoreSlim(0, 1);
+        var backend = new BlockingSynthesisEngine(generateStarted, generateRelease, TestContext.Current.CancellationToken);
+        var device = CreateAvailablePlaybackDevice();
+        var session = CreateSession(backend, device);
+        var firstCall = session.SpeakAsync("Hello world.", TestContext.Current.CancellationToken);
+        await generateStarted.WaitAsync(TestContext.Current.CancellationToken);
+
+        // Act: a second, overlapping call is rejected without disturbing the first call's
+        // tracked operation, then DisposeAsync is issued while the first call is still blocked
+        // inside native Generate
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => session.SynthesizeAsync("Hello again.", TestContext.Current.CancellationToken));
+        var disposeTask = session.DisposeAsync().AsTask();
+
+        // Assert: DisposeAsync does not complete while the original call is still blocked -
+        // proving it is awaiting the original operation, not the rejected call's faulted task
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+        Assert.False(disposeTask.IsCompleted);
+        Assert.False(backend.GenerateReturned);
+
+        // Release the original call so both it and disposal can complete
+        generateRelease.Release();
+        await Record.ExceptionAsync(() => firstCall);
+        await disposeTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+        Assert.True(backend.GenerateReturned);
+    }
+
+    /// <summary>
     ///     Proves that <see cref="ISynthesisSession.StateChanged"/> raises every expected
     ///     transition, in order, for one successful <see cref="ISynthesisSession.SynthesizeAsync"/>
     ///     call: <c>Created → Starting → Running → Stopping → Stopped</c>.

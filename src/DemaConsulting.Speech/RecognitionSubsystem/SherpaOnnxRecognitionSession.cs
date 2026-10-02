@@ -296,12 +296,22 @@ internal sealed class SherpaOnnxRecognitionSession : IRecognitionSession
     /// </remarks>
     public Task StopAsync(CancellationToken cancellationToken = default)
     {
+        Task teardownTask;
         lock (_syncRoot)
         {
-            return _state is RecognitionSessionState.Disposing or RecognitionSessionState.Disposed
+            teardownTask = _state is RecognitionSessionState.Disposing or RecognitionSessionState.Disposed
                 ? Task.CompletedTask
                 : EnsureTeardownStartedLocked(preserveFault: _state == RecognitionSessionState.Faulted);
         }
+
+        // cancellationToken only bounds this caller's own wait for teardown (finding 19): the
+        // shared teardown task above is never aborted by it, since it is shared with every other
+        // concurrent/overlapping StopAsync caller (and DisposeAsync), all of whom still need
+        // draining/resetting/stopping to genuinely happen regardless of whether this particular
+        // caller stopped waiting for it.
+        return cancellationToken.CanBeCanceled
+            ? teardownTask.WaitAsync(cancellationToken)
+            : teardownTask;
     }
 
     /// <summary>

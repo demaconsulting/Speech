@@ -544,6 +544,61 @@ public class SherpaOnnxRecognitionSessionTests
     }
 
     /// <summary>
+    ///     Proves that <see cref="SherpaOnnxRecognitionSession.StopAsync"/>'s
+    ///     <see cref="CancellationToken"/> parameter is genuinely observed (finding 19): a caller
+    ///     who cancels it stops waiting for that call's own completion promptly, without being
+    ///     stuck behind a slow drain - but the shared teardown itself is never aborted by that
+    ///     cancellation, since it is shared with every other concurrent/overlapping caller (and
+    ///     <see cref="SherpaOnnxRecognitionSession.DisposeAsync"/>), all of whom still require the
+    ///     drain to genuinely happen.
+    /// </summary>
+    [Fact(Timeout = 10000)]
+    public async Task SherpaOnnxRecognitionSession_StopAsync_CallerTokenCanceled_ReturnsEarlyWithoutAbortingSharedTeardown()
+    {
+        // Arrange: a backend whose AcceptSamples blocks until this test releases it
+        using var block = new ManualResetEvent(false);
+        var engine = new FakeRecognitionEngine(acceptSamplesBlock: block);
+        var device = CreateCaptureDevice();
+        await using var session = CreateSession(engine, device);
+        await session.StartAsync(TestContext.Current.CancellationToken);
+        RaiseFrameCaptured(device, [0.1f]);
+
+        // Wait until the pump has genuinely entered (and is blocked inside) AcceptSamples
+        SpinWait.SpinUntil(() => engine.AcceptSamplesCallCount >= 1, TimeSpan.FromSeconds(5));
+        Assert.Equal(1, engine.AcceptSamplesCallCount);
+
+        // Act: call StopAsync with a token that is canceled immediately after the call begins
+        using var cts = new CancellationTokenSource();
+        var stopTask = session.StopAsync(cts.Token);
+        await cts.CancelAsync();
+
+        // Assert: this caller's own wait is canceled promptly, well before the still-blocked
+        // drain could ever converge on its own
+        Exception? stopException = null;
+        try
+        {
+            await stopTask;
+        }
+        catch (Exception ex)
+        {
+            stopException = ex;
+        }
+
+        Assert.IsType<OperationCanceledException>(stopException, exactMatch: false);
+
+        // Assert: the shared teardown itself was not aborted by that cancellation - a second,
+        // uncancelled StopAsync call still observes the same in-flight teardown, which only
+        // converges once the backend genuinely unblocks
+        var secondStopTask = session.StopAsync(TestContext.Current.CancellationToken);
+        await Task.Delay(TimeSpan.FromMilliseconds(100), TestContext.Current.CancellationToken);
+        Assert.False(secondStopTask.IsCompleted);
+
+        block.Set();
+        await secondStopTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        Assert.Equal(RecognitionSessionState.Stopped, session.State);
+    }
+
+    /// <summary>
     ///     Proves that the engine's exclusivity lease is not released until the dedicated pump
     ///     worker has genuinely exited - not merely been abandoned after its timeout - so a new
     ///     session (or engine disposal) can never touch or dispose the shared backend while an

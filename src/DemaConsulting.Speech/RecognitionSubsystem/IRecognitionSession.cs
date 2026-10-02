@@ -72,7 +72,12 @@ public interface IRecognitionSession : IAsyncDisposable
     ///     every result derived from audio accepted before this call is enumerable via
     ///     <see cref="GetResultsAsync"/> before the returned task completes.
     /// </summary>
-    /// <param name="cancellationToken">A token to observe for cancellation of this call.</param>
+    /// <param name="cancellationToken">
+    ///     A token to observe for cancellation of waiting for this call's own completion. Does
+    ///     not abort the underlying drain/stop, which is shared with every other concurrent or
+    ///     overlapping caller and keeps running to convergence (or abandonment) regardless of
+    ///     whether this particular caller stopped waiting for it.
+    /// </param>
     /// <returns>A task that completes once the session has stopped.</returns>
     /// <remarks>
     ///     Idempotent and safe to call concurrently or while overlapping a prior call still in
@@ -82,6 +87,13 @@ public interface IRecognitionSession : IAsyncDisposable
     ///     <see cref="RecognitionSessionState.Stopped"/>, and every caller's task completes once
     ///     that convergence happens. A fault while finalizing or resetting is reported through
     ///     diagnostics rather than thrown; this call still completes.
+    ///     <para>
+    ///     Cancelling <paramref name="cancellationToken"/> lets this call's own returned task
+    ///     complete early with <see cref="OperationCanceledException"/> without waiting any
+    ///     further, but it never aborts the shared teardown itself: one canceled caller must not
+    ///     skip draining/stopping for every other caller (including <see cref="IAsyncDisposable.DisposeAsync"/>)
+    ///     sharing the same in-flight operation.
+    ///     </para>
     /// </remarks>
     Task StopAsync(CancellationToken cancellationToken = default);
 
