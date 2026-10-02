@@ -487,6 +487,17 @@ internal sealed class SherpaOnnxRecognitionSession : IRecognitionSession
         var (pumpTask, pumpRawCompletion, pumpCts, preserveFault, completionSource) = start;
         try
         {
+            // Every caller invokes this fire-and-forget (`_ = RunTeardownAsync(...)`), relying on
+            // control returning to it immediately so it never blocks on this method's own
+            // potentially-slow/native work (backend reset, device stop). Awaiting an
+            // already-completed task does not yield - it continues synchronously on the calling
+            // thread - so without this unconditional yield, a null/already-cancelled pumpCts or an
+            // already-completed pumpTask would let the whole method, including the blocking
+            // device.Stop() call below, run inline on whichever thread happened to call
+            // StopAsync/DisposeAsync/FaultSession, defeating their documented
+            // teardown-runs-in-the-background contract.
+            await Task.Yield();
+
             // Cancelling here is purely the abandon-timeout deadline for DedicatedWorker (Decision
             // #4): PumpLoop itself never observes this token while draining (see its own remarks), so
             // every block already accepted is still decoded and buffered normally; this cancellation
