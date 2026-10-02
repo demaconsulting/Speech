@@ -150,9 +150,14 @@ internal sealed class SherpaOnnxSpeechSynthesizerEngine : ISpeechSynthesizerEngi
         lock (_syncRoot)
         {
             _activeSession = null;
-        }
 
-        _lease.Release();
+            // Released inside the same lock DisposeAsync uses to snapshot _activeSession and
+            // decide whether to dispose _lease: releasing it only after leaving this lock would
+            // let a concurrent DisposeAsync observe _activeSession already cleared, dispose
+            // _lease, and then have this call's own Release() below throw ObjectDisposedException
+            // on the now-disposed semaphore.
+            _lease.Release();
+        }
     }
 
     /// <inheritdoc/>

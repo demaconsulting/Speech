@@ -14,9 +14,11 @@ namespace DemaConsulting.Speech.RecognitionSubsystem;
 ///     results are queued and never silently coalesced - they are capped by total UTF-16 byte size
 ///     of their buffered <see cref="SpeechRecognitionResult.Text"/> (64 KiB) rather than by count,
 ///     and the oldest unread final is evicted only as a last-resort safety valve, reported through
-///     <see cref="ISpeechDiagnostics"/> at <see cref="SpeechDiagnosticLevel.Warning"/>. Neither tier
-///     ever blocks the pump thread that calls <see cref="AddResult"/>: the native decode/flush loop
-///     must never wait on a slow consumer.
+///     <see cref="ISpeechDiagnostics"/> at <see cref="SpeechDiagnosticLevel.Warning"/>. A
+///     provisional is also superseded (never delivered) once its own final is buffered, so a
+///     consumer never sees a stale partial transcript trailing the final result for the same
+///     utterance. Neither tier ever blocks the pump thread that calls <see cref="AddResult"/>: the
+///     native decode/flush loop must never wait on a slow consumer.
 /// </remarks>
 internal sealed class RecognitionResultBuffer
 {
@@ -65,7 +67,8 @@ internal sealed class RecognitionResultBuffer
 
     /// <summary>
     ///     Adds one recognition result to the buffer: a provisional result overwrites any
-    ///     previously unread provisional result, while a final result is queued.
+    ///     previously unread provisional result, while a final result is queued and also
+    ///     supersedes (clears) any not-yet-consumed provisional result still buffered.
     /// </summary>
     /// <param name="result">The result to buffer. Must not be null.</param>
     internal void AddResult(SpeechRecognitionEvent result)
@@ -82,6 +85,13 @@ internal sealed class RecognitionResultBuffer
 
             if (result.Result.IsFinal)
             {
+                // A final result supersedes any not-yet-consumed provisional: DequeueNext()
+                // always drains queued finals before the provisional slot, so an unconsumed
+                // provisional left in place here would otherwise be delivered after its own
+                // final - a stale, already-superseded partial transcript trailing the final
+                // result for the same utterance. Clearing it here means a consumer only ever
+                // sees the provisional if it reads before the final arrives, never after.
+                _provisional = null;
                 EnqueueFinal(result);
             }
             else

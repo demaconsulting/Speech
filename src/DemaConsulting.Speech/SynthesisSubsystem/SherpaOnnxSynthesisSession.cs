@@ -508,17 +508,37 @@ internal sealed class SherpaOnnxSynthesisSession : ISynthesisSession
             return results;
         }
 
+        DedicatedWorkerRun<bool>? deviceStartRun = null;
         try
         {
-            // Run the native, potentially slow IAudioPlaybackDevice.Start() off this caller's
-            // thread: this method is already async, but this was the first call in its body, so
-            // without this it would still block the caller/UI thread for the entire native
-            // device-open/start call before the method's first genuine await. A plain
-            // Task.Run hand-off is sufficient here (unlike the per-segment native Generate call
-            // below) - this is a one-shot startup step, not a per-call hot-loop operation, so the
-            // cooperative-cancel-then-abandon machinery of DedicatedWorker is unnecessary
-            // complexity that would risk new races for no benefit.
-            await Task.Run(() => _device.Start(), CancellationToken.None).ConfigureAwait(false);
+            // Run the native, potentially slow IAudioPlaybackDevice.Start() through the same
+            // DedicatedWorker cooperative-cancel-then-abandon policy the per-segment native
+            // Generate call below uses, rather than a plain Task.Run with CancellationToken.None:
+            // a stuck/blocking device-open call must still be bounded by this operation's own
+            // cancellation, or a caller cancelling via StopAsync/DisposeAsync would await this
+            // operation's task forever despite having requested cancellation (the device-start
+            // call never observes a request it was never given). The raw completion is published
+            // to _pendingNativeCompletion - the same field GenerateSegmentAsync publishes its own
+            // native call's completion to - so an abandoned device-start is detected by
+            // RunOperationAsync's existing fault-vs-stopped check exactly like an abandoned
+            // Generate call, and so the finally block below can tell whether it is safe to call
+            // _device.Stop() now or must defer it until the device-start call genuinely finishes.
+            deviceStartRun = DedicatedWorker.Start(
+                _ =>
+                {
+                    _device.Start();
+                    return true;
+                },
+                cancellationToken,
+                _diagnostics,
+                DiagnosticsCategory);
+
+            lock (_syncRoot)
+            {
+                _pendingNativeCompletion = deviceStartRun.Value.Completion;
+            }
+
+            await deviceStartRun.Value.Task.ConfigureAwait(false);
 
             var resampler = new PlaybackAudioResampler(
                 _backend.SampleRate,
@@ -537,22 +557,79 @@ internal sealed class SherpaOnnxSynthesisSession : ISynthesisSession
         }
         finally
         {
-            try
+            if (deviceStartRun is not null && !deviceStartRun.Value.Completion.IsCompleted)
             {
-                _device.Stop();
+                // The device-start call was abandoned (its own abandon-aware task above already
+                // gave up waiting for it) and may still genuinely be running: calling
+                // _device.Stop() now would race a still-in-progress _device.Start(). Defer the
+                // stop to a background continuation that waits for the device-start call's
+                // genuine completion before ever touching the device, and publish that
+                // continuation as this operation's pending native completion so
+                // CancelAndAwaitOperationAsync (shared by StopAsync/DisposeAsync) still waits for
+                // the device to genuinely stop before returning, exactly as it already does for an
+                // abandoned Generate call.
+                var deviceStartCompletion = deviceStartRun.Value.Completion;
+                lock (_syncRoot)
+                {
+                    _pendingNativeCompletion = StopDeviceAfterGenuineStartCompletionAsync(deviceStartCompletion);
+                }
             }
-            catch (Exception ex)
+            else
             {
-                // Intentionally broad: stopping the device during teardown is best-effort against
-                // the native playback backend, and a stop fault must not mask the earlier outcome.
-                _diagnostics.Report(
-                    SpeechDiagnosticLevel.Error,
-                    DiagnosticsCategory,
-                    $"Failed to stop the playback device after synthesis: {ex.Message}");
+                try
+                {
+                    _device.Stop();
+                }
+                catch (Exception ex)
+                {
+                    // Intentionally broad: stopping the device during teardown is best-effort
+                    // against the native playback backend, and a stop fault must not mask the
+                    // earlier outcome.
+                    _diagnostics.Report(
+                        SpeechDiagnosticLevel.Error,
+                        DiagnosticsCategory,
+                        $"Failed to stop the playback device after synthesis: {ex.Message}");
+                }
             }
         }
 
         return results;
+    }
+
+    /// <summary>
+    ///     Awaits an abandoned playback device-start call's genuine raw completion, then stops the
+    ///     device - never running the two concurrently.
+    /// </summary>
+    /// <param name="deviceStartCompletion">
+    ///     The device-start call's raw completion (see <see cref="DedicatedWorkerRun{T}.Completion"/>),
+    ///     already known to be incomplete (the call was abandoned) when this was scheduled.
+    /// </param>
+    private async Task StopDeviceAfterGenuineStartCompletionAsync(Task deviceStartCompletion)
+    {
+        try
+        {
+            await deviceStartCompletion.ConfigureAwait(false);
+        }
+        catch
+        {
+            // Already observed/reported via GenerateAndOptionallyPlayAsync's own await of the
+            // abandon-aware task; this await exists purely to prove the device-start call has
+            // genuinely returned before Stop() is ever called on it.
+        }
+
+        try
+        {
+            _device.Stop();
+        }
+        catch (Exception ex)
+        {
+            // Intentionally broad: stopping the device during teardown is best-effort against the
+            // native playback backend, and a stop fault must not mask the earlier outcome.
+            _diagnostics.Report(
+                SpeechDiagnosticLevel.Error,
+                DiagnosticsCategory,
+                $"Failed to stop the playback device after synthesis: {ex.Message}");
+        }
     }
 
     /// <summary>

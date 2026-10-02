@@ -278,14 +278,15 @@ public class SpeechTests
             await session.StopAsync(cancellationToken);
             await pump;
 
-            // Assert: the system produced both a provisional and a final result from the
-            // captured audio. Order between the coalesced "latest provisional" slot and the
-            // final-results FIFO is not guaranteed when both arrive before the consumer starts
-            // draining (Decision #5), so this asserts content/membership rather than position.
+            // Assert: the system produced the final recognition result from the captured audio.
+            // The scripted provisional result ("hello") arrived before the consumer started
+            // draining, and its own final ("hello world") was buffered before it was ever read,
+            // so the provisional was superseded rather than delivered as a stale partial
+            // transcript trailing its own final (Decision #5).
             Assert.True(session.IsAvailable);
-            Assert.Equal(2, received.Count);
-            Assert.Contains(received, r => !r.IsFinal && r.Text == "hello");
-            Assert.Contains(received, r => r.IsFinal && r.Text == "hello world");
+            var result = Assert.Single(received);
+            Assert.True(result.IsFinal);
+            Assert.Equal("hello world", result.Text);
         }
         finally
         {

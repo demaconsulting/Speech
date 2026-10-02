@@ -135,9 +135,14 @@ internal sealed class SherpaOnnxSpeechRecognizerEngine : ISpeechRecognizerEngine
                 lock (_syncRoot)
                 {
                     _currentSession = null;
-                }
 
-                _lease.Release();
+                    // Released inside the same lock DisposeAsync uses to snapshot _currentSession
+                    // and decide whether to dispose _lease: releasing it only after leaving this
+                    // lock would let a concurrent DisposeAsync observe _currentSession already
+                    // cleared, dispose _lease, and then have this call's own Release() below throw
+                    // ObjectDisposedException on the now-disposed semaphore.
+                    _lease.Release();
+                }
             }
 
             SherpaOnnxRecognitionSession session;

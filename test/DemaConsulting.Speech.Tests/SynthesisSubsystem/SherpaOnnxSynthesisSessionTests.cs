@@ -799,6 +799,60 @@ public class SherpaOnnxSynthesisSessionTests
     }
 
     /// <summary>
+    ///     Proves that an abandoned playback <see cref="IAudioPlaybackDevice.Start"/> call (the
+    ///     device-start review finding mirroring finding 27, but for the one-shot playback-device
+    ///     startup rather than the per-segment native <c>Generate</c> call) is routed through the
+    ///     same <see cref="DedicatedWorker"/> cooperative-cancel-then-abandon policy: cancelling
+    ///     while <see cref="IAudioPlaybackDevice.Start"/> is still genuinely blocked must not hang
+    ///     <see cref="ISynthesisSession.StopAsync"/> forever, and <see cref="IAudioPlaybackDevice.Stop"/>
+    ///     must never be called while the abandoned <see cref="IAudioPlaybackDevice.Start"/> call
+    ///     is still genuinely running.
+    /// </summary>
+    [Fact(Timeout = 10000)]
+    public async Task SherpaOnnxSynthesisSession_StopAsync_AbandonedDeviceStart_DoesNotCallDeviceStopUntilStartGenuinelyReturns()
+    {
+        // Arrange: a playback device whose Start() blocks until explicitly released, standing in
+        // for a stuck native device-open call (IAudioPlaybackDevice.Start() has no cancellation
+        // token of its own)
+        using var startEntered = new SemaphoreSlim(0, 1);
+        using var startRelease = new SemaphoreSlim(0, 1);
+        var device = CreateAvailablePlaybackDevice();
+        var deviceStopCalled = false;
+        device.When(d => d.Start()).Do(_ =>
+        {
+            startEntered.Release();
+            startRelease.Wait(TestContext.Current.CancellationToken);
+        });
+        device.When(d => d.Stop()).Do(_ => deviceStopCalled = true);
+        var backend = new FakeSynthesisEngine();
+        await using var session = CreateSession(backend, device);
+
+        // Act: start speaking, wait until the device-start call has begun, then stop - the fake
+        // device never honors cancellation, so the dedicated worker abandons it after its default
+        // 2s timeout
+        var speakTask = session.SpeakAsync("Hello world.", TestContext.Current.CancellationToken);
+        await startEntered.WaitAsync(TestContext.Current.CancellationToken);
+        var stopTask = session.StopAsync(TestContext.Current.CancellationToken);
+
+        // Assert: even once the default 2s abandon timeout has elapsed and the session has
+        // faulted, StopAsync's own task must still not be complete, and the playback device must
+        // never have been stopped, because the abandoned Start() call is still genuinely running
+        await WaitForStateAsync(session, SynthesisSessionState.Faulted, TimeSpan.FromSeconds(5));
+        Assert.False(stopTask.IsCompleted);
+        Assert.False(deviceStopCalled);
+
+        // Act: only now let the abandoned device-start call genuinely finish
+        startRelease.Release();
+
+        // Assert: StopAsync completes, and the device was stopped, only once Start() genuinely
+        // returned
+        await stopTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        Assert.True(deviceStopCalled);
+
+        await Record.ExceptionAsync(() => speakTask);
+    }
+
+    /// <summary>
     ///     Proves that a canceled caller token passed to <see cref="ISynthesisSession.StopAsync"/>
     ///     only bounds that caller's own wait (finding 28) rather than aborting the shared
     ///     cancel-and-await teardown: the caller observes <see cref="OperationCanceledException"/>
