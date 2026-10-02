@@ -36,6 +36,9 @@ internal sealed class SherpaOnnxSpeechSynthesizerEngine : ISpeechSynthesizerEngi
     /// <summary>The exclusivity lease: at most one session may hold it at a time.</summary>
     private readonly SemaphoreSlim _lease = new(1, 1);
 
+    /// <summary>Guards the create-versus-dispose transition and access to <see cref="_activeSession"/>.</summary>
+    private readonly object _syncRoot = new();
+
     /// <summary>Whether <see cref="DisposeAsync"/> has already run.</summary>
     private bool _isDisposed;
 
@@ -78,21 +81,47 @@ internal sealed class SherpaOnnxSpeechSynthesizerEngine : ISpeechSynthesizerEngi
     public bool IsAvailable => true;
 
     /// <inheritdoc/>
+    /// <remarks>
+    ///     The disposed check, lease acquisition, session construction, and registration as
+    ///     <see cref="_activeSession"/> all happen inside one <see cref="_syncRoot"/> critical
+    ///     section - this method does no awaiting, so holding the lock for its entire body is
+    ///     safe and closes the race where a concurrent <see cref="DisposeAsync"/> could otherwise
+    ///     pass the disposed check, dispose the lease/backend, and let this call continue on to
+    ///     acquire a now-disposed lease or hand out a session backed by already-disposed native
+    ///     state.
+    /// </remarks>
     public Task<ISynthesisSession> CreateSessionAsync(IAudioPlaybackDevice device, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(device);
         cancellationToken.ThrowIfCancellationRequested();
-        ObjectDisposedException.ThrowIf(_isDisposed, this);
 
-        if (!_lease.Wait(0, cancellationToken))
+        lock (_syncRoot)
         {
-            throw new SynthesisEngineBusyException(
-                "Cannot create a synthesis session: this engine's exclusivity lease is already held by another session.");
-        }
+            ObjectDisposedException.ThrowIf(_isDisposed, this);
 
-        var session = new SherpaOnnxSynthesisSession(_backend, device, _model, _parameterValues, _diagnostics, ReleaseLease);
-        _activeSession = session;
-        return Task.FromResult<ISynthesisSession>(session);
+            if (!_lease.Wait(0, cancellationToken))
+            {
+                throw new SynthesisEngineBusyException(
+                    "Cannot create a synthesis session: this engine's exclusivity lease is already held by another session.");
+            }
+
+            SherpaOnnxSynthesisSession session;
+            try
+            {
+                session = new SherpaOnnxSynthesisSession(_backend, device, _model, _parameterValues, _diagnostics, ReleaseLease);
+            }
+            catch
+            {
+                // Construction failed before the session could ever release its own lease
+                // itself; roll the acquired lease back so a construction failure cannot strand
+                // this engine permanently busy.
+                _lease.Release();
+                throw;
+            }
+
+            _activeSession = session;
+            return Task.FromResult<ISynthesisSession>(session);
+        }
     }
 
     /// <inheritdoc/>
@@ -118,7 +147,11 @@ internal sealed class SherpaOnnxSpeechSynthesizerEngine : ISpeechSynthesizerEngi
     /// <summary>Releases the exclusivity lease. Invoked once by a leased session's <see cref="IAsyncDisposable.DisposeAsync"/>.</summary>
     private void ReleaseLease()
     {
-        _activeSession = null;
+        lock (_syncRoot)
+        {
+            _activeSession = null;
+        }
+
         _lease.Release();
     }
 
@@ -129,14 +162,18 @@ internal sealed class SherpaOnnxSpeechSynthesizerEngine : ISpeechSynthesizerEngi
     /// </remarks>
     public async ValueTask DisposeAsync()
     {
-        if (_isDisposed)
+        ISynthesisSession? activeSession;
+        lock (_syncRoot)
         {
-            return;
+            if (_isDisposed)
+            {
+                return;
+            }
+
+            _isDisposed = true;
+            activeSession = _activeSession;
         }
 
-        _isDisposed = true;
-
-        var activeSession = _activeSession;
         if (activeSession is not null)
         {
             try

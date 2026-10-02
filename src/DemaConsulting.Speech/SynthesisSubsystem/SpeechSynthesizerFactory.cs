@@ -355,16 +355,33 @@ public static class SpeechSynthesizerFactory
         // The native load is a blocking call, so it runs on a dedicated worker rather than
         // blocking whichever thread is awaiting this method.
         ISynthesisBackend backend;
+        var run = DedicatedWorker.Start(
+            _ => backendFactory.Create(model, installedModelDirectory),
+            cancellationToken,
+            sink,
+            DiagnosticsCategory);
         try
         {
-            backend = await DedicatedWorker.Run(
-                _ => backendFactory.Create(model, installedModelDirectory),
-                cancellationToken,
-                sink,
-                DiagnosticsCategory).ConfigureAwait(false);
+            backend = await run.Task.ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
+            // Abandoned: backendFactory.Create ignored cancellation past the worker's abandon
+            // timeout, so it may still return a successfully created native backend after this
+            // call has already faulted with cancellation. Nothing else observes that eventual
+            // backend, so dispose it here once it genuinely arrives rather than leaking native
+            // model resources on a canceled load.
+            _ = run.Completion.ContinueWith(
+                static t =>
+                {
+                    if (t.Status == TaskStatus.RanToCompletion)
+                    {
+                        t.Result.Dispose();
+                    }
+                },
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
             throw;
         }
         catch (Exception ex)

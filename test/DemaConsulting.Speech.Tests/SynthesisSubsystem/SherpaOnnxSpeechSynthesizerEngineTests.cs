@@ -184,6 +184,41 @@ public sealed class SherpaOnnxSpeechSynthesizerEngineTests
     }
 
     /// <summary>
+    ///     Proves that <see cref="SherpaOnnxSpeechSynthesizerEngine.CreateSessionAsync"/> and
+    ///     <see cref="IAsyncDisposable.DisposeAsync"/> racing with no synchronization between them
+    ///     never tears the engine: every <c>CreateSessionAsync</c> attempt either succeeds with a
+    ///     genuinely usable session or fails with <see cref="ObjectDisposedException"/>, never
+    ///     with some other exception that would indicate it observed a half-disposed lease or
+    ///     backend.
+    /// </summary>
+    [Fact]
+    public async Task SherpaOnnxSpeechSynthesizerEngine_CreateSessionAsync_RacingDisposeAsync_NeverObservesTornState()
+    {
+        for (var i = 0; i < 50; i++)
+        {
+            // Arrange
+            var engine = new SherpaOnnxSpeechSynthesizerEngine(new FakeSynthesisEngine(), new FakeSynthesisModel());
+            var device = CreateAvailablePlaybackDevice();
+
+            // Act: race session creation against engine disposal with no synchronization
+            var createTask = engine.CreateSessionAsync(device, TestContext.Current.CancellationToken);
+            var disposeTask = engine.DisposeAsync().AsTask();
+
+            var createException = await Record.ExceptionAsync(async () =>
+            {
+                var session = await createTask;
+                await session.DisposeAsync();
+            });
+            await disposeTask;
+
+            // Assert: a create that lost the race observes disposal cleanly, never a torn state
+            Assert.True(
+                createException is null or ObjectDisposedException or SynthesisEngineBusyException,
+                $"Unexpected exception from a racing CreateSessionAsync: {createException}");
+        }
+    }
+
+    /// <summary>
     ///     Builds a substitute playback device reporting itself available with a realistic
     ///     format.
     /// </summary>

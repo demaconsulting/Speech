@@ -45,8 +45,11 @@ thread can change.
   `InvalidOperationException`; a call while `Faulted` throws `SynthesisSessionFaultedException`
   wrapping the original fault; a call after disposal throws `ObjectDisposedException`.
 - **StopAsync(cancellationToken)**: Cancels the current operation's `CancellationTokenSource`
-  under the lock, if one exists; a safe no-op otherwise. The cancelled operation still unwinds
-  through the normal `Stopping` → `Stopped` path, not `Faulted`.
+  under the lock, if one exists, then awaits that same tracked operation task (abandoning the
+  wait, but not the operation itself, past the dedicated worker's abandon timeout) so the
+  returned task completes only once the in-flight operation has genuinely stopped; a safe no-op
+  otherwise. The cancelled operation still unwinds through the normal `Stopping` → `Stopped`
+  path, not `Faulted`.
 - **GenerateAndOptionallyPlayAsync(text, playAfterSynthesis, cancellationToken)**: Normalizes the
   text via `_model.NormalizeText`, parses it via `AudioTagParser.Parse`, renders it via
   `_model.CapabilityProfile.Render(spans, _model)` into a `SpeechPlan`, then synthesizes each
