@@ -2,7 +2,7 @@ package Speech {
     part def UnavailableRecognitionSession {
         doc /* Honest "unavailable" IRecognitionSession fallback returned by
              * UnavailableSpeechRecognizerEngine.CreateSessionAsync: reports IsAvailable as false
-             * and State as Faulted, and throws SpeechRecognizerUnavailableException only when an
+             * and State as Created, and throws SpeechRecognizerUnavailableException only when an
              * operational member is invoked. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech/RecognitionSubsystem/UnavailableRecognitionSession.cs */

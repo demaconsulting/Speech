@@ -17,7 +17,7 @@ results observed at `GetResultsAsync`, since they carry no behavior of their own
 #### Acceptance Criteria
 
 The contract is considered verified when the unavailable implementation reports `false`
-availability, reports `State` as `Faulted`, throws on operational misuse, and treats subscription
+availability, reports `State` as `Created`, throws on operational misuse, and treats subscription
 and disposal as safe no-ops, and when the real implementation only makes forward-only, documented
 `RecognitionSessionState` transitions, raises `StateChanged` for each one, starts and stops
 capture, delivers ordered provisional and final results carrying the full recognized text -

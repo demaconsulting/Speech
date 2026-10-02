@@ -16,7 +16,7 @@ fallback for anyone else.
 #### Acceptance Criteria
 
 The unit is considered verified when the shared instance reports `false` availability and
-`Faulted` state, throws `SpeechRecognizerUnavailableException` from `StartAsync` and the first
+`Created` state, throws `SpeechRecognizerUnavailableException` from `StartAsync` and the first
 `MoveNextAsync` of `GetResultsAsync`, treats `StopAsync` and repeated disposal as safe no-ops, and
 the exception type exposes the message and inner exception supplied to each of its constructors.
 
