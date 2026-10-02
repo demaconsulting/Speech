@@ -23,14 +23,22 @@ sections:
               - id: Speech-Synthesis-SherpaOnnxSynthesisSession-ChunkedPipeline
                 title: >-
                   The SherpaOnnxSynthesisSession class shall normalize, tag-parse, and Layer 2
-                  render input text into an ordered SpeechPlan, then synthesize and yield each
-                  resulting segment as it becomes ready rather than waiting for the whole plan to
-                  finish.
+                  render input text into an ordered SpeechPlan, then synthesize each resulting
+                  segment in order, making each one available to playback as soon as it is ready
+                  rather than waiting for the whole plan to finish synthesizing. SynthesizeAsync
+                  returns the complete, ordered segment list only once every segment has been
+                  synthesized; this chunked pipelining is an internal synthesis/playback
+                  optimization, not a streaming result contract exposed to SynthesizeAsync's
+                  caller.
                 justification: |
                   The design requires chunked, low-latency synthesis so playback of an early
                   sentence can start while a later sentence is still being synthesized, rather
                   than a host waiting for an entire utterance's inference to complete before
-                  hearing anything.
+                  hearing anything. SpeakAsync relies on this internal pipelining directly;
+                  SynthesizeAsync still returns a single materialized, full-fidelity segment list
+                  (see Speech-Synthesis-SherpaOnnxSynthesisSession-FullFidelitySegmentList) since a
+                  caller inspecting or re-encoding the complete synthesized output needs every
+                  segment together, not an incremental result surface.
                 tests:
                   - SherpaOnnxSynthesisSession_SynthesizeAsync_PlainText_YieldsAudioSegment
                   - SherpaOnnxSynthesisSession_SynthesizeAsync_LongMultiSentenceInput_ProducesOrderedSegmentsSequentially
