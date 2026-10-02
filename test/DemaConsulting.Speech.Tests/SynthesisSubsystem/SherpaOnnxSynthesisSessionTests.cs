@@ -246,6 +246,47 @@ public class SherpaOnnxSynthesisSessionTests
     }
 
     /// <summary>
+    ///     Proves that <see cref="ISynthesisSession.SpeakAsync"/> returns control to its caller
+    ///     well before a slow, synchronous <see cref="IAudioPlaybackDevice.Start"/> call returns -
+    ///     closing the review finding that the native playback device-start call used to run
+    ///     inline on the calling thread, before this already-async method's first await, blocking
+    ///     the caller (for example a UI thread) for however long the native call took.
+    /// </summary>
+    [Fact]
+    public async Task SherpaOnnxSynthesisSession_SpeakAsync_SlowPlaybackDeviceStart_DoesNotBlockCaller()
+    {
+        // Arrange: a device whose Start() blocks until this test explicitly releases it
+        using var startEntered = new ManualResetEventSlim(false);
+        using var startRelease = new ManualResetEventSlim(false);
+        var backend = new FakeSynthesisEngine();
+        var device = CreateAvailablePlaybackDevice();
+        device.When(d => d.Start()).Do(_ =>
+        {
+            startEntered.Set();
+            startRelease.Wait(TestContext.Current.CancellationToken);
+        });
+        await using var session = CreateSession(backend, device);
+
+        // Act: call SpeakAsync and prove it returns control to this thread - without blocking -
+        // well before the device's own blocking Start() call has returned
+        var speakTask = session.SpeakAsync("Hello world.", TestContext.Current.CancellationToken);
+        var enteredInTime = startEntered.Wait(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+        // Assert: the device call was genuinely entered, but SpeakAsync has not yet completed and
+        // this thread was never blocked waiting for it
+        Assert.True(enteredInTime, "The playback device's Start() was never entered.");
+        Assert.False(speakTask.IsCompleted);
+
+        // Act: release the blocked device call and let the speak call genuinely finish
+        startRelease.Set();
+        await speakTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+        // Assert: the device was started and stopped exactly once each
+        device.Received(1).Start();
+        device.Received(1).Stop();
+    }
+
+    /// <summary>
     ///     Proves that <see cref="ISynthesisSession.StopAsync"/> fulfils its documented contract
     ///     of completing only once the in-flight operation has genuinely stopped: its returned
     ///     task does not complete while the backend's native-style <c>Generate</c> call is still

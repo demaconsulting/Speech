@@ -13,11 +13,21 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     synthesize on this machine right now" state (model not installed, native runtime absent).
 ///     <see cref="UnavailableSpeechSynthesizerEngine"/> and <see cref="UnavailableSynthesisSession"/>
 ///     report themselves honestly through <c>IsAvailable == false</c> rather than throwing this
-///     exception on an operational call. This exception is reserved for a
-///     <see cref="SherpaOnnxSynthesisSession"/> whose underlying backend or playback device failed
-///     when actually used, and for a caller who continued to use a session after it reported a
-///     terminal state. It mirrors <see cref="RecognitionSubsystem.SpeechRecognizerUnavailableException"/>
-///     so both subsystems signal misuse the same way.
+///     exception on an operational call.
+///     <para>
+///     This type is reserved for the same first-use-after-"unavailable" misuse case described
+///     above - this exception is <em>not</em> what a real, available
+///     <see cref="SherpaOnnxSynthesisSession"/> throws for its own runtime failures: a playback
+///     device failure (for example the speakers disconnecting mid-call) propagates as
+///     <see cref="AudioSubsystem.AudioDeviceUnavailableException"/>, not this type, and a call
+///     made on a session that has already reached its terminal
+///     <see cref="SynthesisSessionState.Faulted"/> state throws
+///     <see cref="SynthesisSessionFaultedException"/>, not this type. Consumers that want to
+///     catch a real session's runtime failures should catch those two types instead of this one;
+///     it mirrors <see cref="RecognitionSubsystem.SpeechRecognizerUnavailableException"/>'s
+///     equivalent "unavailable" boundary so both subsystems signal that specific misuse the same
+///     way.
+///     </para>
 /// </remarks>
 public sealed class SpeechSynthesizerUnavailableException : Exception
 {

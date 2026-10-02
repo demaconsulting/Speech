@@ -41,6 +41,49 @@ public class SherpaOnnxRecognitionSessionTests
     }
 
     /// <summary>
+    ///     Proves that <see cref="SherpaOnnxRecognitionSession.StartAsync"/> returns control to
+    ///     its caller well before a slow, synchronous <see cref="IAudioCaptureDevice.Start"/>
+    ///     call returns - closing the review finding that the native device-start call used to
+    ///     run inline on the calling thread, blocking it (for example a UI thread) for the whole
+    ///     capture window.
+    /// </summary>
+    [Fact]
+    public async Task SherpaOnnxRecognitionSession_StartAsync_SlowDeviceStart_DoesNotBlockCaller()
+    {
+        // Arrange: a device whose Start() blocks until this test explicitly releases it
+        using var startEntered = new ManualResetEventSlim(false);
+        using var startRelease = new ManualResetEventSlim(false);
+        var device = CreateCaptureDevice();
+        device.When(d => d.Start()).Do(_ =>
+        {
+            startEntered.Set();
+            startRelease.Wait(TestContext.Current.CancellationToken);
+        });
+        await using var session = CreateSession(new FakeRecognitionEngine(), device);
+
+        // Act: call StartAsync and prove it returns a task - without blocking this thread - well
+        // before the device's own blocking Start() call has returned
+        var startTask = session.StartAsync(TestContext.Current.CancellationToken);
+        var enteredInTime = startEntered.Wait(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+        // Assert: the device call was genuinely entered, but StartAsync has not yet completed and
+        // this thread was never blocked waiting for it - the session is still Starting, not yet
+        // Running
+        Assert.True(enteredInTime, "The capture device's Start() was never entered.");
+        Assert.False(startTask.IsCompleted);
+        Assert.Equal(RecognitionSessionState.Starting, session.State);
+
+        // Act: release the blocked device call and let the start genuinely finish
+        startRelease.Set();
+        await startTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+        // Assert: the session has now converged to Running, and the device was started exactly
+        // once
+        Assert.Equal(RecognitionSessionState.Running, session.State);
+        device.Received(1).Start();
+    }
+
+    /// <summary>
     ///     Proves that starting a session that has already reached
     ///     <see cref="RecognitionSessionState.Stopped"/> throws <see cref="InvalidOperationException"/>
     ///     rather than permitting a restart (Decision #1): a session is single-use.

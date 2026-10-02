@@ -100,6 +100,19 @@ internal sealed class SherpaOnnxRecognitionSession : IRecognitionSession
     private Task? _pumpRawCompletion;
 
     /// <summary>
+    ///     The task - run through <see cref="_worker"/>, exactly like the pump loop - for the
+    ///     native, potentially slow <see cref="IAudioCaptureDevice.Start"/> call made by
+    ///     <see cref="StartAsync"/>, set under <see cref="_syncRoot"/> before that call ever
+    ///     releases the lock so <see cref="RunTeardownAsync"/> can await this same task before it
+    ///     ever stops the device: this is what still prevents a concurrent <see cref="StopAsync"/>/
+    ///     <see cref="DisposeAsync"/> from converging this session to
+    ///     <see cref="RecognitionSessionState.Stopped"/> and returning while the device is still
+    ///     being started, now that <see cref="StartAsync"/> no longer blocks the caller for the
+    ///     life of that native call (see its own remarks).
+    /// </summary>
+    private Task? _deviceStartTask;
+
+    /// <summary>
     ///     Set only when the pump worker was abandoned (finding 24): the continuation of
     ///     <see cref="_pumpRawCompletion"/> that safely resets the backend and stops the device
     ///     once that raw completion genuinely happens - deferred out of the teardown task itself
@@ -211,14 +224,26 @@ internal sealed class SherpaOnnxRecognitionSession : IRecognitionSession
 
     /// <inheritdoc/>
     /// <remarks>
-    ///     Runs entirely under <see cref="_syncRoot"/> - including the synchronous, potentially
-    ///     slow <see cref="IAudioCaptureDevice.Start"/> call - so a concurrent <see cref="StopAsync"/>
-    ///     or <see cref="DisposeAsync"/> call cannot observe <see cref="RecognitionSessionState.Starting"/>,
-    ///     converge this session to <see cref="RecognitionSessionState.Stopped"/>, and return while
-    ///     this call is still starting the device: both calls instead simply serialize on this
-    ///     one lock, so a concurrent teardown call only ever sees this call's final outcome
-    ///     (<see cref="RecognitionSessionState.Running"/> or <see cref="RecognitionSessionState.Faulted"/>),
-    ///     never a torn-down session being forced back to <see cref="RecognitionSessionState.Running"/>.
+    ///     The state transition into <see cref="RecognitionSessionState.Starting"/> - and starting
+    ///     the pump thread and subscribing to <see cref="IAudioCaptureDevice.FrameCaptured"/> -
+    ///     still happens entirely under <see cref="_syncRoot"/>, but the actual, synchronous and
+    ///     potentially slow <see cref="IAudioCaptureDevice.Start"/> call is run through
+    ///     <see cref="_worker"/> (the same dedicated-worker idiom <see cref="PumpLoop"/> and
+    ///     <see cref="RunTeardownAsync"/> already use) and awaited <em>without</em> holding
+    ///     <see cref="_syncRoot"/>, so this method no longer blocks its caller for the life of that
+    ///     native call (for example PortAudio's native stream open/start, or a file-backed device
+    ///     synchronously replaying an entire file). The resulting task is published to
+    ///     <see cref="_deviceStartTask"/> before the lock is released, and <see cref="RunTeardownAsync"/>
+    ///     always awaits that same task before it ever stops the device: a concurrent
+    ///     <see cref="StopAsync"/> or <see cref="DisposeAsync"/> call can therefore still never
+    ///     converge this session to <see cref="RecognitionSessionState.Stopped"/> and return while
+    ///     this call is still starting the device, even though the two calls no longer literally
+    ///     serialize on one lock for the device call's entire duration. Only this call's own
+    ///     continuation (once the device-start task completes) transitions this session onward
+    ///     from <see cref="RecognitionSessionState.Starting"/> to
+    ///     <see cref="RecognitionSessionState.Running"/>/<see cref="RecognitionSessionState.Faulted"/>,
+    ///     and only if a concurrent teardown has not already moved this session on first - so a
+    ///     torn-down session is never forced back to <see cref="RecognitionSessionState.Running"/>.
     ///     <para>
     ///     The pump is started before <see cref="IAudioCaptureDevice.Start"/>, not after: a
     ///     synchronous-replay device (for example a file-backed capture device) can emit an
@@ -227,13 +252,12 @@ internal sealed class SherpaOnnxRecognitionSession : IRecognitionSession
     ///     already draining it.
     ///     </para>
     /// </remarks>
-    public Task StartAsync(CancellationToken cancellationToken = default)
+    public async Task StartAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
         SessionStateChangedEventArgs startingArgs;
-        SessionStateChangedEventArgs finalArgs;
-        SpeechRecognizerUnavailableException? startFailure = null;
+        Task deviceStartTask;
 
         lock (_syncRoot)
         {
@@ -262,25 +286,66 @@ internal sealed class SherpaOnnxRecognitionSession : IRecognitionSession
             _pumpRawCompletion = pumpCompletion;
 
             _device.FrameCaptured += OnFrameCaptured;
-            try
+
+            // Run the native, potentially slow device.Start() call through the same dedicated
+            // worker the pump loop uses, rather than inline on this caller's thread (see this
+            // method's remarks). Published to _deviceStartTask before the lock is released so
+            // RunTeardownAsync can still await it before ever stopping the device.
+            deviceStartTask = _worker.RunAsync(_ => _device.Start(), CancellationToken.None);
+            _deviceStartTask = deviceStartTask;
+        }
+
+        // Raised only after _syncRoot has been released (finding 21): invoking a host's
+        // StateChanged handler while still holding this session's state lock risks deadlock if
+        // that handler calls back into this session (for example StopAsync/DisposeAsync) and then
+        // synchronously blocks on the result, since any continuation that needs this same lock
+        // could never run while this thread holds it.
+        RaiseStateChanged(startingArgs);
+
+        SessionStateChangedEventArgs? finalArgs;
+        SpeechRecognizerUnavailableException? startFailure = null;
+        try
+        {
+            await deviceStartTask.ConfigureAwait(false);
+
+            lock (_syncRoot)
             {
-                _device.Start();
-                finalArgs = TransitionTo(RecognitionSessionState.Running);
+                // Only advance from Starting: a concurrent StopAsync/DisposeAsync/FaultSession may
+                // already have moved this session on (to Stopping/Stopped, or a differently-caused
+                // Faulted) while the device was still starting, in which case that outcome stands.
+                finalArgs = _state == RecognitionSessionState.Starting
+                    ? TransitionTo(RecognitionSessionState.Running)
+                    : null;
             }
-            catch (Exception ex)
+        }
+        catch (Exception ex)
+        {
+            lock (_syncRoot)
             {
-                // Roll back the subscription and let the already-running pump drain out and
-                // exit on its own (it reacts only to the channel completing, never to
-                // _pumpCts - see PumpLoop's remarks) so this session leaks neither the
-                // subscription nor the dedicated pump thread even if nobody ever calls
-                // StopAsync/DisposeAsync on this now-Faulted session. Resetting the backend and
-                // stopping the device are still deferred to that eventual teardown call, exactly
-                // as for any other fault, since releasing the engine's lease still requires one.
-                _device.FrameCaptured -= OnFrameCaptured;
-                _pendingFrames.Writer.TryComplete();
+                if (_state == RecognitionSessionState.Starting)
+                {
+                    // Roll back the subscription and let the already-running pump drain out and
+                    // exit on its own (it reacts only to the channel completing, never to
+                    // _pumpCts - see PumpLoop's remarks) so this session leaks neither the
+                    // subscription nor the dedicated pump thread even if nobody ever calls
+                    // StopAsync/DisposeAsync on this now-Faulted session. Resetting the backend
+                    // and stopping the device are still deferred to that eventual teardown call,
+                    // exactly as for any other fault, since releasing the engine's lease still
+                    // requires one.
+                    _device.FrameCaptured -= OnFrameCaptured;
+                    _pendingFrames.Writer.TryComplete();
+                    finalArgs = TransitionTo(RecognitionSessionState.Faulted);
+                }
+                else
+                {
+                    // A concurrent teardown already moved this session on while the device was
+                    // still starting; it already unsubscribed/completed the channel itself.
+                    finalArgs = null;
+                }
+            }
 
-                finalArgs = TransitionTo(RecognitionSessionState.Faulted);
-
+            if (finalArgs is not null)
+            {
                 _diagnostics.Report(
                     SpeechDiagnosticLevel.Error,
                     DiagnosticsCategory,
@@ -292,13 +357,10 @@ internal sealed class SherpaOnnxRecognitionSession : IRecognitionSession
             }
         }
 
-        // Raised only after _syncRoot has been released (finding 21): invoking a host's
-        // StateChanged handler while still holding this session's state lock risks deadlock if
-        // that handler calls back into this session (for example StopAsync/DisposeAsync) and then
-        // synchronously blocks on the result, since any continuation that needs this same lock
-        // could never run while this thread holds it.
-        RaiseStateChanged(startingArgs);
-        RaiseStateChanged(finalArgs);
+        if (finalArgs is not null)
+        {
+            RaiseStateChanged(finalArgs);
+        }
 
         if (startFailure is not null)
         {
@@ -306,7 +368,6 @@ internal sealed class SherpaOnnxRecognitionSession : IRecognitionSession
         }
 
         _diagnostics.Report(SpeechDiagnosticLevel.Info, DiagnosticsCategory, "Started streaming recognition.");
-        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
@@ -384,6 +445,7 @@ internal sealed class SherpaOnnxRecognitionSession : IRecognitionSession
         Task? PumpTask,
         Task? PumpRawCompletion,
         CancellationTokenSource? PumpCts,
+        Task? DeviceStartTask,
         bool PreserveFault,
         TaskCompletionSource CompletionSource);
 
@@ -445,7 +507,7 @@ internal sealed class SherpaOnnxRecognitionSession : IRecognitionSession
         // starts running it, and only after leaving this lock (see this method's remarks).
         var completionSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         _teardownTask = completionSource.Task;
-        var start = new TeardownStart(_pumpTask, _pumpRawCompletion, _pumpCts, preserveFault, completionSource);
+        var start = new TeardownStart(_pumpTask, _pumpRawCompletion, _pumpCts, _deviceStartTask, preserveFault, completionSource);
         return (_teardownTask, stoppingArgs, start);
     }
 
@@ -484,7 +546,7 @@ internal sealed class SherpaOnnxRecognitionSession : IRecognitionSession
     /// </remarks>
     private async Task RunTeardownAsync(TeardownStart start)
     {
-        var (pumpTask, pumpRawCompletion, pumpCts, preserveFault, completionSource) = start;
+        var (pumpTask, pumpRawCompletion, pumpCts, deviceStartTask, preserveFault, completionSource) = start;
         try
         {
             // Every caller invokes this fire-and-forget (`_ = RunTeardownAsync(...)`), relying on
@@ -497,6 +559,28 @@ internal sealed class SherpaOnnxRecognitionSession : IRecognitionSession
             // StopAsync/DisposeAsync/FaultSession, defeating their documented
             // teardown-runs-in-the-background contract.
             await Task.Yield();
+
+            // Awaited before anything below ever touches the device: StartAsync may still be
+            // mid-flight on its own native IAudioCaptureDevice.Start() call (run through _worker,
+            // never under _syncRoot - see its remarks), and device.Stop() below must never run
+            // concurrently with that still-in-progress device.Start() call. This is also what
+            // keeps this session's documented invariant intact now that StartAsync no longer
+            // blocks its own caller for the device call's duration: this shared teardown task -
+            // and therefore any concurrent StopAsync/DisposeAsync awaiting it - cannot complete
+            // until the device has genuinely finished starting. Any exception from a failed start
+            // is already reported and surfaced by StartAsync itself; nothing further to do with
+            // it here.
+            if (deviceStartTask is not null)
+            {
+                try
+                {
+                    await deviceStartTask.ConfigureAwait(false);
+                }
+                catch
+                {
+                    // Already handled/reported by StartAsync's own continuation.
+                }
+            }
 
             // Cancelling here is purely the abandon-timeout deadline for DedicatedWorker (Decision
             // #4): PumpLoop itself never observes this token while draining (see its own remarks), so

@@ -496,7 +496,15 @@ internal sealed class SherpaOnnxSynthesisSession : ISynthesisSession
 
         try
         {
-            _device.Start();
+            // Run the native, potentially slow IAudioPlaybackDevice.Start() off this caller's
+            // thread: this method is already async, but this was the first call in its body, so
+            // without this it would still block the caller/UI thread for the entire native
+            // device-open/start call before the method's first genuine await. A plain
+            // Task.Run hand-off is sufficient here (unlike the per-segment native Generate call
+            // below) - this is a one-shot startup step, not a per-call hot-loop operation, so the
+            // cooperative-cancel-then-abandon machinery of DedicatedWorker is unnecessary
+            // complexity that would risk new races for no benefit.
+            await Task.Run(() => _device.Start(), CancellationToken.None).ConfigureAwait(false);
 
             var resampler = new PlaybackAudioResampler(
                 _backend.SampleRate,
