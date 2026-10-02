@@ -78,7 +78,7 @@ sections:
                   one without a breaking API change.
                 tests:
                   - SherpaOnnxSynthesisSession_SynthesizeAsync_PlainText_YieldsAudioSegment
-                  - SherpaOnnxSynthesisSession_StopAsync_WhileSpeaking_CancelsInFlightOperationOnlyAfterInFlightGenerateReturns
+                  - SherpaOnnxSynthesisSession_StopAsync_WhileSpeaking_DoesNotCompleteUntilInFlightGenerateReturns
                   - SherpaOnnxSynthesisSession_StopAsync_NoOperationInFlight_IsNoOp
 
               - id: Speech-Synthesis-ISynthesisSession-UnavailableOperationsThrow

@@ -273,7 +273,7 @@ sections:
               - Speech-Synthesis-DedicatedWorker-LongRunningExecution
             tests:
               - SherpaOnnxSynthesisSession_SynthesizeAsync_BackendThrows_ReportsFaultAndTransitionsToFaulted
-              - SherpaOnnxSynthesisSession_StopAsync_WhileSpeaking_CancelsInFlightOperationOnlyAfterInFlightGenerateReturns
+              - SherpaOnnxSynthesisSession_StopAsync_WhileSpeaking_DoesNotCompleteUntilInFlightGenerateReturns
               - DedicatedWorker_Run_CooperativeCancellation_CompletesPromptly
               - DedicatedWorker_Run_NonCooperativeDelegate_AbandonsAfterTimeoutAndReportsDiagnostics
 

@@ -198,7 +198,7 @@ sections:
                   the in-flight native call's genuine completion, cooperative or abandoned, before
                   returning control on any exit path.
                 tests:
-                  - SherpaOnnxSynthesisSession_StopAsync_WhileSpeaking_CancelsInFlightOperationOnlyAfterInFlightGenerateReturns
+                  - SherpaOnnxSynthesisSession_StopAsync_WhileSpeaking_DoesNotCompleteUntilInFlightGenerateReturns
                   - SherpaOnnxSynthesisSession_StopAsync_NoOperationInFlight_IsNoOp
                   - SherpaOnnxSynthesisSession_DisposeAsync_CalledTwice_ReleasesLeaseOnce
                   - SherpaOnnxSynthesisSession_SynthesizeAsync_AfterDispose_ThrowsObjectDisposedException
