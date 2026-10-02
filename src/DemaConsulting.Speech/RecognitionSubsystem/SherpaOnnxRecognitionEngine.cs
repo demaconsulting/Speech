@@ -3,7 +3,7 @@ using SherpaOnnx;
 namespace DemaConsulting.Speech.RecognitionSubsystem;
 
 /// <summary>
-///     Real <see cref="IRecognitionEngine"/> implementation wrapping one sherpa-onnx
+///     Real <see cref="IRecognitionBackend"/> implementation wrapping one sherpa-onnx
 ///     <see cref="OnlineRecognizer"/> and the <see cref="OnlineStream"/> that carries the current
 ///     utterance.
 /// </summary>
@@ -17,7 +17,7 @@ namespace DemaConsulting.Speech.RecognitionSubsystem;
 ///     <para>
 ///     Construction loads the model into native memory and therefore fails (throws) when the
 ///     native runtime binary for the current RID is absent or the model files are unusable.
-///     Callers convert that into the honest <see cref="UnavailableSpeechRecognizer"/> fallback;
+///     Callers convert that into the honest <see cref="UnavailableSpeechRecognizerEngine"/> fallback;
 ///     see <see cref="SpeechRecognizerFactory"/>.
 ///     </para>
 ///     <para>
@@ -33,7 +33,7 @@ namespace DemaConsulting.Speech.RecognitionSubsystem;
 ///     after that flush cannot bleed into the next session's decoding.
 ///     </para>
 /// </remarks>
-internal sealed class SherpaOnnxRecognitionEngine : IRecognitionEngine
+internal sealed class SherpaOnnxRecognitionEngine : IRecognitionBackend
 {
     /// <summary>
     ///     Initializes a new instance of the <see cref="SherpaOnnxRecognitionEngine"/> class,

@@ -28,13 +28,16 @@ using DemaConsulting.Speech.Cli.Tests.Commands.ModelCommandsSubsystem;
 using DemaConsulting.Speech.Cli.Tests.Commands.RecognitionCommandSubsystem;
 using DemaConsulting.Speech.Cli.Tests.Commands.SynthesisCommandSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
+using DemaConsulting.Speech.RecognitionSubsystem;
+using DemaConsulting.Speech.SynthesisSubsystem;
 
 namespace DemaConsulting.Speech.Cli.Tests.Commands.ConversationCommandSubsystem;
 
 /// <summary>
 ///     Unit tests for <see cref="AskCommand"/>, using <see cref="FakeCliModelCatalog"/>,
-///     <see cref="FakeSpeechSynthesizer"/>, <see cref="FakeSpeechRecognizer"/>, and fake audio
-///     device probes/sources so every scenario runs deterministically with no real catalog,
+///     <see cref="FakeSynthesisSession"/>/<see cref="FakeSpeechSynthesizerEngine"/>,
+///     <see cref="FakeRecognitionSession"/>/<see cref="FakeSpeechRecognizerEngine"/>, and fake
+///     audio device probes/sources so every scenario runs deterministically with no real catalog,
 ///     network access, native engine, or PortAudio hardware. Both the playback-side and
 ///     capture-side device resolution reuse dedicated CLI-owned seams -
 ///     <see cref="FakePlaybackDeviceSource"/> (mirroring
@@ -74,6 +77,34 @@ public sealed class AskCommandTests
 
     private static FakeCaptureDeviceSource CreateCaptureSource() =>
         new(new FakeAudioCaptureDeviceProbe([CaptureDevice]));
+
+    /// <summary>
+    ///     Creates a <see cref="FakeSynthesisSession"/> wrapped in a <see cref="FakeSpeechSynthesizerEngine"/>,
+    ///     and wires the catalog's <see cref="FakeCliModelCatalog.CreateSynthesizerEngineOverride"/>
+    ///     to return the engine.
+    /// </summary>
+    private static (FakeSynthesisSession Session, FakeSpeechSynthesizerEngine Engine) WireSynthesizer(
+        FakeCliModelCatalog catalog)
+    {
+        var session = new FakeSynthesisSession();
+        var engine = new FakeSpeechSynthesizerEngine(session);
+        catalog.CreateSynthesizerEngineOverride = (_, _, _) => Task.FromResult<ISpeechSynthesizerEngine>(engine);
+        return (session, engine);
+    }
+
+    /// <summary>
+    ///     Creates a <see cref="FakeRecognitionSession"/> wrapped in a <see cref="FakeSpeechRecognizerEngine"/>,
+    ///     and wires the catalog's <see cref="FakeCliModelCatalog.CreateRecognizerEngineOverride"/>
+    ///     to return the engine.
+    /// </summary>
+    private static (FakeRecognitionSession Session, FakeSpeechRecognizerEngine Engine) WireRecognizer(
+        FakeCliModelCatalog catalog)
+    {
+        var session = new FakeRecognitionSession();
+        var engine = new FakeSpeechRecognizerEngine(session);
+        catalog.CreateRecognizerEngineOverride = (_, _, _) => Task.FromResult<ISpeechRecognizerEngine>(engine);
+        return (session, engine);
+    }
 
     /// <summary>
     ///     Polls <paramref name="condition"/> until it returns <see langword="true"/> or
@@ -347,21 +378,20 @@ public sealed class AskCommandTests
     /// <summary>
     ///     Test that no available playback device throws InvalidOperationException from Phase 1
     ///     (before Phase 2's <c>SpeakPromptAsync</c> call ever awaits anything), and that the
-    ///     concurrently pre-warmed recognizer - constructed on a background task that may still be
-    ///     racing with (or may have already completed ahead of) that synchronous throw - is
-    ///     nonetheless eventually disposed rather than leaked or left as an unobserved faulted
-    ///     task: this proves <c>RunAsync</c> observes and cleans up the pre-warm task on every
-    ///     exit path, not only the <c>wasCanceled</c> path. Disposal is now driven by
-    ///     <c>DisposePrewarmedRecognizerAsync</c>'s fire-and-forget background continuation rather
-    ///     than completing synchronously before <c>Run</c> returns, so this polls for it instead
-    ///     of asserting immediately.
+    ///     concurrently pre-warmed recognizer engine/session - constructed on a background task
+    ///     that may still be racing with (or may have already completed ahead of) that
+    ///     synchronous throw - is nonetheless eventually disposed rather than leaked or left as
+    ///     an unobserved faulted task: this proves <c>RunAsync</c> observes and cleans up the
+    ///     pre-warm task on every exit path, not only the <c>wasCanceled</c> path. Disposal is
+    ///     now driven by <c>DisposePrewarmedRecognizerAsync</c>'s fire-and-forget background
+    ///     continuation rather than completing synchronously before <c>Run</c> returns, so this
+    ///     polls for it instead of asserting immediately.
     /// </summary>
     [Fact]
     public async Task AskCommand_Run_NoPlaybackDeviceAvailable_ThrowsInvalidOperationException()
     {
         var catalog = CreateCatalogWithModels();
-        var recognizer = new FakeSpeechRecognizer();
-        catalog.CreateRecognizerOverride = (_, _, _) => recognizer;
+        var (recognizerSession, recognizerEngine) = WireRecognizer(catalog);
         var deviceSource = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe());
         using var context = Context.Create(
             ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi"]);
@@ -369,12 +399,14 @@ public sealed class AskCommandTests
         Assert.Throws<InvalidOperationException>(
             () => AskCommand.Run(context, catalog, deviceSource, CreateCaptureSource()));
 
-        // The concurrently pre-warmed recognizer must eventually be disposed by the background
-        // continuation, even though the exception that ended the call was thrown from Phase 1's
-        // SpeakPromptAsync rather than from the wasCanceled path.
+        // The concurrently pre-warmed engine/session must eventually be disposed by the
+        // background continuation, even though the exception that ended the call was thrown from
+        // Phase 1's SpeakPromptAsync rather than from the wasCanceled path.
         Assert.True(
-            await WaitForConditionAsync(() => recognizer.DisposeCallCount == 1, TimeSpan.FromSeconds(5)),
-            "The pre-warmed recognizer was never disposed by the background continuation.");
+            await WaitForConditionAsync(
+                () => recognizerSession.DisposeCallCount == 1 && recognizerEngine.DisposeCallCount == 1,
+                TimeSpan.FromSeconds(5)),
+            "The pre-warmed recognizer engine/session was never disposed by the background continuation.");
     }
 
     /// <summary>Test that an unknown --capture-device throws before any recognizer is created.</summary>
@@ -382,8 +414,7 @@ public sealed class AskCommandTests
     public void AskCommand_Run_UnknownCaptureDevice_ThrowsArgumentException()
     {
         var catalog = CreateCatalogWithModels();
-        var synthesizer = new FakeSpeechSynthesizer();
-        catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
+        WireSynthesizer(catalog);
         var captureSource = new FakeCaptureDeviceSource(new FakeAudioCaptureDeviceProbe());
         using var context = Context.Create(
             [
@@ -405,8 +436,7 @@ public sealed class AskCommandTests
     public void AskCommand_Run_NoCaptureDeviceAvailable_ThrowsInvalidOperationException()
     {
         var catalog = CreateCatalogWithModels();
-        var synthesizer = new FakeSpeechSynthesizer();
-        catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
+        var (synthSession, _) = WireSynthesizer(catalog);
         var captureSource = new FakeCaptureDeviceSource(new FakeAudioCaptureDeviceProbe());
         using var context = Context.Create(
             ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi"]);
@@ -414,7 +444,7 @@ public sealed class AskCommandTests
         Assert.Throws<InvalidOperationException>(
             () => AskCommand.Run(context, catalog, CreatePlaybackSource(), captureSource));
 
-        Assert.Equal(["hi"], synthesizer.SpeakAsyncCalls);
+        Assert.Equal(["hi"], synthSession.SpeakAsyncCalls);
     }
 
     // --- Success path ---
@@ -422,21 +452,18 @@ public sealed class AskCommandTests
     /// <summary>
     ///     Test that a successful run speaks the prompt, then listens and stops on the first final
     ///     result, printing the recognized text and running Start/Stop/Dispose exactly once for
-    ///     both the synthesizer and the recognizer, and disposing the resolved playback device
-    ///     exactly once too - proving <c>SpeakPromptAsync</c>'s playback-device disposal, not only
-    ///     the synthesizer's, runs on the ordinary success path.
+    ///     both the synthesizer session and the recognizer session (and their engines), and
+    ///     disposing the resolved playback device exactly once too - proving
+    ///     <c>SpeakPromptAsync</c>'s playback-device disposal, not only the synthesizer's, runs on
+    ///     the ordinary success path.
     /// </summary>
     [Fact]
     public void AskCommand_Run_Success_SpeaksThenListensAndPrintsFinalResult()
     {
         var catalog = CreateCatalogWithModels();
-        var synthesizer = new FakeSpeechSynthesizer();
-        catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
-        var recognizer = new FakeSpeechRecognizer
-        {
-            OnStart = self => self.RaiseResult("hello there", isFinal: true)
-        };
-        catalog.CreateRecognizerOverride = (_, _, _) => recognizer;
+        var (synthSession, synthEngine) = WireSynthesizer(catalog);
+        var (recognitionSession, recognitionEngine) = WireRecognizer(catalog);
+        recognitionSession.OnStart = self => self.RaiseResult("hello there", isFinal: true);
 
         var playbackDevice = new FakeAudioPlaybackDevice();
         var playbackSource = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]), playbackDevice);
@@ -456,12 +483,14 @@ public sealed class AskCommandTests
             Console.SetOut(originalOut);
         }
 
-        Assert.Equal(["How are you?"], synthesizer.SpeakAsyncCalls);
-        Assert.Equal(1, synthesizer.DisposeCallCount);
+        Assert.Equal(["How are you?"], synthSession.SpeakAsyncCalls);
+        Assert.Equal(1, synthSession.DisposeCallCount);
+        Assert.Equal(1, synthEngine.DisposeCallCount);
         Assert.Equal(1, playbackDevice.DisposeCallCount);
-        Assert.Equal(1, recognizer.StartCallCount);
-        Assert.Equal(1, recognizer.StopCallCount);
-        Assert.Equal(1, recognizer.DisposeCallCount);
+        Assert.Equal(1, recognitionSession.StartCallCount);
+        Assert.Equal(1, recognitionSession.StopCallCount);
+        Assert.Equal(1, recognitionSession.DisposeCallCount);
+        Assert.Equal(1, recognitionEngine.DisposeCallCount);
 
         var printed = writer.ToString();
         Assert.Contains("hello there", printed);
@@ -470,10 +499,10 @@ public sealed class AskCommandTests
     // --- Recognizer pre-warming ---
 
     /// <summary>
-    ///     Test that the STT recognizer is constructed concurrently with - not only after -
-    ///     Phase 1's speak/playback wait: <see cref="FakeSpeechSynthesizer.SpeakAsyncAwaiter"/>
-    ///     holds Phase 1 "in flight" until a signal set by <c>CreateRecognizer</c> fires, with a
-    ///     bounded wait. If a regression moves recognizer construction back to only after
+    ///     Test that the STT recognizer engine is constructed concurrently with - not only after -
+    ///     Phase 1's speak/playback wait: <see cref="FakeSynthesisSession.SpeakAsyncAwaiter"/>
+    ///     holds Phase 1 "in flight" until a signal set by the recognizer-engine override fires,
+    ///     with a bounded wait. If a regression moves recognizer construction back to only after
     ///     playback finishes, the wait below times out and fails explicitly instead of this test
     ///     silently passing (or the process deadlocking indefinitely).
     /// </summary>
@@ -483,26 +512,28 @@ public sealed class AskCommandTests
         using var recognizerCreatedSignal = new ManualResetEventSlim(initialState: false);
 
         var catalog = CreateCatalogWithModels();
-        var synthesizer = new FakeSpeechSynthesizer
+        var synthSession = new FakeSynthesisSession
         {
             SpeakAsyncAwaiter = () =>
             {
                 Assert.True(
                     recognizerCreatedSignal.Wait(TimeSpan.FromSeconds(5)),
-                    "The recognizer was not created concurrently with Phase 1's playback wait.");
+                    "The recognizer engine was not created concurrently with Phase 1's playback wait.");
                 return Task.CompletedTask;
             }
         };
-        catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
+        var synthEngine = new FakeSpeechSynthesizerEngine(synthSession);
+        catalog.CreateSynthesizerEngineOverride = (_, _, _) => Task.FromResult<ISpeechSynthesizerEngine>(synthEngine);
 
-        var recognizer = new FakeSpeechRecognizer
+        var recognitionSession = new FakeRecognitionSession
         {
             OnStart = self => self.RaiseResult("hello", isFinal: true)
         };
-        catalog.CreateRecognizerOverride = (_, _, _) =>
+        var recognitionEngine = new FakeSpeechRecognizerEngine(recognitionSession);
+        catalog.CreateRecognizerEngineOverride = (_, _, _) =>
         {
             recognizerCreatedSignal.Set();
-            return recognizer;
+            return Task.FromResult<ISpeechRecognizerEngine>(recognitionEngine);
         };
 
         var originalOut = Console.Out;
@@ -522,9 +553,9 @@ public sealed class AskCommandTests
             Console.SetOut(originalOut);
         }
 
-        Assert.Equal(["hi"], synthesizer.SpeakAsyncCalls);
-        Assert.Equal(1, recognizer.StartCallCount);
-        Assert.Equal(1, recognizer.DisposeCallCount);
+        Assert.Equal(["hi"], synthSession.SpeakAsyncCalls);
+        Assert.Equal(1, recognitionSession.StartCallCount);
+        Assert.Equal(1, recognitionSession.DisposeCallCount);
         Assert.Contains("hello", writer.ToString());
     }
 
@@ -533,13 +564,9 @@ public sealed class AskCommandTests
     public void AskCommand_Run_OutputText_WritesRecognizedTextToFile()
     {
         var catalog = CreateCatalogWithModels();
-        var synthesizer = new FakeSpeechSynthesizer();
-        catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
-        var recognizer = new FakeSpeechRecognizer
-        {
-            OnStart = self => self.RaiseResult("the reply", isFinal: true)
-        };
-        catalog.CreateRecognizerOverride = (_, _, _) => recognizer;
+        WireSynthesizer(catalog);
+        var (recognitionSession, _) = WireRecognizer(catalog);
+        recognitionSession.OnStart = self => self.RaiseResult("the reply", isFinal: true);
 
         var outputPath = Path.Join(Path.GetTempPath(), $"ask-test-{Guid.NewGuid():N}.txt");
         try
@@ -564,7 +591,7 @@ public sealed class AskCommandTests
         }
     }
 
-    /// <summary>Test that --tts-param and --stt-param each forward to their own model's CreateSynthesizer/CreateRecognizer call.</summary>
+    /// <summary>Test that --tts-param and --stt-param each forward to their own model's CreateSynthesizerEngine/CreateRecognizerEngine call.</summary>
     [Fact]
     public void AskCommand_Run_ValidParams_ForwardToRespectiveCreateCalls()
     {
@@ -573,13 +600,9 @@ public sealed class AskCommandTests
         var beamParameter = new NumericParameter(
             "beam", "Beam", "Beam width", new NumericParameterBounds(1.0, 10.0, 1.0, 4.0));
         var catalog = CreateCatalogWithModels(ttsParameters: [rateParameter], sttParameters: [beamParameter]);
-        var synthesizer = new FakeSpeechSynthesizer();
-        catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
-        var recognizer = new FakeSpeechRecognizer
-        {
-            OnStart = self => self.RaiseResult("ok", isFinal: true)
-        };
-        catalog.CreateRecognizerOverride = (_, _, _) => recognizer;
+        WireSynthesizer(catalog);
+        var (recognitionSession, _) = WireRecognizer(catalog);
+        recognitionSession.OnStart = self => self.RaiseResult("ok", isFinal: true);
 
         using var context = Context.Create(
             [
@@ -619,24 +642,20 @@ public sealed class AskCommandTests
     ///     Test that --silence-timeout ends the listen phase with an empty recognized text when
     ///     no final result ever arrives, using a real (small) wall-clock idle window so the
     ///     production <see cref="DemaConsulting.Speech.Cli.Commands.RecognitionCommandSubsystem.SilenceTimeoutRecognizerSession"/>
-    ///     genuinely fires and calls <c>Stop()</c>, exactly as it would for a real reply that
+    ///     genuinely fires and calls <c>StopAsync</c>, exactly as it would for a real reply that
     ///     never finishes.
     /// </summary>
     [Fact]
     public void AskCommand_Run_SilenceTimeoutWithNoFinalResult_EndsTurnWithEmptyText()
     {
         var catalog = CreateCatalogWithModels();
-        var synthesizer = new FakeSpeechSynthesizer();
-        catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
+        WireSynthesizer(catalog);
 
         // OnStart synchronously raises only an interim (non-final) result, then never a final
         // one: the idle timer re-arms once on that event and then fires for real (a small but
-        // real wall-clock delay), calling Stop() and ending the turn with no recognized text.
-        var recognizer = new FakeSpeechRecognizer
-        {
-            OnStart = self => self.RaiseResult("still talking", isFinal: false)
-        };
-        catalog.CreateRecognizerOverride = (_, _, _) => recognizer;
+        // real wall-clock delay), calling StopAsync() and ending the turn with no recognized text.
+        var (recognitionSession, _) = WireRecognizer(catalog);
+        recognitionSession.OnStart = self => self.RaiseResult("still talking", isFinal: false);
 
         var outputPath = Path.Join(Path.GetTempPath(), $"ask-test-{Guid.NewGuid():N}.txt");
         try
@@ -649,10 +668,10 @@ public sealed class AskCommandTests
 
             AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureSource());
 
-            // Two idempotent Stop() calls: one from the session's own timeout handler, one from
-            // Listen's unified post-wait call (which always runs from the calling thread, not
-            // from onResultReceived, to avoid a reentrant deadlock).
-            Assert.Equal(2, recognizer.StopCallCount);
+            // Two idempotent StopAsync() calls: one from the session's own timeout handler, one
+            // from Listen's unified post-wait call (which always runs from the calling thread,
+            // not from the result callback, to avoid a reentrant deadlock).
+            Assert.Equal(2, recognitionSession.StopCallCount);
             Assert.True(File.Exists(outputPath));
             Assert.Equal(string.Empty, File.ReadAllText(outputPath));
         }
@@ -676,37 +695,33 @@ public sealed class AskCommandTests
     public void AskCommand_Run_NoTimeoutFlagsGiven_StillEndsTurnViaDefaultSilenceTimeout()
     {
         var catalog = CreateCatalogWithModels();
-        var synthesizer = new FakeSpeechSynthesizer();
-        catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
+        WireSynthesizer(catalog);
 
         // OnStart raises only an interim (non-final) result and never a final one; with no
         // --silence-timeout given, the command must still have armed a session using its
         // built-in default idle window rather than blocking stopSignal.Wait() forever.
-        var recognizer = new FakeSpeechRecognizer
-        {
-            OnStart = self => self.RaiseResult("still talking", isFinal: false)
-        };
-        catalog.CreateRecognizerOverride = (_, _, _) => recognizer;
+        var (recognitionSession, _) = WireRecognizer(catalog);
+        recognitionSession.OnStart = self => self.RaiseResult("still talking", isFinal: false);
 
         using var context = Context.Create(
             ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi"]);
 
         AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureSource());
 
-        // Two idempotent Stop() calls: one from the session's own default-timeout handler, one
-        // from Listen's unified post-wait call (which always runs from the calling thread, not
-        // from onResultReceived, to avoid a reentrant deadlock).
-        Assert.Equal(2, recognizer.StopCallCount);
+        // Two idempotent StopAsync() calls: one from the session's own default-timeout handler,
+        // one from Listen's unified post-wait call (which always runs from the calling thread,
+        // not from the result callback, to avoid a reentrant deadlock).
+        Assert.Equal(2, recognitionSession.StopCallCount);
     }
 
     // --- Cancellation ---
 
     /// <summary>
     ///     Test that a canceled Phase-1 speak session is reported cleanly, Phase 2 (listen) never
-    ///     runs, the concurrently pre-warmed recognizer is eventually disposed rather than leaked,
-    ///     and the resolved playback device is disposed exactly once too - proving
-    ///     <c>SpeakPromptAsync</c>'s playback-device disposal runs even when playback itself is
-    ///     canceled, not only on the success path. Recognizer disposal is now driven by
+    ///     runs, the concurrently pre-warmed recognizer engine/session is eventually disposed
+    ///     rather than leaked, and the resolved playback device is disposed exactly once too -
+    ///     proving <c>SpeakPromptAsync</c>'s playback-device disposal runs even when playback
+    ///     itself is canceled, not only on the success path. Recognizer disposal is now driven by
     ///     <c>DisposePrewarmedRecognizerAsync</c>'s fire-and-forget background continuation rather
     ///     than completing synchronously before <c>Run</c> returns, so this polls for it instead
     ///     of asserting immediately.
@@ -715,10 +730,9 @@ public sealed class AskCommandTests
     public async Task AskCommand_Run_CanceledDuringSpeak_SkipsListenPhase()
     {
         var catalog = CreateCatalogWithModels();
-        var synthesizer = new FakeSpeechSynthesizer { SpeakAsyncException = new OperationCanceledException() };
-        catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
-        var recognizer = new FakeSpeechRecognizer();
-        catalog.CreateRecognizerOverride = (_, _, _) => recognizer;
+        var (synthSession, synthEngine) = WireSynthesizer(catalog);
+        synthSession.SpeakAsyncException = new OperationCanceledException();
+        var (recognizerSession, recognizerEngine) = WireRecognizer(catalog);
 
         var playbackDevice = new FakeAudioPlaybackDevice();
         var playbackSource = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]), playbackDevice);
@@ -729,12 +743,15 @@ public sealed class AskCommandTests
         AskCommand.Run(context, catalog, playbackSource, CreateCaptureSource());
 
         Assert.Equal(1, context.ExitCode);
-        Assert.Equal(1, synthesizer.DisposeCallCount);
+        Assert.Equal(1, synthSession.DisposeCallCount);
+        Assert.Equal(1, synthEngine.DisposeCallCount);
         Assert.Equal(1, playbackDevice.DisposeCallCount);
-        Assert.Equal(0, recognizer.StartCallCount);
+        Assert.Equal(0, recognizerSession.StartCallCount);
         Assert.True(
-            await WaitForConditionAsync(() => recognizer.DisposeCallCount == 1, TimeSpan.FromSeconds(5)),
-            "The pre-warmed recognizer was never disposed by the background continuation.");
+            await WaitForConditionAsync(
+                () => recognizerSession.DisposeCallCount == 1 && recognizerEngine.DisposeCallCount == 1,
+                TimeSpan.FromSeconds(5)),
+            "The pre-warmed recognizer engine/session was never disposed by the background continuation.");
     }
 
     /// <summary>
@@ -751,10 +768,9 @@ public sealed class AskCommandTests
     public async Task AskCommand_Run_ExceptionDuringSpeak_DisposesPlaybackDeviceAndRethrows()
     {
         var catalog = CreateCatalogWithModels();
-        var synthesizer = new FakeSpeechSynthesizer { SpeakAsyncException = new InvalidOperationException("synthesis engine failure") };
-        catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
-        var recognizer = new FakeSpeechRecognizer();
-        catalog.CreateRecognizerOverride = (_, _, _) => recognizer;
+        var (synthSession, synthEngine) = WireSynthesizer(catalog);
+        synthSession.SpeakAsyncException = new InvalidOperationException("synthesis engine failure");
+        var (recognizerSession, recognizerEngine) = WireRecognizer(catalog);
 
         var playbackDevice = new FakeAudioPlaybackDevice();
         var playbackSource = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]), playbackDevice);
@@ -765,11 +781,14 @@ public sealed class AskCommandTests
         Assert.Throws<InvalidOperationException>(
             () => AskCommand.Run(context, catalog, playbackSource, CreateCaptureSource()));
 
-        Assert.Equal(1, synthesizer.DisposeCallCount);
+        Assert.Equal(1, synthSession.DisposeCallCount);
+        Assert.Equal(1, synthEngine.DisposeCallCount);
         Assert.Equal(1, playbackDevice.DisposeCallCount);
         Assert.True(
-            await WaitForConditionAsync(() => recognizer.DisposeCallCount == 1, TimeSpan.FromSeconds(5)),
-            "The pre-warmed recognizer was never disposed by the background continuation.");
+            await WaitForConditionAsync(
+                () => recognizerSession.DisposeCallCount == 1 && recognizerEngine.DisposeCallCount == 1,
+                TimeSpan.FromSeconds(5)),
+            "The pre-warmed recognizer engine/session was never disposed by the background continuation.");
     }
 
     /// <summary>
@@ -778,12 +797,13 @@ public sealed class AskCommandTests
     ///     flight - proving the fix for the reviewer-flagged responsiveness regression where
     ///     <c>DisposePrewarmedRecognizerAsync</c> used to be awaited synchronously before
     ///     <c>RunAsync</c> returned, delaying <c>Ctrl+C</c>/fast-failure responsiveness until the
-    ///     expensive recognizer model-load finished. <see cref="FakeCliModelCatalog.CreateRecognizerOverride"/>
+    ///     expensive recognizer model-load finished. The <see cref="FakeCliModelCatalog.CreateRecognizerEngineOverride"/>
     ///     blocks on a <see cref="ManualResetEventSlim"/> the test controls, simulating the
     ///     model-load step still being in flight; if a regression reintroduces a synchronous
     ///     await, this test times out waiting for <c>RunAsync</c> to return instead of passing
-    ///     instantly. Once the hold is released, the recognizer is still proven to be eventually
-    ///     disposed by the background continuation - never leaked - just asynchronously.
+    ///     instantly. Once the hold is released, the recognizer engine/session is still proven to
+    ///     be eventually disposed by the background continuation - never leaked - just
+    ///     asynchronously.
     /// </summary>
     [Fact]
     public async Task AskCommand_RunAsync_CanceledDuringSpeak_ReturnsPromptlyWithoutAwaitingInFlightPrewarm()
@@ -791,18 +811,19 @@ public sealed class AskCommandTests
         using var holdPrewarm = new ManualResetEventSlim(initialState: false);
 
         var catalog = CreateCatalogWithModels();
-        var synthesizer = new FakeSpeechSynthesizer { SpeakAsyncException = new OperationCanceledException() };
-        catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
+        var (synthSession, _) = WireSynthesizer(catalog);
+        synthSession.SpeakAsyncException = new OperationCanceledException();
 
-        var recognizer = new FakeSpeechRecognizer();
-        catalog.CreateRecognizerOverride = (_, _, _) =>
+        var recognitionSession = new FakeRecognitionSession();
+        var recognitionEngine = new FakeSpeechRecognizerEngine(recognitionSession);
+        catalog.CreateRecognizerEngineOverride = (_, _, _) =>
         {
             // Simulates the expensive recognizer model-load step still being in flight when
             // Phase 1 cancels.
             Assert.True(
                 holdPrewarm.Wait(TimeSpan.FromSeconds(10)),
                 "Test setup failure: the hold signal was never released.");
-            return recognizer;
+            return Task.FromResult<ISpeechRecognizerEngine>(recognitionEngine);
         };
 
         using var context = Context.Create(
@@ -832,7 +853,7 @@ public sealed class AskCommandTests
             await runTask;
 
             Assert.Equal(1, context.ExitCode);
-            Assert.Equal(0, recognizer.DisposeCallCount);
+            Assert.Equal(0, recognitionSession.DisposeCallCount);
         }
         finally
         {
@@ -842,15 +863,17 @@ public sealed class AskCommandTests
         }
 
         Assert.True(
-            await WaitForConditionAsync(() => recognizer.DisposeCallCount == 1, TimeSpan.FromSeconds(5)),
-            "The pre-warmed recognizer was never disposed by the background continuation once construction completed.");
+            await WaitForConditionAsync(
+                () => recognitionSession.DisposeCallCount == 1 && recognitionEngine.DisposeCallCount == 1,
+                TimeSpan.FromSeconds(5)),
+            "The pre-warmed recognizer engine/session was never disposed by the background continuation once construction completed.");
     }
 
     /// <summary>
     ///     Test that a genuine <c>Ctrl+C</c> landing mid-listen (simulated by canceling the same
     ///     <see cref="CancellationTokenSource"/> and setting the same <see cref="ManualResetEventSlim"/>
     ///     the real <see cref="Console.CancelKeyPress"/> handler uses, from within the fake
-    ///     recognizer's <c>Start()</c> callback) is reported as a cancellation - via
+    ///     recognition session's <c>StartAsync</c> callback) is reported as a cancellation - via
     ///     <see cref="Context.WriteError"/> and a non-zero exit code - rather than silently
     ///     printed as an empty, successful result. Drives <see cref="AskCommand.RunAsync"/>
     ///     directly (rather than the public <c>Run</c> entry point) because there is no
@@ -860,25 +883,21 @@ public sealed class AskCommandTests
     public async Task AskCommand_RunAsync_CtrlCDuringListen_ReportsCanceledAndDoesNotPrintText()
     {
         var catalog = CreateCatalogWithModels();
-        var synthesizer = new FakeSpeechSynthesizer();
-        catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
+        WireSynthesizer(catalog);
 
         using var cancellationSource = new CancellationTokenSource();
         using var stopSignal = new ManualResetEventSlim(initialState: false);
 
-        var recognizer = new FakeSpeechRecognizer
+        var (recognitionSession, _) = WireRecognizer(catalog);
+        // Simulates the exact interleaving AskCommand's own onCancelKeyPress handler produces
+        // when Ctrl+C lands during Phase 2: cancel the shared token, stop the session, then
+        // signal stopSignal - all without ever raising a final result.
+        recognitionSession.OnStart = self =>
         {
-            // Simulates the exact interleaving AskCommand's own onCancelKeyPress handler
-            // produces when Ctrl+C lands during Phase 2: cancel the shared token, stop the
-            // recognizer, then signal stopSignal - all without ever raising a final result.
-            OnStart = self =>
-            {
-                cancellationSource.Cancel();
-                self.Stop();
-                stopSignal.Set();
-            }
+            cancellationSource.Cancel();
+            _ = self.StopAsync();
+            stopSignal.Set();
         };
-        catalog.CreateRecognizerOverride = (_, _, _) => recognizer;
 
         var originalOut = Console.Out;
         using var writer = new StringWriter { NewLine = "\n" };
@@ -917,18 +936,11 @@ public sealed class AskCommandTests
     public async Task AskCommand_RunAsync_CtrlCBeforeListenStarts_ReportsCanceledAndDoesNotPrintText()
     {
         var catalog = CreateCatalogWithModels();
-        var synthesizer = new FakeSpeechSynthesizer();
-        catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
-        var recognizer = new FakeSpeechRecognizer();
-        catalog.CreateRecognizerOverride = (_, _, _) => recognizer;
+        WireSynthesizer(catalog);
+        var (recognitionSession, _) = WireRecognizer(catalog);
 
         using var cancellationSource = new CancellationTokenSource();
         using var stopSignal = new ManualResetEventSlim(initialState: false);
-
-        // Ctrl+C already landed (token canceled, stopSignal set) in the narrow window between
-        // Phase 1 finishing successfully and Phase 2 starting, before RunAsync is even invoked.
-        await cancellationSource.CancelAsync();
-        stopSignal.Set();
 
         var originalOut = Console.Out;
         using var writer = new StringWriter { NewLine = "\n" };
@@ -944,11 +956,25 @@ public sealed class AskCommandTests
                 CreatePlaybackSource(),
                 CreateCaptureSource(),
                 stopSignal,
-                _ => { },
+                createdSession =>
+                {
+                    // Listen() calls onRecognizerCreated(session) as its very first step, before
+                    // checking stopSignal.IsSet: canceling here (only once, on the non-null call)
+                    // simulates Ctrl+C landing in the narrow window between the concurrently
+                    // pre-warmed recognizer finishing and Phase 2 genuinely starting, so Listen
+                    // observes stopSignal already set without ever starting the session - rather
+                    // than canceling before RunAsync is even invoked, which would instead hit
+                    // Phase 1's own (narrower) cancellation handling.
+                    if (createdSession is not null)
+                    {
+                        cancellationSource.Cancel();
+                        stopSignal.Set();
+                    }
+                },
                 cancellationSource.Token);
 
             Assert.Equal(1, context.ExitCode);
-            Assert.Equal(0, recognizer.StartCallCount);
+            Assert.Equal(0, recognitionSession.StartCallCount);
             Assert.Equal(string.Empty, writer.ToString());
         }
         finally
@@ -966,19 +992,15 @@ public sealed class AskCommandTests
     public async Task AskCommand_RunAsync_SilenceTimeoutWithNoCtrlC_ReportsSuccessNotCanceled()
     {
         var catalog = CreateCatalogWithModels();
-        var synthesizer = new FakeSpeechSynthesizer();
-        catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
+        WireSynthesizer(catalog);
 
         using var cancellationSource = new CancellationTokenSource();
         using var stopSignal = new ManualResetEventSlim(initialState: false);
 
-        var recognizer = new FakeSpeechRecognizer
-        {
-            // No Ctrl+C involved: the timeout session (armed by --silence-timeout) is what sets
-            // stopSignal here, exactly as the production TimedOut handler does.
-            OnStart = _ => stopSignal.Set()
-        };
-        catalog.CreateRecognizerOverride = (_, _, _) => recognizer;
+        var (recognitionSession, _) = WireRecognizer(catalog);
+        // No Ctrl+C involved: the timeout session (armed by --silence-timeout) is what sets
+        // stopSignal here, exactly as the production TimedOut handler does.
+        recognitionSession.OnStart = _ => stopSignal.Set();
 
         var originalOut = Console.Out;
         using var writer = new StringWriter { NewLine = "\n" };
@@ -1022,23 +1044,19 @@ public sealed class AskCommandTests
     public async Task AskCommand_RunAsync_CtrlCImmediatelyAfterListenReturns_ReportsCanceledAndDoesNotPrintText()
     {
         var catalog = CreateCatalogWithModels();
-        var synthesizer = new FakeSpeechSynthesizer();
-        catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
+        WireSynthesizer(catalog);
 
         using var cancellationSource = new CancellationTokenSource();
         using var stopSignal = new ManualResetEventSlim(initialState: false);
 
-        var recognizer = new FakeSpeechRecognizer
+        var (recognitionSession, _) = WireRecognizer(catalog);
+        // A legitimate final result, with no Ctrl+C involved yet: Listen() will observe
+        // cancellationToken.IsCancellationRequested == false and return (text, false).
+        recognitionSession.OnStart = self =>
         {
-            // A legitimate final result, with no Ctrl+C involved yet: Listen() will observe
-            // cancellationToken.IsCancellationRequested == false and return (text, false).
-            OnStart = self =>
-            {
-                self.RaiseResult("hello", isFinal: true);
-                stopSignal.Set();
-            }
+            self.RaiseResult("hello", isFinal: true);
+            stopSignal.Set();
         };
-        catalog.CreateRecognizerOverride = (_, _, _) => recognizer;
 
         var originalOut = Console.Out;
         using var writer = new StringWriter { NewLine = "\n" };
@@ -1096,23 +1114,19 @@ public sealed class AskCommandTests
     public async Task AskCommand_RunAsync_CtrlCImmediatelyBeforeFileWrite_ReportsCanceledAndDoesNotWriteFile()
     {
         var catalog = CreateCatalogWithModels();
-        var synthesizer = new FakeSpeechSynthesizer();
-        catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
+        WireSynthesizer(catalog);
 
         using var cancellationSource = new CancellationTokenSource();
         using var stopSignal = new ManualResetEventSlim(initialState: false);
 
-        var recognizer = new FakeSpeechRecognizer
+        var (recognitionSession, _) = WireRecognizer(catalog);
+        // A legitimate final result, with no Ctrl+C involved yet: Listen() will observe
+        // cancellationToken.IsCancellationRequested == false and return (text, false).
+        recognitionSession.OnStart = self =>
         {
-            // A legitimate final result, with no Ctrl+C involved yet: Listen() will observe
-            // cancellationToken.IsCancellationRequested == false and return (text, false).
-            OnStart = self =>
-            {
-                self.RaiseResult("hello", isFinal: true);
-                stopSignal.Set();
-            }
+            self.RaiseResult("hello", isFinal: true);
+            stopSignal.Set();
         };
-        catalog.CreateRecognizerOverride = (_, _, _) => recognizer;
 
         var outputPath = Path.Join(Path.GetTempPath(), $"ask-test-{Guid.NewGuid():N}.txt");
         var originalOut = Console.Out;

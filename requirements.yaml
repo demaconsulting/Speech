@@ -58,16 +58,24 @@ includes:
   - docs/reqstream/speech/model-management-subsystem/sherpa-onnx-vits-libritts-en-synthesis-model.yaml
   - docs/reqstream/speech/model-management-subsystem/sherpa-onnx-kokoro-en-synthesis-model.yaml
   - docs/reqstream/speech/recognition-subsystem.yaml
-  - docs/reqstream/speech/recognition-subsystem/i-speech-recognizer.yaml
+  - docs/reqstream/speech/recognition-subsystem/i-speech-recognizer-engine.yaml
+  - docs/reqstream/speech/recognition-subsystem/i-recognition-session.yaml
   - docs/reqstream/speech/recognition-subsystem/speech-recognizer-factory.yaml
-  - docs/reqstream/speech/recognition-subsystem/sherpa-onnx-speech-recognizer.yaml
-  - docs/reqstream/speech/recognition-subsystem/unavailable-speech-recognizer.yaml
+  - docs/reqstream/speech/recognition-subsystem/recognition-session-lease.yaml
+  - docs/reqstream/speech/recognition-subsystem/sherpa-onnx-recognition-session.yaml
+  - docs/reqstream/speech/recognition-subsystem/dedicated-worker.yaml
+  - docs/reqstream/speech/recognition-subsystem/unavailable-speech-recognizer-engine.yaml
+  - docs/reqstream/speech/recognition-subsystem/unavailable-recognition-session.yaml
   - docs/reqstream/speech/synthesis-subsystem.yaml
   - docs/reqstream/speech/synthesis-subsystem/audio-tag-parser.yaml
-  - docs/reqstream/speech/synthesis-subsystem/i-speech-synthesizer.yaml
+  - docs/reqstream/speech/synthesis-subsystem/i-speech-synthesizer-engine.yaml
+  - docs/reqstream/speech/synthesis-subsystem/i-synthesis-session.yaml
   - docs/reqstream/speech/synthesis-subsystem/speech-synthesizer-factory.yaml
-  - docs/reqstream/speech/synthesis-subsystem/sherpa-onnx-speech-synthesizer.yaml
-  - docs/reqstream/speech/synthesis-subsystem/unavailable-speech-synthesizer.yaml
+  - docs/reqstream/speech/synthesis-subsystem/synthesis-session-lease.yaml
+  - docs/reqstream/speech/synthesis-subsystem/sherpa-onnx-synthesis-session.yaml
+  - docs/reqstream/speech/synthesis-subsystem/dedicated-worker.yaml
+  - docs/reqstream/speech/synthesis-subsystem/unavailable-speech-synthesizer-engine.yaml
+  - docs/reqstream/speech/synthesis-subsystem/unavailable-synthesis-session.yaml
   - docs/reqstream/speech-demo.yaml
   - docs/reqstream/speech-demo/shell-subsystem.yaml
   - docs/reqstream/speech-demo/device-selection-subsystem.yaml

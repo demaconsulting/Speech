@@ -49,7 +49,7 @@ declaration the streaming API requires is available to the recognition pipeline.
 
 **Requirement coverage**: `Speech-OTS-SherpaOnnx-ManagedStreamingApi`.
 
-#### SpeechRecognizerFactory_Create_ModelInstalledAndDeviceAvailable_ReturnsRealRecognizer
+#### SpeechRecognizerFactory_LoadAsync_ModelInstalled_ReturnsRealEngine
 
 **Scenario**: Recognition is composed for an installed model and an available capture device.
 
@@ -59,12 +59,12 @@ pattern works end to end.
 
 **Requirement coverage**: `Speech-OTS-SherpaOnnx-ModelOwnedConfiguration`.
 
-#### SpeechRecognizerFactory_Create_EngineLoadFails_ReturnsUnavailableRecognizerAndDoesNotThrow
+#### SpeechRecognizerFactory_LoadAsync_EngineLoadFails_ReturnsUnavailableEngineAndDoesNotFaultTask
 
 **Scenario**: Loading the speech-inference engine fails, as it would on a machine whose native
 runtime is absent.
 
-**Expected**: Composition returns the honest unavailable recognizer and reports the reason,
+**Expected**: Composition returns the honest unavailable engine and reports the reason,
 without throwing, proving the native-runtime boundary degrades in the required honest way.
 
 **Requirement coverage**: `Speech-OTS-SherpaOnnx-ModelOwnedConfiguration`.
@@ -75,5 +75,5 @@ without throwing, proving the native-runtime boundary degrades in the required h
   `IRecognitionModel_CreateEngineConfig_InstalledDirectory_ResolvesPathsAndSampleRate`,
   `IRecognitionModel_AudioFormat_DeclaredByModel_IsExposed`
 - **`Speech-OTS-SherpaOnnx-ModelOwnedConfiguration`**:
-  `SpeechRecognizerFactory_Create_ModelInstalledAndDeviceAvailable_ReturnsRealRecognizer`,
-  `SpeechRecognizerFactory_Create_EngineLoadFails_ReturnsUnavailableRecognizerAndDoesNotThrow`
+  `SpeechRecognizerFactory_LoadAsync_ModelInstalled_ReturnsRealEngine`,
+  `SpeechRecognizerFactory_LoadAsync_EngineLoadFails_ReturnsUnavailableEngineAndDoesNotFaultTask`

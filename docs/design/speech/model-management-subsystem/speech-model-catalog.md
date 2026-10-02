@@ -52,4 +52,4 @@ a corruption signal).
 
 **Callers**: Hosts building a model-settings page (enumerate + download/delete actions per
 the demo-application scope). `SpeechRecognizerFactory`/`SpeechSynthesizerFactory` catalog-based
-`Create` overloads (via `Store`).
+`LoadAsync` overloads (via `Store`).

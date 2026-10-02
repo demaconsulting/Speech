@@ -122,18 +122,29 @@ var captureDevice = new AudioDeviceFactory().CreateCaptureDevice(
     AudioDeviceSelection.SystemDefault,
     model.AudioFormat);
 
-// 5. Compose the recognizer and stream recognized text as it arrives. Create never throws for an
-//    ordinary machine state (model not installed, no microphone) - check IsAvailable instead.
-using var recognizer = SpeechRecognizerFactory.Create(model, catalog, captureDevice);
-if (recognizer.IsAvailable)
+// 5. Load the engine once, create a session bound to the capture device, and stream
+//    recognized text as it arrives. LoadAsync never throws for an ordinary machine state
+//    (model not installed, no microphone) - check IsAvailable instead.
+await using var engine = await SpeechRecognizerFactory.LoadAsync(model, catalog);
+if (engine.IsAvailable)
 {
-    recognizer.ResultReceived += (_, args) =>
-        Console.WriteLine($"{(args.Result.IsFinal ? "final" : "partial")}: {args.Result.Text}");
+    await using var session = await engine.CreateSessionAsync(captureDevice);
 
-    recognizer.Start();
+    await session.StartAsync();
     Console.WriteLine("Listening - press any key to stop...");
+
+    var resultsTask = Task.Run(async () =>
+    {
+        await foreach (var evt in session.GetResultsAsync())
+        {
+            var status = evt.Result.IsFinal ? "final" : "partial";
+            Console.WriteLine($"{status}: {evt.Result.Text}");
+        }
+    });
+
     Console.ReadKey(intercept: true);
-    recognizer.Stop();
+    await session.StopAsync();
+    await resultsTask;
 }
 ```
 
@@ -164,16 +175,16 @@ var playbackDevice = new AudioDeviceFactory().CreatePlaybackDevice(
     AudioDeviceSelection.SystemDefault,
     model.PreferredAudioFormat);
 
-// 5. Compose the synthesizer and speak. Create never throws for an ordinary machine state (model
-//    not installed, no speakers) - check IsAvailable instead.
-using var synthesizer = SpeechSynthesizerFactory.Create(model, catalog, playbackDevice);
-if (synthesizer.IsAvailable)
+// 5. Load the engine and speak a one-shot phrase. LoadAsync never throws for an ordinary
+//    machine state (model not installed, no speakers) - check IsAvailable instead.
+await using var engine = await SpeechSynthesizerFactory.LoadAsync(model, catalog);
+if (engine.IsAvailable)
 {
-    await synthesizer.SpeakAsync("To be, or not to be. [short pause] That is the question.");
+    await engine.SpeakAsync(playbackDevice, "To be, or not to be. [short pause] That is the question.");
 }
 ```
 
-Both `Create(...)` factories never throw for an ordinary machine state: a model that isn't
+Both `LoadAsync(...)` factories never throw for an ordinary machine state: a model that isn't
 installed, a machine with no microphone/speakers, and a missing speech-engine native runtime all
 return `IsAvailable == false` instead of an exception. `AudioDeviceFactory` also exposes
 `RefreshDevices()` to re-scan for hot-plugged hardware, surfacing `AudioDeviceInUseException` if a
@@ -182,17 +193,16 @@ device from the factory is currently active.
 `SpeakAsync` recognizes Natural Language Audio Tags (such as `[whispers]`, `[short pause]`, or
 `[excited]`), renders each one per the model's own declared capability, chunks narration into
 sentence-sized pieces, and pipelines synthesis with playback - an earlier chunk plays while a
-later chunk is still synthesizing. `Stop()` cancels an in-flight `SpeakAsync` call deterministically
-and is a safe no-op when nothing is speaking.
+later chunk is still synthesizing. Passing a cancelled `CancellationToken` to `SpeakAsync` cancels
+an in-flight call deterministically.
 
 For a model that declares tunable parameters - such as Kokoro's `voice` choice or VITS/Piper's
-numeric `speaker` id - pass a `parameterValues` bag keyed by each parameter's `Id`:
+numeric `speaker` id - pass a `parameterValues` bag keyed by each parameter's `Id` to `LoadAsync(...)`:
 
 ```csharp
-using var synthesizer = SpeechSynthesizerFactory.Create(
+await using var engine = await SpeechSynthesizerFactory.LoadAsync(
     model,
     catalog,
-    playbackDevice,
     parameterValues: new Dictionary<string, object> { ["voice"] = "af_bella" });
 ```
 
@@ -203,8 +213,8 @@ different models without breaking composition. A supplied value for a parameter 
 declare, but that fails that parameter's own validation - the wrong CLR type, a number outside
 its declared range, a fractional value for a whole-number-only parameter, or a string that
 matches none of a `ChoiceParameter`'s declared options - throws `ArgumentException` synchronously
-from `Create()`, naming the parameter, the model, and the reason the value is invalid. This same
-rule applies to `SpeechRecognizerFactory.Create`'s `parameterValues` argument.
+from `LoadAsync(...)`, naming the parameter, the model, and the reason the value is invalid. This
+same rule applies to `SpeechRecognizerFactory.LoadAsync`'s `parameterValues` argument.
 
 See the [user guide][link-user-guide] for the full API walkthrough, voice/speaker catalogs, and
 Natural Language Audio Tag vocabulary.

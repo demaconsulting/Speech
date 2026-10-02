@@ -230,7 +230,8 @@ sections:
               - Speech-Models-SpeechModelContract-RecognitionNormalizeTextHook
               - Speech-Models-SpeechModelContract-RecognitionEngineDeclaration
               - Speech-Models-SpeechModelContract-SynthesisPreferredAudioFormat
-              - Speech-Models-SpeechModelContract-SynthesisEngineDeclaration
+              - Speech-Models-SpeechModelContract-SynthesisEngineConfigDeclaration
+              - Speech-Models-SpeechModelContract-SynthesisCapabilityProfileDeclaration
               - Speech-Models-SpeechModelContract-LicenseDeclaration
               - Speech-Models-SpeechModelDescriptorEnums-FixedValueSets
             tests:
@@ -407,11 +408,13 @@ sections:
               - Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-PreferredAudioFormat
               - Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-EngineConfigArgumentValidation
               - Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-InstallAsync
+              - Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-InstallAsync-ArgumentValidation
               - Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-ResolveSpeakerId
             tests:
               - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_Identity_DeclaresExpectedValues
               - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_CreateEngineConfig_ResolvesVitsFilesAndConfig
               - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_InstallAsync_SyntheticArchive_ExtractsFilesAndRemovesArchive
+              - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_InstallAsync_NullOrEmptyDirectory_ThrowsArgumentException
               - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_ResolveSpeakerId_ValidValue_ReturnsThatValue
 
           - id: Speech-Models-RealKokoroSynthesisModelWithVoiceSelection
@@ -432,7 +435,7 @@ sections:
               own generation script, byte arithmetic against the real voices.bin, and a live
               model load reporting NumSpeakers = 11, and by extending ISynthesisModel itself
               with a non-breaking ResolveSpeakerId default-hook member that
-              SherpaOnnxSpeechSynthesizer.GenerateSegment now calls instead of hard-coding
+              SherpaOnnxSynthesisSession.GenerateSegmentAsync now calls instead of hard-coding
               speakerId: 0.
             children:
               - Speech-Models-SherpaOnnxKokoroEnglishSynthesisModel-Identity

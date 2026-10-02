@@ -3,12 +3,12 @@ using DemaConsulting.Speech.SynthesisSubsystem;
 namespace DemaConsulting.Speech.Tests.SynthesisSubsystem.Fakes;
 
 /// <summary>
-///     Deterministic <see cref="ISynthesisEngine"/> test double that records every call it
+///     Deterministic <see cref="ISynthesisBackend"/> test double that records every call it
 ///     receives and returns scripted (or generated) audio, so the synthesizer's chunking,
 ///     pipelining, and playback behavior can be verified with no native sherpa-onnx runtime and
 ///     no downloaded model.
 /// </summary>
-internal sealed class FakeSynthesisEngine : ISynthesisEngine
+internal sealed class FakeSynthesisEngine : ISynthesisBackend
 {
     /// <summary>The exception to throw from <see cref="Generate"/>, when one was scripted.</summary>
     private readonly Exception? _generateException;

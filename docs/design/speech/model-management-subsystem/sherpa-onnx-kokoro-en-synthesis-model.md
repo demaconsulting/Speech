@@ -86,11 +86,11 @@ none of them is a distinct "happy"/"sad"/"excited" reading of the same voice - t
 deliberately avoids claiming an emotion-control capability this model does not have.
 
 **Voice Selection Resolved**: unlike the sibling VITS/Piper model, this model's voice selection
-is genuinely wired end-to-end: `SherpaOnnxSpeechSynthesizer.GenerateSegment` now calls
+is genuinely wired end-to-end: `SherpaOnnxSynthesisSession.GenerateSegmentAsync` now calls
 `ISynthesisModel.ResolveSpeakerId` (a new, non-breaking default-hook interface member) instead of
-hard-coding `speakerId: 0`, and `SpeechSynthesizerFactory.Create` threads an optional
+hard-coding `speakerId: 0`, and `SpeechSynthesizerFactory.LoadAsync` threads an optional
 `parameterValues` bag through to the synthesizer for this purpose. See
-`sherpa-onnx-speech-synthesizer.md` for the full mechanism.
+`sherpa-onnx-synthesis-session.md` for the full mechanism.
 
 **Dependencies**: `ISynthesisModel`, `SpeechModelDownloadDescriptor`, `SpeechModelDownloadFile`,
 `TarBz2ArchiveExtractor`, `ChoiceParameter`, `ChoiceParameterOption`,
@@ -100,6 +100,6 @@ hard-coding `speakerId: 0`, and `SpeechSynthesizerFactory.Create` threads an opt
 **Callers**: `SpeechModelCatalog.KnownModels` (registers this instance);
 `SpeechModelDownloader` (invokes `InstallAsync` after checksum verification);
 `SherpaOnnxSynthesisEngine` (consumes the internal `CreateEngineConfig` member through the
-SynthesisSubsystem); `SherpaOnnxSpeechSynthesizer.GenerateSegment` (consumes the internal
+SynthesisSubsystem); `SherpaOnnxSynthesisSession.GenerateSegmentAsync` (consumes the internal
 `ResolveSpeakerId` member once per synthesized segment); and hosts or factory composition code
 that read `PreferredAudioFormat` before engine construction.

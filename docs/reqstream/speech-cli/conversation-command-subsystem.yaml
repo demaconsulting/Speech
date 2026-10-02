@@ -6,10 +6,10 @@
 # docs/reqstream/speech-cli.yaml.
 #
 # This subsystem introduces no new ICliModelCatalog seam member: it reuses
-# SynthesisCommandSubsystem's CreateSynthesizer and RecognitionCommandSubsystem's
-# CreateRecognizer members exactly as speak and recognize already do individually, since ask
-# requires exactly one synthesis-role model and exactly one recognition-role model, never a
-# single model serving both roles.
+# SynthesisCommandSubsystem's CreateSynthesizerEngineAsync and RecognitionCommandSubsystem's
+# CreateRecognizerEngineAsync members exactly as speak and recognize already do individually,
+# since ask requires exactly one synthesis-role model and exactly one recognition-role model,
+# never a single model serving both roles.
 
 sections:
   - title: SpeechCli Requirements
@@ -56,6 +56,8 @@ sections:
               - AskCommand_Run_NotDownloadedTtsModel_ThrowsArgumentExceptionWithDownloadHint
               - AskCommand_Run_NotDownloadedSttModel_ThrowsArgumentExceptionWithDownloadHint
               - AskCommand_Run_Success_SpeaksThenListensAndPrintsFinalResult
+              - Program_Run_WithAskCommand_DoesNotThrowNotImplemented
+              - SpeechCli_HelpFlag_Provided_ListsAllSubcommands
 
           - id: SpeechCli-ConversationCommands-ParamValidation
             title: >-
@@ -63,7 +65,7 @@ sections:
               flags and validate each value against the respective resolved model's own declared
               parameter set, reusing the shared `ParameterBagParser` from the
               SynthesisCommandSubsystem, forwarding each fully-resolved parameter bag to its own
-              `CreateSynthesizer`/`CreateRecognizer` call.
+              `CreateSynthesizerEngineAsync`/`CreateRecognizerEngineAsync` call.
             tags: [subsystem]
             justification: |
               Both synthesis and recognition models declare tunable parameters; reusing the
@@ -93,6 +95,7 @@ sections:
               - AskCommand_ParseArguments_TimeoutFlags_ParseAsPositiveDoubles
               - AskCommand_ParseArguments_NonPositiveSilenceTimeout_ThrowsArgumentException
               - AskCommand_Run_SilenceTimeoutWithNoFinalResult_EndsTurnWithEmptyText
+              - AskCommand_Run_NoTimeoutFlagsGiven_StillEndsTurnViaDefaultSilenceTimeout
 
           - id: SpeechCli-ConversationCommands-OutputDispatch
             title: >-
@@ -161,7 +164,7 @@ sections:
             tags: [subsystem, performance]
             justification: |
               Loading a recognition model into native memory is the expensive step in
-              constructing an `ISpeechRecognizer`; deferring that load until after Phase 1's
+              constructing an `IRecognitionSession`; deferring that load until after Phase 1's
               playback finishes introduces an avoidable turnaround-gap latency between finishing
               speaking and starting to listen, which matters for a natural-feeling voice
               conversation. Overlapping the load with the time a person spends listening to the
@@ -189,3 +192,9 @@ sections:
               - AskCommand_Run_NullDeviceSource_ThrowsArgumentNullException
               - AskCommand_Run_NullCaptureSource_ThrowsArgumentNullException
               - AskCommand_ParseArguments_NullArgs_ThrowsArgumentNullException
+              - AskCommand_RunAsync_NullContext_ThrowsArgumentNullException
+              - AskCommand_RunAsync_NullCatalog_ThrowsArgumentNullException
+              - AskCommand_RunAsync_NullDeviceSource_ThrowsArgumentNullException
+              - AskCommand_RunAsync_NullCaptureSource_ThrowsArgumentNullException
+              - AskCommand_RunAsync_NullStopSignal_ThrowsArgumentNullException
+              - AskCommand_RunAsync_NullOnRecognizerCreated_ThrowsArgumentNullException

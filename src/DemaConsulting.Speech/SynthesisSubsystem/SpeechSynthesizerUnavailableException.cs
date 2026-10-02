@@ -6,15 +6,28 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     use.
 /// </summary>
 /// <remarks>
-///     Per this library's "nothing throws at composition" decision, obtaining and holding an
-///     <see cref="ISpeechSynthesizer"/> never throws - <see cref="SpeechSynthesizerFactory"/>
-///     returns <see cref="UnavailableSpeechSynthesizer.Instance"/> for every ordinary
-///     "cannot synthesize on this machine right now" state (model not installed, native runtime
-///     absent, no playback device). This exception is reserved for the two genuine error cases:
-///     a caller that ignored <c>IsAvailable == false</c> and invoked an operational member
-///     anyway, and a synthesizer whose underlying engine or playback device failed when actually
-///     used. It mirrors <see cref="RecognitionSubsystem.SpeechRecognizerUnavailableException"/>
-///     so both subsystems signal misuse the same way.
+///     Per this library's "nothing throws at composition" decision, loading an
+///     <see cref="ISpeechSynthesizerEngine"/> never throws for an ordinary machine state -
+///     <see cref="SpeechSynthesizerFactory"/> returns
+///     <see cref="UnavailableSpeechSynthesizerEngine.Instance"/> for every ordinary "cannot
+///     synthesize on this machine right now" state (model not installed, native runtime absent).
+///     <see cref="UnavailableSpeechSynthesizerEngine"/> and <see cref="UnavailableSynthesisSession"/>
+///     report themselves honestly through <c>IsAvailable == false</c> rather than throwing this
+///     exception on an operational call.
+///     <para>
+///     This type is reserved for the same first-use-after-"unavailable" misuse case described
+///     above - this exception is <em>not</em> what a real, available
+///     <see cref="SherpaOnnxSynthesisSession"/> throws for its own runtime failures: a playback
+///     device failure (for example the speakers disconnecting mid-call) propagates as
+///     <see cref="AudioSubsystem.AudioDeviceUnavailableException"/>, not this type, and a call
+///     made on a session that has already reached its terminal
+///     <see cref="SynthesisSessionState.Faulted"/> state throws
+///     <see cref="SynthesisSessionFaultedException"/>, not this type. Consumers that want to
+///     catch a real session's runtime failures should catch those two types instead of this one;
+///     it mirrors <see cref="RecognitionSubsystem.SpeechRecognizerUnavailableException"/>'s
+///     equivalent "unavailable" boundary so both subsystems signal that specific misuse the same
+///     way.
+///     </para>
 /// </remarks>
 public sealed class SpeechSynthesizerUnavailableException : Exception
 {

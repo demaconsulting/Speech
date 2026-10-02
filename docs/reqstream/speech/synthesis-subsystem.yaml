@@ -5,9 +5,14 @@
 # decomposing the system-level Natural Language Audio Tag requirement in docs/reqstream/speech.yaml.
 #
 # Sub-phase 4a covers the closed tag vocabulary and the model-independent Layer 1 parser
-# (AudioTagCatalog/AudioTagParser). Sub-phase 4b, described below, adds Layer 2 per-model
-# rendering into a SpeechPlan, the chunked/streaming ISpeechSynthesizer pipeline, the real
-# sherpa-onnx synthesis engine, and playback.
+# (AudioTagCatalog/AudioTagParser). Sub-phase 4b adds Layer 2 per-model rendering into a
+# SpeechPlan, the chunked synthesis pipeline, the real sherpa-onnx synthesis backend, and
+# playback. A later redesign replaces the original synchronous ISpeechSynthesizer contract with
+# an asynchronous Engine/Session split: ISpeechSynthesizerEngine (Layer 3, a loaded model) hosts
+# at most one leased ISynthesisSession (Layer 5, bound to one playback device) at a time, adding
+# session exclusivity, a lifecycle state machine, an overlap-not-allowed rule for concurrent
+# operations on one session, a terminal Faulted state, and a dedicated-worker cancellation policy
+# mirroring the identical recognition-direction mechanism.
 
 sections:
   - title: Speech Requirements
@@ -85,68 +90,100 @@ sections:
 
           - id: Speech-Synthesis-MockableContract
             title: >-
-              The SynthesisSubsystem shall expose a mockable chunked/streaming text-to-speech
-              contract that reports availability, synthesizes and plays speech, and supports
-              deterministic cancellation, without exposing any inference-engine type.
+              The SynthesisSubsystem shall expose a mockable Engine/Session text-to-speech
+              contract (ISpeechSynthesizerEngine for a loaded model, ISynthesisSession bound to
+              one device) that reports availability, synthesizes and plays speech, and supports
+              deterministic cancellation, without exposing any inference backend type.
             justification: |
               This library's "engine backend stays swappable at the public API surface"
               decision requires that a future non-sherpa-onnx backend can replace the current one
               without a breaking API change, and hosts must be able to test their playback
               handling against the contract with no model, speakers, or native runtime present.
+              Splitting a Layer 3 engine from a Layer 5 session lets one loaded model be reused to
+              bind multiple sessions over its lifetime, one at a time, without reloading.
             children:
-              - Speech-Synthesis-ISpeechSynthesizer-AvailabilityFlag
-              - Speech-Synthesis-ISpeechSynthesizer-StreamingContract
-              - Speech-Synthesis-ISpeechSynthesizer-UnavailableOperationsThrow
-              - Speech-Synthesis-ISpeechSynthesizer-SynthesizedSpeechShape
-              - Speech-Synthesis-ISpeechSynthesizer-HotReuseAcrossTurns
+              - Speech-Synthesis-ISpeechSynthesizerEngine-AvailabilityFlag
+              - Speech-Synthesis-ISpeechSynthesizerEngine-SessionCreationContract
+              - Speech-Synthesis-ISpeechSynthesizerEngine-UnavailableOperationsThrow
+              - Speech-Synthesis-ISpeechSynthesizerEngine-SynthesizedSpeechShape
+              - Speech-Synthesis-ISynthesisSession-AvailabilityFlag
+              - Speech-Synthesis-ISynthesisSession-StateMachine
+              - Speech-Synthesis-ISynthesisSession-OverlapNotAllowed
+              - Speech-Synthesis-ISynthesisSession-StreamingContract
+              - Speech-Synthesis-ISynthesisSession-UnavailableOperationsThrow
+              - Speech-Synthesis-ISynthesisSession-HotReuseAcrossTurns
             tests:
-              - UnavailableSpeechSynthesizer_IsAvailable_Read_ReturnsFalse
-              - SynthesizeStreamAsync_PlainText_YieldsAudioSegment
+              - UnavailableSpeechSynthesizerEngine_IsAvailable_Read_ReturnsFalse
+              - SherpaOnnxSynthesisSession_SynthesizeAsync_PlainText_YieldsAudioSegment
+
+          - id: Speech-Synthesis-EngineExclusivity
+            title: >-
+              The SynthesisSubsystem shall allow an ISpeechSynthesizerEngine to host at most one
+              live ISynthesisSession at a time, failing a concurrent session request fast with a
+              documented exception rather than queuing it, sharing the engine, or silently
+              misbehaving, and shall dispose an active leased session before disposing the engine
+              itself.
+            justification: |
+              A single loaded model (Layer 3 engine) owns one native inference context; two
+              concurrently live sessions bound to two different playback devices would race
+              against that same native context and corrupt either or both synthesis streams.
+              Failing fast gives a caller an unambiguous signal to dispose its current session
+              before requesting another, and disposing the active session first guarantees no
+              in-flight native call outlives the engine that owns its backend.
+            children:
+              - Speech-Synthesis-SherpaOnnxSpeechSynthesizerEngine-SessionExclusivity
+              - Speech-Synthesis-SherpaOnnxSpeechSynthesizerEngine-DisposalOrdering
+              - Speech-Synthesis-SynthesisEngineBusyException-Thrown
+            tests:
+              - SherpaOnnxSpeechSynthesizerEngine_CreateSessionAsync_LeaseAlreadyHeld_ThrowsSynthesisEngineBusyException
+              - SherpaOnnxSpeechSynthesizerEngine_CreateSessionAsync_AfterPriorSessionDisposed_SucceedsAgain
+              - SherpaOnnxSpeechSynthesizerEngine_DisposeAsync_WithActiveLeasedSession_DisposesSessionFirst
 
           - id: Speech-Synthesis-Composition
             title: >-
-              The SynthesisSubsystem shall compose a speech synthesizer for an installed
-              synthesis model and an audio playback device without ever throwing for an ordinary
-              machine state, while validating any supplied parameterValues up front: silently
-              ignoring an unrecognized parameter id (an ordinary cross-model-compatibility gap)
-              but throwing ArgumentException for a recognized parameter's invalid value (a caller
-              bug, not an ordinary machine state).
+              The SynthesisSubsystem shall asynchronously compose a speech synthesis engine for
+              an installed synthesis model without ever throwing for an ordinary machine state,
+              while validating any supplied parameterValues up front: silently ignoring an
+              unrecognized parameter id (an ordinary cross-model-compatibility gap) but throwing
+              ArgumentException for a recognized parameter's invalid value (a caller bug, not an
+              ordinary machine state).
             justification: |
               Composition happens at application start-up, where a model that has not been
-              downloaded yet, a machine with no speakers, and a machine without the speech
-              engine's native runtime are all ordinary states rather than programming errors, per
-              this library's "nothing throws at composition" decision. A caller explicitly
-              targeting a parameter it knows this model declares, with a value invalid for it, is
-              a distinct case - a programming error at the call site - so it must be surfaced
-              synchronously and loudly rather than folded into the same never-throw contract as
-              genuine machine-state unavailability.
+              downloaded yet and a machine without the speech engine's native runtime are both
+              ordinary states rather than programming errors, per this library's "nothing throws
+              at composition" decision. Composition no longer depends on playback-device
+              availability, since LoadAsync produces a Layer 3 engine not yet bound to any
+              device. A caller explicitly targeting a parameter it knows this model declares,
+              with a value invalid for it, is a distinct case - a programming error at the call
+              site - so it must be surfaced synchronously and loudly rather than folded into the
+              same never-throw contract as genuine machine-state unavailability.
             children:
-              - Speech-Synthesis-SpeechSynthesizerFactory-RealSynthesizer
+              - Speech-Synthesis-SpeechSynthesizerFactory-RealEngine
               - Speech-Synthesis-SpeechSynthesizerFactory-HonestFallbacks
               - Speech-Synthesis-SpeechSynthesizerFactory-EngineLoadFailureFallback
-              - Speech-Synthesis-SpeechSynthesizerFactory-ArgumentValidation
+              - Speech-Synthesis-SpeechSynthesizerFactory-ArgumentValidationAndCancellation
               - Speech-Synthesis-SpeechSynthesizerFactory-UnrecognizedParameterIdIgnored
               - Speech-Synthesis-SpeechSynthesizerFactory-InvalidRecognizedParameterValueThrows
-              - Speech-Synthesis-SynthesisEngine-MockableSeam
-              - Speech-Synthesis-SynthesisEngine-ModelOwnedConfiguration
+              - Speech-Synthesis-SynthesisBackend-MockableSeam
+              - Speech-Synthesis-SynthesisBackend-ModelOwnedConfiguration
             tests:
-              - SpeechSynthesizerFactory_Create_ModelInstalledAndDeviceAvailable_ReturnsRealSynthesizer
-              - SpeechSynthesizerFactory_Create_ModelNotInstalled_ReturnsUnavailableSynthesizer
-              - SpeechSynthesizerFactory_Create_PlaybackDeviceUnavailable_ReturnsUnavailableSynthesizer
-              - SpeechSynthesizerFactory_Create_UnrecognizedParameterId_ComposesAndReportsInfo
-              - SpeechSynthesizerFactory_Create_RecognizedNumericParameterOutOfRange_Throws
+              - SpeechSynthesizerFactory_LoadAsync_ModelInstalled_ReturnsRealEngine
+              - SpeechSynthesizerFactory_LoadAsync_ModelNotInstalled_ReturnsUnavailableEngine
+              - SpeechSynthesizerFactory_LoadAsync_CancelledToken_ThrowsOperationCanceledException
+              - SpeechSynthesizerFactory_LoadAsync_UnrecognizedParameterId_ComposesAndReportsInfo
+              - SpeechSynthesizerFactory_LoadAsync_RecognizedNumericParameterOutOfRange_Throws
 
           - id: Speech-Synthesis-VoiceSelection
             title: >-
               The SynthesisSubsystem shall thread an optional, session-level parameterValues bag
-              from SpeechSynthesizerFactory.Create through to SherpaOnnxSpeechSynthesizer, which
+              from SpeechSynthesizerFactory.LoadAsync through to SherpaOnnxSynthesisSession, which
               shall resolve a real speaker id from it via ISynthesisModel.ResolveSpeakerId once
               per synthesized segment, replacing a previously hard-coded speakerId: 0, without
               regressing the independent, per-segment Natural Language Audio Tag speed/volume
               override mechanism.
             justification: |
               Phase 7b shipped the library's first real ISynthesisModel but left voice/speaker
-              selection entirely out of scope: GenerateSegment hard-coded speakerId: 0
+              selection entirely out of scope: segment generation hard-coded speakerId: 0
               regardless of any model-declared voice parameter, so a model such as
               SherpaOnnxKokoroEnglishSynthesisModel's 11-voice ChoiceParameter had no real path
               to change synthesized output. This requirement closes that gap for any model that
@@ -154,21 +191,21 @@ sections:
               per-segment speed/volume convention correctly independent of each other.
             children:
               - Speech-Synthesis-SpeechSynthesizerFactory-ParameterValuesForwarding
-              - Speech-Synthesis-SherpaOnnxSpeechSynthesizer-SpeakerSelection
+              - Speech-Synthesis-SherpaOnnxSynthesisSession-SpeakerSelection
             tests:
-              - SpeechSynthesizerFactory_Create_ParameterValuesSupplied_ForwardedToSynthesizer
-              - SynthesizeStreamAsync_NoParameterValues_ResolvesDefaultSpeakerIdFromModel
-              - SynthesizeStreamAsync_ParameterValuesSupplied_ResolvesSpeakerIdFromBag
-              - SynthesizeStreamAsync_ParameterValuesSuppliedAlongsideSpeedTag_BothMechanismsApplyIndependently
+              - SpeechSynthesizerFactory_LoadAsync_ParameterValuesSupplied_ForwardedToEngine
+              - SherpaOnnxSynthesisSession_SynthesizeAsync_NoParameterValues_ResolvesDefaultSpeakerIdFromModel
+              - SherpaOnnxSynthesisSession_SynthesizeAsync_ParameterValuesSupplied_ResolvesSpeakerIdFromBag
+              - SherpaOnnxSynthesisSession_SynthesizeAsync_ParameterValuesSuppliedAlongsideSpeedTag_BothMechanismsApplyIndependently
 
           - id: Speech-Synthesis-ChunkedPipeline
             title: >-
               The SynthesisSubsystem shall chunk synthesis-ready text into sentence/clause-sized
               pieces and synthesize a later chunk while an earlier chunk is still playing.
             justification: |
-              The design requires low-latency streaming synthesis where playback of an early
-              chunk begins while later chunks are still being synthesized, rather than a caller
-              waiting for an entire utterance's inference to complete before hearing anything.
+              The design requires low-latency synthesis where playback of an early chunk begins
+              while later chunks are still being synthesized, rather than a caller waiting for an
+              entire utterance's inference to complete before hearing anything.
             children:
               - Speech-Synthesis-SentenceChunker-BoundarySplitting
               - Speech-Synthesis-SentenceChunker-BoundaryHandling
@@ -176,50 +213,94 @@ sections:
               - Speech-Synthesis-SentenceChunker-ConsecutiveBoundaryMerging
               - Speech-Synthesis-SentenceChunker-DegeneratePunctuationMerging
               - Speech-Synthesis-SentenceChunker-EllipsisMetadata
-              - Speech-Synthesis-SherpaOnnxSpeechSynthesizer-ChunkedPipeline
-              - Speech-Synthesis-SherpaOnnxSpeechSynthesizer-PipelinedPlayback
-              - Speech-Synthesis-SherpaOnnxSpeechSynthesizer-GenuinePlaybackDrainWait
+              - Speech-Synthesis-SherpaOnnxSynthesisSession-ChunkedPipeline
+              - Speech-Synthesis-SherpaOnnxSynthesisSession-FullFidelitySegmentList
+              - Speech-Synthesis-SherpaOnnxSynthesisSession-PipelinedPlayback
+              - Speech-Synthesis-SherpaOnnxSynthesisSession-GenuinePlaybackDrainWait
               - Speech-Synthesis-PlaybackAudioResampler-RateConversion
               - Speech-Synthesis-PlaybackAudioResampler-Upmix
               - Speech-Synthesis-PlaybackAudioResampler-Composition
             tests:
               - SentenceChunker_Chunk_MultipleSentences_SplitsOnPrimaryBoundaries
-              - PlayStreamAsync_OrderedSegments_StartsWritesInOrderAndStops
-              - SynthesizeStreamAsync_LongMultiSentenceInput_ProducesOrderedSegmentsSequentially
+              - SherpaOnnxSynthesisSession_SpeakAsync_PlainText_StartsWritesAndStopsDevice
+              - SherpaOnnxSynthesisSession_SynthesizeAsync_LongMultiSentenceInput_ProducesOrderedSegmentsSequentially
+              - SherpaOnnxSynthesisSession_SynthesizeAsync_ReturnsFullFidelitySegmentListIncludingSilence
+
+          - id: Speech-Synthesis-SessionOverlapAndLifecycle
+            title: >-
+              The SynthesisSubsystem shall reject an overlapping SpeakAsync/SynthesizeAsync call
+              on a session already performing one, raise an observable lifecycle state machine
+              over each operation, and make a faulted session's terminal state unrecoverable.
+            justification: |
+              Each ISynthesisSession drives exactly one in-flight native synthesis call and one
+              playback stream at a time; the design document's state diagram documents
+              Starting/Running/Stopping as denoting one in-flight operation rather than a
+              continuous stream, so a host can correctly render a "speaking" indicator and must
+              be told, synchronously and unambiguously, when it has attempted to start a second
+              operation before the first has finished, or when it must discard and replace a
+              session whose underlying native state is no longer trustworthy after a fault.
+            children:
+              - Speech-Synthesis-SherpaOnnxSynthesisSession-OverlapNotAllowed
+              - Speech-Synthesis-SherpaOnnxSynthesisSession-StateMachine
+              - Speech-Synthesis-SherpaOnnxSynthesisSession-HotReuse
+              - Speech-Synthesis-SherpaOnnxSynthesisSession-FaultedIsTerminal
+              - Speech-Synthesis-SynthesisSessionFaultedException-Thrown
+            tests:
+              - SherpaOnnxSynthesisSession_SpeakAsync_CalledWhileAlreadySpeaking_ThrowsInvalidOperationException
+              - SherpaOnnxSynthesisSession_StateChanged_OneSuccessfulOperation_RaisesExpectedTransitionsInOrder
+              - SherpaOnnxSynthesisSession_SpeakAsync_CalledTwiceOnSameInstance_ReusesSameInstanceWithoutReconstruction
+              - SherpaOnnxSynthesisSession_SynthesizeAsync_AfterFault_ThrowsSynthesisSessionFaultedException
 
           - id: Speech-Synthesis-FaultContainment
             title: >-
               The SynthesisSubsystem shall contain and report faults raised while synthesizing or
               playing speech, and shall support deterministic cancellation of an in-flight speak
-              session, rather than hanging or crashing the process.
+              operation - including a dedicated-worker cooperative-cancel-then-abandon policy for
+              a native call that does not itself observe cancellation promptly - rather than
+              hanging or crashing the process.
             justification: |
               A model that fails mid-utterance, a dropped playback device, or a user interrupting
-              speech (barge-in) are all ordinary events during a long-running synthesis session
-              and must never leave the caller's task hanging or tear down the process, per
-              this library's fault-containment requirements mirrored from the recognition
-              direction.
+              speech (barge-in) are all ordinary events during a synthesis operation and must
+              never leave the caller's task hanging or tear down the process, per this library's
+              fault-containment requirements mirrored from the recognition direction. A native
+              call is not guaranteed to honor .NET cancellation tokens at all, so the dedicated
+              worker must bound how long a caller can be blocked by one.
             children:
-              - Speech-Synthesis-SherpaOnnxSpeechSynthesizer-FaultContainment
-              - Speech-Synthesis-SherpaOnnxSpeechSynthesizer-CancellationAndLifecycle
+              - Speech-Synthesis-SherpaOnnxSynthesisSession-FaultContainment
+              - Speech-Synthesis-SherpaOnnxSynthesisSession-CancellationAndLifecycle
+              - Speech-Synthesis-DedicatedWorker-CooperativeCancellation
+              - Speech-Synthesis-DedicatedWorker-NonCooperativeAbandonment
+              - Speech-Synthesis-DedicatedWorker-LongRunningExecution
             tests:
-              - SynthesizeStreamAsync_EngineThrows_ReportsFaultAndPropagatesToCaller
-              - Stop_WhileSpeaking_CancelsInFlightSessionOnlyAfterInFlightGenerateReturns
+              - SherpaOnnxSynthesisSession_SynthesizeAsync_BackendThrows_ReportsFaultAndTransitionsToFaulted
+              - SherpaOnnxSynthesisSession_StopAsync_WhileSpeaking_DoesNotCompleteUntilInFlightGenerateReturns
+              - DedicatedWorker_Run_CooperativeCancellation_CompletesPromptly
+              - DedicatedWorker_Run_NonCooperativeDelegate_AbandonsAfterTimeoutAndReportsDiagnostics
 
           - id: Speech-Synthesis-UnavailableFallback
             title: >-
-              The SynthesisSubsystem shall provide an honest unavailable synthesizer that reports
-              unavailability rather than throwing, and throws a documented exception only when an
-              operational member is actually invoked.
+              The SynthesisSubsystem shall provide an honest unavailable engine and an honest
+              unavailable session that report unavailability rather than throwing merely for
+              being obtained or held, and throw a documented exception only when an operational
+              member is actually invoked.
             justification: |
-              Per this library's "nothing throws at composition" decision, obtaining and
-              holding a fallback synthesizer must never throw; only misuse of an already
-              unavailable synthesizer is a programming error that should surface as an exception.
+              Per this library's "nothing throws at composition" decision, obtaining and holding
+              a fallback engine or session must never throw; only misuse of an already
+              unavailable engine or session is a programming error that should surface as an
+              exception. Binding a device to an already unavailable engine via CreateSessionAsync
+              is itself an ordinary (if useless) composition rather than an error.
             children:
-              - Speech-Synthesis-UnavailableSpeechSynthesizer-ReportsUnavailable
-              - Speech-Synthesis-UnavailableSpeechSynthesizer-OperationsThrow
-              - Speech-Synthesis-UnavailableSpeechSynthesizer-SafeDispose
+              - Speech-Synthesis-UnavailableSpeechSynthesizerEngine-ReportsUnavailable
+              - Speech-Synthesis-UnavailableSpeechSynthesizerEngine-CreateSessionSucceeds
+              - Speech-Synthesis-UnavailableSpeechSynthesizerEngine-OperationsThrow
+              - Speech-Synthesis-UnavailableSpeechSynthesizerEngine-SafeDispose
+              - Speech-Synthesis-UnavailableSynthesisSession-ReportsUnavailable
+              - Speech-Synthesis-UnavailableSynthesisSession-OperationsThrow
+              - Speech-Synthesis-UnavailableSynthesisSession-SafeDispose
               - Speech-Synthesis-SpeechSynthesizerUnavailableException-Thrown
             tests:
-              - UnavailableSpeechSynthesizer_IsAvailable_Read_ReturnsFalse
-              - UnavailableSpeechSynthesizer_SynthesizeStreamAsync_Always_ThrowsSpeechSynthesizerUnavailableException
-              - UnavailableSpeechSynthesizer_Stop_Always_ThrowsSpeechSynthesizerUnavailableException
+              - UnavailableSpeechSynthesizerEngine_IsAvailable_Read_ReturnsFalse
+              - UnavailableSpeechSynthesizerEngine_CreateSessionAsync_Always_ReturnsUnavailableSession
+              - UnavailableSpeechSynthesizerEngine_SpeakAsync_Always_ThrowsSpeechSynthesizerUnavailableException
+              - UnavailableSynthesisSession_SpeakAsync_Always_ThrowsSpeechSynthesizerUnavailableException
+              - UnavailableSynthesisSession_State_Read_ReturnsCreated

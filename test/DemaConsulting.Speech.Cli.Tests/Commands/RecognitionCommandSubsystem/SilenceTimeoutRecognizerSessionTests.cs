@@ -24,281 +24,26 @@ namespace DemaConsulting.Speech.Cli.Tests.Commands.RecognitionCommandSubsystem;
 
 /// <summary>
 ///     Unit tests for <see cref="SilenceTimeoutRecognizerSession"/>, using
-///     <see cref="FakeSpeechRecognizer"/> and <see cref="FakeTimeProvider"/> so every scenario
+///     <see cref="FakeRecognitionSession"/> and <see cref="FakeTimeProvider"/> so every scenario
 ///     runs deterministically with no real wall-clock delay.
 /// </summary>
+/// <remarks>
+///     <see cref="SilenceTimeoutRecognizerSession"/> is a stateless <c>async</c>-iterator
+///     decorator with no background thread and no <see cref="IDisposable"/>/<see cref="IAsyncDisposable"/>
+///     surface, so (unlike the previous synchronous, thread-based implementation) there are no
+///     thread-race or disposal-ordering scenarios to cover here. Each test drives the decorator by
+///     obtaining its <see cref="IAsyncEnumerator{T}"/> directly and calling
+///     <c>MoveNextAsync()</c> without immediately awaiting it: per the type's own remarks, the
+///     compiler-generated iterator runs synchronously up to its first genuine suspension point
+///     (the race between the inner session's next result and the idle-timeout delay), so
+///     <see cref="FakeTimeProvider.LastTimer"/> is already armed by the time the unawaited
+///     <c>ValueTask</c> is returned.
+/// </remarks>
 public sealed class SilenceTimeoutRecognizerSessionTests
 {
-    /// <summary>Test that construction arms the idle timer once, with the given timeout.</summary>
+    /// <summary>Test that a null session is rejected.</summary>
     [Fact]
-    public void SilenceTimeoutRecognizerSession_Construct_ArmsTimerWithGivenTimeout()
-    {
-        var recognizer = new FakeSpeechRecognizer();
-        var timeProvider = new FakeTimeProvider();
-
-        using var session = new SilenceTimeoutRecognizerSession(recognizer, TimeSpan.FromSeconds(5), timeProvider);
-
-        Assert.NotNull(timeProvider.LastTimer);
-        Assert.Equal(1, timeProvider.LastTimer.ChangeCallCount);
-        Assert.Equal(TimeSpan.FromSeconds(5), timeProvider.LastTimer.LastDueTime);
-    }
-
-    /// <summary>Test that a partial (non-final) result re-arms the idle timer.</summary>
-    [Fact]
-    public void SilenceTimeoutRecognizerSession_PartialResultReceived_ResetsIdleTimer()
-    {
-        var recognizer = new FakeSpeechRecognizer();
-        var timeProvider = new FakeTimeProvider();
-        using var session = new SilenceTimeoutRecognizerSession(recognizer, TimeSpan.FromSeconds(5), timeProvider);
-
-        recognizer.RaiseResult("hel", isFinal: false);
-
-        Assert.Equal(2, timeProvider.LastTimer!.ChangeCallCount);
-    }
-
-    /// <summary>Test that a final result re-arms the idle timer.</summary>
-    [Fact]
-    public void SilenceTimeoutRecognizerSession_FinalResultReceived_ResetsIdleTimer()
-    {
-        var recognizer = new FakeSpeechRecognizer();
-        var timeProvider = new FakeTimeProvider();
-        using var session = new SilenceTimeoutRecognizerSession(recognizer, TimeSpan.FromSeconds(5), timeProvider);
-
-        recognizer.RaiseResult("hello", isFinal: true);
-
-        Assert.Equal(2, timeProvider.LastTimer!.ChangeCallCount);
-    }
-
-    /// <summary>Test that the idle timer firing with no reset stops the recognizer and raises TimedOut.</summary>
-    [Fact]
-    public void SilenceTimeoutRecognizerSession_IdleTimerFires_StopsRecognizerAndRaisesTimedOut()
-    {
-        var recognizer = new FakeSpeechRecognizer();
-        var timeProvider = new FakeTimeProvider();
-        using var session = new SilenceTimeoutRecognizerSession(recognizer, TimeSpan.FromSeconds(5), timeProvider);
-        var timedOutRaised = false;
-        session.TimedOut += (_, _) => timedOutRaised = true;
-
-        timeProvider.LastTimer!.Fire();
-
-        Assert.Equal(1, recognizer.StopCallCount);
-        Assert.True(timedOutRaised);
-    }
-
-    /// <summary>Test that resetting before the timer fires prevents a stale timeout from acting (defensive: a later Fire still only calls Stop once here since the fake never auto-cancels a prior "due" state, so this proves the reset call count increased and Stop still reflects a genuine Fire call).</summary>
-    [Fact]
-    public void SilenceTimeoutRecognizerSession_ResetThenFire_StopsOnlyOnActualFire()
-    {
-        var recognizer = new FakeSpeechRecognizer();
-        var timeProvider = new FakeTimeProvider();
-        using var session = new SilenceTimeoutRecognizerSession(recognizer, TimeSpan.FromSeconds(5), timeProvider);
-
-        recognizer.RaiseResult("still talking", isFinal: false);
-        Assert.Equal(0, recognizer.StopCallCount);
-
-        timeProvider.LastTimer!.Fire();
-        Assert.Equal(1, recognizer.StopCallCount);
-    }
-
-    /// <summary>Test that Dispose unsubscribes and disposes the timer, and is idempotent.</summary>
-    [Fact]
-    public void SilenceTimeoutRecognizerSession_Dispose_UnsubscribesAndDisposesTimer()
-    {
-        var recognizer = new FakeSpeechRecognizer();
-        var timeProvider = new FakeTimeProvider();
-        var session = new SilenceTimeoutRecognizerSession(recognizer, TimeSpan.FromSeconds(5), timeProvider);
-
-        session.Dispose();
-        session.Dispose();
-
-        Assert.True(timeProvider.LastTimer!.IsDisposed);
-
-        // A result raised after disposal must not re-arm the (now disposed) timer.
-        var changeCallCountAfterDispose = timeProvider.LastTimer.ChangeCallCount;
-        recognizer.RaiseResult("late", isFinal: true);
-        Assert.Equal(changeCallCountAfterDispose, timeProvider.LastTimer.ChangeCallCount);
-    }
-
-    /// <summary>
-    ///     Test that a timer fire racing a concurrent <see cref="SilenceTimeoutRecognizerSession.Dispose"/>
-    ///     call (simulated deterministically: dispose first, then invoke the callback the fake
-    ///     timer would otherwise have fired) does not call <c>Stop()</c> or raise <c>TimedOut</c>
-    ///     on the already-disposed session.
-    /// </summary>
-    [Fact]
-    public void SilenceTimeoutRecognizerSession_FireAfterDispose_DoesNotCallStopOrRaiseTimedOut()
-    {
-        var recognizer = new FakeSpeechRecognizer();
-        var timeProvider = new FakeTimeProvider();
-        var session = new SilenceTimeoutRecognizerSession(recognizer, TimeSpan.FromSeconds(5), timeProvider);
-        var timedOutRaised = false;
-        session.TimedOut += (_, _) => timedOutRaised = true;
-
-        session.Dispose();
-        timeProvider.LastTimer!.Fire();
-
-        Assert.Equal(0, recognizer.StopCallCount);
-        Assert.False(timedOutRaised);
-    }
-
-    /// <summary>
-    ///     Test that many rounds of a concurrent recognizer result event racing a concurrent
-    ///     <see cref="SilenceTimeoutRecognizerSession.Dispose"/> call - on two genuine background
-    ///     threads, released simultaneously via a <see cref="Barrier"/> - never throws (in
-    ///     particular, never lets <c>ObjectDisposedException</c> escape from the disposed timer),
-    ///     regardless of which thread wins the race.
-    /// </summary>
-    [Fact]
-    public void SilenceTimeoutRecognizerSession_ConcurrentResultReceivedAndDispose_DoesNotThrow()
-    {
-        var iterationsCompleted = 0;
-        for (var i = 0; i < 200; i++)
-        {
-            var recognizer = new FakeSpeechRecognizer();
-            var timeProvider = new FakeTimeProvider();
-            var session = new SilenceTimeoutRecognizerSession(recognizer, TimeSpan.FromSeconds(5), timeProvider);
-
-            using var barrier = new Barrier(2);
-            var disposeThread = new Thread(() =>
-            {
-                barrier.SignalAndWait();
-                session.Dispose();
-            });
-            var resultThread = new Thread(() =>
-            {
-                barrier.SignalAndWait();
-                recognizer.RaiseResult("still talking", isFinal: false);
-            });
-
-            disposeThread.Start();
-            resultThread.Start();
-            disposeThread.Join();
-            resultThread.Join();
-            iterationsCompleted++;
-        }
-
-        Assert.Equal(200, iterationsCompleted);
-    }
-
-    /// <summary>
-    ///     Test that many rounds of a concurrent idle-timer fire racing a concurrent
-    ///     <see cref="SilenceTimeoutRecognizerSession.Dispose"/> call - on two genuine background
-    ///     threads, released simultaneously via a <see cref="Barrier"/> - never throws, and the
-    ///     recognizer's <c>Stop()</c> is called at most once regardless of which thread wins the
-    ///     race (proving the idle-timer callback never acts after disposal has already
-    ///     completed, and never races a half-torn-down session).
-    /// </summary>
-    [Fact]
-    public void SilenceTimeoutRecognizerSession_ConcurrentTimerFireAndDispose_DoesNotThrowOrActTwice()
-    {
-        for (var i = 0; i < 200; i++)
-        {
-            var recognizer = new FakeSpeechRecognizer();
-            var timeProvider = new FakeTimeProvider();
-            var session = new SilenceTimeoutRecognizerSession(recognizer, TimeSpan.FromSeconds(5), timeProvider);
-            var timer = timeProvider.LastTimer!;
-
-            using var barrier = new Barrier(2);
-            var disposeThread = new Thread(() =>
-            {
-                barrier.SignalAndWait();
-                session.Dispose();
-            });
-            var fireThread = new Thread(() =>
-            {
-                barrier.SignalAndWait();
-                timer.Fire();
-            });
-
-            disposeThread.Start();
-            fireThread.Start();
-            disposeThread.Join();
-            fireThread.Join();
-
-            Assert.InRange(recognizer.StopCallCount, 0, 1);
-        }
-    }
-
-    /// <summary>
-    ///     Test that the idle timer firing does not deadlock when <c>Stop()</c> blocks waiting
-    ///     for a background decode thread that itself raises <c>ResultReceived</c> (mirroring the
-    ///     real recognizer's own "Stop() drains in-flight audio" contract) - proving the session's
-    ///     idle-timer callback no longer holds a lock across <c>Stop()</c> that the reentrant
-    ///     <c>ResultReceived</c> handler also needs.
-    /// </summary>
-    [Fact]
-    public void SilenceTimeoutRecognizerSession_StopBlocksOnReentrantResultReceived_DoesNotDeadlock()
-    {
-        var recognizer = new FakeSpeechRecognizer();
-        var timeProvider = new FakeTimeProvider();
-        using var session = new SilenceTimeoutRecognizerSession(recognizer, TimeSpan.FromSeconds(5), timeProvider);
-
-        recognizer.OnStop = _ =>
-        {
-            // Simulate the real recognizer's background decode thread draining already-captured
-            // audio during Stop() and raising a result from that separate thread, blocking Stop()
-            // until it has been fully handled - the exact interleaving that deadlocks if the idle
-            // callback still holds its lock while calling Stop().
-            var decodeThread = new Thread(() => recognizer.RaiseResult("draining", isFinal: true));
-            decodeThread.Start();
-            decodeThread.Join();
-        };
-
-        var idleThread = new Thread(() => timeProvider.LastTimer!.Fire());
-        idleThread.Start();
-
-        Assert.True(idleThread.Join(TimeSpan.FromSeconds(10)), "OnIdle deadlocked against the reentrant ResultReceived raised from Stop().");
-        Assert.Equal(1, recognizer.StopCallCount);
-    }
-
-    /// <summary>
-    ///     Test that <see cref="SilenceTimeoutRecognizerSession.Dispose"/> waits for an in-flight
-    ///     idle-timer callback's <c>Stop()</c> call and <c>TimedOut</c> raise to finish before
-    ///     returning, even though that callback no longer holds its lock while making them - so a
-    ///     caller can safely tear down state a <c>TimedOut</c> handler depends on (for example a
-    ///     synchronization primitive) immediately after <c>Dispose()</c> returns.
-    /// </summary>
-    [Fact]
-    public void SilenceTimeoutRecognizerSession_DisposeDuringInFlightTimedOut_WaitsForTimedOutToComplete()
-    {
-        var recognizer = new FakeSpeechRecognizer();
-        var timeProvider = new FakeTimeProvider();
-        var session = new SilenceTimeoutRecognizerSession(recognizer, TimeSpan.FromSeconds(5), timeProvider);
-
-        using var stopCallStarted = new ManualResetEventSlim(initialState: false);
-        using var releaseStopCall = new ManualResetEventSlim(initialState: false);
-        var timedOutHandlerRan = false;
-        recognizer.OnStop = _ =>
-        {
-            stopCallStarted.Set();
-            releaseStopCall.Wait();
-        };
-        session.TimedOut += (_, _) => timedOutHandlerRan = true;
-
-        // Fire the idle timer on a background thread; it will block inside Stop() until this
-        // test thread releases it below.
-        var idleThread = new Thread(() => timeProvider.LastTimer!.Fire());
-        idleThread.Start();
-        Assert.True(stopCallStarted.Wait(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken), "OnIdle never reached Stop().");
-
-        // Start Dispose() concurrently while OnIdle is still blocked inside Stop(); it must not
-        // return until Stop() unblocks and TimedOut has been raised.
-        var disposeThread = new Thread(session.Dispose);
-        disposeThread.Start();
-        Assert.False(disposeThread.Join(TimeSpan.FromMilliseconds(200)), "Dispose() returned while TimedOut was still in flight.");
-
-        releaseStopCall.Set();
-
-        Assert.True(disposeThread.Join(TimeSpan.FromSeconds(10)), "Dispose() never returned after Stop() was unblocked.");
-        Assert.True(idleThread.Join(TimeSpan.FromSeconds(10)));
-        Assert.True(timedOutHandlerRan);
-    }
-
-    /// <summary>
-    ///     Test that a null recognizer is rejected.
-    /// </summary>
-    [Fact]
-    public void SilenceTimeoutRecognizerSession_Construct_NullRecognizer_ThrowsArgumentNullException()
+    public void SilenceTimeoutRecognizerSession_Construct_NullSession_ThrowsArgumentNullException()
     {
         Assert.Throws<ArgumentNullException>(
             () => new SilenceTimeoutRecognizerSession(null!, TimeSpan.FromSeconds(5), new FakeTimeProvider()));
@@ -306,124 +51,205 @@ public sealed class SilenceTimeoutRecognizerSessionTests
 
     /// <summary>Test that a non-positive idle timeout is rejected.</summary>
     [Fact]
-    public void SilenceTimeoutRecognizerSession_Construct_NonPositiveTimeout_ThrowsArgumentOutOfRangeException()
+    public void SilenceTimeoutRecognizerSession_Construct_NonPositiveIdleTimeout_ThrowsArgumentOutOfRangeException()
     {
-        var recognizer = new FakeSpeechRecognizer();
+        var session = new FakeRecognitionSession();
+
         Assert.Throws<ArgumentOutOfRangeException>(
-            () => new SilenceTimeoutRecognizerSession(recognizer, TimeSpan.Zero, new FakeTimeProvider()));
+            () => new SilenceTimeoutRecognizerSession(session, TimeSpan.Zero, new FakeTimeProvider()));
     }
 
-    /// <summary>Test that a null timeProvider defaults to TimeProvider.System without throwing.</summary>
-    [Fact]
-    public void SilenceTimeoutRecognizerSession_Construct_NullTimeProvider_UsesSystemTimeProvider()
-    {
-        var recognizer = new FakeSpeechRecognizer();
-
-        using var session = new SilenceTimeoutRecognizerSession(recognizer, TimeSpan.FromMinutes(10));
-
-        // Constructing does not throw and does not itself call Stop/dispose prematurely.
-        Assert.Equal(0, recognizer.StopCallCount);
-    }
-
-    /// <summary>Test that construction arms the idle timer with idleTimeout when startTimeout is omitted.</summary>
-    [Fact]
-    public void SilenceTimeoutRecognizerSession_Construct_StartTimeoutOmitted_ArmsTimerWithSilenceTimeout()
-    {
-        var recognizer = new FakeSpeechRecognizer();
-        var timeProvider = new FakeTimeProvider();
-
-        using var session = new SilenceTimeoutRecognizerSession(recognizer, TimeSpan.FromSeconds(7), timeProvider);
-
-        Assert.NotNull(timeProvider.LastTimer);
-        Assert.Equal(1, timeProvider.LastTimer.ChangeCallCount);
-        Assert.Equal(TimeSpan.FromSeconds(7), timeProvider.LastTimer.LastDueTime);
-    }
-
-    /// <summary>Test that construction arms the idle timer with the distinct startTimeout value when given.</summary>
-    [Fact]
-    public void SilenceTimeoutRecognizerSession_Construct_StartTimeoutGiven_ArmsTimerWithStartTimeout()
-    {
-        var recognizer = new FakeSpeechRecognizer();
-        var timeProvider = new FakeTimeProvider();
-
-        using var session = new SilenceTimeoutRecognizerSession(
-            recognizer,
-            TimeSpan.FromSeconds(5),
-            timeProvider,
-            startTimeout: TimeSpan.FromSeconds(2));
-
-        Assert.NotNull(timeProvider.LastTimer);
-        Assert.Equal(TimeSpan.FromSeconds(2), timeProvider.LastTimer.LastDueTime);
-    }
-
-    /// <summary>Test that the first result received re-arms the timer with idleTimeout, not startTimeout.</summary>
-    [Fact]
-    public void SilenceTimeoutRecognizerSession_FirstResultReceived_ReArmsWithSilenceTimeoutNotStartTimeout()
-    {
-        var recognizer = new FakeSpeechRecognizer();
-        var timeProvider = new FakeTimeProvider();
-        using var session = new SilenceTimeoutRecognizerSession(
-            recognizer,
-            TimeSpan.FromSeconds(5),
-            timeProvider,
-            startTimeout: TimeSpan.FromSeconds(2));
-
-        recognizer.RaiseResult("hel", isFinal: false);
-
-        Assert.Equal(TimeSpan.FromSeconds(5), timeProvider.LastTimer!.LastDueTime);
-    }
-
-    /// <summary>Test that a second result received stays re-armed with idleTimeout.</summary>
-    [Fact]
-    public void SilenceTimeoutRecognizerSession_SecondResultReceived_StaysOnSilenceTimeout()
-    {
-        var recognizer = new FakeSpeechRecognizer();
-        var timeProvider = new FakeTimeProvider();
-        using var session = new SilenceTimeoutRecognizerSession(
-            recognizer,
-            TimeSpan.FromSeconds(5),
-            timeProvider,
-            startTimeout: TimeSpan.FromSeconds(2));
-
-        recognizer.RaiseResult("hel", isFinal: false);
-        recognizer.RaiseResult("hello", isFinal: true);
-
-        Assert.Equal(TimeSpan.FromSeconds(5), timeProvider.LastTimer!.LastDueTime);
-        Assert.Equal(3, timeProvider.LastTimer.ChangeCallCount);
-    }
-
-    /// <summary>Test that the idle timer firing before any result uses startTimeout to stop the recognizer.</summary>
-    [Fact]
-    public void SilenceTimeoutRecognizerSession_IdleTimerFiresBeforeFirstResult_StopsRecognizerAndRaisesTimedOut()
-    {
-        var recognizer = new FakeSpeechRecognizer();
-        var timeProvider = new FakeTimeProvider();
-        using var session = new SilenceTimeoutRecognizerSession(
-            recognizer,
-            TimeSpan.FromSeconds(5),
-            timeProvider,
-            startTimeout: TimeSpan.FromSeconds(2));
-        var timedOutRaised = false;
-        session.TimedOut += (_, _) => timedOutRaised = true;
-
-        timeProvider.LastTimer!.Fire();
-
-        Assert.Equal(1, recognizer.StopCallCount);
-        Assert.True(timedOutRaised);
-    }
-
-    /// <summary>Test that a non-positive startTimeout is rejected.</summary>
+    /// <summary>Test that a non-positive start timeout is rejected.</summary>
     [Fact]
     public void SilenceTimeoutRecognizerSession_Construct_NonPositiveStartTimeout_ThrowsArgumentOutOfRangeException()
     {
-        var recognizer = new FakeSpeechRecognizer();
-        var timeProvider = new FakeTimeProvider();
+        var session = new FakeRecognitionSession();
 
         Assert.Throws<ArgumentOutOfRangeException>(
             () => new SilenceTimeoutRecognizerSession(
-                recognizer,
+                session,
                 TimeSpan.FromSeconds(5),
-                timeProvider,
+                new FakeTimeProvider(),
                 startTimeout: TimeSpan.Zero));
+    }
+
+    /// <summary>Test that a null time provider is accepted, defaulting to the system clock.</summary>
+    [Fact]
+    public void SilenceTimeoutRecognizerSession_Construct_NullTimeProvider_DoesNotThrow()
+    {
+        var session = new FakeRecognitionSession();
+
+        var exception = Record.Exception(() => new SilenceTimeoutRecognizerSession(session, TimeSpan.FromMinutes(10)));
+
+        Assert.Null(exception);
+    }
+
+    /// <summary>Test that enumeration, with no start timeout given, arms the idle timer with the idle timeout.</summary>
+    [Fact]
+    public async Task SilenceTimeoutRecognizerSession_GetResultsAsync_StartTimeoutOmitted_ArmsTimerWithIdleTimeout()
+    {
+        var session = new FakeRecognitionSession();
+        var timeProvider = new FakeTimeProvider();
+        var wrapper = new SilenceTimeoutRecognizerSession(session, TimeSpan.FromSeconds(7), timeProvider);
+
+        using var cts = new CancellationTokenSource();
+        await using var enumerator = wrapper.GetResultsAsync(cts.Token).GetAsyncEnumerator(cts.Token);
+        var moveNextTask = enumerator.MoveNextAsync();
+
+        Assert.NotNull(timeProvider.LastTimer);
+        Assert.Equal(TimeSpan.FromSeconds(7), timeProvider.LastTimer.LastDueTime);
+
+        // Drain cleanly so the pending move-next settles before the test ends.
+        await session.StopAsync(TestContext.Current.CancellationToken);
+        Assert.False(await moveNextTask);
+    }
+
+    /// <summary>Test that enumeration, with a start timeout given, arms the idle timer with the start timeout.</summary>
+    [Fact]
+    public async Task SilenceTimeoutRecognizerSession_GetResultsAsync_StartTimeoutGiven_ArmsTimerWithStartTimeout()
+    {
+        var session = new FakeRecognitionSession();
+        var timeProvider = new FakeTimeProvider();
+        var wrapper = new SilenceTimeoutRecognizerSession(
+            session,
+            TimeSpan.FromSeconds(5),
+            timeProvider,
+            startTimeout: TimeSpan.FromSeconds(2));
+
+        using var cts = new CancellationTokenSource();
+        await using var enumerator = wrapper.GetResultsAsync(cts.Token).GetAsyncEnumerator(cts.Token);
+        var moveNextTask = enumerator.MoveNextAsync();
+
+        Assert.NotNull(timeProvider.LastTimer);
+        Assert.Equal(TimeSpan.FromSeconds(2), timeProvider.LastTimer.LastDueTime);
+
+        await session.StopAsync(TestContext.Current.CancellationToken);
+        Assert.False(await moveNextTask);
+    }
+
+    /// <summary>Test that the first yielded result re-arms the timer with the idle timeout, not the start timeout.</summary>
+    [Fact]
+    public async Task SilenceTimeoutRecognizerSession_GetResultsAsync_FirstResultReceived_ReArmsWithIdleTimeoutNotStartTimeout()
+    {
+        var session = new FakeRecognitionSession();
+        var timeProvider = new FakeTimeProvider();
+        var wrapper = new SilenceTimeoutRecognizerSession(
+            session,
+            TimeSpan.FromSeconds(5),
+            timeProvider,
+            startTimeout: TimeSpan.FromSeconds(2));
+
+        using var cts = new CancellationTokenSource();
+        await using var enumerator = wrapper.GetResultsAsync(cts.Token).GetAsyncEnumerator(cts.Token);
+        var firstMoveNextTask = enumerator.MoveNextAsync();
+        Assert.Equal(TimeSpan.FromSeconds(2), timeProvider.LastTimer!.LastDueTime);
+
+        session.RaiseResult("hel", isFinal: false);
+        Assert.True(await firstMoveNextTask);
+        Assert.Equal("hel", enumerator.Current.Result.Text);
+
+        var secondMoveNextTask = enumerator.MoveNextAsync();
+        Assert.Equal(TimeSpan.FromSeconds(5), timeProvider.LastTimer.LastDueTime);
+
+        await session.StopAsync(TestContext.Current.CancellationToken);
+        Assert.False(await secondMoveNextTask);
+    }
+
+    /// <summary>Test that a second yielded result keeps the timer re-armed with the idle timeout.</summary>
+    [Fact]
+    public async Task SilenceTimeoutRecognizerSession_GetResultsAsync_SecondResultReceived_StaysOnIdleTimeout()
+    {
+        var session = new FakeRecognitionSession();
+        var timeProvider = new FakeTimeProvider();
+        var wrapper = new SilenceTimeoutRecognizerSession(
+            session,
+            TimeSpan.FromSeconds(5),
+            timeProvider,
+            startTimeout: TimeSpan.FromSeconds(2));
+
+        using var cts = new CancellationTokenSource();
+        await using var enumerator = wrapper.GetResultsAsync(cts.Token).GetAsyncEnumerator(cts.Token);
+        var firstMoveNextTask = enumerator.MoveNextAsync();
+
+        session.RaiseResult("hel", isFinal: false);
+        Assert.True(await firstMoveNextTask);
+
+        var secondMoveNextTask = enumerator.MoveNextAsync();
+        session.RaiseResult("hello", isFinal: true);
+        Assert.True(await secondMoveNextTask);
+        Assert.Equal(TimeSpan.FromSeconds(5), timeProvider.LastTimer!.LastDueTime);
+
+        var thirdMoveNextTask = enumerator.MoveNextAsync();
+        Assert.Equal(TimeSpan.FromSeconds(5), timeProvider.LastTimer.LastDueTime);
+
+        await session.StopAsync(TestContext.Current.CancellationToken);
+        Assert.False(await thirdMoveNextTask);
+    }
+
+    /// <summary>Test that a timeout before any result stops the session and raises <c>TimedOut</c> exactly once.</summary>
+    [Fact]
+    public async Task SilenceTimeoutRecognizerSession_GetResultsAsync_TimeoutBeforeAnyResult_StopsSessionAndRaisesTimedOutOnce()
+    {
+        var session = new FakeRecognitionSession();
+        var timeProvider = new FakeTimeProvider();
+        var wrapper = new SilenceTimeoutRecognizerSession(
+            session,
+            TimeSpan.FromSeconds(5),
+            timeProvider,
+            startTimeout: TimeSpan.FromSeconds(2));
+        var timedOutCount = 0;
+        wrapper.TimedOut += (_, _) => timedOutCount++;
+
+        using var cts = new CancellationTokenSource();
+        await using var enumerator = wrapper.GetResultsAsync(cts.Token).GetAsyncEnumerator(cts.Token);
+        var moveNextTask = enumerator.MoveNextAsync();
+
+        timeProvider.LastTimer!.Fire();
+
+        Assert.False(await moveNextTask);
+        Assert.Equal(1, session.StopCallCount);
+        Assert.Equal(1, timedOutCount);
+    }
+
+    /// <summary>Test that a timeout after a result stops the session and raises <c>TimedOut</c> exactly once.</summary>
+    [Fact]
+    public async Task SilenceTimeoutRecognizerSession_GetResultsAsync_TimeoutAfterResult_StopsSessionAndRaisesTimedOutOnce()
+    {
+        var session = new FakeRecognitionSession();
+        var timeProvider = new FakeTimeProvider();
+        var wrapper = new SilenceTimeoutRecognizerSession(session, TimeSpan.FromSeconds(5), timeProvider);
+        var timedOutCount = 0;
+        wrapper.TimedOut += (_, _) => timedOutCount++;
+
+        using var cts = new CancellationTokenSource();
+        await using var enumerator = wrapper.GetResultsAsync(cts.Token).GetAsyncEnumerator(cts.Token);
+        var firstMoveNextTask = enumerator.MoveNextAsync();
+
+        session.RaiseResult("hel", isFinal: false);
+        Assert.True(await firstMoveNextTask);
+
+        var secondMoveNextTask = enumerator.MoveNextAsync();
+        timeProvider.LastTimer!.Fire();
+
+        Assert.False(await secondMoveNextTask);
+        Assert.Equal(1, session.StopCallCount);
+        Assert.Equal(1, timedOutCount);
+    }
+
+    /// <summary>Test that cancelling the token passed to <c>GetResultsAsync</c> propagates a cancellation from the enumeration.</summary>
+    [Fact]
+    public async Task SilenceTimeoutRecognizerSession_GetResultsAsync_CancellationRequested_PropagatesOperationCanceledException()
+    {
+        var session = new FakeRecognitionSession();
+        var timeProvider = new FakeTimeProvider();
+        var wrapper = new SilenceTimeoutRecognizerSession(session, TimeSpan.FromSeconds(5), timeProvider);
+
+        using var cts = new CancellationTokenSource();
+        await using var enumerator = wrapper.GetResultsAsync(cts.Token).GetAsyncEnumerator(cts.Token);
+        var moveNextTask = enumerator.MoveNextAsync();
+
+        await cts.CancelAsync();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(async () => await moveNextTask);
     }
 }

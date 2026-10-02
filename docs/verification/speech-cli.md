@@ -16,8 +16,10 @@ implemented in Pass 4 (`list-devices`, `devices test`, `doctor`, verified in det
 _SpeechCli DeviceCommandsSubsystem Verification_), the one text-to-speech subcommand implemented
 in Pass 5 (`speak`, verified in detail in _SpeechCli SynthesisCommandSubsystem Verification_),
 and the one speech-to-text subcommand implemented in this pass (`recognize`, verified in detail
-in _SpeechCli RecognitionCommandSubsystem Verification_) - the last of all ten subcommands to be
-implemented; no subcommand handler remains a `NotImplementedException` stub.
+in _SpeechCli RecognitionCommandSubsystem Verification_) - the tenth of what are now eleven
+recognized subcommands to be implemented (the eleventh, `ask`, was added afterward and is
+verified separately in _SpeechCli ConversationCommandSubsystem Verification_); no subcommand
+handler remains a `NotImplementedException` stub.
 
 Automated coverage **does not** extend to real audio hardware or to a real, downloaded speech
 model: the `--validate` self-test's audio and model-store checks are composed exactly as the
@@ -64,7 +66,7 @@ as a child process.
 `SpeechCli_NoArguments_Invoked_DisplaysBannerAndUsage`
 
 Verifies that `-h`/`-?`/`--help`, and running with no arguments at all, print the banner and usage
-text listing every one of the ten recognized subcommands, and exit `0`.
+text listing every one of the eleven recognized subcommands, and exit `0`.
 
 ### Subcommand Dispatch
 
@@ -75,9 +77,9 @@ text listing every one of the ten recognized subcommands, and exit `0`.
 
 Verifies that `list-models` (representative of the five model-management subcommands),
 `list-devices`/`doctor` (representative of the three device-related subcommands), `speak`, and
-`recognize` no longer throw `NotImplementedException` - `recognize` being the last of all ten
-subcommands to reach that state - and that an unrecognized subcommand name is rejected cleanly
-with a non-zero exit code rather than a stack trace. See _SpeechCli ModelCommandsSubsystem
+`recognize` no longer throw `NotImplementedException` - `recognize` being the tenth of what are
+now eleven subcommands to reach that state - and that an unrecognized subcommand name is rejected
+cleanly with a non-zero exit code rather than a stack trace. See _SpeechCli ModelCommandsSubsystem
 Verification_, _SpeechCli DeviceCommandsSubsystem Verification_, _SpeechCli
 SynthesisCommandSubsystem Verification_, and _SpeechCli RecognitionCommandSubsystem
 Verification_ for the implemented subcommands' own detailed test scenarios.

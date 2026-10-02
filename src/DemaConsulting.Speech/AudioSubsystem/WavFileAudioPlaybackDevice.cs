@@ -9,10 +9,12 @@ namespace DemaConsulting.Speech.AudioSubsystem;
 ///     <para>
 ///         This is the correct layer for this capability (not a CLI-only helper) because
 ///         <see cref="IAudioPlaybackDevice"/> is exactly the seam
-///         <c>SpeechSynthesizerFactory.Create</c> already requires, so any host application -
-///         not only a future command-line tool - can capture synthesized speech to a file
-///         deterministically (for example, for its own automated tests) by supplying this class
-///         wherever a real playback device would otherwise be used.
+///         <see cref="DemaConsulting.Speech.SynthesisSubsystem.ISpeechSynthesizerEngine"/>'s
+///         <c>CreateSessionAsync</c>/<c>SpeakAsync</c>
+///         surface already requires, so any host application - including the shipped
+///         <c>speak --output-audio</c> command-line tool - can capture synthesized speech to a
+///         file deterministically (for example, for its own automated tests) by supplying this
+///         class wherever a real playback device would otherwise be used.
 ///     </para>
 ///     <para>
 ///         The RIFF/WAVE byte layout and clamp-before-scale rounding behavior deliberately match

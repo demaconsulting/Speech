@@ -151,11 +151,16 @@ internal static class SpeakCommand
 
         var playbackDevice = ResolvePlaybackDevice(catalog, deviceSource, descriptor, options);
         using var playbackDeviceLease = playbackDevice as IDisposable;
-        using var synthesizer = catalog.CreateSynthesizer(descriptor, playbackDevice, parameterValues);
+        await using var engine = await catalog
+            .CreateSynthesizerEngineAsync(descriptor, parameterValues, cancellationToken)
+            .ConfigureAwait(false);
+        await using var session = await engine
+            .CreateSessionAsync(playbackDevice, cancellationToken)
+            .ConfigureAwait(false);
 
         try
         {
-            await synthesizer.SpeakAsync(text, cancellationToken).ConfigureAwait(false);
+            await session.SpeakAsync(text, cancellationToken).ConfigureAwait(false);
             context.WriteLine(options.OutputPath is null
                 ? "Speech playback finished."
                 : $"Speech written to '{options.OutputPath}'.");

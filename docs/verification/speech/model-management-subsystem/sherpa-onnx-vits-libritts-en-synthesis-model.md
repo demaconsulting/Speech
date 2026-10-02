@@ -43,7 +43,7 @@ and removes the archive file afterward; `ResolveSpeakerId` resolves a valid nume
 boxed `double`, and falls back to the default speaker id (`0`) for an out-of-range value, a
 non-numeric value, a missing key, or a `null` bag; and - proven once, empirically, outside the
 automated suite - selecting two different speaker ids against the same input sentence through
-the real `SpeechSynthesizerFactory.Create` genuinely produces two different, non-silent audio
+the real `SpeechSynthesizerFactory.LoadAsync` genuinely produces two different, non-silent audio
 outputs.
 
 #### Test Scenarios
@@ -118,7 +118,7 @@ convention of leaving no scratch artifacts in the working tree).
   `10dc268f3e371696d721486123e2705a9fc1faa113491979fde4d88dba1f1b1c`
 - **License**: CC BY 4.0, read directly from the archive's own extracted `MODEL_CARD` file
 - **Distinct-speaker proof**: the same English sentence ("The quick brown fox jumps over the lazy
-  dog.") was synthesized twice through the real `SpeechSynthesizerFactory.Create` with a
+  dog.") was synthesized twice through the real `SpeechSynthesizerFactory.LoadAsync` with a
   `parameterValues` bag selecting two different numeric speaker ids via the new `speaker`
   parameter:
   - Speaker id 0 (default): 47,104 samples generated, RMS amplitude ≈ 0.093208 - non-silent
@@ -127,8 +127,8 @@ convention of leaving no scratch artifacts in the working tree).
     byte-identical, proving that selecting a different speaker genuinely changes the synthesized
     output rather than the configuration field being silently ignored
 - **Full pipeline confirmed**: this distinction was produced end-to-end through the real
-  `SpeechSynthesizerFactory.Create` with a `parameterValues` bag selecting each speaker by
-  numeric index, `SherpaOnnxSpeechSynthesizer.GenerateSegment` calling
+  `SpeechSynthesizerFactory.LoadAsync` with a `parameterValues` bag selecting each speaker by
+  numeric index, `SherpaOnnxSynthesisSession.GenerateSegmentAsync` calling
   `ISynthesisModel.ResolveSpeakerId` once per segment instead of a hard-coded `speakerId: 0`, and
   producing the two distinct, non-silent outputs described above - not merely an isolated engine
   call

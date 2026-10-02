@@ -31,35 +31,42 @@ sections:
             title: >-
               The RecognitionPanelSubsystem shall start a streaming transcription session for the
               selected model through the selected capture device when Start is invoked, shall let
-              a user stop it deterministically at any time, shall reuse the composed recognizer
-              across Start/Stop cycles rather than recomposing it on every click, and shall
-              invalidate the cached recognizer - stopping an active session first, even while
-              actively listening, rather than leaving the panel stuck in a listening state it can
-              no longer stop - whenever the selected model changes, the selected capture device
-              changes, or a shared device refresh replaces the underlying capture device.
+              a user stop it deterministically at any time - including two concurrent Stop
+              invocations completing without racing to double-dispose - shall reuse the loaded
+              recognizer engine across Start/Stop cycles rather than reloading it on every click
+              while creating a fresh single-use session per Start, and shall invalidate the
+              cached engine or session - stopping an active session first, even while actively
+              listening, rather than leaving the panel stuck in a listening state it can no
+              longer stop - whenever the selected model changes (invalidating the engine), the
+              selected capture device changes (invalidating only the session), or a shared device
+              refresh replaces the underlying capture device (invalidating only the session).
             justification: |
               Streaming speech-to-text is only useful as a start/stop lifecycle a user directly
-              controls; this is the demonstrable proof that a host can drive the library's
-              recognizer contract from a UI thread with ordinary property-changed notification
-              alone. Recomposing the (expensive) recognizer on every click previously reloaded
-              the model from scratch each turn, contradicting the library's own "construct once,
-              reuse across Start/Stop" guidance; caching it instead makes repeated Start/Stop
-              cycles cheap. A model or device change can arrive mid-session (neither property is
-              guarded at the model level, only disabled in the view), so invalidation must stop
-              the session first or the panel would be left listening with no way to stop it. A
-              device refresh can also replace the underlying capture device object without
-              changing the selected name, so it must invalidate the cache too even though no
-              selection property actually changed.
+              controls; this is the demonstrable proof that a host can drive the library's async
+              engine/session contract from a UI thread with ordinary property-changed
+              notification alone. Reloading the (expensive) engine on every click previously
+              reloaded the model from scratch each turn, contradicting the library's own
+              "construct once, reuse across many sessions" guidance for
+              `ISpeechRecognizerEngine`; caching it instead makes repeated Start/Stop cycles
+              cheap, while a fresh `IRecognitionSession` is still created per Start since a
+              session is single-use. A model or device change can arrive mid-session (neither
+              property is guarded at the model level, only disabled in the view), so
+              invalidation must stop the session first or the panel would be left listening with
+              no way to stop it. A device refresh can also replace the underlying capture device
+              object without changing the selected name, so it must invalidate the cached session
+              too even though no selection property actually changed; the cached engine is not
+              bound to a device and is never invalidated on a device change alone.
             tests:
               - RecognitionPanelViewModel_Start_SuccessfulSession_EntersListeningState
               - RecognitionPanelViewModel_Stop_DuringListening_StopsWithoutDisposingSession
               - RecognitionPanelViewModel_Stop_NothingListening_IsSafeNoOp
-              - RecognitionPanelViewModel_StartStopStart_SameSelection_ReusesRecognizer
-              - RecognitionPanelViewModel_DeviceRefresh_InvalidatesCachedRecognizer
-              - RecognitionPanelViewModel_SelectedModelChanged_InvalidatesCachedRecognizer
-              - RecognitionPanelViewModel_SelectedModelChanged_WhileListening_StopsAndInvalidatesRecognizer
-              - RecognitionPanelViewModel_SelectedCaptureDeviceChanged_InvalidatesCachedRecognizer
-              - RecognitionPanelViewModel_SelectedCaptureDeviceChanged_WhileListening_StopsAndInvalidatesRecognizer
+              - RecognitionPanelViewModel_Stop_CalledTwiceConcurrently_BothCompleteWithoutThrowing
+              - RecognitionPanelViewModel_StartStopStart_SameSelection_ReusesEngine
+              - RecognitionPanelViewModel_DeviceRefresh_InvalidatesCachedSessionButNotEngine
+              - RecognitionPanelViewModel_SelectedModelChanged_InvalidatesCachedEngine
+              - RecognitionPanelViewModel_SelectedModelChanged_WhileListening_StopsAndInvalidatesEngine
+              - RecognitionPanelViewModel_SelectedCaptureDeviceChanged_InvalidatesSessionButNotEngine
+              - RecognitionPanelViewModel_SelectedCaptureDeviceChanged_WhileListening_StopsAndInvalidatesSession
 
           - id: SpeechDemo-Recognition-TranscriptSequencing
             title: >-
@@ -79,19 +86,23 @@ sections:
             title: >-
               The RecognitionPanelSubsystem shall report an honest, explanatory outcome - rather
               than a crash or a silent no-op - when no recognition model is selected, no capture
-              device is available, the composed recognizer honestly reports itself unavailable,
-              or the recognizer faults when actually started, and shall release any recognizer it
+              device is available, the loaded engine honestly reports itself unavailable, the
+              session faults when actually started, or an active session itself transitions to
+              a faulted state after Start completes, and shall release any engine or session it
               created for a failed attempt.
             justification: |
               A user evaluating the library on a machine with no installed model, no microphone,
               or an engine fault beyond the library's control must see why Start did nothing,
               matching the library's own "nothing throws at composition" guarantee carried
-              through to the panel.
+              through to the panel. A session can also fault asynchronously, after a successful
+              Start, via `IRecognitionSession.StateChanged`; that must be reported with the same
+              honesty as a failure discovered synchronously during Start.
             tests:
               - RecognitionPanelViewModel_Start_NoModelSelected_ReportsErrorState
               - RecognitionPanelViewModel_Start_NoCaptureDevice_ReportsErrorState
               - RecognitionPanelViewModel_Start_RecognizerUnavailable_ReportsErrorStateAndDisposes
               - RecognitionPanelViewModel_Start_RecognizerStartThrows_ReportsErrorStateAndDisposes
+              - RecognitionPanelViewModel_StateChanged_SessionTransitionsToFaulted_ReportsErrorState
 
           - id: SpeechDemo-Recognition-HonestEmptyCatalogState
             title: >-
@@ -106,24 +117,28 @@ sections:
 
           - id: SpeechDemo-Recognition-ResourceLifetime
             title: >-
-              The RecognitionPanelSubsystem shall release an active recognizer, unsubscribe from
-              its events, and unsubscribe from IModelCatalogService.ModelInstalled when the panel
-              is disposed, idempotently.
+              The RecognitionPanelSubsystem shall release an active session and the cached
+              recognizer engine, unsubscribe from the session's StateChanged event, and
+              unsubscribe from IModelCatalogService.ModelInstalled and the shared
+              device-selection panel's pre-refresh hook when the panel is disposed, idempotently.
             justification: |
-              A recognizer owns unmanaged inference resources and a live capture device; leaking
-              either when the panel's host shuts down would starve the next session or leave the
-              device open. The panel also now holds a ModelInstalled subscription for its own
-              lifetime, which must be released the same way or a disposed panel would keep
-              refreshing itself in response to later installs. Idempotent disposal keeps a
-              duplicate Dispose call - however it is triggered by the shell - from faulting.
+              A recognizer engine and its session own unmanaged inference resources and a live
+              capture device; leaking either when the panel's host shuts down would starve the
+              next session or leave the device open. The panel also holds a ModelInstalled
+              subscription and a registered pre-refresh hook for its own lifetime, which must be
+              released the same way or a disposed panel would keep refreshing itself in response
+              to later installs or interfere with a shared device refresh. Idempotent disposal
+              keeps a duplicate DisposeAsync call - however it is triggered by the shell - from
+              faulting.
             tests:
               - RecognitionPanelViewModel_Dispose_ReleasesActiveSessionWithoutThrowing
 
           - id: SpeechDemo-Recognition-SessionSeam
             title: >-
-              The RecognitionPanelSubsystem shall compose every speech recognizer it uses through
-              an injectable seam over the library's recognizer factory, and that seam shall
-              honestly report a model of the wrong role as unavailable rather than throwing.
+              The RecognitionPanelSubsystem shall compose every speech recognizer engine it uses
+              through an injectable seam over the library's recognizer factory, and that seam
+              shall honestly report a model of the wrong role as unavailable rather than
+              throwing.
             justification: |
               The library's recognizer factory requires an interface only the library's own
               assemblies can implement, so a demo-owned seam accepting the library's public model
@@ -133,9 +148,8 @@ sections:
             tests:
               - RecognitionPanelViewModel_Constructor_NullDependency_ThrowsArgumentNullException
               - RecognizerSessionFactory_Constructor_NullStore_ThrowsArgumentNullException
-              - RecognizerSessionFactory_Create_NullModel_ThrowsArgumentNullException
-              - RecognizerSessionFactory_Create_NullDevice_ThrowsArgumentNullException
-              - RecognizerSessionFactory_Create_ModelNotRecognitionRole_ReturnsUnavailableRecognizer
+              - RecognizerSessionFactory_LoadAsync_NullModel_ThrowsArgumentNullException
+              - RecognizerSessionFactory_LoadAsync_ModelNotRecognitionRole_ReturnsUnavailableEngine
 
           - id: SpeechDemo-Recognition-AutoRefreshOnInstall
             title: >-
@@ -173,14 +187,17 @@ sections:
             title: >-
               The RecognitionPanelSubsystem shall register a pre-refresh hook with the shared
               device-selection panel at construction that stops an active listening session
-              before a device refresh proceeds, and shall unregister it on disposal.
+              before a device refresh proceeds (a safe no-op while idle), and shall unregister it
+              on disposal.
             justification: |
               The recognition panel shares a device-selection panel (and its underlying device
               factory) with the synthesis panel; clicking "Refresh devices" while this panel is
               actively listening has a real chance of the backend refusing the refresh because
-              the capture device is in use. Stop() on this panel is fully synchronous down to
-              the capture device's own closure, so registering it as a pre-refresh hook lets a
-              shared refresh proceed deterministically instead of relying on the
-              AudioDeviceInUseException fallback.
+              the capture device is in use. Registering the panel's own stop-and-invalidate path
+              as a pre-refresh hook lets a shared refresh proceed deterministically instead of
+              relying on the AudioDeviceInUseException fallback, and the hook must also be
+              provably inert while idle so an unrelated Refresh click never tries to stop a
+              session that was never created.
             tests:
               - RecognitionPanelViewModel_PreRefreshHook_WhileListening_StopsSessionBeforeDeviceRefreshSucceeds
+              - RecognitionPanelViewModel_PreRefreshHook_WhileIdle_IsNoOpAndDeviceRefreshSucceeds

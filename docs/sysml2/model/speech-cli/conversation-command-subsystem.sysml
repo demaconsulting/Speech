@@ -4,9 +4,9 @@ package SpeechCli {
              * after all ten scaffolded subcommands were implemented - combining speak's
              * synthesis-then-play flow and recognize --mic's mic-listen flow into a
              * single invocation. Introduces no new ICliModelCatalog seam member: it
-             * reuses SynthesisCommandSubsystem's CreateSynthesizer and
-             * RecognitionCommandSubsystem's CreateRecognizer members exactly as speak
-             * and recognize already do individually. Introduces its own small
+             * reuses SynthesisCommandSubsystem's CreateSynthesizerEngineAsync and
+             * RecognitionCommandSubsystem's CreateRecognizerEngineAsync members exactly
+             * as speak and recognize already do individually. Introduces its own small
              * ICliCaptureDeviceSource seam over real capture-device resolution,
              * mirroring SynthesisCommandSubsystem's ICliPlaybackDeviceSource, letting
              * ask's mic-mode happy-path tests run deterministically without depending
@@ -26,24 +26,30 @@ package SpeechCli {
              * resolves and validates both a synthesis-role --tts-model and a
              * recognition-role --stt-model, validates --tts-param/--stt-param values
              * via the reused ParameterBagParser, speaks the resolved text through a
-             * real playback device (Phase 1), then - once playback finishes - listens
-             * through a real capture device resolved via ICliCaptureDeviceSource
-             * (Phase 2) until the first final recognition result arrives, a reused
-             * SilenceTimeoutRecognizerSession times out, or Ctrl+C is pressed. Phase
-             * 2's recognizer (and its capture device) is now constructed concurrently
-             * with Phase 1's speak/playback wait, via a background task, rather than
-             * only once playback finishes, so the expensive model-load step overlaps
-             * with prompt playback and the turnaround gap before listening starts is
-             * minimized; only the model load is pre-warmed, never Start() (real
+             * real playback device via an ISpeechSynthesizerEngine/ISynthesisSession
+             * (Phase 1), then - once playback finishes - listens through a real
+             * capture device resolved via ICliCaptureDeviceSource using an
+             * ISpeechRecognizerEngine/IRecognitionSession wrapped in a reused
+             * SilenceTimeoutRecognizerSession (Phase 2) until the first final
+             * recognition result arrives, the silence/start timeout elapses, or Ctrl+C
+             * is pressed. Phase 2's recognizer engine and session (and its capture
+             * device) are now constructed concurrently with Phase 1's SpeakAsync wait,
+             * via a background Task.Run (PrewarmRecognizerAsync), rather than only once
+             * playback finishes, so the expensive model-load step overlaps with prompt
+             * playback and the turnaround gap before listening starts is minimized;
+             * only the model load is pre-warmed, never session.StartAsync (real
              * microphone capture), which still begins only once Phase 2 genuinely
-             * runs. A genuine Ctrl+C during Phase 2 is distinguished from a legitimate
-             * empty result (silence/start timeout) via the shared CancellationToken, and is
-             * reported the same way a Phase-1 cancellation already is (WriteError),
-             * skipping the output-writing step entirely rather than printing/writing
-             * empty text as a false success. Otherwise, the final recognized text is
-             * printed (or written to --output-text), and the synthesizer, playback
-             * device, recognizer, and silence-timeout session (when present) are
-             * disposed on every exit path. */
+             * runs - if Phase 1 is canceled or fails first, the pre-warmed engine and
+             * session are disposed fire-and-forget via DisposePrewarmedRecognizerAsync
+             * instead of being awaited directly. A genuine Ctrl+C during Phase 2 is
+             * distinguished from a legitimate empty result (silence/start timeout) via
+             * the shared CancellationToken, and is reported the same way a Phase-1
+             * cancellation already is (WriteError), skipping the output-writing step
+             * entirely rather than printing/writing empty text as a false success.
+             * Otherwise, the final recognized text is printed (or written to
+             * --output-text), and the synthesis session/engine, playback device,
+             * recognition session/engine, and capture device are all disposed (await
+             * using) on every exit path. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech.Cli/Commands/ConversationCommandSubsystem/AskCommand.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Cli.Tests/Commands/ConversationCommandSubsystem/AskCommandTests.cs */

@@ -1,0 +1,48 @@
+---
+# Software Unit Requirements for UnavailableRecognitionSession
+#
+# These requirements describe the design-level behavior of the UnavailableRecognitionSession
+# unit, decomposing the parent RecognitionSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: RecognitionSubsystem Requirements
+        sections:
+          - title: UnavailableRecognitionSession Requirements
+            requirements:
+              - id: Speech-Recognition-UnavailableRecognitionSession-ReportsUnavailable
+                title: >-
+                  The UnavailableRecognitionSession class shall report IsAvailable as false and
+                  never throw merely for being obtained or held.
+                justification: |
+                  A caller must always be able to safely obtain and hold a fallback session, per
+                  this library's "nothing throws at composition" decision.
+                tests:
+                  - UnavailableRecognitionSession_IsAvailable_Read_ReturnsFalse
+
+              - id: Speech-Recognition-UnavailableRecognitionSession-OperationsThrow
+                title: >-
+                  The UnavailableRecognitionSession class shall throw
+                  SpeechRecognizerUnavailableException when StartAsync or GetResultsAsync is
+                  invoked.
+                justification: |
+                  A caller that ignores the IsAvailable flag and invokes an operational member
+                  has made a programming error that must surface immediately rather than silently
+                  recognizing nothing.
+                tests:
+                  - UnavailableRecognitionSession_StartAsync_Always_ThrowsSpeechRecognizerUnavailableException
+                  - UnavailableRecognitionSession_GetResultsAsync_Always_ThrowsSpeechRecognizerUnavailableException
+
+              - id: Speech-Recognition-UnavailableRecognitionSession-SafeNoOps
+                title: >-
+                  The UnavailableRecognitionSession class shall treat StopAsync and disposal as
+                  safe, idempotent no-ops that never throw and never invalidate the shared
+                  fallback.
+                justification: |
+                  A host that calls StopAsync unconditionally during teardown and wraps its
+                  session in a disposal scope must be able to run that same code unchanged on a
+                  machine where recognition is unavailable.
+                tests:
+                  - UnavailableRecognitionSession_StopAsync_Always_IsSafeNoOp
+                  - UnavailableRecognitionSession_DisposeAsync_CalledTwice_DoesNotThrow

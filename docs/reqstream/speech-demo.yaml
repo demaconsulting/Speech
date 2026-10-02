@@ -187,6 +187,7 @@ sections:
           - SpeechDemo-Synthesis-PlayLifecycle
           - SpeechDemo-Synthesis-StopControl
           - SpeechDemo-Synthesis-SessionSeam
+          - SpeechDemo-Synthesis-EngineSessionReuse
           - SpeechDemo-Synthesis-VoiceSelectionForwarding
           - SpeechDemo-Synthesis-AutoRefreshOnInstall
           - SpeechDemo-Synthesis-ResourceLifetime

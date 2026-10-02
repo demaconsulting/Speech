@@ -21,8 +21,8 @@ package Speech {
 
         comment sourceRef /* Source: src/DemaConsulting.Speech/SynthesisSubsystem/SentenceChunker.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Tests/SynthesisSubsystem/SentenceChunkerTests.cs */
-        comment designRef /* Design: docs/design/speech/synthesis-subsystem/sherpa-onnx-speech-synthesizer.md (documented with the pipeline it serves) */
-        comment verificationRef /* Verification: docs/verification/speech/synthesis-subsystem/sherpa-onnx-speech-synthesizer.md (documented with the pipeline it serves) */
-        comment reqRef /* Requirements: docs/reqstream/speech/synthesis-subsystem/sherpa-onnx-speech-synthesizer.yaml */
+        comment designRef /* Design: docs/design/speech/synthesis-subsystem/sherpa-onnx-synthesis-session.md (documented with the pipeline it serves) */
+        comment verificationRef /* Verification: docs/verification/speech/synthesis-subsystem/sherpa-onnx-synthesis-session.md (documented with the pipeline it serves) */
+        comment reqRef /* Requirements: docs/reqstream/speech/synthesis-subsystem/sherpa-onnx-synthesis-session.yaml */
     }
 }

@@ -2,24 +2,42 @@
 
 ### Verification Approach
 
-The SynthesisSubsystem's Sub-phase 4a scope - the closed Natural Language Audio Tag vocabulary
-and the Layer 1 parser - is verified entirely through deterministic, pure unit tests over plain
-strings. Neither `AudioTagCatalog` nor `AudioTagParser` depends on a model, an inference engine,
-an audio device, or any native runtime, so no test double is required at this stage: every test
-calls the production catalog/parser directly and asserts on their return values.
+The SynthesisSubsystem's Layer 1 scope - the closed Natural Language Audio Tag vocabulary and the
+Layer 1 parser - is verified entirely through deterministic, pure unit tests over plain strings.
+Neither `AudioTagCatalog` nor `AudioTagParser` depends on a model, an inference engine, an audio
+device, or any native runtime, so no test double is required at this stage: every test calls the
+production catalog/parser directly and asserts on their return values. This remains unchanged by
+the Engine/Session redesign.
 
-Sub-phase 4b, described below, is verified the same way the RecognitionSubsystem is: a fake
-`ISynthesisEngine`/`ISynthesisEngineFactory` pair and an NSubstitute `IAudioPlaybackDevice` stand
-in for the native sherpa-onnx runtime and real speakers, making Layer 2 rendering, chunking,
-pipelined synthesize-while-play behavior, cancellation, fault containment, and honest degradation
-fully testable without a downloaded speech model or physical audio hardware. Determinism is
-structural, not timing-based: the bounded channel between the producer and the caller's
-enumeration guarantees ordering without polling or sleeping.
+The Layer 3/Layer 5 Engine/Session API is verified the same way the RecognitionSubsystem's own
+Engine/Session redesign is: a fake `ISynthesisBackend`/`ISynthesisBackendFactory` pair and an
+NSubstitute `IAudioPlaybackDevice` stand in for the native sherpa-onnx runtime and real speakers,
+making Layer 2 rendering, chunking, per-operation synthesize-then-play behavior, engine
+exclusivity leasing, the session state machine, the overlap rule, cancellation, fault
+containment, and honest degradation fully testable without a downloaded speech model or physical
+audio hardware. Determinism is structural, not timing-based: a deterministic fake backend plus
+`SemaphoreSlim`-based test doubles let a test assert ordering, in-flight state, and fault
+transitions without polling or sleeping.
+
+The lease/exclusivity behavior is verified by driving `SherpaOnnxSpeechSynthesizerEngine`'s real
+`CreateSessionAsync`/`DisposeAsync` logic against a fake backend, asserting that a second
+concurrent session request fails fast with `SynthesisEngineBusyException` rather than hanging or
+queueing, and that disposing a leased session (or the engine itself, with a session still active)
+releases the lease so a subsequent request succeeds. The overlap rule and the full
+`SynthesisSessionState` transition sequence are verified against the real
+`SherpaOnnxSynthesisSession`, asserting the documented `Created → Starting → Running → Stopping →
+Stopped` sequence for one successful operation (and the `Faulted` terminal transition for a
+failing one) via the `StateChanged` event, and that a second call made while an operation is
+already in flight on the same session throws `InvalidOperationException` immediately. The
+`SynthesizeAsync` full-fidelity segment list is verified by asserting its returned
+`IReadOnlyList<SynthesizedSpeech>` includes a pure-silence segment for a rendered pause tag, not
+only the segments containing synthesized speech.
 
 Automated coverage **does not** include synthesizing real, intelligible speech. Proving that real
 text produces correct audible speech through a real model on real speakers requires a downloaded
-production model (which this phase deliberately does not ship) and audio hardware, so it remains
-a manual/local verification activity, mirroring the RecognitionSubsystem's identical boundary.
+production model (which this library deliberately does not ship by default) and audio hardware,
+so it remains a manual/local verification activity, mirroring the RecognitionSubsystem's
+identical boundary.
 
 ### Test Environment
 
@@ -27,12 +45,12 @@ a manual/local verification activity, mirroring the RecognitionSubsystem's ident
 - **Execution**: `dotnet test` invoked by `build.ps1` and the CI pipeline
 - **Dependencies**: None - no external services, no downloaded model, no native runtime, no audio
   hardware
-- **Test doubles**: None for the Sub-phase 4a vocabulary/parser tests. For Sub-phase 4b: a fake
-  `ISynthesisEngine`/`ISynthesisEngineFactory` pair, NSubstitute playback devices and diagnostics
+- **Test doubles**: None for the vocabulary/parser tests. For the Engine/Session pipeline: a fake
+  `ISynthesisBackend`/`ISynthesisBackendFactory` pair, NSubstitute playback devices (including a
+  semaphore-signaling `PendingSampleCount` stub for the genuine-drain-wait test) and diagnostics
   sinks, and a fake synthesis model
-- **Isolation**: Every Sub-phase 4a test is a pure function call with no shared or persisted
-  state; Sub-phase 4b composition tests create and delete their own scratch installed-model
-  directory
+- **Isolation**: Every vocabulary/parser test is a pure function call with no shared or persisted
+  state; composition tests create and delete their own scratch installed-model directory
 
 ### Acceptance Criteria
 
@@ -55,34 +73,46 @@ A SynthesisSubsystem test run passes when:
   every non-pause tag; plain text is split into chunk-sized segments
 - `SentenceChunker.Chunk` splits on primary sentence-ending punctuation first, then
   unconditionally splits every resulting sentence-level piece further on secondary clause
-  punctuation (commas, semicolons, colons) regardless of length, except where that punctuation
-  is flanked by a digit on both sides (a time such as `12:30` or a thousands separator such as
-  `1,000`); falls back to a whitespace-budget split only when a piece is still over budget;
-  merges a degenerate, word-less punctuation piece onto the preceding chunk (or drops it when
-  there is no preceding chunk); never splits a single word; and rejects a non-positive budget or
-  null text. `ChunkWithMetadata` additionally flags, per chunk, whether the chunk's text ends in
-  a genuine ellipsis
-- Composition returns a real synthesizer only when the model is installed, declares the
-  synthesis role, the playback device is available, and the engine loads; every other outcome
-  returns the honest unavailable synthesizer without throwing
+  punctuation, falls back to a whitespace-budget split only when still over budget, merges
+  degenerate word-less pieces onto the preceding chunk, never splits a single word, and rejects a
+  non-positive budget or null text. `ChunkWithMetadata` additionally flags, per chunk, whether the
+  chunk's text ends in a genuine ellipsis
+- `SpeechSynthesizerFactory.LoadAsync` returns a real engine only when the model is installed,
+  declares the synthesis role, and the backend loads; every other outcome returns the honest
+  unavailable engine without throwing
 - A supplied `parameterValues` key naming a parameter not declared by the requested model is
   silently ignored (with only an `Info` diagnostic reported) and composition still succeeds; a
   supplied value for a parameter the model *does* declare that fails that parameter's own
-  validation (wrong CLR type, out-of-range or non-integral for a `NumericParameter`, an invalid
-  option for a `ChoiceParameter`, a non-`bool` for a `BooleanParameter`) throws
-  `ArgumentException` synchronously from `Create()`, before any installed/role/device/engine
-  check runs
-- Text flows through chunking, rendering, and the engine to yield ordered audio segments, played
-  in order with correct pre/post silence, while a later chunk synthesizes during an earlier
-  chunk's playback
-- A long, multi-sentence input still yields segments in the correct order at the increased
-  look-ahead capacity of 8 pending segments, and the single background producer never calls
-  `ISynthesisEngine.Generate` concurrently
-- `Stop()` cancels an in-flight session deterministically and is a safe no-op when idle; engine
-  faults and an unavailable playback device fail the caller's task honestly rather than hanging
-- `PlaybackAudioResampler` resamples and upmixes engine-rate mono audio to the playback device's
+  validation throws `ArgumentException` synchronously from `LoadAsync()`, before any
+  installed/role/backend-load check runs
+- `ISpeechSynthesizerEngine.CreateSessionAsync` succeeds when no lease is held and fails fast with
+  `SynthesisEngineBusyException` when one is; disposing a leased session or the engine releases
+  the lease so a subsequent request succeeds again
+- A session's `SpeakAsync`/`SynthesizeAsync` calls never overlap on the same instance - a second
+  call while one is in flight throws `InvalidOperationException` - and the session can be reused
+  across many sequential calls without reconstruction
+- A session's `StateChanged` event reports the documented `Created → Starting → Running →
+  Stopping → Stopped` sequence for one successful operation, and transitions to the terminal
+  `Faulted` state (reported through diagnostics) for a failing one; every subsequent operation on
+  a faulted session throws `SynthesisSessionFaultedException` wrapping the original fault
+- `SynthesizeAsync` returns the full, ordered `IReadOnlyList<SynthesizedSpeech>` segment list,
+  including a pure-silence segment for a rendered pause, without requiring a playback device
+- Text flows through chunking, rendering, and the backend to yield ordered audio segments, played
+  in order with correct pre/post silence
+- A long, multi-sentence input still yields segments in the correct order, and the backend is
+  never called concurrently
+- `StopAsync` cancels an in-flight operation deterministically and is a safe no-op when idle;
+  backend faults and an unavailable playback device fail the caller's task honestly rather than
+  hanging
+- A session-level `parameterValues` bag resolves to the correct speaker id via
+  `ISynthesisModel.ResolveSpeakerId` once per segment, coexisting correctly with an independent
+  per-segment Natural Language Audio Tag speed override in the same call
+- `DedicatedWorker` completes promptly on cooperative cancellation, and abandons (reporting a
+  diagnostic and still returning control to its caller) a non-cooperative delegate after its
+  timeout, always running the delegate on a long-running task
+- `PlaybackAudioResampler` resamples and upmixes backend-rate mono audio to the playback device's
   resolved format
-- The unavailable synthesizer stays honest and safe to hold and dispose
+- The unavailable engine and unavailable session both stay honest and safe to hold and dispose
 - The automated verification boundary remains honest about the absence of real-speech coverage
 
 ### Test Scenarios
@@ -197,160 +227,214 @@ punctuation (commas, semicolons, colons) regardless of whether the piece is stil
 every clause becomes its own chunk; falls back to a whitespace budget split only when a piece is
 still over-length after both punctuation passes; never splits a single over-length word; and
 rejects a non-positive budget or null text. Also verifies that clause punctuation flanked by a
-digit on both sides (a time such as `12:30` or a thousands separator such as `1,000`, including a
-decimal point such as `0.5`) is never treated as a boundary, so numerals stay intact, while a
-comma, semicolon, or colon still splits normally when only one side is a digit. Also verifies that a
+digit on both sides is never treated as a boundary, so numerals stay intact, while a comma,
+semicolon, or colon still splits normally when only one side is a digit. Also verifies that a
 decimal point followed immediately by a digit is kept attached to its numeral even without a
-leading digit - a bare-fraction decimal such as `.5` or `$.99`, at start-of-text, after
-whitespace, a sign, or a currency symbol - so it is not mistaken for a sentence-ending period and
-dropped as a degenerate, word-less chunk (which would otherwise silence the "point" when the
-number is spoken); a period directly preceded by a letter (e.g. `Wait.5 more.`) does not qualify
-for this exception and still splits as an ordinary sentence boundary. Also verifies that a maximal
-run of consecutive primary
-sentence-ending characters (an ellipsis `...`, or mixed terminators such as `?!`/`!!`) is treated
-as a single boundary and stays attached to the preceding sentence as one piece - rather than
-producing degenerate single-punctuation-character chunks that cause audible synthesis glitches -
-both mid-text and at the very end of the text, while a normal single-terminator sentence is
-unaffected. Also verifies that a degenerate, word-less punctuation piece (produced by either
-punctuation pass, e.g. a whitespace-spaced ellipsis or a lone comma) is merged onto the
-immediately preceding non-empty chunk, or dropped entirely when it occurs at the very start of the
-text with no preceding chunk to merge into. Finally, verifies that `ChunkWithMetadata` correctly
-flags a chunk as ending in a genuine ellipsis (three or more consecutive `.` characters, adjacent
-or whitespace-spaced) and not for fewer than three, and that `Chunk` produces exactly the same
-chunk text as `ChunkWithMetadata`.
+leading digit, and that a maximal run of consecutive primary sentence-ending characters is treated
+as a single boundary and stays attached to the preceding sentence as one piece. Also verifies that
+a degenerate, word-less punctuation piece is merged onto the immediately preceding non-empty
+chunk, or dropped entirely when it occurs at the very start of the text. Finally, verifies that
+`ChunkWithMetadata` correctly flags a chunk as ending in a genuine ellipsis and not for fewer than
+three dots, and that `Chunk` produces exactly the same chunk text as `ChunkWithMetadata`.
 
-#### Composition: Real Synthesizer for an Installed Model and Available Device
+#### Composition: Real Engine for an Installed Model
 
-**Tests**: `SpeechSynthesizerFactory_Create_ModelInstalledAndDeviceAvailable_ReturnsRealSynthesizer`,
-`SpeechSynthesizerFactory_Create_WithStoreModelInstalledAndDeviceAvailable_ReturnsRealSynthesizer`,
-`SpeechSynthesizerFactory_Create_WithCatalogModelInstalledAndDeviceAvailable_ReturnsRealSynthesizer`
+**Tests**: `SpeechSynthesizerFactory_LoadAsync_ModelInstalled_ReturnsRealEngine`,
+`SpeechSynthesizerFactory_LoadAsync_WithStoreModelInstalled_ReturnsRealEngine`,
+`SpeechSynthesizerFactory_LoadAsync_WithCatalogModelInstalled_ReturnsRealEngine`
 
-Verifies that an installed synthesis model plus an available playback device composes a real
-synthesizer wired to the injected engine factory, with the installed-model directory passed
-through unchanged, whether that directory is supplied directly as a `string`, resolved from a
-`SpeechModelStore`, or resolved from a `SpeechModelCatalog`'s own store.
+Verifies that an installed synthesis model composes a real engine wired to the injected backend
+factory, with the installed-model directory passed through unchanged, whether that directory is
+supplied directly as a `string`, resolved from a `SpeechModelStore`, or resolved from a
+`SpeechModelCatalog`'s own store.
 
 #### Composition: Honest Fallback for Every Unavailable State
 
-**Tests**: `SpeechSynthesizerFactory_Create_ModelNotInstalled_ReturnsUnavailableSynthesizer`,
-`SpeechSynthesizerFactory_Create_PlaybackDeviceUnavailable_ReturnsUnavailableSynthesizer`,
-`SpeechSynthesizerFactory_Create_ModelRoleIsNotSynthesis_ReturnsUnavailableSynthesizer`,
-`SpeechSynthesizerFactory_Create_EngineLoadFails_ReturnsUnavailableSynthesizerAndDoesNotThrow`,
-`SpeechSynthesizerFactory_Create_WithStoreModelNotInstalled_ReturnsUnavailableSynthesizer`,
-`SpeechSynthesizerFactory_Create_WithCatalogModelNotInstalled_ReturnsUnavailableSynthesizer`
+**Tests**: `SpeechSynthesizerFactory_LoadAsync_ModelNotInstalled_ReturnsUnavailableEngine`,
+`SpeechSynthesizerFactory_LoadAsync_ModelRoleIsNotSynthesis_ReturnsUnavailableEngine`,
+`SpeechSynthesizerFactory_LoadAsync_EngineLoadFails_ReturnsUnavailableEngineAndDoesNotThrow`,
+`SpeechSynthesizerFactory_LoadAsync_WithStoreModelNotInstalled_ReturnsUnavailableEngine`,
+`SpeechSynthesizerFactory_LoadAsync_WithCatalogModelNotInstalled_ReturnsUnavailableEngine`
 
-Verifies that a missing model, an unavailable device, a wrong-role model, and a failed engine
-load all degrade to the shared unavailable synthesizer without throwing.
+Verifies that a missing model, a wrong-role model, and a failed backend load all degrade to the
+shared unavailable engine without throwing.
 
-#### Composition: Null Arguments Are Programming Errors
+#### Composition: Null Arguments and Cancellation Are Programming Errors
 
-**Tests**: `SpeechSynthesizerFactory_Create_NullModel_ThrowsArgumentNullException`,
-`SpeechSynthesizerFactory_Create_NullPlaybackDevice_ThrowsArgumentNullException`,
-`SpeechSynthesizerFactory_Create_WithStoreNullModel_ThrowsArgumentNullException`,
-`SpeechSynthesizerFactory_Create_WithStoreNullStore_ThrowsArgumentNullException`,
-`SpeechSynthesizerFactory_Create_WithStoreNullPlaybackDevice_ThrowsArgumentNullException`,
-`SpeechSynthesizerFactory_Create_WithCatalogNullModel_ThrowsArgumentNullException`,
-`SpeechSynthesizerFactory_Create_WithCatalogNullCatalog_ThrowsArgumentNullException`,
-`SpeechSynthesizerFactory_Create_WithCatalogNullPlaybackDevice_ThrowsArgumentNullException`
+**Tests**: `SpeechSynthesizerFactory_LoadAsync_NullModel_ThrowsArgumentNullException`,
+`SpeechSynthesizerFactory_LoadAsync_CancelledToken_ThrowsOperationCanceledException`,
+`SpeechSynthesizerFactory_LoadAsync_WithStoreNullModel_ThrowsArgumentNullException`,
+`SpeechSynthesizerFactory_LoadAsync_WithStoreNullStore_ThrowsArgumentNullException`,
+`SpeechSynthesizerFactory_LoadAsync_WithCatalogNullModel_ThrowsArgumentNullException`,
+`SpeechSynthesizerFactory_LoadAsync_WithCatalogNullCatalog_ThrowsArgumentNullException`
 
-Verifies that a null model, playback device, store, or catalog throws, distinguishing a
-programming error from an ordinary machine state.
+Verifies that a null model, store, or catalog throws, and that a cancelled `cancellationToken`
+throws `OperationCanceledException`, distinguishing a programming error/explicit cancellation
+request from an ordinary machine state. Unlike the former synchronous factory, no
+`NullPlaybackDevice` variant exists for any overload: `LoadAsync` no longer takes a playback
+device parameter at all.
 
-#### Composition: Voice Selection Value Bag Forwarding
+#### Composition: Parameter Value Forwarding and Validation
 
-**Test**: `SpeechSynthesizerFactory_Create_ParameterValuesSupplied_ForwardedToSynthesizer`
+**Tests**: `SpeechSynthesizerFactory_LoadAsync_ParameterValuesSupplied_ForwardedToEngine`,
+`SpeechSynthesizerFactory_LoadAsync_UnrecognizedParameterId_ComposesAndReportsInfo`,
+`SpeechSynthesizerFactory_LoadAsync_RecognizedNumericParameterOutOfRange_Throws`,
+`SpeechSynthesizerFactory_LoadAsync_RecognizedNumericParameterWrongType_Throws`,
+`SpeechSynthesizerFactory_LoadAsync_RecognizedIntegerParameterFractionalValue_Throws`,
+`SpeechSynthesizerFactory_LoadAsync_RecognizedChoiceParameterInvalidOption_Throws`
 
-Verifies that an optional `parameterValues` bag supplied by the caller (for example, a chosen
-voice built from a declared `ChoiceParameter`) is forwarded unchanged to the constructed
-synthesizer.
+Verifies that an optional `parameterValues` bag supplied by the caller is forwarded unchanged to
+the constructed engine; that a supplied `parameterValues` key naming a parameter the model does
+not declare still composes a real engine and reports only an `Info` diagnostic, never throwing
+(preserving cross-model compatibility); and that a supplied value for a parameter the model *does*
+declare, but that is invalid for it, throws `ArgumentException` synchronously from `LoadAsync()` -
+before any installed/role/backend-load check runs - naming the parameter id, the model id, and the
+specific reason the value is invalid.
 
-#### Composition: Parameter Value Validation
+#### Engine: Session Exclusivity and Lease Lifecycle
 
-**Tests**: `SpeechSynthesizerFactory_Create_UnrecognizedParameterId_ComposesAndReportsInfo`,
-`SpeechSynthesizerFactory_Create_RecognizedNumericParameterOutOfRange_Throws`,
-`SpeechSynthesizerFactory_Create_RecognizedNumericParameterWrongType_Throws`,
-`SpeechSynthesizerFactory_Create_RecognizedIntegerParameterFractionalValue_Throws`,
-`SpeechSynthesizerFactory_Create_RecognizedChoiceParameterInvalidOption_Throws`
+**Tests**: `SherpaOnnxSpeechSynthesizerEngine_CreateSessionAsync_NoLeaseHeld_ReturnsRealSession`,
+`SherpaOnnxSpeechSynthesizerEngine_CreateSessionAsync_LeaseAlreadyHeld_ThrowsSynthesisEngineBusyException`,
+`SherpaOnnxSpeechSynthesizerEngine_CreateSessionAsync_AfterPriorSessionDisposed_SucceedsAgain`,
+`SherpaOnnxSpeechSynthesizerEngine_CreateSessionAsync_NullDevice_ThrowsArgumentNullException`,
+`SherpaOnnxSpeechSynthesizerEngine_IsAvailable_Always_ReturnsTrue`,
+`SherpaOnnxSpeechSynthesizerEngine_DisposeAsync_CalledTwice_DisposesBackendOnce`,
+`SherpaOnnxSpeechSynthesizerEngine_DisposeAsync_WithActiveLeasedSession_DisposesSessionFirst`
 
-Verifies the deliberate, breaking-change split introduced for this behavior: a supplied
-`parameterValues` key naming a parameter the model does not declare still composes a real
-synthesizer and reports only an `Info` diagnostic, never throwing (preserving cross-model
-compatibility); a supplied value for a parameter the model *does* declare, but that is invalid
-for it, throws `ArgumentException` synchronously from `Create()` - before any
-installed/role/device/engine check runs - naming the parameter id, the model id, and the specific
-reason the value is invalid. This replaces this library's earlier behavior of silently
-substituting a default the first time `ResolveSpeakerId` ran per segment, and does not change
-`ResolveSpeakerId`'s or `ResolveOverrideRatios`'s own existing never-throw, per-segment runtime
-contract.
+Verifies that `CreateSessionAsync` succeeds immediately when no lease is held; fails fast with
+`SynthesisEngineBusyException` (never queueing or waiting) when a lease is already held by a
+still-undisposed session; succeeds again once that prior session is disposed, proving the lease is
+released exactly once from the session's own `DisposeAsync`; rejects a null device; always reports
+itself available; disposes its owned backend exactly once across repeated `DisposeAsync` calls;
+and, when disposed while a session is still actively leased, disposes that session first (which
+also releases the lease) before disposing the backend.
 
-#### Pipeline: Chunked Synthesis and Ordered Playback
+#### Engine: One-Shot Convenience Overloads
 
-**Tests**: `SynthesizeStreamAsync_PlainText_YieldsAudioSegment`,
-`SynthesizeStreamAsync_TextWithPauseTag_YieldsSilenceSegmentWithNoEngineCall`,
-`PlayStreamAsync_OrderedSegments_StartsWritesInOrderAndStops`
+**Tests**: `SherpaOnnxSpeechSynthesizerEngine_SpeakAsync_CalledTwice_CreatesAndDisposesASessionEachTime`,
+`SherpaOnnxSpeechSynthesizerEngine_SynthesizeAsync_NoDeviceSupplied_ReturnsSegments`
 
-Verifies that plain text yields a synthesized audio segment, that a pause tag yields a
-pure-silence segment without invoking the engine, and that ordered segments are started, written
-in order, and stopped on the playback device.
+Verifies that the engine's one-shot `SpeakAsync` convenience overload creates and disposes a
+fresh session per call (so repeated calls never conflict with the exclusivity lease), and that
+`SynthesizeAsync` returns synthesized segments without requiring a playback device at all.
 
-#### Pipeline: Ordered, Strictly Sequential Production at the Increased Look-Ahead Capacity
+#### Session: Lifecycle State Machine and StateChanged Event
 
-**Test**: `SynthesizeStreamAsync_LongMultiSentenceInput_ProducesOrderedSegmentsSequentially`
+**Tests**: `SherpaOnnxSynthesisSession_StateChanged_OneSuccessfulOperation_RaisesExpectedTransitionsInOrder`,
+`SherpaOnnxSynthesisSession_StateChanged_HandlerThrows_IsIsolatedAndDoesNotPropagate`,
+`SherpaOnnxSynthesisSession_IsAvailable_BeforeAndAfterDispose_ReflectsLifecycle`
 
-Verifies the `PendingSegmentCapacity` tuning change from `5` to `8` (raised because unconditional
-clause-punctuation splitting now yields more, smaller chunks per sentence): for a long,
-12-sentence input - producing more chunks than fit in the buffer at once - the yielded segments
-still arrive in the exact same order the sentences appear in the source text (cross-checked
-against each chunk's expected sample count from `FakeSynthesisEngine`), and
-`FakeSynthesisEngine`'s concurrency tracking (`MaxConcurrentGenerateCalls`) reports a maximum of
-exactly `1`, proving the single background producer never calls `ISynthesisEngine.Generate`
-concurrently. The test's fake playback device drains writes instantly, so it cannot itself
-distinguish a capacity of `5` from `8`; it verifies ordering and sequential production hold at
-scale, while the capacity value itself is simply the constant currently configured in
-`SherpaOnnxSpeechSynthesizer`.
+Verifies that one successful `SpeakAsync`/`SynthesizeAsync` call raises the documented
+`Created → Starting → Running → Stopping → Stopped` sequence via `StateChanged`, in order; that a
+subscriber's handler exception is caught and routed to diagnostics rather than propagated or
+destabilizing the session; and that `IsAvailable` correctly reflects the session's lifecycle
+before and after disposal.
 
-#### Pipeline: Fault Containment
+#### Session: Overlap Rule - No Concurrent Operations
 
-**Tests**: `SynthesizeStreamAsync_EngineThrows_ReportsFaultAndPropagatesToCaller`,
-`PlayStreamAsync_PlaybackDeviceWriteThrows_PropagatesAndStillStopsDevice`,
-`PlayStreamAsync_PlaybackDeviceUnavailable_ThrowsRatherThanHanging`
+**Tests**: `SherpaOnnxSynthesisSession_SpeakAsync_CalledWhileAlreadySpeaking_ThrowsInvalidOperationException`,
+`SherpaOnnxSynthesisSession_SynthesizeAsync_CalledWhileAlreadySpeaking_ThrowsInvalidOperationException`
 
-Verifies that an engine fault is reported and propagated to the caller rather than hanging, that
-a playback write failure still stops the device before propagating, and that an unavailable
-playback device fails promptly rather than hanging the pipeline.
+Verifies that `SpeakAsync`/`SynthesizeAsync` never overlap on the same session instance: a second
+call of either method made while one is already in flight throws `InvalidOperationException`
+immediately rather than queueing or waiting, for every combination of the two methods.
 
-#### Pipeline: Genuine Playback Drain Before Stopping
+#### Session: Hot Reuse Across Repeated Calls
 
-**Tests**: `PlayStreamAsync_PlaybackDeviceReportsPendingSamples_WaitsForDrainBeforeStopping`
+**Test**: `SherpaOnnxSynthesisSession_SpeakAsync_CalledTwiceOnSameInstance_ReusesSameInstanceWithoutReconstruction`
 
-Verifies the fix for a bug where the TTS panel's status flashed from "Playing" back to "Idle"
-almost instantly with no audible sound: `PlayStreamAsync` now polls the playback device's
-`PendingSampleCount` and does not stop the device merely because every segment has been
-enqueued. Uses an NSubstitute playback device whose `PendingSampleCount` getter signals a
-semaphore on every read, so the test deterministically observes the wait has genuinely begun
-(rather than racing a sleep) before asserting the awaited task has not completed and `Stop()` has
-not been called; only after the test sets the reported pending count to zero does the task
-complete and the device get stopped.
+Verifies the key Engine/Session redesign goal: a session returns to `Stopped` after one operation
+completes and can be reused for a second, sequential `SpeakAsync` call on the very same instance,
+with no reconstruction - closing the class of bug where a host reconstructed a synthesizer per
+utterance.
 
-#### Pipeline: Cancellation and Lifecycle
+#### Session: Faulted Is Terminal
 
-**Tests**: `Stop_WhileSpeaking_CancelsInFlightSessionOnlyAfterInFlightGenerateReturns`,
-`SynthesizeStreamAsync_CancelledMidGenerate_AwaitsProducerBeforeEnumerationCompletesAndDisposalIsSafe`,
-`Stop_NoSessionInFlight_IsNoOp`, `Dispose_CalledTwice_DisposesEngineOnce`,
-`SynthesizeStreamAsync_AfterDispose_ThrowsObjectDisposedException`, `IsAvailable_Always_ReturnsTrue`
+**Tests**: `SherpaOnnxSynthesisSession_SynthesizeAsync_BackendThrows_ReportsFaultAndTransitionsToFaulted`,
+`SherpaOnnxSynthesisSession_SynthesizeAsync_AfterFault_ThrowsSynthesisSessionFaultedException`
 
-Verifies that `Stop()` cancels an in-flight session deterministically, is a safe no-op when idle,
-disposal releases the engine exactly once even when called twice, operating after disposal is
-rejected, and a real synthesizer always reports itself available. Also verifies the fix for a
-confirmed `AccessViolationException` crash: `SynthesizeStreamAsync`/`SpeakAsync` never report
-completion while the producer's in-flight native `Generate` call is still running, on either the
-`Stop()`-driven or the directly-cancelled path, so a caller can never dispose the engine out from
-under a still-executing call. A `BlockingSynthesisEngine` test double holds `Generate` open on two
-`SemaphoreSlim`s until the test explicitly releases it, letting each test assert the outer task is
-still incomplete immediately after cancellation and only completes (with `OperationCanceledException`)
-once the in-flight call has genuinely returned; the second test additionally disposes the
-synthesizer immediately afterward and asserts no exception, and that only the one expected
-`Generate` call was ever made.
+Verifies that a non-cancellation failure during an operation reports the fault through
+diagnostics and transitions the session to the terminal `Faulted` state, and that every
+subsequent operation on that same session throws `SynthesisSessionFaultedException` wrapping the
+original fault rather than attempting to run again.
+
+#### Session: SynthesizeAsync Full-Fidelity Segment List
+
+**Test**: `SherpaOnnxSynthesisSession_SynthesizeAsync_ReturnsFullFidelitySegmentListIncludingSilence`
+
+Verifies that `SynthesizeAsync` returns the complete, ordered segment list the rendered
+`SpeechPlan` produced, including a pure-silence `SynthesizedSpeech` segment for a rendered pause
+tag - not only the segments containing synthesized speech - so a caller that saves or otherwise
+processes the returned segments gets a faithful, lossless reconstruction of the plan.
+
+#### Session: Chunked Synthesis and Ordered Playback
+
+**Tests**: `SherpaOnnxSynthesisSession_SynthesizeAsync_PlainText_YieldsAudioSegment`,
+`SherpaOnnxSynthesisSession_SpeakAsync_PlainText_StartsWritesAndStopsDevice`,
+`SherpaOnnxSynthesisSession_SynthesizeAsync_LongMultiSentenceInput_ProducesOrderedSegmentsSequentially`
+
+Verifies that plain text yields a synthesized audio segment, that `SpeakAsync` starts the
+playback device, writes segments in order, and stops the device, and that a long, multi-sentence
+input still yields segments in the correct order with the backend never called concurrently.
+
+#### Session: Fault Containment
+
+**Tests**: `SherpaOnnxSynthesisSession_SpeakAsync_PlaybackDeviceWriteThrows_PropagatesAndStillStopsDevice`,
+`SherpaOnnxSynthesisSession_SpeakAsync_PlaybackDeviceUnavailable_ThrowsRatherThanHanging`,
+`SherpaOnnxSynthesisSession_SpeakAsync_PlaybackDeviceStartThrows_StillCallsStop`
+
+Verifies that a playback write failure still stops the device before propagating, that an
+unavailable playback device fails promptly rather than hanging, and that a failure to start the
+device still results in a stop attempt during teardown.
+
+#### Session: Genuine Playback Drain Before Stopping
+
+**Test**: `SherpaOnnxSynthesisSession_SpeakAsync_PlaybackDeviceReportsPendingSamples_WaitsForDrainBeforeStopping`
+
+Verifies that `SpeakAsync` genuinely waits for the playback device to report a drained queue
+before stopping it, rather than stopping as soon as every segment has been written. Uses an
+NSubstitute playback device whose `PendingSampleCount` getter signals a semaphore on every read,
+so the test deterministically observes the wait has genuinely begun (rather than racing a sleep)
+before asserting the awaited task has not completed and `Stop()` has not been called; only after
+the test sets the reported pending count to zero does the task complete and the device get
+stopped.
+
+#### Session: Cancellation and Disposal Lifecycle
+
+**Tests**: `SherpaOnnxSynthesisSession_StopAsync_WhileSpeaking_CancelsInFlightOperationOnlyAfterInFlightGenerateReturns`,
+`SherpaOnnxSynthesisSession_StopAsync_NoOperationInFlight_IsNoOp`,
+`SherpaOnnxSynthesisSession_DisposeAsync_CalledTwice_ReleasesLeaseOnce`,
+`SherpaOnnxSynthesisSession_SynthesizeAsync_AfterDispose_ThrowsObjectDisposedException`
+
+Verifies that `StopAsync` cancels an in-flight operation deterministically, only after the
+in-flight `DedicatedWorker`-routed `Generate` call has genuinely returned (never orphaning it); is
+a safe no-op when no operation is in flight; releases the engine's exclusivity lease exactly once
+across repeated `DisposeAsync` calls; and that operating on a disposed session throws
+`ObjectDisposedException`.
+
+#### Session: Voice/Speaker Selection
+
+**Tests**: `SherpaOnnxSynthesisSession_SynthesizeAsync_NoParameterValues_ResolvesDefaultSpeakerIdFromModel`,
+`SherpaOnnxSynthesisSession_SynthesizeAsync_ParameterValuesSupplied_ResolvesSpeakerIdFromBag`,
+`SherpaOnnxSynthesisSession_SynthesizeAsync_ParameterValuesSuppliedAlongsideSpeedTag_BothMechanismsApplyIndependently`
+
+Verifies that a session with no supplied `parameterValues` resolves to the model's own default
+speaker id, that a supplied `parameterValues` bag resolves to the correct speaker id via
+`ISynthesisModel.ResolveSpeakerId`, and that a session-level selected voice and an independent,
+per-segment `[fast]` Natural Language Audio Tag speed override both apply correctly in the same
+call, proving the two mechanisms coexist without either regressing the other.
+
+#### DedicatedWorker: Cooperative Cancellation and Non-Cooperative Abandonment
+
+**Tests**: `DedicatedWorker_Run_CooperativeCancellation_CompletesPromptly`,
+`DedicatedWorker_Run_NonCooperativeDelegate_AbandonsAfterTimeoutAndReportsDiagnostics`,
+`DedicatedWorker_Run_UsesLongRunningTaskCreationOption`
+
+Verifies that a delegate honoring cancellation promptly lets `Run` complete promptly rather than
+waiting out its full abandon timeout; that a delegate which never observes cancellation is
+abandoned once the (injectable, test-shortened) abandon timeout elapses, with a `Warning`
+diagnostic reported and the awaited call still returning control to its caller as cancelled; and
+that the delegate always runs on a `TaskCreationOptions.LongRunning` task.
 
 #### Playback Format Conversion: Resampling, Anti-Aliasing, and Upmix
 
@@ -375,16 +459,26 @@ fast path that skips the upmix step entirely.
 
 #### Unavailable Fallback: Honest Degradation
 
-**Tests**: `UnavailableSpeechSynthesizer_IsAvailable_Read_ReturnsFalse`,
-`UnavailableSpeechSynthesizer_SynthesizeStreamAsync_Always_ThrowsSpeechSynthesizerUnavailableException`,
-`UnavailableSpeechSynthesizer_PlayStreamAsync_Always_ThrowsSpeechSynthesizerUnavailableException`,
-`UnavailableSpeechSynthesizer_SpeakAsync_Always_ThrowsSpeechSynthesizerUnavailableException`,
-`UnavailableSpeechSynthesizer_Stop_Always_ThrowsSpeechSynthesizerUnavailableException`,
-`UnavailableSpeechSynthesizer_Dispose_CalledTwice_DoesNotThrow`,
+**Tests**: `UnavailableSpeechSynthesizerEngine_IsAvailable_Read_ReturnsFalse`,
+`UnavailableSpeechSynthesizerEngine_CreateSessionAsync_Always_ReturnsUnavailableSession`,
+`UnavailableSpeechSynthesizerEngine_CreateSessionAsync_NullDevice_ThrowsArgumentNullException`,
+`UnavailableSpeechSynthesizerEngine_SpeakAsync_Always_ThrowsSpeechSynthesizerUnavailableException`,
+`UnavailableSpeechSynthesizerEngine_SynthesizeAsync_Always_ThrowsSpeechSynthesizerUnavailableException`,
+`UnavailableSpeechSynthesizerEngine_DisposeAsync_CalledTwice_DoesNotThrow`,
+`UnavailableSynthesisSession_IsAvailable_Read_ReturnsFalse`,
+`UnavailableSynthesisSession_State_Read_ReturnsCreated`,
+`UnavailableSynthesisSession_StateChanged_SubscribeAndUnsubscribe_DoesNotThrow`,
+`UnavailableSynthesisSession_SpeakAsync_Always_ThrowsSpeechSynthesizerUnavailableException`,
+`UnavailableSynthesisSession_SpeakAsync_NullText_ThrowsArgumentNullException`,
+`UnavailableSynthesisSession_SynthesizeAsync_Always_ThrowsSpeechSynthesizerUnavailableException`,
+`UnavailableSynthesisSession_SynthesizeAsync_NullText_ThrowsArgumentNullException`,
+`UnavailableSynthesisSession_StopAsync_NoSessionInFlight_IsNoOp`,
+`UnavailableSynthesisSession_DisposeAsync_CalledTwice_DoesNotThrow`,
 `SpeechSynthesizerUnavailableException_Constructor_WithMessage_ExposesMessage`,
 `SpeechSynthesizerUnavailableException_Constructor_WithInnerException_ExposesBoth`,
 `SpeechSynthesizerUnavailableException_Constructor_Default_HasNonEmptyMessage`
 
-Verifies that the shared fallback stays honest and safe to hold and dispose, that operational
-misuse throws the documented exception, and that the exception conforms to the standard
-three-constructor pattern.
+Verifies that both the shared unavailable engine and the shared unavailable session stay honest
+and safe to hold and dispose, that a device bound to an unavailable engine still succeeds (since
+binding is an ordinary composition, not an error), that operational misuse throws the documented
+exception, and that the exception conforms to the standard three-constructor pattern.

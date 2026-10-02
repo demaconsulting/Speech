@@ -268,7 +268,7 @@ public sealed class SherpaOnnxKokoroEnglishSynthesisModel : ISynthesisModel
     ///     to this archive's confirmed integer speaker id.
     /// </summary>
     /// <param name="parameterValues">
-    ///     The untyped key-value bag supplied to <c>SpeechSynthesizerFactory.Create</c>, or
+    ///     The untyped key-value bag supplied to <c>SpeechSynthesizerFactory.LoadAsync</c>, or
     ///     <see langword="null"/>.
     /// </param>
     /// <returns>

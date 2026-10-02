@@ -29,7 +29,16 @@ both to sit at the application's root namespace.
    `RecognitionPanelViewModel` over those adapters
 6. Construct `MainWindowViewModel` over the four panel view models and assign it as the main
    window's data context
-7. Dispose the catalog when the desktop lifetime signals shutdown
+7. On shutdown, asynchronously dispose the `SynthesisPanelViewModel` and
+   `RecognitionPanelViewModel` (each in turn awaits the library's own async engine/session
+   teardown), then dispose the catalog
+
+Disposing the two session-owning panels before the catalog matters because a live session
+holds a lease against the engine the catalog's `SpeechModelCatalog`/`SpeechModelStore` loaded;
+tearing the panels down first lets each session release its engine's lease cleanly before the
+catalog that produced it goes away. `desktop.ShutdownRequested` has no async-aware overload, so
+this handler is itself `async void`-shaped (fire-and-forget), the same accepted pattern used
+throughout this demo's ViewModels for handlers whose signature cannot be `async Task`.
 
 No dependency-injection container is used. The demo's purpose is to show a reader exactly how a
 host application wires itself to the library, and a container would move that wiring into

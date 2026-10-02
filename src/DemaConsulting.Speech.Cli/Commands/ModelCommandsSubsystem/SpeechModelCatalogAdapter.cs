@@ -79,16 +79,15 @@ internal sealed class SpeechModelCatalogAdapter : ICliModelCatalog, IDisposable
     }
 
     /// <inheritdoc/>
-    public ISpeechSynthesizer CreateSynthesizer(
+    public Task<ISpeechSynthesizerEngine> CreateSynthesizerEngineAsync(
         SpeechModelDescriptor descriptor,
-        IAudioPlaybackDevice playbackDevice,
-        IReadOnlyDictionary<string, object>? parameterValues)
+        IReadOnlyDictionary<string, object>? parameterValues,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(descriptor);
-        ArgumentNullException.ThrowIfNull(playbackDevice);
 
         var synthesisModel = RequireSynthesisModel(descriptor);
-        return SpeechSynthesizerFactory.Create(synthesisModel, _catalog, playbackDevice, null, parameterValues);
+        return SpeechSynthesizerFactory.LoadAsync(synthesisModel, _catalog, null, parameterValues, cancellationToken);
     }
 
     /// <summary>
@@ -123,16 +122,15 @@ internal sealed class SpeechModelCatalogAdapter : ICliModelCatalog, IDisposable
     }
 
     /// <inheritdoc/>
-    public ISpeechRecognizer CreateRecognizer(
+    public Task<ISpeechRecognizerEngine> CreateRecognizerEngineAsync(
         SpeechModelDescriptor descriptor,
-        IAudioCaptureDevice captureDevice,
-        IReadOnlyDictionary<string, object>? parameterValues)
+        IReadOnlyDictionary<string, object>? parameterValues,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(descriptor);
-        ArgumentNullException.ThrowIfNull(captureDevice);
 
         var recognitionModel = RequireRecognitionModel(descriptor);
-        return SpeechRecognizerFactory.Create(recognitionModel, _catalog, captureDevice, null, parameterValues);
+        return SpeechRecognizerFactory.LoadAsync(recognitionModel, _catalog, null, parameterValues, cancellationToken);
     }
 
     /// <summary>

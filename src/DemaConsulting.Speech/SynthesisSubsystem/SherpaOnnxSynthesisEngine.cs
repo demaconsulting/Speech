@@ -3,7 +3,7 @@ using SherpaOnnx;
 namespace DemaConsulting.Speech.SynthesisSubsystem;
 
 /// <summary>
-///     Real <see cref="ISynthesisEngine"/> implementation wrapping one sherpa-onnx
+///     Real <see cref="ISynthesisBackend"/> implementation wrapping one sherpa-onnx
 ///     <see cref="OfflineTts"/> instance.
 /// </summary>
 /// <remarks>
@@ -13,8 +13,8 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     <para>
 ///     Construction loads the model into native memory and therefore fails (throws) when the
 ///     native runtime binary for the current RID is absent or the model files are unusable.
-///     Callers convert that into the honest <see cref="UnavailableSpeechSynthesizer"/> fallback;
-///     see <see cref="SpeechSynthesizerFactory"/>.
+///     Callers convert that into the honest <see cref="UnavailableSpeechSynthesizerEngine"/>
+///     fallback; see <see cref="SpeechSynthesizerFactory"/>.
 ///     </para>
 ///     <para>
 ///     Instances own unmanaged resources and must be disposed. <see cref="Generate"/> may safely
@@ -24,7 +24,7 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     provides no cancellation primitive for a call already in progress.
 ///     </para>
 /// </remarks>
-internal sealed class SherpaOnnxSynthesisEngine : ISynthesisEngine
+internal sealed class SherpaOnnxSynthesisEngine : ISynthesisBackend
 {
     /// <summary>The loaded native offline text-to-speech engine.</summary>
     private readonly OfflineTts _tts;

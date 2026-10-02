@@ -1,0 +1,75 @@
+---
+# Software Unit Requirements for ISpeechSynthesizerEngine
+#
+# These requirements describe the design-level behavior of the ISpeechSynthesizerEngine contract
+# (Layer 3, a loaded model) and its adjacent SynthesizedSpeech value type, decomposing the parent
+# SynthesisSubsystem requirements. Splits the former ISpeechSynthesizer requirements between this
+# file and i-synthesis-session.yaml to match the async Engine/Session redesign, mirroring
+# i-speech-recognizer-engine.yaml's identical split.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: SynthesisSubsystem Requirements
+        sections:
+          - title: ISpeechSynthesizerEngine Requirements
+            requirements:
+              - id: Speech-Synthesis-ISpeechSynthesizerEngine-AvailabilityFlag
+                title: >-
+                  The ISpeechSynthesizerEngine interface shall expose an IsAvailable flag that
+                  never throws to read.
+                justification: |
+                  Callers must be able to check availability before invoking an operational
+                  member, without risk of the check itself failing.
+                tests:
+                  - UnavailableSpeechSynthesizerEngine_IsAvailable_Read_ReturnsFalse
+                  - SherpaOnnxSpeechSynthesizerEngine_IsAvailable_Always_ReturnsTrue
+
+              - id: Speech-Synthesis-ISpeechSynthesizerEngine-SessionCreationContract
+                title: >-
+                  The ISpeechSynthesizerEngine interface shall define an asynchronous
+                  CreateSessionAsync method that binds a single ISynthesisSession to one
+                  supplied audio playback device, plus one-shot SpeakAsync/SynthesizeAsync
+                  convenience overloads that each create and dispose a session internally, and
+                  disposal of the resources an engine holds, without exposing any inference
+                  backend or native audio type.
+                justification: |
+                  This library's "engine backend stays swappable at the public API surface"
+                  decision requires that a future non-sherpa-onnx backend can replace the current
+                  one without a breaking API change. Separating a Layer 3 engine (the loaded
+                  model) from a Layer 5 session (bound to one device) lets a single engine host
+                  exactly one in-flight session while still offering a convenient one-shot API for
+                  the common case of a single speak call against a single device.
+                tests:
+                  - SherpaOnnxSpeechSynthesizerEngine_CreateSessionAsync_NoLeaseHeld_ReturnsRealSession
+                  - SherpaOnnxSpeechSynthesizerEngine_SpeakAsync_CalledTwice_CreatesAndDisposesASessionEachTime
+                  - SherpaOnnxSpeechSynthesizerEngine_SynthesizeAsync_NoDeviceSupplied_ReturnsSegments
+
+              - id: Speech-Synthesis-ISpeechSynthesizerEngine-UnavailableOperationsThrow
+                title: >-
+                  Every operational member of the ISpeechSynthesizerEngine contract
+                  (SpeakAsync, SynthesizeAsync) shall throw a documented exception when invoked
+                  on an unavailable engine, while CreateSessionAsync shall still succeed and
+                  return the shared unavailable session rather than throwing.
+                justification: |
+                  Hosts must be able to test their playback logic against the contract with no
+                  model, no speakers, and no native runtime present, so an unavailable engine's
+                  one-shot operational members must fail loudly and consistently rather than
+                  silently doing nothing, while binding a device to an already unavailable engine
+                  is an ordinary (if useless) composition rather than an error.
+                tests:
+                  - UnavailableSpeechSynthesizerEngine_CreateSessionAsync_Always_ReturnsUnavailableSession
+                  - UnavailableSpeechSynthesizerEngine_SpeakAsync_Always_ThrowsSpeechSynthesizerUnavailableException
+                  - UnavailableSpeechSynthesizerEngine_SynthesizeAsync_Always_ThrowsSpeechSynthesizerUnavailableException
+
+              - id: Speech-Synthesis-ISpeechSynthesizerEngine-SynthesizedSpeechShape
+                title: >-
+                  A synthesized speech segment shall carry its normalized audio samples, the rate
+                  they were produced at, and the real pre/post silence to play alongside them.
+                justification: |
+                  The design requires chunked, low-latency synthesis in which each segment is
+                  played back independently and in order; a caller playing segments as they
+                  arrive needs each segment's own silence and rate to play it correctly without
+                  consulting any other segment.
+                tests:
+                  - SherpaOnnxSynthesisSession_SynthesizeAsync_ReturnsFullFidelitySegmentListIncludingSilence

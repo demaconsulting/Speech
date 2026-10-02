@@ -17,10 +17,11 @@
     <Company>DEMA Consulting</Company>
     <Description>Cross-platform .NET library providing local, offline speech-to-text and
       text-to-speech services for desktop applications. Start here: SpeechModelCatalog (enumerate
-      and download models), and AudioDeviceFactory, SpeechRecognizerFactory and
-      SpeechSynthesizerFactory (compose devices/recognizers/synthesizers). None of the latter
-      three throw for an ordinary machine state such as missing hardware or an uninstalled model;
-      check the returned instance's IsAvailable instead. See the README and user guide for a full
+      and download models), AudioDeviceFactory (create capture/playback devices), and
+      SpeechRecognizerFactory.LoadAsync/SpeechSynthesizerFactory.LoadAsync (async-load an engine,
+      then CreateSessionAsync a device-bound session). None of these throw for an ordinary
+      machine state such as missing hardware or an uninstalled model; check the returned
+      engine/session's IsAvailable instead. See the README and user guide for a full
       walkthrough.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/demaconsulting/Speech</PackageProjectUrl>
@@ -149,14 +150,18 @@
          assemblies). Links are absolute GitHub URLs because api.md is packed into the NuGet
          package, which has no access to repository-relative paths. -->
     <ApiMarkLibraryDescription Condition="'$(TargetFramework)' == '$(ApiDocsTargetFramework)'">DemaConsulting.Speech is a cross-platform .NET library providing local, offline
-      speech-to-text (STT) and text-to-speech (TTS) services for desktop applications.
+      speech-to-text (STT) and text-to-speech (TTS) services for desktop applications. The public
+      API is fully asynchronous.
 
       Start here: `SpeechModelCatalog` (enumerate/download STT/TTS models), `AudioDeviceFactory`
-      (create capture/playback audio devices), `SpeechRecognizerFactory` (compose a speech
-      recognizer from a model and capture device), and `SpeechSynthesizerFactory` (compose a
-      speech synthesizer from a model and playback device). None of the latter three throw for an
-      ordinary machine state such as missing hardware or an uninstalled model; check the returned
-      instance's `IsAvailable` instead.
+      (create capture/playback audio devices), and `SpeechRecognizerFactory.LoadAsync`/
+      `SpeechSynthesizerFactory.LoadAsync` (async-load a speech engine from a model). Each loaded
+      engine's `CreateSessionAsync` then creates a cheap session bound to one concrete audio
+      device for its whole life; a recognition session streams results via
+      `IRecognitionSession.GetResultsAsync` (an `IAsyncEnumerable` of `SpeechRecognitionEvent`),
+      while a synthesis session exposes `SpeakAsync`/`SynthesizeAsync`. None of `LoadAsync`,
+      `CreateSessionAsync`, or the factories throw for an ordinary machine state such as missing
+      hardware or an uninstalled model; check the returned engine/session's `IsAvailable` instead.
 
       See the [README](https://github.com/demaconsulting/Speech/blob/main/README.md) and the
       [user guide](https://github.com/demaconsulting/Speech/blob/main/docs/user_guide/introduction.md)

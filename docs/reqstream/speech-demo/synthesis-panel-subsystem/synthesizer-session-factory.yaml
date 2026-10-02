@@ -2,7 +2,7 @@
 # Software Unit Requirements for the SpeechDemo SynthesizerSessionFactory
 #
 # These requirements describe the design-level behavior of the ISynthesizerSessionFactory /
-# SynthesizerSessionFactory unit - the demo-owned synthesizer composition seam over the
+# SynthesizerSessionFactory unit - the demo-owned synthesizer-engine composition seam over the
 # library's SpeechModelStore and SpeechSynthesizerFactory - decomposing the parent
 # SynthesisPanelSubsystem requirements. ISynthesizerSessionFactory and SynthesizerSessionFactory
 # are treated as one unit because the interface has no independently observable behavior of its
@@ -17,9 +17,9 @@ sections:
             requirements:
               - id: SpeechDemo-Synthesis-SessionSeam
                 title: >-
-                  The SynthesisPanelSubsystem shall compose every speech synthesizer it uses
-                  through an injectable seam over the library's synthesizer factory, and that
-                  seam shall honestly report a model of the wrong role as unavailable rather
+                  The SynthesisPanelSubsystem shall compose every speech synthesizer engine it
+                  uses through an injectable seam over the library's synthesizer factory, and
+                  that seam shall honestly report a model of the wrong role as unavailable rather
                   than throwing.
                 justification: |
                   The library's synthesizer factory requires an interface only the library's own
@@ -30,6 +30,5 @@ sections:
                 tests:
                   - SynthesisPanelViewModel_Constructor_NullDependency_ThrowsArgumentNullException
                   - SynthesizerSessionFactory_Constructor_NullStore_ThrowsArgumentNullException
-                  - SynthesizerSessionFactory_Create_NullModel_ThrowsArgumentNullException
-                  - SynthesizerSessionFactory_Create_NullDevice_ThrowsArgumentNullException
-                  - SynthesizerSessionFactory_Create_ModelNotSynthesisRole_ReturnsUnavailableSynthesizer
+                  - SynthesizerSessionFactory_LoadAsync_NullModel_ThrowsArgumentNullException
+                  - SynthesizerSessionFactory_LoadAsync_ModelNotSynthesisRole_ReturnsUnavailableEngine

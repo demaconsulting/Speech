@@ -86,5 +86,5 @@ name mapping exists for this model's speakers.
 **Callers**: `SpeechModelCatalog.KnownModels` (registers this instance);
 `SpeechModelDownloader` (invokes `InstallAsync` after checksum verification);
 `SherpaOnnxSynthesisEngine` (consumes the internal `CreateEngineConfig` member through the
-SynthesisSubsystem); `SherpaOnnxSpeechSynthesizer.GenerateSegment` (consumes the internal
+SynthesisSubsystem); `SherpaOnnxSynthesisSession.GenerateSegmentAsync` (consumes the internal
 `ResolveSpeakerId` member once per synthesized segment).

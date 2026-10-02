@@ -90,36 +90,40 @@ internal interface ICliModelCatalog
     AudioFormat GetPreferredAudioFormat(SpeechModelDescriptor descriptor);
 
     /// <summary>
-    ///     Constructs a real <see cref="ISpeechSynthesizer"/> for a resolved synthesis-role model
-    ///     descriptor, playing back through the supplied device.
+    ///     Loads a real <see cref="ISpeechSynthesizerEngine"/> for a resolved synthesis-role
+    ///     model descriptor, with no playback device bound yet.
     /// </summary>
+    /// <remarks>
+    ///     Loading is the expensive step; callers should load one engine per model/parameter
+    ///     combination and reuse it to create sessions (via
+    ///     <see cref="ISpeechSynthesizerEngine.CreateSessionAsync"/>) rather than reloading per
+    ///     turn - mirroring <c>ISpeechSynthesizerEngine</c>'s own guidance.
+    /// </remarks>
     /// <param name="descriptor">
     ///     The descriptor identifying the model to load. Must not be null and must describe a
     ///     synthesis-role model.
     /// </param>
-    /// <param name="playbackDevice">The playback device to speak through. Must not be null.</param>
     /// <param name="parameterValues">
     ///     An optional session-level parameter value bag resolved from <c>--param</c>, or
     ///     <see langword="null"/> to use every model's own default parameter values.
     /// </param>
+    /// <param name="cancellationToken">A token to observe for cancellation of the load.</param>
     /// <returns>
-    ///     A real synthesizer when the model is installed, its role is synthesis, and the
-    ///     playback device is available; otherwise an honestly unavailable synthesizer per
-    ///     <see cref="SpeechSynthesizerFactory.Create(ISynthesisModel,SpeechModelCatalog,IAudioPlaybackDevice,DemaConsulting.Speech.Diagnostics.ISpeechDiagnostics?,IReadOnlyDictionary{string,object}?)"/>'s
+    ///     A task that completes with a real engine when the model is installed and its role is
+    ///     synthesis; otherwise an honestly unavailable engine per <see cref="SpeechSynthesizerFactory"/>'s
     ///     own contract.
     /// </returns>
-    /// <exception cref="ArgumentNullException">
-    ///     Thrown when <paramref name="descriptor"/> or <paramref name="playbackDevice"/> is <see langword="null"/>.
-    /// </exception>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="descriptor"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">
     ///     Thrown when <paramref name="descriptor"/> does not describe a synthesis-role model, or
     ///     when <paramref name="parameterValues"/> contains an invalid value for a parameter the
     ///     model declares.
     /// </exception>
-    ISpeechSynthesizer CreateSynthesizer(
+    /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is cancelled before loading completes.</exception>
+    Task<ISpeechSynthesizerEngine> CreateSynthesizerEngineAsync(
         SpeechModelDescriptor descriptor,
-        IAudioPlaybackDevice playbackDevice,
-        IReadOnlyDictionary<string, object>? parameterValues);
+        IReadOnlyDictionary<string, object>? parameterValues,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     ///     Resolves the mono audio format a recognition-role model descriptor's engine requires
@@ -136,34 +140,38 @@ internal interface ICliModelCatalog
     AudioFormat GetAudioFormat(SpeechModelDescriptor descriptor);
 
     /// <summary>
-    ///     Constructs a real <see cref="ISpeechRecognizer"/> for a resolved recognition-role model
-    ///     descriptor, streaming audio from the supplied capture device.
+    ///     Loads a real <see cref="ISpeechRecognizerEngine"/> for a resolved recognition-role
+    ///     model descriptor, with no capture device bound yet.
     /// </summary>
+    /// <remarks>
+    ///     Loading is the expensive step; callers should load one engine per model/parameter
+    ///     combination and reuse it to create sessions (via
+    ///     <see cref="ISpeechRecognizerEngine.CreateSessionAsync"/>) rather than reloading per
+    ///     turn - mirroring <c>ISpeechRecognizerEngine</c>'s own guidance.
+    /// </remarks>
     /// <param name="descriptor">
     ///     The descriptor identifying the model to load. Must not be null and must describe a
     ///     recognition-role model.
     /// </param>
-    /// <param name="captureDevice">The capture device to stream audio from. Must not be null.</param>
     /// <param name="parameterValues">
     ///     An optional session-level parameter value bag resolved from <c>--param</c>, or
     ///     <see langword="null"/> to use every model's own default parameter values.
     /// </param>
+    /// <param name="cancellationToken">A token to observe for cancellation of the load.</param>
     /// <returns>
-    ///     A real recognizer when the model is installed, its role is recognition, and the
-    ///     capture device is available; otherwise an honestly unavailable recognizer per
-    ///     <see cref="SpeechRecognizerFactory.Create(IRecognitionModel,SpeechModelCatalog,IAudioCaptureDevice,DemaConsulting.Speech.Diagnostics.ISpeechDiagnostics?,IReadOnlyDictionary{string,object}?)"/>'s
+    ///     A task that completes with a real engine when the model is installed and its role is
+    ///     recognition; otherwise an honestly unavailable engine per <see cref="SpeechRecognizerFactory"/>'s
     ///     own contract.
     /// </returns>
-    /// <exception cref="ArgumentNullException">
-    ///     Thrown when <paramref name="descriptor"/> or <paramref name="captureDevice"/> is <see langword="null"/>.
-    /// </exception>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="descriptor"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">
     ///     Thrown when <paramref name="descriptor"/> does not describe a recognition-role model, or
     ///     when <paramref name="parameterValues"/> contains an invalid value for a parameter the
     ///     model declares.
     /// </exception>
-    ISpeechRecognizer CreateRecognizer(
+    /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is cancelled before loading completes.</exception>
+    Task<ISpeechRecognizerEngine> CreateRecognizerEngineAsync(
         SpeechModelDescriptor descriptor,
-        IAudioCaptureDevice captureDevice,
-        IReadOnlyDictionary<string, object>? parameterValues);
+        IReadOnlyDictionary<string, object>? parameterValues,
+        CancellationToken cancellationToken = default);
 }

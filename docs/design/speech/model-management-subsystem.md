@@ -50,6 +50,11 @@ model since neither declares a parameter yet. It contains the following units:
   are built around
 - **SpeechModelParameters** (`ISpeechModelParameter`, `NumericParameter`, `ChoiceParameter`,
   `BooleanParameter`): the typed, self-describing tunable-parameter descriptor hierarchy
+- **SpeechModelParameterDiagnostics**: the shared internal helper, invoked once up front by both
+  composition factories' innermost `LoadAsync` overloads, that validates a supplied
+  `parameterValues` bag against a model's declared `Parameters`, throwing `ArgumentException` for
+  an invalid value and reporting (via an `Info` diagnostic) an unknown key rather than silently
+  dropping it
 - **SpeechModelContract** (`ISpeechModel`, `IRecognitionModel`, `ISynthesisModel`): the common
   per-model contract plus its two role-specific interfaces - `IRecognitionModel` exposing a
   public `AudioFormat` and internal engine-construction members, and `ISynthesisModel` exposing
@@ -137,15 +142,17 @@ its declared `Parameters` (`ISpeechModelParameter` instances - `NumericParameter
 `ChoiceParameter`, or `BooleanParameter`, each self-validating an internally consistent range/
 option-set/default at construction), its declared `AudioTagSupport` (a declaration only - the
 Layer 2 rendering logic is Phase 4), its `DownloadDescriptor`, its `InstallAsync` hook (a no-op
-default, overridable to unpack an archive payload), and its `NormalizeText` hook (an identity
-default, overridable for Phase 4 text normalization). `IRecognitionModel` now exposes a public
-plain-data `AudioFormat` declaration, while keeping `CreateEngineConfig(installedModelDirectory)`
+default, overridable to unpack an archive payload), its `NormalizeText` hook (an identity
+default, overridable for Phase 4 text normalization), and its `LicenseName`/`LicenseUrl`
+default-hook members (`"Unknown"`/`null` by default, overridable to declare a model's real
+license name and an optional canonical URL to its full text). `IRecognitionModel` now exposes a
+public plain-data `AudioFormat` declaration, while keeping `CreateEngineConfig(installedModelDirectory)`
 internal because it returns a sherpa-onnx type; this lets hosts compose capture devices around a
 model's required format without leaking native engine configuration into the public API.
 `ISynthesisModel` similarly exposes a public best-effort `PreferredAudioFormat` hint, while
 keeping `CreateEngineConfig`, `CapabilityProfile`, and `ResolveSpeakerId(parameterValues)`
 internal. The hint is intentionally non-authoritative: the real synthesis output rate is still
-the loaded engine's `ISynthesisEngine.SampleRate`.
+the loaded engine's `ISynthesisBackend.SampleRate`.
 
 `SpeechModelCatalog` composes a compiled-in `KnownModels` list - as of Phase 7a, this phase's two
 real recognition models - with a `SpeechModelStore` and a `SpeechModelDownloader`. `Enumerate()`

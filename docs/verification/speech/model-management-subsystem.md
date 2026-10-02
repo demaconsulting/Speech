@@ -46,4 +46,8 @@ throws `ArgumentException` for a value invalid for a parameter a model declares 
 ignoring (with only an `Info` diagnostic) a supplied key naming a parameter the model does not
 declare; and `SpeechModelCatalog` correctly reports `NotDownloaded`, `Downloading`, `Downloaded`,
 and `FailedOrCorrupt` for an injected fake model as a download is requested, in progress,
-completes, or fails, using only injected fakes since this pass ships zero real model classes.
+completes, or fails, using injected fakes for deterministic state-resolution coverage, with the
+same state-resolution behavior additionally proven indirectly through the catalog's four real,
+shipped model classes (`SherpaOnnxZipformerEnRecognitionModel`,
+`SherpaOnnxNemotronStreamingEnRecognitionModel`, `SherpaOnnxVitsLibriTtsEnglishSynthesisModel`,
+`SherpaOnnxKokoroEnglishSynthesisModel`) in their own unit-level test suites.

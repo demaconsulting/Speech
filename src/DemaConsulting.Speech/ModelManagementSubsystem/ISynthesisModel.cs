@@ -21,7 +21,7 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     Both members are deliberately <see langword="internal"/> rather than public, mirroring
 ///     <see cref="IRecognitionModel"/>'s identical Phase 3 pattern: this library's "engine
 ///     backend stays swappable at the public API surface" constraint is scoped to
-///     <c>ISpeechSynthesizer</c>, while each per-model backing class is architecturally
+///     <c>ISpeechSynthesizerEngine</c>, while each per-model backing class is architecturally
 ///     responsible for "sherpa-onnx configuration for its own model architecture" - so returning
 ///     a real <see cref="OfflineTtsConfig"/> here is consistent with the approved design. Keeping
 ///     the members internal means this interface's <em>public</em> surface is unchanged, no
@@ -43,7 +43,7 @@ public interface ISynthesisModel : ISpeechModel
     ///     so the playback device attempts to open near the model's expected output format before
     ///     synthesis starts, potentially reducing or eliminating later resampling work. The real
     ///     source of truth remains the constructed engine's
-    ///     <see cref="SynthesisSubsystem.ISynthesisEngine.SampleRate"/>, which is read only after
+    ///     <see cref="SynthesisSubsystem.ISynthesisBackend.SampleRate"/>, which is read only after
     ///     <see cref="CreateEngineConfig"/> has been used to load the native engine. Callers must
     ///     therefore still handle a mismatch by resampling playback audio after construction.
     /// </remarks>
@@ -100,11 +100,11 @@ public interface ISynthesisModel : ISpeechModel
     ///     every existing model's previous hard-coded behavior.
     /// </summary>
     /// <param name="parameterValues">
-    ///     The untyped key-value bag supplied to <c>SpeechSynthesizerFactory.Create</c> (for
+    ///     The untyped key-value bag supplied to <c>SpeechSynthesizerFactory.LoadAsync</c> (for
     ///     example built from a host's settings UI via a declared <see cref="ChoiceParameter"/>),
     ///     or <see langword="null"/> when the caller supplied none.
     /// </param>
-    /// <returns>The sherpa-onnx speaker id to pass to <c>ISynthesisEngine.Generate</c>.</returns>
+    /// <returns>The sherpa-onnx speaker id to pass to <c>ISynthesisBackend.Generate</c>.</returns>
     /// <remarks>
     ///     Added so a multi-speaker model (starting with
     ///     <see cref="SherpaOnnxKokoroEnglishSynthesisModel"/>) can own its own string-to-int

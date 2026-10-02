@@ -117,7 +117,7 @@ sections:
                 justification: |
                   ISynthesisModel.ResolveSpeakerId is this model's own owned knowledge - the
                   confirmed id2speaker ordering (index = speaker id) that lets
-                  SherpaOnnxSpeechSynthesizer.GenerateSegment turn a demo-selected or
+                  SherpaOnnxSynthesisSession.GenerateSegmentAsync turn a demo-selected or
                   library-consumer-selected voice name into the real speaker id sherpa-onnx's
                   native Generate call needs, replacing the previous hard-coded speakerId: 0.
                   Never throwing on a missing/unrecognized selection keeps synthesis available

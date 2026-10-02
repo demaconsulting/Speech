@@ -16,7 +16,7 @@ namespace DemaConsulting.Speech.Tests.RecognitionSubsystem;
 ///     with silence and a synthesized tone (see that test class's own remarks). Because nothing
 ///     in <c>src/</c> depends on this type, it carries no production requirement of its own; the
 ///     requirement it supports
-///     (<c>Speech-Recognition-RecognitionEngine-RealSpeechAccuracy</c>) is satisfied by the
+///     (<c>Speech-Recognition-RecognitionBackend-RealSpeechAccuracy</c>) is satisfied by the
 ///     accuracy test that consumes it, not by this calculation helper itself.
 ///     <para>
 ///     Both transcripts are independently normalized before comparison (lower-cased, punctuation

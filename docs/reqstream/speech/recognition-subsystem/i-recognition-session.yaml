@@ -1,0 +1,118 @@
+---
+# Software Unit Requirements for IRecognitionSession
+#
+# Groups requirements for IRecognitionSession together with its adjacent value/event types
+# (RecognitionSessionState, SessionStateChangedEventArgs, RecognitionSessionFaultedException,
+# SpeechRecognitionResult, SpeechRecognitionEvent), decomposing the parent RecognitionSubsystem
+# requirements. These supporting types carry no behavior independent of the session contract they
+# describe, per design-documentation.md's allowance for small supporting types documented inline.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: RecognitionSubsystem Requirements
+        sections:
+          - title: IRecognitionSession Requirements
+            requirements:
+              - id: Speech-Recognition-IRecognitionSession-AvailabilityFlag
+                title: >-
+                  The IRecognitionSession interface shall expose an IsAvailable flag that never
+                  throws to read.
+                justification: |
+                  Callers must be able to check availability before invoking an operational
+                  member, without risk of the check itself failing.
+                tests:
+                  - UnavailableRecognitionSession_IsAvailable_Read_ReturnsFalse
+
+              - id: Speech-Recognition-IRecognitionSession-StateMachine
+                title: >-
+                  The IRecognitionSession interface shall expose a State property and a
+                  StateChanged event that together report every RecognitionSessionState
+                  transition, in order, as the session makes only the documented forward-only
+                  transitions (Created, Starting, Running, Stopping, Stopped, Disposing,
+                  Disposed, with Faulted reachable from Starting, Running, or Stopping).
+                justification: |
+                  A host rendering session status, and a test asserting on session lifecycle,
+                  both need a single authoritative, orderable signal of what the session is doing
+                  rather than inferring it from the side effects of Start/Stop/GetResults calls.
+                tests:
+                  - SherpaOnnxRecognitionSession_StartAsync_FromCreated_TransitionsToRunning
+                  - SherpaOnnxRecognitionSession_StartAsync_FromStopped_ThrowsInvalidOperationException
+                  - SherpaOnnxRecognitionSession_StateChanged_EmitsEveryTransitionInOrder
+                  - SherpaOnnxRecognitionSession_DeviceLostMidSession_TransitionsToFaulted
+
+              - id: Speech-Recognition-IRecognitionSession-StartStopLifecycle
+                title: >-
+                  The IRecognitionSession interface shall define async StartAsync/StopAsync
+                  lifecycle methods and an async disposal that releases the resources a running
+                  session holds. StopAsync shall finalize and deliver any trailing audio
+                  accepted but not yet decoded before it returns, rather than carrying it over
+                  into (or losing it between) sessions, and shall be safe to call concurrently or
+                  repeatedly.
+                justification: |
+                  A mockable streaming-recognition contract lets hosts and tests depend on
+                  recognition behavior without tying themselves to a specific inference backend,
+                  while still giving them a defined point at which backend resources are
+                  released. A streaming backend cannot decode the tail of an utterance released
+                  with no trailing silence without audio it will now never receive (for example a
+                  push-to-talk release), so without a defined finalization step that trailing
+                  audio would be silently lost rather than delivered as one last result.
+                tests:
+                  - UnavailableRecognitionSession_StartAsync_Always_ThrowsSpeechRecognizerUnavailableException
+                  - UnavailableRecognitionSession_StopAsync_Always_IsSafeNoOp
+                  - UnavailableRecognitionSession_DisposeAsync_CalledTwice_DoesNotThrow
+                  - SherpaOnnxRecognitionSession_StopAsync_FlushesTrailingResultsBeforeCompleting
+                  - SherpaOnnxRecognitionSession_StopAsync_CalledConcurrentlyTwice_BothCompleteOnceStopped
+                  - SherpaOnnxRecognitionSession_StopAsync_BackendResetFails_CompletesAndReportsFault
+
+              - id: Speech-Recognition-IRecognitionSession-ResultDelivery
+                title: >-
+                  The IRecognitionSession interface shall expose an async-enumerable
+                  GetResultsAsync that streams every provisional and final recognition result
+                  produced while the session runs, is single-consumer (rejecting a second
+                  concurrent enumeration), ends an individual enumeration without stopping the
+                  session when its own cancellation token is cancelled, and throws
+                  RecognitionSessionFaultedException from the enumerator when the session
+                  transitions to Faulted while being enumerated.
+                justification: |
+                  The design requires streaming recognition that emits "progressive provisional
+                  and final results as audio arrives" through a single-consumer, async-native
+                  surface, so a host must be able to tell from a single result whether to replace
+                  an in-progress transcript line or commit it, and must learn promptly, through
+                  the same enumeration, if the session can no longer produce results.
+                tests:
+                  - UnavailableRecognitionSession_GetResultsAsync_Always_ThrowsSpeechRecognizerUnavailableException
+                  - SherpaOnnxRecognitionSession_GetResultsAsync_CalledConcurrently_ThrowsInvalidOperationException
+                  - SherpaOnnxRecognitionSession_GetResultsAsync_CancelledToken_EndsEnumerationWithoutStoppingSession
+                  - SherpaOnnxRecognitionSession_GetResultsAsync_SessionFaulted_ThrowsRecognitionSessionFaultedException
+                  - SherpaOnnxRecognitionSession_FrameCaptured_FinalResult_AppliesModelNormalizeTextWithIsFinalTrue
+
+              - id: Speech-Recognition-IRecognitionSession-Backpressure
+                title: >-
+                  A session's GetResultsAsync shall apply bounded backpressure to a slow consumer
+                  by coalescing provisional results down to the latest one while never dropping a
+                  final result under the documented byte cap.
+                justification: |
+                  A host transcript consumer that is temporarily slower than the recognition
+                  backend must never cause unbounded memory growth, but a provisional result is,
+                  by definition, superseded by the next one, so only the latest provisional need
+                  survive; a final result is a committed transcript line and must never be
+                  silently dropped merely because the consumer is behind.
+                tests:
+                  - SherpaOnnxRecognitionSession_GetResultsAsync_SlowConsumer_CoalescesProvisionalResults
+                  - SherpaOnnxRecognitionSession_GetResultsAsync_SlowConsumer_NeverDropsFinalResultsUnderByteCap
+
+          - title: RecognitionSessionFaultedException Requirements
+            requirements:
+              - id: Speech-Recognition-RecognitionSessionFaultedException-Thrown
+                title: >-
+                  The RecognitionSessionFaultedException class shall be thrown from
+                  GetResultsAsync's enumerator, and only from it, when the session transitions to
+                  RecognitionSessionState.Faulted while being enumerated.
+                justification: |
+                  A consumer enumerating results needs an unambiguous, typed signal that the
+                  session itself has failed, distinct from an ordinary end of enumeration or a
+                  caller-initiated cancellation, so it can decide whether to recreate a session
+                  rather than silently treating a faulted session as merely finished.
+                tests:
+                  - SherpaOnnxRecognitionSession_GetResultsAsync_SessionFaulted_ThrowsRecognitionSessionFaultedException

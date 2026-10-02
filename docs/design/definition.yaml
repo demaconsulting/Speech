@@ -41,10 +41,21 @@ input-files:
   - docs/design/speech/model-management-subsystem/speech-model-descriptor.md
   - docs/design/speech/model-management-subsystem/speech-model-catalog.md
   - docs/design/speech/recognition-subsystem.md
-  - docs/design/speech/recognition-subsystem/i-speech-recognizer.md
+  - docs/design/speech/recognition-subsystem/i-speech-recognizer-engine.md
+  - docs/design/speech/recognition-subsystem/i-recognition-session.md
   - docs/design/speech/recognition-subsystem/speech-recognizer-factory.md
-  - docs/design/speech/recognition-subsystem/sherpa-onnx-speech-recognizer.md
-  - docs/design/speech/recognition-subsystem/unavailable-speech-recognizer.md
+  - docs/design/speech/recognition-subsystem/sherpa-onnx-recognition-session.md
+  - docs/design/speech/recognition-subsystem/unavailable-speech-recognizer-engine.md
+  - docs/design/speech/recognition-subsystem/unavailable-recognition-session.md
+  - docs/design/speech/synthesis-subsystem.md
+  - docs/design/speech/synthesis-subsystem/i-speech-synthesizer-engine.md
+  - docs/design/speech/synthesis-subsystem/i-synthesis-session.md
+  - docs/design/speech/synthesis-subsystem/speech-synthesizer-factory.md
+  - docs/design/speech/synthesis-subsystem/sherpa-onnx-speech-synthesizer-engine.md
+  - docs/design/speech/synthesis-subsystem/sherpa-onnx-synthesis-session.md
+  - docs/design/speech/synthesis-subsystem/unavailable-speech-synthesizer-engine.md
+  - docs/design/speech/synthesis-subsystem/unavailable-synthesis-session.md
+  - docs/design/speech/synthesis-subsystem/audio-tag-parser.md
   - docs/design/speech-demo.md
   - docs/design/speech-demo/shell-subsystem.md
   - docs/design/speech-demo/device-selection-subsystem.md

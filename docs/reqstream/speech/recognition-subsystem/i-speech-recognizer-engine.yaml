@@ -1,0 +1,72 @@
+---
+# Software Unit Requirements for ISpeechRecognizerEngine
+#
+# These requirements describe the design-level behavior of the ISpeechRecognizerEngine contract,
+# decomposing the parent RecognitionSubsystem requirements. Engine exclusivity/lease behavior and
+# RecognitionEngineBusyException are documented separately in recognition-session-lease.yaml,
+# since that behavior is a cross-cutting policy shared with SherpaOnnxSpeechRecognizerEngine.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: RecognitionSubsystem Requirements
+        sections:
+          - title: ISpeechRecognizerEngine Requirements
+            requirements:
+              - id: Speech-Recognition-ISpeechRecognizerEngine-AvailabilityFlag
+                title: >-
+                  The ISpeechRecognizerEngine interface shall expose an IsAvailable flag that
+                  never throws to read.
+                justification: |
+                  Callers must be able to check availability before invoking an operational
+                  member, without risk of the check itself failing.
+                tests:
+                  - UnavailableSpeechRecognizerEngine_IsAvailable_Read_ReturnsFalse
+                  - SpeechRecognizerFactory_LoadAsync_ModelInstalled_ReturnsRealEngine
+
+              - id: Speech-Recognition-ISpeechRecognizerEngine-CreateSession
+                title: >-
+                  The ISpeechRecognizerEngine interface shall expose an async CreateSessionAsync
+                  method that binds a supplied capture device to a new IRecognitionSession for
+                  the session's entire life, rejecting a null device and honoring caller
+                  cancellation.
+                justification: |
+                  A mockable Layer 3 engine contract lets hosts and tests depend on recognition
+                  behavior without tying themselves to a specific inference backend, while
+                  keeping the one-device-per-session binding explicit at the point a session is
+                  created, per this library's Engine/Session split.
+                tests:
+                  - UnavailableSpeechRecognizerEngine_CreateSessionAsync_Always_ReturnsUnavailableSession
+                  - UnavailableSpeechRecognizerEngine_CreateSessionAsync_NullDevice_ThrowsArgumentNullException
+                  - SherpaOnnxSpeechRecognizerEngine_CreateSessionAsync_NullDevice_ThrowsArgumentNullException
+                  - SherpaOnnxSpeechRecognizerEngine_CreateSessionAsync_NoActiveSession_ReturnsSession
+                  - SpeechRecognizerFactory_LoadAsync_CancelledToken_FaultsWithOperationCanceledException
+
+              - id: Speech-Recognition-ISpeechRecognizerEngine-Disposal
+                title: >-
+                  The ISpeechRecognizerEngine interface shall expose an idempotent async
+                  DisposeAsync that disposes any still-active session it created before
+                  releasing the engine's own native resources.
+                justification: |
+                  An engine owns the native-backed recognition backend across many sessions, so
+                  disposing the engine while a session it created is still active must not leak
+                  that session's resources, and repeated disposal from multiple owners must stay
+                  safe.
+                tests:
+                  - UnavailableSpeechRecognizerEngine_DisposeAsync_CalledTwice_DoesNotThrow
+                  - SherpaOnnxSpeechRecognizerEngine_DisposeAsync_WithActiveSession_DisposesSessionFirst
+
+              - id: Speech-Recognition-RecognitionBackend-UnavailableDeviceFallback
+                title: >-
+                  SherpaOnnxSpeechRecognizerEngine's CreateSessionAsync shall report a Warning
+                  diagnostic and return UnavailableRecognitionSession.Instance, without attempting
+                  to lease its backend, when the supplied capture device itself reports
+                  unavailable.
+                justification: |
+                  No microphone (or no working audio backend) is an ordinary machine state,
+                  exactly like a model not being installed - there is nothing to stream, so this
+                  engine returns the same honest fallback used elsewhere in this library rather
+                  than a session doomed to fail the instant it is started, while still telling an
+                  observer why via the Warning diagnostic.
+                tests:
+                  - SherpaOnnxSpeechRecognizerEngine_CreateSessionAsync_DeviceUnavailable_ReturnsFallbackAndReportsWarning

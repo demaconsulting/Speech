@@ -140,15 +140,15 @@ internal sealed class FakeCliModelCatalog : ICliModelCatalog
     public Func<SpeechModelDescriptor, AudioFormat>? GetPreferredAudioFormatOverride { get; set; }
 
     /// <summary>
-    ///     Gets or sets the delegate <see cref="CreateSynthesizer"/> forwards to, or
+    ///     Gets or sets the delegate <see cref="CreateSynthesizerEngineAsync"/> forwards to, or
     ///     <see langword="null"/> to throw a clear "not configured" exception if a test forgets
     ///     to set it and the code path is reached.
     /// </summary>
-    public Func<SpeechModelDescriptor, IAudioPlaybackDevice, IReadOnlyDictionary<string, object>?, ISpeechSynthesizer>?
-        CreateSynthesizerOverride
+    public Func<SpeechModelDescriptor, IReadOnlyDictionary<string, object>?, CancellationToken, Task<ISpeechSynthesizerEngine>>?
+        CreateSynthesizerEngineOverride
     { get; set; }
 
-    /// <summary>Gets the ordered list of parameter value bags passed to <see cref="CreateSynthesizer"/>.</summary>
+    /// <summary>Gets the ordered list of parameter value bags passed to <see cref="CreateSynthesizerEngineAsync"/>.</summary>
     public List<IReadOnlyDictionary<string, object>?> CreateSynthesizerParameterValueCalls { get; } = [];
 
     /// <inheritdoc/>
@@ -162,19 +162,18 @@ internal sealed class FakeCliModelCatalog : ICliModelCatalog
     }
 
     /// <inheritdoc/>
-    public ISpeechSynthesizer CreateSynthesizer(
+    public Task<ISpeechSynthesizerEngine> CreateSynthesizerEngineAsync(
         SpeechModelDescriptor descriptor,
-        IAudioPlaybackDevice playbackDevice,
-        IReadOnlyDictionary<string, object>? parameterValues)
+        IReadOnlyDictionary<string, object>? parameterValues,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(descriptor);
-        ArgumentNullException.ThrowIfNull(playbackDevice);
 
         CreateSynthesizerParameterValueCalls.Add(parameterValues);
 
-        return CreateSynthesizerOverride?.Invoke(descriptor, playbackDevice, parameterValues)
+        return CreateSynthesizerEngineOverride?.Invoke(descriptor, parameterValues, cancellationToken)
             ?? throw new InvalidOperationException(
-                $"{nameof(FakeCliModelCatalog)}.{nameof(CreateSynthesizerOverride)} was not configured for this test.");
+                $"{nameof(FakeCliModelCatalog)}.{nameof(CreateSynthesizerEngineOverride)} was not configured for this test.");
     }
 
     /// <summary>
@@ -185,15 +184,15 @@ internal sealed class FakeCliModelCatalog : ICliModelCatalog
     public Func<SpeechModelDescriptor, AudioFormat>? GetAudioFormatOverride { get; set; }
 
     /// <summary>
-    ///     Gets or sets the delegate <see cref="CreateRecognizer"/> forwards to, or
+    ///     Gets or sets the delegate <see cref="CreateRecognizerEngineAsync"/> forwards to, or
     ///     <see langword="null"/> to throw a clear "not configured" exception if a test forgets
     ///     to set it and the code path is reached.
     /// </summary>
-    public Func<SpeechModelDescriptor, IAudioCaptureDevice, IReadOnlyDictionary<string, object>?, ISpeechRecognizer>?
-        CreateRecognizerOverride
+    public Func<SpeechModelDescriptor, IReadOnlyDictionary<string, object>?, CancellationToken, Task<ISpeechRecognizerEngine>>?
+        CreateRecognizerEngineOverride
     { get; set; }
 
-    /// <summary>Gets the ordered list of parameter value bags passed to <see cref="CreateRecognizer"/>.</summary>
+    /// <summary>Gets the ordered list of parameter value bags passed to <see cref="CreateRecognizerEngineAsync"/>.</summary>
     public List<IReadOnlyDictionary<string, object>?> CreateRecognizerParameterValueCalls { get; } = [];
 
     /// <inheritdoc/>
@@ -207,18 +206,17 @@ internal sealed class FakeCliModelCatalog : ICliModelCatalog
     }
 
     /// <inheritdoc/>
-    public ISpeechRecognizer CreateRecognizer(
+    public Task<ISpeechRecognizerEngine> CreateRecognizerEngineAsync(
         SpeechModelDescriptor descriptor,
-        IAudioCaptureDevice captureDevice,
-        IReadOnlyDictionary<string, object>? parameterValues)
+        IReadOnlyDictionary<string, object>? parameterValues,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(descriptor);
-        ArgumentNullException.ThrowIfNull(captureDevice);
 
         CreateRecognizerParameterValueCalls.Add(parameterValues);
 
-        return CreateRecognizerOverride?.Invoke(descriptor, captureDevice, parameterValues)
+        return CreateRecognizerEngineOverride?.Invoke(descriptor, parameterValues, cancellationToken)
             ?? throw new InvalidOperationException(
-                $"{nameof(FakeCliModelCatalog)}.{nameof(CreateRecognizerOverride)} was not configured for this test.");
+                $"{nameof(FakeCliModelCatalog)}.{nameof(CreateRecognizerEngineOverride)} was not configured for this test.");
     }
 }

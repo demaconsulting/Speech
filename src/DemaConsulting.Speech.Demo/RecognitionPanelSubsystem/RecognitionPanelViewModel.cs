@@ -20,7 +20,7 @@ namespace DemaConsulting.Speech.Demo.RecognitionPanelSubsystem;
 ///     recognition model, starting and stopping a live transcription session, and rendering the
 ///     progressive provisional ("partial") and final results the library raises while streaming
 ///     - with honest reporting of every unavailable state (no installed recognition model, no
-///     capture device, or an engine fault) rather than a silent failure or a crash.
+///     capture device, or an engine/session fault) rather than a silent failure or a crash.
 ///     <para>
 ///     Every library entry point this panel reaches is reached through an injected seam
 ///     (<see cref="IModelCatalogService"/>, <see cref="IAudioDeviceService"/>,
@@ -29,34 +29,36 @@ namespace DemaConsulting.Speech.Demo.RecognitionPanelSubsystem;
 ///     downloaded model, no native runtime, and no real microphone.
 ///     </para>
 ///     <para>
-///     <see cref="ISpeechRecognizer.ResultReceived"/> is documented to raise from the
-///     recognizer's own background decoding thread, so this ViewModel captures the UI thread's
-///     <see cref="SynchronizationContext"/> when a session starts and posts every event through
-///     it before touching any observable property, mirroring the library's own
-///     <c>ConfigureAwait(true)</c> marshaling used elsewhere in this demo. Otherwise not
-///     thread-safe: expected to be used from the UI thread.
+///     <see cref="IRecognitionSession.StateChanged"/> and the results from
+///     <see cref="IRecognitionSession.GetResultsAsync"/> are documented to raise/resume from the
+///     session's own background thread, so <see cref="StartAsync"/> captures the UI thread's
+///     <see cref="SynchronizationContext"/> before the session starts and this ViewModel marshals
+///     every <see cref="IRecognitionSession.StateChanged"/> event through it before touching any
+///     observable property - the result pump below instead relies on each
+///     <c>await foreach</c> continuation naturally resuming on that same captured context.
+///     Otherwise not thread-safe: expected to be used from the UI thread.
 ///     </para>
 ///     <para>
 ///     This ViewModel also subscribes to <see cref="IModelCatalogService.ModelInstalled"/> in its
 ///     constructor so a newly downloaded recognition model installed from the Model Catalog panel
 ///     is picked up automatically, without a manual Refresh click or app restart. The handler
 ///     ignores events for any other <see cref="SpeechModelRole"/> and marshals onto the UI thread
-///     (captured at construction) before calling <see cref="Refresh"/>, using the same
-///     <see cref="SynchronizationContext"/> pattern as <see cref="ISpeechRecognizer.ResultReceived"/>
-///     handling above. <see cref="Dispose"/> unsubscribes this handler.
+///     (captured at construction) before calling <see cref="Refresh"/>. <see cref="DisposeAsync"/>
+///     unsubscribes this handler.
 ///     </para>
 ///     <para>
-///     <b>Recognizer reuse.</b> Per <see cref="ISpeechRecognizer"/>'s own "hot reuse" guidance,
-///     this ViewModel constructs a recognizer at most once per selected model/capture-device pair
-///     and calls <see cref="ISpeechRecognizer.Start"/>/<see cref="ISpeechRecognizer.Stop"/>
-///     repeatedly on that same instance across many Start/Stop clicks, instead of composing and
-///     disposing a new one - and reloading its model - on every click. The cached recognizer is
-///     invalidated (disposed and rebuilt on the next Start) only when the selected model changes,
-///     the selected capture device changes, or the shared device-selection panel forces a device
-///     refresh - each of which genuinely requires a different underlying recognizer/device pair.
+///     <b>Engine/session reuse.</b> Per <see cref="ISpeechRecognizerEngine"/>'s own reuse
+///     guidance, this ViewModel loads an engine at most once per selected model and reuses it
+///     across many Start/Stop cycles, instead of reloading its model on every click. Because an
+///     <see cref="IRecognitionSession"/> is single-use (see its own remarks), a fresh session is
+///     created from the cached engine for every Start and released before the next one is
+///     created. The cached engine is invalidated (disposed and reloaded on the next Start) only
+///     when the selected model changes; the cached session is invalidated (released, keeping the
+///     engine) whenever the selected capture device changes or the shared device-selection panel
+///     forces a device refresh - a session, not an engine, is bound to a capture device.
 ///     </para>
 /// </remarks>
-public sealed partial class RecognitionPanelViewModel : ObservableObject, IDisposable
+public sealed partial class RecognitionPanelViewModel : ObservableObject, IAsyncDisposable
 {
     /// <summary>The message shown when no installed recognition model is available to choose.</summary>
     public const string NoModelsMessage =
@@ -70,12 +72,15 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IDispo
     public const string NoCaptureDeviceMessage =
         "No audio capture device is available. Choose one on the Audio Devices panel.";
 
-    /// <summary>The message shown when the composed recognizer honestly reports itself unavailable.</summary>
+    /// <summary>The message shown when the composed recognizer engine honestly reports itself unavailable.</summary>
     public const string RecognizerUnavailableMessage =
         "The selected model's speech recognizer is unavailable on this machine.";
 
     /// <summary>The message shown after listening is stopped by the user.</summary>
     public const string StoppedMessage = "Listening stopped.";
+
+    /// <summary>The message shown when the active session reports an unrecoverable fault.</summary>
+    public const string SessionFaultedMessage = "The recognition session reported an unrecoverable error.";
 
     /// <summary>The seam supplying every installed recognition model.</summary>
     private readonly IModelCatalogService _catalogService;
@@ -86,7 +91,7 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IDispo
     /// <summary>The shared device-selection panel state supplying the chosen capture device.</summary>
     private readonly DeviceSelectionViewModel _deviceSelection;
 
-    /// <summary>The seam used to compose a recognizer for the selected model and device.</summary>
+    /// <summary>The seam used to load a recognizer engine for the selected model.</summary>
     private readonly IRecognizerSessionFactory _sessionFactory;
 
     /// <summary>
@@ -97,15 +102,35 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IDispo
     private readonly SynchronizationContext? _catalogEventUiContext = SynchronizationContext.Current;
 
     /// <summary>
-    ///     The cached recognizer, bound to <see cref="_captureDevice"/>, reused across many
-    ///     Start/Stop cycles; see the "Recognizer reuse" remarks above. <see langword="null"/>
-    ///     before the first Start, or after invalidation by a model/device change or a device
-    ///     refresh.
+    ///     The cached recognizer engine, reused across many Start/Stop cycles for as long as
+    ///     <see cref="_engineModel"/> matches <see cref="SelectedModel"/>; see the
+    ///     "Engine/session reuse" remarks above. <see langword="null"/> before the first Start, or
+    ///     after invalidation by a model change.
     /// </summary>
-    private ISpeechRecognizer? _recognizer;
+    private ISpeechRecognizerEngine? _engine;
 
-    /// <summary>The capture device <see cref="_recognizer"/> was constructed with, if any.</summary>
-    private IAudioCaptureDevice? _captureDevice;
+    /// <summary>The model <see cref="_engine"/> was loaded for, if any.</summary>
+    private ISpeechModel? _engineModel;
+
+    /// <summary>
+    ///     The active per-run session created from <see cref="_engine"/>, if any. Single-use:
+    ///     released via <see cref="InvalidateSessionAsync"/> before the next Start can lease a new
+    ///     one from the same engine.
+    /// </summary>
+    private IRecognitionSession? _session;
+
+    /// <summary>
+    ///     The background task pumping <see cref="IRecognitionSession.GetResultsAsync"/> for
+    ///     <see cref="_session"/>, stored so it can be awaited on Stop and canceled/awaited on
+    ///     invalidation or disposal.
+    /// </summary>
+    private Task? _pumpTask;
+
+    /// <summary>
+    ///     Cancels only the result-pump enumeration for <see cref="_session"/> (never the session
+    ///     itself) when that session is being released while still producing results.
+    /// </summary>
+    private CancellationTokenSource? _pumpCancellation;
 
     /// <summary>
     ///     TEMPORARY diagnostic instrumentation for investigating a reported dropped-word bug
@@ -121,7 +146,7 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IDispo
 
     /// <summary>
     ///     The pre-refresh hook registered with <see cref="_deviceSelection"/>, retained so the
-    ///     exact same delegate instance can be unregistered in <see cref="Dispose"/>.
+    ///     exact same delegate instance can be unregistered in <see cref="DisposeAsync"/>.
     /// </summary>
     private readonly Func<Task> _preRefreshHook;
 
@@ -208,7 +233,7 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IDispo
     /// <param name="catalogService">The catalog seam to read installed models from. Must not be <see langword="null"/>.</param>
     /// <param name="deviceService">The device seam used to create the capture device. Must not be <see langword="null"/>.</param>
     /// <param name="deviceSelection">The shared device-selection panel state. Must not be <see langword="null"/>.</param>
-    /// <param name="sessionFactory">The seam used to compose a recognizer. Must not be <see langword="null"/>.</param>
+    /// <param name="sessionFactory">The seam used to load a recognizer engine. Must not be <see langword="null"/>.</param>
     /// <exception cref="ArgumentNullException">Thrown when any parameter is <see langword="null"/>.</exception>
     internal RecognitionPanelViewModel(
         IModelCatalogService catalogService,
@@ -236,16 +261,22 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IDispo
     }
 
     /// <summary>
-    ///     Stops an actively listening session, if any, and invalidates the cached recognizer
-    ///     when the user picks a different capture device - it was built against the previously
-    ///     selected device and must not be reused against a new one. The capture picker is not
-    ///     disabled while <see cref="State"/> is <see cref="RecognitionStreamingState.Listening"/>
-    ///     (unlike the model picker; see <see cref="CanChangeModel"/>), so a change can arrive
-    ///     mid-session and must stop that session rather than leaving the cached recognizer
-    ///     silently bound to the old device until some other trigger invalidates it.
+    ///     Stops an actively listening session, if any, and invalidates the cached session (not
+    ///     the cached engine) when the user picks a different capture device - the session was
+    ///     bound to the previously selected device and must not be reused against a new one. The
+    ///     capture picker is not disabled while <see cref="State"/> is
+    ///     <see cref="RecognitionStreamingState.Listening"/> (unlike the model picker; see
+    ///     <see cref="CanChangeModel"/>), so a change can arrive mid-session and must stop that
+    ///     session rather than leaving it silently bound to the old device.
     /// </summary>
     /// <param name="sender">The raising device-selection panel. Unused.</param>
     /// <param name="e">The event naming the property that changed.</param>
+    /// <remarks>
+    ///     This handler's signature is fixed by <see cref="INotifyPropertyChanged.PropertyChanged"/>
+    ///     and cannot return a <see cref="Task"/>, so it fires the async work without awaiting it
+    ///     - the same accepted fire-and-forget pattern used throughout this class for event
+    ///     handlers that must perform async cleanup.
+    /// </remarks>
     private void OnDeviceSelectionChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName != nameof(DeviceSelectionViewModel.CaptureSelection))
@@ -253,51 +284,162 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IDispo
             return;
         }
 
-        if (CanStop)
-        {
-            Stop();
-        }
-
-        InvalidateRecognizer();
+        _ = HandleCaptureDeviceChangedAsync();
     }
 
     /// <summary>
-    ///     Stops an actively listening session, if any, and invalidates the cached recognizer
-    ///     when the user picks a different recognition model - it was built against the
-    ///     previously selected model and must not be reused against a new one. The model picker
-    ///     is disabled in the view while listening (see <see cref="CanChangeModel"/>), but
+    ///     Performs the async stop-then-invalidate-session work for <see cref="OnDeviceSelectionChanged"/>.
+    /// </summary>
+    private async Task HandleCaptureDeviceChangedAsync()
+    {
+        if (CanStop)
+        {
+            await StopAsync().ConfigureAwait(true);
+        }
+
+        await InvalidateSessionAsync().ConfigureAwait(true);
+    }
+
+    /// <summary>
+    ///     Stops an actively listening session, if any, and invalidates the cached engine (and its
+    ///     session) when the user picks a different recognition model - it was loaded for the
+    ///     previously selected model and must not be reused against a new one. The model picker is
+    ///     disabled in the view while listening (see <see cref="CanChangeModel"/>), but
     ///     <see cref="SelectedModel"/> has a public setter and can still be set directly (for
     ///     example, programmatically or via <see cref="Refresh"/> repopulating the catalog), so
-    ///     this must not assume Stop has already run: disposing the recognizer without stopping
-    ///     it first would leave <see cref="State"/> stuck at <see cref="RecognitionStreamingState.Listening"/>
-    ///     forever, since a later <see cref="Stop"/> would see no cached recognizer and no-op.
+    ///     this must not assume Stop has already run.
     /// </summary>
     /// <param name="value">The newly selected model.</param>
+    /// <remarks>
+    ///     This source-generated partial method's signature is fixed to <see langword="void"/>, so
+    ///     it fires the async work without awaiting it - the same accepted fire-and-forget pattern
+    ///     used throughout this class for handlers that must perform async cleanup.
+    /// </remarks>
     partial void OnSelectedModelChanged(ISpeechModel? value)
     {
-        if (CanStop)
-        {
-            Stop();
-        }
-
-        InvalidateRecognizer();
+        _ = HandleSelectedModelChangedAsync();
     }
 
     /// <summary>
-    ///     Disposes and clears the cached recognizer and its bound capture device, if any, so the
-    ///     next Start builds a fresh pair. Safe to call when nothing is cached.
+    ///     Performs the async stop-then-invalidate-engine work for <see cref="OnSelectedModelChanged(ISpeechModel?)"/>.
     /// </summary>
-    private void InvalidateRecognizer()
+    private async Task HandleSelectedModelChangedAsync()
     {
-        if (_recognizer is null)
+        if (CanStop)
+        {
+            await StopAsync().ConfigureAwait(true);
+        }
+
+        await InvalidateEngineAsync().ConfigureAwait(true);
+    }
+
+    /// <summary>
+    ///     Maps a <see cref="RecognitionSessionState"/> to the corresponding
+    ///     <see cref="RecognitionStreamingState"/>, giving every transition a single, predictable
+    ///     source of truth instead of ad hoc assignment at each call site.
+    /// </summary>
+    /// <param name="state">The session state to map.</param>
+    /// <returns>The corresponding streaming state.</returns>
+    private static RecognitionStreamingState MapSessionState(RecognitionSessionState state) => state switch
+    {
+        RecognitionSessionState.Starting or RecognitionSessionState.Running or RecognitionSessionState.Stopping =>
+            RecognitionStreamingState.Listening,
+        RecognitionSessionState.Faulted => RecognitionStreamingState.Error,
+        _ => RecognitionStreamingState.Idle,
+    };
+
+    /// <summary>
+    ///     Marshals one <see cref="IRecognitionSession.StateChanged"/> event onto the UI thread and
+    ///     applies <see cref="MapSessionState"/>.
+    /// </summary>
+    /// <param name="sender">The raising session. Unused.</param>
+    /// <param name="e">The event carrying the previous and current session state.</param>
+    private void OnSessionStateChanged(object? sender, SessionStateChangedEventArgs e)
+    {
+        if (_uiContext is null)
+        {
+            ApplySessionStateChanged(e);
+        }
+        else
+        {
+            _uiContext.Post(state => ApplySessionStateChanged((SessionStateChangedEventArgs)state!), e);
+        }
+    }
+
+    /// <summary>
+    ///     Applies one session state transition to <see cref="State"/>, additionally reporting
+    ///     <see cref="SessionFaultedMessage"/> when the session has faulted.
+    /// </summary>
+    /// <param name="e">The event carrying the previous and current session state.</param>
+    private void ApplySessionStateChanged(SessionStateChangedEventArgs e)
+    {
+        State = MapSessionState(e.Current);
+
+        if (e.Current == RecognitionSessionState.Faulted)
+        {
+            StatusMessage = SessionFaultedMessage;
+        }
+    }
+
+    /// <summary>
+    ///     Releases and clears the cached session, if any, first canceling its result-pump
+    ///     enumeration and awaiting that pump task, then disposing the session itself - which
+    ///     releases the engine's exclusivity lease so a new session can be created. Safe to call
+    ///     when nothing is cached. Does not touch the cached engine.
+    /// </summary>
+    private async Task InvalidateSessionAsync()
+    {
+        var session = _session;
+        if (session is null)
         {
             return;
         }
 
-        _recognizer.ResultReceived -= OnResultReceived;
-        _recognizer.Dispose();
-        _recognizer = null;
-        _captureDevice = null;
+        session.StateChanged -= OnSessionStateChanged;
+
+        if (_pumpCancellation is not null)
+        {
+            await _pumpCancellation.CancelAsync().ConfigureAwait(true);
+        }
+
+        var pumpTask = _pumpTask;
+        if (pumpTask is not null)
+        {
+            try
+            {
+                await pumpTask.ConfigureAwait(true);
+            }
+            catch
+            {
+                // Already reported through the pump's own catch blocks; this await only drains it.
+            }
+        }
+
+        await session.DisposeAsync().ConfigureAwait(true);
+
+        _pumpCancellation?.Dispose();
+        _pumpCancellation = null;
+        _pumpTask = null;
+        _session = null;
+    }
+
+    /// <summary>
+    ///     Releases and clears the cached session (see <see cref="InvalidateSessionAsync"/>), then
+    ///     disposes and clears the cached engine, if any, so the next Start loads a fresh one.
+    ///     Safe to call when nothing is cached.
+    /// </summary>
+    private async Task InvalidateEngineAsync()
+    {
+        await InvalidateSessionAsync().ConfigureAwait(true);
+
+        if (_engine is null)
+        {
+            return;
+        }
+
+        await _engine.DisposeAsync().ConfigureAwait(true);
+        _engine = null;
+        _engineModel = null;
     }
 
     /// <summary>
@@ -329,11 +471,12 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IDispo
 
     /// <summary>
     ///     Starts a streaming transcription session for the currently selected model through the
-    ///     currently selected capture device, building a new recognizer only if none is already
-    ///     cached for this model/device pair (see the "Recognizer reuse" remarks above).
+    ///     currently selected capture device, loading a new engine only if none is already cached
+    ///     for this model (see the "Engine/session reuse" remarks above), and always creating a
+    ///     fresh session since a session is single-use.
     /// </summary>
     [RelayCommand(CanExecute = nameof(CanStart))]
-    private void Start()
+    private async Task StartAsync()
     {
         var selectedModel = SelectedModel;
         if (selectedModel is null)
@@ -343,28 +486,48 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IDispo
             return;
         }
 
-        if (_recognizer is null)
+        // Check the cheap, synchronous precondition (a usable capture device) before paying for
+        // the comparatively expensive async engine load, so an honest "no device" outcome does
+        // not depend on what an engine-loading seam happens to return for this combination.
+        var captureDevice = _deviceService.CreateCaptureDevice(_deviceSelection.CaptureSelection);
+        if (!captureDevice.IsAvailable)
         {
-            var captureDevice = _deviceService.CreateCaptureDevice(_deviceSelection.CaptureSelection);
-            if (!captureDevice.IsAvailable)
-            {
-                StatusMessage = NoCaptureDeviceMessage;
-                State = RecognitionStreamingState.Error;
-                return;
-            }
+            StatusMessage = NoCaptureDeviceMessage;
+            State = RecognitionStreamingState.Error;
+            return;
+        }
 
-            var recognizer = _sessionFactory.Create(selectedModel, captureDevice);
-            if (!recognizer.IsAvailable)
+        if (_engine is null || !ReferenceEquals(_engineModel, selectedModel))
+        {
+            await InvalidateEngineAsync().ConfigureAwait(true);
+
+            var engine = await _sessionFactory.LoadAsync(selectedModel, CancellationToken.None).ConfigureAwait(true);
+            if (!engine.IsAvailable)
             {
-                recognizer.Dispose();
+                await engine.DisposeAsync().ConfigureAwait(true);
                 StatusMessage = RecognizerUnavailableMessage;
                 State = RecognitionStreamingState.Error;
                 return;
             }
 
-            recognizer.ResultReceived += OnResultReceived;
-            _recognizer = recognizer;
-            _captureDevice = captureDevice;
+            _engine = engine;
+            _engineModel = selectedModel;
+        }
+
+        // A previous run's session is single-use and must be released before a new one can be
+        // leased from the engine (see IRecognitionSession's single-use/engine-exclusivity remarks).
+        await InvalidateSessionAsync().ConfigureAwait(true);
+
+        IRecognitionSession session;
+        try
+        {
+            session = await _engine.CreateSessionAsync(captureDevice, CancellationToken.None).ConfigureAwait(true);
+        }
+        catch (RecognitionEngineBusyException ex)
+        {
+            StatusMessage = ex.Message;
+            State = RecognitionStreamingState.Error;
+            return;
         }
 
         Finals.Clear();
@@ -372,99 +535,123 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IDispo
         StatusMessage = null;
 
         _uiContext = SynchronizationContext.Current;
+        session.StateChanged += OnSessionStateChanged;
 
         // TEMPORARY diagnostic instrumentation: an independent tap on the same capture device,
         // used only when DEMASPEECH_CAPTURE_DEBUG_DIR is set (see CaptureDebugRecorder), for
         // investigating a reported dropped-word bug after a mid-sentence pause. Subscribing here
-        // does not affect the recognizer above, which owns the device's Start/Stop lifecycle.
-        _captureDebugRecorder = CaptureDebugRecorder.TryStart(_captureDevice!);
+        // does not affect the session above, which owns the device's Start/Stop lifecycle.
+        _captureDebugRecorder = CaptureDebugRecorder.TryStart(captureDevice);
 
         try
         {
-            _recognizer.Start();
-            State = RecognitionStreamingState.Listening;
+            await session.StartAsync(CancellationToken.None).ConfigureAwait(true);
         }
         catch (SpeechRecognizerUnavailableException ex)
         {
             _captureDebugRecorder?.Dispose();
             _captureDebugRecorder = null;
 
-            // The cached recognizer itself reported a hard failure starting its device - treat it
-            // as unusable for the rest of its life rather than retrying the same broken instance;
-            // the next Start attempt builds a fresh recognizer/device pair.
-            InvalidateRecognizer();
+            session.StateChanged -= OnSessionStateChanged;
+            await session.DisposeAsync().ConfigureAwait(true);
+            _uiContext = null;
+
             StatusMessage = ex.Message;
             State = RecognitionStreamingState.Error;
+            return;
         }
+
+        _pumpCancellation = new CancellationTokenSource();
+        _session = session;
+        _pumpTask = PumpResultsAsync(session, _pumpCancellation.Token);
     }
 
     /// <summary>
-    ///     Stops the in-flight streaming transcription session, if any, without discarding the
-    ///     underlying recognizer - it remains cached, with its model still loaded, so the next
-    ///     Start is cheap. A safe no-op when nothing is listening.
+    ///     Stops the in-flight streaming transcription session, if any, awaiting its result pump
+    ///     to fully drain before returning, without discarding the cached engine - it remains
+    ///     cached, with its model still loaded, so the next Start is cheap. A safe no-op when
+    ///     nothing is listening, and safe to call concurrently with itself.
     /// </summary>
-    [RelayCommand(CanExecute = nameof(CanStop))]
-    private void Stop()
+    [RelayCommand(CanExecute = nameof(CanStop), AllowConcurrentExecutions = true)]
+    private async Task StopAsync()
     {
-        if (_recognizer is null)
+        var session = _session;
+        if (session is null)
         {
             return;
         }
 
-        _recognizer.Stop();
-        _uiContext = null;
+        await session.StopAsync(CancellationToken.None).ConfigureAwait(true);
+
+        var pumpTask = _pumpTask;
+        if (pumpTask is not null)
+        {
+            try
+            {
+                await pumpTask.ConfigureAwait(true);
+            }
+            catch
+            {
+                // Already reported through the pump's own catch blocks; this await only drains it.
+            }
+        }
 
         // TEMPORARY diagnostic instrumentation: finalize the independent raw-capture recording
         // (if one was started) so its .wav header is patched and the file is closed
         _captureDebugRecorder?.Dispose();
         _captureDebugRecorder = null;
 
-        State = RecognitionStreamingState.Idle;
-        StatusMessage = StoppedMessage;
+        _uiContext = null;
+
+        if (State != RecognitionStreamingState.Error)
+        {
+            StatusMessage = StoppedMessage;
+        }
     }
 
     /// <summary>
-    ///     Stops an actively listening session, if any, and invalidates the cached recognizer so
-    ///     the shared device-selection panel can safely force the audio backend to re-scan its
-    ///     device table: the recognizer's bound capture device would otherwise become stale the
-    ///     instant the refresh completes, so it must not be reused once one is pending.
+    ///     Stops an actively listening session, if any, and releases the cached session so the
+    ///     shared device-selection panel can safely force the audio backend to re-scan its device
+    ///     table: the session's bound capture device would otherwise become stale the instant the
+    ///     refresh completes, so it must not be reused once one is pending. The cached engine is
+    ///     left intact, since a device refresh does not affect the loaded model.
     /// </summary>
-    /// <returns>
-    ///     A synchronously completed task: <see cref="Stop"/> is documented to be fully
-    ///     synchronous down to the capture device's own closure (it blocks on draining the
-    ///     recognizer before returning), so by the time this method returns the capture device is
-    ///     already closed and no real awaiting ever occurs. The <see cref="Func{TResult}"/>
-    ///     shape exists only to satisfy the
-    ///     <see cref="DeviceSelectionSubsystem.DeviceSelectionViewModel.RegisterPreRefreshHook"/>
-    ///     contract, which must support hooks that do need to await (see
-    ///     <see cref="SynthesisPanelSubsystem.SynthesisPanelViewModel"/>'s equivalent hook).
-    /// </returns>
-    private Task StopBeforeDeviceRefreshAsync()
-    {
-        if (CanStop)
-        {
-            Stop();
-        }
-
-        InvalidateRecognizer();
-
-        return Task.CompletedTask;
-    }
+    /// <returns>A task that completes once the in-flight session, if any, is fully released.</returns>
+    private Task StopBeforeDeviceRefreshAsync() => HandleCaptureDeviceChangedAsync();
 
     /// <summary>
-    ///     Marshals one recognition result onto the UI thread and applies it to the transcript.
+    ///     Pumps <see cref="IRecognitionSession.GetResultsAsync"/> for one session, applying every
+    ///     result to the transcript as it arrives. Runs as a background task stored on
+    ///     <see cref="_pumpTask"/>; relies on each <c>await foreach</c> continuation resuming on
+    ///     the UI thread context captured by its caller (<see cref="StartAsync"/>) rather than
+    ///     explicit marshaling.
     /// </summary>
-    /// <param name="sender">The raising recognizer. Unused.</param>
-    /// <param name="e">The recognition event carrying the result to apply.</param>
-    private void OnResultReceived(object? sender, SpeechRecognitionEvent e)
+    /// <param name="session">The session to pump results from.</param>
+    /// <param name="cancellationToken">
+    ///     A token that ends only this enumeration (not the session) when the session is being
+    ///     released while still producing results.
+    /// </param>
+    private async Task PumpResultsAsync(IRecognitionSession session, CancellationToken cancellationToken)
     {
-        if (_uiContext is null)
+        try
         {
-            ApplyResult(e.Result);
+            await foreach (var recognitionEvent in session.GetResultsAsync(cancellationToken).ConfigureAwait(true))
+            {
+                ApplyResult(recognitionEvent.Result);
+            }
         }
-        else
+        catch (OperationCanceledException)
         {
-            _uiContext.Post(state => ApplyResult((SpeechRecognitionResult)state!), e.Result);
+            // Enumeration was ended by invalidation (model/device change or disposal), not a
+            // session fault.
+        }
+        catch (RecognitionSessionFaultedException ex)
+        {
+            StatusMessage = ex.Message;
+        }
+        catch (SpeechRecognizerUnavailableException ex)
+        {
+            StatusMessage = ex.Message;
         }
     }
 
@@ -532,19 +719,24 @@ public sealed partial class RecognitionPanelViewModel : ObservableObject, IDispo
     }
 
     /// <summary>
-    ///     Stops any in-flight session and releases the cached recognizer and capture device it
-    ///     holds, and unsubscribes from <see cref="IModelCatalogService.ModelInstalled"/> and the
+    ///     Stops any in-flight session and releases the cached session and engine it holds, and
+    ///     unsubscribes from <see cref="IModelCatalogService.ModelInstalled"/> and the
     ///     device-selection panel's change notifications.
     /// </summary>
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         _catalogService.ModelInstalled -= OnModelInstalled;
         _deviceSelection.PropertyChanged -= OnDeviceSelectionChanged;
         _deviceSelection.UnregisterPreRefreshHook(_preRefreshHook);
 
+        if (CanStop)
+        {
+            await StopAsync().ConfigureAwait(true);
+        }
+
         _captureDebugRecorder?.Dispose();
         _captureDebugRecorder = null;
 
-        InvalidateRecognizer();
+        await InvalidateEngineAsync().ConfigureAwait(true);
     }
 }

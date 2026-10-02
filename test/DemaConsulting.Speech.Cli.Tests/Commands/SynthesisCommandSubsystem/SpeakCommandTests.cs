@@ -26,13 +26,15 @@ using DemaConsulting.Speech.Cli.Commands.SynthesisCommandSubsystem;
 using DemaConsulting.Speech.Cli.Tests.Commands.DeviceCommandsSubsystem;
 using DemaConsulting.Speech.Cli.Tests.Commands.ModelCommandsSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
+using DemaConsulting.Speech.SynthesisSubsystem;
 
 namespace DemaConsulting.Speech.Cli.Tests.Commands.SynthesisCommandSubsystem;
 
 /// <summary>
 ///     Unit tests for <see cref="SpeakCommand"/>, using <see cref="FakeCliModelCatalog"/>,
-///     <see cref="FakeSpeechSynthesizer"/>, and fake audio device probes so every scenario runs
-///     deterministically with no real catalog, network access, native engine, or audio hardware.
+///     <see cref="FakeSynthesisSession"/>/<see cref="FakeSpeechSynthesizerEngine"/>, and fake
+///     audio device probes so every scenario runs deterministically with no real catalog, network
+///     access, native engine, or audio hardware.
 /// </summary>
 [Collection("Sequential")]
 public sealed class SpeakCommandTests
@@ -49,6 +51,20 @@ public sealed class SpeakCommandTests
         var catalog = new FakeCliModelCatalog();
         catalog.WithModel(new FakeSpeechModel(modelId, role: role, parameters: parameters), state);
         return catalog;
+    }
+
+    /// <summary>
+    ///     Creates a <see cref="FakeSynthesisSession"/> wrapped in a <see cref="FakeSpeechSynthesizerEngine"/>,
+    ///     and wires the catalog's <see cref="FakeCliModelCatalog.CreateSynthesizerEngineOverride"/>
+    ///     to return the engine.
+    /// </summary>
+    private static (FakeSynthesisSession Session, FakeSpeechSynthesizerEngine Engine) WireSynthesizer(
+        FakeCliModelCatalog catalog)
+    {
+        var session = new FakeSynthesisSession();
+        var engine = new FakeSpeechSynthesizerEngine(session);
+        catalog.CreateSynthesizerEngineOverride = (_, _, _) => Task.FromResult<ISpeechSynthesizerEngine>(engine);
+        return (session, engine);
     }
 
     // --- ParseArguments ---
@@ -179,15 +195,14 @@ public sealed class SpeakCommandTests
 
     // --- --tts-param validation wiring ---
 
-    /// <summary>Test that a valid --tts-param is forwarded to CreateSynthesizer's parameterValues argument.</summary>
+    /// <summary>Test that a valid --tts-param is forwarded to CreateSynthesizerEngineAsync's parameterValues argument.</summary>
     [Fact]
-    public async Task SpeakCommand_RunAsync_ValidParam_ForwardsToCreateSynthesizer()
+    public async Task SpeakCommand_RunAsync_ValidParam_ForwardsToCreateSynthesizerEngine()
     {
         var rateParameter = new NumericParameter(
             "rate", "Rate", "Speaking rate", new NumericParameterBounds(0.5, 2.0, 0.1, 1.0));
         var catalog = CreateCatalogWithModel(parameters: [rateParameter]);
-        var synthesizer = new FakeSpeechSynthesizer();
-        catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
+        WireSynthesizer(catalog);
         var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
         using var context = Context.Create(["speak", "--tts-model", "model-1", "--text", "hi", "--tts-param", "rate=1.5"]);
 
@@ -198,7 +213,7 @@ public sealed class SpeakCommandTests
         Assert.Equal(1.5, Assert.IsType<double>(parameterValues["rate"]));
     }
 
-    /// <summary>Test that an invalid --tts-param value throws before any synthesizer is created.</summary>
+    /// <summary>Test that an invalid --tts-param value throws before any synthesizer engine is created.</summary>
     [Fact]
     public async Task SpeakCommand_RunAsync_InvalidParam_ThrowsArgumentException()
     {
@@ -219,15 +234,14 @@ public sealed class SpeakCommandTests
     public async Task SpeakCommand_RunAsync_NoTags_StripsRecognizedTagExactly()
     {
         var catalog = CreateCatalogWithModel();
-        var synthesizer = new FakeSpeechSynthesizer();
-        catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
+        var (session, _) = WireSynthesizer(catalog);
         var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
         using var context = Context.Create(
             ["speak", "--tts-model", "model-1", "--text", "Hello [laughs] there", "--no-tags"]);
 
         await SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None);
 
-        var spokenText = Assert.Single(synthesizer.SpeakAsyncCalls);
+        var spokenText = Assert.Single(session.SpeakAsyncCalls);
         Assert.Equal("Hello  there", spokenText);
     }
 
@@ -236,14 +250,13 @@ public sealed class SpeakCommandTests
     public async Task SpeakCommand_RunAsync_WithoutNoTags_PassesOriginalTextUnchanged()
     {
         var catalog = CreateCatalogWithModel();
-        var synthesizer = new FakeSpeechSynthesizer();
-        catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
+        var (session, _) = WireSynthesizer(catalog);
         var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
         using var context = Context.Create(["speak", "--tts-model", "model-1", "--text", "Hello [laughs] there"]);
 
         await SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None);
 
-        var spokenText = Assert.Single(synthesizer.SpeakAsyncCalls);
+        var spokenText = Assert.Single(session.SpeakAsyncCalls);
         Assert.Equal("Hello [laughs] there", spokenText);
     }
 
@@ -258,13 +271,7 @@ public sealed class SpeakCommandTests
     {
         var catalog = CreateCatalogWithModel();
         catalog.GetPreferredAudioFormatOverride = _ => AudioFormat.Mono(22050);
-        var synthesizer = new FakeSpeechSynthesizer();
-        IAudioPlaybackDevice? capturedDevice = null;
-        catalog.CreateSynthesizerOverride = (_, device, _) =>
-        {
-            capturedDevice = device;
-            return synthesizer;
-        };
+        var (_, engine) = WireSynthesizer(catalog);
         // A probe that throws if enumerated, proving --output-audio never touches real device probes.
         var factory = new FakePlaybackDeviceSource(new ThrowingAudioPlaybackDeviceProbe());
         var outputPath = Path.Join(Path.GetTempPath(), $"speak-test-{Guid.NewGuid():N}.wav");
@@ -275,9 +282,9 @@ public sealed class SpeakCommandTests
 
             await SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None);
 
-            Assert.NotNull(capturedDevice);
-            Assert.Equal(22050, capturedDevice.SampleRate);
-            Assert.Equal(1, capturedDevice.ChannelCount);
+            Assert.NotNull(engine.LastDevice);
+            Assert.Equal(22050, engine.LastDevice.SampleRate);
+            Assert.Equal(1, engine.LastDevice.ChannelCount);
             Assert.True(File.Exists(outputPath));
         }
         finally
@@ -289,7 +296,7 @@ public sealed class SpeakCommandTests
         }
     }
 
-    /// <summary>Test that an unknown --playback-device throws before any synthesizer is created.</summary>
+    /// <summary>Test that an unknown --playback-device throws before any synthesizer engine is created.</summary>
     [Fact]
     public async Task SpeakCommand_RunAsync_UnknownDevice_ThrowsArgumentException()
     {
@@ -322,32 +329,33 @@ public sealed class SpeakCommandTests
     public async Task SpeakCommand_RunAsync_Canceled_ReportsErrorCleanly()
     {
         var catalog = CreateCatalogWithModel();
-        var synthesizer = new FakeSpeechSynthesizer { SpeakAsyncException = new OperationCanceledException() };
-        catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
+        var (session, engine) = WireSynthesizer(catalog);
+        session.SpeakAsyncException = new OperationCanceledException();
         var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
         using var context = Context.Create(["speak", "--tts-model", "model-1", "--text", "hi"]);
 
         await SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None);
 
         Assert.Equal(1, context.ExitCode);
-        Assert.Equal(1, synthesizer.DisposeCallCount);
+        Assert.Equal(1, session.DisposeCallCount);
+        Assert.Equal(1, engine.DisposeCallCount);
     }
 
     // --- Disposal ordering ---
 
-    /// <summary>Test that the synthesizer is disposed exactly once after a successful speak.</summary>
+    /// <summary>Test that both the engine and the session are disposed exactly once after a successful speak.</summary>
     [Fact]
-    public async Task SpeakCommand_RunAsync_Success_DisposesSynthesizerOnce()
+    public async Task SpeakCommand_RunAsync_Success_DisposesEngineAndSessionOnce()
     {
         var catalog = CreateCatalogWithModel();
-        var synthesizer = new FakeSpeechSynthesizer();
-        catalog.CreateSynthesizerOverride = (_, _, _) => synthesizer;
+        var (session, engine) = WireSynthesizer(catalog);
         var factory = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]));
         using var context = Context.Create(["speak", "--tts-model", "model-1", "--text", "hi"]);
 
         await SpeakCommand.RunAsync(context, catalog, factory, CancellationToken.None);
 
-        Assert.Equal(1, synthesizer.DisposeCallCount);
+        Assert.Equal(1, session.DisposeCallCount);
+        Assert.Equal(1, engine.DisposeCallCount);
         Assert.Equal(0, context.ExitCode);
     }
 

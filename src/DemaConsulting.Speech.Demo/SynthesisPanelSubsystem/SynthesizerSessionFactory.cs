@@ -1,4 +1,3 @@
-using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.SynthesisSubsystem;
 
@@ -12,13 +11,13 @@ namespace DemaConsulting.Speech.Demo.SynthesisPanelSubsystem;
 ///     This adapter narrows <see cref="ISpeechModel"/> to the <see cref="ISynthesisModel"/> the
 ///     library's factory requires and forwards it, together with the shared
 ///     <see cref="SpeechModelStore"/> supplied at construction, to
-///     <see cref="SpeechSynthesizerFactory.Create(ISynthesisModel,SpeechModelStore,IAudioPlaybackDevice,Diagnostics.ISpeechDiagnostics?,System.Collections.Generic.IReadOnlyDictionary{string,object}?)"/>,
+///     <see cref="SpeechSynthesizerFactory.LoadAsync(ISynthesisModel,SpeechModelStore,Diagnostics.ISpeechDiagnostics?,System.Collections.Generic.IReadOnlyDictionary{string,object}?,CancellationToken)"/>,
 ///     which resolves the model's installed-files directory itself, inheriting that factory's
 ///     "nothing throws at composition" contract. A model that declares
 ///     a role other than synthesis (and therefore is not an <see cref="ISynthesisModel"/>) is an
 ///     honest unavailable outcome, exactly like a model that is not installed, rather than a
 ///     defect: a host that lets a user choose an installed model with the wrong role must still
-///     get a working, if unavailable, synthesizer back.
+///     get a working, if unavailable, engine back.
 /// </remarks>
 public sealed class SynthesizerSessionFactory : ISynthesizerSessionFactory
 {
@@ -38,19 +37,20 @@ public sealed class SynthesizerSessionFactory : ISynthesizerSessionFactory
     }
 
     /// <inheritdoc/>
-    public ISpeechSynthesizer Create(
+    public async Task<ISpeechSynthesizerEngine> LoadAsync(
         ISpeechModel model,
-        IAudioPlaybackDevice playbackDevice,
-        IReadOnlyDictionary<string, object>? parameterValues = null)
+        IReadOnlyDictionary<string, object>? parameterValues,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(model);
-        ArgumentNullException.ThrowIfNull(playbackDevice);
 
         if (model is not ISynthesisModel synthesisModel)
         {
-            return UnavailableSpeechSynthesizer.Instance;
+            return UnavailableSpeechSynthesizerEngine.Instance;
         }
 
-        return SpeechSynthesizerFactory.Create(synthesisModel, _store, playbackDevice, parameterValues: parameterValues);
+        return await SpeechSynthesizerFactory
+            .LoadAsync(synthesisModel, _store, parameterValues: parameterValues, cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
     }
 }

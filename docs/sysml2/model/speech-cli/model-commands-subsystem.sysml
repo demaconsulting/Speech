@@ -22,7 +22,13 @@ package SpeechCli {
     part def ICliModelCatalog {
         doc /* CLI-owned seam for enumerating known models, downloading, uninstalling, and
              * cleaning up leftovers by id, so every command can be tested against controlled
-             * catalog data with no network access. */
+             * catalog data with no network access. Also the single seam point extended by
+             * SynthesisCommandSubsystem/RecognitionCommandSubsystem with async engine-loading
+             * members (GetPreferredAudioFormat/CreateSynthesizerEngineAsync,
+             * GetAudioFormat/CreateRecognizerEngineAsync) returning the library's async
+             * ISpeechSynthesizerEngine/ISpeechRecognizerEngine, each later bound to a device
+             * via CreateSessionAsync rather than returning a device-bound synthesizer or
+             * recognizer directly. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech.Cli/Commands/ModelCommandsSubsystem/ICliModelCatalog.cs */
     }
@@ -30,7 +36,11 @@ package SpeechCli {
     part def SpeechModelCatalogAdapter {
         doc /* Real catalog seam implementation, owning and delegating to a real
              * SpeechModelCatalog (and, for uninstall/cleanup, its Store) without exposing the
-             * library's internal-only constructor. */
+             * library's internal-only constructor. Forwards GetPreferredAudioFormat/
+             * CreateSynthesizerEngineAsync and GetAudioFormat/CreateRecognizerEngineAsync
+             * unchanged to the resolved model's real SpeechSynthesizerFactory/
+             * SpeechRecognizerFactory, preserving each factory's own honestly-unavailable
+             * fallback contract rather than masking it. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech.Cli/Commands/ModelCommandsSubsystem/SpeechModelCatalogAdapter.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Cli.Tests/Commands/ModelCommandsSubsystem/SpeechModelCatalogAdapterTests.cs */

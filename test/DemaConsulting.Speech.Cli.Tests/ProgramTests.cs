@@ -418,6 +418,32 @@ public class ProgramTests
     }
 
     /// <summary>
+    ///     Test that dispatching to <c>ask</c> without <c>--tts-model</c> reports a clean,
+    ///     missing-model <see cref="ArgumentException"/> rather than
+    ///     <see cref="NotImplementedException"/>, proving the dispatch table wiring for the
+    ///     eleventh, later-added <c>ask</c> command. Full <c>ask</c> coverage lives in
+    ///     <c>AskCommandTests</c>.
+    /// </summary>
+    [Fact]
+    public void Program_Run_WithAskCommand_DoesNotThrowNotImplemented()
+    {
+        var originalError = Console.Error;
+        try
+        {
+            using var errWriter = new StringWriter();
+            Console.SetError(errWriter);
+            using var context = Context.Create(["ask"]);
+
+            var exception = Record.Exception(() => Program.Run(context));
+            Assert.IsNotType<NotImplementedException>(exception);
+        }
+        finally
+        {
+            Console.SetError(originalError);
+        }
+    }
+
+    /// <summary>
     ///     Test that Run with short version flag -v displays version.
     /// </summary>
     [Fact]

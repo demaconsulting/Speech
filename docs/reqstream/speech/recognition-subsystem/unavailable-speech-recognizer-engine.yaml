@@ -1,0 +1,68 @@
+---
+# Software Unit Requirements for UnavailableSpeechRecognizerEngine
+#
+# Groups requirements for UnavailableSpeechRecognizerEngine and SpeechRecognizerUnavailableException
+# into a single file, per design-documentation.md's allowance for small supporting types
+# documented inline within their subsystem's design doc. Each unit's requirement subset is called
+# out in its own subsection below so every unit still has requirements tracing to it individually.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: RecognitionSubsystem Requirements
+        sections:
+          - title: UnavailableSpeechRecognizerEngine Requirements
+            requirements:
+              - id: Speech-Recognition-UnavailableSpeechRecognizerEngine-ReportsUnavailable
+                title: >-
+                  The UnavailableSpeechRecognizerEngine class shall report IsAvailable as false
+                  and never throw merely for being obtained or held.
+                justification: |
+                  A caller must always be able to safely obtain and hold a fallback engine, per
+                  this library's "nothing throws at composition" decision.
+                tests:
+                  - UnavailableSpeechRecognizerEngine_IsAvailable_Read_ReturnsFalse
+
+              - id: Speech-Recognition-UnavailableSpeechRecognizerEngine-CreateSessionReturnsFallback
+                title: >-
+                  The UnavailableSpeechRecognizerEngine class shall return
+                  UnavailableRecognitionSession.Instance from CreateSessionAsync, without
+                  faulting the returned task, for any non-null device with a non-cancelled token,
+                  while still rejecting a null device with ArgumentNullException and an
+                  already-cancelled token with OperationCanceledException.
+                justification: |
+                  A caller composing against this fallback engine must be able to reuse the same
+                  create-session call unchanged regardless of availability; only a programming
+                  error (a null device argument or an already-cancelled token) should surface as
+                  a fault, matching the ISpeechRecognizerEngine.CreateSessionAsync contract every
+                  implementation - including this fallback - must honor.
+                tests:
+                  - UnavailableSpeechRecognizerEngine_CreateSessionAsync_Always_ReturnsUnavailableSession
+                  - UnavailableSpeechRecognizerEngine_CreateSessionAsync_NullDevice_ThrowsArgumentNullException
+                  - UnavailableSpeechRecognizerEngine_CreateSessionAsync_CancelledToken_ThrowsOperationCanceledException
+
+              - id: Speech-Recognition-UnavailableSpeechRecognizerEngine-DisposalIdempotent
+                title: >-
+                  The UnavailableSpeechRecognizerEngine class shall treat disposal as a safe,
+                  idempotent no-op that never throws and never invalidates the shared fallback.
+                justification: |
+                  A host that wraps every engine it obtains in a disposal scope must be able to
+                  run that same code unchanged on a machine where recognition is unavailable,
+                  including disposing the shared singleton fallback more than once.
+                tests:
+                  - UnavailableSpeechRecognizerEngine_DisposeAsync_CalledTwice_DoesNotThrow
+
+          - title: SpeechRecognizerUnavailableException Requirements
+            requirements:
+              - id: Speech-Recognition-SpeechRecognizerUnavailableException-Thrown
+                title: >-
+                  The SpeechRecognizerUnavailableException class shall provide standard exception
+                  constructors (default, message, message with inner exception).
+                justification: |
+                  Standard exception conformance lets callers construct, catch, and inspect this
+                  exception like any other .NET exception type, including wrapping an underlying
+                  capture-device failure as the inner exception.
+                tests:
+                  - SpeechRecognizerUnavailableException_Constructor_WithMessage_ExposesMessage
+                  - SpeechRecognizerUnavailableException_Constructor_WithInnerException_ExposesBoth
+                  - SpeechRecognizerUnavailableException_Constructor_Default_HasNonEmptyMessage

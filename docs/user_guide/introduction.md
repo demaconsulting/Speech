@@ -184,17 +184,24 @@ if (device.IsAvailable)
 This release also ships the `RecognitionSubsystem`
 (`DemaConsulting.Speech.RecognitionSubsystem`), which turns captured audio into text:
 
-- **`ISpeechRecognizer`**: the streaming speech-to-text contract — `IsAvailable`, `Start()`,
-  `Stop()`, a `ResultReceived` event, and `Dispose()`. No speech-engine type appears anywhere in
-  this contract, so a future engine change cannot break your code.
+- **`ISpeechRecognizerEngine`**: the loaded, expensive, native-backed recognition model, with no
+  capture device bound yet — `IsAvailable` and `CreateSessionAsync(device, cancellationToken)`.
+  No speech-engine type appears anywhere in this contract, so a future engine change cannot break
+  your code.
+- **`IRecognitionSession`**: the cheap, single-use streaming speech-to-text session bound to
+  exactly one capture device for its entire life — `IsAvailable`, `State`, a `StateChanged`
+  event, `StartAsync(cancellationToken)`, `StopAsync(cancellationToken)`,
+  `GetResultsAsync(cancellationToken)` (an `IAsyncEnumerable<SpeechRecognitionEvent>`), and
+  `DisposeAsync()`.
 - **`SpeechRecognitionResult`**: the recognized `Text` of the current utterance plus an `IsFinal`
   flag. `Text` is always the full utterance so far, never a fragment, so you can render it
   directly and simply replace it when the next result arrives.
-- **`SpeechRecognizerFactory`**: the composition entry point. It returns a working recognizer
-  only when the model is installed, declares the recognition role, the capture device is
-  available, and the speech engine loads; otherwise it returns
-  **`UnavailableSpeechRecognizer`**, which reports `IsAvailable == false`. It never throws for
-  any of these ordinary machine states.
+- **`SpeechRecognizerFactory`**: the composition entry point. `LoadAsync(...)` returns a working
+  engine only when the model is installed, declares the recognition role, and the speech engine
+  loads; otherwise it returns **`UnavailableSpeechRecognizerEngine`**, which reports
+  `IsAvailable == false` and whose `CreateSessionAsync` returns
+  **`UnavailableRecognitionSession`**. Neither layer throws for any of these ordinary machine
+  states.
 
 Typical recognition composition:
 
@@ -223,20 +230,28 @@ var captureDevice = new AudioDeviceFactory().CreateCaptureDevice(
     AudioDeviceSelection.SystemDefault,
     model.AudioFormat);
 
-// 5. Compose the recognizer and stream recognized text as it arrives.
-using var recognizer = SpeechRecognizerFactory.Create(model, catalog, captureDevice);
+// 5. Load the engine once, create a session bound to the capture device, and stream
+//    recognized text as it arrives.
+await using var engine = await SpeechRecognizerFactory.LoadAsync(model, catalog);
 
-if (recognizer.IsAvailable)
+if (engine.IsAvailable)
 {
-    recognizer.ResultReceived += (_, args) =>
-    {
-        var status = args.Result.IsFinal ? "final" : "partial";
-        Console.WriteLine($"{status}: {args.Result.Text}");
-    };
+    await using var session = await engine.CreateSessionAsync(captureDevice);
 
-    recognizer.Start();
+    await session.StartAsync();
+
+    var resultsTask = Task.Run(async () =>
+    {
+        await foreach (var evt in session.GetResultsAsync())
+        {
+            var status = evt.Result.IsFinal ? "final" : "partial";
+            Console.WriteLine($"{status}: {evt.Result.Text}");
+        }
+    });
+
     // ... capture speech ...
-    recognizer.Stop();
+    await session.StopAsync();
+    await resultsTask;
 }
 ```
 
@@ -249,17 +264,26 @@ Points worth knowing:
   the target format and the recognizer often stays on its no-op equal-rate fast path. When
   resampling is still required, the downsampling path now applies anti-alias filtering before
   decimation.
-- **Results arrive off the audio thread.** `ResultReceived` is raised from the recognizer's own
-  background decoding thread, never from the audio callback thread, so a handler may do moderate
-  work. Handlers are invoked serially, and an exception thrown by a handler is reported through
-  your diagnostics sink rather than propagated.
-- **`Stop()` does not lose the tail of an utterance.** It drains audio already captured before
-  the call, so every result derived from it has been delivered by the time `Stop()` returns.
-- **Dispose the recognizer.** A real recognizer holds a loaded engine; disposal releases it and
-  implies `Stop()`. Disposal is idempotent, and disposing the unavailable fallback is a safe
-  no-op.
+- **Results are delivered through a dedicated worker thread, not the audio callback thread.**
+  `GetResultsAsync` streams events produced by the session's own dedicated decoding thread, which
+  pumps captured audio through the recognition backend independently of the audio device's own
+  callback thread. Two bounded buffers isolate a slow consumer from that pump: captured audio
+  waiting to be decoded queues in a bounded, drop-oldest buffer, and converted results queue in a
+  backpressure buffer that coalesces unread provisional results into a single "latest" slot while
+  keeping a byte-capped FIFO of final results (evicting only the oldest unread final, as a
+  last-resort safety valve, and reporting that through diagnostics). A single concurrent
+  `GetResultsAsync` enumeration is supported per session; a second overlapping call throws
+  `InvalidOperationException`.
+- **`StopAsync` does not lose the tail of an utterance.** It drains audio already captured before
+  the call, so every result derived from it is enumerable via `GetResultsAsync` by the time
+  `StopAsync` returns.
+- **Dispose the session (and eventually the engine).** A real session holds a capture-device
+  subscription and the engine's exclusivity lease; disposal releases both and implies `StopAsync`.
+  Disposal is idempotent, and disposing the unavailable fallback is a safe no-op. A session is
+  single-use: once `State` reaches `Stopped`, `StartAsync` throws `InvalidOperationException`
+  rather than restarting — create a new session via `CreateSessionAsync` for another run.
 - **`Text` is already restored, not raw engine output.** Before a result reaches your
-  `ResultReceived` handler, the recognizer calls the owning model's
+  `GetResultsAsync` consumer, the session calls the owning model's
   `IRecognitionModel.NormalizeText(text, isFinal)`. Most models simply pass text through
   unchanged (the interface's default), but `SherpaOnnxZipformerEnRecognitionModel` overrides it
   with `UppercaseTranscriptRestorer` to turn its raw shouted, unpunctuated output (for example
@@ -274,7 +298,7 @@ Points worth knowing:
   casing of project-glossary terms (acronyms, product names) that general-purpose recognition
   cannot know about — is an anticipated, supported use of the delivered text, not an
   undocumented workaround. The ordering is guaranteed: the owning model's `NormalizeText` has
-  already run by the time `Text` reaches your `ResultReceived` handler, so your transformation
+  already run by the time `Text` reaches your `GetResultsAsync` consumer, so your transformation
   composes after the library's restoration rather than racing it. Attach that transformation to
   final (`isFinal: true`) results only — provisional results carry just the cheap pass and are
   still being revised, so running your own restoration on them would make the draft flicker
@@ -335,11 +359,12 @@ narration rather than being dropped or rejected, so a reply is never worse than 
 
 ## Synthesizing Speech
 
-`SpeechSynthesizerFactory.Create(...)` composes an `ISpeechSynthesizer` over an installed
-`ISynthesisModel` and a playback device, mirroring `SpeechRecognizerFactory`'s
-nothing-throws-at-composition contract: it never throws for an ordinary machine state, and
-instead returns a synthesizer reporting `IsAvailable == false` for a model that is not installed,
-a machine with no speakers, or a missing speech-engine native runtime.
+`SpeechSynthesizerFactory.LoadAsync(...)` composes an `ISpeechSynthesizerEngine` over an
+installed `ISynthesisModel`, mirroring `SpeechRecognizerFactory`'s nothing-throws-at-composition
+contract: it never throws for an ordinary machine state, and instead returns an engine reporting
+`IsAvailable == false` for a model that is not installed, a machine with no speakers, or a
+missing speech-engine native runtime. A playback device is bound later, per session (or per
+one-shot call), not at `LoadAsync` time.
 
 ```csharp
 using DemaConsulting.Speech.AudioSubsystem;
@@ -366,26 +391,26 @@ var playbackDevice = new AudioDeviceFactory().CreatePlaybackDevice(
     AudioDeviceSelection.SystemDefault,
     model.PreferredAudioFormat);
 
-// 5. Compose the synthesizer and speak.
-using var synthesizer = SpeechSynthesizerFactory.Create(model, catalog, playbackDevice);
+// 5. Load the engine and speak a one-shot phrase through the engine-level convenience overload,
+//    which internally creates a session, speaks, and disposes the session again.
+await using var engine = await SpeechSynthesizerFactory.LoadAsync(model, catalog);
 
-if (synthesizer.IsAvailable)
+if (engine.IsAvailable)
 {
-    await synthesizer.SpeakAsync("Welcome. [short pause] Let's get started!");
+    await engine.SpeakAsync(playbackDevice, "Welcome. [short pause] Let's get started!");
 }
 ```
 
 For a model that declares a `ChoiceParameter` or `NumericParameter` for voice/speaker selection
 (such as `SherpaOnnxKokoroEnglishSynthesisModel`'s `voice` parameter, or
 `SherpaOnnxVitsLibriTtsEnglishSynthesisModel`'s numeric `speaker` parameter), pass a
-`parameterValues` bag keyed by each declared parameter's `Id` to `Create(...)` to select a
+`parameterValues` bag keyed by each declared parameter's `Id` to `LoadAsync(...)` to select a
 non-default value:
 
 ```csharp
-using var synthesizer = SpeechSynthesizerFactory.Create(
+await using var engine = await SpeechSynthesizerFactory.LoadAsync(
     model,
     catalog,
-    playbackDevice,
     parameterValues: new Dictionary<string, object> { ["voice"] = "bm_george" });
 ```
 
@@ -397,11 +422,11 @@ sink is wired up) so one settings dictionary stays reusable across different mod
 supplied value for a parameter the model *does* declare that fails that parameter's own
 validation (wrong CLR type, out of range, a fractional value for a whole-number-only parameter,
 or a string matching no declared `ChoiceParameterOption`) throws `ArgumentException` synchronously
-from `Create()` naming the parameter, the model, and the reason the value is invalid -
-`SpeechRecognizerFactory.Create`'s `parameterValues` argument follows the same rule.
+from `LoadAsync(...)` naming the parameter, the model, and the reason the value is invalid -
+`SpeechRecognizerFactory.LoadAsync`'s `parameterValues` argument follows the same rule.
 `model.PreferredAudioFormat` is likewise only a best-effort playback
-hint: after construction, the synthesizer always treats the loaded engine's actual `SampleRate`
-as authoritative and resamples whenever needed. This is a session-level choice: it is
+hint: after the engine loads, every session created from it always treats the loaded engine's
+actual `SampleRate` as authoritative and resamples whenever needed. This is a session-level choice: it is
 independent of, and does not disturb, the existing per-segment Natural Language Audio Tag
 speed/volume overrides described
 above, which continue to apply per rendered segment regardless of which voice is selected. The
@@ -457,11 +482,11 @@ instead - consistent with the "never worse than plain narration" guarantee.
 The rendered result is an ordered `SpeechPlan` of `SpeechSegment`s, which a sentence/clause-sized
 chunker further splits so that synthesis and playback can pipeline: an earlier chunk plays on the
 playback device while a later chunk is still being synthesized, rather than waiting for an entire
-utterance's inference to finish before any sound is heard. Calling `Stop()` cancels an in-flight
-`SpeakAsync` call deterministically (for example, in response to a user interruption) and is a
-safe no-op when nothing is speaking. A synthesis-engine fault or a playback device that drops
-mid-utterance fails the awaited `SpeakAsync` task honestly rather than hanging or crashing the
-process.
+utterance's inference to finish before any sound is heard. Calling `StopAsync()` cancels an
+in-flight `SpeakAsync` call deterministically (for example, in response to a user interruption)
+and is a safe no-op when nothing is speaking. A synthesis-engine fault or a playback device that
+drops mid-utterance fails the awaited `SpeakAsync` task honestly rather than hanging or crashing
+the process.
 
 This release ships two production synthesis models (each also reports its license
 programmatically via `ISpeechModel.LicenseName`/`LicenseUrl`, without requiring you to parse
@@ -473,8 +498,9 @@ this prose or `DisplayName`):
   (`http://www.openslr.org/141/`) and the Piper text-to-speech project is required if you
   redistribute the model or audio generated by it, but downstream relicensing under different
   terms is not otherwise restricted, unlike a ShareAlike/CC BY-SA license). All 904 speakers are
-  selectable through `ISpeechSynthesizer` by plain numeric index (`0`-`903`) via this model's
-  declared `NumericParameter` named `speaker`: LibriTTS-R's speaker embeddings have no published
+  selectable via `SpeechSynthesizerFactory.LoadAsync`'s `parameterValues` bag by plain numeric
+  index (`0`-`903`) through this model's declared `NumericParameter` named `speaker`: LibriTTS-R's
+  speaker embeddings have no published
   human-readable name mapping, so speakers are identified only by their numeric id, unlike the
   named voices below.
 - **`SherpaOnnxKokoroEnglishSynthesisModel`** (`kokoro-int8-en-v0_19`, an English-only,
@@ -495,34 +521,57 @@ official GitHub Releases URL only when you explicitly request it.
 
 ## Hot TTS/STT: Reusing an Instance Across Turns
 
-`SpeechRecognizerFactory.Create(...)`/`SpeechSynthesizerFactory.Create(...)` are the expensive
-step in either direction: on success, each loads a model into native memory. `Start()`/`Stop()`
-on an already-created `ISpeechRecognizer`, and a `SpeakAsync`/`SynthesizeStreamAsync`/
-`PlayStreamAsync` session on an already-created `ISpeechSynthesizer`, are comparatively cheap and
-fully repeatable on the same instance - neither reloads the model. For a low-latency, multi-turn
-scenario such as a voice conversation, create each instance **once** and reuse it across many
-turns, rather than disposing and recreating it per turn:
+`SpeechRecognizerFactory.LoadAsync(...)`/`SpeechSynthesizerFactory.LoadAsync(...)` are the
+expensive step in either direction: on success, each loads a model into native memory. Beneath
+that, there is a three-way cost split:
+
+- **`LoadAsync`** (engine): expensive - do this once per model/parameter combination.
+- **`CreateSessionAsync`** (engine → session): binds exactly one device for the session's entire
+  life. Comparatively cheap, but exclusive - an engine leases its single `IRecognitionSession`/
+  `ISynthesisSession` to only one live session at a time, and a concurrent `CreateSessionAsync`
+  call while a lease is held fails fast with `RecognitionEngineBusyException`/
+  `SynthesisEngineBusyException` rather than queueing.
+- **`StartAsync`/`StopAsync`/`GetResultsAsync`** (recognition) and **`SpeakAsync`/
+  `SynthesizeAsync`** (synthesis): per-turn, cheap, and fully repeatable - neither reloads the
+  model nor rebinds the device.
+
+For a low-latency, multi-turn scenario such as a voice conversation, load each engine **once**
+and reuse it across many turns, rather than disposing and recreating it per turn. A synthesis
+session may itself be reused across many `SpeakAsync` calls (it cycles back to `Starting` on each
+new call). A recognition session is single-use - once it reaches `Stopped`, `StartAsync` throws
+`InvalidOperationException` - so reuse the *engine* across turns and create a fresh session per
+turn instead:
 
 ```csharp
-// Synthesis: create once, speak many times.
-using var synthesizer = SpeechSynthesizerFactory.Create(model, catalog, playbackDevice);
-await synthesizer.SpeakAsync("First turn.");
-await synthesizer.SpeakAsync("Second turn - the model was never reloaded.");
+// Synthesis: load the engine once, create the session once, speak many times.
+await using var synthesizerEngine = await SpeechSynthesizerFactory.LoadAsync(model, catalog);
+await using var synthesisSession = await synthesizerEngine.CreateSessionAsync(playbackDevice);
+await synthesisSession.SpeakAsync("First turn.");
+await synthesisSession.SpeakAsync("Second turn - neither the model nor the device were reloaded.");
 
-// Recognition: create once, Start()/Stop() many times.
-using var recognizer = SpeechRecognizerFactory.Create(model, catalog, captureDevice);
-recognizer.Start();
-// ... wait for this turn's result via ResultReceived, then:
-recognizer.Stop();
-recognizer.Start(); // Next turn - again, no reload.
-// ... wait for this turn's result, then:
-recognizer.Stop();
+// Recognition: load the engine once, create a fresh session per turn (sessions are single-use).
+await using var recognizerEngine = await SpeechRecognizerFactory.LoadAsync(model, catalog);
+
+await using (var turn1 = await recognizerEngine.CreateSessionAsync(captureDevice))
+{
+    await turn1.StartAsync();
+    // ... wait for this turn's result via GetResultsAsync, then:
+    await turn1.StopAsync();
+}
+
+await using (var turn2 = await recognizerEngine.CreateSessionAsync(captureDevice))
+{
+    // Creating turn2 only succeeds once turn1 has fully disposed and released the engine's lease.
+    await turn2.StartAsync();
+    // ... wait for this turn's result, then:
+    await turn2.StopAsync();
+}
 ```
 
-Only dispose and recreate an instance when you need to change its model, device, or parameter
-values - not simply to begin a new turn. `speech-cli ask` applies the same principle at the
+Only dispose and reload an engine when you need to change its model or parameter values - not
+simply to begin a new turn. `speech-cli ask` applies the same principle at the
 process level: because a single CLI invocation only ever runs one turn, there is no instance to
-reuse across turns, so instead `ask` pre-warms (constructs, and so loads) its STT recognizer
+reuse across turns, so instead `ask` pre-warms (constructs, and so loads) its STT engine
 concurrently with speaking the prompt, rather than only afterward, removing the same avoidable
 model-load latency a long-lived host would instead avoid by reusing one instance across many
 turns. See the "SpeechCli" section's worked examples below for the exact command.
@@ -542,7 +591,7 @@ using DemaConsulting.Speech.SynthesisSubsystem;
 
 // 1. Compose the per-user model store/catalog and the audio devices. None of this throws for an
 //    ordinary machine state - a missing microphone, missing speakers, or a missing native
-//    runtime all degrade to an honest "unavailable" device/recognizer/synthesizer instead.
+//    runtime all degrade to an honest "unavailable" device/engine/session instead.
 using var catalog = new SpeechModelCatalog();
 var audioFactory = new AudioDeviceFactory();
 
@@ -567,41 +616,50 @@ var playbackDevice = audioFactory.CreatePlaybackDevice(
     AudioDeviceSelection.SystemDefault,
     synthesisModel.PreferredAudioFormat);
 
-// 4. Compose the recognizer and synthesizer over the resolved models and devices.
-using var recognizer = SpeechRecognizerFactory.Create(
+// 4. Load the recognizer and synthesizer engines over the resolved models, then create a
+//    session bound to each resolved device. The recognition session is single-use (one session
+//    per "turn"); the synthesis session is reused for every reply.
+await using var recognizerEngine = await SpeechRecognizerFactory.LoadAsync(
     recognitionModel,
-    catalog,
-    captureDevice);
+    catalog);
 
-using var synthesizer = SpeechSynthesizerFactory.Create(
+await using var synthesizerEngine = await SpeechSynthesizerFactory.LoadAsync(
     synthesisModel,
-    catalog,
-    playbackDevice);
+    catalog);
 
-if (!recognizer.IsAvailable || !synthesizer.IsAvailable)
+if (!recognizerEngine.IsAvailable || !synthesizerEngine.IsAvailable)
 {
     Console.WriteLine("No microphone/speakers (or the models failed to load) - exiting.");
     return;
 }
 
+await using var recognitionSession = await recognizerEngine.CreateSessionAsync(captureDevice);
+await using var synthesisSession = await synthesizerEngine.CreateSessionAsync(playbackDevice);
+
 // 5. Speak a greeting, then listen and echo back each final result until Enter is pressed.
-await synthesizer.SpeakAsync("Hello! [short pause] Say something and I will repeat it back.");
+await synthesisSession.SpeakAsync("Hello! [short pause] Say something and I will repeat it back.");
 
-recognizer.ResultReceived += async (_, args) =>
+using var cts = new CancellationTokenSource();
+
+var resultsTask = Task.Run(async () =>
 {
-    if (!args.Result.IsFinal)
+    await foreach (var evt in recognitionSession.GetResultsAsync(cts.Token))
     {
-        return;
+        if (!evt.Result.IsFinal)
+        {
+            continue;
+        }
+
+        Console.WriteLine($"You said: {evt.Result.Text}");
+        await synthesisSession.SpeakAsync($"You said: {evt.Result.Text}");
     }
+});
 
-    Console.WriteLine($"You said: {args.Result.Text}");
-    await synthesizer.SpeakAsync($"You said: {args.Result.Text}");
-};
-
-recognizer.Start();
+await recognitionSession.StartAsync();
 Console.WriteLine("Listening - press Enter to stop.");
 Console.ReadLine();
-recognizer.Stop();
+await recognitionSession.StopAsync();
+cts.Cancel();
 ```
 
 This example deliberately keeps error handling minimal for readability; a production application
@@ -633,16 +691,25 @@ The application opens with four panels, one of which embeds a fifth:
   download action that reports progress and reports failure with an explanation.
 - **Text-to-Speech**: lists installed synthesis models, offers a text box with inline hints
   showing a few of the library's Natural Language Audio Tags (such as `[whispers]`,
-  `[short pause]`, and `[excited]`), and Play/Stop controls that compose an `ISpeechSynthesizer`
-  through a demo-owned seam over `SpeechSynthesizerFactory`. Playback status reflects
-  synthesizing, playing, idle, or an honest error; the panel explains itself if no synthesis
-  model is installed or no playback device is available. The panel refreshes itself
+  `[short pause]`, and `[excited]`), and Play/Stop controls that compose an
+  `ISpeechSynthesizerEngine`/`ISynthesisSession` through a demo-owned seam over
+  `SpeechSynthesizerFactory`. The panel caches its engine and session across Play calls -
+  reloading the engine only when the selected model or its parameter values change, and
+  recreating the session only when the engine was just reloaded or the playback device changes -
+  rather than recreating a synthesizer on every Play. Playback status is derived from the
+  session's own `State`/`StateChanged` (synthesizing, playing, idle, or an honest error) rather
+  than tracked ad hoc; the panel explains itself if no synthesis model is installed or no
+  playback device is available. The panel refreshes itself
   automatically the moment a synthesis model finishes downloading from the Model Catalog panel,
   with no manual click or application restart needed. The model picker and its Model Settings
   controls disable while audio is synthesizing or playing, so a voice/speaker cannot be changed
   mid-playback.
 - **Speech-to-Text**: offers Start/Stop streaming transcription that composes an
-  `ISpeechRecognizer` through a demo-owned seam over `SpeechRecognizerFactory`. Committed final
+  `ISpeechRecognizerEngine`/`IRecognitionSession` through a demo-owned seam over
+  `SpeechRecognizerFactory`. Start loads/reuses the cached engine, creates a fresh session (a
+  recognition session is single-use), and pumps `GetResultsAsync` on a background task; Stop
+  requests `StopAsync` on the active session. Listening state is derived from the session's own
+  `State`/`StateChanged` rather than tracked ad hoc. Committed final
   results accumulate in order while a trailing partial line updates live as the recognizer
   refines it. The panel explains itself if no recognition model is installed or no capture
   device is available. The panel refreshes itself automatically the moment a recognition model
@@ -656,8 +723,9 @@ The application opens with four panels, one of which embeds a fifth:
   entirely by the library's `ISpeechModelParameter` concrete type. For the Text-to-Speech panel,
   the current value bag (including a selected voice, for a model such as
   `SherpaOnnxKokoroEnglishSynthesisModel` that declares one) is genuinely forwarded to
-  `SpeechSynthesizerFactory.Create(...)` on Play - selecting a different voice in the dropdown
-  audibly changes the synthesized speech.
+  `SpeechSynthesizerFactory.LoadAsync(...)` whenever it changes (triggering a cached-engine
+  reload on the next Play) - selecting a different voice in the dropdown audibly changes the
+  synthesized speech.
 
 ### Diagnostics: Raw Capture Recording (Temporary)
 

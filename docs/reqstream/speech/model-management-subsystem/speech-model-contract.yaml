@@ -92,7 +92,7 @@ sections:
                 justification: |
                   Some sherpa-onnx streaming transducer models (empirically confirmed for
                   SherpaOnnxZipformerEnRecognitionModel) produce UPPERCASE, unpunctuated raw
-                  output; SherpaOnnxSpeechRecognizer needs a per-model hook it can call on every
+                  output; SherpaOnnxRecognitionSession needs a per-model hook it can call on every
                   decoded result's text without knowing which model produced it, mirroring the
                   existing synthesis-side NormalizeText hook but kept distinct because the two
                   directions correct fundamentally different things (input text vs. recognized
@@ -131,25 +131,29 @@ sections:
                 tests:
                   - ISynthesisModel_PreferredAudioFormat_DeclaredByModel_IsExposed
 
-              - id: Speech-Models-SpeechModelContract-SynthesisEngineDeclaration
+              - id: Speech-Models-SpeechModelContract-SynthesisEngineConfigDeclaration
                 title: >-
                   A synthesis model shall build its offline text-to-speech engine's configuration
-                  from the directory its verified files were installed into, and shall expose a
-                  Layer 2 tag-rendering strategy that defaults to a generically-correct
-                  implementation driven purely by the model's own declared audio-tag support and
-                  parameters.
+                  from the directory its verified files were installed into.
                 justification: |
                   The design makes each model's backing class responsible for the engine
                   configuration for its own model architecture, mirroring the recognition-side
                   requirement above, so that adding a synthesis model is a self-contained,
                   reviewable unit of work that never requires changing the synthesis subsystem.
+                tests:
+                  - ISynthesisModel_CreateEngineConfig_InstalledDirectory_ResolvesPaths
+                  - ISynthesisModel_CreateEngineConfig_EmptyDirectory_ThrowsArgumentException
+
+              - id: Speech-Models-SpeechModelContract-SynthesisCapabilityProfileDeclaration
+                title: >-
+                  A synthesis model shall expose a Layer 2 tag-rendering strategy that defaults
+                  to a generically-correct implementation driven purely by the model's own
+                  declared audio-tag support and parameters.
+                justification: |
                   The default-hook CapabilityProfile member means a model needs zero code to get
                   generically correct Natural Language Audio Tag rendering, and may override it
                   only for bespoke, non-generic behavior.
                 tests:
-                  - SpeechSynthesizerFactory_Create_ModelInstalledAndDeviceAvailable_ReturnsRealSynthesizer
-                  - ISynthesisModel_CreateEngineConfig_InstalledDirectory_ResolvesPaths
-                  - ISynthesisModel_CreateEngineConfig_EmptyDirectory_ThrowsArgumentException
                   - ISynthesisModel_CapabilityProfile_DefaultImplementation_ReturnsDefaultProfile
 
               - id: Speech-Models-SpeechModelContract-LicenseDeclaration

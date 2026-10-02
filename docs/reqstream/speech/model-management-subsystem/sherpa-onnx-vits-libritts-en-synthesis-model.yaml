@@ -108,6 +108,17 @@ sections:
                 tests:
                   - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_InstallAsync_SyntheticArchive_ExtractsFilesAndRemovesArchive
 
+              - id: Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-InstallAsync-ArgumentValidation
+                title: >-
+                  The SherpaOnnxVitsLibriTtsEnglishSynthesisModel class's InstallAsync shall throw
+                  ArgumentException for a null or empty staged-files directory.
+                justification: |
+                  A programming error (null or empty staged-files directory) should surface
+                  immediately with a clear, cheap-to-diagnose exception rather than an opaque
+                  path-resolution failure deeper in archive extraction.
+                tests:
+                  - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_InstallAsync_NullOrEmptyDirectory_ThrowsArgumentException
+
               - id: Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-ResolveSpeakerId
                 title: >-
                   The SherpaOnnxVitsLibriTtsEnglishSynthesisModel class shall resolve a numeric
@@ -118,7 +129,7 @@ sections:
                 justification: |
                   ISynthesisModel.ResolveSpeakerId is this model's own owned knowledge - reading
                   its numeric speaker parameter directly out of the bag lets
-                  SherpaOnnxSpeechSynthesizer.GenerateSegment turn a demo-selected or
+                  SherpaOnnxSynthesisSession.GenerateSegmentAsync turn a demo-selected or
                   library-consumer-selected numeric speaker index into the real speaker id
                   sherpa-onnx's native Generate call needs, replacing the previous hard-coded
                   speakerId: 0 and closing this model's previously known, accepted, out-of-scope

@@ -171,54 +171,36 @@ public sealed class SpeechModelCatalogAdapterTests : IDisposable
     }
 
     /// <summary>
-    ///     Test that <see cref="SpeechModelCatalogAdapter.CreateSynthesizer"/> throws a clean
-    ///     <see cref="ArgumentException"/> for a real, compiled-in recognition-role model (not a
-    ///     synthesis model).
+    ///     Test that <see cref="SpeechModelCatalogAdapter.CreateSynthesizerEngineAsync"/> throws a
+    ///     clean <see cref="ArgumentException"/> for a real, compiled-in recognition-role model
+    ///     (not a synthesis model).
     /// </summary>
     [Fact]
-    public void SpeechModelCatalogAdapter_CreateSynthesizer_RecognitionRoleModel_ThrowsArgumentException()
+    public async Task SpeechModelCatalogAdapter_CreateSynthesizerEngineAsync_RecognitionRoleModel_ThrowsArgumentException()
     {
         // Arrange
         using var adapter = new SpeechModelCatalogAdapter(new SpeechModelStoreOptions { RootPathOverride = _testRoot });
         var descriptor = adapter.Enumerate().First(d => d.Role == SpeechModelRole.Recognition);
-        var wavPath = Path.Join(_testRoot, "output.wav");
-        using var playbackDevice = new WavFileAudioPlaybackDevice(wavPath, 22050, 1);
 
         // Act & Assert
-        var exception = Assert.Throws<ArgumentException>(
-            () => adapter.CreateSynthesizer(descriptor, playbackDevice, null));
+        var exception = await Assert.ThrowsAsync<ArgumentException>(
+            () => adapter.CreateSynthesizerEngineAsync(descriptor, null, TestContext.Current.CancellationToken));
         Assert.Equal("descriptor", exception.ParamName);
     }
 
     /// <summary>
-    ///     Test that <see cref="SpeechModelCatalogAdapter.CreateSynthesizer"/> rejects a null
-    ///     descriptor.
+    ///     Test that <see cref="SpeechModelCatalogAdapter.CreateSynthesizerEngineAsync"/> rejects a
+    ///     null descriptor.
     /// </summary>
     [Fact]
-    public void SpeechModelCatalogAdapter_CreateSynthesizer_NullDescriptor_ThrowsArgumentNullException()
+    public async Task SpeechModelCatalogAdapter_CreateSynthesizerEngineAsync_NullDescriptor_ThrowsArgumentNullException()
     {
         // Arrange
         using var adapter = new SpeechModelCatalogAdapter(new SpeechModelStoreOptions { RootPathOverride = _testRoot });
-        var wavPath = Path.Join(_testRoot, "output.wav");
-        using var playbackDevice = new WavFileAudioPlaybackDevice(wavPath, 22050, 1);
 
         // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => adapter.CreateSynthesizer(null!, playbackDevice, null));
-    }
-
-    /// <summary>
-    ///     Test that <see cref="SpeechModelCatalogAdapter.CreateSynthesizer"/> rejects a null
-    ///     playback device.
-    /// </summary>
-    [Fact]
-    public void SpeechModelCatalogAdapter_CreateSynthesizer_NullPlaybackDevice_ThrowsArgumentNullException()
-    {
-        // Arrange
-        using var adapter = new SpeechModelCatalogAdapter(new SpeechModelStoreOptions { RootPathOverride = _testRoot });
-        var descriptor = adapter.Enumerate().First(d => d.Role == SpeechModelRole.Recognition);
-
-        // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => adapter.CreateSynthesizer(descriptor, null!, null));
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => adapter.CreateSynthesizerEngineAsync(null!, null, TestContext.Current.CancellationToken));
     }
 
     /// <summary>
@@ -253,81 +235,36 @@ public sealed class SpeechModelCatalogAdapterTests : IDisposable
     }
 
     /// <summary>
-    ///     Test that <see cref="SpeechModelCatalogAdapter.CreateRecognizer"/> throws a clean
-    ///     <see cref="ArgumentException"/> for a real, compiled-in synthesis-role model (not a
-    ///     recognition model).
+    ///     Test that <see cref="SpeechModelCatalogAdapter.CreateRecognizerEngineAsync"/> throws a
+    ///     clean <see cref="ArgumentException"/> for a real, compiled-in synthesis-role model (not
+    ///     a recognition model).
     /// </summary>
     [Fact]
-    public void SpeechModelCatalogAdapter_CreateRecognizer_SynthesisRoleModel_ThrowsArgumentException()
+    public async Task SpeechModelCatalogAdapter_CreateRecognizerEngineAsync_SynthesisRoleModel_ThrowsArgumentException()
     {
         // Arrange
         using var adapter = new SpeechModelCatalogAdapter(new SpeechModelStoreOptions { RootPathOverride = _testRoot });
         var descriptor = adapter.Enumerate().First(d => d.Role == SpeechModelRole.Synthesis);
-        var wavPath = Path.Join(_testRoot, "input.wav");
-        WriteMinimalWavFile(wavPath);
-        var captureDevice = new WavFileAudioCaptureDevice(wavPath);
 
         // Act & Assert
-        var exception = Assert.Throws<ArgumentException>(
-            () => adapter.CreateRecognizer(descriptor, captureDevice, null));
+        var exception = await Assert.ThrowsAsync<ArgumentException>(
+            () => adapter.CreateRecognizerEngineAsync(descriptor, null, TestContext.Current.CancellationToken));
         Assert.Equal("descriptor", exception.ParamName);
     }
 
     /// <summary>
-    ///     Test that <see cref="SpeechModelCatalogAdapter.CreateRecognizer"/> rejects a null
-    ///     descriptor.
+    ///     Test that <see cref="SpeechModelCatalogAdapter.CreateRecognizerEngineAsync"/> rejects a
+    ///     null descriptor.
     /// </summary>
     [Fact]
-    public void SpeechModelCatalogAdapter_CreateRecognizer_NullDescriptor_ThrowsArgumentNullException()
+    public async Task SpeechModelCatalogAdapter_CreateRecognizerEngineAsync_NullDescriptor_ThrowsArgumentNullException()
     {
         // Arrange
         using var adapter = new SpeechModelCatalogAdapter(new SpeechModelStoreOptions { RootPathOverride = _testRoot });
-        var wavPath = Path.Join(_testRoot, "input.wav");
-        WriteMinimalWavFile(wavPath);
-        var captureDevice = new WavFileAudioCaptureDevice(wavPath);
 
         // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => adapter.CreateRecognizer(null!, captureDevice, null));
-    }
-
-    /// <summary>
-    ///     Test that <see cref="SpeechModelCatalogAdapter.CreateRecognizer"/> rejects a null
-    ///     capture device.
-    /// </summary>
-    [Fact]
-    public void SpeechModelCatalogAdapter_CreateRecognizer_NullCaptureDevice_ThrowsArgumentNullException()
-    {
-        // Arrange
-        using var adapter = new SpeechModelCatalogAdapter(new SpeechModelStoreOptions { RootPathOverride = _testRoot });
-        var descriptor = adapter.Enumerate().First(d => d.Role == SpeechModelRole.Recognition);
-
-        // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => adapter.CreateRecognizer(descriptor, null!, null));
-    }
-
-    /// <summary>
-    ///     Writes a minimal valid mono, 16-bit PCM RIFF/WAVE file (no sample data required) so a
-    ///     test can construct a real <see cref="WavFileAudioCaptureDevice"/> without needing a
-    ///     shared binary test fixture.
-    /// </summary>
-    private static void WriteMinimalWavFile(string path)
-    {
-        using var stream = new FileStream(path, FileMode.Create, FileAccess.Write);
-        using var writer = new BinaryWriter(stream);
-
-        writer.Write("RIFF"u8);
-        writer.Write(36); // RIFF chunk size (no data)
-        writer.Write("WAVE"u8);
-        writer.Write("fmt "u8);
-        writer.Write(16); // fmt chunk size
-        writer.Write((short)1); // PCM
-        writer.Write((short)1); // mono
-        writer.Write(16000); // sample rate
-        writer.Write(32000); // byte rate
-        writer.Write((short)2); // block align
-        writer.Write((short)16); // bits per sample
-        writer.Write("data"u8);
-        writer.Write(0); // data chunk size (no samples)
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => adapter.CreateRecognizerEngineAsync(null!, null, TestContext.Current.CancellationToken));
     }
 
     // NOTE: No test exercises a real, downloaded synthesis-role model here. CI has no cached TTS

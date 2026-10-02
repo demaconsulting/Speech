@@ -2,8 +2,10 @@
 # Software Unit Requirements for SpeechSynthesizerFactory
 #
 # These requirements describe the design-level behavior of the SpeechSynthesizerFactory unit,
-# decomposing the parent SynthesisSubsystem requirements. Mirrors
-# speech-recognizer-factory.yaml's identical Phase 3 pattern.
+# decomposing the parent SynthesisSubsystem requirements. Updated for the async Engine/Session
+# redesign: Create() became the asynchronous LoadAsync(), returning Task<ISpeechSynthesizerEngine>
+# with no playback-device parameter, since device binding now happens later at
+# CreateSessionAsync. Mirrors speech-recognizer-factory.yaml's identical Phase 3 pattern.
 
 sections:
   - title: Speech Requirements
@@ -12,91 +14,91 @@ sections:
         sections:
           - title: SpeechSynthesizerFactory Requirements
             requirements:
-              - id: Speech-Synthesis-SpeechSynthesizerFactory-RealSynthesizer
+              - id: Speech-Synthesis-SpeechSynthesizerFactory-RealEngine
                 title: >-
-                  The SpeechSynthesizerFactory class shall return a working speech synthesizer
-                  when the requested model is installed, declares the synthesis role, its engine
-                  loads, and the supplied playback device is available.
+                  The SpeechSynthesizerFactory class shall asynchronously return a working
+                  ISpeechSynthesizerEngine when the requested model is installed, declares the
+                  synthesis role, and its backend loads.
                 justification: |
                   A single composition entry point keeps all "can this machine speak right now?"
                   logic in one reviewable place, so a host never has to reason about model
-                  installation, device availability, and engine loading separately.
+                  installation and backend loading separately. Composition no longer depends on
+                  playback-device availability, since LoadAsync produces a Layer 3 engine that is
+                  not yet bound to any device.
                 tests:
-                  - SpeechSynthesizerFactory_Create_ModelInstalledAndDeviceAvailable_ReturnsRealSynthesizer
-                  - SpeechSynthesizerFactory_Create_WithStoreModelInstalledAndDeviceAvailable_ReturnsRealSynthesizer
-                  - SpeechSynthesizerFactory_Create_WithCatalogModelInstalledAndDeviceAvailable_ReturnsRealSynthesizer
+                  - SpeechSynthesizerFactory_LoadAsync_ModelInstalled_ReturnsRealEngine
+                  - SpeechSynthesizerFactory_LoadAsync_WithStoreModelInstalled_ReturnsRealEngine
+                  - SpeechSynthesizerFactory_LoadAsync_WithCatalogModelInstalled_ReturnsRealEngine
 
               - id: Speech-Synthesis-SpeechSynthesizerFactory-HonestFallbacks
                 title: >-
-                  The SpeechSynthesizerFactory class shall return an honest unavailable
-                  synthesizer, without throwing, when the requested model is not installed, the
-                  model does not declare the synthesis role, or the supplied playback device is
-                  unavailable.
+                  The SpeechSynthesizerFactory class shall asynchronously return an honest
+                  unavailable engine, without throwing, when the requested model is not
+                  installed, or the model does not declare the synthesis role.
                 justification: |
                   Per this library's "nothing throws at composition" decision, a model that has
-                  not been downloaded yet and a machine with no speakers are ordinary states at
-                  application start-up, not programming errors.
+                  not been downloaded yet is an ordinary state at application start-up, not a
+                  programming error.
                 tests:
-                  - SpeechSynthesizerFactory_Create_ModelNotInstalled_ReturnsUnavailableSynthesizer
-                  - SpeechSynthesizerFactory_Create_PlaybackDeviceUnavailable_ReturnsUnavailableSynthesizer
-                  - SpeechSynthesizerFactory_Create_ModelRoleIsNotSynthesis_ReturnsUnavailableSynthesizer
-                  - SpeechSynthesizerFactory_Create_WithStoreModelNotInstalled_ReturnsUnavailableSynthesizer
-                  - SpeechSynthesizerFactory_Create_WithCatalogModelNotInstalled_ReturnsUnavailableSynthesizer
+                  - SpeechSynthesizerFactory_LoadAsync_ModelNotInstalled_ReturnsUnavailableEngine
+                  - SpeechSynthesizerFactory_LoadAsync_ModelRoleIsNotSynthesis_ReturnsUnavailableEngine
+                  - SpeechSynthesizerFactory_LoadAsync_WithStoreModelNotInstalled_ReturnsUnavailableEngine
+                  - SpeechSynthesizerFactory_LoadAsync_WithCatalogModelNotInstalled_ReturnsUnavailableEngine
 
               - id: Speech-Synthesis-SpeechSynthesizerFactory-EngineLoadFailureFallback
                 title: >-
-                  The SpeechSynthesizerFactory class shall return an honest unavailable
-                  synthesizer, and report the reason, when the synthesis engine for an installed
-                  model cannot be loaded.
+                  The SpeechSynthesizerFactory class shall return an honest unavailable engine,
+                  and report the reason, when the synthesis backend for an installed model cannot
+                  be loaded.
                 justification: |
                   The design requires that "a model whose native runtime is absent must
-                  degrade the same honest way as a missing model file, never crash". An engine
+                  degrade the same honest way as a missing model file, never crash". A backend
                   that cannot load because of a missing native binary, an unsupported platform, or
                   corrupt model files must therefore not fail application start-up.
                 tests:
-                  - SpeechSynthesizerFactory_Create_EngineLoadFails_ReturnsUnavailableSynthesizerAndDoesNotThrow
+                  - SpeechSynthesizerFactory_LoadAsync_EngineLoadFails_ReturnsUnavailableEngineAndDoesNotThrow
 
-              - id: Speech-Synthesis-SpeechSynthesizerFactory-ArgumentValidation
+              - id: Speech-Synthesis-SpeechSynthesizerFactory-ArgumentValidationAndCancellation
                 title: >-
                   The SpeechSynthesizerFactory class shall reject a null model, a null
-                  SpeechModelStore, a null SpeechModelCatalog, or a null playback device.
+                  SpeechModelStore, or a null SpeechModelCatalog, and shall throw
+                  OperationCanceledException when the supplied cancellation token is already
+                  cancelled.
                 justification: |
-                  A null model, store, catalog, or playback device is a programming error at the
-                  call site, not an ordinary "unavailable" machine state, and must fail
-                  immediately with a clear exception rather than being silently treated as
-                  unavailable.
+                  A null model, store, or catalog is a programming error at the call site, not an
+                  ordinary "unavailable" machine state, and must fail immediately with a clear
+                  exception rather than being silently treated as unavailable. An already
+                  cancelled token means the caller no longer wants the result, so LoadAsync must
+                  honor it rather than performing the (potentially slow) load anyway.
                 tests:
-                  - SpeechSynthesizerFactory_Create_NullModel_ThrowsArgumentNullException
-                  - SpeechSynthesizerFactory_Create_NullPlaybackDevice_ThrowsArgumentNullException
-                  - SpeechSynthesizerFactory_Create_WithStoreNullModel_ThrowsArgumentNullException
-                  - SpeechSynthesizerFactory_Create_WithStoreNullStore_ThrowsArgumentNullException
-                  - SpeechSynthesizerFactory_Create_WithStoreNullPlaybackDevice_ThrowsArgumentNullException
-                  - SpeechSynthesizerFactory_Create_WithCatalogNullModel_ThrowsArgumentNullException
-                  - SpeechSynthesizerFactory_Create_WithCatalogNullCatalog_ThrowsArgumentNullException
-                  - SpeechSynthesizerFactory_Create_WithCatalogNullPlaybackDevice_ThrowsArgumentNullException
+                  - SpeechSynthesizerFactory_LoadAsync_NullModel_ThrowsArgumentNullException
+                  - SpeechSynthesizerFactory_LoadAsync_CancelledToken_ThrowsOperationCanceledException
+                  - SpeechSynthesizerFactory_LoadAsync_WithStoreNullModel_ThrowsArgumentNullException
+                  - SpeechSynthesizerFactory_LoadAsync_WithStoreNullStore_ThrowsArgumentNullException
+                  - SpeechSynthesizerFactory_LoadAsync_WithCatalogNullModel_ThrowsArgumentNullException
+                  - SpeechSynthesizerFactory_LoadAsync_WithCatalogNullCatalog_ThrowsArgumentNullException
 
               - id: Speech-Synthesis-SpeechSynthesizerFactory-ParameterValuesForwarding
                 title: >-
                   The SpeechSynthesizerFactory class shall forward an optional parameterValues
-                  bag unchanged to the constructed synthesizer, defaulting to null for a caller
-                  that does not supply one, so a model with real per-voice knowledge can later
-                  resolve a genuine speaker id from it.
+                  bag unchanged to the constructed engine, defaulting to null for a caller that
+                  does not supply one, so a model with real per-voice knowledge can later resolve
+                  a genuine speaker id from it once a session is created.
                 justification: |
                   Prior to this requirement, no seam existed to carry a session-level selected
                   voice from a host's ISpeechModel.Parameters selection through to
-                  SherpaOnnxSpeechSynthesizer; adding this argument as optional with a null
-                  default keeps every existing call site source-compatible while unblocking real
-                  voice selection end-to-end for models such as
-                  SherpaOnnxKokoroEnglishSynthesisModel.
+                  SherpaOnnxSynthesisSession; adding this argument as optional with a null default
+                  keeps every existing call site source-compatible while unblocking real voice
+                  selection end-to-end for models such as SherpaOnnxKokoroEnglishSynthesisModel.
                 tests:
-                  - SpeechSynthesizerFactory_Create_ParameterValuesSupplied_ForwardedToSynthesizer
+                  - SpeechSynthesizerFactory_LoadAsync_ParameterValuesSupplied_ForwardedToEngine
 
               - id: Speech-Synthesis-SpeechSynthesizerFactory-UnrecognizedParameterIdIgnored
                 title: >-
                   The SpeechSynthesizerFactory class shall silently ignore a supplied
                   parameterValues key that names a parameter not declared by the requested model,
-                  still composing a real synthesizer, while reporting an Info-level diagnostic
-                  naming the ignored key.
+                  still composing a real engine, while reporting an Info-level diagnostic naming
+                  the ignored key.
                 justification: |
                   A host reusing one settings dictionary across different synthesis models must
                   not break composition just because a given model does not declare a parameter
@@ -104,12 +106,12 @@ sections:
                   contract, not a caller bug, so it must never throw - only be surfaced as an
                   informational diagnostic for a host that wired up a sink.
                 tests:
-                  - SpeechSynthesizerFactory_Create_UnrecognizedParameterId_ComposesAndReportsInfo
+                  - SpeechSynthesizerFactory_LoadAsync_UnrecognizedParameterId_ComposesAndReportsInfo
 
               - id: Speech-Synthesis-SpeechSynthesizerFactory-InvalidRecognizedParameterValueThrows
                 title: >-
                   The SpeechSynthesizerFactory class shall throw ArgumentException synchronously
-                  from Create() - before installed/role/device/engine checks run - when
+                  from LoadAsync() - before installed/role/backend checks run - when
                   parameterValues supplies a value for a parameter the requested model does
                   declare, but the value is invalid for that parameter (wrong CLR type, outside
                   [Minimum, Maximum] or non-integral for a NumericParameter declared IsInteger,
@@ -117,17 +119,15 @@ sections:
                   bool for a BooleanParameter), naming the parameter id, the model id, and the
                   reason the value is invalid.
                 justification: |
-                  This is a deliberate, user-approved breaking change from this library's
-                  earlier silent-default behavior for this case: a host explicitly targeting a
-                  parameter it knows this model declares, with a value invalid for it, is a
-                  caller bug rather than a legitimate cross-model compatibility gap, and must be
-                  surfaced immediately and loudly - synchronously from Create() - rather than
-                  silently substituted the first time ResolveSpeakerId ran per segment. This
-                  validation happens once, up front, at Create(); it does not change
-                  ResolveSpeakerId's or ResolveOverrideRatios's own existing never-throw,
-                  per-segment runtime contract.
+                  A host explicitly targeting a parameter it knows this model declares, with a
+                  value invalid for it, is a caller bug rather than a legitimate cross-model
+                  compatibility gap, and must be surfaced immediately and loudly - synchronously
+                  from LoadAsync() - rather than silently substituted the first time
+                  ResolveSpeakerId ran per segment. This validation happens once, up front, at
+                  LoadAsync(); it does not change ResolveSpeakerId's or ResolveOverrideRatios's
+                  own existing never-throw, per-segment runtime contract.
                 tests:
-                  - SpeechSynthesizerFactory_Create_RecognizedNumericParameterOutOfRange_Throws
-                  - SpeechSynthesizerFactory_Create_RecognizedNumericParameterWrongType_Throws
-                  - SpeechSynthesizerFactory_Create_RecognizedIntegerParameterFractionalValue_Throws
-                  - SpeechSynthesizerFactory_Create_RecognizedChoiceParameterInvalidOption_Throws
+                  - SpeechSynthesizerFactory_LoadAsync_RecognizedNumericParameterOutOfRange_Throws
+                  - SpeechSynthesizerFactory_LoadAsync_RecognizedNumericParameterWrongType_Throws
+                  - SpeechSynthesizerFactory_LoadAsync_RecognizedIntegerParameterFractionalValue_Throws
+                  - SpeechSynthesizerFactory_LoadAsync_RecognizedChoiceParameterInvalidOption_Throws

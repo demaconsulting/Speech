@@ -42,8 +42,8 @@ sections:
                   delivery first.
                 justification: |
                   The public IAudioCaptureDevice contract has no "end of stream" concept because
-                  a real live-mic device has no equivalent "end"; a future recognize --input CLI
-                  command needs an honest, additive signal to know when to stop waiting for
+                  a real live-mic device has no equivalent "end"; the shipped recognize --input
+                  CLI command needs an honest, additive signal to know when to stop waiting for
                   further recognition results.
                 tests:
                   - WavFileAudioCaptureDevice_Start_FixtureFile_RaisesEndOfFileReachedExactlyOnceAfterLastFrame

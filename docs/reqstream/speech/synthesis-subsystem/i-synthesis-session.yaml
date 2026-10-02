@@ -1,0 +1,115 @@
+---
+# Software Unit Requirements for ISynthesisSession
+#
+# These requirements describe the design-level behavior of the ISynthesisSession contract
+# (Layer 5, bound to one device), its SynthesisSessionState/SessionStateChangedEventArgs
+# supporting types, and the overlap-not-allowed rule, decomposing the parent SynthesisSubsystem
+# requirements. Splits the former ISpeechSynthesizer requirements between this file and
+# i-speech-synthesizer-engine.yaml to match the async Engine/Session redesign, mirroring
+# i-synthesis-session.yaml's recognition-direction counterpart.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: SynthesisSubsystem Requirements
+        sections:
+          - title: ISynthesisSession Requirements
+            requirements:
+              - id: Speech-Synthesis-ISynthesisSession-AvailabilityFlag
+                title: >-
+                  The ISynthesisSession interface shall expose an IsAvailable flag that never
+                  throws to read, reporting false for the shared unavailable session and false
+                  once a real session has faulted or been disposed.
+                justification: |
+                  Callers must be able to check availability before invoking an operational
+                  member, without risk of the check itself failing, and a session's availability
+                  must honestly reflect that it can no longer perform a speak/synthesize
+                  operation once it has faulted or been disposed.
+                tests:
+                  - UnavailableSynthesisSession_IsAvailable_Read_ReturnsFalse
+                  - SherpaOnnxSynthesisSession_IsAvailable_BeforeAndAfterDispose_ReflectsLifecycle
+
+              - id: Speech-Synthesis-ISynthesisSession-StateMachine
+                title: >-
+                  The ISynthesisSession interface shall expose a State property and a
+                  StateChanged event reporting a SynthesisSessionState lifecycle of Created,
+                  Starting, Running, Stopping, Stopped, and the terminal Faulted, where
+                  Starting/Running/Stopping denote one in-flight Speak/Synthesize operation
+                  rather than a continuous stream, raising the documented transition sequence for
+                  both a successful and a faulting operation, and isolating a subscriber's
+                  handler exception rather than propagating it.
+                justification: |
+                  A host rendering UI state (for example a "speaking" indicator) needs an
+                  authoritative, observable state machine rather than inferring state from
+                  whether an awaited task has completed, and a misbehaving subscriber must never
+                  be able to destabilize the session it is observing.
+                tests:
+                  - UnavailableSynthesisSession_State_Read_ReturnsCreated
+                  - UnavailableSynthesisSession_StateChanged_SubscribeAndUnsubscribe_DoesNotThrow
+                  - SherpaOnnxSynthesisSession_StateChanged_OneSuccessfulOperation_RaisesExpectedTransitionsInOrder
+                  - SherpaOnnxSynthesisSession_StateChanged_HandlerThrows_IsIsolatedAndDoesNotPropagate
+
+              - id: Speech-Synthesis-ISynthesisSession-OverlapNotAllowed
+                title: >-
+                  The ISynthesisSession interface shall reject a SpeakAsync or SynthesizeAsync
+                  call made while an earlier call on the same session is still in flight, by
+                  throwing InvalidOperationException immediately, rather than queuing it or
+                  running both concurrently.
+                justification: |
+                  A session owns exactly one bound playback device and one in-flight native
+                  inference call at a time; allowing a second overlapping call would either
+                  corrupt playback ordering or race two calls against the same native resources.
+                  Rejecting the second call immediately gives a caller a clear, synchronous signal
+                  to await the first operation (or call StopAsync) before starting another, rather
+                  than silently misbehaving.
+                tests:
+                  - SherpaOnnxSynthesisSession_SpeakAsync_CalledWhileAlreadySpeaking_ThrowsInvalidOperationException
+                  - SherpaOnnxSynthesisSession_SynthesizeAsync_CalledWhileAlreadySpeaking_ThrowsInvalidOperationException
+
+              - id: Speech-Synthesis-ISynthesisSession-StreamingContract
+                title: >-
+                  The ISynthesisSession interface shall define SpeakAsync/SynthesizeAsync
+                  operations, a StopAsync method to cancel an in-flight operation
+                  deterministically, and disposal of the resources a session holds, without
+                  exposing any inference backend or native audio type.
+                justification: |
+                  This library's "engine backend stays swappable at the public API surface"
+                  decision requires that a future non-sherpa-onnx backend can replace the current
+                  one without a breaking API change.
+                tests:
+                  - SherpaOnnxSynthesisSession_SynthesizeAsync_PlainText_YieldsAudioSegment
+                  - SherpaOnnxSynthesisSession_StopAsync_WhileSpeaking_DoesNotCompleteUntilInFlightGenerateReturns
+                  - SherpaOnnxSynthesisSession_StopAsync_NoOperationInFlight_IsNoOp
+
+              - id: Speech-Synthesis-ISynthesisSession-UnavailableOperationsThrow
+                title: >-
+                  Every operational member of the ISynthesisSession contract (SpeakAsync,
+                  SynthesizeAsync) shall throw a documented exception when invoked on an
+                  unavailable session, rather than silently no-op-ing or misbehaving, while
+                  StopAsync and disposal remain safe no-ops.
+                justification: |
+                  Hosts must be able to test their playback logic against the contract with no
+                  model, no speakers, and no native runtime present, so an unavailable session's
+                  operational members must fail loudly and consistently rather than silently
+                  doing nothing.
+                tests:
+                  - UnavailableSynthesisSession_SpeakAsync_Always_ThrowsSpeechSynthesizerUnavailableException
+                  - UnavailableSynthesisSession_SpeakAsync_NullText_ThrowsArgumentNullException
+                  - UnavailableSynthesisSession_SynthesizeAsync_Always_ThrowsSpeechSynthesizerUnavailableException
+                  - UnavailableSynthesisSession_SynthesizeAsync_NullText_ThrowsArgumentNullException
+                  - UnavailableSynthesisSession_StopAsync_NoSessionInFlight_IsNoOp
+                  - UnavailableSynthesisSession_DisposeAsync_CalledTwice_DoesNotThrow
+
+              - id: Speech-Synthesis-ISynthesisSession-HotReuseAcrossTurns
+                title: >-
+                  The ISynthesisSession interface shall support many independent, non-overlapping
+                  speak/synthesize operations on the same session instance without requiring the
+                  session to be disposed and reconstructed between operations.
+                justification: |
+                  Obtaining an engine from SpeechSynthesizerFactory is the expensive step - it
+                  loads the model into native memory - while a session bound to a device is cheap
+                  to create and reuse. A host doing repeated, low-latency synthesis (for example,
+                  many turns of a voice conversation) must be able to construct one session once
+                  and reuse it across turns rather than reloading the model per turn.
+                tests:
+                  - SherpaOnnxSynthesisSession_SpeakAsync_CalledTwiceOnSameInstance_ReusesSameInstanceWithoutReconstruction

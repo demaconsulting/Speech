@@ -85,13 +85,13 @@ an expected state.
 a dictionary keyed by `Id`. The design describes this untyped key-value bag as the interface
 between a host's settings UI and per-model synthesis/recognition parameter handling. As of this
 pass, `SynthesisPanelViewModel.PlayAsync` forwards this bag as the `parameterValues` argument to
-`ISynthesizerSessionFactory.Create`, which threads it through to the library's
-`SpeechSynthesizerFactory.Create` and, from there, to `ISynthesisModel.ResolveSpeakerId` — so
+`ISynthesizerSessionFactory.LoadAsync`, which threads it through to the library's
+`SpeechSynthesizerFactory.LoadAsync` and, from there, to `ISynthesisModel.ResolveSpeakerId` — so
 selecting a voice in the TTS panel now genuinely changes synthesized output. The recognition
-panel does not yet consume this bag: `ISpeechRecognizer`'s contract accepts no per-call parameter
-bag on any member, so for recognition it remains built and fully exercised by unit tests, ready
-for a future library revision exposing a per-call recognition parameter surface. This is stated
-plainly here rather than silently implied.
+panel does not yet consume this bag: `IRecognitionSession`'s contract accepts no per-call
+parameter bag on any member, so for recognition it remains built and fully exercised by unit
+tests, ready for a future library revision exposing a per-call recognition parameter surface.
+This is stated plainly here rather than silently implied.
 
 ### Interactions with Other Units
 

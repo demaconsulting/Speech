@@ -32,6 +32,14 @@ public sealed class App : Application
     private SpeechModelCatalog? _catalog;
 
     /// <summary>
+    ///     Set once the deferred shutdown's async cleanup has been started, so the second,
+    ///     genuine <c>ShutdownRequested</c> raised by this type's own call to
+    ///     <see cref="IControlledApplicationLifetime.Shutdown"/> is allowed to proceed instead of
+    ///     being deferred again.
+    /// </summary>
+    private bool _shuttingDown;
+
+    /// <summary>
     ///     Loads the application's XAML-declared resources and styles.
     /// </summary>
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
@@ -78,15 +86,67 @@ public sealed class App : Application
             desktop.MainWindow = new MainWindow { DataContext = viewModel };
 
             // Release the catalog's download machinery and each panel ViewModel's own
-            // subscriptions/resources when the application exits.
-            desktop.ShutdownRequested += (_, _) =>
+            // subscriptions/resources when the application exits. ShutdownRequested is a
+            // synchronous event with no async-aware overload, so this handler defers the
+            // shutdown Avalonia is about to perform (via ShutdownRequestedEventArgs.Cancel),
+            // synchronously, runs the async cleanup to genuine completion, and only then calls
+            // IClassicDesktopStyleApplicationLifetime.Shutdown() to let the real shutdown
+            // proceed - rather than an async void handler that would return control to Avalonia
+            // at its first incomplete await and let shutdown continue while cleanup (and any
+            // exception it throws) is still pending.
+            desktop.ShutdownRequested += (object? _, ShutdownRequestedEventArgs e) =>
             {
-                viewModel.Synthesis.Dispose();
-                viewModel.Recognition.Dispose();
-                _catalog?.Dispose();
+                if (_shuttingDown)
+                {
+                    // This is the second, genuine ShutdownRequested raised by this handler's own
+                    // call to Shutdown() below, once cleanup has already completed.
+                    return;
+                }
+
+                // Set synchronously, before the first await inside CompleteShutdownAsync runs
+                // (finding 29): a second ShutdownRequested racing in during that first await -
+                // for example, the user closing the window again while cleanup is still pending -
+                // must see this guard already set, rather than finding it still false and
+                // starting a second concurrent cleanup task against the same ViewModels/catalog.
+                _shuttingDown = true;
+
+                e.Cancel = true;
+                CompleteShutdownAsync(desktop, viewModel).ConfigureAwait(false);
             };
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    /// <summary>
+    ///     Runs this application's asynchronous teardown to genuine completion, then lets the
+    ///     deferred shutdown this type requested in <see cref="OnFrameworkInitializationCompleted"/>
+    ///     proceed.
+    /// </summary>
+    /// <remarks>
+    ///     <see cref="_shuttingDown"/> is already set to <see langword="true"/> by the caller
+    ///     before this method starts (finding 29), so no field assignment is needed here; this
+    ///     method's own <see langword="finally"/> only has to resume shutdown once cleanup has
+    ///     settled, whether it succeeded or faulted.
+    /// </remarks>
+    /// <param name="desktop">The desktop lifetime to resume shutdown on once cleanup has completed.</param>
+    /// <param name="viewModel">The main window's view model owning the panels to dispose.</param>
+    private async Task CompleteShutdownAsync(IClassicDesktopStyleApplicationLifetime desktop, MainWindowViewModel viewModel)
+    {
+        try
+        {
+            await viewModel.Synthesis.DisposeAsync();
+            await viewModel.Recognition.DisposeAsync();
+            _catalog?.Dispose();
+        }
+        catch
+        {
+            // Intentionally broad: a teardown fault must not prevent the application from
+            // actually exiting once shutdown has been requested.
+        }
+        finally
+        {
+            desktop.Shutdown();
+        }
     }
 }

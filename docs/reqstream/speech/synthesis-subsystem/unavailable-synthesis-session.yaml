@@ -1,0 +1,54 @@
+---
+# Software Unit Requirements for UnavailableSynthesisSession
+#
+# Splits the former unavailable-speech-synthesizer.yaml between this file and
+# unavailable-speech-synthesizer-engine.yaml to match the async Engine/Session redesign.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: SynthesisSubsystem Requirements
+        sections:
+          - title: UnavailableSynthesisSession Requirements
+            requirements:
+              - id: Speech-Synthesis-UnavailableSynthesisSession-ReportsUnavailable
+                title: >-
+                  The UnavailableSynthesisSession class shall report IsAvailable as false and
+                  State as SynthesisSessionState.Created at all times, never throwing merely for
+                  being obtained or held.
+                justification: |
+                  A caller must always be able to safely obtain and hold a fallback session, per
+                  this library's "nothing throws at composition" decision, and a session that
+                  never performs a real operation has no meaningful state transitions to report.
+                tests:
+                  - UnavailableSynthesisSession_IsAvailable_Read_ReturnsFalse
+                  - UnavailableSynthesisSession_State_Read_ReturnsCreated
+                  - UnavailableSynthesisSession_StateChanged_SubscribeAndUnsubscribe_DoesNotThrow
+
+              - id: Speech-Synthesis-UnavailableSynthesisSession-OperationsThrow
+                title: >-
+                  The UnavailableSynthesisSession class shall throw
+                  SpeechSynthesizerUnavailableException when SpeakAsync or SynthesizeAsync is
+                  invoked with a non-null text argument, and ArgumentNullException for a null
+                  text argument, while treating StopAsync as a safe no-op.
+                justification: |
+                  A caller that ignores the IsAvailable flag and invokes an operational member
+                  has made a programming error that must surface immediately rather than silently
+                  speaking nothing; a null argument is a distinct, more fundamental programming
+                  error that must be reported as such regardless of availability.
+                tests:
+                  - UnavailableSynthesisSession_SpeakAsync_Always_ThrowsSpeechSynthesizerUnavailableException
+                  - UnavailableSynthesisSession_SpeakAsync_NullText_ThrowsArgumentNullException
+                  - UnavailableSynthesisSession_SynthesizeAsync_Always_ThrowsSpeechSynthesizerUnavailableException
+                  - UnavailableSynthesisSession_SynthesizeAsync_NullText_ThrowsArgumentNullException
+                  - UnavailableSynthesisSession_StopAsync_NoSessionInFlight_IsNoOp
+
+              - id: Speech-Synthesis-UnavailableSynthesisSession-SafeDispose
+                title: >-
+                  The UnavailableSynthesisSession class shall treat disposal as a safe no-op that
+                  never throws and never invalidates the shared fallback.
+                justification: |
+                  A host that wraps its session in a disposal scope must be able to run that same
+                  code unchanged on a machine where synthesis is unavailable.
+                tests:
+                  - UnavailableSynthesisSession_DisposeAsync_CalledTwice_DoesNotThrow

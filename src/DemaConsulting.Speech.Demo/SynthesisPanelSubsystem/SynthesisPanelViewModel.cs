@@ -38,10 +38,23 @@ namespace DemaConsulting.Speech.Demo.SynthesisPanelSubsystem;
 ///     ignores events for any other <see cref="SpeechModelRole"/> and marshals onto the UI thread
 ///     (captured at construction) before calling <see cref="Refresh"/>, mirroring
 ///     <see cref="RecognitionPanelSubsystem.RecognitionPanelViewModel"/>'s identical pattern.
-///     <see cref="Dispose"/> unsubscribes this handler.
+///     <see cref="DisposeAsync"/> unsubscribes this handler.
+///     </para>
+///     <para>
+///     <b>Engine/session reuse.</b> Per <see cref="ISpeechSynthesizerEngine"/>'s and
+///     <see cref="ISynthesisSession"/>'s own reuse guidance, this ViewModel loads an engine at
+///     most once per selected model/parameter-value combination, and creates a session at most
+///     once per engine/playback-device combination, reusing both across many Play calls instead
+///     of reloading the model and recreating the session on every click (the bug this redesign
+///     fixes). <see cref="PlayAsync"/> detects a reason to reload lazily, on its next call,
+///     rather than proactively on a property change: the cached engine is reloaded only when the
+///     selected model or <see cref="Settings"/>' built parameter values differ from the ones it
+///     was last loaded with; the cached session is independently recreated whenever the engine
+///     was just reloaded or the selected playback device differs from the one it was last bound
+///     to.
 ///     </para>
 /// </remarks>
-public sealed partial class SynthesisPanelViewModel : ObservableObject, IDisposable
+public sealed partial class SynthesisPanelViewModel : ObservableObject, IAsyncDisposable
 {
     /// <summary>The message shown when no installed synthesis model is available to choose.</summary>
     public const string NoModelsMessage =
@@ -55,12 +68,15 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IDisposa
     public const string NoPlaybackDeviceMessage =
         "No audio playback device is available. Choose one on the Audio Devices panel.";
 
-    /// <summary>The message shown when the composed synthesizer honestly reports itself unavailable.</summary>
+    /// <summary>The message shown when the composed synthesizer engine honestly reports itself unavailable.</summary>
     public const string SynthesizerUnavailableMessage =
         "The selected model's speech synthesizer is unavailable on this machine.";
 
     /// <summary>The message shown after playback is stopped by the user.</summary>
     public const string StoppedMessage = "Playback stopped.";
+
+    /// <summary>The message shown when the active session reports an unrecoverable fault.</summary>
+    public const string SessionFaultedMessage = "The synthesis session reported an unrecoverable error.";
 
     /// <summary>Example Natural Language Audio Tags drawn from the library's closed, published vocabulary.</summary>
     public static IReadOnlyList<string> ExampleTagHints { get; } =
@@ -75,7 +91,7 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IDisposa
     /// <summary>The shared device-selection panel state supplying the chosen playback device.</summary>
     private readonly DeviceSelectionViewModel _deviceSelection;
 
-    /// <summary>The seam used to compose a synthesizer for the selected model and device.</summary>
+    /// <summary>The seam used to load a synthesizer engine for the selected model.</summary>
     private readonly ISynthesizerSessionFactory _sessionFactory;
 
     /// <summary>
@@ -85,12 +101,39 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IDisposa
     /// </summary>
     private readonly SynchronizationContext? _catalogEventUiContext = SynchronizationContext.Current;
 
-    /// <summary>The synthesizer currently in use by an in-flight Play, if any.</summary>
-    private ISpeechSynthesizer? _activeSynthesizer;
+    /// <summary>
+    ///     The cached synthesizer engine, reused across many Play calls for as long as
+    ///     <see cref="_engineModel"/> and <see cref="_engineParameterValues"/> match the current
+    ///     selection; see the "Engine/session reuse" remarks above. <see langword="null"/> before
+    ///     the first Play, or after invalidation by a model/parameter change.
+    /// </summary>
+    private ISpeechSynthesizerEngine? _engine;
+
+    /// <summary>The model <see cref="_engine"/> was loaded for, if any.</summary>
+    private ISpeechModel? _engineModel;
+
+    /// <summary>The parameter value bag <see cref="_engine"/> was loaded with, if any.</summary>
+    private IReadOnlyDictionary<string, object>? _engineParameterValues;
+
+    /// <summary>
+    ///     The cached session created from <see cref="_engine"/>, reused across many Play calls
+    ///     for as long as it is bound to the currently selected playback device.
+    ///     <see langword="null"/> before the first Play, or after invalidation.
+    /// </summary>
+    private ISynthesisSession? _session;
+
+    /// <summary>The playback device selection <see cref="_session"/> was created with, if any.</summary>
+    private AudioDeviceSelection? _sessionPlaybackSelection;
+
+    /// <summary>
+    ///     The UI thread context captured when <see cref="_session"/> was created, used to
+    ///     marshal <see cref="ISynthesisSession.StateChanged"/> handling onto the UI thread.
+    /// </summary>
+    private SynchronizationContext? _uiContext;
 
     /// <summary>
     ///     The pre-refresh hook registered with <see cref="_deviceSelection"/>, retained so the
-    ///     exact same delegate instance can be unregistered in <see cref="Dispose"/>.
+    ///     exact same delegate instance can be unregistered in <see cref="DisposeAsync"/>.
     /// </summary>
     private readonly Func<Task> _preRefreshHook;
 
@@ -175,7 +218,7 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IDisposa
     /// <param name="catalogService">The catalog seam to read installed models from. Must not be <see langword="null"/>.</param>
     /// <param name="deviceService">The device seam used to create the playback device. Must not be <see langword="null"/>.</param>
     /// <param name="deviceSelection">The shared device-selection panel state. Must not be <see langword="null"/>.</param>
-    /// <param name="sessionFactory">The seam used to compose a synthesizer. Must not be <see langword="null"/>.</param>
+    /// <param name="sessionFactory">The seam used to load a synthesizer engine. Must not be <see langword="null"/>.</param>
     /// <exception cref="ArgumentNullException">Thrown when any parameter is <see langword="null"/>.</exception>
     internal SynthesisPanelViewModel(
         IModelCatalogService catalogService,
@@ -232,11 +275,99 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IDisposa
     ///     Applies a newly selected model's declared parameters to the embedded settings panel.
     /// </summary>
     /// <param name="value">The newly selected model.</param>
+    /// <remarks>
+    ///     Does not proactively invalidate the cached engine/session: <see cref="PlayAsync"/>
+    ///     detects the model change lazily on its next call (see the "Engine/session reuse"
+    ///     remarks above) by comparing against <see cref="_engineModel"/>.
+    /// </remarks>
     partial void OnSelectedModelChanged(ISpeechModel? value) => Settings.Model = value;
 
     /// <summary>
+    ///     Maps a <see cref="SynthesisSessionState"/> to the corresponding
+    ///     <see cref="SynthesisPlaybackState"/>, giving every transition a single, predictable
+    ///     source of truth instead of ad hoc assignment at each call site.
+    /// </summary>
+    /// <param name="state">The session state to map.</param>
+    /// <returns>The corresponding playback state.</returns>
+    private static SynthesisPlaybackState MapSessionState(SynthesisSessionState state) => state switch
+    {
+        SynthesisSessionState.Starting => SynthesisPlaybackState.Synthesizing,
+        SynthesisSessionState.Running or SynthesisSessionState.Stopping => SynthesisPlaybackState.Playing,
+        SynthesisSessionState.Faulted => SynthesisPlaybackState.Error,
+        _ => SynthesisPlaybackState.Idle,
+    };
+
+    /// <summary>
+    ///     Marshals one <see cref="ISynthesisSession.StateChanged"/> event onto the UI thread and
+    ///     applies <see cref="MapSessionState"/>.
+    /// </summary>
+    /// <param name="sender">The raising session. Unused.</param>
+    /// <param name="e">The event carrying the previous and current session state.</param>
+    private void OnSessionStateChanged(object? sender, SessionStateChangedEventArgs e)
+    {
+        if (_uiContext is null)
+        {
+            ApplySessionStateChanged(e);
+        }
+        else
+        {
+            _uiContext.Post(state => ApplySessionStateChanged((SessionStateChangedEventArgs)state!), e);
+        }
+    }
+
+    /// <summary>
+    ///     Applies one session state transition to <see cref="State"/>, additionally reporting
+    ///     <see cref="SessionFaultedMessage"/> when the session has faulted.
+    /// </summary>
+    /// <param name="e">The event carrying the previous and current session state.</param>
+    private void ApplySessionStateChanged(SessionStateChangedEventArgs e)
+    {
+        State = MapSessionState(e.Current);
+
+        if (e.Current == SynthesisSessionState.Faulted)
+        {
+            StatusMessage = SessionFaultedMessage;
+        }
+    }
+
+    /// <summary>
+    ///     Compares two parameter value bags for equality by key and value, since
+    ///     <see cref="ModelSettingsViewModel.BuildValueBag"/> returns a freshly built dictionary
+    ///     on every call rather than a stable cached instance.
+    /// </summary>
+    /// <param name="first">The first bag to compare, or <see langword="null"/>.</param>
+    /// <param name="second">The second bag to compare, or <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when both bags contain the same keys mapped to equal values.</returns>
+    private static bool ParameterValuesEqual(
+        IReadOnlyDictionary<string, object>? first,
+        IReadOnlyDictionary<string, object>? second)
+    {
+        if (ReferenceEquals(first, second))
+        {
+            return true;
+        }
+
+        if (first is null || second is null || first.Count != second.Count)
+        {
+            return false;
+        }
+
+        foreach (var pair in first)
+        {
+            if (!second.TryGetValue(pair.Key, out var value) || !Equals(pair.Value, value))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
     ///     Synthesizes and speaks <see cref="Text"/> through the currently selected playback
-    ///     device, using the currently selected model.
+    ///     device, using the currently selected model, reloading the cached engine and/or
+    ///     recreating the cached session only when something they were built from has actually
+    ///     changed (see the "Engine/session reuse" remarks above).
     /// </summary>
     /// <param name="cancellationToken">
     ///     The token the generated command supplies; canceling it (via <see cref="StopCommand"/>)
@@ -254,34 +385,84 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IDisposa
             return;
         }
 
-        var playbackDevice = _deviceService.CreatePlaybackDevice(_deviceSelection.PlaybackSelection);
-        if (!playbackDevice.IsAvailable)
+        var parameterValues = Settings.BuildValueBag();
+
+        // Check the cheap, synchronous precondition (a usable playback device) before paying for
+        // the comparatively expensive async engine load, so an honest "no device" outcome does
+        // not depend on what an engine-loading seam happens to return for this combination.
+        var desiredSelection = _deviceSelection.PlaybackSelection;
+        var precheckDevice = _deviceService.CreatePlaybackDevice(desiredSelection);
+        if (!precheckDevice.IsAvailable)
         {
             StatusMessage = NoPlaybackDeviceMessage;
             State = SynthesisPlaybackState.Error;
             return;
         }
 
-        using var synthesizer = _sessionFactory.Create(selectedModel, playbackDevice, Settings.BuildValueBag());
-        if (!synthesizer.IsAvailable)
+        if (_engine is null ||
+            !ReferenceEquals(_engineModel, selectedModel) ||
+            !ParameterValuesEqual(_engineParameterValues, parameterValues))
         {
-            StatusMessage = SynthesizerUnavailableMessage;
-            State = SynthesisPlaybackState.Error;
-            return;
+            await InvalidateEngineAsync().ConfigureAwait(true);
+
+            var engine = await _sessionFactory.LoadAsync(selectedModel, parameterValues, cancellationToken).ConfigureAwait(true);
+            if (!engine.IsAvailable)
+            {
+                await engine.DisposeAsync().ConfigureAwait(true);
+                StatusMessage = SynthesizerUnavailableMessage;
+                State = SynthesisPlaybackState.Error;
+                return;
+            }
+
+            _engine = engine;
+            _engineModel = selectedModel;
+            _engineParameterValues = parameterValues;
         }
 
-        _activeSynthesizer = synthesizer;
+        if (_session is null || !Equals(_sessionPlaybackSelection, desiredSelection))
+        {
+            await ReleaseSessionAsync().ConfigureAwait(true);
+
+            // Reuse the device already resolved by the precondition check above rather than
+            // resolving it a second time.
+            var playbackDevice = precheckDevice;
+
+            ISynthesisSession session;
+            try
+            {
+                session = await _engine.CreateSessionAsync(playbackDevice, cancellationToken).ConfigureAwait(true);
+            }
+            catch (SynthesisEngineBusyException ex)
+            {
+                StatusMessage = ex.Message;
+                State = SynthesisPlaybackState.Error;
+                return;
+            }
+
+            if (!session.IsAvailable)
+            {
+                await session.DisposeAsync().ConfigureAwait(true);
+                StatusMessage = SynthesizerUnavailableMessage;
+                State = SynthesisPlaybackState.Error;
+                return;
+            }
+
+            _uiContext = SynchronizationContext.Current;
+            session.StateChanged += OnSessionStateChanged;
+
+            _session = session;
+            _sessionPlaybackSelection = desiredSelection;
+        }
+
+        StatusMessage = null;
+
         try
         {
-            StatusMessage = null;
-            State = SynthesisPlaybackState.Synthesizing;
-            State = SynthesisPlaybackState.Playing;
-            await synthesizer.SpeakAsync(Text, cancellationToken).ConfigureAwait(true);
-            State = SynthesisPlaybackState.Idle;
+            await _session.SpeakAsync(Text, cancellationToken).ConfigureAwait(true);
         }
         catch (OperationCanceledException)
         {
-            State = SynthesisPlaybackState.Idle;
+            // The session's own StateChanged transitions already drove State back to Idle.
             StatusMessage = StoppedMessage;
         }
         catch (SpeechSynthesizerUnavailableException ex)
@@ -289,12 +470,12 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IDisposa
             State = SynthesisPlaybackState.Error;
             StatusMessage = ex.Message;
         }
-        finally
+        catch (SynthesisSessionFaultedException ex)
         {
-            // Disposal itself is left to the enclosing `using` (covering both this exit path and
-            // the early "unavailable" return above) so every exit path disposes exactly once
-            // through a single, unconditional mechanism instead of a duplicated manual call.
-            _activeSynthesizer = null;
+            // Faulted is terminal for a session (see ISynthesisSession's remarks): release it so
+            // the next Play creates a fresh one against the still-cached engine.
+            await ReleaseSessionAsync().ConfigureAwait(true);
+            StatusMessage = ex.Message;
         }
     }
 
@@ -303,52 +484,93 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IDisposa
     ///     playing.
     /// </summary>
     [RelayCommand]
-    private void Stop()
+    private async Task StopAsync()
     {
-        _activeSynthesizer?.Stop();
+        var session = _session;
+        if (session is not null)
+        {
+            await session.StopAsync().ConfigureAwait(true);
+        }
+
+        // Defense-in-depth: also requests cancellation of PlayAsync's own cancellation token, in
+        // case the session itself cannot be stopped (for example an unavailable fallback).
         PlayCommand.Cancel();
     }
 
     /// <summary>
-    ///     Stops an in-flight Play, if any, and awaits its actual completion so the shared
-    ///     device-selection panel can safely force the audio backend to re-scan its device table.
+    ///     Stops an in-flight Play, if any, awaits its actual completion, and releases the cached
+    ///     session (keeping the cached engine) so the shared device-selection panel can safely
+    ///     force the audio backend to re-scan its device table - the session's bound playback
+    ///     device would otherwise become stale the instant the refresh completes.
     /// </summary>
     /// <returns>
     ///     A task that completes once the in-flight <see cref="PlayCommand"/> execution (if any)
-    ///     has itself completed.
+    ///     has itself completed and the cached session has been released.
     /// </returns>
-    /// <remarks>
-    ///     Unlike <see cref="RecognitionPanelSubsystem.RecognitionPanelViewModel"/>'s equivalent
-    ///     hook, <see cref="Stop"/> alone does not guarantee the playback device is actually
-    ///     closed by the time it returns: <see cref="Stop"/> only cancels the synthesizer's
-    ///     internal token and requests cancellation of <see cref="PlayCommand"/>; the device is
-    ///     actually stopped later, one layer deeper inside the synthesizer's own streaming
-    ///     playback implementation, as part of the already-in-flight task's own cleanup. So this
-    ///     hook must also await <see cref="IAsyncRelayCommand.ExecutionTask"/> to observe that
-    ///     completion before returning, swallowing the expected
-    ///     <see cref="OperationCanceledException"/> that <see cref="Stop"/>'s cancellation causes.
-    /// </remarks>
     private async Task StopBeforeDeviceRefreshAsync()
     {
-        if (!PlayCommand.IsRunning)
+        if (PlayCommand.IsRunning)
+        {
+            await StopAsync().ConfigureAwait(true);
+
+            if (PlayCommand.ExecutionTask is { } executionTask)
+            {
+                try
+                {
+                    await executionTask.ConfigureAwait(true);
+                }
+                catch (OperationCanceledException)
+                {
+                    // Expected: StopAsync() cancels the in-flight PlayAsync, which surfaces as
+                    // OperationCanceledException from its awaited ExecutionTask.
+                }
+            }
+        }
+
+        await ReleaseSessionAsync().ConfigureAwait(true);
+    }
+
+    /// <summary>
+    ///     Releases and clears the cached session, if any, unsubscribing from
+    ///     <see cref="ISynthesisSession.StateChanged"/> first so a subsequent disposal transition
+    ///     cannot be mistaken for a fresh fault. Safe to call when nothing is cached. Does not
+    ///     touch the cached engine.
+    /// </summary>
+    private async Task ReleaseSessionAsync()
+    {
+        var session = _session;
+        if (session is null)
         {
             return;
         }
 
-        Stop();
+        session.StateChanged -= OnSessionStateChanged;
 
-        if (PlayCommand.ExecutionTask is { } executionTask)
+        await session.DisposeAsync().ConfigureAwait(true);
+
+        _session = null;
+        _sessionPlaybackSelection = null;
+        _uiContext = null;
+    }
+
+    /// <summary>
+    ///     Releases the cached session (see <see cref="ReleaseSessionAsync"/>), then disposes and
+    ///     clears the cached engine, if any, so the next Play loads a fresh one. Safe to call when
+    ///     nothing is cached.
+    /// </summary>
+    private async Task InvalidateEngineAsync()
+    {
+        await ReleaseSessionAsync().ConfigureAwait(true);
+
+        if (_engine is null)
         {
-            try
-            {
-                await executionTask.ConfigureAwait(true);
-            }
-            catch (OperationCanceledException)
-            {
-                // Expected: Stop() cancels the in-flight PlayAsync, which surfaces as
-                // OperationCanceledException from its awaited ExecutionTask.
-            }
+            return;
         }
+
+        await _engine.DisposeAsync().ConfigureAwait(true);
+        _engine = null;
+        _engineModel = null;
+        _engineParameterValues = null;
     }
 
     /// <summary>
@@ -376,16 +598,32 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IDisposa
     }
 
     /// <summary>
-    ///     Unsubscribes from <see cref="IModelCatalogService.ModelInstalled"/> and, defensively,
-    ///     disposes an active synthesizer if one is still held (ordinarily released by
-    ///     <see cref="PlayAsync"/>'s own <c>finally</c> block, but no longer guaranteed once this
-    ///     ViewModel can be disposed independently of any in-flight Play).
+    ///     Stops any in-flight Play, unsubscribes from <see cref="IModelCatalogService.ModelInstalled"/>
+    ///     and the device-selection panel's pre-refresh hook, and releases the cached session and
+    ///     engine, if any.
     /// </summary>
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         _catalogService.ModelInstalled -= OnModelInstalled;
         _deviceSelection.UnregisterPreRefreshHook(_preRefreshHook);
-        _activeSynthesizer?.Dispose();
-        _activeSynthesizer = null;
+
+        if (PlayCommand.IsRunning)
+        {
+            await StopAsync().ConfigureAwait(true);
+
+            if (PlayCommand.ExecutionTask is { } executionTask)
+            {
+                try
+                {
+                    await executionTask.ConfigureAwait(true);
+                }
+                catch (OperationCanceledException)
+                {
+                    // Expected: StopAsync() cancels the in-flight PlayAsync.
+                }
+            }
+        }
+
+        await InvalidateEngineAsync().ConfigureAwait(true);
     }
 }

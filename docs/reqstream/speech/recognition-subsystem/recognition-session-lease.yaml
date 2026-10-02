@@ -1,0 +1,90 @@
+---
+# Software Unit Requirements for engine exclusivity / lease behavior
+#
+# These requirements describe the single-active-session lease policy shared by
+# ISpeechRecognizerEngine implementations (concretely verified against
+# SherpaOnnxSpeechRecognizerEngine) and RecognitionEngineBusyException, decomposing the parent
+# RecognitionSubsystem requirements. Documented as a standalone file because this fail-fast
+# exclusivity policy is a cross-cutting design decision independent of any single unit's other
+# behavior.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: RecognitionSubsystem Requirements
+        sections:
+          - title: Engine Exclusivity Requirements
+            requirements:
+              - id: Speech-Recognition-EngineExclusivity-SingleActiveSession
+                title: >-
+                  An ISpeechRecognizerEngine implementation shall permit at most one live session
+                  created from it at a time, returning the same kind of new session once a prior
+                  session created from it has fully completed its own disposal.
+                justification: |
+                  The native recognition backend an engine owns is not safe for two sessions to
+                  drive concurrently, so the engine - not each session - is the natural place to
+                  enforce that exclusivity; reuse across sequential sessions (rather than one
+                  session per engine lifetime) is still required to keep the expensive model-load
+                  step amortized across many turns.
+                tests:
+                  - SherpaOnnxSpeechRecognizerEngine_CreateSessionAsync_NoActiveSession_ReturnsSession
+                  - SherpaOnnxSpeechRecognizerEngine_CreateSessionAsync_AfterPriorSessionFullyDisposed_ReturnsNewSession
+
+              - id: Speech-Recognition-EngineExclusivity-FailFastNotQueued
+                title: >-
+                  An ISpeechRecognizerEngine implementation's CreateSessionAsync shall fail fast
+                  with RecognitionEngineBusyException, rather than queuing or waiting, when a
+                  prior session created from it already holds the engine's exclusivity lease -
+                  including while that prior session is still tearing down via its own
+                  DisposeAsync.
+                justification: |
+                  A caller that attempts to create a second session before releasing the first
+                  has made a sequencing error; silently queuing the request would hide that bug
+                  behind an unpredictable delay instead of surfacing it immediately, and the lease
+                  is held for the whole disposal window because disposal itself still drives the
+                  native backend.
+                tests:
+                  - SherpaOnnxSpeechRecognizerEngine_CreateSessionAsync_SessionAlreadyLeased_ThrowsRecognitionEngineBusyException
+                  - SherpaOnnxSpeechRecognizerEngine_CreateSessionAsync_PriorSessionDisposing_ThrowsRecognitionEngineBusyException
+
+              - id: Speech-Recognition-EngineExclusivity-DisposalOwnsSession
+                title: >-
+                  An ISpeechRecognizerEngine implementation's DisposeAsync shall dispose any
+                  session it still holds the lease for before releasing the engine's own native
+                  resources.
+                justification: |
+                  A host that disposes the engine without first disposing an active session it
+                  created must not leak that session's unmanaged inference resources or leave the
+                  lease held with no way to release it.
+                tests:
+                  - SherpaOnnxSpeechRecognizerEngine_DisposeAsync_WithActiveSession_DisposesSessionFirst
+
+          - title: RecognitionEngineBusyException Requirements
+            requirements:
+              - id: Speech-Recognition-RecognitionEngineBusyException-Thrown
+                title: >-
+                  The RecognitionEngineBusyException class shall be thrown, and only be thrown,
+                  from CreateSessionAsync when the engine's single-session exclusivity lease is
+                  already held.
+                justification: |
+                  A consumer calling CreateSessionAsync needs an unambiguous, typed signal that
+                  its failure is caused by a currently-held lease rather than a null argument,
+                  cancellation, or unrelated composition failure, so it can decide whether to
+                  retry after releasing the prior session.
+                tests:
+                  - SherpaOnnxSpeechRecognizerEngine_CreateSessionAsync_SessionAlreadyLeased_ThrowsRecognitionEngineBusyException
+                  - SherpaOnnxSpeechRecognizerEngine_CreateSessionAsync_PriorSessionDisposing_ThrowsRecognitionEngineBusyException
+
+              - id: Speech-Recognition-RecognitionEngineBusyException-Constructors
+                title: >-
+                  The RecognitionEngineBusyException class shall provide standard exception
+                  constructors (default, message, message with inner exception).
+                justification: |
+                  Standard exception conformance lets callers construct, catch, and inspect this
+                  exception like any other .NET exception type, mirroring the identical
+                  constructor pattern used by this library's other custom exception types (for
+                  example AudioDeviceInUseException).
+                tests:
+                  - RecognitionEngineBusyException_Constructor_Default_HasNonEmptyMessage
+                  - RecognitionEngineBusyException_Constructor_WithMessage_ExposesMessage
+                  - RecognitionEngineBusyException_Constructor_WithInnerException_ExposesBoth

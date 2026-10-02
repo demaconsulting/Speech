@@ -3,21 +3,25 @@
 ### Verification Approach
 
 The RecognitionSubsystem is verified entirely through deterministic unit tests that substitute a
-fake recognition engine behind the subsystem's internal engine seam and an NSubstitute
-`IAudioCaptureDevice` in place of real hardware. This makes composition decisions, audio-format
-conversion, the two-thread streaming pipeline, result ordering, fault containment, and honest
+fake `IRecognitionBackend`/`IRecognitionBackendFactory` pair behind the subsystem's internal
+backend seam and an NSubstitute `IAudioCaptureDevice` in place of real hardware. This makes
+composition decisions, audio-format conversion, the two-thread streaming pipeline, engine
+exclusivity, session lifecycle, result ordering/backpressure, fault containment, and honest
 degradation fully testable without a downloaded speech model, a microphone, or the
 platform-specific native speech-inference runtime.
 
-Determinism is structural rather than timing-based: the recognizer's `Stop()` completes its
-internal queue and joins its background consumer, so every result derived from a frame raised
-before the call has been delivered by the time it returns. No test polls, sleeps, or waits on a
-timeout.
+Determinism is structural rather than timing-based: `StopAsync` completes its internal queue and
+awaits its pump task, so every result derived from a frame raised before the call has been
+delivered or accounted for by the time it returns; cancellation/abandon-timeout behavior is
+verified with an injectable abandon-timeout override rather than real multi-second waits.
 
 Automated coverage **does not** include recognizing real speech. Proving that real audio from a
 real microphone produces correct text through a real model requires both a downloaded production
 model (which this phase deliberately does not ship) and audio hardware, so it remains a
-manual/local verification activity.
+manual/local verification activity. The bookkeeping and accuracy of the internal, native-backed
+`SherpaOnnxRecognitionEngine` against real installed models (when present) is covered separately
+in `SherpaOnnxRecognitionEngineTests`/`SherpaOnnxRecognitionEngineAccuracyTests`, unaffected by
+this phase's Engine/Session split since neither class changed.
 
 ### Test Environment
 
@@ -25,7 +29,7 @@ manual/local verification activity.
 - **Execution**: `dotnet test` invoked by `build.ps1` and the CI pipeline
 - **Dependencies**: No external services, no downloaded model, no native speech-inference runtime,
   and no physical audio hardware
-- **Test doubles**: A fake `IRecognitionEngine`/`IRecognitionEngineFactory` pair, NSubstitute
+- **Test doubles**: A fake `IRecognitionBackend`/`IRecognitionBackendFactory` pair, NSubstitute
   capture devices and diagnostics sinks, a fake recognition model, and a parameter-capturing fake
   recognition model used only to prove parameter-values pass-through
 - **Isolation**: Composition tests create and delete their own scratch installed-model directory
@@ -34,9 +38,11 @@ manual/local verification activity.
 
 A RecognitionSubsystem test run passes when:
 
-- Composition returns a real recognizer only when the model is installed, declares the
-  recognition role, the capture device is available, and the engine loads
-- Every other composition outcome returns the honest unavailable recognizer without throwing
+- Composition returns a real engine only when the model is installed, declares the recognition
+  role, and the backend loads; `LoadAsync`'s returned task never faults for an ordinary
+  unavailable machine state
+- Every other composition outcome returns the honest unavailable engine without faulting the
+  returned task
 - An optional `parameterValues` bag supplied by the caller reaches the recognition model's own
   engine-configuration logic unchanged, and does not change behavior for a model that declares no
   parameters
@@ -44,144 +50,169 @@ A RecognitionSubsystem test run passes when:
   silently ignored (with only an `Info` diagnostic reported) and composition still succeeds; a
   supplied value for a parameter the model *does* declare that fails that parameter's own
   validation (wrong CLR type, out-of-range or non-integral for a `NumericParameter`, an invalid
-  option for a `ChoiceParameter`, a non-`bool` for a `BooleanParameter`) throws `ArgumentException`
-  synchronously from `Create()`, before any installed/role/device/engine check runs
+  option for a `ChoiceParameter`, a non-`bool` for a `BooleanParameter`) faults the returned task
+  with `ArgumentException`, before any installed/role/backend-load check runs
+- `CreateSessionAsync` returns exactly one live session per engine at a time, throwing
+  `RecognitionEngineBusyException` for a concurrent attempt, and permits a new session once the
+  prior one is fully disposed
 - Captured audio is downmixed and resampled to the model's declared `AudioFormat`, with
   above-target-Nyquist energy attenuated before downsampling decimation
-- Every recognition result is delivered, in order, with its provisional/final flag preserved
-- Start/stop/dispose behave idempotently, drain queued audio, and release engine resources
-- `Stop()`/`Dispose()` flush trailing audio the engine had accepted but not yet decoded - the tail
-  of an utterance released with no trailing silence - as one last final result before resetting the
-  engine for the next session, so no accepted audio is silently lost
-- Engine faults and throwing host handlers are reported and contained rather than propagated,
-  including a fault in the trailing-audio flush itself
-- The unavailable recognizer stays honest and safe to hold, subscribe to, and dispose
+- Every recognition result is delivered through `GetResultsAsync`, in order, with its
+  provisional/final flag preserved, subject to the documented backpressure policy (coalesced
+  provisionals, byte-capped finals)
+- The session's `RecognitionSessionState` machine only ever makes forward-only, documented
+  transitions, raising `StateChanged` for each one
+- `StartAsync`/`StopAsync`/`DisposeAsync` behave idempotently, drain queued audio, and release
+  backend/lease resources
+- `StopAsync`/`DisposeAsync` flush trailing audio the backend had accepted but not yet decoded -
+  the tail of an utterance released with no trailing silence - as one last final result before
+  resetting the backend for the next session, so no accepted audio is silently lost
+- Backend faults, a lost capture device, and throwing host handlers are reported/contained rather
+  than propagated uncontrolled, and surface to an active `GetResultsAsync` consumer as
+  `RecognitionSessionFaultedException`
+- A non-cooperative native call is abandoned after its configured timeout rather than blocking a
+  caller forever, with the abandonment reported through diagnostics
+- The unavailable engine and unavailable session both stay honest and safe to hold, subscribe to,
+  and dispose
 - The automated verification boundary remains honest about the absence of real-speech coverage
 
 ### Test Scenarios
 
-#### Composition: Real Recognizer for an Installed Model and Available Device
+#### Composition: Real Engine for an Installed Model
 
-**Tests**: `SpeechRecognizerFactory_Create_ModelInstalledAndDeviceAvailable_ReturnsRealRecognizer`,
-`SpeechRecognizerFactory_Create_WithStoreModelInstalledAndDeviceAvailable_ReturnsRealRecognizer`,
-`SpeechRecognizerFactory_Create_WithCatalogModelInstalledAndDeviceAvailable_ReturnsRealRecognizer`
+**Tests**: `SpeechRecognizerFactory_LoadAsync_ModelInstalled_ReturnsRealEngine`,
+`SpeechRecognizerFactory_LoadAsync_WithStoreModelInstalled_ReturnsRealEngine`,
+`SpeechRecognizerFactory_LoadAsync_WithCatalogModelInstalled_ReturnsRealEngine`
 
-Verifies that an installed recognition model plus an available capture device composes a real
-recognizer wired to the injected engine factory, with the installed-model directory passed
-through unchanged, whether that directory is supplied directly as a `string`, resolved from a
+Verifies that an installed recognition model composes a real `SherpaOnnxSpeechRecognizerEngine`
+wired to the injected backend factory, with the installed-model directory passed through
+unchanged, whether that directory is supplied directly as a `string`, resolved from a
 `SpeechModelStore`, or resolved from a `SpeechModelCatalog`'s own store.
 
 #### Composition: Honest Fallback for Every Unavailable State
 
-**Tests**: `SpeechRecognizerFactory_Create_ModelNotInstalled_ReturnsUnavailableRecognizer`,
-`SpeechRecognizerFactory_Create_CaptureDeviceUnavailable_ReturnsUnavailableRecognizer`,
-`SpeechRecognizerFactory_Create_ModelRoleIsNotRecognition_ReturnsUnavailableRecognizer`,
-`SpeechRecognizerFactory_Create_EngineLoadFails_ReturnsUnavailableRecognizerAndDoesNotThrow`,
-`SpeechRecognizerFactory_Create_WithStoreModelNotInstalled_ReturnsUnavailableRecognizer`,
-`SpeechRecognizerFactory_Create_WithCatalogModelNotInstalled_ReturnsUnavailableRecognizer`
+**Tests**: `SpeechRecognizerFactory_LoadAsync_ModelNotInstalled_ReturnsUnavailableEngine`,
+`SpeechRecognizerFactory_LoadAsync_ModelRoleIsNotRecognition_ReturnsUnavailableEngine`,
+`SpeechRecognizerFactory_LoadAsync_EngineLoadFails_ReturnsUnavailableEngineAndDoesNotFaultTask`,
+`SpeechRecognizerFactory_LoadAsync_WithStoreModelNotInstalled_ReturnsUnavailableEngine`,
+`SpeechRecognizerFactory_LoadAsync_WithCatalogModelNotInstalled_ReturnsUnavailableEngine`
 
-Verifies that a missing model, an unavailable device, a wrong-role model, and a failed engine
-load all degrade to the shared unavailable recognizer without throwing, and that no engine is
-loaded when an earlier check already failed.
+Verifies that a missing model, a wrong-role model, and a failed backend load all degrade to the
+shared unavailable engine without faulting the returned task, and that no backend is loaded when
+an earlier check already failed.
 
-#### Composition: Null Arguments Are Programming Errors
+#### Composition: Null Arguments and Cancellation Are Programming/Caller Errors
 
-**Tests**: `SpeechRecognizerFactory_Create_NullModel_ThrowsArgumentNullException`,
-`SpeechRecognizerFactory_Create_NullCaptureDevice_ThrowsArgumentNullException`,
-`SpeechRecognizerFactory_Create_WithStoreNullModel_ThrowsArgumentNullException`,
-`SpeechRecognizerFactory_Create_WithStoreNullStore_ThrowsArgumentNullException`,
-`SpeechRecognizerFactory_Create_WithStoreNullCaptureDevice_ThrowsArgumentNullException`,
-`SpeechRecognizerFactory_Create_WithCatalogNullModel_ThrowsArgumentNullException`,
-`SpeechRecognizerFactory_Create_WithCatalogNullCatalog_ThrowsArgumentNullException`,
-`SpeechRecognizerFactory_Create_WithCatalogNullCaptureDevice_ThrowsArgumentNullException`
+**Tests**: `SpeechRecognizerFactory_LoadAsync_NullModel_FaultsWithArgumentNullException`,
+`SpeechRecognizerFactory_LoadAsync_WithStoreNullModel_FaultsWithArgumentNullException`,
+`SpeechRecognizerFactory_LoadAsync_WithStoreNullStore_FaultsWithArgumentNullException`,
+`SpeechRecognizerFactory_LoadAsync_WithCatalogNullModel_FaultsWithArgumentNullException`,
+`SpeechRecognizerFactory_LoadAsync_WithCatalogNullCatalog_FaultsWithArgumentNullException`,
+`SpeechRecognizerFactory_LoadAsync_CancelledToken_FaultsWithOperationCanceledException`
 
-Verifies that a null model, capture device, store, or catalog throws, distinguishing a
-programming error from an ordinary machine state.
+Verifies that a null model, store, or catalog faults the returned task with
+`ArgumentNullException`, and that a cancellation token already cancelled before loading completes
+faults it with `OperationCanceledException`, distinguishing both from an ordinary machine state.
 
 #### Composition: Parameter Value Bag Forwarding
 
-**Tests**: `SpeechRecognizerFactory_Create_ParameterValuesSupplied_ReachesModelCreateEngineConfig`,
-`SpeechRecognizerFactory_Create_WithStoreParameterValuesSupplied_ReachesModelCreateEngineConfig`,
-`SpeechRecognizerFactory_Create_WithCatalogParameterValuesSupplied_ReachesModelCreateEngineConfig`
+**Tests**: `SpeechRecognizerFactory_LoadAsync_ParameterValuesSupplied_ReachesModelCreateEngineConfig`,
+`SpeechRecognizerFactory_LoadAsync_WithStoreParameterValuesSupplied_ReachesModelCreateEngineConfig`,
+`SpeechRecognizerFactory_LoadAsync_WithCatalogParameterValuesSupplied_ReachesModelCreateEngineConfig`
 
 Verifies that an optional `parameterValues` bag supplied by the caller (for example, a selected
 recognition language built from a declared `ChoiceParameter`) genuinely reaches a model's own
 two-argument `IRecognitionModel.CreateEngineConfig` override rather than merely reaching the
-engine factory.
+backend factory.
 
 #### Composition: Parameter Value Validation
 
-**Tests**: `SpeechRecognizerFactory_Create_UnrecognizedParameterId_ComposesAndReportsInfo`,
-`SpeechRecognizerFactory_Create_RecognizedNumericParameterOutOfRange_Throws`,
-`SpeechRecognizerFactory_Create_RecognizedNumericParameterWrongType_Throws`,
-`SpeechRecognizerFactory_Create_RecognizedChoiceParameterInvalidOption_Throws`,
-`SpeechRecognizerFactory_Create_RecognizedBooleanParameterWrongType_Throws`
+**Tests**: `SpeechRecognizerFactory_LoadAsync_UnrecognizedParameterId_ComposesAndReportsInfo`,
+`SpeechRecognizerFactory_LoadAsync_RecognizedNumericParameterOutOfRange_FaultsWithArgumentException`,
+`SpeechRecognizerFactory_LoadAsync_RecognizedNumericParameterWrongType_FaultsWithArgumentException`,
+`SpeechRecognizerFactory_LoadAsync_RecognizedChoiceParameterInvalidOption_FaultsWithArgumentException`,
+`SpeechRecognizerFactory_LoadAsync_RecognizedBooleanParameterWrongType_FaultsWithArgumentException`
 
 Verifies the deliberate, breaking-change split introduced for this behavior: a supplied
-`parameterValues` key naming a parameter the model does not declare still composes a real
-recognizer and reports only an `Info` diagnostic, never throwing (preserving cross-model
-compatibility); a supplied value for a parameter the model *does* declare, but that is invalid
-for it, throws `ArgumentException` synchronously from `Create()` - before any
-installed/role/device/engine check runs - naming the parameter id, the model id, and the specific
-reason the value is invalid. This replaces this library's earlier behavior of silently
-substituting a default for such a value.
+`parameterValues` key naming a parameter the model does not declare still composes a real engine
+and reports only an `Info` diagnostic, never faulting the task (preserving cross-model
+compatibility); a supplied value for a parameter the model *does* declare, but that is invalid for
+it, faults the returned task with `ArgumentException` - before any installed/role/backend-load
+check runs - naming the parameter id, the model id, and the specific reason the value is invalid.
 
-#### Pipeline: Capture Format Conversion
+#### Engine Exclusivity and Lease Behavior
 
-**Tests**: `SherpaOnnxSpeechRecognizer_FrameCaptured_StereoAtHigherRate_FeedsResampledMonoToEngine`,
-`SherpaOnnxSpeechRecognizer_Constructor_DeviceReportsUnusableFormat_FallsBackToPassThrough`,
-`SherpaOnnxSpeechRecognizer_FrameCaptured_EmptyBlock_IsIgnored`
+**Tests**: `SherpaOnnxSpeechRecognizerEngine_CreateSessionAsync_NoActiveSession_ReturnsSession`,
+`SherpaOnnxSpeechRecognizerEngine_CreateSessionAsync_SessionAlreadyLeased_ThrowsRecognitionEngineBusyException`,
+`SherpaOnnxSpeechRecognizerEngine_CreateSessionAsync_PriorSessionDisposing_ThrowsRecognitionEngineBusyException`,
+`SherpaOnnxSpeechRecognizerEngine_CreateSessionAsync_AfterPriorSessionFullyDisposed_ReturnsNewSession`,
+`SherpaOnnxSpeechRecognizerEngine_CreateSessionAsync_NullDevice_ThrowsArgumentNullException`,
+`SherpaOnnxSpeechRecognizerEngine_DisposeAsync_WithActiveSession_DisposesSessionFirst`
 
-Verifies that a stereo block at a higher rate reaches the engine as mono at the model's declared
-rate, that a device reporting an unusable format degrades to pass-through with a warning rather
-than throwing, and that an empty block is ignored.
+Verifies that the engine's single lease permits exactly one live session at a time, fails fast
+(no queueing) with `RecognitionEngineBusyException` for a concurrent attempt - including while the
+prior session is still mid-`DisposeAsync` - and is released only once that prior session has fully
+completed disposal, after which a new session can be created.
 
-#### Pipeline: Result Delivery and Ordering
+#### Session Lifecycle: State Machine Transitions
 
-**Tests**: `SherpaOnnxSpeechRecognizer_FrameCaptured_EngineDecodesResults_RaisesResultReceivedInOrder`
+**Tests**: `SherpaOnnxRecognitionSession_StartAsync_FromCreated_TransitionsToRunning`,
+`SherpaOnnxRecognitionSession_StartAsync_FromStopped_ThrowsInvalidOperationException`,
+`SherpaOnnxRecognitionSession_StateChanged_EmitsEveryTransitionInOrder`,
+`SherpaOnnxRecognitionSession_DeviceLostMidSession_TransitionsToFaulted`
 
-Verifies that every result the engine decodes is raised in order with its provisional/final flag
-preserved.
+Verifies the forward-only `RecognitionSessionState` machine: `StartAsync` transitions `Created ->
+Starting -> Running`, a session is single-use (starting again after `Stopped` throws
+`InvalidOperationException`), `StateChanged` raises every transition in order, and a capture
+device going unavailable mid-session transitions the session to `Faulted`.
 
-#### Pipeline: Text Normalization
+#### Session Lifecycle: Stop, Dispose, and Draining
 
-**Tests**: `SherpaOnnxSpeechRecognizer_Constructor_NullModel_ThrowsArgumentNullException`,
-`SherpaOnnxSpeechRecognizer_FrameCaptured_FinalResult_AppliesModelNormalizeTextWithIsFinalTrue`,
-`SherpaOnnxSpeechRecognizer_FrameCaptured_ProvisionalResult_AppliesModelNormalizeTextWithIsFinalFalse`
+**Tests**: `SherpaOnnxRecognitionSession_StopAsync_FlushesTrailingResultsBeforeCompleting`,
+`SherpaOnnxRecognitionSession_StopAsync_CalledConcurrentlyTwice_BothCompleteOnceStopped`,
+`SherpaOnnxRecognitionSession_StopAsync_BackendResetFails_CompletesAndReportsFault`
 
-Verifies that a null `model` constructor argument throws `ArgumentNullException`, and that every
-raised result's text has passed through the owning model's `IRecognitionModel.NormalizeText`,
-called with `isFinal: true` for final results and `isFinal: false` for provisional results - the
-model's returned text, not the engine's raw text, is what `ResultReceived` carries.
+Verifies that `StopAsync` flushes trailing audio the backend had accepted but not yet decoded as
+one last final result before completing, that two concurrent `StopAsync` callers both complete
+only once the session has actually stopped, and that a backend reset failure during `StopAsync` is
+reported rather than thrown while teardown still completes.
 
-#### Pipeline: Lifecycle and Draining
+#### Session Pipeline: Capture Format Conversion and Text Normalization
 
-**Tests**: `SherpaOnnxSpeechRecognizer_Start_Always_SubscribesAndStartsCaptureDevice`,
-`SherpaOnnxSpeechRecognizer_Start_AlreadyRunning_IsNoOp`,
-`SherpaOnnxSpeechRecognizer_Stop_WhileRunning_UnsubscribesAndStopsCaptureDevice`,
-`SherpaOnnxSpeechRecognizer_Stop_NotRunning_IsNoOp`,
-`SherpaOnnxSpeechRecognizer_Stop_EngineHasFlushableTrailingAudio_RaisesFlushedFinalResult`,
-`SherpaOnnxSpeechRecognizer_Dispose_EngineHasFlushableTrailingAudio_RaisesFlushedFinalResult`,
-`SherpaOnnxSpeechRecognizer_Stop_EngineHasNothingToFlush_RaisesNoExtraResult`,
-`SherpaOnnxSpeechRecognizer_Dispose_CalledTwice_StopsAndDisposesEngineOnce`,
-`SherpaOnnxSpeechRecognizer_Start_AfterDispose_ThrowsObjectDisposedException`
+**Tests**: `SherpaOnnxRecognitionSession_FrameCaptured_StereoAtModelRate_FeedsDownmixedMonoToBackend`,
+`SherpaOnnxRecognitionSession_FrameCaptured_FinalResult_AppliesModelNormalizeTextWithIsFinalTrue`
 
-Verifies that starting subscribes and starts capture, repeated starts and idle stops are no-ops,
-stopping unsubscribes and stops the device so post-stop frames never reach the engine, disposal
-stops once and releases the engine once, and starting after disposal is rejected.
+Verifies that a stereo block reaches the backend as downmixed mono at the model's declared rate,
+and that a final result's text has passed through the owning model's
+`IRecognitionModel.NormalizeText(text, isFinal: true)` before being buffered.
 
-#### Pipeline: Fault Containment
+#### Session Pipeline: Result Delivery and Backpressure
 
-**Tests**: `SherpaOnnxSpeechRecognizer_FrameCaptured_EngineThrows_ReportsFaultAndKeepsRunning`,
-`SherpaOnnxSpeechRecognizer_ResultReceived_HandlerThrows_ReportsFaultAndDoesNotRethrow`,
-`SherpaOnnxSpeechRecognizer_Start_CaptureDeviceFails_ThrowsSpeechRecognizerUnavailableException`,
-`SherpaOnnxSpeechRecognizer_Stop_EngineFlushFails_CompletesResetsEngineAndReportsFault`
+**Tests**: `SherpaOnnxRecognitionSession_GetResultsAsync_CalledConcurrently_ThrowsInvalidOperationException`,
+`SherpaOnnxRecognitionSession_GetResultsAsync_CancelledToken_EndsEnumerationWithoutStoppingSession`,
+`SherpaOnnxRecognitionSession_GetResultsAsync_SessionFaulted_ThrowsRecognitionSessionFaultedException`,
+`SherpaOnnxRecognitionSession_GetResultsAsync_SlowConsumer_CoalescesProvisionalResults`,
+`SherpaOnnxRecognitionSession_GetResultsAsync_SlowConsumer_NeverDropsFinalResultsUnderByteCap`
 
-Verifies that engine faults and throwing host handlers are reported through the diagnostics sink
-and never escape into the capture path, while a capture device that fails on first use surfaces
-the documented recognizer exception with the device's failure as its inner exception. A fault in
-the trailing-audio flush itself is contained the same way: reported, not thrown, with teardown and
-the subsequent engine reset both still completing.
+Verifies that `GetResultsAsync` is single-consumer (a concurrent second enumeration throws
+`InvalidOperationException`), that cancelling the consumer's token ends its enumeration without
+stopping the session itself, that a faulted session surfaces
+`RecognitionSessionFaultedException` from the active enumeration, that a slow consumer only ever
+sees the latest coalesced provisional rather than a queue of stale ones, and that final results
+are never dropped while the byte cap is not exceeded.
+
+#### Cooperative-Cancel-Then-Abandon Policy
+
+**Tests**: `DedicatedWorker_Run_CooperativeCancellation_CompletesPromptly`,
+`DedicatedWorker_Run_NonCooperativeDelegate_AbandonsAfterTimeoutAndReportsDiagnostics`,
+`DedicatedWorker_Run_UsesLongRunningTaskCreationOption`,
+`SherpaOnnxRecognitionSession_NativeCallExceedsAbandonTimeout_TaskCompletesAndDiagnosticsReportsWarning`
+
+Verifies that a delegate which observes cancellation promptly completes its task immediately, that
+a delegate which does not observe cancellation is abandoned after the configured timeout with a
+`Warning` diagnostic rather than blocking the caller forever, that the worker always runs its
+delegate with `TaskCreationOptions.LongRunning`, and that this same abandon behavior is exercised
+end-to-end through a session's pump thread via an injectable abandon timeout.
 
 #### Audio Conversion: Downmix, Rate Conversion, and Boundaries
 
@@ -213,14 +244,21 @@ intermediate downmix, and rejection of non-positive rates and channel counts.
 
 #### Unavailable Fallback: Honest Degradation
 
-**Tests**: `UnavailableSpeechRecognizer_IsAvailable_Read_ReturnsFalse`,
-`UnavailableSpeechRecognizer_Start_Always_ThrowsSpeechRecognizerUnavailableException`,
-`UnavailableSpeechRecognizer_Stop_Always_ThrowsSpeechRecognizerUnavailableException`,
-`UnavailableSpeechRecognizer_SubscriptionAndDispose_Always_AreSafeNoOps`,
+**Tests**: `UnavailableSpeechRecognizerEngine_IsAvailable_Read_ReturnsFalse`,
+`UnavailableSpeechRecognizerEngine_CreateSessionAsync_Always_ReturnsUnavailableSession`,
+`UnavailableSpeechRecognizerEngine_CreateSessionAsync_NullDevice_ThrowsArgumentNullException`,
+`UnavailableSpeechRecognizerEngine_DisposeAsync_CalledTwice_DoesNotThrow`,
+`UnavailableRecognitionSession_IsAvailable_Read_ReturnsFalse`,
+`UnavailableRecognitionSession_StartAsync_Always_ThrowsSpeechRecognizerUnavailableException`,
+`UnavailableRecognitionSession_StopAsync_Always_IsSafeNoOp`,
+`UnavailableRecognitionSession_GetResultsAsync_Always_ThrowsSpeechRecognizerUnavailableException`,
+`UnavailableRecognitionSession_DisposeAsync_CalledTwice_DoesNotThrow`,
 `SpeechRecognizerUnavailableException_Constructor_WithMessage_ExposesMessage`,
 `SpeechRecognizerUnavailableException_Constructor_WithInnerException_ExposesBoth`,
 `SpeechRecognizerUnavailableException_Constructor_Default_HasNonEmptyMessage`
 
-Verifies that the shared fallback stays honest and safe to hold, subscribe to, and dispose, that
-operational misuse throws the documented exception, and that the exception conforms to the
-standard three-constructor pattern.
+Verifies that both shared fallbacks stay honest and safe to hold, subscribe to, and dispose
+repeatedly, that `UnavailableSpeechRecognizerEngine.CreateSessionAsync` always returns the shared
+unavailable session rather than throwing, that operational misuse of the unavailable session
+throws the documented exception, and that the exception type conforms to the standard
+three-constructor pattern.

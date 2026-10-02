@@ -25,14 +25,15 @@ namespace DemaConsulting.Speech.Demo.ModelSettingsSubsystem;
 ///     as the interface between a host's settings UI and per-model synthesis/recognition
 ///     parameter handling. As of this pass, the synthesis panel's
 ///     <c>SynthesisPanelViewModel.PlayAsync</c> passes this bag to
-///     <c>ISynthesizerSessionFactory.Create</c>, which forwards it to the library's
-///     <c>SpeechSynthesizerFactory.Create</c> and, from there, to a multi-speaker model's own
+///     <c>ISynthesizerSessionFactory.LoadAsync</c>, which forwards it to the library's
+///     <c>SpeechSynthesizerFactory.LoadAsync</c> and, from there, to a multi-speaker model's own
 ///     <c>ISynthesisModel.ResolveSpeakerId</c> hook - so a selected value (for example
 ///     <see cref="SherpaOnnxKokoroEnglishSynthesisModel"/>'s voice choice) now reaches a real
-///     synthesis call. The recognition panel's <c>ISpeechRecognizer</c> contract still accepts
-///     no such bag on any per-call member, so for recognition this bag remains built and fully
-///     exercised by unit tests only, with no real consumer yet - this is stated plainly here
-///     rather than silently implied.
+///     synthesis call. The recognition panel's <c>IRecognizerSessionFactory.LoadAsync</c>/
+///     <c>ISpeechRecognizerEngine.CreateSessionAsync</c> contract still accepts no such bag on
+///     any per-call member, so for recognition this bag remains built and fully exercised by
+///     unit tests only, with no real consumer yet - this is stated plainly here rather than
+///     silently implied.
 ///     </para>
 ///     <para>
 ///     Not thread-safe: expected to be used from the UI thread.
@@ -124,7 +125,7 @@ public sealed partial class ModelSettingsViewModel : ObservableObject
     /// </returns>
     /// <remarks>
     ///     See the type-level remarks: as of this pass, the synthesis panel forwards this bag to
-    ///     a real synthesis call (via <c>ISynthesizerSessionFactory.Create</c>); the recognition
+    ///     a real synthesis call (via <c>ISynthesizerSessionFactory.LoadAsync</c>); the recognition
     ///     panel still has no such consumer.
     /// </remarks>
     public IReadOnlyDictionary<string, object> BuildValueBag() =>

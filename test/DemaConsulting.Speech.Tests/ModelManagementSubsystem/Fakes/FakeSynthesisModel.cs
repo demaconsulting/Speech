@@ -25,7 +25,7 @@ public sealed class FakeSynthesisModel : ISynthesisModel
     ///     The function <see cref="ISynthesisModel.ResolveSpeakerId"/> delegates to, or
     ///     <see langword="null"/> to keep the default hook's behavior (always <c>0</c>). Lets
     ///     tests prove a resolved, non-zero speaker id reaches
-    ///     <c>ISynthesisEngine.Generate</c> without a real multi-speaker
+    ///     <c>ISynthesisBackend.Generate</c> without a real multi-speaker
     ///     model.
     /// </param>
     public FakeSynthesisModel(

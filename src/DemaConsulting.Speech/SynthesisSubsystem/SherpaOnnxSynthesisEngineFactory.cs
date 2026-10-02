@@ -3,7 +3,7 @@ using DemaConsulting.Speech.ModelManagementSubsystem;
 namespace DemaConsulting.Speech.SynthesisSubsystem;
 
 /// <summary>
-///     Real <see cref="ISynthesisEngineFactory"/> implementation that builds a
+///     Real <see cref="ISynthesisBackendFactory"/> implementation that builds a
 ///     <see cref="SherpaOnnxSynthesisEngine"/> from a model's own declared engine configuration.
 /// </summary>
 /// <remarks>
@@ -15,14 +15,15 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     Loading failures - a missing <c>org.k2fsa.sherpa.onnx.runtime.{RID}</c> native binary, an
 ///     unsupported RID, or corrupt model files - propagate to the caller.
 ///     <see cref="SpeechSynthesizerFactory"/> catches them and returns
-///     <see cref="UnavailableSpeechSynthesizer.Instance"/>, so composition still never throws.
+///     <see cref="UnavailableSpeechSynthesizerEngine.Instance"/>, so composition still never
+///     throws.
 ///     </para>
 ///     <para>The type is stateless and safe for concurrent use.</para>
 /// </remarks>
-internal sealed class SherpaOnnxSynthesisEngineFactory : ISynthesisEngineFactory
+internal sealed class SherpaOnnxSynthesisEngineFactory : ISynthesisBackendFactory
 {
     /// <inheritdoc/>
-    public ISynthesisEngine Create(ISynthesisModel model, string installedModelDirectory)
+    public ISynthesisBackend Create(ISynthesisModel model, string installedModelDirectory)
     {
         ArgumentNullException.ThrowIfNull(model);
         ArgumentException.ThrowIfNullOrEmpty(installedModelDirectory);
