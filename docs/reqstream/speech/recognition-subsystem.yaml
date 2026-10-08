@@ -37,7 +37,7 @@ sections:
               - Speech-Recognition-IRecognitionSession-Backpressure
             tests:
               - UnavailableSpeechRecognizerEngine_IsAvailable_Read_ReturnsFalse
-              - SherpaOnnxRecognitionSession_StartAsync_FromCreated_TransitionsToRunning
+              - RecognitionSession_StartAsync_FromCreated_TransitionsToRunning
 
           - id: Speech-Recognition-EngineExclusivity
             title: >-
@@ -56,8 +56,8 @@ sections:
               - Speech-Recognition-RecognitionEngineBusyException-Thrown
               - Speech-Recognition-RecognitionEngineBusyException-Constructors
             tests:
-              - SherpaOnnxSpeechRecognizerEngine_CreateSessionAsync_SessionAlreadyLeased_ThrowsRecognitionEngineBusyException
-              - SherpaOnnxSpeechRecognizerEngine_CreateSessionAsync_AfterPriorSessionFullyDisposed_ReturnsNewSession
+              - SpeechRecognizerEngine_CreateSessionAsync_SessionAlreadyLeased_ThrowsRecognitionEngineBusyException
+              - SpeechRecognizerEngine_CreateSessionAsync_AfterPriorSessionFullyDisposed_ReturnsNewSession
 
           - id: Speech-Recognition-Composition
             title: >-
@@ -86,10 +86,6 @@ sections:
               - Speech-Recognition-SpeechRecognizerFactory-InvalidRecognizedParameterValueThrows
               - Speech-Recognition-RecognitionBackend-MockableSeam
               - Speech-Recognition-RecognitionBackend-ModelOwnedConfiguration
-              - Speech-Recognition-RecognitionBackend-SessionEndResetDiscardsBufferedAudio
-              - Speech-Recognition-RecognitionBackend-TryFlushRecoversTrailingAudio
-              - Speech-Recognition-RecognitionBackend-PostEndpointWarmupReplay
-              - Speech-Recognition-RecognitionBackend-RealSpeechAccuracy
             tests:
               - SpeechRecognizerFactory_LoadAsync_ModelInstalled_ReturnsRealEngine
               - SpeechRecognizerFactory_LoadAsync_ModelNotInstalled_ReturnsUnavailableEngine
@@ -107,15 +103,15 @@ sections:
               that conversion the library could only recognize speech on machines whose microphone
               happened to match the model, which is not an acceptable cross-platform promise.
             children:
-              - Speech-Recognition-SherpaOnnxRecognitionSession-FormatConversion
-              - Speech-Recognition-SherpaOnnxRecognitionSession-TextNormalization
+              - Speech-Recognition-RecognitionSession-FormatConversion
+              - Speech-Recognition-RecognitionSession-TextNormalization
               - Speech-Recognition-RecognitionResultBuffer-TwoTierBackpressure
               - Speech-Recognition-AudioFrameResampler-Downmix
               - Speech-Recognition-AudioFrameResampler-RateConversion
               - Speech-Recognition-AudioFrameResampler-BoundaryHandling
             tests:
-              - SherpaOnnxRecognitionSession_FrameCaptured_StereoAtModelRate_FeedsDownmixedMonoToBackend
-              - SherpaOnnxRecognitionSession_FrameCaptured_FinalResult_AppliesModelNormalizeTextWithIsFinalTrue
+              - RecognitionSession_FrameCaptured_StereoAtModelRate_FeedsDownmixedMonoToBackend
+              - RecognitionSession_FrameCaptured_FinalResult_AppliesModelNormalizeTextWithIsFinalTrue
 
           - id: Speech-Recognition-FaultContainment
             title: >-
@@ -131,16 +127,16 @@ sections:
               silence the microphone, hang the session, or lose the rest of the session's
               recognized text.
             children:
-              - Speech-Recognition-SherpaOnnxRecognitionSession-DeviceLostFault
-              - Speech-Recognition-SherpaOnnxRecognitionSession-NativeCallAbandonIntegration
+              - Speech-Recognition-RecognitionSession-DeviceLostFault
+              - Speech-Recognition-RecognitionSession-NativeCallAbandonIntegration
               - Speech-Recognition-RecognitionSessionFaultedException-Thrown
               - Speech-Recognition-DedicatedWorker-LongRunningDedicatedThread
               - Speech-Recognition-DedicatedWorker-CooperativeCancellation
               - Speech-Recognition-DedicatedWorker-AbandonAfterTimeout
             tests:
-              - SherpaOnnxRecognitionSession_DeviceLostMidSession_TransitionsToFaulted
-              - SherpaOnnxRecognitionSession_NativeCallExceedsAbandonTimeout_TaskCompletesAndDiagnosticsReportsWarning
-              - SherpaOnnxRecognitionSession_GetResultsAsync_SessionFaulted_ThrowsRecognitionSessionFaultedException
+              - RecognitionSession_DeviceLostMidSession_TransitionsToFaulted
+              - RecognitionSession_NativeCallExceedsAbandonTimeout_TaskCompletesAndDiagnosticsReportsWarning
+              - RecognitionSession_GetResultsAsync_SessionFaulted_ThrowsRecognitionSessionFaultedException
 
           - id: Speech-Recognition-UnavailableFallback
             title: >-

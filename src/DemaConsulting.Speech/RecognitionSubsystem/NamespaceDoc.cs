@@ -13,7 +13,7 @@ namespace DemaConsulting.Speech.RecognitionSubsystem;
 ///     <see cref="UnavailableRecognitionSession"/> as the matching session-layer fallback) - the
 ///     capture-to-backend pipeline with its <see cref="AudioFrameResampler"/> audio-format
 ///     converter, and the internal mockable speech-inference seam backed by
-///     <see cref="SherpaOnnxRecognitionSession"/>.
+///     <see cref="RecognitionSession"/>.
 /// </remarks>
 internal static class NamespaceDoc
 {

@@ -25,7 +25,7 @@ internal interface IRecognitionBackendFactory
     /// </param>
     /// <param name="parameterValues">
     ///     An optional session-level parameter value bag forwarded unchanged to
-    ///     <see cref="IRecognitionModel.CreateEngineConfig(string,System.Collections.Generic.IReadOnlyDictionary{string,object}?)"/>,
+    ///     <see cref="IRecognitionModel.CreateBackend(string,System.Collections.Generic.IReadOnlyDictionary{string,object}?)"/>,
     ///     or <see langword="null"/> when the caller supplied none.
     /// </param>
     /// <returns>A loaded backend ready to accept samples. Never <see langword="null"/>.</returns>

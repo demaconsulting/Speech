@@ -18,7 +18,7 @@ not requested or probed ones - and both report `0` when the device is unavailabl
 - **PendingSampleCount**: Added to fix a synthesis-panel bug where playback was cut off almost
   instantly. Reports how many samples handed to `Write` the hardware has not yet actually
   rendered, or `0` when `IsAvailable` is `false`. This is the only honest way to observe real
-  drain progress; a caller (notably `SherpaOnnxSpeechSynthesizer.PlayStreamAsync`) that must know
+  drain progress; a caller (notably `SynthesisSession`) that must know
   playback has truly finished polls this until it reaches `0` (plus a small safety margin) before
   stopping the device, rather than treating "every sample enqueued" as "finished playing".
 

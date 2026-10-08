@@ -1,6 +1,7 @@
 using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
-using SherpaOnnx;
+using DemaConsulting.Speech.RecognitionSubsystem;
+using DemaConsulting.Speech.Tests.RecognitionSubsystem.Fakes;
 
 namespace DemaConsulting.Speech.Tests.ModelManagementSubsystem.Fakes;
 
@@ -115,27 +116,16 @@ public sealed class FakeRecognitionModel : IRecognitionModel
         _normalizeText is null ? ((IRecognitionModel)this).NormalizeText(text) : _normalizeText(text, isFinal);
 
     /// <summary>
-    ///     Builds a minimal but structurally valid <see cref="OnlineRecognizerConfig"/> whose
-    ///     feature configuration carries this fake's declared sample rate and whose transducer
-    ///     file paths are resolved against the supplied directory.
+    ///     Returns a fresh <see cref="FakeRecognitionEngine"/> backend, deterministic and
+    ///     requiring no native sherpa-onnx runtime and no downloaded model, so this fake works on
+    ///     any CI runner.
     /// </summary>
-    /// <remarks>
-    ///     Deliberately constructs only the managed configuration struct: no native sherpa-onnx
-    ///     library is loaded and no file is opened, so this fake works on any CI runner with no
-    ///     model downloaded and no native runtime present.
-    /// </remarks>
     /// <inheritdoc/>
-    OnlineRecognizerConfig IRecognitionModel.CreateEngineConfig(string installedModelDirectory)
+    IRecognitionBackend IRecognitionModel.CreateBackend(string installedModelDirectory)
     {
         ArgumentException.ThrowIfNullOrEmpty(installedModelDirectory);
 
-        var config = new OnlineRecognizerConfig();
-        config.FeatConfig.SampleRate = _sampleRate;
-        config.ModelConfig.Tokens = Path.Join(installedModelDirectory, "tokens.txt");
-        config.ModelConfig.Transducer.Encoder = Path.Join(installedModelDirectory, "encoder.onnx");
-        config.ModelConfig.Transducer.Decoder = Path.Join(installedModelDirectory, "decoder.onnx");
-        config.ModelConfig.Transducer.Joiner = Path.Join(installedModelDirectory, "joiner.onnx");
-        return config;
+        return new FakeRecognitionEngine();
     }
 
     /// <summary>

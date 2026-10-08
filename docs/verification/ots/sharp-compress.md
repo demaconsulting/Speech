@@ -6,9 +6,10 @@ document.
 
 ### Required Functionality
 
-SharpCompress provides the managed BZip2 tar (`.tar.bz2`) decoder used by the internal
-`TarBz2ArchiveExtractor` helper. In this phase, the library relies on it to unpack both new
-recognition models' downloaded archives after checksum verification.
+SharpCompress provides the managed BZip2 tar (`.tar.bz2`) decoder used by the SpeechSherpa
+library's internal `TarBz2ArchiveExtractor` helper, which every SpeechSherpa model relies on to
+unpack its downloaded archive after checksum verification. The Speech library itself no longer
+references this package, so the tests below live in `test/DemaConsulting.Speech.Sherpa.Tests`.
 
 ### Verification Approach
 

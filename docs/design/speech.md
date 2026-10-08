@@ -20,14 +20,14 @@ consists of five subsystems:
   `current/`/`install-manifest.json`/`.tmp/{guid}` install/repair/uninstall, the queued
   fetch-verify-install download orchestration with a mockable HTTP seam, and the model
   catalog/contract seam: typed tunable-parameter descriptors, the common `ISpeechModel`
-  contract with its `IRecognitionModel`/`ISynthesisModel` role markers, and
-  `SpeechModelCatalog`'s enumeration of the compiled-in known-model registry (four real,
-  production models covering both roles) alongside install state — see
+  contract with its `IRecognitionModel`/`ISynthesisModel` role markers (the extension point
+  concrete models implement), and `SpeechModelCatalog`'s enumeration of the host-registered
+  known-model list (populated through `AddModels`) alongside install state — see
   _ModelManagementSubsystem Design_
 - **RecognitionSubsystem**: the public async Engine/Session streaming speech-to-text contract
   (`ISpeechRecognizerEngine`/`IRecognitionSession`/`SpeechRecognitionResult`), the
   `SpeechRecognizerFactory` composition root whose `LoadAsync` returns either a real engine or
-  an honest unavailable fallback, the `SherpaOnnxRecognitionSession` pipeline that converts
+  an honest unavailable fallback, the `RecognitionSession` pipeline that converts
   captured audio to the model's required format and streams it through a mockable internal
   `IRecognitionBackend` seam, and `UnavailableSpeechRecognizerEngine`/
   `UnavailableRecognitionSession` — see _RecognitionSubsystem Design_
@@ -38,7 +38,7 @@ consists of five subsystems:
   into a model-appropriate `SpeechPlan` of `SpeechSegment`s, the `SentenceChunker` used for
   pipeline-friendly chunk boundaries, and the public async Engine/Session streaming/playback
   contract (`ISpeechSynthesizerEngine`/`ISynthesisSession`), whose `SpeechSynthesizerFactory`
-  composition root's `LoadAsync` returns either the real `SherpaOnnxSynthesisSession` pipeline
+  composition root's `LoadAsync` returns either the real `SynthesisSession` pipeline
   or the honest `UnavailableSpeechSynthesizerEngine`/`UnavailableSynthesisSession` fallback —
   see _SynthesisSubsystem Design_
 
@@ -81,9 +81,8 @@ The system exposes the following public API to external consumers:
   and its two empty role-marker interfaces
 - **SpeechModelDescriptor**: immutable catalog read-model pairing one `ISpeechModel` with its
   current `SpeechModelState`
-- **SpeechModelCatalog**: enumerates the compiled-in known-model registry (four real,
-  production models covering both roles) alongside install state, and orchestrates downloading
-  a known model by id
+- **SpeechModelCatalog**: enumerates the host-registered known-model list (populated through
+  `AddModels`) alongside install state, and orchestrates downloading a known model by id
 - **ISpeechRecognizerEngine** / **IRecognitionSession** / **SpeechRecognitionResult** /
   **SpeechRecognitionEvent**: the loaded-model engine and per-device session halves of the
   streaming speech-to-text contract, their state enums (`RecognitionSessionState`,
@@ -148,18 +147,18 @@ The system exposes the following public API to external consumers:
 
 ## Dependencies
 
-Speech has three runtime NuGet dependencies: **PortAudioSharp2**, **SherpaOnnx**
-(`org.k2fsa.sherpa.onnx`), and **SharpCompress**. PortAudioSharp2 supplies the managed PortAudio
-binding and transitively restores native runtime packages for `win-x64`, `linux-x64`,
+Speech has one runtime NuGet dependency: **PortAudioSharp2**. PortAudioSharp2 supplies the managed
+PortAudio binding and transitively restores native runtime packages for `win-x64`, `linux-x64`,
 `linux-aarch64`, `osx-x64`, and `osx-arm64`. No `win-arm64` PortAudio runtime package is available
-in this phase. SherpaOnnx supplies the managed local speech-inference API; the library references
-only that managed package and never an `org.k2fsa.sherpa.onnx.runtime.{RID}` package directly,
-though the managed package itself declares those per-platform runtime packages as its own
-dependencies, so a consumer restores the ones it needs transitively. SharpCompress supplies the
-managed BZip2-compressed tar (`.tar.bz2`) archive reader that `TarBz2ArchiveExtractor` uses to
-unpack the recognition models' declared archive payloads after checksum verification. See
-_OTS Integration Design_, _PortAudioSharp2 Design_, _SherpaOnnx Design_, and _SharpCompress
-Design_ for details.
+in this phase. See _OTS Integration Design_ and _PortAudioSharp2 Design_ for details.
+
+Speech carries no speech-inference engine dependency of its own. Concrete speech models and their
+inference backends plug in through the `IRecognitionModel`/`ISynthesisModel` extension seam, whose
+internal `CreateBackend` members return the library's own engine-neutral
+`IRecognitionBackend`/`ISynthesisBackend` interfaces. `DemaConsulting.Speech.Sherpa` is one such
+extension maintained in this repository: it supplies two recognition models and two synthesis
+models backed by sherpa-onnx, and carries the `org.k2fsa.sherpa.onnx` and SharpCompress
+dependencies the library itself no longer has - see _SpeechSherpa Design_.
 
 The following OTS items are used for building and verifying this system; they are not shipped as
 part of the compiled NuGet package:
@@ -237,10 +236,11 @@ direct safety impact.
 
 **Model catalog enumeration and download-state tracking path:**
 
-1. **Input**: A host constructs a `SpeechModelCatalog` and calls `Enumerate()` or
-   `DownloadAsync(modelId, ...)`
-2. **Resolution**: `Enumerate()` builds one `SpeechModelDescriptor` per compiled-in known model
-   (four real, production models covering both roles), resolving each model's
+1. **Input**: A host constructs a `SpeechModelCatalog`, registers models through `AddModels(...)`
+   (or an extension method such as `SpeechSherpa`'s `AddSherpaModels()`), and calls `Enumerate()`
+   or `DownloadAsync(modelId, ...)`
+2. **Resolution**: `Enumerate()` builds one `SpeechModelDescriptor` per registered known model,
+   resolving each model's
    `SpeechModelState` from `SpeechModelStore`'s installed/not-installed fact plus this catalog
    instance's own in-memory tracking of in-flight and most-recently-failed download attempts
 3. **Delegation**: `DownloadAsync(modelId, ...)` looks up the named known model's own declared
@@ -319,29 +319,28 @@ direct safety impact.
   successful installation
 - **HTTPS-only model downloads**: `SpeechModelDownloadFile` rejects any non-HTTPS source URI at
   construction
-- **Compiled-in catalog covers both roles**: `SpeechModelCatalog.KnownModels` ships four real,
-  production models - two recognition models and two synthesis models - so
-  `ISpeechModel`/`IRecognitionModel`/`ISynthesisModel` each have at least one shipping
-  implementation; a host may add further models of its own by supplying its own known-model list
+- **Host-populated catalog, zero built-in models**: `SpeechModelCatalog` starts empty and a host
+  registers the models it wants through `AddModels(...)` (for example the two recognition models
+  and two synthesis models shipped today by the sibling `SpeechSherpa` package, via its
+  `AddSherpaModels()` extension method), so the library itself names no concrete model or
+  inference engine
 - **Catalog state is instance-scoped, not durable**: `SpeechModelCatalog`'s `Downloading`/
   `FailedOrCorrupt` states reflect only in-flight/most-recent attempts on that catalog instance;
   they are never persisted and do not survive a process restart
-- **Manual native-runtime boundary for recognition**: The library references only the managed
-  sherpa-onnx package and never a per-RID native runtime package directly. A machine or publish
-  target whose native speech-inference runtime is absent composes successfully and reports
-  recognition as unavailable, exactly as a missing model file does
+- **Native-runtime failures degrade, never throw**: A model whose backend cannot load - for
+  example a `SpeechSherpa` model on a machine or publish target whose native speech-inference
+  runtime is absent - composes successfully and reports recognition or synthesis as unavailable,
+  exactly as a missing model file does
 - **Recognition owns audio-format conversion**: A capture device delivers whatever format its
   hardware resolved, and a recognition model accepts exactly one mono rate, so the
   RecognitionSubsystem - not the AudioSubsystem and not the host - converts between them. The
   converter uses channel averaging and linear interpolation, a deliberate simplicity/quality
-  trade-off recorded in _SherpaOnnxRecognitionSession Design_
-- **Recognition and synthesis models both ship in the compiled-in catalog**: The recognition
-  pipeline is proven end to end against the two real, production recognition models
-  (`SherpaOnnxZipformerEnRecognitionModel`, `SherpaOnnxNemotronStreamingEnRecognitionModel`), and
-  the synthesis pipeline against the two real, production synthesis models
-  (`SherpaOnnxVitsLibriTtsEnglishSynthesisModel`, `SherpaOnnxKokoroEnglishSynthesisModel`) - real
-  microphone-to-real-text and real-text-to-real-speech behavior are both proven, not merely
-  designed for
+  trade-off recorded in _RecognitionSession Design_
+- **Real models are proven alongside their backends**: The library's recognition and synthesis
+  pipelines are proven here against fake models and fake backends; real
+  microphone-to-real-text and real-text-to-real-speech behavior is proven with the two
+  recognition models and two synthesis models shipped today by the sibling `SpeechSherpa`
+  package, alongside the sherpa-onnx backends they construct - see _SpeechSherpa Design_
 - **Compliance**: All functionality must be traceable to requirements
 - **Quality**: Zero warnings, full targeted tests, complete documentation
 

@@ -18,8 +18,8 @@ package Speech {
         part recognitionSessionFaultedException : RecognitionSessionFaultedException;
         part recognitionEngineBusyException : RecognitionEngineBusyException;
         part speechRecognizerFactory : SpeechRecognizerFactory;
-        part sherpaOnnxRecognitionSession : SherpaOnnxRecognitionSession;
-        part sherpaOnnxSpeechRecognizerEngine : SherpaOnnxSpeechRecognizerEngine;
+        part recognitionSession : RecognitionSession;
+        part speechRecognizerEngine : SpeechRecognizerEngine;
         part recognitionBackend : RecognitionBackend;
         part recognitionResultBuffer : RecognitionResultBuffer;
         part dedicatedWorker : DedicatedWorker;

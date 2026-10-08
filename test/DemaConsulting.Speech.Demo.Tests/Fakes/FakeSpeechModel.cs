@@ -7,9 +7,10 @@ namespace DemaConsulting.Speech.Demo.Tests.Fakes;
 ///     identity, role, and state.
 /// </summary>
 /// <remarks>
-///     The library ships no real models yet, and its catalog's model-injecting constructor is
-///     internal to the library's own test assembly, so the demo's tests must supply their own
-///     model instances through the demo's <c>IModelCatalogService</c> seam. That is what lets the
+///     Core <c>DemaConsulting.Speech</c> ships zero built-in models, and its catalog's
+///     model-injecting constructor is internal to the library's own test assembly, so the
+///     demo's tests must supply their own model instances through the demo's
+///     <c>IModelCatalogService</c> seam. That is what lets the
 ///     catalog panel's non-empty behavior be exercised at all rather than only its empty state.
 /// </remarks>
 /// <param name="id">The model identifier this fake reports.</param>

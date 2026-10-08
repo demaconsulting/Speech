@@ -87,7 +87,7 @@ sections:
                 justification: |
                   Prior to this requirement, no seam existed to carry a session-level selected
                   voice from a host's ISpeechModel.Parameters selection through to
-                  SherpaOnnxSynthesisSession; adding this argument as optional with a null default
+                  SynthesisSession; adding this argument as optional with a null default
                   keeps every existing call site source-compatible while unblocking real voice
                   selection end-to-end for models such as SherpaOnnxKokoroEnglishSynthesisModel.
                 tests:

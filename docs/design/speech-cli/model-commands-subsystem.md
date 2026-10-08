@@ -31,7 +31,10 @@ established for the same reason (`IModelCatalogService`/`ModelCatalogService`):
 | `CleanUpLeftovers(id)` | `void` | Never throws |
 
 `SpeechModelCatalogAdapter` is the only production implementation. It owns (and disposes) a real
-`SpeechModelCatalog`, delegating `Uninstall`/`CleanUpLeftovers` through the catalog's `Store`.
+`SpeechModelCatalog`, constructed as `new SpeechModelCatalog(options).AddSherpaModels()` -
+populating the catalog via the sibling `DemaConsulting.Speech.Sherpa` package's extension method,
+since core `DemaConsulting.Speech` ships zero built-in models - and delegating
+`Uninstall`/`CleanUpLeftovers` through the catalog's `Store`.
 `CliModelCatalogFactory.Create(context)` composes one adapter per command invocation, passing
 `context.ModelsDir` through `SpeechModelStoreOptions.RootPathOverride` when given, so `--models-dir`
 is honored uniformly by every command without each command handler needing to know how the

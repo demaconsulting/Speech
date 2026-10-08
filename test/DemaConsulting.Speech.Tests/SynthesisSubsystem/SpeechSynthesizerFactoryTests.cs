@@ -286,9 +286,8 @@ public sealed class SpeechSynthesizerFactoryTests : IDisposable
     }
 
     /// <summary>
-    ///     Proves that a non-integral value for the real, shipped
-    ///     <see cref="SherpaOnnxVitsLibriTtsEnglishSynthesisModel"/>'s integer-only
-    ///     <c>speaker</c> parameter throws <see cref="ArgumentException"/> synchronously from
+    ///     Proves that a non-integral value for a declared integer-only numeric parameter (step
+    ///     of <c>1</c>) throws <see cref="ArgumentException"/> synchronously from
     ///     <c>LoadAsync</c>, rather than silently rounding it (this library's previous,
     ///     deliberately superseded, behavior for this exact case).
     /// </summary>
@@ -297,34 +296,49 @@ public sealed class SpeechSynthesizerFactoryTests : IDisposable
     {
         // Arrange
         var backendFactory = new FakeSynthesisEngineFactory();
-        var model = new SherpaOnnxVitsLibriTtsEnglishSynthesisModel();
+        const string parameterId = "speaker";
+        var model = new FakeSynthesisModel(
+            parameters:
+            [
+                new NumericParameter(parameterId, "Speaker", "Speaker index.", new NumericParameterBounds(0, 20, 1, 0), isInteger: true),
+            ]);
         IReadOnlyDictionary<string, object> parameterValues = new Dictionary<string, object>
         {
-            [SherpaOnnxVitsLibriTtsEnglishSynthesisModel.SpeakerParameterId] = 12.4,
+            [parameterId] = 12.4,
         };
 
         // Act / Assert
         var exception = await Assert.ThrowsAsync<ArgumentException>(() => SpeechSynthesizerFactory.LoadAsync(
             model, _installedModelDirectory, null, backendFactory, parameterValues, TestContext.Current.CancellationToken));
-        Assert.Contains(SherpaOnnxVitsLibriTtsEnglishSynthesisModel.SpeakerParameterId, exception.Message, StringComparison.Ordinal);
+        Assert.Contains(parameterId, exception.Message, StringComparison.Ordinal);
         Assert.Contains("whole number", exception.Message, StringComparison.Ordinal);
         Assert.Equal(0, backendFactory.CreateCallCount);
     }
 
     /// <summary>
-    ///     Proves that a value not matching any declared voice for the real, shipped
-    ///     <see cref="SherpaOnnxKokoroEnglishSynthesisModel"/>'s <c>ChoiceParameter</c> throws
-    ///     <see cref="ArgumentException"/> synchronously from <c>LoadAsync</c>.
+    ///     Proves that a value not matching any declared option for a declared
+    ///     <see cref="ChoiceParameter"/> throws <see cref="ArgumentException"/> synchronously
+    ///     from <c>LoadAsync</c>.
     /// </summary>
     [Fact]
     public async Task SpeechSynthesizerFactory_LoadAsync_RecognizedChoiceParameterInvalidOption_Throws()
     {
         // Arrange
         var backendFactory = new FakeSynthesisEngineFactory();
-        var model = new SherpaOnnxKokoroEnglishSynthesisModel();
+        const string parameterId = "voice";
+        var model = new FakeSynthesisModel(
+            parameters:
+            [
+                new ChoiceParameter(
+                    parameterId,
+                    "Voice",
+                    "Voice selection.",
+                    [new ChoiceParameterOption("voice-a", "Voice A")],
+                    "voice-a"),
+            ]);
         IReadOnlyDictionary<string, object> parameterValues = new Dictionary<string, object>
         {
-            [SherpaOnnxKokoroEnglishSynthesisModel.VoiceParameterId] = "not-a-declared-voice",
+            [parameterId] = "not-a-declared-voice",
         };
 
         // Act / Assert
@@ -549,7 +563,7 @@ public sealed class SpeechSynthesizerFactoryTests : IDisposable
         public AudioFormat PreferredAudioFormat => AudioFormat.Mono(24000);
 
         /// <inheritdoc/>
-        SherpaOnnx.OfflineTtsConfig ISynthesisModel.CreateEngineConfig(string installedModelDirectory) =>
-            new();
+        ISynthesisBackend ISynthesisModel.CreateBackend(string installedModelDirectory) =>
+            new FakeSynthesisEngine();
     }
 }

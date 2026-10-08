@@ -77,9 +77,8 @@ parameter the new model does not declare.
 
 **Empty states.** `IsEmpty` is true whenever there is no model selected or the selected model
 declares no parameters; `EmptyMessage` distinguishes the two cases. This mirrors the honest
-empty-state precedent the model catalog panel established for `SpeechModelCatalog.KnownModels`
-being empty: an unexplained blank panel would read to a user as a broken application rather than
-an expected state.
+empty-state precedent the model catalog panel established for an empty `SpeechModelCatalog`: an
+unexplained blank panel would read to a user as a broken application rather than an expected state.
 
 **Value bag.** `BuildValueBag()` assembles every presented parameter's current `BoxedValue` into
 a dictionary keyed by `Id`. The design describes this untyped key-value bag as the interface

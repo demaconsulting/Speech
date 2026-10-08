@@ -111,21 +111,23 @@ consumes.
 
 ## Dependencies
 
-SpeechCli has one project dependency - the Speech library - and the following NuGet
-dependencies:
+SpeechCli has two project dependencies - the Speech library, and the SpeechSherpa library whose
+`AddSherpaModels()` extension method registers the shipped sherpa-onnx models with the catalog
+the CLI composes (see _SpeechSherpa Design_) - and the following NuGet dependencies:
 
 - **`DemaConsulting.TestResults`** supplies the `.trx`/JUnit `.xml` self-validation result
   serialization used by `--validate --results <file>`, mirroring the reference
   `TemplateDotNetTool`'s own self-test reporting
-- No native speech-inference or audio runtime package is declared directly by this project: the
-  Speech library project reference carries `PortAudioSharp2`'s native runtime packages
-  transitively, which is all the self-test's `AudioDeviceFactory` probe (and `speak`'s real
-  playback path) needs. No `org.k2fsa.sherpa.onnx.runtime.{RID}` package is declared, consistent
-  with the library's own decision not to bundle a native speech-inference runtime as a compiled-in
-  dependency - `speak` still loads a downloaded model's own native engine at run time (through the
-  library's `SpeechModelCatalog`/`SpeechSynthesizerFactory`), but that load path resolves the
-  native runtime from the model's own downloaded files, not from a NuGet package this project
-  references
+- No native speech-inference runtime package is declared directly by this project, but the
+  `DemaConsulting.Speech.Sherpa` project reference brings one in transitively: `Sherpa`'s own
+  `org.k2fsa.sherpa.onnx` package nuspec unconditionally depends on every RID's
+  `org.k2fsa.sherpa.onnx.runtime.*` package regardless of the consuming project's target RID, so
+  those native assets flow into this tool's build output without an explicit package reference
+  here. `DoctorCommand` probes the resulting `runtimes/<rid>/native/sherpa-onnx-c-api` asset
+  directly to report whether the bundled native inference library is resolvable. The Speech
+  library project reference separately carries `PortAudioSharp2`'s native runtime packages
+  transitively, which the self-test's `AudioDeviceFactory` probe (and `speak`'s real playback
+  path) needs
 
 See _OTS Integration Design_ for details of any OTS items shared with other systems in this
 repository.
@@ -187,7 +189,7 @@ SpeechCli targets only `net10.0`, unlike the library (`net8.0`/`net9.0`/`net10.0
 target framework; packing all three of the library's frameworks multiplied the bundled native
 payload three-fold for no benefit, since a globally-installed tool only ever runs on one .NET
 version at a time. The packed native runtime assets are further pruned to `win-x64`, `linux-x64`,
-and `osx-arm64` only (see [Dependencies](#dependencies)), rather than every RID the transitive
+and `osx-arm64` only (see the Dependencies section above), rather than every RID the transitive
 `org.k2fsa.sherpa.onnx.runtime.*` packages support (including irrelevant ones like Android),
 keeping the packed tool a manageable size instead of bundling every platform's native binaries.
 

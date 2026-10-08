@@ -1,0 +1,43 @@
+---
+# Software Subsystem Requirements for the SpeechSherpa RecognitionSubsystem
+#
+# These requirements describe the subsystem-level behavior of the SpeechSherpa
+# RecognitionSubsystem, decomposing the system-level requirements in
+# docs/reqstream/speech-sherpa.yaml. This subsystem contains a single unit,
+# SherpaOnnxRecognitionEngine, the real sherpa-onnx implementation of the Speech library's
+# internal IRecognitionBackend seam; all recognition policy above that seam (session state
+# machine, audio conversion, result buffering, composition) remains in the Speech library's own
+# RecognitionSubsystem.
+#
+# Unit-level content lives in
+# docs/reqstream/speech-sherpa/recognition-subsystem/sherpa-onnx-recognition-engine.yaml.
+
+sections:
+  - title: SpeechSherpa Requirements
+    sections:
+      - title: RecognitionSubsystem Requirements
+        requirements:
+          - id: SpeechSherpa-Recognition-StreamingBackend
+            title: >-
+              The SpeechSherpa RecognitionSubsystem shall implement the Speech library's
+              IRecognitionBackend seam over sherpa-onnx's streaming recognizer so that it
+              transcribes real speech accurately, recovers or discards an abandoned utterance's
+              buffered audio at session end as directed, and never loses genuinely spoken audio
+              to a model's post-reset encoder warm-up period.
+            justification: |
+              The Speech library deliberately confines every speech-inference interop call behind
+              its internal IRecognitionBackend seam so its own recognition policy is verifiable
+              without a native runtime. The real, native-backed side of that seam must therefore
+              be proven directly against real installed models, because only it can show that
+              real audio decodes into real text and that the engine's buffering behavior at
+              session boundaries and endpoints does not lose or leak spoken words.
+            children:
+              - SpeechSherpa-Recognition-SherpaOnnxRecognitionEngine-SessionEndResetDiscardsBufferedAudio
+              - SpeechSherpa-Recognition-SherpaOnnxRecognitionEngine-TryFlushRecoversTrailingAudio
+              - SpeechSherpa-Recognition-SherpaOnnxRecognitionEngine-PostEndpointWarmupReplay
+              - SpeechSherpa-Recognition-SherpaOnnxRecognitionEngine-RealSpeechAccuracy
+            tests:
+              - SherpaOnnxRecognitionEngine_Transcribe_RealCrossingTheBarRecording_WordErrorRateBelowTolerance
+              - SherpaOnnxRecognitionEngine_Transcribe_RealCrossingTheBarRecording_NemotronWordErrorRateBelowTolerance
+              - SherpaOnnxRecognitionEngine_Reset_AbandonedUtteranceWithNoTrailingSilence_DoesNotBleedIntoNextSession
+              - SherpaOnnxRecognitionEngine_TryFlush_AbandonedUtteranceWithNoTrailingSilence_RecoversTrailingWords

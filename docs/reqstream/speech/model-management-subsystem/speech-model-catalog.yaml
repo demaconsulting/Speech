@@ -11,29 +11,33 @@ sections:
         sections:
           - title: SpeechModelCatalog Requirements
             requirements:
-              - id: Speech-Models-SpeechModelCatalog-KnownModelsRegistry
+              - id: Speech-Models-SpeechModelCatalog-ModelRegistration
                 title: >-
-                  The SpeechModelCatalog class shall expose a compiled-in KnownModels registry
-                  containing all four of this library's real, production models
-                  (SherpaOnnxZipformerEnRecognitionModel,
-                  SherpaOnnxNemotronStreamingEnRecognitionModel,
-                  SherpaOnnxVitsLibriTtsEnglishSynthesisModel, and
-                  SherpaOnnxKokoroEnglishSynthesisModel), and shall enumerate an empty
-                  known-model list to an empty descriptor list without throwing.
+                  The SpeechModelCatalog class shall start with an empty known-model list,
+                  enumerating it to an empty descriptor list without throwing.
                 justification: |
-                  Phase 7a resolved the earlier "ship zero real model classes" limitation for
-                  recognition models - the defect a user discovered where the catalog was always
-                  empty - by registering the library's first two concrete IRecognitionModel
-                  implementations; Phase 7b completes the catalog by registering the library's
-                  first concrete ISynthesisModel implementation, so every model role the library
-                  defines now has at least one shippable model. Phase 10 adds a second synthesis
-                  model, SherpaOnnxKokoroEnglishSynthesisModel, bringing the registry to four
-                  real models. Enumeration must still never throw regardless of how many models
-                  are known, which the empty-list scenario continues to prove independently of
-                  KnownModels' own current contents.
+                  The core library ships no concrete, engine-backed models of its own; concrete
+                  models are supplied by separate model packages (for example SpeechSherpa) or by
+                  the host itself. A freshly constructed catalog must therefore be empty, and
+                  enumeration must never throw regardless of how many models are known.
                 tests:
                   - SpeechModelCatalog_Enumerate_EmptyKnownModels_ReturnsEmptyList
-                  - SpeechModelCatalog_KnownModels_ContainsAllFourRealModels
+
+              - id: Speech-Models-SpeechModelCatalog-AddModels
+                title: >-
+                  The SpeechModelCatalog class shall expose a public AddModels(params
+                  ISpeechModel[]) method that appends the supplied models to its known-model
+                  list, so they appear in subsequent enumeration, and returns the same catalog
+                  instance so registration calls can be chained.
+                justification: |
+                  Removing the compiled-in KnownModels registry, so that the core library carries
+                  no sherpa-onnx dependency, requires a public registration seam through which a
+                  host or a model package's own registration extension (such as SpeechSherpa's
+                  AddSherpaModels) can populate the catalog. Returning the same instance lets a
+                  host compose a catalog fluently from several model packages in one expression.
+                tests:
+                  - SpeechModelCatalog_AddModels_Called_AppearsInEnumerate
+                  - SpeechModelCatalog_AddModels_ChainedCall_ReturnsSameInstance
 
               - id: Speech-Models-SpeechModelCatalog-StateResolution
                 title: >-

@@ -4,7 +4,7 @@ using DemaConsulting.Speech.Diagnostics;
 namespace DemaConsulting.Speech.RecognitionSubsystem;
 
 /// <summary>
-///     Internal two-tier backpressure buffer feeding <see cref="SherpaOnnxRecognitionSession.GetResultsAsync"/>:
+///     Internal two-tier backpressure buffer feeding <see cref="RecognitionSession.GetResultsAsync"/>:
 ///     one overwritable "latest provisional" slot plus a byte-capped FIFO of final results.
 /// </summary>
 /// <remarks>

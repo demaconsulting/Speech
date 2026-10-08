@@ -1,5 +1,5 @@
 using DemaConsulting.Speech.AudioSubsystem;
-using SherpaOnnx;
+using DemaConsulting.Speech.RecognitionSubsystem;
 
 namespace DemaConsulting.Speech.ModelManagementSubsystem;
 
@@ -13,19 +13,20 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     <see cref="SpeechModelCatalog"/> could already report and filter models by role via a type
 ///     check, and stated that Phase 3 would add "the real recognition-engine-configuration
 ///     member here". This pass fulfills exactly that: <see cref="AudioFormat"/> and
-///     <see cref="CreateEngineConfig(string)"/> are new members added to an interface that still has no
+///     <see cref="CreateBackend(string)"/> are new members added to an interface that still has no
 ///     production implementations, so nothing defined in Sub-phase 2b was replaced or broken.
 ///     <para>
 ///     The two members deliberately have different visibility. <see cref="AudioFormat"/> is
 ///     public because it is a plain library-owned data value that leaks no native engine type and
 ///     lets callers compose an audio device before loading the engine. By contrast,
-///     <see cref="CreateEngineConfig(string)"/> remains <see langword="internal"/> because it returns the
-///     real sherpa-onnx <see cref="OnlineRecognizerConfig"/> type. This keeps the public
-///     recognition surface swappable while still letting each model own its native-engine
-///     configuration. Only assemblies granted <c>InternalsVisibleTo</c> (the library itself and
-///     its test project) can implement the interface. That restriction is intentional and matches
-///     this library's "one backing class per model; a new model requires a new library
-///     release" decision.
+///     <see cref="CreateBackend(string)"/> remains <see langword="internal"/> because it returns a
+///     loaded <see cref="IRecognitionBackend"/> backed by real native inference resources. This
+///     keeps the public recognition surface swappable while still letting each model own its
+///     native-engine construction. Only assemblies granted <c>InternalsVisibleTo</c> (the library
+///     itself, its test project, and the sibling <c>DemaConsulting.Speech.Sherpa</c> package that
+///     supplies this library's production model implementations) can implement the interface.
+///     That restriction is intentional and matches this library's "one backing class per model; a
+///     new model requires a new library release" decision.
 ///     </para>
 /// </remarks>
 public interface IRecognitionModel : ISpeechModel
@@ -35,20 +36,20 @@ public interface IRecognitionModel : ISpeechModel
     ///     audio to be supplied at.
     /// </summary>
     /// <remarks>
-    ///     Streaming sherpa-onnx models are trained at a fixed feature sample rate (commonly
+    ///     Streaming models are trained at a fixed feature sample rate (commonly
     ///     16000 Hz, but declared per model rather than assumed) and produce unusable results if
     ///     fed audio at any other rate. Exposing the full format as a model-declared fact - instead
     ///     of hard-coding only a sample rate - lets the recognition subsystem and host composition
     ///     code request a capture device already opened in the model's own format. Current models are
     ///     mono, so <see cref="AudioFormat.ChannelCount"/> is presently <c>1</c>; the value must
-    ///     agree with the feature configuration returned by <see cref="CreateEngineConfig(string)"/>.
+    ///     agree with the feature configuration used by <see cref="CreateBackend(string)"/>.
     ///     Reading this property never throws.
     /// </remarks>
     public AudioFormat AudioFormat { get; }
 
     /// <summary>
-    ///     Builds the sherpa-onnx streaming-recognizer configuration for this model, resolved
-    ///     against the directory its verified files were installed into.
+    ///     Builds a loaded, model-specific <see cref="IRecognitionBackend"/> for this model,
+    ///     resolved against the directory its verified files were installed into.
     /// </summary>
     /// <param name="installedModelDirectory">
     ///     The absolute path of the directory holding this model's installed files (the store's
@@ -57,29 +58,26 @@ public interface IRecognitionModel : ISpeechModel
     ///     absolute encoder/decoder/joiner/tokens paths the engine requires.
     /// </param>
     /// <returns>
-    ///     A fully populated <see cref="OnlineRecognizerConfig"/> describing this model's
-    ///     architecture, file locations, feature configuration, and decoding options.
+    ///     A loaded <see cref="IRecognitionBackend"/> ready to accept samples for this model.
     /// </returns>
     /// <exception cref="ArgumentException">
     ///     Thrown when <paramref name="installedModelDirectory"/> is null or empty.
     /// </exception>
     /// <remarks>
-    ///     This member is pure with respect to library state: it reads nothing but its own
-    ///     compiled-in constants and the supplied directory path, allocates no native resources,
-    ///     and never loads the model itself - constructing the native recognizer from the
-    ///     returned configuration is the recognition subsystem's responsibility, so a model whose
-    ///     files are missing or whose native runtime is absent fails there (and degrades to an
-    ///     unavailable recognizer) rather than here. Implementations must be safe to call
+    ///     This member allocates real native inference resources: constructing the native
+    ///     recognizer is now the model's own responsibility, so a model whose files are missing or
+    ///     whose native runtime is absent throws here, and the recognition subsystem degrades to
+    ///     an unavailable recognizer by catching that failure. Implementations must be safe to call
     ///     concurrently.
     /// </remarks>
-    internal OnlineRecognizerConfig CreateEngineConfig(string installedModelDirectory);
+    internal IRecognitionBackend CreateBackend(string installedModelDirectory);
 
     /// <summary>
-    ///     Builds the sherpa-onnx streaming-recognizer configuration for this model, resolved
-    ///     against the directory its verified files were installed into and an optional
+    ///     Builds a loaded, model-specific <see cref="IRecognitionBackend"/> for this model,
+    ///     resolved against the directory its verified files were installed into and an optional
     ///     session-level parameter value bag. The default implementation ignores
     ///     <paramref name="parameterValues"/> entirely and forwards to the single-argument
-    ///     <see cref="CreateEngineConfig(string)"/> overload, identical to every existing model's
+    ///     <see cref="CreateBackend(string)"/> overload, identical to every existing model's
     ///     current parameter-less behavior.
     /// </summary>
     /// <param name="installedModelDirectory">
@@ -94,8 +92,7 @@ public interface IRecognitionModel : ISpeechModel
     ///     entry), or <see langword="null"/> when the caller supplied none.
     /// </param>
     /// <returns>
-    ///     A fully populated <see cref="OnlineRecognizerConfig"/> describing this model's
-    ///     architecture, file locations, feature configuration, and decoding options.
+    ///     A loaded <see cref="IRecognitionBackend"/> ready to accept samples for this model.
     /// </returns>
     /// <remarks>
     ///     Added so a future tunable recognition model (for example, one offering language
@@ -104,15 +101,15 @@ public interface IRecognitionModel : ISpeechModel
     ///     <see cref="ISynthesisModel.ResolveSpeakerId"/>'s and
     ///     <see cref="ISynthesisModel.CapabilityProfile"/>'s "generically correct for free,
     ///     override only for bespoke per-model behavior" default-hook pattern. Neither of today's
-    ///     two recognition models (<see cref="SherpaOnnxZipformerEnRecognitionModel"/>,
-    ///     <see cref="SherpaOnnxNemotronStreamingEnRecognitionModel"/>) declares any
+    ///     two sibling-package recognition models (the Zipformer and Nemotron streaming models
+    ///     supplied by <c>DemaConsulting.Speech.Sherpa</c>) declares any
     ///     <see cref="ISpeechModel.Parameters"/> entry, so both need zero code to keep today's
     ///     exact behavior through this default hook.
     /// </remarks>
-    internal OnlineRecognizerConfig CreateEngineConfig(
+    internal IRecognitionBackend CreateBackend(
         string installedModelDirectory,
         IReadOnlyDictionary<string, object>? parameterValues) =>
-        CreateEngineConfig(installedModelDirectory);
+        CreateBackend(installedModelDirectory);
 
     /// <summary>
     ///     Gets the duration, in milliseconds, of pre-endpoint audio the recognition engine
@@ -122,12 +119,12 @@ public interface IRecognitionModel : ISpeechModel
     ///     the engine behaves exactly as it always has: a hard <c>Reset()</c> with no replay.
     /// </summary>
     /// <remarks>
-    ///     This member exists to fix a real, confirmed defect specific to
-    ///     <see cref="SherpaOnnxNemotronStreamingEnRecognitionModel"/>: its streaming encoder has
-    ///     a measured ~550ms "cold" warm-up blackout immediately after <c>Reset()</c>, during
-    ///     which genuinely spoken audio arriving in that window can be silently lost, and its
-    ///     endpoint detector was observed to fire as a false positive mid-utterance more often
-    ///     than <see cref="SherpaOnnxZipformerEnRecognitionModel"/>'s, making the defect
+    ///     This member exists to fix a real, confirmed defect specific to the sibling
+    ///     <c>DemaConsulting.Speech.Sherpa</c> package's Nemotron streaming recognition model: its
+    ///     streaming encoder has a measured ~550ms "cold" warm-up blackout immediately after
+    ///     <c>Reset()</c>, during which genuinely spoken audio arriving in that window can be
+    ///     silently lost, and its endpoint detector was observed to fire as a false positive
+    ///     mid-utterance more often than the sibling Zipformer model's, making the defect
     ///     reproducible on real recordings (see
     ///     <c>.agent-logs/planning-nemotron-endpoint-word-loss-warmup-replay-fix-9d4b71.md</c>
     ///     for the full evidence). Replaying a rolling buffer of the audio immediately preceding
@@ -137,17 +134,16 @@ public interface IRecognitionModel : ISpeechModel
     ///     sensitivity.
     ///     <para>
     ///     <b>Deliberately opt-in, not a global default.</b> The same investigation found that
-    ///     forcing this feature on for <see cref="SherpaOnnxZipformerEnRecognitionModel"/>
-    ///     produced a genuine regression - duplicated text (for example, "THAT THAT IS THE
-    ///     QUESTION") - because a replayed word's still-forming onset can cause the underlying
-    ///     transducer decoder to commit a token during the "silently suppressed" replay, which
-    ///     the model then treats as a distinct word when the same content's genuine continuation
-    ///     arrives live afterward. Suppressing <c>GetResult()</c> output during replay hides the
-    ///     text from callers but cannot prevent that internal token commit. Because no model
-    ///     benefits from this risk unless it has an independently confirmed word-loss defect to
-    ///     offset it, every model other than the one that opts in must keep today's exact
-    ///     behavior - hence the safe, zero-cost default of <c>0</c> here rather than a
-    ///     library-wide constant.
+    ///     forcing this feature on for the sibling Zipformer model produced a genuine regression -
+    ///     duplicated text (for example, "THAT THAT IS THE QUESTION") - because a replayed word's
+    ///     still-forming onset can cause the underlying transducer decoder to commit a token
+    ///     during the "silently suppressed" replay, which the model then treats as a distinct word
+    ///     when the same content's genuine continuation arrives live afterward. Suppressing
+    ///     <c>GetResult()</c> output during replay hides the text from callers but cannot prevent
+    ///     that internal token commit. Because no model benefits from this risk unless it has an
+    ///     independently confirmed word-loss defect to offset it, every model other than the one
+    ///     that opts in must keep today's exact behavior - hence the safe, zero-cost default of
+    ///     <c>0</c> here rather than a library-wide constant.
     ///     </para>
     /// </remarks>
     internal int PostEndpointWarmupWindowMs => 0;

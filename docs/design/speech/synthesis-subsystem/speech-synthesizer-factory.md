@@ -22,7 +22,7 @@ context.
 - **LoadAsync(ISynthesisModel model, string installedModelDirectory, ISpeechDiagnostics?
   diagnostics, IReadOnlyDictionary&lt;string, object&gt;? parameterValues = null,
   CancellationToken cancellationToken = default)**: Returns a real
-  `SherpaOnnxSpeechSynthesizerEngine` when the model's installed directory exists, the model
+  `SpeechSynthesizerEngine` when the model's installed directory exists, the model
   declares `SpeechModelRole.Synthesis`, and the backend loads. Otherwise returns
   `UnavailableSpeechSynthesizerEngine.Instance`. Precondition: `model` is non-null. Postcondition:
   the returned engine is never null, and either owns a loaded backend or is the shared unavailable
@@ -75,8 +75,8 @@ runtime contract.
 **Dependencies**: `ISynthesisModel`, `SpeechModelRole`, `SpeechModelStore`, `SpeechModelCatalog`,
 and `SpeechModelParameterDiagnostics` from the ModelManagementSubsystem,
 `ISpeechDiagnostics`/`NullSpeechDiagnostics` from the Diagnostics subsystem, and the subsystem's
-own `ISynthesisBackendFactory`, `SherpaOnnxSynthesisEngineFactory`,
-`SherpaOnnxSpeechSynthesizerEngine`, `UnavailableSpeechSynthesizerEngine`, and `DedicatedWorker`.
+own `ISynthesisBackendFactory`, `DefaultSynthesisBackendFactory`,
+`SpeechSynthesizerEngine`, `UnavailableSpeechSynthesizerEngine`, and `DedicatedWorker`.
 
 **Callers**: Host applications composing speech synthesis at start-up, and the system-level
 integration tests.

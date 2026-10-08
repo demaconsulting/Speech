@@ -57,7 +57,7 @@ stream-stop call has already blocked until the callback thread finished.
   device was resolved. `ProvideSamples` (the PortAudio callback) decrements it by exactly the
   number of samples it actually dequeued - never by a zero-fill shortfall - each time it runs, so
   the value genuinely reflects hardware-consumption progress rather than merely queue occupancy
-  at enqueue time. Added to fix a bug where `SherpaOnnxSpeechSynthesizer.PlayStreamAsync` stopped
+  at enqueue time. Added to fix a bug where `SynthesisSession` stopped
   the device (discarding whatever was still queued) as soon as every segment was enqueued, rather
   than once the hardware had actually rendered it, cutting audio off almost instantly.
 

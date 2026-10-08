@@ -36,10 +36,10 @@ sections:
                   both need a single authoritative, orderable signal of what the session is doing
                   rather than inferring it from the side effects of Start/Stop/GetResults calls.
                 tests:
-                  - SherpaOnnxRecognitionSession_StartAsync_FromCreated_TransitionsToRunning
-                  - SherpaOnnxRecognitionSession_StartAsync_FromStopped_ThrowsInvalidOperationException
-                  - SherpaOnnxRecognitionSession_StateChanged_EmitsEveryTransitionInOrder
-                  - SherpaOnnxRecognitionSession_DeviceLostMidSession_TransitionsToFaulted
+                  - RecognitionSession_StartAsync_FromCreated_TransitionsToRunning
+                  - RecognitionSession_StartAsync_FromStopped_ThrowsInvalidOperationException
+                  - RecognitionSession_StateChanged_EmitsEveryTransitionInOrder
+                  - RecognitionSession_DeviceLostMidSession_TransitionsToFaulted
 
               - id: Speech-Recognition-IRecognitionSession-StartStopLifecycle
                 title: >-
@@ -61,9 +61,9 @@ sections:
                   - UnavailableRecognitionSession_StartAsync_Always_ThrowsSpeechRecognizerUnavailableException
                   - UnavailableRecognitionSession_StopAsync_Always_IsSafeNoOp
                   - UnavailableRecognitionSession_DisposeAsync_CalledTwice_DoesNotThrow
-                  - SherpaOnnxRecognitionSession_StopAsync_FlushesTrailingResultsBeforeCompleting
-                  - SherpaOnnxRecognitionSession_StopAsync_CalledConcurrentlyTwice_BothCompleteOnceStopped
-                  - SherpaOnnxRecognitionSession_StopAsync_BackendResetFails_CompletesAndReportsFault
+                  - RecognitionSession_StopAsync_FlushesTrailingResultsBeforeCompleting
+                  - RecognitionSession_StopAsync_CalledConcurrentlyTwice_BothCompleteOnceStopped
+                  - RecognitionSession_StopAsync_BackendResetFails_CompletesAndReportsFault
 
               - id: Speech-Recognition-IRecognitionSession-ResultDelivery
                 title: >-
@@ -82,10 +82,10 @@ sections:
                   the same enumeration, if the session can no longer produce results.
                 tests:
                   - UnavailableRecognitionSession_GetResultsAsync_Always_ThrowsSpeechRecognizerUnavailableException
-                  - SherpaOnnxRecognitionSession_GetResultsAsync_CalledConcurrently_ThrowsInvalidOperationException
-                  - SherpaOnnxRecognitionSession_GetResultsAsync_CancelledToken_EndsEnumerationWithoutStoppingSession
-                  - SherpaOnnxRecognitionSession_GetResultsAsync_SessionFaulted_ThrowsRecognitionSessionFaultedException
-                  - SherpaOnnxRecognitionSession_FrameCaptured_FinalResult_AppliesModelNormalizeTextWithIsFinalTrue
+                  - RecognitionSession_GetResultsAsync_CalledConcurrently_ThrowsInvalidOperationException
+                  - RecognitionSession_GetResultsAsync_CancelledToken_EndsEnumerationWithoutStoppingSession
+                  - RecognitionSession_GetResultsAsync_SessionFaulted_ThrowsRecognitionSessionFaultedException
+                  - RecognitionSession_FrameCaptured_FinalResult_AppliesModelNormalizeTextWithIsFinalTrue
 
               - id: Speech-Recognition-IRecognitionSession-Backpressure
                 title: >-
@@ -99,8 +99,8 @@ sections:
                   survive; a final result is a committed transcript line and must never be
                   silently dropped merely because the consumer is behind.
                 tests:
-                  - SherpaOnnxRecognitionSession_GetResultsAsync_SlowConsumer_CoalescesProvisionalResults
-                  - SherpaOnnxRecognitionSession_GetResultsAsync_SlowConsumer_NeverDropsFinalResultsUnderByteCap
+                  - RecognitionSession_GetResultsAsync_SlowConsumer_CoalescesProvisionalResults
+                  - RecognitionSession_GetResultsAsync_SlowConsumer_NeverDropsFinalResultsUnderByteCap
 
           - title: RecognitionSessionFaultedException Requirements
             requirements:
@@ -115,4 +115,4 @@ sections:
                   caller-initiated cancellation, so it can decide whether to recreate a session
                   rather than silently treating a faulted session as merely finished.
                 tests:
-                  - SherpaOnnxRecognitionSession_GetResultsAsync_SessionFaulted_ThrowsRecognitionSessionFaultedException
+                  - RecognitionSession_GetResultsAsync_SessionFaulted_ThrowsRecognitionSessionFaultedException

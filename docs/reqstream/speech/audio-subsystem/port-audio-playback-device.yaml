@@ -110,7 +110,7 @@ sections:
                   by a zero-fill shortfall), and shall reset the count to zero when Stop clears
                   the queue or when no device was resolved.
                 justification: |
-                  Fixes a bug where SherpaOnnxSpeechSynthesizer.PlayStreamAsync stopped the
+                  Fixes a bug where SynthesisSession stopped the
                   device (discarding whatever was still queued) as soon as every segment had been
                   enqueued via the fire-and-forget Write, rather than once the hardware had
                   actually rendered it, cutting the TTS panel's audio off almost instantly.

@@ -71,6 +71,7 @@
        library directly. -->
   <ItemGroup>
     <ProjectReference Include="..\..\src\DemaConsulting.Speech.Demo\DemaConsulting.Speech.Demo.csproj" />
+    <ProjectReference Include="..\..\src\DemaConsulting.Speech.Sherpa\DemaConsulting.Speech.Sherpa.csproj" />
   </ItemGroup>
 
 </Project>

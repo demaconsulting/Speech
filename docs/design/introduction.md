@@ -24,8 +24,9 @@ This document is intended for:
 ## Scope
 
 This document covers the detailed design of the Speech system and its constituent software
-items, of the SpeechDemo application system and its constituent software items, and of the
-SpeechCli command-line tool system and its constituent software items, specifically:
+items, of the SpeechDemo application system and its constituent software items, of the
+SpeechCli command-line tool system and its constituent software items, and of the SpeechSherpa
+model-provider library system and its constituent software items, specifically:
 
 - **Speech (System)** — The complete .NET library system providing speech capture, recognition,
   and synthesis capabilities to host applications
@@ -39,20 +40,20 @@ SpeechCli command-line tool system and its constituent software items, specifica
   install/repair/uninstall, the queued download-verify-install orchestration and mockable
   HTTP seam that fetch and install a model's files with honest failure states, and the model
   catalog/contract seam: typed tunable-parameter descriptors, the common per-model contract
-  and its role-marker interfaces, and catalog enumeration of the compiled-in known-model
-  registry alongside install state
+  and its role-marker interfaces (the extension point concrete models implement), and catalog
+  enumeration of the host-registered known-model list alongside install state
 - **RecognitionSubsystem (Subsystem)** — Streaming speech-to-text: the public async
   Engine/Session recognizer contract and result types, the composition root (`LoadAsync`/
   `CreateSessionAsync`) with honest unavailable fallbacks and engine exclusivity lease, the
   capture-to-engine pipeline with its audio-format converter, and the mockable internal
-  recognition-backend seam
+  recognition-backend seam with its model-driven default backend factory
 - **SynthesisSubsystem (Subsystem)** — Text-to-speech: the closed, fixed Natural Language Audio
   Tag vocabulary grouped into kinds and the model-independent Layer 1 parser that recognizes
   bracket syntax against it, the Layer 2 rendering strategy that turns a parsed span sequence
   into a model-appropriate `SpeechPlan`, sentence chunking for pipelined synthesis, the public
   async Engine/Session streaming/playback contract with its composition root and honest
-  unavailable fallbacks, the mockable internal synthesis-backend seam, the real sherpa-onnx
-  synthesis engine, and the playback-format converter
+  unavailable fallbacks, the mockable internal synthesis-backend seam with its model-driven
+  default backend factory, and the playback-format converter
 
 The following software items of the SpeechDemo system are also covered:
 
@@ -109,10 +110,28 @@ The following software items of the SpeechCli system are also covered:
   running a speak-then-listen turn as one invocation by reusing `SynthesisCommandSubsystem`'s
   and `RecognitionCommandSubsystem`'s existing seam members rather than introducing a new one
 
+The following software items of the SpeechSherpa system are also covered:
+
+- **SpeechSherpa (System)** — A .NET library, packaged as `DemaConsulting.Speech.Sherpa`, that
+  supplies concrete sherpa-onnx-backed speech models and inference backends for the Speech
+  library. It is a sibling system to Speech, not a subsystem of it: it is separately built and
+  separately packaged, with its own dependencies. Unlike the other sibling systems it both
+  consumes Speech and extends it, by implementing Speech's `IRecognitionModel`/`ISynthesisModel`
+  extension seam; `Speech` must never depend on it
+- **ModelManagementSubsystem (Subsystem)** — The `AddSherpaModels()` catalog extension method,
+  the two recognition models and two synthesis models implementing Speech's model contract, and
+  the shared `.tar.bz2` archive-extraction and uppercase-transcript-restoration helpers they use
+- **RecognitionSubsystem (Subsystem)** — The real sherpa-onnx streaming recognition engine
+  implementing Speech's internal recognition-backend seam, including its per-model post-endpoint
+  warm-up replay mitigation
+- **SynthesisSubsystem (Subsystem)** — The real sherpa-onnx offline text-to-speech engine
+  implementing Speech's internal synthesis-backend seam
+
 The following OTS items are also covered:
 
 - **PortAudioSharp2** — managed PortAudio binding and transitive native runtime carrier
-- **SherpaOnnx** — managed local speech-inference API and transitive native runtime carrier
+- **SherpaOnnx** — managed local speech-inference API used by SpeechSherpa
+- **SharpCompress** — managed `.tar.bz2` archive reader used by SpeechSherpa model installs
 - **Avalonia** — cross-platform desktop UI framework hosting the SpeechDemo application
 - **CommunityToolkit.Mvvm** — MVVM change-notification and command source generators
 - **BuildMark** — build-notes documentation tool
@@ -154,12 +173,9 @@ per-user speech model storage with atomic install/repair/uninstall, a queued
 download-verify-install orchestration with a mockable HTTP seam, and the model catalog/
 contract seam (typed tunable parameters, the common model contract, and catalog enumeration)
 that the RecognitionSubsystem and SynthesisSubsystem consume via the `IRecognitionModel`/
-`ISynthesisModel` contracts; the compiled-in catalog (`SpeechModelCatalog.KnownModels`) ships
-four concrete models covering both roles - two recognition models
-(`SherpaOnnxZipformerEnRecognitionModel`, `SherpaOnnxNemotronStreamingEnRecognitionModel`) and
-two synthesis models (`SherpaOnnxVitsLibriTtsEnglishSynthesisModel`,
-`SherpaOnnxKokoroEnglishSynthesisModel`) - so a host may use the compiled-in registry directly
-or supply its own. A fourth subsystem,
+`ISynthesisModel` contracts. Those contracts are the library's model extension point: the
+library ships zero built-in models, and a host registers concrete models with the catalog
+through `SpeechModelCatalog.AddModels(...)`. A fourth subsystem,
 `RecognitionSubsystem`, consumes both of the above: it defines the public async Engine/Session
 streaming speech-to-text contract (`ISpeechRecognizerEngine`/`IRecognitionSession`), composing a
 recognizer engine for an installed recognition model via `LoadAsync` and then a session bound to
@@ -202,6 +218,19 @@ recognition subsystems' existing seam members rather than introducing a new one)
 `SpeechDemo`, the dependency runs one way only: `SpeechCli` references `Speech`, and `Speech`
 neither references nor knows
 about `SpeechCli`.
+
+A fourth, sibling system, `SpeechSherpa`, also sits alongside `Speech` in the model. It is the
+`DemaConsulting.Speech.Sherpa` library that supplies the concrete sherpa-onnx-backed models and
+inference backends this repository ships, and it is structured with three subsystems, each named
+after the `Speech` subsystem it extends: `ModelManagementSubsystem` (the `AddSherpaModels()`
+catalog extension method, the two recognition models and two synthesis models, and their shared
+archive-extraction and transcript-restoration helpers), `RecognitionSubsystem` (the real
+sherpa-onnx streaming recognition backend), and `SynthesisSubsystem` (the real sherpa-onnx
+offline text-to-speech backend). Unlike `SpeechDemo` and `SpeechCli`, `SpeechSherpa` both consumes
+`Speech` and extends it, by implementing the `IRecognitionModel`/`ISynthesisModel` seam whose
+internal `CreateBackend` members return `Speech`'s own engine-neutral backend interfaces. The
+dependency still runs one way only: `SpeechSherpa` references `Speech`, and `Speech` neither
+references nor knows about `SpeechSherpa`, naming no sherpa-onnx type even internally.
 
 ## Folder Layout
 
@@ -285,10 +314,9 @@ src/DemaConsulting.Speech/
     ├── UnavailableRecognitionSession.cs          — Honest unavailable session fallback
     ├── IRecognitionBackend.cs                    — Mockable speech-inference seam (internal)
     ├── IRecognitionBackendFactory.cs             — Mockable engine-loading seam (internal)
-    ├── SherpaOnnxRecognitionEngine.cs            — Real sherpa-onnx streaming engine adapter
-    ├── SherpaOnnxRecognitionEngineFactory.cs     — Real model-driven engine loader
-    ├── SherpaOnnxSpeechRecognizerEngine.cs       — Real ISpeechRecognizerEngine implementation
-    ├── SherpaOnnxRecognitionSession.cs           — Real IRecognitionSession streaming pipeline
+    ├── DefaultRecognitionBackendFactory.cs       — Real model-driven backend loader
+    ├── SpeechRecognizerEngine.cs                 — Real ISpeechRecognizerEngine implementation
+    ├── RecognitionSession.cs                     — Real IRecognitionSession streaming pipeline
     ├── RecognitionResultBuffer.cs                — Byte-capped backpressure buffer for GetResultsAsync
     ├── DedicatedWorker.cs                        — Long-running worker thread with cooperative-cancel-then-abandon
     └── AudioFrameResampler.cs                    — Downmix and rate conversion for captured audio
@@ -323,10 +351,9 @@ src/DemaConsulting.Speech/
     ├── UnavailableSynthesisSession.cs             — Honest unavailable session fallback
     ├── ISynthesisBackend.cs                       — Mockable speech-synthesis seam (internal)
     ├── ISynthesisBackendFactory.cs                — Mockable engine-loading seam (internal)
-    ├── SherpaOnnxSynthesisEngine.cs               — Real sherpa-onnx offline-TTS engine adapter
-    ├── SherpaOnnxSynthesisEngineFactory.cs        — Real model-driven engine loader
-    ├── SherpaOnnxSpeechSynthesizerEngine.cs        — Real ISpeechSynthesizerEngine implementation
-    ├── SherpaOnnxSynthesisSession.cs              — Real ISynthesisSession chunked/pipelined synthesis
+    ├── DefaultSynthesisBackendFactory.cs          — Real model-driven backend loader
+    ├── SpeechSynthesizerEngine.cs                 — Real ISpeechSynthesizerEngine implementation
+    ├── SynthesisSession.cs                        — Real ISynthesisSession chunked/pipelined synthesis
     ├── DedicatedWorker.cs                         — Long-running worker thread with cooperative-cancel-then-abandon
     ├── PlaybackAudioResampler.cs                  — Rate conversion and upmix for playback audio
     └── SynthesizedSpeech.cs                       — One synthesized segment's audio and silence
@@ -417,6 +444,29 @@ src/DemaConsulting.Speech.Cli/
 │       └── AudioDeviceFactoryCaptureDeviceSource.cs     — Real seam over AudioDeviceFactory
 ```
 
+The SpeechSherpa library's folder structure likewise mirrors its software structure:
+
+```text
+src/DemaConsulting.Speech.Sherpa/
+├── SpeechModelCatalogSherpaExtensions.cs                  — `AddSherpaModels()` catalog registration
+├── ModelManagementSubsystem/
+│   ├── SherpaOnnxZipformerEnRecognitionModel.cs           — Streaming Zipformer recognition model
+│   ├── SherpaOnnxNemotronStreamingEnRecognitionModel.cs   — Streaming Nemotron recognition model
+│   ├── SherpaOnnxVitsLibriTtsEnglishSynthesisModel.cs     — VITS/Piper LibriTTS synthesis model
+│   ├── SherpaOnnxKokoroEnglishSynthesisModel.cs           — Kokoro multi-voice synthesis model
+│   ├── TarBz2ArchiveExtractor.cs                          — Shared `.tar.bz2` install helper
+│   └── UppercaseTranscriptRestorer.cs                     — Casing/punctuation restoration helper
+├── RecognitionSubsystem/
+│   └── SherpaOnnxRecognitionEngine.cs                     — Real sherpa-onnx streaming backend
+└── SynthesisSubsystem/
+    └── SherpaOnnxSynthesisEngine.cs                       — Real sherpa-onnx offline-TTS backend
+```
+
+`SpeechModelCatalogSherpaExtensions.cs` sits at the library root rather than inside a subsystem
+folder because it is the package's public composition entry point in the
+`DemaConsulting.Speech.Sherpa` namespace. It belongs to the ModelManagementSubsystem for review
+and traceability purposes.
+
 ## Document Conventions
 
 Throughout this document:
@@ -438,6 +488,12 @@ Each software item has corresponding artifacts in parallel directory trees:
 - Tests: `test/{System}.Tests/.../{Item}Tests.cs` (PascalCase for C#)
 - SysML2 model: `docs/sysml2/model/{system}/.../{item}.sysml` (kebab-case)
 - Review-sets: defined in `.reviewmark.yaml`
+
+Each sibling system has its own parallel `{system}` folders in these trees - for example,
+SpeechSherpa's artifacts live under `docs/reqstream/speech-sherpa/`, `docs/design/speech-sherpa/`,
+`docs/verification/speech-sherpa/`, `src/DemaConsulting.Speech.Sherpa/`, and
+`test/DemaConsulting.Speech.Sherpa.Tests/`. SpeechSherpa's subsystems share their names with the
+Speech subsystems they extend, so each subsystem is always identified together with its system.
 
 ## References
 

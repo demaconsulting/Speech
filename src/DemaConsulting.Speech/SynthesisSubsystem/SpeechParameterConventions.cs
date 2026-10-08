@@ -2,7 +2,7 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 
 /// <summary>
 ///     The conservative, built-in naming conventions <see cref="DefaultModelCapabilityProfile"/>
-///     and <see cref="SherpaOnnxSynthesisSession"/> both use to recognize which of a model's own
+///     and <see cref="SynthesisSession"/> both use to recognize which of a model's own
 ///     declared numeric parameters (if any) conventionally controls speaking rate or output
 ///     volume.
 /// </summary>

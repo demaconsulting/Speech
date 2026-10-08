@@ -46,13 +46,13 @@ internal sealed class FakeRecognitionEngineFactory : IRecognitionBackendFactory
     public IReadOnlyDictionary<string, object>? RequestedParameterValues { get; private set; }
 
     /// <summary>
-    ///     Gets the <see cref="SherpaOnnx.OnlineRecognizerConfig"/> most recently built by calling
-    ///     the requested model's <c>CreateEngineConfig</c>, mirroring what
-    ///     <c>SherpaOnnxRecognitionEngineFactory</c> genuinely does, so a test can prove a supplied
+    ///     Gets the <see cref="IRecognitionBackend"/> most recently built by calling the
+    ///     requested model's <c>CreateBackend</c>, mirroring what
+    ///     <c>DefaultRecognitionBackendFactory</c> genuinely does, so a test can prove a supplied
     ///     <c>parameterValues</c> bag actually reached the model rather than merely reached this
     ///     factory.
     /// </summary>
-    public SherpaOnnx.OnlineRecognizerConfig? RequestedConfig { get; private set; }
+    public IRecognitionBackend? RequestedBackend { get; private set; }
 
     /// <summary>Gets the number of <see cref="Create"/> calls this factory has received.</summary>
     public int CreateCallCount { get; private set; }
@@ -67,7 +67,7 @@ internal sealed class FakeRecognitionEngineFactory : IRecognitionBackendFactory
         RequestedModel = model;
         RequestedInstalledModelDirectory = installedModelDirectory;
         RequestedParameterValues = parameterValues;
-        RequestedConfig = model.CreateEngineConfig(installedModelDirectory, parameterValues);
+        RequestedBackend = model.CreateBackend(installedModelDirectory, parameterValues);
 
         if (_createException is not null)
         {

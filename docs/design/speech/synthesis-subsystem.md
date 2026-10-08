@@ -36,12 +36,15 @@ contract. It contains the following direct units:
   non-overlapping `SpeakAsync`/`SynthesizeAsync` operations, and `StopAsync`
 - **SpeechSynthesizerFactory**: composition root that asynchronously loads a real engine or
   returns the honest unavailable fallback, and never throws for an ordinary machine state
-- **SherpaOnnxSpeechSynthesizerEngine**: the real `ISpeechSynthesizerEngine` implementation,
+- **SpeechSynthesizerEngine**: the real `ISpeechSynthesizerEngine` implementation,
   owning one loaded **SynthesisBackend** (the renamed internal
-  **ISynthesisBackend**/**ISynthesisBackendFactory** seam and its real
-  **SherpaOnnxSynthesisEngine**/**SherpaOnnxSynthesisEngineFactory** implementations) and
-  enforcing single-session exclusivity via a fail-fast lease
-- **SherpaOnnxSynthesisSession**: the real `ISynthesisSession` implementation, together with the
+  **ISynthesisBackend**/**ISynthesisBackendFactory** seam and its model-driven
+  **DefaultSynthesisBackendFactory** implementation, which asks the model itself to construct its
+  backend via `ISynthesisModel.CreateBackend`) and enforcing single-session exclusivity via a
+  fail-fast lease. The real sherpa-onnx `ISynthesisBackend` implementation,
+  `SherpaOnnxSynthesisEngine`, is not part of this subsystem: it lives in the sibling `SpeechSherpa`
+  system - see _SpeechSherpa SynthesisSubsystem Design_
+- **SynthesisSession**: the real `ISynthesisSession` implementation, together with the
   **PlaybackAudioResampler** that converts synthesized audio into the format a playback device
   requires
 - **SynthesisSessionState** and **SessionStateChangedEventArgs**: the session lifecycle state
@@ -64,15 +67,17 @@ The subsystem exposes `NaturalLanguageAudioTag`, `NaturalLanguageAudioTagKind`,
 `UnavailableSpeechSynthesizerEngine`, `UnavailableSynthesisSession`,
 `SynthesisEngineBusyException`, `SynthesisSessionFaultedException`, and
 `SpeechSynthesizerUnavailableException` as its public API. It consumes `IAudioPlaybackDevice` from
-the AudioSubsystem for output audio, `ISynthesisModel` from the ModelManagementSubsystem for the
-engine configuration, preferred playback-format hint, and Layer 2 rendering strategy, and
+the AudioSubsystem for output audio, `ISynthesisModel` from the ModelManagementSubsystem for
+backend construction (`CreateBackend`), the preferred playback-format hint, and the Layer 2
+rendering strategy, and
 `ISpeechDiagnostics` from the Diagnostics subsystem to report structural composition, lifecycle,
 and fault facts without ever exposing synthesized text.
 
 No member of the subsystem's public API names a sherpa-onnx type, per this library's
-"engine backend stays swappable at the public API surface" decision. The sherpa-onnx
-configuration type appears only on `ISynthesisModel`'s internal members and inside the
-subsystem's internal `SynthesisBackend` seam.
+"engine backend stays swappable at the public API surface" decision. No member of the subsystem -
+public or internal - names a sherpa-onnx type at all: `ISynthesisModel`'s internal `CreateBackend`
+member returns the engine-neutral `ISynthesisBackend` seam, and every concrete engine backend
+lives in a model-supplying extension such as the sibling `SpeechSherpa` system.
 
 ### Design
 
@@ -144,7 +149,7 @@ without reconstruction. This closes the Demo application's "reconstructs a synth
 bug class at the API level: a host now holds one session per device for as long as it needs it,
 rather than one short-lived synthesizer per utterance.
 
-At most one session may be leased from a given engine at a time. `SherpaOnnxSpeechSynthesizerEngine`
+At most one session may be leased from a given engine at a time. `SpeechSynthesizerEngine`
 enforces this with a fail-fast binary semaphore: `CreateSessionAsync` either acquires the lease
 and returns a new session immediately, or - if the lease is already held by a still-undisposed
 session - throws `SynthesisEngineBusyException` immediately, never queueing or waiting. The lease
@@ -203,7 +208,7 @@ flight (a no-op when none is) by cancelling that operation's own linked `Cancell
 the operation then unwinds through `Stopping` to `Stopped`, not `Faulted`, since a caller-requested
 stop is an ordinary, successful outcome rather than a fault.
 
-`SherpaOnnxSynthesisSession`'s per-operation pipeline normalizes the input text, tag-parses it,
+`SynthesisSession`'s per-operation pipeline normalizes the input text, tag-parses it,
 Layer 2 renders it into a `SpeechPlan`, then synthesizes each `SpeechSegment` in turn: unlike the
 former streaming synthesizer, synthesis is no longer pipelined ahead of playback across an
 unbounded/bounded channel - each segment is synthesized, then (for `SpeakAsync`) immediately
@@ -225,9 +230,11 @@ backend's actual rate to the device's resolved rate using a small windowed-sinc 
 anti-aliasing step before downsampling decimation, then upmix mono to the device's channel
 count - mirroring `AudioFrameResampler`'s identical recognition-direction role. The internal
 `ISynthesisBackend`/`ISynthesisBackendFactory` seam (renamed from
-`ISynthesisEngine`/`ISynthesisEngineFactory`, members unchanged) confines every sherpa-onnx call
-to `SherpaOnnxSynthesisEngine`/`SherpaOnnxSynthesisEngineFactory`, so the whole pipeline is
-verifiable in CI with pure managed fakes.
+`ISynthesisEngine`/`ISynthesisEngineFactory`, members unchanged) keeps every native inference call
+out of this subsystem entirely: `DefaultSynthesisBackendFactory` simply forwards to the model's own
+`ISynthesisModel.CreateBackend`, and the real sherpa-onnx backend (`SherpaOnnxSynthesisEngine`)
+lives in the sibling `SpeechSherpa` system (see _SpeechSherpa SynthesisSubsystem Design_), so the
+whole pipeline is verifiable in CI with pure managed fakes.
 
 `DedicatedWorker.Run` applies a cooperative-cancel-then-abandon policy to a delegate run on a
 dedicated `TaskCreationOptions.LongRunning` task: on cancellation it waits a bounded,
@@ -322,14 +329,15 @@ blocking native model load itself runs on a `DedicatedWorker` rather than the ca
 awaiting any `LoadAsync` overload never blocks a caller's synchronization context.
 
 **Data Model**: A static class with no state. The public `LoadAsync(...)` overloads compose
-against the real sherpa-onnx backend factory; internal overloads accept an injected
+against the real model-driven `DefaultSynthesisBackendFactory`, which forwards to
+`ISynthesisModel.CreateBackend`; internal overloads accept an injected
 `ISynthesisBackendFactory` so composition can be verified without model files or a native runtime.
 
 **Key Methods**:
 
 - **LoadAsync(ISynthesisModel model, string installedModelDirectory, ISpeechDiagnostics?
   diagnostics, IReadOnlyDictionary&lt;string, object&gt;? parameterValues, CancellationToken
-  cancellationToken)**: Returns a real `SherpaOnnxSpeechSynthesizerEngine` when the model's
+  cancellationToken)**: Returns a real `SpeechSynthesizerEngine` when the model's
   installed directory exists, the model declares `SpeechModelRole.Synthesis`, and the backend
   loads. Otherwise returns `UnavailableSpeechSynthesizerEngine.Instance`. Precondition: `model` is
   non-null. Postcondition: the returned engine is never null, and either owns a loaded backend or
@@ -355,8 +363,8 @@ since those are programming errors or an explicit caller request rather than a m
 
 **Dependencies**: `ISynthesisModel` and `SpeechModelRole` from the ModelManagementSubsystem,
 `ISpeechDiagnostics`/`NullSpeechDiagnostics` from the Diagnostics subsystem, and the subsystem's
-own `ISynthesisBackendFactory`, `SherpaOnnxSynthesisEngineFactory`,
-`SherpaOnnxSpeechSynthesizerEngine`, and `UnavailableSpeechSynthesizerEngine`.
+own `ISynthesisBackendFactory`, `DefaultSynthesisBackendFactory`,
+`SpeechSynthesizerEngine`, and `UnavailableSpeechSynthesizerEngine`.
 
 **Callers**: Host applications composing speech synthesis at start-up, and the system-level
 integration tests.
@@ -437,7 +445,7 @@ engine's exclusivity lease is already held by another, still-undisposed session.
 
 **Dependencies**: `Exception`.
 
-**Callers**: `SherpaOnnxSpeechSynthesizerEngine.CreateSessionAsync`.
+**Callers**: `SpeechSynthesizerEngine.CreateSessionAsync`.
 
 #### SynthesisSessionFaultedException
 
@@ -450,7 +458,7 @@ already transitioned to `SynthesisSessionState.Faulted`.
 
 **Dependencies**: `Exception`.
 
-**Callers**: `SherpaOnnxSynthesisSession`'s operation entry point, once faulted.
+**Callers**: `SynthesisSession`'s operation entry point, once faulted.
 
 #### Design Constraints
 

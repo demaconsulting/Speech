@@ -69,27 +69,8 @@
     <ProjectReference Include="..\..\src\DemaConsulting.Speech\DemaConsulting.Speech.csproj" />
   </ItemGroup>
 
-  <!-- Speech Engine Native Runtime Dependencies.
-       DemaConsulting.Speech deliberately does NOT bundle a sherpa-onnx native runtime package
-       (see its own csproj); this test project adds one runtime package per RID it may run
-       under in CI (Windows/Linux/macOS x64, plus macOS arm64 for Apple Silicon runners) so the
-       SherpaOnnxRecognitionEngine(Accuracy)Tests that exercise a real, CI-downloaded model
-       (rather than skipping, as they do when the model is not installed) can actually load the
-       native engine. The version matches org.k2fsa.sherpa.onnx pinned by
-       DemaConsulting.Speech.csproj. -->
+  <!-- Test Fixtures -->
   <ItemGroup>
-    <PackageReference Include="org.k2fsa.sherpa.onnx.runtime.win-x64" Version="1.13.8" />
-    <PackageReference Include="org.k2fsa.sherpa.onnx.runtime.linux-x64" Version="1.13.8" />
-    <PackageReference Include="org.k2fsa.sherpa.onnx.runtime.osx-x64" Version="1.13.8" />
-    <PackageReference Include="org.k2fsa.sherpa.onnx.runtime.osx-arm64" Version="1.13.8" />
-  </ItemGroup>
-
-  <!-- Test Data Files -->
-  <ItemGroup>
-    <!-- Real-speech WAV fixture (and its licensing/attribution NOTICE.md) consumed by
-         SherpaOnnxRecognitionEngineAccuracyTests; copied next to the built test assembly so the
-         path resolved via AppContext.BaseDirectory at test run time is always valid regardless of
-         the working directory the test host was launched from. -->
     <None Include="TestData\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 

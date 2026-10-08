@@ -12,15 +12,15 @@ sections:
           - id: Speech-OTS-SherpaOnnx-ManagedStreamingApi
             title: >-
               sherpa-onnx shall provide the managed streaming speech-recognition API consumed by
-              the Speech recognition subsystem.
+              the SpeechSherpa recognition subsystem.
             justification: |
               The Speech library needs a maintained, local-inference speech-to-text engine with a
               .NET API so it can offer offline streaming recognition without authoring an ONNX
               inference pipeline and acoustic-model runtime itself.
             tags: [ots]
             tests:
-              - IRecognitionModel_CreateEngineConfig_InstalledDirectory_ResolvesPathsAndSampleRate
-              - IRecognitionModel_AudioFormat_DeclaredByModel_IsExposed
+              - SherpaOnnxZipformerEnRecognitionModel_BuildEngineConfig_ResolvesInt8FilesAndFeatureConfig
+              - SherpaOnnxZipformerEnRecognitionModel_AudioFormat_IsMono16000
 
           - id: Speech-OTS-SherpaOnnx-ModelOwnedConfiguration
             title: >-

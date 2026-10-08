@@ -1,7 +1,7 @@
 ---
 # Software Unit Requirements for engine session exclusivity (lease) and SynthesisEngineBusyException
 #
-# Describes the design-level behavior of SherpaOnnxSpeechSynthesizerEngine's own session-creation
+# Describes the design-level behavior of SpeechSynthesizerEngine's own session-creation
 # and lease-tracking logic: an engine hosts at most one live ISynthesisSession at a time, and
 # SynthesisEngineBusyException is the documented signal for a caller that requests a second
 # session while the first is still live. Mirrors the recognition direction's equivalent lease
@@ -12,11 +12,11 @@ sections:
     sections:
       - title: SynthesisSubsystem Requirements
         sections:
-          - title: SherpaOnnxSpeechSynthesizerEngine Requirements
+          - title: SpeechSynthesizerEngine Requirements
             requirements:
-              - id: Speech-Synthesis-SherpaOnnxSpeechSynthesizerEngine-SessionExclusivity
+              - id: Speech-Synthesis-SpeechSynthesizerEngine-SessionExclusivity
                 title: >-
-                  The SherpaOnnxSpeechSynthesizerEngine class shall allow at most one live
+                  The SpeechSynthesizerEngine class shall allow at most one live
                   ISynthesisSession to be leased from it at a time, throwing
                   SynthesisEngineBusyException synchronously from CreateSessionAsync when a
                   session is requested while an earlier leased session has not yet been disposed,
@@ -31,14 +31,14 @@ sections:
                 children:
                   - Speech-Synthesis-ISpeechSynthesizerEngine-SessionCreationContract
                 tests:
-                  - SherpaOnnxSpeechSynthesizerEngine_CreateSessionAsync_NoLeaseHeld_ReturnsRealSession
-                  - SherpaOnnxSpeechSynthesizerEngine_CreateSessionAsync_LeaseAlreadyHeld_ThrowsSynthesisEngineBusyException
-                  - SherpaOnnxSpeechSynthesizerEngine_CreateSessionAsync_AfterPriorSessionDisposed_SucceedsAgain
-                  - SherpaOnnxSpeechSynthesizerEngine_CreateSessionAsync_NullDevice_ThrowsArgumentNullException
+                  - SpeechSynthesizerEngine_CreateSessionAsync_NoLeaseHeld_ReturnsRealSession
+                  - SpeechSynthesizerEngine_CreateSessionAsync_LeaseAlreadyHeld_ThrowsSynthesisEngineBusyException
+                  - SpeechSynthesizerEngine_CreateSessionAsync_AfterPriorSessionDisposed_SucceedsAgain
+                  - SpeechSynthesizerEngine_CreateSessionAsync_NullDevice_ThrowsArgumentNullException
 
-              - id: Speech-Synthesis-SherpaOnnxSpeechSynthesizerEngine-DisposalOrdering
+              - id: Speech-Synthesis-SpeechSynthesizerEngine-DisposalOrdering
                 title: >-
-                  The SherpaOnnxSpeechSynthesizerEngine class shall dispose its active leased
+                  The SpeechSynthesizerEngine class shall dispose its active leased
                   session, if any, before disposing its owned backend, and shall dispose its
                   backend exactly once across repeated DisposeAsync calls.
                 justification: |
@@ -49,8 +49,8 @@ sections:
                   down. Repeated disposal must remain a safe no-op, matching every other
                   disposable type in this library.
                 tests:
-                  - SherpaOnnxSpeechSynthesizerEngine_DisposeAsync_WithActiveLeasedSession_DisposesSessionFirst
-                  - SherpaOnnxSpeechSynthesizerEngine_DisposeAsync_CalledTwice_DisposesBackendOnce
+                  - SpeechSynthesizerEngine_DisposeAsync_WithActiveLeasedSession_DisposesSessionFirst
+                  - SpeechSynthesizerEngine_DisposeAsync_CalledTwice_DisposesBackendOnce
 
           - title: SynthesisEngineBusyException Requirements
             requirements:
@@ -66,4 +66,4 @@ sections:
                   whether to retry after disposing its current session rather than treating the
                   failure as fatal.
                 tests:
-                  - SherpaOnnxSpeechSynthesizerEngine_CreateSessionAsync_LeaseAlreadyHeld_ThrowsSynthesisEngineBusyException
+                  - SpeechSynthesizerEngine_CreateSessionAsync_LeaseAlreadyHeld_ThrowsSynthesisEngineBusyException

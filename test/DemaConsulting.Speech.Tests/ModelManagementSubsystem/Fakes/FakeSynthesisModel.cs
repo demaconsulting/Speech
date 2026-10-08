@@ -1,6 +1,7 @@
 using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
-using SherpaOnnx;
+using DemaConsulting.Speech.SynthesisSubsystem;
+using DemaConsulting.Speech.Tests.SynthesisSubsystem.Fakes;
 
 namespace DemaConsulting.Speech.Tests.ModelManagementSubsystem.Fakes;
 
@@ -28,14 +29,23 @@ public sealed class FakeSynthesisModel : ISynthesisModel
     ///     <c>ISynthesisBackend.Generate</c> without a real multi-speaker
     ///     model.
     /// </param>
+    /// <param name="parameters">
+    ///     The declared parameters, or <see langword="null"/> to keep the default single
+    ///     numeric "tempo" parameter.
+    /// </param>
     public FakeSynthesisModel(
         string id = "fake-synthesis-model",
         SpeechModelDownloadDescriptor? downloadDescriptor = null,
-        Func<IReadOnlyDictionary<string, object>?, int>? resolveSpeakerId = null)
+        Func<IReadOnlyDictionary<string, object>?, int>? resolveSpeakerId = null,
+        IReadOnlyList<ISpeechModelParameter>? parameters = null)
     {
         Id = id;
         DownloadDescriptor = downloadDescriptor ?? FakeModelDescriptors.SingleFileDescriptor(id);
         _resolveSpeakerId = resolveSpeakerId;
+        if (parameters is not null)
+        {
+            Parameters = parameters;
+        }
     }
 
     /// <summary>The scripted <see cref="ISynthesisModel.ResolveSpeakerId"/> delegate, or <see langword="null"/>.</summary>
@@ -66,25 +76,16 @@ public sealed class FakeSynthesisModel : ISynthesisModel
     public AudioFormat PreferredAudioFormat => AudioFormat.Mono(24000);
 
     /// <summary>
-    ///     Builds a minimal but structurally valid VITS <see cref="OfflineTtsConfig"/> whose file
-    ///     paths are resolved against the supplied directory.
+    ///     Returns a fresh <see cref="FakeSynthesisEngine"/> backend, deterministic and requiring
+    ///     no native sherpa-onnx runtime and no downloaded model, so this fake works on any CI
+    ///     runner.
     /// </summary>
-    /// <remarks>
-    ///     Deliberately constructs only the managed configuration struct: no native sherpa-onnx
-    ///     library is loaded and no file is opened, so this fake works on any CI runner with no
-    ///     model downloaded and no native runtime present.
-    /// </remarks>
     /// <inheritdoc/>
-    OfflineTtsConfig ISynthesisModel.CreateEngineConfig(string installedModelDirectory)
+    ISynthesisBackend ISynthesisModel.CreateBackend(string installedModelDirectory)
     {
         ArgumentException.ThrowIfNullOrEmpty(installedModelDirectory);
 
-        var config = new OfflineTtsConfig();
-        config.Model.Vits.Model = Path.Join(installedModelDirectory, "model.onnx");
-        config.Model.Vits.Lexicon = Path.Join(installedModelDirectory, "lexicon.txt");
-        config.Model.Vits.Tokens = Path.Join(installedModelDirectory, "tokens.txt");
-        config.Model.Vits.DataDir = Path.Join(installedModelDirectory, "espeak-ng-data");
-        return config;
+        return new FakeSynthesisEngine();
     }
 
     /// <inheritdoc/>

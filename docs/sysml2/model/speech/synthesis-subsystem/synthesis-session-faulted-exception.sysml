@@ -8,9 +8,9 @@ package Speech {
              * is terminal and must be disposed and replaced. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech/SynthesisSubsystem/SynthesisSessionFaultedException.cs */
-        comment testRef /* Test: test/DemaConsulting.Speech.Tests/SynthesisSubsystem/SherpaOnnxSynthesisSessionTests.cs */
-        comment designRef /* Design: docs/design/speech/synthesis-subsystem/sherpa-onnx-synthesis-session.md (documented as a supporting exception type) */
-        comment verificationRef /* Verification: docs/verification/speech/synthesis-subsystem/sherpa-onnx-synthesis-session.md (documented as a supporting exception type) */
-        comment reqRef /* Requirements: docs/reqstream/speech/synthesis-subsystem/sherpa-onnx-synthesis-session.yaml */
+        comment testRef /* Test: test/DemaConsulting.Speech.Tests/SynthesisSubsystem/SynthesisSessionTests.cs */
+        comment designRef /* Design: docs/design/speech/synthesis-subsystem/synthesis-session.md (documented as a supporting exception type) */
+        comment verificationRef /* Verification: docs/verification/speech/synthesis-subsystem/synthesis-session.md (documented as a supporting exception type) */
+        comment reqRef /* Requirements: docs/reqstream/speech/synthesis-subsystem/synthesis-session.yaml */
     }
 }

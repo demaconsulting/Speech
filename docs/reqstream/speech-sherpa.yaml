@@ -1,0 +1,92 @@
+---
+# Software System Requirements for SpeechSherpa
+#
+# These requirements describe the externally visible behavior of the SpeechSherpa library
+# (DemaConsulting.Speech.Sherpa) from the perspective of a host application consuming it,
+# without specifying implementation details. SpeechSherpa is a sibling system to Speech: it
+# supplies concrete, sherpa-onnx-backed speech models and inference backends through the Speech
+# library's IRecognitionModel/ISynthesisModel extension seam, ships as its own package, and is
+# versioned as part of this repository. The Speech library never depends on it.
+
+sections:
+  - title: SpeechSherpa Requirements
+    requirements:
+      - id: SpeechSherpa-Models-AddSherpaModels
+        title: >-
+          The library shall let a host register every sherpa-onnx-backed speech model it ships
+          with a Speech library SpeechModelCatalog through a single AddSherpaModels() call that
+          returns the same catalog for chaining.
+        tags: [system]
+        justification: |
+          The Speech library's catalog ships empty and carries no sherpa-onnx dependency, so a
+          host needs one discoverable, opt-in entry point to make this package's models
+          available for enumeration, download, and composition, composable with registrations
+          from any other model package.
+        children:
+          - SpeechSherpa-Models-CatalogRegistration
+        tests:
+          - AddSherpaModels_Called_ReturnsSameCatalogInstance
+          - AddSherpaModels_Called_RegistersExpectedFourModelsWithExpectedRoles
+
+      - id: SpeechSherpa-Models-RecognitionModels
+        title: >-
+          The library shall provide real, downloadable, sherpa-onnx-backed streaming English
+          recognition models implementing the Speech library's IRecognitionModel contract.
+        tags: [system]
+        justification: |
+          The Speech library defines the recognition-model contract but ships no concrete
+          models; a host needs at least one real, checksum-verified, installable recognition
+          model to perform offline speech-to-text at all.
+        children:
+          - SpeechSherpa-Models-RealRecognitionModels
+        tests:
+          - AddSherpaModels_Called_RegistersExpectedFourModelsWithExpectedRoles
+
+      - id: SpeechSherpa-Models-SynthesisModels
+        title: >-
+          The library shall provide real, downloadable, sherpa-onnx-backed English synthesis
+          models implementing the Speech library's ISynthesisModel contract, including
+          selectable voices or speakers.
+        tags: [system]
+        justification: |
+          The Speech library defines the synthesis-model contract but ships no concrete
+          models; a host needs at least one real, checksum-verified, installable synthesis
+          model to perform offline text-to-speech at all, and voice selection lets a host offer
+          more than a single fixed voice.
+        children:
+          - SpeechSherpa-Models-RealSynthesisModel
+          - SpeechSherpa-Models-RealKokoroSynthesisModelWithVoiceSelection
+        tests:
+          - AddSherpaModels_Called_RegistersExpectedFourModelsWithExpectedRoles
+
+      - id: SpeechSherpa-Recognition-RealBackend
+        title: >-
+          The library shall transcribe real speech through the Speech library's recognition
+          pipeline using the sherpa-onnx streaming recognizer, without losing or leaking spoken
+          words at session boundaries or endpoints.
+        tags: [system]
+        justification: |
+          The Speech library's recognition policy is verified against a fake backend; only a
+          real, native-backed backend turns real microphone audio into real text, so its
+          accuracy and buffering behavior must be proven directly against real installed
+          models.
+        children:
+          - SpeechSherpa-Recognition-StreamingBackend
+        tests:
+          - SherpaOnnxRecognitionEngine_Transcribe_RealCrossingTheBarRecording_WordErrorRateBelowTolerance
+          - SherpaOnnxRecognitionEngine_Transcribe_RealCrossingTheBarRecording_NemotronWordErrorRateBelowTolerance
+
+      # KNOWN GAP: no automated test exercises SherpaOnnxSynthesisEngine anywhere in this
+      # repository (pre-existing, carried forward unchanged by the package split; disclosed in
+      # docs/verification/speech-sherpa/synthesis-subsystem.md), so no test is cited here.
+      - id: SpeechSherpa-Synthesis-RealBackend
+        title: >-
+          The library shall synthesize audio from text through the Speech library's synthesis
+          pipeline using the sherpa-onnx offline text-to-speech engine.
+        tags: [system]
+        justification: |
+          The Speech library's synthesis policy is verified against a fake backend; only a
+          real, native-backed backend turns rendered text into audible speech for this
+          package's synthesis models.
+        children:
+          - SpeechSherpa-Synthesis-OfflineBackend

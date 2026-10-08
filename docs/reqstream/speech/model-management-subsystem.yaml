@@ -9,16 +9,12 @@
 # supporting types. Sub-phase 2b adds the model catalog/contract machinery on top: the typed
 # tunable-parameter descriptors, the common ISpeechModel contract with its
 # IRecognitionModel/ISynthesisModel role markers, the SpeechModelDescriptor catalog read-model,
-# and SpeechModelCatalog itself. Phase 7a populated that previously-empty catalog
-# with the library's first two real, concrete IRecognitionModel classes
-# (SherpaOnnxZipformerEnRecognitionModel, SherpaOnnxNemotronStreamingEnRecognitionModel) plus a
-# shared TarBz2ArchiveExtractor helper. Phase 7b added the library's first real, concrete
-# ISynthesisModel class (SherpaOnnxVitsLibriTtsEnglishSynthesisModel), exposing only its default
-# speaker as a tracked, out-of-scope limitation. Phase 10 adds a second ISynthesisModel
-# (SherpaOnnxKokoroEnglishSynthesisModel, 11 genuinely distinct voices) and a new
-# ISynthesisModel.ResolveSpeakerId hook, closing that limitation for any model with real
-# per-voice knowledge. A later pass closes the VITS model's own remaining limitation too, by
-# declaring a plain numeric speaker parameter (0-903) and overriding ResolveSpeakerId for it.
+# and SpeechModelCatalog itself. The catalog starts empty and is populated by the host through
+# SpeechModelCatalog.AddModels; this subsystem ships no concrete, engine-backed model classes.
+# The concrete sherpa-onnx-backed models and their shared archive-extraction and
+# transcript-restoration helpers live in the separate SpeechSherpa library (see
+# docs/reqstream/speech-sherpa/model-management-subsystem.yaml), which registers them through its
+# own AddSherpaModels() extension method.
 
 sections:
   - title: Speech Requirements
@@ -299,24 +295,28 @@ sections:
 
           - id: Speech-Models-CatalogEnumeration
             title: >-
-              The ModelManagementSubsystem shall enumerate its compiled-in known models alongside
-              each one's current install state, never throwing, correctly reporting
-              not-downloaded, downloading, downloaded, and failed-or-corrupt as a download is
-              requested, in progress, completes, or fails.
+              The ModelManagementSubsystem shall enumerate the models a host has registered with
+              the catalog through its public AddModels method alongside each one's current
+              install state, never throwing, correctly reporting not-downloaded, downloading,
+              downloaded, and failed-or-corrupt as a download is requested, in progress,
+              completes, or fails.
             justification: |
               The model-settings-page use case requires an honest, never-throwing
-              enumeration a host can bind directly to a UI list; Phase 7a populates the
-              compiled-in registry with the library's first two real recognition models,
-              resolving the "always empty" defect a user discovered in the demo app, while state
-              resolution itself continues to be proven here against injected fake models.
+              enumeration a host can bind directly to a UI list. Because the core library ships
+              no concrete, engine-backed models, the catalog starts empty and a host registers
+              the models it wants (for example via a model package's own registration extension
+              built on AddModels), while state resolution itself continues to be proven here
+              against injected fake models.
             children:
-              - Speech-Models-SpeechModelCatalog-KnownModelsRegistry
+              - Speech-Models-SpeechModelCatalog-ModelRegistration
+              - Speech-Models-SpeechModelCatalog-AddModels
               - Speech-Models-SpeechModelCatalog-StateResolution
               - Speech-Models-SpeechModelCatalog-DownloadOrchestration
               - Speech-Models-SpeechModelDescriptor-Snapshot
             tests:
               - SpeechModelCatalog_Enumerate_EmptyKnownModels_ReturnsEmptyList
-              - SpeechModelCatalog_KnownModels_ContainsAllFourRealModels
+              - SpeechModelCatalog_AddModels_Called_AppearsInEnumerate
+              - SpeechModelCatalog_AddModels_ChainedCall_ReturnsSameInstance
               - SpeechModelCatalog_Enumerate_NeverDownloaded_ReportsNotDownloaded
               - SpeechModelCatalog_GetState_DownloadInFlight_ReportsDownloading
               - SpeechModelCatalog_DownloadAsync_ValidModel_ReportsDownloadedAfterCompletion
@@ -341,114 +341,3 @@ sections:
               - Speech-Models-SpeechModelCatalog-StoreExposure
             tests:
               - SpeechModelCatalog_Store_Always_ReturnsInternalStoreInstance
-
-          - id: Speech-Models-RealRecognitionModels
-            title: >-
-              The ModelManagementSubsystem shall provide two real, concrete IRecognitionModel
-              classes (SherpaOnnxZipformerEnRecognitionModel and
-              SherpaOnnxNemotronStreamingEnRecognitionModel) and a shared internal .tar.bz2
-              archive-extraction helper (TarBz2ArchiveExtractor) both new models'
-              InstallAsync implementations use.
-            justification: |
-              The library's compiled-in known-model registry was empty until this phase, which a
-              user discovered and was unhappy about; Phase 7a resolves that limitation for
-              recognition models by shipping the library's first two production model-backing
-              classes, each declaring a real, checksum-verified download descriptor and
-              engine-configuration wiring, plus the shared archive-extraction helper their
-              install hooks both require (the BCL has no BZip2 decoder).
-            children:
-              - Speech-Models-SherpaOnnxZipformerEnRecognitionModel-Identity
-              - Speech-Models-SherpaOnnxZipformerEnRecognitionModel-DownloadDescriptor
-              - Speech-Models-SherpaOnnxZipformerEnRecognitionModel-EngineConfig
-              - Speech-Models-SherpaOnnxZipformerEnRecognitionModel-EngineConfigArgumentValidation
-              - Speech-Models-SherpaOnnxZipformerEnRecognitionModel-InstallAsync
-              - Speech-Models-SherpaOnnxNemotronStreamingEnRecognitionModel-Identity
-              - Speech-Models-SherpaOnnxNemotronStreamingEnRecognitionModel-EngineConfig
-              - Speech-Models-SherpaOnnxNemotronStreamingEnRecognitionModel-InstallAsync
-              - Speech-Models-SherpaOnnxZipformerEnRecognitionModel-NormalizeText
-              - Speech-Models-SherpaOnnxZipformerEnRecognitionModel-PostEndpointWarmupWindow
-              - Speech-Models-SherpaOnnxNemotronStreamingEnRecognitionModel-NormalizeText
-              - Speech-Models-SherpaOnnxNemotronStreamingEnRecognitionModel-PostEndpointWarmupWindow
-              - Speech-Models-UppercaseTranscriptRestorer-RestoreFinal
-              - Speech-Models-UppercaseTranscriptRestorer-RestoreFinalContractions
-              - Speech-Models-UppercaseTranscriptRestorer-RestoreFinalPunctuation
-              - Speech-Models-UppercaseTranscriptRestorer-RestoreProvisional
-              - Speech-Models-UppercaseTranscriptRestorer-ArgumentValidation
-              - Speech-Models-TarBz2ArchiveExtractor-ExtractAndDelete
-              - Speech-Models-TarBz2ArchiveExtractor-ArgumentValidation
-            tests:
-              - SherpaOnnxZipformerEnRecognitionModel_Identity_DeclaresExpectedValues
-              - SherpaOnnxNemotronStreamingEnRecognitionModel_Identity_DeclaresExpectedValues
-              - TarBz2ArchiveExtractor_ExtractAndDeleteAsync_SingleEntryArchive_ExtractsEntryAndDeletesArchive
-
-          - id: Speech-Models-RealSynthesisModel
-            title: >-
-              The ModelManagementSubsystem shall provide one real, concrete ISynthesisModel
-              class (SherpaOnnxVitsLibriTtsEnglishSynthesisModel), reusing the shared internal
-              .tar.bz2 archive-extraction helper (TarBz2ArchiveExtractor) built in Phase 7a
-              for its own InstallAsync implementation, and declaring a plain numeric speaker
-              parameter (0-903) with a matching ResolveSpeakerId override.
-            justification: |
-              Phase 7a shipped the library's first two production IRecognitionModel classes but
-              left ISynthesisModel with zero real implementations, a tracked follow-up. Phase 7b
-              completes the catalog by shipping the library's first production ISynthesisModel
-              class, declaring a real, checksum-verified download descriptor and VITS/Piper
-              engine-configuration wiring, reusing (not duplicating) the archive-extraction
-              helper Phase 7a already built and quality-passed, but exposing only its default
-              speaker as an accepted, out-of-scope limitation. A later pass closes that
-              limitation by declaring a plain numeric speaker parameter spanning this model's
-              full 904-speaker range - LibriTTS-R's speaker embeddings have no published
-              human-readable name mapping, unlike the sibling Kokoro model's small, named voice
-              set - and overriding ResolveSpeakerId to read it defensively.
-            children:
-              - Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-Identity
-              - Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-DownloadDescriptor
-              - Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-ParameterDeclaration
-              - Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-EngineConfig
-              - Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-PreferredAudioFormat
-              - Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-EngineConfigArgumentValidation
-              - Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-InstallAsync
-              - Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-InstallAsync-ArgumentValidation
-              - Speech-Models-SherpaOnnxVitsLibriTtsEnglishSynthesisModel-ResolveSpeakerId
-            tests:
-              - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_Identity_DeclaresExpectedValues
-              - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_CreateEngineConfig_ResolvesVitsFilesAndConfig
-              - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_InstallAsync_SyntheticArchive_ExtractsFilesAndRemovesArchive
-              - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_InstallAsync_NullOrEmptyDirectory_ThrowsArgumentException
-              - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_ResolveSpeakerId_ValidValue_ReturnsThatValue
-
-          - id: Speech-Models-RealKokoroSynthesisModelWithVoiceSelection
-            title: >-
-              The ModelManagementSubsystem shall provide a second real, concrete
-              ISynthesisModel class (SherpaOnnxKokoroEnglishSynthesisModel) declaring 11
-              genuinely distinct voices and a confirmed voice-name-to-speaker-id mapping via a
-              new ISynthesisModel.ResolveSpeakerId hook, reusing the shared internal .tar.bz2
-              archive-extraction helper (TarBz2ArchiveExtractor) for its own InstallAsync
-              implementation, closing the "speaker selection is out of scope" gap the sibling
-              VITS synthesis model explicitly deferred.
-            justification: |
-              Phase 7b shipped the library's first production ISynthesisModel but exposed only
-              its default speaker, an accepted, documented, out-of-scope limitation. Phase 10
-              closes that limitation for any model with real per-voice knowledge by adding a
-              second ISynthesisModel implementation (Kokoro) whose 11-voice option set and
-              speaker-id ordering were independently confirmed against upstream sherpa-onnx's
-              own generation script, byte arithmetic against the real voices.bin, and a live
-              model load reporting NumSpeakers = 11, and by extending ISynthesisModel itself
-              with a non-breaking ResolveSpeakerId default-hook member that
-              SherpaOnnxSynthesisSession.GenerateSegmentAsync now calls instead of hard-coding
-              speakerId: 0.
-            children:
-              - Speech-Models-SherpaOnnxKokoroEnglishSynthesisModel-Identity
-              - Speech-Models-SherpaOnnxKokoroEnglishSynthesisModel-License
-              - Speech-Models-SherpaOnnxKokoroEnglishSynthesisModel-DownloadDescriptor
-              - Speech-Models-SherpaOnnxKokoroEnglishSynthesisModel-EngineConfig
-              - Speech-Models-SherpaOnnxKokoroEnglishSynthesisModel-PreferredAudioFormat
-              - Speech-Models-SherpaOnnxKokoroEnglishSynthesisModel-EngineConfigArgumentValidation
-              - Speech-Models-SherpaOnnxKokoroEnglishSynthesisModel-InstallAsync
-              - Speech-Models-SherpaOnnxKokoroEnglishSynthesisModel-ResolveSpeakerId
-            tests:
-              - SherpaOnnxKokoroEnglishSynthesisModel_Identity_DeclaresExpectedValues
-              - SherpaOnnxKokoroEnglishSynthesisModel_CreateEngineConfig_ResolvesKokoroFilesAndConfig
-              - SherpaOnnxKokoroEnglishSynthesisModel_InstallAsync_SyntheticArchive_ExtractsFilesAndRemovesArchive
-              - SherpaOnnxKokoroEnglishSynthesisModel_ResolveSpeakerId_KnownVoice_ReturnsConfirmedId
-              - SherpaOnnxKokoroEnglishSynthesisModel_ResolveSpeakerId_UnknownVoice_ReturnsDefaultId

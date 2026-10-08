@@ -1,15 +1,14 @@
 ### SpeechModelCatalog
 
-**Purpose**: Enumerate the library's known/compiled-in models alongside each one's current
-install state, and orchestrate downloading a known model by id, composing Sub-phase 2a's
+**Purpose**: Enumerate the models a host has registered with the catalog alongside each one's
+current install state, and orchestrate downloading a known model by id, composing Sub-phase 2a's
 storage/download machinery with the model contract.
 
-**Data Model**: `KnownModels` (static, compiled-in `IReadOnlyList<ISpeechModel>`; currently
-contains all four of this library's real, production models -
-`SherpaOnnxZipformerEnRecognitionModel`, `SherpaOnnxNemotronStreamingEnRecognitionModel`,
-`SherpaOnnxVitsLibriTtsEnglishSynthesisModel`, and `SherpaOnnxKokoroEnglishSynthesisModel` - at
-least one shippable model of every role the library defines, with a second, multi-speaker
-synthesis model). Per instance: the injected known-model list, a `SpeechModelStore`, a
+**Data Model**: Per instance: a mutable known-model list (`List<ISpeechModel>`), which starts
+empty for the public constructor - the library itself ships zero built-in models - and is
+populated by the host through `AddModels(...)` or an extension method layered on it (for example
+the sibling `SpeechSherpa` system's `AddSherpaModels()`, see _SpeechSherpa
+ModelManagementSubsystem Design_); a `SpeechModelStore`, a
 `SpeechModelDownloader`, and two in-memory `ConcurrentDictionary<string, byte>` sets tracking
 model ids currently downloading and model ids whose most recent attempt failed. **Store**
 (public, get-only) - the `SpeechModelStore` this catalog composes internally, exposed so a host
@@ -18,11 +17,17 @@ download, without constructing a second store.
 
 **Key Methods**:
 
-- **SpeechModelCatalog(options?, diagnostics?)**: Public constructor using the compiled-in
-  `KnownModels`, a real `SpeechModelStore`, and a real `HttpModelDownloadClient`. Never throws.
+- **SpeechModelCatalog(options?, diagnostics?)**: Public constructor starting from an empty
+  known-model list, a real `SpeechModelStore`, and a real `HttpModelDownloadClient`. Never throws.
 - **SpeechModelCatalog(knownModels, store, client?, diagnostics?)** _(internal)_: Test-only
-  constructor injecting the known-model list, store, and download client for deterministic
-  testing without a real network.
+  constructor seeding the known-model list and injecting the store and download client for
+  deterministic testing without a real network.
+- **AddModels(params ISpeechModel[] models)**: Appends the given models to this catalog's
+  known-model list and returns the same catalog instance, so registrations chain fluently (for
+  example `new SpeechModelCatalog().AddSherpaModels()`). Throws `ArgumentNullException` for a null
+  array. This is a builder-phase operation: a host must finish every `AddModels` call before
+  sharing the catalog for concurrent `Enumerate`/`GetState`/`DownloadAsync` use, since the list
+  itself is not synchronized against concurrent mutation.
 - **Store**: Returns the `SpeechModelStore` instance this catalog was composed with. Never throws.
 - **Enumerate()**: Builds one `SpeechModelDescriptor` per known model, resolving each one's state
   via `GetState`. Never throws.
@@ -40,7 +45,8 @@ download, without constructing a second store.
   network activity - a host may call it unconditionally on every launch without first checking
   `GetState`.
 
-**Error Handling**: `Enumerate()` and `GetState(modelId)` never throw for an honest state query
+**Error Handling**: `AddModels` throws `ArgumentNullException` for a null array, a programming
+error. `Enumerate()` and `GetState(modelId)` never throw for an honest state query
 (only `ArgumentException` for an invalid `modelId` string, matching `SpeechModelStore`'s own
 validation). `DownloadAsync` throws `ArgumentException` for an unknown `modelId` - an explicit,
 user-invoked action, never composition or enumeration - and propagates `OperationCanceledException`
@@ -51,5 +57,6 @@ a corruption signal).
 `ISpeechModel`, `SpeechModelDescriptor`, `ISpeechDiagnostics`.
 
 **Callers**: Hosts building a model-settings page (enumerate + download/delete actions per
-the demo-application scope). `SpeechRecognizerFactory`/`SpeechSynthesizerFactory` catalog-based
-`LoadAsync` overloads (via `Store`).
+the demo-application scope). Model-supplying extension methods such as `SpeechSherpa`'s
+`AddSherpaModels()` (via `AddModels`). `SpeechRecognizerFactory`/`SpeechSynthesizerFactory`
+catalog-based `LoadAsync` overloads (via `Store`).

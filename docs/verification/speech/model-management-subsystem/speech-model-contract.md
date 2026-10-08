@@ -42,10 +42,10 @@ implementation completes without modifying a staging directory's contents at all
 `NormalizeText` implementation returns its input unchanged; a zip-archive-payload fake's
 `InstallAsync` override extracts its declared archive's entries into the staging directory and
 removes the archive file. A fake `IRecognitionModel` also exposes the mono engine input
-`AudioFormat` it declares, builds an engine configuration whose feature rate and file paths are
-resolved against a supplied installed-model directory, and rejects an empty directory. A fake
-`ISynthesisModel` builds an engine configuration whose file paths are resolved against a supplied
-installed-model directory, rejects an empty directory, exposes its best-effort
+`AudioFormat` it declares, creates an engine-neutral `IRecognitionBackend` from a supplied
+installed-model directory, and rejects an empty directory. A fake `ISynthesisModel` creates an
+engine-neutral `ISynthesisBackend` from a supplied installed-model directory, rejects an empty
+directory, exposes its best-effort
 `PreferredAudioFormat`, and exposes the default `CapabilityProfile` hook. The default
 `IRecognitionModel.NormalizeText(text, isFinal)` hook forwards to the shared
 `ISpeechModel.NormalizeText(text)` pass-through, for both `isFinal` values. The default
@@ -85,17 +85,17 @@ installed-model directory, rejects an empty directory, exposes its best-effort
 
 **Test**: `IRecognitionModel_AudioFormat_DeclaredByModel_IsExposed`
 
-##### A fake recognition model builds an engine configuration resolved against its installed directory
+##### A fake recognition model creates a recognition backend from its installed directory
 
-**Test**: `IRecognitionModel_CreateEngineConfig_InstalledDirectory_ResolvesPathsAndSampleRate`
+**Test**: `IRecognitionModel_CreateBackend_InstalledDirectory_ReturnsRecognitionBackend`
 
 ##### A fake recognition model rejects an empty installed-model directory
 
-**Test**: `IRecognitionModel_CreateEngineConfig_EmptyDirectory_ThrowsArgumentException`
+**Test**: `IRecognitionModel_CreateBackend_EmptyDirectory_ThrowsArgumentException`
 
-##### A fake synthesis model builds an engine configuration resolved against its installed directory
+##### A fake synthesis model creates a synthesis backend from its installed directory
 
-**Test**: `ISynthesisModel_CreateEngineConfig_InstalledDirectory_ResolvesPaths`
+**Test**: `ISynthesisModel_CreateBackend_InstalledDirectory_ReturnsSynthesisBackend`
 
 ##### A fake synthesis model exposes its declared preferred audio format
 
@@ -103,7 +103,7 @@ installed-model directory, rejects an empty directory, exposes its best-effort
 
 ##### A fake synthesis model rejects an empty installed-model directory
 
-**Test**: `ISynthesisModel_CreateEngineConfig_EmptyDirectory_ThrowsArgumentException`
+**Test**: `ISynthesisModel_CreateBackend_EmptyDirectory_ThrowsArgumentException`
 
 ##### A fake synthesis model's default CapabilityProfile hook returns the shared default profile
 

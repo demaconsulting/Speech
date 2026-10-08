@@ -70,8 +70,9 @@ external interfaces are its user interface and the interfaces it consumes.
 
 ## Dependencies
 
-SpeechDemo has one project dependency — the Speech library — and the following NuGet
-dependencies:
+SpeechDemo has two project dependencies — the Speech library, and the SpeechSherpa library
+whose `AddSherpaModels()` extension method registers the shipped sherpa-onnx models with the
+catalog the demo composes (see _SpeechSherpa Design_) — and the following NuGet dependencies:
 
 - **Avalonia** (with `Avalonia.Desktop`, `Avalonia.Themes.Fluent`, and `Avalonia.Fonts.Inter`)
   supplies the cross-platform desktop application host, styling, and view layer;
@@ -100,7 +101,8 @@ N/A - SpeechDemo provides no safety-critical functionality requiring risk contro
 
 1. **Input**: The process entry point configures the Avalonia application host
 2. **Composition**: On framework initialization the application constructs an
-   `AudioDeviceFactory` and a `SpeechModelCatalog`, wraps each in its demo-owned service
+   `AudioDeviceFactory` and a `SpeechModelCatalog` populated through SpeechSherpa's
+   `AddSherpaModels()`, wraps each in its demo-owned service
    adapter, and injects those adapters into the panel view models and the window view model
 3. **Output**: The main window opens on its first panel; the catalog is disposed when the
    desktop lifetime signals shutdown

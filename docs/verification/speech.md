@@ -18,12 +18,13 @@ speech-inference runtime in CI.
 Automated coverage **does not** extend to actually opening a real microphone or speaker and
 moving audio end to end through hardware, nor to recognizing or synthesizing real speech through
 a real model. Those remain manual/local verification activities because CI runners cannot
-guarantee audio hardware. The library's compiled-in catalog now ships four real, production
-models - `SherpaOnnxZipformerEnRecognitionModel`, `SherpaOnnxNemotronStreamingEnRecognitionModel`,
-`SherpaOnnxVitsLibriTtsEnglishSynthesisModel`, and `SherpaOnnxKokoroEnglishSynthesisModel` - but
-automated system tests deliberately exercise a deterministic test model and a fake recognition
-or synthesis engine instead of a real model, so CI never depends on a real, multi-hundred-megabyte
-download or the native sherpa-onnx runtime.
+guarantee audio hardware. The Speech library itself ships no built-in model and references no
+native speech-inference runtime: real, production models are registered by a host through
+`SpeechModelCatalog.AddModels`, and the two recognition models and two synthesis models shipped
+today by the sibling SpeechSherpa package are verified there (see _SpeechSherpa System
+Verification_). Automated Speech system tests deliberately exercise a deterministic test model and
+a fake recognition or synthesis engine instead of a real model, so CI never depends on a real,
+multi-hundred-megabyte download or the native sherpa-onnx runtime.
 
 System tests reside in `SpeechTests.cs` within the `DemaConsulting.Speech.Tests` project, with the
 Natural Language Audio Tag scenarios additionally proven by `AudioTagParserTests.cs` in the same
@@ -135,17 +136,6 @@ model-independent Layer 1 parser recognizes the complete documented vocabulary.
 Verifies that a bracketed word outside the closed vocabulary is passed through as plain narration
 text rather than dropped or rejected, proving the "never worse than plain narration" guarantee for
 unrecognized or malformed bracket content.
-
-### Unit: Streaming Synthesis Produces Played Audio
-
-**Test**: `Speech_SystemIntegration_StreamingSynthesis_TextProducesPlayedAudio`
-
-Verifies that composing `SpeechSynthesizerFactory.LoadAsync` with an installed test model and a
-fake synthesis engine, then creating a session via `ISpeechSynthesizerEngine.CreateSessionAsync`
-and speaking plain text via `ISynthesisSession.SpeakAsync`, starts the playback device, writes at
-least one block of audio to it, and stops the device once playback completes - proving the
-Layer 2 rendering and chunked streaming-synthesis pipeline produce and play audio for the
-simplest input end to end through the current async Engine/Session API.
 
 ## Acceptance Criteria
 

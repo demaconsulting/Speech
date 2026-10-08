@@ -1,7 +1,8 @@
 package Speech {
     part def SpeechModelCatalog {
-        doc /* Enumerates the compiled-in known-model registry (as of Phase 7a, this phase's
-             * two real recognition models) alongside each model's current install state, and
+        doc /* Enumerates the models registered with it through AddModels (the library itself
+             * ships none; sibling packages such as SpeechSherpa supply them) alongside each
+             * model's current install state, and
              * orchestrates downloading a known model by id through SpeechModelDownloader,
              * layering Downloading/FailedOrCorrupt tracking scoped to one catalog instance's
              * lifetime on top of the store's bare installed/not-installed state. */

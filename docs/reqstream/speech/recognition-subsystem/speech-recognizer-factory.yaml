@@ -84,9 +84,9 @@ sections:
                   a recognition model's engine configuration, mirroring the equivalent
                   SpeechSynthesizerFactory capability already added for voice selection.
                 tests:
-                  - SpeechRecognizerFactory_LoadAsync_ParameterValuesSupplied_ReachesModelCreateEngineConfig
-                  - SpeechRecognizerFactory_LoadAsync_WithStoreParameterValuesSupplied_ReachesModelCreateEngineConfig
-                  - SpeechRecognizerFactory_LoadAsync_WithCatalogParameterValuesSupplied_ReachesModelCreateEngineConfig
+                  - SpeechRecognizerFactory_LoadAsync_ParameterValuesSupplied_ReachesModelCreateBackend
+                  - SpeechRecognizerFactory_LoadAsync_WithStoreParameterValuesSupplied_ReachesModelCreateBackend
+                  - SpeechRecognizerFactory_LoadAsync_WithCatalogParameterValuesSupplied_ReachesModelCreateBackend
 
               - id: Speech-Recognition-SpeechRecognizerFactory-UnrecognizedParameterIdIgnored
                 title: >-

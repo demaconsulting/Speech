@@ -7,9 +7,10 @@ Requirements document.
 
 ### Required Functionality
 
-SherpaOnnx provides the managed streaming speech-recognition API used by the internal
-`SherpaOnnxRecognitionEngine` adapter, and the managed configuration types each recognition model
-populates to describe its own architecture, file locations, and required input sample rate.
+SherpaOnnx provides the managed streaming speech-recognition API used by the SpeechSherpa
+library's internal `SherpaOnnxRecognitionEngine` adapter, and the managed configuration types each
+SpeechSherpa recognition model populates to describe its own architecture, file locations, and
+required input sample rate. The Speech library itself no longer references this package.
 
 ### Verification Approach
 
@@ -17,11 +18,20 @@ Automated verification for this OTS item is intentionally limited to determinist
 behaviors that require neither a downloaded speech model nor the platform-specific native
 inference binary:
 
-- A recognition model can populate and expose a sherpa-onnx recognizer configuration resolved
+- A SpeechSherpa recognition model can populate a sherpa-onnx recognizer configuration resolved
   against its installed-files directory, and can declare the input sample rate that configuration
-  carries
-- The recognition composition path consumes that model-owned configuration through the library's
-  own engine seam, and degrades honestly when loading the engine fails
+  carries; these tests live in `test/DemaConsulting.Speech.Sherpa.Tests`, the test project that
+  references the package
+- The Speech library's recognition composition path consumes a model-owned backend through its
+  own engine-neutral seam, and degrades honestly when loading the engine fails; these tests live
+  in `test/DemaConsulting.Speech.Tests` and use a fake model, since the seam names no sherpa-onnx
+  type
+
+Where the real native runtime and an installed model are available, the SpeechSherpa
+`SherpaOnnxRecognitionEngineTests`/`SherpaOnnxRecognitionEngineAccuracyTests` additionally
+exercise real native inference (see _SpeechSherpa RecognitionSubsystem Verification_); they
+self-skip when the model is not installed, so they are not relied on as this OTS item's
+requirement evidence.
 
 Automated tests do **not** claim proof of real speech-to-text accuracy or of successful native
 inference. Loading a real model through the native runtime and recognizing real speech requires
@@ -29,10 +39,10 @@ manual/local verification on a machine with a downloaded model and a supported p
 
 ### Test Scenarios
 
-#### IRecognitionModel_CreateEngineConfig_InstalledDirectory_ResolvesPathsAndSampleRate
+#### SherpaOnnxZipformerEnRecognitionModel_BuildEngineConfig_ResolvesInt8FilesAndFeatureConfig
 
-**Scenario**: A recognition model builds its sherpa-onnx recognizer configuration against an
-installed-files directory.
+**Scenario**: A SpeechSherpa recognition model builds its sherpa-onnx recognizer configuration
+against an installed-files directory.
 
 **Expected**: The configuration carries the model's declared feature sample rate and file paths
 resolved against that directory, proving the repository can construct the managed configuration
@@ -40,9 +50,9 @@ types correctly.
 
 **Requirement coverage**: `Speech-OTS-SherpaOnnx-ManagedStreamingApi`.
 
-#### IRecognitionModel_AudioFormat_DeclaredByModel_IsExposed
+#### SherpaOnnxZipformerEnRecognitionModel_AudioFormat_IsMono16000
 
-**Scenario**: A recognition model's declared engine input format is read.
+**Scenario**: A SpeechSherpa recognition model's declared engine input format is read.
 
 **Expected**: The declared mono `AudioFormat` is returned, proving the per-model input-format
 declaration the streaming API requires is available to the recognition pipeline.
@@ -53,9 +63,9 @@ declaration the streaming API requires is available to the recognition pipeline.
 
 **Scenario**: Recognition is composed for an installed model and an available capture device.
 
-**Expected**: The model's own configuration and declared `AudioFormat.SampleRate` are requested
-and used to load an engine through the library's seam, proving the model-owned configuration
-pattern works end to end.
+**Expected**: The model's own backend is requested with its declared `AudioFormat.SampleRate` and
+used to load an engine through the library's seam, proving the model-owned configuration pattern
+works end to end without the Speech library naming any sherpa-onnx type.
 
 **Requirement coverage**: `Speech-OTS-SherpaOnnx-ModelOwnedConfiguration`.
 
@@ -72,8 +82,8 @@ without throwing, proving the native-runtime boundary degrades in the required h
 ### Requirements Coverage
 
 - **`Speech-OTS-SherpaOnnx-ManagedStreamingApi`**:
-  `IRecognitionModel_CreateEngineConfig_InstalledDirectory_ResolvesPathsAndSampleRate`,
-  `IRecognitionModel_AudioFormat_DeclaredByModel_IsExposed`
+  `SherpaOnnxZipformerEnRecognitionModel_BuildEngineConfig_ResolvesInt8FilesAndFeatureConfig`,
+  `SherpaOnnxZipformerEnRecognitionModel_AudioFormat_IsMono16000`
 - **`Speech-OTS-SherpaOnnx-ModelOwnedConfiguration`**:
   `SpeechRecognizerFactory_LoadAsync_ModelInstalled_ReturnsRealEngine`,
   `SpeechRecognizerFactory_LoadAsync_EngineLoadFails_ReturnsUnavailableEngineAndDoesNotFaultTask`

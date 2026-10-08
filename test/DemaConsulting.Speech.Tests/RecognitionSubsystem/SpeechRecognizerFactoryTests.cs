@@ -156,7 +156,7 @@ public sealed class SpeechRecognizerFactoryTests : IDisposable
         await using var engine = await SpeechRecognizerFactory.LoadAsync(model, _installedModelDirectory, null, backendFactory, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert: a real engine was built from the injected backend, for the right model
-        Assert.IsType<SherpaOnnxSpeechRecognizerEngine>(engine);
+        Assert.IsType<SpeechRecognizerEngine>(engine);
         Assert.True(engine.IsAvailable);
         Assert.Equal(1, backendFactory.CreateCallCount);
         Assert.Same(model, backendFactory.RequestedModel);
@@ -182,7 +182,7 @@ public sealed class SpeechRecognizerFactoryTests : IDisposable
         await using var engine = await SpeechRecognizerFactory.LoadAsync(model, _installedModelDirectory, diagnostics, backendFactory, parameterValues, TestContext.Current.CancellationToken);
 
         // Assert: still a real, working engine, plus the observability diagnostic
-        Assert.IsType<SherpaOnnxSpeechRecognizerEngine>(engine);
+        Assert.IsType<SpeechRecognizerEngine>(engine);
         Assert.True(engine.IsAvailable);
         diagnostics.Received(1).Report(
             SpeechDiagnosticLevel.Info,
@@ -265,12 +265,12 @@ public sealed class SpeechRecognizerFactoryTests : IDisposable
 
     /// <summary>
     ///     Proves that a supplied <c>parameterValues</c> bag genuinely reaches the model's own
-    ///     two-argument <c>CreateEngineConfig</c> override, not merely the backend factory.
+    ///     two-argument <c>CreateBackend</c> override, not merely the backend factory.
     /// </summary>
     [Fact]
-    public async Task SpeechRecognizerFactory_LoadAsync_ParameterValuesSupplied_ReachesModelCreateEngineConfig()
+    public async Task SpeechRecognizerFactory_LoadAsync_ParameterValuesSupplied_ReachesModelCreateBackend()
     {
-        // Arrange: an installed model whose CreateEngineConfig override encodes the language value
+        // Arrange: an installed model whose CreateBackend override encodes the language value
         var backendFactory = new FakeRecognitionEngineFactory();
         var model = new ParameterCapturingRecognitionModel();
         IReadOnlyDictionary<string, object> parameterValues = new Dictionary<string, object> { ["language"] = "en-gb" };
@@ -278,9 +278,9 @@ public sealed class SpeechRecognizerFactoryTests : IDisposable
         // Act: compose an engine, supplying parameterValues
         await using var engine = await SpeechRecognizerFactory.LoadAsync(model, _installedModelDirectory, null, backendFactory, parameterValues, TestContext.Current.CancellationToken);
 
-        // Assert: the value reached the model's own CreateEngineConfig override
-        Assert.IsType<SherpaOnnxSpeechRecognizerEngine>(engine);
-        Assert.Equal("en-gb", backendFactory.RequestedConfig?.ModelConfig.ModelType);
+        // Assert: the value reached the model's own CreateBackend override
+        Assert.IsType<SpeechRecognizerEngine>(engine);
+        Assert.Equal("en-gb", (backendFactory.RequestedBackend as ParameterCapturingRecognitionEngine)?.Language);
     }
 
     /// <summary>
@@ -349,24 +349,24 @@ public sealed class SpeechRecognizerFactoryTests : IDisposable
         await using var engine = await SpeechRecognizerFactory.LoadAsync(model, _store, null, backendFactory, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert: a real engine was built, and the directory was resolved through the store
-        Assert.IsType<SherpaOnnxSpeechRecognizerEngine>(engine);
+        Assert.IsType<SpeechRecognizerEngine>(engine);
         Assert.Equal(1, backendFactory.CreateCallCount);
         Assert.Equal(_store.GetCurrentDirectory(model.Id), backendFactory.RequestedInstalledModelDirectory);
     }
 
     /// <summary>
     ///     Proves that a supplied <c>parameterValues</c> bag genuinely reaches the model's own
-    ///     two-argument <c>CreateEngineConfig</c> override when composed through the PUBLIC
+    ///     two-argument <c>CreateBackend</c> override when composed through the PUBLIC
     ///     store-based composition overload (with no injected <c>backendFactory</c>), so the real
     ///     production delegation chain (public store overload → public string overload →
     ///     internal string+backendFactory overload → real
-    ///     <see cref="Fakes.FakeRecognitionEngineFactory"/>-free <c>SherpaOnnxRecognitionEngineFactory</c>)
+    ///     <see cref="Fakes.FakeRecognitionEngineFactory"/>-free <c>DefaultRecognitionBackendFactory</c>)
     ///     is exercised end to end. The model throws from within its own
-    ///     <c>CreateEngineConfig</c> override, after recording the received parameter bag, so the
+    ///     <c>CreateBackend</c> override, after recording the received parameter bag, so the
     ///     test never reaches a real native sherpa-onnx engine construction.
     /// </summary>
     [Fact]
-    public async Task SpeechRecognizerFactory_LoadAsync_WithStoreParameterValuesSupplied_ReachesModelCreateEngineConfig()
+    public async Task SpeechRecognizerFactory_LoadAsync_WithStoreParameterValuesSupplied_ReachesModelCreateBackend()
     {
         // Arrange: a throwing parameter-capturing model installed via the store, and a parameter bag
         var model = new ThrowingParameterCapturingRecognitionModel();
@@ -378,7 +378,7 @@ public sealed class SpeechRecognizerFactoryTests : IDisposable
         // to the real public overload
         await using var engine = await SpeechRecognizerFactory.LoadAsync(model, _store, null, parameterValues, TestContext.Current.CancellationToken);
 
-        // Assert: the value reached the model's own CreateEngineConfig override via the real
+        // Assert: the value reached the model's own CreateBackend override via the real
         // production chain, and the model's throw was honestly swallowed into the unavailable
         // fallback rather than faulting the task
         Assert.Same(UnavailableSpeechRecognizerEngine.Instance, engine);
@@ -445,23 +445,23 @@ public sealed class SpeechRecognizerFactoryTests : IDisposable
         await using var engine = await SpeechRecognizerFactory.LoadAsync(model, _catalog, null, backendFactory, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert: a real engine was built, and the directory was resolved through the catalog's store
-        Assert.IsType<SherpaOnnxSpeechRecognizerEngine>(engine);
+        Assert.IsType<SpeechRecognizerEngine>(engine);
         Assert.Equal(1, backendFactory.CreateCallCount);
         Assert.Equal(_catalog.Store.GetCurrentDirectory(model.Id), backendFactory.RequestedInstalledModelDirectory);
     }
 
     /// <summary>
     ///     Proves that a supplied <c>parameterValues</c> bag genuinely reaches the model's own
-    ///     two-argument <c>CreateEngineConfig</c> override when composed through the PUBLIC
+    ///     two-argument <c>CreateBackend</c> override when composed through the PUBLIC
     ///     catalog-based composition overload (with no injected <c>backendFactory</c>), so the real
     ///     production delegation chain (public catalog overload → public store overload → public
     ///     string overload → internal string+backendFactory overload → real
-    ///     <c>SherpaOnnxRecognitionEngineFactory</c>) is exercised end to end. The model throws
-    ///     from within its own <c>CreateEngineConfig</c> override, after recording the received
+    ///     <c>DefaultRecognitionBackendFactory</c>) is exercised end to end. The model throws
+    ///     from within its own <c>CreateBackend</c> override, after recording the received
     ///     parameter bag, so the test never reaches a real native sherpa-onnx engine construction.
     /// </summary>
     [Fact]
-    public async Task SpeechRecognizerFactory_LoadAsync_WithCatalogParameterValuesSupplied_ReachesModelCreateEngineConfig()
+    public async Task SpeechRecognizerFactory_LoadAsync_WithCatalogParameterValuesSupplied_ReachesModelCreateBackend()
     {
         // Arrange: a throwing parameter-capturing model installed via the catalog's store, and a parameter bag
         var model = new ThrowingParameterCapturingRecognitionModel();
@@ -473,7 +473,7 @@ public sealed class SpeechRecognizerFactoryTests : IDisposable
         // to the real public overload
         await using var engine = await SpeechRecognizerFactory.LoadAsync(model, _catalog, null, parameterValues, TestContext.Current.CancellationToken);
 
-        // Assert: the value reached the model's own CreateEngineConfig override via the real
+        // Assert: the value reached the model's own CreateBackend override via the real
         // production chain, and the model's throw was honestly swallowed into the unavailable
         // fallback rather than faulting the task
         Assert.Same(UnavailableSpeechRecognizerEngine.Instance, engine);
@@ -593,16 +593,16 @@ public sealed class SpeechRecognizerFactoryTests : IDisposable
         AudioFormat IRecognitionModel.AudioFormat => AudioFormat.Mono(16000);
 
         /// <inheritdoc/>
-        SherpaOnnx.OnlineRecognizerConfig IRecognitionModel.CreateEngineConfig(string installedModelDirectory) =>
-            new();
+        IRecognitionBackend IRecognitionModel.CreateBackend(string installedModelDirectory) =>
+            new FakeRecognitionEngine();
     }
 
     /// <summary>
-    ///     Test-only recognition model whose two-argument <c>CreateEngineConfig</c> override
-    ///     encodes a supplied <c>"language"</c> parameter value into the returned config's
-    ///     <c>ModelConfig.ModelType</c>, used to prove a <c>parameterValues</c> bag supplied to
-    ///     <see cref="SpeechRecognizerFactory"/>'s <c>LoadAsync</c> overloads genuinely reaches
-    ///     the model, not merely the backend factory.
+    ///     Test-only recognition model whose two-argument <c>CreateBackend</c> override encodes a
+    ///     supplied <c>"language"</c> parameter value into the returned
+    ///     <see cref="FakeRecognitionEngine"/>, used to prove a <c>parameterValues</c> bag
+    ///     supplied to <see cref="SpeechRecognizerFactory"/>'s <c>LoadAsync</c> overloads
+    ///     genuinely reaches the model, not merely the backend factory.
     /// </summary>
     private sealed class ParameterCapturingRecognitionModel : IRecognitionModel
     {
@@ -629,35 +629,70 @@ public sealed class SpeechRecognizerFactoryTests : IDisposable
         AudioFormat IRecognitionModel.AudioFormat => AudioFormat.Mono(16000);
 
         /// <inheritdoc/>
-        SherpaOnnx.OnlineRecognizerConfig IRecognitionModel.CreateEngineConfig(string installedModelDirectory) =>
-            new();
+        IRecognitionBackend IRecognitionModel.CreateBackend(string installedModelDirectory) =>
+            new FakeRecognitionEngine();
 
         /// <summary>
-        ///     Encodes a supplied <c>"language"</c> string value into the returned config's
-        ///     <c>ModelConfig.ModelType</c> field, so a test can assert the value it passed as
+        ///     Encodes a supplied <c>"language"</c> string value into the returned engine's
+        ///     reported capability/metadata so a test can assert the value it passed as
         ///     <c>parameterValues</c> reached this method, not merely the backend factory that
         ///     called it.
         /// </summary>
         /// <inheritdoc/>
-        SherpaOnnx.OnlineRecognizerConfig IRecognitionModel.CreateEngineConfig(
+        IRecognitionBackend IRecognitionModel.CreateBackend(
             string installedModelDirectory,
             IReadOnlyDictionary<string, object>? parameterValues)
         {
-            var config = new SherpaOnnx.OnlineRecognizerConfig();
-            if (parameterValues is not null &&
+            var language = parameterValues is not null &&
                 parameterValues.TryGetValue("language", out var value) &&
-                value is string language)
-            {
-                config.ModelConfig.ModelType = language;
-            }
+                value is string languageValue
+                    ? languageValue
+                    : null;
 
-            return config;
+            return new ParameterCapturingRecognitionEngine(language);
         }
     }
 
     /// <summary>
-    ///     Test-only recognition model whose two-argument <c>CreateEngineConfig</c> override
-    ///     records the received <c>parameterValues</c> bag into <see cref="RequestedParameterValues"/>
+    ///     Minimal <see cref="IRecognitionBackend"/> that only exposes the <c>language</c> value
+    ///     it was constructed with, so a test can assert a <c>parameterValues</c> bag genuinely
+    ///     reached <see cref="IRecognitionModel.CreateBackend(string,IReadOnlyDictionary{string,object}?)"/>
+    ///     as implemented by <see cref="ParameterCapturingRecognitionModel"/>.
+    /// </summary>
+    private sealed class ParameterCapturingRecognitionEngine(string? language) : IRecognitionBackend
+    {
+        /// <summary>Gets the <c>language</c> parameter value the owning model received, or <see langword="null"/>.</summary>
+        public string? Language => language;
+
+        /// <inheritdoc/>
+        public void AcceptSamples(ReadOnlySpan<float> monoSamples)
+        {
+        }
+
+        /// <inheritdoc/>
+        public bool TryDecode(out SpeechRecognitionResult? result)
+        {
+            result = null;
+            return false;
+        }
+
+        /// <inheritdoc/>
+        public bool TryFlush(out SpeechRecognitionResult? result) => TryDecode(out result);
+
+        /// <inheritdoc/>
+        public void Reset()
+        {
+        }
+
+        /// <inheritdoc/>
+        public void Dispose()
+        {
+        }
+    }
+
+    /// <summary>
+    ///     Test-only recognition model whose two-argument <c>CreateBackend</c> override records
+    ///     the received <c>parameterValues</c> bag into <see cref="RequestedParameterValues"/>
     ///     and then throws, short-circuiting before any real native sherpa-onnx engine
     ///     construction could occur. Used to prove that a <c>parameterValues</c> bag supplied to
     ///     the genuine PUBLIC store/catalog composition overloads (with no injected
@@ -668,7 +703,7 @@ public sealed class SpeechRecognizerFactoryTests : IDisposable
     {
         /// <summary>
         ///     Gets the <c>parameterValues</c> bag most recently received by the two-argument
-        ///     <see cref="IRecognitionModel.CreateEngineConfig(string,IReadOnlyDictionary{string,object}?)"/>
+        ///     <see cref="IRecognitionModel.CreateBackend(string,IReadOnlyDictionary{string,object}?)"/>
         ///     override, or <see langword="null"/> if it has not yet been invoked.
         /// </summary>
         public IReadOnlyDictionary<string, object>? RequestedParameterValues { get; private set; }
@@ -700,7 +735,7 @@ public sealed class SpeechRecognizerFactoryTests : IDisposable
         ///     always supplied; throws <see cref="NotSupportedException"/> if it ever is.
         /// </summary>
         /// <inheritdoc/>
-        SherpaOnnx.OnlineRecognizerConfig IRecognitionModel.CreateEngineConfig(string installedModelDirectory) =>
+        IRecognitionBackend IRecognitionModel.CreateBackend(string installedModelDirectory) =>
             throw new NotSupportedException(
                 "This test model always expects parameterValues to be supplied; the single-argument overload should never be invoked.");
 
@@ -711,13 +746,13 @@ public sealed class SpeechRecognizerFactoryTests : IDisposable
         ///     sherpa-onnx engine construction could occur.
         /// </summary>
         /// <inheritdoc/>
-        SherpaOnnx.OnlineRecognizerConfig IRecognitionModel.CreateEngineConfig(
+        IRecognitionBackend IRecognitionModel.CreateBackend(
             string installedModelDirectory,
             IReadOnlyDictionary<string, object>? parameterValues)
         {
             RequestedParameterValues = parameterValues;
             throw new InvalidOperationException(
-                "Deliberate short-circuit: parameterValues has been recorded; no real engine config is produced.");
+                "Deliberate short-circuit: parameterValues has been recorded; no real backend is produced.");
         }
     }
 }

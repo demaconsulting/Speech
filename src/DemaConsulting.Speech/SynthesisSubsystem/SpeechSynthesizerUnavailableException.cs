@@ -17,7 +17,7 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     <para>
 ///     This type is reserved for the same first-use-after-"unavailable" misuse case described
 ///     above - this exception is <em>not</em> what a real, available
-///     <see cref="SherpaOnnxSynthesisSession"/> throws for its own runtime failures: a playback
+///     <see cref="SynthesisSession"/> throws for its own runtime failures: a playback
 ///     device failure (for example the speakers disconnecting mid-call) propagates as
 ///     <see cref="AudioSubsystem.AudioDeviceUnavailableException"/>, not this type, and a call
 ///     made on a session that has already reached its terminal

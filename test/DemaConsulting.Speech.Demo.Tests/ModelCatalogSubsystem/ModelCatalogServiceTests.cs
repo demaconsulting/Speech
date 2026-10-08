@@ -2,6 +2,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using DemaConsulting.Speech.Demo.ModelCatalogSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
+using DemaConsulting.Speech.Sherpa;
 
 namespace DemaConsulting.Speech.Demo.Tests.ModelCatalogSubsystem;
 
@@ -42,7 +43,7 @@ public class ModelCatalogServiceTests
     {
         // Arrange: the real library catalog, whose compiled-in known-model registry now
         // contains this phase's four real models
-        using var catalog = new SpeechModelCatalog(IsolatedOptions());
+        using var catalog = new SpeechModelCatalog(IsolatedOptions()).AddSherpaModels();
         var service = new ModelCatalogService(catalog);
 
         // Act: enumerate through the demo's seam
@@ -50,7 +51,7 @@ public class ModelCatalogServiceTests
 
         // Assert: the same models the library itself knows about are passed through unchanged,
         // preserving each model's own declared role rather than assuming they are all one role
-        Assert.Equal(SpeechModelCatalog.KnownModels.Count, models.Count);
+        Assert.Equal(4, models.Count);
         Assert.Equal(2, models.Count(m => m.Role == SpeechModelRole.Recognition));
         Assert.Equal(2, models.Count(m => m.Role == SpeechModelRole.Synthesis));
     }
@@ -79,7 +80,7 @@ public class ModelCatalogServiceTests
     public void ModelCatalogService_Enumerate_AfterAnotherAdapterFallsOutOfUse_StillWorks()
     {
         // Arrange: two adapters over one shared catalog
-        using var catalog = new SpeechModelCatalog(IsolatedOptions());
+        using var catalog = new SpeechModelCatalog(IsolatedOptions()).AddSherpaModels();
         var first = new ModelCatalogService(catalog);
         var second = new ModelCatalogService(catalog);
 
@@ -88,7 +89,7 @@ public class ModelCatalogServiceTests
         var models = second.Enumerate();
 
         // Assert: the shared catalog is still usable and reports the same known models
-        Assert.Equal(SpeechModelCatalog.KnownModels.Count, models.Count);
+        Assert.Equal(4, models.Count);
     }
 
     /// <summary>

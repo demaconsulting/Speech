@@ -73,7 +73,7 @@ Runs a broader environment/health check than `--validate`'s five CI-safe checks 
    types are the library's `Unavailable*` fallback singletons - a safe, public proxy signal,
    since the library's own `PortAudioEnvironment` init status is `internal` and not exposed to
    the CLI) and whether the native `sherpa-onnx-c-api` shared library is loadable, preferring its
-   concrete `runtimes/<rid>/native/` path (see [SherpaOnnx Resolvability Scope](#sherpaonnx-resolvability-scope))
+   concrete `runtimes/<rid>/native/` path (see the SherpaOnnx Resolvability Scope section below)
 2. **Model store**: root path, writability (a temporary marker file is written to and deleted
    from the root), and available disk space at that location
 3. **Audio devices**: input/output device counts only (not a full enumeration - that is

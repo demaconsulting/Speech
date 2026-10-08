@@ -5,7 +5,7 @@ package Speech {
              * underlying cause (for example a capture device becoming unavailable mid-session). */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech/RecognitionSubsystem/RecognitionSessionFaultedException.cs */
-        comment testRef /* Test: test/DemaConsulting.Speech.Tests/RecognitionSubsystem/SherpaOnnxRecognitionSessionTests.cs */
+        comment testRef /* Test: test/DemaConsulting.Speech.Tests/RecognitionSubsystem/RecognitionSessionTests.cs */
         comment designRef /* Design: docs/design/speech/recognition-subsystem/i-recognition-session.md (documented as a supporting fault type) */
         comment verificationRef /* Verification: docs/verification/speech/recognition-subsystem/i-recognition-session.md (documented as a supporting fault type) */
         comment reqRef /* Requirements: docs/reqstream/speech/recognition-subsystem/i-recognition-session.yaml */

@@ -18,7 +18,8 @@ download client) enumerates and tracks state correctly.
 
 #### Acceptance Criteria
 
-An empty `KnownModels`/known-model list enumerates to an empty list; a never-downloaded known
+An empty known-model list enumerates to an empty list; `AddModels` returns the same catalog
+instance for chaining and every model it registers appears in `Enumerate()`; a never-downloaded known
 model reports `NotDownloaded`; a download in flight reports `Downloading`; a completed
 successful download reports `Downloaded`; a checksum-mismatched download reports
 `FailedOrCorrupt`; requesting a download for an unknown model id throws `ArgumentException`; the
@@ -30,9 +31,16 @@ successful download reports `Downloaded`; a checksum-mismatched download reports
 
 **Test**: `SpeechModelCatalog_Enumerate_EmptyKnownModels_ReturnsEmptyList`
 
-##### The compiled-in KnownModels list contains all four real, production models
+##### AddModels returns the same catalog instance for chaining
 
-**Test**: `SpeechModelCatalog_KnownModels_ContainsAllFourRealModels`
+**Test**: `SpeechModelCatalog_AddModels_ChainedCall_ReturnsSameInstance`
+
+##### A model registered through AddModels appears in Enumerate
+
+**Test**: `SpeechModelCatalog_AddModels_Called_AppearsInEnumerate`
+
+Registration of the four real, production sherpa-onnx models through `AddSherpaModels()` is
+verified separately by SpeechSherpa; see _SpeechSherpa ModelManagementSubsystem Verification_.
 
 ##### The Store property returns the same store instance the catalog composes internally
 
