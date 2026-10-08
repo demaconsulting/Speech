@@ -35,6 +35,8 @@ input-files:
   - docs/verification/speech/model-management-subsystem/i-model-download-client.md
   - docs/verification/speech/model-management-subsystem/http-model-download-client.md
   - docs/verification/speech/model-management-subsystem/speech-model-downloader.md
+  - docs/verification/speech/model-management-subsystem/speech-model-downloader-options.md
+  - docs/verification/speech/model-management-subsystem/download-mirror.md
   - docs/verification/speech/model-management-subsystem/speech-model-descriptor-enums.md
   - docs/verification/speech/model-management-subsystem/speech-model-parameters.md
   - docs/verification/speech/model-management-subsystem/speech-model-contract.md

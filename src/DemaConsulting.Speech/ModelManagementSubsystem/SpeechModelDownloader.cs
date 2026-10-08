@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using System.Net.Sockets;
+using System.Security.Authentication;
 using System.Security.Cryptography;
 using DemaConsulting.Speech.Diagnostics;
 
@@ -44,6 +46,13 @@ public sealed class SpeechModelDownloader : IDisposable
     private readonly bool _ownsClient;
 
     /// <summary>
+    ///     The mirror every declared file's effective download URI is resolved beneath, or
+    ///     <see langword="null"/> to fetch every file from exactly the URI its own
+    ///     <see cref="SpeechModelDownloadFile.Uri"/> declares.
+    /// </summary>
+    private readonly DownloadMirror? _mirror;
+
+    /// <summary>
     ///     Initializes a new instance of the <see cref="SpeechModelDownloader"/> class.
     /// </summary>
     /// <param name="store">The store used to stage and atomically install downloaded models.</param>
@@ -57,11 +66,20 @@ public sealed class SpeechModelDownloader : IDisposable
     ///     The sink to report structural download failures to, or <see langword="null"/> to use
     ///     <see cref="NullSpeechDiagnostics.Instance"/>.
     /// </param>
+    /// <param name="options">
+    ///     Optional host-configurable download options, or <see langword="null"/> (the default)
+    ///     to fetch every file from exactly the URI its own <see cref="SpeechModelDownloadFile.Uri"/>
+    ///     declares - byte-for-byte identical to this constructor's behavior before
+    ///     <see cref="SpeechModelDownloaderOptions"/> existed. See
+    ///     <see cref="SpeechModelDownloaderOptions.Mirror"/> for the one behavior this parameter
+    ///     currently controls.
+    /// </param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="store"/> is <see langword="null"/>.</exception>
     public SpeechModelDownloader(
         SpeechModelStore store,
         IModelDownloadClient? client = null,
-        ISpeechDiagnostics? diagnostics = null)
+        ISpeechDiagnostics? diagnostics = null,
+        SpeechModelDownloaderOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(store);
 
@@ -69,6 +87,7 @@ public sealed class SpeechModelDownloader : IDisposable
         _ownsClient = client is null;
         _client = client ?? new HttpModelDownloadClient();
         _diagnostics = diagnostics ?? NullSpeechDiagnostics.Instance;
+        _mirror = options?.Mirror;
     }
 
     /// <summary>
@@ -89,9 +108,12 @@ public sealed class SpeechModelDownloader : IDisposable
     /// </param>
     /// <returns>
     ///     A <see cref="SpeechModelDownloadResult"/> describing whether the model was installed,
-    ///     or the honest failure reason (checksum mismatch or another download/I/O failure) when
-    ///     it was not. Never reports success for a corrupted, partial, or checksum-mismatched
-    ///     download.
+    ///     or the honest, specifically classified failure reason when it was not: a checksum
+    ///     mismatch, network/mirror blocking (TLS interception or DNS/connection failure, or an
+    ///     internal request timeout), a real HTTP error response, a local disk/I/O failure, or
+    ///     the generic fallback for any other failure - see <see cref="SpeechModelDownloadOutcome"/>'s
+    ///     own members for the precise classification rules. Never reports success for a
+    ///     corrupted, partial, or checksum-mismatched download.
     /// </returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="descriptor"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">Thrown when <paramref name="modelId"/> is null, empty, or not a valid directory name.</exception>
@@ -149,9 +171,12 @@ public sealed class SpeechModelDownloader : IDisposable
     /// </param>
     /// <returns>
     ///     A <see cref="SpeechModelDownloadResult"/> describing whether the model was installed,
-    ///     or the honest failure reason (checksum mismatch, an install-hook failure, or another
-    ///     download/I/O failure) when it was not. Never reports success for a corrupted, partial,
-    ///     or checksum-mismatched download, nor for one whose <see cref="ISpeechModel.InstallAsync"/>
+    ///     or the honest, specifically classified failure reason when it was not: a checksum
+    ///     mismatch, an install-hook failure, network/mirror blocking, a real HTTP error
+    ///     response, a local disk/I/O failure, or the generic fallback for any other failure -
+    ///     see <see cref="SpeechModelDownloadOutcome"/>'s own members for the precise
+    ///     classification rules. Never reports success for a corrupted, partial, or
+    ///     checksum-mismatched download, nor for one whose <see cref="ISpeechModel.InstallAsync"/>
     ///     hook failed.
     /// </returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="model"/> is <see langword="null"/>.</exception>
@@ -247,8 +272,9 @@ public sealed class SpeechModelDownloader : IDisposable
                 var destinationPath = Path.Join(stagingDirectory, file.RelativeInstallPath);
                 Directory.CreateDirectory(Path.GetDirectoryName(destinationPath) ?? stagingDirectory);
 
+                var effectiveUri = ResolveEffectiveUri(file.Uri, _mirror, modelId, file.RelativeInstallPath);
                 await FetchFileAsync(
-                        file,
+                        effectiveUri,
                         destinationPath,
                         fileIndex,
                         descriptor.Files.Count,
@@ -291,23 +317,128 @@ public sealed class SpeechModelDownloader : IDisposable
             _store.CompleteInstall(modelId, operationId, stagingDirectory, totalSizeBytes);
             return new SpeechModelDownloadResult(SpeechModelDownloadOutcome.Installed);
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            // Only a genuine caller cancellation (the supplied token itself was signaled) takes
+            // this branch and propagates unchanged. An OperationCanceledException/
+            // TaskCanceledException NOT caused by this token (for example HttpClient's own
+            // internal request timeout) falls through to the catch below instead, where
+            // ClassifyFailure honestly reports it as NetworkBlocked rather than being mistaken
+            // for a caller-driven cancellation.
             SpeechModelStore.AbandonStaging(stagingDirectory);
             throw;
         }
         catch (Exception ex)
         {
             // Intentionally broad: this top-level download/install boundary must convert any
-            // non-cancellation network, checksum, archive, or file-system failure into an honest
-            // Failed result after cleaning up the staging directory.
+            // non-cancellation network, checksum, archive, or file-system failure into an honest,
+            // specifically classified outcome after cleaning up the staging directory. See
+            // ClassifyFailure for exactly which exception shapes map to which outcome.
+            var outcome = ClassifyFailure(ex);
             _diagnostics.Report(
                 SpeechDiagnosticLevel.Error,
                 "ModelManagementSubsystem",
                 $"Failed to download model '{modelId}': {ex.Message}");
             SpeechModelStore.AbandonStaging(stagingDirectory);
-            return new SpeechModelDownloadResult(SpeechModelDownloadOutcome.Failed, ex);
+            return new SpeechModelDownloadResult(outcome, ex);
         }
+    }
+
+    /// <summary>
+    ///     Classifies a download/install failure into the most honest, specific
+    ///     <see cref="SpeechModelDownloadOutcome"/> it matches, so a host can distinguish a
+    ///     network/mirror-blocked failure from a real HTTP error response from a local disk/
+    ///     permission failure, rather than collapsing every failure into one generic
+    ///     <see cref="SpeechModelDownloadOutcome.Failed"/>.
+    /// </summary>
+    /// <param name="ex">
+    ///     The exception to classify. Never an <see cref="OperationCanceledException"/> caused by
+    ///     the caller's own <see cref="CancellationToken"/> - that case is filtered out by the
+    ///     guarded <c>catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)</c>
+    ///     clause before this method is ever called.
+    /// </param>
+    /// <returns>
+    ///     <see cref="SpeechModelDownloadOutcome.NetworkBlocked"/> for an
+    ///     <see cref="HttpRequestException"/> whose <see cref="Exception.InnerException"/> is an
+    ///     <see cref="AuthenticationException"/> (a TLS/certificate failure, as seen when a
+    ///     network appliance intercepts and re-signs TLS traffic with an untrusted root) or a
+    ///     <see cref="SocketException"/> (DNS resolution failure, connection refused, or host
+    ///     unreachable), or for a <see cref="TaskCanceledException"/> that reaches this method (by
+    ///     construction, never a genuine caller cancellation - see <paramref name="ex"/>'s
+    ///     remarks - so it is always <see cref="HttpClient"/>'s own internal request timeout);
+    ///     <see cref="SpeechModelDownloadOutcome.HttpError"/> for an
+    ///     <see cref="HttpRequestException"/> with a non-<see langword="null"/>
+    ///     <see cref="HttpRequestException.StatusCode"/> (a real HTTP response was received, for
+    ///     example <c>404</c>/<c>403</c>/a <c>5xx</c> server error); <see cref="SpeechModelDownloadOutcome.IoFailure"/>
+    ///     for an <see cref="IOException"/> or <see cref="UnauthorizedAccessException"/> not
+    ///     otherwise matched above (disk full, permission denied, path too long); otherwise,
+    ///     <see cref="SpeechModelDownloadOutcome.Failed"/> as the final, generic fallback for any
+    ///     unmatched exception type - this classification never throws, and an unmatched
+    ///     exception still produces <see cref="SpeechModelDownloadOutcome.Failed"/> with the
+    ///     exception preserved in <see cref="SpeechModelDownloadResult.Error"/>, exactly as
+    ///     before this richer classification existed.
+    /// </returns>
+    private static SpeechModelDownloadOutcome ClassifyFailure(Exception ex) => ex switch
+    {
+        HttpRequestException { StatusCode: not null } => SpeechModelDownloadOutcome.HttpError,
+        HttpRequestException { InnerException: AuthenticationException or SocketException } =>
+            SpeechModelDownloadOutcome.NetworkBlocked,
+        TaskCanceledException => SpeechModelDownloadOutcome.NetworkBlocked,
+        IOException or UnauthorizedAccessException => SpeechModelDownloadOutcome.IoFailure,
+        _ => SpeechModelDownloadOutcome.Failed,
+    };
+
+    /// <summary>
+    ///     Resolves the effective request URI for one declared file: the file's own declared
+    ///     <paramref name="originalUri"/> unchanged when no mirror is configured, or a
+    ///     mirror-relative URI built from <paramref name="mirror"/>'s <see cref="DownloadMirror.BaseUri"/>,
+    ///     <paramref name="modelId"/>, and <paramref name="relativeInstallPath"/> when one is.
+    /// </summary>
+    /// <param name="originalUri">The file's own declared source URI.</param>
+    /// <param name="mirror">The configured mirror, or <see langword="null"/> to fetch from <paramref name="originalUri"/> unchanged.</param>
+    /// <param name="modelId">The model id the file belongs to, used as the mirror-relative path's first segment.</param>
+    /// <param name="relativeInstallPath">
+    ///     The file's declared relative install path (for example <c>"model.bin"</c> or
+    ///     <c>"tokens/vocab.txt"</c>), appended beneath <paramref name="modelId"/> on the mirror.
+    /// </param>
+    /// <returns>
+    ///     <paramref name="originalUri"/> unchanged when <paramref name="mirror"/> is <see langword="null"/>;
+    ///     otherwise, <c>{mirror.BaseUri}/{modelId}/{relativeInstallPath}</c>, with
+    ///     <paramref name="modelId"/> and each <paramref name="relativeInstallPath"/> segment
+    ///     individually percent-escaped and exactly one separating slash between every segment
+    ///     regardless of whether <see cref="DownloadMirror.BaseUri"/> itself ends with a
+    ///     trailing slash.
+    /// </returns>
+    /// <remarks>
+    ///     Marked <see langword="internal"/> (rather than <see langword="private"/>) specifically
+    ///     so <c>DemaConsulting.Speech.Tests</c> can exercise every edge case (trailing-slash
+    ///     variations, subdirectories, URL-unsafe characters) directly, via this assembly's
+    ///     existing <c>InternalsVisibleTo</c> grant to that test project.
+    /// </remarks>
+    internal static Uri ResolveEffectiveUri(
+        Uri originalUri,
+        DownloadMirror? mirror,
+        string modelId,
+        string relativeInstallPath)
+    {
+        if (mirror is null)
+        {
+            return originalUri;
+        }
+
+        // Trim exactly one trailing slash from the mirror's base so "https://mirror/" and
+        // "https://mirror" both combine identically with the segments that follow.
+        var basePath = mirror.BaseUri.ToString().TrimEnd('/');
+
+        // RelativeInstallPath may use either path separator (SpeechModelDownloadFile accepts
+        // both when validating "no parent-escaping segments"), so split on both and
+        // percent-escape each segment (and modelId) individually before rejoining with '/' -
+        // never escape the already-combined string as a whole, which would incorrectly encode
+        // the separating slashes themselves.
+        var segments = relativeInstallPath.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries);
+        var escapedSegments = segments.Select(Uri.EscapeDataString);
+        var combined = string.Join('/', [basePath, Uri.EscapeDataString(modelId), .. escapedSegments]);
+        return new Uri(combined);
     }
 
     /// <summary>
@@ -325,7 +456,7 @@ public sealed class SpeechModelDownloader : IDisposable
     ///     single-file-relative progress reports into the caller's overall, multi-file view.
     /// </summary>
     private async Task FetchFileAsync(
-        SpeechModelDownloadFile file,
+        Uri effectiveUri,
         string destinationPath,
         int fileIndex,
         int fileCount,
@@ -338,7 +469,7 @@ public sealed class SpeechModelDownloader : IDisposable
 
         await using var destinationStream =
             new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None);
-        await _client.DownloadAsync(file.Uri, destinationStream, fileProgress, cancellationToken)
+        await _client.DownloadAsync(effectiveUri, destinationStream, fileProgress, cancellationToken, _mirror)
             .ConfigureAwait(false);
     }
 
@@ -408,6 +539,15 @@ public sealed class SpeechModelDownloader : IDisposable
 ///     Describes why a <c>SpeechModelDownloader.DownloadAsync</c> call did or did not
 ///     result in an installed model.
 /// </summary>
+/// <remarks>
+///     These members are intentionally declared in this order (<see cref="Failed"/> before the
+///     three richer, later-added classifications) so every existing member's ordinal value stays
+///     byte-identical to this enum's original three-member shape; <see cref="Failed"/> remains
+///     the classification logic's final, generic fallback (a property of
+///     <c>SpeechModelDownloader.ClassifyFailure</c>'s behavior, not of declaration order) for any
+///     exception shape none of <see cref="NetworkBlocked"/>/<see cref="HttpError"/>/
+///     <see cref="IoFailure"/> recognizes.
+/// </remarks>
 public enum SpeechModelDownloadOutcome
 {
     /// <summary>Every declared file was fetched, verified, and atomically installed.</summary>
@@ -420,10 +560,48 @@ public enum SpeechModelDownloadOutcome
     ChecksumMismatch,
 
     /// <summary>
-    ///     A transport or I/O failure prevented the download from completing; nothing was
-    ///     installed, and any prior successful install of the same model is untouched.
+    ///     A download or install failure occurred whose exception type did not match any of the
+    ///     more specific classifications below (<see cref="NetworkBlocked"/>,
+    ///     <see cref="HttpError"/>, <see cref="IoFailure"/>) - the final, generic fallback.
+    ///     Nothing was installed, and any prior successful install of the same model is
+    ///     untouched.
     /// </summary>
     Failed,
+
+    /// <summary>
+    ///     The request never reached a real server, or never got a real response, in a way
+    ///     consistent with network-level blocking rather than an application-level HTTP error:
+    ///     either a TLS/certificate failure (for example a network appliance intercepting and
+    ///     re-signing TLS traffic with an untrusted root certificate, surfacing as an
+    ///     <c>HttpRequestException</c> wrapping an
+    ///     <see cref="System.Security.Authentication.AuthenticationException"/>), a DNS/
+    ///     connection-level failure (an <c>HttpRequestException</c> wrapping a
+    ///     <see cref="System.Net.Sockets.SocketException"/> - DNS resolution failure, connection
+    ///     refused, or host unreachable), or a request timeout that was <em>not</em> caused by
+    ///     the caller's own <see cref="CancellationToken"/> (a genuine caller cancellation still
+    ///     propagates unchanged as <see cref="OperationCanceledException"/>, never this outcome).
+    ///     Nothing was installed, and any prior successful install of the same model is
+    ///     untouched.
+    /// </summary>
+    NetworkBlocked,
+
+    /// <summary>
+    ///     A real HTTP response was received from a server, but its status code indicated
+    ///     failure (for example <c>404 Not Found</c>, <c>403 Forbidden</c>, or a <c>5xx</c>
+    ///     server error) - an <c>HttpRequestException</c> with a non-<see langword="null"/>
+    ///     <c>StatusCode</c>. Nothing was installed, and any prior successful install of the
+    ///     same model is untouched.
+    /// </summary>
+    HttpError,
+
+    /// <summary>
+    ///     A local file-system failure prevented the download from completing or being staged
+    ///     (for example disk full, permission denied, or a path too long) - an
+    ///     <see cref="IOException"/> or <see cref="UnauthorizedAccessException"/> not otherwise
+    ///     classified above. Nothing was installed, and any prior successful install of the same
+    ///     model is untouched.
+    /// </summary>
+    IoFailure,
 }
 
 /// <summary>
@@ -432,7 +610,9 @@ public enum SpeechModelDownloadOutcome
 /// <param name="Outcome">Why the download did or did not result in an installed model.</param>
 /// <param name="Error">
 ///     The underlying/descriptive exception for any non-<see cref="SpeechModelDownloadOutcome.Installed"/>
-///     outcome (<see cref="SpeechModelDownloadOutcome.Failed"/> or
-///     <see cref="SpeechModelDownloadOutcome.ChecksumMismatch"/>); otherwise, <see langword="null"/>.
+///     outcome (<see cref="SpeechModelDownloadOutcome.ChecksumMismatch"/>,
+///     <see cref="SpeechModelDownloadOutcome.Failed"/>, <see cref="SpeechModelDownloadOutcome.NetworkBlocked"/>,
+///     <see cref="SpeechModelDownloadOutcome.HttpError"/>, or <see cref="SpeechModelDownloadOutcome.IoFailure"/>);
+///     otherwise, <see langword="null"/>.
 /// </param>
 public sealed record SpeechModelDownloadResult(SpeechModelDownloadOutcome Outcome, Exception? Error = null);

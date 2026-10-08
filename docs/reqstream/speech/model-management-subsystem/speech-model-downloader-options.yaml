@@ -1,0 +1,37 @@
+---
+# Software Unit Requirements for SpeechModelDownloaderOptions
+#
+# These requirements describe the design-level behavior of the SpeechModelDownloaderOptions unit,
+# decomposing the parent ModelManagementSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        sections:
+          - title: SpeechModelDownloaderOptions Requirements
+            requirements:
+              - id: Speech-Models-SpeechModelDownloaderOptions-MirrorDefaultsNull
+                title: >-
+                  The SpeechModelDownloaderOptions record shall expose an optional Mirror
+                  property that, when null (the default), preserves SpeechModelDownloader's
+                  exact pre-mirror behavior of fetching every file from its own declared Uri.
+                justification: |
+                  A host almost never needs to supply this type at all; defaulting Mirror to null
+                  guarantees zero behavior change for every existing caller that never learns this
+                  type exists.
+                tests:
+                  - SpeechModelDownloader_DownloadAsync_NoMirrorConfigured_ForwardsOriginalUriAndNullMirrorAuth
+
+              - id: Speech-Models-SpeechModelDownloaderOptions-MirrorRedirectsDownloads
+                title: >-
+                  The SpeechModelDownloaderOptions record shall, when Mirror is non-null, cause
+                  SpeechModelDownloader to resolve every declared file's effective request URI
+                  beneath that mirror and apply its configured authentication (if any) to
+                  requests sent to it.
+                justification: |
+                  This is the one seam that lets a host with network policy blocking public model
+                  hosts redirect every model download to an internal mirror it controls, without
+                  any change to the models' declared download descriptors.
+                tests:
+                  - SpeechModelDownloader_DownloadAsync_MirrorConfigured_ForwardsEffectiveUriAndMirrorAuth

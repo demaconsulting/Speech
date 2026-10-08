@@ -196,6 +196,61 @@ sections:
               - HttpModelDownloadClient_DownloadAsync_LoopbackServer_DownloadsExactBytesWithProgress
               - HttpModelDownloadClient_DownloadAsync_NonSuccessResponse_ThrowsHttpRequestException
 
+          - id: Speech-Models-MirrorRedirect
+            title: >-
+              The ModelManagementSubsystem shall let a host redirect every model download through
+              a single, optionally-authenticated internal HTTP(S) mirror, uniformly for every
+              model, with no change to any model's own declared download descriptor, and with
+              zero change to the no-mirror-configured behavior of any existing caller.
+            justification: |
+              Some customers' IT departments block the public hosts every model's declared
+              download URI points at (for example a TLS-interception policy breaking
+              `huggingface.co`); redirecting every model download to an internal mirror the
+              customer controls, without any per-model code change, requires one uniform
+              URI-rewriting and authentication seam at this library's single download choke
+              point, not a per-model opt-in.
+            children:
+              - Speech-Models-DownloadMirror-SchemeValidation
+              - Speech-Models-DownloadMirror-MutualExclusivity
+              - Speech-Models-DownloadMirror-NullArgumentValidation
+              - Speech-Models-SpeechModelDownloaderOptions-MirrorDefaultsNull
+              - Speech-Models-SpeechModelDownloaderOptions-MirrorRedirectsDownloads
+              - Speech-Models-SpeechModelDownloader-MirrorUriResolution
+              - Speech-Models-IModelDownloadClient-MirrorAuthSeam
+              - Speech-Models-HttpModelDownloadClient-MirrorAuthApplication
+            tests:
+              - DownloadMirror_Constructor_BothCredentialsAndBearerToken_ThrowsArgumentException
+              - DownloadMirror_Constructor_NonHttpScheme_ThrowsArgumentExceptionNamingScheme
+              - SpeechModelDownloader_DownloadAsync_MirrorConfigured_ForwardsEffectiveUriAndMirrorAuth
+              - HttpModelDownloadClient_DownloadAsync_BearerTokenMirror_SendsBearerAuthorizationHeader
+              - HttpModelDownloadClient_DownloadAsync_CredentialsMirror_NegotiatesBasicAuthentication
+
+          - id: Speech-Models-RicherFailureClassification
+            title: >-
+              The ModelManagementSubsystem shall classify a download/install failure into
+              NetworkBlocked, HttpError, or IoFailure when it recognizes the specific exception
+              shape, falling back to the existing generic Failed outcome for anything unmatched,
+              so a host can distinguish a blocked/intercepted network path from a real HTTP error
+              response or a local disk/permission failure without inspecting Error's exception
+              type itself.
+            justification: |
+              Collapsing every failure into one generic Failed outcome leaves a host unable to
+              tell a blocked/intercepted network path (which it might resolve by configuring a
+              mirror) apart from a real HTTP error response or a local disk/permission failure -
+              each calling for a different remediation - and this richer classification must never
+              risk a genuine caller cancellation being misreported as a failure outcome.
+            children:
+              - Speech-Models-SpeechModelDownloader-RicherFailureClassification
+            tests:
+              - SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWithStatusCode_ReportsHttpError
+              - SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWrappingAuthenticationException_ReportsNetworkBlocked
+              - SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWrappingSocketException_ReportsNetworkBlocked
+              - SpeechModelDownloader_DownloadAsync_TaskCanceledExceptionNotFromCallerToken_ReportsNetworkBlocked
+              - SpeechModelDownloader_DownloadAsync_IoException_ReportsIoFailure
+              - SpeechModelDownloader_DownloadAsync_UnauthorizedAccessException_ReportsIoFailure
+              - SpeechModelDownloader_DownloadAsync_UnmatchedExceptionType_ReportsFailed
+              - SpeechModelDownloader_DownloadAsync_CanceledMidDownload_ThrowsAndInstallsNothing
+
           - id: Speech-Models-ContractDeclaration
             title: >-
               The ModelManagementSubsystem shall describe each model through a common contract

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Security.Cryptography;
+using System.Text;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 
 namespace DemaConsulting.Speech.Tests.ModelManagementSubsystem;
@@ -60,6 +61,79 @@ public sealed class HttpModelDownloadClientTests
         // Act & Assert
         await Assert.ThrowsAsync<HttpRequestException>(
             () => client.DownloadAsync(server.Uri, destination, null, CancellationToken.None));
+    }
+
+    /// <summary>
+    ///     Proves that, with no <c>mirrorAuth</c> supplied, no <c>Authorization</c> header is sent
+    ///     at all - the exact pre-mirror request shape, confirming mirror authentication support
+    ///     is fully opt-in.
+    /// </summary>
+    [Fact]
+    public async Task HttpModelDownloadClient_DownloadAsync_NoMirrorAuth_SendsNoAuthorizationHeader()
+    {
+        // Arrange
+        var payload = CreatePayload(sizeBytes: 16);
+        await using var server = await LoopbackHttpServer.StartAsync(payload);
+        using var client = new HttpModelDownloadClient();
+        using var destination = new MemoryStream();
+
+        // Act
+        await client.DownloadAsync(server.Uri, destination, null, CancellationToken.None);
+
+        // Assert
+        Assert.Null(server.LastAuthorizationHeader);
+    }
+
+    /// <summary>
+    ///     Proves that a <see cref="DownloadMirror"/> configured with
+    ///     <see cref="DownloadMirror.BearerToken"/> causes the request to carry an
+    ///     <c>Authorization: Bearer &lt;token&gt;</c> header.
+    /// </summary>
+    [Fact]
+    public async Task HttpModelDownloadClient_DownloadAsync_BearerTokenMirror_SendsBearerAuthorizationHeader()
+    {
+        // Arrange
+        var payload = CreatePayload(sizeBytes: 16);
+        await using var server = await LoopbackHttpServer.StartAsync(payload);
+        using var client = new HttpModelDownloadClient();
+        using var destination = new MemoryStream();
+        var mirror = new DownloadMirror(server.Uri, bearerToken: "secret-token");
+
+        // Act
+        await client.DownloadAsync(server.Uri, destination, null, CancellationToken.None, mirror);
+
+        // Assert
+        Assert.Equal("Bearer secret-token", server.LastAuthorizationHeader);
+        Assert.Equal(payload, destination.ToArray());
+    }
+
+    /// <summary>
+    ///     Proves that a <see cref="DownloadMirror"/> configured with
+    ///     <see cref="DownloadMirror.Credentials"/> successfully negotiates HTTP Basic
+    ///     authentication against a server that challenges every unauthenticated request,
+    ///     presenting the exact configured username/password.
+    /// </summary>
+    [Fact]
+    public async Task HttpModelDownloadClient_DownloadAsync_CredentialsMirror_NegotiatesBasicAuthentication()
+    {
+        // Arrange
+        var payload = CreatePayload(sizeBytes: 16);
+        await using var server = await LoopbackHttpServer.StartAsync(payload, requireBasicAuth: true);
+        using var client = new HttpModelDownloadClient();
+        using var destination = new MemoryStream();
+        var mirror = new DownloadMirror(server.Uri, credentials: new NetworkCredential("mirror-user", "mirror-pass"));
+
+        // Act
+        await client.DownloadAsync(server.Uri, destination, null, CancellationToken.None, mirror);
+
+        // Assert: the request that ultimately succeeded carried the expected Basic credentials,
+        // and the real bytes were downloaded (proving the challenge/response round trip
+        // genuinely completed rather than merely not failing).
+        Assert.NotNull(server.LastAuthorizationHeader);
+        Assert.StartsWith("Basic ", server.LastAuthorizationHeader, StringComparison.Ordinal);
+        var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(server.LastAuthorizationHeader["Basic ".Length..]));
+        Assert.Equal("mirror-user:mirror-pass", decoded);
+        Assert.Equal(payload, destination.ToArray());
     }
 
     /// <summary>
@@ -124,11 +198,29 @@ public sealed class HttpModelDownloadClientTests
         public Uri Uri { get; }
 
         /// <summary>
+        ///     Gets the raw <c>Authorization</c> request header value received with the most
+        ///     recently handled request, or <see langword="null"/> if no request has carried one.
+        ///     With <see cref="StartAsync"/>'s <c>requireBasicAuth</c> enabled, this reflects only
+        ///     the final, successfully authenticated request - not any earlier unauthenticated
+        ///     attempt the client's own Basic-auth challenge/response handshake made first.
+        /// </summary>
+        public string? LastAuthorizationHeader { get; private set; }
+
+        /// <summary>
         ///     Starts a new loopback server on a free ephemeral port.
         /// </summary>
         /// <param name="payload">The fixed payload to serve with a 200 response, or <see langword="null"/> when <paramref name="statusCode"/> indicates failure.</param>
         /// <param name="statusCode">The HTTP status code to respond with.</param>
-        public static async Task<LoopbackHttpServer> StartAsync(byte[]? payload, int statusCode = 200)
+        /// <param name="requireBasicAuth">
+        ///     When <see langword="true"/>, the listener challenges every request lacking a valid
+        ///     Basic <c>Authorization</c> header with a <c>401</c>/<c>WWW-Authenticate: Basic</c>
+        ///     response and only hands a request to <see cref="ServeAsync"/> once the client has
+        ///     retried with credentials, exercising <see cref="HttpModelDownloadClient"/>'s real
+        ///     Basic-authentication negotiation end-to-end. The listener itself only verifies the
+        ///     header is well-formed Basic, not that its username/password match any particular
+        ///     value - callers assert the expected value via <see cref="LastAuthorizationHeader"/>.
+        /// </param>
+        public static async Task<LoopbackHttpServer> StartAsync(byte[]? payload, int statusCode = 200, bool requireBasicAuth = false)
         {
             // HttpListener does not support binding to an OS-assigned ephemeral port (port 0), so
             // a throwaway TcpListener is used to discover one free port, then released immediately
@@ -138,6 +230,11 @@ public sealed class HttpModelDownloadClientTests
 
             var listener = new HttpListener();
             listener.Prefixes.Add(uriPrefix);
+            if (requireBasicAuth)
+            {
+                listener.AuthenticationSchemes = AuthenticationSchemes.Basic;
+            }
+
             listener.Start();
 
             var server = new LoopbackHttpServer(listener, new Uri(uriPrefix), payload, statusCode);
@@ -164,6 +261,8 @@ public sealed class HttpModelDownloadClientTests
                 {
                     return;
                 }
+
+                LastAuthorizationHeader = context.Request.Headers["Authorization"];
 
                 context.Response.StatusCode = statusCode;
                 if (payload is not null)

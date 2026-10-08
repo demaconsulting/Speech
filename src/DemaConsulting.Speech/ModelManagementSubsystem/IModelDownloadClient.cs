@@ -38,6 +38,17 @@ public interface IModelDownloadClient
     ///     A token observed between chunks so an in-progress download can be canceled promptly
     ///     without waiting for the whole transfer to complete.
     /// </param>
+    /// <param name="mirrorAuth">
+    ///     The auth-bearing mirror configuration to apply to this specific request, or
+    ///     <see langword="null"/> when this request targets a model's own original (non-mirrored)
+    ///     host. Only <see cref="DownloadMirror.Credentials"/>/<see cref="DownloadMirror.BearerToken"/>
+    ///     are meaningful at this seam - <paramref name="sourceUri"/> is already the fully
+    ///     resolved effective request URI (mirror-relative or not) by the time this method is
+    ///     called, so <see cref="DownloadMirror.BaseUri"/> itself is never consulted here. This
+    ///     seam intentionally knows nothing about <c>ISpeechModel</c>/model-id/catalog concepts -
+    ///     it only ever needs to know "is this request's auth, if any, Basic/NTLM credentials or
+    ///     a bearer token".
+    /// </param>
     /// <returns>A task that completes when the entire file has been written to <paramref name="destination"/>.</returns>
     /// <exception cref="OperationCanceledException">
     ///     Thrown when <paramref name="cancellationToken"/> is canceled before the transfer
@@ -52,5 +63,6 @@ public interface IModelDownloadClient
         Uri sourceUri,
         Stream destination,
         IProgress<SpeechModelDownloadProgress>? progress,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        DownloadMirror? mirrorAuth = null);
 }

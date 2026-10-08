@@ -33,3 +33,24 @@ sections:
                   never mistakes a partial or error-page body for a genuine model file.
                 tests:
                   - HttpModelDownloadClient_DownloadAsync_NonSuccessResponse_ThrowsHttpRequestException
+
+              - id: Speech-Models-HttpModelDownloadClient-MirrorAuthApplication
+                title: >-
+                  The HttpModelDownloadClient class shall apply a supplied mirrorAuth's
+                  BearerToken (if any) as an Authorization: Bearer request header, and shall apply
+                  its Credentials (if any) via a lazily-created, always internally-owned second
+                  HttpClient whose HttpClientHandler.Credentials negotiates Basic/NTLM
+                  authentication, without ever disturbing the primary HttpClient's documented
+                  caller-supplied-vs-internally-owned ownership contract. With no mirrorAuth
+                  supplied, no Authorization header is sent at all.
+                justification: |
+                  A credentialed internal mirror needs its authentication applied only to
+                  requests actually targeting it, using a mechanism (HttpClientHandler.Credentials)
+                  that genuinely supports NTLM's multi-round-trip handshake - which a single,
+                  manually-built Authorization header alone cannot - while never risking the
+                  primary, possibly caller-supplied HttpClient's lifetime being disturbed by
+                  mirror-specific authentication state.
+                tests:
+                  - HttpModelDownloadClient_DownloadAsync_NoMirrorAuth_SendsNoAuthorizationHeader
+                  - HttpModelDownloadClient_DownloadAsync_BearerTokenMirror_SendsBearerAuthorizationHeader
+                  - HttpModelDownloadClient_DownloadAsync_CredentialsMirror_NegotiatesBasicAuthentication

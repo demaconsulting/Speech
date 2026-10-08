@@ -292,7 +292,8 @@ public sealed class SpeechModelCatalogTests : IDisposable
             Uri sourceUri,
             Stream destination,
             IProgress<SpeechModelDownloadProgress>? progress,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            DownloadMirror? mirrorAuth = null)
         {
             await destination.WriteAsync(payload, cancellationToken);
             progress?.Report(new SpeechModelDownloadProgress(0, 1, payload.Length, payload.Length));
@@ -311,7 +312,8 @@ public sealed class SpeechModelCatalogTests : IDisposable
             Uri sourceUri,
             Stream destination,
             IProgress<SpeechModelDownloadProgress>? progress,
-            CancellationToken cancellationToken) =>
+            CancellationToken cancellationToken,
+            DownloadMirror? mirrorAuth = null) =>
             Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
     }
 
@@ -334,7 +336,8 @@ public sealed class SpeechModelCatalogTests : IDisposable
             Uri sourceUri,
             Stream destination,
             IProgress<SpeechModelDownloadProgress>? progress,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            DownloadMirror? mirrorAuth = null)
         {
             EntryStarted.TrySetResult();
             await Release.Task.WaitAsync(cancellationToken);

@@ -1,3 +1,5 @@
+using System.Net.Sockets;
+using System.Security.Authentication;
 using DemaConsulting.Speech.Diagnostics;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.Tests.ModelManagementSubsystem.Fakes;
@@ -448,6 +450,338 @@ public sealed class SpeechModelDownloaderTests : IDisposable
     }
 
     /// <summary>
+    ///     Proves that <see cref="SpeechModelDownloader.ResolveEffectiveUri"/> returns the
+    ///     original URI unchanged (byte-for-byte, including the original <see cref="Uri"/>
+    ///     instance itself) when no mirror is configured, preserving this library's exact
+    ///     pre-mirror behavior for every existing caller.
+    /// </summary>
+    [Fact]
+    public void SpeechModelDownloader_ResolveEffectiveUri_NoMirror_ReturnsOriginalUriUnchanged()
+    {
+        // Arrange
+        var original = new Uri("https://huggingface.co/some-model/resolve/main/model.bin");
+
+        // Act
+        var resolved = SpeechModelDownloader.ResolveEffectiveUri(original, mirror: null, "model-a", "model.bin");
+
+        // Assert
+        Assert.Same(original, resolved);
+    }
+
+    /// <summary>
+    ///     Proves that a mirror base URI with and without a trailing slash resolve to the exact
+    ///     same effective URI, with exactly one separating slash between the base, the model id,
+    ///     and the relative install path.
+    /// </summary>
+    [Theory]
+    [InlineData("https://mirror.internal/models")]
+    [InlineData("https://mirror.internal/models/")]
+    public void SpeechModelDownloader_ResolveEffectiveUri_TrailingSlashVariations_ResolveIdentically(string baseUri)
+    {
+        // Arrange
+        var mirror = new DownloadMirror(new Uri(baseUri));
+        var original = new Uri("https://example.test/model.bin");
+
+        // Act
+        var resolved = SpeechModelDownloader.ResolveEffectiveUri(original, mirror, "model-a", "model.bin");
+
+        // Assert
+        Assert.Equal(new Uri("https://mirror.internal/models/model-a/model.bin"), resolved);
+    }
+
+    /// <summary>
+    ///     Proves that a <see cref="SpeechModelDownloadFile.RelativeInstallPath"/> containing
+    ///     subdirectories is appended beneath the mirror base and model id with every path
+    ///     segment preserved (and separated by <c>/</c>, regardless of whether the declared path
+    ///     used <c>/</c> or <c>\</c>).
+    /// </summary>
+    [Theory]
+    [InlineData("tokens/vocab.txt")]
+    [InlineData(@"tokens\vocab.txt")]
+    public void SpeechModelDownloader_ResolveEffectiveUri_SubdirectoryRelativePath_PreservesAllSegments(string relativeInstallPath)
+    {
+        // Arrange
+        var mirror = new DownloadMirror(new Uri("https://mirror.internal/models/"));
+        var original = new Uri("https://example.test/tokens/vocab.txt");
+
+        // Act
+        var resolved = SpeechModelDownloader.ResolveEffectiveUri(original, mirror, "model-a", relativeInstallPath);
+
+        // Assert
+        Assert.Equal(new Uri("https://mirror.internal/models/model-a/tokens/vocab.txt"), resolved);
+    }
+
+    /// <summary>
+    ///     Proves that a model id containing URL-unsafe characters is percent-escaped as its own
+    ///     segment, without disturbing the surrounding slashes.
+    /// </summary>
+    [Fact]
+    public void SpeechModelDownloader_ResolveEffectiveUri_ModelIdWithUnsafeCharacters_IsEscaped()
+    {
+        // Arrange
+        var mirror = new DownloadMirror(new Uri("https://mirror.internal/models"));
+        var original = new Uri("https://example.test/model.bin");
+
+        // Act
+        var resolved = SpeechModelDownloader.ResolveEffectiveUri(original, mirror, "model a/b", "model.bin");
+
+        // Assert: the model id segment is escaped (space -> %20, '/' -> %2F) and does not
+        // introduce an extra path segment of its own.
+        Assert.Equal(new Uri("https://mirror.internal/models/model%20a%2Fb/model.bin"), resolved);
+    }
+
+    /// <summary>
+    ///     Proves that a relative install path segment containing URL-unsafe characters (a space)
+    ///     is percent-escaped individually, rather than the whole combined URI being escaped as
+    ///     one string (which would incorrectly also encode the separating slashes).
+    /// </summary>
+    [Fact]
+    public void SpeechModelDownloader_ResolveEffectiveUri_PathSegmentWithUnsafeCharacters_IsEscapedPerSegment()
+    {
+        // Arrange
+        var mirror = new DownloadMirror(new Uri("https://mirror.internal/models"));
+        var original = new Uri("https://example.test/my%20file.bin");
+
+        // Act
+        var resolved = SpeechModelDownloader.ResolveEffectiveUri(original, mirror, "model-a", "my file.bin");
+
+        // Assert
+        Assert.Equal(new Uri("https://mirror.internal/models/model-a/my%20file.bin"), resolved);
+    }
+
+    /// <summary>
+    ///     Proves that, when no mirror is configured, <see cref="SpeechModelDownloader"/> invokes
+    ///     <see cref="IModelDownloadClient.DownloadAsync"/> with each file's own declared source
+    ///     URI and a <see langword="null"/> <c>mirrorAuth</c> - the exact pre-mirror call shape -
+    ///     proving the feature is fully opt-in with zero behavior change for existing callers.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_NoMirrorConfigured_ForwardsOriginalUriAndNullMirrorAuth()
+    {
+        // Arrange
+        var payload = "payload"u8.ToArray();
+        var descriptor = SingleFileDescriptor(payload, "model.bin");
+        var store = NewStore();
+        var client = new FakeModelDownloadClient(payload, 1024);
+        var downloader = new SpeechModelDownloader(store, client);
+
+        // Act
+        var result = await downloader.DownloadAsync(
+            "model-a", descriptor, cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, result.Outcome);
+        var call = Assert.Single(client.Calls);
+        Assert.Equal(new Uri("https://example.test/model.bin"), call.SourceUri);
+        Assert.Null(call.MirrorAuth);
+    }
+
+    /// <summary>
+    ///     Proves that, when a mirror is configured, <see cref="SpeechModelDownloader"/> rewrites
+    ///     each file's effective request URI beneath the mirror and forwards the configured
+    ///     <see cref="DownloadMirror"/> as <c>mirrorAuth</c> to
+    ///     <see cref="IModelDownloadClient.DownloadAsync"/>, so the download client can apply the
+    ///     mirror's own authentication to that specific request.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_MirrorConfigured_ForwardsEffectiveUriAndMirrorAuth()
+    {
+        // Arrange
+        var payload = "payload"u8.ToArray();
+        var descriptor = SingleFileDescriptor(payload, "model.bin");
+        var store = NewStore();
+        var client = new FakeModelDownloadClient(payload, 1024);
+        var mirror = new DownloadMirror(new Uri("https://mirror.internal/models"), bearerToken: "secret-token");
+        var options = new SpeechModelDownloaderOptions { Mirror = mirror };
+        var downloader = new SpeechModelDownloader(store, client, options: options);
+
+        // Act
+        var result = await downloader.DownloadAsync(
+            "model-a", descriptor, cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, result.Outcome);
+        var call = Assert.Single(client.Calls);
+        Assert.Equal(new Uri("https://mirror.internal/models/model-a/model.bin"), call.SourceUri);
+        Assert.Same(mirror, call.MirrorAuth);
+    }
+
+    /// <summary>
+    ///     Proves that an <see cref="HttpRequestException"/> carrying a real HTTP response status
+    ///     code classifies as <see cref="SpeechModelDownloadOutcome.HttpError"/>.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWithStatusCode_ReportsHttpError()
+    {
+        // Arrange
+        var descriptor = SingleFileDescriptor("payload"u8.ToArray(), "model.bin");
+        var store = NewStore();
+        var client = new ThrowingModelDownloadClient(
+            () => new HttpRequestException("Not Found", inner: null, System.Net.HttpStatusCode.NotFound));
+        var downloader = new SpeechModelDownloader(store, client);
+
+        // Act
+        var result = await downloader.DownloadAsync(
+            "model-a", descriptor, cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(SpeechModelDownloadOutcome.HttpError, result.Outcome);
+        Assert.IsType<HttpRequestException>(result.Error);
+        Assert.False(store.IsInstalled("model-a"));
+    }
+
+    /// <summary>
+    ///     Proves that an <see cref="HttpRequestException"/> wrapping an
+    ///     <see cref="AuthenticationException"/> (a TLS/certificate failure, as seen when a
+    ///     network appliance intercepts and re-signs TLS traffic with an untrusted root
+    ///     certificate) classifies as <see cref="SpeechModelDownloadOutcome.NetworkBlocked"/>.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWrappingAuthenticationException_ReportsNetworkBlocked()
+    {
+        // Arrange
+        var descriptor = SingleFileDescriptor("payload"u8.ToArray(), "model.bin");
+        var store = NewStore();
+        var client = new ThrowingModelDownloadClient(
+            () => new HttpRequestException(
+                "TLS failure", new AuthenticationException("The remote certificate is invalid.")));
+        var downloader = new SpeechModelDownloader(store, client);
+
+        // Act
+        var result = await downloader.DownloadAsync(
+            "model-a", descriptor, cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(SpeechModelDownloadOutcome.NetworkBlocked, result.Outcome);
+        Assert.IsType<HttpRequestException>(result.Error);
+        Assert.False(store.IsInstalled("model-a"));
+    }
+
+    /// <summary>
+    ///     Proves that an <see cref="HttpRequestException"/> wrapping a
+    ///     <see cref="SocketException"/> (DNS resolution failure, connection refused, or host
+    ///     unreachable) classifies as <see cref="SpeechModelDownloadOutcome.NetworkBlocked"/>.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWrappingSocketException_ReportsNetworkBlocked()
+    {
+        // Arrange
+        var descriptor = SingleFileDescriptor("payload"u8.ToArray(), "model.bin");
+        var store = NewStore();
+        var client = new ThrowingModelDownloadClient(
+            () => new HttpRequestException(
+                "Connection failure", new SocketException((int)SocketError.ConnectionRefused)));
+        var downloader = new SpeechModelDownloader(store, client);
+
+        // Act
+        var result = await downloader.DownloadAsync(
+            "model-a", descriptor, cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(SpeechModelDownloadOutcome.NetworkBlocked, result.Outcome);
+        Assert.IsType<HttpRequestException>(result.Error);
+        Assert.False(store.IsInstalled("model-a"));
+    }
+
+    /// <summary>
+    ///     Proves that a <see cref="TaskCanceledException"/> NOT caused by the caller's own
+    ///     <see cref="CancellationToken"/> (here, simulated as <see cref="HttpClient"/>'s own
+    ///     internal request timeout, since <c>DownloadAsync</c> is called with a token that is
+    ///     never canceled) classifies as <see cref="SpeechModelDownloadOutcome.NetworkBlocked"/>,
+    ///     rather than escaping as an unclassified <see cref="OperationCanceledException"/>.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_TaskCanceledExceptionNotFromCallerToken_ReportsNetworkBlocked()
+    {
+        // Arrange
+        var descriptor = SingleFileDescriptor("payload"u8.ToArray(), "model.bin");
+        var store = NewStore();
+        var client = new ThrowingModelDownloadClient(
+            () => new TaskCanceledException("The request timed out."));
+        var downloader = new SpeechModelDownloader(store, client);
+
+        // Act: the caller's own token is never canceled, so this cannot be a genuine cancellation
+        var result = await downloader.DownloadAsync(
+            "model-a", descriptor, cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(SpeechModelDownloadOutcome.NetworkBlocked, result.Outcome);
+        Assert.IsType<TaskCanceledException>(result.Error);
+        Assert.False(store.IsInstalled("model-a"));
+    }
+
+    /// <summary>
+    ///     Proves that an <see cref="IOException"/> (for example disk full) classifies as
+    ///     <see cref="SpeechModelDownloadOutcome.IoFailure"/>.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_IoException_ReportsIoFailure()
+    {
+        // Arrange
+        var descriptor = SingleFileDescriptor("payload"u8.ToArray(), "model.bin");
+        var store = NewStore();
+        var client = new ThrowingModelDownloadClient(() => new IOException("Disk full."));
+        var downloader = new SpeechModelDownloader(store, client);
+
+        // Act
+        var result = await downloader.DownloadAsync(
+            "model-a", descriptor, cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(SpeechModelDownloadOutcome.IoFailure, result.Outcome);
+        Assert.IsType<IOException>(result.Error);
+        Assert.False(store.IsInstalled("model-a"));
+    }
+
+    /// <summary>
+    ///     Proves that an <see cref="UnauthorizedAccessException"/> (for example permission
+    ///     denied writing the staged file) classifies as
+    ///     <see cref="SpeechModelDownloadOutcome.IoFailure"/>.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_UnauthorizedAccessException_ReportsIoFailure()
+    {
+        // Arrange
+        var descriptor = SingleFileDescriptor("payload"u8.ToArray(), "model.bin");
+        var store = NewStore();
+        var client = new ThrowingModelDownloadClient(() => new UnauthorizedAccessException("Access denied."));
+        var downloader = new SpeechModelDownloader(store, client);
+
+        // Act
+        var result = await downloader.DownloadAsync(
+            "model-a", descriptor, cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(SpeechModelDownloadOutcome.IoFailure, result.Outcome);
+        Assert.IsType<UnauthorizedAccessException>(result.Error);
+        Assert.False(store.IsInstalled("model-a"));
+    }
+
+    /// <summary>
+    ///     Proves that an exception type matching none of the specific classifications (here
+    ///     <see cref="InvalidOperationException"/>) falls back to
+    ///     <see cref="SpeechModelDownloadOutcome.Failed"/>, the final generic classification.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_UnmatchedExceptionType_ReportsFailed()
+    {
+        // Arrange
+        var descriptor = SingleFileDescriptor("payload"u8.ToArray(), "model.bin");
+        var store = NewStore();
+        var client = new ThrowingModelDownloadClient(() => new InvalidOperationException("Simulated unmatched failure."));
+        var downloader = new SpeechModelDownloader(store, client);
+
+        // Act
+        var result = await downloader.DownloadAsync(
+            "model-a", descriptor, cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(SpeechModelDownloadOutcome.Failed, result.Outcome);
+        Assert.IsType<InvalidOperationException>(result.Error);
+        Assert.False(store.IsInstalled("model-a"));
+    }
+
+    /// <summary>
     ///     Constructs a store rooted at this test's scratch directory.
     /// </summary>
     private SpeechModelStore NewStore() =>
@@ -482,13 +816,19 @@ public sealed class SpeechModelDownloaderTests : IDisposable
         int? cancelAfterChunks = null,
         CancellationTokenSource? cancellationSource = null) : IModelDownloadClient
     {
+        /// <summary>Gets every (sourceUri, mirrorAuth) pair this fake was invoked with, in call order.</summary>
+        public List<(Uri SourceUri, DownloadMirror? MirrorAuth)> Calls { get; } = [];
+
         /// <inheritdoc/>
         public async Task DownloadAsync(
             Uri sourceUri,
             Stream destination,
             IProgress<SpeechModelDownloadProgress>? progress,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            DownloadMirror? mirrorAuth = null)
         {
+            Calls.Add((sourceUri, mirrorAuth));
+
             var offset = 0;
             var chunkNumber = 0;
             while (offset < payload.Length)
@@ -531,7 +871,8 @@ public sealed class SpeechModelDownloaderTests : IDisposable
             Uri sourceUri,
             Stream destination,
             IProgress<SpeechModelDownloadProgress>? progress,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            DownloadMirror? mirrorAuth = null)
         {
             if (Interlocked.Increment(ref _arrivedCount) == expectedConcurrentCalls)
             {
@@ -588,7 +929,8 @@ public sealed class SpeechModelDownloaderTests : IDisposable
             Uri sourceUri,
             Stream destination,
             IProgress<SpeechModelDownloadProgress>? progress,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            DownloadMirror? mirrorAuth = null)
         {
             var callIndex = Interlocked.Increment(ref _callCount);
             lock (_entryOrder)
@@ -606,6 +948,25 @@ public sealed class SpeechModelDownloaderTests : IDisposable
             await destination.WriteAsync(payload, cancellationToken);
             progress?.Report(new SpeechModelDownloadProgress(0, 1, payload.Length, payload.Length));
         }
+    }
+
+    /// <summary>
+    ///     Fake <see cref="IModelDownloadClient"/> that always throws a caller-supplied exception,
+    ///     used to deterministically prove <see cref="SpeechModelDownloader"/>'s
+    ///     <c>ClassifyFailure</c> classification of each distinct exception shape into its
+    ///     corresponding <see cref="SpeechModelDownloadOutcome"/>.
+    /// </summary>
+    /// <param name="exceptionFactory">Produces the exception <see cref="DownloadAsync"/> throws on every call.</param>
+    private sealed class ThrowingModelDownloadClient(Func<Exception> exceptionFactory) : IModelDownloadClient
+    {
+        /// <inheritdoc/>
+        public Task DownloadAsync(
+            Uri sourceUri,
+            Stream destination,
+            IProgress<SpeechModelDownloadProgress>? progress,
+            CancellationToken cancellationToken,
+            DownloadMirror? mirrorAuth = null) =>
+            throw exceptionFactory();
     }
 
     /// <summary>

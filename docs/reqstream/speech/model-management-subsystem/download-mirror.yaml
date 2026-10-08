@@ -1,0 +1,53 @@
+---
+# Software Unit Requirements for DownloadMirror
+#
+# These requirements describe the design-level behavior of the DownloadMirror unit,
+# decomposing the parent ModelManagementSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        sections:
+          - title: DownloadMirror Requirements
+            requirements:
+              - id: Speech-Models-DownloadMirror-SchemeValidation
+                title: >-
+                  The DownloadMirror record shall reject, at construction, any BaseUri that is
+                  not absolute or whose scheme is neither http nor https.
+                justification: |
+                  Every model download is dereferenced through HttpModelDownloadClient, which has
+                  no implementation path for a file://UNC mirror; rejecting an unsupported scheme
+                  immediately surfaces the limitation as a clear configuration error instead of an
+                  obscure failure deep inside the download pipeline, and a relative base URI has
+                  no meaningful way to combine with a model's declared relative install path.
+                tests:
+                  - DownloadMirror_Constructor_BaseUriOnly_ExposesValuesWithNullAuth
+                  - DownloadMirror_Constructor_HttpOrHttpsScheme_Succeeds
+                  - DownloadMirror_Constructor_RelativeBaseUri_ThrowsArgumentException
+                  - DownloadMirror_Constructor_NonHttpScheme_ThrowsArgumentExceptionNamingScheme
+
+              - id: Speech-Models-DownloadMirror-MutualExclusivity
+                title: >-
+                  The DownloadMirror record shall reject, at construction, supplying both
+                  Credentials and BearerToken, since at most one authentication mechanism may be
+                  configured per mirror.
+                justification: |
+                  Supplying both would silently prefer one over the other with no indication to
+                  the host that the other was ignored - a configuration error that must surface
+                  immediately, not a case to resolve with a silent fallback.
+                tests:
+                  - DownloadMirror_Constructor_CredentialsOnly_ExposesCredentials
+                  - DownloadMirror_Constructor_BearerTokenOnly_ExposesBearerToken
+                  - DownloadMirror_Constructor_BothCredentialsAndBearerToken_ThrowsArgumentException
+
+              - id: Speech-Models-DownloadMirror-NullArgumentValidation
+                title: >-
+                  The DownloadMirror record shall throw ArgumentNullException at construction when
+                  BaseUri is null.
+                justification: |
+                  A programming error (a null constructor argument) should surface immediately
+                  with a clear, cheap-to-diagnose exception rather than an opaque failure deeper
+                  in the download pipeline.
+                tests:
+                  - DownloadMirror_Constructor_NullBaseUri_ThrowsArgumentNullException

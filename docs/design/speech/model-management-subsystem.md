@@ -36,8 +36,11 @@ It contains the following units:
   per-user on-disk layout, atomic `current/` swap, install-state query, uninstall, and
   best-effort cleanup, plus the storage-root override options and the exception thrown only by
   an explicit uninstall that cannot complete
-- **SpeechModelDownloader**: the queued (one-at-a-time) fetch → SHA-256 verify → atomic-install
-  orchestrator, defining honest `SpeechModelDownloadOutcome` result states
+- **SpeechModelDownloader** / **SpeechModelDownloaderOptions** / **DownloadMirror**: the queued
+  (one-at-a-time) fetch → SHA-256 verify → atomic-install orchestrator, defining honest
+  `SpeechModelDownloadOutcome` result states (including network/HTTP/I-O failure classification),
+  plus the optional configuration seam and mirror-description type that let a host redirect every
+  model download through an internal, possibly-authenticated HTTPS mirror
 - **SpeechModelDownloadFile** / **SpeechModelDownloadDescriptor**: HTTPS-only URL(s) plus
   SHA-256 checksum descriptor types describing what a downloader fetches and verifies
 - **SpeechModelDownloadProgress**: the `IProgress<T>`-compatible download-progress payload
@@ -66,7 +69,8 @@ It contains the following units:
 ### Interfaces
 
 The subsystem exposes `SpeechModelStore`, `SpeechModelStoreOptions`, `SpeechModelStoreException`,
-`SpeechModelDownloader`, `SpeechModelDownloadOutcome`, `SpeechModelDownloadResult`,
+`SpeechModelDownloader`, `SpeechModelDownloaderOptions`, `DownloadMirror`,
+`SpeechModelDownloadOutcome`, `SpeechModelDownloadResult`,
 `SpeechModelDownloadFile`, `SpeechModelDownloadDescriptor`, `SpeechModelDownloadProgress`,
 `IModelDownloadClient`, `HttpModelDownloadClient`, `SpeechModelRole`, `SpeechModelState`,
 `SpeechModelAudioTagSupport`, `ISpeechModelParameter`, `NumericParameter`, `ChoiceParameter`,
@@ -98,7 +102,19 @@ handing the fully verified (and, if applicable, unpacked) staging directory to `
 for the atomic swap. A checksum mismatch, transport failure, install-hook failure, or
 cancellation discards the staging directory and leaves any prior successful install of the same
 model completely untouched - `SpeechModelDownloadOutcome` never reports `Installed` for a
-corrupted, partial, checksum-mismatched, or install-hook-failed download.
+corrupted, partial, checksum-mismatched, or install-hook-failed download. An optional
+`SpeechModelDownloaderOptions.Mirror` (a `DownloadMirror`, defaulted to `null`) lets a host
+redirect every file's effective request URI beneath a single internal mirror - resolved by an
+internal `ResolveEffectiveUri` helper - and have the mirror's Basic/NTLM credentials or bearer
+token applied only to requests actually sent to it; this is the one uniform seam through which an
+IT-restricted network's blocked public model hosts (for example a TLS-interception policy
+breaking `huggingface.co`) can be worked around without any per-model code change. A non-
+`Installed`, non-`ChecksumMismatch` outcome is further classified by a dedicated
+`ClassifyFailure` helper into `HttpError` (a real non-success HTTP response), `NetworkBlocked` (a
+TLS/certificate failure, a DNS/connection failure, or `HttpClient`'s own internal timeout - as
+distinct from the caller's own cancellation, which always propagates unchanged as
+`OperationCanceledException`), `IoFailure` (a local disk/permission failure), or the final
+generic `Failed` fallback - so a host can react to _why_ a download failed, not just that it did.
 
 `IModelDownloadClient` mirrors the existing `IPortAudioApi`/`IPortAudioStream` seam pattern: a
 small library-owned interface with one real implementation (`HttpModelDownloadClient`, backed by
@@ -106,7 +122,12 @@ small library-owned interface with one real implementation (`HttpModelDownloadCl
 coverage of `SpeechModelDownloader`'s orchestration logic without any real network access.
 `HttpModelDownloadClient` itself is additionally verified against a genuine loopback
 `System.Net.HttpListener` server to prove it truly performs an HTTP download with progress
-reporting.
+reporting, including the real HTTP Basic challenge/response negotiation triggered by a
+credentials-bearing `DownloadMirror`. `IModelDownloadClient.DownloadAsync`'s optional `mirrorAuth`
+parameter (a `DownloadMirror?`, defaulted to `null`) carries only "this request's auth, if any" -
+the interface and every implementation remain completely unaware of `ISpeechModel`/model id/
+catalog concepts, since only `SpeechModelDownloader` (the owner of a configured mirror) decides
+when to supply it.
 
 `ISpeechModel` is the common contract every model's backing class implements (through either
 `IRecognitionModel` or `ISynthesisModel`, never directly): identity (`Id`/`DisplayName`), `Role`,

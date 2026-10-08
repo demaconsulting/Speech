@@ -16,6 +16,9 @@ language: en
 words:
   - buildmark
   - DEMA
+  - NTLM
+  - Sonatype
+  - middleboxes
   - Dema
   - DEMASPEECH
   - FileAssert

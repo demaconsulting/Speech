@@ -14,10 +14,10 @@ sections:
               - id: Speech-Models-IModelDownloadClient-Seam
                 title: >-
                   The IModelDownloadClient interface shall define a single mockable
-                  DownloadAsync(Uri, Stream, IProgress, CancellationToken) member that isolates
-                  SpeechModelDownloader from any concrete HTTP implementation, so its
-                  queueing/verification/atomic-swap orchestration can be unit tested with a fake
-                  implementation and no real network access.
+                  DownloadAsync(Uri, Stream, IProgress, CancellationToken, DownloadMirror?) member
+                  that isolates SpeechModelDownloader from any concrete HTTP implementation, so
+                  its queueing/verification/atomic-swap orchestration can be unit tested with a
+                  fake implementation and no real network access.
                 justification: |
                   This library's "own interfaces over direct OTS types" decision requires a
                   library-owned abstraction so tests can substitute deterministic fakes while the
@@ -26,3 +26,19 @@ sections:
                   - SpeechModelDownloader_DownloadAsync_ValidPayload_InstallsModelAndReportsProgress
                   - SpeechModelDownloader_DownloadAsync_TwoConcurrentRequestsForSameModelId_AreSerialized
                   - HttpModelDownloadClient_DownloadAsync_LoopbackServer_DownloadsExactBytesWithProgress
+
+              - id: Speech-Models-IModelDownloadClient-MirrorAuthSeam
+                title: >-
+                  The IModelDownloadClient interface's DownloadAsync member shall accept an
+                  optional mirrorAuth parameter carrying the auth-bearing DownloadMirror
+                  configuration (if any) to apply to that specific request, remaining defaulted
+                  to null for every existing caller and implementation, and shall not require any
+                  implementation to know about ISpeechModel/model id/catalog concepts.
+                justification: |
+                  SpeechModelDownloader (the only owner of a configured DownloadMirror) needs a
+                  seam to pass "this request's auth, if any" down to the concrete download client
+                  that actually issues the HTTP call, without leaking catalog-level concepts into
+                  this library's smallest, most reusable abstraction.
+                tests:
+                  - SpeechModelDownloader_DownloadAsync_NoMirrorConfigured_ForwardsOriginalUriAndNullMirrorAuth
+                  - SpeechModelDownloader_DownloadAsync_MirrorConfigured_ForwardsEffectiveUriAndMirrorAuth

@@ -22,6 +22,8 @@ package Speech {
         part speechModelDownloadProgress : SpeechModelDownloadProgress;
         part iModelDownloadClient : IModelDownloadClient;
         part httpModelDownloadClient : HttpModelDownloadClient;
+        part downloadMirror : DownloadMirror;
+        part speechModelDownloaderOptions : SpeechModelDownloaderOptions;
         part speechModelDownloader : SpeechModelDownloader;
         part speechModelDescriptorEnums : SpeechModelDescriptorEnums;
         part speechModelParameters : SpeechModelParameters;

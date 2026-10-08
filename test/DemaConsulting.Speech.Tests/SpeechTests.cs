@@ -381,7 +381,8 @@ public class SpeechTests
             Uri sourceUri,
             Stream destination,
             IProgress<SpeechModelDownloadProgress>? progress,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            DownloadMirror? mirrorAuth = null)
         {
             await destination.WriteAsync(payload, cancellationToken);
             progress?.Report(new SpeechModelDownloadProgress(0, 1, payload.Length, payload.Length));

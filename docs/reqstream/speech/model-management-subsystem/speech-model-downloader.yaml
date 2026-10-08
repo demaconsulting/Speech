@@ -134,14 +134,73 @@ sections:
               - id: Speech-Models-SpeechModelDownloader-InstallHookFailureIsHandledLikeDownloadFailure
                 title: >-
                   The SpeechModelDownloader class shall treat an exception thrown from a model's
-                  InstallAsync hook identically to a download failure: report
-                  SpeechModelDownloadOutcome.Failed with the underlying exception attached,
-                  discard the staging directory, and install nothing for that model id.
+                  InstallAsync hook identically to a download failure: classify it through the
+                  same ClassifyFailure logic used for any other download/install failure (so, for
+                  example, an install hook's own IOException reports IoFailure just as a disk-full
+                  download failure would), attach the underlying exception, discard the staging
+                  directory, and install nothing for that model id.
                 justification: |
                   A model's own unpacking code can fail (corrupt archive, disk full, permission
-                  denied) just as a transport failure can; this failure mode must be just as safe
-                  as every other documented failure path - never installing partially-unpacked
-                  content.
+                  denied) just as a transport failure can; this failure mode must be just as safe,
+                  and just as honestly classified, as every other documented failure path - never
+                  installing partially-unpacked content, and never collapsing a genuinely
+                  diagnosable install-hook failure into a less specific outcome than an equivalent
+                  download-side failure would receive.
                 tests:
                   - SpeechModelDownloader_DownloadAsync_WithModel_InstallAsyncThrowsUnlistedExceptionType_ReportsFailed
                   - SpeechModelDownloader_DownloadAsync_WithModel_SecondCallAfterPriorSuccess_TakesFastPathAndNeverInvokesInstallHook
+
+              - id: Speech-Models-SpeechModelDownloader-MirrorUriResolution
+                title: >-
+                  The SpeechModelDownloader class shall resolve each declared file's effective
+                  download request URI via an internal, directly-unit-testable
+                  ResolveEffectiveUri helper: the file's own declared Uri unchanged when no
+                  DownloadMirror is configured (via SpeechModelDownloaderOptions.Mirror), or
+                  {mirror.BaseUri}/{modelId}/{file.RelativeInstallPath} - with exactly one
+                  separating slash regardless of BaseUri's own trailing slash, and with modelId
+                  and every RelativeInstallPath segment individually percent-escaped - when one
+                  is.
+                justification: |
+                  Some customers' IT departments block the public hosts every model's declared
+                  download Uri points at; redirecting every model download to an internal mirror
+                  without any per-model code change requires a single, uniform URI-rewriting seam
+                  at this library's one download choke point, not a per-model opt-in.
+                tests:
+                  - SpeechModelDownloader_ResolveEffectiveUri_NoMirror_ReturnsOriginalUriUnchanged
+                  - SpeechModelDownloader_ResolveEffectiveUri_TrailingSlashVariations_ResolveIdentically
+                  - SpeechModelDownloader_ResolveEffectiveUri_SubdirectoryRelativePath_PreservesAllSegments
+                  - SpeechModelDownloader_ResolveEffectiveUri_ModelIdWithUnsafeCharacters_IsEscaped
+                  - SpeechModelDownloader_ResolveEffectiveUri_PathSegmentWithUnsafeCharacters_IsEscapedPerSegment
+                  - SpeechModelDownloader_DownloadAsync_NoMirrorConfigured_ForwardsOriginalUriAndNullMirrorAuth
+                  - SpeechModelDownloader_DownloadAsync_MirrorConfigured_ForwardsEffectiveUriAndMirrorAuth
+
+              - id: Speech-Models-SpeechModelDownloader-RicherFailureClassification
+                title: >-
+                  The SpeechModelDownloader class shall classify a download/install failure, via
+                  a dedicated ClassifyFailure helper, into SpeechModelDownloadOutcome.HttpError
+                  for an HttpRequestException with a non-null StatusCode,
+                  SpeechModelDownloadOutcome.NetworkBlocked for an HttpRequestException wrapping
+                  an AuthenticationException or SocketException or for a TaskCanceledException not
+                  caused by the caller's own CancellationToken, SpeechModelDownloadOutcome.IoFailure
+                  for an IOException or UnauthorizedAccessException, and
+                  SpeechModelDownloadOutcome.Failed as the final generic fallback for any other
+                  exception type - while a genuine caller cancellation (the supplied
+                  CancellationToken itself signaled) always propagates unchanged as
+                  OperationCanceledException and is never passed to ClassifyFailure.
+                justification: |
+                  Collapsing every failure into one generic Failed outcome leaves a host unable to
+                  distinguish a blocked/intercepted network path (which it might resolve by
+                  configuring a DownloadMirror) from a real HTTP error response, a local disk/
+                  permission failure, or any other cause - each of which calls for a different
+                  remediation. A dedicated, directly-unit-testable classification helper lets a
+                  host react appropriately without inspecting Error's exception type itself, and
+                  without ever risking a genuine cancellation being misreported as a failure.
+                tests:
+                  - SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWithStatusCode_ReportsHttpError
+                  - SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWrappingAuthenticationException_ReportsNetworkBlocked
+                  - SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWrappingSocketException_ReportsNetworkBlocked
+                  - SpeechModelDownloader_DownloadAsync_TaskCanceledExceptionNotFromCallerToken_ReportsNetworkBlocked
+                  - SpeechModelDownloader_DownloadAsync_IoException_ReportsIoFailure
+                  - SpeechModelDownloader_DownloadAsync_UnauthorizedAccessException_ReportsIoFailure
+                  - SpeechModelDownloader_DownloadAsync_UnmatchedExceptionType_ReportsFailed
+                  - SpeechModelDownloader_DownloadAsync_CanceledMidDownload_ThrowsAndInstallsNothing

@@ -25,7 +25,8 @@ over HTTP) without requiring any external network access or test-server package 
 
 See each unit's own verification document for its detailed test scenarios:
 `speech-model-store.md`, `speech-model-store-options.md`, `speech-model-store-exception.md`,
-`speech-model-downloader.md`, `speech-model-download-file.md`,
+`speech-model-downloader.md`, `speech-model-downloader-options.md`, `download-mirror.md`,
+`speech-model-download-file.md`,
 `speech-model-download-descriptor.md`, `speech-model-download-progress.md`,
 `i-model-download-client.md`, `http-model-download-client.md`,
 `speech-model-descriptor-enums.md`, `speech-model-parameters.md`, `speech-model-contract.md`,
@@ -38,9 +39,16 @@ unless both `current/` and a valid manifest are present; a second `DownloadAsync
 already-installed model id returns `Installed` immediately without any network or staging activity,
 leaving a prior successful install completely untouched regardless of what the second call
 supplies; a canceled download discards its staging directory and propagates
-`OperationCanceledException`; `HttpModelDownloadClient` genuinely downloads exact bytes with
-monotonically increasing progress from a real loopback HTTP server, throwing `HttpRequestException`
-for a non-2xx response; every tunable-parameter descriptor rejects an internally inconsistent
+`OperationCanceledException` completely unchanged, never reclassified as a failure outcome; a
+download/install failure is classified into `HttpError`, `NetworkBlocked`, `IoFailure`, or the
+generic `Failed` fallback exactly as documented in `speech-model-downloader.md`; with no
+`DownloadMirror` configured every file resolves and fetches from its own declared URI completely
+unchanged, and with one configured every file resolves beneath the mirror with its configured
+authentication applied only to requests actually sent to it; `HttpModelDownloadClient` genuinely
+downloads exact bytes with monotonically increasing progress from a real loopback HTTP server,
+throwing `HttpRequestException` for a non-2xx response, sending a Bearer or negotiated Basic
+`Authorization` header only when a mirror auth is supplied; every tunable-parameter descriptor
+rejects an internally inconsistent
 range/option-set/default at construction; `SpeechModelParameterDiagnostics` throws
 `ArgumentException` for a value invalid for a parameter a model declares while silently ignoring
 (with only an `Info` diagnostic) a supplied key naming a parameter the model does not declare; and

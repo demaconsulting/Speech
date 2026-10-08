@@ -1,3 +1,6 @@
+using System.Net;
+using System.Net.Http.Headers;
+
 namespace DemaConsulting.Speech.ModelManagementSubsystem;
 
 /// <summary>
@@ -13,6 +16,14 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     host. Thread-safety follows <see cref="HttpClient"/>'s own contract: a single instance is
 ///     safe to share and reuse across concurrent calls, though <see cref="SpeechModelDownloader"/>
 ///     only ever issues one download at a time by design.
+///     <para>
+///     When a request's <see cref="DownloadMirror"/> declares <see cref="DownloadMirror.Credentials"/>,
+///     this class routes that request through a second, lazily-created, always internally-owned
+///     <see cref="HttpClient"/> whose <see cref="HttpClientHandler.Credentials"/> is set to that
+///     credential - never the caller-supplied or default client - so the documented
+///     caller-supplied-vs-internally-owned ownership contract of the primary client is never
+///     disturbed by mirror authentication.
+///     </para>
 /// </remarks>
 public sealed class HttpModelDownloadClient : IModelDownloadClient, IDisposable
 {
@@ -37,6 +48,26 @@ public sealed class HttpModelDownloadClient : IModelDownloadClient, IDisposable
     ///     this instance) or supplied by the caller (whose lifetime this instance must not own).
     /// </summary>
     private readonly bool _ownsHttpClient;
+
+    /// <summary>
+    ///     A lazily-created, always internally-owned second <see cref="HttpClient"/> used only
+    ///     for a request whose <see cref="DownloadMirror"/> declares
+    ///     <see cref="DownloadMirror.Credentials"/>, or <see langword="null"/> until the first
+    ///     such request is made.
+    /// </summary>
+    /// <remarks>
+    ///     Created and cached the first time a credentialed-mirror request arrives, guarded by
+    ///     <see cref="_credentialClientLock"/> since different models' downloads can run
+    ///     concurrently through one shared <see cref="HttpModelDownloadClient"/> instance. This
+    ///     client is never the caller-supplied <see cref="_httpClient"/>, regardless of whether
+    ///     the caller supplied one to the constructor - it is always created and disposed by this
+    ///     instance, so it can never violate the documented caller-supplied-vs-internally-owned
+    ///     ownership contract of <see cref="_httpClient"/>.
+    /// </remarks>
+    private HttpClient? _credentialClient;
+
+    /// <summary>Guards lazy, thread-safe creation of <see cref="_credentialClient"/>.</summary>
+    private readonly object _credentialClientLock = new();
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="HttpModelDownloadClient"/> class.
@@ -65,15 +96,35 @@ public sealed class HttpModelDownloadClient : IModelDownloadClient, IDisposable
         Uri sourceUri,
         Stream destination,
         IProgress<SpeechModelDownloadProgress>? progress,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        DownloadMirror? mirrorAuth = null)
     {
         ArgumentNullException.ThrowIfNull(sourceUri);
         ArgumentNullException.ThrowIfNull(destination);
 
+        // Choose which client issues this request: HttpClientHandler.Credentials lets .NET's own
+        // Basic/NTLM challenge-response negotiation handle both schemes transparently (NTLM is a
+        // genuine multi-round-trip handshake that a single, manually-built Authorization: Basic
+        // header alone cannot support) - so a credentialed mirror request always goes through the
+        // dedicated, lazily-created, always internally-owned credential client rather than the
+        // caller-supplied/default one. A bearer token needs no handshake at all, so it is instead
+        // applied as an explicit Authorization: Bearer header on a per-request HttpRequestMessage
+        // below, sent through whichever client is already in use (mirrorAuth's constructor makes
+        // Credentials and BearerToken mutually exclusive, so never both at once).
+        var httpClient = mirrorAuth?.Credentials is not null
+            ? GetOrCreateCredentialClient(mirrorAuth.Credentials)
+            : _httpClient;
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, sourceUri);
+        if (mirrorAuth?.BearerToken is { } bearerToken)
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
+        }
+
         // Request headers before the body so a large file's Content-Length is known before any
         // bytes are read, letting progress reports include a meaningful total from the start.
-        using var response = await _httpClient
-            .GetAsync(sourceUri, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+        using var response = await httpClient
+            .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
             .ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
 
@@ -105,11 +156,45 @@ public sealed class HttpModelDownloadClient : IModelDownloadClient, IDisposable
     }
 
     /// <summary>
-    ///     Disposes the internally created <see cref="HttpClient"/>, when this instance owns one.
+    ///     Returns the lazily-created, always internally-owned <see cref="HttpClient"/> wired
+    ///     with <paramref name="credentials"/>, creating it on first use.
+    /// </summary>
+    /// <param name="credentials">
+    ///     The Basic/NTLM credential the returned client's <see cref="HttpClientHandler"/> should
+    ///     present when challenged.
+    /// </param>
+    /// <remarks>
+    ///     <see cref="System.Net.Http.HttpClientHandler.Credentials"/> is set once, at creation,
+    ///     from whichever mirror credential first requests this client - this library's download
+    ///     mirror support allows exactly one configured <see cref="DownloadMirror"/> at a time
+    ///     (via <see cref="SpeechModelDownloaderOptions.Mirror"/>), so every call reaching this
+    ///     method within one <see cref="HttpModelDownloadClient"/> instance's lifetime supplies
+    ///     the same credential.
+    /// </remarks>
+    private HttpClient GetOrCreateCredentialClient(NetworkCredential credentials)
+    {
+        if (_credentialClient is not null)
+        {
+            return _credentialClient;
+        }
+
+        lock (_credentialClientLock)
+        {
+            return _credentialClient ??= new HttpClient(new HttpClientHandler { Credentials = credentials });
+        }
+    }
+
+    /// <summary>
+    ///     Disposes the internally created <see cref="HttpClient"/>, when this instance owns one,
+    ///     and the lazily-created mirror-credential <see cref="HttpClient"/>, when one was ever
+    ///     created.
     /// </summary>
     /// <remarks>
-    ///     Does nothing when constructed with a caller-supplied <see cref="HttpClient"/>, since
-    ///     that client's lifetime remains the caller's responsibility.
+    ///     Does nothing to <see cref="_httpClient"/> when constructed with a caller-supplied
+    ///     <see cref="HttpClient"/>, since that client's lifetime remains the caller's
+    ///     responsibility; the mirror-credential client, by contrast, is always created and owned
+    ///     internally by this instance (never caller-supplied), so it is disposed unconditionally
+    ///     whenever one was created.
     /// </remarks>
     public void Dispose()
     {
@@ -117,5 +202,7 @@ public sealed class HttpModelDownloadClient : IModelDownloadClient, IDisposable
         {
             _httpClient.Dispose();
         }
+
+        _credentialClient?.Dispose();
     }
 }

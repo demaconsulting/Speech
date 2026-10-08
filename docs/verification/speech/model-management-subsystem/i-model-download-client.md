@@ -16,7 +16,9 @@ implementations (`FakeModelDownloadClient`, `ConcurrencyTrackingModelDownloadCli
 
 Tests pass when a fake implementation of this seam lets `SpeechModelDownloader`'s
 queueing/verification/atomic-swap logic be exercised deterministically with no real network
-access.
+access, and when the optional `mirrorAuth` parameter defaults to `null` for every existing call
+site and is correctly forwarded (or omitted) by `SpeechModelDownloader` depending on whether a
+mirror is configured.
 
 #### Test Scenarios
 
@@ -31,3 +33,11 @@ access.
 ##### Download: Real HttpModelDownloadClient Downloads Exact Bytes from a Loopback Server
 
 **Test**: `HttpModelDownloadClient_DownloadAsync_LoopbackServer_DownloadsExactBytesWithProgress`
+
+##### Download: No Mirror Configured Forwards Null Mirror Auth (via fake seam)
+
+**Test**: `SpeechModelDownloader_DownloadAsync_NoMirrorConfigured_ForwardsOriginalUriAndNullMirrorAuth`
+
+##### Download: Mirror Configured Forwards Mirror Auth (via fake seam)
+
+**Test**: `SpeechModelDownloader_DownloadAsync_MirrorConfigured_ForwardsEffectiveUriAndMirrorAuth`
