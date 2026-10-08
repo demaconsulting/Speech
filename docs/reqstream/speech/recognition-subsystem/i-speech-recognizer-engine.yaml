@@ -4,7 +4,7 @@
 # These requirements describe the design-level behavior of the ISpeechRecognizerEngine contract,
 # decomposing the parent RecognitionSubsystem requirements. Engine exclusivity/lease behavior and
 # RecognitionEngineBusyException are documented separately in recognition-session-lease.yaml,
-# since that behavior is a cross-cutting policy shared with SherpaOnnxSpeechRecognizerEngine.
+# since that behavior is a cross-cutting policy shared with SpeechRecognizerEngine.
 
 sections:
   - title: Speech Requirements
@@ -38,8 +38,8 @@ sections:
                 tests:
                   - UnavailableSpeechRecognizerEngine_CreateSessionAsync_Always_ReturnsUnavailableSession
                   - UnavailableSpeechRecognizerEngine_CreateSessionAsync_NullDevice_ThrowsArgumentNullException
-                  - SherpaOnnxSpeechRecognizerEngine_CreateSessionAsync_NullDevice_ThrowsArgumentNullException
-                  - SherpaOnnxSpeechRecognizerEngine_CreateSessionAsync_NoActiveSession_ReturnsSession
+                  - SpeechRecognizerEngine_CreateSessionAsync_NullDevice_ThrowsArgumentNullException
+                  - SpeechRecognizerEngine_CreateSessionAsync_NoActiveSession_ReturnsSession
                   - SpeechRecognizerFactory_LoadAsync_CancelledToken_FaultsWithOperationCanceledException
 
               - id: Speech-Recognition-ISpeechRecognizerEngine-Disposal
@@ -54,11 +54,11 @@ sections:
                   safe.
                 tests:
                   - UnavailableSpeechRecognizerEngine_DisposeAsync_CalledTwice_DoesNotThrow
-                  - SherpaOnnxSpeechRecognizerEngine_DisposeAsync_WithActiveSession_DisposesSessionFirst
+                  - SpeechRecognizerEngine_DisposeAsync_WithActiveSession_DisposesSessionFirst
 
               - id: Speech-Recognition-RecognitionBackend-UnavailableDeviceFallback
                 title: >-
-                  SherpaOnnxSpeechRecognizerEngine's CreateSessionAsync shall report a Warning
+                  SpeechRecognizerEngine's CreateSessionAsync shall report a Warning
                   diagnostic and return UnavailableRecognitionSession.Instance, without attempting
                   to lease its backend, when the supplied capture device itself reports
                   unavailable.
@@ -69,4 +69,4 @@ sections:
                   than a session doomed to fail the instant it is started, while still telling an
                   observer why via the Warning diagnostic.
                 tests:
-                  - SherpaOnnxSpeechRecognizerEngine_CreateSessionAsync_DeviceUnavailable_ReturnsFallbackAndReportsWarning
+                  - SpeechRecognizerEngine_CreateSessionAsync_DeviceUnavailable_ReturnsFallbackAndReportsWarning

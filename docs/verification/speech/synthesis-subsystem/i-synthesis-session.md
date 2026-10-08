@@ -3,7 +3,7 @@
 #### Verification Approach
 
 `ISynthesisSession` is verified indirectly through both shipped implementations:
-`UnavailableSynthesisSession` proves the honest-unavailable path, and `SherpaOnnxSynthesisSession`
+`UnavailableSynthesisSession` proves the honest-unavailable path, and `SynthesisSession`
 proves the state machine, the overlap rule, hot reuse across calls, the terminal `Faulted` state,
 `SynthesizeAsync`'s full-fidelity segment list, cancellation, and fault containment.
 `SynthesisSessionState` and `SessionStateChangedEventArgs` are verified through the `StateChanged`

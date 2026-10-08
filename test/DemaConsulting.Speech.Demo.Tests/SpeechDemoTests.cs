@@ -5,6 +5,7 @@ using DemaConsulting.Speech.Demo.RecognitionPanelSubsystem;
 using DemaConsulting.Speech.Demo.ShellSubsystem;
 using DemaConsulting.Speech.Demo.SynthesisPanelSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
+using DemaConsulting.Speech.Sherpa;
 
 namespace DemaConsulting.Speech.Demo.Tests;
 
@@ -115,22 +116,26 @@ public class SpeechDemoTests
     ///     empty catalog.
     /// </summary>
     /// <remarks>
-    ///     Earlier phases documented an empty <see cref="SpeechModelCatalog.KnownModels"/> as the
-    ///     expected shipped state; this phase resolves that limitation for recognition models
-    ///     (a synthesis model remains a tracked Phase 7b follow-up), so this test now proves the
-    ///     panel surfaces the real models instead of the empty-catalog message.
+    ///     Earlier phases documented an empty <c>SpeechModelCatalog.KnownModels</c> as the
+    ///     expected shipped state; core <c>DemaConsulting.Speech</c> still ships zero built-in
+    ///     models, but the sibling <c>DemaConsulting.Speech.Sherpa</c> package's
+    ///     <c>AddSherpaModels()</c> registers four real models (two recognition, two synthesis)
+    ///     into the catalog the demo composes, so this test now proves the panel surfaces the
+    ///     real models instead of the empty-catalog message.
     /// </remarks>
     [Fact]
     public void SpeechDemo_SystemIntegration_RealModelCatalog_ReportsKnownModels()
     {
-        // Arrange: the real library catalog over an isolated store root
-        using var catalog = new SpeechModelCatalog(IsolatedOptions());
+        // Arrange: the real library catalog over an isolated store root, seeded with the same
+        // models the application's own composition root registers
+        using var catalog = new SpeechModelCatalog(IsolatedOptions()).AddSherpaModels();
+        using var referenceCatalog = new SpeechModelCatalog(IsolatedOptions()).AddSherpaModels();
 
         // Act: build the model catalog panel over it
         var viewModel = new ModelCatalogViewModel(new ModelCatalogService(catalog));
 
-        // Assert: the panel lists exactly the library's known models, not an empty state
-        Assert.Equal(SpeechModelCatalog.KnownModels.Count, viewModel.Models.Count);
+        // Assert: the panel lists exactly the registered models, not an empty state
+        Assert.Equal(referenceCatalog.Enumerate().Count, viewModel.Models.Count);
         Assert.False(viewModel.IsCatalogEmpty);
     }
 

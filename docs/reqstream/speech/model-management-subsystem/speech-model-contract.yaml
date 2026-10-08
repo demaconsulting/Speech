@@ -92,7 +92,7 @@ sections:
                 justification: |
                   Some sherpa-onnx streaming transducer models (empirically confirmed for
                   SherpaOnnxZipformerEnRecognitionModel) produce UPPERCASE, unpunctuated raw
-                  output; SherpaOnnxRecognitionSession needs a per-model hook it can call on every
+                  output; RecognitionSession needs a per-model hook it can call on every
                   decoded result's text without knowing which model produced it, mirroring the
                   existing synthesis-side NormalizeText hook but kept distinct because the two
                   directions correct fundamentally different things (input text vs. recognized
@@ -114,8 +114,8 @@ sections:
                   rate that specific model can actually use.
                 tests:
                   - IRecognitionModel_AudioFormat_DeclaredByModel_IsExposed
-                  - IRecognitionModel_CreateEngineConfig_InstalledDirectory_ResolvesPathsAndSampleRate
-                  - IRecognitionModel_CreateEngineConfig_EmptyDirectory_ThrowsArgumentException
+                  - IRecognitionModel_CreateBackend_InstalledDirectory_ReturnsRecognitionBackend
+                  - IRecognitionModel_CreateBackend_EmptyDirectory_ThrowsArgumentException
 
               - id: Speech-Models-SpeechModelContract-SynthesisPreferredAudioFormat
                 title: >-
@@ -141,8 +141,8 @@ sections:
                   requirement above, so that adding a synthesis model is a self-contained,
                   reviewable unit of work that never requires changing the synthesis subsystem.
                 tests:
-                  - ISynthesisModel_CreateEngineConfig_InstalledDirectory_ResolvesPaths
-                  - ISynthesisModel_CreateEngineConfig_EmptyDirectory_ThrowsArgumentException
+                  - ISynthesisModel_CreateBackend_InstalledDirectory_ReturnsSynthesisBackend
+                  - ISynthesisModel_CreateBackend_EmptyDirectory_ThrowsArgumentException
 
               - id: Speech-Models-SpeechModelContract-SynthesisCapabilityProfileDeclaration
                 title: >-

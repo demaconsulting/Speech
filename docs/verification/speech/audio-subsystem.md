@@ -131,7 +131,7 @@ scenario above.
 Verifies that `PendingSampleCount` increases as samples are written, decreases by exactly the
 number of samples a callback genuinely dequeues (never by a zero-fill shortfall), resets to zero
 once `Stop` clears the queue, and honestly reports zero both for an unresolved real device and
-the shared unavailable fallback - fixing a bug where `SherpaOnnxSpeechSynthesizer.PlayStreamAsync`
+the shared unavailable fallback - fixing a bug where `SynthesisSession`
 had no way to observe genuine hardware-drain progress and so stopped the device (discarding
 whatever was still queued) as soon as every segment was enqueued, cutting audio off almost
 instantly.

@@ -1,0 +1,178 @@
+---
+# Software Unit Requirements for the streaming recognition session implementation
+#
+# Groups requirements for RecognitionSession together with the recognition-backend seam
+# (IRecognitionBackend/IRecognitionBackendFactory; the concrete SherpaOnnxRecognitionEngine and
+# its engine-specific requirements live in SpeechSherpa, see
+# docs/reqstream/speech-sherpa/recognition-subsystem/sherpa-onnx-recognition-engine.yaml), the
+# audio-format converter, and the result-buffering backpressure policy it depends on, mirroring
+# how port-audio.yaml groups a cohesive implementation unit. Each unit's requirement subset is
+# called out in its own subsection below so every unit still has requirements tracing to it
+# individually. DedicatedWorker's cooperative-cancel-then-abandon policy is documented separately
+# in dedicated-worker.yaml, since that policy is a standalone, independently reusable concern.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: RecognitionSubsystem Requirements
+        sections:
+          - title: RecognitionSession Requirements
+            requirements:
+              - id: Speech-Recognition-RecognitionSession-FormatConversion
+                title: >-
+                  The RecognitionSession class shall convert each captured audio block
+                  from the capture device's reported channel count and sample rate into
+                  single-channel audio at the rate the selected model requires before feeding it
+                  to the recognition backend.
+                justification: |
+                  Desktop microphones commonly capture stereo audio at 44.1 or 48 kHz while
+                  recognition models require one fixed mono rate. Without this conversion,
+                  recognition would only work on machines whose microphone happened to match the
+                  model, which contradicts the library's cross-platform promise.
+                tests:
+                  - RecognitionSession_FrameCaptured_StereoAtModelRate_FeedsDownmixedMonoToBackend
+
+              - id: Speech-Recognition-RecognitionSession-TextNormalization
+                title: >-
+                  The RecognitionSession class shall pass every decoded result's text
+                  through its owning model's IRecognitionModel.NormalizeText(text, isFinal)
+                  before delivering it through GetResultsAsync, supplying the result's own
+                  IsFinal flag as isFinal.
+                justification: |
+                  Some recognition models' raw output is UPPERCASE and unpunctuated (empirically
+                  confirmed for the Zipformer model); consumers must see readable, cased,
+                  punctuated text rather than the backend's raw output, and the session is the
+                  one place every result passes through regardless of which model produced it.
+                tests:
+                  - RecognitionSession_FrameCaptured_FinalResult_AppliesModelNormalizeTextWithIsFinalTrue
+
+              - id: Speech-Recognition-RecognitionSession-DeviceLostFault
+                title: >-
+                  The RecognitionSession class shall transition to
+                  RecognitionSessionState.Faulted when its bound capture device is lost mid
+                  session, rather than silently stopping or hanging a concurrent
+                  GetResultsAsync enumeration.
+                justification: |
+                  A device that disappears mid-session (for example unplugged, or its driver
+                  crashes) is a genuine runtime failure a host must learn about promptly and
+                  unambiguously through the session's own state machine, exactly like a backend
+                  fault.
+                tests:
+                  - RecognitionSession_DeviceLostMidSession_TransitionsToFaulted
+
+              - id: Speech-Recognition-RecognitionSession-NativeCallAbandonIntegration
+                title: >-
+                  The RecognitionSession class shall route every call into the
+                  recognition backend through the cooperative-cancel-then-abandon policy (see
+                  dedicated-worker.yaml), so a single native call that ignores cancellation
+                  cannot hang the session's await indefinitely, and shall report a Warning
+                  diagnostic through its own diagnostics sink when abandonment occurs.
+                justification: |
+                  The sherpa-onnx native runtime offers no cooperative cancellation of its own;
+                  without this integration a single stuck native decode/reset/flush call would
+                  hang the awaiting caller (for example StopAsync during teardown) indefinitely.
+                tests:
+                  - RecognitionSession_NativeCallExceedsAbandonTimeout_TaskCompletesAndDiagnosticsReportsWarning
+
+          - title: IRecognitionBackend Requirements
+            requirements:
+              - id: Speech-Recognition-RecognitionBackend-MockableSeam
+                title: >-
+                  The recognition-backend seam shall isolate all speech-inference interop so the
+                  recognition session's threading, audio conversion, and result delivery can be
+                  verified without a downloaded model or an installed speech-engine native
+                  runtime.
+                justification: |
+                  CI runners cannot be assumed to have a multi-hundred-megabyte speech model or a
+                  platform-specific native inference binary available, so the recognition logic
+                  must be verifiable entirely in pure managed tests.
+                tests:
+                  - RecognitionSession_StartAsync_FromCreated_TransitionsToRunning
+                  - RecognitionSession_FrameCaptured_FinalResult_AppliesModelNormalizeTextWithIsFinalTrue
+
+              - id: Speech-Recognition-RecognitionBackend-ModelOwnedConfiguration
+                title: >-
+                  The recognition-backend seam shall load a backend using only the configuration
+                  and input rate the selected model itself declares.
+                justification: |
+                  The design makes each model's backing class responsible for its own engine
+                  configuration, so that adding a new model is a self-contained, reviewable unit
+                  of work that never requires changing the recognition subsystem.
+                tests:
+                  - SpeechRecognizerFactory_LoadAsync_ModelInstalled_ReturnsRealEngine
+                  - IRecognitionModel_CreateBackend_InstalledDirectory_ReturnsRecognitionBackend
+
+          - title: RecognitionResultBuffer Requirements
+            requirements:
+              - id: Speech-Recognition-RecognitionResultBuffer-TwoTierBackpressure
+                title: >-
+                  The RecognitionResultBuffer class shall coalesce queued provisional results
+                  down to a single latest-provisional slot while queuing final results in a
+                  bounded, drop-nothing FIFO up to a documented byte cap, so GetResultsAsync can
+                  apply the documented backpressure policy without dropping a final result.
+                justification: |
+                  A session's result-delivery pipeline must never grow without bound merely
+                  because a consumer is temporarily slower than the recognition backend, but a
+                  provisional result's whole purpose is to be superseded, while a final result is
+                  a committed transcript line that must never be silently dropped.
+                tests:
+                  - RecognitionSession_GetResultsAsync_SlowConsumer_CoalescesProvisionalResults
+                  - RecognitionSession_GetResultsAsync_SlowConsumer_NeverDropsFinalResultsUnderByteCap
+
+          - title: AudioFrameResampler Requirements
+            requirements:
+              - id: Speech-Recognition-AudioFrameResampler-Downmix
+                title: >-
+                  The AudioFrameResampler class shall collapse interleaved multi-channel audio to
+                  single-channel audio by averaging each frame's channels, discarding any trailing
+                  incomplete frame.
+                justification: |
+                  A speaker is normally present in every channel of a desktop microphone, so
+                  averaging preserves the voice while partially canceling uncorrelated per-channel
+                  noise; an incomplete trailing frame has no defined average and must be dropped.
+                tests:
+                  - AudioFrameResampler_DownmixToMono_StereoInput_AveragesChannelsPerFrame
+                  - AudioFrameResampler_DownmixToMono_TrailingPartialFrame_DiscardsPartialFrame
+                  - AudioFrameResampler_DownmixToMono_SingleChannel_ReturnsSamplesUnchanged
+                  - AudioFrameResampler_DownmixToMono_DestinationOverload_StereoInput_WritesAveragedFrames
+
+              - id: Speech-Recognition-AudioFrameResampler-RateConversion
+                title: >-
+                  The AudioFrameResampler class shall convert single-channel audio from one sample
+                  rate to another, producing a proportional number of output samples, returning
+                  the input unchanged when the two rates are equal, and applying anti-aliasing
+                  lowpass filtering before decimation whenever it downsamples.
+                justification: |
+                  Recognition models accept exactly one input rate, so audio captured at any other
+                  rate must be converted; converting audio that already matches would introduce
+                  avoidable error and cost. A downsampling path that omits anti-aliasing folds
+                  above-target-Nyquist energy back into the speech band, degrading recognition.
+                tests:
+                  - AudioFrameResampler_Resample_Downsampling_ProducesProportionallyFewerSamples
+                  - AudioFrameResampler_Resample_AboveTargetNyquistTone_IsAttenuated
+                  - AudioFrameResampler_Resample_ShortInputDuringDownsampling_DoesNotThrow
+                  - AudioFrameResampler_Resample_Upsampling_LinearlyInterpolatesBetweenSamples
+                  - AudioFrameResampler_Convert_MonoAtTargetRate_ReturnsSamplesUnchanged
+                  - AudioFrameResampler_Convert_MonoAtDifferentRate_ResamplesWithoutDownmix
+                  - AudioFrameResampler_Convert_StereoAtHigherRate_DownmixesAndResamples
+
+              - id: Speech-Recognition-AudioFrameResampler-BoundaryHandling
+                title: >-
+                  The AudioFrameResampler class shall handle empty, single-sample, and
+                  rounds-to-empty conversions without throwing, and shall reject a non-positive
+                  sample rate or channel count, or a destination buffer too small for the input.
+                justification: |
+                  A capture device may legitimately deliver an empty or very short block, which
+                  must not interrupt a recognition session; a non-positive rate or channel count
+                  describes no meaningful audio and must be rejected rather than silently
+                  producing corrupt output, and an undersized destination buffer must be rejected
+                  rather than written past its bounds.
+                tests:
+                  - AudioFrameResampler_Convert_EmptyInput_ReturnsEmptyResult
+                  - AudioFrameResampler_Resample_SingleSample_ClampsToThatSample
+                  - AudioFrameResampler_Resample_OutputRoundsToZeroSamples_ReturnsEmptyResult
+                  - AudioFrameResampler_Constructor_NonPositiveSourceRate_ThrowsArgumentOutOfRangeException
+                  - AudioFrameResampler_Constructor_NonPositiveTargetRate_ThrowsArgumentOutOfRangeException
+                  - AudioFrameResampler_Constructor_NonPositiveChannelCount_ThrowsArgumentOutOfRangeException
+                  - AudioFrameResampler_DownmixToMono_NonPositiveChannelCount_ThrowsArgumentOutOfRangeException
+                  - AudioFrameResampler_DownmixToMono_DestinationOverload_DestinationTooShort_ThrowsArgumentException

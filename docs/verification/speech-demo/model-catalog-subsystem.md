@@ -14,10 +14,11 @@ Download progress callbacks are made deterministic by installing an inline synch
 context for the duration of the test, because `Progress<T>` otherwise marshals to the thread
 pool. This changes nothing about production behavior; it only removes a race from the assertions.
 
-Automated tests do **not** claim proof of a real, multi-hundred-megabyte model download. As of
-Phase 7b the library's real catalog contains three real models (two recognition, one synthesis),
-so the real-catalog tests now prove those models pass through the adapter unchanged; the full
-download lifecycle is still proven against controlled catalog data, never a real network fetch.
+Automated tests do **not** claim proof of a real, multi-hundred-megabyte model download. The
+library's real catalog, populated via `DemaConsulting.Speech.Sherpa`'s `AddSherpaModels()`,
+contains four real models (two recognition, two synthesis), so the real-catalog tests now prove
+those models pass through the adapter unchanged; the full download lifecycle is still proven
+against controlled catalog data, never a real network fetch.
 
 ### Test Environment
 
@@ -45,8 +46,8 @@ download lifecycle is still proven against controlled catalog data, never a real
 
 **Scenario**: The adapter enumerates the real library catalog.
 
-**Expected**: The same models the library itself knows about (as of Phase 7b, its three real
-models - two recognition, one synthesis), reported as-is with each model's own declared role
+**Expected**: The same models the library itself knows about (its four real models - two
+recognition, two synthesis), reported as-is with each model's own declared role
 preserved rather than replaced with invented placeholder models.
 
 **Requirement coverage**: `SpeechDemo-Models-LibraryCatalogDelegation`.

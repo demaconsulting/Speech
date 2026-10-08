@@ -4,7 +4,7 @@
 
 `ISpeechSynthesizerEngine` is verified indirectly through both shipped implementations:
 `UnavailableSpeechSynthesizerEngine` proves the honest-unavailable path, and
-`SherpaOnnxSpeechSynthesizerEngine` proves availability reporting, session exclusivity leasing,
+`SpeechSynthesizerEngine` proves availability reporting, session exclusivity leasing,
 and the one-shot `SpeakAsync`/`SynthesizeAsync` convenience overloads. The `SynthesizedSpeech`
 value type is verified through the segments observed from `SynthesizeAsync`, since it carries no
 behavior of its own.

@@ -237,7 +237,9 @@ jobs:
             ${{ steps.model-cache-path-windows.outputs.path ||
             steps.model-cache-path-macos.outputs.path ||
             steps.model-cache-path-linux.outputs.path }}
-          key: speech-models-${{ matrix.os }}-zipformer-2023-06-26-nemotron-0.6b-560ms-int8-2026-04-25
+          key: >-
+            speech-models-${{ matrix.os }}-zipformer-2023-06-26-nemotron-0.6b-560ms-int8-2026-04-25
+            -vits-piper-libritts-r-medium
 
       - name: Download real speech models
         run: >
@@ -248,6 +250,7 @@ jobs:
           --
           streaming-zipformer-en-2023-06-26
           nemotron-speech-streaming-en-0.6b-560ms-int8-2026-04-25
+          vits-piper-en_US-libritts_r-medium
 
       - name: Test
         run: >

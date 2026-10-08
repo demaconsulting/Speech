@@ -27,7 +27,7 @@ sections:
                   operation once it has faulted or been disposed.
                 tests:
                   - UnavailableSynthesisSession_IsAvailable_Read_ReturnsFalse
-                  - SherpaOnnxSynthesisSession_IsAvailable_BeforeAndAfterDispose_ReflectsLifecycle
+                  - SynthesisSession_IsAvailable_BeforeAndAfterDispose_ReflectsLifecycle
 
               - id: Speech-Synthesis-ISynthesisSession-StateMachine
                 title: >-
@@ -46,8 +46,8 @@ sections:
                 tests:
                   - UnavailableSynthesisSession_State_Read_ReturnsCreated
                   - UnavailableSynthesisSession_StateChanged_SubscribeAndUnsubscribe_DoesNotThrow
-                  - SherpaOnnxSynthesisSession_StateChanged_OneSuccessfulOperation_RaisesExpectedTransitionsInOrder
-                  - SherpaOnnxSynthesisSession_StateChanged_HandlerThrows_IsIsolatedAndDoesNotPropagate
+                  - SynthesisSession_StateChanged_OneSuccessfulOperation_RaisesExpectedTransitionsInOrder
+                  - SynthesisSession_StateChanged_HandlerThrows_IsIsolatedAndDoesNotPropagate
 
               - id: Speech-Synthesis-ISynthesisSession-OverlapNotAllowed
                 title: >-
@@ -63,8 +63,8 @@ sections:
                   to await the first operation (or call StopAsync) before starting another, rather
                   than silently misbehaving.
                 tests:
-                  - SherpaOnnxSynthesisSession_SpeakAsync_CalledWhileAlreadySpeaking_ThrowsInvalidOperationException
-                  - SherpaOnnxSynthesisSession_SynthesizeAsync_CalledWhileAlreadySpeaking_ThrowsInvalidOperationException
+                  - SynthesisSession_SpeakAsync_CalledWhileAlreadySpeaking_ThrowsInvalidOperationException
+                  - SynthesisSession_SynthesizeAsync_CalledWhileAlreadySpeaking_ThrowsInvalidOperationException
 
               - id: Speech-Synthesis-ISynthesisSession-StreamingContract
                 title: >-
@@ -77,9 +77,9 @@ sections:
                   decision requires that a future non-sherpa-onnx backend can replace the current
                   one without a breaking API change.
                 tests:
-                  - SherpaOnnxSynthesisSession_SynthesizeAsync_PlainText_YieldsAudioSegment
-                  - SherpaOnnxSynthesisSession_StopAsync_WhileSpeaking_DoesNotCompleteUntilInFlightGenerateReturns
-                  - SherpaOnnxSynthesisSession_StopAsync_NoOperationInFlight_IsNoOp
+                  - SynthesisSession_SynthesizeAsync_PlainText_YieldsAudioSegment
+                  - SynthesisSession_StopAsync_WhileSpeaking_DoesNotCompleteUntilInFlightGenerateReturns
+                  - SynthesisSession_StopAsync_NoOperationInFlight_IsNoOp
 
               - id: Speech-Synthesis-ISynthesisSession-UnavailableOperationsThrow
                 title: >-
@@ -112,4 +112,4 @@ sections:
                   many turns of a voice conversation) must be able to construct one session once
                   and reuse it across turns rather than reloading the model per turn.
                 tests:
-                  - SherpaOnnxSynthesisSession_SpeakAsync_CalledTwiceOnSameInstance_ReusesSameInstanceWithoutReconstruction
+                  - SynthesisSession_SpeakAsync_CalledTwiceOnSameInstance_ReusesSameInstanceWithoutReconstruction

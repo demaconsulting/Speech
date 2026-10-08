@@ -1,6 +1,5 @@
 using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.SynthesisSubsystem;
-using SherpaOnnx;
 
 namespace DemaConsulting.Speech.ModelManagementSubsystem;
 
@@ -14,20 +13,21 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     <see cref="SpeechModelCatalog"/> could already report and filter models by role via a type
 ///     check, and stated that Phase 4 would add "the real synthesis-engine-configuration member
 ///     ... and the inline Natural Language Audio Tag rendering logic here". This pass (Sub-phase
-///     4b) fulfills exactly that: <see cref="CreateEngineConfig"/> and
+/// 4b) fulfills exactly that: <see cref="CreateBackend"/> and
 ///     <see cref="CapabilityProfile"/> are new members added to an interface that still has no
 ///     production implementations, so nothing defined in Sub-phase 2b was replaced or broken.
 ///     <para>
-///     Both members are deliberately <see langword="internal"/> rather than public, mirroring
-///     <see cref="IRecognitionModel"/>'s identical Phase 3 pattern: this library's "engine
-///     backend stays swappable at the public API surface" constraint is scoped to
-///     <c>ISpeechSynthesizerEngine</c>, while each per-model backing class is architecturally
-///     responsible for "sherpa-onnx configuration for its own model architecture" - so returning
-///     a real <see cref="OfflineTtsConfig"/> here is consistent with the approved design. Keeping
-///     the members internal means this interface's <em>public</em> surface is unchanged, no
-///     sherpa-onnx type leaks into the library's public API, and only assemblies granted
-///     <c>InternalsVisibleTo</c> (the library itself and its test project) can implement the
-///     interface.
+///     The full interface, including <see cref="CreateBackend"/>, <see cref="CapabilityProfile"/>,
+///     and <see cref="ResolveSpeakerId"/>, is public by design, mirroring
+///     <see cref="IRecognitionModel"/>'s identical rationale: third-party extension of the Speech
+///     library is a confirmed goal, and a host application composes its catalog by calling
+///     <see cref="SpeechModelCatalog.AddModels(ISpeechModel[])"/> with models it supplies itself.
+///     A public contract lets an external package implement <see cref="ISynthesisModel"/> to add
+///     an entirely new synthesis backend - not merely another instance of an existing
+///     sherpa-onnx-backed model - without requiring <c>InternalsVisibleTo</c> access to this
+///     assembly. The sibling <c>DemaConsulting.Speech.Sherpa</c> package is simply the first such
+///     implementer, supplying this library's built-in sherpa-onnx-backed models; it has no
+///     special access that a third-party package lacks.
 ///     </para>
 /// </remarks>
 public interface ISynthesisModel : ISpeechModel
@@ -44,14 +44,14 @@ public interface ISynthesisModel : ISpeechModel
     ///     synthesis starts, potentially reducing or eliminating later resampling work. The real
     ///     source of truth remains the constructed engine's
     ///     <see cref="SynthesisSubsystem.ISynthesisBackend.SampleRate"/>, which is read only after
-    ///     <see cref="CreateEngineConfig"/> has been used to load the native engine. Callers must
+    ///     <see cref="CreateBackend"/> has been used to load the native engine. Callers must
     ///     therefore still handle a mismatch by resampling playback audio after construction.
     /// </remarks>
     public AudioFormat PreferredAudioFormat { get; }
 
     /// <summary>
-    ///     Builds the sherpa-onnx offline text-to-speech configuration for this model, resolved
-    ///     against the directory its verified files were installed into.
+    ///     Builds a loaded, model-specific <see cref="SynthesisSubsystem.ISynthesisBackend"/> for
+    ///     this model, resolved against the directory its verified files were installed into.
     /// </summary>
     /// <param name="installedModelDirectory">
     ///     The absolute path of the directory holding this model's installed files (the store's
@@ -60,22 +60,20 @@ public interface ISynthesisModel : ISpeechModel
     ///     absolute model/tokens/lexicon/etc. paths the engine requires.
     /// </param>
     /// <returns>
-    ///     A fully populated <see cref="OfflineTtsConfig"/> describing this model's architecture
-    ///     and file locations.
+    ///     A loaded <see cref="SynthesisSubsystem.ISynthesisBackend"/> ready to synthesize
+    ///     segments for this model.
     /// </returns>
     /// <exception cref="ArgumentException">
     ///     Thrown when <paramref name="installedModelDirectory"/> is null or empty.
     /// </exception>
     /// <remarks>
-    ///     This member is pure with respect to library state: it reads nothing but its own
-    ///     compiled-in constants and the supplied directory path, allocates no native resources,
-    ///     and never loads the model itself - constructing the native synthesizer from the
-    ///     returned configuration is the synthesis subsystem's responsibility, so a model whose
-    ///     files are missing or whose native runtime is absent fails there (and degrades to an
-    ///     unavailable synthesizer) rather than here. Implementations must be safe to call
-    ///     concurrently.
+    ///     Unlike the configuration-only member this replaced, this member allocates real native
+    ///     resources: constructing the native synthesizer is now the model's own responsibility,
+    ///     so a model whose files are missing or whose native runtime is absent throws here, and
+    ///     the synthesis subsystem degrades to an unavailable synthesizer by catching that
+    ///     failure. Implementations must be safe to call concurrently.
     /// </remarks>
-    internal OfflineTtsConfig CreateEngineConfig(string installedModelDirectory);
+    ISynthesisBackend CreateBackend(string installedModelDirectory);
 
     /// <summary>
     ///     Gets the strategy this model uses to render an ordered sequence of parsed Natural
@@ -92,11 +90,11 @@ public interface ISynthesisModel : ISpeechModel
     ///     bracket text). This mirrors <see cref="ISpeechModel.NormalizeText"/>'s default-hook
     ///     pattern.
     /// </remarks>
-    internal IModelCapabilityProfile CapabilityProfile => DefaultModelCapabilityProfile.Instance;
+    IModelCapabilityProfile CapabilityProfile => DefaultModelCapabilityProfile.Instance;
 
     /// <summary>
-    ///     Resolves a session-level parameter value bag to the sherpa-onnx integer speaker id to
-    ///     synthesize with. The default implementation always returns <c>0</c>, identical to
+    ///     Resolves a session-level parameter value bag to the engine-specific integer speaker id
+    ///     to synthesize with. The default implementation always returns <c>0</c>, identical to
     ///     every existing model's previous hard-coded behavior.
     /// </summary>
     /// <param name="parameterValues">
@@ -104,10 +102,10 @@ public interface ISynthesisModel : ISpeechModel
     ///     example built from a host's settings UI via a declared <see cref="ChoiceParameter"/>),
     ///     or <see langword="null"/> when the caller supplied none.
     /// </param>
-    /// <returns>The sherpa-onnx speaker id to pass to <c>ISynthesisBackend.Generate</c>.</returns>
+    /// <returns>The engine-specific speaker id to pass to <c>ISynthesisBackend.Generate</c>.</returns>
     /// <remarks>
-    ///     Added so a multi-speaker model (starting with
-    ///     <see cref="SherpaOnnxKokoroEnglishSynthesisModel"/>) can own its own string-to-int
+    ///     Added so a multi-speaker model (starting with the sibling
+    ///     <c>DemaConsulting.Speech.Sherpa</c> package's Kokoro synthesis model) can own its own string-to-int
     ///     voice mapping entirely inside its own backing class, mirroring
     ///     <see cref="CapabilityProfile"/>'s "generically correct for free, override only for
     ///     bespoke per-model behavior" default-hook pattern. A single-speaker model (or a model
@@ -116,5 +114,5 @@ public interface ISynthesisModel : ISpeechModel
     ///     missing selection should degrade to a sensible default speaker id, never fault
     ///     synthesis.
     /// </remarks>
-    internal int ResolveSpeakerId(IReadOnlyDictionary<string, object>? parameterValues) => 0;
+    int ResolveSpeakerId(IReadOnlyDictionary<string, object>? parameterValues) => 0;
 }

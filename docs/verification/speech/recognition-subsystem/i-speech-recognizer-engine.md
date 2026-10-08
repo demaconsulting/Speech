@@ -4,7 +4,7 @@
 
 `ISpeechRecognizerEngine` is verified indirectly through both shipped implementations:
 `UnavailableSpeechRecognizerEngine` proves the honest-unavailable path, and
-`SherpaOnnxSpeechRecognizerEngine` proves availability reporting and the engine's single-lease
+`SpeechRecognizerEngine` proves availability reporting and the engine's single-lease
 exclusivity behavior.
 
 #### Test Environment

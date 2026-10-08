@@ -44,15 +44,12 @@ input-files:
   - docs/verification/speech/recognition-subsystem/i-speech-recognizer-engine.md
   - docs/verification/speech/recognition-subsystem/i-recognition-session.md
   - docs/verification/speech/recognition-subsystem/speech-recognizer-factory.md
-  - docs/verification/speech/recognition-subsystem/sherpa-onnx-recognition-session.md
   - docs/verification/speech/recognition-subsystem/unavailable-speech-recognizer-engine.md
   - docs/verification/speech/recognition-subsystem/unavailable-recognition-session.md
   - docs/verification/speech/synthesis-subsystem.md
   - docs/verification/speech/synthesis-subsystem/i-speech-synthesizer-engine.md
   - docs/verification/speech/synthesis-subsystem/i-synthesis-session.md
   - docs/verification/speech/synthesis-subsystem/speech-synthesizer-factory.md
-  - docs/verification/speech/synthesis-subsystem/sherpa-onnx-speech-synthesizer-engine.md
-  - docs/verification/speech/synthesis-subsystem/sherpa-onnx-synthesis-session.md
   - docs/verification/speech/synthesis-subsystem/unavailable-speech-synthesizer-engine.md
   - docs/verification/speech/synthesis-subsystem/unavailable-synthesis-session.md
   - docs/verification/speech/synthesis-subsystem/audio-tag-parser.md
@@ -63,6 +60,18 @@ input-files:
   - docs/verification/speech-demo/model-settings-subsystem.md
   - docs/verification/speech-demo/synthesis-panel-subsystem.md
   - docs/verification/speech-demo/recognition-panel-subsystem.md
+  - docs/verification/speech-sherpa.md
+  - docs/verification/speech-sherpa/model-management-subsystem.md
+  - docs/verification/speech-sherpa/model-management-subsystem/sherpa-onnx-zipformer-en-recognition-model.md
+  - docs/verification/speech-sherpa/model-management-subsystem/sherpa-onnx-nemotron-streaming-en-recognition-model.md
+  - docs/verification/speech-sherpa/model-management-subsystem/tar-bz2-archive-extractor.md
+  - docs/verification/speech-sherpa/model-management-subsystem/uppercase-transcript-restorer.md
+  - docs/verification/speech-sherpa/model-management-subsystem/sherpa-onnx-vits-libritts-en-synthesis-model.md
+  - docs/verification/speech-sherpa/model-management-subsystem/sherpa-onnx-kokoro-en-synthesis-model.md
+  - docs/verification/speech-sherpa/recognition-subsystem.md
+  - docs/verification/speech-sherpa/recognition-subsystem/sherpa-onnx-recognition-engine.md
+  - docs/verification/speech-sherpa/synthesis-subsystem.md
+  - docs/verification/speech-sherpa/synthesis-subsystem/sherpa-onnx-synthesis-engine.md
   - docs/verification/ots.md
   - docs/verification/ots/port-audio-sharp2.md
   - docs/verification/ots/sherpa-onnx.md

@@ -23,7 +23,7 @@ sections:
                   member, without risk of the check itself failing.
                 tests:
                   - UnavailableSpeechSynthesizerEngine_IsAvailable_Read_ReturnsFalse
-                  - SherpaOnnxSpeechSynthesizerEngine_IsAvailable_Always_ReturnsTrue
+                  - SpeechSynthesizerEngine_IsAvailable_Always_ReturnsTrue
 
               - id: Speech-Synthesis-ISpeechSynthesizerEngine-SessionCreationContract
                 title: >-
@@ -41,9 +41,9 @@ sections:
                   exactly one in-flight session while still offering a convenient one-shot API for
                   the common case of a single speak call against a single device.
                 tests:
-                  - SherpaOnnxSpeechSynthesizerEngine_CreateSessionAsync_NoLeaseHeld_ReturnsRealSession
-                  - SherpaOnnxSpeechSynthesizerEngine_SpeakAsync_CalledTwice_CreatesAndDisposesASessionEachTime
-                  - SherpaOnnxSpeechSynthesizerEngine_SynthesizeAsync_NoDeviceSupplied_ReturnsSegments
+                  - SpeechSynthesizerEngine_CreateSessionAsync_NoLeaseHeld_ReturnsRealSession
+                  - SpeechSynthesizerEngine_SpeakAsync_CalledTwice_CreatesAndDisposesASessionEachTime
+                  - SpeechSynthesizerEngine_SynthesizeAsync_NoDeviceSupplied_ReturnsSegments
 
               - id: Speech-Synthesis-ISpeechSynthesizerEngine-UnavailableOperationsThrow
                 title: >-
@@ -72,4 +72,4 @@ sections:
                   arrive needs each segment's own silence and rate to play it correctly without
                   consulting any other segment.
                 tests:
-                  - SherpaOnnxSynthesisSession_SynthesizeAsync_ReturnsFullFidelitySegmentListIncludingSilence
+                  - SynthesisSession_SynthesizeAsync_ReturnsFullFidelitySegmentListIncludingSilence

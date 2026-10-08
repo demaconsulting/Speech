@@ -20,12 +20,16 @@ against it without reloading. It contains the following direct units:
   value types it uses
 - **SpeechRecognizerFactory**: composition root whose `LoadAsync` overloads return a real engine
   or the honest unavailable fallback, and never throw for an ordinary machine state
-- **SherpaOnnxSpeechRecognizerEngine** and **SherpaOnnxRecognitionSession**: the real Layer 3/5
-  implementations, together with the internal
-  **IRecognitionBackend**/**IRecognitionBackendFactory** seam, its real
-  **SherpaOnnxRecognitionEngine**/**SherpaOnnxRecognitionEngineFactory** implementations, the
+- **SpeechRecognizerEngine** and **RecognitionSession**: the real Layer 3/5
+  implementations, together with the public **IRecognitionBackend** seam and its internal
+  **IRecognitionBackendFactory** loading seam, its model-driven
+  **DefaultRecognitionBackendFactory** implementation (which asks the model itself to construct
+  its backend via `IRecognitionModel.CreateBackend`), the
   **AudioFrameResampler** that converts captured audio into the format a model requires, the
-  **RecognitionResultBuffer** backpressure buffer, and the **DedicatedWorker** pump-thread helper
+  **RecognitionResultBuffer** backpressure buffer, and the **DedicatedWorker** pump-thread helper.
+  The real sherpa-onnx `IRecognitionBackend` implementation, `SherpaOnnxRecognitionEngine`, is not
+  part of this subsystem: it lives in the sibling `SpeechSherpa` system - see _SpeechSherpa
+  RecognitionSubsystem Design_
 - **UnavailableSpeechRecognizerEngine**, **UnavailableRecognitionSession**, and
   **SpeechRecognizerUnavailableException**: honest fallback behavior when no model, no backend,
   or no capture device is available
@@ -40,15 +44,18 @@ The subsystem exposes `ISpeechRecognizerEngine`, `IRecognitionSession`, `Recogni
 `SpeechRecognizerFactory`, `UnavailableSpeechRecognizerEngine`, `UnavailableRecognitionSession`,
 `SpeechRecognizerUnavailableException`, `RecognitionEngineBusyException`, and
 `RecognitionSessionFaultedException` as its public API. It consumes `IAudioCaptureDevice` from
-the AudioSubsystem for input audio, `IRecognitionModel` from the ModelManagementSubsystem for the
-engine configuration and required input format, and `ISpeechDiagnostics` from the Diagnostics
-subsystem to report structural composition, lifecycle, and fault facts without ever exposing
-recognized text.
+the AudioSubsystem for input audio, `IRecognitionModel` from the ModelManagementSubsystem for
+backend construction (`CreateBackend`) and the required input format, and `ISpeechDiagnostics`
+from the Diagnostics subsystem to report structural composition, lifecycle, and fault facts
+without ever exposing recognized text.
 
 No member of the subsystem's public API names a sherpa-onnx type, per this library's
-"engine backend stays swappable at the public API surface" decision. The sherpa-onnx
-configuration type appears only on `IRecognitionModel`'s internal members and inside the
-subsystem's internal backend seam.
+"engine backend stays swappable at the public API surface" decision. No member of the subsystem -
+public or internal - names a sherpa-onnx type at all: `IRecognitionModel`'s public
+`CreateBackend` members return the engine-neutral, equally public `IRecognitionBackend` seam, and
+every concrete engine backend lives in a model-supplying extension such as the sibling
+`SpeechSherpa` system (or, by design, in any third-party package implementing
+`IRecognitionModel`).
 
 ### Design
 
@@ -115,14 +122,14 @@ previous session's `DisposeAsync` completes.
 
 #### Cancellation and abandon policy
 
-Both the pump thread inside `SherpaOnnxRecognitionSession` and the model-load step inside
+Both the pump thread inside `RecognitionSession` and the model-load step inside
 `SpeechRecognizerFactory` run on a `DedicatedWorker`: a dedicated, long-running
 (`TaskCreationOptions.LongRunning`) thread rather than a pooled thread, because both can block
 inside native interop for an unbounded time. `DedicatedWorker` applies a **cooperative-cancel-
 then-abandon** policy (Decision #4): on cancellation it signals the delegate's own
 `CancellationToken` first, then waits up to a bounded timeout (`DefaultAbandonTimeout`, 2 seconds)
 for the delegate to observe it and return; if the delegate has not returned by then, the worker
-*abandons* it - the returned `Task` completes (faulted with `OperationCanceledException`) without
+_abandons_ it - the returned `Task` completes (faulted with `OperationCanceledException`) without
 waiting for the native call to return, and the abandonment itself is reported through
 `ISpeechDiagnostics` at `Warning` level so a host can see that a native call did not cooperate.
 This bounds how long `StopAsync`/`DisposeAsync` can ever block a caller, at the cost of leaving an
@@ -130,7 +137,7 @@ abandoned native thread to finish on its own; it never blocks indefinitely on a 
 
 #### Backpressure policy
 
-`SherpaOnnxRecognitionSession` isolates a possibly-slow `GetResultsAsync` consumer from the pump
+`RecognitionSession` isolates a possibly-slow `GetResultsAsync` consumer from the pump
 thread with two independent, bounded buffers (Decision #5):
 
 - Captured-but-not-yet-converted audio queues in a bounded, drop-oldest `Channel<float[]>`
@@ -160,7 +167,7 @@ construction never blocks the calling thread. A capture device is bound later, p
 `ISpeechRecognizerEngine.CreateSessionAsync` - not here - so one loaded engine can be reused
 across many devices or many sequential sessions over its life.
 
-The running pipeline in `SherpaOnnxRecognitionSession` still spans two threads by design. The
+The running pipeline in `RecognitionSession` still spans two threads by design. The
 capture device raises frames on a high-priority audio callback thread, so the session's frame
 handler does nothing but copy the block into the bounded, drop-oldest queue and return; all
 conversion, inference, and result buffering happens on the `DedicatedWorker` pump thread.
@@ -171,8 +178,12 @@ accounted for as an evicted-with-diagnostic final by the time the call returns.
 `AudioFrameResampler` performs the format conversion, downmixing to mono and using simple linear
 interpolation for rate conversion except on the downsampling path, where a small windowed-sinc
 FIR lowpass filter runs immediately before decimation to attenuate above-target-Nyquist energy.
-The internal `IRecognitionBackend`/`IRecognitionBackendFactory` seam confines every sherpa-onnx
-call to `SherpaOnnxRecognitionEngine`/`SherpaOnnxRecognitionEngineFactory`. That seam is the
+The public `IRecognitionBackend` seam, loaded through the internal
+`IRecognitionBackendFactory` seam, keeps every native inference
+call out of this subsystem entirely: `DefaultRecognitionBackendFactory` simply forwards to the
+model's own `IRecognitionModel.CreateBackend`, and the real sherpa-onnx backend
+(`SherpaOnnxRecognitionEngine`) lives in the sibling `SpeechSherpa` system (see _SpeechSherpa
+RecognitionSubsystem Design_). That seam is the
 reason the whole pipeline is verifiable in CI: the session's threading, conversion, fault
 containment, and result ordering are all exercised through pure managed fakes with no model file
 and no native inference binary present. It mirrors the `IPortAudioApi` seam used for audio
@@ -245,7 +256,7 @@ invoked, or that a session that claimed to be available failed on first use.
 **Dependencies**: `Exception`.
 
 **Callers**: `UnavailableRecognitionSession` for its operational members, and
-`SherpaOnnxRecognitionSession.StartAsync()`/its frame handler when the capture device fails to
+`RecognitionSession.StartAsync()`/its frame handler when the capture device fails to
 start or goes unavailable mid-session.
 
 #### RecognitionEngineBusyException
@@ -263,7 +274,7 @@ behavior" above).
 
 **Dependencies**: `Exception`.
 
-**Callers**: `SherpaOnnxSpeechRecognizerEngine.CreateSessionAsync(...)`.
+**Callers**: `SpeechRecognizerEngine.CreateSessionAsync(...)`.
 
 #### RecognitionSessionFaultedException
 
@@ -281,4 +292,4 @@ unavailable mid-session) as `InnerException`.
 **Dependencies**: `Exception`.
 
 **Callers**: `RecognitionResultBuffer.ReadAllAsync(...)` (consumed by
-`SherpaOnnxRecognitionSession.GetResultsAsync`) once the buffer has been faulted.
+`RecognitionSession.GetResultsAsync`) once the buffer has been faulted.

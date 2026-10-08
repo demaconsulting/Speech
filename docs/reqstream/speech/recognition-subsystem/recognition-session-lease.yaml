@@ -3,7 +3,7 @@
 #
 # These requirements describe the single-active-session lease policy shared by
 # ISpeechRecognizerEngine implementations (concretely verified against
-# SherpaOnnxSpeechRecognizerEngine) and RecognitionEngineBusyException, decomposing the parent
+# SpeechRecognizerEngine) and RecognitionEngineBusyException, decomposing the parent
 # RecognitionSubsystem requirements. Documented as a standalone file because this fail-fast
 # exclusivity policy is a cross-cutting design decision independent of any single unit's other
 # behavior.
@@ -27,8 +27,8 @@ sections:
                   session per engine lifetime) is still required to keep the expensive model-load
                   step amortized across many turns.
                 tests:
-                  - SherpaOnnxSpeechRecognizerEngine_CreateSessionAsync_NoActiveSession_ReturnsSession
-                  - SherpaOnnxSpeechRecognizerEngine_CreateSessionAsync_AfterPriorSessionFullyDisposed_ReturnsNewSession
+                  - SpeechRecognizerEngine_CreateSessionAsync_NoActiveSession_ReturnsSession
+                  - SpeechRecognizerEngine_CreateSessionAsync_AfterPriorSessionFullyDisposed_ReturnsNewSession
 
               - id: Speech-Recognition-EngineExclusivity-FailFastNotQueued
                 title: >-
@@ -44,8 +44,8 @@ sections:
                   is held for the whole disposal window because disposal itself still drives the
                   native backend.
                 tests:
-                  - SherpaOnnxSpeechRecognizerEngine_CreateSessionAsync_SessionAlreadyLeased_ThrowsRecognitionEngineBusyException
-                  - SherpaOnnxSpeechRecognizerEngine_CreateSessionAsync_PriorSessionDisposing_ThrowsRecognitionEngineBusyException
+                  - SpeechRecognizerEngine_CreateSessionAsync_SessionAlreadyLeased_ThrowsRecognitionEngineBusyException
+                  - SpeechRecognizerEngine_CreateSessionAsync_PriorSessionDisposing_ThrowsRecognitionEngineBusyException
 
               - id: Speech-Recognition-EngineExclusivity-DisposalOwnsSession
                 title: >-
@@ -57,7 +57,7 @@ sections:
                   created must not leak that session's unmanaged inference resources or leave the
                   lease held with no way to release it.
                 tests:
-                  - SherpaOnnxSpeechRecognizerEngine_DisposeAsync_WithActiveSession_DisposesSessionFirst
+                  - SpeechRecognizerEngine_DisposeAsync_WithActiveSession_DisposesSessionFirst
 
           - title: RecognitionEngineBusyException Requirements
             requirements:
@@ -72,8 +72,8 @@ sections:
                   cancellation, or unrelated composition failure, so it can decide whether to
                   retry after releasing the prior session.
                 tests:
-                  - SherpaOnnxSpeechRecognizerEngine_CreateSessionAsync_SessionAlreadyLeased_ThrowsRecognitionEngineBusyException
-                  - SherpaOnnxSpeechRecognizerEngine_CreateSessionAsync_PriorSessionDisposing_ThrowsRecognitionEngineBusyException
+                  - SpeechRecognizerEngine_CreateSessionAsync_SessionAlreadyLeased_ThrowsRecognitionEngineBusyException
+                  - SpeechRecognizerEngine_CreateSessionAsync_PriorSessionDisposing_ThrowsRecognitionEngineBusyException
 
               - id: Speech-Recognition-RecognitionEngineBusyException-Constructors
                 title: >-

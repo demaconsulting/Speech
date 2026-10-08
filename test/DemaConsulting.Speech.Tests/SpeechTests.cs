@@ -366,13 +366,8 @@ public class SpeechTests
         AudioFormat IRecognitionModel.AudioFormat => AudioFormat.Mono(16000);
 
         /// <inheritdoc/>
-        SherpaOnnx.OnlineRecognizerConfig IRecognitionModel.CreateEngineConfig(string installedModelDirectory)
-        {
-            var config = new SherpaOnnx.OnlineRecognizerConfig();
-            config.FeatConfig.SampleRate = 16000;
-            config.ModelConfig.Tokens = Path.Join(installedModelDirectory, "tokens.txt");
-            return config;
-        }
+        IRecognitionBackend IRecognitionModel.CreateBackend(string installedModelDirectory) =>
+            new FakeRecognitionEngine();
     }
 
     /// <summary>

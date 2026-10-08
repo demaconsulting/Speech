@@ -4,15 +4,17 @@ This document describes the overall Off-The-Shelf (OTS) integration strategy for
 
 ## Overview
 
-DemaConsulting.Speech now has three runtime NuGet dependencies: `PortAudioSharp2`,
-`org.k2fsa.sherpa.onnx`, and `SharpCompress`. The first provides the managed PortAudio binding and
-brings its supported native runtime packages transitively; the second provides the managed local
-speech-inference API and likewise brings its per-platform native runtime packages transitively;
-the third provides the managed BZip2-compressed tar (`.tar.bz2`) archive reader that
-`TarBz2ArchiveExtractor` uses to unpack downloaded recognition-model archives after checksum
-verification.
-The library's own source code still depends primarily on the .NET Base Class Library, but real
-audio I/O and real speech recognition now flow through these OTS dependencies.
+DemaConsulting.Speech has one runtime NuGet dependency: `PortAudioSharp2`, which provides the
+managed PortAudio binding and brings its supported native runtime packages transitively. The
+library's own source code otherwise depends primarily on the .NET Base Class Library; real audio
+I/O flows through this OTS dependency.
+
+The SpeechSherpa library (`DemaConsulting.Speech.Sherpa`) adds two runtime NuGet dependencies of
+its own, `org.k2fsa.sherpa.onnx` and `SharpCompress`. The first provides the managed local
+speech-inference API through which real speech recognition and synthesis flow; the second
+provides the managed BZip2-compressed tar (`.tar.bz2`) archive reader that
+`TarBz2ArchiveExtractor` uses to unpack downloaded model archives after checksum verification.
+Neither is referenced by the Speech library.
 
 The SpeechDemo application adds two runtime NuGet dependencies of its own, `Avalonia` and
 `CommunityToolkit.Mvvm`, which supply its user interface and its MVVM plumbing respectively.
@@ -29,8 +31,8 @@ requirements-traceability, testing, and quality-reporting pipeline invoked by `b
 | OTS Item | Purpose |
 | --- | --- |
 | PortAudioSharp2 | Managed PortAudio binding and carrier for supported native runtime packages |
-| SherpaOnnx | Managed local speech-inference API and carrier for its native runtime packages |
-| SharpCompress | Managed BZip2/tar archive reader for unpacking downloaded model archives |
+| SherpaOnnx | Managed local speech-inference API used by SpeechSherpa |
+| SharpCompress | Managed BZip2/tar archive reader for SpeechSherpa model installs |
 | Avalonia | Cross-platform desktop UI framework hosting the SpeechDemo application |
 | CommunityToolkit.Mvvm | MVVM change-notification and command source generators for SpeechDemo |
 | BuildMark | Generates build-notes documentation from GitHub Actions metadata |

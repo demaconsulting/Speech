@@ -6,9 +6,10 @@ This document describes the overall Off-The-Shelf (OTS) verification strategy fo
 
 Runtime OTS dependencies and build-time OTS tools are verified differently in this repository.
 For build/pipeline tools, verification is a combination of self-validation CLI modes and
-pipeline-evidence-based verification. For the runtime PortAudio and sherpa-onnx dependencies,
-automated verification focuses on deterministic integration logic, while true end-to-end physical
-audio I/O and real native speech inference remain manual/local verification only. For the
+pipeline-evidence-based verification. For the Speech library's runtime PortAudio dependency and
+the SpeechSherpa library's sherpa-onnx and SharpCompress dependencies, automated verification
+focuses on deterministic integration logic, while true end-to-end physical audio I/O and real
+native speech inference remain manual/local verification only. For the
 SpeechDemo application's Avalonia and CommunityToolkit.Mvvm dependencies, automated verification
 covers application-host configuration and the generated MVVM members, while visual appearance and
 interactive behavior remain manual/local verification only.

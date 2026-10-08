@@ -1,4 +1,6 @@
 using DemaConsulting.Speech.ModelManagementSubsystem;
+using DemaConsulting.Speech.Sherpa;
+using DemaConsulting.Speech.Sherpa.ModelManagementSubsystem;
 
 namespace DemaConsulting.Speech.ModelDownloader;
 
@@ -163,6 +165,19 @@ internal static class Program
     }
 
     /// <summary>
+    ///     The compiled-in known models this CI bootstrap tool can download, mirroring the exact
+    ///     four models the sibling <c>DemaConsulting.Speech.Sherpa</c> package's
+    ///     <see cref="SpeechModelCatalogSherpaExtensions.AddSherpaModels"/> registers.
+    /// </summary>
+    private static readonly IReadOnlyList<ISpeechModel> KnownModels =
+    [
+        new SherpaOnnxZipformerEnRecognitionModel(),
+        new SherpaOnnxNemotronStreamingEnRecognitionModel(),
+        new SherpaOnnxVitsLibriTtsEnglishSynthesisModel(),
+        new SherpaOnnxKokoroEnglishSynthesisModel(),
+    ];
+
+    /// <summary>
     ///     Looks up a requested id in the compiled-in model catalog so the tool only downloads
     ///     supported models.
     /// </summary>
@@ -176,7 +191,7 @@ internal static class Program
     ///     platforms and store implementations.
     /// </remarks>
     private static ISpeechModel? FindKnownModel(string modelId) =>
-        SpeechModelCatalog.KnownModels
+        KnownModels
             .FirstOrDefault(candidate => string.Equals(candidate.Id, modelId, StringComparison.Ordinal));
 
     /// <summary>

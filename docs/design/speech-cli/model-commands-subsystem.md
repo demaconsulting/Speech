@@ -31,7 +31,10 @@ established for the same reason (`IModelCatalogService`/`ModelCatalogService`):
 | `CleanUpLeftovers(id)` | `void` | Never throws |
 
 `SpeechModelCatalogAdapter` is the only production implementation. It owns (and disposes) a real
-`SpeechModelCatalog`, delegating `Uninstall`/`CleanUpLeftovers` through the catalog's `Store`.
+`SpeechModelCatalog`, constructed as `new SpeechModelCatalog(options).AddSherpaModels()` -
+populating the catalog via the sibling `DemaConsulting.Speech.Sherpa` package's extension method,
+since core `DemaConsulting.Speech` ships zero built-in models - and delegating
+`Uninstall`/`CleanUpLeftovers` through the catalog's `Store`.
 `CliModelCatalogFactory.Create(context)` composes one adapter per command invocation, passing
 `context.ModelsDir` through `SpeechModelStoreOptions.RootPathOverride` when given, so `--models-dir`
 is honored uniformly by every command without each command handler needing to know how the
@@ -115,13 +118,14 @@ file under `test/DemaConsulting.Speech.Cli.Tests/Commands/ModelCommandsSubsystem
 ### Addendum (Pass 5): Seam Extension for SynthesisCommandSubsystem and RecognitionCommandSubsystem
 
 `speak` needs to load a real `ISpeechSynthesizerEngine`, and `recognize` needs to load a real
-`ISpeechRecognizerEngine`, each of which requires casting a resolved model to the library's
-internal `ISynthesisModel`/`IRecognitionModel` interface - a cast that is only compilable inside
-this same assembly (`DemaConsulting.Speech.Cli`), not inside `DemaConsulting.Speech.Cli.Tests`,
-which is not granted `InternalsVisibleTo` access to either. Rather than introduce competing seam
-interfaces for each subsystem, `ICliModelCatalog` is extended with four further members that keep
-the same shape as the original five - narrow, purpose-specific operations, never throwing for a
-genuinely absent capability where the library itself would return a graceful fallback:
+`ISpeechRecognizerEngine`, each of which requires casting a resolved model to the library's fully
+public `ISynthesisModel`/`IRecognitionModel` interface - both interfaces are implementable (and
+their `is`/`as` casts compilable) from any assembly, including `DemaConsulting.Speech.Cli.Tests`.
+Rather than introduce competing seam interfaces for each subsystem, `ICliModelCatalog` is extended
+with four further members that keep the same shape as the original five - narrow,
+purpose-specific operations, never throwing for a genuinely absent capability where the library
+itself would return a graceful fallback - so the role-specific narrowing stays confined to one
+seam instead of being repeated across every caller:
 
 | Member | Returns | Behavior |
 | --- | --- | --- |

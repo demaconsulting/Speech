@@ -82,6 +82,7 @@
   <!-- Project References -->
   <ItemGroup>
     <ProjectReference Include="..\DemaConsulting.Speech\DemaConsulting.Speech.csproj" />
+    <ProjectReference Include="..\DemaConsulting.Speech.Sherpa\DemaConsulting.Speech.Sherpa.csproj" />
   </ItemGroup>
 
   <ItemGroup>

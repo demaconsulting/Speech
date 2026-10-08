@@ -29,9 +29,10 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     inserted silence regardless of model capability, so
 ///     <see cref="NaturalLanguageAudioTag.ShortPause"/>/<see cref="NaturalLanguageAudioTag.LongPause"/>
 ///     always produce silence here rather than a parameter override or passthrough text. This
-///     record is immutable and safe to share across threads.
+///     record is immutable and safe to share across threads. Public, mirroring
+///     <see cref="SpeechPlan"/>'s public visibility.
 /// </remarks>
-internal sealed record SpeechSegment(
+public sealed record SpeechSegment(
     string Text,
     int PreSilenceMs,
     int PostSilenceMs,

@@ -11,7 +11,7 @@ sections:
           - id: Speech-OTS-SharpCompress-TarBz2Extraction
             title: >-
               SharpCompress shall provide the managed BZip2 tar (.tar.bz2) decoder consumed by
-              the Speech library's TarBz2ArchiveExtractor helper to unpack a downloaded model
+              the SpeechSherpa library's TarBz2ArchiveExtractor helper to unpack a downloaded model
               archive.
             justification: |
               The .NET BCL has no BZip2 decoder, and sherpa-onnx's own official GitHub Releases

@@ -36,21 +36,29 @@ which ensures compliance evidence is generated automatically on every CI run.
 
 # Installation
 
-Install the library using the .NET CLI:
+Install the core library and the sherpa-onnx-backed models package using the .NET CLI:
 
 ```bash
 dotnet add package DemaConsulting.Speech
+dotnet add package DemaConsulting.Speech.Sherpa
 ```
 
-The package references `PortAudioSharp2`, whose transitive native runtime packages cover
+`DemaConsulting.Speech` is the engine-neutral core library: it ships zero built-in models and no
+dependency on any speech-engine package. `DemaConsulting.Speech.Sherpa` is a separate, sibling
+package supplying the sherpa-onnx-backed models this guide uses; calling `.AddSherpaModels()`
+on a `SpeechModelCatalog` registers them (see "Managing speech models" below). A host that only
+needs the catalog/contract seam - for example to ship its own `IRecognitionModel`/
+`ISynthesisModel` implementation - can depend on the core package alone.
+
+The core package references `PortAudioSharp2`, whose transitive native runtime packages cover
 `win-x64`, `linux-x64`, `linux-aarch64`, `osx-x64`, and `osx-arm64`. No `win-arm64`
 PortAudio runtime package is available through that dependency chain in this phase.
 
-The package also references the managed `org.k2fsa.sherpa.onnx` speech-engine package. It never
-references a per-RID `org.k2fsa.sherpa.onnx.runtime.*` package directly; the managed package
-declares those as its own dependencies, so your application restores the native runtime for its
-target RID transitively. If that runtime is absent, speech recognition reports itself unavailable
-rather than failing.
+`DemaConsulting.Speech.Sherpa` references the managed `org.k2fsa.sherpa.onnx` speech-engine
+package. It never references a per-RID `org.k2fsa.sherpa.onnx.runtime.*` package directly; the
+managed package declares those as its own dependencies, so your application restores the native
+runtime for its target RID transitively. If that runtime is absent, speech recognition reports
+itself unavailable rather than failing.
 
 # Usage
 
@@ -132,12 +140,13 @@ describing *which* models are available and their tunable parameters:
   underlying exception in `SpeechModelDownloadResult.Error`) or `ChecksumMismatch` on a real
   download problem, or throws `ArgumentException` for an unrecognized model id.
 
-This release ships **four real, production model classes** across both roles it defines —
-`SpeechModelCatalog.KnownModels` is a compiled-in, non-empty list. The catalog/contract seam,
-together with each model's own `CreateEngineConfig(...)` and (for synthesis) `CapabilityProfile`
-members, lets a host already build a model-settings-style UI and compose a real
-recognizer/synthesizer against any of the four. See "Recognizing Speech" and "Synthesizing
-Speech" below for each model's identity and license.
+This release ships **four real, production model classes** across both roles it defines, via
+the separate `DemaConsulting.Speech.Sherpa` package: calling `.AddSherpaModels()` on a
+`SpeechModelCatalog` registers all four. The catalog/contract seam, together with each model's
+own `CreateBackend(...)` and (for synthesis) `CapabilityProfile` members, lets a host already
+build a model-settings-style UI and compose a real recognizer/synthesizer against any of the
+four. See "Recognizing Speech" and "Synthesizing Speech" below for each model's identity and
+license.
 
 A model may also unpack its own downloaded archive before it becomes usable: `ISpeechModel`
 declares an `InstallAsync(stagedFilesDirectory, cancellationToken)` hook, defaulting to a no-op
@@ -150,8 +159,9 @@ Typical catalog usage:
 
 ```csharp
 using DemaConsulting.Speech.ModelManagementSubsystem;
+using DemaConsulting.Speech.Sherpa;
 
-var catalog = new SpeechModelCatalog();
+var catalog = new SpeechModelCatalog().AddSherpaModels();
 
 foreach (var descriptor in catalog.Enumerate())
 {
@@ -209,10 +219,11 @@ Typical recognition composition:
 using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.RecognitionSubsystem;
+using DemaConsulting.Speech.Sherpa;
 
 // 1. The catalog is the library's only "what models exist" entry point - nothing below names a
 //    concrete model class, so new models added in a future release show up automatically.
-using var catalog = new SpeechModelCatalog();
+using var catalog = new SpeechModelCatalog().AddSherpaModels();
 
 // 2. Pick a recognition model. Any model with the recognition role will do - this is the
 //    idiomatic pattern for an app that just wants "a" speech-to-text model:
@@ -312,7 +323,8 @@ this project's sandboxes) and `SherpaOnnxNemotronStreamingEnRecognitionModel`
 (`nemotron-speech-streaming-en-0.6b-560ms-int8-2026-04-25`, released by NVIDIA under the
 **NVIDIA Open Model License** — a custom, non-OSI license materially different from the other
 model's Apache-2.0 terms; review that license's field-of-use and redistribution terms before
-relying on this model) — both registered in `SpeechModelCatalog.KnownModels`. Neither model's
+relying on this model) — both shipped by the separate `DemaConsulting.Speech.Sherpa` package and
+registered via `AddSherpaModels()`. Neither model's
 bytes are bundled with this library; `SpeechModelCatalog.DownloadAsync` fetches each one directly
 from its own official GitHub Releases URL only when you explicitly request it. Both facts above
 are also available programmatically without parsing prose or `DisplayName`, via each model's
@@ -370,10 +382,11 @@ one-shot call), not at `LoadAsync` time.
 using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.SynthesisSubsystem;
+using DemaConsulting.Speech.Sherpa;
 
 // 1. The catalog is the library's only "what models exist" entry point - nothing below names a
 //    concrete model class, so new models added in a future release show up automatically.
-using var catalog = new SpeechModelCatalog();
+using var catalog = new SpeechModelCatalog().AddSherpaModels();
 
 // 2. Pick a synthesis model. Any model with the synthesis role will do - this is the idiomatic
 //    pattern for an app that just wants "a" text-to-speech model:
@@ -515,7 +528,8 @@ this prose or `DisplayName`):
   emotion parameter (no happy/sad/excited control); expressiveness is limited to voice choice
   plus the existing speed/length-scale and Natural Language Audio Tag mechanisms described above.
 
-Both models are registered in `SpeechModelCatalog.KnownModels`. Neither model's bytes are bundled
+Both models are shipped by the separate `DemaConsulting.Speech.Sherpa` package and registered via
+`AddSherpaModels()`. Neither model's bytes are bundled
 with this library; `SpeechModelCatalog.DownloadAsync` fetches each one directly from its own
 official GitHub Releases URL only when you explicitly request it.
 
@@ -588,11 +602,12 @@ using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.RecognitionSubsystem;
 using DemaConsulting.Speech.SynthesisSubsystem;
+using DemaConsulting.Speech.Sherpa;
 
 // 1. Compose the per-user model store/catalog and the audio devices. None of this throws for an
 //    ordinary machine state - a missing microphone, missing speakers, or a missing native
 //    runtime all degrade to an honest "unavailable" device/engine/session instead.
-using var catalog = new SpeechModelCatalog();
+using var catalog = new SpeechModelCatalog().AddSherpaModels();
 var audioFactory = new AudioDeviceFactory();
 
 // 2. Download one recognition model and one synthesis model on first run. DownloadAsync is a

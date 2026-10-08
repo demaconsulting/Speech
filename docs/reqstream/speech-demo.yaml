@@ -119,17 +119,18 @@ sections:
 
       - id: SpeechDemo-Models-RealCatalogReporting
         title: >-
-          The demo application shall report exactly what the library's real compiled-in
-          known-model registry contains, whether that is the two real recognition models
-          Phase 7a registers or an empty registry for a caller-supplied catalog with none.
+          The demo application shall report exactly what the library's host-populated model
+          catalog contains, whether that is the four real models (two recognition, two
+          synthesis) registered via DemaConsulting.Speech.Sherpa's AddSherpaModels() extension
+          or an empty registry for a caller-supplied catalog with none.
         tags: [system]
         justification: |
-          Phase 7a resolves the earlier "empty known-model registry" limitation for recognition
-          models - a defect a user discovered - by registering the library's first two concrete
-          IRecognitionModel implementations; the demo's catalog panel must now surface those real
-          models rather than continuing to assert emptiness as the expected state. The underlying
-          "explain an empty catalog plainly" capability remains a real, separately-tested feature
-          for any caller-supplied catalog that genuinely has none (see
+          The demo's composition root registers the sibling DemaConsulting.Speech.Sherpa
+          package's production models into its SpeechModelCatalog via AddSherpaModels() - core
+          DemaConsulting.Speech ships zero built-in models - so the demo's catalog panel must
+          surface those real models rather than continuing to assert emptiness as the expected
+          state. The underlying "explain an empty catalog plainly" capability remains a real,
+          separately-tested feature for any caller-supplied catalog that genuinely has none (see
           SpeechDemo-Models-EmptyCatalogExplanation).
         children:
           - SpeechDemo-Models-EmptyCatalogExplanation

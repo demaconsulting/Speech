@@ -64,7 +64,7 @@ sections:
                   Write is fire-and-forget: it enqueues samples for later, callback-driven
                   rendering and returns immediately regardless of how much audio is still
                   pending. Without an honest way to observe real hardware-drain progress, a
-                  caller (SherpaOnnxSpeechSynthesizer.PlayStreamAsync) could only ever observe
+                  caller (SynthesisSession) could only ever observe
                   that samples had been handed off, not that they had actually played - the
                   confirmed root cause of a bug where the TTS panel's status flashed back to idle
                   and cut audio off almost instantly, because playback was stopped (discarding

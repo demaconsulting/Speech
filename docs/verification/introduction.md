@@ -22,8 +22,8 @@ This document is intended for:
 ## Scope
 
 This document covers the verification design for the Speech system and its constituent software
-items, and for the SpeechDemo application system and its constituent software items,
-specifically:
+items, for the SpeechSherpa library system and its constituent software items, and for the
+SpeechDemo application system and its constituent software items, specifically:
 
 - **Speech (System)** — The complete .NET library system providing speech capture, recognition,
   and synthesis capabilities to host applications
@@ -36,6 +36,23 @@ specifically:
 - **RecognitionSubsystem (Subsystem)** — Streaming speech-to-text: recognizer contract and
   result types, composition with honest unavailable fallback, the capture-to-engine pipeline and
   its audio-format converter, and the mockable recognition-engine seam
+- **ModelManagementSubsystem (Subsystem)** — Per-user speech model storage, download/install
+  orchestration, and the empty-by-default, host-populated model catalog
+- **SynthesisSubsystem (Subsystem)** — Text-to-speech: the closed Natural Language Audio Tag
+  vocabulary, the async Engine/Session synthesis API, and the mockable synthesis-backend seam
+
+The following software items of the SpeechSherpa system are also covered:
+
+- **SpeechSherpa (System)** — The sibling .NET library that supplies the shipped sherpa-onnx-backed
+  recognition and synthesis models and their native backends through the Speech library's
+  `IRecognitionModel`/`ISynthesisModel` extension seam; `Speech` must never depend on it
+- **ModelManagementSubsystem (Subsystem)** — The four shipped sherpa-onnx models, their archive
+  extraction and transcript-restoration helpers, and the `AddSherpaModels` catalog registration
+  extension
+- **RecognitionSubsystem (Subsystem)** — The real, native-backed `SherpaOnnxRecognitionEngine`
+  recognition backend
+- **SynthesisSubsystem (Subsystem)** — The real, native-backed `SherpaOnnxSynthesisEngine`
+  synthesis backend
 
 The following software items of the SpeechDemo system are also covered:
 
@@ -52,7 +69,8 @@ The following software items of the SpeechDemo system are also covered:
 The following OTS items are also covered:
 
 - **PortAudioSharp2** — managed PortAudio binding and transitive native runtime carrier
-- **SherpaOnnx** — managed local speech-inference API and transitive native runtime carrier
+- **SherpaOnnx** — managed local speech-inference API used by SpeechSherpa
+- **SharpCompress** — managed `.tar.bz2` archive reader used by SpeechSherpa model installs
 - **Avalonia** — cross-platform desktop UI framework hosting the SpeechDemo application
 - **CommunityToolkit.Mvvm** — MVVM change-notification and command source generators
 - **BuildMark** — build-notes documentation tool
@@ -80,8 +98,8 @@ The following topics are explicitly excluded from this verification documentatio
   speech-inference runtime in CI
 - Automated user-interface (window, layout, and interaction) testing of the SpeechDemo
   application in CI
-- Automated proof of a real model download by the SpeechDemo application, since the library
-  deliberately ships no downloadable model in this phase
+- Automated proof of a real, multi-hundred-megabyte model download by the SpeechDemo application
+  or the SpeechSherpa models
 
 ## Companion Artifact Structure
 
@@ -93,6 +111,11 @@ trees. In-house items have artifacts in these parallel locations:
 - Verification design: `docs/verification/{system}/.../{item}.md` (kebab-case)
 - Source code: `src/{System}/.../{Item}.cs` (PascalCase for C#)
 - Tests: `test/{System}.Tests/.../{Item}Tests.cs` (PascalCase for C#)
+
+The SpeechSherpa system follows the same pattern as a sibling system: its verification design
+lives under `docs/verification/speech-sherpa/` (system document `docs/verification/speech-sherpa.md`),
+its design under `docs/design/speech-sherpa/`, its source under `src/DemaConsulting.Speech.Sherpa/`,
+and its tests under `test/DemaConsulting.Speech.Sherpa.Tests/`.
 
 OTS items have parallel artifacts in:
 

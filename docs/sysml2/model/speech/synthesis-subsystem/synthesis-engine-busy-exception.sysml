@@ -7,9 +7,9 @@ package Speech {
              * bound that wait. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech/SynthesisSubsystem/SynthesisEngineBusyException.cs */
-        comment testRef /* Test: test/DemaConsulting.Speech.Tests/SynthesisSubsystem/SherpaOnnxSpeechSynthesizerEngineTests.cs */
-        comment designRef /* Design: docs/design/speech/synthesis-subsystem/sherpa-onnx-speech-synthesizer-engine.md (documented as a supporting exception type) */
-        comment verificationRef /* Verification: docs/verification/speech/synthesis-subsystem/sherpa-onnx-speech-synthesizer-engine.md (documented as a supporting exception type) */
+        comment testRef /* Test: test/DemaConsulting.Speech.Tests/SynthesisSubsystem/SpeechSynthesizerEngineTests.cs */
+        comment designRef /* Design: docs/design/speech/synthesis-subsystem/speech-synthesizer-engine.md (documented as a supporting exception type) */
+        comment verificationRef /* Verification: docs/verification/speech/synthesis-subsystem/speech-synthesizer-engine.md (documented as a supporting exception type) */
         comment reqRef /* Requirements: docs/reqstream/speech/synthesis-subsystem/synthesis-session-lease.yaml */
     }
 }

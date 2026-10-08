@@ -4,22 +4,23 @@ using DemaConsulting.Speech.Diagnostics;
 namespace DemaConsulting.Speech.ModelManagementSubsystem;
 
 /// <summary>
-///     Enumerates the library's known/compiled-in models alongside each one's current install
-///     state, and orchestrates downloading a known model through <see cref="SpeechModelStore"/>
-///     and <see cref="SpeechModelDownloader"/>.
+///     Enumerates the library's host-registered known models alongside each one's current
+///     install state, and orchestrates downloading a known model through
+///     <see cref="SpeechModelStore"/> and <see cref="SpeechModelDownloader"/>.
 /// </summary>
 /// <remarks>
 ///     Per this library's "model catalog and download are new capabilities" decision, this
-///     type composes the storage/download machinery from Sub-phase 2a with a compiled-in list
-///     of known models. Phase 7a populated <see cref="KnownModels"/> with the library's first
-///     two real, production <see cref="IRecognitionModel"/> implementations -
-///     <see cref="SherpaOnnxZipformerEnRecognitionModel"/> and
-///     <see cref="SherpaOnnxNemotronStreamingEnRecognitionModel"/> - resolving the honest "zero
-///     real model classes yet" registry every earlier sub-phase shipped. Phase 7b (this update)
-///     completes the catalog with the library's first real, production
-///     <see cref="ISynthesisModel"/> implementation,
-///     <see cref="SherpaOnnxVitsLibriTtsEnglishSynthesisModel"/>, so every model role the library
-///     defines now has at least one concrete, shippable backing class.
+///     type composes the storage/download machinery from Sub-phase 2a with a mutable,
+///     host-populated list of known models. This catalog ships with zero built-in models: core
+///     has no reference to any concrete model implementation, and a host appends models via
+///     <see cref="AddModels"/> (or an extension method such as the sibling
+///     <c>DemaConsulting.Speech.Sherpa</c> package's <c>AddSherpaModels</c>) before first use.
+///     <para>
+///     <b>Builder contract</b>: <see cref="AddModels"/> must complete before any concurrent
+///     <see cref="Enumerate"/> or <see cref="DownloadAsync"/> call begins - this type is a
+///     builder for its known-model list, not a thread-safe mutable collection; mutating the list
+///     concurrently with use is not supported.
+///     </para>
 ///     <para>
 ///     <see cref="SpeechModelStore"/> itself only distinguishes installed/not-installed; this
 ///     catalog layers <see cref="SpeechModelState.Downloading"/> and
@@ -44,33 +45,8 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 /// </remarks>
 public sealed class SpeechModelCatalog : IDisposable
 {
-    /// <summary>
-    ///     Gets the library's compiled-in registry of known models, available for download.
-    /// </summary>
-    /// <remarks>
-    ///     Phase 7a populated this registry with the library's first two real, production
-    ///     <see cref="IRecognitionModel"/> implementations -
-    ///     <see cref="SherpaOnnxZipformerEnRecognitionModel"/> and
-    ///     <see cref="SherpaOnnxNemotronStreamingEnRecognitionModel"/> - resolving the "empty
-    ///     catalog" limitation every earlier pass through this type documented as accepted and
-    ///     deliberate. Phase 7b (this update) adds the library's first real, production
-    ///     <see cref="ISynthesisModel"/> implementation,
-    ///     <see cref="SherpaOnnxVitsLibriTtsEnglishSynthesisModel"/>, completing the catalog with
-    ///     at least one shippable model of every role the library defines. Phase 10 adds a second
-    ///     synthesis model, <see cref="SherpaOnnxKokoroEnglishSynthesisModel"/>, a multi-speaker
-    ///     English model whose <c>ISynthesisModel.ResolveSpeakerId</c> hook and declared
-    ///     <see cref="ChoiceParameter"/> give hosts a real, working voice-selection capability.
-    /// </remarks>
-    public static IReadOnlyList<ISpeechModel> KnownModels { get; } =
-    [
-        new SherpaOnnxZipformerEnRecognitionModel(),
-        new SherpaOnnxNemotronStreamingEnRecognitionModel(),
-        new SherpaOnnxVitsLibriTtsEnglishSynthesisModel(),
-        new SherpaOnnxKokoroEnglishSynthesisModel(),
-    ];
-
-    /// <summary>The compiled-in models this catalog instance enumerates.</summary>
-    private readonly IReadOnlyList<ISpeechModel> _knownModels;
+    /// <summary>The host-registered models this catalog instance enumerates.</summary>
+    private readonly List<ISpeechModel> _knownModels;
 
     /// <summary>The store used to determine each known model's installed/not-installed state.</summary>
     private readonly SpeechModelStore _store;
@@ -85,9 +61,9 @@ public sealed class SpeechModelCatalog : IDisposable
     private readonly ConcurrentDictionary<string, byte> _failedModelIds = new(StringComparer.Ordinal);
 
     /// <summary>
-    ///     Initializes a new instance of the <see cref="SpeechModelCatalog"/> class using the
-    ///     library's compiled-in <see cref="KnownModels"/>, a real <see cref="SpeechModelStore"/>,
-    ///     and a real <see cref="HttpModelDownloadClient"/>.
+    ///     Initializes a new instance of the <see cref="SpeechModelCatalog"/> class with an
+    ///     initially empty known-model list, a real <see cref="SpeechModelStore"/>, and a real
+    ///     <see cref="HttpModelDownloadClient"/>.
     /// </summary>
     /// <param name="options">
     ///     Optional host-configured storage options, or <see langword="null"/> to use the
@@ -98,19 +74,26 @@ public sealed class SpeechModelCatalog : IDisposable
     ///     The sink to report structural download failures to, or <see langword="null"/> to use
     ///     <see cref="NullSpeechDiagnostics.Instance"/>.
     /// </param>
-    /// <remarks>Never throws; composition always succeeds, consistent with this library's design.</remarks>
+    /// <remarks>
+    ///     Never throws; composition always succeeds, consistent with this library's design. This
+    ///     library core ships zero built-in models - call <see cref="AddModels"/> (or an
+    ///     extension method such as the sibling <c>DemaConsulting.Speech.Sherpa</c> package's
+    ///     <c>AddSherpaModels</c>) before using <see cref="Enumerate"/> or
+    ///     <see cref="DownloadAsync"/>, or this catalog enumerates to an empty list.
+    /// </remarks>
     public SpeechModelCatalog(SpeechModelStoreOptions? options = null, ISpeechDiagnostics? diagnostics = null)
-        : this(KnownModels, new SpeechModelStore(options), null, diagnostics)
+        : this([], new SpeechModelStore(options), null, diagnostics)
     {
     }
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="SpeechModelCatalog"/> class with an
     ///     injected known-model list, store, and download client, for deterministic testing
-    ///     without the compiled-in registry or a real network.
+    ///     without a real network.
     /// </summary>
     /// <param name="knownModels">
-    ///     The known models this catalog instance enumerates. Must not be null; may be empty.
+    ///     The known models this catalog instance's mutable list is seeded with. Must not be
+    ///     null; may be empty. More models may be appended later via <see cref="AddModels"/>.
     /// </param>
     /// <param name="store">The store used to determine each model's installed/not-installed state. Must not be null.</param>
     /// <param name="client">
@@ -133,9 +116,52 @@ public sealed class SpeechModelCatalog : IDisposable
         ArgumentNullException.ThrowIfNull(knownModels);
         ArgumentNullException.ThrowIfNull(store);
 
-        _knownModels = knownModels;
+        _knownModels = [.. knownModels];
         _store = store;
         _downloader = new SpeechModelDownloader(store, client, diagnostics);
+    }
+
+    /// <summary>
+    ///     Appends one or more models to this catalog's known-model list.
+    /// </summary>
+    /// <param name="models">The models to append, in order. Must not be null, and must not contain a null entry.</param>
+    /// <returns>This same <see cref="SpeechModelCatalog"/> instance, to allow call chaining.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="models"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException">
+    ///     Thrown when <paramref name="models"/> contains a <see langword="null"/> entry. Failing
+    ///     fast here, naming the offending index, is preferable to letting a null slip into the
+    ///     known-model list and surface later as a deferred, harder-to-diagnose
+    ///     <see cref="NullReferenceException"/> from <see cref="Enumerate"/> or
+    ///     <see cref="DownloadAsync"/>.
+    /// </exception>
+    /// <remarks>
+    ///     This is the builder-style seam a host (or an extension method such as the sibling
+    ///     <c>DemaConsulting.Speech.Sherpa</c> package's <c>AddSherpaModels</c>) uses to populate
+    ///     this catalog after construction, since core itself ships no built-in models. Per this
+    ///     type's builder contract (see the type-level remarks), every <see cref="AddModels"/>
+    ///     call must complete before any concurrent <see cref="Enumerate"/> or
+    ///     <see cref="DownloadAsync"/> call begins - this method is not safe to call concurrently
+    ///     with those members.
+    /// </remarks>
+    public SpeechModelCatalog AddModels(params ISpeechModel[] models)
+    {
+        ArgumentNullException.ThrowIfNull(models);
+
+        // Reject any null entry before mutating _knownModels, so a caller's mistake fails
+        // immediately at this API boundary instead of being silently accepted and only
+        // surfacing later as a deferred NullReferenceException from Enumerate/DownloadAsync.
+        for (var i = 0; i < models.Length; i++)
+        {
+            if (models[i] is null)
+            {
+                throw new ArgumentException(
+                    $"Entry at index {i} is null; every entry in '{nameof(models)}' must be non-null.",
+                    nameof(models));
+            }
+        }
+
+        _knownModels.AddRange(models);
+        return this;
     }
 
     /// <summary>
@@ -151,6 +177,7 @@ public sealed class SpeechModelCatalog : IDisposable
     ///     <c>LoadAsync</c> overloads use this property internally.
     /// </remarks>
     public SpeechModelStore Store => _store;
+
 
     /// <summary>
     ///     Enumerates every known model alongside its current install state.

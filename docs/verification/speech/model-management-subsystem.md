@@ -33,21 +33,21 @@ See each unit's own verification document for its detailed test scenarios:
 
 ### Acceptance Criteria
 
-A ModelManagementSubsystem test run passes when: `SpeechModelStore` never reports a model
-installed unless both `current/` and a valid manifest are present; a second `DownloadAsync` call
-for an already-installed model id returns `Installed` immediately without any network or staging
-activity, leaving a prior successful install completely untouched regardless of what the second
-call supplies; a canceled download discards its staging directory and propagates
+A ModelManagementSubsystem test run passes when: `SpeechModelStore` never reports a model installed
+unless both `current/` and a valid manifest are present; a second `DownloadAsync` call for an
+already-installed model id returns `Installed` immediately without any network or staging activity,
+leaving a prior successful install completely untouched regardless of what the second call
+supplies; a canceled download discards its staging directory and propagates
 `OperationCanceledException`; `HttpModelDownloadClient` genuinely downloads exact bytes with
-monotonically increasing progress from a real loopback HTTP server, throwing
-`HttpRequestException` for a non-2xx response; every tunable-parameter descriptor rejects an
-internally inconsistent range/option-set/default at construction; `SpeechModelParameterDiagnostics`
-throws `ArgumentException` for a value invalid for a parameter a model declares while silently
-ignoring (with only an `Info` diagnostic) a supplied key naming a parameter the model does not
-declare; and `SpeechModelCatalog` correctly reports `NotDownloaded`, `Downloading`, `Downloaded`,
-and `FailedOrCorrupt` for an injected fake model as a download is requested, in progress,
-completes, or fails, using injected fakes for deterministic state-resolution coverage, with the
-same state-resolution behavior additionally proven indirectly through the catalog's four real,
-shipped model classes (`SherpaOnnxZipformerEnRecognitionModel`,
-`SherpaOnnxNemotronStreamingEnRecognitionModel`, `SherpaOnnxVitsLibriTtsEnglishSynthesisModel`,
-`SherpaOnnxKokoroEnglishSynthesisModel`) in their own unit-level test suites.
+monotonically increasing progress from a real loopback HTTP server, throwing `HttpRequestException`
+for a non-2xx response; every tunable-parameter descriptor rejects an internally inconsistent
+range/option-set/default at construction; `SpeechModelParameterDiagnostics` throws
+`ArgumentException` for a value invalid for a parameter a model declares while silently ignoring
+(with only an `Info` diagnostic) a supplied key naming a parameter the model does not declare; and
+`SpeechModelCatalog` correctly reports `NotDownloaded`, `Downloading`, `Downloaded`, and
+`FailedOrCorrupt` for an injected fake model as a download is requested, in progress, completes, or
+fails, using injected fakes for deterministic state-resolution coverage, and with models registered
+through `AddModels` appearing in its enumeration. The concrete
+`IRecognitionModel`/`ISynthesisModel` implementations shipped by this repository are not part of
+this subsystem; they are verified by the sibling SpeechSherpa library (see _SpeechSherpa
+ModelManagementSubsystem Verification_).

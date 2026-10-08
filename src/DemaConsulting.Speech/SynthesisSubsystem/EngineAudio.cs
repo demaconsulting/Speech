@@ -10,6 +10,8 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 /// <remarks>
 ///     Kept distinct from the public <see cref="SynthesizedSpeech"/> record, which additionally
 ///     carries pause metadata the engine itself has no opinion on - this is the engine seam's raw
-///     output shape only.
+///     output shape only. Public, mirroring <see cref="ISynthesisBackend"/>'s public visibility,
+///     since a third-party <see cref="ISynthesisBackend"/> implementation must be able to return
+///     one.
 /// </remarks>
-internal sealed record EngineAudio(float[] Samples, int SampleRate);
+public sealed record EngineAudio(float[] Samples, int SampleRate);

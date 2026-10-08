@@ -8,6 +8,7 @@ package Speech {
         expose Speech;
         expose SpeechDemo;
         expose SpeechCli;
+        expose SpeechSherpa;
     }
 
     view SpeechView {
@@ -76,5 +77,27 @@ package SpeechDemo {
 package SpeechCli {
     view SpeechCliView {
         expose SpeechCliSystem;
+    }
+}
+
+// SpeechSherpa views. Declared in their own package so each 'expose' statement can reference
+// its target part def directly, exactly as the Speech views above do. The subsystem views carry
+// a 'Sherpa' prefix because rendered SVG filenames are keyed by bare view name, so reusing the
+// Speech subsystem view names would overwrite the Speech package's own diagrams.
+package SpeechSherpa {
+    view SpeechSherpaView {
+        expose SpeechSherpaSystem;
+    }
+
+    view SherpaModelManagementSubsystemView {
+        expose ModelManagementSubsystem;
+    }
+
+    view SherpaRecognitionSubsystemView {
+        expose RecognitionSubsystem;
+    }
+
+    view SherpaSynthesisSubsystemView {
+        expose SynthesisSubsystem;
     }
 }

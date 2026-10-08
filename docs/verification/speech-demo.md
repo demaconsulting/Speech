@@ -16,13 +16,11 @@ lifetime would be fragile, and it would add no evidence the view-model tests do 
 provide: the views contain no application logic, all bindings are compiled, and every value the
 views show is produced by a view model that is verified directly.
 
-Automated coverage **does not** extend to driving the user interface, to real audio hardware, or
-to a real, multi-hundred-megabyte model download. The library's compiled-in catalog now contains
-four real, production models - `SherpaOnnxZipformerEnRecognitionModel`,
-`SherpaOnnxNemotronStreamingEnRecognitionModel`, `SherpaOnnxVitsLibriTtsEnglishSynthesisModel`, and
-`SherpaOnnxKokoroEnglishSynthesisModel` - covering both the recognition and synthesis roles, but
-the full download/install lifecycle is still verified at the subsystem level against controlled
-catalog data, never a real network fetch.
+Automated coverage **does not** extend to driving the user interface, to real audio hardware, or to
+a real, multi-hundred-megabyte model download. The demo's catalog is populated through
+SpeechSherpa's `AddSherpaModels()` with four real, production models covering both the recognition
+and synthesis roles, but the full download/install lifecycle is still verified at the subsystem
+level against controlled catalog data, never a real network fetch.
 
 System tests reside in `SpeechDemoTests.cs` within the `DemaConsulting.Speech.Demo.Tests`
 project, with the model-download outcome scenario additionally proven by
@@ -74,9 +72,9 @@ picker a user would read as a bug.
 
 **Test**: `SpeechDemo_SystemIntegration_RealModelCatalog_ReportsKnownModels`
 
-Verifies that the catalog panel composed over the real library catalog lists exactly
-`SpeechModelCatalog.KnownModels`' entries - the library's four real, production models spanning
-both the recognition and synthesis roles - rather than reporting an empty catalog.
+Verifies that the catalog panel composed over the real library catalog, populated through
+SpeechSherpa's `AddSherpaModels()`, lists exactly the four real, production models it registers -
+spanning both the recognition and synthesis roles - rather than reporting an empty catalog.
 
 ### Integration: Real Catalog Leaves the TTS and STT Panels Honestly Empty
 
@@ -84,7 +82,7 @@ both the recognition and synthesis roles - rather than reporting an empty catalo
 
 Verifies that the synthesis and recognition panels, composed over the real library's device
 factory and an isolated model catalog with a fresh, empty install store, both honestly report
-having no *installed* model to choose from - known models exist in the compiled-in catalog, but
+having no *installed* model to choose from - known models are registered in the catalog, but
 none are downloaded in a fresh store - rather than crashing or silently rendering blank.
 
 ### Integration: Downloading a Model Marks It Installed

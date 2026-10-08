@@ -1,24 +1,29 @@
 namespace DemaConsulting.Speech.RecognitionSubsystem;
 
 /// <summary>
-///     Internal, mockable seam over one loaded streaming recognition backend: accepts mono audio
-///     samples and reports the recognition results decoded from them.
+///     Mockable, engine-neutral seam over one loaded streaming recognition backend: accepts mono
+///     audio samples and reports the recognition results decoded from them.
 /// </summary>
 /// <remarks>
 ///     This seam exists for the same reason as <c>IPortAudioApi</c> (Phase 1b) and
-///     <c>IModelDownloadClient</c> (Phase 2a): it confines every sherpa-onnx interop call to a
-///     single implementation (<see cref="SherpaOnnxRecognitionEngine"/>) so
-///     <see cref="SherpaOnnxRecognitionSession"/>'s threading, resampling, and event-emission
-///     logic is fully unit-testable with a pure managed fake. No native sherpa-onnx runtime
-///     binary and no downloaded model are ever required to run the recognition subsystem's
-///     tests.
+///     <c>IModelDownloadClient</c> (Phase 2a): it confines every native interop call behind a
+///     seam that names no inference-engine type, so <see cref="RecognitionSession"/>'s
+///     threading, resampling, and event-emission logic is fully unit-testable with a pure
+///     managed fake. No native sherpa-onnx runtime binary and no downloaded model are ever
+///     required to run the recognition subsystem's tests. This seam is public, mirroring
+///     <see cref="ModelManagementSubsystem.IRecognitionModel.CreateBackend(string)"/>'s public
+///     visibility: a third-party recognition model implementing
+///     <see cref="ModelManagementSubsystem.IRecognitionModel"/> must be able to implement this
+///     interface to return its own loaded backend from <c>CreateBackend</c>, without needing any
+///     special assembly access. The sibling <c>DemaConsulting.Speech.Sherpa</c> package's
+///     <c>SherpaOnnxRecognitionEngine</c> is simply this library's own built-in implementation.
 ///     <para>
-///     Implementations are not thread-safe: <see cref="SherpaOnnxRecognitionSession"/> calls them
+///     Implementations are not thread-safe: <see cref="RecognitionSession"/> calls them
 ///     from exactly one background pump thread at a time and never concurrently, which matches
 ///     the single-stream ownership model of the underlying engine.
 ///     </para>
 /// </remarks>
-internal interface IRecognitionBackend : IDisposable
+public interface IRecognitionBackend : IDisposable
 {
     /// <summary>
     ///     Feeds one block of mono audio into the backend's current utterance stream.

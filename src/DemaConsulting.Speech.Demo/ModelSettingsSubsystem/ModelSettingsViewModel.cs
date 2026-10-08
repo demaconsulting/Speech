@@ -28,7 +28,7 @@ namespace DemaConsulting.Speech.Demo.ModelSettingsSubsystem;
 ///     <c>ISynthesizerSessionFactory.LoadAsync</c>, which forwards it to the library's
 ///     <c>SpeechSynthesizerFactory.LoadAsync</c> and, from there, to a multi-speaker model's own
 ///     <c>ISynthesisModel.ResolveSpeakerId</c> hook - so a selected value (for example
-///     <see cref="SherpaOnnxKokoroEnglishSynthesisModel"/>'s voice choice) now reaches a real
+///     <c>SherpaOnnxKokoroEnglishSynthesisModel</c>'s voice choice) now reaches a real
 ///     synthesis call. The recognition panel's <c>IRecognizerSessionFactory.LoadAsync</c>/
 ///     <c>ISpeechRecognizerEngine.CreateSessionAsync</c> contract still accepts no such bag on
 ///     any per-call member, so for recognition this bag remains built and fully exercised by

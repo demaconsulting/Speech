@@ -18,10 +18,12 @@ verified with an injectable abandon-timeout override rather than real multi-seco
 Automated coverage **does not** include recognizing real speech. Proving that real audio from a
 real microphone produces correct text through a real model requires both a downloaded production
 model (which this phase deliberately does not ship) and audio hardware, so it remains a
-manual/local verification activity. The bookkeeping and accuracy of the internal, native-backed
-`SherpaOnnxRecognitionEngine` against real installed models (when present) is covered separately
-in `SherpaOnnxRecognitionEngineTests`/`SherpaOnnxRecognitionEngineAccuracyTests`, unaffected by
-this phase's Engine/Session split since neither class changed.
+manual/local verification activity. The real, native-backed `IRecognitionBackend`
+implementation, `SherpaOnnxRecognitionEngine`, is no longer part of this subsystem: it ships in the
+sibling SpeechSherpa library, and its bookkeeping and accuracy against real installed models (when
+present) are verified there by `SherpaOnnxRecognitionEngineTests`/
+`SherpaOnnxRecognitionEngineAccuracyTests` (see _SpeechSherpa RecognitionSubsystem
+Verification_).
 
 ### Test Environment
 
@@ -48,7 +50,7 @@ A RecognitionSubsystem test run passes when:
   parameters
 - A supplied `parameterValues` key naming a parameter not declared by the requested model is
   silently ignored (with only an `Info` diagnostic reported) and composition still succeeds; a
-  supplied value for a parameter the model *does* declare that fails that parameter's own
+  supplied value for a parameter the model _does_ declare that fails that parameter's own
   validation (wrong CLR type, out-of-range or non-integral for a `NumericParameter`, an invalid
   option for a `ChoiceParameter`, a non-`bool` for a `BooleanParameter`) faults the returned task
   with `ArgumentException`, before any installed/role/backend-load check runs
@@ -84,7 +86,7 @@ A RecognitionSubsystem test run passes when:
 `SpeechRecognizerFactory_LoadAsync_WithStoreModelInstalled_ReturnsRealEngine`,
 `SpeechRecognizerFactory_LoadAsync_WithCatalogModelInstalled_ReturnsRealEngine`
 
-Verifies that an installed recognition model composes a real `SherpaOnnxSpeechRecognizerEngine`
+Verifies that an installed recognition model composes a real `SpeechRecognizerEngine`
 wired to the injected backend factory, with the installed-model directory passed through
 unchanged, whether that directory is supplied directly as a `string`, resolved from a
 `SpeechModelStore`, or resolved from a `SpeechModelCatalog`'s own store.
@@ -116,13 +118,13 @@ faults it with `OperationCanceledException`, distinguishing both from an ordinar
 
 #### Composition: Parameter Value Bag Forwarding
 
-**Tests**: `SpeechRecognizerFactory_LoadAsync_ParameterValuesSupplied_ReachesModelCreateEngineConfig`,
-`SpeechRecognizerFactory_LoadAsync_WithStoreParameterValuesSupplied_ReachesModelCreateEngineConfig`,
-`SpeechRecognizerFactory_LoadAsync_WithCatalogParameterValuesSupplied_ReachesModelCreateEngineConfig`
+**Tests**: `SpeechRecognizerFactory_LoadAsync_ParameterValuesSupplied_ReachesModelCreateBackend`,
+`SpeechRecognizerFactory_LoadAsync_WithStoreParameterValuesSupplied_ReachesModelCreateBackend`,
+`SpeechRecognizerFactory_LoadAsync_WithCatalogParameterValuesSupplied_ReachesModelCreateBackend`
 
 Verifies that an optional `parameterValues` bag supplied by the caller (for example, a selected
 recognition language built from a declared `ChoiceParameter`) genuinely reaches a model's own
-two-argument `IRecognitionModel.CreateEngineConfig` override rather than merely reaching the
+two-argument `IRecognitionModel.CreateBackend` override rather than merely reaching the
 backend factory.
 
 #### Composition: Parameter Value Validation
@@ -136,18 +138,18 @@ backend factory.
 Verifies the deliberate, breaking-change split introduced for this behavior: a supplied
 `parameterValues` key naming a parameter the model does not declare still composes a real engine
 and reports only an `Info` diagnostic, never faulting the task (preserving cross-model
-compatibility); a supplied value for a parameter the model *does* declare, but that is invalid for
+compatibility); a supplied value for a parameter the model _does_ declare, but that is invalid for
 it, faults the returned task with `ArgumentException` - before any installed/role/backend-load
 check runs - naming the parameter id, the model id, and the specific reason the value is invalid.
 
 #### Engine Exclusivity and Lease Behavior
 
-**Tests**: `SherpaOnnxSpeechRecognizerEngine_CreateSessionAsync_NoActiveSession_ReturnsSession`,
-`SherpaOnnxSpeechRecognizerEngine_CreateSessionAsync_SessionAlreadyLeased_ThrowsRecognitionEngineBusyException`,
-`SherpaOnnxSpeechRecognizerEngine_CreateSessionAsync_PriorSessionDisposing_ThrowsRecognitionEngineBusyException`,
-`SherpaOnnxSpeechRecognizerEngine_CreateSessionAsync_AfterPriorSessionFullyDisposed_ReturnsNewSession`,
-`SherpaOnnxSpeechRecognizerEngine_CreateSessionAsync_NullDevice_ThrowsArgumentNullException`,
-`SherpaOnnxSpeechRecognizerEngine_DisposeAsync_WithActiveSession_DisposesSessionFirst`
+**Tests**: `SpeechRecognizerEngine_CreateSessionAsync_NoActiveSession_ReturnsSession`,
+`SpeechRecognizerEngine_CreateSessionAsync_SessionAlreadyLeased_ThrowsRecognitionEngineBusyException`,
+`SpeechRecognizerEngine_CreateSessionAsync_PriorSessionDisposing_ThrowsRecognitionEngineBusyException`,
+`SpeechRecognizerEngine_CreateSessionAsync_AfterPriorSessionFullyDisposed_ReturnsNewSession`,
+`SpeechRecognizerEngine_CreateSessionAsync_NullDevice_ThrowsArgumentNullException`,
+`SpeechRecognizerEngine_DisposeAsync_WithActiveSession_DisposesSessionFirst`
 
 Verifies that the engine's single lease permits exactly one live session at a time, fails fast
 (no queueing) with `RecognitionEngineBusyException` for a concurrent attempt - including while the
@@ -156,10 +158,10 @@ completed disposal, after which a new session can be created.
 
 #### Session Lifecycle: State Machine Transitions
 
-**Tests**: `SherpaOnnxRecognitionSession_StartAsync_FromCreated_TransitionsToRunning`,
-`SherpaOnnxRecognitionSession_StartAsync_FromStopped_ThrowsInvalidOperationException`,
-`SherpaOnnxRecognitionSession_StateChanged_EmitsEveryTransitionInOrder`,
-`SherpaOnnxRecognitionSession_DeviceLostMidSession_TransitionsToFaulted`
+**Tests**: `RecognitionSession_StartAsync_FromCreated_TransitionsToRunning`,
+`RecognitionSession_StartAsync_FromStopped_ThrowsInvalidOperationException`,
+`RecognitionSession_StateChanged_EmitsEveryTransitionInOrder`,
+`RecognitionSession_DeviceLostMidSession_TransitionsToFaulted`
 
 Verifies the forward-only `RecognitionSessionState` machine: `StartAsync` transitions `Created ->
 Starting -> Running`, a session is single-use (starting again after `Stopped` throws
@@ -168,9 +170,9 @@ device going unavailable mid-session transitions the session to `Faulted`.
 
 #### Session Lifecycle: Stop, Dispose, and Draining
 
-**Tests**: `SherpaOnnxRecognitionSession_StopAsync_FlushesTrailingResultsBeforeCompleting`,
-`SherpaOnnxRecognitionSession_StopAsync_CalledConcurrentlyTwice_BothCompleteOnceStopped`,
-`SherpaOnnxRecognitionSession_StopAsync_BackendResetFails_CompletesAndReportsFault`
+**Tests**: `RecognitionSession_StopAsync_FlushesTrailingResultsBeforeCompleting`,
+`RecognitionSession_StopAsync_CalledConcurrentlyTwice_BothCompleteOnceStopped`,
+`RecognitionSession_StopAsync_BackendResetFails_CompletesAndReportsFault`
 
 Verifies that `StopAsync` flushes trailing audio the backend had accepted but not yet decoded as
 one last final result before completing, that two concurrent `StopAsync` callers both complete
@@ -179,8 +181,8 @@ reported rather than thrown while teardown still completes.
 
 #### Session Pipeline: Capture Format Conversion and Text Normalization
 
-**Tests**: `SherpaOnnxRecognitionSession_FrameCaptured_StereoAtModelRate_FeedsDownmixedMonoToBackend`,
-`SherpaOnnxRecognitionSession_FrameCaptured_FinalResult_AppliesModelNormalizeTextWithIsFinalTrue`
+**Tests**: `RecognitionSession_FrameCaptured_StereoAtModelRate_FeedsDownmixedMonoToBackend`,
+`RecognitionSession_FrameCaptured_FinalResult_AppliesModelNormalizeTextWithIsFinalTrue`
 
 Verifies that a stereo block reaches the backend as downmixed mono at the model's declared rate,
 and that a final result's text has passed through the owning model's
@@ -188,11 +190,11 @@ and that a final result's text has passed through the owning model's
 
 #### Session Pipeline: Result Delivery and Backpressure
 
-**Tests**: `SherpaOnnxRecognitionSession_GetResultsAsync_CalledConcurrently_ThrowsInvalidOperationException`,
-`SherpaOnnxRecognitionSession_GetResultsAsync_CancelledToken_EndsEnumerationWithoutStoppingSession`,
-`SherpaOnnxRecognitionSession_GetResultsAsync_SessionFaulted_ThrowsRecognitionSessionFaultedException`,
-`SherpaOnnxRecognitionSession_GetResultsAsync_SlowConsumer_CoalescesProvisionalResults`,
-`SherpaOnnxRecognitionSession_GetResultsAsync_SlowConsumer_NeverDropsFinalResultsUnderByteCap`
+**Tests**: `RecognitionSession_GetResultsAsync_CalledConcurrently_ThrowsInvalidOperationException`,
+`RecognitionSession_GetResultsAsync_CancelledToken_EndsEnumerationWithoutStoppingSession`,
+`RecognitionSession_GetResultsAsync_SessionFaulted_ThrowsRecognitionSessionFaultedException`,
+`RecognitionSession_GetResultsAsync_SlowConsumer_CoalescesProvisionalResults`,
+`RecognitionSession_GetResultsAsync_SlowConsumer_NeverDropsFinalResultsUnderByteCap`
 
 Verifies that `GetResultsAsync` is single-consumer (a concurrent second enumeration throws
 `InvalidOperationException`), that cancelling the consumer's token ends its enumeration without
@@ -206,7 +208,7 @@ are never dropped while the byte cap is not exceeded.
 **Tests**: `DedicatedWorker_Run_CooperativeCancellation_CompletesPromptly`,
 `DedicatedWorker_Run_NonCooperativeDelegate_AbandonsAfterTimeoutAndReportsDiagnostics`,
 `DedicatedWorker_Run_UsesLongRunningTaskCreationOption`,
-`SherpaOnnxRecognitionSession_NativeCallExceedsAbandonTimeout_TaskCompletesAndDiagnosticsReportsWarning`
+`RecognitionSession_NativeCallExceedsAbandonTimeout_TaskCompletesAndDiagnosticsReportsWarning`
 
 Verifies that a delegate which observes cancellation promptly completes its task immediately, that
 a delegate which does not observe cancellation is abandoned after the configured timeout with a

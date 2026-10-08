@@ -51,18 +51,12 @@ includes:
   - docs/reqstream/speech/model-management-subsystem/speech-model-contract.yaml
   - docs/reqstream/speech/model-management-subsystem/speech-model-descriptor.yaml
   - docs/reqstream/speech/model-management-subsystem/speech-model-catalog.yaml
-  - docs/reqstream/speech/model-management-subsystem/sherpa-onnx-zipformer-en-recognition-model.yaml
-  - docs/reqstream/speech/model-management-subsystem/sherpa-onnx-nemotron-streaming-en-recognition-model.yaml
-  - docs/reqstream/speech/model-management-subsystem/tar-bz2-archive-extractor.yaml
-  - docs/reqstream/speech/model-management-subsystem/uppercase-transcript-restorer.yaml
-  - docs/reqstream/speech/model-management-subsystem/sherpa-onnx-vits-libritts-en-synthesis-model.yaml
-  - docs/reqstream/speech/model-management-subsystem/sherpa-onnx-kokoro-en-synthesis-model.yaml
   - docs/reqstream/speech/recognition-subsystem.yaml
   - docs/reqstream/speech/recognition-subsystem/i-speech-recognizer-engine.yaml
   - docs/reqstream/speech/recognition-subsystem/i-recognition-session.yaml
   - docs/reqstream/speech/recognition-subsystem/speech-recognizer-factory.yaml
   - docs/reqstream/speech/recognition-subsystem/recognition-session-lease.yaml
-  - docs/reqstream/speech/recognition-subsystem/sherpa-onnx-recognition-session.yaml
+  - docs/reqstream/speech/recognition-subsystem/recognition-session.yaml
   - docs/reqstream/speech/recognition-subsystem/dedicated-worker.yaml
   - docs/reqstream/speech/recognition-subsystem/unavailable-speech-recognizer-engine.yaml
   - docs/reqstream/speech/recognition-subsystem/unavailable-recognition-session.yaml
@@ -72,7 +66,7 @@ includes:
   - docs/reqstream/speech/synthesis-subsystem/i-synthesis-session.yaml
   - docs/reqstream/speech/synthesis-subsystem/speech-synthesizer-factory.yaml
   - docs/reqstream/speech/synthesis-subsystem/synthesis-session-lease.yaml
-  - docs/reqstream/speech/synthesis-subsystem/sherpa-onnx-synthesis-session.yaml
+  - docs/reqstream/speech/synthesis-subsystem/synthesis-session.yaml
   - docs/reqstream/speech/synthesis-subsystem/dedicated-worker.yaml
   - docs/reqstream/speech/synthesis-subsystem/unavailable-speech-synthesizer-engine.yaml
   - docs/reqstream/speech/synthesis-subsystem/unavailable-synthesis-session.yaml
@@ -94,6 +88,18 @@ includes:
   - docs/reqstream/speech-cli/synthesis-command-subsystem.yaml
   - docs/reqstream/speech-cli/recognition-command-subsystem.yaml
   - docs/reqstream/speech-cli/conversation-command-subsystem.yaml
+  - docs/reqstream/speech-sherpa.yaml
+  - docs/reqstream/speech-sherpa/model-management-subsystem.yaml
+  - docs/reqstream/speech-sherpa/model-management-subsystem/sherpa-onnx-zipformer-en-recognition-model.yaml
+  - docs/reqstream/speech-sherpa/model-management-subsystem/sherpa-onnx-nemotron-streaming-en-recognition-model.yaml
+  - docs/reqstream/speech-sherpa/model-management-subsystem/tar-bz2-archive-extractor.yaml
+  - docs/reqstream/speech-sherpa/model-management-subsystem/uppercase-transcript-restorer.yaml
+  - docs/reqstream/speech-sherpa/model-management-subsystem/sherpa-onnx-vits-libritts-en-synthesis-model.yaml
+  - docs/reqstream/speech-sherpa/model-management-subsystem/sherpa-onnx-kokoro-en-synthesis-model.yaml
+  - docs/reqstream/speech-sherpa/recognition-subsystem.yaml
+  - docs/reqstream/speech-sherpa/recognition-subsystem/sherpa-onnx-recognition-engine.yaml
+  - docs/reqstream/speech-sherpa/synthesis-subsystem.yaml
+  - docs/reqstream/speech-sherpa/synthesis-subsystem/sherpa-onnx-synthesis-engine.yaml
   - docs/reqstream/ots/port-audio-sharp2.yaml
   - docs/reqstream/ots/sherpa-onnx.yaml
   - docs/reqstream/ots/sharp-compress.yaml

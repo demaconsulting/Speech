@@ -86,7 +86,7 @@ public static class SpeechSynthesizerFactory
         IReadOnlyDictionary<string, object>? parameterValues = null,
         CancellationToken cancellationToken = default)
     {
-        return LoadAsync(model, installedModelDirectory, diagnostics, new SherpaOnnxSynthesisEngineFactory(), parameterValues, cancellationToken);
+        return LoadAsync(model, installedModelDirectory, diagnostics, new DefaultSynthesisBackendFactory(), parameterValues, cancellationToken);
     }
 
     /// <summary>
@@ -412,6 +412,6 @@ public static class SpeechSynthesizerFactory
             SpeechDiagnosticLevel.Info,
             DiagnosticsCategory,
             $"Loaded a speech synthesizer engine for model '{model.Id}'.");
-        return new SherpaOnnxSpeechSynthesizerEngine(backend, model, parameterValues, sink);
+        return new SpeechSynthesizerEngine(backend, model, parameterValues, sink);
     }
 }

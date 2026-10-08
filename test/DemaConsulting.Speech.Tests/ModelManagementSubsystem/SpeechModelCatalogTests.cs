@@ -59,31 +59,61 @@ public sealed class SpeechModelCatalogTests : IDisposable
     }
 
     /// <summary>
-    ///     Proves that the compiled-in <see cref="SpeechModelCatalog.KnownModels"/> registry
-    ///     contains all four of this library's real, production models - the two Phase 7a
-    ///     recognition models plus the Phase 7b VITS synthesis model plus the Phase 10 Kokoro
-    ///     multi-speaker synthesis model - resolving the "ships zero real model classes"
-    ///     limitation every earlier pass through this type documented as accepted, for both model
-    ///     roles the library defines.
+    ///     Proves that <see cref="SpeechModelCatalog.AddModels"/> returns the same catalog
+    ///     instance it was called on, supporting fluent call chaining (for example with an
+    ///     extension method such as the sibling <c>DemaConsulting.Speech.Sherpa</c> package's
+    ///     <c>AddSherpaModels</c>).
     /// </summary>
     [Fact]
-    public void SpeechModelCatalog_KnownModels_ContainsAllFourRealModels()
+    public void SpeechModelCatalog_AddModels_ChainedCall_ReturnsSameInstance()
     {
+        // Arrange
+        using var catalog = new SpeechModelCatalog([], NewStore(), null);
+
         // Act
-        var ids = SpeechModelCatalog.KnownModels.Select(m => m.Id).ToList();
+        var result = catalog.AddModels(new FakeRecognitionModel("model-added"));
 
         // Assert
-        Assert.Equal(4, SpeechModelCatalog.KnownModels.Count);
-        Assert.Contains(SherpaOnnxZipformerEnRecognitionModel.ModelId, ids);
-        Assert.Contains(SherpaOnnxNemotronStreamingEnRecognitionModel.ModelId, ids);
-        Assert.Contains(SherpaOnnxVitsLibriTtsEnglishSynthesisModel.ModelId, ids);
-        Assert.Contains(SherpaOnnxKokoroEnglishSynthesisModel.ModelId, ids);
-        Assert.Equal(
-            2,
-            SpeechModelCatalog.KnownModels.Count(m => m.Role == SpeechModelRole.Recognition));
-        Assert.Equal(
-            2,
-            SpeechModelCatalog.KnownModels.Count(m => m.Role == SpeechModelRole.Synthesis));
+        Assert.Same(catalog, result);
+    }
+
+    /// <summary>
+    ///     Proves that a model appended via <see cref="SpeechModelCatalog.AddModels"/> appears in
+    ///     a subsequent <see cref="SpeechModelCatalog.Enumerate"/> call, alongside any model(s)
+    ///     the catalog was already seeded with.
+    /// </summary>
+    [Fact]
+    public void SpeechModelCatalog_AddModels_Called_AppearsInEnumerate()
+    {
+        // Arrange
+        var seeded = new FakeRecognitionModel("model-seeded");
+        using var catalog = new SpeechModelCatalog([seeded], NewStore(), null);
+        var synthesisModel = new FakeSynthesisModel("model-synthesis-added");
+        var recognitionModel = new FakeRecognitionModel("model-recognition-added");
+
+        // Act
+        catalog.AddModels(synthesisModel, recognitionModel);
+        var ids = catalog.Enumerate().Select(descriptor => descriptor.Id).ToList();
+
+        // Assert
+        Assert.Equal(["model-seeded", "model-synthesis-added", "model-recognition-added"], ids);
+    }
+
+    /// <summary>
+    ///     Proves that <see cref="SpeechModelCatalog.AddModels"/> rejects an array containing a
+    ///     null entry, failing fast at this API boundary instead of accepting the null entry and
+    ///     deferring the failure to a later <see cref="SpeechModelCatalog.Enumerate"/> or
+    ///     <see cref="SpeechModelCatalog.DownloadAsync"/> call.
+    /// </summary>
+    [Fact]
+    public void SpeechModelCatalog_AddModels_NullEntry_ThrowsArgumentException()
+    {
+        // Arrange
+        using var catalog = new SpeechModelCatalog([], NewStore(), null);
+        var models = new ISpeechModel?[] { new FakeRecognitionModel("model-valid"), null };
+
+        // Act & Assert
+        Assert.Throws<ArgumentException>(() => catalog.AddModels(models!));
     }
 
     /// <summary>

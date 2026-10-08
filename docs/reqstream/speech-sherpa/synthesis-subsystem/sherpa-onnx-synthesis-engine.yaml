@@ -1,0 +1,80 @@
+---
+# Software Unit Requirements for SherpaOnnxSynthesisEngine
+#
+# These requirements describe the design-level behavior of the SherpaOnnxSynthesisEngine unit,
+# the real sherpa-onnx implementation of the Speech library's public ISynthesisBackend seam,
+# decomposing the parent SpeechSherpa SynthesisSubsystem requirements.
+#
+# SherpaOnnxSynthesisEngine is exercised directly against the real native sherpa-onnx runtime and
+# a real, installed VITS/Piper synthesis model by
+# test/DemaConsulting.Speech.Sherpa.Tests/SynthesisSubsystem/SherpaOnnxSynthesisEngineTests.cs,
+# mirroring SherpaOnnxRecognitionEngineTests; see
+# docs/verification/speech-sherpa/synthesis-subsystem/sherpa-onnx-synthesis-engine.md for the
+# full verification approach.
+
+sections:
+  - title: SpeechSherpa Requirements
+    sections:
+      - title: SynthesisSubsystem Requirements
+        sections:
+          - title: SherpaOnnxSynthesisEngine Requirements
+            requirements:
+              - id: SpeechSherpa-Synthesis-SherpaOnnxSynthesisEngine-LoadFromConfig
+                title: >-
+                  The SherpaOnnxSynthesisEngine class shall load a sherpa-onnx offline
+                  text-to-speech engine from the OfflineTtsConfig supplied by a synthesis
+                  model's own CreateBackend implementation.
+                justification: |
+                  Each synthesis model owns the engine configuration for its own architecture;
+                  the engine must load exactly that configuration so that adding a synthesis
+                  model never requires changing the synthesis backend.
+                tests:
+                  - SherpaOnnxSynthesisEngine_Construct_ReportsModelSampleRate
+
+              - id: SpeechSherpa-Synthesis-SherpaOnnxSynthesisEngine-SampleRate
+                title: >-
+                  The SherpaOnnxSynthesisEngine class shall report the loaded engine's declared
+                  output sample rate through ISynthesisBackend.SampleRate.
+                justification: |
+                  A synthesis model's PreferredAudioFormat is only a best-effort hint; the loaded
+                  engine's own declared rate is the authoritative rate the Speech library's
+                  synthesis session must resample from.
+                tests:
+                  - SherpaOnnxSynthesisEngine_Construct_ReportsModelSampleRate
+
+              - id: SpeechSherpa-Synthesis-SherpaOnnxSynthesisEngine-Generate
+                title: >-
+                  The SherpaOnnxSynthesisEngine class shall generate one audio buffer for a given
+                  text, speed, and speaker id, returning the generated samples together with
+                  their sample rate.
+                justification: |
+                  The Speech library's synthesis session drives the backend one rendered segment
+                  at a time and needs the generated samples and their rate to resample and play
+                  them through the configured audio output device.
+                tests:
+                  - SherpaOnnxSynthesisEngine_Generate_NonEmptyText_ReturnsNonEmptyAudio
+
+              - id: SpeechSherpa-Synthesis-SherpaOnnxSynthesisEngine-ArgumentValidation
+                title: >-
+                  The SherpaOnnxSynthesisEngine class's Generate method shall throw
+                  ArgumentNullException for a null text argument and ObjectDisposedException
+                  after the engine has been disposed.
+                justification: |
+                  A programming error (null text or use after disposal) should surface
+                  immediately with a clear exception, matching this repository's existing
+                  argument-validation convention, rather than an opaque failure inside the
+                  native engine.
+                tests:
+                  - SherpaOnnxSynthesisEngine_Generate_NullText_ThrowsArgumentNullException
+                  - SherpaOnnxSynthesisEngine_Generate_AfterDispose_ThrowsObjectDisposedException
+
+              - id: SpeechSherpa-Synthesis-SherpaOnnxSynthesisEngine-Dispose
+                title: >-
+                  The SherpaOnnxSynthesisEngine class shall release the loaded native engine on
+                  Dispose, and a second Dispose call shall be a no-op.
+                justification: |-
+                  The loaded engine holds native memory sized to a multi-hundred-megabyte model,
+                  so it must be released deterministically when the owning synthesizer engine is
+                  disposed, and idempotent disposal keeps teardown paths safe.
+                tests:
+                  - SherpaOnnxSynthesisEngine_Dispose_CalledTwice_IsIdempotent

@@ -66,7 +66,7 @@ public static class SpeechRecognizerFactory
     ///     An optional session-level parameter value bag (for example a selected recognition
     ///     language or tuning value, built from the model's declared
     ///     <see cref="ISpeechModel.Parameters"/>), forwarded to
-    ///     <see cref="IRecognitionModel.CreateEngineConfig(string,System.Collections.Generic.IReadOnlyDictionary{string,object}?)"/>
+    ///     <see cref="IRecognitionModel.CreateBackend(string,System.Collections.Generic.IReadOnlyDictionary{string,object}?)"/>
     ///     when the backend is constructed, or <see langword="null"/> to use every model's own
     ///     default behavior. Neither shipped recognition model declares a parameter today, so this
     ///     argument is a safe no-op for them.
@@ -105,7 +105,7 @@ public static class SpeechRecognizerFactory
             model,
             installedModelDirectory,
             diagnostics,
-            new SherpaOnnxRecognitionEngineFactory(),
+            new DefaultRecognitionBackendFactory(),
             parameterValues,
             cancellationToken);
     }
@@ -128,7 +128,7 @@ public static class SpeechRecognizerFactory
     /// </param>
     /// <param name="parameterValues">
     ///     An optional session-level parameter value bag, forwarded to
-    ///     <see cref="IRecognitionModel.CreateEngineConfig(string,System.Collections.Generic.IReadOnlyDictionary{string,object}?)"/>
+    ///     <see cref="IRecognitionModel.CreateBackend(string,System.Collections.Generic.IReadOnlyDictionary{string,object}?)"/>
     ///     when the backend is constructed, or <see langword="null"/> to use every model's own
     ///     default behavior.
     /// </param>
@@ -182,7 +182,7 @@ public static class SpeechRecognizerFactory
     /// </param>
     /// <param name="parameterValues">
     ///     An optional session-level parameter value bag, forwarded to
-    ///     <see cref="IRecognitionModel.CreateEngineConfig(string,System.Collections.Generic.IReadOnlyDictionary{string,object}?)"/>
+    ///     <see cref="IRecognitionModel.CreateBackend(string,System.Collections.Generic.IReadOnlyDictionary{string,object}?)"/>
     ///     when the backend is constructed, or <see langword="null"/> to use every model's own
     ///     default behavior.
     /// </param>
@@ -319,7 +319,7 @@ public static class SpeechRecognizerFactory
     /// <param name="parameterValues">
     ///     An optional session-level parameter value bag forwarded to
     ///     <paramref name="backendFactory"/>'s <c>Create</c> call, which in turn passes it to
-    ///     <see cref="IRecognitionModel.CreateEngineConfig(string,System.Collections.Generic.IReadOnlyDictionary{string,object}?)"/>,
+    ///     <see cref="IRecognitionModel.CreateBackend(string,System.Collections.Generic.IReadOnlyDictionary{string,object}?)"/>,
     ///     or <see langword="null"/> to use every model's own default behavior.
     /// </param>
     /// <param name="cancellationToken">A token to observe for cancellation of this call.</param>
@@ -454,6 +454,6 @@ public static class SpeechRecognizerFactory
             SpeechDiagnosticLevel.Info,
             DiagnosticsCategory,
             $"Loaded a speech recognizer engine for model '{model.Id}'.");
-        return new SherpaOnnxSpeechRecognizerEngine(backend!, model, sink);
+        return new SpeechRecognizerEngine(backend!, model, sink);
     }
 }

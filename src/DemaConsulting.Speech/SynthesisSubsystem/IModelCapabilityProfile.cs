@@ -3,8 +3,8 @@ using DemaConsulting.Speech.ModelManagementSubsystem;
 namespace DemaConsulting.Speech.SynthesisSubsystem;
 
 /// <summary>
-///     Internal seam for Layer 2 of this library's "two-layer tag rendering" design: renders a
-///     Layer 1 parsed span sequence into a per-model <see cref="SpeechPlan"/>.
+///     Seam for Layer 2 of this library's "two-layer tag rendering" design: renders a Layer 1
+///     parsed span sequence into a per-model <see cref="SpeechPlan"/>.
 /// </summary>
 /// <remarks>
 ///     Generalizes the reference implementation's <c>SpeechAudioHint</c> →
@@ -13,8 +13,11 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     entirely by its own declared <see cref="ISpeechModel.AudioTagSupport"/> and
 ///     <see cref="ISpeechModel.Parameters"/>, and may supply a bespoke implementation via
 ///     <see cref="ISynthesisModel.CapabilityProfile"/> only when it needs non-generic rendering.
+///     This seam is public, mirroring <see cref="ISynthesisModel.CapabilityProfile"/>'s public
+///     visibility: a third-party synthesis model needing bespoke tag rendering must be able to
+///     implement this interface without needing any special assembly access.
 /// </remarks>
-internal interface IModelCapabilityProfile
+public interface IModelCapabilityProfile
 {
     /// <summary>
     ///     Renders a Layer 1 parsed span sequence into an ordered <see cref="SpeechPlan"/> for one

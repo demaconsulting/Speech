@@ -4,7 +4,7 @@
 
 `IRecognitionSession` is verified indirectly through both shipped implementations:
 `UnavailableRecognitionSession` proves the honest-unavailable path, and
-`SherpaOnnxRecognitionSession` proves state-machine transitions, lifecycle behavior, and delivery
+`RecognitionSession` proves state-machine transitions, lifecycle behavior, and delivery
 of provisional and final results. The result and event value types are verified through the
 results observed at `GetResultsAsync`, since they carry no behavior of their own.
 

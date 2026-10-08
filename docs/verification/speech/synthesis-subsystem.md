@@ -19,13 +19,13 @@ audio hardware. Determinism is structural, not timing-based: a deterministic fak
 `SemaphoreSlim`-based test doubles let a test assert ordering, in-flight state, and fault
 transitions without polling or sleeping.
 
-The lease/exclusivity behavior is verified by driving `SherpaOnnxSpeechSynthesizerEngine`'s real
+The lease/exclusivity behavior is verified by driving `SpeechSynthesizerEngine`'s real
 `CreateSessionAsync`/`DisposeAsync` logic against a fake backend, asserting that a second
 concurrent session request fails fast with `SynthesisEngineBusyException` rather than hanging or
 queueing, and that disposing a leased session (or the engine itself, with a session still active)
 releases the lease so a subsequent request succeeds. The overlap rule and the full
 `SynthesisSessionState` transition sequence are verified against the real
-`SherpaOnnxSynthesisSession`, asserting the documented `Created → Starting → Running → Stopping →
+`SynthesisSession`, asserting the documented `Created → Starting → Running → Stopping →
 Stopped` sequence for one successful operation (and the `Faulted` terminal transition for a
 failing one) via the `StateChanged` event, and that a second call made while an operation is
 already in flight on the same session throws `InvalidOperationException` immediately. The
@@ -37,7 +37,8 @@ Automated coverage **does not** include synthesizing real, intelligible speech. 
 text produces correct audible speech through a real model on real speakers requires a downloaded
 production model (which this library deliberately does not ship by default) and audio hardware,
 so it remains a manual/local verification activity, mirroring the RecognitionSubsystem's
-identical boundary.
+identical boundary. The real, native-backed `SherpaOnnxSynthesisEngine` backend ships in the
+sibling SpeechSherpa library; see _SpeechSherpa SynthesisSubsystem Verification_.
 
 ### Test Environment
 
@@ -82,7 +83,7 @@ A SynthesisSubsystem test run passes when:
   unavailable engine without throwing
 - A supplied `parameterValues` key naming a parameter not declared by the requested model is
   silently ignored (with only an `Info` diagnostic reported) and composition still succeeds; a
-  supplied value for a parameter the model *does* declare that fails that parameter's own
+  supplied value for a parameter the model _does_ declare that fails that parameter's own
   validation throws `ArgumentException` synchronously from `LoadAsync()`, before any
   installed/role/backend-load check runs
 - `ISpeechSynthesizerEngine.CreateSessionAsync` succeeds when no lease is held and fails fast with
@@ -286,20 +287,20 @@ device parameter at all.
 Verifies that an optional `parameterValues` bag supplied by the caller is forwarded unchanged to
 the constructed engine; that a supplied `parameterValues` key naming a parameter the model does
 not declare still composes a real engine and reports only an `Info` diagnostic, never throwing
-(preserving cross-model compatibility); and that a supplied value for a parameter the model *does*
+(preserving cross-model compatibility); and that a supplied value for a parameter the model _does_
 declare, but that is invalid for it, throws `ArgumentException` synchronously from `LoadAsync()` -
 before any installed/role/backend-load check runs - naming the parameter id, the model id, and the
 specific reason the value is invalid.
 
 #### Engine: Session Exclusivity and Lease Lifecycle
 
-**Tests**: `SherpaOnnxSpeechSynthesizerEngine_CreateSessionAsync_NoLeaseHeld_ReturnsRealSession`,
-`SherpaOnnxSpeechSynthesizerEngine_CreateSessionAsync_LeaseAlreadyHeld_ThrowsSynthesisEngineBusyException`,
-`SherpaOnnxSpeechSynthesizerEngine_CreateSessionAsync_AfterPriorSessionDisposed_SucceedsAgain`,
-`SherpaOnnxSpeechSynthesizerEngine_CreateSessionAsync_NullDevice_ThrowsArgumentNullException`,
-`SherpaOnnxSpeechSynthesizerEngine_IsAvailable_Always_ReturnsTrue`,
-`SherpaOnnxSpeechSynthesizerEngine_DisposeAsync_CalledTwice_DisposesBackendOnce`,
-`SherpaOnnxSpeechSynthesizerEngine_DisposeAsync_WithActiveLeasedSession_DisposesSessionFirst`
+**Tests**: `SpeechSynthesizerEngine_CreateSessionAsync_NoLeaseHeld_ReturnsRealSession`,
+`SpeechSynthesizerEngine_CreateSessionAsync_LeaseAlreadyHeld_ThrowsSynthesisEngineBusyException`,
+`SpeechSynthesizerEngine_CreateSessionAsync_AfterPriorSessionDisposed_SucceedsAgain`,
+`SpeechSynthesizerEngine_CreateSessionAsync_NullDevice_ThrowsArgumentNullException`,
+`SpeechSynthesizerEngine_IsAvailable_Always_ReturnsTrue`,
+`SpeechSynthesizerEngine_DisposeAsync_CalledTwice_DisposesBackendOnce`,
+`SpeechSynthesizerEngine_DisposeAsync_WithActiveLeasedSession_DisposesSessionFirst`
 
 Verifies that `CreateSessionAsync` succeeds immediately when no lease is held; fails fast with
 `SynthesisEngineBusyException` (never queueing or waiting) when a lease is already held by a
@@ -311,8 +312,8 @@ also releases the lease) before disposing the backend.
 
 #### Engine: One-Shot Convenience Overloads
 
-**Tests**: `SherpaOnnxSpeechSynthesizerEngine_SpeakAsync_CalledTwice_CreatesAndDisposesASessionEachTime`,
-`SherpaOnnxSpeechSynthesizerEngine_SynthesizeAsync_NoDeviceSupplied_ReturnsSegments`
+**Tests**: `SpeechSynthesizerEngine_SpeakAsync_CalledTwice_CreatesAndDisposesASessionEachTime`,
+`SpeechSynthesizerEngine_SynthesizeAsync_NoDeviceSupplied_ReturnsSegments`
 
 Verifies that the engine's one-shot `SpeakAsync` convenience overload creates and disposes a
 fresh session per call (so repeated calls never conflict with the exclusivity lease), and that
@@ -320,9 +321,9 @@ fresh session per call (so repeated calls never conflict with the exclusivity le
 
 #### Session: Lifecycle State Machine and StateChanged Event
 
-**Tests**: `SherpaOnnxSynthesisSession_StateChanged_OneSuccessfulOperation_RaisesExpectedTransitionsInOrder`,
-`SherpaOnnxSynthesisSession_StateChanged_HandlerThrows_IsIsolatedAndDoesNotPropagate`,
-`SherpaOnnxSynthesisSession_IsAvailable_BeforeAndAfterDispose_ReflectsLifecycle`
+**Tests**: `SynthesisSession_StateChanged_OneSuccessfulOperation_RaisesExpectedTransitionsInOrder`,
+`SynthesisSession_StateChanged_HandlerThrows_IsIsolatedAndDoesNotPropagate`,
+`SynthesisSession_IsAvailable_BeforeAndAfterDispose_ReflectsLifecycle`
 
 Verifies that one successful `SpeakAsync`/`SynthesizeAsync` call raises the documented
 `Created → Starting → Running → Stopping → Stopped` sequence via `StateChanged`, in order; that a
@@ -332,8 +333,8 @@ before and after disposal.
 
 #### Session: Overlap Rule - No Concurrent Operations
 
-**Tests**: `SherpaOnnxSynthesisSession_SpeakAsync_CalledWhileAlreadySpeaking_ThrowsInvalidOperationException`,
-`SherpaOnnxSynthesisSession_SynthesizeAsync_CalledWhileAlreadySpeaking_ThrowsInvalidOperationException`
+**Tests**: `SynthesisSession_SpeakAsync_CalledWhileAlreadySpeaking_ThrowsInvalidOperationException`,
+`SynthesisSession_SynthesizeAsync_CalledWhileAlreadySpeaking_ThrowsInvalidOperationException`
 
 Verifies that `SpeakAsync`/`SynthesizeAsync` never overlap on the same session instance: a second
 call of either method made while one is already in flight throws `InvalidOperationException`
@@ -341,7 +342,7 @@ immediately rather than queueing or waiting, for every combination of the two me
 
 #### Session: Hot Reuse Across Repeated Calls
 
-**Test**: `SherpaOnnxSynthesisSession_SpeakAsync_CalledTwiceOnSameInstance_ReusesSameInstanceWithoutReconstruction`
+**Test**: `SynthesisSession_SpeakAsync_CalledTwiceOnSameInstance_ReusesSameInstanceWithoutReconstruction`
 
 Verifies the key Engine/Session redesign goal: a session returns to `Stopped` after one operation
 completes and can be reused for a second, sequential `SpeakAsync` call on the very same instance,
@@ -350,8 +351,8 @@ utterance.
 
 #### Session: Faulted Is Terminal
 
-**Tests**: `SherpaOnnxSynthesisSession_SynthesizeAsync_BackendThrows_ReportsFaultAndTransitionsToFaulted`,
-`SherpaOnnxSynthesisSession_SynthesizeAsync_AfterFault_ThrowsSynthesisSessionFaultedException`
+**Tests**: `SynthesisSession_SynthesizeAsync_BackendThrows_ReportsFaultAndTransitionsToFaulted`,
+`SynthesisSession_SynthesizeAsync_AfterFault_ThrowsSynthesisSessionFaultedException`
 
 Verifies that a non-cancellation failure during an operation reports the fault through
 diagnostics and transitions the session to the terminal `Faulted` state, and that every
@@ -360,7 +361,7 @@ original fault rather than attempting to run again.
 
 #### Session: SynthesizeAsync Full-Fidelity Segment List
 
-**Test**: `SherpaOnnxSynthesisSession_SynthesizeAsync_ReturnsFullFidelitySegmentListIncludingSilence`
+**Test**: `SynthesisSession_SynthesizeAsync_ReturnsFullFidelitySegmentListIncludingSilence`
 
 Verifies that `SynthesizeAsync` returns the complete, ordered segment list the rendered
 `SpeechPlan` produced, including a pure-silence `SynthesizedSpeech` segment for a rendered pause
@@ -369,9 +370,9 @@ processes the returned segments gets a faithful, lossless reconstruction of the 
 
 #### Session: Chunked Synthesis and Ordered Playback
 
-**Tests**: `SherpaOnnxSynthesisSession_SynthesizeAsync_PlainText_YieldsAudioSegment`,
-`SherpaOnnxSynthesisSession_SpeakAsync_PlainText_StartsWritesAndStopsDevice`,
-`SherpaOnnxSynthesisSession_SynthesizeAsync_LongMultiSentenceInput_ProducesOrderedSegmentsSequentially`
+**Tests**: `SynthesisSession_SynthesizeAsync_PlainText_YieldsAudioSegment`,
+`SynthesisSession_SpeakAsync_PlainText_StartsWritesAndStopsDevice`,
+`SynthesisSession_SynthesizeAsync_LongMultiSentenceInput_ProducesOrderedSegmentsSequentially`
 
 Verifies that plain text yields a synthesized audio segment, that `SpeakAsync` starts the
 playback device, writes segments in order, and stops the device, and that a long, multi-sentence
@@ -379,9 +380,9 @@ input still yields segments in the correct order with the backend never called c
 
 #### Session: Fault Containment
 
-**Tests**: `SherpaOnnxSynthesisSession_SpeakAsync_PlaybackDeviceWriteThrows_PropagatesAndStillStopsDevice`,
-`SherpaOnnxSynthesisSession_SpeakAsync_PlaybackDeviceUnavailable_ThrowsRatherThanHanging`,
-`SherpaOnnxSynthesisSession_SpeakAsync_PlaybackDeviceStartThrows_StillCallsStop`
+**Tests**: `SynthesisSession_SpeakAsync_PlaybackDeviceWriteThrows_PropagatesAndStillStopsDevice`,
+`SynthesisSession_SpeakAsync_PlaybackDeviceUnavailable_ThrowsRatherThanHanging`,
+`SynthesisSession_SpeakAsync_PlaybackDeviceStartThrows_StillCallsStop`
 
 Verifies that a playback write failure still stops the device before propagating, that an
 unavailable playback device fails promptly rather than hanging, and that a failure to start the
@@ -389,7 +390,7 @@ device still results in a stop attempt during teardown.
 
 #### Session: Genuine Playback Drain Before Stopping
 
-**Test**: `SherpaOnnxSynthesisSession_SpeakAsync_PlaybackDeviceReportsPendingSamples_WaitsForDrainBeforeStopping`
+**Test**: `SynthesisSession_SpeakAsync_PlaybackDeviceReportsPendingSamples_WaitsForDrainBeforeStopping`
 
 Verifies that `SpeakAsync` genuinely waits for the playback device to report a drained queue
 before stopping it, rather than stopping as soon as every segment has been written. Uses an
@@ -401,10 +402,10 @@ stopped.
 
 #### Session: Cancellation and Disposal Lifecycle
 
-**Tests**: `SherpaOnnxSynthesisSession_StopAsync_WhileSpeaking_CancelsInFlightOperationOnlyAfterInFlightGenerateReturns`,
-`SherpaOnnxSynthesisSession_StopAsync_NoOperationInFlight_IsNoOp`,
-`SherpaOnnxSynthesisSession_DisposeAsync_CalledTwice_ReleasesLeaseOnce`,
-`SherpaOnnxSynthesisSession_SynthesizeAsync_AfterDispose_ThrowsObjectDisposedException`
+**Tests**: `SynthesisSession_StopAsync_WhileSpeaking_CancelsInFlightOperationOnlyAfterInFlightGenerateReturns`,
+`SynthesisSession_StopAsync_NoOperationInFlight_IsNoOp`,
+`SynthesisSession_DisposeAsync_CalledTwice_ReleasesLeaseOnce`,
+`SynthesisSession_SynthesizeAsync_AfterDispose_ThrowsObjectDisposedException`
 
 Verifies that `StopAsync` cancels an in-flight operation deterministically, only after the
 in-flight `DedicatedWorker`-routed `Generate` call has genuinely returned (never orphaning it); is
@@ -414,9 +415,9 @@ across repeated `DisposeAsync` calls; and that operating on a disposed session t
 
 #### Session: Voice/Speaker Selection
 
-**Tests**: `SherpaOnnxSynthesisSession_SynthesizeAsync_NoParameterValues_ResolvesDefaultSpeakerIdFromModel`,
-`SherpaOnnxSynthesisSession_SynthesizeAsync_ParameterValuesSupplied_ResolvesSpeakerIdFromBag`,
-`SherpaOnnxSynthesisSession_SynthesizeAsync_ParameterValuesSuppliedAlongsideSpeedTag_BothMechanismsApplyIndependently`
+**Tests**: `SynthesisSession_SynthesizeAsync_NoParameterValues_ResolvesDefaultSpeakerIdFromModel`,
+`SynthesisSession_SynthesizeAsync_ParameterValuesSupplied_ResolvesSpeakerIdFromBag`,
+`SynthesisSession_SynthesizeAsync_ParameterValuesSuppliedAlongsideSpeedTag_BothMechanismsApplyIndependently`
 
 Verifies that a session with no supplied `parameterValues` resolves to the model's own default
 speaker id, that a supplied `parameterValues` bag resolves to the correct speaker id via

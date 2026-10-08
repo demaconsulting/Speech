@@ -9,7 +9,7 @@ package Speech {
              * enumeration. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech/RecognitionSubsystem/IRecognitionSession.cs */
-        comment testRef /* Test: test/DemaConsulting.Speech.Tests/RecognitionSubsystem/SherpaOnnxRecognitionSessionTests.cs */
+        comment testRef /* Test: test/DemaConsulting.Speech.Tests/RecognitionSubsystem/RecognitionSessionTests.cs */
         comment designRef /* Design: docs/design/speech/recognition-subsystem/i-recognition-session.md */
         comment verificationRef /* Verification: docs/verification/speech/recognition-subsystem/i-recognition-session.md */
         comment reqRef /* Requirements: docs/reqstream/speech/recognition-subsystem/i-recognition-session.yaml */

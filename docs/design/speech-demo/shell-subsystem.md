@@ -21,7 +21,10 @@ both to sit at the application's root namespace.
 `App.OnFrameworkInitializationCompleted` is the single place the demo's object graph is built:
 
 1. Construct the library's `AudioDeviceFactory`
-2. Construct the library's `SpeechModelCatalog`
+2. Construct the library's `SpeechModelCatalog` and populate it via the sibling
+   `DemaConsulting.Speech.Sherpa` package's `AddSherpaModels()` extension method
+   (`new SpeechModelCatalog().AddSherpaModels()`), since core `DemaConsulting.Speech` ships zero
+   built-in models
 3. Construct a `SpeechModelStore` over the same options as the catalog
 4. Wrap each in its demo-owned adapter/seam (`AudioDeviceService`, `ModelCatalogService`,
    `SynthesizerSessionFactory`, `RecognizerSessionFactory`)

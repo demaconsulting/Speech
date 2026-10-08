@@ -21,6 +21,7 @@
 using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.RecognitionSubsystem;
+using DemaConsulting.Speech.Sherpa;
 using DemaConsulting.Speech.SynthesisSubsystem;
 
 namespace DemaConsulting.Speech.Cli.Commands.ModelCommandsSubsystem;
@@ -51,7 +52,7 @@ internal sealed class SpeechModelCatalogAdapter : ICliModelCatalog, IDisposable
     /// </param>
     public SpeechModelCatalogAdapter(SpeechModelStoreOptions? options = null)
     {
-        _catalog = new SpeechModelCatalog(options);
+        _catalog = new SpeechModelCatalog(options).AddSherpaModels();
     }
 
     /// <inheritdoc/>

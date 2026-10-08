@@ -17,16 +17,17 @@ native runtime.
 - **LoadAsync(IRecognitionModel model, string installedModelDirectory, ISpeechDiagnostics?
   diagnostics = null, IReadOnlyDictionary&lt;string, object&gt;? parameterValues = null,
   CancellationToken cancellationToken = default)**: Returns a task that completes with a real
-  `SherpaOnnxSpeechRecognizerEngine` when the model's installed directory exists, the model
+  `SpeechRecognizerEngine` when the model's installed directory exists, the model
   declares `SpeechModelRole.Recognition`, and the backend loads. Otherwise completes with
   `UnavailableSpeechRecognizerEngine.Instance`. Preconditions: `model` is non-null. Postcondition:
   the returned engine is never null, and either owns a loaded backend or is the shared unavailable
   instance. Loading runs on a `DedicatedWorker` thread rather than blocking the calling thread
   synchronously, since it allocates native resources and can take meaningful time.
   `parameterValues` is an optional session-level parameter value bag forwarded to the model's own
-  `CreateEngineConfig(installedModelDirectory, parameterValues)` overload when the backend is
-  constructed; `null` (or any bag, for either of today's two shipped models) resolves to today's
-  exact parameter-less behavior via that member's default hook. A capture device is *not* supplied
+  `CreateBackend(installedModelDirectory, parameterValues)` overload (through the real
+  `DefaultRecognitionBackendFactory`) when the backend is constructed; `null` (or any bag, for a
+  model that declares no recognition parameter) resolves to the exact parameter-less behavior via
+  that member's default hook. A capture device is *not* supplied
   here - it is bound later, per session, via `ISpeechRecognizerEngine.CreateSessionAsync`.
 - **LoadAsync(IRecognitionModel model, SpeechModelStore store, ISpeechDiagnostics? diagnostics =
   null, IReadOnlyDictionary&lt;string, object&gt;? parameterValues = null, CancellationToken
@@ -62,31 +63,32 @@ sink when that sink is itself safe for concurrent use from multiple threads.
 
 **Error Handling**: Every ordinary machine state is represented as the honest unavailable engine
 plus a structural diagnostic, never as an exception, per this library's "nothing throws at
-composition" decision. A backend load failure - the missing-native-runtime case for a missing
+composition" decision. A backend load failure - for example, for a sherpa-onnx-backed model from
+the sibling `SpeechSherpa` system, the missing-native-runtime case for a missing
 `org.k2fsa.sherpa.onnx.runtime.{RID}` binary or unusable model files - is caught and degraded
 identically to a missing model. A null `model`, `store`, `catalog`, or backend factory results in
-an `ArgumentNullException`: for the `string`-based overload this faults the returned task (the
-null check lives inside its `async` implementation), while for the `SpeechModelStore`-/
+an `ArgumentNullException`: for the `string`-based overload this faults the returned task (the null
+check lives inside its `async` implementation), while for the `SpeechModelStore`-/
 `SpeechModelCatalog`-based overloads it is thrown synchronously, before any task is created, since
-those overloads are ordinary synchronous methods that validate their own arguments and delegate
-to the `string`-based overload. Either way the exception is a programming error, never a machine
-state, and is indistinguishable to an `await`-based caller. A supplied key in `parameterValues` that names a parameter *not*
-declared by `model` is silently ignored (this deliberately preserves the documented
-cross-model-compatibility contract - a host reusing one settings bag across different models must
-not break just because model B doesn't declare a parameter model A had) but reports an `Info`
-diagnostic. A supplied value for a parameter *that is declared* by `model` but fails that
-parameter's own validation (wrong CLR type, a `NumericParameter` value outside `[Minimum,
-Maximum]` or - when `IsInteger` is `true` - a non-integral value, an unrecognized
+those overloads are ordinary synchronous methods that validate their own arguments and delegate to
+the `string`-based overload. Either way the exception is a programming error, never a machine
+state, and is indistinguishable to an `await`-based caller. A supplied key in `parameterValues`
+that names a parameter *not* declared by `model` is silently ignored (this deliberately preserves
+the documented cross-model-compatibility contract - a host reusing one settings bag across
+different models must not break just because model B doesn't declare a parameter model A had) but
+reports an `Info` diagnostic. A supplied value for a parameter *that is declared* by `model` but
+fails that parameter's own validation (wrong CLR type, a `NumericParameter` value outside
+`[Minimum, Maximum]` or - when `IsInteger` is `true` - a non-integral value, an unrecognized
 `ChoiceParameter` option, or a non-`bool` for a `BooleanParameter`) faults the returned task with
-`ArgumentException` naming the parameter id, model id, and the reason the value is invalid, via
-the shared `SpeechModelParameterDiagnostics.ValidateAndReport` helper. A `cancellationToken`
-cancelled before loading completes faults the returned task with `OperationCanceledException`.
+`ArgumentException` naming the parameter id, model id, and the reason the value is invalid, via the
+shared `SpeechModelParameterDiagnostics.ValidateAndReport` helper. A `cancellationToken` cancelled
+before loading completes faults the returned task with `OperationCanceledException`.
 
 **Dependencies**: `IRecognitionModel`, `SpeechModelRole`, `SpeechModelStore`,
 `SpeechModelCatalog`, and `SpeechModelParameterDiagnostics` from the ModelManagementSubsystem,
 `ISpeechDiagnostics`/`NullSpeechDiagnostics` from the Diagnostics subsystem, and the subsystem's
-own `IRecognitionBackendFactory`, `SherpaOnnxRecognitionEngineFactory`,
-`SherpaOnnxSpeechRecognizerEngine`, `UnavailableSpeechRecognizerEngine`, and `DedicatedWorker`.
+own `IRecognitionBackendFactory`, `DefaultRecognitionBackendFactory`,
+`SpeechRecognizerEngine`, `UnavailableSpeechRecognizerEngine`, and `DedicatedWorker`.
 
 **Callers**: Host applications composing speech recognition at start-up, and the system-level
 integration tests.

@@ -114,7 +114,7 @@ sections:
               - Speech-Synthesis-ISynthesisSession-HotReuseAcrossTurns
             tests:
               - UnavailableSpeechSynthesizerEngine_IsAvailable_Read_ReturnsFalse
-              - SherpaOnnxSynthesisSession_SynthesizeAsync_PlainText_YieldsAudioSegment
+              - SynthesisSession_SynthesizeAsync_PlainText_YieldsAudioSegment
 
           - id: Speech-Synthesis-EngineExclusivity
             title: >-
@@ -131,13 +131,13 @@ sections:
               before requesting another, and disposing the active session first guarantees no
               in-flight native call outlives the engine that owns its backend.
             children:
-              - Speech-Synthesis-SherpaOnnxSpeechSynthesizerEngine-SessionExclusivity
-              - Speech-Synthesis-SherpaOnnxSpeechSynthesizerEngine-DisposalOrdering
+              - Speech-Synthesis-SpeechSynthesizerEngine-SessionExclusivity
+              - Speech-Synthesis-SpeechSynthesizerEngine-DisposalOrdering
               - Speech-Synthesis-SynthesisEngineBusyException-Thrown
             tests:
-              - SherpaOnnxSpeechSynthesizerEngine_CreateSessionAsync_LeaseAlreadyHeld_ThrowsSynthesisEngineBusyException
-              - SherpaOnnxSpeechSynthesizerEngine_CreateSessionAsync_AfterPriorSessionDisposed_SucceedsAgain
-              - SherpaOnnxSpeechSynthesizerEngine_DisposeAsync_WithActiveLeasedSession_DisposesSessionFirst
+              - SpeechSynthesizerEngine_CreateSessionAsync_LeaseAlreadyHeld_ThrowsSynthesisEngineBusyException
+              - SpeechSynthesizerEngine_CreateSessionAsync_AfterPriorSessionDisposed_SucceedsAgain
+              - SpeechSynthesizerEngine_DisposeAsync_WithActiveLeasedSession_DisposesSessionFirst
 
           - id: Speech-Synthesis-Composition
             title: >-
@@ -176,7 +176,7 @@ sections:
           - id: Speech-Synthesis-VoiceSelection
             title: >-
               The SynthesisSubsystem shall thread an optional, session-level parameterValues bag
-              from SpeechSynthesizerFactory.LoadAsync through to SherpaOnnxSynthesisSession, which
+              from SpeechSynthesizerFactory.LoadAsync through to SynthesisSession, which
               shall resolve a real speaker id from it via ISynthesisModel.ResolveSpeakerId once
               per synthesized segment, replacing a previously hard-coded speakerId: 0, without
               regressing the independent, per-segment Natural Language Audio Tag speed/volume
@@ -191,12 +191,12 @@ sections:
               per-segment speed/volume convention correctly independent of each other.
             children:
               - Speech-Synthesis-SpeechSynthesizerFactory-ParameterValuesForwarding
-              - Speech-Synthesis-SherpaOnnxSynthesisSession-SpeakerSelection
+              - Speech-Synthesis-SynthesisSession-SpeakerSelection
             tests:
               - SpeechSynthesizerFactory_LoadAsync_ParameterValuesSupplied_ForwardedToEngine
-              - SherpaOnnxSynthesisSession_SynthesizeAsync_NoParameterValues_ResolvesDefaultSpeakerIdFromModel
-              - SherpaOnnxSynthesisSession_SynthesizeAsync_ParameterValuesSupplied_ResolvesSpeakerIdFromBag
-              - SherpaOnnxSynthesisSession_SynthesizeAsync_ParameterValuesSuppliedAlongsideSpeedTag_BothMechanismsApplyIndependently
+              - SynthesisSession_SynthesizeAsync_NoParameterValues_ResolvesDefaultSpeakerIdFromModel
+              - SynthesisSession_SynthesizeAsync_ParameterValuesSupplied_ResolvesSpeakerIdFromBag
+              - SynthesisSession_SynthesizeAsync_ParameterValuesSuppliedAlongsideSpeedTag_BothMechanismsApplyIndependently
 
           - id: Speech-Synthesis-ChunkedPipeline
             title: >-
@@ -213,18 +213,18 @@ sections:
               - Speech-Synthesis-SentenceChunker-ConsecutiveBoundaryMerging
               - Speech-Synthesis-SentenceChunker-DegeneratePunctuationMerging
               - Speech-Synthesis-SentenceChunker-EllipsisMetadata
-              - Speech-Synthesis-SherpaOnnxSynthesisSession-ChunkedPipeline
-              - Speech-Synthesis-SherpaOnnxSynthesisSession-FullFidelitySegmentList
-              - Speech-Synthesis-SherpaOnnxSynthesisSession-PipelinedPlayback
-              - Speech-Synthesis-SherpaOnnxSynthesisSession-GenuinePlaybackDrainWait
+              - Speech-Synthesis-SynthesisSession-ChunkedPipeline
+              - Speech-Synthesis-SynthesisSession-FullFidelitySegmentList
+              - Speech-Synthesis-SynthesisSession-PipelinedPlayback
+              - Speech-Synthesis-SynthesisSession-GenuinePlaybackDrainWait
               - Speech-Synthesis-PlaybackAudioResampler-RateConversion
               - Speech-Synthesis-PlaybackAudioResampler-Upmix
               - Speech-Synthesis-PlaybackAudioResampler-Composition
             tests:
               - SentenceChunker_Chunk_MultipleSentences_SplitsOnPrimaryBoundaries
-              - SherpaOnnxSynthesisSession_SpeakAsync_PlainText_StartsWritesAndStopsDevice
-              - SherpaOnnxSynthesisSession_SynthesizeAsync_LongMultiSentenceInput_ProducesOrderedSegmentsSequentially
-              - SherpaOnnxSynthesisSession_SynthesizeAsync_ReturnsFullFidelitySegmentListIncludingSilence
+              - SynthesisSession_SpeakAsync_PlainText_StartsWritesAndStopsDevice
+              - SynthesisSession_SynthesizeAsync_LongMultiSentenceInput_ProducesOrderedSegmentsSequentially
+              - SynthesisSession_SynthesizeAsync_ReturnsFullFidelitySegmentListIncludingSilence
 
           - id: Speech-Synthesis-SessionOverlapAndLifecycle
             title: >-
@@ -240,16 +240,16 @@ sections:
               operation before the first has finished, or when it must discard and replace a
               session whose underlying native state is no longer trustworthy after a fault.
             children:
-              - Speech-Synthesis-SherpaOnnxSynthesisSession-OverlapNotAllowed
-              - Speech-Synthesis-SherpaOnnxSynthesisSession-StateMachine
-              - Speech-Synthesis-SherpaOnnxSynthesisSession-HotReuse
-              - Speech-Synthesis-SherpaOnnxSynthesisSession-FaultedIsTerminal
+              - Speech-Synthesis-SynthesisSession-OverlapNotAllowed
+              - Speech-Synthesis-SynthesisSession-StateMachine
+              - Speech-Synthesis-SynthesisSession-HotReuse
+              - Speech-Synthesis-SynthesisSession-FaultedIsTerminal
               - Speech-Synthesis-SynthesisSessionFaultedException-Thrown
             tests:
-              - SherpaOnnxSynthesisSession_SpeakAsync_CalledWhileAlreadySpeaking_ThrowsInvalidOperationException
-              - SherpaOnnxSynthesisSession_StateChanged_OneSuccessfulOperation_RaisesExpectedTransitionsInOrder
-              - SherpaOnnxSynthesisSession_SpeakAsync_CalledTwiceOnSameInstance_ReusesSameInstanceWithoutReconstruction
-              - SherpaOnnxSynthesisSession_SynthesizeAsync_AfterFault_ThrowsSynthesisSessionFaultedException
+              - SynthesisSession_SpeakAsync_CalledWhileAlreadySpeaking_ThrowsInvalidOperationException
+              - SynthesisSession_StateChanged_OneSuccessfulOperation_RaisesExpectedTransitionsInOrder
+              - SynthesisSession_SpeakAsync_CalledTwiceOnSameInstance_ReusesSameInstanceWithoutReconstruction
+              - SynthesisSession_SynthesizeAsync_AfterFault_ThrowsSynthesisSessionFaultedException
 
           - id: Speech-Synthesis-FaultContainment
             title: >-
@@ -266,14 +266,14 @@ sections:
               call is not guaranteed to honor .NET cancellation tokens at all, so the dedicated
               worker must bound how long a caller can be blocked by one.
             children:
-              - Speech-Synthesis-SherpaOnnxSynthesisSession-FaultContainment
-              - Speech-Synthesis-SherpaOnnxSynthesisSession-CancellationAndLifecycle
+              - Speech-Synthesis-SynthesisSession-FaultContainment
+              - Speech-Synthesis-SynthesisSession-CancellationAndLifecycle
               - Speech-Synthesis-DedicatedWorker-CooperativeCancellation
               - Speech-Synthesis-DedicatedWorker-NonCooperativeAbandonment
               - Speech-Synthesis-DedicatedWorker-LongRunningExecution
             tests:
-              - SherpaOnnxSynthesisSession_SynthesizeAsync_BackendThrows_ReportsFaultAndTransitionsToFaulted
-              - SherpaOnnxSynthesisSession_StopAsync_WhileSpeaking_DoesNotCompleteUntilInFlightGenerateReturns
+              - SynthesisSession_SynthesizeAsync_BackendThrows_ReportsFaultAndTransitionsToFaulted
+              - SynthesisSession_StopAsync_WhileSpeaking_DoesNotCompleteUntilInFlightGenerateReturns
               - DedicatedWorker_Run_CooperativeCancellation_CompletesPromptly
               - DedicatedWorker_Run_NonCooperativeDelegate_AbandonsAfterTimeoutAndReportsDiagnostics
 

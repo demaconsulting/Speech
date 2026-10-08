@@ -70,8 +70,9 @@ external interfaces are its user interface and the interfaces it consumes.
 
 ## Dependencies
 
-SpeechDemo has one project dependency — the Speech library — and the following NuGet
-dependencies:
+SpeechDemo has two project dependencies — the Speech library, and the SpeechSherpa library
+whose `AddSherpaModels()` extension method registers the shipped sherpa-onnx models with the
+catalog the demo composes (see _SpeechSherpa Design_) — and the following NuGet dependencies:
 
 - **Avalonia** (with `Avalonia.Desktop`, `Avalonia.Themes.Fluent`, and `Avalonia.Fonts.Inter`)
   supplies the cross-platform desktop application host, styling, and view layer;
@@ -100,7 +101,8 @@ N/A - SpeechDemo provides no safety-critical functionality requiring risk contro
 
 1. **Input**: The process entry point configures the Avalonia application host
 2. **Composition**: On framework initialization the application constructs an
-   `AudioDeviceFactory` and a `SpeechModelCatalog`, wraps each in its demo-owned service
+   `AudioDeviceFactory` and a `SpeechModelCatalog` populated through SpeechSherpa's
+   `AddSherpaModels()`, wraps each in its demo-owned service
    adapter, and injects those adapters into the panel view models and the window view model
 3. **Output**: The main window opens on its first panel; the catalog is disposed when the
    desktop lifetime signals shutdown
@@ -169,13 +171,13 @@ N/A - SpeechDemo provides no safety-critical functionality requiring risk contro
 - **Manual composition, no container**: The object graph is constructed explicitly in the
   application class. A dependency-injection container would hide the very wiring a reader of
   the demo is trying to see
-- **Demo-owned seams over library concretes**: The library exposes sealed concrete entry points,
-  and static factory methods requiring partly-`internal` interfaces
-  (`ISynthesisModel`/`IRecognitionModel`), rather than injectable interfaces for device, catalog,
-  and session composition. Rather than change the library, the demo owns thin interfaces over
-  each, narrowing the public `ISpeechModel` to the library's role-specific interface inside the
-  seam implementation. This is also what makes every panel unit testable without audio hardware,
-  a downloaded model, or an `InternalsVisibleTo` grant from the library
+- **Demo-owned seams over library concretes**: The library exposes sealed concrete entry points
+  and static factory methods requiring the role-specific `ISynthesisModel`/`IRecognitionModel`
+  interfaces, rather than injectable interfaces for device, catalog, and session composition.
+  Rather than change the library, the demo owns thin interfaces over each, narrowing the public
+  `ISpeechModel` to the library's role-specific interface inside the seam implementation. This is
+  also what makes every panel unit testable without audio hardware or a downloaded model, using a
+  plain fake model double that only needs to implement the common `ISpeechModel` contract
 - **Nothing throws at start-up**: A machine with no audio backend and no installed model must
   produce a working window, matching the library's own composition guarantee
 - **Honest empty states**: An empty device list, an empty catalog, no installed synthesis or

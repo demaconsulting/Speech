@@ -8,6 +8,7 @@ using DemaConsulting.Speech.Demo.RecognitionPanelSubsystem;
 using DemaConsulting.Speech.Demo.ShellSubsystem;
 using DemaConsulting.Speech.Demo.SynthesisPanelSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
+using DemaConsulting.Speech.Sherpa;
 
 namespace DemaConsulting.Speech.Demo;
 
@@ -61,7 +62,7 @@ public sealed class App : Application
             // degrades to honest unavailable probes, and the model catalog is valid even when the
             // library's compiled-in known-model registry is empty.
             var audioFactory = new AudioDeviceFactory();
-            _catalog = new SpeechModelCatalog();
+            _catalog = new SpeechModelCatalog().AddSherpaModels();
 
             // A second store instance resolving the same default root directory as the catalog's
             // own internal store, used only to locate an installed model's files for the

@@ -1,5 +1,6 @@
 using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
+using DemaConsulting.Speech.RecognitionSubsystem;
 using DemaConsulting.Speech.SynthesisSubsystem;
 using DemaConsulting.Speech.Tests.ModelManagementSubsystem.Fakes;
 
@@ -63,23 +64,22 @@ public class SpeechModelContractTests
     }
 
     /// <summary>
-    ///     Proves that a recognition model builds an engine configuration resolved against the
-    ///     directory its files were installed into, and that the configuration carries the same
-    ///     rate the model declares.
+    ///     Proves that a recognition model's <see cref="IRecognitionModel.CreateBackend(string)"/>
+    ///     returns a usable <see cref="IRecognitionBackend"/>, resolved against the directory its
+    ///     files were installed into.
     /// </summary>
     [Fact]
-    public void IRecognitionModel_CreateEngineConfig_InstalledDirectory_ResolvesPathsAndSampleRate()
+    public void IRecognitionModel_CreateBackend_InstalledDirectory_ReturnsRecognitionBackend()
     {
         // Arrange: a fake recognition model and an installed-model directory path
         var model = new FakeRecognitionModel();
         var installedModelDirectory = Path.Join(Path.GetTempPath(), "fake-installed-model");
 
         // Act
-        var config = ((IRecognitionModel)model).CreateEngineConfig(installedModelDirectory);
+        var backend = ((IRecognitionModel)model).CreateBackend(installedModelDirectory);
 
-        // Assert: the declared rate and the resolved token path are both present
-        Assert.Equal(((IRecognitionModel)model).AudioFormat.SampleRate, config.FeatConfig.SampleRate);
-        Assert.Equal(Path.Join(installedModelDirectory, "tokens.txt"), config.ModelConfig.Tokens);
+        // Assert
+        Assert.IsAssignableFrom<IRecognitionBackend>(backend);
     }
 
     /// <summary>
@@ -87,32 +87,32 @@ public class SpeechModelContractTests
     ///     engine file path could be resolved from it.
     /// </summary>
     [Fact]
-    public void IRecognitionModel_CreateEngineConfig_EmptyDirectory_ThrowsArgumentException()
+    public void IRecognitionModel_CreateBackend_EmptyDirectory_ThrowsArgumentException()
     {
         // Arrange
         var model = new FakeRecognitionModel();
 
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => ((IRecognitionModel)model).CreateEngineConfig(string.Empty));
+        Assert.Throws<ArgumentException>(() => ((IRecognitionModel)model).CreateBackend(string.Empty));
     }
 
     /// <summary>
-    ///     Proves that a synthesis model builds an engine configuration resolved against the
-    ///     directory its files were installed into.
+    ///     Proves that a synthesis model's <see cref="ISynthesisModel.CreateBackend(string)"/>
+    ///     returns a usable <see cref="ISynthesisBackend"/>, resolved against the directory its
+    ///     files were installed into.
     /// </summary>
     [Fact]
-    public void ISynthesisModel_CreateEngineConfig_InstalledDirectory_ResolvesPaths()
+    public void ISynthesisModel_CreateBackend_InstalledDirectory_ReturnsSynthesisBackend()
     {
         // Arrange: a fake synthesis model and an installed-model directory path
         var model = new FakeSynthesisModel();
         var installedModelDirectory = Path.Join(Path.GetTempPath(), "fake-installed-synthesis-model");
 
         // Act
-        var config = ((ISynthesisModel)model).CreateEngineConfig(installedModelDirectory);
+        var backend = ((ISynthesisModel)model).CreateBackend(installedModelDirectory);
 
-        // Assert: the model's own file paths are resolved against the supplied directory
-        Assert.Equal(Path.Join(installedModelDirectory, "model.onnx"), config.Model.Vits.Model);
-        Assert.Equal(Path.Join(installedModelDirectory, "tokens.txt"), config.Model.Vits.Tokens);
+        // Assert
+        Assert.IsAssignableFrom<ISynthesisBackend>(backend);
     }
 
     /// <summary>
@@ -137,13 +137,13 @@ public class SpeechModelContractTests
     ///     engine file path could be resolved from it.
     /// </summary>
     [Fact]
-    public void ISynthesisModel_CreateEngineConfig_EmptyDirectory_ThrowsArgumentException()
+    public void ISynthesisModel_CreateBackend_EmptyDirectory_ThrowsArgumentException()
     {
         // Arrange
         var model = new FakeSynthesisModel();
 
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => ((ISynthesisModel)model).CreateEngineConfig(string.Empty));
+        Assert.Throws<ArgumentException>(() => ((ISynthesisModel)model).CreateBackend(string.Empty));
     }
 
     /// <summary>

@@ -148,9 +148,6 @@ sections:
           - Speech-Models-TunableParameterValueValidation
           - Speech-Models-CatalogEnumeration
           - Speech-Models-CatalogStoreComposition
-          - Speech-Models-RealRecognitionModels
-          - Speech-Models-RealSynthesisModel
-          - Speech-Models-RealKokoroSynthesisModelWithVoiceSelection
         tests:
           - Speech_SystemIntegration_ModelCatalog_EnumeratesAndTracksDownloadState
 
@@ -220,9 +217,10 @@ sections:
           that has not been downloaded yet, a machine with no speakers, and a machine without the
           speech engine's native runtime are all ordinary deployment states, composition must
           degrade honestly rather than failing application start-up. This pass (Sub-phase 4b)
-          ships the Layer 2 rendering, chunked pipeline, and real sherpa-onnx synthesis
-          infrastructure; end-to-end behavior is proven against a test model per the fakeable
-          engine seam.
+          ships the Layer 2 rendering, chunked pipeline, and the mockable native-backend seam;
+          the real sherpa-onnx synthesis backend is supplied by the sibling
+          DemaConsulting.Speech.Sherpa package; end-to-end behavior is proven against a test
+          model per the fakeable engine seam.
         children:
           - Speech-Synthesis-Layer2Rendering
           - Speech-Synthesis-MockableContract
