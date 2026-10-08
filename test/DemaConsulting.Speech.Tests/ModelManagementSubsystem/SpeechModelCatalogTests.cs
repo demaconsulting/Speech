@@ -100,6 +100,23 @@ public sealed class SpeechModelCatalogTests : IDisposable
     }
 
     /// <summary>
+    ///     Proves that <see cref="SpeechModelCatalog.AddModels"/> rejects an array containing a
+    ///     null entry, failing fast at this API boundary instead of accepting the null entry and
+    ///     deferring the failure to a later <see cref="SpeechModelCatalog.Enumerate"/> or
+    ///     <see cref="SpeechModelCatalog.DownloadAsync"/> call.
+    /// </summary>
+    [Fact]
+    public void SpeechModelCatalog_AddModels_NullEntry_ThrowsArgumentException()
+    {
+        // Arrange
+        using var catalog = new SpeechModelCatalog([], NewStore(), null);
+        var models = new ISpeechModel?[] { new FakeRecognitionModel("model-valid"), null };
+
+        // Act & Assert
+        Assert.Throws<ArgumentException>(() => catalog.AddModels(models!));
+    }
+
+    /// <summary>
     ///     Proves that <see cref="SpeechModelCatalog.Store"/> always returns the exact
     ///     <see cref="SpeechModelStore"/> instance the catalog was composed with, so a host can
     ///     compose a recognizer/synthesizer through the same catalog instance without

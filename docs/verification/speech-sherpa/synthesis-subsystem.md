@@ -3,27 +3,27 @@
 ### Verification Approach
 
 The SpeechSherpa SynthesisSubsystem contains a single unit, `SherpaOnnxSynthesisEngine`, the real,
-native-backed implementation of the Speech library's internal `ISynthesisBackend` seam over
+native-backed implementation of the Speech library's public `ISynthesisBackend` seam over
 sherpa-onnx's offline text-to-speech API. Like the recognition backend, it can only be
 meaningfully verified against the real native runtime and a real, installed synthesis model,
 because mocking native inference would prove nothing about whether real text produces real audio.
-
-**No automated test currently exists for this unit.** This is a pre-existing gap: the unit had no
-test while it lived in the Speech library, and the move into SpeechSherpa carried that gap forward
-unchanged rather than introducing it. All synthesis policy above the seam - Layer 2 rendering,
+It is verified directly against the real native sherpa-onnx runtime and a real, installed
+VITS/Piper synthesis model through `SherpaOnnxSynthesisEngineTests`, mirroring
+`SherpaOnnxRecognitionEngineTests`; tests self-skip, rather than fail, when that model is not
+installed in the running environment. All synthesis policy above the seam - Layer 2 rendering,
 chunking, the session state machine, cancellation, and fault containment - remains fully verified
 in the Speech library against a fake backend (see _Speech SynthesisSubsystem Verification_), and
 each synthesis model's engine configuration is verified in _SpeechSherpa ModelManagementSubsystem
-Verification_, so the uncovered surface is limited to the unit's own interop calls. Real
-synthesis through this unit was proven only by one-time manual spikes recorded in the synthesis
-models' own verification documents.
+Verification_. Real synthesis through this unit is additionally evidenced by one-time manual
+spikes recorded in the synthesis models' own verification documents.
 
 ### Test Environment
 
 - **Framework**: xUnit v3 running under the .NET SDK
 - **Execution**: `dotnet test` invoked by `build.ps1` and the CI pipeline
 - **Project**: `test/DemaConsulting.Speech.Sherpa.Tests`
-- **Dependencies**: N/A - no automated test for this subsystem exists yet
+- **Dependencies**: The real native sherpa-onnx runtime and the real, already-installed VITS/Piper
+  synthesis model (self-skipping when absent); no network access and no physical audio hardware
 
 ### Unit-Level Test Scenarios
 
@@ -31,8 +31,9 @@ See the unit's own verification document: `sherpa-onnx-synthesis-engine.md`.
 
 ### Acceptance Criteria
 
-No automated acceptance criterion is currently met by a test for this subsystem, and none is
-claimed. Until a real-native test is added, the subsystem's verification status is: not covered
-by any automated test (pre-existing gap carried forward by the package split), with real
-synthesis evidenced only by the manual spikes recorded for
-`SherpaOnnxVitsLibriTtsEnglishSynthesisModel` and `SherpaOnnxKokoroEnglishSynthesisModel`.
+The subsystem's test run passes when every `SherpaOnnxSynthesisEngineTests` scenario either
+passes or self-skips because its target model is not installed, and, on a machine where the model
+is installed, the construction/sample-rate, generation, argument-validation, and disposal criteria
+defined in `sherpa-onnx-synthesis-engine.md` are all met. Real synthesis is additionally evidenced
+by the manual spikes recorded for `SherpaOnnxVitsLibriTtsEnglishSynthesisModel` and
+`SherpaOnnxKokoroEnglishSynthesisModel`.

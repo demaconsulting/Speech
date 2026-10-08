@@ -1,6 +1,6 @@
 package SpeechSherpa {
     part def SynthesisSubsystem {
-        doc /* The real sherpa-onnx implementation of Speech's internal ISynthesisBackend seam
+        doc /* The real sherpa-onnx implementation of Speech's public ISynthesisBackend seam
              * over sherpa-onnx's offline text-to-speech API. */
 
         comment designRef /* Design: docs/design/speech-sherpa/synthesis-subsystem.md */

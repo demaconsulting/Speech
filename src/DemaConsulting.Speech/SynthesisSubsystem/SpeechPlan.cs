@@ -13,6 +13,8 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     Per this library's "chunked, low-latency streaming synthesis and playback" decision,
 ///     each segment is synthesized and played back independently and in order, with playback of
 ///     an earlier segment beginning while later segments are still being synthesized. This record
-///     is immutable and safe to share across threads.
+///     is immutable and safe to share across threads. Public, mirroring
+///     <see cref="IModelCapabilityProfile"/>'s public visibility, since a third-party
+///     <see cref="IModelCapabilityProfile"/> implementation must be able to return one.
 /// </remarks>
-internal sealed record SpeechPlan(IReadOnlyList<SpeechSegment> Segments);
+public sealed record SpeechPlan(IReadOnlyList<SpeechSegment> Segments);

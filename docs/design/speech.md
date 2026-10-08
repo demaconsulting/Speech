@@ -28,7 +28,7 @@ consists of five subsystems:
   (`ISpeechRecognizerEngine`/`IRecognitionSession`/`SpeechRecognitionResult`), the
   `SpeechRecognizerFactory` composition root whose `LoadAsync` returns either a real engine or
   an honest unavailable fallback, the `RecognitionSession` pipeline that converts
-  captured audio to the model's required format and streams it through a mockable internal
+  captured audio to the model's required format and streams it through a mockable, public
   `IRecognitionBackend` seam, and `UnavailableSpeechRecognizerEngine`/
   `UnavailableRecognitionSession` — see _RecognitionSubsystem Design_
 - **SynthesisSubsystem**: the closed, fixed Natural Language Audio Tag vocabulary and the
@@ -154,7 +154,7 @@ in this phase. See _OTS Integration Design_ and _PortAudioSharp2 Design_ for det
 
 Speech carries no speech-inference engine dependency of its own. Concrete speech models and their
 inference backends plug in through the `IRecognitionModel`/`ISynthesisModel` extension seam, whose
-internal `CreateBackend` members return the library's own engine-neutral
+public `CreateBackend` members return the library's own engine-neutral, equally public
 `IRecognitionBackend`/`ISynthesisBackend` interfaces. `DemaConsulting.Speech.Sherpa` is one such
 extension maintained in this repository: it supplies two recognition models and two synthesis
 models backed by sherpa-onnx, and carries the `org.k2fsa.sherpa.onnx` and SharpCompress

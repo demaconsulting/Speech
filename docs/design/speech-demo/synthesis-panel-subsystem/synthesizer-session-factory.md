@@ -2,17 +2,18 @@
 
 **Purpose**: Provide a demo-owned synthesizer-engine composition seam over the library's
 `SpeechModelStore` and `SpeechSynthesizerFactory`, accepting the library's public `ISpeechModel`
-contract so the panel can be tested with a plain fake model and no `InternalsVisibleTo` grant
-from the library.
+contract so the panel can be tested with a plain fake model without depending on the
+role-specific `ISynthesisModel` interface at all.
 
 **Why a Demo-Owned Seam**: The library composes a synthesizer engine through the static
 `SpeechSynthesizerFactory.LoadAsync(ISynthesisModel, SpeechModelStore, ISpeechDiagnostics?,
 IReadOnlyDictionary<string, object>?, CancellationToken)` method, which requires an
-`ISynthesisModel` — an interface whose members are partly `internal` to the library, so only
-the library's own assemblies can implement it. A
-demo-owned seam therefore accepts the common `ISpeechModel` contract instead and performs the
-narrowing itself. This is also what works around the static factory method itself not being
-substitutable in a ViewModel unit test. `ISynthesizerSessionFactory` and
+`ISynthesisModel`. `ISynthesisModel` is a fully public interface (any assembly, including a
+third-party one, may implement it), but a demo-owned seam still accepts the common
+`ISpeechModel` contract instead and performs the narrowing itself, so a panel's unit tests can
+depend on the simpler, role-agnostic contract rather than committing every fake model double to
+the synthesis-specific shape. This is also what works around the static factory method itself not
+being substitutable in a ViewModel unit test. `ISynthesizerSessionFactory` and
 `SynthesizerSessionFactory` are documented as one unit because the interface has no
 independently observable behavior of its own — every test exercises it through
 `SynthesizerSessionFactory`, its sole implementation. Only the engine is composed through this

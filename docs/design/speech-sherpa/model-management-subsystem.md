@@ -51,11 +51,16 @@ public API (`TarBz2ArchiveExtractor` and `UppercaseTranscriptRestorer` are inter
 the core library's `SpeechModelCatalog`, `ISpeechModel`, `IRecognitionModel`, `ISynthesisModel`,
 `SpeechModelDownloadDescriptor`, `SpeechModelDownloadFile`, and parameter types from the _Speech
 ModelManagementSubsystem Design_, and `AudioFormat` from the core AudioSubsystem. Each model's
-internal `CreateBackend` implementation constructs this system's own `SherpaOnnxRecognitionEngine`
+public `CreateBackend` implementation constructs this system's own `SherpaOnnxRecognitionEngine`
 (see _SpeechSherpa RecognitionSubsystem Design_) or `SherpaOnnxSynthesisEngine` (see _SpeechSherpa
-SynthesisSubsystem Design_), returned to the core library only as its engine-neutral
-`IRecognitionBackend`/`ISynthesisBackend` seam. Implementing the core library's `internal` model
-members is possible only because the core library grants this assembly `InternalsVisibleTo`.
+SynthesisSubsystem Design_), returned to the core library only as its engine-neutral, equally
+public `IRecognitionBackend`/`ISynthesisBackend` seam. `IRecognitionModel`/`ISynthesisModel` and
+the `IRecognitionBackend`/`ISynthesisBackend` seams their `CreateBackend` members return are all
+fully public contracts - genuine third-party extensibility is a confirmed design goal - so this
+assembly needs no `InternalsVisibleTo` grant to implement any of them, and (confirmed by building
+and testing with the grant removed) the core library's project file no longer lists this assembly
+as an `InternalsVisibleTo` target at all; it behaves as an ordinary external consumer of the core
+library's public API, exactly as a genuine third-party model package would.
 
 ### Design
 

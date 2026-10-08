@@ -2,16 +2,15 @@
 # Software Unit Requirements for SherpaOnnxSynthesisEngine
 #
 # These requirements describe the design-level behavior of the SherpaOnnxSynthesisEngine unit,
-# the real sherpa-onnx implementation of the Speech library's internal ISynthesisBackend seam,
+# the real sherpa-onnx implementation of the Speech library's public ISynthesisBackend seam,
 # decomposing the parent SpeechSherpa SynthesisSubsystem requirements.
 #
-# KNOWN GAP: no automated test exercises SherpaOnnxSynthesisEngine anywhere in this repository.
-# This gap pre-dates the SpeechSherpa package split and is carried forward unchanged, not
-# introduced by the move; it is disclosed in
-# docs/verification/speech-sherpa/synthesis-subsystem/sherpa-onnx-synthesis-engine.md. The
-# requirements below therefore deliberately list no tests rather than citing evidence that does
-# not exist. Real, non-silent audio through this unit was proven only by one-time manual spikes
-# recorded in the synthesis models' own verification documents.
+# SherpaOnnxSynthesisEngine is exercised directly against the real native sherpa-onnx runtime and
+# a real, installed VITS/Piper synthesis model by
+# test/DemaConsulting.Speech.Sherpa.Tests/SynthesisSubsystem/SherpaOnnxSynthesisEngineTests.cs,
+# mirroring SherpaOnnxRecognitionEngineTests; see
+# docs/verification/speech-sherpa/synthesis-subsystem/sherpa-onnx-synthesis-engine.md for the
+# full verification approach.
 
 sections:
   - title: SpeechSherpa Requirements
@@ -29,6 +28,8 @@ sections:
                   Each synthesis model owns the engine configuration for its own architecture;
                   the engine must load exactly that configuration so that adding a synthesis
                   model never requires changing the synthesis backend.
+                tests:
+                  - SherpaOnnxSynthesisEngine_Construct_ReportsModelSampleRate
 
               - id: SpeechSherpa-Synthesis-SherpaOnnxSynthesisEngine-SampleRate
                 title: >-
@@ -38,6 +39,8 @@ sections:
                   A synthesis model's PreferredAudioFormat is only a best-effort hint; the loaded
                   engine's own declared rate is the authoritative rate the Speech library's
                   synthesis session must resample from.
+                tests:
+                  - SherpaOnnxSynthesisEngine_Construct_ReportsModelSampleRate
 
               - id: SpeechSherpa-Synthesis-SherpaOnnxSynthesisEngine-Generate
                 title: >-
@@ -48,6 +51,8 @@ sections:
                   The Speech library's synthesis session drives the backend one rendered segment
                   at a time and needs the generated samples and their rate to resample and play
                   them through the configured audio output device.
+                tests:
+                  - SherpaOnnxSynthesisEngine_Generate_NonEmptyText_ReturnsNonEmptyAudio
 
               - id: SpeechSherpa-Synthesis-SherpaOnnxSynthesisEngine-ArgumentValidation
                 title: >-
@@ -59,6 +64,9 @@ sections:
                   immediately with a clear exception, matching this repository's existing
                   argument-validation convention, rather than an opaque failure inside the
                   native engine.
+                tests:
+                  - SherpaOnnxSynthesisEngine_Generate_NullText_ThrowsArgumentNullException
+                  - SherpaOnnxSynthesisEngine_Generate_AfterDispose_ThrowsObjectDisposedException
 
               - id: SpeechSherpa-Synthesis-SherpaOnnxSynthesisEngine-Dispose
                 title: >-
@@ -68,3 +76,5 @@ sections:
                   The loaded engine holds native memory sized to a multi-hundred-megabyte model,
                   so it must be released deterministically when the owning synthesizer engine is
                   disposed, and idempotent disposal keeps teardown paths safe.
+                tests:
+                  - SherpaOnnxSynthesisEngine_Dispose_CalledTwice_IsIdempotent

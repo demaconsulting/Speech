@@ -90,7 +90,15 @@
   <ItemGroup>
     <InternalsVisibleTo Include="DemaConsulting.Speech.Tests" />
     <InternalsVisibleTo Include="DemaConsulting.Speech.Demo.Tests" />
-    <InternalsVisibleTo Include="DemaConsulting.Speech.Sherpa" />
+    <!--
+      DemaConsulting.Speech.Sherpa does NOT need an InternalsVisibleTo grant: after the Fix 1/2
+      visibility changes (IRecognitionModel/ISynthesisModel and the IRecognitionBackend/
+      ISynthesisBackend/IModelCapabilityProfile seams they return are now all public), this
+      package implements every member it needs using ordinary public access plus explicit
+      interface implementation, exactly like any other third-party model package would. Confirmed
+      by building DemaConsulting.Speech.Sherpa and the full solution, and running the full test
+      suite, with this grant removed.
+    -->
     <InternalsVisibleTo Include="DemaConsulting.Speech.Sherpa.Tests" />
   </ItemGroup>
 

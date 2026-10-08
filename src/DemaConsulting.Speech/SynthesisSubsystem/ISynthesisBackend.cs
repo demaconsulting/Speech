@@ -1,21 +1,25 @@
 namespace DemaConsulting.Speech.SynthesisSubsystem;
 
 /// <summary>
-///     Internal, mockable seam over one loaded offline text-to-speech engine: synthesizes one
-///     segment of text at a time into raw audio.
+///     Mockable, engine-neutral seam over one loaded offline text-to-speech engine: synthesizes
+///     one segment of text at a time into raw audio.
 /// </summary>
 /// <remarks>
 ///     This seam exists for the same reason as <c>RecognitionSubsystem.IRecognitionBackend</c>: it
-///     confines every native TTS interop call to a single implementation (the sibling
-///     <c>DemaConsulting.Speech.Sherpa</c> package's <c>SherpaOnnxSynthesisEngine</c>) so
-///     <see cref="SynthesisSession"/>'s
-///     chunking, pipelining, and playback logic is fully unit-testable with a pure managed fake.
-///     No native sherpa-onnx runtime binary and no downloaded model are ever required to run the
-///     synthesis subsystem's tests.
+///     confines every native TTS interop call behind a seam that names no inference-engine type,
+///     so <see cref="SynthesisSession"/>'s chunking, pipelining, and playback logic is fully
+///     unit-testable with a pure managed fake. No native sherpa-onnx runtime binary and no
+///     downloaded model are ever required to run the synthesis subsystem's tests. This seam is
+///     public, mirroring <see cref="ModelManagementSubsystem.ISynthesisModel.CreateBackend(string)"/>'s
+///     public visibility: a third-party synthesis model implementing
+///     <see cref="ModelManagementSubsystem.ISynthesisModel"/> must be able to implement this
+///     interface to return its own loaded backend from <c>CreateBackend</c>, without needing any
+///     special assembly access. The sibling <c>DemaConsulting.Speech.Sherpa</c> package's
+///     <c>SherpaOnnxSynthesisEngine</c> is simply this library's own built-in implementation.
 ///     <para>
 ///     Renamed from <c>ISynthesisEngine</c> so the "engine" vocabulary is reserved for the public
 ///     Layer 3 <see cref="ISpeechSynthesizerEngine"/> contract, removing the naming collision
-///     between the public, loaded-model-level type and this internal, per-segment native seam.
+///     between the public, loaded-model-level type and this per-segment native seam.
 ///     </para>
 ///     <para>
 ///     Implementations are not thread-safe with respect to concurrent calls, but
@@ -24,7 +28,7 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     <see cref="SynthesisSession"/> for how that race is contained.
 ///     </para>
 /// </remarks>
-internal interface ISynthesisBackend : IDisposable
+public interface ISynthesisBackend : IDisposable
 {
     /// <summary>
     ///     Gets the sample rate, in Hz, of the audio <see cref="Generate"/> produces.

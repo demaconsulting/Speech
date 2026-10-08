@@ -3,7 +3,7 @@
 #### Verification Approach
 
 `SherpaOnnxRecognitionEngine` is the SpeechSherpa library's real, native-backed implementation of
-the Speech library's internal `IRecognitionBackend` seam. It contains only the sherpa-onnx interop
+the Speech library's public `IRecognitionBackend` seam. It contains only the sherpa-onnx interop
 calls plus the post-endpoint warm-up-replay bookkeeping, so it is verified directly against the
 real, already-installed streaming Zipformer and Nemotron models and the real native sherpa-onnx
 runtime rather than through a fake: mocking native inference would prove nothing about whether

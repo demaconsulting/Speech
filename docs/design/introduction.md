@@ -312,7 +312,7 @@ src/DemaConsulting.Speech/
     ├── SpeechRecognizerFactory.cs                — Composition entry point: LoadAsync returns an engine
     ├── UnavailableSpeechRecognizerEngine.cs       — Honest unavailable engine fallback
     ├── UnavailableRecognitionSession.cs          — Honest unavailable session fallback
-    ├── IRecognitionBackend.cs                    — Mockable speech-inference seam (internal)
+    ├── IRecognitionBackend.cs                    — Mockable speech-inference seam (public)
     ├── IRecognitionBackendFactory.cs             — Mockable engine-loading seam (internal)
     ├── DefaultRecognitionBackendFactory.cs       — Real model-driven backend loader
     ├── SpeechRecognizerEngine.cs                 — Real ISpeechRecognizerEngine implementation
@@ -333,12 +333,12 @@ src/DemaConsulting.Speech/
     ├── TaggedTextSpan.cs                         — Neutral parsed-text span value shape
     ├── AudioTagParser.cs                         — Layer 1: bracket-syntax scanner
     ├── SpeechSegment.cs                          — One rendered segment: text, silence, overrides
-    ├── SpeechPlan.cs                              — Ordered SpeechSegment sequence
+    ├── SpeechPlan.cs                              — Ordered SpeechSegment sequence (public)
     ├── SpeechParameterConventions.cs             — Tag-to-numeric-parameter mapping conventions
-    ├── IModelCapabilityProfile.cs                — Layer 2 rendering strategy contract
+    ├── IModelCapabilityProfile.cs                — Layer 2 rendering strategy contract (public)
     ├── DefaultModelCapabilityProfile.cs          — Generically-correct default rendering strategy
     ├── SentenceChunker.cs                        — Sentence/clause-sized chunking for pipelining
-    ├── EngineAudio.cs                             — Raw engine output: samples plus produced rate
+    ├── EngineAudio.cs                             — Raw engine output: samples plus produced rate (public)
     ├── ISpeechSynthesizerEngine.cs                — Loaded-model engine contract (Layer 3)
     ├── ISynthesisSession.cs                       — Per-device session contract (Layer 5)
     ├── SynthesisSessionState.cs                   — Session state machine enum
@@ -349,7 +349,7 @@ src/DemaConsulting.Speech/
     ├── SpeechSynthesizerFactory.cs                — Composition entry point: LoadAsync returns an engine
     ├── UnavailableSpeechSynthesizerEngine.cs       — Honest unavailable engine fallback
     ├── UnavailableSynthesisSession.cs             — Honest unavailable session fallback
-    ├── ISynthesisBackend.cs                       — Mockable speech-synthesis seam (internal)
+    ├── ISynthesisBackend.cs                       — Mockable speech-synthesis seam (public)
     ├── ISynthesisBackendFactory.cs                — Mockable engine-loading seam (internal)
     ├── DefaultSynthesisBackendFactory.cs          — Real model-driven backend loader
     ├── SpeechSynthesizerEngine.cs                 — Real ISpeechSynthesizerEngine implementation

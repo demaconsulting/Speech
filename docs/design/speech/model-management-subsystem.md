@@ -21,12 +21,14 @@ side's `ResolveSpeakerId` seam.
 `IRecognitionModel`/`ISynthesisModel` are this library's model extension point. The library itself
 ships zero built-in models: `SpeechModelCatalog` starts empty and a host registers the models it
 wants through `SpeechModelCatalog.AddModels(...)`. Each model's backing class constructs its own
-engine-neutral `IRecognitionBackend`/`ISynthesisBackend` through the internal `CreateBackend`
+engine-neutral `IRecognitionBackend`/`ISynthesisBackend` through its public `CreateBackend`
 member, so neither this subsystem nor any other part of the library names an inference-engine
-type. The concrete sherpa-onnx-backed models shipped in this repository - two recognition models
-and two synthesis models - together with their shared `.tar.bz2` archive-extraction and
-transcript-restoration helpers, live in the sibling `SpeechSherpa` system; see _SpeechSherpa
-ModelManagementSubsystem Design_.
+type. `CreateBackend` and the backend seams it returns are public specifically so a third-party
+package can implement `IRecognitionModel`/`ISynthesisModel` to add a new recognition or synthesis
+backend without needing `InternalsVisibleTo` access. The concrete sherpa-onnx-backed models
+shipped in this repository - two recognition models and two synthesis models - together with
+their shared `.tar.bz2` archive-extraction and transcript-restoration helpers, live in the
+sibling `SpeechSherpa` system; see _SpeechSherpa ModelManagementSubsystem Design_.
 
 It contains the following units:
 
@@ -53,8 +55,8 @@ It contains the following units:
   dropping it
 - **SpeechModelContract** (`ISpeechModel`, `IRecognitionModel`, `ISynthesisModel`): the common
   per-model contract plus its two role-specific interfaces - `IRecognitionModel` exposing a
-  public `AudioFormat` and internal engine-construction members, and `ISynthesisModel` exposing
-  a public best-effort `PreferredAudioFormat` plus its internal synthesis hooks
+  public `AudioFormat` plus its public engine-construction members, and `ISynthesisModel` exposing
+  a public best-effort `PreferredAudioFormat` plus its public synthesis hooks
 - **SpeechModelDescriptor**: the immutable catalog read-model pairing one `ISpeechModel` with its
   current `SpeechModelState`
 - **SpeechModelCatalog**: enumerates the host-registered known-model list alongside each model's
@@ -115,14 +117,15 @@ Layer 2 rendering logic is Phase 4), its `DownloadDescriptor`, its `InstallAsync
 default, overridable to unpack an archive payload), its `NormalizeText` hook (an identity
 default, overridable for Phase 4 text normalization), and its `LicenseName`/`LicenseUrl`
 default-hook members (`"Unknown"`/`null` by default, overridable to declare a model's real
-license name and an optional canonical URL to its full text). `IRecognitionModel` now exposes a
-public plain-data `AudioFormat` declaration, while keeping `CreateBackend(installedModelDirectory)`
-internal because it returns the library-internal `IRecognitionBackend` seam; this lets hosts
-compose capture devices around a model's required format without exposing backend construction
-in the public API. `ISynthesisModel` similarly exposes a public best-effort `PreferredAudioFormat`
-hint, while keeping `CreateBackend`, `CapabilityProfile`, and `ResolveSpeakerId(parameterValues)`
-internal. The hint is intentionally non-authoritative: the real synthesis output rate is still
-the loaded engine's `ISynthesisBackend.SampleRate`.
+license name and an optional canonical URL to its full text). `IRecognitionModel` exposes a
+public plain-data `AudioFormat` declaration alongside its public
+`CreateBackend(installedModelDirectory)`, which returns the equally public `IRecognitionBackend`
+seam; this lets hosts compose capture devices around a model's required format while a
+third-party model implementation constructs and returns its own backend with no special assembly
+access. `ISynthesisModel` similarly exposes a public best-effort `PreferredAudioFormat` hint
+alongside its public `CreateBackend`, `CapabilityProfile`, and
+`ResolveSpeakerId(parameterValues)` members. The hint is intentionally non-authoritative: the real
+synthesis output rate is still the loaded engine's `ISynthesisBackend.SampleRate`.
 
 `SpeechModelCatalog` composes a mutable known-model list - empty for the public constructor, since
 the library ships zero built-in models, and populated by the host through `AddModels(...)`, which

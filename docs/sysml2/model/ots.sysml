@@ -34,7 +34,7 @@ package SpeechSherpa {
     part def SherpaOnnx {
         doc /* Managed local speech-inference API and carrier for its per-platform native runtime
              * packages, consumed by the SpeechSherpa recognition and synthesis engines behind
-             * Speech's internal backend seams. */
+             * Speech's public backend seams. */
 
         comment designRef /* Design: docs/design/ots/sherpa-onnx.md */
         comment verificationRef /* Verification: docs/verification/ots/sherpa-onnx.md */

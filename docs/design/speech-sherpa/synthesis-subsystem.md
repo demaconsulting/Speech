@@ -5,7 +5,7 @@
 ### Overview
 
 The SpeechSherpa SynthesisSubsystem supplies the real, sherpa-onnx-backed implementation of the
-core `Speech` library's internal `ISynthesisBackend` seam (see _Speech SynthesisSubsystem Design_).
+core `Speech` library's public `ISynthesisBackend` seam (see _Speech SynthesisSubsystem Design_).
 It previously lived inside the core library's own SynthesisSubsystem; it moved here, unchanged in
 behavior, together with the models that construct it, so the core library carries no sherpa-onnx
 dependency at all. The core library's session, engine, Natural Language Audio Tag rendering,
@@ -17,11 +17,12 @@ only through `ISynthesisBackend`. It contains the following unit:
 
 ### Interfaces
 
-The subsystem exposes no public API: `SherpaOnnxSynthesisEngine` is `internal`. It implements the
-core library's internal `ISynthesisBackend` (`SampleRate`, `Generate`, `Dispose`) and produces the
-core library's `EngineAudio` values, which is possible because the core library grants this
-assembly `InternalsVisibleTo`. It consumes the sherpa-onnx managed API (`OfflineTts`,
-`OfflineTtsConfig`; see _SherpaOnnx Design_). It is constructed only by this system's synthesis
+The subsystem exposes no public API: `SherpaOnnxSynthesisEngine` is an `internal` class that
+implements the core library's public `ISynthesisBackend` (`SampleRate`, `Generate`, `Dispose`) and
+produces the core library's equally public `EngineAudio` values - `ISynthesisBackend` is public
+specifically so any package, not only this one, can supply its own implementation. It consumes
+the sherpa-onnx managed API (`OfflineTts`, `OfflineTtsConfig`; see _SherpaOnnx Design_). It is
+constructed only by this system's synthesis
 models' `ISynthesisModel.CreateBackend` implementations (see _SpeechSherpa
 ModelManagementSubsystem Design_).
 

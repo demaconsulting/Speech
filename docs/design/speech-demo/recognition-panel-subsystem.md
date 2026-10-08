@@ -30,9 +30,11 @@ The subsystem exposes one presentation surface, `RecognitionPanelViewModel`, con
 The library composes a recognizer engine through the static
 `SpeechRecognizerFactory.LoadAsync(IRecognitionModel, SpeechModelStore, ISpeechDiagnostics?,
 IReadOnlyDictionary<string,object>?, CancellationToken)`
-method, which requires an `IRecognitionModel` — an interface whose members are partly `internal`
-to the library, so only the library's own assemblies can implement it. A demo-owned seam
-therefore accepts the common `ISpeechModel` contract instead and performs the narrowing itself:
+method, which requires an `IRecognitionModel`. `IRecognitionModel` is a fully public interface
+(any assembly, including a third-party one, may implement it), but a demo-owned seam still
+accepts the common `ISpeechModel` contract instead and performs the narrowing itself, so a panel's
+unit tests can depend on the simpler, role-agnostic contract rather than committing every fake
+model double to the recognition-specific shape:
 
 | Member | Returns | Behavior |
 | --- | --- | --- |

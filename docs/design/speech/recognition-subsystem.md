@@ -21,8 +21,8 @@ against it without reloading. It contains the following direct units:
 - **SpeechRecognizerFactory**: composition root whose `LoadAsync` overloads return a real engine
   or the honest unavailable fallback, and never throw for an ordinary machine state
 - **SpeechRecognizerEngine** and **RecognitionSession**: the real Layer 3/5
-  implementations, together with the internal
-  **IRecognitionBackend**/**IRecognitionBackendFactory** seam, its model-driven
+  implementations, together with the public **IRecognitionBackend** seam and its internal
+  **IRecognitionBackendFactory** loading seam, its model-driven
   **DefaultRecognitionBackendFactory** implementation (which asks the model itself to construct
   its backend via `IRecognitionModel.CreateBackend`), the
   **AudioFrameResampler** that converts captured audio into the format a model requires, the
@@ -51,9 +51,11 @@ without ever exposing recognized text.
 
 No member of the subsystem's public API names a sherpa-onnx type, per this library's
 "engine backend stays swappable at the public API surface" decision. No member of the subsystem -
-public or internal - names a sherpa-onnx type at all: `IRecognitionModel`'s internal
-`CreateBackend` members return the engine-neutral `IRecognitionBackend` seam, and every concrete
-engine backend lives in a model-supplying extension such as the sibling `SpeechSherpa` system.
+public or internal - names a sherpa-onnx type at all: `IRecognitionModel`'s public
+`CreateBackend` members return the engine-neutral, equally public `IRecognitionBackend` seam, and
+every concrete engine backend lives in a model-supplying extension such as the sibling
+`SpeechSherpa` system (or, by design, in any third-party package implementing
+`IRecognitionModel`).
 
 ### Design
 
@@ -176,7 +178,8 @@ accounted for as an evicted-with-diagnostic final by the time the call returns.
 `AudioFrameResampler` performs the format conversion, downmixing to mono and using simple linear
 interpolation for rate conversion except on the downsampling path, where a small windowed-sinc
 FIR lowpass filter runs immediately before decimation to attenuate above-target-Nyquist energy.
-The internal `IRecognitionBackend`/`IRecognitionBackendFactory` seam keeps every native inference
+The public `IRecognitionBackend` seam, loaded through the internal
+`IRecognitionBackendFactory` seam, keeps every native inference
 call out of this subsystem entirely: `DefaultRecognitionBackendFactory` simply forwards to the
 model's own `IRecognitionModel.CreateBackend`, and the real sherpa-onnx backend
 (`SherpaOnnxRecognitionEngine`) lives in the sibling `SpeechSherpa` system (see _SpeechSherpa

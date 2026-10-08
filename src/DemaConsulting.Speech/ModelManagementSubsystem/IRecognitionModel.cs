@@ -16,17 +16,16 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     <see cref="CreateBackend(string)"/> are new members added to an interface that still has no
 ///     production implementations, so nothing defined in Sub-phase 2b was replaced or broken.
 ///     <para>
-///     The two members deliberately have different visibility. <see cref="AudioFormat"/> is
-///     public because it is a plain library-owned data value that leaks no native engine type and
-///     lets callers compose an audio device before loading the engine. By contrast,
-///     <see cref="CreateBackend(string)"/> remains <see langword="internal"/> because it returns a
-///     loaded <see cref="IRecognitionBackend"/> backed by real native inference resources. This
-///     keeps the public recognition surface swappable while still letting each model own its
-///     native-engine construction. Only assemblies granted <c>InternalsVisibleTo</c> (the library
-///     itself, its test project, and the sibling <c>DemaConsulting.Speech.Sherpa</c> package that
-///     supplies this library's production model implementations) can implement the interface.
-///     That restriction is intentional and matches this library's "one backing class per model; a
-///     new model requires a new library release" decision.
+///     The full interface, including <see cref="CreateBackend(string)"/>, is public by design:
+///     third-party extension of the Speech library is a confirmed goal, and a host application
+///     composes its catalog by calling <see cref="SpeechModelCatalog.AddModels(ISpeechModel[])"/>
+///     with models it supplies itself. A public contract lets an external package implement
+///     <see cref="IRecognitionModel"/> to add an entirely new recognition backend - not merely
+///     another instance of an existing sherpa-onnx-backed model - without requiring
+///     <c>InternalsVisibleTo</c> access to this assembly. The sibling
+///     <c>DemaConsulting.Speech.Sherpa</c> package is simply the first such implementer, supplying
+///     this library's built-in sherpa-onnx-backed models; it has no special access that a
+///     third-party package lacks.
 ///     </para>
 /// </remarks>
 public interface IRecognitionModel : ISpeechModel
@@ -70,7 +69,7 @@ public interface IRecognitionModel : ISpeechModel
     ///     an unavailable recognizer by catching that failure. Implementations must be safe to call
     ///     concurrently.
     /// </remarks>
-    internal IRecognitionBackend CreateBackend(string installedModelDirectory);
+    IRecognitionBackend CreateBackend(string installedModelDirectory);
 
     /// <summary>
     ///     Builds a loaded, model-specific <see cref="IRecognitionBackend"/> for this model,
@@ -106,7 +105,7 @@ public interface IRecognitionModel : ISpeechModel
     ///     <see cref="ISpeechModel.Parameters"/> entry, so both need zero code to keep today's
     ///     exact behavior through this default hook.
     /// </remarks>
-    internal IRecognitionBackend CreateBackend(
+    IRecognitionBackend CreateBackend(
         string installedModelDirectory,
         IReadOnlyDictionary<string, object>? parameterValues) =>
         CreateBackend(installedModelDirectory);
@@ -146,7 +145,7 @@ public interface IRecognitionModel : ISpeechModel
     ///     <c>0</c> here rather than a library-wide constant.
     ///     </para>
     /// </remarks>
-    internal int PostEndpointWarmupWindowMs => 0;
+    int PostEndpointWarmupWindowMs => 0;
 
     /// <summary>
     ///     Applies this model's own text normalization/correction to one recognized result's

@@ -3,7 +3,7 @@
 ### Verification Approach
 
 The SpeechSherpa RecognitionSubsystem contains a single unit, `SherpaOnnxRecognitionEngine`, the
-real, native-backed implementation of the Speech library's internal `IRecognitionBackend` seam.
+real, native-backed implementation of the Speech library's public `IRecognitionBackend` seam.
 It is verified directly against the real native sherpa-onnx runtime and real, already-installed
 streaming Zipformer and Nemotron models, through `SherpaOnnxRecognitionEngineTests` (post-endpoint
 warm-up-replay bookkeeping) and `SherpaOnnxRecognitionEngineAccuracyTests` (real-speech Word Error

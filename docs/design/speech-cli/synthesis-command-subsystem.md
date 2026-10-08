@@ -26,16 +26,15 @@ small seam over real playback-device resolution:
 the library's synthesis-capable model interface. `ISynthesisModel` itself, and the members
 `speak` needs from it (`PreferredAudioFormat`, and the loader path
 `SpeechSynthesizerFactory.LoadAsync` requires), are only reachable once a `SpeechModelDescriptor.Model`
-is known to implement that interface. That cast is safe to perform inside
-`SpeechModelCatalogAdapter` (which lives in the same assembly as the library's own internal
-model types, so its `is ISynthesisModel` check compiles), but is **not** safe to perform inside a
-hand-written `FakeSpeechModel` test double in `DemaConsulting.Speech.Cli.Tests` - that assembly is
-not granted `InternalsVisibleTo` access to the library's internal `ISynthesisModel` members, and
-widening that access purely to make this one subsystem's tests compile would weaken the isolation
-the seam already provides for `ModelCommandsSubsystem`.
+is known to implement that interface. `ISynthesisModel` is a fully public interface, so the
+`is ISynthesisModel` cast is compilable from any assembly, including `DemaConsulting.Speech.Cli.Tests`.
+It is still performed inside `SpeechModelCatalogAdapter` rather than by `SpeakCommand` itself or by
+a hand-written `FakeSpeechModel` test double, because confining the narrowing to one seam keeps
+`ModelCommandsSubsystem`'s role-agnostic isolation: every other component depends only on the
+common `ISpeechModel` contract, not on which role-specific interface a given model happens to
+implement.
 
-Rather than have `SpeakCommand` perform the `is ISynthesisModel` cast itself (which `SpeakCommand`
-cannot even attempt, since its own project also lacks that internal access), two further methods
+Rather than have `SpeakCommand` perform the `is ISynthesisModel` cast itself, two further methods
 are added to `ICliModelCatalog`:
 
 | Member | Returns | Behavior |

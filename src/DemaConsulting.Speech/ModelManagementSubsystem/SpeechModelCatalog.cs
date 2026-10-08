@@ -124,9 +124,16 @@ public sealed class SpeechModelCatalog : IDisposable
     /// <summary>
     ///     Appends one or more models to this catalog's known-model list.
     /// </summary>
-    /// <param name="models">The models to append, in order. Must not be null.</param>
+    /// <param name="models">The models to append, in order. Must not be null, and must not contain a null entry.</param>
     /// <returns>This same <see cref="SpeechModelCatalog"/> instance, to allow call chaining.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="models"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException">
+    ///     Thrown when <paramref name="models"/> contains a <see langword="null"/> entry. Failing
+    ///     fast here, naming the offending index, is preferable to letting a null slip into the
+    ///     known-model list and surface later as a deferred, harder-to-diagnose
+    ///     <see cref="NullReferenceException"/> from <see cref="Enumerate"/> or
+    ///     <see cref="DownloadAsync"/>.
+    /// </exception>
     /// <remarks>
     ///     This is the builder-style seam a host (or an extension method such as the sibling
     ///     <c>DemaConsulting.Speech.Sherpa</c> package's <c>AddSherpaModels</c>) uses to populate
@@ -139,6 +146,19 @@ public sealed class SpeechModelCatalog : IDisposable
     public SpeechModelCatalog AddModels(params ISpeechModel[] models)
     {
         ArgumentNullException.ThrowIfNull(models);
+
+        // Reject any null entry before mutating _knownModels, so a caller's mistake fails
+        // immediately at this API boundary instead of being silently accepted and only
+        // surfacing later as a deferred NullReferenceException from Enumerate/DownloadAsync.
+        for (var i = 0; i < models.Length; i++)
+        {
+            if (models[i] is null)
+            {
+                throw new ArgumentException(
+                    $"Entry at index {i} is null; every entry in '{nameof(models)}' must be non-null.",
+                    nameof(models));
+            }
+        }
 
         _knownModels.AddRange(models);
         return this;

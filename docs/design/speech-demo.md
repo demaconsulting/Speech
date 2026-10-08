@@ -171,13 +171,13 @@ N/A - SpeechDemo provides no safety-critical functionality requiring risk contro
 - **Manual composition, no container**: The object graph is constructed explicitly in the
   application class. A dependency-injection container would hide the very wiring a reader of
   the demo is trying to see
-- **Demo-owned seams over library concretes**: The library exposes sealed concrete entry points,
-  and static factory methods requiring partly-`internal` interfaces
-  (`ISynthesisModel`/`IRecognitionModel`), rather than injectable interfaces for device, catalog,
-  and session composition. Rather than change the library, the demo owns thin interfaces over
-  each, narrowing the public `ISpeechModel` to the library's role-specific interface inside the
-  seam implementation. This is also what makes every panel unit testable without audio hardware,
-  a downloaded model, or an `InternalsVisibleTo` grant from the library
+- **Demo-owned seams over library concretes**: The library exposes sealed concrete entry points
+  and static factory methods requiring the role-specific `ISynthesisModel`/`IRecognitionModel`
+  interfaces, rather than injectable interfaces for device, catalog, and session composition.
+  Rather than change the library, the demo owns thin interfaces over each, narrowing the public
+  `ISpeechModel` to the library's role-specific interface inside the seam implementation. This is
+  also what makes every panel unit testable without audio hardware or a downloaded model, using a
+  plain fake model double that only needs to implement the common `ISpeechModel` contract
 - **Nothing throws at start-up**: A machine with no audio backend and no installed model must
   produce a working window, matching the library's own composition guarantee
 - **Honest empty states**: An empty device list, an empty catalog, no installed synthesis or

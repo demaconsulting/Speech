@@ -5,7 +5,7 @@ package Speech {
              * chunking, the public Layer 3/Layer 5 Engine/Session text-to-speech contract
              * (ISpeechSynthesizerEngine/ISynthesisSession) with its composition root and honest
              * unavailable fallbacks at every layer, engine exclusivity leasing, a
-             * cancel-then-abandon dedicated worker, the internal mockable synthesis-backend seam,
+             * cancel-then-abandon dedicated worker, the public mockable synthesis-backend seam,
              * and the playback-format converter. */
 
         comment designRef /* Design: docs/design/speech/synthesis-subsystem.md */

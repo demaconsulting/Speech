@@ -5,7 +5,7 @@ package Speech {
              * composition root that returns either a working engine or an honest unavailable
              * fallback, the capture-to-backend pipeline with its audio-format converter and
              * backpressure buffer, the cooperative-cancel-then-abandon native-call policy, and
-             * the internal mockable speech-inference seam. */
+             * the public mockable speech-inference seam. */
 
         comment designRef /* Design: docs/design/speech/recognition-subsystem.md */
         comment verificationRef /* Verification: docs/verification/speech/recognition-subsystem.md */

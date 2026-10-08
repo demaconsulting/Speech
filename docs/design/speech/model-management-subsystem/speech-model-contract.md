@@ -2,11 +2,15 @@
 
 **Purpose**: Define the common per-model contract every model's backing class implements
 (identity, role, declared parameters, declared audio-tag support, download descriptor), with two
-role-specific interfaces. `IRecognitionModel` now exposes a public `AudioFormat` plus the
-internal engine-construction members the RecognitionSubsystem needs. `ISynthesisModel` is
-extended in Sub-phase 4b with the equivalent internal members the SynthesisSubsystem needs and a
-public best-effort `PreferredAudioFormat` hint, exactly as this contract's Sub-phase 2b
-documentation anticipated.
+role-specific interfaces. `IRecognitionModel` exposes a public `AudioFormat` plus the public
+engine-construction members the RecognitionSubsystem needs. `ISynthesisModel` is extended in
+Sub-phase 4b with the equivalent public members the SynthesisSubsystem needs and a public
+best-effort `PreferredAudioFormat` hint. Both interfaces are fully public - including their
+engine-construction members - because third-party extension of the Speech library is a confirmed
+goal: a host composes its `SpeechModelCatalog` from models it supplies itself via `AddModels`,
+and a genuinely public contract lets an external package implement `IRecognitionModel`/
+`ISynthesisModel` to add an entirely new recognition/synthesis backend, not merely another
+instance of the sherpa-onnx-backed models this repository ships.
 
 **Data Model**: N/A (interfaces only).
 
@@ -40,8 +44,8 @@ documentation anticipated.
   host enumerating `SpeechModelCatalog.Enumerate()` can discover licensing for any model without
   parsing `DisplayName`.
 - **IRecognitionModel** / **ISynthesisModel**: `: ISpeechModel`. `IRecognitionModel` adds two
-  `internal` members in Phase 3 (see below), plus a public `NormalizeText(text, isFinal)` default
-  hook in Phase 12 (see below). `ISynthesisModel` adds two `internal` members in Sub-phase 4b
+  public members in Phase 3 (see below), plus a public `NormalizeText(text, isFinal)` default
+  hook in Phase 12 (see below). `ISynthesisModel` adds two public members in Sub-phase 4b
   (see below).
 - **IRecognitionModel.AudioFormat** *(public)*: the mono audio format this model's recognition
   engine requires its input audio at. Declared per model rather than assumed, because streaming
@@ -49,7 +53,7 @@ documentation anticipated.
   what lets callers request a capture device already matching the model and lets the
   RecognitionSubsystem resample whatever rate a capture device resolved into what this specific
   model needs when it does not.
-- **IRecognitionModel.CreateBackend(installedModelDirectory)** *(internal)*: constructs and
+- **IRecognitionModel.CreateBackend(installedModelDirectory)** *(public)*: constructs and
   returns this model's loaded `IRecognitionBackend`, combining the model's own compiled-in
   relative file names with the directory its verified files were installed into. The return type
   is the RecognitionSubsystem's engine-neutral `IRecognitionBackend` seam, so this contract names
@@ -60,7 +64,7 @@ documentation anticipated.
   surfaces here as an exception, which the RecognitionSubsystem's composition root catches and
   degrades to an honest unavailable recognizer. Implementations throw `ArgumentException` for a
   null or empty directory.
-- **IRecognitionModel.CreateBackend(installedModelDirectory, parameterValues)** *(internal)*:
+- **IRecognitionModel.CreateBackend(installedModelDirectory, parameterValues)** *(public)*:
   a two-argument overload of the member above, resolving a session-level, untyped key-value
   parameter bag (for example built from a host's settings UI via a declared
   `ISpeechModel.Parameters` entry) alongside the installed-files directory. Defaults to ignoring
@@ -80,7 +84,7 @@ documentation anticipated.
   `SherpaOnnxZipformerEnRecognitionModel`, whose UPPERCASE, unpunctuated raw output is restored
   via that system's `UppercaseTranscriptRestorer`) can do so without the RecognitionSubsystem
   needing to know how.
-- **IRecognitionModel.PostEndpointWarmupWindowMs** *(internal)*: the duration, in milliseconds,
+- **IRecognitionModel.PostEndpointWarmupWindowMs** *(public)*: the duration, in milliseconds,
   of pre-endpoint audio the recognition engine should buffer and silently replay into a freshly
   reset stream immediately after an endpoint fires, to pre-warm the model's internal decoding
   state before genuinely new (post-pause) audio arrives. Defaults to `0` (feature disabled; a
@@ -89,7 +93,7 @@ documentation anticipated.
   defect specific to `SpeechSherpa`'s `SherpaOnnxNemotronStreamingEnRecognitionModel`, and
   forcing it on for a model like `SherpaOnnxZipformerEnRecognitionModel` was found to cause duplicated-text
   regressions, so only a model with its own independently confirmed defect should override it.
-- **ISynthesisModel.CreateBackend(installedModelDirectory)** *(internal)*: constructs and
+- **ISynthesisModel.CreateBackend(installedModelDirectory)** *(public)*: constructs and
   returns this model's loaded `ISynthesisBackend`, combining the model's own compiled-in relative
   file names with the directory its verified files were installed into. As with its
   recognition-direction counterpart above, the return type is the engine-neutral
@@ -100,13 +104,13 @@ documentation anticipated.
   host may use before the native engine is loaded. This is deliberately not authoritative: the
   true output rate remains the loaded engine's `ISynthesisBackend.SampleRate`, which may differ
   and therefore still drive playback resampling.
-- **ISynthesisModel.CapabilityProfile** *(internal)*: the `IModelCapabilityProfile` this model
+- **ISynthesisModel.CapabilityProfile** *(public)*: the `IModelCapabilityProfile` this model
   uses to render Natural Language Audio Tags into a `SpeechPlan`. Defaults to
   `DefaultModelCapabilityProfile.Instance`, a stateless singleton driven purely by
   `AudioTagSupport`/`Parameters`, so a model needs zero code to get generically-correct tag
   rendering; a model may override this hook only when it needs bespoke, non-generic rendering
   its native engine supports.
-- **ISynthesisModel.ResolveSpeakerId(parameterValues)** *(internal)*: resolves a session-level,
+- **ISynthesisModel.ResolveSpeakerId(parameterValues)** *(public)*: resolves a session-level,
   untyped key-value parameter bag (for example built from a host's settings UI via a declared
   `ChoiceParameter`) to the engine's integer speaker id to synthesize with. Defaults to `0`,
   identical to every model's previous hard-coded behavior. Added so a multi-speaker model
@@ -115,20 +119,20 @@ documentation anticipated.
   unrecognized or missing selection must degrade to a sensible default speaker id rather than
   fault synthesis.
 
-Every `internal` member is deliberately not public. The design makes each model's backing class
-responsible for "engine configuration for its own model architecture", and the `CreateBackend`
-members return only the library-owned, engine-neutral `IRecognitionBackend`/`ISynthesisBackend`
-seams, so this contract - and therefore the whole library - names no sherpa-onnx type at all, even
-internally. Keeping those members internal means only the library itself, its test project, and
-explicitly trusted model-supplying assemblies granted `InternalsVisibleTo` (today, the sibling
-`SpeechSherpa` system's `DemaConsulting.Speech.Sherpa` assembly and its test project) can implement
-the interface - an intentional restriction matching this library's "one backing class per model; a
-new model requires a new package release" decision. `AudioFormat` and `PreferredAudioFormat` are
-the deliberate exception: they are plain library-owned data values, so exposing them publicly
-improves composition without leaking native types. `ISynthesisModel.CapabilityProfile` is internal
-for the same reason even though `IModelCapabilityProfile` itself carries no sherpa-onnx type, so
-the whole Layer 2 rendering seam stays a library-internal extension point rather than a public one
-a host could otherwise be tempted to implement directly against an unstable contract.
+Every member on both interfaces is fully public, including `CreateBackend`,
+`PostEndpointWarmupWindowMs`, `CapabilityProfile`, and `ResolveSpeakerId`. The design still makes
+each model's backing class responsible for "engine configuration for its own model architecture",
+and the `CreateBackend` members return only the library-owned, engine-neutral
+`IRecognitionBackend`/`ISynthesisBackend` seams, so this contract - and therefore the whole
+library - names no sherpa-onnx type at all, even in its public surface. Making the full interface
+public (rather than restricting it via `InternalsVisibleTo`) is a deliberate design decision:
+third-party extension of the Speech library is a confirmed goal, so an external package must be
+able to implement `IRecognitionModel`/`ISynthesisModel` to add its own recognition/synthesis
+backend without needing special assembly-level access. The sibling `SpeechSherpa` system's
+`DemaConsulting.Speech.Sherpa` assembly is simply the first implementer, supplying this
+repository's built-in sherpa-onnx-backed models; it has no access that a third-party package
+lacks. `AudioFormat` and `PreferredAudioFormat` are plain library-owned data values that were
+already public for the same composition reasons.
 
 **Error Handling**: N/A - a pure contract; each implementation's own construction/validation
 rules apply. An exception thrown from a model's own `InstallAsync` override is handled by
@@ -142,8 +146,9 @@ from the RecognitionSubsystem, and `ISynthesisBackend` and
 **Callers**: `SpeechModelDescriptor`/`SpeechModelCatalog` depend only on `ISpeechModel`, so they
 can enumerate and report install state for any model regardless of role. Hosts and the
 AudioSubsystem may read `IRecognitionModel.AudioFormat` and `ISynthesisModel.PreferredAudioFormat`
-to compose audio devices. The RecognitionSubsystem depends on `IRecognitionModel`'s internal
+to compose audio devices. The RecognitionSubsystem depends on `IRecognitionModel`'s public
 `CreateBackend` members to load a model's backend; the SynthesisSubsystem depends on
-`ISynthesisModel`'s internal members to load a model's backend and render its Natural Language
+`ISynthesisModel`'s public members to load a model's backend and render its Natural Language
 Audio Tags. The concrete implementations shipped in this repository live in the sibling
-`SpeechSherpa` system - see *SpeechSherpa ModelManagementSubsystem Design*.
+`SpeechSherpa` system - see *SpeechSherpa ModelManagementSubsystem Design* - but any third-party
+package may implement either interface directly to supply its own backend.

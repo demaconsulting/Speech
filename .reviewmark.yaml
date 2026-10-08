@@ -402,7 +402,7 @@ reviews:
       - "docs/reqstream/speech/model-management-subsystem.yaml"          # subsystem requirements
       - "docs/design/speech/model-management-subsystem.md"               # subsystem design
       - "docs/verification/speech/model-management-subsystem.md"         # subsystem verification
-      - "src/DemaConsulting.Speech/ModelManagementSubsystem/NamespaceDoc.cs" # subsystem namespace summary
+      - "src/DemaConsulting.Speech/ModelManagementSubsystem/NamespaceDoc.cs"  # subsystem namespace summary
 
   # Speech-ModelManagementSubsystem-SpeechModelStore Review (one per unit)
   - id: Speech-ModelManagementSubsystem-SpeechModelStore
@@ -638,7 +638,7 @@ reviews:
       - "docs/reqstream/speech/recognition-subsystem.yaml"           # subsystem requirements
       - "docs/design/speech/recognition-subsystem.md"                # subsystem design + inline fallback units
       - "docs/verification/speech/recognition-subsystem.md"          # subsystem verification + inline units
-      - "src/DemaConsulting.Speech/RecognitionSubsystem/NamespaceDoc.cs" # subsystem namespace summary
+      - "src/DemaConsulting.Speech/RecognitionSubsystem/NamespaceDoc.cs"  # subsystem namespace summary
 
   # Speech-RecognitionSubsystem-ISpeechRecognizerEngine Review (one per unit)
   - id: Speech-RecognitionSubsystem-ISpeechRecognizerEngine
@@ -761,7 +761,7 @@ reviews:
       - "docs/reqstream/speech/synthesis-subsystem.yaml"            # subsystem requirements
       - "docs/design/speech/synthesis-subsystem.md"                 # subsystem design
       - "docs/verification/speech/synthesis-subsystem.md"           # subsystem verification
-      - "src/DemaConsulting.Speech/SynthesisSubsystem/NamespaceDoc.cs" # subsystem namespace summary
+      - "src/DemaConsulting.Speech/SynthesisSubsystem/NamespaceDoc.cs"  # subsystem namespace summary
 
   # Speech-SynthesisSubsystem-AudioTagParser Review (one per unit)
   - id: Speech-SynthesisSubsystem-AudioTagParser
@@ -1333,7 +1333,7 @@ reviews:
       - "test/DemaConsulting.Speech.Cli.Tests/ProgramTests.cs"            # in-process tests
       - "test/DemaConsulting.Speech.Cli.Tests/IntegrationTests.cs"        # out-of-process tests
       - "test/DemaConsulting.Speech.Cli.Tests/Runner.cs"                  # process-invocation helper
-      - "test/DemaConsulting.Speech.Cli.Tests/Utilities/PathHelpersTests.cs" # PathHelpers tests
+      - "test/DemaConsulting.Speech.Cli.Tests/Utilities/PathHelpersTests.cs"  # PathHelpers tests
 
   # SpeechCli-Design Review (one per system)
   - id: SpeechCli-Design

@@ -40,7 +40,7 @@ class builds its own sherpa-onnx configuration privately, through its internal s
 `BuildEngineConfig` member, and uses it inside its `IRecognitionModel.CreateBackend`/
 `ISynthesisModel.CreateBackend` implementation, matching the "engine configuration for its own
 model architecture" responsibility. `SherpaOnnxRecognitionEngine` and `SherpaOnnxSynthesisEngine`
-then wrap that configuration as the real implementations of the Speech library's internal
+then wrap that configuration as the real implementations of the Speech library's public
 `IRecognitionBackend`/`ISynthesisBackend` seams. The Speech library itself names no sherpa-onnx
 type anywhere, not even internally: its `IRecognitionModel`/`ISynthesisModel` contract returns only
 its own engine-neutral backend interfaces, and its model-driven `DefaultRecognitionBackendFactory`/

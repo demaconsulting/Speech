@@ -2,7 +2,7 @@ package SpeechSherpa {
     part def SherpaOnnxRecognitionEngine {
         doc /* Real IRecognitionBackend implementation wrapping one loaded sherpa-onnx
              * streaming recognizer, confining every recognition inference interop call behind
-             * Speech's internal mockable seam. Constructed by the recognition models'
+             * Speech's public mockable seam. Constructed by the recognition models'
              * CreateBackend overrides. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech.Sherpa/RecognitionSubsystem/SherpaOnnxRecognitionEngine.cs */

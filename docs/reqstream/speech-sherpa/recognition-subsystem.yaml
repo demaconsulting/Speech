@@ -5,7 +5,7 @@
 # RecognitionSubsystem, decomposing the system-level requirements in
 # docs/reqstream/speech-sherpa.yaml. This subsystem contains a single unit,
 # SherpaOnnxRecognitionEngine, the real sherpa-onnx implementation of the Speech library's
-# internal IRecognitionBackend seam; all recognition policy above that seam (session state
+# public IRecognitionBackend seam; all recognition policy above that seam (session state
 # machine, audio conversion, result buffering, composition) remains in the Speech library's own
 # RecognitionSubsystem.
 #
@@ -25,8 +25,8 @@ sections:
               buffered audio at session end as directed, and never loses genuinely spoken audio
               to a model's post-reset encoder warm-up period.
             justification: |
-              The Speech library deliberately confines every speech-inference interop call behind
-              its internal IRecognitionBackend seam so its own recognition policy is verifiable
+              The Speech library confines every speech-inference interop call behind
+              its public IRecognitionBackend seam so its own recognition policy is verifiable
               without a native runtime. The real, native-backed side of that seam must therefore
               be proven directly against real installed models, because only it can show that
               real audio decodes into real text and that the engine's buffering behavior at

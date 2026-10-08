@@ -2,7 +2,7 @@
 # Software Unit Requirements for SherpaOnnxRecognitionEngine
 #
 # These requirements describe the design-level behavior of the SherpaOnnxRecognitionEngine unit,
-# the real sherpa-onnx implementation of the Speech library's internal IRecognitionBackend seam,
+# the real sherpa-onnx implementation of the Speech library's public IRecognitionBackend seam,
 # decomposing the parent SpeechSherpa RecognitionSubsystem requirements. These requirements moved
 # here, renamed from Speech-Recognition-RecognitionBackend-*, when the engine moved out of the
 # Speech library into SpeechSherpa; the seam-level MockableSeam and ModelOwnedConfiguration

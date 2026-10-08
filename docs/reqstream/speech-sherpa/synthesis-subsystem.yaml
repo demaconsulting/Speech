@@ -4,19 +4,16 @@
 # These requirements describe the subsystem-level behavior of the SpeechSherpa
 # SynthesisSubsystem, decomposing the system-level requirements in
 # docs/reqstream/speech-sherpa.yaml. This subsystem contains a single unit,
-# SherpaOnnxSynthesisEngine, the real sherpa-onnx implementation of the Speech library's internal
+# SherpaOnnxSynthesisEngine, the real sherpa-onnx implementation of the Speech library's public
 # ISynthesisBackend seam; all synthesis policy above that seam (Layer 2 rendering, chunking,
 # session state machine, cancellation, fault containment) remains in the Speech library's own
 # SynthesisSubsystem.
 #
 # Unit-level content lives in
-# docs/reqstream/speech-sherpa/synthesis-subsystem/sherpa-onnx-synthesis-engine.yaml.
-#
-# KNOWN GAP: no automated test exercises SherpaOnnxSynthesisEngine anywhere in this repository.
-# This gap pre-dates the SpeechSherpa package split (the unit was equally untested while it
-# lived in the Speech library) and is carried forward unchanged, not introduced by the move; it
-# is disclosed in docs/verification/speech-sherpa/synthesis-subsystem.md. The requirements below
-# therefore deliberately list no tests rather than citing evidence that does not exist.
+# docs/reqstream/speech-sherpa/synthesis-subsystem/sherpa-onnx-synthesis-engine.yaml, including
+# the tests that exercise SherpaOnnxSynthesisEngine (test/DemaConsulting.Speech.Sherpa.Tests/
+# SynthesisSubsystem/SherpaOnnxSynthesisEngineTests.cs), documented in
+# docs/verification/speech-sherpa/synthesis-subsystem.md.
 
 sections:
   - title: SpeechSherpa Requirements
@@ -30,8 +27,8 @@ sections:
               engine from a synthesis model's own configuration, reporting its true output sample
               rate, and generating audio for a given text, speed, and speaker id.
             justification: |
-              The Speech library deliberately confines every speech-synthesis interop call behind
-              its internal ISynthesisBackend seam so its own synthesis policy is verifiable
+              The Speech library confines every speech-synthesis interop call behind
+              its public ISynthesisBackend seam so its own synthesis policy is verifiable
               without a native runtime. A real, native-backed implementation of that seam is
               what turns that policy into audible speech for the sherpa-onnx synthesis models
               this package ships.

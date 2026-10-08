@@ -22,10 +22,10 @@ RecognitionSubsystem Verification_).
 Automated coverage **does not** extend to a real, multi-hundred-megabyte model download, to
 synthesizing real, intelligible speech, or to playing or capturing audio through real hardware.
 The real-native recognition tests self-skip when their target model is not installed in the
-running environment. The real, native-backed synthesis backend, `SherpaOnnxSynthesisEngine`,
-currently has **no automated unit test** at all - a pre-existing gap carried forward unchanged by
-the move of this unit out of the Speech library, disclosed in _SpeechSherpa SynthesisSubsystem
-Verification_.
+running environment. The real, native-backed synthesis backend, `SherpaOnnxSynthesisEngine`, is
+exercised directly against the real native sherpa-onnx runtime and a real, installed VITS/Piper
+synthesis model, self-skipping the same way when that model is not installed (see _SpeechSherpa
+SynthesisSubsystem Verification_).
 
 System and unit tests reside in the `DemaConsulting.Speech.Sherpa.Tests` project.
 
@@ -70,7 +70,6 @@ A SpeechSherpa system-level test run passes when all scenarios above pass withou
 exceptions, every subsystem-level suite passes (with real-native tests either passing or
 self-skipping because their model is not installed), and the automated verification boundary
 remains honest: catalog registration, model metadata, engine configuration, archive
-installation, and real-native recognition are claimed as automated coverage, while real model
-downloads, real synthesized speech, and physical audio I/O are left to manual/local verification,
-and the absence of any automated test for `SherpaOnnxSynthesisEngine` is explicitly disclosed
-rather than claimed as covered.
+installation, and real-native recognition and synthesis are claimed as automated coverage, while
+real model downloads, real-time playback, and physical audio I/O are left to manual/local
+verification.

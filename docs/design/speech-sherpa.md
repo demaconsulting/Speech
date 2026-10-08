@@ -23,10 +23,10 @@ The library consists of three subsystems, each named after the Speech subsystem 
   archive-extraction and uppercase-transcript-restoration helpers they use — see _SpeechSherpa
   ModelManagementSubsystem Design_
 - **RecognitionSubsystem**: `SherpaOnnxRecognitionEngine`, the real implementation of Speech's
-  internal `IRecognitionBackend` seam over sherpa-onnx's streaming recognizer — see _SpeechSherpa
+  public `IRecognitionBackend` seam over sherpa-onnx's streaming recognizer — see _SpeechSherpa
   RecognitionSubsystem Design_
 - **SynthesisSubsystem**: `SherpaOnnxSynthesisEngine`, the real implementation of Speech's
-  internal `ISynthesisBackend` seam over sherpa-onnx's offline text-to-speech API — see
+  public `ISynthesisBackend` seam over sherpa-onnx's offline text-to-speech API — see
   _SpeechSherpa SynthesisSubsystem Design_
 
 Every unit in this system previously lived inside the Speech library itself. They were moved
@@ -36,8 +36,15 @@ and names no sherpa-onnx type, even internally.
 ## External Interfaces
 
 SpeechSherpa exposes a small public API — the catalog extension method and the four model
-classes — and implements Speech's internal backend and model seams, which it can reach because
-the Speech library grants this assembly `InternalsVisibleTo`.
+classes — and implements Speech's public `IRecognitionModel`/`ISynthesisModel` model seams and
+its equally public `IRecognitionBackend`/`ISynthesisBackend` backend seams. Both the model seams
+and the backend seams they return are genuinely public, by design, so a third-party package can
+implement either level without any special assembly access; this assembly itself is not granted
+`InternalsVisibleTo` by the Speech library - it behaves as an ordinary external consumer of
+Speech's public API, exactly as a genuine third-party model package would (see _Speech
+ModelManagementSubsystem Design_). The Speech library still grants `InternalsVisibleTo` to its own
+test assemblies and to `DemaConsulting.Speech.Sherpa.Tests`, unrelated to this package's own
+production code.
 
 | Interface | Direction | Format | Constraints |
 | --- | --- | --- | --- |
@@ -46,10 +53,10 @@ the Speech library grants this assembly `InternalsVisibleTo`.
 | `SherpaOnnxNemotronStreamingEnRecognitionModel` | Inbound | Public class | Stateless model declaration |
 | `SherpaOnnxVitsLibriTtsEnglishSynthesisModel` | Inbound | Public class | Stateless model declaration |
 | `SherpaOnnxKokoroEnglishSynthesisModel` | Inbound | Public class | Stateless model declaration |
-| `IRecognitionModel.CreateBackend(...)` | Inbound/Outbound | Internal method call | Throws when unusable |
-| `ISynthesisModel.CreateBackend(...)` | Inbound/Outbound | Internal method call | Throws when unusable |
-| `IRecognitionBackend` | Inbound | Internal interface | Not thread-safe; one caller at a time |
-| `ISynthesisBackend` | Inbound | Internal interface | Not thread-safe; one caller at a time |
+| `IRecognitionModel.CreateBackend(...)` | Inbound/Outbound | Public method call | Throws when unusable |
+| `ISynthesisModel.CreateBackend(...)` | Inbound/Outbound | Public method call | Throws when unusable |
+| `IRecognitionBackend` | Inbound | Public interface | Not thread-safe; one caller at a time |
+| `ISynthesisBackend` | Inbound | Public interface | Not thread-safe; one caller at a time |
 | `SpeechModelCatalog.AddModels(...)` | Outbound | Method call/return | Consumed; builder-phase only |
 | sherpa-onnx managed API | Outbound | Method call/return | Requires a consumer-supplied native runtime |
 | SharpCompress reader API | Outbound | Method call/return | Consumed during model install only |

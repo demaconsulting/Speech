@@ -17,17 +17,17 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     <see cref="CapabilityProfile"/> are new members added to an interface that still has no
 ///     production implementations, so nothing defined in Sub-phase 2b was replaced or broken.
 ///     <para>
-///     Both members are deliberately <see langword="internal"/> rather than public, mirroring
-///     <see cref="IRecognitionModel"/>'s identical Phase 3 pattern: this library's "engine
-///     backend stays swappable at the public API surface" constraint is scoped to
-///     <c>ISpeechSynthesizerEngine</c>, while each per-model backing class is architecturally
-///     responsible for building its own loaded <see cref="SynthesisSubsystem.ISynthesisBackend"/>
-///     - so returning one from <see cref="CreateBackend"/> here is consistent with the approved
-///     design. Keeping the member internal means this interface's <em>public</em> surface is
-///     unchanged, no concrete engine type leaks into the library's public API, and only
-///     assemblies granted <c>InternalsVisibleTo</c> (the library itself, its test project, and
-///     the sibling <c>DemaConsulting.Speech.Sherpa</c> package that supplies this library's
-///     production model implementations) can implement the interface.
+///     The full interface, including <see cref="CreateBackend"/>, <see cref="CapabilityProfile"/>,
+///     and <see cref="ResolveSpeakerId"/>, is public by design, mirroring
+///     <see cref="IRecognitionModel"/>'s identical rationale: third-party extension of the Speech
+///     library is a confirmed goal, and a host application composes its catalog by calling
+///     <see cref="SpeechModelCatalog.AddModels(ISpeechModel[])"/> with models it supplies itself.
+///     A public contract lets an external package implement <see cref="ISynthesisModel"/> to add
+///     an entirely new synthesis backend - not merely another instance of an existing
+///     sherpa-onnx-backed model - without requiring <c>InternalsVisibleTo</c> access to this
+///     assembly. The sibling <c>DemaConsulting.Speech.Sherpa</c> package is simply the first such
+///     implementer, supplying this library's built-in sherpa-onnx-backed models; it has no
+///     special access that a third-party package lacks.
 ///     </para>
 /// </remarks>
 public interface ISynthesisModel : ISpeechModel
@@ -73,7 +73,7 @@ public interface ISynthesisModel : ISpeechModel
     ///     the synthesis subsystem degrades to an unavailable synthesizer by catching that
     ///     failure. Implementations must be safe to call concurrently.
     /// </remarks>
-    internal ISynthesisBackend CreateBackend(string installedModelDirectory);
+    ISynthesisBackend CreateBackend(string installedModelDirectory);
 
     /// <summary>
     ///     Gets the strategy this model uses to render an ordered sequence of parsed Natural
@@ -90,7 +90,7 @@ public interface ISynthesisModel : ISpeechModel
     ///     bracket text). This mirrors <see cref="ISpeechModel.NormalizeText"/>'s default-hook
     ///     pattern.
     /// </remarks>
-    internal IModelCapabilityProfile CapabilityProfile => DefaultModelCapabilityProfile.Instance;
+    IModelCapabilityProfile CapabilityProfile => DefaultModelCapabilityProfile.Instance;
 
     /// <summary>
     ///     Resolves a session-level parameter value bag to the engine-specific integer speaker id
@@ -114,5 +114,5 @@ public interface ISynthesisModel : ISpeechModel
     ///     missing selection should degrade to a sensible default speaker id, never fault
     ///     synthesis.
     /// </remarks>
-    internal int ResolveSpeakerId(IReadOnlyDictionary<string, object>? parameterValues) => 0;
+    int ResolveSpeakerId(IReadOnlyDictionary<string, object>? parameterValues) => 0;
 }
