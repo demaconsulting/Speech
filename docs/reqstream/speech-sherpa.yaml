@@ -76,9 +76,6 @@ sections:
           - SherpaOnnxRecognitionEngine_Transcribe_RealCrossingTheBarRecording_WordErrorRateBelowTolerance
           - SherpaOnnxRecognitionEngine_Transcribe_RealCrossingTheBarRecording_NemotronWordErrorRateBelowTolerance
 
-      # KNOWN GAP: no automated test exercises SherpaOnnxSynthesisEngine anywhere in this
-      # repository (pre-existing, carried forward unchanged by the package split; disclosed in
-      # docs/verification/speech-sherpa/synthesis-subsystem.md), so no test is cited here.
       - id: SpeechSherpa-Synthesis-RealBackend
         title: >-
           The library shall synthesize audio from text through the Speech library's synthesis
@@ -90,3 +87,9 @@ sections:
           package's synthesis models.
         children:
           - SpeechSherpa-Synthesis-OfflineBackend
+        tests:
+          - SherpaOnnxSynthesisEngine_Construct_ReportsModelSampleRate
+          - SherpaOnnxSynthesisEngine_Generate_NonEmptyText_ReturnsNonEmptyAudio
+          - SherpaOnnxSynthesisEngine_Generate_NullText_ThrowsArgumentNullException
+          - SherpaOnnxSynthesisEngine_Generate_AfterDispose_ThrowsObjectDisposedException
+          - SherpaOnnxSynthesisEngine_Dispose_CalledTwice_IsIdempotent
