@@ -3,44 +3,46 @@
 **Purpose**: Provide the real, `HttpClient`-backed implementation of `IModelDownloadClient` that
 streams a file from an HTTP(S) URI to a destination stream, reporting progress as bytes arrive.
 Production model downloads always use HTTPS; the client itself is scheme-agnostic (matching the
-seam's contract) so it can be verified against a real loopback HTTP server without a TLS
+seam's contract) so it can be verified against a stubbed HTTP server (WireMock.Net) without a TLS
 certificate.
 
 **Data Model**: A private `HttpClient` (either caller-supplied or created and owned internally),
 a fixed `81920`-byte read buffer size used between progress reports and cancellation checks, and
-a lazily-created, always internally-owned second `HttpClient` (guarded by a plain `object` lock,
-since `System.Threading.Lock` is unavailable on this library's oldest targeted framework) whose
-`HttpClientHandler.Credentials` is set only the first time a mirror with `Credentials` is actually
-used - never constructed when no mirror, or only a bearer-token mirror, is configured.
+the optional `DownloadMirror` supplied at construction whose authentication (if any) is applied
+to every request this instance issues.
 
 **Key Methods**:
 
 - **HttpModelDownloadClient(httpClient?)**: Accepts an optional pre-configured `HttpClient` (whose
-  lifetime remains the caller's), or creates and owns a default instance internally. This
-  ownership contract is unchanged by the mirror feature: the lazily-created credential
-  `HttpClient` described above is always internally owned and disposed by this type regardless of
-  whether the primary `HttpClient` was caller-supplied.
-- **DownloadAsync(sourceUri, destination, progress, cancellationToken, mirrorAuth)**: Issues a
-  `GET` request with `HttpCompletionOption.ResponseHeadersRead` so a large file's `Content-Length`
-  is known before any bytes are read, then streams the response body to `destination` in
-  `81920`-byte chunks, reporting an initial zero-byte sample immediately and a further sample
-  after every chunk. When `mirrorAuth` is non-null, applies its authentication to this request
-  before sending it: a non-null `BearerToken` is applied as an explicit
-  `Authorization: Bearer <token>` request header (no handshake is needed for a bearer token, so a
-  header is simplest); non-null `Credentials` are instead applied by issuing the request through
-  the lazily-created credential `HttpClient` whose `HttpClientHandler.Credentials` is set to those
-  credentials, because `HttpClient` has no per-request handler-level credentials mechanism and
-  only a real `HttpClientHandler.Credentials` negotiation (not a single manually-built
-  `Authorization` header) correctly drives NTLM's multi-round-trip challenge/response handshake.
-  With no `mirrorAuth` supplied (the default), no `Authorization` header is sent and the primary
-  `HttpClient` is used exactly as before the mirror feature existed.
+  lifetime remains the caller's), or creates and owns a default instance internally, applying no
+  mirror authentication.
+- **HttpModelDownloadClient(httpClient?, mirror?)**: As above, but applies `mirror`'s
+  authentication (if any) to every request this instance issues for its entire lifetime -
+  `SpeechModelDownloader` only ever supports one configured `DownloadMirror` at a time, so a
+  single mirror configured once at construction (never per call) is sufficient.
+- **DownloadAsync(sourceUri, destination, progress, cancellationToken)**: Issues a `GET` request
+  with `HttpCompletionOption.ResponseHeadersRead` so a large file's `Content-Length` is known
+  before any bytes are read, then streams the response body to `destination` in `81920`-byte
+  chunks, reporting an initial zero-byte sample immediately and a further sample after every
+  chunk. Before sending, `ApplyMirrorAuthentication` applies the construction-time mirror's
+  authentication (if any) to the request: a non-null `Credentials` is applied as a preemptive
+  `Authorization: Basic` header (computed directly from the `NetworkCredential`'s username and
+  password); a non-null `BearerToken` is instead applied as an `Authorization: Bearer` header.
+  The two are mutually exclusive by `DownloadMirror`'s own constructor, so at most one branch ever
+  applies. Both are sent preemptively - on the very first request, with no challenge/response
+  handshake - through the single `HttpClient` this instance was constructed with (whether
+  caller-supplied or internally owned), never a second, separately configured client; this means
+  a true NTLM handshake is never negotiated, since that would require a dedicated
+  `HttpClientHandler` that bypasses whatever `HttpClient` a host has already configured (proxy,
+  timeouts, certificate validation). With no mirror configured (the default), no `Authorization`
+  header is sent at all - the exact pre-mirror request shape.
 
 **Error Handling**: Throws `HttpRequestException` (via `EnsureSuccessStatusCode()`) for a
 non-success response, so a non-2xx response never results in an error page's body being silently
 written to `destination`. Propagates `OperationCanceledException` when `cancellationToken` is
 canceled mid-transfer.
 
-**Dependencies**: `System.Net.Http.HttpClient`, `System.Net.Http.HttpClientHandler`,
-`IModelDownloadClient` (implements it), `SpeechModelDownloadProgress`, `DownloadMirror`.
+**Dependencies**: `System.Net.Http.HttpClient`, `IModelDownloadClient` (implements it),
+`SpeechModelDownloadProgress`, `DownloadMirror`.
 
 **Callers**: `SpeechModelDownloader`, as its default `IModelDownloadClient` when none is injected.

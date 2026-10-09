@@ -51,3 +51,30 @@ sections:
                   in the download pipeline.
                 tests:
                   - DownloadMirror_Constructor_NullBaseUri_ThrowsArgumentNullException
+
+              - id: Speech-Models-DownloadMirror-QueryFragmentValidation
+                title: >-
+                  The DownloadMirror record shall reject, at construction, a BaseUri whose query
+                  string or fragment is non-empty.
+                justification: |
+                  SpeechModelDownloader.ResolveEffectiveUri appends path segments directly onto
+                  BaseUri's string form; a query string or fragment would end up with the model's
+                  path appended after the '?'/'#' delimiter, whose actual request path never
+                  reaches the mirror's intended file, so this must be rejected eagerly rather
+                  than silently misrouting every download.
+                tests:
+                  - DownloadMirror_Constructor_QueryOrFragmentInBaseUri_ThrowsArgumentException
+
+              - id: Speech-Models-DownloadMirror-CredentialedHttpRejection
+                title: >-
+                  The DownloadMirror record shall reject, at construction, supplying either
+                  Credentials or BearerToken alongside a BaseUri using the plain http (rather
+                  than https) scheme.
+                justification: |
+                  HttpModelDownloadClient sends Credentials/BearerToken preemptively, with no
+                  challenge/response handshake gating the first request; a misconfigured
+                  http:// mirror would otherwise transmit the secret in cleartext on the wire
+                  with no indication to the host that it had done so.
+                tests:
+                  - DownloadMirror_Constructor_CredentialsWithHttpBaseUri_ThrowsArgumentException
+                  - DownloadMirror_Constructor_BearerTokenWithHttpBaseUri_ThrowsArgumentException

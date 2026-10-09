@@ -21,7 +21,7 @@ sections:
                   IModelDownloadClient; it must be proven against a genuine HTTP server (not just
                   mocked) to trust it in production.
                 tests:
-                  - HttpModelDownloadClient_DownloadAsync_LoopbackServer_DownloadsExactBytesWithProgress
+                  - HttpModelDownloadClient_DownloadAsync_StubbedServer_DownloadsExactBytesWithProgress
 
               - id: Speech-Models-HttpModelDownloadClient-NonSuccessResponseHandling
                 title: >-
@@ -36,21 +36,25 @@ sections:
 
               - id: Speech-Models-HttpModelDownloadClient-MirrorAuthApplication
                 title: >-
-                  The HttpModelDownloadClient class shall apply a supplied mirrorAuth's
-                  BearerToken (if any) as an Authorization: Bearer request header, and shall apply
-                  its Credentials (if any) via a lazily-created, always internally-owned second
-                  HttpClient whose HttpClientHandler.Credentials negotiates Basic/NTLM
-                  authentication, without ever disturbing the primary HttpClient's documented
-                  caller-supplied-vs-internally-owned ownership contract. With no mirrorAuth
-                  supplied, no Authorization header is sent at all.
+                  The HttpModelDownloadClient class shall accept a DownloadMirror once, at
+                  construction, and apply its BearerToken (if any) as a preemptive
+                  Authorization: Bearer request header, or its Credentials (if any) as a
+                  preemptive Authorization: Basic request header, to every request it issues,
+                  always sent through the single HttpClient instance this client was constructed
+                  with - whether caller-supplied or internally owned - never a second, separately
+                  configured client. With no mirror supplied, no Authorization header is sent at
+                  all.
                 justification: |
-                  A credentialed internal mirror needs its authentication applied only to
-                  requests actually targeting it, using a mechanism (HttpClientHandler.Credentials)
-                  that genuinely supports NTLM's multi-round-trip handshake - which a single,
-                  manually-built Authorization header alone cannot - while never risking the
-                  primary, possibly caller-supplied HttpClient's lifetime being disturbed by
-                  mirror-specific authentication state.
+                  A credentialed internal mirror needs its authentication applied to every
+                  request this instance issues, without ever disturbing the one HttpClient's
+                  documented caller-supplied-vs-internally-owned ownership contract, its own
+                  proxy, timeout, certificate-validation, or handler-pipeline configuration. A
+                  true NTLM challenge/response handshake is explicitly not supported, since
+                  negotiating one would require a dedicated HttpClientHandler that bypasses
+                  whatever HttpClient a host has already configured; preemptive Basic (sent on
+                  the first request, with no round trip) covers the HTTPS-mirror scenario this
+                  library targets without that trade-off.
                 tests:
                   - HttpModelDownloadClient_DownloadAsync_NoMirrorAuth_SendsNoAuthorizationHeader
                   - HttpModelDownloadClient_DownloadAsync_BearerTokenMirror_SendsBearerAuthorizationHeader
-                  - HttpModelDownloadClient_DownloadAsync_CredentialsMirror_NegotiatesBasicAuthentication
+                  - HttpModelDownloadClient_DownloadAsync_CredentialsMirror_SendsBasicAuthorizationHeader

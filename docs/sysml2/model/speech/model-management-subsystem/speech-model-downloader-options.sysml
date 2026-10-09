@@ -7,7 +7,6 @@ package Speech {
              * behavior with zero change for existing callers. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech/ModelManagementSubsystem/SpeechModelDownloaderOptions.cs */
-        comment testRef /* Test: test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/SpeechModelDownloaderTests.cs */
         comment designRef /* Design: docs/design/speech/model-management-subsystem/speech-model-downloader-options.md */
         comment verificationRef /* Verification: docs/verification/speech/model-management-subsystem/speech-model-downloader-options.md */
         comment reqRef /* Requirements: docs/reqstream/speech/model-management-subsystem/speech-model-downloader-options.yaml */

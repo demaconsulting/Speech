@@ -21,14 +21,25 @@ underlying exception, populated for every non-`Installed` outcome.
 
 **Key Methods**:
 
-- **SpeechModelDownloader(store, client?, diagnostics?, options?)**: Accepts the store to install
+- **SpeechModelDownloader(store, client?, diagnostics?)**: The original three-parameter
+  constructor, kept as a distinct overload rather than widened. Accepts the store to install
   into, an optional injected `IModelDownloadClient` (creating and owning a default
-  `HttpModelDownloadClient` when none is supplied), an optional diagnostics sink, and an optional
-  `SpeechModelDownloaderOptions` appended as the final constructor parameter (so every existing
-  positional call site keeps compiling unchanged). A `null` `options` or a `null`
-  `options.Mirror` (both the default) preserve this type's exact pre-mirror behavior; a non-null
-  `Mirror` is retained and consulted by `ResolveEffectiveUri` and when constructing the
-  per-request mirror auth described below.
+  `HttpModelDownloadClient` when none is supplied), and an optional diagnostics sink. Forwards to
+  the four-parameter overload below with `options: null`, so its behavior is byte-for-byte
+  identical to before `SpeechModelDownloaderOptions` existed.
+- **SpeechModelDownloader(store, client?, diagnostics?, options?)**: A distinct, additive
+  overload (not an appended optional fourth parameter on the constructor above) that also accepts
+  `SpeechModelDownloaderOptions?`. Declared as a separate overload rather than a widened original
+  constructor because an appended optional parameter would still be *binary*-incompatible: an
+  existing compiled caller's call site to the three-argument constructor is bound to that exact
+  constructor's metadata token, which would no longer exist if a fourth parameter were added to
+  it directly. None of this overload's four parameters carry a default value, so a one-, two-,
+  or three-argument call can only ever resolve to the original overload above, never this one -
+  keeping both source- and binary-compatible for every pre-existing call shape. A `null` `options`
+  or a `null` `options.Mirror` (both the default) preserve this type's exact pre-mirror behavior;
+  a non-null `Mirror` is retained and consulted by `ResolveEffectiveUri`, and is also passed
+  through to the internally-created default `HttpModelDownloadClient` (when `client` is not
+  supplied) so every request it issues carries that mirror's authentication.
 - **ResolveEffectiveUri(mirror, modelId, file)** *(internal, directly unit-testable)*: Computes
   the actual request URI passed to `IModelDownloadClient.DownloadAsync` for one declared file.
   With no mirror configured, returns `file.Uri` completely unchanged - byte-for-byte identical to
@@ -93,13 +104,25 @@ outcome it recognizes: `HttpError` for an `HttpRequestException` with a non-null
 real HTTP response was received, e.g. 404/403/5xx); `NetworkBlocked` for an `HttpRequestException`
 wrapping an `AuthenticationException` (a TLS/certificate failure - the shape produced by
 TLS-interception middleboxes) or a `SocketException` (DNS failure, connection refused, host
-unreachable), or for a bare `TaskCanceledException` that reaches this point (which, by
-construction, can never be a genuine caller cancellation, since that case was already rethrown by
-the guard above - it is `HttpClient`'s own internal timeout); `IoFailure` for an `IOException` or
-`UnauthorizedAccessException` (disk full, permission denied, path too long); and `Failed` as the
-final generic fallback for anything else, with the original exception always attached. Classification
-itself never throws - an unrecognized exception type simply falls through to `Failed`, exactly as
-every exception did before this feature existed. `SpeechModelDownloadResult.Error` is therefore
+unreachable), or for a private `HttpFetchTimeoutException` (an internal HTTP request timeout -
+see below); `IoFailure` for an `IOException` or `UnauthorizedAccessException` (disk full,
+permission denied, path too long); and `Failed` as the final generic fallback for anything else,
+with the original exception always attached. Classification itself never throws - an unrecognized
+exception type simply falls through to `Failed`, exactly as every exception did before this
+feature existed.
+
+`FetchFileAsync` wraps a `TaskCanceledException` thrown by the download client's `DownloadAsync`
+call in a private `HttpFetchTimeoutException` whenever `cancellationToken` itself was not
+canceled - such an exception, by construction, can only be `HttpClient`'s own internal request
+timeout, never a genuine caller cancellation (which is always rethrown unchanged by the guard
+above). This wrapper exists purely so `ClassifyFailure`'s match narrowly recognizes only this
+specific, HTTP-fetch-originated shape as `NetworkBlocked`, without also misclassifying an
+unrelated `TaskCanceledException` thrown by `ISpeechModel.InstallAsync` or by a host-injected
+`IModelDownloadClient` for a non-network reason; it is never thrown or caught outside this class,
+and is always already unwrapped (as `ClassifyFailure` never re-exposes it) before a result reaches
+a caller.
+
+`SpeechModelDownloadResult.Error` is therefore
 always populated for any non-`Installed` outcome, never left `null` for a caller to have to
 special-case. Nothing is ever marked `Installed` for a corrupted, partial, checksum-mismatched, or
 install-hook-failed download; an install-hook failure is classified through this same

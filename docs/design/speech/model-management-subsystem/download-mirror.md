@@ -8,21 +8,26 @@ every model download to an internal mirror it controls, without any change to th
 declared download descriptors.
 
 **Data Model**: `BaseUri` (the absolute `http`/`https` base location of the mirror),
-`Credentials` (an optional `NetworkCredential` for Basic/NTLM authentication), `BearerToken` (an
-optional bearer token string). A `sealed record` with an explicit constructor; `Credentials` and
-`BearerToken` are mutually exclusive.
+`Credentials` (an optional `NetworkCredential` for preemptive HTTP Basic authentication),
+`BearerToken` (an optional bearer token string). A `sealed record` with an explicit constructor;
+`Credentials` and `BearerToken` are mutually exclusive.
 
 **Key Methods**:
 
 - **DownloadMirror(Uri, NetworkCredential?, string?)**: Validates every field eagerly - `BaseUri`
   must be absolute with scheme `http` or `https` (a `file://`/UNC mirror is explicitly out of
-  scope, since no code path in this library ever dereferences one), and at most one of
-  `Credentials`/`BearerToken` may be supplied.
+  scope, since no code path in this library ever dereferences one) and must not carry a query
+  string or fragment (which would misroute every mirrored request's path once a model's relative
+  install path is appended); at most one of `Credentials`/`BearerToken` may be supplied; and
+  either, if supplied, requires `BaseUri` to use `https` rather than plain `http`, since both are
+  sent preemptively (no challenge/response handshake) by `HttpModelDownloadClient`.
 
 **Error Handling**: Throws `ArgumentNullException` when `BaseUri` is null, and `ArgumentException`
-when `BaseUri` is not absolute, its scheme is neither `http` nor `https`, or both `Credentials`
-and `BearerToken` are supplied. Validation happens eagerly at construction so a misconfigured
-mirror is rejected the moment it is created, not silently accepted and only discovered mid-download.
+when `BaseUri` is not absolute, its scheme is neither `http` nor `https`, it carries a query
+string or fragment, both `Credentials` and `BearerToken` are supplied, or either is supplied
+alongside an `http` (rather than `https`) `BaseUri`. Validation happens eagerly at construction so
+a misconfigured mirror is rejected the moment it is created, not silently accepted and only
+discovered mid-download.
 
 **Dependencies**: `System.Net.NetworkCredential`.
 

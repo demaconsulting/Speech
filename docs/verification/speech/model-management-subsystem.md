@@ -5,10 +5,10 @@
 The ModelManagementSubsystem is verified through deterministic unit tests against a fake
 `IModelDownloadClient` for `SpeechModelStore`'s atomic-swap/install-state logic and
 `SpeechModelDownloader`'s queueing/verification/failure-state orchestration, plus a real
-end-to-end test of `HttpModelDownloadClient` against a genuine loopback
-`System.Net.HttpListener` server. This proves both the pure orchestration logic (fast,
+end-to-end test of `HttpModelDownloadClient` against an in-process `WireMock.Net`-stubbed HTTP
+server. This proves both the pure orchestration logic (fast,
 deterministic, no network) and the one real network-facing implementation (genuinely downloads
-over HTTP) without requiring any external network access or test-server package dependency.
+over HTTP) without requiring any external network access.
 
 ### Test Environment
 
@@ -16,10 +16,8 @@ over HTTP) without requiring any external network access or test-server package 
 - **Execution**: `dotnet test` invoked by `build.ps1` and the CI pipeline
 - **Isolation**: Each `SpeechModelStore`/`SpeechModelDownloader` test uses a unique scratch
   directory under `Path.GetTempPath()`, deleted on test disposal
-- **Loopback HTTP**: `HttpModelDownloadClientTests` starts an in-process
-  `System.Net.HttpListener` bound to `127.0.0.1` on an OS-assigned ephemeral port (discovered via
-  a throwaway `TcpListener`), serving one fixed payload or status code per test; no new test-server
-  package dependency and no real network access
+- **Stubbed HTTP**: `HttpModelDownloadClientTests` starts an in-process `WireMock.Net`
+  `WireMockServer`, stubbing one fixed response per test; no real network access
 
 ### Unit-Level Test Scenarios
 
@@ -43,11 +41,12 @@ supplies; a canceled download discards its staging directory and propagates
 download/install failure is classified into `HttpError`, `NetworkBlocked`, `IoFailure`, or the
 generic `Failed` fallback exactly as documented in `speech-model-downloader.md`; with no
 `DownloadMirror` configured every file resolves and fetches from its own declared URI completely
-unchanged, and with one configured every file resolves beneath the mirror with its configured
-authentication applied only to requests actually sent to it; `HttpModelDownloadClient` genuinely
-downloads exact bytes with monotonically increasing progress from a real loopback HTTP server,
-throwing `HttpRequestException` for a non-2xx response, sending a Bearer or negotiated Basic
-`Authorization` header only when a mirror auth is supplied; every tunable-parameter descriptor
+unchanged, and with one configured every file resolves beneath the mirror, with its configured
+authentication applied - by the `HttpModelDownloadClient` instance constructed with it - to every
+request that instance issues; `HttpModelDownloadClient` genuinely
+downloads exact bytes with monotonically increasing progress from a WireMock.Net-stubbed server,
+throwing `HttpRequestException` for a non-2xx response, and sending a preemptive `Authorization`
+header (Basic or Bearer) only when a mirror is supplied at construction; every tunable-parameter descriptor
 rejects an internally inconsistent
 range/option-set/default at construction; `SpeechModelParameterDiagnostics` throws
 `ArgumentException` for a value invalid for a parameter a model declares while silently ignoring

@@ -21,7 +21,7 @@ sections:
                   guarantees zero behavior change for every existing caller that never learns this
                   type exists.
                 tests:
-                  - SpeechModelDownloader_DownloadAsync_NoMirrorConfigured_ForwardsOriginalUriAndNullMirrorAuth
+                  - SpeechModelDownloader_DownloadAsync_NoMirrorConfigured_ForwardsOriginalUriUnchanged
 
               - id: Speech-Models-SpeechModelDownloaderOptions-MirrorRedirectsDownloads
                 title: >-
@@ -34,4 +34,4 @@ sections:
                   hosts redirect every model download to an internal mirror it controls, without
                   any change to the models' declared download descriptors.
                 tests:
-                  - SpeechModelDownloader_DownloadAsync_MirrorConfigured_ForwardsEffectiveUriAndMirrorAuth
+                  - SpeechModelDownloader_DownloadAsync_MirrorConfigured_ForwardsEffectiveUri

@@ -171,8 +171,8 @@ sections:
                   - SpeechModelDownloader_ResolveEffectiveUri_SubdirectoryRelativePath_PreservesAllSegments
                   - SpeechModelDownloader_ResolveEffectiveUri_ModelIdWithUnsafeCharacters_IsEscaped
                   - SpeechModelDownloader_ResolveEffectiveUri_PathSegmentWithUnsafeCharacters_IsEscapedPerSegment
-                  - SpeechModelDownloader_DownloadAsync_NoMirrorConfigured_ForwardsOriginalUriAndNullMirrorAuth
-                  - SpeechModelDownloader_DownloadAsync_MirrorConfigured_ForwardsEffectiveUriAndMirrorAuth
+                  - SpeechModelDownloader_DownloadAsync_NoMirrorConfigured_ForwardsOriginalUriUnchanged
+                  - SpeechModelDownloader_DownloadAsync_MirrorConfigured_ForwardsEffectiveUri
 
               - id: Speech-Models-SpeechModelDownloader-RicherFailureClassification
                 title: >-

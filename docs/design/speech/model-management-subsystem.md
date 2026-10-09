@@ -103,13 +103,18 @@ for the atomic swap. A checksum mismatch, transport failure, install-hook failur
 cancellation discards the staging directory and leaves any prior successful install of the same
 model completely untouched - `SpeechModelDownloadOutcome` never reports `Installed` for a
 corrupted, partial, checksum-mismatched, or install-hook-failed download. An optional
-`SpeechModelDownloaderOptions.Mirror` (a `DownloadMirror`, defaulted to `null`) lets a host
-redirect every file's effective request URI beneath a single internal mirror - resolved by an
-internal `ResolveEffectiveUri` helper - and have the mirror's Basic/NTLM credentials or bearer
-token applied only to requests actually sent to it; this is the one uniform seam through which an
-IT-restricted network's blocked public model hosts (for example a TLS-interception policy
-breaking `huggingface.co`) can be worked around without any per-model code change. A non-
-`Installed`, non-`ChecksumMismatch` outcome is further classified by a dedicated
+`SpeechModelDownloaderOptions.Mirror` (a `DownloadMirror`, defaulted to `null`, supplied once at
+construction) lets a host redirect every file's effective request URI beneath a single internal
+mirror - resolved by an internal `ResolveEffectiveUri` helper - and have the mirror's preemptive
+HTTP Basic credentials or bearer token applied, by the constructed `HttpModelDownloadClient`
+instance, to every request it issues for its entire lifetime; this is the one uniform seam
+through which an IT-restricted network's blocked public model hosts (for example a
+TLS-interception policy breaking `huggingface.co`) can be worked around without any per-model
+code change. A true NTLM challenge/response handshake is not supported, since negotiating one
+would require a dedicated `HttpClientHandler` that bypasses whatever `HttpClient` a host has
+already configured; preemptive Basic (sent on the first request, no round trip) covers the
+HTTPS-mirror scenario this library targets instead. A non-`Installed`, non-`ChecksumMismatch`
+outcome is further classified by a dedicated
 `ClassifyFailure` helper into `HttpError` (a real non-success HTTP response), `NetworkBlocked` (a
 TLS/certificate failure, a DNS/connection failure, or `HttpClient`'s own internal timeout - as
 distinct from the caller's own cancellation, which always propagates unchanged as
@@ -120,14 +125,17 @@ generic `Failed` fallback - so a host can react to _why_ a download failed, not 
 small library-owned interface with one real implementation (`HttpModelDownloadClient`, backed by
 `System.Net.Http.HttpClient`) and hand-written fakes used in tests for fast, deterministic
 coverage of `SpeechModelDownloader`'s orchestration logic without any real network access.
-`HttpModelDownloadClient` itself is additionally verified against a genuine loopback
-`System.Net.HttpListener` server to prove it truly performs an HTTP download with progress
-reporting, including the real HTTP Basic challenge/response negotiation triggered by a
-credentials-bearing `DownloadMirror`. `IModelDownloadClient.DownloadAsync`'s optional `mirrorAuth`
-parameter (a `DownloadMirror?`, defaulted to `null`) carries only "this request's auth, if any" -
-the interface and every implementation remain completely unaware of `ISpeechModel`/model id/
-catalog concepts, since only `SpeechModelDownloader` (the owner of a configured mirror) decides
-when to supply it.
+`HttpModelDownloadClient` itself is additionally verified against an in-process `WireMock.Net`
+stubbed HTTP server to prove it truly performs an HTTP download with progress reporting, including
+the preemptive `Authorization` header a credentials- or bearer-token-bearing `DownloadMirror`
+causes it to send on every request. `IModelDownloadClient.DownloadAsync`'s signature carries no
+per-call mirror-authentication parameter and is never widened to add one, so a host's own
+implementation stays source-compatible across releases - the interface and every implementation
+remain completely unaware of `ISpeechModel`/model id/catalog concepts; a configured
+`DownloadMirror`'s authentication is instead supplied once, at construction, to
+`HttpModelDownloadClient` (the only implementation that needs it), while `SpeechModelDownloader`'s
+own, separate contribution toward mirror support is resolving each file's effective request URI
+before calling `DownloadAsync`.
 
 `ISpeechModel` is the common contract every model's backing class implements (through either
 `IRecognitionModel` or `ISynthesisModel`, never directly): identity (`Id`/`DisplayName`), `Role`,
@@ -152,8 +160,14 @@ synthesis output rate is still the loaded engine's `ISynthesisBackend.SampleRate
 the library ships zero built-in models, and populated by the host through `AddModels(...)`, which
 returns the same catalog instance so registrations chain fluently (for example the sibling
 `SpeechSherpa` system's `AddSherpaModels()` extension method) - with a `SpeechModelStore` and a
-`SpeechModelDownloader`. Registration is a builder-phase step: every `AddModels` call must complete
-before the catalog is shared for concurrent enumeration or download. `Enumerate()`
+`SpeechModelDownloader`. A distinct, all-required-parameter three-argument public constructor
+overload (`options, downloaderOptions, diagnostics`) additionally accepts
+`SpeechModelDownloaderOptions` (for example a `DownloadMirror`), forwarded to the internally
+created `SpeechModelDownloader` - exposing the catalog's normal composition path to a mirror,
+which previously only a direct `SpeechModelDownloader` construction (bypassing the catalog's
+model install-hook orchestration entirely) could reach. Registration is a builder-phase step:
+every `AddModels` call must complete before the catalog is shared for concurrent enumeration or
+download. `Enumerate()`
 builds one immutable `SpeechModelDescriptor` snapshot per known model, resolving each model's
 `SpeechModelState` by combining `SpeechModelStore.IsInstalled` (installed/not-installed) with
 in-memory tracking of which model ids currently have a `DownloadAsync` call in flight

@@ -153,11 +153,11 @@ as `OperationCanceledException` completely unchanged, never reclassified as `Net
 
 ##### Download: No Mirror Configured Forwards Original Uri and Null Mirror Auth
 
-**Test**: `SpeechModelDownloader_DownloadAsync_NoMirrorConfigured_ForwardsOriginalUriAndNullMirrorAuth`
+**Test**: `SpeechModelDownloader_DownloadAsync_NoMirrorConfigured_ForwardsOriginalUriUnchanged`
 
 ##### Download: Mirror Configured Forwards Effective Uri and Mirror Auth
 
-**Test**: `SpeechModelDownloader_DownloadAsync_MirrorConfigured_ForwardsEffectiveUriAndMirrorAuth`
+**Test**: `SpeechModelDownloader_DownloadAsync_MirrorConfigured_ForwardsEffectiveUri`
 
 ##### Download: HttpRequestException With Status Code Reports HttpError
 

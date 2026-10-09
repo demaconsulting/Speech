@@ -9,21 +9,24 @@ access.
 
 **Key Methods**:
 
-- **DownloadAsync(sourceUri, destination, progress, cancellationToken, mirrorAuth)**: Downloads
-  the bytes at `sourceUri`, writing them to `destination` as they arrive, reporting
-  `FileIndex = 0` / `FileCount = 1` progress (the caller rewrites these for multi-file context),
-  and observing `cancellationToken` between chunks. `mirrorAuth` is an optional `DownloadMirror`
-  (defaulted to `null` for every existing caller and implementation) carrying the
-  authentication, if any, that this specific request's implementation should apply - typically
-  supplied only when `sourceUri` was itself resolved beneath that same mirror. An implementation
-  must not need to know about `ISpeechModel`/model id/catalog concepts to honor it.
+- **DownloadAsync(sourceUri, destination, progress, cancellationToken)**: Downloads the bytes at
+  `sourceUri`, writing them to `destination` as they arrive, reporting `FileIndex = 0` /
+  `FileCount = 1` progress (the caller rewrites these for multi-file context), and observing
+  `cancellationToken` between chunks. This signature is part of this library's public API surface
+  and is intentionally never widened with a per-call mirror-authentication parameter, so a host's
+  own `IModelDownloadClient` implementation stays source-compatible across releases; any mirror
+  authentication an implementation applies is configured once, at construction (see
+  `HttpModelDownloadClient`'s constructor), never per call. `SpeechModelDownloader`'s own
+  contribution toward mirror support is resolving `sourceUri` to its mirror-relative effective
+  value (or leaving it unchanged when no mirror is configured) before calling `DownloadAsync` -
+  see `SpeechModelDownloader.ResolveEffectiveUri`.
 
 **Error Handling**: The interface itself defines no error handling beyond its documented
 contract: implementations must throw (rather than silently truncate) on any non-success response
 or transport failure, so a caller can distinguish a verified download from a partial or failed
 one without inspecting `destination`'s length itself.
 
-**Dependencies**: `SpeechModelDownloadProgress`, `DownloadMirror`.
+**Dependencies**: `SpeechModelDownloadProgress`.
 
 **Callers**: `SpeechModelDownloader` (via its injected implementation); `HttpModelDownloadClient`
 (implements it).

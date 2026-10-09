@@ -6,7 +6,8 @@ Verified indirectly through `SpeechModelDownloaderTests.cs`, which substitutes h
 implementations (`FakeModelDownloadClient`, `ConcurrencyTrackingModelDownloadClient`) to prove
 `SpeechModelDownloader`'s orchestration logic against this seam, and directly through
 `HttpModelDownloadClientTests.cs`, which proves the one real implementation
-(`HttpModelDownloadClient`) genuinely satisfies the contract against a real loopback HTTP server.
+(`HttpModelDownloadClient`) genuinely satisfies the contract against a WireMock.Net-stubbed HTTP
+server.
 
 #### Test Environment
 
@@ -16,9 +17,10 @@ implementations (`FakeModelDownloadClient`, `ConcurrencyTrackingModelDownloadCli
 
 Tests pass when a fake implementation of this seam lets `SpeechModelDownloader`'s
 queueing/verification/atomic-swap logic be exercised deterministically with no real network
-access, and when the optional `mirrorAuth` parameter defaults to `null` for every existing call
-site and is correctly forwarded (or omitted) by `SpeechModelDownloader` depending on whether a
-mirror is configured.
+access, and when `SpeechModelDownloader` resolves and forwards the correct request URI to
+`DownloadAsync` - the original, model-declared URI unchanged when no mirror is configured, or the
+mirror-resolved effective URI when one is configured - with no per-call mirror-authentication
+parameter ever passed, since this interface's `DownloadAsync` signature carries none.
 
 #### Test Scenarios
 
@@ -30,14 +32,14 @@ mirror is configured.
 
 **Test**: `SpeechModelDownloader_DownloadAsync_TwoConcurrentRequestsForSameModelId_AreSerialized`
 
-##### Download: Real HttpModelDownloadClient Downloads Exact Bytes from a Loopback Server
+##### Download: Real HttpModelDownloadClient Downloads Exact Bytes from a Stubbed Server
 
-**Test**: `HttpModelDownloadClient_DownloadAsync_LoopbackServer_DownloadsExactBytesWithProgress`
+**Test**: `HttpModelDownloadClient_DownloadAsync_StubbedServer_DownloadsExactBytesWithProgress`
 
-##### Download: No Mirror Configured Forwards Null Mirror Auth (via fake seam)
+##### Download: No Mirror Configured Forwards Original URI Unchanged (via fake seam)
 
-**Test**: `SpeechModelDownloader_DownloadAsync_NoMirrorConfigured_ForwardsOriginalUriAndNullMirrorAuth`
+**Test**: `SpeechModelDownloader_DownloadAsync_NoMirrorConfigured_ForwardsOriginalUriUnchanged`
 
-##### Download: Mirror Configured Forwards Mirror Auth (via fake seam)
+##### Download: Mirror Configured Forwards Effective URI (via fake seam)
 
-**Test**: `SpeechModelDownloader_DownloadAsync_MirrorConfigured_ForwardsEffectiveUriAndMirrorAuth`
+**Test**: `SpeechModelDownloader_DownloadAsync_MirrorConfigured_ForwardsEffectiveUri`

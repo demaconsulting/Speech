@@ -2,22 +2,24 @@
 
 #### Verification Approach
 
-Verified through direct unit tests in `HttpModelDownloadClientTests.cs` against a real, in-process
-loopback `System.Net.HttpListener` server (`LoopbackHttpServer`) bound to `127.0.0.1` on an
-OS-assigned ephemeral port. The port is discovered via a throwaway `TcpListener(IPAddress.Loopback,
-0)`, released, and then bound by `HttpListener` (which cannot itself request port `0`). This
+Verified through direct unit tests in `HttpModelDownloadClientTests.cs` against an in-process
+`WireMock.Net` `WireMockServer`, stubbing HTTP responses without any real network access. This
 proves the concrete implementation genuinely performs an HTTP download with progress reporting -
-not just a mocked seam - with no real network access and no new test-server package dependency.
+not just a mocked seam - and that construction-time mirror authentication is correctly applied as
+request headers.
 
 #### Test Environment
 
 - **Framework**: xUnit v3 running under the .NET SDK
-- **Server**: An in-process `HttpListener` loopback server serving one fixed payload or status
-  code per test, disposed via a bounded-timeout best-effort shutdown so a slow-to-stop background
-  loop never hangs a test; a `requireBasicAuth` option additionally lets `HttpListener` itself
-  perform a genuine HTTP Basic 401/`WWW-Authenticate` challenge-response negotiation (the listener
-  validates only that a well-formed Basic header is present, not any specific credential value,
-  so the test asserts on the server's own captured, decoded `Authorization` header instead)
+- **Server**: An in-process `WireMockServer` stubbing one fixed response per test. Kestrel
+  (WireMock.Net's self-hosted server) otherwise always responds with `Transfer-Encoding: chunked`
+  and strips any explicit `Content-Length` header; the progress test works around this with a
+  `PreWireMockMiddlewareInit` buffering middleware that captures the response body into a
+  `MemoryStream`, sets `Response.ContentLength` from its length, and then copies it to the real
+  response stream - `PreWireMockMiddlewareInit` (not `PostWireMockMiddlewareInit`) is required
+  because it registers *before* WireMock's own terminal response-writing handler, so it wraps
+  around (and can intercept the write after) that handler, whereas `PostWireMockMiddlewareInit`
+  registers after it and so never executes for a matched request.
 - Progress is observed via a hand-written synchronous `IProgress<T>` test double rather than
   `System.Progress<T>`, for the same ordering reason documented in `speech-model-downloader.md`
 
@@ -26,16 +28,17 @@ not just a mocked seam - with no real network access and no new test-server pack
 Tests pass when the exact requested bytes are downloaded, progress reports are present,
 monotonically increasing, and end at the total; a non-2xx response throws
 `HttpRequestException` rather than writing a truncated or error-page body to the destination;
-with no `mirrorAuth` supplied, no `Authorization` header is sent at all; with a bearer-token
-mirror, the request carries `Authorization: Bearer <token>` exactly; and with a credentials
-mirror, the real HTTP Basic challenge/response handshake completes and the negotiated
-`Authorization` header decodes to the configured username/password.
+with no mirror configured, no `Authorization` header is sent at all; with a bearer-token mirror,
+every request carries `Authorization: Bearer secret-token` exactly; and with a credentials
+mirror, every request carries a preemptive `Authorization: Basic` header (no challenge/response
+handshake) that decodes to the exact configured username/password, sent through the same
+`HttpClient` instance as the download itself.
 
 #### Test Scenarios
 
-##### Download: Loopback Server Downloads Exact Bytes With Progress
+##### Download: Stubbed Server Downloads Exact Bytes With Progress
 
-**Test**: `HttpModelDownloadClient_DownloadAsync_LoopbackServer_DownloadsExactBytesWithProgress`
+**Test**: `HttpModelDownloadClient_DownloadAsync_StubbedServer_DownloadsExactBytesWithProgress`
 
 ##### Download: Non-Success Response Throws HttpRequestException
 
@@ -49,6 +52,6 @@ mirror, the real HTTP Basic challenge/response handshake completes and the negot
 
 **Test**: `HttpModelDownloadClient_DownloadAsync_BearerTokenMirror_SendsBearerAuthorizationHeader`
 
-##### Download: Credentials Mirror Negotiates Basic Authentication
+##### Download: Credentials Mirror Sends Basic Authorization Header
 
-**Test**: `HttpModelDownloadClient_DownloadAsync_CredentialsMirror_NegotiatesBasicAuthentication`
+**Test**: `HttpModelDownloadClient_DownloadAsync_CredentialsMirror_SendsBasicAuthorizationHeader`

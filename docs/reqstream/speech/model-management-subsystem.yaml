@@ -183,7 +183,7 @@ sections:
               The ModelManagementSubsystem shall isolate real HTTP download behind a mockable
               seam so download orchestration can be unit tested deterministically with no real
               network access, while the real HttpClient-backed implementation is separately
-              verified against a genuine loopback HTTP server.
+              verified against a stubbed HTTP server.
             justification: |
               Per this library's "own interfaces over direct OTS types" decision, download
               orchestration must be testable without a real network, while the concrete HTTP
@@ -193,7 +193,7 @@ sections:
               - Speech-Models-HttpModelDownloadClient-RealDownload
               - Speech-Models-HttpModelDownloadClient-NonSuccessResponseHandling
             tests:
-              - HttpModelDownloadClient_DownloadAsync_LoopbackServer_DownloadsExactBytesWithProgress
+              - HttpModelDownloadClient_DownloadAsync_StubbedServer_DownloadsExactBytesWithProgress
               - HttpModelDownloadClient_DownloadAsync_NonSuccessResponse_ThrowsHttpRequestException
 
           - id: Speech-Models-MirrorRedirect
@@ -213,17 +213,22 @@ sections:
               - Speech-Models-DownloadMirror-SchemeValidation
               - Speech-Models-DownloadMirror-MutualExclusivity
               - Speech-Models-DownloadMirror-NullArgumentValidation
+              - Speech-Models-DownloadMirror-QueryFragmentValidation
+              - Speech-Models-DownloadMirror-CredentialedHttpRejection
               - Speech-Models-SpeechModelDownloaderOptions-MirrorDefaultsNull
               - Speech-Models-SpeechModelDownloaderOptions-MirrorRedirectsDownloads
               - Speech-Models-SpeechModelDownloader-MirrorUriResolution
-              - Speech-Models-IModelDownloadClient-MirrorAuthSeam
+              - Speech-Models-IModelDownloadClient-NoPerCallMirrorAuth
+              - Speech-Models-IModelDownloadClient-EffectiveUriOnly
               - Speech-Models-HttpModelDownloadClient-MirrorAuthApplication
             tests:
               - DownloadMirror_Constructor_BothCredentialsAndBearerToken_ThrowsArgumentException
               - DownloadMirror_Constructor_NonHttpScheme_ThrowsArgumentExceptionNamingScheme
-              - SpeechModelDownloader_DownloadAsync_MirrorConfigured_ForwardsEffectiveUriAndMirrorAuth
+              - DownloadMirror_Constructor_QueryOrFragmentInBaseUri_ThrowsArgumentException
+              - DownloadMirror_Constructor_CredentialsWithHttpBaseUri_ThrowsArgumentException
+              - SpeechModelDownloader_DownloadAsync_MirrorConfigured_ForwardsEffectiveUri
               - HttpModelDownloadClient_DownloadAsync_BearerTokenMirror_SendsBearerAuthorizationHeader
-              - HttpModelDownloadClient_DownloadAsync_CredentialsMirror_NegotiatesBasicAuthentication
+              - HttpModelDownloadClient_DownloadAsync_CredentialsMirror_SendsBasicAuthorizationHeader
 
           - id: Speech-Models-RicherFailureClassification
             title: >-

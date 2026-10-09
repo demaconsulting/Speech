@@ -45,7 +45,7 @@ public class DownloadMirrorTests
     }
 
     /// <summary>
-    ///     Proves that supplying only <see cref="DownloadMirror.Credentials"/> (Basic/NTLM)
+    ///     Proves that supplying only <see cref="DownloadMirror.Credentials"/> (HTTP Basic)
     ///     constructs successfully and exposes it, with <see cref="DownloadMirror.BearerToken"/>
     ///     left <see langword="null"/>.
     /// </summary>
@@ -140,5 +140,53 @@ public class DownloadMirrorTests
         // Act & Assert
         var ex = Assert.Throws<ArgumentException>(() => new DownloadMirror(uri));
         Assert.Contains(uri.Scheme, ex.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Proves that a <see cref="DownloadMirror.BaseUri"/> carrying a query string or
+    ///     fragment is rejected, since <see cref="SpeechModelDownloader.ResolveEffectiveUri"/>
+    ///     appends path segments directly onto the base URI's string form and a query/fragment
+    ///     delimiter would silently misroute every download.
+    /// </summary>
+    [Theory]
+    [InlineData("https://mirror.internal/models?x=1")]
+    [InlineData("https://mirror.internal/models#section")]
+    public void DownloadMirror_Constructor_QueryOrFragmentInBaseUri_ThrowsArgumentException(string baseUri)
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentException>(() => new DownloadMirror(new Uri(baseUri)));
+    }
+
+    /// <summary>
+    ///     Proves that supplying <see cref="DownloadMirror.Credentials"/> or
+    ///     <see cref="DownloadMirror.BearerToken"/> alongside a plain <c>http</c> (rather than
+    ///     <c>https</c>) <see cref="DownloadMirror.BaseUri"/> is rejected, since both are sent
+    ///     preemptively - with no challenge/response handshake - and would otherwise transmit the
+    ///     secret in cleartext on the wire.
+    /// </summary>
+    [Fact]
+    public void DownloadMirror_Constructor_CredentialsWithHttpBaseUri_ThrowsArgumentException()
+    {
+        // Arrange
+        var baseUri = new Uri("http://mirror.internal/models");
+        var credentials = new NetworkCredential("user", "pass");
+
+        // Act & Assert
+        Assert.Throws<ArgumentException>(() => new DownloadMirror(baseUri, credentials: credentials));
+    }
+
+    /// <summary>
+    ///     Proves that supplying <see cref="DownloadMirror.BearerToken"/> alongside a plain
+    ///     <c>http</c> (rather than <c>https</c>) <see cref="DownloadMirror.BaseUri"/> is
+    ///     rejected for the same reason as <see cref="DownloadMirror.Credentials"/> above.
+    /// </summary>
+    [Fact]
+    public void DownloadMirror_Constructor_BearerTokenWithHttpBaseUri_ThrowsArgumentException()
+    {
+        // Arrange
+        var baseUri = new Uri("http://mirror.internal/models");
+
+        // Act & Assert
+        Assert.Throws<ArgumentException>(() => new DownloadMirror(baseUri, bearerToken: "secret-token"));
     }
 }

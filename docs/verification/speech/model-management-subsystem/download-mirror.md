@@ -13,7 +13,9 @@ validation of scheme, absoluteness, and Credentials/BearerToken mutual exclusivi
 
 Tests pass when valid values (with either auth mechanism, or neither) are exposed unchanged, an
 `http` or `https` scheme is accepted, a non-absolute or non-`http`/`https` `BaseUri` is rejected,
-supplying both `Credentials` and `BearerToken` is rejected, and a null `BaseUri` is rejected.
+a `BaseUri` carrying a query string or fragment is rejected, supplying both `Credentials` and
+`BearerToken` is rejected, supplying either alongside a plain `http` `BaseUri` is rejected, and a
+null `BaseUri` is rejected.
 
 #### Test Scenarios
 
@@ -48,3 +50,15 @@ supplying both `Credentials` and `BearerToken` is rejected, and a null `BaseUri`
 ##### Constructor: Non-Http Scheme Throws ArgumentException Naming Scheme
 
 **Test**: `DownloadMirror_Constructor_NonHttpScheme_ThrowsArgumentExceptionNamingScheme`
+
+##### Constructor: Query Or Fragment In Base URI Throws ArgumentException
+
+**Test**: `DownloadMirror_Constructor_QueryOrFragmentInBaseUri_ThrowsArgumentException`
+
+##### Constructor: Credentials With Http Base URI Throws ArgumentException
+
+**Test**: `DownloadMirror_Constructor_CredentialsWithHttpBaseUri_ThrowsArgumentException`
+
+##### Constructor: Bearer Token With Http Base URI Throws ArgumentException
+
+**Test**: `DownloadMirror_Constructor_BearerTokenWithHttpBaseUri_ThrowsArgumentException`

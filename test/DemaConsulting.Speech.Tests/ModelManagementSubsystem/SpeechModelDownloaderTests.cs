@@ -552,11 +552,11 @@ public sealed class SpeechModelDownloaderTests : IDisposable
     /// <summary>
     ///     Proves that, when no mirror is configured, <see cref="SpeechModelDownloader"/> invokes
     ///     <see cref="IModelDownloadClient.DownloadAsync"/> with each file's own declared source
-    ///     URI and a <see langword="null"/> <c>mirrorAuth</c> - the exact pre-mirror call shape -
-    ///     proving the feature is fully opt-in with zero behavior change for existing callers.
+    ///     URI unchanged - the exact pre-mirror call shape - proving the feature is fully opt-in
+    ///     with zero behavior change for existing callers.
     /// </summary>
     [Fact]
-    public async Task SpeechModelDownloader_DownloadAsync_NoMirrorConfigured_ForwardsOriginalUriAndNullMirrorAuth()
+    public async Task SpeechModelDownloader_DownloadAsync_NoMirrorConfigured_ForwardsOriginalUriUnchanged()
     {
         // Arrange
         var payload = "payload"u8.ToArray();
@@ -572,19 +572,19 @@ public sealed class SpeechModelDownloaderTests : IDisposable
         // Assert
         Assert.Equal(SpeechModelDownloadOutcome.Installed, result.Outcome);
         var call = Assert.Single(client.Calls);
-        Assert.Equal(new Uri("https://example.test/model.bin"), call.SourceUri);
-        Assert.Null(call.MirrorAuth);
+        Assert.Equal(new Uri("https://example.test/model.bin"), call);
     }
 
     /// <summary>
     ///     Proves that, when a mirror is configured, <see cref="SpeechModelDownloader"/> rewrites
-    ///     each file's effective request URI beneath the mirror and forwards the configured
-    ///     <see cref="DownloadMirror"/> as <c>mirrorAuth</c> to
-    ///     <see cref="IModelDownloadClient.DownloadAsync"/>, so the download client can apply the
-    ///     mirror's own authentication to that specific request.
+    ///     each file's effective request URI beneath the mirror before invoking
+    ///     <see cref="IModelDownloadClient.DownloadAsync"/>. Mirror authentication itself is
+    ///     applied by <see cref="HttpModelDownloadClient"/> at construction (see its own tests),
+    ///     not forwarded through the generic <see cref="IModelDownloadClient"/> seam, which must
+    ///     stay source-compatible for every host-supplied implementation.
     /// </summary>
     [Fact]
-    public async Task SpeechModelDownloader_DownloadAsync_MirrorConfigured_ForwardsEffectiveUriAndMirrorAuth()
+    public async Task SpeechModelDownloader_DownloadAsync_MirrorConfigured_ForwardsEffectiveUri()
     {
         // Arrange
         var payload = "payload"u8.ToArray();
@@ -593,7 +593,7 @@ public sealed class SpeechModelDownloaderTests : IDisposable
         var client = new FakeModelDownloadClient(payload, 1024);
         var mirror = new DownloadMirror(new Uri("https://mirror.internal/models"), bearerToken: "secret-token");
         var options = new SpeechModelDownloaderOptions { Mirror = mirror };
-        var downloader = new SpeechModelDownloader(store, client, options: options);
+        var downloader = new SpeechModelDownloader(store, client, diagnostics: null, options: options);
 
         // Act
         var result = await downloader.DownloadAsync(
@@ -602,8 +602,7 @@ public sealed class SpeechModelDownloaderTests : IDisposable
         // Assert
         Assert.Equal(SpeechModelDownloadOutcome.Installed, result.Outcome);
         var call = Assert.Single(client.Calls);
-        Assert.Equal(new Uri("https://mirror.internal/models/model-a/model.bin"), call.SourceUri);
-        Assert.Same(mirror, call.MirrorAuth);
+        Assert.Equal(new Uri("https://mirror.internal/models/model-a/model.bin"), call);
     }
 
     /// <summary>
@@ -816,18 +815,17 @@ public sealed class SpeechModelDownloaderTests : IDisposable
         int? cancelAfterChunks = null,
         CancellationTokenSource? cancellationSource = null) : IModelDownloadClient
     {
-        /// <summary>Gets every (sourceUri, mirrorAuth) pair this fake was invoked with, in call order.</summary>
-        public List<(Uri SourceUri, DownloadMirror? MirrorAuth)> Calls { get; } = [];
+        /// <summary>Gets every source URI this fake was invoked with, in call order.</summary>
+        public List<Uri> Calls { get; } = [];
 
         /// <inheritdoc/>
         public async Task DownloadAsync(
             Uri sourceUri,
             Stream destination,
             IProgress<SpeechModelDownloadProgress>? progress,
-            CancellationToken cancellationToken,
-            DownloadMirror? mirrorAuth = null)
+            CancellationToken cancellationToken)
         {
-            Calls.Add((sourceUri, mirrorAuth));
+            Calls.Add(sourceUri);
 
             var offset = 0;
             var chunkNumber = 0;
@@ -871,8 +869,7 @@ public sealed class SpeechModelDownloaderTests : IDisposable
             Uri sourceUri,
             Stream destination,
             IProgress<SpeechModelDownloadProgress>? progress,
-            CancellationToken cancellationToken,
-            DownloadMirror? mirrorAuth = null)
+            CancellationToken cancellationToken)
         {
             if (Interlocked.Increment(ref _arrivedCount) == expectedConcurrentCalls)
             {
@@ -929,8 +926,7 @@ public sealed class SpeechModelDownloaderTests : IDisposable
             Uri sourceUri,
             Stream destination,
             IProgress<SpeechModelDownloadProgress>? progress,
-            CancellationToken cancellationToken,
-            DownloadMirror? mirrorAuth = null)
+            CancellationToken cancellationToken)
         {
             var callIndex = Interlocked.Increment(ref _callCount);
             lock (_entryOrder)
@@ -964,8 +960,7 @@ public sealed class SpeechModelDownloaderTests : IDisposable
             Uri sourceUri,
             Stream destination,
             IProgress<SpeechModelDownloadProgress>? progress,
-            CancellationToken cancellationToken,
-            DownloadMirror? mirrorAuth = null) =>
+            CancellationToken cancellationToken) =>
             throw exceptionFactory();
     }
 

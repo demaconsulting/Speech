@@ -19,6 +19,8 @@ words:
   - NTLM
   - Sonatype
   - middleboxes
+  - misroute
+  - misrouting
   - Dema
   - DEMASPEECH
   - FileAssert

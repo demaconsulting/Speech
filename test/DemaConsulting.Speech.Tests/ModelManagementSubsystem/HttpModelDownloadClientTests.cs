@@ -2,35 +2,65 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using DemaConsulting.Speech.ModelManagementSubsystem;
+using Microsoft.AspNetCore.Builder;
+using WireMock.RequestBuilders;
+using WireMock.ResponseBuilders;
+using WireMock.Server;
+using WireMock.Settings;
 
 namespace DemaConsulting.Speech.Tests.ModelManagementSubsystem;
 
 /// <summary>
-///     Integration tests for <see cref="HttpModelDownloadClient"/> against a real, in-process
-///     loopback <see cref="HttpListener"/> server, proving the real streaming-download-with-
-///     progress code path end-to-end without any real network access or new test-server package
-///     dependency.
+///     Integration tests for <see cref="HttpModelDownloadClient"/> against an in-process
+///     <see cref="WireMockServer"/>, proving the real streaming-download-with-progress and
+///     mirror-authentication code paths end-to-end without any real network access.
 /// </summary>
 public sealed class HttpModelDownloadClientTests
 {
     /// <summary>
-    ///     Proves that the real client downloads a file's exact bytes from a loopback HTTP
+    ///     Proves that the real client downloads a file's exact bytes from a WireMock-stubbed
     ///     server, with a monotonically increasing, correctly totaled progress sequence driven by
     ///     the server's <c>Content-Length</c> header.
     /// </summary>
     [Fact]
-    public async Task HttpModelDownloadClient_DownloadAsync_LoopbackServer_DownloadsExactBytesWithProgress()
+    public async Task HttpModelDownloadClient_DownloadAsync_StubbedServer_DownloadsExactBytesWithProgress()
     {
-        // Arrange: a loopback server that serves a known payload with an explicit Content-Length
+        // Arrange: a stubbed server that serves a known payload with an explicit Content-Length.
+        // Kestrel (WireMock.Net's self-hosted server) otherwise always responds with
+        // Transfer-Encoding: chunked and strips any explicit Content-Length header, so
+        // PostWireMockMiddlewareInit buffers the body and sets Response.ContentLength itself
+        // before anything is written, forcing a real Content-Length response.
         var payload = CreatePayload(sizeBytes: 256 * 1024);
-        await using var server = await LoopbackHttpServer.StartAsync(payload);
+        using var server = WireMockServer.Start(new WireMockServerSettings
+        {
+            PreWireMockMiddlewareInit = appBuilderObj =>
+            {
+                var appBuilder = (IApplicationBuilder)appBuilderObj;
+                appBuilder.Use(async (context, next) =>
+                {
+                    var originalBody = context.Response.Body;
+                    await using var buffer = new MemoryStream();
+                    context.Response.Body = buffer;
+                    await next();
+                    context.Response.Body = originalBody;
+                    context.Response.ContentLength = buffer.Length;
+                    buffer.Seek(0, SeekOrigin.Begin);
+                    await buffer.CopyToAsync(originalBody);
+                });
+            },
+        });
+        server
+            .Given(Request.Create().WithPath("/model.bin").UsingGet())
+            .RespondWith(Response.Create().WithStatusCode(200).WithBody(payload));
+
         using var client = new HttpModelDownloadClient();
         using var destination = new MemoryStream();
         var reports = new List<SpeechModelDownloadProgress>();
         var progress = new SynchronousProgress<SpeechModelDownloadProgress>(reports.Add);
+        var sourceUri = new Uri($"{server.Urls[0]}/model.bin");
 
         // Act
-        await client.DownloadAsync(server.Uri, destination, progress, CancellationToken.None);
+        await client.DownloadAsync(sourceUri, destination, progress, CancellationToken.None);
 
         // Assert: the exact bytes were downloaded
         Assert.Equal(payload, destination.ToArray());
@@ -47,91 +77,124 @@ public sealed class HttpModelDownloadClientTests
     }
 
     /// <summary>
-    ///     Proves that a non-2xx response from the loopback server surfaces as an
+    ///     Proves that a non-2xx response from the server surfaces as an
     ///     <see cref="HttpRequestException"/> rather than a silently truncated download.
     /// </summary>
     [Fact]
     public async Task HttpModelDownloadClient_DownloadAsync_NonSuccessResponse_ThrowsHttpRequestException()
     {
-        // Arrange: a loopback server that always responds 404 Not Found
-        await using var server = await LoopbackHttpServer.StartAsync(payload: null, statusCode: 404);
+        // Arrange: a stubbed server that always responds 404 Not Found
+        using var server = WireMockServer.Start();
+        server
+            .Given(Request.Create().WithPath("/missing.bin").UsingGet())
+            .RespondWith(Response.Create().WithStatusCode(404));
+
         using var client = new HttpModelDownloadClient();
         using var destination = new MemoryStream();
+        var sourceUri = new Uri($"{server.Urls[0]}/missing.bin");
 
         // Act & Assert
         await Assert.ThrowsAsync<HttpRequestException>(
-            () => client.DownloadAsync(server.Uri, destination, null, CancellationToken.None));
+            () => client.DownloadAsync(sourceUri, destination, null, CancellationToken.None));
     }
 
     /// <summary>
-    ///     Proves that, with no <c>mirrorAuth</c> supplied, no <c>Authorization</c> header is sent
-    ///     at all - the exact pre-mirror request shape, confirming mirror authentication support
-    ///     is fully opt-in.
+    ///     Proves that, with no mirror configured, no <c>Authorization</c> header is sent at all -
+    ///     the exact pre-mirror request shape, confirming mirror authentication support is fully
+    ///     opt-in.
     /// </summary>
     [Fact]
     public async Task HttpModelDownloadClient_DownloadAsync_NoMirrorAuth_SendsNoAuthorizationHeader()
     {
         // Arrange
         var payload = CreatePayload(sizeBytes: 16);
-        await using var server = await LoopbackHttpServer.StartAsync(payload);
+        using var server = WireMockServer.Start();
+        server
+            .Given(Request.Create().WithPath("/model.bin").UsingGet())
+            .RespondWith(Response.Create().WithStatusCode(200).WithBody(payload).WithHeader("Content-Length", payload.Length.ToString()));
+
         using var client = new HttpModelDownloadClient();
         using var destination = new MemoryStream();
+        var sourceUri = new Uri($"{server.Urls[0]}/model.bin");
 
         // Act
-        await client.DownloadAsync(server.Uri, destination, null, CancellationToken.None);
+        await client.DownloadAsync(sourceUri, destination, null, CancellationToken.None);
 
         // Assert
-        Assert.Null(server.LastAuthorizationHeader);
+        var request = Assert.Single(server.LogEntries);
+        var requestMessage = request.RequestMessage;
+        Assert.NotNull(requestMessage);
+        Assert.NotNull(requestMessage.Headers);
+        Assert.False(requestMessage.Headers.ContainsKey("Authorization"));
     }
 
     /// <summary>
-    ///     Proves that a <see cref="DownloadMirror"/> configured with
-    ///     <see cref="DownloadMirror.BearerToken"/> causes the request to carry an
-    ///     <c>Authorization: Bearer &lt;token&gt;</c> header.
+    ///     Proves that a <see cref="HttpModelDownloadClient"/> constructed with a
+    ///     <see cref="DownloadMirror"/> declaring <see cref="DownloadMirror.BearerToken"/> causes
+    ///     every request it issues to carry a Bearer <c>Authorization</c> header.
     /// </summary>
     [Fact]
     public async Task HttpModelDownloadClient_DownloadAsync_BearerTokenMirror_SendsBearerAuthorizationHeader()
     {
         // Arrange
         var payload = CreatePayload(sizeBytes: 16);
-        await using var server = await LoopbackHttpServer.StartAsync(payload);
-        using var client = new HttpModelDownloadClient();
+        using var server = WireMockServer.Start();
+        server
+            .Given(Request.Create().WithPath("/model.bin").UsingGet())
+            .RespondWith(Response.Create().WithStatusCode(200).WithBody(payload).WithHeader("Content-Length", payload.Length.ToString()));
+
+        var sourceUri = new Uri($"{server.Urls[0]}/model.bin");
+        var mirror = new DownloadMirror(sourceUri, bearerToken: "secret-token");
+        using var client = new HttpModelDownloadClient(httpClient: null, mirror);
         using var destination = new MemoryStream();
-        var mirror = new DownloadMirror(server.Uri, bearerToken: "secret-token");
 
         // Act
-        await client.DownloadAsync(server.Uri, destination, null, CancellationToken.None, mirror);
+        await client.DownloadAsync(sourceUri, destination, null, CancellationToken.None);
 
         // Assert
-        Assert.Equal("Bearer secret-token", server.LastAuthorizationHeader);
+        var request = Assert.Single(server.LogEntries);
+        var requestMessage = request.RequestMessage;
+        Assert.NotNull(requestMessage);
+        Assert.NotNull(requestMessage.Headers);
+        Assert.Equal("Bearer secret-token", requestMessage.Headers["Authorization"].Single());
         Assert.Equal(payload, destination.ToArray());
     }
 
     /// <summary>
-    ///     Proves that a <see cref="DownloadMirror"/> configured with
-    ///     <see cref="DownloadMirror.Credentials"/> successfully negotiates HTTP Basic
-    ///     authentication against a server that challenges every unauthenticated request,
-    ///     presenting the exact configured username/password.
+    ///     Proves that a <see cref="HttpModelDownloadClient"/> constructed with a
+    ///     <see cref="DownloadMirror"/> declaring <see cref="DownloadMirror.Credentials"/> sends a
+    ///     preemptive HTTP Basic <c>Authorization</c> header carrying the exact configured
+    ///     username/password on every request, through the same client instance - never a
+    ///     second, separately configured one.
     /// </summary>
     [Fact]
-    public async Task HttpModelDownloadClient_DownloadAsync_CredentialsMirror_NegotiatesBasicAuthentication()
+    public async Task HttpModelDownloadClient_DownloadAsync_CredentialsMirror_SendsBasicAuthorizationHeader()
     {
         // Arrange
         var payload = CreatePayload(sizeBytes: 16);
-        await using var server = await LoopbackHttpServer.StartAsync(payload, requireBasicAuth: true);
-        using var client = new HttpModelDownloadClient();
+        using var server = WireMockServer.Start();
+        server
+            .Given(Request.Create().WithPath("/model.bin").UsingGet())
+            .RespondWith(Response.Create().WithStatusCode(200).WithBody(payload).WithHeader("Content-Length", payload.Length.ToString()));
+
+        var sourceUri = new Uri($"{server.Urls[0]}/model.bin");
+        var mirror = new DownloadMirror(sourceUri, credentials: new NetworkCredential("mirror-user", "mirror-pass"));
+        using var client = new HttpModelDownloadClient(httpClient: null, mirror);
         using var destination = new MemoryStream();
-        var mirror = new DownloadMirror(server.Uri, credentials: new NetworkCredential("mirror-user", "mirror-pass"));
 
         // Act
-        await client.DownloadAsync(server.Uri, destination, null, CancellationToken.None, mirror);
+        await client.DownloadAsync(sourceUri, destination, null, CancellationToken.None);
 
-        // Assert: the request that ultimately succeeded carried the expected Basic credentials,
-        // and the real bytes were downloaded (proving the challenge/response round trip
-        // genuinely completed rather than merely not failing).
-        Assert.NotNull(server.LastAuthorizationHeader);
-        Assert.StartsWith("Basic ", server.LastAuthorizationHeader, StringComparison.Ordinal);
-        var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(server.LastAuthorizationHeader["Basic ".Length..]));
+        // Assert: the request carried the expected Basic credentials, and the real bytes were
+        // downloaded.
+        var request = Assert.Single(server.LogEntries);
+        var requestMessage = request.RequestMessage;
+        Assert.NotNull(requestMessage);
+        Assert.NotNull(requestMessage.Headers);
+        var authorizationHeader = requestMessage.Headers["Authorization"].Single();
+        Assert.NotNull(authorizationHeader);
+        Assert.StartsWith("Basic ", authorizationHeader, StringComparison.Ordinal);
+        var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(authorizationHeader["Basic ".Length..]));
         Assert.Equal("mirror-user:mirror-pass", decoded);
         Assert.Equal(payload, destination.ToArray());
     }
@@ -165,151 +228,5 @@ public sealed class HttpModelDownloadClientTests
     {
         /// <inheritdoc/>
         public void Report(T value) => callback(value);
-    }
-
-    /// <summary>
-    ///     Minimal loopback <see cref="HttpListener"/>-backed HTTP server bound to
-    ///     <c>127.0.0.1</c> on an ephemeral port, serving one fixed payload (or a fixed non-success
-    ///     status code) to every request until disposed.
-    /// </summary>
-    private sealed class LoopbackHttpServer : IAsyncDisposable
-    {
-        /// <summary>The underlying listener accepting loopback connections.</summary>
-        private readonly HttpListener _listener;
-
-        /// <summary>The background task processing incoming requests until disposed.</summary>
-        private readonly Task _serverTask;
-
-        /// <summary>A token source used to stop <see cref="_serverTask"/> on disposal.</summary>
-        private readonly CancellationTokenSource _stopSource = new();
-
-        /// <summary>
-        ///     Initializes a new instance of the <see cref="LoopbackHttpServer"/> class. Use
-        ///     <see cref="StartAsync"/> instead of calling this constructor directly.
-        /// </summary>
-        private LoopbackHttpServer(HttpListener listener, Uri uri, byte[]? payload, int statusCode)
-        {
-            _listener = listener;
-            Uri = uri;
-            _serverTask = Task.Run(() => ServeAsync(payload, statusCode, _stopSource.Token), _stopSource.Token);
-        }
-
-        /// <summary>Gets the loopback URI requests should be sent to.</summary>
-        public Uri Uri { get; }
-
-        /// <summary>
-        ///     Gets the raw <c>Authorization</c> request header value received with the most
-        ///     recently handled request, or <see langword="null"/> if no request has carried one.
-        ///     With <see cref="StartAsync"/>'s <c>requireBasicAuth</c> enabled, this reflects only
-        ///     the final, successfully authenticated request - not any earlier unauthenticated
-        ///     attempt the client's own Basic-auth challenge/response handshake made first.
-        /// </summary>
-        public string? LastAuthorizationHeader { get; private set; }
-
-        /// <summary>
-        ///     Starts a new loopback server on a free ephemeral port.
-        /// </summary>
-        /// <param name="payload">The fixed payload to serve with a 200 response, or <see langword="null"/> when <paramref name="statusCode"/> indicates failure.</param>
-        /// <param name="statusCode">The HTTP status code to respond with.</param>
-        /// <param name="requireBasicAuth">
-        ///     When <see langword="true"/>, the listener challenges every request lacking a valid
-        ///     Basic <c>Authorization</c> header with a <c>401</c>/<c>WWW-Authenticate: Basic</c>
-        ///     response and only hands a request to <see cref="ServeAsync"/> once the client has
-        ///     retried with credentials, exercising <see cref="HttpModelDownloadClient"/>'s real
-        ///     Basic-authentication negotiation end-to-end. The listener itself only verifies the
-        ///     header is well-formed Basic, not that its username/password match any particular
-        ///     value - callers assert the expected value via <see cref="LastAuthorizationHeader"/>.
-        /// </param>
-        public static async Task<LoopbackHttpServer> StartAsync(byte[]? payload, int statusCode = 200, bool requireBasicAuth = false)
-        {
-            // HttpListener does not support binding to an OS-assigned ephemeral port (port 0), so
-            // a throwaway TcpListener is used to discover one free port, then released immediately
-            // before HttpListener binds to it - a standard, well-known .NET idiom for this case.
-            var port = GetFreeLoopbackPort();
-            var uriPrefix = $"http://127.0.0.1:{port}/";
-
-            var listener = new HttpListener();
-            listener.Prefixes.Add(uriPrefix);
-            if (requireBasicAuth)
-            {
-                listener.AuthenticationSchemes = AuthenticationSchemes.Basic;
-            }
-
-            listener.Start();
-
-            var server = new LoopbackHttpServer(listener, new Uri(uriPrefix), payload, statusCode);
-
-            // Give the background accept loop a moment to actually be listening for connections.
-            await Task.Yield();
-            return server;
-        }
-
-        /// <summary>
-        ///     Continuously accepts and answers requests with the fixed payload/status code until
-        ///     <paramref name="stopToken"/> is canceled.
-        /// </summary>
-        private async Task ServeAsync(byte[]? payload, int statusCode, CancellationToken stopToken)
-        {
-            while (!stopToken.IsCancellationRequested)
-            {
-                HttpListenerContext context;
-                try
-                {
-                    context = await _listener.GetContextAsync().WaitAsync(stopToken).ConfigureAwait(false);
-                }
-                catch (Exception ex) when (ex is ObjectDisposedException or OperationCanceledException or HttpListenerException)
-                {
-                    return;
-                }
-
-                LastAuthorizationHeader = context.Request.Headers["Authorization"];
-
-                context.Response.StatusCode = statusCode;
-                if (payload is not null)
-                {
-                    context.Response.ContentLength64 = payload.Length;
-                    await context.Response.OutputStream.WriteAsync(payload, stopToken).ConfigureAwait(false);
-                }
-
-                context.Response.Close();
-            }
-        }
-
-        /// <summary>
-        ///     Discovers a currently free loopback TCP port by briefly binding a throwaway
-        ///     <see cref="System.Net.Sockets.TcpListener"/>, since <see cref="HttpListener"/>
-        ///     itself has no equivalent "bind to port 0" support.
-        /// </summary>
-        private static int GetFreeLoopbackPort()
-        {
-            using var probe = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
-            probe.Start();
-            try
-            {
-                return ((IPEndPoint)probe.LocalEndpoint).Port;
-            }
-            finally
-            {
-                probe.Stop();
-            }
-        }
-
-        /// <inheritdoc/>
-        public async ValueTask DisposeAsync()
-        {
-            await _stopSource.CancelAsync();
-            _listener.Close();
-
-            try
-            {
-                await _serverTask.WaitAsync(TimeSpan.FromSeconds(5), CancellationToken.None).ConfigureAwait(false);
-            }
-            catch (Exception ex) when (ex is TimeoutException or OperationCanceledException)
-            {
-                // Best-effort shutdown only; a slow-to-stop background loop must never fail a test.
-            }
-
-            _stopSource.Dispose();
-        }
     }
 }

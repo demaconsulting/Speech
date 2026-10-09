@@ -82,7 +82,44 @@ public sealed class SpeechModelCatalog : IDisposable
     ///     <see cref="DownloadAsync"/>, or this catalog enumerates to an empty list.
     /// </remarks>
     public SpeechModelCatalog(SpeechModelStoreOptions? options = null, ISpeechDiagnostics? diagnostics = null)
-        : this([], new SpeechModelStore(options), null, diagnostics)
+        : this([], new SpeechModelStore(options), null, null, diagnostics)
+    {
+    }
+
+    /// <summary>
+    ///     Initializes a new instance of the <see cref="SpeechModelCatalog"/> class with an
+    ///     initially empty known-model list, a real <see cref="SpeechModelStore"/>, and a real
+    ///     <see cref="HttpModelDownloadClient"/> configured with host-supplied download options.
+    /// </summary>
+    /// <param name="options">
+    ///     Optional host-configured storage options, or <see langword="null"/> to use the
+    ///     default per-user storage root. Forwarded to the internally created
+    ///     <see cref="SpeechModelStore"/>.
+    /// </param>
+    /// <param name="downloaderOptions">
+    ///     Host-configurable download options (for example an internal mirror), forwarded to the
+    ///     internally created <see cref="SpeechModelDownloader"/> - see
+    ///     <see cref="SpeechModelDownloaderOptions.Mirror"/>.
+    /// </param>
+    /// <param name="diagnostics">
+    ///     The sink to report structural download failures to, or <see langword="null"/> to use
+    ///     <see cref="NullSpeechDiagnostics.Instance"/>.
+    /// </param>
+    /// <remarks>
+    ///     Declared as a distinct, all-required-parameter overload (rather than a third optional
+    ///     parameter appended to the two-parameter constructor above) specifically so a one- or
+    ///     two-argument constructor call can only ever resolve to that original overload, never
+    ///     this one - keeping this addition unambiguous with every pre-existing call shape while
+    ///     still exposing the catalog's normal composition path (<see cref="AddModels"/> /
+    ///     <c>AddSherpaModels</c>) to a mirror, which previously only a direct
+    ///     <see cref="SpeechModelDownloader"/> construction (bypassing the catalog's model
+    ///     install-hook orchestration entirely) could reach.
+    /// </remarks>
+    public SpeechModelCatalog(
+        SpeechModelStoreOptions? options,
+        SpeechModelDownloaderOptions? downloaderOptions,
+        ISpeechDiagnostics? diagnostics)
+        : this([], new SpeechModelStore(options), null, downloaderOptions, diagnostics)
     {
     }
 
@@ -100,6 +137,10 @@ public sealed class SpeechModelCatalog : IDisposable
     ///     An optional download seam, or <see langword="null"/> to create and own a default
     ///     <see cref="HttpModelDownloadClient"/> internally.
     /// </param>
+    /// <param name="downloaderOptions">
+    ///     Host-configurable download options forwarded to the internally created
+    ///     <see cref="SpeechModelDownloader"/>, or <see langword="null"/> for no mirror.
+    /// </param>
     /// <param name="diagnostics">
     ///     The sink to report structural download failures to, or <see langword="null"/> to use
     ///     <see cref="NullSpeechDiagnostics.Instance"/>.
@@ -111,6 +152,7 @@ public sealed class SpeechModelCatalog : IDisposable
         IReadOnlyList<ISpeechModel> knownModels,
         SpeechModelStore store,
         IModelDownloadClient? client,
+        SpeechModelDownloaderOptions? downloaderOptions = null,
         ISpeechDiagnostics? diagnostics = null)
     {
         ArgumentNullException.ThrowIfNull(knownModels);
@@ -118,7 +160,7 @@ public sealed class SpeechModelCatalog : IDisposable
 
         _knownModels = [.. knownModels];
         _store = store;
-        _downloader = new SpeechModelDownloader(store, client, diagnostics);
+        _downloader = new SpeechModelDownloader(store, client, diagnostics, downloaderOptions);
     }
 
     /// <summary>

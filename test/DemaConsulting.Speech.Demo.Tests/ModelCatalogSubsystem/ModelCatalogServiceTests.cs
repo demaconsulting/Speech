@@ -194,8 +194,7 @@ public class ModelCatalogServiceTests
             Uri sourceUri,
             Stream destination,
             IProgress<SpeechModelDownloadProgress>? progress,
-            CancellationToken cancellationToken,
-            DownloadMirror? mirrorAuth = null)
+            CancellationToken cancellationToken)
         {
             await destination.WriteAsync(payload, cancellationToken);
             progress?.Report(new SpeechModelDownloadProgress(0, 1, payload.Length, payload.Length));
@@ -214,8 +213,7 @@ public class ModelCatalogServiceTests
             Uri sourceUri,
             Stream destination,
             IProgress<SpeechModelDownloadProgress>? progress,
-            CancellationToken cancellationToken,
-            DownloadMirror? mirrorAuth = null) =>
+            CancellationToken cancellationToken) =>
             throw new IOException("Simulated download failure.");
     }
 }
