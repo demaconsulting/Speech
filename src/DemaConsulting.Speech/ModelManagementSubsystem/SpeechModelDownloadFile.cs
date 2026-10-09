@@ -23,12 +23,52 @@ public sealed record SpeechModelDownloadFile
     ///     normalization rule cannot drift between them.
     /// </summary>
     /// <param name="relativeInstallPath">The declared relative install path to split.</param>
-    /// <returns>The path's non-empty segments, in order.</returns>
+    /// <returns>The path's non-empty segments, in order. Never empty for an already-validated path.</returns>
     internal static string[] SplitRelativeInstallPathSegments(string relativeInstallPath) =>
         relativeInstallPath.Split(PathSeparators, StringSplitOptions.RemoveEmptyEntries);
 
     /// <summary>
-    ///     Initializes a new instance of the <see cref="SpeechModelDownloadFile"/> record,
+    ///     Resolves the exact file-system path a declared <paramref name="relativeInstallPath"/>
+    ///     is staged at (and is installed at, since <see cref="SpeechModelStore"/> atomically
+    ///     swaps the staging directory in place), using this platform's own
+    ///     <see cref="Path.DirectorySeparatorChar"/> regardless of which separator the path was
+    ///     declared with.
+    /// </summary>
+    /// <param name="stagedFilesDirectory">
+    ///     The directory the file is staged (or installed) under - typically the
+    ///     <c>stagedFilesDirectory</c> parameter an <see cref="ISpeechModel.InstallAsync"/>
+    ///     override receives.
+    /// </param>
+    /// <param name="relativeInstallPath">
+    ///     A declared <see cref="RelativeInstallPath"/> value (for example from
+    ///     <see cref="ISpeechModel.DownloadDescriptor"/>).
+    /// </param>
+    /// <returns>
+    ///     The combined, platform-correct file-system path, equivalent to
+    ///     <c>Path.Combine(stagedFilesDirectory, segment1, segment2, ...)</c> for every
+    ///     non-empty segment of <paramref name="relativeInstallPath"/>.
+    /// </returns>
+    /// <remarks>
+    ///     <see cref="SpeechModelDownloader"/> uses this same method to compute each file's
+    ///     staging destination, so an <see cref="ISpeechModel.InstallAsync"/> override that needs
+    ///     to locate one of its own declared files within <c>stagedFilesDirectory</c> must use
+    ///     this method too, rather than <see cref="Path.Join(string, string)"/> or string
+    ///     concatenation directly on <paramref name="relativeInstallPath"/> - a raw join would
+    ///     create a single, wrongly named file on a platform whose directory separator differs
+    ///     from the one the path happened to be declared with (for example a literal
+    ///     <c>"tokens\vocab.txt"</c> joined as one file literally named <c>"tokens\vocab.txt"</c>
+    ///     on Linux, instead of the nested file this method - and the downloader - actually
+    ///     stage it as).
+    /// </remarks>
+    public static string ResolveStagedPath(string stagedFilesDirectory, string relativeInstallPath)
+    {
+        ArgumentNullException.ThrowIfNull(stagedFilesDirectory);
+        ArgumentNullException.ThrowIfNull(relativeInstallPath);
+
+        return Path.Combine(stagedFilesDirectory, Path.Combine(SplitRelativeInstallPathSegments(relativeInstallPath)));
+    }
+
+    /// <summary>    ///     Initializes a new instance of the <see cref="SpeechModelDownloadFile"/> record,
     ///     validating every field eagerly. See the type-level remarks for the exact rules
     ///     enforced.
     /// </summary>
@@ -45,18 +85,20 @@ public sealed record SpeechModelDownloadFile
     /// <param name="RelativeInstallPath">
     ///     The file's path, relative to the model's installed directory, that the downloaded
     ///     bytes are written to once verified (e.g. <c>"model.onnx"</c> or
-    ///     <c>"tokens/vocab.txt"</c>). Must be a relative path with no parent-directory
-    ///     (<c>".."</c>) or current-directory (<c>"."</c>) segments - a <c>".."</c> segment could
-    ///     escape the model's own installed directory, and a <c>"."</c> segment would silently
-    ///     collapse away under <see cref="Path.Combine(string[])"/>/<see cref="Uri"/>
-    ///     canonicalization, letting two declared paths that look distinct collide at the same
-    ///     staged file.
+    ///     <c>"tokens/vocab.txt"</c>). Must be a relative path containing at least one named
+    ///     segment, with no parent-directory (<c>".."</c>) or current-directory (<c>"."</c>)
+    ///     segments - a <c>".."</c> segment could escape the model's own installed directory, a
+    ///     <c>"."</c> segment would silently collapse away under
+    ///     <see cref="Path.Combine(string[])"/>/<see cref="Uri"/> canonicalization (letting two
+    ///     declared paths that look distinct collide at the same staged file), and a path made up
+    ///     entirely of separators (e.g. <c>"/"</c>) has no named segment at all and would
+    ///     otherwise resolve to the staging directory itself.
     /// </param>
     /// <exception cref="ArgumentException">
     ///     Thrown when <paramref name="Uri"/> does not use the <c>https</c> scheme, when
     ///     <paramref name="Sha256Checksum"/> is not a 64-character hexadecimal string, or when
-    ///     <paramref name="RelativeInstallPath"/> is empty, whitespace-only, rooted, or contains a
-    ///     <c>"."</c> or <c>".."</c> segment.
+    ///     <paramref name="RelativeInstallPath"/> is empty, whitespace-only, rooted, contains a
+    ///     <c>"."</c> or <c>".."</c> segment, or contains no named segment at all.
     /// </exception>
     /// <exception cref="ArgumentNullException">
     ///     Thrown when <paramref name="Uri"/>, <paramref name="Sha256Checksum"/>, or
@@ -89,13 +131,20 @@ public sealed record SpeechModelDownloadFile
         // model's installed directory or silently collide with another declared path once
         // Path.Combine/Uri canonicalization collapses the '.' segment away - reject all three up
         // front rather than trusting descriptor authors. A whitespace-only path is just as
-        // meaningless as an empty one, so both are rejected here too.
+        // meaningless as an empty one, so both are rejected here too. A path made up entirely of
+        // separators (e.g. "/" or "\\\\") contains no actual file name at all once split into
+        // segments - reject that too, rather than letting it resolve to the staging directory
+        // itself (ResolveStagedPath's Path.Combine of zero segments returns stagedFilesDirectory
+        // unchanged).
+        var segments = SplitRelativeInstallPathSegments(RelativeInstallPath);
         if (string.IsNullOrWhiteSpace(RelativeInstallPath) ||
             Path.IsPathRooted(RelativeInstallPath) ||
-            RelativeInstallPath.Split(PathSeparators).Any(segment => segment is ".." or "."))
+            segments.Length == 0 ||
+            segments.Any(segment => segment is ".." or "."))
         {
             throw new ArgumentException(
-                $"Model download install path must be a relative path with no '.' or '..' segments, but was '{RelativeInstallPath}'.",
+                $"Model download install path must be a relative path with at least one named "
+                + $"segment and no '.' or '..' segments, but was '{RelativeInstallPath}'.",
                 nameof(RelativeInstallPath));
         }
 

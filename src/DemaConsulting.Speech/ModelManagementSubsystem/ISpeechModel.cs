@@ -77,7 +77,15 @@ public interface ISpeechModel
     ///     or otherwise needs post-download processing before use (e.g. expanding a zip and
     ///     removing the original archive file, leaving only the files the model's engine-config
     ///     member will later reference). A model whose payload is already directly usable (the
-    ///     common single-file case) does not need to implement this at all.
+    ///     common single-file case) does not need to implement this at all. When this override
+    ///     needs to locate one of its own declared files within <paramref name="stagedFilesDirectory"/>
+    ///     (for example to find the archive before extracting it), resolve the path with
+    ///     <see cref="SpeechModelDownloadFile.ResolveStagedPath(string, string)"/> rather than
+    ///     <see cref="Path.Join(string, string)"/> or string concatenation directly on the
+    ///     declared <see cref="SpeechModelDownloadFile.RelativeInstallPath"/> - that method is the
+    ///     same one <see cref="SpeechModelDownloader"/> itself uses to compute each file's staging
+    ///     destination, so it is the only way to guarantee this hook agrees with the downloader on
+    ///     the exact path regardless of which path separator the file's declared install path used.
     ///     <see cref="SpeechModelDownloader"/> invokes this after every declared file has been
     ///     fetched and its checksum verified, and before the staging directory is handed to
     ///     <see cref="SpeechModelStore"/> for the atomic swap - an exception thrown here is

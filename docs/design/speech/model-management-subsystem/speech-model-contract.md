@@ -28,7 +28,12 @@ instance of the sherpa-onnx-backed models this repository ships.
   a model whose single downloaded file needs no unpacking; a model whose declared payload is an
   archive (zip/tar) overrides this to expand it and remove the original archive file. Invoked by
   `SpeechModelDownloader`'s `ISpeechModel`-aware `DownloadAsync` overload after checksum
-  verification and before the atomic swap.
+  verification and before the atomic swap. An override that needs to locate one of its own
+  declared files within `stagedFilesDirectory` must resolve it via
+  `SpeechModelDownloadFile.ResolveStagedPath`, the same method `SpeechModelDownloader` itself uses
+  to compute each file's staging destination, rather than a raw `Path.Join`/string concatenation
+  on the declared `RelativeInstallPath` - otherwise the hook could look in the wrong place on a
+  platform whose directory separator differs from the one the path happened to be declared with.
 - **ISpeechModel.NormalizeText(text)**: applies this model's own text normalization/correction
   before inference. Defaults to the identity function. `SynthesisSession` calls this
   hook before Layer 1 tag parsing, so a synthesis model may correct punctuation or spelling

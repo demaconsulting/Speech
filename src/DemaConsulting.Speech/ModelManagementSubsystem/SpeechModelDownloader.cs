@@ -349,18 +349,16 @@ public sealed class SpeechModelDownloader : IDisposable
             {
                 var file = descriptor.Files[fileIndex];
 
-                // Split on both path separators (the same logic ResolveEffectiveUri applies
-                // internally to build the mirror-rewritten request URI below) and rejoin with
-                // Path.Combine, so the staging destination path uses this platform's own
-                // Path.DirectorySeparatorChar rather than whichever separator the descriptor
-                // happens to declare - a raw Path.Join of file.RelativeInstallPath would
-                // otherwise create a single, wrongly named file on a platform whose separator
-                // differs (for example a literal "tokens\vocab.txt" staged as one file literally
-                // named "tokens\vocab.txt" on Linux, while the mirror-rewritten URI correctly
-                // requests "/tokens/vocab.txt").
-                var destinationPath = Path.Join(
-                    stagingDirectory,
-                    Path.Combine(SpeechModelDownloadFile.SplitRelativeInstallPathSegments(file.RelativeInstallPath)));
+                // Resolve via the same public helper an ISpeechModel.InstallAsync override must
+                // use to locate one of its own declared files within stagedFilesDirectory, so the
+                // downloader and every install hook agree on exactly the same staged path for a
+                // given declared RelativeInstallPath regardless of which separator it used to
+                // declare it (a raw Path.Join of file.RelativeInstallPath would otherwise create
+                // a single, wrongly named file on a platform whose separator differs - for
+                // example a literal "tokens\vocab.txt" staged as one file literally named
+                // "tokens\vocab.txt" on Linux, while the mirror-rewritten URI correctly requests
+                // "/tokens/vocab.txt").
+                var destinationPath = SpeechModelDownloadFile.ResolveStagedPath(stagingDirectory, file.RelativeInstallPath);
                 Directory.CreateDirectory(Path.GetDirectoryName(destinationPath) ?? stagingDirectory);
 
                 var effectiveUri = ResolveEffectiveUri(file.Uri, _mirror, modelId, file.RelativeInstallPath);

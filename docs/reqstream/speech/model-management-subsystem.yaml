@@ -159,6 +159,7 @@ sections:
               - Speech-Models-SpeechModelDownloadFile-ChecksumValidation
               - Speech-Models-SpeechModelDownloadFile-InstallPathValidation
               - Speech-Models-SpeechModelDownloadFile-NullArgumentValidation
+              - Speech-Models-SpeechModelDownloadFile-ResolveStagedPath
               - Speech-Models-SpeechModelDownloadDescriptor-Validation
             tests:
               - SpeechModelDownloadFile_Constructor_HttpUri_ThrowsArgumentException
