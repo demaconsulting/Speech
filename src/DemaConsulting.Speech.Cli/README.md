@@ -37,9 +37,21 @@ runtime, and local model store are all in a healthy state on the current machine
 | `recognize --stt-model <id>` | Recognize speech from a WAV file or the microphone - see [Flags](#recognize-flags) below |
 | `ask --tts-model <id> --stt-model <id>` | Speak a prompt, then listen for the reply - see [Flags](#ask-flags) below |
 
-Global options (`--models-dir`, `--verbose`/`--diagnostics`, `--silent`, `--log <file>`,
-`--results <file>`, `--depth <#>`, `-v`/`--version`, `-h`/`-?`/`--help`, `--validate`) are
-recognized regardless of where they appear on the command line relative to the subcommand.
+Global options (`--models-dir`, `--mirror-url <url>`, `--mirror-user <user>`,
+`--mirror-password <pass>`, `--mirror-bearer-token <token>`, `--verbose`/`--diagnostics`,
+`--silent`, `--log <file>`, `--results <file>`, `--depth <#>`, `-v`/`--version`, `-h`/`-?`/`--help`,
+`--validate`) are recognized regardless of where they appear on the command line relative to the
+subcommand.
+
+### Downloading from an internal mirror
+
+If a model's public download host (for example `huggingface.co`) is blocked by network policy,
+`--mirror-url <url>` redirects every model download to an internal mirror instead, serving the
+exact files from `{mirror-url}/{modelId}/{relativeInstallPath}`. `--mirror-user`/
+`--mirror-password` add HTTP Basic authentication (both required together); `--mirror-bearer-token`
+adds bearer-token authentication instead (mutually exclusive with the Basic credential pair). A
+credentialed mirror must use `https://`, unless its host is loopback (`localhost` or a loopback IP
+literal).
 
 ### `speak` flags
 

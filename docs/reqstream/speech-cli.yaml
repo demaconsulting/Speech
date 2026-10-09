@@ -40,7 +40,8 @@ sections:
 
       - id: SpeechCli-Cli-GlobalOptions
         title: >-
-          The tool shall recognize its global options - `--models-dir`, `--verbose`/
+          The tool shall recognize its global options - `--models-dir`, `--mirror-url`,
+          `--mirror-user`, `--mirror-password`, `--mirror-bearer-token`, `--verbose`/
           `--diagnostics`, `--silent`, `--log <file>` - regardless of whether they appear before
           or after the subcommand name on the command line.
         tags: [system]
@@ -52,8 +53,30 @@ sections:
           rule.
         tests:
           - Context_Create_ModelsDirAfterCommand_IsRecognizedAsGlobalOption
+          - Context_Create_WithMirrorOptions_ParsesOntoContext
           - SpeechCli_SilentFlag_Provided_SuppressesOutput
           - SpeechCli_LogFlag_Provided_WritesOutputToFile
+
+      - id: SpeechCli-Cli-DownloadMirror
+        title: >-
+          The tool shall redirect every model download to an internal mirror base URL supplied
+          via `--mirror-url`, optionally authenticating with HTTP Basic credentials
+          (`--mirror-user`/`--mirror-password`, both required together) or a bearer token
+          (`--mirror-bearer-token`, mutually exclusive with the Basic credential pair), rejecting
+          an invalid mirror URL or an incomplete/conflicting credential combination with a clear
+          error message and a non-zero exit code rather than a stack trace.
+        tags: [system]
+        justification: |
+          A model's public download host (for example `huggingface.co`) may be blocked by
+          network policy on a given machine; without a mirror option, such a machine could never
+          download a model through the tool at all. Validating the mirror configuration eagerly,
+          with a clean error, avoids a confusing failure deep inside the download transport.
+        tests:
+          - Context_CreateMirror_NoMirrorUrl_ReturnsNull
+          - Context_CreateMirror_ValidCredentialedMirror_ReturnsConfiguredMirror
+          - Context_CreateMirror_BearerTokenMirror_ReturnsConfiguredMirror
+          - Context_CreateMirror_InvalidMirrorUrl_ThrowsArgumentException
+          - Context_CreateMirror_MirrorUserWithoutPassword_ThrowsArgumentException
 
       - id: SpeechCli-Cli-VersionDisplay
         title: >-

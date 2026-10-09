@@ -75,9 +75,9 @@ public sealed class SpeechModelCatalogAdapterTests : IDisposable
         // Act
         var descriptors = adapter.Enumerate();
 
-        // Assert: the adapter registers the same four models the application's own composition
-        // root does via AddSherpaModels()
-        Assert.Equal(4, descriptors.Count);
+        // Assert: the adapter registers the same five models the application's own composition
+        // root does via AddSherpaModels().AddKokoroModels()
+        Assert.Equal(5, descriptors.Count);
         Assert.All(descriptors, descriptor => Assert.Equal(SpeechModelState.NotDownloaded, descriptor.State));
     }
 
@@ -128,7 +128,7 @@ public sealed class SpeechModelCatalogAdapterTests : IDisposable
         using var adapter = CliModelCatalogFactory.Create(context);
 
         // Assert: enumerating does not throw and returns the compiled-in known models
-        Assert.Equal(4, adapter.Enumerate().Count);
+        Assert.Equal(5, adapter.Enumerate().Count);
     }
 
     /// <summary>

@@ -25,8 +25,8 @@ namespace DemaConsulting.Speech.Cli.Commands.ModelCommandsSubsystem;
 
 /// <summary>
 ///     Composes a real <see cref="SpeechModelCatalogAdapter"/> honoring the CLI's
-///     <c>--models-dir</c> global option, for use by each model-management command's public
-///     <c>Run(Context)</c> entry point.
+///     <c>--models-dir</c> and <c>--mirror-*</c> global options, for use by each
+///     model-management command's public <c>Run(Context)</c> entry point.
 /// </summary>
 internal static class CliModelCatalogFactory
 {
@@ -47,6 +47,9 @@ internal static class CliModelCatalogFactory
             ? null
             : new SpeechModelStoreOptions { RootPathOverride = context.ModelsDir };
 
-        return new SpeechModelCatalogAdapter(options);
+        var mirror = context.CreateMirror();
+        var downloaderOptions = mirror is null ? null : new SpeechModelDownloaderOptions { Mirror = mirror };
+
+        return new SpeechModelCatalogAdapter(options, downloaderOptions);
     }
 }

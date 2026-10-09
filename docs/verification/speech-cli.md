@@ -87,11 +87,26 @@ Verification_ for the implemented subcommands' own detailed test scenarios.
 ### Global Options Recognized Regardless of Position
 
 **Tests**: `Context_Create_ModelsDirAfterCommand_IsRecognizedAsGlobalOption`,
+`Context_Create_WithMirrorOptions_ParsesOntoContext`,
 `SpeechCli_SilentFlag_Provided_SuppressesOutput`, `SpeechCli_LogFlag_Provided_WritesOutputToFile`
 
 Verifies that a global option appearing after the subcommand name is still recognized as a global
 option (not absorbed into the subcommand's raw argument list), and that `--silent`/`--log`
 actually suppress console output/write a log file respectively.
+
+### Download Mirror Configuration
+
+**Tests**: `Context_CreateMirror_NoMirrorUrl_ReturnsNull`,
+`Context_CreateMirror_ValidCredentialedMirror_ReturnsConfiguredMirror`,
+`Context_CreateMirror_BearerTokenMirror_ReturnsConfiguredMirror`,
+`Context_CreateMirror_InvalidMirrorUrl_ThrowsArgumentException`,
+`Context_CreateMirror_MirrorUserWithoutPassword_ThrowsArgumentException`
+
+Verifies `Context.CreateMirror()` returns `null` when `--mirror-url` is not supplied, builds a
+`DownloadMirror` carrying the configured base URI plus either HTTP Basic credentials or a bearer
+token when they are, and rejects an invalid `--mirror-url` or an incomplete `--mirror-user`/
+`--mirror-password` pairing with a clean `ArgumentException` rather than letting the invalid
+configuration surface later from inside the download transport.
 
 ### Self-Validation
 
