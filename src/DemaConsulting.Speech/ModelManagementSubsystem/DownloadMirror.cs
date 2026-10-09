@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text;
 
 namespace DemaConsulting.Speech.ModelManagementSubsystem;
 
@@ -196,4 +197,24 @@ public sealed record DownloadMirror
     ///     needs no such token.
     /// </summary>
     public string? BearerToken { get; }
+
+    /// <summary>
+    ///     Overrides the compiler-generated member printer used by the record's <c>ToString</c>
+    ///     so <see cref="BearerToken"/> is never written out in full. Without this override, the
+    ///     compiler-generated printer would interpolate <see cref="BearerToken"/> verbatim,
+    ///     silently disclosing the secret through any logging, exception message, or debugger
+    ///     display that calls <c>ToString</c> on this record (or on a containing
+    ///     <see cref="SpeechModelDownloaderOptions"/>). <see cref="Credentials"/> needs no
+    ///     equivalent redaction here: <see cref="NetworkCredential"/> does not override
+    ///     <see cref="object.ToString"/>, so the compiler-generated printer already only ever
+    ///     prints its type name, never the password.
+    /// </summary>
+    /// <param name="builder">The builder the compiler-generated <c>ToString</c> writes members into.</param>
+    /// <returns><see langword="true"/>, so <c>ToString</c> always renders this record's members.</returns>
+    private bool PrintMembers(StringBuilder builder)
+    {
+        builder.Append($"{nameof(BaseUri)} = {BaseUri}, {nameof(Credentials)} = {Credentials}, ");
+        builder.Append($"{nameof(BearerToken)} = {(BearerToken is null ? "null" : "***")}");
+        return true;
+    }
 }

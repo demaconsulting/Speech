@@ -189,4 +189,42 @@ public class DownloadMirrorTests
         // Act & Assert
         Assert.Throws<ArgumentException>(() => new DownloadMirror(baseUri, bearerToken: "secret-token"));
     }
+
+    /// <summary>
+    ///     Proves that <see cref="DownloadMirror.ToString"/> (the compiler-generated record
+    ///     printer) never discloses <see cref="DownloadMirror.BearerToken"/>'s actual value,
+    ///     since logging or interpolating a <see cref="DownloadMirror"/> is otherwise a realistic
+    ///     way for the configured secret to leak into logs.
+    /// </summary>
+    [Fact]
+    public void DownloadMirror_ToString_WithBearerToken_RedactsTokenValue()
+    {
+        // Arrange
+        var mirror = new DownloadMirror(new Uri("https://mirror.internal/models"), bearerToken: "super-secret-token");
+
+        // Act
+        var text = mirror.ToString();
+
+        // Assert
+        Assert.DoesNotContain("super-secret-token", text, StringComparison.Ordinal);
+        Assert.Contains("BearerToken = ***", text, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Proves that <see cref="DownloadMirror.ToString"/> still reports a <see langword="null"/>
+    ///     <see cref="DownloadMirror.BearerToken"/> plainly, rather than always printing the
+    ///     redaction placeholder regardless of whether a token was actually configured.
+    /// </summary>
+    [Fact]
+    public void DownloadMirror_ToString_WithoutBearerToken_PrintsNull()
+    {
+        // Arrange
+        var mirror = new DownloadMirror(new Uri("https://mirror.internal/models"));
+
+        // Act
+        var text = mirror.ToString();
+
+        // Assert
+        Assert.Contains("BearerToken = null", text, StringComparison.Ordinal);
+    }
 }

@@ -1,6 +1,9 @@
 using System.Security.Cryptography;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.Tests.ModelManagementSubsystem.Fakes;
+using WireMock.RequestBuilders;
+using WireMock.ResponseBuilders;
+using WireMock.Server;
 
 namespace DemaConsulting.Speech.Tests.ModelManagementSubsystem;
 
@@ -206,12 +209,15 @@ public sealed class SpeechModelCatalogTests : IDisposable
     }
 
     /// <summary>
-    ///     Proves that the catalog's 3-parameter public constructor accepting
-    ///     <see cref="SpeechModelDownloaderOptions"/> actually forwards a configured
-    ///     <see cref="DownloadMirror"/> through to the download client, via the catalog's real
-    ///     <see cref="SpeechModelCatalog.DownloadAsync"/> orchestration - not just
+    ///     Proves that the catalog's internal, test-only constructor forwards a configured
+    ///     <see cref="DownloadMirror"/> through to an injected download client, via the
+    ///     catalog's real <see cref="SpeechModelCatalog.DownloadAsync"/> orchestration - not just
     ///     <see cref="SpeechModelDownloader"/> constructed and exercised directly, which this
-    ///     overload is not involved in at all.
+    ///     overload is not involved in at all. See
+    ///     <see cref="SpeechModelCatalog_DownloadAsync_MirrorConfigured_ForwardsEffectiveUriThroughPublicConstructor"/>
+    ///     for the equivalent proof against the catalog's public 3-parameter constructor, which
+    ///     this four-argument call does not exercise (it binds to the internal
+    ///     <c>(knownModels, store, client, downloaderOptions, diagnostics)</c> overload).
     /// </summary>
     [Fact]
     public async Task SpeechModelCatalog_DownloadAsync_MirrorConfigured_ForwardsEffectiveUriThroughCatalog()
@@ -233,6 +239,44 @@ public sealed class SpeechModelCatalogTests : IDisposable
         Assert.Equal(SpeechModelDownloadOutcome.Installed, result.Outcome);
         var call = Assert.Single(client.Calls);
         Assert.StartsWith("https://mirror.internal/models/model-mirror-catalog/", call.ToString());
+    }
+
+    /// <summary>
+    ///     Proves that the catalog's public 3-parameter constructor (<see cref="SpeechModelCatalog(SpeechModelStoreOptions,SpeechModelDownloaderOptions,DemaConsulting.Speech.Diagnostics.ISpeechDiagnostics)"/>)
+    ///     - the only catalog composition path a real host can use - genuinely forwards a
+    ///     configured <see cref="DownloadMirror"/> to the internally created
+    ///     <see cref="HttpModelDownloadClient"/>, by downloading from a real in-process
+    ///     <see cref="WireMockServer"/> stubbed at the mirror-rewritten path and asserting the
+    ///     file actually downloads and installs. A regression in this constructor's forwarding
+    ///     (unlike the sibling test above, which only proves the internal test-only constructor)
+    ///     would otherwise go undetected.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelCatalog_DownloadAsync_MirrorConfigured_ForwardsEffectiveUriThroughPublicConstructor()
+    {
+        // Arrange: a stubbed mirror server expecting the mirror-rewritten request path
+        // "{mirrorBase}/{modelId}/model.bin", exactly as SpeechModelDownloader.ResolveEffectiveUri
+        // builds it - never the model's own declared "https://example.test/..." placeholder URI.
+        const string modelId = "model-mirror-public-ctor";
+        var payload = FakeModelDescriptors.Payload;
+        using var server = WireMockServer.Start();
+        server
+            .Given(Request.Create().WithPath($"/{modelId}/model.bin").UsingGet())
+            .RespondWith(Response.Create().WithStatusCode(200).WithBody(payload));
+
+        var model = new FakeRecognitionModel(modelId);
+        var storeOptions = new SpeechModelStoreOptions { RootPathOverride = _testRoot };
+        var mirror = new DownloadMirror(new Uri(server.Urls[0]));
+        var downloaderOptions = new SpeechModelDownloaderOptions { Mirror = mirror };
+        using var catalog = new SpeechModelCatalog(storeOptions, downloaderOptions, diagnostics: null);
+        catalog.AddModels(model);
+
+        // Act
+        var result = await catalog.DownloadAsync(modelId, cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, result.Outcome);
+        Assert.Equal(SpeechModelState.Downloaded, catalog.GetState(modelId));
     }
 
     /// <summary>
