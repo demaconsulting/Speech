@@ -43,22 +43,30 @@ namespace DemaConsulting.Speech.Onnx.Kokoro.ModelManagementSubsystem;
 ///     lineage).
 ///     </para>
 ///     <para>
-///     <b>Voice subset (Stage 1)</b>: this release ships 54 named voices; this class declares
-///     only the two downloaded and verified in this development sandbox so far
-///     (<c>af_heart</c>, <c>am_adam</c>) rather than declaring - and silently failing to install -
-///     52 voices never actually fetched or verified. Adding a further voice later is purely
-///     additive: download and verify its <c>.bin</c> file, add one <see cref="VoiceOrder"/>/
-///     <see cref="VoiceLabels"/> entry and one <see cref="DownloadDescriptor"/> file entry; no
-///     other code in this class needs to change.
+///     <b>Voice subset (Stage 2)</b>: this release ships 54 named voices across multiple
+///     languages; this class declares only its 29 American/British <b>English</b> voices,
+///     because its embedded <see cref="KokoroLexiconPhonemizer"/> only converts English text
+///     to phonemes - feeding, say, the model's Japanese or Mandarin voices through an
+///     English-only phonemizer would mispronounce their own language's text, so those 25
+///     non-English voices are deliberately left undeclared rather than silently mismatched to
+///     a phonemizer that cannot serve them. A later class supporting another source language
+///     would phonemize differently and could then declare its own matching voice subset.
+///     Adding a further English voice later is purely additive: download and verify its
+///     <c>.bin</c> file, add one <see cref="VoiceOrder"/>/<see cref="VoiceLabels"/> entry and
+///     one <see cref="DownloadDescriptor"/> file entry; no other code in this class needs to
+///     change.
 ///     </para>
 ///     <para>
-///     <b>Style vectors are indexed by utterance length, not just voice identity</b>: each voice's
-///     <c>.bin</c> file is a flattened <c>(510, 256)</c> float32 array (522,240 bytes - confirmed
-///     by exact arithmetic against both downloaded voice files:
-///     <c>510 * 256 * 4 bytes = 522,240 bytes</c>), and the row selected for one utterance depends
-///     on that utterance's own phoneme-token count - see
-///     <see cref="OnnxKokoroSynthesisEngine.Generate"/>'s row-selection logic, which mirrors the
-///     proven Python reference pipeline exactly.
+///     <b>Style vectors are indexed by utterance length, not just voice identity</b>: each
+///     voice's <c>.bin</c> file is a flattened <c>(rows, 256)</c> float32 array, and the row
+///     selected for one utterance depends on that utterance's own phoneme-token count - see
+///     <see cref="OnnxKokoroSynthesisEngine.Generate"/>'s row-selection logic, which mirrors
+///     the proven Python reference pipeline exactly. Every named voice (for example
+///     <c>af_heart</c>) is <c>(510, 256)</c> (522,240 bytes - confirmed by exact arithmetic:
+///     <c>510 * 256 * 4 bytes = 522,240 bytes</c>); the one exception is the bundled default
+///     blend voice, <c>af</c> (with no name suffix), which is <c>(512, 256)</c>
+///     (524,288 bytes) - a genuinely different shape confirmed directly against its downloaded
+///     bytes, not a data-entry mistake.
 ///     </para>
 /// </remarks>
 public sealed class OnnxKokoroEnglishSynthesisModel : ISynthesisModel
@@ -78,13 +86,35 @@ public sealed class OnnxKokoroEnglishSynthesisModel : ISynthesisModel
     /// <summary>
     ///     This package's own verified voice subset, in <see cref="DownloadDescriptor"/>/speaker-id
     ///     order (index = the integer speaker id <see cref="ISynthesisModel.ResolveSpeakerId"/>
-    ///     resolves a selection to). See the type-level remarks for why this is a subset of the
-    ///     model's full 54-voice catalog.
+    ///     resolves a selection to). Limited to the model's American/British English voices,
+    ///     because this class's embedded <see cref="KokoroLexiconPhonemizer"/> only phonemizes
+    ///     English text - see the type-level remarks for why the model's remaining
+    ///     non-English-language voices are out of scope for this class.
     /// </summary>
-    private static readonly IReadOnlyList<string> VoiceOrder = ["af_heart", "am_adam"];
+    private static readonly IReadOnlyList<string> VoiceOrder =
+    [
+        "af_heart", "af_alloy", "af_aoede", "af_bella", "af_jessica", "af_kore", "af_nicole",
+        "af_nova", "af_river", "af_sarah", "af_sky", "af",
+        "am_adam", "am_echo", "am_eric", "am_fenrir", "am_liam", "am_michael", "am_onyx",
+        "am_puck", "am_santa",
+        "bf_alice", "bf_emma", "bf_isabella", "bf_lily",
+        "bm_daniel", "bm_fable", "bm_george", "bm_lewis",
+    ];
 
     /// <summary>The human-readable labels shown for each entry in <see cref="VoiceOrder"/>, in the same order.</summary>
-    private static readonly IReadOnlyList<string> VoiceLabels = ["Heart (US female)", "Adam (US male)"];
+    private static readonly IReadOnlyList<string> VoiceLabels =
+    [
+        "Heart (US female)", "Alloy (US female)", "Aoede (US female)", "Bella (US female)",
+        "Jessica (US female)", "Kore (US female)", "Nicole (US female)", "Nova (US female)",
+        "River (US female)", "Sarah (US female)", "Sky (US female)", "Default blend (US female)",
+        "Adam (US male)", "Echo (US male)", "Eric (US male)", "Fenrir (US male)",
+        "Liam (US male)", "Michael (US male)", "Onyx (US male)", "Puck (US male)",
+        "Santa (US male)",
+        "Alice (British female)", "Emma (British female)", "Isabella (British female)",
+        "Lily (British female)",
+        "Daniel (British male)", "Fable (British male)", "George (British male)",
+        "Lewis (British male)",
+    ];
 
     /// <summary>
     ///     The execution provider names this instance attempts, in order, before falling back to
@@ -125,7 +155,7 @@ public sealed class OnnxKokoroEnglishSynthesisModel : ISynthesisModel
     public string Id => ModelId;
 
     /// <inheritdoc/>
-    public string DisplayName => "Kokoro ONNX v1.0 English (fp16, 2 voices)";
+    public string DisplayName => "Kokoro ONNX v1.0 English (fp16, 29 voices)";
 
     /// <summary>
     ///     <inheritdoc/>
@@ -170,7 +200,7 @@ public sealed class OnnxKokoroEnglishSynthesisModel : ISynthesisModel
 
     /// <inheritdoc/>
     /// <remarks>
-    ///     Declares three files: the ONNX model graph and this model's two verified voice style
+    ///     Declares the ONNX model graph plus this model's 29 verified English voice style
     ///     vectors. This model's phoneme vocabulary is not downloaded at all - it is embedded
     ///     directly in this package (see <see cref="KokoroPhonemeVocabulary"/>), since it is small,
     ///     fixed, and versioned together with this class's own token-id handling code. See the
@@ -188,9 +218,117 @@ public sealed class OnnxKokoroEnglishSynthesisModel : ISynthesisModel
             "d583ccff3cdca2f7fae535cb998ac07e9fcb90f09737b9a41fa2734ec44a8f0b",
             "voices/af_heart.bin"),
         new SpeechModelDownloadFile(
+            new Uri("https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/af_alloy.bin"),
+            "c4a6b876047fd7fb472edf4ebd63cfac7c3b958a7cae7c106e8f038ca6308c45",
+            "voices/af_alloy.bin"),
+        new SpeechModelDownloadFile(
+            new Uri("https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/af_aoede.bin"),
+            "4a004c33430762e2461eedb2013fad808ef4ab3121f5300f554476caf58d8361",
+            "voices/af_aoede.bin"),
+        new SpeechModelDownloadFile(
+            new Uri("https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/af_bella.bin"),
+            "f69d836209b78eb8c66e75e3cda491e26ea838a3674257e9d4e5703cbaf55c8b",
+            "voices/af_bella.bin"),
+        new SpeechModelDownloadFile(
+            new Uri("https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/af_jessica.bin"),
+            "a240a5e3c15b43563d6e923bdca8ef5613a23471d9b77653694012435df23bd8",
+            "voices/af_jessica.bin"),
+        new SpeechModelDownloadFile(
+            new Uri("https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/af_kore.bin"),
+            "9be5221b6a941c04b561959b8ff0b06e809444dcc4ab7e75a7b23606f691819e",
+            "voices/af_kore.bin"),
+        new SpeechModelDownloadFile(
+            new Uri("https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/af_nicole.bin"),
+            "cd2191ab31b914ed7b318416b0e4440fdf392ddad9106a060819aa600a64f59a",
+            "voices/af_nicole.bin"),
+        new SpeechModelDownloadFile(
+            new Uri("https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/af_nova.bin"),
+            "18778272caa0d0eebaea251c35fd635f038434f9eee5e691d02a174bd328414f",
+            "voices/af_nova.bin"),
+        new SpeechModelDownloadFile(
+            new Uri("https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/af_river.bin"),
+            "00a2bcf82b1d86e8f19902ede58c65ccf6c0e43b44b7d74fad54e5d8933c9c30",
+            "voices/af_river.bin"),
+        new SpeechModelDownloadFile(
+            new Uri("https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/af_sarah.bin"),
+            "4409fbc125afabacc615d94db5398d847006a737b0247d6892b7a9a0007a2f0a",
+            "voices/af_sarah.bin"),
+        new SpeechModelDownloadFile(
+            new Uri("https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/af_sky.bin"),
+            "4435255c9744f3f31659e0d714ab7689bf65d9e77ec1cce060f083912614f0b9",
+            "voices/af_sky.bin"),
+        new SpeechModelDownloadFile(
+            new Uri("https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/af.bin"),
+            "a4f11d9d055a12bfa0db2668a3e4f0ef8fd1f1ccca69494479718e44dbf9e41a",
+            "voices/af.bin"),
+        new SpeechModelDownloadFile(
             new Uri("https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/am_adam.bin"),
             "162b035ed91cfc48b6046982184c645f72edcdd1b82843347f605d7bf7b15716",
             "voices/am_adam.bin"),
+        new SpeechModelDownloadFile(
+            new Uri("https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/am_echo.bin"),
+            "3968b92c3c4cd1c4416dbded36c13eaa388a90d5788d02a13e4d781f5f8cf3c3",
+            "voices/am_echo.bin"),
+        new SpeechModelDownloadFile(
+            new Uri("https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/am_eric.bin"),
+            "e8b5be17edd1e3636901ce7598baafe2dc8dd8ff707a0c23bf9e461add7e2832",
+            "voices/am_eric.bin"),
+        new SpeechModelDownloadFile(
+            new Uri("https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/am_fenrir.bin"),
+            "c27989f741f7ee34d273a39d8a595cc0837d35f5ced9a29b7cc162614616df43",
+            "voices/am_fenrir.bin"),
+        new SpeechModelDownloadFile(
+            new Uri("https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/am_liam.bin"),
+            "52403be32fd047c6a44517cb0bcd6b134f2a18baa73e70ef41651e0eab921ade",
+            "voices/am_liam.bin"),
+        new SpeechModelDownloadFile(
+            new Uri("https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/am_michael.bin"),
+            "1d1f21dd8da39c30705cd4c75d039d265e9bc4a2a93ed09bc9e1b1225eb95ba1",
+            "voices/am_michael.bin"),
+        new SpeechModelDownloadFile(
+            new Uri("https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/am_onyx.bin"),
+            "da5d135b424164916d75a68ffb4c2abce3d7d5ccc82dd1ee6cf447ce286145e6",
+            "voices/am_onyx.bin"),
+        new SpeechModelDownloadFile(
+            new Uri("https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/am_puck.bin"),
+            "fcf73c989033e9233e0b98713eca600c8c74dcc1614b37009d5450ff4a2274a0",
+            "voices/am_puck.bin"),
+        new SpeechModelDownloadFile(
+            new Uri("https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/am_santa.bin"),
+            "61150cf726ab6c5ed7a99f90a304f91f5a72c00c592e89ec94e5df11c319227a",
+            "voices/am_santa.bin"),
+        new SpeechModelDownloadFile(
+            new Uri("https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/bf_alice.bin"),
+            "08afa6ba24da61ea5e8efa139e5aadc938d83f0a6da5a900adaf763ac1da5573",
+            "voices/bf_alice.bin"),
+        new SpeechModelDownloadFile(
+            new Uri("https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/bf_emma.bin"),
+            "669fe0647f9dd04fcab92f1439a40eeb4c8b4ab1f82e4996fe3d918ce4a63b73",
+            "voices/bf_emma.bin"),
+        new SpeechModelDownloadFile(
+            new Uri("https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/bf_isabella.bin"),
+            "3754352c4aaa46d17f27654ab7518d65b62ad6163a0f55a5f4330c2da2c4e94f",
+            "voices/bf_isabella.bin"),
+        new SpeechModelDownloadFile(
+            new Uri("https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/bf_lily.bin"),
+            "5e0ee32ebe64a467124976b14e69590746f1c4ce41a12b587a50c862edfea335",
+            "voices/bf_lily.bin"),
+        new SpeechModelDownloadFile(
+            new Uri("https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/bm_daniel.bin"),
+            "6b3194bbceffb746733cbc22c8f593dd44e401a71d53895a2dca891bc595a1e8",
+            "voices/bm_daniel.bin"),
+        new SpeechModelDownloadFile(
+            new Uri("https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/bm_fable.bin"),
+            "f889083196807b4adb15e9204252165f503b8d33d3982e681c52443c49d798f1",
+            "voices/bm_fable.bin"),
+        new SpeechModelDownloadFile(
+            new Uri("https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/bm_george.bin"),
+            "c4b235a4c1f2cd3b939fed08b899ce9385638b763f7b73a59616c4fc9bd6c9bc",
+            "voices/bm_george.bin"),
+        new SpeechModelDownloadFile(
+            new Uri("https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/bm_lewis.bin"),
+            "b8f671cef828c30e66fdf0b0756a76bba58f6bb3398cbbf27058642acbcedb97",
+            "voices/bm_lewis.bin"),
     ]);
 #pragma warning restore S1075
 
