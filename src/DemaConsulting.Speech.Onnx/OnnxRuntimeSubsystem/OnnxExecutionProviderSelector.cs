@@ -69,10 +69,14 @@ public static class OnnxExecutionProviderSelector
 
         foreach (var providerName in preferredProviderNames ?? DefaultProviderNames)
         {
+            // SessionOptions owns a native OrtSessionOptions handle. InferenceSession does NOT
+            // take ownership of the options instance passed to it, so this options instance must
+            // always be disposed by this method - whether the session is created successfully or
+            // the provider fails to load - without disposing the returned InferenceSession itself.
+            using var options = new SessionOptions();
+            options.AppendExecutionProvider(providerName);
             try
             {
-                var options = new SessionOptions();
-                options.AppendExecutionProvider(providerName);
                 return new InferenceSession(modelPath, options);
             }
             catch (OnnxRuntimeException)

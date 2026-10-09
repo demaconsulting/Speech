@@ -1,0 +1,42 @@
+---
+# Software Subsystem Requirements for the SpeechOnnxKokoro SynthesisSubsystem
+#
+# These requirements describe the subsystem-level behavior of the SpeechOnnxKokoro
+# SynthesisSubsystem, decomposing the system-level requirements in
+# docs/reqstream/speech-onnx-kokoro.yaml. This subsystem contains a single unit,
+# OnnxKokoroSynthesisEngine, the real raw-ONNX implementation of the Speech library's public
+# ISynthesisBackend seam; all synthesis policy above that seam (Layer 2 rendering, chunking,
+# session state machine, cancellation, fault containment) remains in the Speech library's own
+# SynthesisSubsystem.
+#
+# This package has no automated unit test project (see docs/verification/speech-onnx-kokoro.md);
+# unit-level requirements for OnnxKokoroSynthesisEngine live in
+# docs/reqstream/speech-onnx-kokoro/synthesis-subsystem/onnx-kokoro-synthesis-engine.yaml and omit
+# `tests:` rather than naming a test that doesn't exist.
+
+sections:
+  - title: SpeechOnnxKokoro Requirements
+    sections:
+      - title: SynthesisSubsystem Requirements
+        requirements:
+          - id: SpeechOnnxKokoro-Synthesis-OnnxBackend
+            title: >-
+              The SpeechOnnxKokoro SynthesisSubsystem shall implement the Speech library's
+              ISynthesisBackend seam over Kokoro v1.0's bare ONNX graph run through ONNX Runtime,
+              owning phonemization entirely in managed code, reporting its true fixed output
+              sample rate, and generating audio for a given text, speed, and speaker id.
+            justification: |
+              The Speech library confines every speech-synthesis interop call behind
+              its public ISynthesisBackend seam so its own synthesis policy is verifiable
+              without a native runtime. A real, ONNX-Runtime-backed implementation of that seam
+              is what turns that policy into audible speech for the Kokoro synthesis model this
+              package ships, and unlike sherpa-onnx, this engine must own phonemization itself
+              since the bare ONNX graph performs only the waveform-generation forward pass.
+            children:
+              - SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-Construction
+              - SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-SampleRate
+              - SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-Generate
+              - SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-EmptyPhonemeShortCircuit
+              - SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-StyleVectorSelection
+              - SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-ArgumentValidation
+              - SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-Dispose

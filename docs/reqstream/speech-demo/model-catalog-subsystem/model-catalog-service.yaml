@@ -48,24 +48,49 @@ sections:
                   - ModelCatalogService_DownloadAsync_Installed_RaisesModelInstalledWithCorrectIdAndRole
                   - ModelCatalogService_DownloadAsync_Failed_DoesNotRaiseModelInstalled
 
-              - id: SpeechDemo-Models-MirrorReconfiguration
+              - id: SpeechDemo-Models-MirrorRebuild
                 title: >-
-                  The ModelCatalogSubsystem shall support reconfiguring where every subsequent
-                  download fetches models from, by rebuilding its catalog against a new mirror
-                  (or no mirror) through a host-supplied catalog factory, disposing the catalog
-                  it replaces, and owning the lifetime of every catalog it ever builds; a seam
-                  constructed without a catalog factory shall reject reconfiguration rather than
-                  silently doing nothing.
+                  A ModelCatalogSubsystem seam constructed with a catalog factory shall rebuild
+                  its catalog through that factory, passing the requested mirror (or no mirror),
+                  when its mirror is reconfigured.
                 justification: |
                   The demo's composition root builds its catalog once at startup, but a user
                   behind a network policy that blocks a model's public download host needs to
                   redirect downloads to an internal mirror from the running application, not only
                   via a launch-time argument. Because the library's SpeechModelCatalog cannot be
-                  reconfigured in place, the seam must instead be able to build and swap to an
-                  entirely new one on request.
+                  reconfigured in place, the seam must instead be able to build an entirely new
+                  one on request.
+                tests:
+                  - ModelCatalogService_ApplyMirror_WithFactory_RebuildsCatalogThroughFactory
+
+              - id: SpeechDemo-Models-MirrorRequiresFactory
+                title: >-
+                  A ModelCatalogSubsystem seam constructed without a catalog factory shall reject
+                  both an attempt to supply a null factory and an attempt to reconfigure its
+                  mirror, rather than silently doing nothing.
+                justification: |
+                  A seam built over a single, externally owned catalog has no catalog of its own
+                  to rebuild. Failing fast - at construction for a null factory, and at
+                  ApplyMirror for a seam with no factory at all - makes an unsupported
+                  reconfiguration attempt an immediate, diagnosable programming error instead of a
+                  silent no-op a caller could easily miss.
                 tests:
                   - ModelCatalogService_Constructor_NullCatalogFactory_ThrowsArgumentNullException
                   - ModelCatalogService_ApplyMirror_NoFactory_ThrowsInvalidOperationException
-                  - ModelCatalogService_ApplyMirror_WithFactory_RebuildsCatalogThroughFactory
+
+              - id: SpeechDemo-Models-MirrorCatalogOwnership
+                title: >-
+                  A ModelCatalogSubsystem seam constructed with a catalog factory shall own the
+                  lifetime of every catalog it ever builds, disposing the catalog it replaces
+                  when its mirror is reconfigured and disposing its current catalog when the seam
+                  itself is disposed; a seam constructed without a catalog factory shall never
+                  dispose its externally owned catalog.
+                justification: |
+                  Nothing outside the seam ever sees a catalog built through ApplyMirror, so
+                  nothing else is in a position to dispose it; without this, every mirror change
+                  would leak the catalog it replaced. A seam built over a single, externally
+                  owned catalog must leave that catalog's lifetime to its owner.
+                tests:
+                  - ModelCatalogService_ApplyMirror_WithFactory_DisposesReplacedCatalog
                   - ModelCatalogService_Dispose_WithFactory_DisposesCurrentCatalog
                   - ModelCatalogService_Dispose_WithoutFactory_DoesNotDisposeCatalog

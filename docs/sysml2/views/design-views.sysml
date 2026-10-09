@@ -9,6 +9,8 @@ package Speech {
         expose SpeechDemo;
         expose SpeechCli;
         expose SpeechSherpa;
+        expose SpeechOnnx;
+        expose SpeechOnnxKokoro;
     }
 
     view SpeechView {
@@ -98,6 +100,36 @@ package SpeechSherpa {
     }
 
     view SherpaSynthesisSubsystemView {
+        expose SynthesisSubsystem;
+    }
+}
+
+// SpeechOnnx views. Declared in their own package so each 'expose' statement can reference
+// its target part def directly, exactly as the Speech views above do.
+package SpeechOnnx {
+    view SpeechOnnxView {
+        expose SpeechOnnxSystem;
+    }
+
+    view OnnxRuntimeSubsystemView {
+        expose OnnxRuntimeSubsystem;
+    }
+}
+
+// SpeechOnnxKokoro views. Declared in their own package so each 'expose' statement can reference
+// its target part def directly, exactly as the Speech views above do. The subsystem views carry
+// a 'Kokoro' prefix because rendered SVG filenames are keyed by bare view name, so reusing the
+// Speech/SpeechSherpa subsystem view names would overwrite their own diagrams.
+package SpeechOnnxKokoro {
+    view SpeechOnnxKokoroView {
+        expose SpeechOnnxKokoroSystem;
+    }
+
+    view KokoroModelManagementSubsystemView {
+        expose ModelManagementSubsystem;
+    }
+
+    view KokoroSynthesisSubsystemView {
         expose SynthesisSubsystem;
     }
 }

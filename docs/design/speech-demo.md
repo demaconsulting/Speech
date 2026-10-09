@@ -70,9 +70,12 @@ external interfaces are its user interface and the interfaces it consumes.
 
 ## Dependencies
 
-SpeechDemo has two project dependencies — the Speech library, and the SpeechSherpa library
-whose `AddSherpaModels()` extension method registers the shipped sherpa-onnx models with the
-catalog the demo composes (see _SpeechSherpa Design_) — and the following NuGet dependencies:
+SpeechDemo has three project dependencies — the Speech library; the SpeechSherpa library whose
+`AddSherpaModels()` extension method registers the shipped sherpa-onnx models with the catalog
+the demo composes (see _SpeechSherpa Design_); and the `DemaConsulting.Speech.Onnx.Kokoro`
+library whose `AddKokoroModels()` extension method registers the shipped Kokoro ONNX
+text-to-speech model alongside the SpeechSherpa models in that same catalog (see
+_SpeechOnnxKokoro Design_) — and the following NuGet dependencies:
 
 - **Avalonia** (with `Avalonia.Desktop`, `Avalonia.Themes.Fluent`, and `Avalonia.Fonts.Inter`)
   supplies the cross-platform desktop application host, styling, and view layer;
@@ -100,9 +103,10 @@ N/A - SpeechDemo provides no safety-critical functionality requiring risk contro
 **Start-up composition path:**
 
 1. **Input**: The process entry point configures the Avalonia application host
-2. **Composition**: On framework initialization the application constructs an
-   `AudioDeviceFactory` and a `SpeechModelCatalog` populated through SpeechSherpa's
-   `AddSherpaModels()`, wraps each in its demo-owned service
+2. **Composition**: On framework initialization the application parses `AppLaunchOptions` and
+   constructs an `AudioDeviceFactory` and a `SpeechModelCatalog` populated through SpeechSherpa's
+   `AddSherpaModels()` and SpeechOnnxKokoro's `AddKokoroModels()` (see _Launch Options and
+   Mirror Configuration_), wraps each in its demo-owned service
    adapter, and injects those adapters into the panel view models and the window view model
 3. **Output**: The main window opens on its first panel; the catalog is disposed when the
    desktop lifetime signals shutdown
@@ -162,6 +166,35 @@ N/A - SpeechDemo provides no safety-critical functionality requiring risk contro
 4. **Output**: The trailing partial line is replaced by each new provisional result; a final
    result is committed to the ordered transcript and the partial is cleared; Stop ends the
    session deterministically and releases the recognizer
+
+## Launch Options and Mirror Configuration
+
+`AppLaunchOptions` parses this demo's own small set of launch-time command-line arguments
+(`--models-dir`, `--mirror-url`, `--mirror-user`, `--mirror-password`, `--mirror-bearer-token`,
+and `--help`/`-h`/`-?`), mirroring `DemaConsulting.Speech.Cli`'s global options of the same name
+so a user behind a network policy that blocks a model's public download host can redirect every
+model download to an internal mirror the same way with either tool. `Program.Main` parses
+`args` into an `AppLaunchOptions` before Avalonia's lifetime starts and publishes it through the
+static `App.LaunchOptions` property, since the demo's composition root (`App`) has no
+constructor parameters of its own to carry it through. This demo has no in-app settings dialog,
+so launch-time arguments are the simplest option that remains discoverable (via `--help`) and
+scriptable.
+
+`MirrorOptionsFactory` builds a `DownloadMirror` from raw strings and is shared by
+`AppLaunchOptions` (launch-time arguments) and `ModelCatalogViewModel` (the in-app mirror-settings
+panel described in _SpeechDemo ModelCatalogSubsystem Design_), so both entry points validate
+mirror configuration identically — a mismatched username/password pairing is rejected locally,
+and every other rule (scheme, query/fragment, user-info, credential/bearer-token mutual
+exclusivity, non-loopback-HTTP-with-credentials) is enforced once, by `DownloadMirror`'s own
+constructor, rather than duplicated in either entry point.
+
+`App`'s composition root threads these options through a `CatalogFactory` local function —
+capturing the resolved `SpeechModelStoreOptions` and the `AddSherpaModels()`/`AddKokoroModels()`
+composition — that `ModelCatalogService` (see _SpeechDemo ModelCatalogSubsystem Design_) calls
+again, with freshly resolved downloader options, whenever the user applies new mirror settings
+from the catalog panel. This is what lets the mirror be reconfigured from the running
+application instead of only at launch, without the library's own `SpeechModelCatalog` needing to
+support in-place reconfiguration.
 
 ## Design Constraints
 

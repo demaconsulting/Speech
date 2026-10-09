@@ -257,6 +257,15 @@ parameters the selected model declares (sliders/numeric up-downs, combo boxes, c
 no per-model code in the demo. Model pickers lock while a model is actively recording or
 playing, so you can't switch models mid-session.
 
+The demo accepts the same `--models-dir <path>` and `--mirror-url <url>`/`--mirror-user
+<user>`/`--mirror-password <pass>`/`--mirror-bearer-token <token>` launch options as
+`speech-cli` (see `speech-cli`'s own
+[Downloading from an internal mirror](src/DemaConsulting.Speech.Cli/README.md#downloading-from-an-internal-mirror)
+section for their validation rules), read once at start-up before the main window opens; run
+`dotnet run --project src/DemaConsulting.Speech.Demo -- --help` for the full list. The Model
+Catalog panel's mirror-settings fields also let you change the mirror from the running
+application - no restart required - using the same validation rules.
+
 ## SpeechCli
 
 `speech-cli` is a cross-platform .NET global tool that exposes the library's model management,

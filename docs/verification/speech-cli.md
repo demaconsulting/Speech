@@ -100,13 +100,20 @@ actually suppress console output/write a log file respectively.
 `Context_CreateMirror_ValidCredentialedMirror_ReturnsConfiguredMirror`,
 `Context_CreateMirror_BearerTokenMirror_ReturnsConfiguredMirror`,
 `Context_CreateMirror_InvalidMirrorUrl_ThrowsArgumentException`,
-`Context_CreateMirror_MirrorUserWithoutPassword_ThrowsArgumentException`
+`Context_CreateMirror_MirrorUserWithoutPassword_ThrowsArgumentException`,
+`Context_CreateMirror_BasicCredentialsAndBearerTokenTogether_ThrowsArgumentException`
 
 Verifies `Context.CreateMirror()` returns `null` when `--mirror-url` is not supplied, builds a
 `DownloadMirror` carrying the configured base URI plus either HTTP Basic credentials or a bearer
 token when they are, and rejects an invalid `--mirror-url` or an incomplete `--mirror-user`/
 `--mirror-password` pairing with a clean `ArgumentException` rather than letting the invalid
-configuration surface later from inside the download transport.
+configuration surface later from inside the download transport. The mutually-exclusive-token test
+confirms that supplying both a complete Basic credential pair and a bearer token together is
+rejected rather than silently preferring one over the other - `Context.CreateMirror` forwards
+both to `DownloadMirror`'s constructor, which enforces this exclusivity (along with the mirror
+URL's scheme/query/fragment/user-info shape, the non-empty-bearer-token rule, and the
+non-loopback-`http`-with-credentials rule) - see _Speech ModelManagementSubsystem Design_ for
+`DownloadMirror`'s own full validation rules.
 
 ### Self-Validation
 

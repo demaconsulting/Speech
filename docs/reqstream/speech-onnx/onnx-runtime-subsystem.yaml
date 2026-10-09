@@ -1,0 +1,36 @@
+---
+# Software Subsystem Requirements for the SpeechOnnx OnnxRuntimeSubsystem
+#
+# These requirements describe the subsystem-level behavior of the SpeechOnnx
+# OnnxRuntimeSubsystem, decomposing the system-level requirements in
+# docs/reqstream/speech-onnx.yaml. This subsystem contains a single unit,
+# OnnxExecutionProviderSelector, the library's only generic ONNX Runtime infrastructure.
+#
+# Unit-level content lives in
+# docs/reqstream/speech-onnx/onnx-runtime-subsystem/onnx-execution-provider-selector.yaml. No
+# automated test project exists for this package yet (see docs/verification/speech-onnx.md), so
+# this requirement omits a tests: list rather than naming a test that doesn't exist.
+
+sections:
+  - title: SpeechOnnx Requirements
+    sections:
+      - title: OnnxRuntimeSubsystem Requirements
+        requirements:
+          - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ProviderFallback
+            title: >-
+              The SpeechOnnx OnnxRuntimeSubsystem shall provide a single static helper,
+              OnnxExecutionProviderSelector, that constructs an ONNX Runtime InferenceSession by
+              trying each of an ordered list of preferred execution provider names in turn before
+              falling back to the CPU provider, disposing each candidate's SessionOptions
+              immediately after its own construction attempt without disposing the returned
+              InferenceSession.
+            justification: |
+              Every sibling model package that loads an ONNX model needs identical,
+              once-reviewed provider-selection and resource-disposal behavior; centralizing it
+              here means no model package re-implements (or re-introduces a resource leak in)
+              its own fallback logic.
+            children:
+              - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-TriesCandidatesInOrder
+              - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-FallsBackToCpu
+              - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-DisposesEachCandidateOptions
+              - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ArgumentValidation

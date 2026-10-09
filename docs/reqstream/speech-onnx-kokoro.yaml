@@ -1,0 +1,58 @@
+---
+# Software System Requirements for SpeechOnnxKokoro
+#
+# These requirements describe the externally visible behavior of the SpeechOnnxKokoro library
+# (DemaConsulting.Speech.Onnx.Kokoro) from the perspective of a host application consuming it,
+# without specifying implementation details. SpeechOnnxKokoro is a sibling system to Speech: it
+# supplies a concrete, ONNX-Runtime-backed Kokoro v1.0 text-to-speech model and inference engine
+# through the Speech library's ISynthesisModel extension seam, ships as its own package, and is
+# versioned as part of this repository. The Speech library never depends on it.
+#
+# Note: this package currently has no automated unit test project - see
+# docs/verification/speech-onnx-kokoro.md for the honestly-documented coverage gap. Requirements
+# below describe required behavior regardless of test coverage; their `tests:` lists are omitted
+# rather than naming tests that do not exist, matching docs/reqstream/quality.yaml's convention.
+
+sections:
+  - title: SpeechOnnxKokoro Requirements
+    requirements:
+      - id: SpeechOnnxKokoro-Models-AddKokoroModels
+        title: >-
+          The library shall let a host register its ONNX-Runtime-backed Kokoro v1.0 synthesis
+          model with a Speech library SpeechModelCatalog through a single AddKokoroModels() call
+          that returns the same catalog for chaining.
+        tags: [system]
+        justification: |
+          The Speech library's catalog ships empty and carries no ONNX Runtime dependency, so a
+          host needs one discoverable, opt-in entry point to make this package's model available
+          for enumeration, download, and composition, composable with registrations from any
+          other model package.
+        children:
+          - SpeechOnnxKokoro-Models-CatalogRegistration
+
+      - id: SpeechOnnxKokoro-Models-SynthesisModel
+        title: >-
+          The library shall provide a real, downloadable, ONNX-Runtime-backed English synthesis
+          model implementing the Speech library's ISynthesisModel contract, including selectable
+          voices, and owning its own text-to-phoneme-to-token pipeline.
+        tags: [system]
+        justification: |
+          The real Kokoro v1.0 ONNX export performs only the waveform-generation forward pass;
+          a host needs a real, checksum-verified, installable synthesis model that also owns
+          phonemization and tokenization to perform offline text-to-speech with this model
+          family at all, and voice selection lets a host offer more than a single fixed voice.
+        children:
+          - SpeechOnnxKokoro-Models-RealSynthesisModelWithVoiceSelection
+          - SpeechOnnxKokoro-Models-TextToPhonemePipeline
+
+      - id: SpeechOnnxKokoro-Synthesis-RealBackend
+        title: >-
+          The library shall synthesize audio from text through the Speech library's synthesis
+          pipeline using ONNX Runtime inference over the Kokoro v1.0 model graph.
+        tags: [system]
+        justification: |
+          The Speech library's synthesis policy is verified against a fake backend; only a
+          real, ONNX-Runtime-backed backend turns rendered text into audible speech for this
+          package's synthesis model.
+        children:
+          - SpeechOnnxKokoro-Synthesis-OnnxBackend

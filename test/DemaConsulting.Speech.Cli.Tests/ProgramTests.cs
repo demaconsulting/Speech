@@ -670,4 +670,26 @@ public class ProgramTests
         // Assert
         Assert.Throws<ArgumentException>(() => context.CreateMirror());
     }
+
+    /// <summary>
+    ///     Test that <see cref="Context.CreateMirror"/> rejects supplying both HTTP Basic
+    ///     credentials (<c>--mirror-user</c>/<c>--mirror-password</c>) and a bearer token
+    ///     (<c>--mirror-bearer-token</c>) together, since the two authentication mechanisms are
+    ///     mutually exclusive.
+    /// </summary>
+    [Fact]
+    public void Context_CreateMirror_BasicCredentialsAndBearerTokenTogether_ThrowsArgumentException()
+    {
+        // Act
+        using var context = Context.Create([
+            "list-models",
+            "--mirror-url", "https://mirror.example.com",
+            "--mirror-user", "alice",
+            "--mirror-password", "secret",
+            "--mirror-bearer-token", "token-value"
+        ]);
+
+        // Assert
+        Assert.Throws<ArgumentException>(() => context.CreateMirror());
+    }
 }

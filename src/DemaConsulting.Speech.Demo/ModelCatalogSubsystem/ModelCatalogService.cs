@@ -24,6 +24,14 @@ namespace DemaConsulting.Speech.Demo.ModelCatalogSubsystem;
 ///     each one it later builds via <see cref="ApplyMirror"/>), and disposes whichever one is
 ///     current when this adapter itself is disposed.
 ///     </para>
+///     <para>
+///     <b>Thread safety</b>: <see cref="ApplyMirror"/> and <see cref="Dispose"/> are not safe to
+///     call concurrently with each other or with themselves - both read and then replace the
+///     same current-catalog field with no synchronization, so concurrent calls could race on
+///     which catalog ends up current or disposed. Callers must serialize their own calls to
+///     these two members (for example, as this demo's UI does, by invoking them one at a time
+///     from a single UI thread); this type provides no internal locking of its own.
+///     </para>
 /// </remarks>
 public sealed class ModelCatalogService : IModelCatalogService
 {
@@ -115,6 +123,11 @@ public sealed class ModelCatalogService : IModelCatalogService
     ///     Any download already in progress against the catalog this call replaces runs to
     ///     completion against that (now-detached) catalog rather than being interrupted; only
     ///     subsequent <see cref="DownloadAsync"/> calls observe the new mirror.
+    ///     <para>
+    ///     Not safe to call concurrently with another <see cref="ApplyMirror"/> or
+    ///     <see cref="Dispose"/> call - see this type's remarks for this instance's thread-safety
+    ///     contract.
+    ///     </para>
     /// </remarks>
     public void ApplyMirror(DownloadMirror? mirror)
     {
@@ -138,6 +151,11 @@ public sealed class ModelCatalogService : IModelCatalogService
     ///     lifetime; otherwise this is a no-op, preserving the single-catalog constructor's
     ///     contract that a shared, externally owned catalog outlives this adapter.
     /// </summary>
+    /// <remarks>
+    ///     Not safe to call concurrently with another <see cref="Dispose"/> or
+    ///     <see cref="ApplyMirror"/> call - see this type's remarks for this instance's
+    ///     thread-safety contract.
+    /// </remarks>
     public void Dispose()
     {
         if (_catalogFactory is not null)

@@ -18,7 +18,7 @@ exercises it through `ModelCatalogService`, its sole implementation.
 | `Enumerate()` | `IReadOnlyList<SpeechModelDescriptor>` | Never throws |
 | `DownloadAsync(modelId, progress, cancellationToken)` | `Task<SpeechModelDownloadResult>` | Throws if id unknown |
 | `ModelInstalled` | `event EventHandler<ModelInstalledEventArgs>?` | Raised once a model installs |
-| `ApplyMirror(mirror)` | `void` | Rebuilds the catalog against a new mirror, or `null` to revert to each model's public URI |
+| `ApplyMirror(mirror)` | `void` | Rebuilds the catalog against a new mirror, or `null` to revert to public URIs |
 
 **Key Methods**:
 
@@ -46,6 +46,13 @@ an unknown model id. `ApplyMirror` propagates `ArgumentException` from an invali
 configuration (surfaced by the shared `MirrorOptionsFactory` helper its caller uses to build the
 `DownloadMirror`) and throws `InvalidOperationException` when this service cannot be
 reconfigured.
+
+**Thread Safety**: `ApplyMirror` and `Dispose` are not safe to call concurrently with each other
+or with themselves - both read and then replace the same current-catalog field with no
+synchronization, so concurrent calls could race on which catalog ends up current or disposed.
+This panel invokes both members serially from the UI thread, one command at a time; any other
+caller must provide its own external synchronization. `Enumerate()` and `DownloadAsync` carry no
+such restriction beyond what the underlying `SpeechModelCatalog` itself documents.
 
 **Dependencies**: The library's `SpeechModelCatalog`, `SpeechModelDescriptor`,
 `SpeechModelDownloadResult`, `SpeechModelDownloadOutcome`, `SpeechModelDownloaderOptions`,

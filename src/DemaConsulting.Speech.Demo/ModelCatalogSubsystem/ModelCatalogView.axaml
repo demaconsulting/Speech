@@ -31,7 +31,7 @@
           <TextBlock Grid.Row="2" Grid.Column="0" Text="Password" VerticalAlignment="Center" Margin="0,0,8,4" />
           <TextBox Grid.Row="2" Grid.Column="1" Margin="0,0,0,4" PasswordChar="*" Text="{Binding MirrorPassword}" />
 
-          <TextBlock Grid.Row="3" Grid.Column="0" Text="Bearer token" VerticalAlignment="Center" Margin="0,0,8,4" />
+          <TextBlock Grid.Row="3" Grid.Column="0" Text="Bearer Token" VerticalAlignment="Center" Margin="0,0,8,4" />
           <TextBox Grid.Row="3" Grid.Column="1" Margin="0,0,0,4" PasswordChar="*" Text="{Binding MirrorBearerToken}" />
         </Grid>
 

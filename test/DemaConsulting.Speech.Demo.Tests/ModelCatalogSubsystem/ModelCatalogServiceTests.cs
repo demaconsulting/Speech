@@ -97,6 +97,41 @@ public class ModelCatalogServiceTests
     }
 
     /// <summary>
+    ///     Proves that applying a mirror disposes the catalog it replaces, rather than leaking it
+    ///     for the lifetime of the application.
+    /// </summary>
+    /// <remarks>
+    ///     Uses the same successful-download-first technique as
+    ///     <see cref="ModelCatalogService_Dispose_WithFactory_DisposesCurrentCatalog"/>: a
+    ///     per-model-id lock already exists on the replaced catalog's downloader before
+    ///     <see cref="ModelCatalogService.ApplyMirror"/> runs, so a genuinely disposed replaced
+    ///     catalog surfaces <see cref="ObjectDisposedException"/> from a later download attempt
+    ///     against it directly.
+    /// </remarks>
+    [Fact]
+    public async Task ModelCatalogService_ApplyMirror_WithFactory_DisposesReplacedCatalog()
+    {
+        // Arrange
+        var payload = "genuine model bytes"u8.ToArray();
+        var model = new DownloadableFakeModel("replaced-catalog-probe-model", SpeechModelRole.Synthesis, payload);
+        var store = new SpeechModelStore(IsolatedOptions());
+        var initialCatalog = new SpeechModelCatalog([model], store, new SucceedingModelDownloadClient(payload));
+        var service = new ModelCatalogService(
+            initialCatalog, _ => new SpeechModelCatalog([model], store, new SucceedingModelDownloadClient(payload)));
+
+        // One successful download so the model id's per-model-id lock already exists
+        var firstResult = await initialCatalog.DownloadAsync(model.Id, null, CancellationToken.None);
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, firstResult.Outcome);
+
+        // Act
+        service.ApplyMirror(null);
+
+        // Assert: the replaced catalog is genuinely disposed, not merely detached
+        await Assert.ThrowsAsync<ObjectDisposedException>(
+            () => initialCatalog.DownloadAsync(model.Id, null, CancellationToken.None));
+    }
+
+    /// <summary>
     ///     Proves that disposing a factory-constructed service disposes its current catalog, so
     ///     the composition root does not need to separately track every catalog ever built.
     /// </summary>

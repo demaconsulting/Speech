@@ -218,7 +218,7 @@ internal static class Program
         context.WriteLine("  --mirror-url <url>         Download every model from this internal mirror instead of its public URI");
         context.WriteLine("  --mirror-user <user>       HTTP Basic username for --mirror-url (requires --mirror-password)");
         context.WriteLine("  --mirror-password <pass>   HTTP Basic password for --mirror-url (requires --mirror-user)");
-        context.WriteLine("  --mirror-bearer-token <t>  Bearer token for --mirror-url (mutually exclusive with --mirror-user/--mirror-password)");
+        context.WriteLine("  --mirror-bearer-token <t>  HTTP Bearer token for --mirror-url (mutually exclusive with --mirror-user/--mirror-password)");
         context.WriteLine("  --verbose, --diagnostics   Enable verbose diagnostics output");
         context.WriteLine("");
         context.WriteLine("Commands:");

@@ -1,0 +1,37 @@
+---
+# Software System Requirements for SpeechOnnx
+#
+# These requirements describe the externally visible behavior of the SpeechOnnx library
+# (DemaConsulting.Speech.Onnx) from the perspective of a model package consuming it, without
+# specifying implementation details. SpeechOnnx is a sibling system to Speech: it supplies
+# generic ONNX Runtime infrastructure - today, execution-provider probing and selection - reusable
+# by any ONNX-Runtime-backed model package (for example the sibling
+# DemaConsulting.Speech.Onnx.Kokoro package), and declares zero models itself.
+#
+# No automated test project exists yet for this package (there is no
+# test/DemaConsulting.Speech.Onnx.Tests directory) - see docs/verification/speech-onnx.md for the
+# full, honest statement of this gap. Requirements below describe intended, design-level
+# behavior regardless of test coverage, and omit the tests: list where no test currently proves
+# them, matching the convention already used elsewhere in this repository for requirements with
+# no directly-associated automated test (see docs/reqstream/quality.yaml).
+
+sections:
+  - title: SpeechOnnx Requirements
+    requirements:
+      - id: SpeechOnnx-Runtime-ProviderFallback
+        title: >-
+          The library shall let a model package build an ONNX Runtime InferenceSession that
+          opportunistically prefers an ordered list of accelerated execution providers before
+          falling back to the always-available CPU provider, without requiring the package to
+          reference any provider-specific native runtime at compile time, and without leaking the
+          native SessionOptions resources used to try each candidate.
+        tags: [system]
+        justification: |
+          A raw ONNX model package must run correctly on a machine with no accelerated execution
+          provider installed, and should transparently benefit from one when a consuming
+          application supplies it. Centralizing this fallback and resource-disposal logic in one
+          shared, once-reviewed helper means every model package built on this library gets
+          identical provider-selection behavior rather than duplicating or re-introducing a
+          resource leak in its own code.
+        children:
+          - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ProviderFallback

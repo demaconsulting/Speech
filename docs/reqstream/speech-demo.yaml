@@ -120,13 +120,15 @@ sections:
       - id: SpeechDemo-Models-RealCatalogReporting
         title: >-
           The demo application shall report exactly what the library's host-populated model
-          catalog contains, whether that is the four real models (two recognition, two
-          synthesis) registered via DemaConsulting.Speech.Sherpa's AddSherpaModels() extension
-          or an empty registry for a caller-supplied catalog with none.
+          catalog contains, whether that is the five real models (two recognition, three
+          synthesis) registered via DemaConsulting.Speech.Sherpa's AddSherpaModels() and
+          DemaConsulting.Speech.Onnx.Kokoro's AddKokoroModels() extensions, or an empty registry
+          for a caller-supplied catalog with none.
         tags: [system]
         justification: |
-          The demo's composition root registers the sibling DemaConsulting.Speech.Sherpa
-          package's production models into its SpeechModelCatalog via AddSherpaModels() - core
+          The demo's composition root registers the sibling DemaConsulting.Speech.Sherpa and
+          DemaConsulting.Speech.Onnx.Kokoro packages' production models into its
+          SpeechModelCatalog via AddSherpaModels() and AddKokoroModels() - core
           DemaConsulting.Speech ships zero built-in models - so the demo's catalog panel must
           surface those real models rather than continuing to assert emptiness as the expected
           state. The underlying "explain an empty catalog plainly" capability remains a real,
@@ -136,6 +138,29 @@ sections:
           - SpeechDemo-Models-EmptyCatalogExplanation
         tests:
           - SpeechDemo_SystemIntegration_RealModelCatalog_ReportsKnownModels
+
+      - id: SpeechDemo-Models-MirrorRedirection
+        title: >-
+          The demo application shall let a user redirect every subsequent model download to an
+          internal mirror (or back to each model's own public URI), both at launch and while the
+          application is running, through launch-time arguments and through the model catalog
+          panel's own mirror-settings fields.
+        tags: [system]
+        justification: |
+          A user whose network policy blocks a model's public download host (for example
+          huggingface.co) needs a way to redirect downloads to an internal mirror, matching the
+          capability SpeechCli already offers via its own --mirror-* global options. Offering it
+          both at launch (AppLaunchOptions) and from the running application (the model catalog
+          panel) covers both a scripted/CI launch and interactive use without requiring a
+          restart for the latter.
+        children:
+          - SpeechDemo-Models-MirrorRebuild
+          - SpeechDemo-Models-MirrorRequiresFactory
+          - SpeechDemo-Models-MirrorCatalogOwnership
+          - SpeechDemo-Models-MirrorSettingsUi
+        tests:
+          - ModelCatalogService_ApplyMirror_WithFactory_RebuildsCatalogThroughFactory
+          - ModelCatalogViewModel_ApplyMirror_ValidMirror_ForwardsConfiguredMirrorAndReportsSuccess
 
       - id: SpeechDemo-Settings-PerModelParameters
         title: >-

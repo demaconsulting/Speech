@@ -1,0 +1,94 @@
+---
+# Software Unit Requirements for OnnxKokoroSynthesisEngine
+#
+# These requirements describe the design-level behavior of the OnnxKokoroSynthesisEngine unit,
+# the real raw-ONNX implementation of the Speech library's public ISynthesisBackend seam,
+# decomposing the parent SpeechOnnxKokoro SynthesisSubsystem requirements.
+#
+# This package has no automated unit test project (see docs/verification/speech-onnx-kokoro.md);
+# these requirements describe required behavior regardless of test coverage, and omit `tests:`
+# rather than naming tests that do not exist.
+
+sections:
+  - title: SpeechOnnxKokoro Requirements
+    sections:
+      - title: SynthesisSubsystem Requirements
+        sections:
+          - title: OnnxKokoroSynthesisEngine Requirements
+            requirements:
+              - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-Construction
+                title: >-
+                  The OnnxKokoroSynthesisEngine class shall take ownership of a loaded
+                  InferenceSession, a KokoroPhonemeVocabulary, a KokoroLexiconPhonemizer, and
+                  every installed voice's style-vector bytes keyed by speaker id, supplied by a
+                  synthesis model's own CreateBackend implementation.
+                justification: |
+                  The synthesis model owns the engine configuration (which session, which
+                  voices) for its own architecture; the engine must accept exactly that
+                  configuration so that adding a synthesis model never requires changing the
+                  synthesis backend.
+
+              - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-SampleRate
+                title: >-
+                  The OnnxKokoroSynthesisEngine class shall report the model's own fixed output
+                  sample rate (24000 Hz) through ISynthesisBackend.SampleRate.
+                justification: |
+                  A synthesis model's PreferredAudioFormat is only a best-effort hint; the
+                  engine's own declared rate is the authoritative rate the Speech library's
+                  synthesis session must resample from.
+
+              - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-Generate
+                title: >-
+                  The OnnxKokoroSynthesisEngine class shall generate one audio buffer for a
+                  given text, speed, and speaker id by phonemizing the text, converting the
+                  phonemes to padded token ids, selecting the requested voice's style vector, and
+                  running a single ONNX Runtime forward pass, returning the generated samples
+                  together with their sample rate.
+                justification: |
+                  The Speech library's synthesis session drives the backend one rendered segment
+                  at a time and needs the generated samples and their rate to resample and play
+                  them through the configured audio output device; this is the only path in this
+                  package connecting managed-code phonemization to real ONNX Runtime inference.
+
+              - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-EmptyPhonemeShortCircuit
+                title: >-
+                  The OnnxKokoroSynthesisEngine class's Generate method shall return an empty
+                  EngineAudio without running the ONNX graph when phonemization produces zero
+                  tokens.
+                justification: |
+                  Running the ONNX graph on a content-free, all-padding input would waste
+                  inference cost and risk producing meaningless noise; recognizing the empty
+                  case directly is cheaper and more predictable.
+
+              - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-StyleVectorSelection
+                title: >-
+                  The OnnxKokoroSynthesisEngine class shall select a voice's style-vector row
+                  indexed by the utterance's phoneme-token count, clamped to the voice's own row
+                  count, and shall fall back to the first available voice for an unrecognized
+                  speaker id rather than throwing.
+                justification: |
+                  Kokoro's style vectors are indexed by utterance phoneme-token length, not
+                  merely by voice identity, exactly mirroring the proven Python reference
+                  pipeline's own voices[len(ids)] lookup; falling back for an unrecognized
+                  speaker id defends this engine even against a speaker id supplied from outside
+                  ISynthesisModel.ResolveSpeakerId's own guarantee.
+
+              - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-ArgumentValidation
+                title: >-
+                  The OnnxKokoroSynthesisEngine class's Generate method shall throw
+                  ArgumentNullException for a null text argument and ObjectDisposedException
+                  after the engine has been disposed.
+                justification: |
+                  A programming error (null text or use after disposal) should surface
+                  immediately with a clear exception, matching this repository's existing
+                  argument-validation convention, rather than an opaque failure inside ONNX
+                  Runtime.
+
+              - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-Dispose
+                title: >-
+                  The OnnxKokoroSynthesisEngine class shall release the loaded InferenceSession
+                  on Dispose, and a second Dispose call shall be a no-op.
+                justification: |-
+                  The loaded session holds native memory sized to a multi-hundred-megabyte
+                  model, so it must be released deterministically when the owning synthesizer
+                  engine is disposed, and idempotent disposal keeps teardown paths safe.

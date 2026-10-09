@@ -72,6 +72,11 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\DemaConsulting.Speech.Demo\DemaConsulting.Speech.Demo.csproj" />
     <ProjectReference Include="..\..\src\DemaConsulting.Speech.Sherpa\DemaConsulting.Speech.Sherpa.csproj" />
+    <!-- Needed only so SpeechDemoTests can compose the catalog exactly as the demo's own
+         composition root does (AddSherpaModels().AddKokoroModels()), proving the real-catalog
+         model count the demo reports includes the Kokoro ONNX synthesis model, not merely the
+         Sherpa models. -->
+    <ProjectReference Include="..\..\src\DemaConsulting.Speech.Onnx.Kokoro\DemaConsulting.Speech.Onnx.Kokoro.csproj" />
   </ItemGroup>
 
 </Project>

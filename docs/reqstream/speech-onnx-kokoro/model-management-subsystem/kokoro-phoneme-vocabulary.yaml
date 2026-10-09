@@ -1,0 +1,38 @@
+---
+# Software Unit Requirements for KokoroPhonemeVocabulary
+#
+# These requirements describe the design-level behavior of the KokoroPhonemeVocabulary unit,
+# decomposing the parent SpeechOnnxKokoro ModelManagementSubsystem requirements.
+#
+# This package has no automated unit test project (see docs/verification/speech-onnx-kokoro.md);
+# these requirements describe required behavior regardless of test coverage, and omit `tests:`
+# rather than naming tests that do not exist.
+
+sections:
+  - title: SpeechOnnxKokoro Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        sections:
+          - title: KokoroPhonemeVocabulary Requirements
+            requirements:
+              - id: SpeechOnnxKokoro-Models-KokoroPhonemeVocabulary-ToTokenIds
+                title: >-
+                  The KokoroPhonemeVocabulary class shall convert a phoneme string into the
+                  model's ordered integer token id sequence using its embedded character-level
+                  vocabulary, dropping any character absent from the vocabulary and truncating
+                  the result to at most 510 entries.
+                justification: |
+                  The ONNX model's input_ids tensor requires integer token ids, not characters;
+                  this conversion must exactly match the proven Python reference pipeline's own
+                  per-character lookup-and-drop behavior for synthesized audio to be correct,
+                  and must respect the model's 512-token context window (with 2 reserved for
+                  the leading/trailing pad token the caller adds).
+
+              - id: SpeechOnnxKokoro-Models-KokoroPhonemeVocabulary-ArgumentValidation
+                title: >-
+                  The KokoroPhonemeVocabulary class's ToTokenIds method shall throw
+                  ArgumentNullException for a null phonemes argument.
+                justification: |-
+                  A programming error (null phonemes) should surface immediately with a clear,
+                  cheap-to-diagnose exception rather than a null-reference failure deeper in
+                  conversion.

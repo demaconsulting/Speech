@@ -97,7 +97,7 @@ factory.
 
 **Expected**: `ArgumentNullException`.
 
-**Requirement coverage**: `SpeechDemo-Models-MirrorReconfiguration`.
+**Requirement coverage**: `SpeechDemo-Models-MirrorRequiresFactory`.
 
 #### ModelCatalogService_ApplyMirror_NoFactory_ThrowsInvalidOperationException
 
@@ -107,7 +107,7 @@ constructor.
 **Expected**: `InvalidOperationException`, so a service that cannot be reconfigured says so
 rather than silently doing nothing.
 
-**Requirement coverage**: `SpeechDemo-Models-MirrorReconfiguration`.
+**Requirement coverage**: `SpeechDemo-Models-MirrorRequiresFactory`.
 
 #### ModelCatalogService_ApplyMirror_WithFactory_RebuildsCatalogThroughFactory
 
@@ -116,7 +116,18 @@ rather than silently doing nothing.
 **Expected**: The factory is invoked with downloader options carrying the requested mirror, and
 the adapter's subsequent enumeration reflects the rebuilt catalog.
 
-**Requirement coverage**: `SpeechDemo-Models-MirrorReconfiguration`.
+**Requirement coverage**: `SpeechDemo-Models-MirrorRebuild`.
+
+#### ModelCatalogService_ApplyMirror_WithFactory_DisposesReplacedCatalog
+
+**Scenario**: `ApplyMirror` is called on an adapter built with a catalog factory, after a prior
+download on the original catalog has seeded a per-model lock.
+
+**Expected**: The catalog `ApplyMirror` just replaced is genuinely disposed, rather than merely
+detached and leaked, proven by a later direct download attempt against it surfacing
+`ObjectDisposedException`.
+
+**Requirement coverage**: `SpeechDemo-Models-MirrorCatalogOwnership`.
 
 #### ModelCatalogService_Dispose_WithFactory_DisposesCurrentCatalog
 
@@ -126,7 +137,7 @@ seeded a per-model lock.
 **Expected**: The current catalog is genuinely disposed, proving a factory-constructed adapter
 owns every catalog it ever points to.
 
-**Requirement coverage**: `SpeechDemo-Models-MirrorReconfiguration`.
+**Requirement coverage**: `SpeechDemo-Models-MirrorCatalogOwnership`.
 
 #### ModelCatalogService_Dispose_WithoutFactory_DoesNotDisposeCatalog
 
@@ -135,7 +146,7 @@ owns every catalog it ever points to.
 **Expected**: The shared catalog is left usable, preserving the existing "does not dispose a
 catalog it does not own" contract.
 
-**Requirement coverage**: `SpeechDemo-Models-MirrorReconfiguration`.
+**Requirement coverage**: `SpeechDemo-Models-MirrorCatalogOwnership`.
 
 #### ModelCatalogViewModel_Constructor_NullService_ThrowsArgumentNullException
 
@@ -268,14 +279,6 @@ guarantees a canceled download installs nothing.
 **Scenario**: A download is requested for an already-installed model.
 
 **Expected**: No download is started, so working installed content is never disturbed.
-
-**Requirement coverage**: `SpeechDemo-Models-DownloadGuard`.
-
-#### ModelCatalogViewModel_DownloadAsync_NullModel_DoesNothing
-
-**Scenario**: The download command is invoked with no selected row.
-
-**Expected**: Nothing happens and nothing throws.
 
 **Requirement coverage**: `SpeechDemo-Models-DownloadGuard`.
 
@@ -432,10 +435,13 @@ a bound row cannot go stale mid-download.
 - **`SpeechDemo-Models-InstallNotification`**:
   `ModelCatalogService_DownloadAsync_Installed_RaisesModelInstalledWithCorrectIdAndRole`,
   `ModelCatalogService_DownloadAsync_Failed_DoesNotRaiseModelInstalled`
-- **`SpeechDemo-Models-MirrorReconfiguration`**:
+- **`SpeechDemo-Models-MirrorRebuild`**:
+  `ModelCatalogService_ApplyMirror_WithFactory_RebuildsCatalogThroughFactory`
+- **`SpeechDemo-Models-MirrorRequiresFactory`**:
   `ModelCatalogService_Constructor_NullCatalogFactory_ThrowsArgumentNullException`,
-  `ModelCatalogService_ApplyMirror_NoFactory_ThrowsInvalidOperationException`,
-  `ModelCatalogService_ApplyMirror_WithFactory_RebuildsCatalogThroughFactory`,
+  `ModelCatalogService_ApplyMirror_NoFactory_ThrowsInvalidOperationException`
+- **`SpeechDemo-Models-MirrorCatalogOwnership`**:
+  `ModelCatalogService_ApplyMirror_WithFactory_DisposesReplacedCatalog`,
   `ModelCatalogService_Dispose_WithFactory_DisposesCurrentCatalog`,
   `ModelCatalogService_Dispose_WithoutFactory_DoesNotDisposeCatalog`
 - **`SpeechDemo-Models-MirrorSettingsUi`**:

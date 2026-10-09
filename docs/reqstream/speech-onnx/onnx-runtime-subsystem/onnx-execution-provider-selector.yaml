@@ -1,0 +1,68 @@
+---
+# Software Unit Requirements for OnnxExecutionProviderSelector
+#
+# These requirements describe the design-level behavior of the OnnxExecutionProviderSelector
+# unit, decomposing the parent SpeechOnnx OnnxRuntimeSubsystem requirements.
+#
+# No automated test project exists for this package yet (there is no
+# test/DemaConsulting.Speech.Onnx.Tests directory) - see
+# docs/verification/speech-onnx/onnx-runtime-subsystem/onnx-execution-provider-selector.md for
+# the full, honest statement of this gap. Requirements below describe intended, design-level
+# behavior and omit the tests: list rather than naming a test that doesn't exist, matching the
+# convention already used elsewhere in this repository for requirements with no directly
+# associated automated test (see docs/reqstream/quality.yaml).
+
+sections:
+  - title: SpeechOnnx Requirements
+    sections:
+      - title: OnnxRuntimeSubsystem Requirements
+        sections:
+          - title: OnnxExecutionProviderSelector Requirements
+            requirements:
+              - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-TriesCandidatesInOrder
+                title: >-
+                  The OnnxExecutionProviderSelector class shall try each preferred execution
+                  provider name, in the caller-supplied order, by constructing a real
+                  InferenceSession for the given model path with that provider appended to a
+                  fresh SessionOptions, returning the session from the first candidate that
+                  constructs successfully.
+                justification: |
+                  A caller may supply more than one accelerated provider in priority order (for
+                  example a preferred GPU provider followed by a secondary one); this unit must
+                  honor that order rather than picking an arbitrary available candidate, so a
+                  caller's own prioritization is respected.
+
+              - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-FallsBackToCpu
+                title: >-
+                  The OnnxExecutionProviderSelector class shall fall back to the built-in CPU
+                  provider, with no explicit execution provider appended, when every preferred
+                  candidate fails to construct, and this CPU fallback shall never itself throw
+                  due to an unavailable accelerated provider.
+                justification: |
+                  A model package must still load and run correctly on a machine with no
+                  accelerated execution provider installed at all; the CPU provider ships inside
+                  the base Microsoft.ML.OnnxRuntime package this library references and is
+                  therefore always available as a guaranteed-success final candidate.
+
+              - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-DisposesEachCandidateOptions
+                title: >-
+                  The OnnxExecutionProviderSelector class shall dispose each candidate's
+                  SessionOptions immediately after that candidate's own InferenceSession
+                  construction attempt completes, whether the attempt succeeds or throws, and
+                  shall not dispose the InferenceSession it returns on success.
+                justification: |
+                  SessionOptions owns a native OrtSessionOptions handle that InferenceSession
+                  does not take ownership of; failing to dispose it after a failed or successful
+                  construction attempt leaks a native resource for every candidate tried. The
+                  returned InferenceSession remains the caller's own responsibility to dispose,
+                  since the caller - not this method - owns its lifetime.
+
+              - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ArgumentValidation
+                title: >-
+                  The OnnxExecutionProviderSelector class's Create method shall throw
+                  ArgumentException for a null or empty model path, before attempting any
+                  execution provider.
+                justification: |-
+                  A programming error (null or empty model path) should surface immediately with
+                  a clear, cheap-to-diagnose exception rather than an opaque native-layer failure
+                  from attempting to load a non-existent model.

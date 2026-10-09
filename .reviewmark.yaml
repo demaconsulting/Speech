@@ -1150,7 +1150,10 @@ reviews:
       - "docs/verification/speech-demo.md"                                  # system verification
       - "src/DemaConsulting.Speech.Demo/Program.cs"                         # process entry point
       - "src/DemaConsulting.Speech.Demo/App.axaml.cs"                       # composition root
+      - "src/DemaConsulting.Speech.Demo/AppLaunchOptions.cs"                # launch-time options parsing
+      - "src/DemaConsulting.Speech.Demo/MirrorOptionsFactory.cs"            # shared mirror-option validation
       - "test/DemaConsulting.Speech.Demo.Tests/SpeechDemoTests.cs"          # integration tests
+      - "test/DemaConsulting.Speech.Demo.Tests/AppLaunchOptionsTests.cs"    # launch-option parsing tests
       - "test/DemaConsulting.Speech.Demo.Tests/Fakes/**/*.cs"               # shared test doubles
 
   # SpeechDemo-Design Review (one per system)
@@ -1248,7 +1251,7 @@ reviews:
     paths:
       - "docs/reqstream/speech-demo/model-catalog-subsystem/model-catalog-view-model.yaml"
       - "docs/design/speech-demo/model-catalog-subsystem/model-catalog-view-model.md"
-      - "docs/verification/speech-demo/model-catalog-subsystem/model-catalog-view-model.md"
+      - "docs/verification/speech-demo/model-catalog-subsystem.md"
       - "src/DemaConsulting.Speech.Demo/ModelCatalogSubsystem/ModelCatalogViewModel.cs"
       - "src/DemaConsulting.Speech.Demo/ModelCatalogSubsystem/ModelCatalogView.axaml.cs"
       - "test/DemaConsulting.Speech.Demo.Tests/ModelCatalogSubsystem/ModelCatalogViewModelTests.cs"
@@ -1457,6 +1460,191 @@ reviews:
       - "docs/verification/speech-cli/conversation-command-subsystem.md"                    # subsystem verification
       - "src/DemaConsulting.Speech.Cli/Commands/ConversationCommandSubsystem/**/*.cs"        # subsystem source
       - "test/DemaConsulting.Speech.Cli.Tests/Commands/ConversationCommandSubsystem/**/*.cs"  # subsystem tests
+
+  # SpeechOnnx-Architecture Review (one per system)
+  - id: SpeechOnnx-Architecture
+    title: Review that SpeechOnnx Architecture Satisfies Requirements
+    context:
+      - "README.md"
+      - "docs/user_guide/**/*.md"
+    paths:
+      - "docs/reqstream/speech-onnx.yaml"                        # system requirements
+      - "docs/design/speech-onnx.md"                             # system design
+      - "docs/verification/speech-onnx.md"                       # system verification
+
+  # SpeechOnnx-Design Review (one per system)
+  - id: SpeechOnnx-Design
+    title: Review that SpeechOnnx Design is Consistent and Complete
+    context:
+      - "docs/reqstream/speech-onnx.yaml"
+    paths:
+      - "docs/design/speech-onnx.md"                             # system design
+      - "docs/design/speech-onnx/**/*.md"                        # all system design documents
+
+  # SpeechOnnx-Verification Review (one per system)
+  - id: SpeechOnnx-Verification
+    title: Review that SpeechOnnx Verification is Consistent and Complete
+    context:
+      - "docs/reqstream/speech-onnx.yaml"
+    paths:
+      - "docs/verification/speech-onnx.md"                       # system verification
+      - "docs/verification/speech-onnx/**/*.md"                  # all verification documents
+
+  # SpeechOnnx-AllRequirements Review (one per system)
+  - id: SpeechOnnx-AllRequirements
+    title: Review that All SpeechOnnx Requirements are Complete
+    context:
+      - "docs/design/speech-onnx.md"
+      - "docs/reqstream/speech-onnx.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx/**/*.yaml"                   # SpeechOnnx subsystem/unit requirements files
+
+  # SpeechOnnx-OnnxRuntimeSubsystem Review (one per subsystem)
+  - id: SpeechOnnx-OnnxRuntimeSubsystem
+    title: >-
+      Review that SpeechOnnx OnnxRuntimeSubsystem Satisfies Subsystem Requirements
+      (note: this subsystem has exactly one unit, OnnxExecutionProviderSelector; its
+      requirements/design/verification/source are intentionally folded into this
+      subsystem-level set rather than split into a redundant single-unit review-set;
+      note also that no automated test project exists yet for DemaConsulting.Speech.Onnx,
+      a known pre-existing gap recorded in docs/verification/speech-onnx.md)
+    context:
+      - "docs/design/speech-onnx.md"
+      - "docs/reqstream/speech-onnx.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx/onnx-runtime-subsystem.yaml"
+      - "docs/reqstream/speech-onnx/onnx-runtime-subsystem/onnx-execution-provider-selector.yaml"
+      - "docs/design/speech-onnx/onnx-runtime-subsystem.md"
+      - "docs/design/speech-onnx/onnx-runtime-subsystem/onnx-execution-provider-selector.md"
+      - "docs/verification/speech-onnx/onnx-runtime-subsystem.md"
+      - "docs/verification/speech-onnx/onnx-runtime-subsystem/onnx-execution-provider-selector.md"
+      - "src/DemaConsulting.Speech.Onnx/OnnxRuntimeSubsystem/OnnxExecutionProviderSelector.cs"
+
+  # SpeechOnnxKokoro-Architecture Review (one per system)
+  - id: SpeechOnnxKokoro-Architecture
+    title: Review that SpeechOnnxKokoro Architecture Satisfies Requirements
+    context:
+      - "README.md"
+      - "docs/user_guide/**/*.md"
+    paths:
+      - "docs/reqstream/speech-onnx-kokoro.yaml"                 # system requirements
+      - "docs/design/speech-onnx-kokoro.md"                      # system design
+      - "docs/verification/speech-onnx-kokoro.md"                # system verification
+
+  # SpeechOnnxKokoro-Design Review (one per system)
+  - id: SpeechOnnxKokoro-Design
+    title: Review that SpeechOnnxKokoro Design is Consistent and Complete
+    context:
+      - "docs/reqstream/speech-onnx-kokoro.yaml"
+    paths:
+      - "docs/design/speech-onnx-kokoro.md"                      # system design
+      - "docs/design/speech-onnx-kokoro/**/*.md"                 # all system design documents
+
+  # SpeechOnnxKokoro-Verification Review (one per system)
+  - id: SpeechOnnxKokoro-Verification
+    title: Review that SpeechOnnxKokoro Verification is Consistent and Complete
+    context:
+      - "docs/reqstream/speech-onnx-kokoro.yaml"
+    paths:
+      - "docs/verification/speech-onnx-kokoro.md"                # system verification
+      - "docs/verification/speech-onnx-kokoro/**/*.md"           # all verification documents
+
+  # SpeechOnnxKokoro-AllRequirements Review (one per system)
+  - id: SpeechOnnxKokoro-AllRequirements
+    title: Review that All SpeechOnnxKokoro Requirements are Complete
+    context:
+      - "docs/design/speech-onnx-kokoro.md"
+      - "docs/reqstream/speech-onnx-kokoro.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-kokoro/**/*.yaml"            # SpeechOnnxKokoro subsystem/unit requirements files
+
+  # SpeechOnnxKokoro-ModelManagementSubsystem Review (one per subsystem)
+  - id: SpeechOnnxKokoro-ModelManagementSubsystem
+    title: >-
+      Review that SpeechOnnxKokoro ModelManagementSubsystem Satisfies Subsystem
+      Requirements (covers only SpeechModelCatalogKokoroExtensions, documented as a
+      subsystem unit per SpeechSherpa's SpeechModelCatalogSherpaExtensions convention;
+      note also that no automated test project exists yet for
+      DemaConsulting.Speech.Onnx.Kokoro, a known pre-existing gap recorded in
+      docs/verification/speech-onnx-kokoro.md)
+    context:
+      - "docs/design/speech-onnx-kokoro.md"
+      - "docs/reqstream/speech-onnx-kokoro.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-kokoro/model-management-subsystem.yaml"          # subsystem requirements
+      - "docs/design/speech-onnx-kokoro/model-management-subsystem.md"               # subsystem design
+      - "docs/verification/speech-onnx-kokoro/model-management-subsystem.md"         # subsystem verification
+      - "src/DemaConsulting.Speech.Onnx.Kokoro/SpeechModelCatalogKokoroExtensions.cs"
+
+  # SpeechOnnxKokoro-ModelManagementSubsystem-OnnxKokoroEnglishSynthesisModel Review (one per unit)
+  - id: SpeechOnnxKokoro-ModelManagementSubsystem-OnnxKokoroEnglishSynthesisModel
+    title: >-
+      Review that SpeechOnnxKokoro ModelManagementSubsystem
+      OnnxKokoroEnglishSynthesisModel Implementation is Correct
+    context:
+      - "docs/design/speech-onnx-kokoro.md"
+      - "docs/design/speech-onnx-kokoro/model-management-subsystem.md"
+      - "docs/reqstream/speech-onnx-kokoro.yaml"
+      - "docs/reqstream/speech-onnx-kokoro/model-management-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-kokoro/model-management-subsystem/onnx-kokoro-english-synthesis-model.yaml"
+      - "docs/design/speech-onnx-kokoro/model-management-subsystem/onnx-kokoro-english-synthesis-model.md"
+      - "docs/verification/speech-onnx-kokoro/model-management-subsystem/onnx-kokoro-english-synthesis-model.md"
+      - "src/DemaConsulting.Speech.Onnx.Kokoro/ModelManagementSubsystem/OnnxKokoroEnglishSynthesisModel.cs"
+
+  # SpeechOnnxKokoro-ModelManagementSubsystem-KokoroLexiconPhonemizer Review (one per unit)
+  - id: SpeechOnnxKokoro-ModelManagementSubsystem-KokoroLexiconPhonemizer
+    title: >-
+      Review that SpeechOnnxKokoro ModelManagementSubsystem
+      KokoroLexiconPhonemizer Implementation is Correct
+    context:
+      - "docs/design/speech-onnx-kokoro.md"
+      - "docs/design/speech-onnx-kokoro/model-management-subsystem.md"
+      - "docs/reqstream/speech-onnx-kokoro.yaml"
+      - "docs/reqstream/speech-onnx-kokoro/model-management-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-kokoro/model-management-subsystem/kokoro-lexicon-phonemizer.yaml"
+      - "docs/design/speech-onnx-kokoro/model-management-subsystem/kokoro-lexicon-phonemizer.md"
+      - "docs/verification/speech-onnx-kokoro/model-management-subsystem/kokoro-lexicon-phonemizer.md"
+      - "src/DemaConsulting.Speech.Onnx.Kokoro/ModelManagementSubsystem/KokoroLexiconPhonemizer.cs"
+
+  # SpeechOnnxKokoro-ModelManagementSubsystem-KokoroPhonemeVocabulary Review (one per unit)
+  - id: SpeechOnnxKokoro-ModelManagementSubsystem-KokoroPhonemeVocabulary
+    title: >-
+      Review that SpeechOnnxKokoro ModelManagementSubsystem
+      KokoroPhonemeVocabulary Implementation is Correct
+    context:
+      - "docs/design/speech-onnx-kokoro.md"
+      - "docs/design/speech-onnx-kokoro/model-management-subsystem.md"
+      - "docs/reqstream/speech-onnx-kokoro.yaml"
+      - "docs/reqstream/speech-onnx-kokoro/model-management-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-kokoro/model-management-subsystem/kokoro-phoneme-vocabulary.yaml"
+      - "docs/design/speech-onnx-kokoro/model-management-subsystem/kokoro-phoneme-vocabulary.md"
+      - "docs/verification/speech-onnx-kokoro/model-management-subsystem/kokoro-phoneme-vocabulary.md"
+      - "src/DemaConsulting.Speech.Onnx.Kokoro/ModelManagementSubsystem/KokoroPhonemeVocabulary.cs"
+
+  # SpeechOnnxKokoro-SynthesisSubsystem Review (one per subsystem)
+  - id: SpeechOnnxKokoro-SynthesisSubsystem
+    title: >-
+      Review that SpeechOnnxKokoro SynthesisSubsystem Satisfies Subsystem Requirements
+      (note: this subsystem has exactly one unit, OnnxKokoroSynthesisEngine; its
+      requirements/design/verification/source are intentionally folded into this
+      subsystem-level set rather than split into a redundant single-unit review-set;
+      note also that no automated test project exists yet for
+      DemaConsulting.Speech.Onnx.Kokoro, a known pre-existing gap recorded in
+      docs/verification/speech-onnx-kokoro.md)
+    context:
+      - "docs/design/speech-onnx-kokoro.md"
+      - "docs/reqstream/speech-onnx-kokoro.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-kokoro/synthesis-subsystem.yaml"
+      - "docs/reqstream/speech-onnx-kokoro/synthesis-subsystem/onnx-kokoro-synthesis-engine.yaml"
+      - "docs/design/speech-onnx-kokoro/synthesis-subsystem.md"
+      - "docs/design/speech-onnx-kokoro/synthesis-subsystem/onnx-kokoro-synthesis-engine.md"
+      - "docs/verification/speech-onnx-kokoro/synthesis-subsystem.md"
+      - "docs/verification/speech-onnx-kokoro/synthesis-subsystem/onnx-kokoro-synthesis-engine.md"
+      - "src/DemaConsulting.Speech.Onnx.Kokoro/SynthesisSubsystem/OnnxKokoroSynthesisEngine.cs"
 
   # OTS-PortAudioSharp2 Review (one per OTS item)
   - id: OTS-PortAudioSharp2

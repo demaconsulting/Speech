@@ -38,6 +38,29 @@ Supplying a token that resolves to neither a global option nor a known subcomman
 `ArgumentException`, which `Program.Main` reports as a clean, non-zero-exit-code error - the same
 convention the template already uses for its own unsupported-argument case.
 
+### Download Mirror Options
+
+`Context.Create(args)` also resolves four further global options, recognized at the same
+any-position precedence as every other global option: `--mirror-url <url>`, `--mirror-user
+<user>`, `--mirror-password <pass>`, and `--mirror-bearer-token <t>`. These exist for an operator
+whose network policy blocks a model's public download host (for example `huggingface.co`) and
+needs every download redirected to an internal mirror instead, without changing (or even knowing)
+any individual model's hardcoded public URI.
+
+`Context.CreateMirror()` resolves these four raw strings into a `DownloadMirror` (or `null` when
+`--mirror-url` was not supplied), which every model-management subcommand that downloads a model
+passes to the library's `SpeechModelDownloaderOptions`. It performs no validation itself beyond
+checking that `--mirror-url` parses as an absolute URI and that `--mirror-user`/
+`--mirror-password` were supplied together (both as a fast, CLI-local check before constructing
+`DownloadMirror`); every other validation rule - the mirror's scheme must be `http` or `https`
+with no query string, fragment, or user-info component; `--mirror-user`/`--mirror-bearer-token`
+are mutually exclusive; a supplied bearer token must not be empty or whitespace-only; and a
+credentialed mirror must use `https` unless its host is a loopback address - is enforced once,
+centrally, by `DownloadMirror`'s own constructor (see _Speech ModelManagementSubsystem Design_),
+so the CLI never duplicates that logic. Any rejection surfaces as an `ArgumentException`, which
+`Program.Main` reports as a clean, non-zero-exit-code error identically to every other
+command-line configuration mistake - never a stack trace.
+
 ### ModelCommandsSubsystem
 
 This pass adds the tool's first implemented subsystem: **ModelCommandsSubsystem**, covering the
