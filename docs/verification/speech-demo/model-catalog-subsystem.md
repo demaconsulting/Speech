@@ -335,6 +335,15 @@ exception escape.
 
 **Requirement coverage**: `SpeechDemo-Models-MirrorSettingsUi`.
 
+#### ModelCatalogViewModel_ApplyMirror_DownloadInProgress_RefusesAndReportsError
+
+**Scenario**: One row is `Downloading` and the mirror URL field holds a valid URI.
+
+**Expected**: The panel reports an explained error and never calls the seam's `ApplyMirror`,
+because that call would dispose the catalog the in-flight download depends on.
+
+**Requirement coverage**: `SpeechDemo-Models-MirrorBlockedDuringDownload`.
+
 #### ModelListItemViewModel_Constructor_NullDescriptor_ThrowsArgumentNullException
 
 **Scenario**: A row is built with no descriptor.
@@ -450,6 +459,8 @@ a bound row cannot go stale mid-download.
   `ModelCatalogViewModel_ApplyMirror_BlankUrl_AppliesNullMirror`,
   `ModelCatalogViewModel_ApplyMirror_InvalidUrl_ReportsErrorWithoutCallingService`,
   `ModelCatalogViewModel_ApplyMirror_ServiceRejectsReconfiguration_ReportsError`
+- **`SpeechDemo-Models-MirrorBlockedDuringDownload`**:
+  `ModelCatalogViewModel_ApplyMirror_DownloadInProgress_RefusesAndReportsError`
 
 ### Acceptance Criteria
 

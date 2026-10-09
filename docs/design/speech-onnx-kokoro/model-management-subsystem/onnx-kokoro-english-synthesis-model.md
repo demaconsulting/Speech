@@ -34,9 +34,13 @@ Hugging Face directly.
 - **DownloadDescriptor**: the 30-file descriptor described above; `ModelRelativeInstallPath =
   "onnx/model_fp16.onnx"`.
 - **ISynthesisModel.CreateBackend(installedModelDirectory)** *(public)*: builds the ONNX Runtime
-  session via `OnnxExecutionProviderSelector.Create(modelPath, _preferredExecutionProviderNames)`,
-  reads every declared voice's `.bin` file into a flattened `float[]` keyed by its index in
-  `VoiceOrder` (the engine-specific integer speaker id), and constructs and returns a loaded
+  session via `OnnxExecutionProviderSelector.Create(modelPath, _preferredExecutionProviderNames,
+  OnnxKokoroSynthesisEngine.RunProbeInference)`, so every accelerated candidate the selector tries
+  is also probed with a representative inference before being accepted - catching a provider that
+  constructs successfully but fails on the actual graph at `Run()` time (observed with DirectML
+  and the `ConvTranspose` operator), which construction alone cannot detect - then reads every
+  declared voice's `.bin` file into a flattened `float[]` keyed by its index in `VoiceOrder` (the
+  engine-specific integer speaker id), and constructs and returns a loaded
   `OnnxKokoroSynthesisEngine` from the session, a fresh `KokoroPhonemeVocabulary`, a fresh
   `KokoroLexiconPhonemizer`, and the loaded voice styles. This model's phoneme vocabulary is not
   downloaded at all - it is embedded directly in this package, since it is small, fixed, and
@@ -51,10 +55,13 @@ Hugging Face directly.
   index for an unrecognized value. Never throws.
 
 **Error Handling**: `CreateBackend` throws `ArgumentException` for a null or empty installed-model
-directory (`ArgumentException.ThrowIfNullOrEmpty`). A missing or unreadable voice `.bin` file, or
-an accelerated-provider load failure inside `OnnxExecutionProviderSelector.Create`, propagates
+directory (`ArgumentException.ThrowIfNullOrEmpty`). A missing or unreadable voice `.bin` file, an
+accelerated-provider load failure, or a probe failure (an accelerated candidate that loads but
+cannot actually run this model) inside `OnnxExecutionProviderSelector.Create`, propagates
 unchanged to the caller - handled identically to a download/install failure by Speech's
-`SpeechSynthesizerFactory`, which degrades it to the honest unavailable synthesizer.
+`SpeechSynthesizerFactory`, which degrades it to the honest unavailable synthesizer. CPU is
+always the final, unprobed fallback, so `CreateBackend` only fails this way for a genuinely
+malformed or unreadable model file.
 
 **Voice Subset (Stage 2)**: this release ships 54 named voices across multiple languages; this
 class declares only its 29 American/British English voices, because its embedded

@@ -39,7 +39,7 @@ and its `DefaultProviderNames`/`Create` members.
 | Interface | Direction | Format | Constraints |
 | --- | --- | --- | --- |
 | `DefaultProviderNames` | Outbound | Public static property | Read-only; empty (CPU-only Stage 1) |
-| `Create(modelPath, providerNames)` | Inbound/Outbound | Static method | Never throws for a missing provider |
+| `Create(modelPath, providerNames, validateSession)` | Inbound/Outbound | Static method | Never throws |
 | ONNX Runtime managed API | Outbound | Method call/return | Accelerated provider needs its own runtime from consumer |
 
 ## Dependencies
@@ -70,21 +70,35 @@ clinical or safety role.
 **Provider probing/selection path:**
 
 1. **Input**: A model package's `CreateBackend` implementation calls
-   `OnnxExecutionProviderSelector.Create(modelPath, preferredProviderNames)` with the absolute
-   path of its `.onnx` model file and its own ordered list of preferred accelerated provider
-   names (or `null` to use the empty `DefaultProviderNames`)
+   `OnnxExecutionProviderSelector.Create(modelPath, preferredProviderNames, validateSession)` with
+   the absolute path of its `.onnx` model file, its own ordered list of preferred accelerated
+   provider names (or `null` to use the empty `DefaultProviderNames`), and optionally a probe
+   delegate that exercises a representative inference on the candidate session
 2. **Probing**: for each preferred provider name in order, the method constructs a fresh
    `SessionOptions`, appends the named provider, and attempts to construct an `InferenceSession`
-   from it; a candidate that throws `OnnxRuntimeException` or `DllNotFoundException` (its native
-   shared library is unavailable in this process) is abandoned and the next candidate is tried
+   from it; when `validateSession` is supplied, it is then invoked on that freshly constructed
+   session, so a provider that loads and constructs successfully but fails on the actual graph at
+   `Run()` time (observed with DirectML and Kokoro's `ConvTranspose` operator) is caught here
+   rather than surfacing later from a caller's first real inference. A candidate that throws
+   `OnnxRuntimeException` or `DllNotFoundException` from either construction or the probe (its
+   native shared library is unavailable in this process, or the probe inference itself failed)
+   is abandoned and the next candidate is tried. The CPU fallback candidate is never probed - it
+   is trusted unconditionally, matching this class's existing guarantee that CPU always succeeds
+   for a well-formed model
 3. **Disposal**: every candidate's `SessionOptions` is disposed immediately after its own
    construction attempt, whether that attempt succeeds or fails, so a failed candidate never
-   leaves a native handle behind and never carries configuration into the next candidate
+   leaves a native handle behind and never carries configuration into the next candidate. Each
+   candidate's `InferenceSession` is likewise disposed on every path except the one that returns
+   it to the caller: a `try`/`finally` with a success flag covers the two expected "try next
+   candidate" exceptions above, and also any other exception type a candidate's construction or
+   probe might throw - a session is never leaked, and an unexpected exception type is never
+   silently swallowed, propagating to the caller after that candidate's session is disposed
 4. **Fallback**: if every preferred candidate fails, the method constructs an `InferenceSession`
    with default `SessionOptions` (no explicit provider), which always uses the CPU provider
    shipped inside the base package and is guaranteed to succeed for a well-formed model
-5. **Output**: the first successfully loaded `InferenceSession` is returned to the caller, which
-   owns its disposal; the method itself never disposes the session it returns
+5. **Output**: the first successfully loaded (and, if a probe was supplied, successfully probed)
+   `InferenceSession` is returned to the caller, which owns its disposal; the method itself never
+   disposes the session it returns
 
 ## Design Constraints
 
@@ -93,10 +107,14 @@ clinical or safety role.
   runtime, never at compile time
 - **Per-candidate resource ownership**: every candidate `SessionOptions` is owned and disposed by
   `OnnxExecutionProviderSelector.Create` itself - win or lose - without disposing the
-  `InferenceSession` it returns on success, which remains the caller's responsibility
-- **Never fails for an unavailable accelerated provider**: the CPU fallback candidate is always
-  attempted last and always succeeds for a well-formed model, so this unit's own logic never
-  turns a missing accelerated runtime into an exception
+  `InferenceSession` it returns on success, which remains the caller's responsibility. Each
+  candidate's `InferenceSession` is likewise disposed on every non-winning path, including an
+  unexpected exception type from a caller-supplied probe
+- **Never fails for an unavailable or non-functional accelerated provider**: the CPU fallback
+  candidate is always attempted last and always succeeds for a well-formed model, so this unit's
+  own logic never turns a missing or construction-only-functional accelerated runtime into an
+  exception; a caller-supplied `validateSession` probe is what catches a provider that loads and
+  constructs a session but fails on the actual graph at `Run()` time
 - **Declares zero models**: this package owns no model identity, download descriptor, or catalog
   registration; that responsibility belongs entirely to each sibling model package
 - **Compliance**: all functionality must be traceable to requirements

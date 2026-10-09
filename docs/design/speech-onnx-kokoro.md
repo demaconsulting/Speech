@@ -101,8 +101,12 @@ safety role.
 1. **Input**: Speech's `SpeechSynthesizerFactory` loads an engine for the installed model through
    its model-driven default backend factory
 2. **Session construction**: `OnnxKokoroEnglishSynthesisModel.CreateBackend` calls
-   `OnnxExecutionProviderSelector.Create` with the installed ONNX model graph path and this
-   instance's own preferred execution provider names
+   `OnnxExecutionProviderSelector.Create` with the installed ONNX model graph path, this
+   instance's own preferred execution provider names, and
+   `OnnxKokoroSynthesisEngine.RunProbeInference` as the probe run against each accelerated
+   candidate session before it is accepted - catching a provider that loads successfully but
+   fails on the actual graph at `Run()` time (observed with DirectML and the `ConvTranspose`
+   operator), something session construction alone cannot detect
 3. **Voice loading**: every declared voice's style-vector `.bin` file is read into memory and
    keyed by its resolved integer speaker id
 4. **Construction**: the model constructs `OnnxKokoroSynthesisEngine` from the loaded session, a
@@ -123,7 +127,9 @@ safety role.
 4. **Style selection**: the engine selects the speaker's style-vector row indexed by the
    utterance's own phoneme-token count, mirroring the proven Python reference pipeline
 5. **Inference**: the engine runs a single ONNX Runtime forward pass over `input_ids`, `style`,
-   and `speed` tensors
+   and `speed` tensors - the same three tensor names (shared as internal constants between
+   `Generate` and the engine's `RunProbeInference` probe, so the two call sites can never drift
+   apart)
 6. **Output**: the raw waveform tensor is returned to Speech as `EngineAudio` at the model's fixed
    24000 Hz sample rate, which Speech resamples to the playback device's format when needed
 

@@ -158,6 +158,7 @@ sections:
           - SpeechDemo-Models-MirrorRequiresFactory
           - SpeechDemo-Models-MirrorCatalogOwnership
           - SpeechDemo-Models-MirrorSettingsUi
+          - SpeechDemo-Models-MirrorBlockedDuringDownload
         tests:
           - ModelCatalogService_ApplyMirror_WithFactory_RebuildsCatalogThroughFactory
           - ModelCatalogViewModel_ApplyMirror_ValidMirror_ForwardsConfiguredMirrorAndReportsSuccess

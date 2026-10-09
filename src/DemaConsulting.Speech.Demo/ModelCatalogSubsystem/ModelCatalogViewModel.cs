@@ -158,10 +158,28 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
     ///     service's catalog does not support reconfiguring) are reported in
     ///     <see cref="MirrorStatusMessage"/> rather than thrown at the user, consistent with how
     ///     <see cref="DownloadAsync"/> reports every failure in-row instead of crashing the panel.
+    ///     <para>
+    ///     Refuses to apply (reporting an explained error, without calling the catalog service at
+    ///     all) while any row is currently downloading. This is the mechanism that keeps
+    ///     <see cref="IModelCatalogService.ApplyMirror"/>'s documented "caller must not reconfigure
+    ///     the mirror while one of its own downloads is in flight" contract from ever being
+    ///     violated through this panel.
+    ///     </para>
     /// </remarks>
     [RelayCommand]
     public void ApplyMirror()
     {
+        if (Models.Any(model => model.IsDownloading))
+        {
+            MirrorHasError = true;
+            MirrorStatusMessage =
+                "Cannot change the mirror while a download is in progress. Wait for it to " +
+                "finish, or cancel it, and try again.";
+            OnPropertyChanged(nameof(HasMirrorStatusMessage));
+            OnPropertyChanged(nameof(MirrorAppliedSuccessfully));
+            return;
+        }
+
         try
         {
             var mirror = MirrorOptionsFactory.Create(MirrorUrl, MirrorUser, MirrorPassword, MirrorBearerToken);

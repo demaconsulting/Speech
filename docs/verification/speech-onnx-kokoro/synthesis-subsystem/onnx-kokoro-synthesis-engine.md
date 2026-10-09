@@ -21,6 +21,19 @@ is verified by manual inspection and code review:
 - Its `SelectStyleVector` row-selection and unrecognized-speaker-id fallback were reviewed by
   inspection against the proven Python reference pipeline's own `voices[len(ids)]` lookup
 - Its `Dispose` idempotency was reviewed by inspection of its `_disposed` guard
+- Its static `RunProbeInference` probe was reviewed by inspection: it runs a 40-token
+  representative inference over the same shared `InputIdsTensorName`/`StyleTensorName`/
+  `SpeedTensorName` constants `Generate` uses (so the two call sites cannot name the graph's
+  inputs differently), obtains its probe token id at call time from a fresh
+  `KokoroPhonemeVocabulary.ToTokenIds("a")` rather than trusting a hard-coded numeric literal (so
+  the probe is guaranteed to use a genuinely in-vocabulary token, verified against the real
+  embedded vocabulary rather than merely asserted in a comment), and propagates
+  `OnnxRuntimeException` for a session that cannot actually run the model - the signal
+  `OnnxExecutionProviderSelector.Create` (see _SpeechOnnx OnnxExecutionProviderSelector
+  Verification_) expects in order to try the next execution-provider candidate. This probe exists
+  because some execution providers (notably DirectML) construct a session successfully yet fail
+  on the first `Run()` because a graph operator (`ConvTranspose`) is unsupported for this model's
+  shapes - a failure mode construction alone cannot detect
 
 A future pass may add `OnnxKokoroSynthesisEngineTests` to a new
 `test/DemaConsulting.Speech.Onnx.Kokoro.Tests` project, mirroring the sibling SpeechSherpa

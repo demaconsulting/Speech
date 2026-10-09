@@ -63,13 +63,14 @@ sections:
           via `--mirror-url`, optionally authenticating with HTTP Basic credentials
           (`--mirror-user`/`--mirror-password`, both required together) or a bearer token
           (`--mirror-bearer-token`, mutually exclusive with the Basic credential pair), rejecting
-          an invalid mirror URL or an incomplete/conflicting credential combination with a clear
-          error message and a non-zero exit code rather than a stack trace. The mirror base URL
-          must be an absolute `http`/`https` URL with no query string, fragment, or user-info
-          component; a supplied bearer token must not be empty or whitespace-only; and supplying
-          either credential form alongside a plain `http` (rather than `https`) mirror whose host
-          is not a loopback address is rejected, since both credential forms are sent
-          preemptively and would otherwise be transmitted in cleartext.
+          an invalid mirror URL, an incomplete/conflicting credential combination, or any
+          credential option supplied without `--mirror-url` with a clear error message and a
+          non-zero exit code rather than a stack trace. The mirror base URL must be an absolute
+          `http`/`https` URL with no query string, fragment, or user-info component; a supplied
+          bearer token must not be empty or whitespace-only; and supplying either credential form
+          alongside a plain `http` (rather than `https`) mirror whose host is not a loopback
+          address is rejected, since both credential forms are sent preemptively and would
+          otherwise be transmitted in cleartext.
         tags: [system]
         justification: |
           A model's public download host (for example `huggingface.co`) may be blocked by
@@ -77,7 +78,10 @@ sections:
           download a model through the tool at all. Validating the mirror configuration eagerly,
           with a clean error, avoids a confusing failure deep inside the download transport, and
           rejecting a credentialed plain-`http` mirror prevents a fat-fingered scheme from
-          silently leaking a secret on the wire.
+          silently leaking a secret on the wire. Rejecting a credential supplied without
+          `--mirror-url` catches a likely typo (a missing or misspelled `--mirror-url`) rather
+          than silently discarding the credential and downloading from each model's public URI
+          unauthenticated.
         children:
           - SpeechCli-ModelCommands-DownloadMirrorComposition
         tests:
@@ -87,6 +91,8 @@ sections:
           - Context_CreateMirror_InvalidMirrorUrl_ThrowsArgumentException
           - Context_CreateMirror_MirrorUserWithoutPassword_ThrowsArgumentException
           - Context_CreateMirror_BasicCredentialsAndBearerTokenTogether_ThrowsArgumentException
+          - Context_CreateMirror_CredentialsWithoutMirrorUrl_ThrowsArgumentException
+          - Context_CreateMirror_BearerTokenWithoutMirrorUrl_ThrowsArgumentException
 
       - id: SpeechCli-Cli-VersionDisplay
         title: >-

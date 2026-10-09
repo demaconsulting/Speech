@@ -20,17 +20,22 @@ sections:
             title: >-
               The SpeechOnnx OnnxRuntimeSubsystem shall provide a single static helper,
               OnnxExecutionProviderSelector, that constructs an ONNX Runtime InferenceSession by
-              trying each of an ordered list of preferred execution provider names in turn before
-              falling back to the CPU provider, disposing each candidate's SessionOptions
-              immediately after its own construction attempt without disposing the returned
-              InferenceSession.
+              trying each of an ordered list of preferred execution provider names in turn,
+              optionally probing each candidate with a caller-supplied representative inference,
+              before falling back to the CPU provider, disposing each candidate's SessionOptions
+              and (when it does not win) InferenceSession after its own construction/probe
+              attempt without disposing the returned InferenceSession.
             justification: |
               Every sibling model package that loads an ONNX model needs identical,
               once-reviewed provider-selection and resource-disposal behavior; centralizing it
               here means no model package re-implements (or re-introduces a resource leak in)
-              its own fallback logic.
+              its own fallback logic. A construction-only check is not sufficient for every
+              provider - some (notably DirectML) construct successfully yet fail on the actual
+              graph at Run() time - so an optional probe is part of this same centralized
+              contract rather than left for each model package to reinvent.
             children:
               - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-TriesCandidatesInOrder
               - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-FallsBackToCpu
               - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-DisposesEachCandidateOptions
+              - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-DisposesCandidateSessionOnAnyFailure
               - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ArgumentValidation

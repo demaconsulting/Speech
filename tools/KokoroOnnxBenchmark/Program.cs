@@ -27,7 +27,7 @@ Console.WriteLine($"Model: {modelPath}");
 Console.WriteLine($"Requested provider: {(useDml ? "DmlExecutionProvider (falls back to CPU if unavailable)" : "CPU only")}");
 
 var stopwatchLoad = Stopwatch.StartNew();
-var session = OnnxExecutionProviderSelector.Create(modelPath, preferredProviders);
+var session = OnnxExecutionProviderSelector.Create(modelPath, preferredProviders, OnnxKokoroSynthesisEngine.RunProbeInference);
 stopwatchLoad.Stop();
 Console.WriteLine($"Session load time: {stopwatchLoad.ElapsedMilliseconds} ms");
 

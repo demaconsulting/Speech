@@ -37,7 +37,11 @@ and the empty-catalog message, driven entirely by `IModelCatalogService`.
      library guarantees a canceled download installs nothing
   5. Treats an unexpected seam exception as `FailedOrCorrupt` carrying that exception's message,
      because a presentation layer must not crash the application on a seam fault
-- **ApplyMirror()**: Builds a `DownloadMirror?` from the typed `MirrorUrl`/`MirrorUser`/
+- **ApplyMirror()**: While any row's `IsDownloading` is true, refuses outright - recording an
+  explained `MirrorHasError`/`MirrorStatusMessage` and returning without calling
+  `IModelCatalogService.ApplyMirror` at all - because that service call disposes the catalog
+  instance any in-flight `DownloadAsync` call depends on, which would otherwise abort that
+  download. Otherwise, builds a `DownloadMirror?` from the typed `MirrorUrl`/`MirrorUser`/
   `MirrorPassword`/`MirrorBearerToken` fields via the shared `MirrorOptionsFactory` helper (the
   same validation rules the CLI's `Context.CreateMirror()` and the demo's launch-time
   `AppLaunchOptions.CreateDownloaderOptions()` already apply: the URL must be a valid absolute
@@ -53,8 +57,8 @@ and the empty-catalog message, driven entirely by `IModelCatalogService`.
 cancellation escape as an unhandled exception; every outcome resolves to a row state and,
 where applicable, a human-readable failure message. When the catalog reports nothing,
 `IsCatalogEmpty` is true and the panel shows `EmptyCatalogMessage`. `ApplyMirror()` similarly
-never lets a validation failure or an unsupported-reconfiguration request escape; both resolve
-to `MirrorHasError` plus an explanatory `MirrorStatusMessage`.
+never lets a validation failure, an in-progress download, or an unsupported-reconfiguration
+request escape; each resolves to `MirrorHasError` plus an explanatory `MirrorStatusMessage`.
 
 **Dependencies**: `IModelCatalogService`, `ModelListItemViewModel`, the shared
 `MirrorOptionsFactory` helper, and the library's descriptor, state, progress, result, and

@@ -165,6 +165,28 @@ public class ModelCatalogViewModelTests
     }
 
     /// <summary>
+    ///     Proves that applying a mirror while a row is downloading is refused outright - without
+    ///     ever calling the catalog service - because the service disposes the catalog a download
+    ///     in flight depends on, which would otherwise abort that download.
+    /// </summary>
+    [Fact]
+    public void ModelCatalogViewModel_ApplyMirror_DownloadInProgress_RefusesAndReportsError()
+    {
+        // Arrange: one row already in the Downloading state
+        var service = Service(FakeSpeechModel.Descriptor("model-a", SpeechModelState.Downloading));
+        var viewModel = new ModelCatalogViewModel(service) { MirrorUrl = "https://mirror.example.com" };
+
+        // Act
+        viewModel.ApplyMirrorCommand.Execute(null);
+
+        // Assert: refused before ever reaching the service, and reported as an explained error
+        service.DidNotReceive().ApplyMirror(Arg.Any<DownloadMirror?>());
+        Assert.True(viewModel.MirrorHasError);
+        Assert.True(viewModel.HasMirrorStatusMessage);
+        Assert.False(viewModel.MirrorAppliedSuccessfully);
+    }
+
+    /// <summary>
     ///     Proves that a catalog service reporting no models renders as an explicit, honest
     ///     explanation rather than a blank list a user would read as a bug.
     /// </summary>

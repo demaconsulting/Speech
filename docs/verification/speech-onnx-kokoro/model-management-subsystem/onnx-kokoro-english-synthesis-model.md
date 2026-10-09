@@ -14,8 +14,10 @@ is verified by manual inspection and code review:
   documentation (fetched through a locally configured download mirror, since the development
   sandbox could not reach Hugging Face directly)
 - Its `CreateBackend` implementation was reviewed for correct delegation to
-  `OnnxExecutionProviderSelector.Create`, correct voice-style-vector loading keyed by speaker id,
-  and correct construction of `OnnxKokoroSynthesisEngine`
+  `OnnxExecutionProviderSelector.Create` - including supplying `OnnxKokoroSynthesisEngine.RunProbeInference`
+  as the `validateSession` probe, so an accelerated candidate that merely constructs but cannot
+  actually run this model's graph is rejected before being accepted - correct voice-style-vector
+  loading keyed by speaker id, and correct construction of `OnnxKokoroSynthesisEngine`
 - Its `ResolveSpeakerId` implementation was reviewed for correct, never-throwing fallback
   behavior across every one of its 29 declared voices, a null bag, a missing key, and an
   unrecognized value

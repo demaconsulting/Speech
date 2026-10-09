@@ -40,3 +40,4 @@ sections:
               - SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-StyleVectorSelection
               - SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-ArgumentValidation
               - SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-Dispose
+              - SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-ProbeInference

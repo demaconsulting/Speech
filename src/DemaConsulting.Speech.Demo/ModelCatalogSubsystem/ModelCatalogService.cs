@@ -120,9 +120,13 @@ public sealed class ModelCatalogService : IModelCatalogService
 
     /// <inheritdoc/>
     /// <remarks>
-    ///     Any download already in progress against the catalog this call replaces runs to
-    ///     completion against that (now-detached) catalog rather than being interrupted; only
-    ///     subsequent <see cref="DownloadAsync"/> calls observe the new mirror.
+    ///     Disposes the catalog this call replaces immediately, which aborts - rather than lets
+    ///     run to completion - any <see cref="DownloadAsync"/> call still in flight against that
+    ///     catalog (its underlying HTTP operations observe a disposed object and fail). Callers
+    ///     must therefore never invoke this method while one of their own downloads is in
+    ///     progress; see <see cref="IModelCatalogService.ApplyMirror"/>'s remarks. This demo's
+    ///     own <see cref="ModelCatalogViewModel.ApplyMirror"/> enforces that by refusing to call
+    ///     through while any row is downloading.
     ///     <para>
     ///     Not safe to call concurrently with another <see cref="ApplyMirror"/> or
     ///     <see cref="Dispose"/> call - see this type's remarks for this instance's thread-safety

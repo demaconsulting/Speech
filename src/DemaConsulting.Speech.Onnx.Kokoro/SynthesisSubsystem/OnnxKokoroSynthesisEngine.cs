@@ -40,11 +40,30 @@ internal sealed class OnnxKokoroSynthesisEngine : ISynthesisBackend
     /// <summary>The length, in float32 elements, of one voice's single style vector row.</summary>
     private const int StyleVectorWidth = 256;
 
+    /// <summary>
+    ///     The ONNX graph's phoneme-token-id input name, shared by <see cref="Generate"/> and
+    ///     <see cref="RunProbeInference"/> so the two call sites can never drift apart.
+    /// </summary>
+    private const string InputIdsTensorName = "input_ids";
+
+    /// <summary>
+    ///     The ONNX graph's style-vector input name, shared by <see cref="Generate"/> and
+    ///     <see cref="RunProbeInference"/> so the two call sites can never drift apart.
+    /// </summary>
+    private const string StyleTensorName = "style";
+
+    /// <summary>
+    ///     The ONNX graph's speed-scalar input name, shared by <see cref="Generate"/> and
+    ///     <see cref="RunProbeInference"/> so the two call sites can never drift apart.
+    /// </summary>
+    private const string SpeedTensorName = "speed";
+
     private readonly InferenceSession _session;
     private readonly KokoroPhonemeVocabulary _vocabulary;
     private readonly KokoroLexiconPhonemizer _phonemizer;
     private readonly IReadOnlyDictionary<int, float[]> _voiceStylesBySpeakerId;
     private bool _disposed;
+
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="OnnxKokoroSynthesisEngine"/> class, taking
@@ -126,9 +145,9 @@ internal sealed class OnnxKokoroSynthesisEngine : ISynthesisBackend
 
         var inputs = new List<NamedOnnxValue>
         {
-            NamedOnnxValue.CreateFromTensor("input_ids", inputIdsTensor),
-            NamedOnnxValue.CreateFromTensor("style", styleTensor),
-            NamedOnnxValue.CreateFromTensor("speed", speedTensor),
+            NamedOnnxValue.CreateFromTensor(InputIdsTensorName, inputIdsTensor),
+            NamedOnnxValue.CreateFromTensor(StyleTensorName, styleTensor),
+            NamedOnnxValue.CreateFromTensor(SpeedTensorName, speedTensor),
         };
 
         using var results = _session.Run(inputs);
@@ -161,6 +180,53 @@ internal sealed class OnnxKokoroSynthesisEngine : ISynthesisBackend
         Array.Copy(voice, rowIndex * StyleVectorWidth, row, 0, StyleVectorWidth);
         return row;
     }
+
+    /// <summary>
+    ///     Runs one representative inference (roughly sentence-length, so shape-dependent operator
+    ///     failures such as DirectML's <c>ConvTranspose</c> error surface) on
+    ///     <paramref name="session"/>, throwing <see cref="OnnxRuntimeException"/> if the session's
+    ///     execution provider cannot run this model. Used by
+    ///     <see cref="Onnx.OnnxRuntimeSubsystem.OnnxExecutionProviderSelector"/> to fall back to the next provider.
+    /// </summary>
+    /// <remarks>
+    ///     The probe content is irrelevant - only whether the execution provider can run the
+    ///     graph at all matters - but it must still be genuinely in-vocabulary, since an
+    ///     out-of-vocabulary character would silently drop to zero tokens
+    ///     (<see cref="KokoroPhonemeVocabulary.ToTokenIds"/>) and probe nothing. Rather than
+    ///     trust an unchecked magic token id, this method asks a fresh
+    ///     <see cref="KokoroPhonemeVocabulary"/> instance to tokenize the single character
+    ///     <c>"a"</c>, which is always present in Kokoro v1.0's vocabulary (every real phoneme set
+    ///     this model was trained on includes the plain ASCII letters) - verifying the id at
+    ///     probe time rather than relying on a comment asserting a hard-coded id stays correct.
+    /// </remarks>
+    internal static void RunProbeInference(InferenceSession session)
+    {
+        var probeTokenId = new KokoroPhonemeVocabulary().ToTokenIds("a") switch
+        {
+            [var id] => (long)id,
+            _ => throw new InvalidOperationException(
+                "Kokoro's embedded vocabulary does not recognize the probe character 'a' - " +
+                "the embedded tokenizer.json resource may be corrupt or from an incompatible " +
+                "model revision."),
+        };
+
+        const int probeTokenCount = 40;
+        var ids = new long[probeTokenCount + 2];
+        for (var i = 1; i <= probeTokenCount; i++)
+        {
+            ids[i] = probeTokenId;
+        }
+
+        var inputs = new List<NamedOnnxValue>
+        {
+            NamedOnnxValue.CreateFromTensor(InputIdsTensorName, new DenseTensor<long>(ids, [1, ids.Length])),
+            NamedOnnxValue.CreateFromTensor(StyleTensorName, new DenseTensor<float>(new float[StyleVectorWidth], [1, StyleVectorWidth])),
+            NamedOnnxValue.CreateFromTensor(SpeedTensorName, new DenseTensor<float>(new[] { 1.0f }, [1])),
+        };
+
+        using var results = session.Run(inputs);
+    }
+
 
     /// <inheritdoc/>
     public void Dispose()

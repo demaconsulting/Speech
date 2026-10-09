@@ -51,6 +51,11 @@ public static class OnnxExecutionProviderSelector
     ///     <see cref="SessionOptions"/>, so one candidate's failed native-library lookup can never
     ///     leave a prior candidate's partially-applied configuration behind.
     /// </param>
+    /// <param name="validateSession">
+    ///     An optional probe that runs a representative inference on each accelerated candidate's
+    ///     freshly created session; if it throws <see cref="OnnxRuntimeException"/> the candidate
+    ///     is discarded and the next one tried. The CPU fallback is never probed.
+    /// </param>
     /// <returns>
     ///     A loaded <see cref="InferenceSession"/> using the first provider that both appended and
     ///     loaded successfully, or the CPU provider when none did.
@@ -62,8 +67,16 @@ public static class OnnxExecutionProviderSelector
     ///     inside the base <c>Microsoft.ML.OnnxRuntime</c> package this class's own project
     ///     references. A genuinely malformed or unreadable model file still throws from that final
     ///     CPU attempt, exactly as a direct <c>new InferenceSession(modelPath)</c> call would.
+    ///     Only <see cref="OnnxRuntimeException"/> and <see cref="DllNotFoundException"/> from a
+    ///     candidate's construction or probe are treated as "try the next candidate"; any other
+    ///     exception type a candidate's construction or <paramref name="validateSession"/> throws
+    ///     still disposes that candidate's session before propagating to the caller, rather than
+    ///     being silently discarded.
     /// </remarks>
-    public static InferenceSession Create(string modelPath, IReadOnlyList<string>? preferredProviderNames = null)
+    public static InferenceSession Create(
+        string modelPath,
+        IReadOnlyList<string>? preferredProviderNames = null,
+        Action<InferenceSession>? validateSession = null)
     {
         ArgumentException.ThrowIfNullOrEmpty(modelPath);
 
@@ -74,22 +87,45 @@ public static class OnnxExecutionProviderSelector
             // always be disposed by this method - whether the session is created successfully or
             // the provider fails to load - without disposing the returned InferenceSession itself.
             using var options = new SessionOptions();
-            options.AppendExecutionProvider(providerName);
+            InferenceSession? session = null;
+            var succeeded = false;
             try
             {
-                return new InferenceSession(modelPath, options);
+                options.AppendExecutionProvider(providerName);
+                session = new InferenceSession(modelPath, options);
+
+                // Some providers (notably DirectML) load and create a session successfully yet
+                // fail on the first Run() because a graph operator is unsupported for the model's
+                // shapes, so a caller-supplied probe inference is the only reliable check.
+                validateSession?.Invoke(session);
+                succeeded = true;
+                return session;
             }
             catch (OnnxRuntimeException)
             {
-                // This candidate provider's native shared library is not available in this
-                // process - fall through and try the next candidate, ending with CPU below.
+                // Provider unavailable or failed its probe inference - discard and try the next.
             }
             catch (DllNotFoundException)
             {
                 // Some provider native libraries surface a missing dependency this way rather
                 // than as an OnnxRuntimeException - treated identically.
             }
+            finally
+            {
+                // Dispose this candidate's session on every path except the one that returns it:
+                // a successful candidate's session must survive to be returned to the caller, but
+                // any other path - the two expected "try next candidate" exceptions above, or any
+                // other exception the probe or session construction might throw - must not leak
+                // the native session handle. Exception types other than the two caught above are
+                // deliberately not swallowed: they propagate to the caller once this candidate's
+                // session has been disposed.
+                if (!succeeded)
+                {
+                    session?.Dispose();
+                }
+            }
         }
+
 
         // The CPU provider ships inside the base package and needs no explicit append - an
         // InferenceSession created with default SessionOptions already uses it.

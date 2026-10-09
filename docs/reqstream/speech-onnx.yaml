@@ -21,17 +21,20 @@ sections:
       - id: SpeechOnnx-Runtime-ProviderFallback
         title: >-
           The library shall let a model package build an ONNX Runtime InferenceSession that
-          opportunistically prefers an ordered list of accelerated execution providers before
+          opportunistically prefers an ordered list of accelerated execution providers, each
+          optionally verified with a caller-supplied representative-inference probe, before
           falling back to the always-available CPU provider, without requiring the package to
           reference any provider-specific native runtime at compile time, and without leaking the
-          native SessionOptions resources used to try each candidate.
+          native SessionOptions or InferenceSession resources used to try each candidate.
         tags: [system]
         justification: |
           A raw ONNX model package must run correctly on a machine with no accelerated execution
           provider installed, and should transparently benefit from one when a consuming
-          application supplies it. Centralizing this fallback and resource-disposal logic in one
-          shared, once-reviewed helper means every model package built on this library gets
-          identical provider-selection behavior rather than duplicating or re-introducing a
-          resource leak in its own code.
+          application supplies it - including degrading gracefully when a provider loads
+          successfully but cannot actually run the model's graph (observed with DirectML).
+          Centralizing this fallback, probing, and resource-disposal logic in one shared,
+          once-reviewed helper means every model package built on this library gets identical
+          provider-selection behavior rather than duplicating or re-introducing a resource leak
+          in its own code.
         children:
           - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ProviderFallback

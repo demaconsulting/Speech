@@ -348,7 +348,10 @@ public sealed class OnnxKokoroEnglishSynthesisModel : ISynthesisModel
         ArgumentException.ThrowIfNullOrEmpty(installedModelDirectory);
 
         var modelPath = Path.Combine(installedModelDirectory, Path.Combine(ModelRelativeInstallPath.Split('/')));
-        var session = OnnxExecutionProviderSelector.Create(modelPath, _preferredExecutionProviderNames);
+        var session = OnnxExecutionProviderSelector.Create(
+            modelPath,
+            _preferredExecutionProviderNames,
+            OnnxKokoroSynthesisEngine.RunProbeInference);
 
         var voiceStylesBySpeakerId = new Dictionary<int, float[]>();
         for (var speakerId = 0; speakerId < VoiceOrder.Count; speakerId++)

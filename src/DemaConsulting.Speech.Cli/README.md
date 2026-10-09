@@ -51,7 +51,8 @@ exact files from `{mirror-url}/{modelId}/{relativeInstallPath}`. `--mirror-user`
 `--mirror-password` add HTTP Basic authentication (both required together); `--mirror-bearer-token`
 adds bearer-token authentication instead (mutually exclusive with the Basic credential pair). A
 credentialed mirror must use `https://`, unless its host is loopback (`localhost` or a loopback IP
-literal).
+literal). Any of `--mirror-user`, `--mirror-password`, or `--mirror-bearer-token` supplied without
+`--mirror-url` is rejected as a configuration error rather than silently ignored.
 
 ### `speak` flags
 

@@ -92,3 +92,22 @@ sections:
                   The loaded session holds native memory sized to a multi-hundred-megabyte
                   model, so it must be released deterministically when the owning synthesizer
                   engine is disposed, and idempotent disposal keeps teardown paths safe.
+
+              - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-ProbeInference
+                title: >-
+                  The OnnxKokoroSynthesisEngine class shall expose a static RunProbeInference
+                  method that runs one representative inference directly against a
+                  caller-supplied session, using the same input tensor names as Generate and a
+                  token id freshly verified as in-vocabulary against KokoroPhonemeVocabulary
+                  (never a hard-coded numeric literal trusted without verification), so that
+                  OnnxExecutionProviderSelector.Create can reject an accelerated execution
+                  provider candidate that constructs successfully but cannot actually run this
+                  model's graph.
+                justification: |-
+                  Some execution providers (observed with DirectML) load a Kokoro session
+                  successfully yet fail at Run() time because a graph operator (ConvTranspose) is
+                  unsupported for this model's shapes - a failure mode session construction alone
+                  cannot detect. Sharing the exact tensor names between Generate and this probe,
+                  and verifying the probe's token id against the real vocabulary rather than
+                  trusting a magic number, keeps the probe and the real inference path from ever
+                  silently drifting apart.

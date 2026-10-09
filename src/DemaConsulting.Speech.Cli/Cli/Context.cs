@@ -116,8 +116,12 @@ internal sealed class Context : IDisposable
     ///     URI).
     /// </returns>
     /// <exception cref="ArgumentException">
-    ///     Thrown when <see cref="MirrorUser"/> is supplied without <see cref="MirrorPassword"/>
-    ///     (or vice versa), when both Basic credentials and a bearer token are supplied, when
+    ///     Thrown when any of <see cref="MirrorUser"/>, <see cref="MirrorPassword"/>, or
+    ///     <see cref="MirrorBearerToken"/> is supplied without <see cref="MirrorUrl"/> (a
+    ///     credential with nowhere to apply almost always indicates a missing or misspelled
+    ///     <c>--mirror-url</c> rather than an intentional no-op), when
+    ///     <see cref="MirrorUser"/> is supplied without <see cref="MirrorPassword"/> (or vice
+    ///     versa), when both Basic credentials and a bearer token are supplied, when
     ///     <see cref="MirrorUrl"/> is not a valid absolute URI, or for any other configuration
     ///     <see cref="DownloadMirror"/>'s own constructor rejects (for example a non-HTTPS mirror
     ///     combined with a credential, on a non-loopback host).
@@ -126,6 +130,14 @@ internal sealed class Context : IDisposable
     {
         if (string.IsNullOrEmpty(MirrorUrl))
         {
+            if (MirrorUser is not null || MirrorPassword is not null || MirrorBearerToken is not null)
+            {
+                throw new ArgumentException(
+                    "--mirror-user, --mirror-password, and --mirror-bearer-token require " +
+                    "--mirror-url; none of them has any effect without a mirror URL to apply " +
+                    "them to.");
+            }
+
             return null;
         }
 

@@ -14,7 +14,10 @@ every inference call.
 `KokoroLexiconPhonemizer`, every installed voice's raw style-vector bytes keyed by speaker id
 (`IReadOnlyDictionary<int, float[]>`), and a disposed flag. `SampleRate` (`24000`) and
 `StyleVectorWidth` (`256`) are fixed constants confirmed from the model's own README and this
-package's validation spike.
+package's validation spike. `InputIdsTensorName` (`"input_ids"`), `StyleTensorName` (`"style"`),
+and `SpeedTensorName` (`"speed"`) are shared `const string` fields used by both `Generate` and the
+static `RunProbeInference` probe, so the two call sites can never name the graph's inputs
+differently from each other.
 
 **Key Methods**:
 
@@ -26,15 +29,31 @@ package's validation spike.
   best-effort `PreferredAudioFormat` hint.
 - **Generate(text, speed, speakerId)**: phonemizes `text`, converts the phoneme string to token
   ids, pads with `KokoroPhonemeVocabulary.PadTokenId` at both ends, selects the requested voice's
-  style-vector row via `SelectStyleVector`, and runs a single ONNX Runtime forward pass over
-  `input_ids`/`style`/`speed` tensors, returning the raw waveform output wrapped in an
-  `EngineAudio`. Short-circuits to an empty `EngineAudio` without running the graph when
-  phonemization produces zero tokens (empty text, or text whose every word is out of vocabulary).
+  style-vector row via `SelectStyleVector`, and runs a single ONNX Runtime forward pass over the
+  shared `InputIdsTensorName`/`StyleTensorName`/`SpeedTensorName` tensors, returning the raw
+  waveform output wrapped in an `EngineAudio`. Short-circuits to an empty `EngineAudio` without
+  running the graph when phonemization produces zero tokens (empty text, or text whose every word
+  is out of vocabulary).
 - **SelectStyleVector(speakerId, tokenCount)** (private): selects the 256-element style-vector row
   for `speakerId` at the row index matching `tokenCount`, clamped to the voice's own row count -
   exactly mirroring the proven Python reference pipeline's own `voices[len(ids)]` lookup. Falls
   back to the first available voice for an unrecognized `speakerId` rather than throwing, as a
   defensive measure beyond `ISynthesisModel.ResolveSpeakerId`'s own guarantee.
+- **RunProbeInference(session)** *(internal static)*: runs one representative, roughly
+  sentence-length inference (40 phoneme tokens, padded) directly against a caller-supplied
+  session that has not yet been wrapped by this class, over the same shared tensor names
+  `Generate` uses, letting `OnnxExecutionProviderSelector.Create` detect a candidate execution
+  provider that constructs successfully but fails on the actual graph at `Run()` time (observed
+  with DirectML and the `ConvTranspose` operator) before accepting that candidate. The probe token
+  id is obtained at call time from a fresh `KokoroPhonemeVocabulary.ToTokenIds("a")` rather than a
+  hard-coded numeric literal, so the probe is guaranteed to use a genuinely in-vocabulary token
+  (verified against the real vocabulary, not merely asserted in a comment); it throws
+  `InvalidOperationException` if `"a"` is somehow not in the embedded vocabulary, which would
+  indicate a corrupt or incompatible embedded `tokenizer.json` resource, a condition this probe is
+  not designed to recover from. The probe's own content is otherwise irrelevant - only whether the
+  execution provider can run the graph at all matters. Propagates `OnnxRuntimeException` for a
+  provider that cannot run this model, matching `OnnxExecutionProviderSelector.Create`'s expected
+  "try the next candidate" signal.
 - **Dispose()**: releases the loaded `InferenceSession`. Safe to call more than once.
 
 **Error Handling**: Construction loads the model into ONNX Runtime and therefore throws when the
@@ -42,13 +61,20 @@ requested execution provider is unavailable or the model file is unusable; that 
 propagates out of the model's `CreateBackend` and the core library's
 `DefaultSynthesisBackendFactory` to `SpeechSynthesizerFactory`, which converts it into the honest
 unavailable fallback. `Generate` throws `ArgumentNullException` for null text, and operational
-members throw `ObjectDisposedException` after disposal.
+members throw `ObjectDisposedException` after disposal. `RunProbeInference` propagates
+`OnnxRuntimeException` for an unusable candidate session (the signal
+`OnnxExecutionProviderSelector.Create` expects to try the next candidate) and
+`InvalidOperationException` for the (not expected to occur) case where the embedded vocabulary
+does not recognize its own probe character.
 
 **Dependencies**: `Microsoft.ML.OnnxRuntime` (`InferenceSession`, `DenseTensor<T>`,
 `NamedOnnxValue`); `KokoroPhonemeVocabulary` and `KokoroLexiconPhonemizer` from the
 ModelManagementSubsystem; the core library's `ISynthesisBackend` and `EngineAudio` from the
-_Speech SynthesisSubsystem Design_.
+*Speech SynthesisSubsystem Design*.
 
 **Callers**: `OnnxKokoroEnglishSynthesisModel` constructs the engine from its `CreateBackend`
 implementation; the core library's `SpeechSynthesizerEngine` owns the engine and passes it to
-each `SynthesisSession` it creates.
+each `SynthesisSession` it creates. `RunProbeInference` is additionally called directly (as a
+method group, with no engine instance) by `OnnxKokoroEnglishSynthesisModel.CreateBackend` and by
+the `tools/KokoroOnnxBenchmark` development tool, both passing it to
+`OnnxExecutionProviderSelector.Create` as the `validateSession` probe.

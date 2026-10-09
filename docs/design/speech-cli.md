@@ -49,17 +49,19 @@ any individual model's hardcoded public URI.
 
 `Context.CreateMirror()` resolves these four raw strings into a `DownloadMirror` (or `null` when
 `--mirror-url` was not supplied), which every model-management subcommand that downloads a model
-passes to the library's `SpeechModelDownloaderOptions`. It performs no validation itself beyond
-checking that `--mirror-url` parses as an absolute URI and that `--mirror-user`/
-`--mirror-password` were supplied together (both as a fast, CLI-local check before constructing
-`DownloadMirror`); every other validation rule - the mirror's scheme must be `http` or `https`
-with no query string, fragment, or user-info component; `--mirror-user`/`--mirror-bearer-token`
-are mutually exclusive; a supplied bearer token must not be empty or whitespace-only; and a
-credentialed mirror must use `https` unless its host is a loopback address - is enforced once,
-centrally, by `DownloadMirror`'s own constructor (see _Speech ModelManagementSubsystem Design_),
-so the CLI never duplicates that logic. Any rejection surfaces as an `ArgumentException`, which
-`Program.Main` reports as a clean, non-zero-exit-code error identically to every other
-command-line configuration mistake - never a stack trace.
+passes to the library's `SpeechModelDownloaderOptions`. It performs a few fast, CLI-local checks
+itself before constructing `DownloadMirror`: any of `--mirror-user`, `--mirror-password`, or
+`--mirror-bearer-token` supplied without `--mirror-url` is rejected outright, since a credential
+with nowhere to apply almost always indicates a missing or misspelled `--mirror-url` rather than
+an intentional no-op; `--mirror-url` must parse as an absolute URI; and `--mirror-user`/
+`--mirror-password` must be supplied together. Every other validation rule - the mirror's scheme
+must be `http` or `https` with no query string, fragment, or user-info component;
+`--mirror-user`/`--mirror-bearer-token` are mutually exclusive; a supplied bearer token must not
+be empty or whitespace-only; and a credentialed mirror must use `https` unless its host is a
+loopback address - is enforced once, centrally, by `DownloadMirror`'s own constructor (see
+_Speech ModelManagementSubsystem Design_), so the CLI never duplicates that logic. Any rejection
+surfaces as an `ArgumentException`, which `Program.Main` reports as a clean, non-zero-exit-code
+error identically to every other command-line configuration mistake - never a stack trace.
 
 ### ModelCommandsSubsystem
 

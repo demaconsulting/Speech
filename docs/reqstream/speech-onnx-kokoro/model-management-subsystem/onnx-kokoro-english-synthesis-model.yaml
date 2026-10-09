@@ -52,15 +52,21 @@ sections:
                 title: >-
                   The OnnxKokoroEnglishSynthesisModel class shall construct a loaded
                   OnnxKokoroSynthesisEngine from an ONNX Runtime session built through
-                  OnnxExecutionProviderSelector, every declared voice's loaded style-vector
-                  data, a fresh KokoroPhonemeVocabulary, and a fresh KokoroLexiconPhonemizer,
-                  and shall throw ArgumentException for a null or empty installed-model
-                  directory.
+                  OnnxExecutionProviderSelector (supplying OnnxKokoroSynthesisEngine's own
+                  RunProbeInference method as the probe run against each accelerated
+                  candidate session before it is accepted), every declared voice's loaded
+                  style-vector data, a fresh KokoroPhonemeVocabulary, and a fresh
+                  KokoroLexiconPhonemizer, and shall throw ArgumentException for a null or
+                  empty installed-model directory.
                 justification: |
                   The SynthesisSubsystem depends on this model constructing a correctly
                   configured, loaded engine for every installed-directory argument it may be
                   given; a programming error (empty installed-model directory) should surface
-                  immediately with a clear exception.
+                  immediately with a clear exception. Supplying the probe lets this model reject
+                  an accelerated execution provider that loads successfully but cannot actually
+                  run this model's graph (observed with DirectML and the ConvTranspose
+                  operator), rather than returning an engine doomed to fail at its first real
+                  Generate call.
 
               - id: SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-PreferredAudioFormat
                 title: >-

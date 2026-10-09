@@ -16,6 +16,8 @@ language: en
 words:
   - buildmark
   - chokepoint
+  - Conv
+  - unprobed
   - DEMA
   - NTLM
   - Sonatype
@@ -185,6 +187,7 @@ words:
   - Aoede
   - kore
   - Kore
+  - Mancha
 
 # Exclude common build artifacts, dependencies, and vendored third-party code
 ignorePaths:
@@ -200,3 +203,6 @@ ignorePaths:
   - "**/bin/**"
   - "**/obj/**"
   - package-lock.json
+  # Embedded tokenizer data (phoneme symbol tables, not prose)
+  - "**/kokoro-v1.0-tokenizer.json"
+  - tools/KokoroSpike/models/**

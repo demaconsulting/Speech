@@ -692,4 +692,38 @@ public class ProgramTests
         // Assert
         Assert.Throws<ArgumentException>(() => context.CreateMirror());
     }
+
+    /// <summary>
+    ///     Test that <see cref="Context.CreateMirror"/> rejects a <c>--mirror-user</c>/
+    ///     <c>--mirror-password</c> pair supplied without <c>--mirror-url</c>, since the
+    ///     credential would otherwise be silently ignored rather than applied anywhere.
+    /// </summary>
+    [Fact]
+    public void Context_CreateMirror_CredentialsWithoutMirrorUrl_ThrowsArgumentException()
+    {
+        // Act
+        using var context = Context.Create([
+            "list-models",
+            "--mirror-user", "alice",
+            "--mirror-password", "secret"
+        ]);
+
+        // Assert
+        Assert.Throws<ArgumentException>(() => context.CreateMirror());
+    }
+
+    /// <summary>
+    ///     Test that <see cref="Context.CreateMirror"/> rejects a <c>--mirror-bearer-token</c>
+    ///     supplied without <c>--mirror-url</c>, since the token would otherwise be silently
+    ///     ignored rather than applied anywhere.
+    /// </summary>
+    [Fact]
+    public void Context_CreateMirror_BearerTokenWithoutMirrorUrl_ThrowsArgumentException()
+    {
+        // Act
+        using var context = Context.Create(["list-models", "--mirror-bearer-token", "token-value"]);
+
+        // Assert
+        Assert.Throws<ArgumentException>(() => context.CreateMirror());
+    }
 }

@@ -36,8 +36,12 @@ exercises it through `ModelCatalogService`, its sole implementation.
   `SpeechModelDownloaderOptions` from `mirror` (or `null` to revert to each model's own public
   URI), calls the captured factory to rebuild an equivalent catalog against those options,
   swaps this service's forwarding target to the new catalog, and disposes the catalog it
-  replaced. An in-flight `DownloadAsync` call against the replaced catalog is left to run to
-  completion rather than interrupted; only subsequent calls observe the new mirror.
+  replaced immediately. An in-flight `DownloadAsync` call still running against the replaced
+  catalog is therefore aborted rather than left to run to completion - its underlying HTTP
+  operations observe a disposed object and fail. Callers must never invoke `ApplyMirror` while
+  one of their own downloads is in progress; `ModelCatalogViewModel.ApplyMirror` (see its own
+  design doc) is this demo's sole production caller and enforces that by refusing to call
+  through - reporting an explained panel error instead - while any row is downloading.
 
 **Error Handling**: `Enumerate()` never throws; it never invents placeholder models when the
 library's registry is empty - presenting an honest empty catalog is a presentation concern, not
