@@ -1,0 +1,131 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>DemaConsulting.Speech.Onnx</RootNamespace>
+    <AssemblyName>DemaConsulting.Speech.Onnx</AssemblyName>
+
+    <!-- NuGet Package Configuration -->
+    <PackageId>DemaConsulting.Speech.Onnx</PackageId>
+    <Version>0.0.0</Version>
+    <Authors>DEMA Consulting</Authors>
+    <Company>DEMA Consulting</Company>
+    <Description>Generic ONNX-Runtime infrastructure shared by DemaConsulting.Speech's raw-ONNX
+      model packages (models shipped only as bare ONNX graphs, with no bundled native inference
+      engine such as sherpa-onnx). This package owns only infrastructure common to any such model
+      - currently, GPU-then-CPU-fallback execution provider selection - and declares zero models
+      itself; each concrete model family ships in its own sibling package (for example
+      DemaConsulting.Speech.Onnx.Kokoro) that references this package and adds its own
+      AddXxxModels() extension method. Reference this package only transitively, via a model
+      package; core DemaConsulting.Speech itself ships with zero built-in models and has no
+      dependency on ONNX Runtime.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/demaconsulting/Speech</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/demaconsulting/Speech</RepositoryUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>Icon.png</PackageIcon>
+    <PackageTags>speech;speech-to-text;text-to-speech;stt;tts;offline;audio;onnx;onnxruntime</PackageTags>
+    <Copyright>Copyright DEMA Consulting</Copyright>
+    <Title>DemaConsulting.Speech.Onnx</Title>
+    <Product>DemaConsulting.Speech.Onnx</Product>
+
+    <!-- Symbol Package Configuration -->
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+
+    <!-- Code Quality Configuration -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+
+    <!-- SBOM Configuration -->
+    <GenerateSBOM>true</GenerateSBOM>
+    <SBOMPackageName>$(PackageId)</SBOMPackageName>
+    <SBOMPackageVersion>$(Version)</SBOMPackageVersion>
+    <SBOMPackageSupplier>Organization: $(Company)</SBOMPackageSupplier>
+  </PropertyGroup>
+
+  <!-- Build Tool Dependencies -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Sbom.Targets" Version="4.1.13" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.401" PrivateAssets="All" />
+    <PackageReference Include="DemaConsulting.ApiMark.MSBuild" Version="0.5.3" PrivateAssets="All" />
+    <!-- Managed ONNX Runtime API only (CPU execution provider built in). This package does NOT
+         reference any accelerated execution-provider package (e.g. Microsoft.ML.OnnxRuntime.Gpu/
+         .DirectML): a consuming application that wants GPU acceleration adds that package itself
+         for its own target RID(s), and this package's own OnnxExecutionProviderSelector attempts
+         to append a GPU provider purely by name via SessionOptions.AppendExecutionProvider(string,
+         Dictionary&lt;string,string&gt;?) - a generic, dynamically-loaded API that requires no
+         compile-time reference to any specific provider package - falling back to the always
+         -available CPU provider when no accelerated provider is present at runtime. This mirrors
+         the sibling DemaConsulting.Speech.Sherpa package's "consuming application brings its own
+         native runtime package" convention. -->
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.30.0" />
+  </ItemGroup>
+
+  <!-- Project References -->
+  <ItemGroup>
+    <ProjectReference Include="..\DemaConsulting.Speech\DemaConsulting.Speech.csproj" />
+  </ItemGroup>
+
+  <!-- Code Analysis Dependencies -->
+  <ItemGroup>
+    <!-- Analyzer packages use child-element form to configure both PrivateAssets and IncludeAssets:
+         - PrivateAssets="all" prevents these build-time analyzers from becoming transitive dependencies
+           in packages that consume this library.
+         - IncludeAssets lists all asset types (including 'analyzers' and 'buildtransitive') to ensure
+           Roslyn analyzers and MSBuild targets are fully activated during the build. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="10.0.401">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="SonarAnalyzer.CSharp" Version="10.35.0.4138">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="DemaConsulting.Speech.Onnx.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\Icon.png" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <!-- API documentation generation -->
+  <PropertyGroup>
+    <!-- Run API documentation generation only for this framework in multi-targeted builds -->
+    <ApiDocsTargetFramework>net8.0</ApiDocsTargetFramework>
+    <!-- Configuration-specific output so Debug and Release docs do not overwrite each other -->
+    <ApiMarkOutputDir>$(MSBuildProjectDirectory)\bin\$(Configuration)\apimark-docs</ApiMarkOutputDir>
+    <!-- Pack generated API docs into the NuGet package under api/ -->
+    <ApiMarkPackDocs>false</ApiMarkPackDocs>
+    <ApiMarkPackDocs Condition="'$(TargetFramework)' == '$(ApiDocsTargetFramework)'">true</ApiMarkPackDocs>
+    <!-- Disable for non-primary framework to avoid duplicate generation in multi-targeted builds -->
+    <DisableApiMark Condition="'$(TargetFramework)' != '$(ApiDocsTargetFramework)'">true</DisableApiMark>
+    <!-- Report (but do not yet fail the build on) any public API surface missing an XML doc
+         <summary>, so gaps are visible before this is tightened to Error. -->
+    <ApiMarkEnforceDocs Condition="'$(TargetFramework)' == '$(ApiDocsTargetFramework)'">Public</ApiMarkEnforceDocs>
+    <ApiMarkEnforceDocsSeverity Condition="'$(TargetFramework)' == '$(ApiDocsTargetFramework)'">Warning</ApiMarkEnforceDocsSeverity>
+    <ApiMarkLibraryDescription Condition="'$(TargetFramework)' == '$(ApiDocsTargetFramework)'">DemaConsulting.Speech.Onnx supplies generic ONNX-Runtime infrastructure shared by this
+      library's raw-ONNX model packages: models shipped only as bare ONNX graphs, with no bundled
+      native inference engine. It declares zero models itself - see a sibling model package (for
+      example DemaConsulting.Speech.Onnx.Kokoro) for a concrete `catalog.AddXxxModels()` entry
+      point.
+
+      See the [README](https://github.com/demaconsulting/Speech/blob/main/README.md) and the
+      [user guide](https://github.com/demaconsulting/Speech/blob/main/docs/user_guide/introduction.md)
+      for a full walkthrough.</ApiMarkLibraryDescription>
+  </PropertyGroup>
+
+</Project>

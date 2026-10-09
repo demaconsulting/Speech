@@ -1,0 +1,142 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>DemaConsulting.Speech.Onnx.Kokoro</RootNamespace>
+    <AssemblyName>DemaConsulting.Speech.Onnx.Kokoro</AssemblyName>
+
+    <!-- NuGet Package Configuration -->
+    <PackageId>DemaConsulting.Speech.Onnx.Kokoro</PackageId>
+    <Version>0.0.0</Version>
+    <Authors>DEMA Consulting</Authors>
+    <Company>DEMA Consulting</Company>
+    <Description>Kokoro-82M v1.0 ONNX text-to-speech model for DemaConsulting.Speech, run
+      directly through ONNX Runtime with no bundled native inference engine (unlike
+      DemaConsulting.Speech.Sherpa's sherpa-onnx-backed models). This package owns the full
+      text-to-speech pipeline for this one model family itself - phonemization (via an embedded,
+      verified word-to-phoneme lexicon), tokenization, and ONNX Runtime inference - installed into
+      a SpeechModelCatalog via the AddKokoroModels() extension method. Reference this package
+      alongside DemaConsulting.Speech to get this model out of the box; core DemaConsulting.Speech
+      itself ships with zero built-in models and has no dependency on ONNX Runtime.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/demaconsulting/Speech</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/demaconsulting/Speech</RepositoryUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>Icon.png</PackageIcon>
+    <PackageTags>speech;speech-to-text;text-to-speech;stt;tts;offline;audio;onnx;onnxruntime;kokoro</PackageTags>
+    <Copyright>Copyright DEMA Consulting</Copyright>
+    <Title>DemaConsulting.Speech.Onnx.Kokoro</Title>
+    <Product>DemaConsulting.Speech.Onnx.Kokoro</Product>
+
+    <!-- Symbol Package Configuration -->
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+
+    <!-- Code Quality Configuration -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+
+    <!-- SBOM Configuration -->
+    <GenerateSBOM>true</GenerateSBOM>
+    <SBOMPackageName>$(PackageId)</SBOMPackageName>
+    <SBOMPackageVersion>$(Version)</SBOMPackageVersion>
+    <SBOMPackageSupplier>Organization: $(Company)</SBOMPackageSupplier>
+  </PropertyGroup>
+
+  <!-- Build Tool Dependencies -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Sbom.Targets" Version="4.1.13" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.401" PrivateAssets="All" />
+    <PackageReference Include="DemaConsulting.ApiMark.MSBuild" Version="0.5.3" PrivateAssets="All" />
+    <!-- Managed ONNX Runtime API only - see the referenced DemaConsulting.Speech.Onnx package's
+         own remarks for why this package never references an accelerated execution-provider
+         package itself. -->
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.30.0" />
+  </ItemGroup>
+
+  <!-- Project References -->
+  <ItemGroup>
+    <ProjectReference Include="..\DemaConsulting.Speech\DemaConsulting.Speech.csproj" />
+    <ProjectReference Include="..\DemaConsulting.Speech.Onnx\DemaConsulting.Speech.Onnx.csproj" />
+  </ItemGroup>
+
+  <!-- Embedded Resources -->
+  <ItemGroup>
+    <!-- Kokoro v1.0's own character-level IPA phoneme vocabulary (tokenizer.json), downloaded
+         from onnx-community/Kokoro-82M-v1.0-ONNX and re-embedded verbatim so this package needs
+         no separate download for the vocabulary at runtime. -->
+    <EmbeddedResource Include="Resources\kokoro-v1.0-tokenizer.json" />
+    <!-- A verified word -> IPA-phoneme-string lexicon, precomputed offline by running the real
+         misaki.en.G2P tool (the same phonemizer Kokoro's own reference pipeline uses) over every
+         single-pronunciation, purely-alphabetic word in the CMUdict word list. Gzip-compressed
+         (TSV compresses well) to keep the shipped package small; decompressed once, lazily, at
+         first use. See KokoroLexiconPhonemizer's remarks for why this is looked up rather than
+         computed from hand-written phoneme rules. -->
+    <EmbeddedResource Include="Resources\kokoro-en-lexicon.tsv.gz" />
+  </ItemGroup>
+
+  <!-- Code Analysis Dependencies -->
+  <ItemGroup>
+    <!-- Analyzer packages use child-element form to configure both PrivateAssets and IncludeAssets:
+         - PrivateAssets="all" prevents these build-time analyzers from becoming transitive dependencies
+           in packages that consume this library.
+         - IncludeAssets lists all asset types (including 'analyzers' and 'buildtransitive') to ensure
+           Roslyn analyzers and MSBuild targets are fully activated during the build. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="10.0.401">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="SonarAnalyzer.CSharp" Version="10.35.0.4138">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="DemaConsulting.Speech.Onnx.Kokoro.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\Icon.png" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <!-- API documentation generation -->
+  <PropertyGroup>
+    <!-- Run API documentation generation only for this framework in multi-targeted builds -->
+    <ApiDocsTargetFramework>net8.0</ApiDocsTargetFramework>
+    <!-- Configuration-specific output so Debug and Release docs do not overwrite each other -->
+    <ApiMarkOutputDir>$(MSBuildProjectDirectory)\bin\$(Configuration)\apimark-docs</ApiMarkOutputDir>
+    <!-- Pack generated API docs into the NuGet package under api/ -->
+    <ApiMarkPackDocs>false</ApiMarkPackDocs>
+    <ApiMarkPackDocs Condition="'$(TargetFramework)' == '$(ApiDocsTargetFramework)'">true</ApiMarkPackDocs>
+    <!-- Disable for non-primary framework to avoid duplicate generation in multi-targeted builds -->
+    <DisableApiMark Condition="'$(TargetFramework)' != '$(ApiDocsTargetFramework)'">true</DisableApiMark>
+    <!-- Report (but do not yet fail the build on) any public API surface missing an XML doc
+         <summary>, so gaps are visible before this is tightened to Error. -->
+    <ApiMarkEnforceDocs Condition="'$(TargetFramework)' == '$(ApiDocsTargetFramework)'">Public</ApiMarkEnforceDocs>
+    <ApiMarkEnforceDocsSeverity Condition="'$(TargetFramework)' == '$(ApiDocsTargetFramework)'">Warning</ApiMarkEnforceDocsSeverity>
+    <ApiMarkLibraryDescription Condition="'$(TargetFramework)' == '$(ApiDocsTargetFramework)'">DemaConsulting.Speech.Onnx.Kokoro supplies a production, raw-ONNX-Runtime-backed Kokoro-82M
+      v1.0 English text-to-speech model for DemaConsulting.Speech: shipped only as a bare ONNX
+      graph, with no bundled native inference engine.
+
+      Start here: `catalog.AddKokoroModels()`, an extension method on
+      `DemaConsulting.Speech.ModelManagementSubsystem.SpeechModelCatalog` that registers this
+      model so it appears in `Enumerate()` and can be downloaded/loaded exactly like any other
+      catalog model.
+
+      See the [README](https://github.com/demaconsulting/Speech/blob/main/README.md) and the
+      [user guide](https://github.com/demaconsulting/Speech/blob/main/docs/user_guide/introduction.md)
+      for a full walkthrough.</ApiMarkLibraryDescription>
+  </PropertyGroup>
+
+</Project>

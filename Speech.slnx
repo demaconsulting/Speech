@@ -2,6 +2,8 @@
   <Folder Name="/src/">
     <Project Path="src/DemaConsulting.Speech/DemaConsulting.Speech.csproj" />
     <Project Path="src/DemaConsulting.Speech.Sherpa/DemaConsulting.Speech.Sherpa.csproj" />
+    <Project Path="src/DemaConsulting.Speech.Onnx/DemaConsulting.Speech.Onnx.csproj" />
+    <Project Path="src/DemaConsulting.Speech.Onnx.Kokoro/DemaConsulting.Speech.Onnx.Kokoro.csproj" />
     <Project Path="src/DemaConsulting.Speech.Demo/DemaConsulting.Speech.Demo.csproj" />
     <Project Path="src/DemaConsulting.Speech.Cli/DemaConsulting.Speech.Cli.csproj" />
   </Folder>

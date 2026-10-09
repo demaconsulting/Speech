@@ -1,0 +1,64 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Throwaway CPU-vs-DirectML benchmark for the Kokoro ONNX synthesis engine. Not part of
+    Speech.slnx and not shipped - a one-off measurement tool, mirroring the existing
+    tools/KokoroSpike convention for spike/validation code that lives outside the real package
+    structure.
+
+    Links the real Kokoro source files from DemaConsulting.Speech.Onnx(.Kokoro) directly (rather
+    than ProjectReference-ing those projects) so this tool can select *either* the CPU-only
+    Microsoft.ML.OnnxRuntime package *or* the Microsoft.ML.OnnxRuntime.DirectML package exclusively
+    per run - referencing both together in one app is unsupported (both ship a same-named native
+    onnxruntime.dll and a transitively-versioned Microsoft.ML.OnnxRuntime.Managed dependency, so
+    mixing them risks an undefined "last one copied wins" native binary and a managed/native
+    version mismatch). Select the provider to benchmark with:
+
+      dotnet run -c Release                                   (CPU - default)
+      dotnet run -c Release -p:OrtProvider=DirectML            (DirectML)
+
+    Run a full `dotnet clean` between switching -p:OrtProvider values once, since NuGet restore
+    caches the previously selected package set in obj/project.assets.json.
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <OrtProvider Condition="'$(OrtProvider)' == ''">Cpu</OrtProvider>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(OrtProvider)' != 'DirectML'">
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.30.0" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(OrtProvider)' == 'DirectML'">
+    <PackageReference Include="Microsoft.ML.OnnxRuntime.DirectML" Version="1.24.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\DemaConsulting.Speech\DemaConsulting.Speech.csproj" />
+  </ItemGroup>
+
+  <!-- Linked, unmodified copies of the real production source - see the header comment for why
+       this tool cannot simply ProjectReference DemaConsulting.Speech.Onnx.Kokoro. -->
+  <ItemGroup>
+    <Compile Include="..\..\src\DemaConsulting.Speech.Onnx\OnnxRuntimeSubsystem\OnnxExecutionProviderSelector.cs" Link="Kokoro\OnnxExecutionProviderSelector.cs" />
+    <Compile Include="..\..\src\DemaConsulting.Speech.Onnx.Kokoro\ModelManagementSubsystem\KokoroPhonemeVocabulary.cs" Link="Kokoro\KokoroPhonemeVocabulary.cs" />
+    <Compile Include="..\..\src\DemaConsulting.Speech.Onnx.Kokoro\ModelManagementSubsystem\KokoroLexiconPhonemizer.cs" Link="Kokoro\KokoroLexiconPhonemizer.cs" />
+    <Compile Include="..\..\src\DemaConsulting.Speech.Onnx.Kokoro\SynthesisSubsystem\OnnxKokoroSynthesisEngine.cs" Link="Kokoro\OnnxKokoroSynthesisEngine.cs" />
+  </ItemGroup>
+
+  <!-- LogicalName is forced to match the hard-coded resource-name constants in the linked
+       source files above (those constants assume DemaConsulting.Speech.Onnx.Kokoro's own root
+       namespace, not this tool's). -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\src\DemaConsulting.Speech.Onnx.Kokoro\Resources\kokoro-v1.0-tokenizer.json" LogicalName="DemaConsulting.Speech.Onnx.Kokoro.Resources.kokoro-v1.0-tokenizer.json" Link="Resources\kokoro-v1.0-tokenizer.json" />
+    <EmbeddedResource Include="..\..\src\DemaConsulting.Speech.Onnx.Kokoro\Resources\kokoro-en-lexicon.tsv.gz" LogicalName="DemaConsulting.Speech.Onnx.Kokoro.Resources.kokoro-en-lexicon.tsv.gz" Link="Resources\kokoro-en-lexicon.tsv.gz" />
+  </ItemGroup>
+
+</Project>
