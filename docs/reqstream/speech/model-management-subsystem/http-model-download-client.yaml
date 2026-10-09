@@ -39,11 +39,12 @@ sections:
                   The HttpModelDownloadClient class shall accept a DownloadMirror once, at
                   construction, and apply its BearerToken (if any) as a preemptive
                   Authorization: Bearer request header, or its Credentials (if any) as a
-                  preemptive Authorization: Basic request header, to every request it issues,
-                  always sent through the single HttpClient instance this client was constructed
-                  with - whether caller-supplied or internally owned - never a second, separately
-                  configured client. With no mirror supplied, no Authorization header is sent at
-                  all.
+                  preemptive Authorization: Basic request header, to every request whose URI
+                  falls within the configured DownloadMirror's BaseUri, always sent through the
+                  single HttpClient instance this client was constructed with - whether
+                  caller-supplied or internally owned - never a second, separately configured
+                  client. With no mirror supplied, or for a request URI outside that mirror's
+                  BaseUri, no Authorization header is sent at all.
                 justification: |
                   A credentialed internal mirror needs its authentication applied to every
                   request this instance issues, without ever disturbing the one HttpClient's

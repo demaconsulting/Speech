@@ -348,7 +348,19 @@ public sealed class SpeechModelDownloader : IDisposable
             for (var fileIndex = 0; fileIndex < descriptor.Files.Count; fileIndex++)
             {
                 var file = descriptor.Files[fileIndex];
-                var destinationPath = Path.Join(stagingDirectory, file.RelativeInstallPath);
+
+                // Split on both path separators (the same logic ResolveEffectiveUri applies
+                // internally to build the mirror-rewritten request URI below) and rejoin with
+                // Path.Combine, so the staging destination path uses this platform's own
+                // Path.DirectorySeparatorChar rather than whichever separator the descriptor
+                // happens to declare - a raw Path.Join of file.RelativeInstallPath would
+                // otherwise create a single, wrongly named file on a platform whose separator
+                // differs (for example a literal "tokens\vocab.txt" staged as one file literally
+                // named "tokens\vocab.txt" on Linux, while the mirror-rewritten URI correctly
+                // requests "/tokens/vocab.txt").
+                var destinationPath = Path.Join(
+                    stagingDirectory,
+                    Path.Combine(SplitRelativeInstallPathSegments(file.RelativeInstallPath)));
                 Directory.CreateDirectory(Path.GetDirectoryName(destinationPath) ?? stagingDirectory);
 
                 var effectiveUri = ResolveEffectiveUri(file.Uri, _mirror, modelId, file.RelativeInstallPath);
@@ -526,11 +538,31 @@ public sealed class SpeechModelDownloader : IDisposable
         // percent-escape each segment (and modelId) individually before rejoining with '/' -
         // never escape the already-combined string as a whole, which would incorrectly encode
         // the separating slashes themselves.
-        var segments = relativeInstallPath.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries);
+        var segments = SplitRelativeInstallPathSegments(relativeInstallPath);
         var escapedSegments = segments.Select(Uri.EscapeDataString);
         var combined = string.Join('/', [basePath, Uri.EscapeDataString(modelId), .. escapedSegments]);
         return new Uri(combined);
     }
+
+    /// <summary>
+    ///     Splits a declared <see cref="SpeechModelDownloadFile.RelativeInstallPath"/> into its
+    ///     individual segments, accepting either path separator (<c>/</c> or <c>\</c>) - the same
+    ///     two separators <see cref="SpeechModelDownloadFile"/> itself accepts when validating
+    ///     that a declared path contains no parent-escaping segments.
+    /// </summary>
+    /// <param name="relativeInstallPath">The declared relative install path to split.</param>
+    /// <returns>
+    ///     The path's non-empty segments, in order - used identically by
+    ///     <see cref="ResolveEffectiveUri"/> (each segment individually percent-escaped and
+    ///     rejoined with <c>/</c>) and by <see cref="DownloadAsync(string, SpeechModelDownloadDescriptor, IProgress{SpeechModelDownloadProgress}, CancellationToken)"/>'s
+    ///     staging destination path
+    ///     (each segment rejoined via <see cref="Path.Combine(string[])"/>, using this platform's
+    ///     own <see cref="Path.DirectorySeparatorChar"/>), so a model that declares a path using
+    ///     the "wrong" separator for the current platform is staged under the same logical
+    ///     subdirectory its mirror-rewritten request URI targets.
+    /// </returns>
+    private static string[] SplitRelativeInstallPathSegments(string relativeInstallPath) =>
+        relativeInstallPath.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries);
 
     /// <summary>
     ///     Sums the length of every file within a directory tree, used to recompute a model's
@@ -549,15 +581,21 @@ public sealed class SpeechModelDownloader : IDisposable
     /// <exception cref="HttpFetchTimeoutException">
     ///     Thrown when <see cref="_client"/> is the concrete <see cref="HttpModelDownloadClient"/>
     ///     and its <c>DownloadAsync</c> call itself throws a <see cref="TaskCanceledException"/>
-    ///     not caused by <paramref name="cancellationToken"/> (an internal HTTP request timeout)
-    ///     - wrapped so <see cref="ClassifyFailure"/> can honestly classify only a genuine HTTP
-    ///     fetch timeout as <see cref="SpeechModelDownloadOutcome.NetworkBlocked"/>. A
-    ///     <see cref="TaskCanceledException"/> thrown by any other, host-injected
-    ///     <see cref="IModelDownloadClient"/> implementation is deliberately left unwrapped and
-    ///     falls through to <see cref="ClassifyFailure"/>'s generic
-    ///     <see cref="SpeechModelDownloadOutcome.Failed"/> fallback instead, since this type has
-    ///     no way to know whether such an implementation's own
-    ///     <see cref="TaskCanceledException"/> genuinely signals a network-level timeout.
+    ///     not caused by <paramref name="cancellationToken"/> whose
+    ///     <see cref="Exception.InnerException"/> is a <see cref="TimeoutException"/> - the
+    ///     documented .NET <see cref="HttpClient"/> behavior that proves the cancellation
+    ///     genuinely came from <see cref="HttpClient.Timeout"/> elapsing, never from some other,
+    ///     caller-supplied handler cancelling the request for an unrelated reason - wrapped so
+    ///     <see cref="ClassifyFailure"/> can honestly classify only a genuine HTTP fetch timeout
+    ///     as <see cref="SpeechModelDownloadOutcome.NetworkBlocked"/>. A
+    ///     <see cref="TaskCanceledException"/> without that inner <see cref="TimeoutException"/>
+    ///     signal - whether thrown by <see cref="HttpModelDownloadClient"/> itself (for example a
+    ///     caller-supplied <see cref="HttpClient"/> whose own handler cancels for some other
+    ///     reason) or by any other, host-injected <see cref="IModelDownloadClient"/>
+    ///     implementation - is deliberately left unwrapped and falls through to
+    ///     <see cref="ClassifyFailure"/>'s generic <see cref="SpeechModelDownloadOutcome.Failed"/>
+    ///     fallback instead, since this type has no other way to know whether such a cancellation
+    ///     genuinely signals a network-level timeout.
     /// </exception>
     private async Task FetchFileAsync(
         Uri effectiveUri,
@@ -578,16 +616,21 @@ public sealed class SpeechModelDownloader : IDisposable
             await _client.DownloadAsync(effectiveUri, destinationStream, fileProgress, cancellationToken)
                 .ConfigureAwait(false);
         }
-        catch (TaskCanceledException ex) when (_client is HttpModelDownloadClient && !cancellationToken.IsCancellationRequested)
+        catch (TaskCanceledException ex) when (_client is HttpModelDownloadClient &&
+                                                !cancellationToken.IsCancellationRequested &&
+                                                ex.InnerException is TimeoutException)
         {
             // A TaskCanceledException reaching here, with the caller's own token not canceled,
-            // from the concrete HttpModelDownloadClient can only be its own internal HTTP
-            // request timeout - wrap it so ClassifyFailure's HttpFetchTimeoutException match
-            // cannot also accidentally catch an unrelated TaskCanceledException thrown by some
-            // other, host-injected IModelDownloadClient implementation for a non-network reason
-            // (this class has no way to know what a custom implementation's own
-            // TaskCanceledException actually signals, so it is deliberately left unwrapped and
-            // falls through to the generic Failed classification instead).
+            // whose InnerException is a TimeoutException can only be HttpClient's own documented
+            // Timeout-elapsed cancellation (see https://learn.microsoft.com/dotnet/api/system.net.http.httpclient.timeout) -
+            // wrap it so ClassifyFailure's HttpFetchTimeoutException match cannot also
+            // accidentally catch an unrelated TaskCanceledException thrown by a caller-supplied
+            // HttpClient's own handler (for example a custom DelegatingHandler cancelling for a
+            // non-timeout reason) or by some other, host-injected IModelDownloadClient
+            // implementation (this class has no way to know what such an implementation's own
+            // TaskCanceledException actually signals, so any TaskCanceledException without this
+            // precise inner-exception shape is deliberately left unwrapped and falls through to
+            // the generic Failed classification instead).
             throw new HttpFetchTimeoutException(ex);
         }
     }

@@ -82,6 +82,49 @@ public sealed class SpeechModelDownloaderTests : IDisposable
     }
 
     /// <summary>
+    ///     Proves that a declared <see cref="SpeechModelDownloadFile.RelativeInstallPath"/> using
+    ///     the "wrong" separator for the current platform (a literal <c>\</c> on a Unix CI runner,
+    ///     or a literal <c>/</c> on Windows - both accepted by
+    ///     <see cref="SpeechModelDownloadFile"/>) is still staged under the same logical nested
+    ///     subdirectory that <see cref="SpeechModelDownloader.ResolveEffectiveUri"/> targets for a
+    ///     mirror request, rather than creating a single file whose name literally contains the
+    ///     other platform's separator character.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_RelativeInstallPathWithForeignSeparator_StagesUnderNestedSubdirectory()
+    {
+        // Arrange: declare a path using the separator opposite this platform's own, so a naive
+        // Path.Join(stagingDirectory, file.RelativeInstallPath) would create one wrongly-named
+        // file instead of the intended nested subdirectory.
+        var foreignSeparator = Path.DirectorySeparatorChar == '\\' ? '/' : '\\';
+        var relativeInstallPath = $"tokens{foreignSeparator}vocab.txt";
+        var payload = "vocab-payload"u8.ToArray();
+        var descriptor = SingleFileDescriptor(payload, relativeInstallPath);
+        var store = NewStore();
+        var client = new FakeModelDownloadClient(payload, chunkSize: 4);
+        var downloader = new SpeechModelDownloader(store, client);
+
+        // Act
+        var result = await downloader.DownloadAsync(
+            "model-a", descriptor, cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, result.Outcome);
+        var installedDirectory = store.GetCurrentDirectory("model-a");
+        var expectedNestedPath = Path.Combine(installedDirectory, "tokens", "vocab.txt");
+        Assert.True(File.Exists(expectedNestedPath));
+        var installedBytes = await File.ReadAllBytesAsync(
+            expectedNestedPath, TestContext.Current.CancellationToken);
+        Assert.Equal(payload, installedBytes);
+
+        // Neither separator character should ever appear literally within a single file name.
+        var installedFileNames = Directory
+            .EnumerateFiles(installedDirectory, "*", SearchOption.AllDirectories)
+            .Select(path => Path.GetFileName(path) ?? string.Empty);
+        Assert.All(installedFileNames, name => Assert.DoesNotContain(foreignSeparator, name));
+    }
+
+    /// <summary>
     ///     Proves that a checksum mismatch reports <see cref="SpeechModelDownloadOutcome.ChecksumMismatch"/>
     ///     and installs nothing.
     /// </summary>
@@ -760,6 +803,36 @@ public sealed class SpeechModelDownloaderTests : IDisposable
     }
 
     /// <summary>
+    ///     Proves that a <see cref="TaskCanceledException"/> thrown by the concrete
+    ///     <see cref="HttpModelDownloadClient"/>, when its <see cref="Exception.InnerException"/>
+    ///     is not a <see cref="TimeoutException"/> (simulating a caller-supplied
+    ///     <see cref="HttpClient"/> whose own custom <see cref="HttpMessageHandler"/> cancels for
+    ///     some unrelated reason, rather than <see cref="HttpClient.Timeout"/> elapsing), still
+    ///     classifies as the generic <see cref="SpeechModelDownloadOutcome.Failed"/> fallback -
+    ///     not <see cref="SpeechModelDownloadOutcome.NetworkBlocked"/> - since the concrete client
+    ///     type alone does not prove the cancellation was a genuine HTTP request timeout.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_HttpModelDownloadClientNonTimeoutCancellation_ReportsFailed()
+    {
+        // Arrange
+        var descriptor = SingleFileDescriptor("payload"u8.ToArray(), "model.bin");
+        var store = NewStore();
+        using var httpClient = new HttpClient(new NonTimeoutCancellingHttpMessageHandler());
+        using var client = new HttpModelDownloadClient(httpClient);
+        using var downloader = new SpeechModelDownloader(store, client);
+
+        // Act: the caller's own token is never canceled, so this cannot be a genuine cancellation
+        var result = await downloader.DownloadAsync(
+            "model-a", descriptor, cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(SpeechModelDownloadOutcome.Failed, result.Outcome);
+        Assert.IsType<TaskCanceledException>(result.Error);
+        Assert.False(store.IsInstalled("model-a"));
+    }
+
+    /// <summary>
     ///     Proves that an <see cref="IOException"/> (for example disk full) classifies as
     ///     <see cref="SpeechModelDownloadOutcome.IoFailure"/>.
     /// </summary>
@@ -1015,8 +1088,11 @@ public sealed class SpeechModelDownloaderTests : IDisposable
     }
 
     /// <summary>
-    ///     Stub <see cref="HttpMessageHandler"/> that always throws a <see cref="TaskCanceledException"/>,
-    ///     used to deterministically simulate <see cref="HttpClient"/>'s own internal request
+    ///     Stub <see cref="HttpMessageHandler"/> that always throws a <see cref="TaskCanceledException"/>
+    ///     whose <see cref="Exception.InnerException"/> is a <see cref="TimeoutException"/> -
+    ///     exactly the shape documented for a real <see cref="HttpClient.Timeout"/> expiry (see
+    ///     <see href="https://learn.microsoft.com/dotnet/api/system.net.http.httpclient.timeout"/>)
+    ///     - used to deterministically simulate <see cref="HttpClient"/>'s own internal request
     ///     timeout (without a real, flaky, time-based network delay) when wrapped by a real
     ///     <see cref="HttpModelDownloadClient"/>.
     /// </summary>
@@ -1026,7 +1102,24 @@ public sealed class SpeechModelDownloaderTests : IDisposable
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
             CancellationToken cancellationToken) =>
-            throw new TaskCanceledException("The request timed out.");
+            throw new TaskCanceledException("The request timed out.", new TimeoutException());
+    }
+
+    /// <summary>
+    ///     Stub <see cref="HttpMessageHandler"/> that always throws a <see cref="TaskCanceledException"/>
+    ///     with no inner exception, simulating a caller-supplied custom handler that cancels a
+    ///     request for a reason unrelated to <see cref="HttpClient.Timeout"/> elapsing - unlike
+    ///     <see cref="ThrowingHttpMessageHandler"/>, this does not carry the inner
+    ///     <see cref="TimeoutException"/> that a genuine <see cref="HttpClient.Timeout"/> expiry
+    ///     produces.
+    /// </summary>
+    private sealed class NonTimeoutCancellingHttpMessageHandler : HttpMessageHandler
+    {
+        /// <inheritdoc/>
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken) =>
+            throw new TaskCanceledException("The request was canceled for an unrelated reason.");
     }
 
     /// <summary>

@@ -158,6 +158,24 @@ public class DownloadMirrorTests
     }
 
     /// <summary>
+    ///     Proves that a <see cref="DownloadMirror.BaseUri"/> carrying a user-info component
+    ///     (for example <c>https://user:pass@mirror/models</c>) is rejected, since that
+    ///     credential would be interpolated verbatim by this record's compiler-generated
+    ///     <c>ToString</c> (via <see cref="DownloadMirror.BaseUri"/>'s own string form),
+    ///     disclosing it through logging or diagnostics even though <see cref="DownloadMirror.BearerToken"/>
+    ///     is separately redacted. <see cref="DownloadMirror.Credentials"/>/
+    ///     <see cref="DownloadMirror.BearerToken"/> are this type's only supported authentication
+    ///     channels.
+    /// </summary>
+    [Fact]
+    public void DownloadMirror_Constructor_UserInfoInBaseUri_ThrowsArgumentException()
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentException>(
+            () => new DownloadMirror(new Uri("https://user:pass@mirror.internal/models")));
+    }
+
+    /// <summary>
     ///     Proves that supplying <see cref="DownloadMirror.Credentials"/> or
     ///     <see cref="DownloadMirror.BearerToken"/> alongside a plain <c>http</c> (rather than
     ///     <c>https</c>) <see cref="DownloadMirror.BaseUri"/> is rejected, since both are sent

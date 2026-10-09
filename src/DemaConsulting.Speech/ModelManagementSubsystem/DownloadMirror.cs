@@ -63,6 +63,14 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     limitation as an immediate, clear configuration error instead of a confusing failure deep
 ///     inside the download pipeline.
 ///     </para>
+///     <para>
+///     <see cref="BaseUri"/> must not carry a user-info component (for example
+///     <c>https://user:pass@mirror/models</c>): <see cref="Credentials"/> and
+///     <see cref="BearerToken"/> are this type's only supported authentication channels, and a
+///     credential embedded in <see cref="BaseUri"/> itself would be interpolated verbatim by this
+///     record's compiler-generated <c>ToString</c> (unlike <see cref="BearerToken"/>, which that
+///     override redacts), silently disclosing it through logging or diagnostics.
+///     </para>
 /// </remarks>
 public sealed record DownloadMirror
 {
@@ -91,10 +99,11 @@ public sealed record DownloadMirror
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="baseUri"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">
     ///     Thrown when <paramref name="baseUri"/> is not an absolute URI, when its scheme is
-    ///     neither <c>http</c> nor <c>https</c>, when it includes a query string or fragment,
-    ///     when both <paramref name="credentials"/> and <paramref name="bearerToken"/> are
-    ///     supplied, or when either is supplied alongside an <c>http</c> (rather than
-    ///     <c>https</c>) <paramref name="baseUri"/> whose host is not a loopback address.
+    ///     neither <c>http</c> nor <c>https</c>, when it includes a query string, fragment, or
+    ///     user-info component, when both <paramref name="credentials"/> and
+    ///     <paramref name="bearerToken"/> are supplied, or when either is supplied alongside an
+    ///     <c>http</c> (rather than <c>https</c>) <paramref name="baseUri"/> whose host is not a
+    ///     loopback address.
     /// </exception>
     public DownloadMirror(Uri baseUri, NetworkCredential? credentials = null, string? bearerToken = null)
     {
@@ -129,6 +138,19 @@ public sealed record DownloadMirror
         {
             throw new ArgumentException(
                 "Mirror base URI must not include a query string or fragment.",
+                nameof(baseUri));
+        }
+
+        // A "user:pass@host" user-info component would be interpolated verbatim by this record's
+        // ToString (via BaseUri's own string form), disclosing a credential through logging or
+        // diagnostics even though PrintMembers already redacts BearerToken - the explicit
+        // Credentials/BearerToken properties are this type's only supported way to configure
+        // authentication, so reject user-info here rather than silently accepting a second
+        // credential channel that is never redacted.
+        if (!string.IsNullOrEmpty(baseUri.UserInfo))
+        {
+            throw new ArgumentException(
+                "Mirror base URI must not include a user-info component; use credentials or bearerToken instead.",
                 nameof(baseUri));
         }
 
