@@ -302,9 +302,12 @@ public sealed class SpeechModelStore
     /// </summary>
     /// <param name="modelId">The model identifier to validate.</param>
     /// <exception cref="ArgumentException">
-    ///     Thrown when <paramref name="modelId"/> is null, empty, whitespace-only, or contains a
+    ///     Thrown when <paramref name="modelId"/> is null, empty, whitespace-only, contains a
     ///     character invalid in a file name (which would otherwise let a model id escape its own
-    ///     directory or collide with the store's reserved directory/file names).
+    ///     directory or collide with the store's reserved directory/file names), or is exactly
+    ///     <c>"."</c> or <c>".."</c> (a relative-path segment that <see cref="Path.Join(string,string)"/>
+    ///     and <see cref="Uri"/> construction would both silently normalize into traversing out
+    ///     of this model's own directory/mirror subtree, bypassing every other character check).
     /// </exception>
     private static void ValidateModelId(string modelId)
     {
@@ -313,6 +316,18 @@ public sealed class SpeechModelStore
         if (modelId.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
         {
             throw new ArgumentException($"Model id '{modelId}' is not a valid directory name.", nameof(modelId));
+        }
+
+        // Neither "." nor ".." contains an invalid file name character, so the check above alone
+        // never rejects them - yet both are reserved relative-path segments that Path.Join (for
+        // the on-disk model directory) and Uri construction (for a resolved mirror request URI)
+        // both normalize away, letting a model id escape its own directory/mirror subtree
+        // entirely rather than naming a literal "." or ".." subdirectory within it.
+        if (modelId is "." or "..")
+        {
+            throw new ArgumentException(
+                $"Model id '{modelId}' must not be a relative-path segment ('.' or '..').",
+                nameof(modelId));
         }
     }
 

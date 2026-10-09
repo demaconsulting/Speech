@@ -537,6 +537,35 @@ reviews:
       - "src/DemaConsulting.Speech/ModelManagementSubsystem/SpeechModelDownloader.cs"
       - "test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/SpeechModelDownloaderTests.cs"
 
+  # Speech-ModelManagementSubsystem-SpeechModelDownloaderOptions Review (one per unit)
+  - id: Speech-ModelManagementSubsystem-SpeechModelDownloaderOptions
+    title: Review that Speech ModelManagementSubsystem SpeechModelDownloaderOptions Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/model-management-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/model-management-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/model-management-subsystem/speech-model-downloader-options.yaml"
+      - "docs/design/speech/model-management-subsystem/speech-model-downloader-options.md"
+      - "docs/verification/speech/model-management-subsystem/speech-model-downloader-options.md"
+      - "src/DemaConsulting.Speech/ModelManagementSubsystem/SpeechModelDownloaderOptions.cs"
+
+  # Speech-ModelManagementSubsystem-DownloadMirror Review (one per unit)
+  - id: Speech-ModelManagementSubsystem-DownloadMirror
+    title: Review that Speech ModelManagementSubsystem DownloadMirror Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/model-management-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/model-management-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/model-management-subsystem/download-mirror.yaml"
+      - "docs/design/speech/model-management-subsystem/download-mirror.md"
+      - "docs/verification/speech/model-management-subsystem/download-mirror.md"
+      - "src/DemaConsulting.Speech/ModelManagementSubsystem/DownloadMirror.cs"
+      - "test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/DownloadMirrorTests.cs"
+
   # Speech-ModelManagementSubsystem-SpeechModelDescriptorEnums Review (one per unit)
   - id: Speech-ModelManagementSubsystem-SpeechModelDescriptorEnums
     title: Review that Speech ModelManagementSubsystem SpeechModelDescriptorEnums Implementation is Correct

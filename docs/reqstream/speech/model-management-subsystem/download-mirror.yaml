@@ -1,0 +1,115 @@
+---
+# Software Unit Requirements for DownloadMirror
+#
+# These requirements describe the design-level behavior of the DownloadMirror unit,
+# decomposing the parent ModelManagementSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        sections:
+          - title: DownloadMirror Requirements
+            requirements:
+              - id: Speech-Models-DownloadMirror-SchemeValidation
+                title: >-
+                  The DownloadMirror record shall reject, at construction, any BaseUri that is
+                  not absolute or whose scheme is neither http nor https.
+                justification: |
+                  Every model download is dereferenced through HttpModelDownloadClient, which has
+                  no implementation path for a file://UNC mirror; rejecting an unsupported scheme
+                  immediately surfaces the limitation as a clear configuration error instead of an
+                  obscure failure deep inside the download pipeline, and a relative base URI has
+                  no meaningful way to combine with a model's declared relative install path.
+                tests:
+                  - DownloadMirror_Constructor_BaseUriOnly_ExposesValuesWithNullAuth
+                  - DownloadMirror_Constructor_HttpOrHttpsScheme_Succeeds
+                  - DownloadMirror_Constructor_RelativeBaseUri_ThrowsArgumentException
+                  - DownloadMirror_Constructor_NonHttpScheme_ThrowsArgumentExceptionNamingScheme
+
+              - id: Speech-Models-DownloadMirror-MutualExclusivity
+                title: >-
+                  The DownloadMirror record shall reject, at construction, supplying both
+                  Credentials and BearerToken, since at most one authentication mechanism may be
+                  configured per mirror.
+                justification: |
+                  Supplying both would silently prefer one over the other with no indication to
+                  the host that the other was ignored - a configuration error that must surface
+                  immediately, not a case to resolve with a silent fallback.
+                tests:
+                  - DownloadMirror_Constructor_CredentialsOnly_ExposesCredentials
+                  - DownloadMirror_Constructor_BearerTokenOnly_ExposesBearerToken
+                  - DownloadMirror_Constructor_BothCredentialsAndBearerToken_ThrowsArgumentException
+
+              - id: Speech-Models-DownloadMirror-NullArgumentValidation
+                title: >-
+                  The DownloadMirror record shall throw ArgumentNullException at construction when
+                  BaseUri is null.
+                justification: |
+                  A programming error (a null constructor argument) should surface immediately
+                  with a clear, cheap-to-diagnose exception rather than an opaque failure deeper
+                  in the download pipeline.
+                tests:
+                  - DownloadMirror_Constructor_NullBaseUri_ThrowsArgumentNullException
+
+              - id: Speech-Models-DownloadMirror-QueryFragmentValidation
+                title: >-
+                  The DownloadMirror record shall reject, at construction, a BaseUri whose query
+                  string or fragment is non-empty.
+                justification: |
+                  SpeechModelDownloader.ResolveEffectiveUri appends path segments directly onto
+                  BaseUri's string form; a query string or fragment would end up with the model's
+                  path appended after the '?'/'#' delimiter, whose actual request path never
+                  reaches the mirror's intended file, so this must be rejected eagerly rather
+                  than silently misrouting every download.
+                tests:
+                  - DownloadMirror_Constructor_QueryOrFragmentInBaseUri_ThrowsArgumentException
+
+              - id: Speech-Models-DownloadMirror-CredentialedHttpRejection
+                title: >-
+                  The DownloadMirror record shall reject, at construction, supplying either
+                  Credentials or BearerToken alongside a BaseUri using the plain http (rather
+                  than https) scheme, unless BaseUri's host is a loopback address (localhost or
+                  a loopback IP literal).
+                justification: |
+                  HttpModelDownloadClient sends Credentials/BearerToken preemptively, with no
+                  challenge/response handshake gating the first request; a misconfigured
+                  http:// mirror would otherwise transmit the secret in cleartext on the wire
+                  with no indication to the host that it had done so. A loopback host is
+                  exempted since that traffic never leaves the local machine, so an in-process
+                  or local test server (as used by this library's own HttpModelDownloadClient
+                  authentication tests) can exercise credentialed mirror behavior over plain
+                  http without a real TLS certificate.
+                tests:
+                  - DownloadMirror_Constructor_CredentialsWithHttpBaseUri_ThrowsArgumentException
+                  - DownloadMirror_Constructor_BearerTokenWithHttpBaseUri_ThrowsArgumentException
+
+              - id: Speech-Models-DownloadMirror-CredentialedLoopbackHttpExemption
+                title: >-
+                  The DownloadMirror record shall accept Credentials or BearerToken alongside a
+                  plain http BaseUri when BaseUri's host is a loopback address (the literal name
+                  localhost or a loopback IP literal such as 127.0.0.1 or ::1).
+                justification: |
+                  A loopback mirror's traffic never leaves the local machine, so the cleartext
+                  risk Speech-Models-DownloadMirror-CredentialedHttpRejection otherwise guards
+                  against does not apply; this exemption lets an in-process or local test server
+                  exercise credentialed mirror authentication over plain http without needing a
+                  real TLS certificate, as this library's own HttpModelDownloadClient
+                  authentication tests rely on.
+                tests:
+                  - DownloadMirror_Constructor_CredentialsWithLoopbackHttpBaseUri_DoesNotThrow
+                  - DownloadMirror_Constructor_BearerTokenWithLoopbackHttpBaseUri_DoesNotThrow
+
+              - id: Speech-Models-DownloadMirror-BearerTokenWhitespaceValidation
+                title: >-
+                  The DownloadMirror record shall reject an empty or whitespace-only BearerToken
+                  eagerly at construction.
+                justification: |
+                  An empty or whitespace-only bearer token is just as meaningless as a missing
+                  one, but ApplyMirrorAuthentication would still send it as a literal
+                  "Authorization: Bearer" header, so a misconfigured mirror would otherwise only
+                  be discovered when the first download fails with an opaque, generically
+                  classified HTTP failure. Rejecting it eagerly, alongside this record's other
+                  validation, surfaces the configuration error immediately instead.
+                tests:
+                  - DownloadMirror_Constructor_WhitespaceOnlyBearerToken_ThrowsArgumentException

@@ -141,8 +141,11 @@ public class ModelCatalogServiceTests
         var result = await service.DownloadAsync(
             model.Id, progress: null, TestContext.Current.CancellationToken);
 
-        // Assert
-        Assert.Equal(SpeechModelDownloadOutcome.Failed, result.Outcome);
+        // Assert: the simulated failure is an IOException, which this library's richer
+        // SpeechModelDownloadOutcome classification now honestly reports as IoFailure rather
+        // than the old generic Failed fallback - the event-not-raised behavior under test is
+        // unaffected by which specific non-Installed outcome was reported.
+        Assert.Equal(SpeechModelDownloadOutcome.IoFailure, result.Outcome);
         Assert.Empty(raisedEvents);
     }
 

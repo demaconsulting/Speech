@@ -47,6 +47,12 @@ public interface IModelDownloadClient
     ///     Implementations must throw (rather than silently truncate) on any non-success response
     ///     or transport failure, so a caller can distinguish "verified download" from "partial or
     ///     failed download" without inspecting <paramref name="destination"/>'s length itself.
+    ///     This member's signature is part of this library's public API surface and is
+    ///     intentionally never changed to add new parameters - a host's own
+    ///     <see cref="IModelDownloadClient"/> implementation must stay source-compatible across
+    ///     releases. <see cref="HttpModelDownloadClient"/>'s mirror-authentication support (see
+    ///     its own constructor) is configured once, at construction, rather than per call, for
+    ///     exactly this reason.
     /// </remarks>
     Task DownloadAsync(
         Uri sourceUri,

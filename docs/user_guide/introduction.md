@@ -98,6 +98,9 @@ a per-user basis:
   (`HttpModelDownloadClient` by default), verifies each file's SHA-256 checksum, and only then
   hands the verified files to `SpeechModelStore` for atomic install. A corrupted, partial, or
   checksum-mismatched download is never marked installed.
+- **`SpeechModelDownloaderOptions`** / **`DownloadMirror`**: optional configuration letting a host
+  redirect every model download through an internal, possibly-authenticated HTTPS mirror instead
+  of each model's own hardcoded source URI - see below.
 - **`SpeechModelDownloadDescriptor`** / **`SpeechModelDownloadFile`**: describe the HTTPS URL(s)
   and expected SHA-256 checksum(s) for a model's downloadable files.
 - **`SpeechModelDownloadProgress`**: reports per-file transfer progress, suitable for
@@ -122,6 +125,33 @@ var descriptor = new SpeechModelDownloadDescriptor(
 await downloader.DownloadAsync("my-model", descriptor);
 ```
 
+A host whose network policy blocks the public hosts a model's own declared URI points at (for
+example a TLS-interception policy breaking `huggingface.co`) can redirect every model download
+through an internal mirror it controls instead, with no change to any model's own declared
+download descriptor:
+
+```csharp
+var mirror = new DownloadMirror(
+    new Uri("https://models.internal.example.com/mirror"),
+    bearerToken: "…token…"); // or: credentials: new NetworkCredential("user", "pass")
+
+var options = new SpeechModelDownloaderOptions { Mirror = mirror };
+var mirroredDownloader = new SpeechModelDownloader(store, client: null, diagnostics: null, options: options);
+
+// Every file now resolves to https://models.internal.example.com/mirror/my-model/model.bin
+// and carries the configured bearer token/credentials, instead of the file's own declared URI.
+await mirroredDownloader.DownloadAsync("my-model", descriptor);
+```
+
+`DownloadMirror.Credentials` and `DownloadMirror.BearerToken` are mutually exclusive - supply at
+most one. A `DownloadAsync` call that fails (beyond a checksum mismatch) now reports one of
+several honest outcomes rather than one generic `Failed`, so a host can react to *why* it failed:
+`NetworkBlocked` (a TLS/certificate failure, a DNS/connection failure, or a timeout - the shape a
+blocked or intercepted network path typically produces, and a strong signal to try configuring a
+`DownloadMirror`), `HttpError` (a real non-success HTTP response, e.g. 404/403/5xx), `IoFailure`
+(a local disk/permission failure), or the final generic `Failed` fallback for anything else - with
+the underlying exception always available in `SpeechModelDownloadResult.Error`.
+
 This release also ships the model catalog/contract seam of the `ModelManagementSubsystem`,
 describing *which* models are available and their tunable parameters:
 
@@ -136,9 +166,9 @@ describing *which* models are available and their tunable parameters:
 - **`SpeechModelCatalog`**: enumerates the library's known/compiled-in models alongside each
   one's current install state, and orchestrates downloading a known model by id.
   `DownloadAsync` is safe to call unconditionally on every launch - it's a cheap no-op once a
-  model is installed, and otherwise returns `Failed` (transport or I/O failure, with the
-  underlying exception in `SpeechModelDownloadResult.Error`) or `ChecksumMismatch` on a real
-  download problem, or throws `ArgumentException` for an unrecognized model id.
+  model is installed, and otherwise returns `ChecksumMismatch`, `NetworkBlocked`, `HttpError`,
+  `IoFailure`, or `Failed` on a real download problem (with the underlying exception in
+  `SpeechModelDownloadResult.Error`), or throws `ArgumentException` for an unrecognized model id.
 
 This release ships **four real, production model classes** across both roles it defines, via
 the separate `DemaConsulting.Speech.Sherpa` package: calling `.AddSherpaModels()` on a

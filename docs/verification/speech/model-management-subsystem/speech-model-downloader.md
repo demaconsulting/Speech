@@ -3,10 +3,24 @@
 #### Verification Approach
 
 Verified through direct unit tests in `SpeechModelDownloaderTests.cs` against a fake
-`IModelDownloadClient` (`FakeModelDownloadClient`, `BarrierModelDownloadClient`, and
-`OrderTrackingModelDownloadClient`), so every scenario - concurrency, checksum verification,
-atomic swap, the already-installed fast path, and honest failure states - runs deterministically
-with no real network access. Cross-model concurrency and same-model-id serialization are both
+`IModelDownloadClient` (`FakeModelDownloadClient`, `BarrierModelDownloadClient`,
+`OrderTrackingModelDownloadClient`, and `ThrowingModelDownloadClient`), so every scenario -
+concurrency, checksum verification, atomic swap, the already-installed fast path, mirror URI
+resolution/forwarding, and honest failure classification - runs deterministically with no real
+network access. `ThrowingModelDownloadClient` throws an exact, caller-chosen exception shape
+(including a wrapped `AuthenticationException`/`SocketException`, a bare `TaskCanceledException`,
+an `IOException`, an `UnauthorizedAccessException`, and an unmatched `InvalidOperationException`)
+so each `ClassifyFailure` branch is exercised through the real `DownloadAsync` catch chain rather
+than by calling a private method directly. `FakeModelDownloadClient` additionally records each
+call's source `Uri` (in a `Calls` list) so mirror-configured and no-mirror scenarios can assert
+exactly which effective URI `SpeechModelDownloader` forwarded to the download client; mirror
+*authentication* coverage (the `Authorization` header applied only to a request within the
+configured mirror's base URI) is instead verified against the real `HttpModelDownloadClient` in
+`HttpModelDownloadClientTests`, since `IModelDownloadClient` itself carries no auth parameter for
+a generic fake to observe. `ResolveEffectiveUri`
+itself is exercised directly (it is `internal`, reachable via this project's
+`InternalsVisibleTo` grant from the core project) across trailing-slash, subdirectory, and
+URL-unsafe-character edge cases. Cross-model concurrency and same-model-id serialization are both
 proven with deterministic synchronization primitives (a `TaskCompletionSource`-based arrival
 barrier and an explicit release gate, respectively) rather than timing-based delays, so a
 regression back to a global single-flight lock fails these tests with a bounded timeout instead
@@ -50,7 +64,28 @@ verified staged files before `current/` exists; a zip-archive model's `current/`
 up containing the archive's extracted entry rather than the archive itself, whether reached
 through the downloader directly or through `SpeechModelCatalog.DownloadAsync`; and an
 `InstallAsync` failure of a listed or unlisted exception type on a fresh (not-yet-installed)
-model reports `Failed` with `Error` populated and installs nothing.
+model reports `Failed` with `Error` populated and installs nothing. With no mirror configured,
+`ResolveEffectiveUri` returns a file's own declared `Uri` unchanged (including across
+trailing-slash and URL-unsafe-character variations in the no-mirror case, where those values are
+simply never consulted) and `DownloadAsync` forwards the original URI unchanged to the download
+client; with a mirror configured, `ResolveEffectiveUri` resolves exactly one separating slash
+regardless of `BaseUri`'s own trailing slash, preserves every subdirectory segment of a
+multi-segment `RelativeInstallPath`, and percent-escapes URL-unsafe characters in both `modelId`
+and path segments, and `DownloadAsync` forwards the resolved effective URI to the download client
+(`IModelDownloadClient` has no authentication parameter, so the mirror's own credential, if any,
+is never forwarded through this seam - see `speech-model-downloader-options.md`). Each new failure
+classification path is exercised and reports its documented, distinct outcome:
+`HttpRequestException` with a `StatusCode` reports `HttpError`; `HttpRequestException` wrapping an
+`AuthenticationException` or a `SocketException` reports `NetworkBlocked`; a
+`TaskCanceledException` not caused by the caller's own token reports `NetworkBlocked` only when
+thrown by the concrete `HttpModelDownloadClient` with an `InnerException` of `TimeoutException`
+(the documented `HttpClient.Timeout` signal) - the same-shaped exception from a host-injected
+`IModelDownloadClient`, or from `HttpModelDownloadClient` without that inner-exception marker (for
+example a caller-supplied `HttpClient` whose own handler cancels for an unrelated reason), reports
+the generic `Failed` fallback instead; `IOException` and `UnauthorizedAccessException` both report
+`IoFailure`; and an unmatched exception type still reports `Failed` - while a genuinely
+caller-canceled token still propagates as `OperationCanceledException` completely unchanged, never
+reclassified as `NetworkBlocked`.
 
 #### Test Scenarios
 
@@ -105,3 +140,71 @@ model reports `Failed` with `Error` populated and installs nothing.
 ##### Catalog: Zip-Archive Model Installs Extracted Content and Reports Downloaded
 
 **Test**: `SpeechModelCatalog_DownloadAsync_ZipArchiveModel_InstallsExtractedContentAndReportsDownloaded`
+
+##### ResolveEffectiveUri: No Mirror Returns Original Uri Unchanged
+
+**Test**: `SpeechModelDownloader_ResolveEffectiveUri_NoMirror_ReturnsOriginalUriUnchanged`
+
+##### ResolveEffectiveUri: Trailing Slash Variations Resolve Identically
+
+**Test**: `SpeechModelDownloader_ResolveEffectiveUri_TrailingSlashVariations_ResolveIdentically`
+
+##### ResolveEffectiveUri: Subdirectory Relative Path Preserves All Segments
+
+**Test**: `SpeechModelDownloader_ResolveEffectiveUri_SubdirectoryRelativePath_PreservesAllSegments`
+
+##### ResolveEffectiveUri: Model Id With Unsafe Characters Is Escaped
+
+**Test**: `SpeechModelDownloader_ResolveEffectiveUri_ModelIdWithUnsafeCharacters_IsEscaped`
+
+##### ResolveEffectiveUri: Path Segment With Unsafe Characters Is Escaped Per Segment
+
+**Test**: `SpeechModelDownloader_ResolveEffectiveUri_PathSegmentWithUnsafeCharacters_IsEscapedPerSegment`
+
+##### Download: No Mirror Configured Forwards Original URI Unchanged
+
+**Test**: `SpeechModelDownloader_DownloadAsync_NoMirrorConfigured_ForwardsOriginalUriUnchanged`
+
+##### Download: Mirror Configured Forwards Effective URI
+
+**Test**: `SpeechModelDownloader_DownloadAsync_MirrorConfigured_ForwardsEffectiveUri`
+
+##### Constructor: Credentialed Mirror With Caller-Supplied Client Throws ArgumentException
+
+**Test**: `SpeechModelDownloader_Constructor_CredentialedMirrorWithCallerSuppliedClient_ThrowsArgumentException`
+
+##### Download: HttpRequestException With Status Code Reports HttpError
+
+**Test**: `SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWithStatusCode_ReportsHttpError`
+
+##### Download: HttpRequestException Wrapping AuthenticationException Reports NetworkBlocked
+
+**Test**: `SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWrappingAuthenticationException_ReportsNetworkBlocked`
+
+##### Download: HttpRequestException Wrapping SocketException Reports NetworkBlocked
+
+**Test**: `SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWrappingSocketException_ReportsNetworkBlocked`
+
+##### Download: TaskCanceledException From Injected Client Reports Failed
+
+**Test**: `SpeechModelDownloader_DownloadAsync_TaskCanceledExceptionFromInjectedClient_ReportsFailed`
+
+##### Download: HttpModelDownloadClient Internal Timeout Reports NetworkBlocked
+
+**Test**: `SpeechModelDownloader_DownloadAsync_HttpModelDownloadClientInternalTimeout_ReportsNetworkBlocked`
+
+##### Download: HttpModelDownloadClient Non-Timeout Cancellation Reports Failed
+
+**Test**: `SpeechModelDownloader_DownloadAsync_HttpModelDownloadClientNonTimeoutCancellation_ReportsFailed`
+
+##### Download: IOException Reports IoFailure
+
+**Test**: `SpeechModelDownloader_DownloadAsync_IoException_ReportsIoFailure`
+
+##### Download: UnauthorizedAccessException Reports IoFailure
+
+**Test**: `SpeechModelDownloader_DownloadAsync_UnauthorizedAccessException_ReportsIoFailure`
+
+##### Download: Unmatched Exception Type Reports Failed
+
+**Test**: `SpeechModelDownloader_DownloadAsync_UnmatchedExceptionType_ReportsFailed`

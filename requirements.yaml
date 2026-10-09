@@ -41,6 +41,8 @@ includes:
   - docs/reqstream/speech/model-management-subsystem/speech-model-store-options.yaml
   - docs/reqstream/speech/model-management-subsystem/speech-model-store-exception.yaml
   - docs/reqstream/speech/model-management-subsystem/speech-model-downloader.yaml
+  - docs/reqstream/speech/model-management-subsystem/speech-model-downloader-options.yaml
+  - docs/reqstream/speech/model-management-subsystem/download-mirror.yaml
   - docs/reqstream/speech/model-management-subsystem/speech-model-download-file.yaml
   - docs/reqstream/speech/model-management-subsystem/speech-model-download-descriptor.yaml
   - docs/reqstream/speech/model-management-subsystem/speech-model-download-progress.yaml

@@ -12,8 +12,11 @@ eager validation of URI scheme, checksum format, and relative install path.
 #### Acceptance Criteria
 
 Tests pass when valid values are exposed unchanged, a non-HTTPS URI is rejected, a malformed
-checksum is rejected, an empty/whitespace or parent-escaping install path is rejected, a rooted
-install path is rejected, and any null argument is rejected.
+checksum is rejected, an empty/whitespace, parent-escaping (`..`), current-directory (`.`), or
+separators-only (no named segment) install path is rejected, a rooted install path is rejected,
+any null argument is rejected, and the instance `ResolveStagedPath` method combines a staging
+directory with this already-validated instance's install path segments using this platform's own
+directory separator regardless of which separator the install path was declared with.
 
 #### Test Scenarios
 
@@ -40,3 +43,11 @@ install path is rejected, and any null argument is rejected.
 ##### Constructor: Null Arguments Throws ArgumentNullException
 
 **Test**: `SpeechModelDownloadFile_Constructor_NullArguments_ThrowsArgumentNullException`
+
+##### ResolveStagedPath: Any Separator Matches Downloader Staging
+
+**Test**: `SpeechModelDownloadFile_ResolveStagedPath_AnySeparator_MatchesDownloaderStaging`
+
+##### ResolveStagedPath: Null Argument Throws ArgumentNullException
+
+**Test**: `SpeechModelDownloadFile_ResolveStagedPath_NullArgument_ThrowsArgumentNullException`

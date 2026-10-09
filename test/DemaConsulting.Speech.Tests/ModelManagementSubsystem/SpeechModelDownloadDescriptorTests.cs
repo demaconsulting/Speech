@@ -64,6 +64,24 @@ public class SpeechModelDownloadDescriptorTests
     }
 
     /// <summary>
+    ///     Proves that two files whose declared install paths differ only in which path separator
+    ///     they use (<c>/</c> vs <c>\</c>) are still rejected as duplicates, since
+    ///     <see cref="SpeechModelDownloader"/> normalizes both separators identically and would
+    ///     stage and request both at the same effective path, silently overwriting one with the
+    ///     other.
+    /// </summary>
+    [Fact]
+    public void SpeechModelDownloadDescriptor_Constructor_DuplicateInstallPathsWithDifferingSeparators_ThrowsArgumentException()
+    {
+        // Arrange
+        var first = new SpeechModelDownloadFile(new Uri("https://example.test/a.onnx"), ValidChecksum, "tokens/vocab.txt");
+        var second = new SpeechModelDownloadFile(new Uri("https://example.test/b.onnx"), ValidChecksum, "tokens\\vocab.txt");
+
+        // Act & Assert
+        Assert.Throws<ArgumentException>(() => new SpeechModelDownloadDescriptor([first, second]));
+    }
+
+    /// <summary>
     ///     Proves that a null element within an otherwise non-empty file list is rejected with
     ///     <see cref="ArgumentException"/> rather than surfacing later as a
     ///     <see cref="NullReferenceException"/> when something dereferences it.

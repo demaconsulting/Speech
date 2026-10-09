@@ -59,8 +59,10 @@ public class SpeechModelDownloadFileTests
     }
 
     /// <summary>
-    ///     Proves that an empty, whitespace-only, or parent-escaping install path is rejected,
-    ///     since any of these could write outside the model's installed directory or is
+    ///     Proves that an empty, whitespace-only, parent-escaping, or current-directory install
+    ///     path is rejected, since any of these could write outside the model's installed
+    ///     directory, silently collide with another declared path once collapsed away by
+    ///     <see cref="Path.Combine(string[])"/>/<see cref="Uri"/> canonicalization, or is
     ///     otherwise meaningless.
     /// </summary>
     [Theory]
@@ -68,6 +70,13 @@ public class SpeechModelDownloadFileTests
     [InlineData("   ")]
     [InlineData("../escape.onnx")]
     [InlineData("nested/../../escape.onnx")]
+    [InlineData(".")]
+    [InlineData("./model.onnx")]
+    [InlineData("tokens/./vocab.txt")]
+    [InlineData(@"\\")] // Two literal backslashes: rooted on Windows, but on Linux (where only
+                        // a leading '/' is rooted) this normalizes to zero segments instead -
+                        // either way it must be rejected, never silently resolved to the staging
+                        // directory itself.
     public void SpeechModelDownloadFile_Constructor_InvalidInstallPath_ThrowsArgumentException(string installPath)
     {
         // Arrange
@@ -105,4 +114,49 @@ public class SpeechModelDownloadFileTests
         Assert.Throws<ArgumentNullException>(() => new SpeechModelDownloadFile(uri, null!, "model.onnx"));
         Assert.Throws<ArgumentNullException>(() => new SpeechModelDownloadFile(uri, ValidChecksum, null!));
     }
+
+    /// <summary>
+    ///     Proves that <see cref="SpeechModelDownloadFile.ResolveStagedPath"/> combines a staging
+    ///     directory with this instance's <see cref="SpeechModelDownloadFile.RelativeInstallPath"/>
+    ///     segments using this platform's own <see cref="Path.DirectorySeparatorChar"/>, regardless
+    ///     of which separator the install path was declared with - the exact guarantee an
+    ///     <see cref="ISpeechModel.InstallAsync"/> override relies on to locate one of its own
+    ///     declared files.
+    /// </summary>
+    [Theory]
+    [InlineData("model.onnx", "model.onnx")]
+    [InlineData("tokens/vocab.txt", "tokens|vocab.txt")]
+    [InlineData("tokens\\vocab.txt", "tokens|vocab.txt")]
+    public void SpeechModelDownloadFile_ResolveStagedPath_AnySeparator_MatchesDownloaderStaging(
+        string installPath,
+        string expectedRelativeSegments)
+    {
+        // Arrange - "|" stands in for this platform's own Path.DirectorySeparatorChar, since the
+        // expected combined path must use whatever separator this platform's Path.Combine emits.
+        var expected = Path.Combine(
+            "staging",
+            expectedRelativeSegments.Replace('|', Path.DirectorySeparatorChar));
+        var file = new SpeechModelDownloadFile(new Uri("https://example.test/model.onnx"), ValidChecksum, installPath);
+
+        // Act
+        var actual = file.ResolveStagedPath("staging");
+
+        // Assert
+        Assert.Equal(expected, actual);
+    }
+
+    /// <summary>
+    ///     Proves that <see cref="SpeechModelDownloadFile.ResolveStagedPath"/> rejects a null
+    ///     argument, matching the eager-validation style used throughout this type.
+    /// </summary>
+    [Fact]
+    public void SpeechModelDownloadFile_ResolveStagedPath_NullArgument_ThrowsArgumentNullException()
+    {
+        // Arrange
+        var file = new SpeechModelDownloadFile(new Uri("https://example.test/model.onnx"), ValidChecksum, "model.onnx");
+
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => file.ResolveStagedPath(null!));
+    }
 }
+

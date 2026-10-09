@@ -12,7 +12,14 @@ access.
 - **DownloadAsync(sourceUri, destination, progress, cancellationToken)**: Downloads the bytes at
   `sourceUri`, writing them to `destination` as they arrive, reporting `FileIndex = 0` /
   `FileCount = 1` progress (the caller rewrites these for multi-file context), and observing
-  `cancellationToken` between chunks.
+  `cancellationToken` between chunks. This signature is part of this library's public API surface
+  and is intentionally never widened with a per-call mirror-authentication parameter, so a host's
+  own `IModelDownloadClient` implementation stays source-compatible across releases; any mirror
+  authentication an implementation applies is configured once, at construction (see
+  `HttpModelDownloadClient`'s constructor), never per call. `SpeechModelDownloader`'s own
+  contribution toward mirror support is resolving `sourceUri` to its mirror-relative effective
+  value (or leaving it unchanged when no mirror is configured) before calling `DownloadAsync` -
+  see `SpeechModelDownloader.ResolveEffectiveUri`.
 
 **Error Handling**: The interface itself defines no error handling beyond its documented
 contract: implementations must throw (rather than silently truncate) on any non-success response

@@ -25,4 +25,38 @@ sections:
                 tests:
                   - SpeechModelDownloader_DownloadAsync_ValidPayload_InstallsModelAndReportsProgress
                   - SpeechModelDownloader_DownloadAsync_TwoConcurrentRequestsForSameModelId_AreSerialized
-                  - HttpModelDownloadClient_DownloadAsync_LoopbackServer_DownloadsExactBytesWithProgress
+                  - HttpModelDownloadClient_DownloadAsync_StubbedServer_DownloadsExactBytesWithProgress
+
+              - id: Speech-Models-IModelDownloadClient-NoPerCallMirrorAuth
+                title: >-
+                  The IModelDownloadClient interface's DownloadAsync member shall accept no
+                  per-call mirror-authentication parameter, remaining a fixed 4-parameter
+                  signature across releases so a host's own implementation stays
+                  source-compatible; any mirror authentication an implementation applies must be
+                  configured once, at construction, instead.
+                justification: |
+                  This member's signature is part of this library's public API surface. Adding a
+                  per-call mirrorAuth parameter would break every existing host implementation of
+                  this interface on upgrade; configuring mirror authentication once at
+                  construction (see HttpModelDownloadClient's constructor) achieves the same
+                  behavior without widening this seam's signature. SpeechModelDownloader only
+                  ever needs to resolve the effective request URI per call - see
+                  Speech-Models-IModelDownloadClient-EffectiveUriOnly below.
+                tests:
+                  - SpeechModelDownloader_DownloadAsync_NoMirrorConfigured_ForwardsOriginalUriUnchanged
+                  - SpeechModelDownloader_DownloadAsync_MirrorConfigured_ForwardsEffectiveUri
+
+              - id: Speech-Models-IModelDownloadClient-EffectiveUriOnly
+                title: >-
+                  SpeechModelDownloader shall forward only the mirror-resolved effective request
+                  URI (never any per-call auth information) to IModelDownloadClient.DownloadAsync,
+                  whether or not a DownloadMirror is configured.
+                justification: |
+                  Since DownloadAsync carries no mirror-authentication parameter (see
+                  Speech-Models-IModelDownloadClient-NoPerCallMirrorAuth), the downloader's only
+                  remaining responsibility toward mirror support is resolving each model's
+                  declared download URI to its mirror-relative equivalent (or leaving it
+                  unchanged when no mirror is configured) before issuing the call.
+                tests:
+                  - SpeechModelDownloader_DownloadAsync_NoMirrorConfigured_ForwardsOriginalUriUnchanged
+                  - SpeechModelDownloader_DownloadAsync_MirrorConfigured_ForwardsEffectiveUri

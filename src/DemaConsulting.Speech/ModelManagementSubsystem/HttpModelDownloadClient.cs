@@ -1,3 +1,6 @@
+using System.Net.Http.Headers;
+using System.Text;
+
 namespace DemaConsulting.Speech.ModelManagementSubsystem;
 
 /// <summary>
@@ -7,12 +10,47 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     scheme-agnostic so it can be verified against a real loopback HTTP server in tests.
 /// </summary>
 /// <remarks>
-///     Verified in tests against a real, in-process loopback <see cref="System.Net.HttpListener"/>
-///     server bound to <c>127.0.0.1</c>, proving the streaming-download-with-progress code path
-///     end-to-end (headers, <c>Content-Length</c>, chunked reads) without ever reaching a real
-///     host. Thread-safety follows <see cref="HttpClient"/>'s own contract: a single instance is
+///     Verified in tests against a real, in-process loopback WireMock.Net server bound to
+///     <c>127.0.0.1</c>, proving the streaming-download-with-progress code path end-to-end
+///     (headers, <c>Content-Length</c>, chunked reads) without ever reaching a real host.
+///     Thread-safety follows <see cref="HttpClient"/>'s own contract: a single instance is
 ///     safe to share and reuse across concurrent calls, though <see cref="SpeechModelDownloader"/>
 ///     only ever issues one download at a time by design.
+///     <para>
+///     Mirror authentication (see the <see cref="HttpModelDownloadClient(HttpClient?,DownloadMirror?)"/>
+///     overload) is configured once, at construction, rather than per request - <see cref="SpeechModelDownloader"/>
+///     only ever supports one configured <see cref="DownloadMirror"/> at a time (via
+///     <see cref="SpeechModelDownloaderOptions.Mirror"/>), so every request this instance issues
+///     over its lifetime shares the same mirror authentication, if any. This keeps every request
+///     flowing through the exact caller-supplied (or default) <see cref="HttpClient"/> this
+///     instance was constructed with - its configured proxy, timeout, certificate-validation,
+///     cookie, and handler-pipeline settings are never bypassed for a credentialed request.
+///     <see cref="DownloadMirror.Credentials"/> is applied as a preemptive HTTP Basic
+///     <c>Authorization</c> header (not a true NTLM challenge/response negotiation, which would
+///     require its own dedicated <see cref="HttpClientHandler"/> and so could not honor a
+///     caller-supplied client's own configuration); <see cref="DownloadMirror.BearerToken"/> is
+///     applied as a <c>Bearer</c> <c>Authorization</c> header. Either is applied only to a
+///     request whose URI falls within the configured mirror's <see cref="DownloadMirror.BaseUri"/>
+///     - this instance can be asked to fetch an unrelated, non-mirror URI directly (bypassing
+///     <see cref="SpeechModelDownloader"/>'s own URI rewriting), and the mirror's secret must
+///     never be sent to that other host.
+///     </para>
+///     <para>
+///     This mirror-scope check is applied once, to the initial request, before it is sent - an
+///     HTTP redirect response is never re-checked against it, because it never needs to be:
+///     <see cref="HttpClient"/>'s default handler (<see cref="System.Net.Http.SocketsHttpHandler"/>
+///     on every supported .NET runtime here) unconditionally strips the authorization header
+///     from the follow-up request on every automatic redirect it follows, regardless of whether
+///     the redirect target is in-scope or out-of-scope, same-host or cross-origin. This means the
+///     mirror's secret can never reach a redirect target, in-scope or not - but it also means a
+///     legitimate in-scope mirror redirect loses its authentication and will most likely fail
+///     with <c>401</c>/<c>403</c> rather than complete; that functional limitation is an accepted,
+///     documented constraint of relying on the framework's own redirect handling rather than
+///     implementing a manual bounded-redirect loop with per-hop re-authentication, which would
+///     add non-trivial security-sensitive code to re-solve a risk .NET's handler already
+///     mitigates. A mirror expected to redirect should instead be configured at its final,
+///     non-redirecting URI.
+///     </para>
 /// </remarks>
 public sealed class HttpModelDownloadClient : IModelDownloadClient, IDisposable
 {
@@ -39,7 +77,15 @@ public sealed class HttpModelDownloadClient : IModelDownloadClient, IDisposable
     private readonly bool _ownsHttpClient;
 
     /// <summary>
-    ///     Initializes a new instance of the <see cref="HttpModelDownloadClient"/> class.
+    ///     The mirror authentication (if any) applied to every request this instance issues, or
+    ///     <see langword="null"/> to send no <c>Authorization</c> header - the exact pre-mirror
+    ///     request shape.
+    /// </summary>
+    private readonly DownloadMirror? _mirror;
+
+    /// <summary>
+    ///     Initializes a new instance of the <see cref="HttpModelDownloadClient"/> class with no
+    ///     mirror authentication.
     /// </summary>
     /// <param name="httpClient">
     ///     An optional pre-configured <see cref="HttpClient"/> to issue requests with (its
@@ -47,9 +93,29 @@ public sealed class HttpModelDownloadClient : IModelDownloadClient, IDisposable
     ///     default instance internally.
     /// </param>
     public HttpModelDownloadClient(HttpClient? httpClient = null)
+        : this(httpClient, mirror: null)
+    {
+    }
+
+    /// <summary>
+    ///     Initializes a new instance of the <see cref="HttpModelDownloadClient"/> class that
+    ///     applies <paramref name="mirror"/>'s authentication (if any) to every request it issues.
+    /// </summary>
+    /// <param name="httpClient">
+    ///     An optional pre-configured <see cref="HttpClient"/> to issue requests with (its
+    ///     lifetime remains owned by the caller), or <see langword="null"/> to create and own a
+    ///     default instance internally.
+    /// </param>
+    /// <param name="mirror">
+    ///     The mirror whose <see cref="DownloadMirror.Credentials"/>/<see cref="DownloadMirror.BearerToken"/>
+    ///     (if either is set) this instance applies to every request it issues, or <see langword="null"/>
+    ///     to send no <c>Authorization</c> header.
+    /// </param>
+    public HttpModelDownloadClient(HttpClient? httpClient, DownloadMirror? mirror)
     {
         _ownsHttpClient = httpClient is null;
         _httpClient = httpClient ?? new HttpClient();
+        _mirror = mirror;
     }
 
     /// <inheritdoc/>
@@ -70,10 +136,13 @@ public sealed class HttpModelDownloadClient : IModelDownloadClient, IDisposable
         ArgumentNullException.ThrowIfNull(sourceUri);
         ArgumentNullException.ThrowIfNull(destination);
 
+        using var request = new HttpRequestMessage(HttpMethod.Get, sourceUri);
+        ApplyMirrorAuthentication(request, sourceUri);
+
         // Request headers before the body so a large file's Content-Length is known before any
         // bytes are read, letting progress reports include a meaningful total from the start.
         using var response = await _httpClient
-            .GetAsync(sourceUri, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+            .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
             .ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
 
@@ -102,6 +171,97 @@ public sealed class HttpModelDownloadClient : IModelDownloadClient, IDisposable
             bytesTransferred += bytesRead;
             progress?.Report(new SpeechModelDownloadProgress(0, 1, bytesTransferred, totalBytes));
         }
+    }
+
+    /// <summary>
+    ///     Applies <see cref="_mirror"/>'s configured authentication (if any) to
+    ///     <paramref name="request"/> as an <c>Authorization</c> header, sent through whichever
+    ///     <see cref="HttpClient"/> this instance was constructed with - never a second,
+    ///     separately configured client - so the caller-supplied client's own proxy, timeout,
+    ///     certificate-validation, and handler-pipeline settings always apply.
+    /// </summary>
+    /// <param name="request">The request to apply authentication to, before it is sent.</param>
+    /// <param name="sourceUri">
+    ///     The request's target URI, checked against <see cref="_mirror"/>'s
+    ///     <see cref="DownloadMirror.BaseUri"/> before any authentication is applied - this
+    ///     public type can be constructed with a credentialed mirror and still be asked (directly,
+    ///     bypassing <see cref="SpeechModelDownloader"/>) to fetch an unrelated, non-mirror URI; the
+    ///     mirror's secret must never be sent to that other host.
+    /// </param>
+    /// <remarks>
+    ///     <see cref="DownloadMirror.Credentials"/> is applied as a preemptive HTTP Basic header
+    ///     (never a true NTLM handshake, which only a dedicated <see cref="HttpClientHandler"/>
+    ///     could negotiate, at the cost of discarding the caller's own client configuration);
+    ///     <see cref="DownloadMirror.BearerToken"/> is applied as a <c>Bearer</c> header. The two
+    ///     are mutually exclusive by <see cref="DownloadMirror"/>'s own constructor, so at most
+    ///     one branch below ever applies. This method runs once, against the initial request,
+    ///     before it is sent; it is deliberately never re-run against an HTTP redirect response -
+    ///     see this type's own remarks for why <see cref="HttpClient"/>'s redirect handling
+    ///     already strips this header on every automatic redirect regardless.
+    /// </remarks>
+    private void ApplyMirrorAuthentication(HttpRequestMessage request, Uri sourceUri)
+    {
+        if (_mirror is null || !IsWithinMirror(sourceUri, _mirror.BaseUri))
+        {
+            return;
+        }
+
+        if (_mirror.Credentials is { } credentials)
+        {
+            var basicValue = Convert.ToBase64String(
+                Encoding.UTF8.GetBytes($"{credentials.UserName}:{credentials.Password}"));
+            request.Headers.Authorization = new AuthenticationHeaderValue("Basic", basicValue);
+        }
+        else if (_mirror.BearerToken is { } bearerToken)
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
+        }
+    }
+
+    /// <summary>
+    ///     Determines whether <paramref name="requestUri"/> falls within <paramref name="mirrorBaseUri"/> -
+    ///     the same scheme, host, and port, and a path that either equals or is nested beneath the
+    ///     mirror's base path on a segment boundary.
+    /// </summary>
+    /// <param name="requestUri">The request's target URI to test.</param>
+    /// <param name="mirrorBaseUri">The configured mirror's base URI to test against.</param>
+    /// <returns>
+    ///     <see langword="true"/> when <paramref name="requestUri"/> is the mirror's base URI or
+    ///     nested beneath it; otherwise <see langword="false"/>.
+    /// </returns>
+    /// <remarks>
+    ///     Deliberately not <see cref="Uri.IsBaseOf"/>, which compares paths as a raw ordinal
+    ///     string prefix with no segment-boundary awareness - under <see cref="Uri.IsBaseOf"/>, a
+    ///     mirror based at <c>https://mirror/models</c> would incorrectly be considered a base of
+    ///     <c>https://mirror/modelsEvil/file.bin</c>, since <c>"models"</c> is a literal string
+    ///     prefix of <c>"modelsEvil"</c> even though it is not a nested path segment. Both paths
+    ///     have exactly one trailing slash trimmed before comparison, so a mirror configured with
+    ///     a trailing slash (<c>https://mirror/models/</c>) is recognized as the base of a request
+    ///     spelled without one (<c>https://mirror/models</c>), and vice versa.
+    /// </remarks>
+    private static bool IsWithinMirror(Uri requestUri, Uri mirrorBaseUri)
+    {
+        if (!string.Equals(requestUri.Scheme, mirrorBaseUri.Scheme, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(requestUri.Host, mirrorBaseUri.Host, StringComparison.OrdinalIgnoreCase) ||
+            requestUri.Port != mirrorBaseUri.Port)
+        {
+            return false;
+        }
+
+        // Normalize away exactly one trailing slash from both paths before comparing, so
+        // "https://host/models/" and "https://host/models" are recognized as the same base path
+        // (matching ResolveEffectiveUri's own equivalent trailing-slash trim) rather than only
+        // one spelling satisfying the equality check below.
+        var basePath = mirrorBaseUri.AbsolutePath.TrimEnd('/');
+        var requestPath = requestUri.AbsolutePath.TrimEnd('/');
+
+        if (string.Equals(requestPath, basePath, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        var basePrefix = basePath + "/";
+        return requestPath.StartsWith(basePrefix, StringComparison.Ordinal);
     }
 
     /// <summary>

@@ -15,13 +15,16 @@ sections:
                 title: >-
                   The SpeechModelDownloadDescriptor record shall preserve the declared order of
                   its files, and shall reject, at construction, a null or empty file list and a
-                  file list containing duplicate relative install paths.
+                  file list containing duplicate relative install paths (including paths that are
+                  identical once normalized to a common path separator).
                 justification: |
                   Declaration order determines download and progress-reporting order; duplicate
                   install paths within one descriptor would cause one downloaded file to silently
-                  overwrite another during staging.
+                  overwrite another during staging, including when two entries declare the same
+                  logical path using different path separators.
                 tests:
                   - SpeechModelDownloadDescriptor_Constructor_MultipleFiles_PreservesOrder
                   - SpeechModelDownloadDescriptor_Constructor_EmptyFileList_ThrowsArgumentException
                   - SpeechModelDownloadDescriptor_Constructor_NullFileList_ThrowsArgumentNullException
                   - SpeechModelDownloadDescriptor_Constructor_DuplicateInstallPaths_ThrowsArgumentException
+                  - SpeechModelDownloadDescriptor_Constructor_DuplicateInstallPathsWithDifferingSeparators_ThrowsArgumentException

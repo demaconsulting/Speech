@@ -330,6 +330,26 @@ public sealed class SpeechModelStoreTests : IDisposable
     }
 
     /// <summary>
+    ///     Proves that <c>"."</c> and <c>".."</c> model ids are rejected, even though neither
+    ///     contains a character <see cref="Path.GetInvalidFileNameChars"/> itself flags - both
+    ///     are reserved relative-path segments that <see cref="Path.Join(string,string)"/> would
+    ///     otherwise silently normalize into escaping this model's own directory under
+    ///     <see cref="SpeechModelStore.RootPath"/> entirely.
+    /// </summary>
+    /// <param name="modelId">The dot-segment model id to reject.</param>
+    [Theory]
+    [InlineData(".")]
+    [InlineData("..")]
+    public void SpeechModelStore_GetModelDirectory_DotSegmentModelId_ThrowsArgumentException(string modelId)
+    {
+        // Arrange
+        var store = NewStore();
+
+        // Act & Assert
+        Assert.Throws<ArgumentException>(() => store.GetModelDirectory(modelId));
+    }
+
+    /// <summary>
     ///     Constructs a store rooted at this test's scratch directory.
     /// </summary>
     private SpeechModelStore NewStore() =>

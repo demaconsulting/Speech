@@ -37,10 +37,16 @@ sections:
               - id: Speech-Models-SpeechModelDownloadFile-InstallPathValidation
                 title: >-
                   The SpeechModelDownloadFile record shall reject, at construction, any relative
-                  install path that is null/whitespace, rooted, or escapes its parent directory.
+                  install path that is null/whitespace, rooted, contains a parent-directory (..)
+                  or current-directory (.) segment, or normalizes to no named segment at all.
                 justification: |
                   Validating eagerly at construction, rather than deep into the download
-                  pipeline, prevents a relative install path from escaping the staging directory.
+                  pipeline, prevents a relative install path from escaping the staging directory
+                  via a ".." segment, prevents a "." segment from silently collapsing away under
+                  Path.Combine/Uri canonicalization and causing two declared paths that look
+                  distinct to collide at the same staged file, and prevents a path made up
+                  entirely of separators (which normalizes to zero segments) from resolving to
+                  the staging directory itself.
                 tests:
                   - SpeechModelDownloadFile_Constructor_InvalidInstallPath_ThrowsArgumentException
                   - SpeechModelDownloadFile_Constructor_RootedInstallPath_ThrowsArgumentException
@@ -55,3 +61,24 @@ sections:
                   in the download pipeline.
                 tests:
                   - SpeechModelDownloadFile_Constructor_NullArguments_ThrowsArgumentNullException
+
+              - id: Speech-Models-SpeechModelDownloadFile-ResolveStagedPath
+                title: >-
+                  The SpeechModelDownloadFile type shall expose a public instance ResolveStagedPath
+                  method that combines a staging directory with this already-validated instance's
+                  relative install path segments using the current platform's own directory
+                  separator, regardless of which separator the install path was declared with, and
+                  that rejects a null staging-directory argument.
+                justification: |
+                  SpeechModelDownloader uses this same method to compute each file's staging
+                  destination; without a shared, public way to resolve a declared install path the
+                  same way, an ISpeechModel.InstallAsync override that needs to locate its own
+                  declared file within the staging directory would have to reimplement the same
+                  separator-normalization logic, risking it drifting out of step with how the
+                  downloader actually staged the file. Binding this method to an already-validated
+                  instance (rather than accepting an arbitrary caller-supplied path string)
+                  guarantees it can never be used to bypass the constructor's single
+                  install-path-validation chokepoint.
+                tests:
+                  - SpeechModelDownloadFile_ResolveStagedPath_AnySeparator_MatchesDownloaderStaging
+                  - SpeechModelDownloadFile_ResolveStagedPath_NullArgument_ThrowsArgumentNullException

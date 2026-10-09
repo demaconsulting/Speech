@@ -15,7 +15,13 @@ language: en
 # Project-specific technical terms and tool names
 words:
   - buildmark
+  - chokepoint
   - DEMA
+  - NTLM
+  - Sonatype
+  - middleboxes
+  - misroute
+  - misrouting
   - Dema
   - DEMASPEECH
   - FileAssert
@@ -51,6 +57,7 @@ words:
   - persistable
   - Persistable
   - unsupplied
+  - unvalidated
   - denoise
   - Denoise
   - backpressure
