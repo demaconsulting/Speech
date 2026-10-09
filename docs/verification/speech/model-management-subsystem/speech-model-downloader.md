@@ -12,8 +12,12 @@ network access. `ThrowingModelDownloadClient` throws an exact, caller-chosen exc
 an `IOException`, an `UnauthorizedAccessException`, and an unmatched `InvalidOperationException`)
 so each `ClassifyFailure` branch is exercised through the real `DownloadAsync` catch chain rather
 than by calling a private method directly. `FakeModelDownloadClient` additionally records each
-call's `(SourceUri, MirrorAuth)` pair so mirror-configured and no-mirror scenarios can assert
-exactly what `SpeechModelDownloader` forwarded to the download client. `ResolveEffectiveUri`
+call's source `Uri` (in a `Calls` list) so mirror-configured and no-mirror scenarios can assert
+exactly which effective URI `SpeechModelDownloader` forwarded to the download client; mirror
+*authentication* coverage (the `Authorization` header applied only to a request within the
+configured mirror's base URI) is instead verified against the real `HttpModelDownloadClient` in
+`HttpModelDownloadClientTests`, since `IModelDownloadClient` itself carries no auth parameter for
+a generic fake to observe. `ResolveEffectiveUri`
 itself is exercised directly (it is `internal`, reachable via this project's
 `InternalsVisibleTo` grant from the core project) across trailing-slash, subdirectory, and
 URL-unsafe-character edge cases. Cross-model concurrency and same-model-id serialization are both

@@ -683,14 +683,16 @@ public sealed class SpeechModelDownloaderTests : IDisposable
     }
 
     /// <summary>
-    ///     Proves that a <see cref="TaskCanceledException"/> NOT caused by the caller's own
-    ///     <see cref="CancellationToken"/> (here, simulated as <see cref="HttpClient"/>'s own
-    ///     internal request timeout, since <c>DownloadAsync</c> is called with a token that is
-    ///     never canceled) classifies as <see cref="SpeechModelDownloadOutcome.NetworkBlocked"/>,
-    ///     rather than escaping as an unclassified <see cref="OperationCanceledException"/>.
+    ///     Proves that a <see cref="TaskCanceledException"/> thrown by a host-injected
+    ///     <see cref="IModelDownloadClient"/> implementation that is not the concrete
+    ///     <see cref="HttpModelDownloadClient"/> classifies as the generic
+    ///     <see cref="SpeechModelDownloadOutcome.Failed"/> fallback - not
+    ///     <see cref="SpeechModelDownloadOutcome.NetworkBlocked"/> - since this type has no way to
+    ///     know whether an arbitrary custom implementation's own
+    ///     <see cref="TaskCanceledException"/> genuinely signals a network-level timeout.
     /// </summary>
     [Fact]
-    public async Task SpeechModelDownloader_DownloadAsync_TaskCanceledExceptionNotFromCallerToken_ReportsNetworkBlocked()
+    public async Task SpeechModelDownloader_DownloadAsync_TaskCanceledExceptionFromInjectedClient_ReportsFailed()
     {
         // Arrange
         var descriptor = SingleFileDescriptor("payload"u8.ToArray(), "model.bin");
@@ -698,6 +700,33 @@ public sealed class SpeechModelDownloaderTests : IDisposable
         var client = new ThrowingModelDownloadClient(
             () => new TaskCanceledException("The request timed out."));
         var downloader = new SpeechModelDownloader(store, client);
+
+        // Act: the caller's own token is never canceled, so this cannot be a genuine cancellation
+        var result = await downloader.DownloadAsync(
+            "model-a", descriptor, cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(SpeechModelDownloadOutcome.Failed, result.Outcome);
+        Assert.IsType<TaskCanceledException>(result.Error);
+        Assert.False(store.IsInstalled("model-a"));
+    }
+
+    /// <summary>
+    ///     Proves that a <see cref="TaskCanceledException"/> thrown by the concrete
+    ///     <see cref="HttpModelDownloadClient"/> itself (simulating its own internal HTTP request
+    ///     timeout, via a stub <see cref="HttpMessageHandler"/>), with the caller's own
+    ///     <see cref="CancellationToken"/> never canceled, classifies as
+    ///     <see cref="SpeechModelDownloadOutcome.NetworkBlocked"/>.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_HttpModelDownloadClientInternalTimeout_ReportsNetworkBlocked()
+    {
+        // Arrange
+        var descriptor = SingleFileDescriptor("payload"u8.ToArray(), "model.bin");
+        var store = NewStore();
+        using var httpClient = new HttpClient(new ThrowingHttpMessageHandler());
+        using var client = new HttpModelDownloadClient(httpClient);
+        using var downloader = new SpeechModelDownloader(store, client);
 
         // Act: the caller's own token is never canceled, so this cannot be a genuine cancellation
         var result = await downloader.DownloadAsync(
@@ -962,6 +991,21 @@ public sealed class SpeechModelDownloaderTests : IDisposable
             IProgress<SpeechModelDownloadProgress>? progress,
             CancellationToken cancellationToken) =>
             throw exceptionFactory();
+    }
+
+    /// <summary>
+    ///     Stub <see cref="HttpMessageHandler"/> that always throws a <see cref="TaskCanceledException"/>,
+    ///     used to deterministically simulate <see cref="HttpClient"/>'s own internal request
+    ///     timeout (without a real, flaky, time-based network delay) when wrapped by a real
+    ///     <see cref="HttpModelDownloadClient"/>.
+    /// </summary>
+    private sealed class ThrowingHttpMessageHandler : HttpMessageHandler
+    {
+        /// <inheritdoc/>
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken) =>
+            throw new TaskCanceledException("The request timed out.");
     }
 
     /// <summary>

@@ -26,10 +26,14 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     instance was constructed with - its configured proxy, timeout, certificate-validation,
 ///     cookie, and handler-pipeline settings are never bypassed for a credentialed request.
 ///     <see cref="DownloadMirror.Credentials"/> is applied as a preemptive HTTP Basic
-///     <c>Authorization</c> header on every request (not a true NTLM challenge/response
-///     negotiation, which would require its own dedicated <see cref="HttpClientHandler"/> and so
-///     could not honor a caller-supplied client's own configuration); <see cref="DownloadMirror.BearerToken"/>
-///     is applied as a <c>Bearer</c> <c>Authorization</c> header, identically to before.
+///     <c>Authorization</c> header (not a true NTLM challenge/response negotiation, which would
+///     require its own dedicated <see cref="HttpClientHandler"/> and so could not honor a
+///     caller-supplied client's own configuration); <see cref="DownloadMirror.BearerToken"/> is
+///     applied as a <c>Bearer</c> <c>Authorization</c> header. Either is applied only to a
+///     request whose URI falls within the configured mirror's <see cref="DownloadMirror.BaseUri"/>
+///     - this instance can be asked to fetch an unrelated, non-mirror URI directly (bypassing
+///     <see cref="SpeechModelDownloader"/>'s own URI rewriting), and the mirror's secret must
+///     never be sent to that other host.
 ///     </para>
 /// </remarks>
 public sealed class HttpModelDownloadClient : IModelDownloadClient, IDisposable
@@ -117,7 +121,7 @@ public sealed class HttpModelDownloadClient : IModelDownloadClient, IDisposable
         ArgumentNullException.ThrowIfNull(destination);
 
         using var request = new HttpRequestMessage(HttpMethod.Get, sourceUri);
-        ApplyMirrorAuthentication(request);
+        ApplyMirrorAuthentication(request, sourceUri);
 
         // Request headers before the body so a large file's Content-Length is known before any
         // bytes are read, letting progress reports include a meaningful total from the start.
@@ -161,6 +165,13 @@ public sealed class HttpModelDownloadClient : IModelDownloadClient, IDisposable
     ///     certificate-validation, and handler-pipeline settings always apply.
     /// </summary>
     /// <param name="request">The request to apply authentication to, before it is sent.</param>
+    /// <param name="sourceUri">
+    ///     The request's target URI, checked against <see cref="_mirror"/>'s
+    ///     <see cref="DownloadMirror.BaseUri"/> before any authentication is applied - this
+    ///     public type can be constructed with a credentialed mirror and still be asked (directly,
+    ///     bypassing <see cref="SpeechModelDownloader"/>) to fetch an unrelated, non-mirror URI; the
+    ///     mirror's secret must never be sent to that other host.
+    /// </param>
     /// <remarks>
     ///     <see cref="DownloadMirror.Credentials"/> is applied as a preemptive HTTP Basic header
     ///     (never a true NTLM handshake, which only a dedicated <see cref="HttpClientHandler"/>
@@ -169,18 +180,62 @@ public sealed class HttpModelDownloadClient : IModelDownloadClient, IDisposable
     ///     are mutually exclusive by <see cref="DownloadMirror"/>'s own constructor, so at most
     ///     one branch below ever applies.
     /// </remarks>
-    private void ApplyMirrorAuthentication(HttpRequestMessage request)
+    private void ApplyMirrorAuthentication(HttpRequestMessage request, Uri sourceUri)
     {
-        if (_mirror?.Credentials is { } credentials)
+        if (_mirror is null || !IsWithinMirror(sourceUri, _mirror.BaseUri))
+        {
+            return;
+        }
+
+        if (_mirror.Credentials is { } credentials)
         {
             var basicValue = Convert.ToBase64String(
                 Encoding.UTF8.GetBytes($"{credentials.UserName}:{credentials.Password}"));
             request.Headers.Authorization = new AuthenticationHeaderValue("Basic", basicValue);
         }
-        else if (_mirror?.BearerToken is { } bearerToken)
+        else if (_mirror.BearerToken is { } bearerToken)
         {
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
         }
+    }
+
+    /// <summary>
+    ///     Determines whether <paramref name="requestUri"/> falls within <paramref name="mirrorBaseUri"/> -
+    ///     the same scheme, host, and port, and a path that either equals or is nested beneath the
+    ///     mirror's base path on a segment boundary.
+    /// </summary>
+    /// <param name="requestUri">The request's target URI to test.</param>
+    /// <param name="mirrorBaseUri">The configured mirror's base URI to test against.</param>
+    /// <returns>
+    ///     <see langword="true"/> when <paramref name="requestUri"/> is the mirror's base URI or
+    ///     nested beneath it; otherwise <see langword="false"/>.
+    /// </returns>
+    /// <remarks>
+    ///     Deliberately not <see cref="Uri.IsBaseOf"/>, which compares paths as a raw ordinal
+    ///     string prefix with no segment-boundary awareness - under <see cref="Uri.IsBaseOf"/>, a
+    ///     mirror based at <c>https://mirror/models</c> would incorrectly be considered a base of
+    ///     <c>https://mirror/modelsEvil/file.bin</c>, since <c>"models"</c> is a literal string
+    ///     prefix of <c>"modelsEvil"</c> even though it is not a nested path segment.
+    /// </remarks>
+    private static bool IsWithinMirror(Uri requestUri, Uri mirrorBaseUri)
+    {
+        if (!string.Equals(requestUri.Scheme, mirrorBaseUri.Scheme, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(requestUri.Host, mirrorBaseUri.Host, StringComparison.OrdinalIgnoreCase) ||
+            requestUri.Port != mirrorBaseUri.Port)
+        {
+            return false;
+        }
+
+        var basePath = mirrorBaseUri.AbsolutePath;
+        var requestPath = requestUri.AbsolutePath;
+
+        if (string.Equals(requestPath, basePath, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        var basePrefix = basePath.EndsWith('/') ? basePath : basePath + "/";
+        return requestPath.StartsWith(basePrefix, StringComparison.Ordinal);
     }
 
     /// <summary>

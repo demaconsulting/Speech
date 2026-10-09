@@ -92,6 +92,20 @@ public sealed class SpeechModelDownloader : IDisposable
     ///     <see cref="HttpModelDownloadClient"/> internally. Tests substitute a fake here to
     ///     exercise queueing, checksum verification, and atomic-swap logic deterministically
     ///     without any real network access.
+    ///     <para>
+    ///     When supplied (non-<see langword="null"/>) together with an <paramref name="options"/>
+    ///     specifying a credentialed <see cref="SpeechModelDownloaderOptions.Mirror"/>, this
+    ///     instance only uses the mirror to rewrite each file's effective request URI (see
+    ///     <see cref="ResolveEffectiveUri"/>) - the mirror's <see cref="DownloadMirror.Credentials"/>/
+    ///     <see cref="DownloadMirror.BearerToken"/> are never forwarded to <paramref name="client"/>,
+    ///     since <see cref="IModelDownloadClient"/> has no authentication parameter for an
+    ///     arbitrary host-supplied implementation to accept. Authentication is applied only by
+    ///     the internally created <see cref="HttpModelDownloadClient"/> this constructor builds
+    ///     when <paramref name="client"/> is <see langword="null"/>. A host that supplies both its
+    ///     own <paramref name="client"/> and a credentialed mirror is responsible for applying
+    ///     that mirror's authentication itself, inside that <paramref name="client"/>
+    ///     implementation.
+    ///     </para>
     /// </param>
     /// <param name="diagnostics">
     ///     The sink to report structural download failures to, or <see langword="null"/> to use
@@ -103,7 +117,9 @@ public sealed class SpeechModelDownloader : IDisposable
     ///     byte-for-byte identical to this type's behavior before
     ///     <see cref="SpeechModelDownloaderOptions"/> existed. See
     ///     <see cref="SpeechModelDownloaderOptions.Mirror"/> for the one behavior this parameter
-    ///     currently controls.
+    ///     currently controls, and <paramref name="client"/>'s remarks for the one combination
+    ///     (a credentialed mirror alongside a caller-supplied <paramref name="client"/>) whose
+    ///     authentication is not automatically forwarded.
     /// </param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="store"/> is <see langword="null"/>.</exception>
     /// <remarks>
@@ -413,11 +429,12 @@ public sealed class SpeechModelDownloader : IDisposable
     ///     network appliance intercepts and re-signs TLS traffic with an untrusted root) or a
     ///     <see cref="SocketException"/> (DNS resolution failure, connection refused, or host
     ///     unreachable), or for an <see cref="HttpFetchTimeoutException"/> (by construction, only
-    ///     ever thrown by <see cref="FetchFileAsync"/>'s own guarded catch clause around the HTTP
-    ///     fetch step itself - never a genuine caller cancellation, and never a
-    ///     <see cref="TaskCanceledException"/> thrown by <see cref="ISpeechModel.InstallAsync"/> or
-    ///     a host-injected <see cref="IModelDownloadClient"/> for an unrelated reason, which
-    ///     instead fall through to the generic <see cref="SpeechModelDownloadOutcome.Failed"/>
+    ///     ever thrown by <see cref="FetchFileAsync"/>'s own guarded catch clause, and only when
+    ///     <see cref="_client"/> is the concrete <see cref="HttpModelDownloadClient"/> - never a
+    ///     genuine caller cancellation, and never a <see cref="TaskCanceledException"/> thrown by
+    ///     <see cref="ISpeechModel.InstallAsync"/> or by any other, host-injected
+    ///     <see cref="IModelDownloadClient"/> implementation for an unrelated reason, both of
+    ///     which instead fall through to the generic <see cref="SpeechModelDownloadOutcome.Failed"/>
     ///     fallback below); <see cref="SpeechModelDownloadOutcome.HttpError"/> for an
     ///     <see cref="HttpRequestException"/> with a non-<see langword="null"/>
     ///     <see cref="HttpRequestException.StatusCode"/> (a real HTTP response was received, for
@@ -508,13 +525,17 @@ public sealed class SpeechModelDownloader : IDisposable
     ///     single-file-relative progress reports into the caller's overall, multi-file view.
     /// </summary>
     /// <exception cref="HttpFetchTimeoutException">
-    ///     Thrown when <see cref="_client"/>'s <c>DownloadAsync</c> call itself throws a
-    ///     <see cref="TaskCanceledException"/> not caused by <paramref name="cancellationToken"/>
-    ///     (an internal HTTP request timeout) - wrapped so <see cref="ClassifyFailure"/> can
-    ///     honestly classify only a genuine HTTP fetch timeout as
-    ///     <see cref="SpeechModelDownloadOutcome.NetworkBlocked"/>, without also misclassifying an
-    ///     unrelated <see cref="TaskCanceledException"/> thrown by <see cref="ISpeechModel.InstallAsync"/>
-    ///     or by a host-injected <see cref="IModelDownloadClient"/> for a non-network reason.
+    ///     Thrown when <see cref="_client"/> is the concrete <see cref="HttpModelDownloadClient"/>
+    ///     and its <c>DownloadAsync</c> call itself throws a <see cref="TaskCanceledException"/>
+    ///     not caused by <paramref name="cancellationToken"/> (an internal HTTP request timeout)
+    ///     - wrapped so <see cref="ClassifyFailure"/> can honestly classify only a genuine HTTP
+    ///     fetch timeout as <see cref="SpeechModelDownloadOutcome.NetworkBlocked"/>. A
+    ///     <see cref="TaskCanceledException"/> thrown by any other, host-injected
+    ///     <see cref="IModelDownloadClient"/> implementation is deliberately left unwrapped and
+    ///     falls through to <see cref="ClassifyFailure"/>'s generic
+    ///     <see cref="SpeechModelDownloadOutcome.Failed"/> fallback instead, since this type has
+    ///     no way to know whether such an implementation's own
+    ///     <see cref="TaskCanceledException"/> genuinely signals a network-level timeout.
     /// </exception>
     private async Task FetchFileAsync(
         Uri effectiveUri,
@@ -535,13 +556,16 @@ public sealed class SpeechModelDownloader : IDisposable
             await _client.DownloadAsync(effectiveUri, destinationStream, fileProgress, cancellationToken)
                 .ConfigureAwait(false);
         }
-        catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+        catch (TaskCanceledException ex) when (_client is HttpModelDownloadClient && !cancellationToken.IsCancellationRequested)
         {
             // A TaskCanceledException reaching here, with the caller's own token not canceled,
-            // can only be the HTTP fetch's own internal request timeout - wrap it so
-            // ClassifyFailure's TaskCanceledException match cannot also accidentally catch an
-            // unrelated TaskCanceledException thrown by ISpeechModel.InstallAsync or a
-            // host-injected IModelDownloadClient for a non-network reason.
+            // from the concrete HttpModelDownloadClient can only be its own internal HTTP
+            // request timeout - wrap it so ClassifyFailure's HttpFetchTimeoutException match
+            // cannot also accidentally catch an unrelated TaskCanceledException thrown by some
+            // other, host-injected IModelDownloadClient implementation for a non-network reason
+            // (this class has no way to know what a custom implementation's own
+            // TaskCanceledException actually signals, so it is deliberately left unwrapped and
+            // falls through to the generic Failed classification instead).
             throw new HttpFetchTimeoutException(ex);
         }
     }

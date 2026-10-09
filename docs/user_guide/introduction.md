@@ -136,7 +136,7 @@ var mirror = new DownloadMirror(
     bearerToken: "…token…"); // or: credentials: new NetworkCredential("user", "pass")
 
 var options = new SpeechModelDownloaderOptions { Mirror = mirror };
-var mirroredDownloader = new SpeechModelDownloader(store, options: options);
+var mirroredDownloader = new SpeechModelDownloader(store, client: null, diagnostics: null, options: options);
 
 // Every file now resolves to https://models.internal.example.com/mirror/my-model/model.bin
 // and carries the configured bearer token/credentials, instead of the file's own declared URI.

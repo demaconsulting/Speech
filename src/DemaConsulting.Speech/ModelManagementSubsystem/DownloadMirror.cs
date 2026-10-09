@@ -33,9 +33,9 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     <para>
 ///     <see cref="BearerToken"/> instead models a mirror protected by a static, pre-issued
 ///     bearer token, as used by common artifact registries (for example JFrog Artifactory, Sonatype
-///     Nexus, or Azure DevOps Artifacts) fronting a mirrored file store. Unlike Basic/NTLM, a
-///     bearer token needs no multi-round-trip handshake: it is sent as a single
-///     <c>Authorization: Bearer &lt;token&gt;</c> request header.
+///     Nexus, or Azure DevOps Artifacts) fronting a mirrored file store. Like <see cref="Credentials"/>'s
+///     preemptive Basic header, a bearer token needs no multi-round-trip handshake: it is sent as
+///     a single <c>Authorization: Bearer &lt;token&gt;</c> request header.
 ///     </para>
 ///     <para>
 ///     <see cref="Credentials"/> and <see cref="BearerToken"/> are mutually exclusive by design:

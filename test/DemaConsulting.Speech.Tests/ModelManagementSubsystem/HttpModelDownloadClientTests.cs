@@ -200,6 +200,43 @@ public sealed class HttpModelDownloadClientTests
     }
 
     /// <summary>
+    ///     Proves that a <see cref="HttpModelDownloadClient"/> constructed with a credentialed
+    ///     <see cref="DownloadMirror"/> never sends the mirror's <c>Authorization</c> header to a
+    ///     <see cref="HttpModelDownloadClient.DownloadAsync"/> URI outside the mirror's own <see cref="DownloadMirror.BaseUri"/>
+    ///     - even one on the exact same host - since a caller can hold this public type directly
+    ///     (bypassing <see cref="SpeechModelDownloader"/>'s own URI rewriting) and ask it to fetch
+    ///     an unrelated file.
+    /// </summary>
+    [Fact]
+    public async Task HttpModelDownloadClient_DownloadAsync_NonMirrorUriWithMirrorConfigured_SendsNoAuthorizationHeader()
+    {
+        // Arrange: the mirror is scoped to "/mirror", but the request targets a sibling path
+        // "/mirror-other" that merely shares a literal string prefix with the mirror's base path.
+        var payload = CreatePayload(sizeBytes: 16);
+        using var server = WireMockServer.Start();
+        server
+            .Given(Request.Create().WithPath("/mirror-other/model.bin").UsingGet())
+            .RespondWith(Response.Create().WithStatusCode(200).WithBody(payload).WithHeader("Content-Length", payload.Length.ToString()));
+
+        var mirrorBaseUri = new Uri($"{server.Urls[0]}/mirror");
+        var mirror = new DownloadMirror(mirrorBaseUri, bearerToken: "secret-token");
+        using var client = new HttpModelDownloadClient(httpClient: null, mirror);
+        using var destination = new MemoryStream();
+        var nonMirrorUri = new Uri($"{server.Urls[0]}/mirror-other/model.bin");
+
+        // Act
+        await client.DownloadAsync(nonMirrorUri, destination, null, CancellationToken.None);
+
+        // Assert
+        var request = Assert.Single(server.LogEntries);
+        var requestMessage = request.RequestMessage;
+        Assert.NotNull(requestMessage);
+        Assert.NotNull(requestMessage.Headers);
+        Assert.False(requestMessage.Headers.ContainsKey("Authorization"));
+        Assert.Equal(payload, destination.ToArray());
+    }
+
+    /// <summary>
     ///     Builds a deterministic, non-repeating payload of the given size so a truncated or
     ///     corrupted download is reliably detectable.
     /// </summary>
