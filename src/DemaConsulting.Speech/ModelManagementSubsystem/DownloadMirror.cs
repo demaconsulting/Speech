@@ -94,14 +94,16 @@ public sealed record DownloadMirror
     /// <param name="bearerToken">
     ///     The bearer token to present (as an <c>Authorization: Bearer</c> request header) when
     ///     authenticating against the mirror, or <see langword="null"/> when the mirror needs no
-    ///     such token (the default). Mutually exclusive with <paramref name="credentials"/>.
+    ///     such token (the default). Mutually exclusive with <paramref name="credentials"/>. Must
+    ///     not be empty or whitespace-only.
     /// </param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="baseUri"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">
     ///     Thrown when <paramref name="baseUri"/> is not an absolute URI, when its scheme is
     ///     neither <c>http</c> nor <c>https</c>, when it includes a query string, fragment, or
     ///     user-info component, when both <paramref name="credentials"/> and
-    ///     <paramref name="bearerToken"/> are supplied, or when either is supplied alongside an
+    ///     <paramref name="bearerToken"/> are supplied, when <paramref name="bearerToken"/> is
+    ///     empty or whitespace-only, or when either is supplied alongside an
     ///     <c>http</c> (rather than <c>https</c>) <paramref name="baseUri"/> whose host is not a
     ///     loopback address.
     /// </exception>
@@ -161,6 +163,19 @@ public sealed record DownloadMirror
         {
             throw new ArgumentException(
                 "Specify at most one of credentials or bearerToken.",
+                nameof(bearerToken));
+        }
+
+        // An empty or whitespace-only bearer token is just as meaningless as a missing one, but
+        // ApplyMirrorAuthentication would still send it as a literal "Authorization: Bearer"
+        // header (AuthenticationHeaderValue accepts any non-null string as its parameter), so a
+        // misconfigured mirror would only be discovered when the first download fails with an
+        // opaque, generically classified HTTP failure. Reject it here instead, at construction,
+        // alongside every other eager validation this record performs.
+        if (bearerToken is not null && string.IsNullOrWhiteSpace(bearerToken))
+        {
+            throw new ArgumentException(
+                "Mirror bearer token must not be empty or whitespace-only.",
                 nameof(bearerToken));
         }
 

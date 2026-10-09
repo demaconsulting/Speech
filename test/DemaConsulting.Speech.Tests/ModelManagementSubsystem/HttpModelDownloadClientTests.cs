@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using DemaConsulting.Speech.ModelManagementSubsystem;
@@ -273,6 +274,50 @@ public sealed class HttpModelDownloadClientTests
         Assert.NotNull(requestMessage.Headers);
         var authorizationHeader = requestMessage.Headers["Authorization"].Single();
         Assert.Equal("Bearer secret-token", authorizationHeader);
+        Assert.Equal(payload, destination.ToArray());
+    }
+
+    /// <summary>
+    ///     Proves that <see cref="HttpClient"/>'s default handler strips the mirror's
+    ///     <c>Authorization</c> header from the follow-up request when the initial request
+    ///     receives an HTTP redirect, even when the redirect target is still within the
+    ///     configured mirror's scope - the documented guarantee
+    ///     <see cref="HttpModelDownloadClient"/>'s own remarks rely on to justify never
+    ///     re-applying mirror authentication to a redirected request.
+    /// </summary>
+    [Fact]
+    public async Task HttpModelDownloadClient_DownloadAsync_MirrorRedirect_StripsAuthorizationHeaderOnRedirectedRequest()
+    {
+        // Arrange
+        var payload = CreatePayload(sizeBytes: 16);
+        using var server = WireMockServer.Start();
+        server
+            .Given(Request.Create().WithPath("/mirror/model.bin").UsingGet())
+            .RespondWith(Response.Create().WithStatusCode(302).WithHeader("Location", "/mirror/redirected.bin"));
+        server
+            .Given(Request.Create().WithPath("/mirror/redirected.bin").UsingGet())
+            .RespondWith(Response.Create().WithStatusCode(200).WithBody(payload).WithHeader("Content-Length", payload.Length.ToString()));
+
+        var mirrorBaseUri = new Uri($"{server.Urls[0]}/mirror");
+        var mirror = new DownloadMirror(mirrorBaseUri, bearerToken: "secret-token");
+        using var client = new HttpModelDownloadClient(httpClient: null, mirror);
+        using var destination = new MemoryStream();
+        var sourceUri = new Uri($"{server.Urls[0]}/mirror/model.bin");
+
+        // Act
+        await client.DownloadAsync(sourceUri, destination, null, CancellationToken.None);
+
+        // Assert
+        Assert.Equal(2, server.LogEntries.Count());
+        var initialRequestMessage = server.LogEntries.First(entry => entry.RequestMessage!.Path == "/mirror/model.bin").RequestMessage;
+        var redirectedRequestMessage = server.LogEntries.First(entry => entry.RequestMessage!.Path == "/mirror/redirected.bin").RequestMessage;
+        Assert.NotNull(initialRequestMessage);
+        Assert.NotNull(redirectedRequestMessage);
+        Assert.NotNull(initialRequestMessage.Headers);
+        Assert.NotNull(redirectedRequestMessage.Headers);
+        var expectedAuthorization = new AuthenticationHeaderValue("Bearer", "secret-token").ToString();
+        Assert.Equal(expectedAuthorization, initialRequestMessage.Headers["Authorization"].Single());
+        Assert.False(redirectedRequestMessage.Headers.ContainsKey("Authorization"));
         Assert.Equal(payload, destination.ToArray());
     }
 

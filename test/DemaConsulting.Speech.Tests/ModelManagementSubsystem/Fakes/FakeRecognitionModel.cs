@@ -144,9 +144,7 @@ public sealed class FakeRecognitionModel : IRecognitionModel
             return Task.CompletedTask;
         }
 
-        var archivePath = SpeechModelDownloadFile.ResolveStagedPath(
-            stagedFilesDirectory,
-            FakeModelDescriptors.ZipArchiveRelativeInstallPath);
+        var archivePath = DownloadDescriptor.Files[0].ResolveStagedPath(stagedFilesDirectory);
         System.IO.Compression.ZipFile.ExtractToDirectory(archivePath, stagedFilesDirectory);
         File.Delete(archivePath);
         return Task.CompletedTask;

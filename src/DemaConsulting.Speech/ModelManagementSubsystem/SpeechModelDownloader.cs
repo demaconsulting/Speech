@@ -358,7 +358,7 @@ public sealed class SpeechModelDownloader : IDisposable
                 // example a literal "tokens\vocab.txt" staged as one file literally named
                 // "tokens\vocab.txt" on Linux, while the mirror-rewritten URI correctly requests
                 // "/tokens/vocab.txt").
-                var destinationPath = SpeechModelDownloadFile.ResolveStagedPath(stagingDirectory, file.RelativeInstallPath);
+                var destinationPath = file.ResolveStagedPath(stagingDirectory);
                 Directory.CreateDirectory(Path.GetDirectoryName(destinationPath) ?? stagingDirectory);
 
                 var effectiveUri = ResolveEffectiveUri(file.Uri, _mirror, modelId, file.RelativeInstallPath);

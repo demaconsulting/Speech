@@ -28,47 +28,7 @@ public sealed record SpeechModelDownloadFile
         relativeInstallPath.Split(PathSeparators, StringSplitOptions.RemoveEmptyEntries);
 
     /// <summary>
-    ///     Resolves the exact file-system path a declared <paramref name="relativeInstallPath"/>
-    ///     is staged at (and is installed at, since <see cref="SpeechModelStore"/> atomically
-    ///     swaps the staging directory in place), using this platform's own
-    ///     <see cref="Path.DirectorySeparatorChar"/> regardless of which separator the path was
-    ///     declared with.
-    /// </summary>
-    /// <param name="stagedFilesDirectory">
-    ///     The directory the file is staged (or installed) under - typically the
-    ///     <c>stagedFilesDirectory</c> parameter an <see cref="ISpeechModel.InstallAsync"/>
-    ///     override receives.
-    /// </param>
-    /// <param name="relativeInstallPath">
-    ///     A declared <see cref="RelativeInstallPath"/> value (for example from
-    ///     <see cref="ISpeechModel.DownloadDescriptor"/>).
-    /// </param>
-    /// <returns>
-    ///     The combined, platform-correct file-system path, equivalent to
-    ///     <c>Path.Combine(stagedFilesDirectory, segment1, segment2, ...)</c> for every
-    ///     non-empty segment of <paramref name="relativeInstallPath"/>.
-    /// </returns>
-    /// <remarks>
-    ///     <see cref="SpeechModelDownloader"/> uses this same method to compute each file's
-    ///     staging destination, so an <see cref="ISpeechModel.InstallAsync"/> override that needs
-    ///     to locate one of its own declared files within <c>stagedFilesDirectory</c> must use
-    ///     this method too, rather than <see cref="Path.Join(string, string)"/> or string
-    ///     concatenation directly on <paramref name="relativeInstallPath"/> - a raw join would
-    ///     create a single, wrongly named file on a platform whose directory separator differs
-    ///     from the one the path happened to be declared with (for example a literal
-    ///     <c>"tokens\vocab.txt"</c> joined as one file literally named <c>"tokens\vocab.txt"</c>
-    ///     on Linux, instead of the nested file this method - and the downloader - actually
-    ///     stage it as).
-    /// </remarks>
-    public static string ResolveStagedPath(string stagedFilesDirectory, string relativeInstallPath)
-    {
-        ArgumentNullException.ThrowIfNull(stagedFilesDirectory);
-        ArgumentNullException.ThrowIfNull(relativeInstallPath);
-
-        return Path.Combine(stagedFilesDirectory, Path.Combine(SplitRelativeInstallPathSegments(relativeInstallPath)));
-    }
-
-    /// <summary>    ///     Initializes a new instance of the <see cref="SpeechModelDownloadFile"/> record,
+    ///     Initializes a new instance of the <see cref="SpeechModelDownloadFile"/> record,
     ///     validating every field eagerly. See the type-level remarks for the exact rules
     ///     enforced.
     /// </summary>
@@ -167,4 +127,48 @@ public sealed record SpeechModelDownloadFile
     ///     Gets the file's path, relative to the model's installed directory.
     /// </summary>
     public string RelativeInstallPath { get; }
+
+    /// <summary>
+    ///     Resolves the exact file-system path this declared file is staged at (and is installed
+    ///     at, since <see cref="SpeechModelStore"/> atomically swaps the staging directory in
+    ///     place), using this platform's own <see cref="Path.DirectorySeparatorChar"/> regardless
+    ///     of which separator <see cref="RelativeInstallPath"/> was declared with.
+    /// </summary>
+    /// <param name="stagedFilesDirectory">
+    ///     The directory the file is staged (or installed) under - typically the
+    ///     <c>stagedFilesDirectory</c> parameter an <see cref="ISpeechModel.InstallAsync"/>
+    ///     override receives.
+    /// </param>
+    /// <returns>
+    ///     The combined, platform-correct file-system path, equivalent to
+    ///     <c>Path.Combine(stagedFilesDirectory, segment1, segment2, ...)</c> for every
+    ///     non-empty segment of <see cref="RelativeInstallPath"/>.
+    /// </returns>
+    /// <exception cref="ArgumentNullException">
+    ///     Thrown when <paramref name="stagedFilesDirectory"/> is <see langword="null"/>.
+    /// </exception>
+    /// <remarks>
+    ///     Deliberately an instance method operating only on this already-validated
+    ///     <see cref="RelativeInstallPath"/>, rather than a static method accepting an arbitrary
+    ///     caller-supplied path string - the constructor's eager rejection of rooted, empty, and
+    ///     <c>.</c>/<c>..</c> segments is this type's single validation chokepoint, and a static
+    ///     overload taking a raw string would let a caller bypass that chokepoint entirely (for
+    ///     example resolving <c>"../outside.bin"</c> straight to a path outside
+    ///     <paramref name="stagedFilesDirectory"/>). <see cref="SpeechModelDownloader"/> uses this
+    ///     same method to compute each file's staging destination, so an
+    ///     <see cref="ISpeechModel.InstallAsync"/> override that needs to locate one of its own
+    ///     declared files within <paramref name="stagedFilesDirectory"/> must use this method too,
+    ///     rather than <see cref="Path.Join(string, string)"/> or string concatenation directly on
+    ///     <see cref="RelativeInstallPath"/> - a raw join would create a single, wrongly named
+    ///     file on a platform whose directory separator differs from the one the path happened to
+    ///     be declared with (for example a literal <c>"tokens\vocab.txt"</c> joined as one file
+    ///     literally named <c>"tokens\vocab.txt"</c> on Linux, instead of the nested file this
+    ///     method - and the downloader - actually stage it as).
+    /// </remarks>
+    public string ResolveStagedPath(string stagedFilesDirectory)
+    {
+        ArgumentNullException.ThrowIfNull(stagedFilesDirectory);
+
+        return Path.Combine(stagedFilesDirectory, Path.Combine(SplitRelativeInstallPathSegments(RelativeInstallPath)));
+    }
 }

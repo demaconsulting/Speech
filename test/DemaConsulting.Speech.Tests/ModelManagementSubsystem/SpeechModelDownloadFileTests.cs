@@ -117,10 +117,11 @@ public class SpeechModelDownloadFileTests
 
     /// <summary>
     ///     Proves that <see cref="SpeechModelDownloadFile.ResolveStagedPath"/> combines a staging
-    ///     directory with a declared install path's segments using this platform's own
-    ///     <see cref="Path.DirectorySeparatorChar"/>, regardless of which separator the install
-    ///     path was declared with - the exact guarantee an <see cref="ISpeechModel.InstallAsync"/>
-    ///     override relies on to locate one of its own declared files.
+    ///     directory with this instance's <see cref="SpeechModelDownloadFile.RelativeInstallPath"/>
+    ///     segments using this platform's own <see cref="Path.DirectorySeparatorChar"/>, regardless
+    ///     of which separator the install path was declared with - the exact guarantee an
+    ///     <see cref="ISpeechModel.InstallAsync"/> override relies on to locate one of its own
+    ///     declared files.
     /// </summary>
     [Theory]
     [InlineData("model.onnx", "model.onnx")]
@@ -135,22 +136,27 @@ public class SpeechModelDownloadFileTests
         var expected = Path.Combine(
             "staging",
             expectedRelativeSegments.Replace('|', Path.DirectorySeparatorChar));
+        var file = new SpeechModelDownloadFile(new Uri("https://example.test/model.onnx"), ValidChecksum, installPath);
 
         // Act
-        var actual = SpeechModelDownloadFile.ResolveStagedPath("staging", installPath);
+        var actual = file.ResolveStagedPath("staging");
 
         // Assert
         Assert.Equal(expected, actual);
     }
 
     /// <summary>
-    ///     Proves that <see cref="SpeechModelDownloadFile.ResolveStagedPath"/> rejects null
-    ///     arguments, matching the eager-validation style used throughout this type.
+    ///     Proves that <see cref="SpeechModelDownloadFile.ResolveStagedPath"/> rejects a null
+    ///     argument, matching the eager-validation style used throughout this type.
     /// </summary>
     [Fact]
-    public void SpeechModelDownloadFile_ResolveStagedPath_NullArguments_ThrowsArgumentNullException()
+    public void SpeechModelDownloadFile_ResolveStagedPath_NullArgument_ThrowsArgumentNullException()
     {
-        Assert.Throws<ArgumentNullException>(() => SpeechModelDownloadFile.ResolveStagedPath(null!, "model.onnx"));
-        Assert.Throws<ArgumentNullException>(() => SpeechModelDownloadFile.ResolveStagedPath("staging", null!));
+        // Arrange
+        var file = new SpeechModelDownloadFile(new Uri("https://example.test/model.onnx"), ValidChecksum, "model.onnx");
+
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => file.ResolveStagedPath(null!));
     }
 }
+

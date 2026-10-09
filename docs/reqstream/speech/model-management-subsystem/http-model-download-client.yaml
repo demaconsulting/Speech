@@ -59,3 +59,25 @@ sections:
                   - HttpModelDownloadClient_DownloadAsync_NoMirrorAuth_SendsNoAuthorizationHeader
                   - HttpModelDownloadClient_DownloadAsync_BearerTokenMirror_SendsBearerAuthorizationHeader
                   - HttpModelDownloadClient_DownloadAsync_CredentialsMirror_SendsBasicAuthorizationHeader
+
+              - id: Speech-Models-HttpModelDownloadClient-RedirectAuthorizationStripping
+                title: >-
+                  The HttpModelDownloadClient class shall rely on the underlying HttpClient's own
+                  redirect handling to strip the Authorization header from a redirected request,
+                  rather than re-checking or re-applying mirror authentication against a redirect
+                  response itself.
+                justification: |
+                  HttpClient's default handler (SocketsHttpHandler on every supported .NET
+                  runtime here) unconditionally strips the Authorization header from the
+                  follow-up request on every automatic redirect it follows, regardless of whether
+                  the redirect target is in-scope or out-of-scope, same-host or cross-origin. This
+                  already prevents the mirror's secret from ever reaching a redirect target, so
+                  this class deliberately does not implement its own manual, bounded redirect
+                  loop with per-hop re-authentication - doing so would add non-trivial
+                  security-sensitive code to re-solve a risk the framework's own handler already
+                  mitigates. The accepted trade-off is functional: a legitimate in-scope mirror
+                  redirect loses its authentication and will most likely fail with 401/403 rather
+                  than complete; a mirror expected to redirect should instead be configured at its
+                  final, non-redirecting URI.
+                tests:
+                  - HttpModelDownloadClient_DownloadAsync_MirrorRedirect_StripsAuthorizationHeaderOnRedirectedRequest

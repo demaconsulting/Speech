@@ -99,3 +99,17 @@ sections:
                 tests:
                   - DownloadMirror_Constructor_CredentialsWithLoopbackHttpBaseUri_DoesNotThrow
                   - DownloadMirror_Constructor_BearerTokenWithLoopbackHttpBaseUri_DoesNotThrow
+
+              - id: Speech-Models-DownloadMirror-BearerTokenWhitespaceValidation
+                title: >-
+                  The DownloadMirror record shall reject an empty or whitespace-only BearerToken
+                  eagerly at construction.
+                justification: |
+                  An empty or whitespace-only bearer token is just as meaningless as a missing
+                  one, but ApplyMirrorAuthentication would still send it as a literal
+                  "Authorization: Bearer" header, so a misconfigured mirror would otherwise only
+                  be discovered when the first download fails with an opaque, generically
+                  classified HTTP failure. Rejecting it eagerly, alongside this record's other
+                  validation, surfaces the configuration error immediately instead.
+                tests:
+                  - DownloadMirror_Constructor_WhitespaceOnlyBearerToken_ThrowsArgumentException

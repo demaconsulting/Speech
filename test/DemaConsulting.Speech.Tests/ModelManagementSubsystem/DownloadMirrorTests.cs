@@ -100,6 +100,23 @@ public class DownloadMirrorTests
     }
 
     /// <summary>
+    ///     Proves that an empty or whitespace-only <see cref="DownloadMirror.BearerToken"/> is
+    ///     rejected eagerly at construction, rather than being silently accepted and only
+    ///     discovered as a generic HTTP failure on the first download.
+    /// </summary>
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void DownloadMirror_Constructor_WhitespaceOnlyBearerToken_ThrowsArgumentException(string bearerToken)
+    {
+        // Arrange
+        var baseUri = new Uri("https://mirror.internal/models");
+
+        // Act & Assert
+        Assert.Throws<ArgumentException>(() => new DownloadMirror(baseUri, bearerToken: bearerToken));
+    }
+
+    /// <summary>
     ///     Proves that a <see langword="null"/> <see cref="DownloadMirror.BaseUri"/> is rejected
     ///     with <see cref="ArgumentNullException"/>.
     /// </summary>

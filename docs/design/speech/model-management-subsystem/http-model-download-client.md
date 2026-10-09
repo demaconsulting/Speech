@@ -35,7 +35,15 @@ to every request this instance issues.
   a true NTLM handshake is never negotiated, since that would require a dedicated
   `HttpClientHandler` that bypasses whatever `HttpClient` a host has already configured (proxy,
   timeouts, certificate validation). With no mirror configured (the default), no `Authorization`
-  header is sent at all - the exact pre-mirror request shape.
+  header is sent at all - the exact pre-mirror request shape. This mirror-scope check runs once,
+  against the initial request, and is deliberately never re-run against an HTTP redirect
+  response: `HttpClient`'s default handler (`SocketsHttpHandler` on every supported .NET runtime
+  here) unconditionally strips the `Authorization` header from the follow-up request on every
+  automatic redirect it follows, in-scope or out-of-scope, same-host or cross-origin, so the
+  mirror's secret can never reach a redirect target either way. The accepted trade-off is
+  functional, not a security gap: a legitimate in-scope mirror redirect loses its authentication
+  and will most likely fail with `401`/`403` rather than complete, so a mirror expected to
+  redirect should be configured at its final, non-redirecting URI instead.
 
 **Error Handling**: Throws `HttpRequestException` (via `EnsureSuccessStatusCode()`) for a
 non-success response, so a non-2xx response never results in an error page's body being silently

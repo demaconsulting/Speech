@@ -29,10 +29,14 @@ Tests pass when the exact requested bytes are downloaded, progress reports are p
 monotonically increasing, and end at the total; a non-2xx response throws
 `HttpRequestException` rather than writing a truncated or error-page body to the destination;
 with no mirror configured, no `Authorization` header is sent at all; with a bearer-token mirror,
-every request carries `Authorization: Bearer secret-token` exactly; and with a credentials
+every request carries a `Bearer` authorization header exactly; and with a credentials
 mirror, every request carries a preemptive `Authorization: Basic` header (no challenge/response
 handshake) that decodes to the exact configured username/password, sent through the same
-`HttpClient` instance as the download itself.
+`HttpClient` instance as the download itself. Also verified: the redirect response to an
+in-scope mirror request leaves the mirror's authorization header on the initial request, but
+the follow-up (redirected) request carries no authorization header at all, confirming
+`HttpClient`'s own redirect handling - not this class - is what prevents the mirror's secret from
+ever reaching a redirect target.
 
 #### Test Scenarios
 
@@ -55,3 +59,7 @@ handshake) that decodes to the exact configured username/password, sent through 
 ##### Download: Credentials Mirror Sends Basic Authorization Header
 
 **Test**: `HttpModelDownloadClient_DownloadAsync_CredentialsMirror_SendsBasicAuthorizationHeader`
+
+##### Download: Mirror Redirect Strips Authorization Header On Redirected Request
+
+**Test**: `HttpModelDownloadClient_DownloadAsync_MirrorRedirect_StripsAuthorizationHeaderOnRedirectedRequest`

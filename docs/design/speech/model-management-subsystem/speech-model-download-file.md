@@ -25,13 +25,18 @@ segments). A non-positional `sealed record` with an explicit constructor.
   `SpeechModelDownloader` (staging and mirror-URI resolution) both use, so the two separators -
   and the `.`/`..`/empty-segment rejection enforced once, here, at construction - can never drift
   apart between consumers.
-- **ResolveStagedPath(stagedFilesDirectory, relativeInstallPath)** *(public)*: Combines a staging
-  (or installed) directory with a declared `RelativeInstallPath`'s segments using this platform's
-  own `Path.DirectorySeparatorChar`, regardless of which separator the path was declared with.
-  `SpeechModelDownloader` uses this to compute each file's staging destination; an
-  `ISpeechModel.InstallAsync` override that needs to locate one of its own declared files within
-  `stagedFilesDirectory` must use this same method rather than a raw `Path.Join`/string
-  concatenation, so the hook always agrees with the downloader on the exact staged path.
+- **ResolveStagedPath(stagedFilesDirectory)** *(public instance method)*: Combines a staging (or
+  installed) directory with this already-validated instance's `RelativeInstallPath` segments
+  using this platform's own `Path.DirectorySeparatorChar`, regardless of which separator the path
+  was declared with. Deliberately an instance method operating only on `this.RelativeInstallPath`
+  - never a static method accepting an arbitrary caller-supplied path string - so it can never be
+  used to bypass the constructor's single validation chokepoint (a static overload taking a raw
+  string would let a caller resolve an unvalidated `"../outside.bin"`-style path straight outside
+  `stagedFilesDirectory`). `SpeechModelDownloader` uses this to compute each file's staging
+  destination; an `ISpeechModel.InstallAsync` override that needs to locate one of its own
+  declared files within `stagedFilesDirectory` must call this same method on the corresponding
+  `DownloadDescriptor` entry rather than a raw `Path.Join`/string concatenation, so the hook
+  always agrees with the downloader on the exact staged path.
 
 **Error Handling**: Throws `ArgumentException` for any field that fails validation, and
 `ArgumentNullException` for any null argument (including to `ResolveStagedPath`). Validation

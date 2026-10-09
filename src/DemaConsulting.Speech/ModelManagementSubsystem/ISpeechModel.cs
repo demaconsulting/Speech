@@ -79,10 +79,11 @@ public interface ISpeechModel
     ///     member will later reference). A model whose payload is already directly usable (the
     ///     common single-file case) does not need to implement this at all. When this override
     ///     needs to locate one of its own declared files within <paramref name="stagedFilesDirectory"/>
-    ///     (for example to find the archive before extracting it), resolve the path with
-    ///     <see cref="SpeechModelDownloadFile.ResolveStagedPath(string, string)"/> rather than
-    ///     <see cref="Path.Join(string, string)"/> or string concatenation directly on the
-    ///     declared <see cref="SpeechModelDownloadFile.RelativeInstallPath"/> - that method is the
+    ///     (for example to find the archive before extracting it), resolve the path by calling
+    ///     <see cref="SpeechModelDownloadFile.ResolveStagedPath(string)"/> on the corresponding
+    ///     <see cref="DownloadDescriptor"/> entry rather than <see cref="Path.Join(string, string)"/>
+    ///     or string concatenation directly on the declared
+    ///     <see cref="SpeechModelDownloadFile.RelativeInstallPath"/> - that method is the same one
     ///     same one <see cref="SpeechModelDownloader"/> itself uses to compute each file's staging
     ///     destination, so it is the only way to guarantee this hook agrees with the downloader on
     ///     the exact path regardless of which path separator the file's declared install path used.

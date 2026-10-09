@@ -217,12 +217,14 @@ sections:
               - Speech-Models-DownloadMirror-QueryFragmentValidation
               - Speech-Models-DownloadMirror-CredentialedHttpRejection
               - Speech-Models-DownloadMirror-CredentialedLoopbackHttpExemption
+              - Speech-Models-DownloadMirror-BearerTokenWhitespaceValidation
               - Speech-Models-SpeechModelDownloaderOptions-MirrorDefaultsNull
               - Speech-Models-SpeechModelDownloaderOptions-MirrorRedirectsDownloads
               - Speech-Models-SpeechModelDownloader-MirrorUriResolution
               - Speech-Models-IModelDownloadClient-NoPerCallMirrorAuth
               - Speech-Models-IModelDownloadClient-EffectiveUriOnly
               - Speech-Models-HttpModelDownloadClient-MirrorAuthApplication
+              - Speech-Models-HttpModelDownloadClient-RedirectAuthorizationStripping
             tests:
               - DownloadMirror_Constructor_BothCredentialsAndBearerToken_ThrowsArgumentException
               - DownloadMirror_Constructor_NonHttpScheme_ThrowsArgumentExceptionNamingScheme
@@ -231,6 +233,7 @@ sections:
               - SpeechModelDownloader_DownloadAsync_MirrorConfigured_ForwardsEffectiveUri
               - HttpModelDownloadClient_DownloadAsync_BearerTokenMirror_SendsBearerAuthorizationHeader
               - HttpModelDownloadClient_DownloadAsync_CredentialsMirror_SendsBasicAuthorizationHeader
+              - HttpModelDownloadClient_DownloadAsync_MirrorRedirect_StripsAuthorizationHeaderOnRedirectedRequest
 
           - id: Speech-Models-RicherFailureClassification
             title: >-

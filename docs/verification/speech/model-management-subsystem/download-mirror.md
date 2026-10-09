@@ -14,9 +14,10 @@ validation of scheme, absoluteness, and Credentials/BearerToken mutual exclusivi
 Tests pass when valid values (with either auth mechanism, or neither) are exposed unchanged, an
 `http` or `https` scheme is accepted, a non-absolute or non-`http`/`https` `BaseUri` is rejected,
 a `BaseUri` carrying a query string or fragment is rejected, supplying both `Credentials` and
-`BearerToken` is rejected, supplying either alongside a plain `http` `BaseUri` is rejected unless
-`BaseUri`'s host is a loopback address (`localhost` or a loopback IP literal such as `127.0.0.1`
-or `::1`), in which case it is accepted, and a null `BaseUri` is rejected.
+`BearerToken` is rejected, an empty or whitespace-only `BearerToken` is rejected, supplying either
+auth mechanism alongside a plain `http` `BaseUri` is rejected unless `BaseUri`'s host is a
+loopback address (`localhost` or a loopback IP literal such as `127.0.0.1` or `::1`), in which
+case it is accepted, and a null `BaseUri` is rejected.
 
 #### Test Scenarios
 
@@ -71,3 +72,7 @@ or `::1`), in which case it is accepted, and a null `BaseUri` is rejected.
 ##### Constructor: Bearer Token With Loopback Http Base URI Does Not Throw
 
 **Test**: `DownloadMirror_Constructor_BearerTokenWithLoopbackHttpBaseUri_DoesNotThrow`
+
+##### Constructor: Whitespace-Only BearerToken Throws ArgumentException
+
+**Test**: `DownloadMirror_Constructor_WhitespaceOnlyBearerToken_ThrowsArgumentException`

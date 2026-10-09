@@ -35,6 +35,22 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     <see cref="SpeechModelDownloader"/>'s own URI rewriting), and the mirror's secret must
 ///     never be sent to that other host.
 ///     </para>
+///     <para>
+///     This mirror-scope check is applied once, to the initial request, before it is sent - an
+///     HTTP redirect response is never re-checked against it, because it never needs to be:
+///     <see cref="HttpClient"/>'s default handler (<see cref="System.Net.Http.SocketsHttpHandler"/>
+///     on every supported .NET runtime here) unconditionally strips the authorization header
+///     from the follow-up request on every automatic redirect it follows, regardless of whether
+///     the redirect target is in-scope or out-of-scope, same-host or cross-origin. This means the
+///     mirror's secret can never reach a redirect target, in-scope or not - but it also means a
+///     legitimate in-scope mirror redirect loses its authentication and will most likely fail
+///     with <c>401</c>/<c>403</c> rather than complete; that functional limitation is an accepted,
+///     documented constraint of relying on the framework's own redirect handling rather than
+///     implementing a manual bounded-redirect loop with per-hop re-authentication, which would
+///     add non-trivial security-sensitive code to re-solve a risk .NET's handler already
+///     mitigates. A mirror expected to redirect should instead be configured at its final,
+///     non-redirecting URI.
+///     </para>
 /// </remarks>
 public sealed class HttpModelDownloadClient : IModelDownloadClient, IDisposable
 {
@@ -178,7 +194,10 @@ public sealed class HttpModelDownloadClient : IModelDownloadClient, IDisposable
     ///     could negotiate, at the cost of discarding the caller's own client configuration);
     ///     <see cref="DownloadMirror.BearerToken"/> is applied as a <c>Bearer</c> header. The two
     ///     are mutually exclusive by <see cref="DownloadMirror"/>'s own constructor, so at most
-    ///     one branch below ever applies.
+    ///     one branch below ever applies. This method runs once, against the initial request,
+    ///     before it is sent; it is deliberately never re-run against an HTTP redirect response -
+    ///     see this type's own remarks for why <see cref="HttpClient"/>'s redirect handling
+    ///     already strips this header on every automatic redirect regardless.
     /// </remarks>
     private void ApplyMirrorAuthentication(HttpRequestMessage request, Uri sourceUri)
     {
