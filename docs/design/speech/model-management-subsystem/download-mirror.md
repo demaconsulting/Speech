@@ -19,15 +19,17 @@ declared download descriptors.
   scope, since no code path in this library ever dereferences one) and must not carry a query
   string or fragment (which would misroute every mirrored request's path once a model's relative
   install path is appended); at most one of `Credentials`/`BearerToken` may be supplied; and
-  either, if supplied, requires `BaseUri` to use `https` rather than plain `http`, since both are
+  either, if supplied, requires `BaseUri` to use `https` rather than plain `http` - unless
+  `BaseUri`'s host is a loopback address (the literal name `localhost` or a loopback IP literal
+  such as `127.0.0.1` or `::1`), since that traffic never leaves the local machine and both are
   sent preemptively (no challenge/response handshake) by `HttpModelDownloadClient`.
 
 **Error Handling**: Throws `ArgumentNullException` when `BaseUri` is null, and `ArgumentException`
 when `BaseUri` is not absolute, its scheme is neither `http` nor `https`, it carries a query
 string or fragment, both `Credentials` and `BearerToken` are supplied, or either is supplied
-alongside an `http` (rather than `https`) `BaseUri`. Validation happens eagerly at construction so
-a misconfigured mirror is rejected the moment it is created, not silently accepted and only
-discovered mid-download.
+alongside a non-loopback `http` (rather than `https`) `BaseUri`. Validation happens eagerly at
+construction so a misconfigured mirror is rejected the moment it is created, not silently
+accepted and only discovered mid-download.
 
 **Dependencies**: `System.Net.NetworkCredential`.
 

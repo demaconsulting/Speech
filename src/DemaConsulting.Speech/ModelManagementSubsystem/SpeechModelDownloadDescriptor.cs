@@ -9,6 +9,11 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     scheme, checksum format, and install path at construction (see that type's remarks); this
 ///     descriptor additionally rejects an empty file list and duplicate install paths, since two
 ///     files writing to the same relative path would silently clobber one another during install.
+///     Two declared paths are compared after splitting on either path separator (<c>/</c> or
+///     <c>\</c>) and rejoining the segments, so <c>"tokens/vocab.txt"</c> and
+///     <c>"tokens\vocab.txt"</c> are recognized as the same duplicate path - matching how
+///     <see cref="SpeechModelDownloader"/> normalizes both separators identically when staging a
+///     file and resolving its mirror-rewritten URI.
 /// </remarks>
 public sealed record SpeechModelDownloadDescriptor
 {
@@ -26,8 +31,8 @@ public sealed record SpeechModelDownloadDescriptor
     /// <exception cref="ArgumentException">
     ///     Thrown when <paramref name="Files"/> is empty, contains a <see langword="null"/>
     ///     element, or when two or more entries share the same
-    ///     <see cref="SpeechModelDownloadFile.RelativeInstallPath"/> (using an exact,
-    ///     case-sensitive comparison).
+    ///     <see cref="SpeechModelDownloadFile.RelativeInstallPath"/> after normalizing both path
+    ///     separators (an exact, case-sensitive comparison of the normalized segments).
     /// </exception>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="Files"/> is <see langword="null"/>.</exception>
     public SpeechModelDownloadDescriptor(IReadOnlyList<SpeechModelDownloadFile> Files)
@@ -53,11 +58,13 @@ public sealed record SpeechModelDownloadDescriptor
 
         // Two files landing at the same relative path would silently overwrite one another
         // during install - reject that up front rather than letting install order decide.
-        var distinctPathCount = Files
-            .Select(file => file.RelativeInstallPath)
-            .Distinct(StringComparer.Ordinal)
-            .Count();
-        if (distinctPathCount != Files.Count)
+        // Normalize both path separators before comparing, so "tokens/vocab.txt" and
+        // "tokens\vocab.txt" (which SpeechModelDownloader stages and requests identically) are
+        // recognized as the same duplicate path rather than slipping past an exact-string check.
+        var normalizedPaths = Files
+            .Select(file => string.Join('/', SpeechModelDownloadFile.SplitRelativeInstallPathSegments(file.RelativeInstallPath)))
+            .ToList();
+        if (normalizedPaths.Distinct(StringComparer.Ordinal).Count() != Files.Count)
         {
             throw new ArgumentException(
                 "A model download descriptor must not declare two files with the same relative install path.",

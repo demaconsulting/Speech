@@ -14,6 +14,20 @@ public sealed record SpeechModelDownloadFile
     private static readonly char[] PathSeparators = ['/', '\\'];
 
     /// <summary>
+    ///     Splits a declared <see cref="RelativeInstallPath"/> into its individual non-empty
+    ///     segments, accepting either path separator (<c>/</c> or <c>\</c>) so a path declared
+    ///     with either separator normalizes to the same segments. Shared by every consumer that
+    ///     must treat <c>"tokens/vocab.txt"</c> and <c>"tokens\vocab.txt"</c> as the same logical
+    ///     path - for example <see cref="SpeechModelDownloadDescriptor"/>'s duplicate-path check
+    ///     and <see cref="SpeechModelDownloader"/>'s staging and mirror-URI resolution - so the
+    ///     normalization rule cannot drift between them.
+    /// </summary>
+    /// <param name="relativeInstallPath">The declared relative install path to split.</param>
+    /// <returns>The path's non-empty segments, in order.</returns>
+    internal static string[] SplitRelativeInstallPathSegments(string relativeInstallPath) =>
+        relativeInstallPath.Split(PathSeparators, StringSplitOptions.RemoveEmptyEntries);
+
+    /// <summary>
     ///     Initializes a new instance of the <see cref="SpeechModelDownloadFile"/> record,
     ///     validating every field eagerly. See the type-level remarks for the exact rules
     ///     enforced.

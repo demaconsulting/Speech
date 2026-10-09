@@ -360,7 +360,7 @@ public sealed class SpeechModelDownloader : IDisposable
                 // requests "/tokens/vocab.txt").
                 var destinationPath = Path.Join(
                     stagingDirectory,
-                    Path.Combine(SplitRelativeInstallPathSegments(file.RelativeInstallPath)));
+                    Path.Combine(SpeechModelDownloadFile.SplitRelativeInstallPathSegments(file.RelativeInstallPath)));
                 Directory.CreateDirectory(Path.GetDirectoryName(destinationPath) ?? stagingDirectory);
 
                 var effectiveUri = ResolveEffectiveUri(file.Uri, _mirror, modelId, file.RelativeInstallPath);
@@ -538,31 +538,11 @@ public sealed class SpeechModelDownloader : IDisposable
         // percent-escape each segment (and modelId) individually before rejoining with '/' -
         // never escape the already-combined string as a whole, which would incorrectly encode
         // the separating slashes themselves.
-        var segments = SplitRelativeInstallPathSegments(relativeInstallPath);
+        var segments = SpeechModelDownloadFile.SplitRelativeInstallPathSegments(relativeInstallPath);
         var escapedSegments = segments.Select(Uri.EscapeDataString);
         var combined = string.Join('/', [basePath, Uri.EscapeDataString(modelId), .. escapedSegments]);
         return new Uri(combined);
     }
-
-    /// <summary>
-    ///     Splits a declared <see cref="SpeechModelDownloadFile.RelativeInstallPath"/> into its
-    ///     individual segments, accepting either path separator (<c>/</c> or <c>\</c>) - the same
-    ///     two separators <see cref="SpeechModelDownloadFile"/> itself accepts when validating
-    ///     that a declared path contains no parent-escaping segments.
-    /// </summary>
-    /// <param name="relativeInstallPath">The declared relative install path to split.</param>
-    /// <returns>
-    ///     The path's non-empty segments, in order - used identically by
-    ///     <see cref="ResolveEffectiveUri"/> (each segment individually percent-escaped and
-    ///     rejoined with <c>/</c>) and by <see cref="DownloadAsync(string, SpeechModelDownloadDescriptor, IProgress{SpeechModelDownloadProgress}, CancellationToken)"/>'s
-    ///     staging destination path
-    ///     (each segment rejoined via <see cref="Path.Combine(string[])"/>, using this platform's
-    ///     own <see cref="Path.DirectorySeparatorChar"/>), so a model that declares a path using
-    ///     the "wrong" separator for the current platform is staged under the same logical
-    ///     subdirectory its mirror-rewritten request URI targets.
-    /// </returns>
-    private static string[] SplitRelativeInstallPathSegments(string relativeInstallPath) =>
-        relativeInstallPath.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries);
 
     /// <summary>
     ///     Sums the length of every file within a directory tree, used to recompute a model's
