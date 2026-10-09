@@ -59,8 +59,10 @@ public class SpeechModelDownloadFileTests
     }
 
     /// <summary>
-    ///     Proves that an empty, whitespace-only, or parent-escaping install path is rejected,
-    ///     since any of these could write outside the model's installed directory or is
+    ///     Proves that an empty, whitespace-only, parent-escaping, or current-directory install
+    ///     path is rejected, since any of these could write outside the model's installed
+    ///     directory, silently collide with another declared path once collapsed away by
+    ///     <see cref="Path.Combine(string[])"/>/<see cref="Uri"/> canonicalization, or is
     ///     otherwise meaningless.
     /// </summary>
     [Theory]
@@ -68,6 +70,9 @@ public class SpeechModelDownloadFileTests
     [InlineData("   ")]
     [InlineData("../escape.onnx")]
     [InlineData("nested/../../escape.onnx")]
+    [InlineData(".")]
+    [InlineData("./model.onnx")]
+    [InlineData("tokens/./vocab.txt")]
     public void SpeechModelDownloadFile_Constructor_InvalidInstallPath_ThrowsArgumentException(string installPath)
     {
         // Arrange

@@ -37,10 +37,14 @@ sections:
               - id: Speech-Models-SpeechModelDownloadFile-InstallPathValidation
                 title: >-
                   The SpeechModelDownloadFile record shall reject, at construction, any relative
-                  install path that is null/whitespace, rooted, or escapes its parent directory.
+                  install path that is null/whitespace, rooted, or contains a parent-directory
+                  (..) or current-directory (.) segment.
                 justification: |
                   Validating eagerly at construction, rather than deep into the download
-                  pipeline, prevents a relative install path from escaping the staging directory.
+                  pipeline, prevents a relative install path from escaping the staging directory
+                  via a ".." segment, and prevents a "." segment from silently collapsing away
+                  under Path.Combine/Uri canonicalization and causing two declared paths that
+                  look distinct to collide at the same staged file.
                 tests:
                   - SpeechModelDownloadFile_Constructor_InvalidInstallPath_ThrowsArgumentException
                   - SpeechModelDownloadFile_Constructor_RootedInstallPath_ThrowsArgumentException

@@ -12,8 +12,8 @@ eager validation of URI scheme, checksum format, and relative install path.
 #### Acceptance Criteria
 
 Tests pass when valid values are exposed unchanged, a non-HTTPS URI is rejected, a malformed
-checksum is rejected, an empty/whitespace or parent-escaping install path is rejected, a rooted
-install path is rejected, and any null argument is rejected.
+checksum is rejected, an empty/whitespace, parent-escaping (`..`), or current-directory (`.`)
+install path is rejected, a rooted install path is rejected, and any null argument is rejected.
 
 #### Test Scenarios
 
