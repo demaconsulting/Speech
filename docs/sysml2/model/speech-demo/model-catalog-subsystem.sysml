@@ -16,8 +16,9 @@ package SpeechDemo {
     }
 
     part def IModelCatalogService {
-        doc /* Demo-owned seam for enumerating known models and downloading one by id, so the
-             * panel can be tested against controlled catalog data. */
+        doc /* Demo-owned seam for enumerating known models, downloading one by id, and applying
+             * a new download mirror at runtime, so the panel can be tested against controlled
+             * catalog data. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech.Demo/ModelCatalogSubsystem/IModelCatalogService.cs */
         comment designRef /* Design: docs/design/speech-demo/model-catalog-subsystem/model-catalog-service.md (documented together with its sole implementation, ModelCatalogService) */
@@ -27,7 +28,9 @@ package SpeechDemo {
 
     part def ModelCatalogService {
         doc /* Real catalog seam implementation, delegating enumeration and download to the
-             * library's SpeechModelCatalog without owning its lifetime. */
+             * library's SpeechModelCatalog. Constructed with a catalog factory, it also owns
+             * rebuilding that catalog against a new mirror via ApplyMirror, and disposing
+             * whichever catalog is then current. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech.Demo/ModelCatalogSubsystem/ModelCatalogService.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Demo.Tests/ModelCatalogSubsystem/ModelCatalogServiceTests.cs */
@@ -38,7 +41,8 @@ package SpeechDemo {
 
     part def ModelCatalogViewModel {
         doc /* Presentation state for the catalog panel: the model rows, the selected row, the
-             * refresh and download commands, and the explanatory empty-catalog message. */
+             * refresh and download commands, the mirror-settings fields and apply command, and
+             * the explanatory empty-catalog message. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech.Demo/ModelCatalogSubsystem/ModelCatalogViewModel.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Demo.Tests/ModelCatalogSubsystem/ModelCatalogViewModelTests.cs */

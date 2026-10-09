@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using DemaConsulting.Speech.Demo;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 
 namespace DemaConsulting.Speech.Demo.ModelCatalogSubsystem;
@@ -58,6 +59,59 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
     public bool IsCatalogEmpty => Models.Count == 0;
 
     /// <summary>
+    ///     Gets or sets the mirror base URL the user has typed, or <see langword="null"/>/empty
+    ///     to revert to each model's own declared public download URI.
+    /// </summary>
+    [ObservableProperty]
+    public partial string? MirrorUrl { get; set; }
+
+    /// <summary>
+    ///     Gets or sets the HTTP Basic username the user has typed for the mirror, or
+    ///     <see langword="null"/> when the mirror needs no Basic credential.
+    /// </summary>
+    [ObservableProperty]
+    public partial string? MirrorUser { get; set; }
+
+    /// <summary>
+    ///     Gets or sets the HTTP Basic password the user has typed for the mirror, or
+    ///     <see langword="null"/> when the mirror needs no Basic credential.
+    /// </summary>
+    [ObservableProperty]
+    public partial string? MirrorPassword { get; set; }
+
+    /// <summary>
+    ///     Gets or sets the bearer token the user has typed for the mirror, or
+    ///     <see langword="null"/> when the mirror needs no bearer token.
+    /// </summary>
+    [ObservableProperty]
+    public partial string? MirrorBearerToken { get; set; }
+
+    /// <summary>
+    ///     Gets or sets the result message from the most recent <see cref="ApplyMirror"/>
+    ///     attempt, or <see langword="null"/> before one has been made.
+    /// </summary>
+    [ObservableProperty]
+    public partial string? MirrorStatusMessage { get; set; }
+
+    /// <summary>
+    ///     Gets or sets a value indicating whether <see cref="MirrorStatusMessage"/> describes a
+    ///     rejected mirror configuration rather than a successfully applied one.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool MirrorHasError { get; set; }
+
+    /// <summary>
+    ///     Gets a value indicating whether <see cref="MirrorStatusMessage"/> has content to show.
+    /// </summary>
+    public bool HasMirrorStatusMessage => !string.IsNullOrEmpty(MirrorStatusMessage);
+
+    /// <summary>
+    ///     Gets a value indicating whether <see cref="MirrorStatusMessage"/> describes a
+    ///     successfully applied mirror configuration.
+    /// </summary>
+    public bool MirrorAppliedSuccessfully => HasMirrorStatusMessage && !MirrorHasError;
+
+    /// <summary>
     ///     Initializes a new instance of the <see cref="ModelCatalogViewModel"/> class and loads
     ///     the current catalog contents.
     /// </summary>
@@ -65,15 +119,74 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
     ///     The catalog seam to read models from and request downloads through. Must not be
     ///     <see langword="null"/>.
     /// </param>
+    /// <param name="initialMirrorUrl">
+    ///     A mirror base URL to pre-populate the mirror-settings panel with (for example one
+    ///     supplied via launch-time arguments), or <see langword="null"/> to start empty.
+    /// </param>
+    /// <param name="initialMirrorUser">The HTTP Basic username to pre-populate, or <see langword="null"/>.</param>
+    /// <param name="initialMirrorPassword">The HTTP Basic password to pre-populate, or <see langword="null"/>.</param>
+    /// <param name="initialMirrorBearerToken">The bearer token to pre-populate, or <see langword="null"/>.</param>
     /// <exception cref="ArgumentNullException">
     ///     Thrown when <paramref name="catalogService"/> is <see langword="null"/>.
     /// </exception>
-    public ModelCatalogViewModel(IModelCatalogService catalogService)
+    public ModelCatalogViewModel(
+        IModelCatalogService catalogService,
+        string? initialMirrorUrl = null,
+        string? initialMirrorUser = null,
+        string? initialMirrorPassword = null,
+        string? initialMirrorBearerToken = null)
     {
         ArgumentNullException.ThrowIfNull(catalogService);
 
         _catalogService = catalogService;
+        MirrorUrl = initialMirrorUrl;
+        MirrorUser = initialMirrorUser;
+        MirrorPassword = initialMirrorPassword;
+        MirrorBearerToken = initialMirrorBearerToken;
         Refresh();
+    }
+
+    /// <summary>
+    ///     Applies the mirror settings currently typed into <see cref="MirrorUrl"/>,
+    ///     <see cref="MirrorUser"/>, <see cref="MirrorPassword"/>, and
+    ///     <see cref="MirrorBearerToken"/>, replacing where every subsequent download fetches
+    ///     models from. Leaving <see cref="MirrorUrl"/> blank and applying reverts to each
+    ///     model's own declared public download URI.
+    /// </summary>
+    /// <remarks>
+    ///     Validation failures (an invalid URL, a lone user or password, or a mirror this
+    ///     service's catalog does not support reconfiguring) are reported in
+    ///     <see cref="MirrorStatusMessage"/> rather than thrown at the user, consistent with how
+    ///     <see cref="DownloadAsync"/> reports every failure in-row instead of crashing the panel.
+    /// </remarks>
+    [RelayCommand]
+    public void ApplyMirror()
+    {
+        try
+        {
+            var mirror = MirrorOptionsFactory.Create(MirrorUrl, MirrorUser, MirrorPassword, MirrorBearerToken);
+            _catalogService.ApplyMirror(mirror);
+
+            MirrorHasError = false;
+            MirrorStatusMessage = mirror is null
+                ? "Mirror cleared: downloads now use each model's own public URI."
+                : $"Mirror applied: downloads now use '{mirror.BaseUri}'.";
+
+            // The freshly rebuilt catalog may report different install states for models whose
+            // files live under a models directory this session has not yet touched, so refresh
+            // the row list from it rather than leaving stale rows on display.
+            Refresh();
+        }
+        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
+        {
+            MirrorHasError = true;
+            MirrorStatusMessage = exception.Message;
+        }
+        finally
+        {
+            OnPropertyChanged(nameof(HasMirrorStatusMessage));
+            OnPropertyChanged(nameof(MirrorAppliedSuccessfully));
+        }
     }
 
     /// <summary>

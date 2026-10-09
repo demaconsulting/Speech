@@ -18,16 +18,29 @@ namespace DemaConsulting.Speech.Demo.ModelCatalogSubsystem;
 ///     panel and the STT/TTS panels already depend on this seam.
 ///     <para>
 ///     The catalog is owned by the composition root, which disposes it; this adapter deliberately
-///     does not dispose it so that a shared catalog can outlive any one adapter.
+///     does not dispose it so that a shared catalog can outlive any one adapter - unless this
+///     adapter was given a catalog factory (see the two-argument constructor), in which case it
+///     instead owns every catalog it ever points at (both the one it was constructed with and
+///     each one it later builds via <see cref="ApplyMirror"/>), and disposes whichever one is
+///     current when this adapter itself is disposed.
 ///     </para>
 /// </remarks>
 public sealed class ModelCatalogService : IModelCatalogService
 {
-    /// <summary>The library catalog every call is forwarded to.</summary>
-    private readonly SpeechModelCatalog _catalog;
+    /// <summary>The library catalog every call is currently forwarded to.</summary>
+    private SpeechModelCatalog _catalog;
 
     /// <summary>
-    ///     Initializes a new instance of the <see cref="ModelCatalogService"/> class.
+    ///     Rebuilds a catalog (using the same known models and model-store root as the one this
+    ///     service started with) for a given set of downloader options, or <see langword="null"/>
+    ///     when this service was constructed without one and therefore cannot support
+    ///     <see cref="ApplyMirror"/>.
+    /// </summary>
+    private readonly Func<SpeechModelDownloaderOptions?, SpeechModelCatalog>? _catalogFactory;
+
+    /// <summary>
+    ///     Initializes a new instance of the <see cref="ModelCatalogService"/> class that
+    ///     forwards to a fixed catalog and does not support <see cref="ApplyMirror"/>.
     /// </summary>
     /// <param name="catalog">
     ///     The library model catalog to delegate to. Must not be <see langword="null"/>.
@@ -40,6 +53,35 @@ public sealed class ModelCatalogService : IModelCatalogService
         ArgumentNullException.ThrowIfNull(catalog);
 
         _catalog = catalog;
+        _catalogFactory = null;
+    }
+
+    /// <summary>
+    ///     Initializes a new instance of the <see cref="ModelCatalogService"/> class that
+    ///     supports <see cref="ApplyMirror"/> by rebuilding its catalog through
+    ///     <paramref name="catalogFactory"/> whenever the mirror changes.
+    /// </summary>
+    /// <param name="catalog">
+    ///     The initial library model catalog to delegate to. Must not be <see langword="null"/>.
+    /// </param>
+    /// <param name="catalogFactory">
+    ///     Builds a fresh catalog (reusing the same known models and model-store root as
+    ///     <paramref name="catalog"/>) for a given set of downloader options. Must not be
+    ///     <see langword="null"/>.
+    /// </param>
+    /// <exception cref="ArgumentNullException">
+    ///     Thrown when <paramref name="catalog"/> or <paramref name="catalogFactory"/> is
+    ///     <see langword="null"/>.
+    /// </exception>
+    public ModelCatalogService(
+        SpeechModelCatalog catalog,
+        Func<SpeechModelDownloaderOptions?, SpeechModelCatalog> catalogFactory)
+    {
+        ArgumentNullException.ThrowIfNull(catalog);
+        ArgumentNullException.ThrowIfNull(catalogFactory);
+
+        _catalog = catalog;
+        _catalogFactory = catalogFactory;
     }
 
     /// <inheritdoc/>
@@ -66,5 +108,41 @@ public sealed class ModelCatalogService : IModelCatalogService
         }
 
         return result;
+    }
+
+    /// <inheritdoc/>
+    /// <remarks>
+    ///     Any download already in progress against the catalog this call replaces runs to
+    ///     completion against that (now-detached) catalog rather than being interrupted; only
+    ///     subsequent <see cref="DownloadAsync"/> calls observe the new mirror.
+    /// </remarks>
+    public void ApplyMirror(DownloadMirror? mirror)
+    {
+        if (_catalogFactory is null)
+        {
+            throw new InvalidOperationException(
+                "This service was constructed without a catalog factory, so its mirror cannot be " +
+                "changed after construction. Use the ModelCatalogService(SpeechModelCatalog, " +
+                "Func<SpeechModelDownloaderOptions?, SpeechModelCatalog>) constructor instead.");
+        }
+
+        var downloaderOptions = mirror is null ? null : new SpeechModelDownloaderOptions { Mirror = mirror };
+        var previousCatalog = _catalog;
+        _catalog = _catalogFactory(downloaderOptions);
+        previousCatalog.Dispose();
+    }
+
+    /// <summary>
+    ///     Disposes the current catalog, but only when this service was constructed with a
+    ///     catalog factory (see the two-argument constructor) and therefore owns the catalog's
+    ///     lifetime; otherwise this is a no-op, preserving the single-catalog constructor's
+    ///     contract that a shared, externally owned catalog outlives this adapter.
+    /// </summary>
+    public void Dispose()
+    {
+        if (_catalogFactory is not null)
+        {
+            _catalog.Dispose();
+        }
     }
 }

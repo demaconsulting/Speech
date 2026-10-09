@@ -47,3 +47,25 @@ sections:
                 tests:
                   - ModelCatalogService_DownloadAsync_Installed_RaisesModelInstalledWithCorrectIdAndRole
                   - ModelCatalogService_DownloadAsync_Failed_DoesNotRaiseModelInstalled
+
+              - id: SpeechDemo-Models-MirrorReconfiguration
+                title: >-
+                  The ModelCatalogSubsystem shall support reconfiguring where every subsequent
+                  download fetches models from, by rebuilding its catalog against a new mirror
+                  (or no mirror) through a host-supplied catalog factory, disposing the catalog
+                  it replaces, and owning the lifetime of every catalog it ever builds; a seam
+                  constructed without a catalog factory shall reject reconfiguration rather than
+                  silently doing nothing.
+                justification: |
+                  The demo's composition root builds its catalog once at startup, but a user
+                  behind a network policy that blocks a model's public download host needs to
+                  redirect downloads to an internal mirror from the running application, not only
+                  via a launch-time argument. Because the library's SpeechModelCatalog cannot be
+                  reconfigured in place, the seam must instead be able to build and swap to an
+                  entirely new one on request.
+                tests:
+                  - ModelCatalogService_Constructor_NullCatalogFactory_ThrowsArgumentNullException
+                  - ModelCatalogService_ApplyMirror_NoFactory_ThrowsInvalidOperationException
+                  - ModelCatalogService_ApplyMirror_WithFactory_RebuildsCatalogThroughFactory
+                  - ModelCatalogService_Dispose_WithFactory_DisposesCurrentCatalog
+                  - ModelCatalogService_Dispose_WithoutFactory_DoesNotDisposeCatalog

@@ -102,3 +102,25 @@ sections:
                 tests:
                   - ModelCatalogViewModel_Constructor_EmptyCatalog_ReportsHonestEmptyState
                   - ModelCatalogViewModel_EmptyCatalogMessage_Read_ExplainsCatalogHasNoKnownModels
+
+              - id: SpeechDemo-Models-MirrorSettingsUi
+                title: >-
+                  The ModelCatalogSubsystem shall let a user type a mirror base URL and optional
+                  credential or bearer token, pre-populated from any launch-time mirror arguments,
+                  and apply those settings to redirect every subsequent download; an invalid
+                  configuration or a seam that rejects reconfiguration shall be reported as an
+                  explained panel state rather than thrown at the user, and a blank URL shall
+                  revert to each model's own public download URI.
+                justification: |
+                  A user whose network blocks a model's public download host needs to redirect
+                  downloads to an internal mirror from the running application, not only via a
+                  launch-time argument that requires relaunching the demo. Reporting every
+                  failure in place matches how every other seam failure in this panel is already
+                  handled, and pre-populating from launch-time arguments keeps the two entry
+                  points consistent rather than contradictory.
+                tests:
+                  - ModelCatalogViewModel_Constructor_InitialMirrorValues_PrePopulatesFields
+                  - ModelCatalogViewModel_ApplyMirror_ValidMirror_ForwardsConfiguredMirrorAndReportsSuccess
+                  - ModelCatalogViewModel_ApplyMirror_BlankUrl_AppliesNullMirror
+                  - ModelCatalogViewModel_ApplyMirror_InvalidUrl_ReportsErrorWithoutCallingService
+                  - ModelCatalogViewModel_ApplyMirror_ServiceRejectsReconfiguration_ReportsError

@@ -15,7 +15,7 @@ namespace DemaConsulting.Speech.Demo.ModelCatalogSubsystem;
 ///     and download outcomes the real, deliberately empty compiled-in registry cannot. It adds no
 ///     public API to <c>DemaConsulting.Speech</c>.
 /// </remarks>
-public interface IModelCatalogService
+public interface IModelCatalogService : IDisposable
 {
     /// <summary>
     ///     Raised after a model successfully finishes installing (that is, after a
@@ -62,6 +62,21 @@ public interface IModelCatalogService
         string modelId,
         IProgress<SpeechModelDownloadProgress>? progress,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    ///     Reconfigures where every subsequent <see cref="DownloadAsync"/> call fetches models
+    ///     from, replacing the underlying catalog with a freshly composed one that uses the same
+    ///     known models and model-store root but the given mirror.
+    /// </summary>
+    /// <param name="mirror">
+    ///     The mirror every model should now download from, or <see langword="null"/> to revert
+    ///     to each model's own declared public download URI.
+    /// </param>
+    /// <exception cref="InvalidOperationException">
+    ///     Thrown when this service was constructed without a catalog factory and therefore
+    ///     cannot be reconfigured after construction.
+    /// </exception>
+    void ApplyMirror(DownloadMirror? mirror);
 }
 
 /// <summary>

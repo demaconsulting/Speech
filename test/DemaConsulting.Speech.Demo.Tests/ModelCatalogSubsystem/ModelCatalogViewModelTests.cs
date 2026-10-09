@@ -52,6 +52,119 @@ public class ModelCatalogViewModelTests
     }
 
     /// <summary>
+    ///     Proves that initial mirror values (for example from launch-time arguments) pre-populate
+    ///     the mirror-settings panel rather than always starting blank.
+    /// </summary>
+    [Fact]
+    public void ModelCatalogViewModel_Constructor_InitialMirrorValues_PrePopulatesFields()
+    {
+        // Act: compose the panel with launch-time mirror values supplied
+        var viewModel = new ModelCatalogViewModel(
+            Service(), "https://mirror.example.com", "alice", "secret", "token-value");
+
+        // Assert: every field reflects the supplied initial value
+        Assert.Equal("https://mirror.example.com", viewModel.MirrorUrl);
+        Assert.Equal("alice", viewModel.MirrorUser);
+        Assert.Equal("secret", viewModel.MirrorPassword);
+        Assert.Equal("token-value", viewModel.MirrorBearerToken);
+    }
+
+    /// <summary>
+    ///     Proves that applying a valid mirror forwards a correctly configured
+    ///     <see cref="DownloadMirror"/> to the catalog service and reports success.
+    /// </summary>
+    [Fact]
+    public void ModelCatalogViewModel_ApplyMirror_ValidMirror_ForwardsConfiguredMirrorAndReportsSuccess()
+    {
+        // Arrange
+        var service = Service();
+        var viewModel = new ModelCatalogViewModel(service)
+        {
+            MirrorUrl = "https://mirror.example.com",
+            MirrorUser = "alice",
+            MirrorPassword = "secret",
+        };
+
+        // Act
+        viewModel.ApplyMirrorCommand.Execute(null);
+
+        // Assert: the service received a mirror built from the typed fields
+        service.Received(1).ApplyMirror(Arg.Is<DownloadMirror?>(
+            mirror => mirror != null
+                      && mirror.BaseUri == new Uri("https://mirror.example.com")
+                      && mirror.Credentials!.UserName == "alice"
+                      && mirror.Credentials.Password == "secret"));
+        Assert.False(viewModel.MirrorHasError);
+        Assert.True(viewModel.HasMirrorStatusMessage);
+        Assert.True(viewModel.MirrorAppliedSuccessfully);
+    }
+
+    /// <summary>
+    ///     Proves that clearing the mirror URL and applying reverts the service to no mirror
+    ///     rather than requiring a separate "clear" action.
+    /// </summary>
+    [Fact]
+    public void ModelCatalogViewModel_ApplyMirror_BlankUrl_AppliesNullMirror()
+    {
+        // Arrange
+        var service = Service();
+        var viewModel = new ModelCatalogViewModel(service) { MirrorUrl = null };
+
+        // Act
+        viewModel.ApplyMirrorCommand.Execute(null);
+
+        // Assert
+        service.Received(1).ApplyMirror(null);
+        Assert.False(viewModel.MirrorHasError);
+        Assert.True(viewModel.MirrorAppliedSuccessfully);
+    }
+
+    /// <summary>
+    ///     Proves that an invalid mirror URL is reported in the panel rather than thrown at the
+    ///     user, consistent with every other seam failure this panel reports in place.
+    /// </summary>
+    [Fact]
+    public void ModelCatalogViewModel_ApplyMirror_InvalidUrl_ReportsErrorWithoutCallingService()
+    {
+        // Arrange
+        var service = Service();
+        var viewModel = new ModelCatalogViewModel(service) { MirrorUrl = "not a url" };
+
+        // Act
+        var exception = Record.Exception(() => viewModel.ApplyMirrorCommand.Execute(null));
+
+        // Assert: nothing escaped, the service was never asked to change its mirror, and the
+        // panel reports the failure as an error rather than a success
+        Assert.Null(exception);
+        service.DidNotReceive().ApplyMirror(Arg.Any<DownloadMirror?>());
+        Assert.True(viewModel.MirrorHasError);
+        Assert.True(viewModel.HasMirrorStatusMessage);
+        Assert.False(viewModel.MirrorAppliedSuccessfully);
+    }
+
+    /// <summary>
+    ///     Proves that a catalog service unable to support mirror reconfiguration reports its
+    ///     <see cref="InvalidOperationException"/> in the panel rather than crashing the demo.
+    /// </summary>
+    [Fact]
+    public void ModelCatalogViewModel_ApplyMirror_ServiceRejectsReconfiguration_ReportsError()
+    {
+        // Arrange
+        var service = Service();
+        service
+            .When(s => s.ApplyMirror(Arg.Any<DownloadMirror?>()))
+            .Do(_ => throw new InvalidOperationException("This service cannot change its mirror."));
+        var viewModel = new ModelCatalogViewModel(service) { MirrorUrl = "https://mirror.example.com" };
+
+        // Act
+        viewModel.ApplyMirrorCommand.Execute(null);
+
+        // Assert
+        Assert.True(viewModel.MirrorHasError);
+        Assert.Equal("This service cannot change its mirror.", viewModel.MirrorStatusMessage);
+    }
+
+    /// <summary>
     ///     Proves that a catalog service reporting no models renders as an explicit, honest
     ///     explanation rather than a blank list a user would read as a bug.
     /// </summary>
