@@ -180,13 +180,17 @@ sections:
                   a dedicated ClassifyFailure helper, into SpeechModelDownloadOutcome.HttpError
                   for an HttpRequestException with a non-null StatusCode,
                   SpeechModelDownloadOutcome.NetworkBlocked for an HttpRequestException wrapping
-                  an AuthenticationException or SocketException or for a TaskCanceledException not
-                  caused by the caller's own CancellationToken, SpeechModelDownloadOutcome.IoFailure
-                  for an IOException or UnauthorizedAccessException, and
-                  SpeechModelDownloadOutcome.Failed as the final generic fallback for any other
-                  exception type - while a genuine caller cancellation (the supplied
-                  CancellationToken itself signaled) always propagates unchanged as
-                  OperationCanceledException and is never passed to ClassifyFailure.
+                  an AuthenticationException or SocketException, or for a TaskCanceledException
+                  not caused by the caller's own CancellationToken and originating from the
+                  concrete HttpModelDownloadClient's own internal HTTP request timeout (a
+                  TaskCanceledException from a host-injected IModelDownloadClient instead reports
+                  the generic Failed outcome, since this helper cannot distinguish an injected
+                  client's own cancellation semantics from a genuine network timeout),
+                  SpeechModelDownloadOutcome.IoFailure for an IOException or
+                  UnauthorizedAccessException, and SpeechModelDownloadOutcome.Failed as the final
+                  generic fallback for any other exception type - while a genuine caller
+                  cancellation (the supplied CancellationToken itself signaled) always propagates
+                  unchanged as OperationCanceledException and is never passed to ClassifyFailure.
                 justification: |
                   Collapsing every failure into one generic Failed outcome leaves a host unable to
                   distinguish a blocked/intercepted network path (which it might resolve by
@@ -199,7 +203,8 @@ sections:
                   - SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWithStatusCode_ReportsHttpError
                   - SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWrappingAuthenticationException_ReportsNetworkBlocked
                   - SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWrappingSocketException_ReportsNetworkBlocked
-                  - SpeechModelDownloader_DownloadAsync_TaskCanceledExceptionNotFromCallerToken_ReportsNetworkBlocked
+                  - SpeechModelDownloader_DownloadAsync_TaskCanceledExceptionFromInjectedClient_ReportsFailed
+                  - SpeechModelDownloader_DownloadAsync_HttpModelDownloadClientInternalTimeout_ReportsNetworkBlocked
                   - SpeechModelDownloader_DownloadAsync_IoException_ReportsIoFailure
                   - SpeechModelDownloader_DownloadAsync_UnauthorizedAccessException_ReportsIoFailure
                   - SpeechModelDownloader_DownloadAsync_UnmatchedExceptionType_ReportsFailed

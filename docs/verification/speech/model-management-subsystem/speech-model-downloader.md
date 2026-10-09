@@ -67,12 +67,13 @@ through the downloader directly or through `SpeechModelCatalog.DownloadAsync`; a
 model reports `Failed` with `Error` populated and installs nothing. With no mirror configured,
 `ResolveEffectiveUri` returns a file's own declared `Uri` unchanged (including across
 trailing-slash and URL-unsafe-character variations in the no-mirror case, where those values are
-simply never consulted) and `DownloadAsync` forwards the original URI with a `null` mirror auth
-to the download client; with a mirror configured, `ResolveEffectiveUri` resolves exactly one
-separating slash regardless of `BaseUri`'s own trailing slash, preserves every subdirectory
-segment of a multi-segment `RelativeInstallPath`, and percent-escapes URL-unsafe characters in
-both `modelId` and path segments, and `DownloadAsync` forwards the resolved effective URI together
-with the configured mirror as the mirror auth to the download client. Each new failure
+simply never consulted) and `DownloadAsync` forwards the original URI unchanged to the download
+client; with a mirror configured, `ResolveEffectiveUri` resolves exactly one separating slash
+regardless of `BaseUri`'s own trailing slash, preserves every subdirectory segment of a
+multi-segment `RelativeInstallPath`, and percent-escapes URL-unsafe characters in both `modelId`
+and path segments, and `DownloadAsync` forwards the resolved effective URI to the download client
+(`IModelDownloadClient` has no authentication parameter, so the mirror's own credential, if any,
+is never forwarded through this seam - see `speech-model-downloader-options.md`). Each new failure
 classification path is exercised and reports its documented, distinct outcome:
 `HttpRequestException` with a `StatusCode` reports `HttpError`; `HttpRequestException` wrapping an
 `AuthenticationException` or a `SocketException` reports `NetworkBlocked`; a bare
@@ -155,13 +156,17 @@ as `OperationCanceledException` completely unchanged, never reclassified as `Net
 
 **Test**: `SpeechModelDownloader_ResolveEffectiveUri_PathSegmentWithUnsafeCharacters_IsEscapedPerSegment`
 
-##### Download: No Mirror Configured Forwards Original Uri and Null Mirror Auth
+##### Download: No Mirror Configured Forwards Original URI Unchanged
 
 **Test**: `SpeechModelDownloader_DownloadAsync_NoMirrorConfigured_ForwardsOriginalUriUnchanged`
 
-##### Download: Mirror Configured Forwards Effective Uri and Mirror Auth
+##### Download: Mirror Configured Forwards Effective URI
 
 **Test**: `SpeechModelDownloader_DownloadAsync_MirrorConfigured_ForwardsEffectiveUri`
+
+##### Constructor: Credentialed Mirror With Caller-Supplied Client Throws ArgumentException
+
+**Test**: `SpeechModelDownloader_Constructor_CredentialedMirrorWithCallerSuppliedClient_ThrowsArgumentException`
 
 ##### Download: HttpRequestException With Status Code Reports HttpError
 
@@ -175,9 +180,13 @@ as `OperationCanceledException` completely unchanged, never reclassified as `Net
 
 **Test**: `SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWrappingSocketException_ReportsNetworkBlocked`
 
-##### Download: TaskCanceledException Not From Caller Token Reports NetworkBlocked
+##### Download: TaskCanceledException From Injected Client Reports Failed
 
-**Test**: `SpeechModelDownloader_DownloadAsync_TaskCanceledExceptionNotFromCallerToken_ReportsNetworkBlocked`
+**Test**: `SpeechModelDownloader_DownloadAsync_TaskCanceledExceptionFromInjectedClient_ReportsFailed`
+
+##### Download: HttpModelDownloadClient Internal Timeout Reports NetworkBlocked
+
+**Test**: `SpeechModelDownloader_DownloadAsync_HttpModelDownloadClientInternalTimeout_ReportsNetworkBlocked`
 
 ##### Download: IOException Reports IoFailure
 

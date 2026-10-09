@@ -576,12 +576,11 @@ public sealed class SpeechModelDownloaderTests : IDisposable
     }
 
     /// <summary>
-    ///     Proves that, when a mirror is configured, <see cref="SpeechModelDownloader"/> rewrites
-    ///     each file's effective request URI beneath the mirror before invoking
-    ///     <see cref="IModelDownloadClient.DownloadAsync"/>. Mirror authentication itself is
-    ///     applied by <see cref="HttpModelDownloadClient"/> at construction (see its own tests),
-    ///     not forwarded through the generic <see cref="IModelDownloadClient"/> seam, which must
-    ///     stay source-compatible for every host-supplied implementation.
+    ///     Proves that, when an auth-free mirror is configured, <see cref="SpeechModelDownloader"/>
+    ///     rewrites each file's effective request URI beneath the mirror before invoking
+    ///     <see cref="IModelDownloadClient.DownloadAsync"/>. Combining a credentialed mirror with
+    ///     a caller-supplied client is rejected outright - see
+    ///     <see cref="SpeechModelDownloader_Constructor_CredentialedMirrorWithCallerSuppliedClient_ThrowsArgumentException"/>.
     /// </summary>
     [Fact]
     public async Task SpeechModelDownloader_DownloadAsync_MirrorConfigured_ForwardsEffectiveUri()
@@ -591,7 +590,7 @@ public sealed class SpeechModelDownloaderTests : IDisposable
         var descriptor = SingleFileDescriptor(payload, "model.bin");
         var store = NewStore();
         var client = new FakeModelDownloadClient(payload, 1024);
-        var mirror = new DownloadMirror(new Uri("https://mirror.internal/models"), bearerToken: "secret-token");
+        var mirror = new DownloadMirror(new Uri("https://mirror.internal/models"));
         var options = new SpeechModelDownloaderOptions { Mirror = mirror };
         var downloader = new SpeechModelDownloader(store, client, diagnostics: null, options: options);
 
@@ -603,6 +602,28 @@ public sealed class SpeechModelDownloaderTests : IDisposable
         Assert.Equal(SpeechModelDownloadOutcome.Installed, result.Outcome);
         var call = Assert.Single(client.Calls);
         Assert.Equal(new Uri("https://mirror.internal/models/model-a/model.bin"), call);
+    }
+
+    /// <summary>
+    ///     Proves that combining a caller-supplied <see cref="IModelDownloadClient"/> with a
+    ///     credentialed <see cref="DownloadMirror"/> (one with <see cref="DownloadMirror.BearerToken"/>
+    ///     or <see cref="DownloadMirror.Credentials"/> set) is rejected at construction, rather than
+    ///     silently proceeding with the credential never actually applied to any outgoing request -
+    ///     <see cref="IModelDownloadClient"/> has no authentication parameter for an arbitrary
+    ///     host-supplied implementation to accept.
+    /// </summary>
+    [Fact]
+    public void SpeechModelDownloader_Constructor_CredentialedMirrorWithCallerSuppliedClient_ThrowsArgumentException()
+    {
+        // Arrange
+        var store = NewStore();
+        var client = new FakeModelDownloadClient("payload"u8.ToArray(), 1024);
+        var mirror = new DownloadMirror(new Uri("https://mirror.internal/models"), bearerToken: "secret-token");
+        var options = new SpeechModelDownloaderOptions { Mirror = mirror };
+
+        // Act & Assert
+        Assert.Throws<ArgumentException>(
+            () => new SpeechModelDownloader(store, client, diagnostics: null, options: options));
     }
 
     /// <summary>

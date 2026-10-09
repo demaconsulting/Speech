@@ -93,18 +93,22 @@ public sealed class SpeechModelDownloader : IDisposable
     ///     exercise queueing, checksum verification, and atomic-swap logic deterministically
     ///     without any real network access.
     ///     <para>
-    ///     When supplied (non-<see langword="null"/>) together with an <paramref name="options"/>
-    ///     specifying a credentialed <see cref="SpeechModelDownloaderOptions.Mirror"/>, this
-    ///     instance only uses the mirror to rewrite each file's effective request URI (see
-    ///     <see cref="ResolveEffectiveUri"/>) - the mirror's <see cref="DownloadMirror.Credentials"/>/
-    ///     <see cref="DownloadMirror.BearerToken"/> are never forwarded to <paramref name="client"/>,
-    ///     since <see cref="IModelDownloadClient"/> has no authentication parameter for an
-    ///     arbitrary host-supplied implementation to accept. Authentication is applied only by
-    ///     the internally created <see cref="HttpModelDownloadClient"/> this constructor builds
-    ///     when <paramref name="client"/> is <see langword="null"/>. A host that supplies both its
-    ///     own <paramref name="client"/> and a credentialed mirror is responsible for applying
-    ///     that mirror's authentication itself, inside that <paramref name="client"/>
-    ///     implementation.
+    ///     Supplying a non-<see langword="null"/> <paramref name="client"/> together with an
+    ///     <paramref name="options"/> specifying a credentialed
+    ///     <see cref="SpeechModelDownloaderOptions.Mirror"/> (one whose
+    ///     <see cref="DownloadMirror.Credentials"/> or <see cref="DownloadMirror.BearerToken"/> is
+    ///     set) is rejected by this constructor: <paramref name="client"/> only ever receives each
+    ///     file's mirror-rewritten effective request URI (see <see cref="ResolveEffectiveUri"/>),
+    ///     never the mirror's credential, since <see cref="IModelDownloadClient"/> has no
+    ///     authentication parameter for an arbitrary host-supplied implementation to accept -
+    ///     silently proceeding would otherwise look like a configured credential is being applied
+    ///     when it never reaches the wire. Authentication is applied only by the internally
+    ///     created <see cref="HttpModelDownloadClient"/> this constructor builds when
+    ///     <paramref name="client"/> is <see langword="null"/>. A host that needs both its own
+    ///     <paramref name="client"/> and a credentialed mirror must apply that mirror's
+    ///     authentication itself, inside that <paramref name="client"/> implementation, and
+    ///     configure an auth-free <see cref="DownloadMirror"/> here (the mirror's
+    ///     <see cref="DownloadMirror.BaseUri"/> still rewrites each file's request URI).
     ///     </para>
     /// </param>
     /// <param name="diagnostics">
@@ -118,10 +122,16 @@ public sealed class SpeechModelDownloader : IDisposable
     ///     <see cref="SpeechModelDownloaderOptions"/> existed. See
     ///     <see cref="SpeechModelDownloaderOptions.Mirror"/> for the one behavior this parameter
     ///     currently controls, and <paramref name="client"/>'s remarks for the one combination
-    ///     (a credentialed mirror alongside a caller-supplied <paramref name="client"/>) whose
-    ///     authentication is not automatically forwarded.
+    ///     (a credentialed mirror alongside a caller-supplied <paramref name="client"/>) this
+    ///     constructor rejects.
     /// </param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="store"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException">
+    ///     Thrown when <paramref name="client"/> is not <see langword="null"/> and
+    ///     <paramref name="options"/> specifies a credentialed
+    ///     <see cref="SpeechModelDownloaderOptions.Mirror"/> - see <paramref name="client"/>'s
+    ///     remarks.
+    /// </exception>
     /// <remarks>
     ///     Declared as a distinct overload - rather than a fourth parameter appended to the
     ///     pre-existing three-parameter constructor - because an appended optional parameter
@@ -139,6 +149,18 @@ public sealed class SpeechModelDownloader : IDisposable
         SpeechModelDownloaderOptions? options)
     {
         ArgumentNullException.ThrowIfNull(store);
+
+        // A caller-supplied client never receives the mirror's credential (IModelDownloadClient
+        // has no authentication parameter to carry it) - proceeding silently would leave a
+        // credentialed mirror configured but never actually applied to any outgoing request,
+        // which is a configuration error a host must notice immediately rather than discover as
+        // an unexplained authentication failure against the mirror.
+        if (client is not null && options?.Mirror is { Credentials: not null } or { BearerToken: not null })
+        {
+            throw new ArgumentException(
+                "A caller-supplied client cannot be combined with a credentialed Mirror (Credentials or BearerToken set): the client never receives the mirror's credential. Either omit client (so this constructor creates an HttpModelDownloadClient that applies the credential itself), or configure an auth-free Mirror and apply authentication inside the supplied client.",
+                nameof(options));
+        }
 
         _store = store;
         _ownsClient = client is null;

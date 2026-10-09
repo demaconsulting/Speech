@@ -206,6 +206,36 @@ public sealed class SpeechModelCatalogTests : IDisposable
     }
 
     /// <summary>
+    ///     Proves that the catalog's 3-parameter public constructor accepting
+    ///     <see cref="SpeechModelDownloaderOptions"/> actually forwards a configured
+    ///     <see cref="DownloadMirror"/> through to the download client, via the catalog's real
+    ///     <see cref="SpeechModelCatalog.DownloadAsync"/> orchestration - not just
+    ///     <see cref="SpeechModelDownloader"/> constructed and exercised directly, which this
+    ///     overload is not involved in at all.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelCatalog_DownloadAsync_MirrorConfigured_ForwardsEffectiveUriThroughCatalog()
+    {
+        // Arrange
+        var payload = FakeModelDescriptors.Payload;
+        var model = new FakeRecognitionModel("model-mirror-catalog");
+        var client = new FixedPayloadModelDownloadClient(payload);
+        var store = NewStore();
+        var mirror = new DownloadMirror(new Uri("https://mirror.internal/models"));
+        var downloaderOptions = new SpeechModelDownloaderOptions { Mirror = mirror };
+        using var catalog = new SpeechModelCatalog([model], store, client, downloaderOptions);
+
+        // Act
+        var result = await catalog.DownloadAsync(
+            "model-mirror-catalog", cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, result.Outcome);
+        var call = Assert.Single(client.Calls);
+        Assert.StartsWith("https://mirror.internal/models/model-mirror-catalog/", call.ToString());
+    }
+
+    /// <summary>
     ///     Proves that a model whose download fails checksum verification reports
     ///     <see cref="SpeechModelState.FailedOrCorrupt"/>, never falsely claiming success.
     /// </summary>
@@ -283,10 +313,14 @@ public sealed class SpeechModelCatalogTests : IDisposable
 
     /// <summary>
     ///     Fake <see cref="IModelDownloadClient"/> that writes a fixed in-memory payload
-    ///     immediately, used for deterministic success/checksum-mismatch scenarios.
+    ///     immediately, used for deterministic success/checksum-mismatch scenarios, recording
+    ///     every requested <see cref="Uri"/> for tests that assert on the effective request URI.
     /// </summary>
     private sealed class FixedPayloadModelDownloadClient(byte[] payload) : IModelDownloadClient
     {
+        /// <summary>Every requested source <see cref="Uri"/> this client was asked to download, in call order.</summary>
+        public List<Uri> Calls { get; } = [];
+
         /// <inheritdoc/>
         public async Task DownloadAsync(
             Uri sourceUri,
@@ -294,6 +328,7 @@ public sealed class SpeechModelCatalogTests : IDisposable
             IProgress<SpeechModelDownloadProgress>? progress,
             CancellationToken cancellationToken)
         {
+            Calls.Add(sourceUri);
             await destination.WriteAsync(payload, cancellationToken);
             progress?.Report(new SpeechModelDownloadProgress(0, 1, payload.Length, payload.Length));
         }

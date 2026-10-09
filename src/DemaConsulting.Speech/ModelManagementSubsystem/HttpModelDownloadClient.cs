@@ -10,10 +10,10 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     scheme-agnostic so it can be verified against a real loopback HTTP server in tests.
 /// </summary>
 /// <remarks>
-///     Verified in tests against a real, in-process loopback <see cref="System.Net.HttpListener"/>
-///     server bound to <c>127.0.0.1</c>, proving the streaming-download-with-progress code path
-///     end-to-end (headers, <c>Content-Length</c>, chunked reads) without ever reaching a real
-///     host. Thread-safety follows <see cref="HttpClient"/>'s own contract: a single instance is
+///     Verified in tests against a real, in-process loopback WireMock.Net server bound to
+///     <c>127.0.0.1</c>, proving the streaming-download-with-progress code path end-to-end
+///     (headers, <c>Content-Length</c>, chunked reads) without ever reaching a real host.
+///     Thread-safety follows <see cref="HttpClient"/>'s own contract: a single instance is
 ///     safe to share and reuse across concurrent calls, though <see cref="SpeechModelDownloader"/>
 ///     only ever issues one download at a time by design.
 ///     <para>

@@ -250,7 +250,8 @@ sections:
               - SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWithStatusCode_ReportsHttpError
               - SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWrappingAuthenticationException_ReportsNetworkBlocked
               - SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWrappingSocketException_ReportsNetworkBlocked
-              - SpeechModelDownloader_DownloadAsync_TaskCanceledExceptionNotFromCallerToken_ReportsNetworkBlocked
+              - SpeechModelDownloader_DownloadAsync_TaskCanceledExceptionFromInjectedClient_ReportsFailed
+              - SpeechModelDownloader_DownloadAsync_HttpModelDownloadClientInternalTimeout_ReportsNetworkBlocked
               - SpeechModelDownloader_DownloadAsync_IoException_ReportsIoFailure
               - SpeechModelDownloader_DownloadAsync_UnauthorizedAccessException_ReportsIoFailure
               - SpeechModelDownloader_DownloadAsync_UnmatchedExceptionType_ReportsFailed
