@@ -69,12 +69,33 @@ sections:
                 title: >-
                   The DownloadMirror record shall reject, at construction, supplying either
                   Credentials or BearerToken alongside a BaseUri using the plain http (rather
-                  than https) scheme.
+                  than https) scheme, unless BaseUri's host is a loopback address (localhost or
+                  a loopback IP literal).
                 justification: |
                   HttpModelDownloadClient sends Credentials/BearerToken preemptively, with no
                   challenge/response handshake gating the first request; a misconfigured
                   http:// mirror would otherwise transmit the secret in cleartext on the wire
-                  with no indication to the host that it had done so.
+                  with no indication to the host that it had done so. A loopback host is
+                  exempted since that traffic never leaves the local machine, so an in-process
+                  or local test server (as used by this library's own HttpModelDownloadClient
+                  authentication tests) can exercise credentialed mirror behavior over plain
+                  http without a real TLS certificate.
                 tests:
                   - DownloadMirror_Constructor_CredentialsWithHttpBaseUri_ThrowsArgumentException
                   - DownloadMirror_Constructor_BearerTokenWithHttpBaseUri_ThrowsArgumentException
+
+              - id: Speech-Models-DownloadMirror-CredentialedLoopbackHttpExemption
+                title: >-
+                  The DownloadMirror record shall accept Credentials or BearerToken alongside a
+                  plain http BaseUri when BaseUri's host is a loopback address (the literal name
+                  localhost or a loopback IP literal such as 127.0.0.1 or ::1).
+                justification: |
+                  A loopback mirror's traffic never leaves the local machine, so the cleartext
+                  risk Speech-Models-DownloadMirror-CredentialedHttpRejection otherwise guards
+                  against does not apply; this exemption lets an in-process or local test server
+                  exercise credentialed mirror authentication over plain http without needing a
+                  real TLS certificate, as this library's own HttpModelDownloadClient
+                  authentication tests rely on.
+                tests:
+                  - DownloadMirror_Constructor_CredentialsWithLoopbackHttpBaseUri_DoesNotThrow
+                  - DownloadMirror_Constructor_BearerTokenWithLoopbackHttpBaseUri_DoesNotThrow

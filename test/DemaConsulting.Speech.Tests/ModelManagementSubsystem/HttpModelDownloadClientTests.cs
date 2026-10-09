@@ -237,6 +237,46 @@ public sealed class HttpModelDownloadClientTests
     }
 
     /// <summary>
+    ///     Proves that a <see cref="DownloadMirror"/> configured with a trailing-slash
+    ///     <see cref="DownloadMirror.BaseUri"/> (e.g. <c>https://mirror/models/</c>) still applies
+    ///     its authentication to a request targeting the exact same path spelled without the
+    ///     trailing slash (<c>https://mirror/models</c>), and vice versa - both spellings denote
+    ///     the same base resource, so the mirror-scope check must not require the two paths to be
+    ///     byte-for-byte identical.
+    /// </summary>
+    [Theory]
+    [InlineData("/mirror/", "/mirror")]
+    [InlineData("/mirror", "/mirror/")]
+    public async Task HttpModelDownloadClient_DownloadAsync_MirrorBaseUriTrailingSlashMismatch_SendsAuthorizationHeader(
+        string mirrorBasePath, string requestPath)
+    {
+        // Arrange
+        var payload = CreatePayload(sizeBytes: 16);
+        using var server = WireMockServer.Start();
+        server
+            .Given(Request.Create().WithPath(requestPath).UsingGet())
+            .RespondWith(Response.Create().WithStatusCode(200).WithBody(payload).WithHeader("Content-Length", payload.Length.ToString()));
+
+        var mirrorBaseUri = new Uri($"{server.Urls[0]}{mirrorBasePath}");
+        var mirror = new DownloadMirror(mirrorBaseUri, bearerToken: "secret-token");
+        using var client = new HttpModelDownloadClient(httpClient: null, mirror);
+        using var destination = new MemoryStream();
+        var requestUri = new Uri($"{server.Urls[0]}{requestPath}");
+
+        // Act
+        await client.DownloadAsync(requestUri, destination, null, CancellationToken.None);
+
+        // Assert
+        var request = Assert.Single(server.LogEntries);
+        var requestMessage = request.RequestMessage;
+        Assert.NotNull(requestMessage);
+        Assert.NotNull(requestMessage.Headers);
+        var authorizationHeader = requestMessage.Headers["Authorization"].Single();
+        Assert.Equal("Bearer secret-token", authorizationHeader);
+        Assert.Equal(payload, destination.ToArray());
+    }
+
+    /// <summary>
     ///     Builds a deterministic, non-repeating payload of the given size so a truncated or
     ///     corrupted download is reliably detectable.
     /// </summary>

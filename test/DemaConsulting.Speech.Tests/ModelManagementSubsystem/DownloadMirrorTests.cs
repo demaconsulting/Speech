@@ -209,6 +209,54 @@ public class DownloadMirrorTests
     }
 
     /// <summary>
+    ///     Proves that supplying <see cref="DownloadMirror.Credentials"/> alongside a plain
+    ///     <c>http</c> <see cref="DownloadMirror.BaseUri"/> is accepted, rather than rejected,
+    ///     when the base URI's host is a loopback address - the cleartext risk the plain-http
+    ///     rejection above guards against does not apply to traffic that never leaves the local
+    ///     machine.
+    /// </summary>
+    [Theory]
+    [InlineData("localhost")]
+    [InlineData("127.0.0.1")]
+    [InlineData("[::1]")]
+    public void DownloadMirror_Constructor_CredentialsWithLoopbackHttpBaseUri_DoesNotThrow(string loopbackHost)
+    {
+        // Arrange
+        var baseUri = new Uri($"http://{loopbackHost}/models");
+        var credentials = new NetworkCredential("user", "pass");
+
+        // Act
+        var mirror = new DownloadMirror(baseUri, credentials: credentials);
+
+        // Assert
+        Assert.Equal(baseUri, mirror.BaseUri);
+        Assert.Same(credentials, mirror.Credentials);
+    }
+
+    /// <summary>
+    ///     Proves that supplying <see cref="DownloadMirror.BearerToken"/> alongside a plain
+    ///     <c>http</c> <see cref="DownloadMirror.BaseUri"/> is accepted, rather than rejected,
+    ///     when the base URI's host is a loopback address, for the same reason as
+    ///     <see cref="DownloadMirror.Credentials"/> above.
+    /// </summary>
+    [Theory]
+    [InlineData("localhost")]
+    [InlineData("127.0.0.1")]
+    [InlineData("[::1]")]
+    public void DownloadMirror_Constructor_BearerTokenWithLoopbackHttpBaseUri_DoesNotThrow(string loopbackHost)
+    {
+        // Arrange
+        var baseUri = new Uri($"http://{loopbackHost}/models");
+
+        // Act
+        var mirror = new DownloadMirror(baseUri, bearerToken: "secret-token");
+
+        // Assert
+        Assert.Equal(baseUri, mirror.BaseUri);
+        Assert.Equal("secret-token", mirror.BearerToken);
+    }
+
+    /// <summary>
     ///     Proves that <see cref="DownloadMirror.ToString"/> (the compiler-generated record
     ///     printer) never discloses <see cref="DownloadMirror.BearerToken"/>'s actual value,
     ///     since logging or interpolating a <see cref="DownloadMirror"/> is otherwise a realistic

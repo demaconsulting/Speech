@@ -215,6 +215,7 @@ sections:
               - Speech-Models-DownloadMirror-NullArgumentValidation
               - Speech-Models-DownloadMirror-QueryFragmentValidation
               - Speech-Models-DownloadMirror-CredentialedHttpRejection
+              - Speech-Models-DownloadMirror-CredentialedLoopbackHttpExemption
               - Speech-Models-SpeechModelDownloaderOptions-MirrorDefaultsNull
               - Speech-Models-SpeechModelDownloaderOptions-MirrorRedirectsDownloads
               - Speech-Models-SpeechModelDownloader-MirrorUriResolution

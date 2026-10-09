@@ -76,11 +76,16 @@ and path segments, and `DownloadAsync` forwards the resolved effective URI to th
 is never forwarded through this seam - see `speech-model-downloader-options.md`). Each new failure
 classification path is exercised and reports its documented, distinct outcome:
 `HttpRequestException` with a `StatusCode` reports `HttpError`; `HttpRequestException` wrapping an
-`AuthenticationException` or a `SocketException` reports `NetworkBlocked`; a bare
-`TaskCanceledException` not caused by the caller's own token reports `NetworkBlocked`;
-`IOException` and `UnauthorizedAccessException` both report `IoFailure`; and an unmatched
-exception type still reports `Failed` - while a genuinely caller-canceled token still propagates
-as `OperationCanceledException` completely unchanged, never reclassified as `NetworkBlocked`.
+`AuthenticationException` or a `SocketException` reports `NetworkBlocked`; a
+`TaskCanceledException` not caused by the caller's own token reports `NetworkBlocked` only when
+thrown by the concrete `HttpModelDownloadClient` with an `InnerException` of `TimeoutException`
+(the documented `HttpClient.Timeout` signal) - the same-shaped exception from a host-injected
+`IModelDownloadClient`, or from `HttpModelDownloadClient` without that inner-exception marker (for
+example a caller-supplied `HttpClient` whose own handler cancels for an unrelated reason), reports
+the generic `Failed` fallback instead; `IOException` and `UnauthorizedAccessException` both report
+`IoFailure`; and an unmatched exception type still reports `Failed` - while a genuinely
+caller-canceled token still propagates as `OperationCanceledException` completely unchanged, never
+reclassified as `NetworkBlocked`.
 
 #### Test Scenarios
 
@@ -187,6 +192,10 @@ as `OperationCanceledException` completely unchanged, never reclassified as `Net
 ##### Download: HttpModelDownloadClient Internal Timeout Reports NetworkBlocked
 
 **Test**: `SpeechModelDownloader_DownloadAsync_HttpModelDownloadClientInternalTimeout_ReportsNetworkBlocked`
+
+##### Download: HttpModelDownloadClient Non-Timeout Cancellation Reports Failed
+
+**Test**: `SpeechModelDownloader_DownloadAsync_HttpModelDownloadClientNonTimeoutCancellation_ReportsFailed`
 
 ##### Download: IOException Reports IoFailure
 

@@ -112,15 +112,20 @@ exception type simply falls through to `Failed`, exactly as every exception did 
 feature existed.
 
 `FetchFileAsync` wraps a `TaskCanceledException` thrown by the download client's `DownloadAsync`
-call in a private `HttpFetchTimeoutException` whenever `cancellationToken` itself was not
-canceled - such an exception, by construction, can only be `HttpClient`'s own internal request
-timeout, never a genuine caller cancellation (which is always rethrown unchanged by the guard
-above). This wrapper exists purely so `ClassifyFailure`'s match narrowly recognizes only this
-specific, HTTP-fetch-originated shape as `NetworkBlocked`, without also misclassifying an
-unrelated `TaskCanceledException` thrown by `ISpeechModel.InstallAsync` or by a host-injected
-`IModelDownloadClient` for a non-network reason; it is never thrown or caught outside this class,
-and is always already unwrapped (as `ClassifyFailure` never re-exposes it) before a result reaches
-a caller.
+call in a private `HttpFetchTimeoutException` only when all three guard conditions hold: the
+client is the concrete `HttpModelDownloadClient`, `cancellationToken` itself was not canceled, and
+the exception's `InnerException` is a `TimeoutException` - the documented shape .NET's `HttpClient`
+produces specifically when its own `Timeout` elapses. Together these guards prove the exception can
+only be `HttpClient`'s own internal request timeout, never a genuine caller cancellation (which is
+always rethrown unchanged by the guard above). This wrapper exists purely so `ClassifyFailure`'s
+match narrowly recognizes only this specific, HTTP-fetch-originated shape as `NetworkBlocked`,
+without also misclassifying an unrelated `TaskCanceledException` thrown by
+`ISpeechModel.InstallAsync`, by a host-injected `IModelDownloadClient`, or even by a
+caller-supplied `HttpClient` whose own custom handler cancels a request for some other,
+non-timeout reason; any such `TaskCanceledException` that does not satisfy every guard falls
+through unwrapped to `ClassifyFailure`'s generic `Failed` fallback instead. The wrapper type itself
+is never thrown or caught outside this class, and is always already unwrapped (as
+`ClassifyFailure` never re-exposes it) before a result reaches a caller.
 
 `SpeechModelDownloadResult.Error` is therefore
 always populated for any non-`Installed` outcome, never left `null` for a caller to have to
