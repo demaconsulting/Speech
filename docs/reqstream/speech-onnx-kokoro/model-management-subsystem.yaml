@@ -59,6 +59,7 @@ sections:
               - SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-License
               - SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-DownloadDescriptor
               - SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-EngineConstruction
+              - SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-SessionDisposedOnFailure
               - SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-PreferredAudioFormat
               - SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-ResolveSpeakerId
             tests:
@@ -67,6 +68,7 @@ sections:
               - OnnxKokoroEnglishSynthesisModel_PreferredAudioFormat_IsMono24000
               - OnnxKokoroEnglishSynthesisModel_ResolveSpeakerId_KnownVoice_ReturnsDeclarationOrderIndex
               - OnnxKokoroEnglishSynthesisModel_CreateBackend_ValidModelAndVoices_GeneratesUsingSelectedVoiceStyle
+              - OnnxKokoroEnglishSynthesisModel_CreateBackend_MissingVoiceFile_DisposesSessionAndThrows
 
           - id: SpeechOnnxKokoro-Models-TextToPhonemePipeline
             title: >-

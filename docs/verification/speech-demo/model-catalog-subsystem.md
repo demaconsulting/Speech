@@ -325,6 +325,17 @@ public download URI.
 
 **Requirement coverage**: `SpeechDemo-Models-MirrorSettingsUi`.
 
+#### ModelCatalogViewModel_ApplyMirror_CredentialsWithoutUrl_ReportsErrorWithoutCallingService
+
+**Scenario**: The bearer-token field holds a value but the mirror URL field is blank.
+
+**Expected**: `MirrorOptionsFactory.Create` rejects the stray credential (matching
+`DemaConsulting.Speech.Cli`'s `Context.CreateMirror` behavior for the same case) and the panel
+reports an explained error without ever calling the seam, rather than silently discarding the
+credential.
+
+**Requirement coverage**: `SpeechDemo-Models-MirrorSettingsUi`.
+
 #### ModelCatalogViewModel_ApplyMirror_ServiceRejectsReconfiguration_ReportsError
 
 **Scenario**: The seam throws `InvalidOperationException` because it was not built with a
@@ -458,6 +469,7 @@ a bound row cannot go stale mid-download.
   `ModelCatalogViewModel_ApplyMirror_ValidMirror_ForwardsConfiguredMirrorAndReportsSuccess`,
   `ModelCatalogViewModel_ApplyMirror_BlankUrl_AppliesNullMirror`,
   `ModelCatalogViewModel_ApplyMirror_InvalidUrl_ReportsErrorWithoutCallingService`,
+  `ModelCatalogViewModel_ApplyMirror_CredentialsWithoutUrl_ReportsErrorWithoutCallingService`,
   `ModelCatalogViewModel_ApplyMirror_ServiceRejectsReconfiguration_ReportsError`
 - **`SpeechDemo-Models-MirrorBlockedDuringDownload`**:
   `ModelCatalogViewModel_ApplyMirror_DownloadInProgress_RefusesAndReportsError`

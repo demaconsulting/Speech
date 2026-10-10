@@ -84,3 +84,16 @@ speakerId: 5)`, asserting every returned sample equals `5.0f` - the style value 
 `am_michael`, the sixth declared voice - proving the requested speaker id's own style vector is
 selected and forwarded through the real ONNX Runtime inference call, not merely that some
 non-empty audio is produced.
+
+##### CreateBackend disposes the ONNX session and rethrows when a voice file is missing
+
+**Test**: `OnnxKokoroEnglishSynthesisModel_CreateBackend_MissingVoiceFile_DisposesSessionAndThrows`
+
+Using the test-only `OnnxKokoroEnglishSynthesisModel.OnSessionCreated` hook to capture the
+`InferenceSession` `CreateBackend` creates from the tiny ONNX fixture, this test supplies a
+directory with no `voices` subdirectory at all, so reading the first declared voice's style file
+fails with `DirectoryNotFoundException`. It asserts the exception propagates unchanged and, via
+reflection into `InferenceSession`'s own private `_disposed` field (the type exposes no public
+equivalent of `SessionOptions`'s inherited `IsClosed`, since it derives directly from `object`
+rather than `SafeHandle`), that the captured session was disposed rather than leaked - since no
+`OnnxKokoroSynthesisEngine` is ever constructed on this failure path to take ownership of it.

@@ -183,10 +183,13 @@ scriptable.
 `MirrorOptionsFactory` builds a `DownloadMirror` from raw strings and is shared by
 `AppLaunchOptions` (launch-time arguments) and `ModelCatalogViewModel` (the in-app mirror-settings
 panel described in _SpeechDemo ModelCatalogSubsystem Design_), so both entry points validate
-mirror configuration identically — a mismatched username/password pairing is rejected locally,
-and every other rule (scheme, query/fragment, user-info, credential/bearer-token mutual
-exclusivity, non-loopback-HTTP-with-credentials) is enforced once, by `DownloadMirror`'s own
-constructor, rather than duplicated in either entry point.
+mirror configuration identically — a mismatched username/password pairing, or any
+credential/bearer-token supplied without a mirror URL, is rejected locally by
+`MirrorOptionsFactory` itself (matching `DemaConsulting.Speech.Cli`'s own
+`Context.CreateMirror` rejection of the same case), and every other rule (scheme, query/fragment,
+user-info, credential/bearer-token mutual exclusivity, non-loopback-HTTP-with-credentials) is
+enforced once, by `DownloadMirror`'s own constructor, rather than duplicated in either entry
+point.
 
 `App`'s composition root threads these options through a `CatalogFactory` local function —
 capturing the resolved `SpeechModelStoreOptions` and the `AddSherpaModels()`/`AddKokoroModels()`

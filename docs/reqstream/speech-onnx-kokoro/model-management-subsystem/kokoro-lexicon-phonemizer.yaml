@@ -48,6 +48,7 @@ sections:
                   limitation affected a given utterance.
                 tests:
                   - Phonemize_OutOfVocabularyWord_DroppedAndReportedAsUnknown
+                  - Phonemize_RepeatedOutOfVocabularyWord_ReportedOnceInFirstSeenOrder
 
               - id: SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-ArgumentValidation
                 title: >-

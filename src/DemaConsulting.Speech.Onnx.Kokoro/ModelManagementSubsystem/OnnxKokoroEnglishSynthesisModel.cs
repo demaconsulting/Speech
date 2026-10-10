@@ -3,6 +3,7 @@ using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.Onnx.Kokoro.SynthesisSubsystem;
 using DemaConsulting.Speech.Onnx.OnnxRuntimeSubsystem;
 using DemaConsulting.Speech.SynthesisSubsystem;
+using Microsoft.ML.OnnxRuntime;
 
 namespace DemaConsulting.Speech.Onnx.Kokoro.ModelManagementSubsystem;
 
@@ -82,6 +83,23 @@ public sealed class OnnxKokoroEnglishSynthesisModel : ISynthesisModel
 
     /// <summary>The default voice used when no selection is supplied.</summary>
     private const string DefaultVoice = "af_heart";
+
+    /// <summary>
+    ///     Test-only observation hook invoked with the freshly created ONNX
+    ///     <see cref="InferenceSession"/>, immediately after
+    ///     <see cref="CreateBackend"/> creates it and before any voice-style file is read.
+    /// </summary>
+    /// <remarks>
+    ///     Lets a test capture the session reference so it can independently verify the session is
+    ///     disposed when a later step (reading a voice file, constructing the vocabulary or
+    ///     phonemizer) fails - something otherwise unobservable from outside this method, since the
+    ///     local <c>session</c> variable itself is never exposed to callers on a failure path.
+    ///     Production callers never set this; it exists solely for
+    ///     <c>DemaConsulting.Speech.Onnx.Kokoro.Tests</c> (see <c>InternalsVisibleTo</c> in this
+    ///     project's <c>.csproj</c>), mirroring <c>OnnxExecutionProviderSelector.OnCandidateOptionsCreated</c>'s
+    ///     identical pattern.
+    /// </remarks>
+    internal static Action<InferenceSession>? OnSessionCreated { get; set; }
 
     /// <summary>
     ///     This package's own verified voice subset, in <see cref="DownloadDescriptor"/>/speaker-id
@@ -342,6 +360,15 @@ public sealed class OnnxKokoroEnglishSynthesisModel : ISynthesisModel
     ///     -supplied preferred provider names), loads this model's embedded phoneme vocabulary and
     ///     lexicon phonemizer, and reads every declared voice's style-vector file into memory.
     /// </summary>
+    /// <remarks>
+    ///     The ONNX session is created before any voice-style file is read, so a missing or
+    ///     unreadable voice file (or any other failure reading voices/constructing the vocabulary
+    ///     or phonemizer) can still occur after the session already exists. This method holds the
+    ///     session in a local variable across that later work and disposes it itself in a
+    ///     <see langword="catch"/> block before rethrowing if any of it fails, since the engine
+    ///     that would otherwise own the session's lifetime is never constructed on that path -
+    ///     this is the only way to avoid leaking the native session handle on a partial failure.
+    /// </remarks>
     /// <inheritdoc/>
     public ISynthesisBackend CreateBackend(string installedModelDirectory)
     {
@@ -352,22 +379,36 @@ public sealed class OnnxKokoroEnglishSynthesisModel : ISynthesisModel
             modelPath,
             _preferredExecutionProviderNames,
             OnnxKokoroSynthesisEngine.RunProbeInference);
+        OnSessionCreated?.Invoke(session);
 
-        var voiceStylesBySpeakerId = new Dictionary<int, float[]>();
-        for (var speakerId = 0; speakerId < VoiceOrder.Count; speakerId++)
+        try
         {
-            var voicePath = Path.Combine(installedModelDirectory, "voices", $"{VoiceOrder[speakerId]}.bin");
-            var bytes = File.ReadAllBytes(voicePath);
-            var floats = new float[bytes.Length / sizeof(float)];
-            Buffer.BlockCopy(bytes, 0, floats, 0, bytes.Length);
-            voiceStylesBySpeakerId[speakerId] = floats;
-        }
+            var voiceStylesBySpeakerId = new Dictionary<int, float[]>();
+            for (var speakerId = 0; speakerId < VoiceOrder.Count; speakerId++)
+            {
+                var voicePath = Path.Combine(installedModelDirectory, "voices", $"{VoiceOrder[speakerId]}.bin");
+                var bytes = File.ReadAllBytes(voicePath);
+                var floats = new float[bytes.Length / sizeof(float)];
+                Buffer.BlockCopy(bytes, 0, floats, 0, bytes.Length);
+                voiceStylesBySpeakerId[speakerId] = floats;
+            }
 
-        return new OnnxKokoroSynthesisEngine(
-            session,
-            new KokoroPhonemeVocabulary(),
-            new KokoroLexiconPhonemizer(),
-            voiceStylesBySpeakerId);
+            return new OnnxKokoroSynthesisEngine(
+                session,
+                new KokoroPhonemeVocabulary(),
+                new KokoroLexiconPhonemizer(),
+                voiceStylesBySpeakerId);
+        }
+        catch
+        {
+            // Voice-file loading (or vocabulary/phonemizer construction) failed after the ONNX
+            // session was already created: ownership of the session never passed to the engine,
+            // since the engine's constructor is never reached, so this method - not the
+            // never-constructed engine - must dispose it here rather than leak the native
+            // session handle.
+            session.Dispose();
+            throw;
+        }
     }
 
     /// <summary>

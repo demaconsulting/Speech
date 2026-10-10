@@ -24,15 +24,26 @@ internal static class MirrorOptionsFactory
     ///     <see langword="null"/> (every model downloads from its own declared public URI).
     /// </returns>
     /// <exception cref="ArgumentException">
-    ///     Thrown when <paramref name="user"/> is supplied without <paramref name="password"/>
-    ///     (or vice versa), when <paramref name="url"/> is not a valid absolute URI, or for any
-    ///     other configuration <see cref="DownloadMirror"/>'s own constructor rejects (for
-    ///     example a non-HTTPS mirror combined with a credential, on a non-loopback host).
+    ///     Thrown when <paramref name="user"/>, <paramref name="password"/>, or
+    ///     <paramref name="bearerToken"/> is supplied without <paramref name="url"/> (a
+    ///     credential with nowhere to apply almost always indicates a missing or misspelled
+    ///     mirror URL rather than an intentional no-op), when <paramref name="user"/> is supplied
+    ///     without <paramref name="password"/> (or vice versa), when <paramref name="url"/> is
+    ///     not a valid absolute URI, or for any other configuration <see cref="DownloadMirror"/>'s
+    ///     own constructor rejects (for example a non-HTTPS mirror combined with a credential, on
+    ///     a non-loopback host).
     /// </exception>
     public static DownloadMirror? Create(string? url, string? user, string? password, string? bearerToken)
     {
         if (string.IsNullOrEmpty(url))
         {
+            if (user is not null || password is not null || bearerToken is not null)
+            {
+                throw new ArgumentException(
+                    "Mirror user, mirror password, and mirror bearer token require a mirror " +
+                    "URL; none of them has any effect without a mirror URL to apply them to.");
+            }
+
             return null;
         }
 

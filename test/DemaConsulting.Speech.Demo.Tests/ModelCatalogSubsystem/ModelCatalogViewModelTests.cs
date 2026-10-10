@@ -1,3 +1,4 @@
+using DemaConsulting.Speech.Demo;
 using DemaConsulting.Speech.Demo.ModelCatalogSubsystem;
 using DemaConsulting.Speech.Demo.Tests.Fakes;
 using DemaConsulting.Speech.ModelManagementSubsystem;
@@ -129,6 +130,31 @@ public class ModelCatalogViewModelTests
         // Arrange
         var service = Service();
         var viewModel = new ModelCatalogViewModel(service) { MirrorUrl = "not a url" };
+
+        // Act
+        var exception = Record.Exception(() => viewModel.ApplyMirrorCommand.Execute(null));
+
+        // Assert: nothing escaped, the service was never asked to change its mirror, and the
+        // panel reports the failure as an error rather than a success
+        Assert.Null(exception);
+        service.DidNotReceive().ApplyMirror(Arg.Any<DownloadMirror?>());
+        Assert.True(viewModel.MirrorHasError);
+        Assert.True(viewModel.HasMirrorStatusMessage);
+        Assert.False(viewModel.MirrorAppliedSuccessfully);
+    }
+
+    /// <summary>
+    ///     Proves that supplying a bearer token (or user/password) with no mirror URL is reported
+    ///     as a panel error rather than being silently discarded, matching
+    ///     <see cref="MirrorOptionsFactory.Create"/>'s own documented rejection of stray
+    ///     credentials supplied without a URL.
+    /// </summary>
+    [Fact]
+    public void ModelCatalogViewModel_ApplyMirror_CredentialsWithoutUrl_ReportsErrorWithoutCallingService()
+    {
+        // Arrange
+        var service = Service();
+        var viewModel = new ModelCatalogViewModel(service) { MirrorBearerToken = "token-value" };
 
         // Act
         var exception = Record.Exception(() => viewModel.ApplyMirrorCommand.Execute(null));

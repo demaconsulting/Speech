@@ -61,7 +61,12 @@ cannot actually run this model) inside `OnnxExecutionProviderSelector.Create`, p
 unchanged to the caller - handled identically to a download/install failure by Speech's
 `SpeechSynthesizerFactory`, which degrades it to the honest unavailable synthesizer. CPU is
 always the final, unprobed fallback, so `CreateBackend` only fails this way for a genuinely
-malformed or unreadable model file.
+malformed or unreadable model file. The ONNX session itself is created before any voice-style
+file is read, so this method holds the session in a local variable across that later work and
+disposes it itself (in a `catch` block, before rethrowing) if reading a voice file or
+constructing the vocabulary/phonemizer fails - the only way to avoid leaking the native session
+handle, since the `OnnxKokoroSynthesisEngine` that would otherwise own its lifetime is never
+constructed on that failure path.
 
 **Voice Subset (Stage 2)**: this release ships 54 named voices across multiple languages; this
 class declares only its 29 American/British English voices, because its embedded

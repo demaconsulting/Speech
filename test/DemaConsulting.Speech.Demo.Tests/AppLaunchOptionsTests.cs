@@ -211,4 +211,31 @@ public sealed class AppLaunchOptionsTests
         ]);
         Assert.Throws<ArgumentException>(() => options.CreateDownloaderOptions());
     }
+
+    /// <summary>
+    ///     Test that <see cref="AppLaunchOptions.CreateDownloaderOptions"/> rejects
+    ///     <c>--mirror-user</c>/<c>--mirror-password</c> supplied without the required
+    ///     <c>--mirror-url</c>, rather than silently discarding the stray credentials, matching
+    ///     the CLI's own <c>Context.CreateMirror</c> behavior for the same case.
+    /// </summary>
+    [Fact]
+    public void CreateDownloaderOptions_MirrorCredentialsWithoutUrl_ThrowsArgumentException()
+    {
+        var options = AppLaunchOptions.Parse([
+            "--mirror-user", "alice",
+            "--mirror-password", "secret"
+        ]);
+        Assert.Throws<ArgumentException>(() => options.CreateDownloaderOptions());
+    }
+
+    /// <summary>
+    ///     Test that <see cref="AppLaunchOptions.CreateDownloaderOptions"/> rejects a
+    ///     <c>--mirror-bearer-token</c> supplied without the required <c>--mirror-url</c>.
+    /// </summary>
+    [Fact]
+    public void CreateDownloaderOptions_MirrorBearerTokenWithoutUrl_ThrowsArgumentException()
+    {
+        var options = AppLaunchOptions.Parse(["--mirror-bearer-token", "token-value"]);
+        Assert.Throws<ArgumentException>(() => options.CreateDownloaderOptions());
+    }
 }

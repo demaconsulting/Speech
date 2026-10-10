@@ -9,7 +9,12 @@ model-injecting constructor is internal to the library. A demo-owned interface o
 therefore the only way to exercise the panel against controlled catalog data without adding
 public API to the library. `IModelCatalogService` and `ModelCatalogService` are documented as
 one unit because the interface has no independently observable behavior of its own - every test
-exercises it through `ModelCatalogService`, its sole implementation.
+exercises it through `ModelCatalogService`, its sole implementation. `IModelCatalogService`
+itself does **not** extend `IDisposable`: disposal is a lifetime concern of whichever
+composition root constructs an implementation (here, `App.axaml.cs`, which holds a concrete
+`ModelCatalogService` reference specifically so it can dispose it at shutdown), not something
+every interface consumer - `ModelCatalogViewModel`, the panel view models that only subscribe to
+`ModelInstalled`, and every test fake - needs to also implement.
 
 **Data Model**:
 

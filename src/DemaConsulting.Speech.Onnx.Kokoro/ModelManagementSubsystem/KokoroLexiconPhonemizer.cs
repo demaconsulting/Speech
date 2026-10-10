@@ -111,7 +111,10 @@ internal sealed class KokoroLexiconPhonemizer
     ///     The phoneme string to pass to <see cref="KokoroPhonemeVocabulary.ToTokenIds"/>, and the
     ///     distinct, lower-cased words from <paramref name="text"/> that were not found in the
     ///     embedded lexicon and were therefore omitted from the phoneme string (empty when every
-    ///     word was recognized).
+    ///     word was recognized). Distinct by ordinal, case-insensitive (post-lower-casing)
+    ///     comparison - a word repeated in <paramref name="text"/> is reported only once, the
+    ///     first time it is encountered reading left to right, so the list preserves first-seen
+    ///     order rather than listing every repeated occurrence.
     /// </returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> is <see langword="null"/>.</exception>
     public (string Phonemes, IReadOnlyList<string> UnknownWords) Phonemize(string text)
@@ -120,6 +123,7 @@ internal sealed class KokoroLexiconPhonemizer
 
         var phonemes = new System.Text.StringBuilder();
         var unknownWords = new List<string>();
+        var seenUnknownWords = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var token in TokenPattern.Matches(text).Select(match => match.Value))
         {
@@ -145,7 +149,10 @@ internal sealed class KokoroLexiconPhonemizer
                 }
                 else
                 {
-                    unknownWords.Add(lower);
+                    if (seenUnknownWords.Add(lower))
+                    {
+                        unknownWords.Add(lower);
+                    }
                 }
 
                 continue;

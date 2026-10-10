@@ -40,7 +40,13 @@ public sealed class App : Application
     ///     The model catalog service owned by this application, disposed when the desktop
     ///     lifetime shuts down.
     /// </summary>
-    private IModelCatalogService? _catalogService;
+    /// <remarks>
+    ///     Typed as the concrete <see cref="ModelCatalogService"/> (not the
+    ///     <see cref="IModelCatalogService"/> seam it implements) because disposal is this
+    ///     composition root's own responsibility and <see cref="IModelCatalogService"/>
+    ///     deliberately does not extend <see cref="IDisposable"/> - see that interface's remarks.
+    /// </remarks>
+    private ModelCatalogService? _catalogService;
 
     /// <summary>
     ///     Set once the deferred shutdown's async cleanup has been started, so the second,

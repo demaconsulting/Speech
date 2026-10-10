@@ -33,7 +33,7 @@ namespace DemaConsulting.Speech.Demo.ModelCatalogSubsystem;
 ///     from a single UI thread); this type provides no internal locking of its own.
 ///     </para>
 /// </remarks>
-public sealed class ModelCatalogService : IModelCatalogService
+public sealed class ModelCatalogService : IModelCatalogService, IDisposable
 {
     /// <summary>The library catalog every call is currently forwarded to.</summary>
     private SpeechModelCatalog _catalog;

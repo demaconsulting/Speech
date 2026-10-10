@@ -1,8 +1,10 @@
+using System.Reflection;
 using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.Onnx.Kokoro.ModelManagementSubsystem;
 using DemaConsulting.Speech.Onnx.Kokoro.SynthesisSubsystem;
 using DemaConsulting.Speech.SynthesisSubsystem;
+using Microsoft.ML.OnnxRuntime;
 
 namespace DemaConsulting.Speech.Onnx.Kokoro.Tests.ModelManagementSubsystem;
 
@@ -283,5 +285,55 @@ public sealed class OnnxKokoroEnglishSynthesisModelTests : IDisposable
         Assert.NotEmpty(audio.Samples);
         Assert.All(audio.Samples, sample => Assert.Equal(5.0f, sample));
         Assert.Equal(OnnxKokoroSynthesisEngine.SampleRate, audio.SampleRate);
+    }
+
+    /// <summary>
+    ///     Proves that when a declared voice's style-vector file is missing - a failure that
+    ///     occurs only after <see cref="OnnxKokoroEnglishSynthesisModel.CreateBackend"/> has
+    ///     already created its ONNX <see cref="InferenceSession"/> - the method disposes that
+    ///     session itself before rethrowing, rather than leaking the native session handle,
+    ///     since no <see cref="OnnxKokoroSynthesisEngine"/> is ever constructed to take ownership
+    ///     of it on this path.
+    /// </summary>
+    [Fact]
+    public void OnnxKokoroEnglishSynthesisModel_CreateBackend_MissingVoiceFile_DisposesSessionAndThrows()
+    {
+        // Arrange: a valid ONNX model, but no voices directory at all, so reading the first
+        // declared voice's style file fails.
+        var onnxDirectory = Path.Join(_testRoot, "onnx");
+        Directory.CreateDirectory(onnxDirectory);
+        var fixtureModelPath = Path.Combine(AppContext.BaseDirectory, "TestData", "fake-kokoro-model.onnx");
+        File.Copy(fixtureModelPath, Path.Join(onnxDirectory, "model_fp16.onnx"));
+
+        var model = new OnnxKokoroEnglishSynthesisModel();
+
+        InferenceSession? capturedSession = null;
+        OnnxKokoroEnglishSynthesisModel.OnSessionCreated = session => capturedSession = session;
+        try
+        {
+            // Act & Assert
+            Assert.Throws<DirectoryNotFoundException>(() => model.CreateBackend(_testRoot));
+
+            Assert.NotNull(capturedSession);
+            Assert.True(IsDisposed(capturedSession));
+        }
+        finally
+        {
+            OnnxKokoroEnglishSynthesisModel.OnSessionCreated = null;
+        }
+    }
+
+    /// <summary>
+    ///     Reads <see cref="InferenceSession"/>'s own private <c>_disposed</c> field via
+    ///     reflection, since the type exposes no public equivalent of <see cref="SessionOptions"/>'s
+    ///     inherited <c>IsClosed</c> (it derives directly from <see cref="object"/>, not
+    ///     <see cref="System.Runtime.InteropServices.SafeHandle"/>) - this is the only way to
+    ///     observe disposal from outside the class under test.
+    /// </summary>
+    private static bool IsDisposed(InferenceSession session)
+    {
+        var field = typeof(InferenceSession).GetField("_disposed", BindingFlags.NonPublic | BindingFlags.Instance);
+        Assert.NotNull(field);
+        return (bool)field.GetValue(session)!;
     }
 }

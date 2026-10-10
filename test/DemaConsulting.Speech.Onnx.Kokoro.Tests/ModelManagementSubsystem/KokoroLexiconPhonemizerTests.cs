@@ -90,6 +90,27 @@ public sealed class KokoroLexiconPhonemizerTests
     }
 
     /// <summary>
+    ///     Proves <see cref="KokoroLexiconPhonemizer.Phonemize"/>'s documented distinctness
+    ///     guarantee: the same out-of-vocabulary word, even differing only by case, is reported
+    ///     exactly once in <c>unknownWords</c>, in first-seen order, rather than once per
+    ///     occurrence in the input text.
+    /// </summary>
+    [Fact]
+    public void Phonemize_RepeatedOutOfVocabularyWord_ReportedOnceInFirstSeenOrder()
+    {
+        // Arrange
+        var phonemizer = new KokoroLexiconPhonemizer();
+
+        // Act
+        var (_, unknownWords) = phonemizer.Phonemize(
+            "Notarealenglishwordxyz NOTAREALENGLISHWORDXYZ anothernotarealword Notarealenglishwordxyz");
+
+        // Assert: each distinct out-of-vocabulary word (compared case-insensitively, since both
+        // are reported lower-cased) appears exactly once, in the order first encountered.
+        Assert.Equal(["notarealenglishwordxyz", "anothernotarealword"], unknownWords);
+    }
+
+    /// <summary>
     ///     Proves that a vocabulary-declared punctuation character (a period, here) passes
     ///     through the phoneme string unchanged.
     /// </summary>

@@ -76,6 +76,21 @@ sections:
                   - OnnxKokoroEnglishSynthesisModel_CreateBackend_EmptyDirectory_ThrowsArgumentException
                   - OnnxKokoroEnglishSynthesisModel_CreateBackend_ValidModelAndVoices_GeneratesUsingSelectedVoiceStyle
 
+              - id: SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-SessionDisposedOnFailure
+                title: >-
+                  The OnnxKokoroEnglishSynthesisModel class's CreateBackend method shall dispose
+                  the ONNX Runtime session it already created if a later failure (reading a
+                  voice style-vector file, or constructing the phoneme vocabulary or lexicon
+                  phonemizer) prevents the OnnxKokoroSynthesisEngine - the object that would
+                  otherwise own the session's lifetime - from ever being constructed.
+                justification: |
+                  The session is created before any voice-style file is read, so a missing or
+                  unreadable voice file can fail after the session already holds a native
+                  OrtSession handle. Without this, that handle would leak on every such failure,
+                  since no engine is ever constructed to dispose it.
+                tests:
+                  - OnnxKokoroEnglishSynthesisModel_CreateBackend_MissingVoiceFile_DisposesSessionAndThrows
+
               - id: SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-PreferredAudioFormat
                 title: >-
                   The OnnxKokoroEnglishSynthesisModel class shall declare a mono

@@ -123,6 +123,7 @@ sections:
                   - ModelCatalogViewModel_ApplyMirror_ValidMirror_ForwardsConfiguredMirrorAndReportsSuccess
                   - ModelCatalogViewModel_ApplyMirror_BlankUrl_AppliesNullMirror
                   - ModelCatalogViewModel_ApplyMirror_InvalidUrl_ReportsErrorWithoutCallingService
+                  - ModelCatalogViewModel_ApplyMirror_CredentialsWithoutUrl_ReportsErrorWithoutCallingService
                   - ModelCatalogViewModel_ApplyMirror_ServiceRejectsReconfiguration_ReportsError
 
               - id: SpeechDemo-Models-MirrorBlockedDuringDownload

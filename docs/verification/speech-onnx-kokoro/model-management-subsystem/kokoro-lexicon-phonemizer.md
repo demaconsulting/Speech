@@ -56,6 +56,10 @@ produces an empty phoneme string and no unknown words; and a `null` input throws
 
 **Test**: `Phonemize_OutOfVocabularyWord_DroppedAndReportedAsUnknown`
 
+##### A repeated out-of-vocabulary word is reported exactly once, in first-seen order
+
+**Test**: `Phonemize_RepeatedOutOfVocabularyWord_ReportedOnceInFirstSeenOrder`
+
 ##### A null text argument throws ArgumentNullException
 
 **Test**: `Phonemize_NullText_ThrowsArgumentNullException`

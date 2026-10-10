@@ -6,6 +6,7 @@ namespace DemaConsulting.Speech.Demo.ModelCatalogSubsystem;
 ///     Demo-owned seam over the library's speech-model catalog surface.
 /// </summary>
 /// <remarks>
+///     <para>
 ///     The library exposes its catalog through the concrete, sealed
 ///     <see cref="SpeechModelCatalog"/> rather than through an injectable interface, so a
 ///     ViewModel that depended on it directly could not be unit tested against a controlled model
@@ -14,8 +15,19 @@ namespace DemaConsulting.Speech.Demo.ModelCatalogSubsystem;
 ///     to <see cref="SpeechModelCatalog"/>, while tests substitute a fake that can supply models
 ///     and download outcomes the real, deliberately empty compiled-in registry cannot. It adds no
 ///     public API to <c>DemaConsulting.Speech</c>.
+///     </para>
+///     <para>
+///     This interface deliberately does <b>not</b> extend <see cref="IDisposable"/>: disposal is
+///     a lifetime concern of the composition root that constructs an implementation (see
+///     <see cref="ModelCatalogService"/>'s own <see cref="IDisposable"/> implementation and
+///     remarks), not something every consumer - including the <see cref="ModelCatalogViewModel"/>
+///     and test fakes that only ever read from or call through this interface - needs to know
+///     about or be responsible for. Adding it here would force every current and future
+///     implementer (including test doubles) to also implement disposal even when they own no
+///     disposable resource of their own.
+///     </para>
 /// </remarks>
-public interface IModelCatalogService : IDisposable
+public interface IModelCatalogService
 {
     /// <summary>
     ///     Raised after a model successfully finishes installing (that is, after a
