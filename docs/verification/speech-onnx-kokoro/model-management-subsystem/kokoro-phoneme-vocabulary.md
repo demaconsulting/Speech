@@ -2,32 +2,51 @@
 
 #### Verification Approach
 
-**No automated unit test project exists for this package** (see _SpeechOnnxKokoro System
-Verification_); none of this unit's requirements link to a test, because none exists. This class
-is verified by manual inspection and code review:
-
-- `LoadVocab()`'s JSON parsing of `model.vocab` and its single-UTF-16-code-unit key filtering were
-  reviewed by inspection against the real embedded `kokoro-v1.0-tokenizer.json`
-- `ToTokenIds`'s per-character lookup-and-drop logic and `MaxPhonemeTokens` truncation were
-  reviewed by inspection and confirmed to match the proven Python reference pipeline's own
-  `[vocab[c] for c in phonemes if c in vocab]` behavior
-- `MaxPhonemeTokens = 510` and `PadTokenId = 0` were confirmed against the model's own published
-  512-token context window
-
-A future pass may add `KokoroPhonemeVocabularyTests` to a new
-`test/DemaConsulting.Speech.Onnx.Kokoro.Tests` project. Adding that project is explicitly out of
-scope for this pass.
+`KokoroPhonemeVocabulary` is verified by automated unit tests in
+`test/DemaConsulting.Speech.Onnx.Kokoro.Tests/ModelManagementSubsystem/KokoroPhonemeVocabularyTests.cs`
+against this package's own embedded `Resources/kokoro-v1.0-tokenizer.json` resource. Token ids
+asserted (`'a'` = 43, `'z'` = 68) were confirmed directly against that embedded resource, not
+assumed; `'B'` was confirmed absent from the same vocabulary, standing in for a
+phonemizer-produced character the model has no embedding for.
 
 #### Test Environment
 
-N/A - no automated test project exists for this unit.
+- **Framework**: xUnit v3 running under the .NET SDK
+- **Execution**: `dotnet test` invoked by `build.ps1` and the CI pipeline
+- **Project**: `test/DemaConsulting.Speech.Onnx.Kokoro.Tests`
+- **Isolation**: no test requires network access; every test uses the same embedded vocabulary
+  resource shipped in the production assembly
 
 #### Acceptance Criteria
 
-This unit is accepted on the strength of: successful compilation with zero warnings, static
-analysis via `Microsoft.CodeAnalysis.NetAnalyzers` and `SonarAnalyzer.CSharp`, and the
-manual/code-review verification described above - not an automated test run.
+Known, in-vocabulary characters convert to their confirmed token ids, in order; a character absent
+from the embedded vocabulary is silently dropped rather than throwing or inserting a placeholder
+id; an empty phoneme string returns an empty token id list; a phoneme string longer than
+`MaxPhonemeTokens` is truncated to exactly that many token ids; `PadTokenId` is the constant value
+`0`; and a `null` phonemes argument throws `ArgumentNullException`.
 
 #### Test Scenarios
 
-N/A - no automated test scenarios exist for this unit.
+##### Known characters convert to their confirmed token ids, in order
+
+**Test**: `ToTokenIds_KnownChars_ReturnsConfirmedIdsInOrder`
+
+##### An unknown character is skipped rather than substituted
+
+**Test**: `ToTokenIds_UnknownChar_IsSkipped`
+
+##### An empty string returns an empty token id list
+
+**Test**: `ToTokenIds_EmptyString_ReturnsEmptyList`
+
+##### A null phonemes argument throws ArgumentNullException
+
+**Test**: `ToTokenIds_NullPhonemes_ThrowsArgumentNullException`
+
+##### A phoneme string longer than MaxPhonemeTokens is truncated
+
+**Test**: `ToTokenIds_LongerThanMaxPhonemeTokens_IsTruncated`
+
+##### PadTokenId is zero
+
+**Test**: `PadTokenId_IsZero`

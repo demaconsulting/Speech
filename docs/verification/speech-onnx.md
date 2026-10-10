@@ -4,76 +4,93 @@ This document describes the system-level verification strategy for the SpeechOnn
 
 ## Verification Approach
 
-SpeechOnnx has **no automated test project today**: there is no
-`test/DemaConsulting.Speech.Onnx.Tests` directory anywhere in this repository, and its one
-subsystem and one unit, `OnnxExecutionProviderSelector`, have never been exercised by an
-automated test. This is a known, pre-existing gap recorded honestly here, not a design decision
-and not something this document glosses over with an invented test name. Correctness of the
-unit's current, fixed resource-management contract - every candidate `SessionOptions` is disposed
+SpeechOnnx is verified at system level through its one subsystem and one unit,
+`OnnxExecutionProviderSelector`, exercised against a tiny, hand-built, valid `.onnx` fixture model
+rather than any real accelerated execution provider: no CUDA, DirectML, or other accelerated
+native runtime can be genuinely exercised by this package, since it references only the base,
+CPU-only `Microsoft.ML.OnnxRuntime` package. The tests therefore use the always-available,
+explicitly-named `"CPUExecutionProvider"` string as a stand-in "candidate" to reach the exact same
+construct/probe/dispose/fall-back code paths a real accelerated candidate would exercise, and a
+syntactically-invalid provider name to reach the "construction itself fails" path. This proves the
+unit's fixed resource-management contract - every candidate `SessionOptions` is disposed
 immediately after its own `InferenceSession` construction attempt, win or lose, and every
 candidate's `InferenceSession` is disposed on every non-winning path (including an unexpected
 exception type from a caller-supplied probe), without disposing the returned `InferenceSession`
-itself on success - and of the caller-supplied probe contract (`validateSession`, run on each
-accelerated candidate session before it is accepted; the CPU fallback is never probed) - rests
-today solely on code review evidence (these changes were reviewed directly against the source),
-not on executed test evidence.
+itself on success - and the caller-supplied probe contract (`validateSession`, run on each
+accelerated candidate session before it is accepted; the CPU fallback is never probed).
 
-This document still describes, at design level, the test scenarios a future
-`test/DemaConsulting.Speech.Onnx.Tests` project should implement, so that once that project
-exists, the requirement ids in `docs/reqstream/speech-onnx/**/*.yaml` already have a destination
-`tests:` entry to carry. See _SpeechOnnx OnnxRuntimeSubsystem Verification_ for the subsystem-level
-detail and _SpeechOnnx OnnxExecutionProviderSelector Verification_ for the unit-level detail.
+Automated coverage **does not** extend to a genuinely accelerated execution provider (CUDA,
+DirectML, etc.), since this package's own dependency set cannot load one; that remains the
+responsibility of each consuming model package (for example the sibling
+`DemaConsulting.Speech.Onnx.Kokoro` package) to verify against its own real installed model and
+runtime.
+
+System and unit tests reside in the `test/DemaConsulting.Speech.Onnx.Tests` project. See
+_SpeechOnnx OnnxRuntimeSubsystem Verification_ for the subsystem-level detail and _SpeechOnnx
+OnnxExecutionProviderSelector Verification_ for the unit-level detail.
 
 ## Test Environment
 
-No automated test environment exists yet for this system. A future test project would run under
-xUnit v3 via `dotnet test`, matching every other system in this repository, and would need no
-network access, no physical audio hardware, and no external services - only the base
-`Microsoft.ML.OnnxRuntime` CPU execution provider, which this package already references, plus a
-small valid `.onnx` fixture model for constructing real `InferenceSession` instances. Scenarios
-that assert accelerated-provider fallback behavior would additionally depend on whether a given
-provider's native runtime is present on the test machine, and should self-skip or assert the
-fallback path accordingly rather than require a specific accelerator to be installed in CI.
+- **Framework**: xUnit v3 running under the .NET SDK, multi-targeted at net8.0/net9.0/net10.0
+- **Execution**: `dotnet test` invoked by `build.ps1` and the CI pipeline
+- **Project**: `test/DemaConsulting.Speech.Onnx.Tests`
+- **Dependencies**: No external services, no network access, and no physical audio or accelerator
+  hardware - only the base `Microsoft.ML.OnnxRuntime` CPU execution provider this package already
+  references, plus a small, read-only `.onnx` fixture model checked into the test project
+
+## External Interface Simulation
+
+The tests use no mocking framework: `OnnxExecutionProviderSelector.Create` is exercised directly
+against a real `InferenceSession` built from a tiny, hand-built, valid single-node `.onnx` fixture
+model (`TestData/tiny-identity-model.onnx`, generated offline with the Python
+`onnx`/`onnxruntime` packages and never shipped in production). One claim - that every candidate's
+`SessionOptions` is disposed, win or lose - is otherwise unobservable from outside the class
+because `InferenceSession` never exposes or re-disposes the options instance passed to it; the
+test project observes it anyway via the internal
+`OnnxExecutionProviderSelector.OnCandidateOptionsCreated` test-only hook, which hands the test
+each candidate's own `SessionOptions` instance so the test can assert its public, inherited
+`IsClosed` property directly, with no reflection into ONNX Runtime internals required.
+
+## System-Level Test Scenarios
+
+### No preferred providers creates a working CPU session
+
+**Test**: `Create_NoPreferredProviders_CreatesWorkingCpuSession`
+
+Verifies that calling `Create` with no preferred providers returns a working CPU-backed session
+that can run the fixture model.
+
+### An unknown/unavailable provider name falls back to a working CPU session
+
+**Test**: `Create_UnknownProviderName_FallsBackToCpuSession`
+
+Verifies that a candidate provider name that fails to construct does not throw, and `Create`
+falls back to a working CPU session instead.
+
+### A validateSession probe throwing OnnxRuntimeException discards the candidate without probing the CPU fallback
+
+**Test**: `Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback`
+
+Verifies the DirectML/`ConvTranspose`-style scenario this parameter was added for: a
+`validateSession` probe that throws `OnnxRuntimeException` for an accelerated candidate causes
+that candidate's session to be disposed and discarded, the next candidate (or CPU) to be tried,
+and the CPU fallback itself to never be passed to `validateSession`.
+
+### A validateSession probe throwing a non-ORT exception propagates to the caller
+
+**Test**: `Create_ValidateSessionProbeThrowsOtherException_Rethrows`
+
+Verifies that a probe throwing any exception type other than
+`OnnxRuntimeException`/`DllNotFoundException` propagates to the caller instead of being treated
+as a "try the next candidate" signal, after that candidate's session is disposed.
 
 ## Acceptance Criteria
 
-Not yet measurable by automated means. Until `test/DemaConsulting.Speech.Onnx.Tests` exists, this
-system's correctness rests entirely on manual code review of `OnnxExecutionProviderSelector`,
-most recently the review that confirmed each candidate `SessionOptions` is wrapped in a `using`
-statement and disposed after each construction attempt, each candidate's `InferenceSession` is
-disposed in a `try`/`finally` on every path except the one that returns it (including any
-exception type the probe or construction might throw, not only the two expected "try next
-candidate" types), and `validateSession` is invoked only on an accelerated candidate, never on
-the CPU fallback. Once an automated test project exists, a passing system-level test run should
-require: a preferred provider that successfully constructs a session and passes its probe (if
-any) is used without falling through to CPU; a preferred provider whose native runtime is
-unavailable, or whose probe throws `OnnxRuntimeException`/`DllNotFoundException`, is abandoned in
-favor of the next candidate (or CPU) without leaking its `SessionOptions` or `InferenceSession`;
-an unexpected exception type from a candidate's construction or probe propagates to the caller
-after that candidate's session is disposed, rather than being swallowed; the CPU fallback always
-succeeds for a well-formed model and is never probed; and a null or empty model path throws
-`ArgumentException` before any `SessionOptions` is constructed.
-
-## Test Scenarios
-
-The following scenarios are not yet automated (see Verification Approach); they describe the
-design-level behavior a future test project should prove, decomposed further by subsystem and
-unit in _SpeechOnnx OnnxRuntimeSubsystem Verification_ and _SpeechOnnx
-OnnxExecutionProviderSelector Verification_:
-
-- **Provider-fallback end-to-end**: constructing a session through
-  `OnnxExecutionProviderSelector.Create` with a mix of available and unavailable preferred
-  providers, confirming the first successfully-constructed (and, if probed, successfully
-  probed) candidate's session is returned and no `SessionOptions` or discarded candidate
-  `InferenceSession` is left undisposed
-- **Probe-driven fallback**: constructing a session with a `validateSession` probe that throws
-  `OnnxRuntimeException` for an accelerated candidate that loads successfully but cannot run the
-  model (the DirectML/`ConvTranspose` scenario this parameter was added for), confirming that
-  candidate's session is disposed and the next candidate (or CPU) is tried, and that the CPU
-  fallback itself is never passed to `validateSession`
-- **Any-exception disposal**: constructing a session where a candidate's construction or probe
-  throws an exception type other than `OnnxRuntimeException`/`DllNotFoundException`, confirming
-  that candidate's session is disposed before the exception propagates to the caller, rather than
-  being swallowed as a "try next candidate" signal
-- **CPU-only fallback**: constructing a session with no preferred providers (or
-  `DefaultProviderNames`, currently empty) returns a CPU-backed session without throwing
+A SpeechOnnx system-level test run passes when all scenarios above pass without unexpected
+exceptions, every subsystem-level suite passes (see _SpeechOnnx OnnxRuntimeSubsystem
+Verification_ and _SpeechOnnx OnnxExecutionProviderSelector Verification_ for the full set,
+including the `SessionOptions`-disposal and argument-validation scenarios), and the automated
+verification boundary remains honest: provider-candidate construction, probing, disposal, and
+CPU fallback against the base CPU execution provider are claimed as automated coverage, while
+behavior against a genuinely accelerated execution provider is left to each consuming model
+package's own verification.

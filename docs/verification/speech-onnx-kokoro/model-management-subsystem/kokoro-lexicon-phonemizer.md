@@ -2,34 +2,60 @@
 
 #### Verification Approach
 
-**No automated unit test project exists for this package** (see _SpeechOnnxKokoro System
-Verification_); none of this unit's requirements link to a test, because none exists. This class
-is verified by manual inspection and code review:
-
-- `LoadLexicon()`'s gzip decompression and TSV parsing were reviewed by inspection against the
-  embedded resource's own format
-- `Phonemize`'s tokenization regex, whitespace collapsing, lexicon lookup, and passthrough
-  punctuation set were reviewed by inspection, cross-checked against the real
-  `kokoro-v1.0-tokenizer.json`'s declared vocabulary characters for punctuation it recognizes
-- The lexicon's provenance (produced by running the real `misaki.en.G2P` tool offline over the
-  CMUdict word list) was reviewed as documented directly in this class's own XML documentation
-- The documented Stage-1 limitations (out-of-vocabulary words, homographs) were confirmed to be
-  honestly and completely described, matching this class's actual return-value behavior
-
-A future pass may add `KokoroLexiconPhonemizerTests` to a new
-`test/DemaConsulting.Speech.Onnx.Kokoro.Tests` project. Adding that project is explicitly out of
-scope for this pass.
+`KokoroLexiconPhonemizer` is verified by automated unit tests in
+`test/DemaConsulting.Speech.Onnx.Kokoro.Tests/ModelManagementSubsystem/KokoroLexiconPhonemizerTests.cs`
+against this package's own embedded `Resources/kokoro-en-lexicon.tsv.gz` resource, never a mock or
+stand-in lexicon. Expected phoneme strings (for `"cat"`, `"dog"`) were read directly from that
+embedded resource, not invented, so these tests fail loudly if the embedded resource ever changes.
 
 #### Test Environment
 
-N/A - no automated test project exists for this unit.
+- **Framework**: xUnit v3 running under the .NET SDK
+- **Execution**: `dotnet test` invoked by `build.ps1` and the CI pipeline
+- **Project**: `test/DemaConsulting.Speech.Onnx.Kokoro.Tests`
+- **Isolation**: no test requires network access; every test uses the same embedded lexicon
+  resource shipped in the production assembly
 
 #### Acceptance Criteria
 
-This unit is accepted on the strength of: successful compilation with zero warnings, static
-analysis via `Microsoft.CodeAnalysis.NetAnalyzers` and `SonarAnalyzer.CSharp`, and the
-manual/code-review verification described above - not an automated test run.
+A single known word phonemizes to its embedded lexicon entry with no unknown words reported;
+multiple known words are joined by a single collapsed-whitespace space character; word lookup is
+case-insensitive; a vocabulary-declared punctuation character passes through unchanged while a
+non-vocabulary punctuation character is dropped; a word absent from the embedded lexicon is
+dropped from the phoneme string and reported, in lower-case, as an unknown word; an empty input
+produces an empty phoneme string and no unknown words; and a `null` input throws
+`ArgumentNullException`.
 
 #### Test Scenarios
 
-N/A - no automated test scenarios exist for this unit.
+##### A known word phonemizes to its embedded lexicon entry with no unknown words
+
+**Test**: `Phonemize_KnownWord_ReturnsLexiconPhonemesWithNoUnknownWords`
+
+##### Multiple known words are joined with a single collapsed-whitespace space
+
+**Test**: `Phonemize_MultipleKnownWords_JoinsWithSingleSpace`
+
+##### An upper-case known word resolves the same as its lower-case spelling
+
+**Test**: `Phonemize_UpperCaseKnownWord_ResolvesSameAsLowerCase`
+
+##### A vocabulary-declared punctuation character passes through unchanged
+
+**Test**: `Phonemize_VocabularyPunctuation_PassesThrough`
+
+##### A non-vocabulary punctuation character is dropped
+
+**Test**: `Phonemize_NonVocabularyPunctuation_IsDropped`
+
+##### An empty input returns an empty phoneme string and no unknown words
+
+**Test**: `Phonemize_EmptyText_ReturnsEmptyPhonemesAndNoUnknownWords`
+
+##### An out-of-vocabulary word is dropped and reported as unknown
+
+**Test**: `Phonemize_OutOfVocabularyWord_DroppedAndReportedAsUnknown`
+
+##### A null text argument throws ArgumentNullException
+
+**Test**: `Phonemize_NullText_ThrowsArgumentNullException`

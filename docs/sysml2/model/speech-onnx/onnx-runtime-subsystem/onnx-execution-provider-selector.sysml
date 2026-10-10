@@ -15,6 +15,7 @@ package SpeechOnnx {
              * disposal rather than swallowing it. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech.Onnx/OnnxRuntimeSubsystem/OnnxExecutionProviderSelector.cs */
+        comment testRef /* Test: test/DemaConsulting.Speech.Onnx.Tests/OnnxRuntimeSubsystem/OnnxExecutionProviderSelectorTests.cs */
         comment designRef /* Design: docs/design/speech-onnx/onnx-runtime-subsystem/onnx-execution-provider-selector.md */
         comment verificationRef /* Verification: docs/verification/speech-onnx/onnx-runtime-subsystem/onnx-execution-provider-selector.md */
         comment reqRef /* Requirements: docs/reqstream/speech-onnx/onnx-runtime-subsystem/onnx-execution-provider-selector.yaml */

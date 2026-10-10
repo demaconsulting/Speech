@@ -6,6 +6,7 @@ package SpeechOnnxKokoro {
              * truncating to MaxPhonemeTokens (510) entries. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech.Onnx.Kokoro/ModelManagementSubsystem/KokoroPhonemeVocabulary.cs */
+        comment testRef /* Test: test/DemaConsulting.Speech.Onnx.Kokoro.Tests/ModelManagementSubsystem/KokoroPhonemeVocabularyTests.cs */
         comment designRef /* Design: docs/design/speech-onnx-kokoro/model-management-subsystem/kokoro-phoneme-vocabulary.md */
         comment verificationRef /* Verification: docs/verification/speech-onnx-kokoro/model-management-subsystem/kokoro-phoneme-vocabulary.md */
         comment reqRef /* Requirements: docs/reqstream/speech-onnx-kokoro/model-management-subsystem/kokoro-phoneme-vocabulary.yaml */

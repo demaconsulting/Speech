@@ -4,9 +4,8 @@
 # These requirements describe the design-level behavior of the OnnxKokoroEnglishSynthesisModel
 # unit, decomposing the parent SpeechOnnxKokoro ModelManagementSubsystem requirements.
 #
-# This package has no automated unit test project (see docs/verification/speech-onnx-kokoro.md);
-# these requirements describe required behavior regardless of test coverage, and omit `tests:`
-# rather than naming tests that do not exist.
+# Covered by test/DemaConsulting.Speech.Onnx.Kokoro.Tests/ModelManagementSubsystem/
+# OnnxKokoroEnglishSynthesisModelTests.cs.
 
 sections:
   - title: SpeechOnnxKokoro Requirements
@@ -26,6 +25,8 @@ sections:
                   own fixed identity and its real 29-voice option set for the catalog and
                   downloader to enumerate and fetch it correctly, and must declare only the
                   voices its embedded English-only phonemizer can correctly serve.
+                tests:
+                  - OnnxKokoroEnglishSynthesisModel_Identity_DeclaresExpectedValues
 
               - id: SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-License
                 title: >-
@@ -35,6 +36,8 @@ sections:
                 justification: |
                   This model's license must be discoverable programmatically, not only via
                   DisplayName prose or XML documentation.
+                tests:
+                  - OnnxKokoroEnglishSynthesisModel_Identity_DeclaresExpectedValues
 
               - id: SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-DownloadDescriptor
                 title: >-
@@ -47,6 +50,8 @@ sections:
                   descriptor; this model must honestly declare every individual file its
                   engine construction needs, and since none of its files are archived, it
                   correctly needs no InstallAsync override.
+                tests:
+                  - OnnxKokoroEnglishSynthesisModel_DownloadDescriptor_Declares30UniqueValidatedFiles
 
               - id: SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-EngineConstruction
                 title: >-
@@ -67,6 +72,9 @@ sections:
                   run this model's graph (observed with DirectML and the ConvTranspose
                   operator), rather than returning an engine doomed to fail at its first real
                   Generate call.
+                tests:
+                  - OnnxKokoroEnglishSynthesisModel_CreateBackend_EmptyDirectory_ThrowsArgumentException
+                  - OnnxKokoroEnglishSynthesisModel_CreateBackend_ValidModelAndVoices_GeneratesUsingSelectedVoiceStyle
 
               - id: SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-PreferredAudioFormat
                 title: >-
@@ -78,6 +86,8 @@ sections:
                   A host can use this hint to open playback nearer the model's actual rate
                   before loading the engine, but the rate remains a hint rather than a
                   guarantee until the real engine is loaded and queried.
+                tests:
+                  - OnnxKokoroEnglishSynthesisModel_PreferredAudioFormat_IsMono24000
 
               - id: SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-ResolveSpeakerId
                 title: >-
@@ -92,3 +102,8 @@ sections:
                   name into the real speaker id this model's engine needs. Never throwing on a
                   missing/unrecognized selection keeps synthesis available even for a
                   malformed or stale caller-supplied value bag.
+                tests:
+                  - OnnxKokoroEnglishSynthesisModel_ResolveSpeakerId_KnownVoice_ReturnsDeclarationOrderIndex
+                  - OnnxKokoroEnglishSynthesisModel_ResolveSpeakerId_UnknownVoice_ReturnsDefaultId
+                  - OnnxKokoroEnglishSynthesisModel_ResolveSpeakerId_NullBag_ReturnsDefaultId
+                  - OnnxKokoroEnglishSynthesisModel_ResolveSpeakerId_MissingKey_ReturnsDefaultId

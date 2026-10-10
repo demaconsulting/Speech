@@ -49,6 +49,7 @@ words:
   - Realtek
   - onnx
   - ONNX
+  - onnxruntime
   - SSML
   - multitargeted
   - Miniaudio
@@ -188,6 +189,7 @@ words:
   - kore
   - Kore
   - Mancha
+  - notarealenglishwordxyz
 
 # Exclude common build artifacts, dependencies, and vendored third-party code
 ignorePaths:

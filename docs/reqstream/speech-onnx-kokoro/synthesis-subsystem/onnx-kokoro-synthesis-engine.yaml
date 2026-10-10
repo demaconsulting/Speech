@@ -5,9 +5,20 @@
 # the real raw-ONNX implementation of the Speech library's public ISynthesisBackend seam,
 # decomposing the parent SpeechOnnxKokoro SynthesisSubsystem requirements.
 #
-# This package has no automated unit test project (see docs/verification/speech-onnx-kokoro.md);
-# these requirements describe required behavior regardless of test coverage, and omit `tests:`
-# rather than naming tests that do not exist.
+# Covered by test/DemaConsulting.Speech.Onnx.Kokoro.Tests/SynthesisSubsystem/
+# OnnxKokoroSynthesisEngineTests.cs, against a tiny hand-built ONNX test fixture, plus
+# OnnxKokoroEnglishSynthesisModelTests' end-to-end CreateBackend test for Generate/style-vector
+# selection evidence. OnnxKokoroSynthesisEngineTests also contains
+# Generate_RealInstalledModel_ProducesNonEmptyAudio, a skip-conditional test against the genuine
+# production model that is NOT linked to any requirement below: the CI model-download bootstrap
+# (tools/ModelDownloader) does not provision this package's model, so this test would always skip
+# in CI and could never satisfy --enforce there, mirroring the sibling SpeechSherpa package's own
+# convention of keeping its one-time real-model proof as narrative verification-doc evidence
+# rather than a linked requirement test (see
+# docs/verification/speech-onnx-kokoro/synthesis-subsystem/onnx-kokoro-synthesis-engine.md).
+# Per requirements-principles.md's "Tests MAY exist without a requirement" rule this is valid: the
+# test still runs and self-reports its result whenever a developer has the real model installed
+# locally.
 
 sections:
   - title: SpeechOnnxKokoro Requirements
@@ -27,6 +38,13 @@ sections:
                   voices) for its own architecture; the engine must accept exactly that
                   configuration so that adding a synthesis model never requires changing the
                   synthesis backend.
+                tests:
+                  - Constructor_NullSession_ThrowsArgumentNullException
+                  - Constructor_NullVocabulary_ThrowsArgumentNullException
+                  - Constructor_NullPhonemizer_ThrowsArgumentNullException
+                  - Constructor_NullVoiceStyles_ThrowsArgumentNullException
+                  - Constructor_EmptyVoiceStyles_ThrowsArgumentException
+                  - OnnxKokoroEnglishSynthesisModel_CreateBackend_ValidModelAndVoices_GeneratesUsingSelectedVoiceStyle
 
               - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-SampleRate
                 title: >-
@@ -36,6 +54,8 @@ sections:
                   A synthesis model's PreferredAudioFormat is only a best-effort hint; the
                   engine's own declared rate is the authoritative rate the Speech library's
                   synthesis session must resample from.
+                tests:
+                  - SampleRate_IsAlways24000
 
               - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-Generate
                 title: >-
@@ -49,6 +69,8 @@ sections:
                   at a time and needs the generated samples and their rate to resample and play
                   them through the configured audio output device; this is the only path in this
                   package connecting managed-code phonemization to real ONNX Runtime inference.
+                tests:
+                  - OnnxKokoroEnglishSynthesisModel_CreateBackend_ValidModelAndVoices_GeneratesUsingSelectedVoiceStyle
 
               - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-EmptyPhonemeShortCircuit
                 title: >-
@@ -59,6 +81,8 @@ sections:
                   Running the ONNX graph on a content-free, all-padding input would waste
                   inference cost and risk producing meaningless noise; recognizing the empty
                   case directly is cheaper and more predictable.
+                tests:
+                  - Generate_ZeroTokenText_ReturnsEmptyAudio
 
               - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-StyleVectorSelection
                 title: >-
@@ -72,6 +96,8 @@ sections:
                   pipeline's own voices[len(ids)] lookup; falling back for an unrecognized
                   speaker id defends this engine even against a speaker id supplied from outside
                   ISynthesisModel.ResolveSpeakerId's own guarantee.
+                tests:
+                  - OnnxKokoroEnglishSynthesisModel_CreateBackend_ValidModelAndVoices_GeneratesUsingSelectedVoiceStyle
 
               - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-ArgumentValidation
                 title: >-
@@ -83,6 +109,9 @@ sections:
                   immediately with a clear exception, matching this repository's existing
                   argument-validation convention, rather than an opaque failure inside ONNX
                   Runtime.
+                tests:
+                  - Generate_NullText_ThrowsArgumentNullException
+                  - Generate_AfterDispose_ThrowsObjectDisposedException
 
               - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-Dispose
                 title: >-
@@ -92,6 +121,8 @@ sections:
                   The loaded session holds native memory sized to a multi-hundred-megabyte
                   model, so it must be released deterministically when the owning synthesizer
                   engine is disposed, and idempotent disposal keeps teardown paths safe.
+                tests:
+                  - Dispose_CalledTwice_DoesNotThrow
 
               - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-ProbeInference
                 title: >-
@@ -111,3 +142,5 @@ sections:
                   and verifying the probe's token id against the real vocabulary rather than
                   trusting a magic number, keeps the probe and the real inference path from ever
                   silently drifting apart.
+                tests:
+                  - RunProbeInference_RunnableSession_DoesNotThrow

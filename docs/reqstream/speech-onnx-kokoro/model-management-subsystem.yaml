@@ -15,9 +15,8 @@
 # consolidated here at subsystem level, matching the sibling SpeechSherpa system's established
 # convention for its own catalog extension method.
 #
-# This package has no automated unit test project (see docs/verification/speech-onnx-kokoro.md);
-# requirements below describe required behavior regardless of test coverage, and omit `tests:`
-# rather than naming tests that do not exist.
+# This package is covered by test/DemaConsulting.Speech.Onnx.Kokoro.Tests - see per-unit files
+# under docs/reqstream/speech-onnx-kokoro/model-management-subsystem/ for the full tests: lists.
 
 sections:
   - title: SpeechOnnxKokoro Requirements
@@ -36,6 +35,11 @@ sections:
               discoverable registration entry point lets a host opt into this package's model
               with one call, while returning the same instance keeps the catalog composable with
               other model packages in one fluent expression.
+
+            tests:
+              - AddKokoroModels_Called_ReturnsSameCatalogInstance
+              - AddKokoroModels_Called_RegistersExpectedSingleSynthesisModel
+              - AddKokoroModels_NullCatalog_ThrowsArgumentNullException
 
           - id: SpeechOnnxKokoro-Models-RealSynthesisModelWithVoiceSelection
             title: >-
@@ -57,6 +61,12 @@ sections:
               - SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-EngineConstruction
               - SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-PreferredAudioFormat
               - SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-ResolveSpeakerId
+            tests:
+              - OnnxKokoroEnglishSynthesisModel_Identity_DeclaresExpectedValues
+              - OnnxKokoroEnglishSynthesisModel_DownloadDescriptor_Declares30UniqueValidatedFiles
+              - OnnxKokoroEnglishSynthesisModel_PreferredAudioFormat_IsMono24000
+              - OnnxKokoroEnglishSynthesisModel_ResolveSpeakerId_KnownVoice_ReturnsDeclarationOrderIndex
+              - OnnxKokoroEnglishSynthesisModel_CreateBackend_ValidModelAndVoices_GeneratesUsingSelectedVoiceStyle
 
           - id: SpeechOnnxKokoro-Models-TextToPhonemePipeline
             title: >-
@@ -75,3 +85,9 @@ sections:
               - SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-ArgumentValidation
               - SpeechOnnxKokoro-Models-KokoroPhonemeVocabulary-ToTokenIds
               - SpeechOnnxKokoro-Models-KokoroPhonemeVocabulary-ArgumentValidation
+            tests:
+              - Phonemize_KnownWord_ReturnsLexiconPhonemesWithNoUnknownWords
+              - Phonemize_OutOfVocabularyWord_DroppedAndReportedAsUnknown
+              - Phonemize_NullText_ThrowsArgumentNullException
+              - ToTokenIds_KnownChars_ReturnsConfirmedIdsInOrder
+              - ToTokenIds_NullPhonemes_ThrowsArgumentNullException

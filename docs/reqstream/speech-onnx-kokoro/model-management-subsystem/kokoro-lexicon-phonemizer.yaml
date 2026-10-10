@@ -4,9 +4,8 @@
 # These requirements describe the design-level behavior of the KokoroLexiconPhonemizer unit,
 # decomposing the parent SpeechOnnxKokoro ModelManagementSubsystem requirements.
 #
-# This package has no automated unit test project (see docs/verification/speech-onnx-kokoro.md);
-# these requirements describe required behavior regardless of test coverage, and omit `tests:`
-# rather than naming tests that do not exist.
+# Covered by test/DemaConsulting.Speech.Onnx.Kokoro.Tests/ModelManagementSubsystem/
+# KokoroLexiconPhonemizerTests.cs.
 
 sections:
   - title: SpeechOnnxKokoro Requirements
@@ -29,6 +28,13 @@ sections:
                   specifically because Kokoro's own phoneme encoding packs diphthongs/affricates
                   into non-obvious single characters that a hand-written G2P would risk getting
                   silently wrong.
+                tests:
+                  - Phonemize_KnownWord_ReturnsLexiconPhonemesWithNoUnknownWords
+                  - Phonemize_MultipleKnownWords_JoinsWithSingleSpace
+                  - Phonemize_UpperCaseKnownWord_ResolvesSameAsLowerCase
+                  - Phonemize_VocabularyPunctuation_PassesThrough
+                  - Phonemize_NonVocabularyPunctuation_IsDropped
+                  - Phonemize_EmptyText_ReturnsEmptyPhonemesAndNoUnknownWords
 
               - id: SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-UnknownWordHandling
                 title: >-
@@ -40,6 +46,8 @@ sections:
                   wrong speech, which is worse than omitting the word; reporting the omission
                   lets a future caller (or diagnostic tooling) detect when this Stage-1
                   limitation affected a given utterance.
+                tests:
+                  - Phonemize_OutOfVocabularyWord_DroppedAndReportedAsUnknown
 
               - id: SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-ArgumentValidation
                 title: >-
@@ -49,3 +57,5 @@ sections:
                   A programming error (null text) should surface immediately with a clear,
                   cheap-to-diagnose exception rather than a null-reference failure deeper in
                   tokenization.
+                tests:
+                  - Phonemize_NullText_ThrowsArgumentNullException

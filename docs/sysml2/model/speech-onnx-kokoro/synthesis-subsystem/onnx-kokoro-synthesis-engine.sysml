@@ -11,6 +11,7 @@ package SpeechOnnxKokoro {
              * cannot actually run this model's graph. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech.Onnx.Kokoro/SynthesisSubsystem/OnnxKokoroSynthesisEngine.cs */
+        comment testRef /* Test: test/DemaConsulting.Speech.Onnx.Kokoro.Tests/SynthesisSubsystem/OnnxKokoroSynthesisEngineTests.cs */
         comment designRef /* Design: docs/design/speech-onnx-kokoro/synthesis-subsystem/onnx-kokoro-synthesis-engine.md */
         comment verificationRef /* Verification: docs/verification/speech-onnx-kokoro/synthesis-subsystem/onnx-kokoro-synthesis-engine.md */
         comment reqRef /* Requirements: docs/reqstream/speech-onnx-kokoro/synthesis-subsystem/onnx-kokoro-synthesis-engine.yaml */

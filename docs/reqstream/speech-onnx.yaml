@@ -8,12 +8,9 @@
 # by any ONNX-Runtime-backed model package (for example the sibling
 # DemaConsulting.Speech.Onnx.Kokoro package), and declares zero models itself.
 #
-# No automated test project exists yet for this package (there is no
-# test/DemaConsulting.Speech.Onnx.Tests directory) - see docs/verification/speech-onnx.md for the
-# full, honest statement of this gap. Requirements below describe intended, design-level
-# behavior regardless of test coverage, and omit the tests: list where no test currently proves
-# them, matching the convention already used elsewhere in this repository for requirements with
-# no directly-associated automated test (see docs/reqstream/quality.yaml).
+# Covered by test/DemaConsulting.Speech.Onnx.Tests - see
+# docs/reqstream/speech-onnx/onnx-runtime-subsystem/onnx-execution-provider-selector.yaml for the
+# unit-level tests: lists this system requirement's child decomposes into.
 
 sections:
   - title: SpeechOnnx Requirements
@@ -38,3 +35,8 @@ sections:
           in its own code.
         children:
           - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ProviderFallback
+        tests:
+          - Create_NoPreferredProviders_CreatesWorkingCpuSession
+          - Create_UnknownProviderName_FallsBackToCpuSession
+          - Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback
+          - Create_ValidateSessionProbeThrowsOtherException_Rethrows

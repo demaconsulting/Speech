@@ -2,54 +2,68 @@
 
 ### Verification Approach
 
-**This subsystem has no automated unit test project** - there is no
-`test/DemaConsulting.Speech.Onnx.Kokoro.Tests` directory, and none of the requirements below link
-to a test, because none exists. This is a known, pre-existing gap recorded honestly here rather
-than masked with fictitious test names (see _SpeechOnnxKokoro System Verification_ for the
-system-level statement of this gap).
+The SpeechOnnxKokoro ModelManagementSubsystem is verified through deterministic unit tests in
+`test/DemaConsulting.Speech.Onnx.Kokoro.Tests` that never touch the network or the real
+~163 MiB production download:
 
-Correctness of every unit in this subsystem rests on manual verification and code review today:
-
-- **`SpeechModelCatalogKokoroExtensions`**: reviewed for correct delegation to
-  `SpeechModelCatalog.AddModels` and correct `ArgumentNullException` behavior for a null catalog
-- **`OnnxKokoroEnglishSynthesisModel`**: its declared `Id`/`DisplayName`/`Role`/`LicenseName`/
-  `LicenseUrl`/`AudioTagSupport`/voice `ChoiceParameter` options were reviewed against the real
-  upstream `onnx-community/Kokoro-82M-v1.0-ONNX` model card and `tokenizer.json`; its
-  `DownloadDescriptor` file list, relative install paths, and SHA-256 checksums were reviewed
-  against the real downloaded bytes recorded in this class's own XML documentation; its
-  `CreateBackend`/`ResolveSpeakerId` implementations were reviewed by inspection against the
-  sibling SpeechSherpa system's equivalent, proven `SherpaOnnxKokoroEnglishSynthesisModel`
-  pattern
-- **`KokoroLexiconPhonemizer`**: its embedded lexicon's provenance (produced by running the real
-  `misaki.en.G2P` tool offline over the CMUdict word list) and its tokenization/lookup/fallback
-  logic were reviewed by direct code inspection; its documented Stage-1 limitations
-  (out-of-vocabulary words, homographs) were confirmed to be honestly and completely described in
-  its own XML documentation
-- **`KokoroPhonemeVocabulary`**: its `tokenizer.json` parsing and `MaxPhonemeTokens`/`PadTokenId`
-  constants were reviewed against the real embedded resource and the model's own published
-  512-token context window
-
-A future pass may add `test/DemaConsulting.Speech.Onnx.Kokoro.Tests`, mirroring the sibling
-SpeechSherpa package's `DemaConsulting.Speech.Sherpa.Tests` conventions. Adding that project is
-explicitly out of scope for this pass.
+- **`SpeechModelCatalogKokoroExtensions`**: verified against a real Speech `SpeechModelCatalog`
+  for correct delegation, returning the same catalog instance, registering exactly the one
+  shipped model, and throwing `ArgumentNullException` for a null catalog - see
+  `test/DemaConsulting.Speech.Onnx.Kokoro.Tests/SpeechModelCatalogKokoroExtensionsTests.cs`
+  (`AddKokoroModels_Called_ReturnsSameCatalogInstance`,
+  `AddKokoroModels_Called_RegistersExpectedSingleSynthesisModel`,
+  `AddKokoroModels_NullCatalog_ThrowsArgumentNullException`). This subsystem's single file folds
+  this extension method in as its own review unit (there is no separate
+  `speech-model-catalog-kokoro-extensions.md`), matching the sibling SpeechSherpa system's
+  established convention for its own catalog extension method
+- **`OnnxKokoroEnglishSynthesisModel`**: its declared identity, license, 29-voice
+  `ChoiceParameter`, 30-file download descriptor, preferred audio format, speaker-id resolution
+  (including every declared voice plus unknown-value/missing-key/null-bag fallback), and an
+  end-to-end `CreateBackend` + `Generate` test against a fake ONNX fixture and 29 synthetic
+  per-voice style-vector files proving the correct voice's style vector is forwarded verbatim -
+  see _SpeechOnnxKokoro OnnxKokoroEnglishSynthesisModel Verification_
+- **`KokoroLexiconPhonemizer`**: its lexicon lookup, whitespace collapsing, vocabulary-punctuation
+  passthrough, out-of-vocabulary-word dropping/reporting, and argument validation - see
+  _SpeechOnnxKokoro KokoroLexiconPhonemizer Verification_
+- **`KokoroPhonemeVocabulary`**: its character-to-token-id lookup, unknown-character dropping,
+  truncation to `MaxPhonemeTokens`, and argument validation - see _SpeechOnnxKokoro
+  KokoroPhonemeVocabulary Verification_
 
 ### Test Environment
 
-N/A - no automated test project exists for this subsystem.
+- **Framework**: xUnit v3 running under the .NET SDK
+- **Execution**: `dotnet test` invoked by `build.ps1` and the CI pipeline
+- **Project**: `test/DemaConsulting.Speech.Onnx.Kokoro.Tests`
+- **Isolation**: Each test uses a unique scratch directory under `Path.GetTempPath()`; no test in
+  this subsystem requires network access or the real production download
+- **Fixtures**: A tiny, hand-built `TestData/fake-kokoro-model.onnx` whose single node forwards
+  its `style` input straight through as the output, and synthetic per-voice `.bin` files built by
+  the test itself
 
 ### Acceptance Criteria
 
-There is no automated acceptance criterion for this subsystem today. Each unit is accepted on the
-strength of: successful compilation with zero warnings, static analysis via
-`Microsoft.CodeAnalysis.NetAnalyzers` and `SonarAnalyzer.CSharp`, and the manual/code-review
-verification described above.
+A SpeechOnnxKokoro ModelManagementSubsystem test run passes when: `AddKokoroModels()` returns the
+same catalog instance and registers exactly the one shipped model with its expected role and
+throws `ArgumentNullException` for a null catalog; `OnnxKokoroEnglishSynthesisModel` declares its
+documented identity, license, and 29-voice parameter, its 30-file download descriptor with
+well-formed SHA-256 checksums and unique install paths, and its mono 24000 Hz preferred audio
+format; `ResolveSpeakerId` resolves every declared voice to its declaration-order index and falls
+back to the default voice's index for an unknown value, a missing key, or a `null` bag;
+`CreateBackend` throws `ArgumentException` for an empty installed directory and, for a valid
+directory, constructs an engine whose `Generate` forwards the requested voice's own style vector
+verbatim; `KokoroLexiconPhonemizer.Phonemize` returns the embedded lexicon's phonemes for known
+words, collapses whitespace, passes through vocabulary punctuation, drops non-vocabulary
+punctuation, drops and reports out-of-vocabulary words, and throws `ArgumentNullException` for
+null text; and `KokoroPhonemeVocabulary.ToTokenIds` converts known characters to their confirmed
+token ids in order, drops unknown characters, truncates to `MaxPhonemeTokens`, and throws
+`ArgumentNullException` for null phonemes.
 
 ### Test Scenarios
 
-N/A - no automated test scenarios exist for this subsystem. See each unit's own verification
-document for the manual/code-review verification performed in lieu of automated test scenarios:
+See each unit's own verification document for its detailed test scenarios:
 `onnx-kokoro-english-synthesis-model.md`, `kokoro-lexicon-phonemizer.md`,
 `kokoro-phoneme-vocabulary.md`.
 
-The `SpeechModelCatalogKokoroExtensions` unit's manual verification is recorded above; see
-_SpeechOnnxKokoro System Verification_.
+The `SpeechModelCatalogKokoroExtensions` unit's test scenarios are recorded above, directly
+against `test/DemaConsulting.Speech.Onnx.Kokoro.Tests/SpeechModelCatalogKokoroExtensionsTests.cs`;
+see also _SpeechOnnxKokoro System Verification_.

@@ -8,6 +8,7 @@ package SpeechOnnxKokoro {
              * homographs resolve to one context-free pronunciation. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech.Onnx.Kokoro/ModelManagementSubsystem/KokoroLexiconPhonemizer.cs */
+        comment testRef /* Test: test/DemaConsulting.Speech.Onnx.Kokoro.Tests/ModelManagementSubsystem/KokoroLexiconPhonemizerTests.cs */
         comment designRef /* Design: docs/design/speech-onnx-kokoro/model-management-subsystem/kokoro-lexicon-phonemizer.md */
         comment verificationRef /* Verification: docs/verification/speech-onnx-kokoro/model-management-subsystem/kokoro-lexicon-phonemizer.md */
         comment reqRef /* Requirements: docs/reqstream/speech-onnx-kokoro/model-management-subsystem/kokoro-lexicon-phonemizer.yaml */

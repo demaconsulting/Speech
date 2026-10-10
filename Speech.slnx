@@ -10,6 +10,8 @@
   <Folder Name="/test/">
     <Project Path="test/DemaConsulting.Speech.Tests/DemaConsulting.Speech.Tests.csproj" />
     <Project Path="test/DemaConsulting.Speech.Sherpa.Tests/DemaConsulting.Speech.Sherpa.Tests.csproj" />
+    <Project Path="test/DemaConsulting.Speech.Onnx.Tests/DemaConsulting.Speech.Onnx.Tests.csproj" />
+    <Project Path="test/DemaConsulting.Speech.Onnx.Kokoro.Tests/DemaConsulting.Speech.Onnx.Kokoro.Tests.csproj" />
     <Project Path="test/DemaConsulting.Speech.Demo.Tests/DemaConsulting.Speech.Demo.Tests.csproj" />
     <Project Path="test/DemaConsulting.Speech.Cli.Tests/DemaConsulting.Speech.Cli.Tests.csproj" />
   </Folder>

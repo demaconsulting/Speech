@@ -8,10 +8,9 @@
 # through the Speech library's ISynthesisModel extension seam, ships as its own package, and is
 # versioned as part of this repository. The Speech library never depends on it.
 #
-# Note: this package currently has no automated unit test project - see
-# docs/verification/speech-onnx-kokoro.md for the honestly-documented coverage gap. Requirements
-# below describe required behavior regardless of test coverage; their `tests:` lists are omitted
-# rather than naming tests that do not exist, matching docs/reqstream/quality.yaml's convention.
+# Covered by test/DemaConsulting.Speech.Onnx.Kokoro.Tests - see the subsystem/unit-level reqstream
+# files under docs/reqstream/speech-onnx-kokoro/ for the full tests: lists these system
+# requirements decompose into.
 
 sections:
   - title: SpeechOnnxKokoro Requirements
@@ -29,6 +28,9 @@ sections:
           other model package.
         children:
           - SpeechOnnxKokoro-Models-CatalogRegistration
+        tests:
+          - AddKokoroModels_Called_ReturnsSameCatalogInstance
+          - AddKokoroModels_Called_RegistersExpectedSingleSynthesisModel
 
       - id: SpeechOnnxKokoro-Models-SynthesisModel
         title: >-
@@ -44,6 +46,11 @@ sections:
         children:
           - SpeechOnnxKokoro-Models-RealSynthesisModelWithVoiceSelection
           - SpeechOnnxKokoro-Models-TextToPhonemePipeline
+        tests:
+          - OnnxKokoroEnglishSynthesisModel_Identity_DeclaresExpectedValues
+          - OnnxKokoroEnglishSynthesisModel_ResolveSpeakerId_KnownVoice_ReturnsDeclarationOrderIndex
+          - Phonemize_KnownWord_ReturnsLexiconPhonemesWithNoUnknownWords
+          - ToTokenIds_KnownChars_ReturnsConfirmedIdsInOrder
 
       - id: SpeechOnnxKokoro-Synthesis-RealBackend
         title: >-
@@ -56,3 +63,6 @@ sections:
           package's synthesis model.
         children:
           - SpeechOnnxKokoro-Synthesis-OnnxBackend
+        tests:
+          - OnnxKokoroEnglishSynthesisModel_CreateBackend_ValidModelAndVoices_GeneratesUsingSelectedVoiceStyle
+          - RunProbeInference_RunnableSession_DoesNotThrow

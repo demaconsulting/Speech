@@ -39,6 +39,23 @@ public static class OnnxExecutionProviderSelector
     public static readonly IReadOnlyList<string> DefaultProviderNames = [];
 
     /// <summary>
+    ///     Test-only observation hook invoked with each candidate's <see cref="SessionOptions"/>
+    ///     instance immediately after it is constructed, before it is used or disposed.
+    /// </summary>
+    /// <remarks>
+    ///     <see cref="SessionOptions"/> derives from <see cref="System.Runtime.InteropServices.SafeHandle"/>
+    ///     and therefore exposes a public <c>IsClosed</c> property, so a test subscribing here can
+    ///     assert that every candidate's options instance - including a failed candidate's and the
+    ///     eventually-winning candidate's - is disposed by the time <see cref="Create"/> returns.
+    ///     There is no other way to observe this from outside the class: the loop-local
+    ///     <c>using var options</c> variable itself is never exposed to callers. Production callers
+    ///     never set this; it exists solely for
+    ///     <c>DemaConsulting.Speech.Onnx.Tests</c> (see <c>InternalsVisibleTo</c> in this project's
+    ///     <c>.csproj</c>).
+    /// </remarks>
+    internal static Action<SessionOptions>? OnCandidateOptionsCreated { get; set; }
+
+    /// <summary>
     ///     Creates an <see cref="InferenceSession"/> for the ONNX model at <paramref name="modelPath"/>,
     ///     trying each of <paramref name="preferredProviderNames"/> in order before falling back to
     ///     the CPU provider.
@@ -87,6 +104,7 @@ public static class OnnxExecutionProviderSelector
             // always be disposed by this method - whether the session is created successfully or
             // the provider fails to load - without disposing the returned InferenceSession itself.
             using var options = new SessionOptions();
+            OnCandidateOptionsCreated?.Invoke(options);
             InferenceSession? session = null;
             var succeeded = false;
             try

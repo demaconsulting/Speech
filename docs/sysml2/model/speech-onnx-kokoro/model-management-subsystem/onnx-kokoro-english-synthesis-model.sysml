@@ -11,6 +11,7 @@ package SpeechOnnxKokoro {
              * confirmed voice-to-speaker-id mapping via ISynthesisModel.ResolveSpeakerId. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech.Onnx.Kokoro/ModelManagementSubsystem/OnnxKokoroEnglishSynthesisModel.cs */
+        comment testRef /* Test: test/DemaConsulting.Speech.Onnx.Kokoro.Tests/ModelManagementSubsystem/OnnxKokoroEnglishSynthesisModelTests.cs */
         comment designRef /* Design: docs/design/speech-onnx-kokoro/model-management-subsystem/onnx-kokoro-english-synthesis-model.md */
         comment verificationRef /* Verification: docs/verification/speech-onnx-kokoro/model-management-subsystem/onnx-kokoro-english-synthesis-model.md */
         comment reqRef /* Requirements: docs/reqstream/speech-onnx-kokoro/model-management-subsystem/onnx-kokoro-english-synthesis-model.yaml */

@@ -7,9 +7,8 @@
 # OnnxExecutionProviderSelector, the library's only generic ONNX Runtime infrastructure.
 #
 # Unit-level content lives in
-# docs/reqstream/speech-onnx/onnx-runtime-subsystem/onnx-execution-provider-selector.yaml. No
-# automated test project exists for this package yet (see docs/verification/speech-onnx.md), so
-# this requirement omits a tests: list rather than naming a test that doesn't exist.
+# docs/reqstream/speech-onnx/onnx-runtime-subsystem/onnx-execution-provider-selector.yaml. Covered
+# by test/DemaConsulting.Speech.Onnx.Tests - see that unit-level file's tests: lists.
 
 sections:
   - title: SpeechOnnx Requirements
@@ -39,3 +38,11 @@ sections:
               - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-DisposesEachCandidateOptions
               - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-DisposesCandidateSessionOnAnyFailure
               - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ArgumentValidation
+            tests:
+              - Create_NoPreferredProviders_CreatesWorkingCpuSession
+              - Create_UnknownProviderName_FallsBackToCpuSession
+              - Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback
+              - Create_ValidateSessionProbeThrowsOtherException_Rethrows
+              - Create_EmptyPreferredProviders_NeverInvokesProbe
+              - Create_NullModelPath_ThrowsArgumentNullException
+              - Create_EmptyModelPath_ThrowsArgumentException

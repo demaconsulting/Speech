@@ -1504,10 +1504,8 @@ reviews:
     title: >-
       Review that SpeechOnnx OnnxRuntimeSubsystem Satisfies Subsystem Requirements
       (note: this subsystem has exactly one unit, OnnxExecutionProviderSelector; its
-      requirements/design/verification/source are intentionally folded into this
-      subsystem-level set rather than split into a redundant single-unit review-set;
-      note also that no automated test project exists yet for DemaConsulting.Speech.Onnx,
-      a known pre-existing gap recorded in docs/verification/speech-onnx.md)
+      requirements/design/verification/source/tests are intentionally folded into this
+      subsystem-level set rather than split into a redundant single-unit review-set)
     context:
       - "docs/design/speech-onnx.md"
       - "docs/reqstream/speech-onnx.yaml"
@@ -1519,6 +1517,7 @@ reviews:
       - "docs/verification/speech-onnx/onnx-runtime-subsystem.md"
       - "docs/verification/speech-onnx/onnx-runtime-subsystem/onnx-execution-provider-selector.md"
       - "src/DemaConsulting.Speech.Onnx/OnnxRuntimeSubsystem/OnnxExecutionProviderSelector.cs"
+      - "test/DemaConsulting.Speech.Onnx.Tests/OnnxRuntimeSubsystem/OnnxExecutionProviderSelectorTests.cs"
 
   # SpeechOnnxKokoro-Architecture Review (one per system)
   - id: SpeechOnnxKokoro-Architecture
@@ -1563,10 +1562,7 @@ reviews:
     title: >-
       Review that SpeechOnnxKokoro ModelManagementSubsystem Satisfies Subsystem
       Requirements (covers only SpeechModelCatalogKokoroExtensions, documented as a
-      subsystem unit per SpeechSherpa's SpeechModelCatalogSherpaExtensions convention;
-      note also that no automated test project exists yet for
-      DemaConsulting.Speech.Onnx.Kokoro, a known pre-existing gap recorded in
-      docs/verification/speech-onnx-kokoro.md)
+      subsystem unit per SpeechSherpa's SpeechModelCatalogSherpaExtensions convention)
     context:
       - "docs/design/speech-onnx-kokoro.md"
       - "docs/reqstream/speech-onnx-kokoro.yaml"
@@ -1575,6 +1571,7 @@ reviews:
       - "docs/design/speech-onnx-kokoro/model-management-subsystem.md"               # subsystem design
       - "docs/verification/speech-onnx-kokoro/model-management-subsystem.md"         # subsystem verification
       - "src/DemaConsulting.Speech.Onnx.Kokoro/SpeechModelCatalogKokoroExtensions.cs"
+      - "test/DemaConsulting.Speech.Onnx.Kokoro.Tests/SpeechModelCatalogKokoroExtensionsTests.cs"
 
   # SpeechOnnxKokoro-ModelManagementSubsystem-OnnxKokoroEnglishSynthesisModel Review (one per unit)
   - id: SpeechOnnxKokoro-ModelManagementSubsystem-OnnxKokoroEnglishSynthesisModel
@@ -1591,6 +1588,7 @@ reviews:
       - "docs/design/speech-onnx-kokoro/model-management-subsystem/onnx-kokoro-english-synthesis-model.md"
       - "docs/verification/speech-onnx-kokoro/model-management-subsystem/onnx-kokoro-english-synthesis-model.md"
       - "src/DemaConsulting.Speech.Onnx.Kokoro/ModelManagementSubsystem/OnnxKokoroEnglishSynthesisModel.cs"
+      - "test/DemaConsulting.Speech.Onnx.Kokoro.Tests/ModelManagementSubsystem/OnnxKokoroEnglishSynthesisModelTests.cs"
 
   # SpeechOnnxKokoro-ModelManagementSubsystem-KokoroLexiconPhonemizer Review (one per unit)
   - id: SpeechOnnxKokoro-ModelManagementSubsystem-KokoroLexiconPhonemizer
@@ -1607,6 +1605,7 @@ reviews:
       - "docs/design/speech-onnx-kokoro/model-management-subsystem/kokoro-lexicon-phonemizer.md"
       - "docs/verification/speech-onnx-kokoro/model-management-subsystem/kokoro-lexicon-phonemizer.md"
       - "src/DemaConsulting.Speech.Onnx.Kokoro/ModelManagementSubsystem/KokoroLexiconPhonemizer.cs"
+      - "test/DemaConsulting.Speech.Onnx.Kokoro.Tests/ModelManagementSubsystem/KokoroLexiconPhonemizerTests.cs"
 
   # SpeechOnnxKokoro-ModelManagementSubsystem-KokoroPhonemeVocabulary Review (one per unit)
   - id: SpeechOnnxKokoro-ModelManagementSubsystem-KokoroPhonemeVocabulary
@@ -1623,17 +1622,15 @@ reviews:
       - "docs/design/speech-onnx-kokoro/model-management-subsystem/kokoro-phoneme-vocabulary.md"
       - "docs/verification/speech-onnx-kokoro/model-management-subsystem/kokoro-phoneme-vocabulary.md"
       - "src/DemaConsulting.Speech.Onnx.Kokoro/ModelManagementSubsystem/KokoroPhonemeVocabulary.cs"
+      - "test/DemaConsulting.Speech.Onnx.Kokoro.Tests/ModelManagementSubsystem/KokoroPhonemeVocabularyTests.cs"
 
   # SpeechOnnxKokoro-SynthesisSubsystem Review (one per subsystem)
   - id: SpeechOnnxKokoro-SynthesisSubsystem
     title: >-
       Review that SpeechOnnxKokoro SynthesisSubsystem Satisfies Subsystem Requirements
       (note: this subsystem has exactly one unit, OnnxKokoroSynthesisEngine; its
-      requirements/design/verification/source are intentionally folded into this
-      subsystem-level set rather than split into a redundant single-unit review-set;
-      note also that no automated test project exists yet for
-      DemaConsulting.Speech.Onnx.Kokoro, a known pre-existing gap recorded in
-      docs/verification/speech-onnx-kokoro.md)
+      requirements/design/verification/source/tests are intentionally folded into this
+      subsystem-level set rather than split into a redundant single-unit review-set)
     context:
       - "docs/design/speech-onnx-kokoro.md"
       - "docs/reqstream/speech-onnx-kokoro.yaml"
@@ -1645,6 +1642,7 @@ reviews:
       - "docs/verification/speech-onnx-kokoro/synthesis-subsystem.md"
       - "docs/verification/speech-onnx-kokoro/synthesis-subsystem/onnx-kokoro-synthesis-engine.md"
       - "src/DemaConsulting.Speech.Onnx.Kokoro/SynthesisSubsystem/OnnxKokoroSynthesisEngine.cs"
+      - "test/DemaConsulting.Speech.Onnx.Kokoro.Tests/SynthesisSubsystem/OnnxKokoroSynthesisEngineTests.cs"
 
   # OTS-PortAudioSharp2 Review (one per OTS item)
   - id: OTS-PortAudioSharp2

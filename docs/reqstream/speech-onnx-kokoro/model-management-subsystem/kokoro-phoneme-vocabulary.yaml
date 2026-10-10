@@ -4,9 +4,8 @@
 # These requirements describe the design-level behavior of the KokoroPhonemeVocabulary unit,
 # decomposing the parent SpeechOnnxKokoro ModelManagementSubsystem requirements.
 #
-# This package has no automated unit test project (see docs/verification/speech-onnx-kokoro.md);
-# these requirements describe required behavior regardless of test coverage, and omit `tests:`
-# rather than naming tests that do not exist.
+# Covered by test/DemaConsulting.Speech.Onnx.Kokoro.Tests/ModelManagementSubsystem/
+# KokoroPhonemeVocabularyTests.cs.
 
 sections:
   - title: SpeechOnnxKokoro Requirements
@@ -27,6 +26,12 @@ sections:
                   per-character lookup-and-drop behavior for synthesized audio to be correct,
                   and must respect the model's 512-token context window (with 2 reserved for
                   the leading/trailing pad token the caller adds).
+                tests:
+                  - ToTokenIds_KnownChars_ReturnsConfirmedIdsInOrder
+                  - ToTokenIds_UnknownChar_IsSkipped
+                  - ToTokenIds_EmptyString_ReturnsEmptyList
+                  - ToTokenIds_LongerThanMaxPhonemeTokens_IsTruncated
+                  - PadTokenId_IsZero
 
               - id: SpeechOnnxKokoro-Models-KokoroPhonemeVocabulary-ArgumentValidation
                 title: >-
@@ -36,3 +41,5 @@ sections:
                   A programming error (null phonemes) should surface immediately with a clear,
                   cheap-to-diagnose exception rather than a null-reference failure deeper in
                   conversion.
+                tests:
+                  - ToTokenIds_NullPhonemes_ThrowsArgumentNullException

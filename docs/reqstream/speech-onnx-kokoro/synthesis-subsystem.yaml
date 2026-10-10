@@ -9,10 +9,9 @@
 # session state machine, cancellation, fault containment) remains in the Speech library's own
 # SynthesisSubsystem.
 #
-# This package has no automated unit test project (see docs/verification/speech-onnx-kokoro.md);
-# unit-level requirements for OnnxKokoroSynthesisEngine live in
-# docs/reqstream/speech-onnx-kokoro/synthesis-subsystem/onnx-kokoro-synthesis-engine.yaml and omit
-# `tests:` rather than naming a test that doesn't exist.
+# Covered by test/DemaConsulting.Speech.Onnx.Kokoro.Tests/SynthesisSubsystem/
+# OnnxKokoroSynthesisEngineTests.cs; unit-level requirements for OnnxKokoroSynthesisEngine live in
+# docs/reqstream/speech-onnx-kokoro/synthesis-subsystem/onnx-kokoro-synthesis-engine.yaml.
 
 sections:
   - title: SpeechOnnxKokoro Requirements
@@ -41,3 +40,9 @@ sections:
               - SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-ArgumentValidation
               - SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-Dispose
               - SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-ProbeInference
+            tests:
+              - SampleRate_IsAlways24000
+              - Generate_ZeroTokenText_ReturnsEmptyAudio
+              - Generate_AfterDispose_ThrowsObjectDisposedException
+              - Dispose_CalledTwice_DoesNotThrow
+              - RunProbeInference_RunnableSession_DoesNotThrow

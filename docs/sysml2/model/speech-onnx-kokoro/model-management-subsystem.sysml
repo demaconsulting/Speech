@@ -24,6 +24,7 @@ package SpeechOnnxKokoro {
              * convention. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech.Onnx.Kokoro/SpeechModelCatalogKokoroExtensions.cs */
+        comment testRef /* Test: test/DemaConsulting.Speech.Onnx.Kokoro.Tests/SpeechModelCatalogKokoroExtensionsTests.cs */
         comment designRef /* Design: docs/design/speech-onnx-kokoro/model-management-subsystem.md (documented as a subsystem unit) */
         comment verificationRef /* Verification: docs/verification/speech-onnx-kokoro/model-management-subsystem.md (documented as a subsystem unit) */
         comment reqRef /* Requirements: docs/reqstream/speech-onnx-kokoro/model-management-subsystem.yaml (consolidated at subsystem level) */

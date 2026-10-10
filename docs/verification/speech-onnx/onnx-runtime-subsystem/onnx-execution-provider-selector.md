@@ -2,71 +2,75 @@
 
 #### Verification Approach
 
-`OnnxExecutionProviderSelector` has **no automated test coverage today**. There is no
-`test/DemaConsulting.Speech.Onnx.Tests` directory anywhere in this repository, and this unit has
-never been exercised by an automated test of any kind - not a real-provider integration test, not
-a mocked/stubbed unit test. This is a known, pre-existing gap, honestly recorded here rather than
-closed by inventing a fictitious test name. Correctness of the unit's current, fixed behavior -
-every candidate `SessionOptions` disposed via `using` immediately after its own `InferenceSession`
-construction attempt, win or lose, without disposing the returned `InferenceSession` on success -
-rests today solely on code review evidence: the resource-leak fix was reviewed directly against
-the source during this pass, confirming each loop iteration's `SessionOptions` is now
-deterministically disposed regardless of outcome, and that the returned session is left
-untouched for the caller to own.
-
-The scenarios below describe the behavior a future unit test suite should prove once a test
-project exists. They would not require mocking the ONNX Runtime API itself - `InferenceSession`
-and `SessionOptions` are concrete sealed-enough types best exercised directly against a small,
-real, valid `.onnx` fixture model and, for the accelerated-provider scenarios, a deliberately
-unavailable provider name (which fails identically whether or not the test machine has a real
-accelerator installed, since the method's own fallback path is what is under test, not any
-specific accelerator's correctness).
+`OnnxExecutionProviderSelector` is verified by automated unit tests in
+`test/DemaConsulting.Speech.Onnx.Tests` run against a tiny, hand-built, valid single-node
+`.onnx` fixture model (`TestData/tiny-identity-model.onnx`, generated offline with the Python
+`onnx`/`onnxruntime` packages and never shipped in production). No accelerated execution
+provider (CUDA, DirectML, etc.) can be genuinely exercised in this test project or in CI, since
+this package references only the base, CPU-only `Microsoft.ML.OnnxRuntime` package (see the
+class's own remarks); the tests therefore use the always-available, explicitly-named
+`"CPUExecutionProvider"` string as a stand-in "candidate" to reach the exact same
+construct/probe/dispose/fall-back code paths a real accelerated candidate would exercise, and a
+syntactically-invalid provider name to reach the "construction itself fails" path. One claim -
+that every candidate's `SessionOptions` is disposed, win or lose - is otherwise unobservable from
+outside the class because `InferenceSession` never exposes or re-disposes the options instance
+passed to it; the test project observes it anyway via the internal
+`OnnxExecutionProviderSelector.OnCandidateOptionsCreated` test-only hook, which hands the test
+each candidate's own `SessionOptions` instance (itself a `System.Runtime.InteropServices.SafeHandle`)
+so the test can assert its public, inherited `IsClosed` property directly, with no reflection
+into ONNX Runtime internals required.
 
 #### Test Environment
 
-No automated test environment exists yet. A future test project would run under xUnit v3 via
-`dotnet test`, requiring only the base `Microsoft.ML.OnnxRuntime` CPU provider (already
-referenced by this package) and a small valid `.onnx` fixture model checked into the test
-project - no network access, no physical audio hardware, and no external services.
+- **Framework**: xUnit v3 running under the .NET SDK, multi-targeted at net8.0/net9.0/net10.0
+- **Execution**: `dotnet test` invoked by `build.ps1` and the CI pipeline
+- **Project**: `test/DemaConsulting.Speech.Onnx.Tests`
+- **Isolation**: every test uses the same small, read-only `.onnx` fixture file checked into the
+  test project; no network access, no physical accelerator hardware, and no external services are
+  required
 
 #### Acceptance Criteria
 
-Not yet measurable by automated means; see Verification Approach. Once a test project exists,
-the unit should be considered verified when: a preferred provider name that constructs
-successfully is used without falling through to the next candidate or to CPU; a preferred
-provider name whose native runtime is unavailable causes that candidate's `SessionOptions` to be
-disposed and the next candidate (or CPU) to be tried; omitting preferred providers entirely (or
-every preferred candidate failing) returns a CPU-backed session without throwing; and `Create`
-throws `ArgumentException` for a null or empty model path before any provider is attempted.
+A null or empty model path throws `ArgumentException` before any provider is attempted; calling
+`Create` with no preferred providers returns a working CPU-backed session that can run the
+fixture model; an unknown/unavailable provider name fails to construct and `Create` falls back to
+a working CPU session instead of throwing; a `validateSession` probe that throws
+`OnnxRuntimeException` for a candidate causes that candidate to be discarded and the CPU fallback
+used instead, with the CPU fallback itself never passed to the probe; a probe throwing any other
+exception type propagates to the caller instead of being treated as "try the next candidate"; and
+every candidate's `SessionOptions` instance - both a failed candidate's and the eventually
+winning candidate's - is disposed (`IsClosed == true`) by the time `Create` returns.
 
 #### Test Scenarios
 
-The following scenarios are not yet automated (see Verification Approach above); they are
-recorded here as the intended coverage for when `test/DemaConsulting.Speech.Onnx.Tests` is
-created:
+##### A null model path throws ArgumentNullException
 
-##### A successfully-constructing preferred provider is used without falling back
+**Test**: `Create_NullModelPath_ThrowsArgumentNullException`
 
-Verifies that when the first preferred provider name constructs a real `InferenceSession`
-successfully, that session is returned and no further candidate (including CPU) is attempted.
+##### An empty model path throws ArgumentException
 
-##### An unavailable preferred provider falls through to the next candidate
+**Test**: `Create_EmptyModelPath_ThrowsArgumentException`
 
-Verifies that a preferred provider name whose native runtime is unavailable in the test process
-(raising `OnnxRuntimeException` or `DllNotFoundException`) is abandoned, its `SessionOptions` is
-disposed, and the next candidate in the ordered list is tried with a fresh `SessionOptions`.
+##### No preferred providers creates a working CPU session
 
-##### Every preferred candidate failing falls back to the CPU provider
+**Test**: `Create_NoPreferredProviders_CreatesWorkingCpuSession`
 
-Verifies that when every preferred provider name fails, `Create` still returns a loaded
-`InferenceSession` using the default (CPU) provider, without throwing.
+##### An unknown/unavailable provider name falls back to a working CPU session
 
-##### No preferred providers supplied falls back to the CPU provider
+**Test**: `Create_UnknownProviderName_FallsBackToCpuSession`
 
-Verifies that calling `Create` with `preferredProviderNames` left `null` (resolving to the empty
-`DefaultProviderNames`) returns a CPU-backed session directly, with no candidate loop iterations.
+##### A validateSession probe throwing OnnxRuntimeException discards the candidate without probing the CPU fallback
 
-##### A null or empty model path throws ArgumentException
+**Test**: `Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback`
 
-Verifies that `Create` throws `ArgumentException` for a null or empty `modelPath`, before
-attempting to construct any `SessionOptions` or `InferenceSession`.
+##### A validateSession probe throwing a non-ORT exception propagates to the caller
+
+**Test**: `Create_ValidateSessionProbeThrowsOtherException_Rethrows`
+
+##### Every candidate's SessionOptions instance is disposed, win or lose
+
+**Test**: `Create_MultipleCandidates_DisposesEveryCandidateOptionsInstance`
+
+##### The CPU fallback is never probed when no preferred providers are supplied
+
+**Test**: `Create_EmptyPreferredProviders_NeverInvokesProbe`

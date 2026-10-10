@@ -4,13 +4,13 @@
 # These requirements describe the design-level behavior of the OnnxExecutionProviderSelector
 # unit, decomposing the parent SpeechOnnx OnnxRuntimeSubsystem requirements.
 #
-# No automated test project exists for this package yet (there is no
-# test/DemaConsulting.Speech.Onnx.Tests directory) - see
-# docs/verification/speech-onnx/onnx-runtime-subsystem/onnx-execution-provider-selector.md for
-# the full, honest statement of this gap. Requirements below describe intended, design-level
-# behavior and omit the tests: list rather than naming a test that doesn't exist, matching the
-# convention already used elsewhere in this repository for requirements with no directly
-# associated automated test (see docs/reqstream/quality.yaml).
+# test/DemaConsulting.Speech.Onnx.Tests/OnnxRuntimeSubsystem/OnnxExecutionProviderSelectorTests.cs
+# automates these requirements against a tiny, hand-built ONNX test fixture and the
+# always-available CPU execution provider (no accelerated provider can be genuinely exercised in
+# this repository's CI - see that test class's own remarks). SessionOptions disposal, otherwise
+# unobservable from outside the class, is proven via the internal
+# OnnxExecutionProviderSelector.OnCandidateOptionsCreated test-only hook, which exposes each
+# candidate's own SafeHandle-inherited IsClosed property to the test.
 
 sections:
   - title: SpeechOnnx Requirements
@@ -36,6 +36,10 @@ sections:
                   a session successfully yet fail on the first Run() because a graph operator is
                   unsupported for the model's shapes - so "successfully" must account for a
                   supplied probe, not construction alone.
+                tests:
+                  - Create_NoPreferredProviders_CreatesWorkingCpuSession
+                  - Create_UnknownProviderName_FallsBackToCpuSession
+                  - Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback
 
               - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-FallsBackToCpu
                 title: >-
@@ -52,6 +56,10 @@ sections:
                   therefore always available as a guaranteed-success final candidate. Probing it
                   would be redundant and would remove the one candidate this unit's entire
                   fallback design depends on always succeeding.
+                tests:
+                  - Create_UnknownProviderName_FallsBackToCpuSession
+                  - Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback
+                  - Create_EmptyPreferredProviders_NeverInvokesProbe
 
               - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-DisposesEachCandidateOptions
                 title: >-
@@ -65,6 +73,8 @@ sections:
                   construction attempt leaks a native resource for every candidate tried. The
                   returned InferenceSession remains the caller's own responsibility to dispose,
                   since the caller - not this method - owns its lifetime.
+                tests:
+                  - Create_MultipleCandidates_DisposesEveryCandidateOptionsInstance
 
               - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-DisposesCandidateSessionOnAnyFailure
                 title: >-
@@ -81,6 +91,8 @@ sections:
                   one this unit should silently convert into "move on to the next candidate".
                   Disposing the session regardless of which exception type propagates prevents a
                   native handle leak on that less-common path too.
+                tests:
+                  - Create_ValidateSessionProbeThrowsOtherException_Rethrows
 
               - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ArgumentValidation
                 title: >-
@@ -91,3 +103,6 @@ sections:
                   A programming error (null or empty model path) should surface immediately with
                   a clear, cheap-to-diagnose exception rather than an opaque native-layer failure
                   from attempting to load a non-existent model.
+                tests:
+                  - Create_NullModelPath_ThrowsArgumentNullException
+                  - Create_EmptyModelPath_ThrowsArgumentException
