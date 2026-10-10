@@ -50,6 +50,9 @@ sections:
                 tests:
                   - Phonemize_MisspellingsAcronymsAndNumbers_AreSpoken
                   - Phonemize_AcronymLetters_UseOnlyVocabularyCharacters
+                  - Normalize_SpokenForm_MatchesEquivalentText
+                  - IntegerToWords_Value_ReturnsWords
+                  - Normalize_NullText_ThrowsArgumentNullException
 
               - id: SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-UnknownWordHandling
                 title: >-

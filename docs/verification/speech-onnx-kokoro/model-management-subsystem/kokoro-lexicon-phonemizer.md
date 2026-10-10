@@ -60,7 +60,9 @@ produces an empty phoneme string and no unknown words; and a `null` input throws
 don't"`, `"F B I"`, `"five dollars"`, `"bold code"`) with no unknown words.
 
 **Tests**: `Phonemize_MisspellingsAcronymsAndNumbers_AreSpoken`,
-`Phonemize_AcronymLetters_UseOnlyVocabularyCharacters`
+`Phonemize_AcronymLetters_UseOnlyVocabularyCharacters`, `Normalize_SpokenForm_MatchesEquivalentText`
+(numbers, currency, times, years, ordinals, abbreviations, markdown, diacritics),
+`IntegerToWords_Value_ReturnsWords`, `Normalize_NullText_ThrowsArgumentNullException`
 
 ##### Common contractions are recognized
 
