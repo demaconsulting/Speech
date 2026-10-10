@@ -72,6 +72,9 @@
   <!-- Project References -->
   <ItemGroup>
     <ProjectReference Include="..\DemaConsulting.Speech\DemaConsulting.Speech.csproj" />
+    <!-- sherpa-onnx ships its own libonnxruntime (1.28.2) with the same file name; copying Microsoft's native runtime too would overwrite it and break sherpa. The managed API is pinned to 1.28.0 so it runs on sherpa's runtime. -->
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.28.0" ExcludeAssets="native" />
+    <ProjectReference Include="..\DemaConsulting.Speech.Onnx.Kokoro\DemaConsulting.Speech.Onnx.Kokoro.csproj" />
     <ProjectReference Include="..\DemaConsulting.Speech.Sherpa\DemaConsulting.Speech.Sherpa.csproj" />
   </ItemGroup>
 

@@ -1,0 +1,96 @@
+---
+# Software Subsystem Requirements for the SpeechOnnxKokoro ModelManagementSubsystem
+#
+# These requirements describe the subsystem-level behavior of the SpeechOnnxKokoro
+# ModelManagementSubsystem, decomposing the system-level requirements in
+# docs/reqstream/speech-onnx-kokoro.yaml. This subsystem supplies the one concrete,
+# ONNX-Runtime-backed speech model that implements the Speech library's ISynthesisModel
+# contract (OnnxKokoroEnglishSynthesisModel), the two supporting units that give it its own
+# text-to-phoneme-to-token pipeline (KokoroLexiconPhonemizer, KokoroPhonemeVocabulary), and the
+# AddKokoroModels() catalog-registration extension method.
+#
+# Unit-level content lives in per-unit files under
+# docs/reqstream/speech-onnx-kokoro/model-management-subsystem/. The AddKokoroModels() extension
+# method (SpeechModelCatalogKokoroExtensions) has no separate unit file; its requirements are
+# consolidated here at subsystem level, matching the sibling SpeechSherpa system's established
+# convention for its own catalog extension method.
+#
+# This package is covered by test/DemaConsulting.Speech.Onnx.Kokoro.Tests - see per-unit files
+# under docs/reqstream/speech-onnx-kokoro/model-management-subsystem/ for the full tests: lists.
+
+sections:
+  - title: SpeechOnnxKokoro Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        requirements:
+          - id: SpeechOnnxKokoro-Models-CatalogRegistration
+            title: >-
+              The SpeechOnnxKokoro ModelManagementSubsystem shall provide a public
+              AddKokoroModels() extension method on the Speech library's SpeechModelCatalog that
+              registers exactly its one ONNX-Runtime-backed synthesis model and returns the same
+              catalog instance for chaining.
+            justification: |
+              The Speech library's catalog no longer has a compiled-in model registry; a host
+              must register the models it wants through SpeechModelCatalog.AddModels. A single,
+              discoverable registration entry point lets a host opt into this package's model
+              with one call, while returning the same instance keeps the catalog composable with
+              other model packages in one fluent expression.
+
+            tests:
+              - AddKokoroModels_Called_ReturnsSameCatalogInstance
+              - AddKokoroModels_Called_RegistersExpectedSingleSynthesisModel
+              - AddKokoroModels_NullCatalog_ThrowsArgumentNullException
+
+          - id: SpeechOnnxKokoro-Models-RealSynthesisModelWithVoiceSelection
+            title: >-
+              The ModelManagementSubsystem shall provide one real, concrete ISynthesisModel
+              class (OnnxKokoroEnglishSynthesisModel) declaring 29 genuinely distinct English
+              voices as a ChoiceParameter and a confirmed voice-to-speaker-id mapping via
+              ISynthesisModel.ResolveSpeakerId, with a download descriptor naming every
+              individual file (the ONNX model graph and every voice's style-vector file) the
+              model needs with no post-download extraction step required.
+            justification: |
+              The Speech library defines the synthesis-model contract but ships no concrete
+              models; a host needs a real, checksum-verified, installable synthesis model
+              exposing more than a single fixed voice to perform offline text-to-speech with
+              this model family at all.
+            children:
+              - SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-Identity
+              - SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-License
+              - SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-DownloadDescriptor
+              - SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-EngineConstruction
+              - SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-SessionDisposedOnFailure
+              - SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-PreferredAudioFormat
+              - SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-ResolveSpeakerId
+            tests:
+              - OnnxKokoroEnglishSynthesisModel_Identity_DeclaresExpectedValues
+              - OnnxKokoroEnglishSynthesisModel_DownloadDescriptor_Declares30UniqueValidatedFiles
+              - OnnxKokoroEnglishSynthesisModel_PreferredAudioFormat_IsMono24000
+              - OnnxKokoroEnglishSynthesisModel_ResolveSpeakerId_KnownVoice_ReturnsDeclarationOrderIndex
+              - OnnxKokoroEnglishSynthesisModel_CreateBackend_ValidModelAndVoices_GeneratesUsingSelectedVoiceStyle
+              - OnnxKokoroEnglishSynthesisModel_CreateBackend_MissingVoiceFile_DisposesSessionAndThrows
+
+          - id: SpeechOnnxKokoro-Models-TextToPhonemePipeline
+            title: >-
+              The ModelManagementSubsystem shall provide a complete English text-to-phoneme and
+              phoneme-to-token-id pipeline (KokoroLexiconPhonemizer, KokoroPhonemeVocabulary)
+              that this subsystem's synthesis model owns itself, since the Kokoro v1.0 ONNX
+              export performs only the waveform-generation forward pass.
+            justification: |
+              Unlike sherpa-onnx's native library (used by the sibling SpeechSherpa system),
+              which bundles phonemization internally, the bare ONNX export leaves text-to-phoneme
+              conversion entirely to the caller. This subsystem must honestly own that
+              responsibility itself for Kokoro v1.0 synthesis to produce correct pronunciation.
+            children:
+              - SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-Phonemize
+              - SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-UnknownWordHandling
+              - SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-TextNormalization
+              - SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-ArgumentValidation
+              - SpeechOnnxKokoro-Models-KokoroPhonemeVocabulary-ToTokenIds
+              - SpeechOnnxKokoro-Models-KokoroPhonemeVocabulary-ArgumentValidation
+            tests:
+              - Phonemize_KnownWord_ReturnsLexiconPhonemesWithNoUnknownWords
+              - Phonemize_OutOfVocabularyWord_DroppedAndReportedAsUnknown
+              - Phonemize_NullText_ThrowsArgumentNullException
+              - ToTokenIds_KnownChars_ReturnsConfirmedIdsInOrder
+              - ToTokenIds_NullPhonemes_ThrowsArgumentNullException

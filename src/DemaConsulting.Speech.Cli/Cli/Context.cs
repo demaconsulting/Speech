@@ -18,6 +18,9 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+using System.Net;
+using DemaConsulting.Speech.ModelManagementSubsystem;
+
 namespace DemaConsulting.Speech.Cli.Cli;
 
 /// <summary>
@@ -78,6 +81,82 @@ internal sealed class Context : IDisposable
     public string? ModelsDir { get; private init; }
 
     /// <summary>
+    ///     Gets the internal download mirror base URL supplied via <c>--mirror-url</c>, or
+    ///     <see langword="null"/> to download every model from its own declared public URI
+    ///     (the default).
+    /// </summary>
+    public string? MirrorUrl { get; private init; }
+
+    /// <summary>
+    ///     Gets the HTTP Basic username supplied via <c>--mirror-user</c>, or
+    ///     <see langword="null"/> when the mirror needs no Basic credential.
+    /// </summary>
+    public string? MirrorUser { get; private init; }
+
+    /// <summary>
+    ///     Gets the HTTP Basic password supplied via <c>--mirror-password</c>, or
+    ///     <see langword="null"/> when the mirror needs no Basic credential.
+    /// </summary>
+    public string? MirrorPassword { get; private init; }
+
+    /// <summary>
+    ///     Gets the bearer token supplied via <c>--mirror-bearer-token</c>, or
+    ///     <see langword="null"/> when the mirror needs no bearer token.
+    /// </summary>
+    public string? MirrorBearerToken { get; private init; }
+
+    /// <summary>
+    ///     Resolves this context's <c>--mirror-*</c> options into a <see cref="DownloadMirror"/>,
+    ///     for <see cref="Commands.ModelCommandsSubsystem.CliModelCatalogFactory"/> to pass
+    ///     through to the library catalog.
+    /// </summary>
+    /// <returns>
+    ///     A new <see cref="DownloadMirror"/> when <see cref="MirrorUrl"/> was supplied;
+    ///     otherwise <see langword="null"/> (every model downloads from its own declared public
+    ///     URI).
+    /// </returns>
+    /// <exception cref="ArgumentException">
+    ///     Thrown when any of <see cref="MirrorUser"/>, <see cref="MirrorPassword"/>, or
+    ///     <see cref="MirrorBearerToken"/> is supplied without <see cref="MirrorUrl"/> (a
+    ///     credential with nowhere to apply almost always indicates a missing or misspelled
+    ///     <c>--mirror-url</c> rather than an intentional no-op), when
+    ///     <see cref="MirrorUser"/> is supplied without <see cref="MirrorPassword"/> (or vice
+    ///     versa), when both Basic credentials and a bearer token are supplied, when
+    ///     <see cref="MirrorUrl"/> is not a valid absolute URI, or for any other configuration
+    ///     <see cref="DownloadMirror"/>'s own constructor rejects (for example a non-HTTPS mirror
+    ///     combined with a credential, on a non-loopback host).
+    /// </exception>
+    public DownloadMirror? CreateMirror()
+    {
+        if (string.IsNullOrEmpty(MirrorUrl))
+        {
+            if (MirrorUser is not null || MirrorPassword is not null || MirrorBearerToken is not null)
+            {
+                throw new ArgumentException(
+                    "--mirror-user, --mirror-password, and --mirror-bearer-token require " +
+                    "--mirror-url; none of them has any effect without a mirror URL to apply " +
+                    "them to.");
+            }
+
+            return null;
+        }
+
+        if (!Uri.TryCreate(MirrorUrl, UriKind.Absolute, out var baseUri))
+        {
+            throw new ArgumentException($"--mirror-url '{MirrorUrl}' is not a valid absolute URL.");
+        }
+
+        if (MirrorUser is null != MirrorPassword is null)
+        {
+            throw new ArgumentException(
+                "--mirror-user and --mirror-password must both be supplied together.");
+        }
+
+        var credentials = MirrorUser is not null ? new NetworkCredential(MirrorUser, MirrorPassword) : null;
+        return new DownloadMirror(baseUri, credentials, MirrorBearerToken);
+    }
+
+    /// <summary>
     ///     Gets the validation results file path.
     /// </summary>
     public string? ResultsFile { get; private init; }
@@ -135,11 +214,18 @@ internal sealed class Context : IDisposable
             Validate = parser.Validate,
             Diagnostics = parser.Diagnostics,
             ModelsDir = parser.ModelsDir,
+            MirrorUrl = parser.MirrorUrl,
+            MirrorUser = parser.MirrorUser,
+            MirrorPassword = parser.MirrorPassword,
+            MirrorBearerToken = parser.MirrorBearerToken,
             ResultsFile = parser.ResultsFile,
             HeadingDepth = parser.HeadingDepth,
             Command = parser.Command,
             CommandArgs = parser.CommandArgs.AsReadOnly()
         };
+
+        // Validate mirror options up front so every invocation (including --help/--version) rejects bad combinations
+        _ = result.CreateMirror();
 
         // Open log file if specified
         if (parser.LogFile != null)
@@ -205,6 +291,26 @@ internal sealed class Context : IDisposable
         ///     Gets the models directory override.
         /// </summary>
         public string? ModelsDir { get; private set; }
+
+        /// <summary>
+        ///     Gets the internal download mirror base URL.
+        /// </summary>
+        public string? MirrorUrl { get; private set; }
+
+        /// <summary>
+        ///     Gets the HTTP Basic username for the mirror.
+        /// </summary>
+        public string? MirrorUser { get; private set; }
+
+        /// <summary>
+        ///     Gets the HTTP Basic password for the mirror.
+        /// </summary>
+        public string? MirrorPassword { get; private set; }
+
+        /// <summary>
+        ///     Gets the bearer token for the mirror.
+        /// </summary>
+        public string? MirrorBearerToken { get; private set; }
 
         /// <summary>
         ///     Gets the log file path.
@@ -289,6 +395,22 @@ internal sealed class Context : IDisposable
 
                 case "--models-dir":
                     ModelsDir = GetRequiredStringArgument(arg, args, index, "a directory path argument");
+                    return index + 1;
+
+                case "--mirror-url":
+                    MirrorUrl = GetRequiredStringArgument(arg, args, index, "a mirror base URL argument");
+                    return index + 1;
+
+                case "--mirror-user":
+                    MirrorUser = GetRequiredStringArgument(arg, args, index, "a mirror username argument");
+                    return index + 1;
+
+                case "--mirror-password":
+                    MirrorPassword = GetRequiredStringArgument(arg, args, index, "a mirror password argument");
+                    return index + 1;
+
+                case "--mirror-bearer-token":
+                    MirrorBearerToken = GetRequiredStringArgument(arg, args, index, "a mirror bearer token argument");
                     return index + 1;
 
                 case "--log":

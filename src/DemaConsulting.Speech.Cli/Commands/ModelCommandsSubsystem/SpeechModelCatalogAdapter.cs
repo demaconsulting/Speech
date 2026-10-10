@@ -20,6 +20,7 @@
 
 using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
+using DemaConsulting.Speech.Onnx.Kokoro;
 using DemaConsulting.Speech.RecognitionSubsystem;
 using DemaConsulting.Speech.Sherpa;
 using DemaConsulting.Speech.SynthesisSubsystem;
@@ -50,9 +51,18 @@ internal sealed class SpeechModelCatalogAdapter : ICliModelCatalog, IDisposable
     ///     <c>--models-dir</c> override), or <see langword="null"/> to use the library's default
     ///     per-user storage root.
     /// </param>
-    public SpeechModelCatalogAdapter(SpeechModelStoreOptions? options = null)
+    /// <param name="downloaderOptions">
+    ///     Optional host-configured download options (for example honoring the CLI's
+    ///     <c>--mirror-*</c> overrides), or <see langword="null"/> to download every model from
+    ///     its own declared public URI.
+    /// </param>
+    public SpeechModelCatalogAdapter(
+        SpeechModelStoreOptions? options = null,
+        SpeechModelDownloaderOptions? downloaderOptions = null)
     {
-        _catalog = new SpeechModelCatalog(options).AddSherpaModels();
+        _catalog = new SpeechModelCatalog(options, downloaderOptions, diagnostics: null)
+            .AddSherpaModels()
+            .AddKokoroModels();
     }
 
     /// <inheritdoc/>

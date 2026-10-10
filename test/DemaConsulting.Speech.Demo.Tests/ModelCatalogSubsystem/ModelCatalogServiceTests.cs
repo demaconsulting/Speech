@@ -34,6 +34,190 @@ public class ModelCatalogServiceTests
     }
 
     /// <summary>
+    ///     Proves that the factory-taking constructor rejects a missing factory, just as it
+    ///     rejects a missing catalog.
+    /// </summary>
+    [Fact]
+    public void ModelCatalogService_Constructor_NullCatalogFactory_ThrowsArgumentNullException()
+    {
+        // Arrange
+        using var catalog = new SpeechModelCatalog(IsolatedOptions());
+
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => new ModelCatalogService(catalog, null!));
+    }
+
+    /// <summary>
+    ///     Proves that a service constructed without a catalog factory refuses to change its
+    ///     mirror, rather than silently doing nothing.
+    /// </summary>
+    [Fact]
+    public void ModelCatalogService_ApplyMirror_NoFactory_ThrowsInvalidOperationException()
+    {
+        // Arrange
+        using var catalog = new SpeechModelCatalog(IsolatedOptions());
+        var service = new ModelCatalogService(catalog);
+
+        // Act & Assert
+        Assert.Throws<InvalidOperationException>(() => service.ApplyMirror(null));
+    }
+
+    /// <summary>
+    ///     Proves that a service constructed with a catalog factory rebuilds its catalog through
+    ///     that factory when a mirror is applied, so subsequent calls observe the new catalog's
+    ///     known models.
+    /// </summary>
+    [Fact]
+    public void ModelCatalogService_ApplyMirror_WithFactory_RebuildsCatalogThroughFactory()
+    {
+        // Arrange: the factory returns a catalog with a different known-model count each time it
+        // is invoked, so a successful rebuild is observable through Enumerate() alone
+        var store = new SpeechModelStore(IsolatedOptions());
+        var callCount = 0;
+        SpeechModelCatalog Factory(SpeechModelDownloaderOptions? _)
+        {
+            callCount++;
+            var models = callCount == 1
+                ? []
+                : new List<ISpeechModel> { new FakeModel("model-after-apply") };
+            return new SpeechModelCatalog(models, store, null, null, null);
+        }
+
+        var initialCatalog = Factory(null);
+        var service = new ModelCatalogService(initialCatalog, Factory);
+        Assert.Empty(service.Enumerate());
+
+        // Act
+        service.ApplyMirror(null);
+
+        // Assert: the service now forwards to the catalog the factory built on its second call
+        Assert.Equal(2, callCount);
+        Assert.Single(service.Enumerate());
+        Assert.Equal("model-after-apply", service.Enumerate()[0].Id);
+    }
+
+    /// <summary>
+    ///     Proves that applying a mirror disposes the catalog it replaces, rather than leaking it
+    ///     for the lifetime of the application.
+    /// </summary>
+    /// <remarks>
+    ///     Uses the same successful-download-first technique as
+    ///     <see cref="ModelCatalogService_Dispose_WithFactory_DisposesCurrentCatalog"/>: a
+    ///     per-model-id lock already exists on the replaced catalog's downloader before
+    ///     <see cref="ModelCatalogService.ApplyMirror"/> runs, so a genuinely disposed replaced
+    ///     catalog surfaces <see cref="ObjectDisposedException"/> from a later download attempt
+    ///     against it directly.
+    /// </remarks>
+    [Fact]
+    public async Task ModelCatalogService_ApplyMirror_WithFactory_DisposesReplacedCatalog()
+    {
+        // Arrange
+        var payload = "genuine model bytes"u8.ToArray();
+        var model = new DownloadableFakeModel("replaced-catalog-probe-model", SpeechModelRole.Synthesis, payload);
+        var store = new SpeechModelStore(IsolatedOptions());
+        var initialCatalog = new SpeechModelCatalog([model], store, new SucceedingModelDownloadClient(payload));
+        var service = new ModelCatalogService(
+            initialCatalog, _ => new SpeechModelCatalog([model], store, new SucceedingModelDownloadClient(payload)));
+
+        // One successful download so the model id's per-model-id lock already exists
+        var firstResult = await initialCatalog.DownloadAsync(model.Id, null, CancellationToken.None);
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, firstResult.Outcome);
+
+        // Act
+        service.ApplyMirror(null);
+
+        // Assert: the replaced catalog is genuinely disposed, not merely detached
+        await Assert.ThrowsAsync<ObjectDisposedException>(
+            () => initialCatalog.DownloadAsync(model.Id, null, CancellationToken.None));
+    }
+
+    /// <summary>
+    ///     Proves that disposing a factory-constructed service disposes its current catalog, so
+    ///     the composition root does not need to separately track every catalog ever built.
+    /// </summary>
+    /// <remarks>
+    ///     A successful download first, so the per-model-id lock this model's id resolves to
+    ///     already exists in the catalog's downloader before disposal - the same lock is reused
+    ///     on the next <see cref="SpeechModelCatalog.DownloadAsync(string,IProgress{SpeechModelDownloadProgress}?,CancellationToken)"/>
+    ///     call rather than one created fresh. Disposing therefore leaves a genuinely disposed
+    ///     lock in place, and a later call to download the same model id surfaces the documented
+    ///     <see cref="ObjectDisposedException"/>.
+    /// </remarks>
+    [Fact]
+    public async Task ModelCatalogService_Dispose_WithFactory_DisposesCurrentCatalog()
+    {
+        // Arrange
+        var payload = "genuine model bytes"u8.ToArray();
+        var model = new DownloadableFakeModel("disposal-probe-model", SpeechModelRole.Synthesis, payload);
+        var store = new SpeechModelStore(IsolatedOptions());
+        var catalog = new SpeechModelCatalog([model], store, new SucceedingModelDownloadClient(payload));
+        var service = new ModelCatalogService(
+            catalog, _ => new SpeechModelCatalog([model], store, new SucceedingModelDownloadClient(payload)));
+
+        // One successful download so the model id's per-model-id lock already exists
+        var firstResult = await catalog.DownloadAsync(model.Id, null, CancellationToken.None);
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, firstResult.Outcome);
+
+        // Act
+        service.Dispose();
+
+        // Assert: the now-disposed, reused per-model-id lock surfaces the documented
+        // ObjectDisposedException rather than silently succeeding against a disposed catalog
+        await Assert.ThrowsAsync<ObjectDisposedException>(
+            () => catalog.DownloadAsync(model.Id, null, CancellationToken.None));
+    }
+
+    /// <summary>
+    ///     Proves that disposing a service constructed with the single-catalog constructor does
+    ///     not dispose the catalog, preserving the pre-existing "shared catalog outlives any one
+    ///     adapter" contract for callers that never apply a mirror.
+    /// </summary>
+    [Fact]
+    public void ModelCatalogService_Dispose_WithoutFactory_DoesNotDisposeCatalog()
+    {
+        // Arrange
+        using var catalog = new SpeechModelCatalog(IsolatedOptions());
+        var service = new ModelCatalogService(catalog);
+
+        // Act
+        service.Dispose();
+
+        // Assert: the catalog is still usable
+        Assert.Empty(catalog.Enumerate());
+    }
+
+    /// <summary>
+    ///     Minimal <see cref="ISpeechModel"/> stand-in used only to prove that
+    ///     <see cref="ModelCatalogService.ApplyMirror"/> genuinely swaps which catalog is in use.
+    /// </summary>
+    private sealed class FakeModel(string id) : ISpeechModel
+    {
+        /// <inheritdoc/>
+        public string Id => id;
+
+        /// <inheritdoc/>
+        public string DisplayName => id;
+
+        /// <inheritdoc/>
+        public SpeechModelRole Role => SpeechModelRole.Synthesis;
+
+        /// <inheritdoc/>
+        public IReadOnlyList<ISpeechModelParameter> Parameters => [];
+
+        /// <inheritdoc/>
+        public SpeechModelAudioTagSupport AudioTagSupport => SpeechModelAudioTagSupport.None;
+
+        /// <inheritdoc/>
+        public SpeechModelDownloadDescriptor DownloadDescriptor { get; } = new(
+        [
+            new SpeechModelDownloadFile(
+                new Uri($"https://example.test/{id}.bin"),
+                new string('0', 64),
+                "model.bin")
+        ]);
+    }
+
+    /// <summary>
     ///     Proves that the adapter reports exactly what the library's catalog reports - the
     ///     four real models this phase registers (two recognition, two synthesis) - rather than
     ///     inventing placeholder models to fill the panel.

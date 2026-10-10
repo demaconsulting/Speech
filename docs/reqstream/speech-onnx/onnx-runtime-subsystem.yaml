@@ -1,0 +1,48 @@
+---
+# Software Subsystem Requirements for the SpeechOnnx OnnxRuntimeSubsystem
+#
+# These requirements describe the subsystem-level behavior of the SpeechOnnx
+# OnnxRuntimeSubsystem, decomposing the system-level requirements in
+# docs/reqstream/speech-onnx.yaml. This subsystem contains a single unit,
+# OnnxExecutionProviderSelector, the library's only generic ONNX Runtime infrastructure.
+#
+# Unit-level content lives in
+# docs/reqstream/speech-onnx/onnx-runtime-subsystem/onnx-execution-provider-selector.yaml. Covered
+# by test/DemaConsulting.Speech.Onnx.Tests - see that unit-level file's tests: lists.
+
+sections:
+  - title: SpeechOnnx Requirements
+    sections:
+      - title: OnnxRuntimeSubsystem Requirements
+        requirements:
+          - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ProviderFallback
+            title: >-
+              The SpeechOnnx OnnxRuntimeSubsystem shall provide a single static helper,
+              OnnxExecutionProviderSelector, that constructs an ONNX Runtime InferenceSession by
+              trying each of an ordered list of preferred execution provider names in turn,
+              optionally probing each candidate with a caller-supplied representative inference,
+              before falling back to the CPU provider, disposing each candidate's SessionOptions
+              and (when it does not win) InferenceSession after its own construction/probe
+              attempt without disposing the returned InferenceSession.
+            justification: |
+              Every sibling model package that loads an ONNX model needs identical,
+              once-reviewed provider-selection and resource-disposal behavior; centralizing it
+              here means no model package re-implements (or re-introduces a resource leak in)
+              its own fallback logic. A construction-only check is not sufficient for every
+              provider - some (notably DirectML) construct successfully yet fail on the actual
+              graph at Run() time - so an optional probe is part of this same centralized
+              contract rather than left for each model package to reinvent.
+            children:
+              - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-TriesCandidatesInOrder
+              - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-FallsBackToCpu
+              - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-DisposesEachCandidateOptions
+              - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-DisposesCandidateSessionOnAnyFailure
+              - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ArgumentValidation
+            tests:
+              - Create_NoPreferredProviders_CreatesWorkingCpuSession
+              - Create_UnknownProviderName_FallsBackToCpuSession
+              - Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback
+              - Create_ValidateSessionProbeThrowsOtherException_Rethrows
+              - Create_EmptyPreferredProviders_NeverInvokesProbe
+              - Create_NullModelPath_ThrowsArgumentNullException
+              - Create_EmptyModelPath_ThrowsArgumentException

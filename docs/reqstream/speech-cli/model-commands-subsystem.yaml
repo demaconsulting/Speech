@@ -166,6 +166,23 @@ sections:
               - CliModelCatalogFactory_Create_WithModelsDir_UsesGivenRoot
               - CliModelCatalogFactory_Create_NullContext_ThrowsArgumentNullException
 
+          - id: SpeechCli-ModelCommands-DownloadMirrorComposition
+            title: >-
+              The ModelCommandsSubsystem shall compose every model-management command's catalog
+              seam with the download mirror resolved from the tool's global `--mirror-*` options
+              (see `SpeechCli-Cli-DownloadMirror`), so a configured mirror is genuinely applied to
+              every model download that seam performs, not merely accepted and ignored.
+            tags: [subsystem]
+            justification: |
+              `CliModelCatalogFactory`/`SpeechModelCatalogAdapter` are this subsystem's only path
+              from the parsed `--mirror-*` global options to the library's download machinery;
+              decomposing the system-level `SpeechCli-Cli-DownloadMirror` requirement down to this
+              subsystem makes that composition responsibility explicit and independently
+              verifiable, rather than leaving the mirror's actual effect on a real download
+              implicit in the system-level requirement alone.
+            tests:
+              - CliModelCatalogFactory_Create_WithMirrorUrl_AppliesMirrorToDownloads
+
           - id: SpeechCli-ModelCommands-SynthesisSeamExtension
             title: >-
               The `ICliModelCatalog` seam shall additionally expose a resolved model's preferred

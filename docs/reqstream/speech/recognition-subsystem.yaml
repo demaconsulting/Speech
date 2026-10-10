@@ -105,6 +105,7 @@ sections:
             children:
               - Speech-Recognition-RecognitionSession-FormatConversion
               - Speech-Recognition-RecognitionSession-TextNormalization
+              - Speech-Recognition-RecognitionSession-FiniteSourceLossless
               - Speech-Recognition-RecognitionResultBuffer-TwoTierBackpressure
               - Speech-Recognition-AudioFrameResampler-Downmix
               - Speech-Recognition-AudioFrameResampler-RateConversion

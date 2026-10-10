@@ -8,6 +8,7 @@ using DemaConsulting.Speech.Demo.RecognitionPanelSubsystem;
 using DemaConsulting.Speech.Demo.ShellSubsystem;
 using DemaConsulting.Speech.Demo.SynthesisPanelSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
+using DemaConsulting.Speech.Onnx.Kokoro;
 using DemaConsulting.Speech.Sherpa;
 
 namespace DemaConsulting.Speech.Demo;
@@ -27,10 +28,25 @@ namespace DemaConsulting.Speech.Demo;
 public sealed class App : Application
 {
     /// <summary>
-    ///     The library model catalog owned by this application, disposed when the desktop
+    ///     This demo's parsed <c>--models-dir</c>/<c>--mirror-*</c> launch options, set by
+    ///     <see cref="Program.Main"/> before the Avalonia lifetime starts, or <see langword="null"/>
+    ///     when running under Avalonia's design-time tooling (which constructs this type without
+    ///     ever calling <see cref="Program.Main"/>). See <see cref="AppLaunchOptions"/>'s remarks
+    ///     for how launch-time options complement the in-app mirror-settings panel.
+    /// </summary>
+    public static AppLaunchOptions? LaunchOptions { get; set; }
+
+    /// <summary>
+    ///     The model catalog service owned by this application, disposed when the desktop
     ///     lifetime shuts down.
     /// </summary>
-    private SpeechModelCatalog? _catalog;
+    /// <remarks>
+    ///     Typed as the concrete <see cref="ModelCatalogService"/> (not the
+    ///     <see cref="IModelCatalogService"/> seam it implements) because disposal is this
+    ///     composition root's own responsibility and <see cref="IModelCatalogService"/>
+    ///     deliberately does not extend <see cref="IDisposable"/> - see that interface's remarks.
+    /// </remarks>
+    private ModelCatalogService? _catalogService;
 
     /// <summary>
     ///     Set once the deferred shutdown's async cleanup has been started, so the second,
@@ -62,17 +78,30 @@ public sealed class App : Application
             // degrades to honest unavailable probes, and the model catalog is valid even when the
             // library's compiled-in known-model registry is empty.
             var audioFactory = new AudioDeviceFactory();
-            _catalog = new SpeechModelCatalog().AddSherpaModels();
+            var storeOptions = LaunchOptions?.CreateStoreOptions();
+            var downloaderOptions = LaunchOptions?.CreateDownloaderOptions();
 
-            // A second store instance resolving the same default root directory as the catalog's
-            // own internal store, used only to locate an installed model's files for the
+            // Captures storeOptions and the Sherpa/Kokoro composition so the catalog service
+            // below can rebuild an equivalent catalog, pointed at a new mirror, whenever the
+            // user applies new mirror settings from the model catalog panel.
+            SpeechModelCatalog CatalogFactory(SpeechModelDownloaderOptions? options) =>
+                new SpeechModelCatalog(storeOptions, options, diagnostics: null)
+                    .AddSherpaModels()
+                    .AddKokoroModels();
+
+            var initialCatalog = CatalogFactory(downloaderOptions);
+
+            // A second store instance resolving the same root directory as the catalog's own
+            // internal store (honoring the same --models-dir override, if supplied), used only
+            // to locate an installed model's files for the
             // synthesis/recognition session seams below.
-            var modelStore = new SpeechModelStore();
+            var modelStore = new SpeechModelStore(storeOptions);
 
             // Wrap each concrete/static library entry point in the demo's own service seam so the
             // panel ViewModels depend only on interfaces this application owns.
             var deviceService = new AudioDeviceService(audioFactory);
-            var catalogService = new ModelCatalogService(_catalog);
+            var catalogService = new ModelCatalogService(initialCatalog, CatalogFactory);
+            _catalogService = catalogService;
             var synthesizerSessionFactory = new SynthesizerSessionFactory(modelStore);
             var recognizerSessionFactory = new RecognizerSessionFactory(modelStore);
 
@@ -80,7 +109,12 @@ public sealed class App : Application
 
             var viewModel = new MainWindowViewModel(
                 deviceSelection,
-                new ModelCatalogViewModel(catalogService),
+                new ModelCatalogViewModel(
+                    catalogService,
+                    LaunchOptions?.MirrorUrl,
+                    LaunchOptions?.MirrorUser,
+                    LaunchOptions?.MirrorPassword,
+                    LaunchOptions?.MirrorBearerToken),
                 new SynthesisPanelViewModel(catalogService, deviceService, deviceSelection, synthesizerSessionFactory),
                 new RecognitionPanelViewModel(catalogService, deviceService, deviceSelection, recognizerSessionFactory));
 
@@ -138,7 +172,7 @@ public sealed class App : Application
         {
             await viewModel.Synthesis.DisposeAsync();
             await viewModel.Recognition.DisposeAsync();
-            _catalog?.Dispose();
+            _catalogService?.Dispose();
         }
         catch
         {

@@ -101,6 +101,9 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionBackend
     /// </remarks>
     private const int PostReplayEndpointGraceMs = 1300;
 
+    /// <summary>The minimum RMS amplitude (full scale = 1.0) for the warm-up buffer to count as speech.</summary>
+    private const double SpeechRmsThreshold = 0.01;
+
     /// <summary>The rate, in Hz, declared for samples supplied to <see cref="AcceptSamples"/>.</summary>
     private readonly int _sampleRate;
 
@@ -142,6 +145,10 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionBackend
     ///     events while the recognizer's hypothesis is unchanged.
     /// </summary>
     private string _lastReportedText = string.Empty;
+
+    // See ReadHypothesis: text the model cleared internally, and the last non-empty raw text.
+    private string _carriedText = string.Empty;
+    private string _lastRawText = string.Empty;
 
     /// <summary>
     ///     Whether <see cref="OnlineRecognizer.GetResult"/> has produced non-empty text at any
@@ -283,7 +290,7 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionBackend
             _recognizer.Decode(_stream);
         }
 
-        var text = _recognizer.GetResult(_stream).Text ?? string.Empty;
+        var text = ReadHypothesis();
 
         if (_warmupBuffer is not null && text.Length > 0)
         {
@@ -307,12 +314,15 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionBackend
             // speech has been recognized since the last reset is eligible for warm-up replay. An
             // endpoint firing on leading/inter-utterance silence with nothing genuine recognized
             // yet must not replay - see `_hasRecognizedTextSinceReset` remarks for why.
-            var replayEligible = _warmupBuffer is { Count: > 0 } && _hasRecognizedTextSinceReset;
+            var replayEligible = _warmupBuffer is { Count: > 0 } && _hasRecognizedTextSinceReset &&
+                                 ContainsSpeechEnergy(_warmupBuffer);
 
             _recognizer.Reset(_stream);
             _lastReportedText = string.Empty;
             _hasRecognizedTextSinceReset = false;
             _hasReplayOnlyHypothesis = false;
+            _carriedText = string.Empty;
+            _lastRawText = string.Empty;
 
             // Disabled models (`_warmupBuffer` null) skip this entirely - no replay, no grace
             // period, zero measurable behavior change from before this feature existed.
@@ -384,7 +394,7 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionBackend
             return false;
         }
 
-        var text = _recognizer.GetResult(_stream).Text ?? string.Empty;
+        var text = ReadHypothesis();
         if (text.Length == 0)
         {
             return false;
@@ -392,6 +402,64 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionBackend
 
         result = new SpeechRecognitionResult(text, IsFinal: true);
         return true;
+    }
+
+    /// <summary>
+    ///     Reads the recognizer's current hypothesis, preserving text the model has internally
+    ///     discarded.
+    /// </summary>
+    /// <remarks>
+    ///     Cache-aware streaming models (Nemotron) clear their own hypothesis when they detect an
+    ///     end of utterance, before this engine's endpoint rules fire. Without compensation the
+    ///     text recognized so far silently vanishes: the endpoint then finalizes nothing, or only
+    ///     the words spoken after the model's internal reset. When the raw text drops to empty
+    ///     after having been non-empty, the last non-empty text is carried forward and prefixed
+    ///     to every later hypothesis until the stream is reset.
+    /// </remarks>
+    private string ReadHypothesis()
+    {
+        var raw = _recognizer.GetResult(_stream).Text ?? string.Empty;
+
+        if (raw.Length == 0)
+        {
+            if (_lastRawText.Length > 0)
+            {
+                _carriedText = _carriedText.Length == 0 ? _lastRawText : $"{_carriedText} {_lastRawText}";
+                _lastRawText = string.Empty;
+            }
+        }
+        else
+        {
+            _lastRawText = raw;
+        }
+
+        if (_carriedText.Length == 0)
+        {
+            return raw;
+        }
+
+        return raw.Length == 0 ? _carriedText : $"{_carriedText} {raw}";
+    }
+
+    /// <summary>
+    ///     Reports whether the rolling warm-up buffer holds audible audio rather than silence.
+    /// </summary>
+    /// <remarks>
+    ///     An endpoint that fires after a genuine trailing pause leaves a buffer of pure silence;
+    ///     replaying that into the freshly reset, encoder-cold stream makes the NeMo-cache-aware
+    ///     decoder lose the speech that follows the pause (reproduced on a finite WAV file with a
+    ///     long mid-file silence). The replay exists only to recover words swallowed by a
+    ///     <i>false-positive</i> endpoint, where the buffer still holds the speech just spoken.
+    /// </remarks>
+    private static bool ContainsSpeechEnergy(List<float> buffer)
+    {
+        double sumOfSquares = 0;
+        foreach (var sample in buffer)
+        {
+            sumOfSquares += (double)sample * sample;
+        }
+
+        return Math.Sqrt(sumOfSquares / buffer.Count) > SpeechRmsThreshold;
     }
 
     /// <summary>
@@ -484,6 +552,8 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionBackend
         _lastReportedText = string.Empty;
         _hasRecognizedTextSinceReset = false;
         _hasReplayOnlyHypothesis = false;
+        _carriedText = string.Empty;
+        _lastRawText = string.Empty;
         _warmupBuffer?.Clear();
         _graceSamplesRemaining = 0;
 

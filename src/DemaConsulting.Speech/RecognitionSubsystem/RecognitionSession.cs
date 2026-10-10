@@ -278,10 +278,14 @@ internal sealed class RecognitionSession : IRecognitionSession
 
             startingArgs = TransitionTo(RecognitionSessionState.Starting);
 
+            var isFiniteSource = _device is WavFileAudioCaptureDevice;
             var frames = Channel.CreateBounded<float[]>(
                 new BoundedChannelOptions(PendingFrameCapacity)
                 {
-                    FullMode = BoundedChannelFullMode.DropOldest,
+                    // A live microphone must never stall its audio callback, so it drops the
+                    // oldest block when recognition falls behind. A finite file is delivered
+                    // faster than real time and every sample matters, so it applies backpressure.
+                    FullMode = isFiniteSource ? BoundedChannelFullMode.Wait : BoundedChannelFullMode.DropOldest,
                     SingleReader = true,
                     SingleWriter = false
                 });
@@ -605,7 +609,10 @@ internal sealed class RecognitionSession : IRecognitionSession
             // only matters if the pump thread is genuinely stuck inside a blocking backend call that
             // never returns, in which case the worker is abandoned after its timeout rather than
             // hanging this call forever.
-            if (pumpCts is not null)
+            // A finite file source is never cancelled here: the abandon deadline would cut off a
+            // slow backend (for example a large CPU model) still decoding the file's queued audio,
+            // losing the tail of a transcript the user expects in totality.
+            if (pumpCts is not null && _device is not WavFileAudioCaptureDevice)
             {
                 await pumpCts.CancelAsync().ConfigureAwait(false);
             }
@@ -909,6 +916,23 @@ internal sealed class RecognitionSession : IRecognitionSession
                 return;
             }
 
+            if (_device is WavFileAudioCaptureDevice)
+            {
+                // Runs on the file device's own Start() thread, never a live audio callback, so
+                // blocking here until the pump catches up is safe and loses no audio. The channel
+                // is completed on teardown or a pump fault, which releases a blocked write.
+                try
+                {
+                    frames.Writer.WriteAsync([.. e.Samples], CancellationToken.None).AsTask().GetAwaiter().GetResult();
+                }
+                catch (ChannelClosedException)
+                {
+                    // The session is stopping or faulted; the remaining file audio is moot.
+                }
+
+                return;
+            }
+
             frames.Writer.TryWrite([.. e.Samples]);
         }
         catch (Exception ex)
@@ -1109,6 +1133,10 @@ internal sealed class RecognitionSession : IRecognitionSession
         }
 
         _resultBuffer.Fault(cause);
+
+        // Nothing reads the queue once the pump exits; completing it releases a file source
+        // blocked on backpressure so StartAsync cannot hang.
+        _pendingFrames?.Writer.TryComplete();
     }
 
     /// <summary>

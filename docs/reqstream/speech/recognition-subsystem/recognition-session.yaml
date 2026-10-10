@@ -60,6 +60,20 @@ sections:
                 tests:
                   - RecognitionSession_DeviceLostMidSession_TransitionsToFaulted
 
+              - id: Speech-Recognition-RecognitionSession-FiniteSourceLossless
+                title: >-
+                  The RecognitionSession class shall apply backpressure to a finite WAV file
+                  source instead of dropping queued blocks, so every sample of the file reaches
+                  the recognition backend even when recognition is slower than delivery.
+                justification: |
+                  A file is finite and delivered faster than real time, and users expect it to
+                  be transcribed in totality; only a live microphone may shed its oldest audio
+                  when recognition falls behind.
+                tests:
+                  - RecognitionSession_WavFileSource_SlowBackend_DeliversEverySample
+                  - RecognitionSession_WavFileSource_StopAsync_SlowDrain_DeliversFlushedResult
+                  - RecognitionSession_WavFileSource_BackendFaults_StartAsyncStillCompletes
+
               - id: Speech-Recognition-RecognitionSession-NativeCallAbandonIntegration
                 title: >-
                   The RecognitionSession class shall route every call into the

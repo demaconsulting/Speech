@@ -102,6 +102,16 @@ includes:
   - docs/reqstream/speech-sherpa/recognition-subsystem/sherpa-onnx-recognition-engine.yaml
   - docs/reqstream/speech-sherpa/synthesis-subsystem.yaml
   - docs/reqstream/speech-sherpa/synthesis-subsystem/sherpa-onnx-synthesis-engine.yaml
+  - docs/reqstream/speech-onnx.yaml
+  - docs/reqstream/speech-onnx/onnx-runtime-subsystem.yaml
+  - docs/reqstream/speech-onnx/onnx-runtime-subsystem/onnx-execution-provider-selector.yaml
+  - docs/reqstream/speech-onnx-kokoro.yaml
+  - docs/reqstream/speech-onnx-kokoro/model-management-subsystem.yaml
+  - docs/reqstream/speech-onnx-kokoro/model-management-subsystem/onnx-kokoro-english-synthesis-model.yaml
+  - docs/reqstream/speech-onnx-kokoro/model-management-subsystem/kokoro-lexicon-phonemizer.yaml
+  - docs/reqstream/speech-onnx-kokoro/model-management-subsystem/kokoro-phoneme-vocabulary.yaml
+  - docs/reqstream/speech-onnx-kokoro/synthesis-subsystem.yaml
+  - docs/reqstream/speech-onnx-kokoro/synthesis-subsystem/onnx-kokoro-synthesis-engine.yaml
   - docs/reqstream/ots/port-audio-sharp2.yaml
   - docs/reqstream/ots/sherpa-onnx.yaml
   - docs/reqstream/ots/sharp-compress.yaml

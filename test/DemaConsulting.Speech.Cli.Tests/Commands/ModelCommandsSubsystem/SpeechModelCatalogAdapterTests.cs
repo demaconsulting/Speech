@@ -75,9 +75,9 @@ public sealed class SpeechModelCatalogAdapterTests : IDisposable
         // Act
         var descriptors = adapter.Enumerate();
 
-        // Assert: the adapter registers the same four models the application's own composition
-        // root does via AddSherpaModels()
-        Assert.Equal(4, descriptors.Count);
+        // Assert: the adapter registers the same five models the application's own composition
+        // root does via AddSherpaModels().AddKokoroModels()
+        Assert.Equal(5, descriptors.Count);
         Assert.All(descriptors, descriptor => Assert.Equal(SpeechModelState.NotDownloaded, descriptor.State));
     }
 
@@ -128,7 +128,7 @@ public sealed class SpeechModelCatalogAdapterTests : IDisposable
         using var adapter = CliModelCatalogFactory.Create(context);
 
         // Assert: enumerating does not throw and returns the compiled-in known models
-        Assert.Equal(4, adapter.Enumerate().Count);
+        Assert.Equal(5, adapter.Enumerate().Count);
     }
 
     /// <summary>
@@ -138,6 +138,44 @@ public sealed class SpeechModelCatalogAdapterTests : IDisposable
     public void CliModelCatalogFactory_Create_NullContext_ThrowsArgumentNullException()
     {
         Assert.Throws<ArgumentNullException>(() => CliModelCatalogFactory.Create(null!));
+    }
+
+    /// <summary>
+    ///     Test that <see cref="CliModelCatalogFactory.Create"/> actually threads a configured
+    ///     <c>--mirror-url</c> option into the composed catalog's downloader, rather than silently
+    ///     dropping it, by pointing the mirror at a loopback port with nothing listening and
+    ///     observing that the resulting download failure comes from attempting to reach that
+    ///     loopback mirror - never the model's own real, public download host - proving the
+    ///     mirror was genuinely applied rather than merely accepted and ignored.
+    /// </summary>
+    [Fact]
+    public async Task CliModelCatalogFactory_Create_WithMirrorUrl_AppliesMirrorToDownloads()
+    {
+        // Arrange: reserve a loopback port with nothing listening on it, so any connection
+        // attempt fails fast and deterministically rather than timing out.
+        using var probe = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+        probe.Start();
+        var freePort = ((System.Net.IPEndPoint)probe.LocalEndpoint).Port;
+        probe.Stop();
+        var mirrorUrl = $"http://127.0.0.1:{freePort}/models";
+
+        using var context = Context.Create([
+            "list-models", "--models-dir", _testRoot, "--mirror-url", mirrorUrl
+        ]);
+        using var adapter = CliModelCatalogFactory.Create(context);
+        var modelId = adapter.Enumerate()[0].Id;
+
+        // Act
+        var result = await adapter.DownloadAsync(modelId, null, TestContext.Current.CancellationToken);
+
+        // Assert: the download failed (nothing is listening on the reserved loopback port), and
+        // the captured failure reports attempting to reach the configured mirror host/port -
+        // proof the mirror was genuinely applied to this model's download rather than the
+        // model's own real public URI being used unchanged.
+        Assert.NotEqual(SpeechModelDownloadOutcome.Installed, result.Outcome);
+        Assert.NotNull(result.Error);
+        var errorText = result.Error.ToString();
+        Assert.Contains($"127.0.0.1:{freePort}", errorText, StringComparison.Ordinal);
     }
 
     /// <summary>

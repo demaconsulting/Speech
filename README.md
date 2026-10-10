@@ -42,7 +42,9 @@ dotnet add package DemaConsulting.Speech.Sherpa
 dependency on any speech-engine package. `DemaConsulting.Speech.Sherpa` is a separate,
 sibling package supplying the four sherpa-onnx-backed models used by this README's examples
 (and the `org.k2fsa.sherpa.onnx`/`SharpCompress` dependencies they require); calling
-`.AddSherpaModels()` on a `SpeechModelCatalog` registers them. A host that only needs the
+`.AddSherpaModels()` on a `SpeechModelCatalog` registers them. The optional
+`DemaConsulting.Speech.Onnx.Kokoro` package adds a fifth, raw ONNX Runtime Kokoro v1.0 model via
+`.AddKokoroModels()`. A host that only needs the
 catalog/contract seam - for example to ship its own `IRecognitionModel`/`ISynthesisModel`
 implementation - can depend on the core package alone.
 
@@ -61,12 +63,32 @@ No `win-arm64` PortAudio runtime package is available through this dependency ch
 phase. On an unsupported RID, or if PortAudio fails to initialize on a machine, the library
 still composes safely but reports audio devices as unavailable.
 
+### Combining Kokoro (`DemaConsulting.Speech.Onnx.Kokoro`) with sherpa-onnx
+
+`DemaConsulting.Speech.Onnx.Kokoro` uses Microsoft's `Microsoft.ML.OnnxRuntime` (pinned to 1.28.0),
+and the sherpa-onnx native runtime packages ship their own native ONNX Runtime library
+with the same file name (1.28.2 for sherpa-onnx 1.13.8). An application that references both
+packages restores both copies into the same `runtimes/<rid>/native/` folder; Microsoft's copy can
+overwrite sherpa's and break sherpa-onnx on Linux. In such an application, add this direct
+reference so only sherpa's native runtime is used (Kokoro's managed API runs against it):
+
+```xml
+<PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.28.0" ExcludeAssets="native" />
+```
+
+Keep that version in step with the sherpa-onnx native runtime. An application using Kokoro
+without sherpa-onnx needs no override and gets Microsoft's native runtime transitively. To use an
+accelerated provider (for example DirectML or CUDA), reference the matching
+`Microsoft.ML.OnnxRuntime.*` package in a host that does not also ship sherpa-onnx's runtime. The
+`speech-cli` tool and the Demo application already apply this override.
+
 ### Speech engine runtime support
 
 The library is **designed for extensibility**: each speech engine is a self-contained
 `IRecognitionModel`/`ISynthesisModel`-backed class, registered into a `SpeechModelCatalog` via an
 `AddModels`/`Add*Models`-style extension method - `DemaConsulting.Speech.Sherpa` supplies
-`AddSherpaModels()` for the four models below - so adding a new engine is a new model class and
+`AddSherpaModels()` for the four sherpa-onnx models and `DemaConsulting.Speech.Onnx.Kokoro`
+supplies `AddKokoroModels()` for the raw ONNX Runtime Kokoro model - so adding a new engine is a new model class and
 extension method, not a redesign of the core library. Native runtimes restore transitively
 through the managed `org.k2fsa.sherpa.onnx` package; if one is missing for your target RID,
 composition still succeeds and the factory reports the engine as unavailable instead of crashing.
@@ -77,7 +99,9 @@ result without touching the network. On first download it can instead return `Fa
 transport or I/O failure, with the underlying exception in `SpeechModelDownloadResult.Error`) or
 `ChecksumMismatch`, or throw `ArgumentException` for an unrecognized model id.
 
-This release ships four models through the `DemaConsulting.Speech.Sherpa` package:
+This release ships five models through two packages. `DemaConsulting.Speech.Sherpa`
+(`AddSherpaModels()`) supplies the first four; `DemaConsulting.Speech.Onnx.Kokoro`
+(`AddKokoroModels()`) supplies the raw ONNX Runtime Kokoro model:
 
 | Model | Role | License |
 | --- | --- | --- |
@@ -85,6 +109,7 @@ This release ships four models through the `DemaConsulting.Speech.Sherpa` packag
 | `SherpaOnnxNemotronStreamingEnRecognitionModel` | Streaming STT | NVIDIA Open Model License |
 | `SherpaOnnxVitsLibriTtsEnglishSynthesisModel` | TTS, 904 speakers | CC BY 4.0 |
 | `SherpaOnnxKokoroEnglishSynthesisModel` | TTS, 11 voices | Apache-2.0 |
+| `OnnxKokoroEnglishSynthesisModel` | TTS, 29 English voices (Kokoro v1.0) | Apache-2.0 |
 
 The table above is a convenience view for at-a-glance browsing, not the sole source of license
 information: every model also reports its license programmatically via
@@ -256,6 +281,15 @@ runtime) instead of failing silently, and a shared Model Settings view renders w
 parameters the selected model declares (sliders/numeric up-downs, combo boxes, checkboxes) with
 no per-model code in the demo. Model pickers lock while a model is actively recording or
 playing, so you can't switch models mid-session.
+
+The demo accepts the same `--models-dir <path>` and `--mirror-url <url>`/`--mirror-user
+<user>`/`--mirror-password <pass>`/`--mirror-bearer-token <token>` launch options as
+`speech-cli` (see `speech-cli`'s own
+[Downloading from an internal mirror](src/DemaConsulting.Speech.Cli/README.md#downloading-from-an-internal-mirror)
+section for their validation rules), read once at start-up before the main window opens; run
+`dotnet run --project src/DemaConsulting.Speech.Demo -- --help` for the full list. The Model
+Catalog panel's mirror-settings fields also let you change the mirror from the running
+application - no restart required - using the same validation rules.
 
 ## SpeechCli
 

@@ -1,0 +1,108 @@
+---
+# Software Unit Requirements for OnnxExecutionProviderSelector
+#
+# These requirements describe the design-level behavior of the OnnxExecutionProviderSelector
+# unit, decomposing the parent SpeechOnnx OnnxRuntimeSubsystem requirements.
+#
+# test/DemaConsulting.Speech.Onnx.Tests/OnnxRuntimeSubsystem/OnnxExecutionProviderSelectorTests.cs
+# automates these requirements against a tiny, hand-built ONNX test fixture and the
+# always-available CPU execution provider (no accelerated provider can be genuinely exercised in
+# this repository's CI - see that test class's own remarks). SessionOptions disposal, otherwise
+# unobservable from outside the class, is proven via the internal
+# OnnxExecutionProviderSelector.OnCandidateOptionsCreated test-only hook, which exposes each
+# candidate's own SafeHandle-inherited IsClosed property to the test.
+
+sections:
+  - title: SpeechOnnx Requirements
+    sections:
+      - title: OnnxRuntimeSubsystem Requirements
+        sections:
+          - title: OnnxExecutionProviderSelector Requirements
+            requirements:
+              - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-TriesCandidatesInOrder
+                title: >-
+                  The OnnxExecutionProviderSelector class shall try each preferred execution
+                  provider name, in the caller-supplied order, by constructing a real
+                  InferenceSession for the given model path with that provider appended to a
+                  fresh SessionOptions, returning the session from the first candidate that both
+                  constructs successfully and - when a validateSession probe was supplied -
+                  passes that probe.
+                justification: |
+                  A caller may supply more than one accelerated provider in priority order (for
+                  example a preferred GPU provider followed by a secondary one); this unit must
+                  honor that order rather than picking an arbitrary available candidate, so a
+                  caller's own prioritization is respected. A candidate that merely constructs is
+                  not necessarily usable - some execution providers (notably DirectML) construct
+                  a session successfully yet fail on the first Run() because a graph operator is
+                  unsupported for the model's shapes - so "successfully" must account for a
+                  supplied probe, not construction alone.
+                tests:
+                  - Create_NoPreferredProviders_CreatesWorkingCpuSession
+                  - Create_UnknownProviderName_FallsBackToCpuSession
+                  - Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback
+
+              - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-FallsBackToCpu
+                title: >-
+                  The OnnxExecutionProviderSelector class shall fall back to the built-in CPU
+                  provider, with no explicit execution provider appended, when every preferred
+                  candidate fails to construct or fails its probe, and this CPU fallback shall
+                  never itself throw due to an unavailable accelerated provider, nor ever be
+                  passed to a caller-supplied validateSession probe.
+                justification: |
+                  A model package must still load and run correctly on a machine with no
+                  accelerated execution provider installed at all, or where none of the
+                  accelerated providers can actually run this model; the CPU provider ships
+                  inside the base Microsoft.ML.OnnxRuntime package this library references and is
+                  therefore always available as a guaranteed-success final candidate. Probing it
+                  would be redundant and would remove the one candidate this unit's entire
+                  fallback design depends on always succeeding.
+                tests:
+                  - Create_UnknownProviderName_FallsBackToCpuSession
+                  - Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback
+                  - Create_EmptyPreferredProviders_NeverInvokesProbe
+
+              - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-DisposesEachCandidateOptions
+                title: >-
+                  The OnnxExecutionProviderSelector class shall dispose each candidate's
+                  SessionOptions immediately after that candidate's own InferenceSession
+                  construction attempt completes, whether the attempt succeeds or throws, and
+                  shall not dispose the InferenceSession it returns on success.
+                justification: |
+                  SessionOptions owns a native OrtSessionOptions handle that InferenceSession
+                  does not take ownership of; failing to dispose it after a failed or successful
+                  construction attempt leaks a native resource for every candidate tried. The
+                  returned InferenceSession remains the caller's own responsibility to dispose,
+                  since the caller - not this method - owns its lifetime.
+                tests:
+                  - Create_MultipleCandidates_DisposesEveryCandidateOptionsInstance
+
+              - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-DisposesCandidateSessionOnAnyFailure
+                title: >-
+                  The OnnxExecutionProviderSelector class shall dispose a candidate's
+                  InferenceSession on every path except the one that returns it to the caller,
+                  including when its construction or validateSession probe throws an exception
+                  type other than OnnxRuntimeException or DllNotFoundException, and shall let
+                  that exception propagate to the caller afterward rather than treating it as
+                  "try the next candidate".
+                justification: |
+                  Only OnnxRuntimeException and DllNotFoundException are the documented signals
+                  that a provider is unavailable or cannot run this model; any other exception
+                  type indicates a different, unexpected failure that a caller needs to see, not
+                  one this unit should silently convert into "move on to the next candidate".
+                  Disposing the session regardless of which exception type propagates prevents a
+                  native handle leak on that less-common path too.
+                tests:
+                  - Create_ValidateSessionProbeThrowsOtherException_Rethrows
+
+              - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ArgumentValidation
+                title: >-
+                  The OnnxExecutionProviderSelector class's Create method shall throw
+                  ArgumentException for a null or empty model path, before attempting any
+                  execution provider.
+                justification: |-
+                  A programming error (null or empty model path) should surface immediately with
+                  a clear, cheap-to-diagnose exception rather than an opaque native-layer failure
+                  from attempting to load a non-existent model.
+                tests:
+                  - Create_NullModelPath_ThrowsArgumentNullException
+                  - Create_EmptyModelPath_ThrowsArgumentException

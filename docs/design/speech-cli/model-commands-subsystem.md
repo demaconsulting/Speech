@@ -10,7 +10,8 @@ one command handler per subcommand, plus one shared catalog seam used by all fiv
 
 - **`ICliModelCatalog`** / **`SpeechModelCatalogAdapter`**: the CLI-owned seam over the library's
   `SpeechModelCatalog`/`SpeechModelStore`, and its real implementation
-- **`CliModelCatalogFactory`**: composes a `SpeechModelCatalogAdapter` honoring `--models-dir`
+- **`CliModelCatalogFactory`**: composes a `SpeechModelCatalogAdapter` honoring `--models-dir` and
+  `--mirror-*`
 - **`ListModelsCommand`**, **`ModelInfoCommand`**, **`DownloadCommand`**, **`UninstallCommand`**,
   **`CleanCommand`**: one handler per subcommand
 
@@ -38,7 +39,12 @@ since core `DemaConsulting.Speech` ships zero built-in models - and delegating
 `CliModelCatalogFactory.Create(context)` composes one adapter per command invocation, passing
 `context.ModelsDir` through `SpeechModelStoreOptions.RootPathOverride` when given, so `--models-dir`
 is honored uniformly by every command without each command handler needing to know how the
-override is threaded through.
+override is threaded through. `context.CreateMirror()` is wrapped in a
+`SpeechModelDownloaderOptions` the same way, so `--mirror-url`/`--mirror-user`/`--mirror-password`/
+`--mirror-bearer-token` redirect `DownloadCommand`'s downloads to an internal mirror without any
+command handler needing mirror-specific logic of its own (see `CreateMirror`'s own validation of
+the mutually-exclusive credential/bearer-token combinations, and the loopback-only exemption from
+requiring `https://`, in `Context`'s own source).
 
 ### ListModelsCommand
 

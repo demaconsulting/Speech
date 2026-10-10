@@ -1,0 +1,124 @@
+---
+# Software Unit Requirements for OnnxKokoroEnglishSynthesisModel
+#
+# These requirements describe the design-level behavior of the OnnxKokoroEnglishSynthesisModel
+# unit, decomposing the parent SpeechOnnxKokoro ModelManagementSubsystem requirements.
+#
+# Covered by test/DemaConsulting.Speech.Onnx.Kokoro.Tests/ModelManagementSubsystem/
+# OnnxKokoroEnglishSynthesisModelTests.cs.
+
+sections:
+  - title: SpeechOnnxKokoro Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        sections:
+          - title: OnnxKokoroEnglishSynthesisModel Requirements
+            requirements:
+              - id: SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-Identity
+                title: >-
+                  The OnnxKokoroEnglishSynthesisModel class shall declare a stable catalog
+                  identity (Id, DisplayName, Role = Synthesis, a single voice ChoiceParameter
+                  with 29 confirmed American/British English options, AudioTagSupport = None).
+                justification: |
+                  SpeechModelCatalog and SpeechModelDownloader depend only on the generic
+                  ISpeechModel/ISynthesisModel contract; this model must honestly declare its
+                  own fixed identity and its real 29-voice option set for the catalog and
+                  downloader to enumerate and fetch it correctly, and must declare only the
+                  voices its embedded English-only phonemizer can correctly serve.
+                tests:
+                  - OnnxKokoroEnglishSynthesisModel_Identity_DeclaresExpectedValues
+
+              - id: SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-License
+                title: >-
+                  The OnnxKokoroEnglishSynthesisModel class shall declare
+                  LicenseName = "Apache-2.0" with a canonical LicenseUrl to the Apache-2.0 full
+                  text.
+                justification: |
+                  This model's license must be discoverable programmatically, not only via
+                  DisplayName prose or XML documentation.
+                tests:
+                  - OnnxKokoroEnglishSynthesisModel_Identity_DeclaresExpectedValues
+
+              - id: SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-DownloadDescriptor
+                title: >-
+                  The OnnxKokoroEnglishSynthesisModel class shall declare 30 individual
+                  validated HTTPS download files (the ONNX model graph and 29 voice
+                  style-vector files), each with a well-formed SHA-256 checksum and its own
+                  relative install path, requiring no post-download archive extraction.
+                justification: |
+                  SpeechModelDownloader depends only on the generic ISpeechModel download
+                  descriptor; this model must honestly declare every individual file its
+                  engine construction needs, and since none of its files are archived, it
+                  correctly needs no InstallAsync override.
+                tests:
+                  - OnnxKokoroEnglishSynthesisModel_DownloadDescriptor_Declares30UniqueValidatedFiles
+
+              - id: SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-EngineConstruction
+                title: >-
+                  The OnnxKokoroEnglishSynthesisModel class shall construct a loaded
+                  OnnxKokoroSynthesisEngine from an ONNX Runtime session built through
+                  OnnxExecutionProviderSelector (supplying OnnxKokoroSynthesisEngine's own
+                  RunProbeInference method as the probe run against each accelerated
+                  candidate session before it is accepted), every declared voice's loaded
+                  style-vector data, a fresh KokoroPhonemeVocabulary, and a fresh
+                  KokoroLexiconPhonemizer, and shall throw ArgumentException for a null or
+                  empty installed-model directory.
+                justification: |
+                  The SynthesisSubsystem depends on this model constructing a correctly
+                  configured, loaded engine for every installed-directory argument it may be
+                  given; a programming error (empty installed-model directory) should surface
+                  immediately with a clear exception. Supplying the probe lets this model reject
+                  an accelerated execution provider that loads successfully but cannot actually
+                  run this model's graph (observed with DirectML and the ConvTranspose
+                  operator), rather than returning an engine doomed to fail at its first real
+                  Generate call.
+                tests:
+                  - OnnxKokoroEnglishSynthesisModel_CreateBackend_EmptyDirectory_ThrowsArgumentException
+                  - OnnxKokoroEnglishSynthesisModel_CreateBackend_ValidModelAndVoices_GeneratesUsingSelectedVoiceStyle
+
+              - id: SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-SessionDisposedOnFailure
+                title: >-
+                  The OnnxKokoroEnglishSynthesisModel class's CreateBackend method shall dispose
+                  the ONNX Runtime session it already created if a later failure (reading a
+                  voice style-vector file, or constructing the phoneme vocabulary or lexicon
+                  phonemizer) prevents the OnnxKokoroSynthesisEngine - the object that would
+                  otherwise own the session's lifetime - from ever being constructed.
+                justification: |
+                  The session is created before any voice-style file is read, so a missing or
+                  unreadable voice file can fail after the session already holds a native
+                  OrtSession handle. Without this, that handle would leak on every such failure,
+                  since no engine is ever constructed to dispose it.
+                tests:
+                  - OnnxKokoroEnglishSynthesisModel_CreateBackend_MissingVoiceFile_DisposesSessionAndThrows
+
+              - id: SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-PreferredAudioFormat
+                title: >-
+                  The OnnxKokoroEnglishSynthesisModel class shall declare a mono
+                  PreferredAudioFormat hint of 24000 Hz, matching the model's own fixed output
+                  sample rate confirmed from its upstream documentation and this package's
+                  validation spike.
+                justification: |
+                  A host can use this hint to open playback nearer the model's actual rate
+                  before loading the engine, but the rate remains a hint rather than a
+                  guarantee until the real engine is loaded and queried.
+                tests:
+                  - OnnxKokoroEnglishSynthesisModel_PreferredAudioFormat_IsMono24000
+
+              - id: SpeechOnnxKokoro-Models-OnnxKokoroEnglishSynthesisModel-ResolveSpeakerId
+                title: >-
+                  The OnnxKokoroEnglishSynthesisModel class shall map a selected voice
+                  ChoiceParameter value to its ordinal index within the model's own declared
+                  voice order, falling back to the declared default voice's index for a null
+                  value bag, a missing key, or an unrecognized value, and shall correctly
+                  resolve every one of its 29 declared voices.
+                justification: |-
+                  ISynthesisModel.ResolveSpeakerId is this model's own owned knowledge - it
+                  lets SynthesisSession turn a demo-selected or library-consumer-selected voice
+                  name into the real speaker id this model's engine needs. Never throwing on a
+                  missing/unrecognized selection keeps synthesis available even for a
+                  malformed or stale caller-supplied value bag.
+                tests:
+                  - OnnxKokoroEnglishSynthesisModel_ResolveSpeakerId_KnownVoice_ReturnsDeclarationOrderIndex
+                  - OnnxKokoroEnglishSynthesisModel_ResolveSpeakerId_UnknownVoice_ReturnsDefaultId
+                  - OnnxKokoroEnglishSynthesisModel_ResolveSpeakerId_NullBag_ReturnsDefaultId
+                  - OnnxKokoroEnglishSynthesisModel_ResolveSpeakerId_MissingKey_ReturnsDefaultId

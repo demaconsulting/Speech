@@ -90,6 +90,64 @@ that always throws.
 
 **Requirement coverage**: `SpeechDemo-Models-InstallNotification`.
 
+#### ModelCatalogService_Constructor_NullCatalogFactory_ThrowsArgumentNullException
+
+**Scenario**: The factory-based adapter constructor is given a catalog but a null catalog
+factory.
+
+**Expected**: `ArgumentNullException`.
+
+**Requirement coverage**: `SpeechDemo-Models-MirrorRequiresFactory`.
+
+#### ModelCatalogService_ApplyMirror_NoFactory_ThrowsInvalidOperationException
+
+**Scenario**: `ApplyMirror` is called on an adapter built with the single-argument (no-factory)
+constructor.
+
+**Expected**: `InvalidOperationException`, so a service that cannot be reconfigured says so
+rather than silently doing nothing.
+
+**Requirement coverage**: `SpeechDemo-Models-MirrorRequiresFactory`.
+
+#### ModelCatalogService_ApplyMirror_WithFactory_RebuildsCatalogThroughFactory
+
+**Scenario**: `ApplyMirror` is called on an adapter built with a catalog factory.
+
+**Expected**: The factory is invoked with downloader options carrying the requested mirror, and
+the adapter's subsequent enumeration reflects the rebuilt catalog.
+
+**Requirement coverage**: `SpeechDemo-Models-MirrorRebuild`.
+
+#### ModelCatalogService_ApplyMirror_WithFactory_DisposesReplacedCatalog
+
+**Scenario**: `ApplyMirror` is called on an adapter built with a catalog factory, after a prior
+download on the original catalog has seeded a per-model lock.
+
+**Expected**: The catalog `ApplyMirror` just replaced is genuinely disposed, rather than merely
+detached and leaked, proven by a later direct download attempt against it surfacing
+`ObjectDisposedException`.
+
+**Requirement coverage**: `SpeechDemo-Models-MirrorCatalogOwnership`.
+
+#### ModelCatalogService_Dispose_WithFactory_DisposesCurrentCatalog
+
+**Scenario**: An adapter built with a catalog factory is disposed after a prior download has
+seeded a per-model lock.
+
+**Expected**: The current catalog is genuinely disposed, proving a factory-constructed adapter
+owns every catalog it ever points to.
+
+**Requirement coverage**: `SpeechDemo-Models-MirrorCatalogOwnership`.
+
+#### ModelCatalogService_Dispose_WithoutFactory_DoesNotDisposeCatalog
+
+**Scenario**: An adapter built with the single-argument constructor is disposed.
+
+**Expected**: The shared catalog is left usable, preserving the existing "does not dispose a
+catalog it does not own" contract.
+
+**Requirement coverage**: `SpeechDemo-Models-MirrorCatalogOwnership`.
+
 #### ModelCatalogViewModel_Constructor_NullService_ThrowsArgumentNullException
 
 **Scenario**: The panel is constructed with no catalog seam.
@@ -232,6 +290,71 @@ guarantees a canceled download installs nothing.
 
 **Requirement coverage**: `SpeechDemo-Models-DownloadGuard`.
 
+#### ModelCatalogViewModel_Constructor_InitialMirrorValues_PrePopulatesFields
+
+**Scenario**: The panel is constructed with launch-time mirror values supplied.
+
+**Expected**: The mirror URL/user/password/bearer-token fields start pre-populated from those
+values, so the GUI and launch-time entry points stay consistent.
+
+**Requirement coverage**: `SpeechDemo-Models-MirrorSettingsUi`.
+
+#### ModelCatalogViewModel_ApplyMirror_ValidMirror_ForwardsConfiguredMirrorAndReportsSuccess
+
+**Scenario**: Valid mirror fields are applied.
+
+**Expected**: The seam's `ApplyMirror` is called with a `DownloadMirror` built from those fields
+and the panel reports success and refreshes.
+
+**Requirement coverage**: `SpeechDemo-Models-MirrorSettingsUi`.
+
+#### ModelCatalogViewModel_ApplyMirror_BlankUrl_AppliesNullMirror
+
+**Scenario**: The mirror URL field is blank when applied.
+
+**Expected**: The seam's `ApplyMirror` is called with `null`, reverting to each model's own
+public download URI.
+
+**Requirement coverage**: `SpeechDemo-Models-MirrorSettingsUi`.
+
+#### ModelCatalogViewModel_ApplyMirror_InvalidUrl_ReportsErrorWithoutCallingService
+
+**Scenario**: The mirror URL field holds an invalid URI.
+
+**Expected**: The panel reports an explained error and never calls the seam.
+
+**Requirement coverage**: `SpeechDemo-Models-MirrorSettingsUi`.
+
+#### ModelCatalogViewModel_ApplyMirror_CredentialsWithoutUrl_ReportsErrorWithoutCallingService
+
+**Scenario**: The bearer-token field holds a value but the mirror URL field is blank.
+
+**Expected**: `MirrorOptionsFactory.Create` rejects the stray credential (matching
+`DemaConsulting.Speech.Cli`'s `Context.CreateMirror` behavior for the same case) and the panel
+reports an explained error without ever calling the seam, rather than silently discarding the
+credential.
+
+**Requirement coverage**: `SpeechDemo-Models-MirrorSettingsUi`.
+
+#### ModelCatalogViewModel_ApplyMirror_ServiceRejectsReconfiguration_ReportsError
+
+**Scenario**: The seam throws `InvalidOperationException` because it was not built with a
+catalog factory.
+
+**Expected**: The panel reports the seam's explanation as an error rather than letting the
+exception escape.
+
+**Requirement coverage**: `SpeechDemo-Models-MirrorSettingsUi`.
+
+#### ModelCatalogViewModel_ApplyMirror_DownloadInProgress_RefusesAndReportsError
+
+**Scenario**: One row is `Downloading` and the mirror URL field holds a valid URI.
+
+**Expected**: The panel reports an explained error and never calls the seam's `ApplyMirror`,
+because that call would dispose the catalog the in-flight download depends on.
+
+**Requirement coverage**: `SpeechDemo-Models-MirrorBlockedDuringDownload`.
+
 #### ModelListItemViewModel_Constructor_NullDescriptor_ThrowsArgumentNullException
 
 **Scenario**: A row is built with no descriptor.
@@ -332,6 +455,24 @@ a bound row cannot go stale mid-download.
 - **`SpeechDemo-Models-InstallNotification`**:
   `ModelCatalogService_DownloadAsync_Installed_RaisesModelInstalledWithCorrectIdAndRole`,
   `ModelCatalogService_DownloadAsync_Failed_DoesNotRaiseModelInstalled`
+- **`SpeechDemo-Models-MirrorRebuild`**:
+  `ModelCatalogService_ApplyMirror_WithFactory_RebuildsCatalogThroughFactory`
+- **`SpeechDemo-Models-MirrorRequiresFactory`**:
+  `ModelCatalogService_Constructor_NullCatalogFactory_ThrowsArgumentNullException`,
+  `ModelCatalogService_ApplyMirror_NoFactory_ThrowsInvalidOperationException`
+- **`SpeechDemo-Models-MirrorCatalogOwnership`**:
+  `ModelCatalogService_ApplyMirror_WithFactory_DisposesReplacedCatalog`,
+  `ModelCatalogService_Dispose_WithFactory_DisposesCurrentCatalog`,
+  `ModelCatalogService_Dispose_WithoutFactory_DoesNotDisposeCatalog`
+- **`SpeechDemo-Models-MirrorSettingsUi`**:
+  `ModelCatalogViewModel_Constructor_InitialMirrorValues_PrePopulatesFields`,
+  `ModelCatalogViewModel_ApplyMirror_ValidMirror_ForwardsConfiguredMirrorAndReportsSuccess`,
+  `ModelCatalogViewModel_ApplyMirror_BlankUrl_AppliesNullMirror`,
+  `ModelCatalogViewModel_ApplyMirror_InvalidUrl_ReportsErrorWithoutCallingService`,
+  `ModelCatalogViewModel_ApplyMirror_CredentialsWithoutUrl_ReportsErrorWithoutCallingService`,
+  `ModelCatalogViewModel_ApplyMirror_ServiceRejectsReconfiguration_ReportsError`
+- **`SpeechDemo-Models-MirrorBlockedDuringDownload`**:
+  `ModelCatalogViewModel_ApplyMirror_DownloadInProgress_RefusesAndReportsError`
 
 ### Acceptance Criteria
 
@@ -340,6 +481,9 @@ or hiding anything and never disposes a catalog it does not own; the panel shows
 reported model and rebuilds correctly on refresh; every download outcome — success, progress,
 checksum mismatch, transport failure, seam fault, and cancellation — is reported as a row state
 with an honest explanation rather than as an application error; an installed model is never
-re-downloaded; an empty catalog is explained rather than shown blank; and `ModelInstalled` fires
+re-downloaded; an empty catalog is explained rather than shown blank; `ModelInstalled` fires
 exactly once with the correct model id and role for a genuine install, and never for a failed
-download.
+download; a factory-constructed adapter rebuilds and takes ownership of its catalog when the
+mirror changes while a no-factory adapter rejects reconfiguration outright; and the panel's
+mirror-settings fields apply a valid mirror (or revert to each model's own public URI on a blank
+URL) while reporting any validation or reconfiguration failure as an explained panel state.

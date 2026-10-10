@@ -19,6 +19,7 @@
 // SOFTWARE.
 
 using DemaConsulting.Speech.Cli.Cli;
+using DemaConsulting.Speech.ModelManagementSubsystem;
 
 namespace DemaConsulting.Speech.Cli.Tests;
 
@@ -554,5 +555,171 @@ public class ProgramTests
     public void Program_Run_WithNullContext_ThrowsArgumentNullException()
     {
         Assert.Throws<ArgumentNullException>(() => Program.Run(null!));
+    }
+
+    /// <summary>
+    ///     Test that <c>--mirror-url</c> and the other <c>--mirror-*</c> global options parse onto
+    ///     the <see cref="Context"/> regardless of where they appear relative to the subcommand.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithMirrorOptions_ParsesOntoContext()
+    {
+        // Act
+        using var context = Context.Create([
+            "list-models",
+            "--mirror-url", "https://mirror.example.com",
+            "--mirror-user", "alice",
+            "--mirror-password", "secret"
+        ]);
+
+        // Assert
+        Assert.Equal("https://mirror.example.com", context.MirrorUrl);
+        Assert.Equal("alice", context.MirrorUser);
+        Assert.Equal("secret", context.MirrorPassword);
+        Assert.Null(context.MirrorBearerToken);
+    }
+
+    /// <summary>
+    ///     Test that <see cref="Context.CreateMirror"/> returns <see langword="null"/> when no
+    ///     <c>--mirror-url</c> was supplied.
+    /// </summary>
+    [Fact]
+    public void Context_CreateMirror_NoMirrorUrl_ReturnsNull()
+    {
+        // Act
+        using var context = Context.Create(["list-models"]);
+
+        // Assert
+        Assert.Null(context.CreateMirror());
+    }
+
+    /// <summary>
+    ///     Test that <see cref="Context.CreateMirror"/> builds a <see cref="DownloadMirror"/> whose
+    ///     base URI matches a valid <c>--mirror-url</c>, with Basic credentials attached when a
+    ///     matching <c>--mirror-user</c>/<c>--mirror-password</c> pair is supplied.
+    /// </summary>
+    [Fact]
+    public void Context_CreateMirror_ValidCredentialedMirror_ReturnsConfiguredMirror()
+    {
+        // Act
+        using var context = Context.Create([
+            "list-models",
+            "--mirror-url", "https://mirror.example.com",
+            "--mirror-user", "alice",
+            "--mirror-password", "secret"
+        ]);
+        var mirror = context.CreateMirror();
+
+        // Assert
+        Assert.NotNull(mirror);
+        Assert.Equal(new Uri("https://mirror.example.com"), mirror.BaseUri);
+        Assert.Equal("alice", mirror.Credentials?.UserName);
+        Assert.Equal("secret", mirror.Credentials?.Password);
+        Assert.Null(mirror.BearerToken);
+    }
+
+    /// <summary>
+    ///     Test that <see cref="Context.CreateMirror"/> builds a bearer-token-authenticated
+    ///     <see cref="DownloadMirror"/> when only <c>--mirror-bearer-token</c> is supplied.
+    /// </summary>
+    [Fact]
+    public void Context_CreateMirror_BearerTokenMirror_ReturnsConfiguredMirror()
+    {
+        // Act
+        using var context = Context.Create([
+            "list-models",
+            "--mirror-url", "https://mirror.example.com",
+            "--mirror-bearer-token", "token-value"
+        ]);
+        var mirror = context.CreateMirror();
+
+        // Assert
+        Assert.NotNull(mirror);
+        Assert.Null(mirror.Credentials);
+        Assert.Equal("token-value", mirror.BearerToken);
+    }
+
+    /// <summary>
+    ///     Test that <see cref="Context.CreateMirror"/> rejects a <c>--mirror-url</c> that is not a
+    ///     valid absolute URL.
+    /// </summary>
+    [Fact]
+    public void Context_CreateMirror_InvalidMirrorUrl_ThrowsArgumentException()
+    {
+        // Act and Assert (mirror options are validated while creating the context)
+        Assert.Throws<ArgumentException>(() => Context.Create(["list-models", "--mirror-url", "not a url"]));
+    }
+
+    /// <summary>
+    ///     Test that mirror credentials supplied without <c>--mirror-url</c> are rejected even for
+    ///     invocations that never build a model catalog, such as <c>--help</c>.
+    /// </summary>
+    [Fact]
+    public void Context_Create_MirrorCredentialWithoutUrlAndHelp_ThrowsArgumentException()
+    {
+        // Act and Assert
+        Assert.Throws<ArgumentException>(() => Context.Create(["--help", "--mirror-user", "alice"]));
+    }
+
+    /// <summary>
+    ///     Test that <see cref="Context.CreateMirror"/> rejects a <c>--mirror-user</c> supplied
+    ///     without the matching <c>--mirror-password</c>.
+    /// </summary>
+    [Fact]
+    public void Context_CreateMirror_MirrorUserWithoutPassword_ThrowsArgumentException()
+    {
+        // Act and Assert (mirror options are validated while creating the context)
+        Assert.Throws<ArgumentException>(() => Context.Create([
+            "list-models",
+            "--mirror-url", "https://mirror.example.com",
+            "--mirror-user", "alice"
+        ]));
+    }
+
+    /// <summary>
+    ///     Test that <see cref="Context.CreateMirror"/> rejects supplying both HTTP Basic
+    ///     credentials (<c>--mirror-user</c>/<c>--mirror-password</c>) and a bearer token
+    ///     (<c>--mirror-bearer-token</c>) together, since the two authentication mechanisms are
+    ///     mutually exclusive.
+    /// </summary>
+    [Fact]
+    public void Context_CreateMirror_BasicCredentialsAndBearerTokenTogether_ThrowsArgumentException()
+    {
+        // Act and Assert (mirror options are validated while creating the context)
+        Assert.Throws<ArgumentException>(() => Context.Create([
+            "list-models",
+            "--mirror-url", "https://mirror.example.com",
+            "--mirror-user", "alice",
+            "--mirror-password", "secret",
+            "--mirror-bearer-token", "token-value"
+        ]));
+    }
+
+    /// <summary>
+    ///     Test that <see cref="Context.CreateMirror"/> rejects a <c>--mirror-user</c>/
+    ///     <c>--mirror-password</c> pair supplied without <c>--mirror-url</c>, since the
+    ///     credential would otherwise be silently ignored rather than applied anywhere.
+    /// </summary>
+    [Fact]
+    public void Context_CreateMirror_CredentialsWithoutMirrorUrl_ThrowsArgumentException()
+    {
+        // Act and Assert (mirror options are validated while creating the context)
+        Assert.Throws<ArgumentException>(() => Context.Create([
+            "list-models",
+            "--mirror-user", "alice",
+            "--mirror-password", "secret"
+        ]));
+    }
+
+    /// <summary>
+    ///     Test that <see cref="Context.CreateMirror"/> rejects a <c>--mirror-bearer-token</c>
+    ///     supplied without <c>--mirror-url</c>, since the token would otherwise be silently
+    ///     ignored rather than applied anywhere.
+    /// </summary>
+    [Fact]
+    public void Context_CreateMirror_BearerTokenWithoutMirrorUrl_ThrowsArgumentException()
+    {
+        // Act and Assert (mirror options are validated while creating the context)
+        Assert.Throws<ArgumentException>(() => Context.Create(["list-models", "--mirror-bearer-token", "token-value"]));
     }
 }

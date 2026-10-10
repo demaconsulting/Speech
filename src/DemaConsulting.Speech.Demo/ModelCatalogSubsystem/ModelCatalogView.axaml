@@ -4,17 +4,57 @@
              x:Class="DemaConsulting.Speech.Demo.ModelCatalogSubsystem.ModelCatalogView"
              x:DataType="models:ModelCatalogViewModel">
 
-  <Grid Margin="16" RowDefinitions="Auto,Auto,*,Auto">
+  <Grid Margin="16" RowDefinitions="Auto,Auto,Auto,*,Auto">
 
     <TextBlock Grid.Row="0" Text="Model Catalog" FontSize="18" FontWeight="SemiBold" />
 
-    <TextBlock Grid.Row="1"
+    <Border Grid.Row="1"
+            Margin="0,8,0,0"
+            Padding="8"
+            BorderBrush="Gray"
+            BorderThickness="1"
+            CornerRadius="4">
+      <StackPanel Spacing="4">
+        <TextBlock Text="Download mirror" FontWeight="SemiBold" />
+        <TextBlock TextWrapping="Wrap"
+                   Opacity="0.7"
+                   Text="Redirect model downloads to an internal mirror instead of each model's own public URI - useful when the public host is blocked. Leave the mirror URL blank and apply to revert to public downloads." />
+
+        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto">
+          <TextBlock Grid.Row="0" Grid.Column="0" Text="Mirror URL" VerticalAlignment="Center" Margin="0,0,8,4" />
+          <TextBox Grid.Row="0" Grid.Column="1" Margin="0,0,0,4"
+                    Watermark="https://mirror.example.com" Text="{Binding MirrorUrl}" />
+
+          <TextBlock Grid.Row="1" Grid.Column="0" Text="User" VerticalAlignment="Center" Margin="0,0,8,4" />
+          <TextBox Grid.Row="1" Grid.Column="1" Margin="0,0,0,4" Text="{Binding MirrorUser}" />
+
+          <TextBlock Grid.Row="2" Grid.Column="0" Text="Password" VerticalAlignment="Center" Margin="0,0,8,4" />
+          <TextBox Grid.Row="2" Grid.Column="1" Margin="0,0,0,4" PasswordChar="*" Text="{Binding MirrorPassword}" />
+
+          <TextBlock Grid.Row="3" Grid.Column="0" Text="Bearer Token" VerticalAlignment="Center" Margin="0,0,8,4" />
+          <TextBox Grid.Row="3" Grid.Column="1" Margin="0,0,0,4" PasswordChar="*" Text="{Binding MirrorBearerToken}" />
+        </Grid>
+
+        <Button Content="Apply mirror" Command="{Binding ApplyMirrorCommand}" HorizontalAlignment="Left" />
+
+        <TextBlock Text="{Binding MirrorStatusMessage}"
+                   TextWrapping="Wrap"
+                   IsVisible="{Binding MirrorHasError}"
+                   Foreground="IndianRed" />
+        <TextBlock Text="{Binding MirrorStatusMessage}"
+                   TextWrapping="Wrap"
+                   IsVisible="{Binding MirrorAppliedSuccessfully}"
+                   Opacity="0.7" />
+      </StackPanel>
+    </Border>
+
+    <TextBlock Grid.Row="2"
                Margin="0,8,0,8"
                TextWrapping="Wrap"
                IsVisible="{Binding IsCatalogEmpty}"
                Text="{x:Static models:ModelCatalogViewModel.EmptyCatalogMessage}" />
 
-    <ListBox Grid.Row="2"
+    <ListBox Grid.Row="3"
              ItemsSource="{Binding Models}"
              SelectedItem="{Binding SelectedModel}"
              IsVisible="{Binding HasModels}">
@@ -44,7 +84,7 @@
       </ListBox.ItemTemplate>
     </ListBox>
 
-    <Button Grid.Row="3"
+    <Button Grid.Row="4"
             Margin="0,8,0,0"
             Content="Refresh catalog"
             Command="{Binding RefreshCommand}"

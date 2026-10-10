@@ -6,6 +6,7 @@ namespace DemaConsulting.Speech.Demo.ModelCatalogSubsystem;
 ///     Demo-owned seam over the library's speech-model catalog surface.
 /// </summary>
 /// <remarks>
+///     <para>
 ///     The library exposes its catalog through the concrete, sealed
 ///     <see cref="SpeechModelCatalog"/> rather than through an injectable interface, so a
 ///     ViewModel that depended on it directly could not be unit tested against a controlled model
@@ -14,6 +15,17 @@ namespace DemaConsulting.Speech.Demo.ModelCatalogSubsystem;
 ///     to <see cref="SpeechModelCatalog"/>, while tests substitute a fake that can supply models
 ///     and download outcomes the real, deliberately empty compiled-in registry cannot. It adds no
 ///     public API to <c>DemaConsulting.Speech</c>.
+///     </para>
+///     <para>
+///     This interface deliberately does <b>not</b> extend <see cref="IDisposable"/>: disposal is
+///     a lifetime concern of the composition root that constructs an implementation (see
+///     <see cref="ModelCatalogService"/>'s own <see cref="IDisposable"/> implementation and
+///     remarks), not something every consumer - including the <see cref="ModelCatalogViewModel"/>
+///     and test fakes that only ever read from or call through this interface - needs to know
+///     about or be responsible for. Adding it here would force every current and future
+///     implementer (including test doubles) to also implement disposal even when they own no
+///     disposable resource of their own.
+///     </para>
 /// </remarks>
 public interface IModelCatalogService
 {
@@ -62,6 +74,28 @@ public interface IModelCatalogService
         string modelId,
         IProgress<SpeechModelDownloadProgress>? progress,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    ///     Reconfigures where every subsequent <see cref="DownloadAsync"/> call fetches models
+    ///     from, replacing the underlying catalog with a freshly composed one that uses the same
+    ///     known models and model-store root but the given mirror.
+    /// </summary>
+    /// <param name="mirror">
+    ///     The mirror every model should now download from, or <see langword="null"/> to revert
+    ///     to each model's own declared public download URI.
+    /// </param>
+    /// <exception cref="InvalidOperationException">
+    ///     Thrown when this service was constructed without a catalog factory and therefore
+    ///     cannot be reconfigured after construction.
+    /// </exception>
+    /// <remarks>
+    ///     The catalog instance this call replaces is disposed as part of this call (see
+    ///     <see cref="ModelCatalogService"/>'s remarks), which aborts any <see cref="DownloadAsync"/>
+    ///     call still in flight against it. A caller must not invoke this method while one of its
+    ///     own downloads is in progress; <see cref="ModelCatalogViewModel.ApplyMirror"/> enforces
+    ///     this by refusing to call through while any row is downloading.
+    /// </remarks>
+    void ApplyMirror(DownloadMirror? mirror);
 }
 
 /// <summary>

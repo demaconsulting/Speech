@@ -9,7 +9,12 @@ model-injecting constructor is internal to the library. A demo-owned interface o
 therefore the only way to exercise the panel against controlled catalog data without adding
 public API to the library. `IModelCatalogService` and `ModelCatalogService` are documented as
 one unit because the interface has no independently observable behavior of its own - every test
-exercises it through `ModelCatalogService`, its sole implementation.
+exercises it through `ModelCatalogService`, its sole implementation. `IModelCatalogService`
+itself does **not** extend `IDisposable`: disposal is a lifetime concern of whichever
+composition root constructs an implementation (here, `App.axaml.cs`, which holds a concrete
+`ModelCatalogService` reference specifically so it can dispose it at shutdown), not something
+every interface consumer - `ModelCatalogViewModel`, the panel view models that only subscribe to
+`ModelInstalled`, and every test fake - needs to also implement.
 
 **Data Model**:
 
@@ -18,6 +23,7 @@ exercises it through `ModelCatalogService`, its sole implementation.
 | `Enumerate()` | `IReadOnlyList<SpeechModelDescriptor>` | Never throws |
 | `DownloadAsync(modelId, progress, cancellationToken)` | `Task<SpeechModelDownloadResult>` | Throws if id unknown |
 | `ModelInstalled` | `event EventHandler<ModelInstalledEventArgs>?` | Raised once a model installs |
+| `ApplyMirror(mirror)` | `void` | Rebuilds the catalog against a new mirror, or `null` to revert to public URIs |
 
 **Key Methods**:
 
@@ -29,17 +35,45 @@ exercises it through `ModelCatalogService`, its sole implementation.
   and TTS panels (each already depending on this same seam) can refresh themselves automatically
   the moment a matching-role model finishes installing, without a manual click or app restart.
   The event is never raised for a failed, canceled, or checksum-mismatched download attempt.
+- **ApplyMirror(mirror)**: Supported only when this service was constructed with the
+  two-argument constructor (`ModelCatalogService(SpeechModelCatalog, Func<SpeechModelDownloaderOptions?, SpeechModelCatalog>)`);
+  otherwise throws `InvalidOperationException`. When supported, builds
+  `SpeechModelDownloaderOptions` from `mirror` (or `null` to revert to each model's own public
+  URI), calls the captured factory to rebuild an equivalent catalog against those options,
+  swaps this service's forwarding target to the new catalog, and disposes the catalog it
+  replaced immediately. An in-flight `DownloadAsync` call still running against the replaced
+  catalog is therefore aborted rather than left to run to completion - its underlying HTTP
+  operations observe a disposed object and fail. Callers must never invoke `ApplyMirror` while
+  one of their own downloads is in progress; `ModelCatalogViewModel.ApplyMirror` (see its own
+  design doc) is this demo's sole production caller and enforces that by refusing to call
+  through - reporting an explained panel error instead - while any row is downloading.
 
 **Error Handling**: `Enumerate()` never throws; it never invents placeholder models when the
 library's registry is empty - presenting an honest empty catalog is a presentation concern, not
 a reason to fabricate data. `DownloadAsync` propagates the library's own `ArgumentException` for
-an unknown model id.
+an unknown model id. `ApplyMirror` propagates `ArgumentException` from an invalid mirror
+configuration (surfaced by the shared `MirrorOptionsFactory` helper its caller uses to build the
+`DownloadMirror`) and throws `InvalidOperationException` when this service cannot be
+reconfigured.
+
+**Thread Safety**: `ApplyMirror` and `Dispose` are not safe to call concurrently with each other
+or with themselves - both read and then replace the same current-catalog field with no
+synchronization, so concurrent calls could race on which catalog ends up current or disposed.
+This panel invokes both members serially from the UI thread, one command at a time; any other
+caller must provide its own external synchronization. `Enumerate()` and `DownloadAsync` carry no
+such restriction beyond what the underlying `SpeechModelCatalog` itself documents.
 
 **Dependencies**: The library's `SpeechModelCatalog`, `SpeechModelDescriptor`,
-`SpeechModelDownloadResult`, `SpeechModelDownloadOutcome`. Deliberately does not dispose the
-catalog - the composition root owns that lifetime - so a shared catalog can outlive any one
-adapter.
+`SpeechModelDownloadResult`, `SpeechModelDownloadOutcome`, `SpeechModelDownloaderOptions`,
+`DownloadMirror`. A service constructed with the single-catalog constructor deliberately does
+not dispose the catalog - the composition root owns that lifetime - so a shared catalog can
+outlive any one adapter. A service constructed with a catalog factory instead owns every
+catalog it ever points at (the one it started with and each one `ApplyMirror` later builds),
+disposing whichever one is current when the service itself is disposed (`IDisposable`).
 
-**Callers**: `ModelCatalogViewModel` (the catalog panel's presentation state);
-`SynthesisPanelViewModel` and the recognition panel view model (both subscribe to
-`ModelInstalled` for auto-refresh-on-install).
+**Callers**: `ModelCatalogViewModel` (the catalog panel's presentation state, including its
+mirror-settings controls); `SynthesisPanelViewModel` and the recognition panel view model (both
+subscribe to `ModelInstalled` for auto-refresh-on-install). The composition root
+(`App.axaml.cs`) constructs this service with a catalog factory so the mirror panel can
+reconfigure it at runtime, and disposes it (rather than a separately tracked catalog reference)
+at shutdown.

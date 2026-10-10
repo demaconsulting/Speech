@@ -14,8 +14,15 @@ language: en
 
 # Project-specific technical terms and tool names
 words:
+  - Damerau
+  - ieth
+  - phonemized
+  - recieve
+  - zipf
   - buildmark
   - chokepoint
+  - Conv
+  - unprobed
   - DEMA
   - NTLM
   - Sonatype
@@ -47,6 +54,7 @@ words:
   - Realtek
   - onnx
   - ONNX
+  - onnxruntime
   - SSML
   - multitargeted
   - Miniaudio
@@ -119,6 +127,7 @@ words:
   - openslr
   - Piper
   - piper
+  - scriptable
   - nameof
   - unpunctuated
   - dont
@@ -167,6 +176,26 @@ words:
   - unrequested
   - unawaited
   - unconfigured
+  - misaki
+  - hexgrad
+  - Udict
+  - phonemizer
+  - Phonemizer
+  - phonemizers
+  - phonemize
+  - Phonemize
+  - phonemizes
+  - phonemizing
+  - phonemization
+  - Phonemization
+  - CUDA
+  - aoede
+  - Aoede
+  - kore
+  - Kore
+  - Mancha
+  - notarealenglishwordxyz
+  - anothernotarealword
 
 # Exclude common build artifacts, dependencies, and vendored third-party code
 ignorePaths:
@@ -182,3 +211,6 @@ ignorePaths:
   - "**/bin/**"
   - "**/obj/**"
   - package-lock.json
+  # Embedded tokenizer data (phoneme symbol tables, not prose)
+  - "**/kokoro-v1.0-tokenizer.json"
+  - tools/KokoroSpike/models/**

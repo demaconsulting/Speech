@@ -180,6 +180,18 @@ context.
 
 **Requirement coverage**: `SpeechCli-ModelCommands-LibraryDelegation`.
 
+### Download Mirror Composition
+
+**Tests**: `CliModelCatalogFactory_Create_WithMirrorUrl_AppliesMirrorToDownloads`
+
+**Scenario/Expected**: `CliModelCatalogFactory.Create` is given a context configured with
+`--mirror-url` pointing at a loopback port with nothing listening on it; the composed adapter's
+subsequent `DownloadAsync` call for a real, known model id fails, and the captured failure's
+exception text names that same loopback host/port, proving the configured mirror was genuinely
+threaded through the composed catalog/downloader rather than merely parsed and discarded.
+
+**Requirement coverage**: `SpeechCli-ModelCommands-DownloadMirrorComposition`.
+
 ### Requirements Coverage
 
 - **`SpeechCli-ModelCommands-ListModels`**: see _ListModelsCommand_ above
@@ -189,6 +201,7 @@ context.
 - **`SpeechCli-ModelCommands-Uninstall`**: see _UninstallCommand_ above
 - **`SpeechCli-ModelCommands-Clean`**: see _CleanCommand_ above
 - **`SpeechCli-ModelCommands-LibraryDelegation`**: see _Seam Delegation and Null Guards_ above
+- **`SpeechCli-ModelCommands-DownloadMirrorComposition`**: see _Download Mirror Composition_ above
 
 ### Acceptance Criteria
 
