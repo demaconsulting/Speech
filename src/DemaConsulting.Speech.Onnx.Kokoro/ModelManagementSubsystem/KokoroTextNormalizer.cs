@@ -129,6 +129,7 @@ internal static class KokoroTextNormalizer
         text = StripDiacritics(text);
         text = text.Replace('\u2018', '\'').Replace('\u2019', '\'');
         text = text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
+        text = text.Replace("<3", " ", StringComparison.Ordinal);
         text = StripMarkdown(text);
         text = ReadAddresses(text);
         text = ExpandAbbreviations(text);
