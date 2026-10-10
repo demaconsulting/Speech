@@ -64,7 +64,7 @@ still composes safely but reports audio devices as unavailable.
 ### Combining Kokoro (`DemaConsulting.Speech.Onnx.Kokoro`) with sherpa-onnx
 
 `DemaConsulting.Speech.Onnx.Kokoro` uses Microsoft's `Microsoft.ML.OnnxRuntime` (pinned to 1.28.0),
-and the sherpa-onnx native runtime packages ship their own `libonnxruntime`/`onnxruntime.dll`
+and the sherpa-onnx native runtime packages ship their own native ONNX Runtime library
 with the same file name (1.28.2 for sherpa-onnx 1.13.8). An application that references both
 packages restores both copies into the same `runtimes/<rid>/native/` folder; Microsoft's copy can
 overwrite sherpa's and break sherpa-onnx on Linux. In such an application, add this direct
