@@ -61,6 +61,25 @@ No `win-arm64` PortAudio runtime package is available through this dependency ch
 phase. On an unsupported RID, or if PortAudio fails to initialize on a machine, the library
 still composes safely but reports audio devices as unavailable.
 
+### Combining Kokoro (`DemaConsulting.Speech.Onnx.Kokoro`) with sherpa-onnx
+
+`DemaConsulting.Speech.Onnx.Kokoro` uses Microsoft's `Microsoft.ML.OnnxRuntime` (pinned to 1.28.0),
+and the sherpa-onnx native runtime packages ship their own `libonnxruntime`/`onnxruntime.dll`
+with the same file name (1.28.2 for sherpa-onnx 1.13.8). An application that references both
+packages restores both copies into the same `runtimes/<rid>/native/` folder; Microsoft's copy can
+overwrite sherpa's and break sherpa-onnx on Linux. In such an application, add this direct
+reference so only sherpa's native runtime is used (Kokoro's managed API runs against it):
+
+```xml
+<PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.28.0" ExcludeAssets="native" />
+```
+
+Keep that version in step with the sherpa-onnx native runtime. An application using Kokoro
+without sherpa-onnx needs no override and gets Microsoft's native runtime transitively. To use an
+accelerated provider (for example DirectML or CUDA), reference the matching
+`Microsoft.ML.OnnxRuntime.*` package in a host that does not also ship sherpa-onnx's runtime. The
+`speech-cli` tool and the Demo application already apply this override.
+
 ### Speech engine runtime support
 
 The library is **designed for extensibility**: each speech engine is a self-contained
