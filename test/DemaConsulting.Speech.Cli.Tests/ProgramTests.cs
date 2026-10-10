@@ -646,11 +646,19 @@ public class ProgramTests
     [Fact]
     public void Context_CreateMirror_InvalidMirrorUrl_ThrowsArgumentException()
     {
-        // Act
-        using var context = Context.Create(["list-models", "--mirror-url", "not a url"]);
+        // Act and Assert (mirror options are validated while creating the context)
+        Assert.Throws<ArgumentException>(() => Context.Create(["list-models", "--mirror-url", "not a url"]));
+    }
 
-        // Assert
-        Assert.Throws<ArgumentException>(() => context.CreateMirror());
+    /// <summary>
+    ///     Test that mirror credentials supplied without <c>--mirror-url</c> are rejected even for
+    ///     invocations that never build a model catalog, such as <c>--help</c>.
+    /// </summary>
+    [Fact]
+    public void Context_Create_MirrorCredentialWithoutUrlAndHelp_ThrowsArgumentException()
+    {
+        // Act and Assert
+        Assert.Throws<ArgumentException>(() => Context.Create(["--help", "--mirror-user", "alice"]));
     }
 
     /// <summary>
@@ -660,15 +668,12 @@ public class ProgramTests
     [Fact]
     public void Context_CreateMirror_MirrorUserWithoutPassword_ThrowsArgumentException()
     {
-        // Act
-        using var context = Context.Create([
+        // Act and Assert (mirror options are validated while creating the context)
+        Assert.Throws<ArgumentException>(() => Context.Create([
             "list-models",
             "--mirror-url", "https://mirror.example.com",
             "--mirror-user", "alice"
-        ]);
-
-        // Assert
-        Assert.Throws<ArgumentException>(() => context.CreateMirror());
+        ]));
     }
 
     /// <summary>
@@ -680,17 +685,14 @@ public class ProgramTests
     [Fact]
     public void Context_CreateMirror_BasicCredentialsAndBearerTokenTogether_ThrowsArgumentException()
     {
-        // Act
-        using var context = Context.Create([
+        // Act and Assert (mirror options are validated while creating the context)
+        Assert.Throws<ArgumentException>(() => Context.Create([
             "list-models",
             "--mirror-url", "https://mirror.example.com",
             "--mirror-user", "alice",
             "--mirror-password", "secret",
             "--mirror-bearer-token", "token-value"
-        ]);
-
-        // Assert
-        Assert.Throws<ArgumentException>(() => context.CreateMirror());
+        ]));
     }
 
     /// <summary>
@@ -701,15 +703,12 @@ public class ProgramTests
     [Fact]
     public void Context_CreateMirror_CredentialsWithoutMirrorUrl_ThrowsArgumentException()
     {
-        // Act
-        using var context = Context.Create([
+        // Act and Assert (mirror options are validated while creating the context)
+        Assert.Throws<ArgumentException>(() => Context.Create([
             "list-models",
             "--mirror-user", "alice",
             "--mirror-password", "secret"
-        ]);
-
-        // Assert
-        Assert.Throws<ArgumentException>(() => context.CreateMirror());
+        ]));
     }
 
     /// <summary>
@@ -720,10 +719,7 @@ public class ProgramTests
     [Fact]
     public void Context_CreateMirror_BearerTokenWithoutMirrorUrl_ThrowsArgumentException()
     {
-        // Act
-        using var context = Context.Create(["list-models", "--mirror-bearer-token", "token-value"]);
-
-        // Assert
-        Assert.Throws<ArgumentException>(() => context.CreateMirror());
+        // Act and Assert (mirror options are validated while creating the context)
+        Assert.Throws<ArgumentException>(() => Context.Create(["list-models", "--mirror-bearer-token", "token-value"]));
     }
 }

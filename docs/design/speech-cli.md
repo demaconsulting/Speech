@@ -49,7 +49,9 @@ any individual model's hardcoded public URI.
 
 `Context.CreateMirror()` resolves these four raw strings into a `DownloadMirror` (or `null` when
 `--mirror-url` was not supplied), which every model-management subcommand that downloads a model
-passes to the library's `SpeechModelDownloaderOptions`. It performs a few fast, CLI-local checks
+passes to the library's `SpeechModelDownloaderOptions`. `Context.Create` also invokes it once while
+parsing, so an invalid mirror combination is rejected for every invocation (including `--help` and
+`--version`), not only model-catalog commands. It performs a few fast, CLI-local checks
 itself before constructing `DownloadMirror`: any of `--mirror-user`, `--mirror-password`, or
 `--mirror-bearer-token` supplied without `--mirror-url` is rejected outright, since a credential
 with nowhere to apply almost always indicates a missing or misspelled `--mirror-url` rather than

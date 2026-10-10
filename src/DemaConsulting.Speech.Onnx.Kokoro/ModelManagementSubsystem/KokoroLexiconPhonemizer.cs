@@ -170,6 +170,9 @@ internal sealed class KokoroLexiconPhonemizer
             }
         }
 
-        return (phonemes.ToString(), unknownWords);
+        // Omitted unknown words leave doubled or edge whitespace; normalize so an utterance with no
+        // recognized words yields an empty string (and Generate's zero-token fast path).
+        var normalized = string.Join(' ', phonemes.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        return (normalized, unknownWords);
     }
 }

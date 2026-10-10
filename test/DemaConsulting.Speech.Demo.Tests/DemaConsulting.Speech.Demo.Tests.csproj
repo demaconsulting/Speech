@@ -70,6 +70,8 @@
        everything these tests need, so the tests never reach past the item under test into the
        library directly. -->
   <ItemGroup>
+    <!-- Keep sherpa-onnx's libonnxruntime; Microsoft's native copy would overwrite it (see the Cli project). -->
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.28.0" ExcludeAssets="native" />
     <ProjectReference Include="..\..\src\DemaConsulting.Speech.Demo\DemaConsulting.Speech.Demo.csproj" />
     <ProjectReference Include="..\..\src\DemaConsulting.Speech.Sherpa\DemaConsulting.Speech.Sherpa.csproj" />
     <!-- Needed only so SpeechDemoTests can compose the catalog exactly as the demo's own

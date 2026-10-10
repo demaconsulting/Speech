@@ -224,6 +224,9 @@ internal sealed class Context : IDisposable
             CommandArgs = parser.CommandArgs.AsReadOnly()
         };
 
+        // Validate mirror options up front so every invocation (including --help/--version) rejects bad combinations
+        _ = result.CreateMirror();
+
         // Open log file if specified
         if (parser.LogFile != null)
         {

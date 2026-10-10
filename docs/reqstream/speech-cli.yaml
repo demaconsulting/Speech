@@ -93,6 +93,7 @@ sections:
           - Context_CreateMirror_BasicCredentialsAndBearerTokenTogether_ThrowsArgumentException
           - Context_CreateMirror_CredentialsWithoutMirrorUrl_ThrowsArgumentException
           - Context_CreateMirror_BearerTokenWithoutMirrorUrl_ThrowsArgumentException
+          - Context_Create_MirrorCredentialWithoutUrlAndHelp_ThrowsArgumentException
 
       - id: SpeechCli-Cli-VersionDisplay
         title: >-

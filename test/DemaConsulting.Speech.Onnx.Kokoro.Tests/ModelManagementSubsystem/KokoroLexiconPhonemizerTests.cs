@@ -177,4 +177,22 @@ public sealed class KokoroLexiconPhonemizerTests
         // Act & Assert
         Assert.Throws<ArgumentNullException>(() => phonemizer.Phonemize(null!));
     }
+
+    /// <summary>
+    ///     Proves that text made only of unknown words yields an empty phoneme string rather than
+    ///     leftover whitespace.
+    /// </summary>
+    [Fact]
+    public void Phonemize_OnlyUnknownWords_ReturnsEmptyPhonemes()
+    {
+        // Arrange
+        var phonemizer = new KokoroLexiconPhonemizer();
+
+        // Act
+        var (phonemes, unknown) = phonemizer.Phonemize("notarealenglishwordxyz anothernotarealword");
+
+        // Assert
+        Assert.Equal(string.Empty, phonemes);
+        Assert.Equal(2, unknown.Count);
+    }
 }
