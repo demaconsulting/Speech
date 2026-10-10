@@ -1605,6 +1605,7 @@ reviews:
       - "docs/design/speech-onnx-kokoro/model-management-subsystem/kokoro-lexicon-phonemizer.md"
       - "docs/verification/speech-onnx-kokoro/model-management-subsystem/kokoro-lexicon-phonemizer.md"
       - "src/DemaConsulting.Speech.Onnx.Kokoro/ModelManagementSubsystem/KokoroLexiconPhonemizer.cs"
+      - "src/DemaConsulting.Speech.Onnx.Kokoro/ModelManagementSubsystem/KokoroTextNormalizer.cs"
       - "test/DemaConsulting.Speech.Onnx.Kokoro.Tests/ModelManagementSubsystem/KokoroLexiconPhonemizerTests.cs"
 
   # SpeechOnnxKokoro-ModelManagementSubsystem-KokoroPhonemeVocabulary Review (one per unit)

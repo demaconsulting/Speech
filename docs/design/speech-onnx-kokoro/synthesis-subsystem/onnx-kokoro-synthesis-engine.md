@@ -33,7 +33,9 @@ differently from each other.
   shared `InputIdsTensorName`/`StyleTensorName`/`SpeedTensorName` tensors, returning the raw
   waveform output wrapped in an `EngineAudio`. Short-circuits to an empty `EngineAudio` without
   running the graph when phonemization produces zero tokens (empty text, or text whose every word
-  is out of vocabulary).
+  is out of vocabulary). The fp16 model on the CPU execution provider returns an all-NaN waveform
+  for roughly one in ten inputs (heard as silence); when that happens `Generate` re-runs the pass
+  with the speed nudged by a small factor (0.97, 1.03, 0.94, ...) until the output is finite.
 - **SelectStyleVector(speakerId, tokenCount)** (private): selects the 256-element style-vector row
   for `speakerId` at the row index matching `tokenCount`, clamped to the voice's own row count -
   exactly mirroring the proven Python reference pipeline's own `voices[len(ids)]` lookup. Falls

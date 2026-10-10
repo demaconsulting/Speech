@@ -29,6 +29,16 @@ vocabulary characters Kokoro v1.0's tokenizer recognizes as punctuation.
 constructor throws `InvalidOperationException` only for a missing embedded resource (a build
 defect). No other exception is expected from normal operation.
 
+**Text Normalization**: before tokenizing, `Phonemize` runs the internal `KokoroTextNormalizer`,
+which strips diacritics and markdown, reads URLs and e-mail addresses aloud, expands common
+abbreviations, and spells out numbers, currency, times, percentages, ordinals and years. Words
+resolve in this order: lexicon hit; possessive (`'s`); camelCase/PascalCase parts; all-caps
+acronym spelled by letter names; then a spelling correction (a missing-apostrophe contraction, or
+the most frequent lexicon word within a Damerau-Levenshtein distance of 1, or 2 for words longer
+than 8 letters, using the optional third lexicon column - zipf frequency x 100 - to break ties).
+Only a word with no match at all is dropped and reported. Any dropped character still acts as a
+word separator so neighbors do not run together.
+
 **Known Stage-1 Limitations** (both deliberate, honestly documented, not hidden defects):
 
 - **Out-of-vocabulary words**: a word absent from the embedded lexicon (an uncommon proper noun, a

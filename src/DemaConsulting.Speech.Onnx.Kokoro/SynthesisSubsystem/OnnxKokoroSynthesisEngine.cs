@@ -139,8 +139,48 @@ internal sealed class OnnxKokoroSynthesisEngine : ISynthesisBackend
 
         paddedIds[^1] = KokoroPhonemeVocabulary.PadTokenId;
 
+        var samples = RunInference(paddedIds, SelectStyleVector(speakerId, ids.Count), speed);
+
+        return new EngineAudio(samples, SampleRate);
+    }
+
+    /// <summary>
+    ///     Speed multipliers tried, in order, when a run produces NaN samples.
+    /// </summary>
+    private static readonly float[] NanRetrySpeedFactors = [0.97f, 1.03f, 0.94f, 1.06f, 0.91f, 1.09f];
+
+    /// <summary>
+    ///     Runs the model graph, retrying with slightly perturbed speeds when the output contains
+    ///     NaN.
+    /// </summary>
+    /// <remarks>
+    ///     The fp16 graph overflows to NaN for roughly one in ten inputs on the CPU execution
+    ///     provider (verified against the Python reference: the same text that yields NaN at speed
+    ///     1.0 is clean at 0.99 or 1.05). A NaN waveform is written as digital silence, so a whole
+    ///     sentence would vanish. A change of a few percent in speed is imperceptible but moves
+    ///     the intermediate activations out of the overflow. If every retry still yields NaN, the
+    ///     last output is returned as-is.
+    /// </remarks>
+    private float[] RunInference(long[] paddedIds, float[] style, float speed)
+    {
+        var samples = RunOnce(paddedIds, style, speed);
+        foreach (var factor in NanRetrySpeedFactors)
+        {
+            if (!ContainsNaN(samples))
+            {
+                break;
+            }
+
+            samples = RunOnce(paddedIds, style, speed * factor);
+        }
+
+        return samples;
+    }
+
+    private float[] RunOnce(long[] paddedIds, float[] style, float speed)
+    {
         var inputIdsTensor = new DenseTensor<long>(paddedIds, [1, paddedIds.Length]);
-        var styleTensor = new DenseTensor<float>(SelectStyleVector(speakerId, ids.Count), [1, StyleVectorWidth]);
+        var styleTensor = new DenseTensor<float>(style, [1, StyleVectorWidth]);
         var speedTensor = new DenseTensor<float>(new[] { speed }, [1]);
 
         var inputs = new List<NamedOnnxValue>
@@ -151,10 +191,10 @@ internal sealed class OnnxKokoroSynthesisEngine : ISynthesisBackend
         };
 
         using var results = _session.Run(inputs);
-        var samples = results[0].AsTensor<float>().ToArray();
-
-        return new EngineAudio(samples, SampleRate);
+        return results[0].AsTensor<float>().ToArray();
     }
+
+    private static bool ContainsNaN(float[] samples) => samples.Any(float.IsNaN);
 
     /// <summary>
     ///     Selects the 256-element style vector row for <paramref name="speakerId"/> at the row

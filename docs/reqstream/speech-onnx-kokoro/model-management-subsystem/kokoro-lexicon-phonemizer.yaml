@@ -38,6 +38,19 @@ sections:
                   - Phonemize_CommonContractions_AreRecognized
                   - Phonemize_ThreePeriods_BecomeSingleEllipsisToken
 
+              - id: SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-TextNormalization
+                title: >-
+                  The KokoroLexiconPhonemizer class shall normalize input text before lookup so
+                  that numbers, currency, markdown, acronyms, accented letters, common
+                  misspellings and missing-apostrophe contractions are spoken rather than
+                  dropped.
+                justification: |
+                  Real-world text is rarely clean dictionary words; dropping digits, symbols
+                  or slightly misspelled words changes the meaning of the spoken utterance.
+                tests:
+                  - Phonemize_MisspellingsAcronymsAndNumbers_AreSpoken
+                  - Phonemize_AcronymLetters_UseOnlyVocabularyCharacters
+
               - id: SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-UnknownWordHandling
                 title: >-
                   The KokoroLexiconPhonemizer class shall omit a word not present in the

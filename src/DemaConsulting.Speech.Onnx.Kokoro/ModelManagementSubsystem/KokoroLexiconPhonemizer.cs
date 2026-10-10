@@ -56,9 +56,50 @@ internal sealed class KokoroLexiconPhonemizer
     ///     character of an input string exactly once, in order.
     /// </summary>
     private static readonly Regex TokenPattern = new(
-        @"[A-Za-z]+(?:['\u2019][A-Za-z]+)*|\s+|.",
+        @"\uE001[a-z]|[A-Za-z]+(?:['\u2019][A-Za-z]+)*|\s+|.",
         RegexOptions.Compiled | RegexOptions.Singleline,
         TimeSpan.FromSeconds(1));
+
+    private static readonly Regex SpaceBeforePunctuationPattern = new(
+        @" ([;:,.!?\u2026\u2014])", RegexOptions.Compiled, TimeSpan.FromSeconds(1));
+
+    private static readonly Regex RepeatedPausePattern = new(
+        @"([,;:!?])\1+", RegexOptions.Compiled, TimeSpan.FromSeconds(1));
+
+    private static readonly Regex CamelBoundaryPattern = new(
+        @"(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])|(?<=[A-Za-z])(?=\d)|(?<=\d)(?=[A-Za-z])",
+        RegexOptions.Compiled, TimeSpan.FromSeconds(1));
+
+    /// <summary>The phoneme string for each letter's name, used to spell out acronyms and "P M".</summary>
+    private static readonly Dictionary<char, string> LetterPhonemes = new()
+    {
+        ['a'] = "\u02C8A",
+        ['b'] = "b\u02C8i",
+        ['c'] = "s\u02C8i",
+        ['d'] = "d\u02C8i",
+        ['e'] = "\u02C8i",
+        ['f'] = "\u02C8\u025Bf",
+        ['g'] = "\u02A4\u02C8i",
+        ['h'] = "\u02C8A\u02A7",
+        ['i'] = "\u02C8I",
+        ['j'] = "\u02A4\u02C8A",
+        ['k'] = "k\u02C8A",
+        ['l'] = "\u02C8\u025Bl",
+        ['m'] = "\u02C8\u025Bm",
+        ['n'] = "\u02C8\u025Bn",
+        ['o'] = "\u02C8O",
+        ['p'] = "p\u02C8i",
+        ['q'] = "kj\u02C8u",
+        ['r'] = "\u02C8\u0251\u0279",
+        ['s'] = "\u02C8\u025Bs",
+        ['t'] = "t\u02C8i",
+        ['u'] = "j\u02C8u",
+        ['v'] = "v\u02C8i",
+        ['w'] = "d\u02C8\u028Cb\u0259lju",
+        ['x'] = "\u02C8\u025Bks",
+        ['y'] = "w\u02C8I",
+        ['z'] = "z\u02C8i",
+    };
 
     /// <summary>
     ///     The exact set of non-alphabetic vocabulary characters Kokoro v1.0's tokenizer declares
@@ -69,6 +110,10 @@ internal sealed class KokoroLexiconPhonemizer
         [';', ':', ',', '.', '!', '?', '\u2014', '\u2026', '"', '(', ')', '\u201c', '\u201d'];
 
     private readonly IReadOnlyDictionary<string, string> _lexicon;
+    private readonly IReadOnlyDictionary<string, int> _frequency;
+    private readonly Dictionary<int, List<string>> _keysByLength;
+    private readonly Dictionary<string, string> _apostropheLess;
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, string?> _corrections = new(StringComparer.Ordinal);
 
     /// <summary>Initializes a new instance, loading and parsing the embedded lexicon immediately.</summary>
     /// <exception cref="InvalidOperationException">
@@ -77,10 +122,34 @@ internal sealed class KokoroLexiconPhonemizer
     /// </exception>
     public KokoroLexiconPhonemizer()
     {
-        _lexicon = LoadLexicon();
+        (_lexicon, _frequency) = LoadLexicon();
+
+        _keysByLength = [];
+        _apostropheLess = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var key in _lexicon.Keys)
+        {
+            if (!_keysByLength.TryGetValue(key.Length, out var bucket))
+            {
+                _keysByLength[key.Length] = bucket = [];
+            }
+
+            bucket.Add(key);
+
+            // "dont" -> "don't": index each contraction by its apostrophe-less spelling, unless
+            // that spelling is itself a real word (its, were, well) which must stay unchanged.
+            if (key.Contains('\'', StringComparison.Ordinal))
+            {
+                var stripped = key.Replace("'", string.Empty, StringComparison.Ordinal);
+                if (!_lexicon.ContainsKey(stripped) &&
+                    (!_apostropheLess.TryGetValue(stripped, out var existing) || FrequencyOf(key) > FrequencyOf(existing)))
+                {
+                    _apostropheLess[stripped] = key;
+                }
+            }
+        }
     }
 
-    private static IReadOnlyDictionary<string, string> LoadLexicon()
+    private static (IReadOnlyDictionary<string, string> Lexicon, IReadOnlyDictionary<string, int> Frequency) LoadLexicon()
     {
         using var stream = typeof(KokoroLexiconPhonemizer).Assembly.GetManifestResourceStream(ResourceName)
             ?? throw new InvalidOperationException(
@@ -89,19 +158,186 @@ internal sealed class KokoroLexiconPhonemizer
         using var gzip = new GZipStream(stream, CompressionMode.Decompress);
         using var reader = new StreamReader(gzip, System.Text.Encoding.UTF8);
 
-        var result = new Dictionary<string, string>(StringComparer.Ordinal);
+        var lexicon = new Dictionary<string, string>(StringComparer.Ordinal);
+        var frequency = new Dictionary<string, int>(StringComparer.Ordinal);
         string? line;
         while ((line = reader.ReadLine()) is not null)
         {
+            // word <TAB> phonemes [<TAB> zipf-frequency x 100]
             var tab = line.IndexOf('\t');
-            if (tab > 0 && tab < line.Length - 1)
+            if (tab <= 0 || tab >= line.Length - 1)
             {
-                result[line[..tab]] = line[(tab + 1)..];
+                continue;
+            }
+
+            var secondTab = line.IndexOf('\t', tab + 1);
+            var word = line[..tab];
+            if (secondTab < 0)
+            {
+                lexicon[word] = line[(tab + 1)..];
+            }
+            else
+            {
+                lexicon[word] = line[(tab + 1)..secondTab];
+                if (int.TryParse(line.AsSpan(secondTab + 1), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var zipf))
+                {
+                    frequency[word] = zipf;
+                }
             }
         }
 
-        return result;
+        return (lexicon, frequency);
     }
+
+    private int FrequencyOf(string word) => _frequency.TryGetValue(word, out var f) ? f : 0;
+
+    /// <summary>
+    ///     Finds the most likely intended word for a misspelling: a missing-apostrophe contraction,
+    ///     or the most frequent lexicon word within a small edit distance (a transposition counts
+    ///     as one edit), preferring candidates that share the first letter.
+    /// </summary>
+    private string? Correct(string word)
+    {
+        if (word.Length < 3 || word.Contains('\'', StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        return _corrections.GetOrAdd(word, FindCorrection);
+    }
+
+    private string? FindCorrection(string word)
+    {
+        if (_apostropheLess.TryGetValue(word, out var contraction))
+        {
+            return contraction;
+        }
+
+        var maxDistance = word.Length <= 8 ? 1 : 2;
+        string? best = null;
+        var bestScore = (Distance: int.MaxValue, FirstLetterMismatch: 1, NegativeFrequency: 0);
+
+        for (var length = word.Length - maxDistance; length <= word.Length + maxDistance; length++)
+        {
+            if (!_keysByLength.TryGetValue(length, out var bucket))
+            {
+                continue;
+            }
+
+            foreach (var candidate in bucket)
+            {
+                var distance = BoundedEditDistance(word, candidate, maxDistance);
+                if (distance > maxDistance || candidate.Contains('\'', StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var score = (distance, candidate[0] == word[0] ? 0 : 1, -FrequencyOf(candidate));
+                if (best is null || score.CompareTo(bestScore) < 0 ||
+                    (score.CompareTo(bestScore) == 0 && string.CompareOrdinal(candidate, best) < 0))
+                {
+                    best = candidate;
+                    bestScore = score;
+                }
+            }
+        }
+
+        return best;
+    }
+
+    /// <summary>
+    ///     Optimal-string-alignment (Damerau-Levenshtein with adjacent transposition) distance,
+    ///     returning <paramref name="limit"/> + 1 as soon as it is known to exceed the limit.
+    /// </summary>
+    private static int BoundedEditDistance(string a, string b, int limit)
+    {
+        if (Math.Abs(a.Length - b.Length) > limit)
+        {
+            return limit + 1;
+        }
+
+        var previousPrevious = new int[b.Length + 1];
+        var previous = new int[b.Length + 1];
+        var current = new int[b.Length + 1];
+        for (var j = 0; j <= b.Length; j++)
+        {
+            previous[j] = j;
+        }
+
+        for (var i = 1; i <= a.Length; i++)
+        {
+            current[0] = i;
+            var rowMinimum = current[0];
+            for (var j = 1; j <= b.Length; j++)
+            {
+                var cost = a[i - 1] == b[j - 1] ? 0 : 1;
+                var value = Math.Min(Math.Min(previous[j] + 1, current[j - 1] + 1), previous[j - 1] + cost);
+                if (i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1])
+                {
+                    value = Math.Min(value, previousPrevious[j - 2] + 1);
+                }
+
+                current[j] = value;
+                rowMinimum = Math.Min(rowMinimum, value);
+            }
+
+            if (rowMinimum > limit)
+            {
+                return limit + 1;
+            }
+
+            (previousPrevious, previous, current) = (previous, current, previousPrevious);
+        }
+
+        return previous[b.Length];
+    }
+
+    /// <summary>
+    ///     Resolves one word to phonemes: lexicon hit, possessive, camelCase parts, spelled-out
+    ///     acronym, or a corrected misspelling - or <see langword="null"/> when nothing applies.
+    /// </summary>
+    private string? ResolveWord(string original, int depth = 0)
+    {
+        var lower = original.ToLowerInvariant().Replace('\u2019', '\'');
+        if (_lexicon.TryGetValue(lower, out var direct))
+        {
+            return direct;
+        }
+
+        if (lower.EndsWith("'s", StringComparison.Ordinal) && _lexicon.TryGetValue(lower[..^2], out var owner))
+        {
+            return owner + PossessiveSuffix(owner);
+        }
+
+        var isAllCaps = original.Length >= 2 && original.All(char.IsAsciiLetterUpper);
+        if (isAllCaps)
+        {
+            return string.Join(' ', lower.Select(c => LetterPhonemes[c]));
+        }
+
+        if (depth == 0)
+        {
+            var parts = CamelBoundaryPattern.Split(original).Where(p => p.Length > 0).ToArray();
+            if (parts.Length > 1)
+            {
+                var resolved = parts.Select(p => p.All(char.IsAsciiDigit) ? null : ResolveWord(p, depth + 1)).ToArray();
+                if (resolved.All(r => r is not null))
+                {
+                    return string.Join(' ', resolved);
+                }
+            }
+        }
+
+        var corrected = Correct(lower);
+        return corrected is not null ? _lexicon[corrected] : null;
+    }
+
+    private static string PossessiveSuffix(string phonemes) => phonemes[^1] switch
+    {
+        'p' or 't' or 'k' or 'f' or '\u03B8' => "s",
+        's' or 'z' or '\u0283' or '\u0292' or '\u02A7' or '\u02A4' => "\u026Az",
+        _ => "z",
+    };
 
     /// <summary>
     ///     Converts <paramref name="text"/> into Kokoro v1.0's IPA phoneme string.
@@ -123,7 +359,7 @@ internal sealed class KokoroLexiconPhonemizer
 
         // Kokoro was trained on the single ellipsis character; three consecutive periods make the
         // model swallow the preceding words into a long silence, so collapse them (as misaki does).
-        text = text.Replace("...", "\u2026", StringComparison.Ordinal);
+        text = KokoroTextNormalizer.Normalize(text.Replace("...", "\u2026", StringComparison.Ordinal));
 
         var phonemes = new System.Text.StringBuilder();
         var unknownWords = new List<string>();
@@ -133,6 +369,12 @@ internal sealed class KokoroLexiconPhonemizer
         {
             if (token.Length == 0)
             {
+                continue;
+            }
+
+            if (token[0] == KokoroTextNormalizer.LetterMarker)
+            {
+                phonemes.Append(' ').Append(LetterPhonemes[token[1]]).Append(' ');
                 continue;
             }
 
@@ -146,37 +388,43 @@ internal sealed class KokoroLexiconPhonemizer
 
             if (char.IsLetter(token[0]))
             {
-                var lower = token.ToLowerInvariant().Replace('\u2019', '\'');
-                if (_lexicon.TryGetValue(lower, out var wordPhonemes))
+                var wordPhonemes = ResolveWord(token);
+                if (wordPhonemes is not null)
                 {
-                    phonemes.Append(wordPhonemes);
+                    phonemes.Append(' ').Append(wordPhonemes).Append(' ');
                 }
                 else
                 {
+                    var lower = token.ToLowerInvariant().Replace('\u2019', '\'');
                     if (seenUnknownWords.Add(lower))
                     {
                         unknownWords.Add(lower);
                     }
+
+                    phonemes.Append(' ');
                 }
 
                 continue;
             }
 
             // A single non-letter, non-whitespace character: pass it through only when Kokoro's
-            // own vocabulary actually declares it, so a character the model has no embedding for
-            // is dropped rather than silently fed through to a token-id lookup that would drop it
-            // anyway (see KokoroPhonemeVocabulary.ToTokenIds), keeping this class's own log of
-            // "what did I actually skip" limited to meaningful omissions (unknown words), not
-            // every unsupported punctuation mark too.
+            // own vocabulary declares it. Any other character is dropped but still acts as a word
+            // separator so neighbors ("cat@dog", "well-known") do not run together.
             if (token.Length == 1 && PassthroughPunctuation.Contains(token[0]))
             {
                 phonemes.Append(token[0]);
             }
+            else
+            {
+                phonemes.Append(' ');
+            }
         }
 
-        // Omitted unknown words leave doubled or edge whitespace; normalize so an utterance with no
-        // recognized words yields an empty string (and Generate's zero-token fast path).
-        var normalized = string.Join(' ', phonemes.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        // Omitted words and separators leave doubled or edge whitespace; normalize so an utterance
+        // with no recognized words yields an empty string (and Generate's zero-token fast path).
+        var joined = string.Join(' ', phonemes.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        var normalized = SpaceBeforePunctuationPattern.Replace(joined, "$1");
+        normalized = RepeatedPausePattern.Replace(normalized, "$1");
         return (normalized, unknownWords);
     }
 }

@@ -142,9 +142,52 @@ public sealed class KokoroLexiconPhonemizerTests
         // Act
         var (phonemes, unknownWords) = phonemizer.Phonemize("cat@dog");
 
-        // Assert: the unsupported '@' character contributes nothing to the phoneme string.
-        Assert.Equal("k\u02C8\u00E6td\u02C8\u0254\u0261", phonemes);
+        // Assert: the unsupported '@' character is dropped but still separates the two words.
+        Assert.Equal("k\u02C8\u00E6t d\u02C8\u0254\u0261", phonemes);
         Assert.Empty(unknownWords);
+    }
+
+    /// <summary>Misspellings, missing apostrophes, acronyms and numbers are all spoken.</summary>
+    [Fact]
+    public void Phonemize_MisspellingsAcronymsAndNumbers_AreSpoken()
+    {
+        // Arrange
+        var phonemizer = new KokoroLexiconPhonemizer();
+
+        // Act
+        var (typo, typoUnknown) = phonemizer.Phonemize("teh recieve dont");
+        var (fixedText, _) = phonemizer.Phonemize("the receive don't");
+        var (acronym, acronymUnknown) = phonemizer.Phonemize("FBI");
+        var (letters, _) = phonemizer.Phonemize("F B I");
+        var (number, numberUnknown) = phonemizer.Phonemize("$5");
+        var (words, _) = phonemizer.Phonemize("five dollars");
+        var (markdown, _) = phonemizer.Phonemize("**bold** `code`");
+        var (plain, _) = phonemizer.Phonemize("bold code");
+
+        // Assert
+        Assert.Equal(fixedText, typo);
+        Assert.Empty(typoUnknown);
+        Assert.NotEmpty(acronym);
+        Assert.Empty(acronymUnknown);
+        Assert.Equal(letters.Replace(" ", string.Empty, StringComparison.Ordinal), acronym.Replace(" ", string.Empty, StringComparison.Ordinal));
+        Assert.Empty(numberUnknown);
+        Assert.Equal(words, number);
+        Assert.Equal(plain, markdown);
+    }
+
+    /// <summary>Every letter-name phoneme is made of characters the Kokoro vocabulary knows.</summary>
+    [Fact]
+    public void Phonemize_AcronymLetters_UseOnlyVocabularyCharacters()
+    {
+        // Arrange
+        var phonemizer = new KokoroLexiconPhonemizer();
+        var alphabet = string.Concat(Enumerable.Range('A', 26).Select(c => (char)c));
+
+        // Act
+        var (phonemes, _) = phonemizer.Phonemize(alphabet);
+
+        // Assert
+        Assert.Equal(phonemes.Length, new KokoroPhonemeVocabulary().ToTokenIds(phonemes).Count);
     }
 
     /// <summary>

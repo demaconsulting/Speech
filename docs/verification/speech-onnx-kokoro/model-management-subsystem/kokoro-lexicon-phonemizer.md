@@ -52,6 +52,16 @@ produces an empty phoneme string and no unknown words; and a `null` input throws
 
 **Test**: `Phonemize_EmptyText_ReturnsEmptyPhonemesAndNoUnknownWords`
 
+##### Misspellings, acronyms, numbers and markdown are spoken
+
+**Scenario**: `"teh recieve dont"`, `"FBI"`, `"$5"` and `"**bold**`code`"` are phonemized.
+
+**Expected**: each yields the same phonemes as its corrected or expanded form (`"the receive
+don't"`, `"F B I"`, `"five dollars"`, `"bold code"`) with no unknown words.
+
+**Tests**: `Phonemize_MisspellingsAcronymsAndNumbers_AreSpoken`,
+`Phonemize_AcronymLetters_UseOnlyVocabularyCharacters`
+
 ##### Common contractions are recognized
 
 **Scenario**: `"I don't know"`, `"it’s fine, we can't go"` (typographic apostrophe) and
