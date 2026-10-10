@@ -121,6 +121,10 @@ internal sealed class KokoroLexiconPhonemizer
     {
         ArgumentNullException.ThrowIfNull(text);
 
+        // Kokoro was trained on the single ellipsis character; three consecutive periods make the
+        // model swallow the preceding words into a long silence, so collapse them (as misaki does).
+        text = text.Replace("...", "\u2026", StringComparison.Ordinal);
+
         var phonemes = new System.Text.StringBuilder();
         var unknownWords = new List<string>();
         var seenUnknownWords = new HashSet<string>(StringComparer.Ordinal);

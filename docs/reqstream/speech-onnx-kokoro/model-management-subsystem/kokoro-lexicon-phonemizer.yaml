@@ -36,6 +36,7 @@ sections:
                   - Phonemize_NonVocabularyPunctuation_IsDropped
                   - Phonemize_EmptyText_ReturnsEmptyPhonemesAndNoUnknownWords
                   - Phonemize_CommonContractions_AreRecognized
+                  - Phonemize_ThreePeriods_BecomeSingleEllipsisToken
 
               - id: SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-UnknownWordHandling
                 title: >-

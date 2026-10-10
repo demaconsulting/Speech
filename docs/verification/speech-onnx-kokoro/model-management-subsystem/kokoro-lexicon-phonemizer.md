@@ -61,6 +61,14 @@ produces an empty phoneme string and no unknown words; and a `null` input throws
 
 **Test**: `Phonemize_CommonContractions_AreRecognized`
 
+##### Three periods become one ellipsis token
+
+**Scenario**: `"I know..."` is converted to phonemes.
+
+**Expected**: the phoneme string ends with the single ellipsis character and contains no period.
+
+**Test**: `Phonemize_ThreePeriods_BecomeSingleEllipsisToken`
+
 ##### An out-of-vocabulary word is dropped and reported as unknown
 
 **Test**: `Phonemize_OutOfVocabularyWord_DroppedAndReportedAsUnknown`

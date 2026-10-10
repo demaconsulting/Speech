@@ -179,6 +179,25 @@ public sealed class KokoroLexiconPhonemizerTests
     }
 
     /// <summary>
+    ///     Proves that three consecutive periods are emitted as the single ellipsis character
+    ///     Kokoro was trained on, rather than three separate period tokens.
+    /// </summary>
+    [Fact]
+    public void Phonemize_ThreePeriods_BecomeSingleEllipsisToken()
+    {
+        // Arrange
+        var phonemizer = new KokoroLexiconPhonemizer();
+
+        // Act
+        var (phonemes, unknown) = phonemizer.Phonemize("I know...");
+
+        // Assert
+        Assert.Empty(unknown);
+        Assert.EndsWith("\u2026", phonemes, StringComparison.Ordinal);
+        Assert.DoesNotContain(".", phonemes, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     ///     Proves that common contractions (with straight or typographic apostrophes) are found in
     ///     the embedded lexicon rather than reported as unknown words.
     /// </summary>
