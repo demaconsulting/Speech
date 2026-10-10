@@ -98,6 +98,7 @@ sections:
                   ISynthesisModel.ResolveSpeakerId's own guarantee.
                 tests:
                   - OnnxKokoroEnglishSynthesisModel_CreateBackend_ValidModelAndVoices_GeneratesUsingSelectedVoiceStyle
+                  - Generate_MultiRowVoice_SelectsRowByTokenCountAndClampsToLastRow
 
               - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-ArgumentValidation
                 title: >-

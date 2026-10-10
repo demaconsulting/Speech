@@ -191,7 +191,7 @@ public sealed class OnnxKokoroEnglishSynthesisModel : ISynthesisModel
     /// <remarks>
     ///     Declares exactly one tunable parameter: a closed-set voice/speaker selection, matching
     ///     the sibling sherpa-onnx Kokoro model's parameter shape. See the type-level remarks for
-    ///     why only 2 of 54 upstream voices are currently declared.
+    ///     why only 29 of 54 upstream voices are currently declared.
     /// </remarks>
     public IReadOnlyList<ISpeechModelParameter> Parameters { get; } =
     [

@@ -241,6 +241,53 @@ public sealed class OnnxKokoroSynthesisEngineTests
         Assert.Null(exception);
     }
 
+    /// <summary>
+    ///     Proves that <see cref="OnnxKokoroSynthesisEngine.Generate"/> selects the style-vector row
+    ///     indexed by the utterance's phoneme-token count, and clamps to the last row when the
+    ///     utterance is longer than the voice's row count. The fixture model forwards the style
+    ///     input as its output, and each synthetic row is filled with its own row index.
+    /// </summary>
+    [Fact]
+    public void Generate_MultiRowVoice_SelectsRowByTokenCountAndClampsToLastRow()
+    {
+        // Arrange
+        var vocabulary = new KokoroPhonemeVocabulary();
+        var phonemizer = new KokoroLexiconPhonemizer();
+        var tokenCount = vocabulary.ToTokenIds(phonemizer.Phonemize("cat").Phonemes).Count;
+        Assert.True(tokenCount > 0);
+
+        // Voice A has enough rows that the token count indexes a middle row; voice B has too few
+        // rows, forcing the clamp to its last row.
+        var wideVoice = BuildRowIndexedVoice(rowCount: tokenCount + 3);
+        var narrowVoice = BuildRowIndexedVoice(rowCount: tokenCount);
+        using var session = new InferenceSession(FixtureModelPath);
+        using ISynthesisBackend engine = new OnnxKokoroSynthesisEngine(
+            session,
+            vocabulary,
+            phonemizer,
+            new Dictionary<int, float[]> { [0] = wideVoice, [1] = narrowVoice });
+
+        // Act
+        var wide = engine.Generate("cat", 1.0f, speakerId: 0);
+        var narrow = engine.Generate("cat", 1.0f, speakerId: 1);
+
+        // Assert
+        Assert.All(wide.Samples, sample => Assert.Equal((float)tokenCount, sample));
+        Assert.All(narrow.Samples, sample => Assert.Equal((float)(tokenCount - 1), sample));
+    }
+
+    /// <summary>Builds a voice of <paramref name="rowCount"/> 256-float rows, each filled with its own row index.</summary>
+    private static float[] BuildRowIndexedVoice(int rowCount)
+    {
+        var voice = new float[rowCount * 256];
+        for (var row = 0; row < rowCount; row++)
+        {
+            Array.Fill(voice, (float)row, row * 256, 256);
+        }
+
+        return voice;
+    }
+
     /// <summary>Builds a single-voice style dictionary with one all-zero 256-float row.</summary>
     private static Dictionary<int, float[]> SingleVoiceStyles() => new() { [0] = new float[256] };
 
