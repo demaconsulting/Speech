@@ -35,6 +35,7 @@ sections:
                   - Phonemize_VocabularyPunctuation_PassesThrough
                   - Phonemize_NonVocabularyPunctuation_IsDropped
                   - Phonemize_EmptyText_ReturnsEmptyPhonemesAndNoUnknownWords
+                  - Phonemize_CommonContractions_AreRecognized
 
               - id: SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-UnknownWordHandling
                 title: >-

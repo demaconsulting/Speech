@@ -179,6 +179,27 @@ public sealed class KokoroLexiconPhonemizerTests
     }
 
     /// <summary>
+    ///     Proves that common contractions (with straight or typographic apostrophes) are found in
+    ///     the embedded lexicon rather than reported as unknown words.
+    /// </summary>
+    [Theory]
+    [InlineData("I don't know")]
+    [InlineData("it\u2019s fine, we can't go")]
+    [InlineData("I'm sure they won't")]
+    public void Phonemize_CommonContractions_AreRecognized(string text)
+    {
+        // Arrange
+        var phonemizer = new KokoroLexiconPhonemizer();
+
+        // Act
+        var (phonemes, unknown) = phonemizer.Phonemize(text);
+
+        // Assert
+        Assert.Empty(unknown);
+        Assert.NotEmpty(phonemes);
+    }
+
+    /// <summary>
     ///     Proves that text made only of unknown words yields an empty phoneme string rather than
     ///     leftover whitespace.
     /// </summary>

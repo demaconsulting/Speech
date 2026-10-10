@@ -52,6 +52,15 @@ produces an empty phoneme string and no unknown words; and a `null` input throws
 
 **Test**: `Phonemize_EmptyText_ReturnsEmptyPhonemesAndNoUnknownWords`
 
+##### Common contractions are recognized
+
+**Scenario**: `"I don't know"`, `"it’s fine, we can't go"` (typographic apostrophe) and
+`"I'm sure they won't"` are converted to phonemes.
+
+**Expected**: no unknown words are reported and the phoneme string is non-empty.
+
+**Test**: `Phonemize_CommonContractions_AreRecognized`
+
 ##### An out-of-vocabulary word is dropped and reported as unknown
 
 **Test**: `Phonemize_OutOfVocabularyWord_DroppedAndReportedAsUnknown`

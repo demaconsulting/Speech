@@ -42,7 +42,9 @@ dotnet add package DemaConsulting.Speech.Sherpa
 dependency on any speech-engine package. `DemaConsulting.Speech.Sherpa` is a separate,
 sibling package supplying the four sherpa-onnx-backed models used by this README's examples
 (and the `org.k2fsa.sherpa.onnx`/`SharpCompress` dependencies they require); calling
-`.AddSherpaModels()` on a `SpeechModelCatalog` registers them. A host that only needs the
+`.AddSherpaModels()` on a `SpeechModelCatalog` registers them. The optional
+`DemaConsulting.Speech.Onnx.Kokoro` package adds a fifth, raw ONNX Runtime Kokoro v1.0 model via
+`.AddKokoroModels()`. A host that only needs the
 catalog/contract seam - for example to ship its own `IRecognitionModel`/`ISynthesisModel`
 implementation - can depend on the core package alone.
 
@@ -85,7 +87,8 @@ accelerated provider (for example DirectML or CUDA), reference the matching
 The library is **designed for extensibility**: each speech engine is a self-contained
 `IRecognitionModel`/`ISynthesisModel`-backed class, registered into a `SpeechModelCatalog` via an
 `AddModels`/`Add*Models`-style extension method - `DemaConsulting.Speech.Sherpa` supplies
-`AddSherpaModels()` for the four models below - so adding a new engine is a new model class and
+`AddSherpaModels()` for the four sherpa-onnx models and `DemaConsulting.Speech.Onnx.Kokoro`
+supplies `AddKokoroModels()` for the raw ONNX Runtime Kokoro model - so adding a new engine is a new model class and
 extension method, not a redesign of the core library. Native runtimes restore transitively
 through the managed `org.k2fsa.sherpa.onnx` package; if one is missing for your target RID,
 composition still succeeds and the factory reports the engine as unavailable instead of crashing.
@@ -96,7 +99,9 @@ result without touching the network. On first download it can instead return `Fa
 transport or I/O failure, with the underlying exception in `SpeechModelDownloadResult.Error`) or
 `ChecksumMismatch`, or throw `ArgumentException` for an unrecognized model id.
 
-This release ships four models through the `DemaConsulting.Speech.Sherpa` package:
+This release ships five models through two packages. `DemaConsulting.Speech.Sherpa`
+(`AddSherpaModels()`) supplies the first four; `DemaConsulting.Speech.Onnx.Kokoro`
+(`AddKokoroModels()`) supplies the raw ONNX Runtime Kokoro model:
 
 | Model | Role | License |
 | --- | --- | --- |
@@ -104,6 +109,7 @@ This release ships four models through the `DemaConsulting.Speech.Sherpa` packag
 | `SherpaOnnxNemotronStreamingEnRecognitionModel` | Streaming STT | NVIDIA Open Model License |
 | `SherpaOnnxVitsLibriTtsEnglishSynthesisModel` | TTS, 904 speakers | CC BY 4.0 |
 | `SherpaOnnxKokoroEnglishSynthesisModel` | TTS, 11 voices | Apache-2.0 |
+| `OnnxKokoroEnglishSynthesisModel` | TTS, 29 English voices (Kokoro v1.0) | Apache-2.0 |
 
 The table above is a convenience view for at-a-glance browsing, not the sole source of license
 information: every model also reports its license programmatically via

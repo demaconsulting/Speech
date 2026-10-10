@@ -56,7 +56,7 @@ internal sealed class KokoroLexiconPhonemizer
     ///     character of an input string exactly once, in order.
     /// </summary>
     private static readonly Regex TokenPattern = new(
-        @"[A-Za-z]+(?:'[A-Za-z]+)*|\s+|.",
+        @"[A-Za-z]+(?:['\u2019][A-Za-z]+)*|\s+|.",
         RegexOptions.Compiled | RegexOptions.Singleline,
         TimeSpan.FromSeconds(1));
 
@@ -142,7 +142,7 @@ internal sealed class KokoroLexiconPhonemizer
 
             if (char.IsLetter(token[0]))
             {
-                var lower = token.ToLowerInvariant();
+                var lower = token.ToLowerInvariant().Replace('\u2019', '\'');
                 if (_lexicon.TryGetValue(lower, out var wordPhonemes))
                 {
                     phonemes.Append(wordPhonemes);
