@@ -236,7 +236,9 @@ internal sealed class OnnxKokoroSynthesisEngine : ISynthesisBackend
             return;
         }
 
-        _session.Dispose();
+        // Mark disposed before releasing the native session so a concurrent Generate or Dispose
+        // observes the flag rather than racing the release.
         _disposed = true;
+        _session.Dispose();
     }
 }
