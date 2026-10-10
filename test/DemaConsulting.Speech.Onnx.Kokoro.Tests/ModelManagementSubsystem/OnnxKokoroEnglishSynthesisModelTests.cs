@@ -281,7 +281,7 @@ public sealed class OnnxKokoroEnglishSynthesisModelTests : IDisposable
         var audio = backend.Generate("cat", 1.0f, speakerId: 5);
 
         // Assert: the fake model's single Identity(style) node forwards the requested voice's
-        // (am_michael, declaration-order index 5) own style vector straight through as output.
+        // (af_kore, declaration-order index 5) own style vector straight through as output.
         Assert.NotEmpty(audio.Samples);
         Assert.All(audio.Samples, sample => Assert.Equal(5.0f, sample));
         Assert.Equal(OnnxKokoroSynthesisEngine.SampleRate, audio.SampleRate);

@@ -81,7 +81,7 @@ Against a tiny, hand-built ONNX fixture whose single node forwards its `style` i
 through as the output, and 29 synthetic per-voice `.bin` files each filled with that voice's own
 declaration-order index, this test calls `CreateBackend` and then `Generate("cat", 1.0f,
 speakerId: 5)`, asserting every returned sample equals `5.0f` - the style value belonging to
-`am_michael`, the sixth declared voice - proving the requested speaker id's own style vector is
+`af_kore`, the sixth declared voice - proving the requested speaker id's own style vector is
 selected and forwarded through the real ONNX Runtime inference call, not merely that some
 non-empty audio is produced.
 
