@@ -199,6 +199,15 @@ result's text when flushed before that reset, rather than only proving it is not
 
 **Test**: `SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_EndpointReplaysAndArmsGracePeriod`
 
+##### An endpoint after true silence does not replay the silent buffer
+
+**Scenario**: A tone is fed, then true digital silence until the endpoint detector resets the stream.
+
+**Expected**: No replay occurs and the post-replay grace period is not armed, so speech that follows a
+long pause in a finite file is not lost.
+
+**Test**: `SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_SilentBuffer_IsNotReplayed`
+
 ##### The replay never produces an extra result
 
 **Test**: `SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_ReplayNeverProducesExtraResult`

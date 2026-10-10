@@ -101,6 +101,9 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionBackend
     /// </remarks>
     private const int PostReplayEndpointGraceMs = 1300;
 
+    /// <summary>The minimum RMS amplitude (full scale = 1.0) for the warm-up buffer to count as speech.</summary>
+    private const double SpeechRmsThreshold = 0.01;
+
     /// <summary>The rate, in Hz, declared for samples supplied to <see cref="AcceptSamples"/>.</summary>
     private readonly int _sampleRate;
 
@@ -307,7 +310,8 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionBackend
             // speech has been recognized since the last reset is eligible for warm-up replay. An
             // endpoint firing on leading/inter-utterance silence with nothing genuine recognized
             // yet must not replay - see `_hasRecognizedTextSinceReset` remarks for why.
-            var replayEligible = _warmupBuffer is { Count: > 0 } && _hasRecognizedTextSinceReset;
+            var replayEligible = _warmupBuffer is { Count: > 0 } && _hasRecognizedTextSinceReset &&
+                                 ContainsSpeechEnergy(_warmupBuffer);
 
             _recognizer.Reset(_stream);
             _lastReportedText = string.Empty;
@@ -392,6 +396,27 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionBackend
 
         result = new SpeechRecognitionResult(text, IsFinal: true);
         return true;
+    }
+
+    /// <summary>
+    ///     Reports whether the rolling warm-up buffer holds audible audio rather than silence.
+    /// </summary>
+    /// <remarks>
+    ///     An endpoint that fires after a genuine trailing pause leaves a buffer of pure silence;
+    ///     replaying that into the freshly reset, encoder-cold stream makes the NeMo-cache-aware
+    ///     decoder lose the speech that follows the pause (reproduced on a finite WAV file with a
+    ///     long mid-file silence). The replay exists only to recover words swallowed by a
+    ///     <i>false-positive</i> endpoint, where the buffer still holds the speech just spoken.
+    /// </remarks>
+    private static bool ContainsSpeechEnergy(List<float> buffer)
+    {
+        double sumOfSquares = 0;
+        foreach (var sample in buffer)
+        {
+            sumOfSquares += (double)sample * sample;
+        }
+
+        return Math.Sqrt(sumOfSquares / buffer.Count) > SpeechRmsThreshold;
     }
 
     /// <summary>

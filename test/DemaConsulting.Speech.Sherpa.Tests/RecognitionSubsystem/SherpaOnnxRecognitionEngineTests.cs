@@ -88,8 +88,24 @@ public sealed class SherpaOnnxRecognitionEngineTests
         field.SetValue(instance, value);
     }
 
-    /// <summary>Half a second of digital silence at 16 kHz, used to drive the endpoint detector.</summary>
-    private static float[] SilenceBlock(double seconds = 0.5) => new float[(int)(16000 * seconds)];
+    /// <summary>
+    ///     Half a second of quiet room noise at 16 kHz (RMS above the engine's speech-energy gate),
+    ///     used to drive the endpoint detector while keeping the warm-up buffer eligible for replay.
+    /// </summary>
+    private static float[] SilenceBlock(double seconds = 0.5)
+    {
+        var samples = new float[(int)(16000 * seconds)];
+        var random = new Random(1234);
+        for (var i = 0; i < samples.Length; i++)
+        {
+            samples[i] = (float)(random.NextDouble() * 0.06 - 0.03);
+        }
+
+        return samples;
+    }
+
+    /// <summary>Half a second of true digital silence at 16 kHz.</summary>
+    private static float[] DigitalSilenceBlock(double seconds = 0.5) => new float[(int)(16000 * seconds)];
 
     /// <summary>
     ///     A short, non-silent synthetic tone at 16 kHz, standing in for "genuine speech" for the
@@ -194,6 +210,38 @@ public sealed class SherpaOnnxRecognitionEngineTests
         var buffer = GetPrivateField<List<float>?>(engine, "_warmupBuffer");
         Assert.NotNull(buffer);
         Assert.Equal(capacity, buffer.Count);
+    }
+
+    /// <summary>
+    ///     Proves that an endpoint following true digital silence does not replay the (silent)
+    ///     warm-up buffer and does not arm the grace period, because replaying silence into the
+    ///     reset stream makes the model lose speech that follows a long pause.
+    /// </summary>
+    [Fact]
+    public void SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_SilentBuffer_IsNotReplayed()
+    {
+        // Arrange
+        using var engine = CreateEngine(postEndpointWarmupWindowMs: 800);
+        engine.AcceptSamples(ToneBlock());
+        engine.TryDecode(out _);
+        SetPrivateField(engine, "_hasRecognizedTextSinceReset", true);
+
+        // Act: feed true digital silence long enough for an endpoint to fire and reset the stream
+        var resetObserved = false;
+        for (var i = 0; i < 60 && !resetObserved; i++)
+        {
+            engine.AcceptSamples(DigitalSilenceBlock());
+            engine.TryDecode(out _);
+            resetObserved = !GetPrivateField<bool>(engine, "_hasRecognizedTextSinceReset");
+        }
+
+        if (!resetObserved)
+        {
+            Assert.Skip("The real endpoint detector did not fire within this test's bounded silence budget.");
+        }
+
+        // Assert
+        Assert.Equal(0, GetPrivateField<int>(engine, "_graceSamplesRemaining"));
     }
 
     /// <summary>
