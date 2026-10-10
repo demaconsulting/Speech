@@ -278,10 +278,14 @@ internal sealed class RecognitionSession : IRecognitionSession
 
             startingArgs = TransitionTo(RecognitionSessionState.Starting);
 
+            var isFiniteSource = _device is WavFileAudioCaptureDevice;
             var frames = Channel.CreateBounded<float[]>(
                 new BoundedChannelOptions(PendingFrameCapacity)
                 {
-                    FullMode = BoundedChannelFullMode.DropOldest,
+                    // A live microphone must never stall its audio callback, so it drops the
+                    // oldest block when recognition falls behind. A finite file is delivered
+                    // faster than real time and every sample matters, so it applies backpressure.
+                    FullMode = isFiniteSource ? BoundedChannelFullMode.Wait : BoundedChannelFullMode.DropOldest,
                     SingleReader = true,
                     SingleWriter = false
                 });
@@ -605,7 +609,10 @@ internal sealed class RecognitionSession : IRecognitionSession
             // only matters if the pump thread is genuinely stuck inside a blocking backend call that
             // never returns, in which case the worker is abandoned after its timeout rather than
             // hanging this call forever.
-            if (pumpCts is not null)
+            // A finite file source is never cancelled here: the abandon deadline would cut off a
+            // slow backend (for example a large CPU model) still decoding the file's queued audio,
+            // losing the tail of a transcript the user expects in totality.
+            if (pumpCts is not null && _device is not WavFileAudioCaptureDevice)
             {
                 await pumpCts.CancelAsync().ConfigureAwait(false);
             }
@@ -906,6 +913,14 @@ internal sealed class RecognitionSession : IRecognitionSession
             var frames = _pendingFrames;
             if (frames is null || e.Samples.Count == 0)
             {
+                return;
+            }
+
+            if (_device is WavFileAudioCaptureDevice)
+            {
+                // Runs on the file device's own Start() thread, never a live audio callback, so
+                // blocking here until the pump catches up is safe and loses no audio.
+                frames.Writer.WriteAsync([.. e.Samples], CancellationToken.None).AsTask().GetAwaiter().GetResult();
                 return;
             }
 

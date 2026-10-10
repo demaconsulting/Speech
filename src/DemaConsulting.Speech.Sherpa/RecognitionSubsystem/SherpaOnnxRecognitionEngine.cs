@@ -146,6 +146,10 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionBackend
     /// </summary>
     private string _lastReportedText = string.Empty;
 
+    // See ReadHypothesis: text the model cleared internally, and the last non-empty raw text.
+    private string _carriedText = string.Empty;
+    private string _lastRawText = string.Empty;
+
     /// <summary>
     ///     Whether <see cref="OnlineRecognizer.GetResult"/> has produced non-empty text at any
     ///     point since the stream's most recent reset (whether by a prior endpoint or an explicit
@@ -286,7 +290,7 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionBackend
             _recognizer.Decode(_stream);
         }
 
-        var text = _recognizer.GetResult(_stream).Text ?? string.Empty;
+        var text = ReadHypothesis();
 
         if (_warmupBuffer is not null && text.Length > 0)
         {
@@ -317,6 +321,8 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionBackend
             _lastReportedText = string.Empty;
             _hasRecognizedTextSinceReset = false;
             _hasReplayOnlyHypothesis = false;
+            _carriedText = string.Empty;
+            _lastRawText = string.Empty;
 
             // Disabled models (`_warmupBuffer` null) skip this entirely - no replay, no grace
             // period, zero measurable behavior change from before this feature existed.
@@ -388,7 +394,7 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionBackend
             return false;
         }
 
-        var text = _recognizer.GetResult(_stream).Text ?? string.Empty;
+        var text = ReadHypothesis();
         if (text.Length == 0)
         {
             return false;
@@ -396,6 +402,43 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionBackend
 
         result = new SpeechRecognitionResult(text, IsFinal: true);
         return true;
+    }
+
+    /// <summary>
+    ///     Reads the recognizer's current hypothesis, preserving text the model has internally
+    ///     discarded.
+    /// </summary>
+    /// <remarks>
+    ///     Cache-aware streaming models (Nemotron) clear their own hypothesis when they detect an
+    ///     end of utterance, before this engine's endpoint rules fire. Without compensation the
+    ///     text recognized so far silently vanishes: the endpoint then finalizes nothing, or only
+    ///     the words spoken after the model's internal reset. When the raw text drops to empty
+    ///     after having been non-empty, the last non-empty text is carried forward and prefixed
+    ///     to every later hypothesis until the stream is reset.
+    /// </remarks>
+    private string ReadHypothesis()
+    {
+        var raw = _recognizer.GetResult(_stream).Text ?? string.Empty;
+
+        if (raw.Length == 0)
+        {
+            if (_lastRawText.Length > 0)
+            {
+                _carriedText = _carriedText.Length == 0 ? _lastRawText : $"{_carriedText} {_lastRawText}";
+                _lastRawText = string.Empty;
+            }
+        }
+        else
+        {
+            _lastRawText = raw;
+        }
+
+        if (_carriedText.Length == 0)
+        {
+            return raw;
+        }
+
+        return raw.Length == 0 ? _carriedText : $"{_carriedText} {raw}";
     }
 
     /// <summary>
@@ -509,6 +552,8 @@ internal sealed class SherpaOnnxRecognitionEngine : IRecognitionBackend
         _lastReportedText = string.Empty;
         _hasRecognizedTextSinceReset = false;
         _hasReplayOnlyHypothesis = false;
+        _carriedText = string.Empty;
+        _lastRawText = string.Empty;
         _warmupBuffer?.Clear();
         _graceSamplesRemaining = 0;
 

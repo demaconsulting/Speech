@@ -127,6 +127,105 @@ public class RecognitionSessionTests
     }
 
     /// <summary>
+    ///     Proves that a finite WAV source applies backpressure instead of dropping the oldest
+    ///     blocks when recognition falls behind, so every sample of the file reaches the backend.
+    /// </summary>
+    [Fact]
+    public async Task RecognitionSession_WavFileSource_SlowBackend_DeliversEverySample()
+    {
+        // Arrange: a 16 kHz mono file of 200 blocks (well over the 64-block pending capacity)
+        // and a backend held blocked until the whole file has been offered
+        const int blockCount = 200;
+        const int totalSamples = blockCount * WavFileAudioCaptureDevice.DefaultFrameSampleCount;
+        var path = Path.Join(Path.GetTempPath(), $"{Guid.NewGuid():N}.wav");
+        try
+        {
+            await WriteWavFileAsync(path, totalSamples);
+
+            using var release = new ManualResetEvent(false);
+            var engine = new FakeRecognitionEngine(acceptSamplesBlock: release);
+            var device = new WavFileAudioCaptureDevice(path);
+            await using var session = CreateSession(engine, device);
+
+            // Act
+            var start = session.StartAsync(TestContext.Current.CancellationToken);
+            await Task.Delay(300, TestContext.Current.CancellationToken);
+            release.Set();
+            await start.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+            await session.StopAsync(TestContext.Current.CancellationToken);
+
+            // Assert
+            Assert.Equal(totalSamples, engine.AcceptedSamples.Count);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    ///     Proves that stopping a finite WAV source waits for a slow backend to finish draining
+    ///     (beyond the abandon timeout) and still delivers its flushed final result.
+    /// </summary>
+    [Fact]
+    public async Task RecognitionSession_WavFileSource_StopAsync_SlowDrain_DeliversFlushedResult()
+    {
+        // Arrange: a short file whose queued blocks the backend decodes slower than the abandon
+        // timeout, with a flushed final result at the end
+        var path = Path.Join(Path.GetTempPath(), $"{Guid.NewGuid():N}.wav");
+        try
+        {
+            await WriteWavFileAsync(path, 10 * WavFileAudioCaptureDevice.DefaultFrameSampleCount);
+
+            using var release = new ManualResetEvent(false);
+            var engine = new FakeRecognitionEngine(
+                scriptedFlushResult: new SpeechRecognitionResult("tail", IsFinal: true),
+                acceptSamplesBlock: release);
+            await using var session = CreateSession(engine, new WavFileAudioCaptureDevice(path));
+            await session.StartAsync(TestContext.Current.CancellationToken);
+
+            // Act
+            var stop = session.StopAsync(TestContext.Current.CancellationToken);
+            await Task.Delay(DedicatedWorker.DefaultAbandonTimeout + TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken);
+            release.Set();
+            await stop.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+
+            // Assert
+            var results = await CollectAsync(session.GetResultsAsync(TestContext.Current.CancellationToken));
+            Assert.Equal("tail", Assert.Single(results).Result.Text);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Writes a 16 kHz mono 16-bit PCM WAV file of constant low-level samples.</summary>
+    private static async Task WriteWavFileAsync(string path, int totalSamples)
+    {
+        await using var stream = File.Create(path);
+        await using var writer = new BinaryWriter(stream);
+        var dataBytes = totalSamples * 2;
+        writer.Write("RIFF"u8.ToArray());
+        writer.Write(36 + dataBytes);
+        writer.Write("WAVE"u8.ToArray());
+        writer.Write("fmt "u8.ToArray());
+        writer.Write(16);
+        writer.Write((short)1);
+        writer.Write((short)1);
+        writer.Write(16000);
+        writer.Write(32000);
+        writer.Write((short)2);
+        writer.Write((short)16);
+        writer.Write("data"u8.ToArray());
+        writer.Write(dataBytes);
+        for (var i = 0; i < totalSamples; i++)
+        {
+            writer.Write((short)1000);
+        }
+    }
+
+    /// <summary>
     ///     Proves that stopping flushes any trailing audio the backend had accepted but not yet
     ///     decoded, so the flushed final result is enumerable via
     ///     <see cref="RecognitionSession.GetResultsAsync"/> once the stop completes.

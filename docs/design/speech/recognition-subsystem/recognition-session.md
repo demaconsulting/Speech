@@ -25,7 +25,11 @@ unavailable case is represented by `UnavailableRecognitionSession` instead.
 The pending-block queue holds `PendingFrameCapacity` (64) blocks and drops the oldest when full
 (`BoundedChannelFullMode.DropOldest`). Recognition that has fallen behind live audio cannot be
 caught up by queueing more of it, so bounding the backlog keeps both memory and latency flat
-instead of letting them grow without limit.
+instead of letting them grow without limit. A finite `WavFileAudioCaptureDevice` source is the
+exception: its channel uses `BoundedChannelFullMode.Wait` and the file device's `Start()` thread
+blocks until the pump catches up, because a file is delivered faster than real time and must
+be transcribed in totality. Likewise, teardown never cancels the pump of a file source, so the
+abandon deadline cannot truncate a slow backend's final drain.
 
 **Key Methods**:
 

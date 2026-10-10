@@ -42,6 +42,15 @@ the backend, and
 faulting reset is contained the same way a faulting flush already is - reported, not thrown,
 with teardown and the subsequent engine reset both still completing.
 
+#### Finite-Source Backpressure Evidence
+
+`RecognitionSession_WavFileSource_SlowBackend_DeliversEverySample` feeds a 200-block WAV file
+(over the 64-block queue capacity) to a backend held blocked, then releases it, and verifies
+every sample is accepted - nothing is dropped from the start of the file.
+`RecognitionSession_WavFileSource_StopAsync_SlowDrain_DeliversFlushedResult` verifies that
+`StopAsync` for a file source does not apply the 2-second abandon deadline to a slow backend,
+so the flushed trailing result is still delivered.
+
 #### Test Environment
 
 - **Framework**: xUnit v3 running under the .NET SDK
