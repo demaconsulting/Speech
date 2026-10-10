@@ -170,6 +170,6 @@ public sealed class AppLaunchOptions
         Console.WriteLine("  --mirror-url <url>         Download every model from this internal mirror instead of its public URI");
         Console.WriteLine("  --mirror-user <user>       HTTP Basic username for --mirror-url (requires --mirror-password)");
         Console.WriteLine("  --mirror-password <pass>   HTTP Basic password for --mirror-url (requires --mirror-user)");
-        Console.WriteLine("  --mirror-bearer-token <t>  Bearer token for --mirror-url (mutually exclusive with --mirror-user/--mirror-password)");
+        Console.WriteLine("  --mirror-bearer-token <t>  HTTP Bearer token for --mirror-url (mutually exclusive with --mirror-user/--mirror-password)");
     }
 }
