@@ -4,7 +4,7 @@
 
 The SpeechOnnxKokoro ModelManagementSubsystem is verified through deterministic unit tests in
 `test/DemaConsulting.Speech.Onnx.Kokoro.Tests` that never touch the network or the real
-~163 MiB production download:
+~88 MiB production download:
 
 - **`SpeechModelCatalogKokoroExtensions`**: verified against a real Speech `SpeechModelCatalog`
   for correct delegation, returning the same catalog instance, registering exactly the one

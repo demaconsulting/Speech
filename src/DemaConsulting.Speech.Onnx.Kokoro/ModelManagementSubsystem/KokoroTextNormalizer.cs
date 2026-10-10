@@ -306,7 +306,7 @@ internal static class KokoroTextNormalizer
         text = OrdinalPattern.Replace(text, match => $" {OrdinalToWords(match.Groups[1].Value)} ");
         text = DigitGroupsPattern.Replace(text, match =>
             match.Value.Count(char.IsAsciiDigit) >= 6 ? " " + SpellDigitGroups(match.Value) + " " : match.Value);
-        text = ThousandsPattern.Replace(text, match => $" {IntegerToWords(long.Parse(match.Value.Replace(",", string.Empty, StringComparison.Ordinal), CultureInfo.InvariantCulture))} ");
+        text = ThousandsPattern.Replace(text, match => $" {DigitsToWords(match.Value.Replace(",", string.Empty, StringComparison.Ordinal))} ");
         text = DecimalPattern.Replace(text, match => $" {DecimalToWords(match.Value)} ");
         text = YearPattern.Replace(text, match => $" {YearToWords(int.Parse(match.Value, CultureInfo.InvariantCulture))} ");
         text = NegativePattern.Replace(text, "minus ");
@@ -316,8 +316,8 @@ internal static class KokoroTextNormalizer
     private static string ExpandCurrency(Match match)
     {
         var symbol = match.Groups[1].Value;
-        var whole = long.Parse(match.Groups[2].Value.Replace(",", string.Empty, StringComparison.Ordinal), CultureInfo.InvariantCulture);
-        var result = $" {IntegerToWords(whole)} {CurrencyUnit(symbol, whole != 1)}";
+        var whole = match.Groups[2].Value.Replace(",", string.Empty, StringComparison.Ordinal);
+        var result = $" {DigitsToWords(whole)} {CurrencyUnit(symbol, whole.TrimStart('0') != "1")}";
 
         if (match.Groups[3].Success)
         {

@@ -11,8 +11,8 @@ ONNX export performs only the final waveform-generation forward pass.
 **Data Model**: No persistent instance state beyond a constructor-supplied, optional ordered list
 of preferred execution provider names (`_preferredExecutionProviderNames`), forwarded unchanged to
 `OnnxExecutionProviderSelector.Create`. `ModelId = "kokoro-onnx-v1_0-en"`. `VoiceParameterId =
-"voice"`. `DownloadDescriptor` declares 30 individual HTTPS files: the `fp16` ONNX graph variant
-(`onnx/model_fp16.onnx`, 163,234,740 bytes) and 29 voice style-vector `.bin` files (one per
+"voice"`. `DownloadDescriptor` declares 30 individual HTTPS files: the `int8` ONNX graph variant
+(`onnx/model_quantized.onnx`, 92,361,116 bytes) and 29 voice style-vector `.bin` files (one per
 declared English voice, each an exact `(510, 256)` float32 array - 522,240 bytes - except the
 bundled default blend voice `af`, which is `(512, 256)` - 524,288 bytes), each with an
 independently-computed SHA-256 checksum recorded directly in this class's own source, fetched
@@ -32,7 +32,7 @@ Hugging Face directly.
   of the sherpa-onnx v0.19 Kokoro variant (both trace back to the same upstream
   `hexgrad/Kokoro-82M` model lineage).
 - **DownloadDescriptor**: the 30-file descriptor described above; `ModelRelativeInstallPath =
-  "onnx/model_fp16.onnx"`.
+  "onnx/model_quantized.onnx"`.
 - **ISynthesisModel.CreateBackend(installedModelDirectory)** *(public)*: builds the ONNX Runtime
   session via `OnnxExecutionProviderSelector.Create(modelPath, _preferredExecutionProviderNames,
   OnnxKokoroSynthesisEngine.RunProbeInference)`, so every accelerated candidate the selector tries
@@ -80,6 +80,12 @@ class needs to change.
 256)` float32 array, and the row selected for one utterance depends on that utterance's own
 phoneme-token count - see `OnnxKokoroSynthesisEngine.Generate`'s row-selection logic, which
 mirrors the proven Python reference pipeline exactly.
+
+**Why the int8 Graph**: the `int8` (`model_quantized`) variant (92,361,116 bytes, about 88 MiB)
+was chosen over the `fp16` variant (163,234,740 bytes) because the fp16 graph overflows to NaN
+(heard as silence) for roughly one in ten inputs on the CPU execution provider, whereas the int8
+graph produced none in a 150-sentence probe, runs at the same speed (real-time factor about 0.27
+on CPU), and downloads about 71 MB less.
 
 **Dependencies**: `ISynthesisModel`, `SpeechModelDownloadDescriptor`, `SpeechModelDownloadFile`,
 `ChoiceParameter`, `ChoiceParameterOption`, `OnnxExecutionProviderSelector` (the sibling SpeechOnnx

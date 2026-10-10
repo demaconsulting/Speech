@@ -55,6 +55,21 @@ public class KokoroTextNormalizerTests
         Assert.Equal(expected, KokoroTextNormalizer.IntegerToWords(value));
     }
 
+    /// <summary>Very large numbers are spoken (digit by digit) rather than crashing normalization.</summary>
+    [Theory]
+    [InlineData("$1000000000000000")]
+    [InlineData("$99999999999999999999")]
+    [InlineData("1,000,000,000,000,000")]
+    [InlineData("99,999,999,999,999,999,999,999")]
+    public void Normalize_HugeNumber_DoesNotThrow(string input)
+    {
+        // Act
+        var result = KokoroTextNormalizer.Normalize(input);
+
+        // Assert
+        Assert.NotEmpty(result.Trim());
+    }
+
     /// <summary>A null argument is rejected.</summary>
     [Fact]
     public void Normalize_NullText_ThrowsArgumentNullException()

@@ -23,15 +23,20 @@ namespace DemaConsulting.Speech.Onnx.Kokoro.ModelManagementSubsystem;
 ///     this class ever emits was produced by the same tool Kokoro's own authors use, not by this
 ///     library's own guesswork.
 ///     <para>
-///     <b>Known Stage-1 limitation (out-of-vocabulary words)</b>: a word not present in the
-///     embedded lexicon (for example an uncommon proper noun, a neologism, or a word CMUdict
-///     itself does not list) is silently dropped from the synthesized phoneme stream rather than
-///     guessed at - see <see cref="Phonemize"/>'s return value for how a caller can detect this
-///     happened. This is a deliberate, honestly-documented simplification for the first ONNX-model
-///     pass, not a hidden defect: the alternative of guessing a pronunciation for an unknown word
-///     risks producing confidently wrong speech, which is worse than omitting the word. A later
-///     pass may add a real fallback G2P (for example invoking <c>espeak-ng</c> the same way misaki
-///     itself optionally does) without changing this class's public contract.
+///     <b>Known Stage-1 limitation (out-of-vocabulary words)</b>: text is first passed through
+///     the internal <c>KokoroTextNormalizer</c> helper (numbers, currency, times, years, ordinals,
+///     markdown, URLs, e-mail addresses, abbreviations and diacritics). Each word then resolves by
+///     lexicon hit, possessive, camelCase split, all-caps spelling by letter name, or a spelling
+///     correction (an apostrophe-less contraction, or the most frequent lexicon word within a
+///     Damerau-Levenshtein distance of 1 or 2). A corrected or near-match word is spoken and is
+///     not reported. Only a word with no near match at all (for example an uncommon proper noun
+///     or a neologism) is omitted from the synthesized phoneme stream and reported in the
+///     <see cref="Phonemize"/> return value so a caller can detect it. This is a deliberate,
+///     honestly-documented simplification, not a hidden defect: guessing a pronunciation for a
+///     word with no near match risks producing confidently wrong speech, which is worse than
+///     omitting the word. A later pass may add a real fallback G2P (for example invoking
+///     <c>espeak-ng</c> the same way misaki itself optionally does) without changing this class's
+///     public contract.
 ///     </para>
 ///     <para>
 ///     <b>Known Stage-1 limitation (homographs)</b>: the lexicon maps one spelling to exactly one

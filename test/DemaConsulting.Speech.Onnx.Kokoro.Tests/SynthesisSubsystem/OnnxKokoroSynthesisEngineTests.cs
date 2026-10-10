@@ -12,7 +12,7 @@ namespace DemaConsulting.Speech.Onnx.Kokoro.Tests.SynthesisSubsystem;
 ///     disposed-engine guard, and <see cref="OnnxKokoroSynthesisEngine.RunProbeInference"/>'s
 ///     successful-probe path - all against a tiny, hand-built ONNX test fixture
 ///     (<c>TestData/fake-kokoro-model.onnx</c>) whose single node forwards its <c>style</c> input
-///     straight through as the output, never the real ~163 MiB production model.
+///     straight through as the output, never the real ~88 MiB production model.
 /// </summary>
 /// <remarks>
 ///     <c>OnnxKokoroEnglishSynthesisModelTests</c> already proves
@@ -305,7 +305,7 @@ public sealed class OnnxKokoroSynthesisEngineTests
         "current");
 
     /// <summary>
-    ///     Whether the real, ~163 MiB production Kokoro model - all 30 declared download files,
+    ///     Whether the real, ~88 MiB production Kokoro model - all 30 declared download files,
     ///     not merely a non-empty directory, since a partial/interrupted real install must still
     ///     skip rather than fail - is installed in this environment.
     /// </summary>

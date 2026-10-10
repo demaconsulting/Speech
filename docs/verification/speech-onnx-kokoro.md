@@ -23,7 +23,7 @@ proving that `Generate` forwards the correct voice's style vector verbatim (see 
 SynthesisSubsystem Verification_).
 
 Automated coverage **does not** extend to synthesizing real, intelligible speech from the real
-~163 MiB production model, or to playing or capturing audio through real hardware. One test,
+~88 MiB production model, or to playing or capturing audio through real hardware. One test,
 `Generate_RealInstalledModel_ProducesNonEmptyAudio`, exercises the real production model
 end-to-end when it is genuinely installed in the running environment, self-skipping (not failing)
 otherwise - see _SpeechOnnxKokoro SynthesisSubsystem Verification_ for the detail.

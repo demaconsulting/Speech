@@ -7,7 +7,7 @@
 proving its constructor argument validation, `ISynthesisBackend.Generate`'s zero-token
 short-circuit and disposed-engine guard, and `RunProbeInference`'s successful-probe path - all
 against a tiny, hand-built ONNX test fixture (`TestData/fake-kokoro-model.onnx`) whose single node
-forwards its `style` input straight through as the output, never the real ~163 MiB production
+forwards its `style` input straight through as the output, never the real ~88 MiB production
 model. `OnnxKokoroEnglishSynthesisModelTests` already proves `Generate`'s voice-style-vector
 selection and tensor-wiring end-to-end (via `CreateBackend`), so this class focuses on behavior
 specific to this engine class itself, reachable only through its own internal constructor.
@@ -84,6 +84,16 @@ together synthesize non-empty audio at 24000 Hz for a real English sentence.
 
 **Test**: `Generate_ZeroTokenText_ReturnsEmptyAudio` (a `[Theory]` covering empty text and
 text composed entirely of out-of-vocabulary words)
+
+##### A multi-row voice selects its style row by token count and clamps to the last row
+
+**Scenario**: a voice style file with several rows is used to synthesize utterances of differing
+phoneme-token counts, including one longer than the row count.
+
+**Expected**: the row indexed by the token count is passed to the model, and a token count beyond
+the last row selects the last row.
+
+**Test**: `Generate_MultiRowVoice_SelectsRowByTokenCountAndClampsToLastRow`
 
 ##### Generate throws ArgumentNullException for null text
 

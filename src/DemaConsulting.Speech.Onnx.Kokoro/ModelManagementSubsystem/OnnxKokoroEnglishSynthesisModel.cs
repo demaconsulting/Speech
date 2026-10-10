@@ -32,11 +32,11 @@ namespace DemaConsulting.Speech.Onnx.Kokoro.ModelManagementSubsystem;
 ///     through a locally configured download mirror and verified in place; the SHA-256 checksums
 ///     recorded in <see cref="DownloadDescriptor"/> were computed directly against those
 ///     downloaded bytes in this sandbox, not copied from any third-party listing. The
-///     <c>fp16</c> ONNX graph variant (163,234,740 bytes) was chosen over the available
-///     <c>quantized</c>/<c>int8</c> variants because it is the exact variant this package's own
-///     Python validation spike measured end-to-end (real-time factor ~0.22 on CPU, i.e. audio
-///     synthesized about 4.5x faster than real-time) - a smaller quantized variant may be added
-///     later once independently measured, rather than assumed equivalent.
+///     <c>int8</c> (<c>model_quantized</c>) ONNX graph variant (92,361,116 bytes) was chosen over
+///     the <c>fp16</c> variant (163,234,740 bytes) because the fp16 graph overflows to NaN - heard as
+///     digital silence - for roughly one in ten inputs on the CPU execution provider, while the int8
+///     graph produced none in a 150-sentence probe, runs at the same speed (real-time factor ~0.27
+///     on CPU), and downloads about 71 MB less.
 ///     </para>
 ///     <para>
 ///     <b>License</b>: Apache License 2.0, matching the sherpa-onnx v0.19 Kokoro variant's
@@ -79,7 +79,7 @@ public sealed class OnnxKokoroEnglishSynthesisModel : ISynthesisModel
     public const string VoiceParameterId = "voice";
 
     /// <summary>The relative install path of the downloaded ONNX model graph.</summary>
-    private const string ModelRelativeInstallPath = "onnx/model_fp16.onnx";
+    private const string ModelRelativeInstallPath = "onnx/model_quantized.onnx";
 
     /// <summary>The default voice used when no selection is supplied.</summary>
     private const string DefaultVoice = "af_heart";
@@ -173,7 +173,7 @@ public sealed class OnnxKokoroEnglishSynthesisModel : ISynthesisModel
     public string Id => ModelId;
 
     /// <inheritdoc/>
-    public string DisplayName => "Kokoro ONNX v1.0 English (fp16, 29 voices)";
+    public string DisplayName => "Kokoro ONNX v1.0 English (int8, 29 voices)";
 
     /// <summary>
     ///     <inheritdoc/>
@@ -228,8 +228,8 @@ public sealed class OnnxKokoroEnglishSynthesisModel : ISynthesisModel
     public SpeechModelDownloadDescriptor DownloadDescriptor { get; } = new(
     [
         new SpeechModelDownloadFile(
-            new Uri("https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/onnx/model_fp16.onnx"),
-            "ba4527a874b42b21e35f468c10d326fdff3c7fc8cac1f85e9eb6c0dfc35c334a",
+            new Uri("https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/onnx/model_quantized.onnx"),
+            "fbae9257e1e05ffc727e951ef9b9c98418e6d79f1c9b6b13bd59f5c9028a1478",
             ModelRelativeInstallPath),
         new SpeechModelDownloadFile(
             new Uri("https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/af_heart.bin"),

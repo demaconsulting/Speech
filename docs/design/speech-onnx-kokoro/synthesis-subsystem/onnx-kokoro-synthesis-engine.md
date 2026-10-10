@@ -33,9 +33,9 @@ differently from each other.
   shared `InputIdsTensorName`/`StyleTensorName`/`SpeedTensorName` tensors, returning the raw
   waveform output wrapped in an `EngineAudio`. Short-circuits to an empty `EngineAudio` without
   running the graph when phonemization produces zero tokens (empty text, or text whose every word
-  is out of vocabulary). The fp16 model on the CPU execution provider returns an all-NaN waveform
-  for roughly one in ten inputs (heard as silence); when that happens `Generate` re-runs the pass
-  with the speed nudged by a small factor (0.97, 1.03, 0.94, ...) until the output is finite.
+  is out of vocabulary). The model is the int8 (`model_quantized`) graph because the fp16 graph
+  overflows to NaN (heard as silence) for roughly one in ten inputs on the CPU execution provider,
+  whereas the int8 graph produced none in a 150-sentence probe.
 - **SelectStyleVector(speakerId, tokenCount)** (private): selects the 256-element style-vector row
   for `speakerId` at the row index matching `tokenCount`, clamped to the voice's own row count -
   exactly mirroring the proven Python reference pipeline's own `voices[len(ids)]` lookup. Falls
@@ -68,6 +68,12 @@ members throw `ObjectDisposedException` after disposal. `RunProbeInference` prop
 `OnnxExecutionProviderSelector.Create` expects to try the next candidate) and
 `InvalidOperationException` for the (not expected to occur) case where the embedded vocabulary
 does not recognize its own probe character.
+
+**Accepted Residual Risk (NaN output)**: `Generate` does not detect or retry a NaN waveform; the
+engine runs the model exactly once. The int8 graph produced no NaN output in a 150-sentence
+probe, so the earlier detect-and-retry logic (needed for the fp16 graph) was removed. A rare NaN
+result, if it ever occurs, would be heard as silence for that utterance. This risk is accepted
+for the benefit of simpler, deterministic synthesis.
 
 **Dependencies**: `Microsoft.ML.OnnxRuntime` (`InferenceSession`, `DenseTensor<T>`,
 `NamedOnnxValue`); `KokoroPhonemeVocabulary` and `KokoroLexiconPhonemizer` from the

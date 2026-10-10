@@ -78,12 +78,15 @@ provenance.
 running the real `misaki.en.G2P` tool - the same phonemizer Kokoro's own reference pipeline uses -
 over every single-pronunciation, purely-alphabetic word in the public-domain CMUdict word list)
 once at construction, into an in-memory dictionary. Its `Phonemize(text)` method tokenizes input
-text into words, whitespace runs, and other single characters; looks up each lower-cased word in
-the lexicon, appending its phoneme string when found and recording it as an unknown word
-otherwise; collapses whitespace to a single vocabulary space character; and passes through a
-closed set of punctuation characters Kokoro's own vocabulary declares. It never guesses a
-pronunciation for an unknown word - an honest, documented Stage-1 limitation, as is its single,
-no-context pronunciation per spelling (affecting homographs such as "read"/"lead").
+text, after the internal `KokoroTextNormalizer` helper has spoken numbers, currency, times,
+markdown, URLs and abbreviations, into words, whitespace runs, and other single characters;
+resolves each word by lexicon hit or a spelling correction, appending its phoneme string; records
+a word with no near match as an unknown word and omits it; collapses whitespace to a single
+vocabulary space character; and passes through a closed set of punctuation characters Kokoro's own
+vocabulary declares. It never guesses a pronunciation for a word with no near match - those words
+are omitted and reported, while corrected or near-match words are spoken and not reported. This
+is an honest, documented Stage-1 limitation, as is its single, no-context pronunciation per
+spelling (affecting homographs such as "read"/"lead").
 
 `KokoroPhonemeVocabulary` loads an embedded copy of Kokoro v1.0's own `tokenizer.json`, parses its
 `model.vocab` JSON object into a `char`-to-integer-id dictionary (confirmed to contain no

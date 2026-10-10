@@ -52,20 +52,24 @@ sections:
                   - Phonemize_AcronymLetters_UseOnlyVocabularyCharacters
                   - Normalize_SpokenForm_MatchesEquivalentText
                   - IntegerToWords_Value_ReturnsWords
+                  - Normalize_HugeNumber_DoesNotThrow
                   - Normalize_NullText_ThrowsArgumentNullException
 
               - id: SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-UnknownWordHandling
                 title: >-
-                  The KokoroLexiconPhonemizer class shall omit a word not present in the
-                  embedded lexicon from the phoneme string rather than guessing a pronunciation,
-                  and shall report every distinct omitted word to the caller.
+                  The KokoroLexiconPhonemizer class shall omit a word that has no lexicon entry
+                  and no near spelling match from the phoneme string, and shall report every
+                  distinct omitted word to the caller; a word resolved by spelling correction
+                  shall be spoken and not reported.
                 justification: |
-                  Guessing a pronunciation for an unknown word risks producing confidently
-                  wrong speech, which is worse than omitting the word; reporting the omission
-                  lets a future caller (or diagnostic tooling) detect when this Stage-1
-                  limitation affected a given utterance.
+                  Guessing a pronunciation for a word with no near match risks producing
+                  confidently wrong speech, which is worse than omitting the word; reporting
+                  the omission lets a caller (or diagnostic tooling) detect when this Stage-1
+                  limitation affected a given utterance. Near-match corrections are spoken
+                  because they are overwhelmingly typos of known words.
                 tests:
                   - Phonemize_OutOfVocabularyWord_DroppedAndReportedAsUnknown
+                  - Phonemize_OnlyUnknownWords_ReturnsEmptyPhonemes
                   - Phonemize_RepeatedOutOfVocabularyWord_ReportedOnceInFirstSeenOrder
 
               - id: SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-ArgumentValidation

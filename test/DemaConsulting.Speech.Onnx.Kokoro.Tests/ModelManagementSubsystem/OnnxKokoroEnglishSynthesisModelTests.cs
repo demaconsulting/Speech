@@ -13,7 +13,7 @@ namespace DemaConsulting.Speech.Onnx.Kokoro.Tests.ModelManagementSubsystem;
 ///     metadata, 30-file download descriptor shape, speaker-id resolution, and
 ///     <see cref="OnnxKokoroEnglishSynthesisModel.CreateBackend"/> wiring - the latter against a
 ///     tiny, hand-built ONNX test fixture and synthetic voice style-vector files, never the real
-///     ~163 MiB production model/voices download.
+///     ~88 MiB production model/voices download.
 /// </summary>
 public sealed class OnnxKokoroEnglishSynthesisModelTests : IDisposable
 {
@@ -71,7 +71,7 @@ public sealed class OnnxKokoroEnglishSynthesisModelTests : IDisposable
         // Act & Assert
         Assert.Equal("kokoro-onnx-v1_0-en", model.Id);
         Assert.Equal(OnnxKokoroEnglishSynthesisModel.ModelId, model.Id);
-        Assert.Equal("Kokoro ONNX v1.0 English (fp16, 29 voices)", model.DisplayName);
+        Assert.Equal("Kokoro ONNX v1.0 English (int8, 29 voices)", model.DisplayName);
         Assert.Equal(SpeechModelRole.Synthesis, model.Role);
         Assert.Equal(SpeechModelAudioTagSupport.None, model.AudioTagSupport);
         Assert.Equal("Apache-2.0", model.LicenseName);
@@ -111,7 +111,7 @@ public sealed class OnnxKokoroEnglishSynthesisModelTests : IDisposable
         }
 
         Assert.Equal(files.Count, files.Select(file => file.RelativeInstallPath).Distinct(StringComparer.Ordinal).Count());
-        Assert.Contains(files, file => file.RelativeInstallPath == "onnx/model_fp16.onnx");
+        Assert.Contains(files, file => file.RelativeInstallPath == "onnx/model_quantized.onnx");
         foreach (var voice in ExpectedVoiceOrder)
         {
             Assert.Contains(files, file => file.RelativeInstallPath == $"voices/{voice}.bin");
@@ -262,7 +262,7 @@ public sealed class OnnxKokoroEnglishSynthesisModelTests : IDisposable
         var onnxDirectory = Path.Join(_testRoot, "onnx");
         Directory.CreateDirectory(onnxDirectory);
         var fixtureModelPath = Path.Combine(AppContext.BaseDirectory, "TestData", "fake-kokoro-model.onnx");
-        File.Copy(fixtureModelPath, Path.Join(onnxDirectory, "model_fp16.onnx"));
+        File.Copy(fixtureModelPath, Path.Join(onnxDirectory, "model_quantized.onnx"));
 
         var voicesDirectory = Path.Join(_testRoot, "voices");
         Directory.CreateDirectory(voicesDirectory);
@@ -303,7 +303,7 @@ public sealed class OnnxKokoroEnglishSynthesisModelTests : IDisposable
         var onnxDirectory = Path.Join(_testRoot, "onnx");
         Directory.CreateDirectory(onnxDirectory);
         var fixtureModelPath = Path.Combine(AppContext.BaseDirectory, "TestData", "fake-kokoro-model.onnx");
-        File.Copy(fixtureModelPath, Path.Join(onnxDirectory, "model_fp16.onnx"));
+        File.Copy(fixtureModelPath, Path.Join(onnxDirectory, "model_quantized.onnx"));
 
         var model = new OnnxKokoroEnglishSynthesisModel();
 

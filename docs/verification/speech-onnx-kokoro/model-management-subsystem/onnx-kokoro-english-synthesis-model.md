@@ -7,7 +7,7 @@
 proving its declared catalog metadata, 30-file download descriptor shape, speaker-id resolution,
 and `CreateBackend` wiring - the latter against a tiny, hand-built ONNX test fixture
 (`TestData/fake-kokoro-model.onnx`, whose single node forwards its `style` input straight through
-as the output) and synthetic per-voice style-vector files, never the real ~163 MiB production
+as the output) and synthetic per-voice style-vector files, never the real ~88 MiB production
 model/voices download. Each declared voice's expected speaker id is reproduced directly in the
 test class (`ExpectedVoiceOrder`), not reflected out of the production class, so a test failure
 clearly shows which declared order assumption broke.
@@ -27,7 +27,7 @@ The model declares its stable `Id`/`DisplayName`/`Role = Synthesis`/`AudioTagSup
 declares exactly 29 options in the confirmed order with `"af_heart"` as the default; its
 `DownloadDescriptor` declares exactly 30 files (the ONNX model graph plus 29 voice style-vector
 files), each with a well-formed 64-character hexadecimal SHA-256 checksum and a unique relative
-install path, including `onnx/model_fp16.onnx` and a `voices/{voice}.bin` entry for every declared
+install path, including `onnx/model_quantized.onnx` and a `voices/{voice}.bin` entry for every declared
 voice; `PreferredAudioFormat` reports mono 24000 Hz; `CreateBackend` throws `ArgumentException`
 for an empty installed directory; `ResolveSpeakerId` resolves every one of the 29 declared voices
 to its declaration-order index, and falls back to the default voice's index (`0`) for an unknown

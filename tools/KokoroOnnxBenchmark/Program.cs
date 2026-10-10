@@ -8,7 +8,7 @@ using DemaConsulting.Speech.Onnx.OnnxRuntimeSubsystem;
 var modelsDir = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "KokoroSpike", "models");
 modelsDir = Path.GetFullPath(modelsDir);
 
-var modelPath = Path.Combine(modelsDir, "onnx", "model_fp16.onnx");
+var modelPath = Path.Combine(modelsDir, "onnx", "model_quantized.onnx");
 var voicePath = Path.Combine(modelsDir, "voices", "af_heart.bin");
 
 if (!File.Exists(modelPath) || !File.Exists(voicePath))
