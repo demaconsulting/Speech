@@ -292,6 +292,8 @@ internal static class KokoroTextNormalizer
 
     private static string ExpandNumbers(string text)
     {
+        // Must run first: later passes consume the digits that identify a minus sign.
+        text = NegativePattern.Replace(text, "minus ");
         text = CurrencyScalePattern.Replace(text, match =>
             $" {DecimalToWords(match.Groups[2].Value)} {match.Groups[3].Value.ToLowerInvariant()} {CurrencyUnit(match.Groups[1].Value, plural: true)} ");
 
@@ -309,7 +311,6 @@ internal static class KokoroTextNormalizer
         text = ThousandsPattern.Replace(text, match => $" {DigitsToWords(match.Value.Replace(",", string.Empty, StringComparison.Ordinal))} ");
         text = DecimalPattern.Replace(text, match => $" {DecimalToWords(match.Value)} ");
         text = YearPattern.Replace(text, match => $" {YearToWords(int.Parse(match.Value, CultureInfo.InvariantCulture))} ");
-        text = NegativePattern.Replace(text, "minus ");
         return IntegerPattern.Replace(text, match => $" {DigitsToWords(match.Value)} ");
     }
 

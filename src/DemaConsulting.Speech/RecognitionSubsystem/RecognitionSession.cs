@@ -919,8 +919,17 @@ internal sealed class RecognitionSession : IRecognitionSession
             if (_device is WavFileAudioCaptureDevice)
             {
                 // Runs on the file device's own Start() thread, never a live audio callback, so
-                // blocking here until the pump catches up is safe and loses no audio.
-                frames.Writer.WriteAsync([.. e.Samples], CancellationToken.None).AsTask().GetAwaiter().GetResult();
+                // blocking here until the pump catches up is safe and loses no audio. The channel
+                // is completed on teardown or a pump fault, which releases a blocked write.
+                try
+                {
+                    frames.Writer.WriteAsync([.. e.Samples], CancellationToken.None).AsTask().GetAwaiter().GetResult();
+                }
+                catch (ChannelClosedException)
+                {
+                    // The session is stopping or faulted; the remaining file audio is moot.
+                }
+
                 return;
             }
 
@@ -1124,6 +1133,10 @@ internal sealed class RecognitionSession : IRecognitionSession
         }
 
         _resultBuffer.Fault(cause);
+
+        // Nothing reads the queue once the pump exits; completing it releases a file source
+        // blocked on backpressure so StartAsync cannot hang.
+        _pendingFrames?.Writer.TryComplete();
     }
 
     /// <summary>

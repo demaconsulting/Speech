@@ -72,6 +72,7 @@ sections:
                 tests:
                   - RecognitionSession_WavFileSource_SlowBackend_DeliversEverySample
                   - RecognitionSession_WavFileSource_StopAsync_SlowDrain_DeliversFlushedResult
+                  - RecognitionSession_WavFileSource_BackendFaults_StartAsyncStillCompletes
 
               - id: Speech-Recognition-RecognitionSession-NativeCallAbandonIntegration
                 title: >-

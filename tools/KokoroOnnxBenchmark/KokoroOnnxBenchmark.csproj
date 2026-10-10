@@ -49,6 +49,7 @@
   <ItemGroup>
     <Compile Include="..\..\src\DemaConsulting.Speech.Onnx\OnnxRuntimeSubsystem\OnnxExecutionProviderSelector.cs" Link="Kokoro\OnnxExecutionProviderSelector.cs" />
     <Compile Include="..\..\src\DemaConsulting.Speech.Onnx.Kokoro\ModelManagementSubsystem\KokoroPhonemeVocabulary.cs" Link="Kokoro\KokoroPhonemeVocabulary.cs" />
+    <Compile Include="..\..\src\DemaConsulting.Speech.Onnx.Kokoro\ModelManagementSubsystem\KokoroTextNormalizer.cs" Link="Kokoro\KokoroTextNormalizer.cs" />
     <Compile Include="..\..\src\DemaConsulting.Speech.Onnx.Kokoro\ModelManagementSubsystem\KokoroLexiconPhonemizer.cs" Link="Kokoro\KokoroLexiconPhonemizer.cs" />
     <Compile Include="..\..\src\DemaConsulting.Speech.Onnx.Kokoro\SynthesisSubsystem\OnnxKokoroSynthesisEngine.cs" Link="Kokoro\OnnxKokoroSynthesisEngine.cs" />
   </ItemGroup>

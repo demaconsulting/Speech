@@ -10,12 +10,12 @@ namespace DemaConsulting.Speech.Demo;
 ///     way with either tool.
 /// </summary>
 /// <remarks>
-///     This demo application has no in-app settings dialog: it is a developer reference
-///     application normally started from a shell (<c>dotnet run</c> or a built executable), so
-///     launch-time arguments - read once, before <see cref="App.OnFrameworkInitializationCompleted"/>
-///     composes the library catalog - are the simplest option that is still discoverable (via
-///     <c>--help</c>) and scriptable, rather than a persisted settings file nothing in this demo
-///     currently reads or writes.
+///     Launch-time arguments complement the in-app mirror-settings panel (see
+///     <c>ModelCatalogViewModel</c>): they are read once, before
+///     <see cref="App.OnFrameworkInitializationCompleted"/> composes the library catalog, so a
+///     developer reference application normally started from a shell (<c>dotnet run</c> or a
+///     built executable) can be configured in a discoverable (via <c>--help</c>) and scriptable
+///     way, without a persisted settings file nothing in this demo currently reads or writes.
 /// </remarks>
 public sealed class AppLaunchOptions
 {

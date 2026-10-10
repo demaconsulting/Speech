@@ -9,6 +9,8 @@ public class KokoroTextNormalizerTests
     [Theory]
     [InlineData("42", "forty two")]
     [InlineData("-5", "minus five")]
+    [InlineData("-2024", "minus twenty twenty four")]
+    [InlineData("-3.5", "minus three point five")]
     [InlineData("3.5", "three point five")]
     [InlineData("1,000", "one thousand")]
     [InlineData("50%", "fifty percent")]

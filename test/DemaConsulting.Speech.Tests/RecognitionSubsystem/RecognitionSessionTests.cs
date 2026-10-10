@@ -200,11 +200,39 @@ public class RecognitionSessionTests
         }
     }
 
+    /// <summary>
+    ///     Proves that a backend fault while a long WAV file is still being delivered does not
+    ///     leave the file source blocked on backpressure, so starting the session completes.
+    /// </summary>
+    [Fact]
+    public async Task RecognitionSession_WavFileSource_BackendFaults_StartAsyncStillCompletes()
+    {
+        // Arrange: a file far larger than the pending capacity and a backend that faults on its first block
+        var path = Path.Join(Path.GetTempPath(), $"{Guid.NewGuid():N}.wav");
+        try
+        {
+            await WriteWavFileAsync(path, 200 * WavFileAudioCaptureDevice.DefaultFrameSampleCount);
+            var engine = new FakeRecognitionEngine(acceptSamplesException: new InvalidOperationException("boom"));
+            await using var session = CreateSession(engine, new WavFileAudioCaptureDevice(path));
+
+            // Act
+            await session.StartAsync(TestContext.Current.CancellationToken)
+                .WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+
+            // Assert
+            Assert.Equal(RecognitionSessionState.Faulted, session.State);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     /// <summary>Writes a 16 kHz mono 16-bit PCM WAV file of constant low-level samples.</summary>
     private static async Task WriteWavFileAsync(string path, int totalSamples)
     {
         await using var stream = File.Create(path);
-        await using var writer = new BinaryWriter(stream);
+        using var writer = new BinaryWriter(stream);
         var dataBytes = totalSamples * 2;
         writer.Write("RIFF"u8.ToArray());
         writer.Write(36 + dataBytes);

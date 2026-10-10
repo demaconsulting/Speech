@@ -36,7 +36,7 @@ namespace DemaConsulting.Speech.Demo.ModelCatalogSubsystem;
 public sealed class ModelCatalogService : IModelCatalogService, IDisposable
 {
     /// <summary>The library catalog every call is currently forwarded to.</summary>
-    private SpeechModelCatalog _catalog;
+    private volatile SpeechModelCatalog _catalog;
 
     /// <summary>
     ///     Rebuilds a catalog (using the same known models and model-store root as the one this
@@ -96,7 +96,19 @@ public sealed class ModelCatalogService : IModelCatalogService, IDisposable
     public event EventHandler<ModelInstalledEventArgs>? ModelInstalled;
 
     /// <inheritdoc/>
-    public IReadOnlyList<SpeechModelDescriptor> Enumerate() => _catalog.Enumerate();
+    public IReadOnlyList<SpeechModelDescriptor> Enumerate()
+    {
+        try
+        {
+            return _catalog.Enumerate();
+        }
+        catch (ObjectDisposedException)
+        {
+            // A concurrent ApplyMirror disposed the catalog read just before the swap; the
+            // replacement is already published, so retry against it.
+            return _catalog.Enumerate();
+        }
+    }
 
     /// <inheritdoc/>
     public async Task<SpeechModelDownloadResult> DownloadAsync(
@@ -104,11 +116,12 @@ public sealed class ModelCatalogService : IModelCatalogService, IDisposable
         IProgress<SpeechModelDownloadProgress>? progress,
         CancellationToken cancellationToken)
     {
-        var result = await _catalog.DownloadAsync(modelId, progress, cancellationToken).ConfigureAwait(true);
+        var catalog = _catalog;
+        var result = await catalog.DownloadAsync(modelId, progress, cancellationToken).ConfigureAwait(true);
 
         if (result.Outcome == SpeechModelDownloadOutcome.Installed)
         {
-            var role = _catalog.Enumerate().FirstOrDefault(descriptor => descriptor.Id == modelId)?.Role;
+            var role = Enumerate().FirstOrDefault(descriptor => descriptor.Id == modelId)?.Role;
             if (role is not null)
             {
                 ModelInstalled?.Invoke(this, new ModelInstalledEventArgs(modelId, role.Value));

@@ -50,6 +50,10 @@ every sample is accepted - nothing is dropped from the start of the file.
 `RecognitionSession_WavFileSource_StopAsync_SlowDrain_DeliversFlushedResult` verifies that
 `StopAsync` for a file source does not apply the 2-second abandon deadline to a slow backend,
 so the flushed trailing result is still delivered.
+`RecognitionSession_WavFileSource_BackendFaults_StartAsyncStillCompletes` feeds a 200-block file
+to a backend that faults on its first block and verifies `StartAsync` still completes (the
+pending queue is completed on a pump fault, releasing the blocked file source) with the session
+faulted.
 
 #### Test Environment
 

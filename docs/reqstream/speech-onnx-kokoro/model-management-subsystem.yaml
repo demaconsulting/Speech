@@ -84,6 +84,7 @@ sections:
             children:
               - SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-Phonemize
               - SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-UnknownWordHandling
+              - SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-TextNormalization
               - SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-ArgumentValidation
               - SpeechOnnxKokoro-Models-KokoroPhonemeVocabulary-ToTokenIds
               - SpeechOnnxKokoro-Models-KokoroPhonemeVocabulary-ArgumentValidation

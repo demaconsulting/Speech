@@ -176,9 +176,9 @@ so a user behind a network policy that blocks a model's public download host can
 model download to an internal mirror the same way with either tool. `Program.Main` parses
 `args` into an `AppLaunchOptions` before Avalonia's lifetime starts and publishes it through the
 static `App.LaunchOptions` property, since the demo's composition root (`App`) has no
-constructor parameters of its own to carry it through. This demo has no in-app settings dialog,
-so launch-time arguments are the simplest option that remains discoverable (via `--help`) and
-scriptable.
+constructor parameters of its own to carry it through. Launch-time arguments are the
+scriptable complement to the in-app mirror-settings panel: they are discoverable (via `--help`)
+and let a shell or script configure the demo before it starts.
 
 `MirrorOptionsFactory` builds a `DownloadMirror` from raw strings and is shared by
 `AppLaunchOptions` (launch-time arguments) and `ModelCatalogViewModel` (the in-app mirror-settings

@@ -32,7 +32,7 @@ public sealed class App : Application
     ///     <see cref="Program.Main"/> before the Avalonia lifetime starts, or <see langword="null"/>
     ///     when running under Avalonia's design-time tooling (which constructs this type without
     ///     ever calling <see cref="Program.Main"/>). See <see cref="AppLaunchOptions"/>'s remarks
-    ///     for why this is a launch-time option rather than an in-app settings dialog.
+    ///     for how launch-time options complement the in-app mirror-settings panel.
     /// </summary>
     public static AppLaunchOptions? LaunchOptions { get; set; }
 
