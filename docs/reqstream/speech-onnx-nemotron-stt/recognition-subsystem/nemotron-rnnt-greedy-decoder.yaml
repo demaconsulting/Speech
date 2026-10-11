@@ -1,0 +1,74 @@
+---
+# Software Unit Requirements for NemotronRnntGreedyDecoder
+#
+# These requirements describe the design-level behavior of the NemotronRnntGreedyDecoder unit,
+# decomposing the parent SpeechOnnxNemotronStt RecognitionSubsystem requirements. The unit's
+# ONNX-backed collaborator NemotronRnntNetwork is documented inside the unit's design document
+# rather than as a separate unit; this unit is verified over the IRnntNetwork seam with a fake.
+#
+# Covered by test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/
+# NemotronRnntGreedyDecoderTests.cs.
+
+sections:
+  - title: SpeechOnnxNemotronStt Requirements
+    sections:
+      - title: RecognitionSubsystem Requirements
+        sections:
+          - title: NemotronRnntGreedyDecoder Requirements
+            requirements:
+              - id: SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-Greedy
+                title: >-
+                  The NemotronRnntGreedyDecoder class shall run RNN-T greedy search over each
+                  encoder frame through an IRnntNetwork seam, collecting every non-blank token
+                  into the caller's token list, emitting nothing for blank-only output, and
+                  advancing the prediction state once per emitted token.
+                justification: |
+                  Greedy search is the decoding policy of the model's reference pipeline; the
+                  prediction state must advance only on emitted tokens so later frames condition
+                  on the transcript so far.
+                tests:
+                  - Decode_AllBlank_EmitsNothing
+                  - Decode_Tokens_AreCollectedAndAdvanced
+
+              - id: SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-SymbolCap
+                title: >-
+                  The NemotronRnntGreedyDecoder class shall emit at most ten symbols per encoder
+                  frame, moving on to the next frame once the cap is reached.
+                justification: |
+                  A network that never predicts blank must not trap the decoder in an endless
+                  loop within one frame.
+                tests:
+                  - Decode_NeverBlank_StopsAtTenSymbolsPerFrame
+
+              - id: SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-ResetAndDispose
+                title: >-
+                  The NemotronRnntGreedyDecoder class's Reset method shall reset the underlying
+                  network's prediction state, and Dispose shall dispose the network.
+                justification: |
+                  A new utterance must start from the initial prediction state, and the decoder
+                  owns the network's native resources.
+                tests:
+                  - Reset_ResetsNetwork
+                  - Dispose_DisposesNetwork
+
+              - id: SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-BlankPenalty
+                title: >-
+                  The NemotronRnntNetwork collaborator shall select the joint network's arg-max
+                  token after subtracting a fixed penalty of 3.0 from the blank token's score.
+                justification: |
+                  The model is under-confident on quiet, isolated words and otherwise emits
+                  blank for them; the penalty recovers those words.
+                tests:
+                  - SelectToken_BlankWithinPenalty_PrefersNonBlank
+                  - SelectToken_BlankBeyondPenalty_ReturnsBlank
+                  - SelectToken_NonBlankIds_AreNotPenalized
+
+              - id: SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-ArgumentValidation
+                title: >-
+                  The NemotronRnntGreedyDecoder class shall throw ArgumentNullException for a
+                  null network or a null token list.
+                justification: |
+                  A programming error should surface immediately with a clear exception rather
+                  than a null-reference failure deeper in decoding.
+                tests:
+                  - NullArguments_Throw

@@ -1,0 +1,112 @@
+---
+# Software Unit Requirements for SilenceRunLimiter and DitherNoise
+#
+# These requirements describe the design-level behavior of the SilenceRunLimiter unit and its
+# companion DitherNoise source (documented together in one unit because they form one
+# leading-silence mitigation), decomposing the parent SpeechOnnxNemotronStt RecognitionSubsystem
+# requirements.
+#
+# Covered by test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/
+# SilenceRunLimiterTests.cs and DitherNoiseTests.cs.
+
+sections:
+  - title: SpeechOnnxNemotronStt Requirements
+    sections:
+      - title: RecognitionSubsystem Requirements
+        sections:
+          - title: SilenceRunLimiter Requirements
+            requirements:
+              - id: SpeechOnnxNemotronStt-Recognition-SilenceRunLimiter-Truncation
+                title: >-
+                  The SilenceRunLimiter class shall classify 20 ms frames as quiet when their RMS
+                  is below the threshold and shall truncate any quiet run longer than 400 ms to
+                  400 ms, for both digital silence and low-level noise.
+                justification: |
+                  Long leading silence or very low noise makes the Nemotron model emit nothing
+                  or garbage; truncating to a short run keeps context while preventing that
+                  failure.
+                tests:
+                  - Process_DigitalSilence_TruncatesToCap
+                  - Process_LowLevelNoise_TruncatesToCap
+
+              - id: SpeechOnnxNemotronStt-Recognition-SilenceRunLimiter-PreservesSpeech
+                title: >-
+                  The SilenceRunLimiter class shall pass through every sample of a loud frame,
+                  including speech that follows a truncated silence or begins immediately, and
+                  shall not drop very quiet speech above the threshold.
+                justification: |
+                  The limiter exists to remove silence only; dropping speech samples would
+                  corrupt the transcript.
+                tests:
+                  - Process_ToneBurst_PassesThrough
+                  - Process_SilenceThenTone_KeepsAllToneSamples
+                  - Process_ImmediateSpeechStart_KeepsEverything
+                  - Process_VeryQuietSpeech_IsNotDropped
+
+              - id: SpeechOnnxNemotronStt-Recognition-SilenceRunLimiter-AdaptiveThreshold
+                title: >-
+                  The SilenceRunLimiter class shall use a default threshold of 0.003 until
+                  calibrated, then set the threshold to 3.5 times the 15th percentile of the
+                  frame RMS values of the first 20 frames (400 ms), clamped to the range 0.0015
+                  to 0.006, while letting audio continue to flow during calibration; when
+                  adaptation is disabled it shall keep the default threshold.
+                justification: |
+                  A fixed threshold is wrong for both very clean and very noisy microphones; an
+                  adaptive threshold calibrated from the stream's own start is robust, and
+                  clamping bounds the damage of a pathological calibration window. Audio must
+                  keep flowing so no speech is delayed or lost while calibrating.
+                tests:
+                  - Process_LoudCalibration_ThresholdClampedToMaximum
+                  - Process_SilentCalibration_ThresholdClampedToMinimum
+                  - Process_DuringCalibration_AudioStillFlows
+                  - Process_NonAdaptive_KeepsDefaultThreshold
+
+              - id: SpeechOnnxNemotronStt-Recognition-SilenceRunLimiter-StreamingEquivalence
+                title: >-
+                  The SilenceRunLimiter class shall produce identical output whether audio is
+                  processed in one call or in arbitrary chunks, and its Flush method shall emit
+                  any partial frame still held.
+                justification: |
+                  The recognizer receives audio in arbitrary pieces; the limiter's output must
+                  not depend on the split, and the tail of a stream must not be lost.
+                tests:
+                  - Process_ChunkedFeed_EqualsSingleFeed
+                  - Flush_PartialFrame_IsEmitted
+
+              - id: SpeechOnnxNemotronStt-Recognition-SilenceRunLimiter-ResetAndClock
+                title: >-
+                  The SilenceRunLimiter class shall expose the length of the current quiet run
+                  measured on the input clock (including samples it dropped), and its Reset
+                  method shall restore the initial, uncalibrated state.
+                justification: |
+                  Endpointing must see how long the input has really been quiet even though the
+                  limiter removes most of it, and a new session must start uncalibrated.
+                tests:
+                  - QuietRunSamples_TracksInputClock
+                  - Reset_AfterUse_RestoresInitialState
+
+          - title: DitherNoise Requirements
+            requirements:
+              - id: SpeechOnnxNemotronStt-Recognition-DitherNoise-Deterministic
+                title: >-
+                  The DitherNoise class shall generate its noise from a seeded Gaussian source so
+                  that the same seed gives the same sequence, a different seed gives a different
+                  sequence, and Reset restarts the sequence.
+                justification: |
+                  Deterministic dither keeps recognition results reproducible, which is
+                  essential for verifying them.
+                tests:
+                  - Apply_SameSeed_IsDeterministicAndResettable
+                  - Apply_DifferentSeeds_Differ
+
+              - id: SpeechOnnxNemotronStt-Recognition-DitherNoise-Amplitude
+                title: >-
+                  The DitherNoise class shall add Gaussian noise whose standard deviation equals
+                  the configured amplitude, and shall leave samples unchanged for an amplitude of
+                  zero.
+                justification: |
+                  The dither must be tiny enough not to disturb speech yet large enough to avoid
+                  the exact-zero log-mel degeneracy of digital silence, and must be disableable.
+                tests:
+                  - Apply_Statistics_MatchAmplitude
+                  - Apply_ZeroAmplitude_LeavesSamples

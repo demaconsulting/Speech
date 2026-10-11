@@ -4,7 +4,7 @@ package SpeechOnnx {
      * SpeechOnnx is the DemaConsulting.Speech.Onnx library that supplies generic ONNX Runtime
      * infrastructure - today, execution-provider probing and selection - reusable by any
      * ONNX-Runtime-backed model package built on top of it (for example the sibling
-     * DemaConsulting.Speech.Onnx.Kokoro package). It declares zero models itself.
+     * DemaConsulting.Speech.Onnx.Kokoro and DemaConsulting.Speech.Onnx.NemotronStt packages). It declares zero models itself.
      */
 
     part def SpeechOnnxSystem {

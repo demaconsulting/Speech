@@ -44,7 +44,8 @@ sibling package supplying the four sherpa-onnx-backed models used by this README
 (and the `org.k2fsa.sherpa.onnx`/`SharpCompress` dependencies they require); calling
 `.AddSherpaModels()` on a `SpeechModelCatalog` registers them. The optional
 `DemaConsulting.Speech.Onnx.Kokoro` package adds a fifth, raw ONNX Runtime Kokoro v1.0 model via
-`.AddKokoroModels()`. A host that only needs the
+`.AddKokoroModels()`, and the optional `DemaConsulting.Speech.Onnx.NemotronStt` package adds a raw ONNX Runtime
+streaming NVIDIA Nemotron 3.5 ASR recognition model via `.AddNemotronSttModels()`. A host that only needs the
 catalog/contract seam - for example to ship its own `IRecognitionModel`/`ISynthesisModel`
 implementation - can depend on the core package alone.
 
@@ -88,8 +89,9 @@ The library is **designed for extensibility**: each speech engine is a self-cont
 `IRecognitionModel`/`ISynthesisModel`-backed class, registered into a `SpeechModelCatalog` via an
 `AddModels`/`Add*Models`-style extension method - `DemaConsulting.Speech.Sherpa` supplies
 `AddSherpaModels()` for the four sherpa-onnx models and `DemaConsulting.Speech.Onnx.Kokoro`
-supplies `AddKokoroModels()` for the raw ONNX Runtime Kokoro model - so adding a new engine is a new model class and
-extension method, not a redesign of the core library. Native runtimes restore transitively
+supplies `AddKokoroModels()` for the raw ONNX Runtime Kokoro model, and `DemaConsulting.Speech.Onnx.NemotronStt`
+supplies `AddNemotronSttModels()` for the raw ONNX Runtime Nemotron model - so adding a new engine is a new model class
+and extension method, not a redesign of the core library. Native runtimes restore transitively
 through the managed `org.k2fsa.sherpa.onnx` package; if one is missing for your target RID,
 composition still succeeds and the factory reports the engine as unavailable instead of crashing.
 None of the model bytes below are bundled with the library - `SpeechModelCatalog.DownloadAsync`
@@ -99,9 +101,10 @@ result without touching the network. On first download it can instead return `Fa
 transport or I/O failure, with the underlying exception in `SpeechModelDownloadResult.Error`) or
 `ChecksumMismatch`, or throw `ArgumentException` for an unrecognized model id.
 
-This release ships five models through two packages. `DemaConsulting.Speech.Sherpa`
+This release ships six models through three packages. `DemaConsulting.Speech.Sherpa`
 (`AddSherpaModels()`) supplies the first four; `DemaConsulting.Speech.Onnx.Kokoro`
-(`AddKokoroModels()`) supplies the raw ONNX Runtime Kokoro model:
+(`AddKokoroModels()`) supplies the raw ONNX Runtime Kokoro model; `DemaConsulting.Speech.Onnx.NemotronStt`
+(`AddNemotronSttModels()`) supplies the raw ONNX Runtime Nemotron 3.5 streaming recognition model:
 
 | Model | Role | License |
 | --- | --- | --- |
@@ -110,6 +113,20 @@ This release ships five models through two packages. `DemaConsulting.Speech.Sher
 | `SherpaOnnxVitsLibriTtsEnglishSynthesisModel` | TTS, 904 speakers | CC BY 4.0 |
 | `SherpaOnnxKokoroEnglishSynthesisModel` | TTS, 11 voices | Apache-2.0 |
 | `OnnxKokoroEnglishSynthesisModel` | TTS, 29 English voices (Kokoro v1.0) | Apache-2.0 |
+| `OnnxNemotronMultilingualRecognitionModel` | Streaming STT, en-US/en-GB | NVIDIA Open Model License |
+
+The Nemotron 3.5 model (`nemotron-3.5-asr-streaming-0.6b-onnx-int4`) is an int4-quantized ONNX
+export of about 790 MB. It runs on the CPU by default, with the encoder optionally accelerated
+through `AddNemotronSttModels(preferredExecutionProviderNames)`, and falls back to the CPU when an
+accelerated provider cannot run the model. Its license is recorded as the NVIDIA Open Model
+License; the upstream model card could not be reached when this package was written, so confirm
+the license against the live model card before redistributing the model. To select the spoken
+language, pass the `language` parameter (`en-US` by default, or `en-GB`), for example
+`speech-cli recognize --stt-model nemotron-3.5-asr-streaming-0.6b-onnx-int4 --stt-param language=en-GB --input speech.wav`.
+When a download mirror is used, files are fetched from `<mirror>/nemotron-3.5-asr-streaming-0.6b-onnx-int4/<file>`.
+The engine shortens any run of near-silence longer than 400 ms (leading silence or low-level
+noise would otherwise make the model emit nothing), calibrates its quiet threshold from the first
+400 ms of audio, and ends an utterance after 2.5 seconds of quiet following speech.
 
 The table above is a convenience view for at-a-glance browsing, not the sole source of license
 information: every model also reports its license programmatically via

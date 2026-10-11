@@ -1646,6 +1646,182 @@ reviews:
       - "src/DemaConsulting.Speech.Onnx.Kokoro/SynthesisSubsystem/OnnxKokoroSynthesisEngine.cs"
       - "test/DemaConsulting.Speech.Onnx.Kokoro.Tests/SynthesisSubsystem/OnnxKokoroSynthesisEngineTests.cs"
 
+  # SpeechOnnxNemotronStt-Architecture Review (one per system)
+  - id: SpeechOnnxNemotronStt-Architecture
+    title: Review that SpeechOnnxNemotronStt Architecture Satisfies Requirements
+    context:
+      - "README.md"
+      - "docs/user_guide/**/*.md"
+    paths:
+      - "docs/reqstream/speech-onnx-nemotron-stt.yaml"               # system requirements
+      - "docs/design/speech-onnx-nemotron-stt.md"                    # system design
+      - "docs/verification/speech-onnx-nemotron-stt.md"              # system verification
+
+  # SpeechOnnxNemotronStt-Design Review (one per system)
+  - id: SpeechOnnxNemotronStt-Design
+    title: Review that SpeechOnnxNemotronStt Design is Consistent and Complete
+    context:
+      - "docs/reqstream/speech-onnx-nemotron-stt.yaml"
+    paths:
+      - "docs/design/speech-onnx-nemotron-stt.md"                    # system design
+      - "docs/design/speech-onnx-nemotron-stt/**/*.md"               # all system design documents
+
+  # SpeechOnnxNemotronStt-Verification Review (one per system)
+  - id: SpeechOnnxNemotronStt-Verification
+    title: Review that SpeechOnnxNemotronStt Verification is Consistent and Complete
+    context:
+      - "docs/reqstream/speech-onnx-nemotron-stt.yaml"
+    paths:
+      - "docs/verification/speech-onnx-nemotron-stt.md"              # system verification
+      - "docs/verification/speech-onnx-nemotron-stt/**/*.md"         # all verification documents
+
+  # SpeechOnnxNemotronStt-AllRequirements Review (one per system)
+  - id: SpeechOnnxNemotronStt-AllRequirements
+    title: Review that All SpeechOnnxNemotronStt Requirements are Complete
+    context:
+      - "docs/design/speech-onnx-nemotron-stt.md"
+      - "docs/reqstream/speech-onnx-nemotron-stt.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-nemotron-stt/**/*.yaml"  # SpeechOnnxNemotronStt subsystem/unit requirements files
+
+  # SpeechOnnxNemotronStt-ModelManagementSubsystem Review (one per subsystem)
+  - id: SpeechOnnxNemotronStt-ModelManagementSubsystem
+    title: >-
+      Review that SpeechOnnxNemotronStt ModelManagementSubsystem Satisfies Subsystem
+      Requirements (covers SpeechModelCatalogNemotronSttExtensions, documented inline at
+      subsystem level)
+    context:
+      - "docs/design/speech-onnx-nemotron-stt.md"
+      - "docs/reqstream/speech-onnx-nemotron-stt.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-nemotron-stt/model-management-subsystem.yaml"
+      - "docs/design/speech-onnx-nemotron-stt/model-management-subsystem.md"
+      - "docs/verification/speech-onnx-nemotron-stt/model-management-subsystem.md"
+      - "src/DemaConsulting.Speech.Onnx.NemotronStt/SpeechModelCatalogNemotronSttExtensions.cs"
+      - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/SpeechModelCatalogNemotronSttExtensionsTests.cs"
+
+  # SpeechOnnxNemotronStt-ModelManagementSubsystem-OnnxNemotronMultilingualRecognitionModel Review (one per unit)
+  - id: SpeechOnnxNemotronStt-ModelManagementSubsystem-OnnxNemotronMultilingualRecognitionModel
+    title: >-
+      Review that SpeechOnnxNemotronStt ModelManagementSubsystem
+      OnnxNemotronMultilingualRecognitionModel Implementation is Correct
+    context:
+      - "docs/design/speech-onnx-nemotron-stt.md"
+      - "docs/design/speech-onnx-nemotron-stt/model-management-subsystem.md"
+      - "docs/reqstream/speech-onnx-nemotron-stt.yaml"
+      - "docs/reqstream/speech-onnx-nemotron-stt/model-management-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-nemotron-stt/model-management-subsystem/onnx-nemotron-multilingual-recognition-model.yaml"
+      - "docs/design/speech-onnx-nemotron-stt/model-management-subsystem/onnx-nemotron-multilingual-recognition-model.md"
+      - "docs/verification/speech-onnx-nemotron-stt/model-management-subsystem/onnx-nemotron-multilingual-recognition-model.md"
+      - "src/DemaConsulting.Speech.Onnx.NemotronStt/ModelManagementSubsystem/OnnxNemotronMultilingualRecognitionModel.cs"
+      - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/ModelManagementSubsystem/OnnxNemotronMultilingualRecognitionModelTests.cs"
+
+  # SpeechOnnxNemotronStt-ModelManagementSubsystem-NemotronVocabulary Review (one per unit)
+  - id: SpeechOnnxNemotronStt-ModelManagementSubsystem-NemotronVocabulary
+    title: >-
+      Review that SpeechOnnxNemotronStt ModelManagementSubsystem
+      NemotronVocabulary Implementation is Correct
+    context:
+      - "docs/design/speech-onnx-nemotron-stt.md"
+      - "docs/design/speech-onnx-nemotron-stt/model-management-subsystem.md"
+      - "docs/reqstream/speech-onnx-nemotron-stt.yaml"
+      - "docs/reqstream/speech-onnx-nemotron-stt/model-management-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-nemotron-stt/model-management-subsystem/nemotron-vocabulary.yaml"
+      - "docs/design/speech-onnx-nemotron-stt/model-management-subsystem/nemotron-vocabulary.md"
+      - "docs/verification/speech-onnx-nemotron-stt/model-management-subsystem/nemotron-vocabulary.md"
+      - "src/DemaConsulting.Speech.Onnx.NemotronStt/ModelManagementSubsystem/NemotronVocabulary.cs"
+      - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/ModelManagementSubsystem/NemotronVocabularyTests.cs"
+
+  # SpeechOnnxNemotronStt-RecognitionSubsystem Review (one per subsystem)
+  - id: SpeechOnnxNemotronStt-RecognitionSubsystem
+    title: >-
+      Review that SpeechOnnxNemotronStt RecognitionSubsystem Satisfies Subsystem Requirements
+    context:
+      - "docs/design/speech-onnx-nemotron-stt.md"
+      - "docs/reqstream/speech-onnx-nemotron-stt.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem.yaml"
+      - "docs/design/speech-onnx-nemotron-stt/recognition-subsystem.md"
+      - "docs/verification/speech-onnx-nemotron-stt/recognition-subsystem.md"
+
+  # SpeechOnnxNemotronStt-RecognitionSubsystem-OnnxNemotronRecognitionEngine Review (one per unit)
+  - id: SpeechOnnxNemotronStt-RecognitionSubsystem-OnnxNemotronRecognitionEngine
+    title: >-
+      Review that SpeechOnnxNemotronStt RecognitionSubsystem
+      OnnxNemotronRecognitionEngine Implementation is Correct
+    context:
+      - "docs/design/speech-onnx-nemotron-stt.md"
+      - "docs/design/speech-onnx-nemotron-stt/recognition-subsystem.md"
+      - "docs/reqstream/speech-onnx-nemotron-stt.yaml"
+      - "docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem/onnx-nemotron-recognition-engine.yaml"
+      - "docs/design/speech-onnx-nemotron-stt/recognition-subsystem/onnx-nemotron-recognition-engine.md"
+      - "docs/verification/speech-onnx-nemotron-stt/recognition-subsystem/onnx-nemotron-recognition-engine.md"
+      - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/OnnxNemotronRecognitionEngine.cs"
+      - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/NemotronEngineOptions.cs"
+      - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/INemotronEncoder.cs"
+      - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/NemotronEncoder.cs"
+      - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/OnnxNemotronRecognitionEngineTests.cs"
+      - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/Fakes.cs"
+
+  # SpeechOnnxNemotronStt-RecognitionSubsystem-NemotronFeatureExtractor Review (one per unit)
+  - id: SpeechOnnxNemotronStt-RecognitionSubsystem-NemotronFeatureExtractor
+    title: >-
+      Review that SpeechOnnxNemotronStt RecognitionSubsystem
+      NemotronFeatureExtractor Implementation is Correct
+    context:
+      - "docs/design/speech-onnx-nemotron-stt.md"
+      - "docs/design/speech-onnx-nemotron-stt/recognition-subsystem.md"
+      - "docs/reqstream/speech-onnx-nemotron-stt.yaml"
+      - "docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-feature-extractor.yaml"
+      - "docs/design/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-feature-extractor.md"
+      - "docs/verification/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-feature-extractor.md"
+      - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/NemotronFeatureExtractor.cs"
+      - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/NemotronFeatureExtractorTests.cs"
+
+  # SpeechOnnxNemotronStt-RecognitionSubsystem-NemotronRnntGreedyDecoder Review (one per unit)
+  - id: SpeechOnnxNemotronStt-RecognitionSubsystem-NemotronRnntGreedyDecoder
+    title: >-
+      Review that SpeechOnnxNemotronStt RecognitionSubsystem
+      NemotronRnntGreedyDecoder Implementation is Correct
+    context:
+      - "docs/design/speech-onnx-nemotron-stt.md"
+      - "docs/design/speech-onnx-nemotron-stt/recognition-subsystem.md"
+      - "docs/reqstream/speech-onnx-nemotron-stt.yaml"
+      - "docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-rnnt-greedy-decoder.yaml"
+      - "docs/design/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-rnnt-greedy-decoder.md"
+      - "docs/verification/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-rnnt-greedy-decoder.md"
+      - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/NemotronRnntGreedyDecoder.cs"
+      - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/IRnntNetwork.cs"
+      - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/NemotronRnntNetwork.cs"
+      - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/NemotronRnntGreedyDecoderTests.cs"
+
+  # SpeechOnnxNemotronStt-RecognitionSubsystem-SilenceRunLimiter Review (one per unit)
+  - id: SpeechOnnxNemotronStt-RecognitionSubsystem-SilenceRunLimiter
+    title: >-
+      Review that SpeechOnnxNemotronStt RecognitionSubsystem
+      SilenceRunLimiter Implementation is Correct
+    context:
+      - "docs/design/speech-onnx-nemotron-stt.md"
+      - "docs/design/speech-onnx-nemotron-stt/recognition-subsystem.md"
+      - "docs/reqstream/speech-onnx-nemotron-stt.yaml"
+      - "docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem/silence-run-limiter.yaml"
+      - "docs/design/speech-onnx-nemotron-stt/recognition-subsystem/silence-run-limiter.md"
+      - "docs/verification/speech-onnx-nemotron-stt/recognition-subsystem/silence-run-limiter.md"
+      - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/SilenceRunLimiter.cs"
+      - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/DitherNoise.cs"
+      - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/SilenceRunLimiterTests.cs"
+      - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/DitherNoiseTests.cs"
+
   # OTS-PortAudioSharp2 Review (one per OTS item)
   - id: OTS-PortAudioSharp2
     title: Review that PortAudioSharp2 Provides Required Functionality

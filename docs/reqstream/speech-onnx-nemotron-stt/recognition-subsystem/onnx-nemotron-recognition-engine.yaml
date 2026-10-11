@@ -1,0 +1,125 @@
+---
+# Software Unit Requirements for OnnxNemotronRecognitionEngine
+#
+# These requirements describe the design-level behavior of the OnnxNemotronRecognitionEngine unit,
+# the real raw-ONNX implementation of the Speech library's public IRecognitionBackend seam,
+# decomposing the parent SpeechOnnxNemotronStt RecognitionSubsystem requirements. The unit's
+# internal collaborators INemotronEncoder, NemotronEncoder, and NemotronRnntNetwork are
+# documented inside the engine and decoder unit design documents rather than as separate units.
+#
+# Covered by test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/
+# OnnxNemotronRecognitionEngineTests.cs, against fake encoder and network implementations
+# (Fakes.cs) that never load model files.
+
+sections:
+  - title: SpeechOnnxNemotronStt Requirements
+    sections:
+      - title: RecognitionSubsystem Requirements
+        sections:
+          - title: OnnxNemotronRecognitionEngine Requirements
+            requirements:
+              - id: SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-Construction
+                title: >-
+                  The OnnxNemotronRecognitionEngine class shall take ownership of an encoder, a
+                  greedy decoder, and a vocabulary, supplied by the recognition model's own
+                  CreateBackend implementation, and shall throw ArgumentNullException for any
+                  null required argument.
+                justification: |
+                  The recognition model owns the engine configuration for its own architecture;
+                  the engine must accept exactly that configuration so that adding a recognition
+                  model never requires changing the recognition backend.
+                tests:
+                  - Constructor_NullArguments_Throw
+
+              - id: SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-Buffering
+                title: >-
+                  The OnnxNemotronRecognitionEngine class's AcceptSamples method shall only
+                  buffer audio through the limiter, dither, and feature extractor without
+                  decoding, shall ignore empty input, and TryDecode shall report nothing until a
+                  full 56-frame chunk is available.
+                justification: |
+                  The Speech library's recognition worker feeds audio and pumps decoding
+                  separately; buffering must be cheap and decoding must run in whole encoder
+                  chunks because the cache-aware encoder is trained on fixed-size chunks.
+                tests:
+                  - AcceptSamples_Empty_IsIgnored
+                  - TryDecode_LessThanChunk_ReportsNothing
+
+              - id: SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-ProvisionalResults
+                title: >-
+                  The OnnxNemotronRecognitionEngine class's TryDecode method shall decode every
+                  complete chunk and report the utterance text so far as a provisional result
+                  whenever, and only when, that text has changed.
+                justification: |
+                  A host displaying live text needs each change exactly once; re-reporting
+                  unchanged text would flood the result stream.
+                tests:
+                  - TryDecode_SpeechChunk_ReportsProvisionalText
+                  - TryDecode_NoNewTokens_ReportsNothing
+
+              - id: SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-Flush
+                title: >-
+                  The OnnxNemotronRecognitionEngine class's TryFlush method shall flush the
+                  limiter, right-pad the features, decode a zero-padded final partial chunk plus
+                  the configured all-zero tail chunks, and return the utterance text as a final
+                  result, returning false when no audio or no text was produced.
+                justification: |
+                  When a stream ends, the audio still buffered and the model's look-ahead delay
+                  must be drained, or the last words of an utterance would be lost.
+                tests:
+                  - TryFlush_PartialAudio_ReturnsFinalText
+                  - TryFlush_NoAudio_ReturnsFalse
+                  - TryFlush_AudioWithoutTokens_ReturnsFalse
+                  - TryFlush_NoTailChunks_DecodesOnlyAudio
+
+              - id: SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-QuietEndpointing
+                title: >-
+                  The OnnxNemotronRecognitionEngine class shall finalize an utterance when the
+                  input clock has been quiet for at least 2500 ms after speech, by flushing the
+                  buffered audio, reporting the final text, and fully resetting the model state
+                  while keeping the limiter state, and shall never endpoint on silence alone.
+                justification: |
+                  The limiter removes most of a long quiet run, so the chunk clock stalls during
+                  silence; endpointing must therefore be measured on the input clock, and a
+                  stream of only silence has no utterance to finalize.
+                tests:
+                  - TryDecode_QuietAfterSpeech_EndpointsAndResets
+                  - TryDecode_OnlySilence_NeverEndpoints
+
+              - id: SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-QuietPadding
+                title: >-
+                  The OnnxNemotronRecognitionEngine class shall, once the limiter's quiet run
+                  after speech reaches 6400 samples and before the endpoint, complete a partly
+                  filled chunk with dithered silence so its text is reported as a provisional
+                  result.
+                justification: |
+                  The limiter drops audio during a long quiet run, so the last words would
+                  otherwise wait in an incomplete chunk until the 2500 ms endpoint.
+                tests:
+                  - TryDecode_QuietAfterShortSpeech_ReportsBeforeEndpoint
+
+              - id: SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-EmptyChunkEndpointing
+                title: >-
+                  The OnnxNemotronRecognitionEngine class shall finalize an utterance after
+                  three consecutive token-free chunks once text exists, keeping the model state
+                  so decoding continues seamlessly.
+                justification: |
+                  Steady background noise never reads as quiet, so a fallback endpoint based on
+                  the model's own lack of output is needed; keeping the model state avoids
+                  disturbing a speaker who merely paused.
+                tests:
+                  - TryDecode_EmptyChunksAfterText_FinalizesKeepingState
+
+              - id: SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-ResetAndDispose
+                title: >-
+                  The OnnxNemotronRecognitionEngine class's Reset method shall return the
+                  limiter, dither, feature extractor, encoder, decoder, and utterance state to
+                  the start-of-stream state, and Dispose shall release the encoder and decoder
+                  once and cause later operations to throw ObjectDisposedException.
+                justification: |
+                  The Speech library reuses a backend across sessions and owns its lifetime; a
+                  new session must not inherit the previous session's audio or model state, and
+                  native model resources must be released deterministically.
+                tests:
+                  - Reset_ClearsState
+                  - Dispose_DisposesCollaboratorsAndBlocksUse

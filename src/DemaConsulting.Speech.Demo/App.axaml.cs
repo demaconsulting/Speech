@@ -9,6 +9,7 @@ using DemaConsulting.Speech.Demo.ShellSubsystem;
 using DemaConsulting.Speech.Demo.SynthesisPanelSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.Onnx.Kokoro;
+using DemaConsulting.Speech.Onnx.NemotronStt;
 using DemaConsulting.Speech.Sherpa;
 
 namespace DemaConsulting.Speech.Demo;
@@ -81,13 +82,14 @@ public sealed class App : Application
             var storeOptions = LaunchOptions?.CreateStoreOptions();
             var downloaderOptions = LaunchOptions?.CreateDownloaderOptions();
 
-            // Captures storeOptions and the Sherpa/Kokoro composition so the catalog service
+            // Captures storeOptions and the Sherpa/Kokoro/Nemotron composition so the catalog service
             // below can rebuild an equivalent catalog, pointed at a new mirror, whenever the
             // user applies new mirror settings from the model catalog panel.
             SpeechModelCatalog CatalogFactory(SpeechModelDownloaderOptions? options) =>
                 new SpeechModelCatalog(storeOptions, options, diagnostics: null)
                     .AddSherpaModels()
-                    .AddKokoroModels();
+                    .AddKokoroModels()
+                    .AddNemotronSttModels();
 
             var initialCatalog = CatalogFactory(downloaderOptions);
 
