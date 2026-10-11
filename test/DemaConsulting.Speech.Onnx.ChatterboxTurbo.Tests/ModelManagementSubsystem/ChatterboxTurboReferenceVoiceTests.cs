@@ -170,6 +170,40 @@ public sealed class ChatterboxTurboReferenceVoiceTests : IDisposable
         Assert.Throws<InvalidDataException>(() => ChatterboxTurboReferenceVoice.FromFile("g", garbage));
     }
 
+    /// <summary>Proves a lazy file voice defers decoding: it is created for a corrupt file and fails, naming the file, on first use.</summary>
+    [Fact]
+    public void ChatterboxTurboReferenceVoice_FromFileLazy_CorruptFile_FailsOnFirstUseNamingFile()
+    {
+        // Arrange
+        var path = Path.Combine(_root, "broken.wav");
+        File.WriteAllBytes(path, Encoding.ASCII.GetBytes("this is not a wav file at all"));
+
+        // Act
+        var voice = ChatterboxTurboReferenceVoice.FromFileLazy("broken", path, "Broken");
+
+        // Assert
+        Assert.Equal("broken", voice.Id);
+        Assert.Equal("Broken", voice.DisplayName);
+        var exception = Assert.Throws<InvalidDataException>(() => voice.Samples);
+        Assert.Contains("broken.wav", exception.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Proves a lazy file voice decodes a valid file on first use and reuses the result.</summary>
+    [Fact]
+    public void ChatterboxTurboReferenceVoice_FromFileLazy_ValidFile_LoadsOnceOnFirstUse()
+    {
+        // Arrange
+        var path = Path.Combine(_root, "ok.wav");
+        File.WriteAllBytes(path, Wav(Tone(24000, 24000, 300), 24000, 1, format: 1, bits: 16));
+        var voice = ChatterboxTurboReferenceVoice.FromFileLazy("ok", path, "Ok");
+
+        // Act
+        var first = voice.Samples;
+
+        // Assert
+        Assert.Equal(24000, first.Length);
+        Assert.True(first.Span == voice.Samples.Span);
+    }
     /// <summary>Builds a sine tone.</summary>
     private static float[] Tone(int count, int rate, double frequency) =>
         [.. Enumerable.Range(0, count).Select(i => (float)Math.Sin(2 * Math.PI * frequency * i / rate))];

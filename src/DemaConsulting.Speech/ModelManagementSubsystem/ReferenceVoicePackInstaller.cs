@@ -1,0 +1,225 @@
+using System.IO.Compression;
+using System.Text.Json;
+
+namespace DemaConsulting.Speech.ModelManagementSubsystem;
+
+/// <summary>
+///     The install hook for a <see cref="ReferenceVoicePack"/>: safely extracts only the voice clips and the
+///     license/readme files from the verified, staged archive, then deletes the archive and writes <c>pack.json</c>.
+/// </summary>
+/// <remarks>
+///     <b>Allow-list</b>: of every archive entry only <c>{root}/voices/{name}.flac</c>, <c>{root}/voices/README.md</c>,
+///     <c>{root}/LICENSE.md</c> and <c>{root}/README.md</c> are extracted (the root folder is stripped); everything
+///     else - notably the very large emotion variants - is ignored.
+///     <b>Safety</b>: an entry whose name is rooted, contains a backslash, a drive colon or a <c>..</c> segment fails
+///     the whole install (a legitimate, hash-pinned archive never has one), each extracted path is re-checked to
+///     lie inside the staging directory, and the number of bytes actually read per entry and in total is capped
+///     regardless of what the archive's headers claim.
+/// </remarks>
+internal static class ReferenceVoicePackInstaller
+{
+    /// <summary>The name of the metadata file written next to the extracted content.</summary>
+    internal const string PackMetadataFileName = "pack.json";
+
+    /// <summary>The name of the extracted folder holding the voice clips.</summary>
+    internal const string VoicesDirectoryName = "voices";
+
+    /// <summary>The largest accepted extracted size of one entry (bytes).</summary>
+    internal const long MaximumEntryBytes = 128L * 1024 * 1024;
+
+    /// <summary>The largest accepted total extracted size (bytes).</summary>
+    internal const long MaximumTotalBytes = 2L * 1024 * 1024 * 1024;
+
+    /// <summary>The voice clip extension that is extracted.</summary>
+    private const string VoiceExtension = ".flac";
+
+    /// <summary>The copy buffer size.</summary>
+    private const int BufferSize = 81920;
+
+    /// <summary>JSON options for <c>pack.json</c>.</summary>
+    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
+
+    /// <summary>
+    ///     Extracts the pack's allowed entries from the staged archive into the staging directory.
+    /// </summary>
+    /// <param name="pack">The pack being installed.</param>
+    /// <param name="stagingDirectory">The staging directory holding the verified archive; also the extraction target.</param>
+    /// <param name="cancellationToken">A token that aborts the extraction.</param>
+    /// <returns>A task that completes when extraction, archive deletion and the metadata write are done.</returns>
+    /// <exception cref="InvalidDataException">Thrown when the archive is not a valid zip, has an unsafe entry, exceeds a size cap or contains no voices.</exception>
+    internal static Task InstallAsync(ReferenceVoicePack pack, string stagingDirectory, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(pack);
+        ArgumentException.ThrowIfNullOrEmpty(stagingDirectory);
+
+        // Extraction is synchronous file work; keep it off the caller's thread
+        return Task.Run(() => Install(pack, stagingDirectory, cancellationToken), cancellationToken);
+    }
+
+    /// <summary>Performs the extraction synchronously.</summary>
+    private static void Install(ReferenceVoicePack pack, string stagingDirectory, CancellationToken cancellationToken)
+    {
+        var archivePath = Path.Combine(stagingDirectory, pack.ArchiveFileName);
+        var stagingRoot = Path.GetFullPath(stagingDirectory);
+        var voiceCount = 0;
+        long totalBytes = 0;
+        var written = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        using (var archive = OpenArchive(archivePath))
+        {
+            foreach (var entry in archive.Entries)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var segments = SplitSafely(entry.FullName);
+                var relativePath = MapToDestination(pack, segments, out var isVoice);
+                if (relativePath is null)
+                {
+                    continue;
+                }
+
+                var destination = Path.GetFullPath(Path.Combine(stagingRoot, relativePath));
+                if (!destination.StartsWith(stagingRoot + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+                {
+                    throw new InvalidDataException($"Archive entry '{entry.FullName}' resolves outside the install directory.");
+                }
+
+                if (!written.Add(destination))
+                {
+                    throw new InvalidDataException($"Archive contains the entry '{entry.FullName}' more than once.");
+                }
+
+                Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                totalBytes += CopyEntry(entry, destination, totalBytes, cancellationToken);
+                voiceCount += isVoice ? 1 : 0;
+            }
+        }
+
+        if (voiceCount == 0)
+        {
+            throw new InvalidDataException(
+                $"The '{pack.Id}' archive contains no '{pack.ArchiveRootFolder}/{VoicesDirectoryName}/*{VoiceExtension}' voice clips.");
+        }
+
+        // The archive was only an input; remove it so it does not stay in the store
+        File.Delete(archivePath);
+        WriteMetadata(pack, stagingRoot, voiceCount);
+    }
+
+    /// <summary>Opens the staged archive, converting an unreadable file into an <see cref="InvalidDataException"/>.</summary>
+    private static ZipArchive OpenArchive(string archivePath)
+    {
+        try
+        {
+            return ZipFile.OpenRead(archivePath);
+        }
+        catch (InvalidDataException)
+        {
+            throw;
+        }
+        catch (Exception ex) when (ex is NotSupportedException or ArgumentException)
+        {
+            throw new InvalidDataException($"The reference-voice archive '{Path.GetFileName(archivePath)}' is not a valid zip file.", ex);
+        }
+    }
+
+    /// <summary>
+    ///     Splits an entry name into segments, rejecting any name that could escape the extraction directory.
+    /// </summary>
+    private static string[] SplitSafely(string entryName)
+    {
+        if (entryName.Contains('\\') || entryName.Contains(':') || entryName.StartsWith('/') || entryName.Contains('\0'))
+        {
+            throw new InvalidDataException($"Archive entry '{entryName}' has an unsafe path.");
+        }
+
+        var segments = entryName.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        if (segments.Any(segment => segment is ".." or "."))
+        {
+            throw new InvalidDataException($"Archive entry '{entryName}' has an unsafe path.");
+        }
+
+        return segments;
+    }
+
+    /// <summary>
+    ///     Maps an entry's segments to its destination relative to the staging directory, or <see langword="null"/>
+    ///     when the entry is not on the allow-list.
+    /// </summary>
+    private static string? MapToDestination(ReferenceVoicePack pack, string[] segments, out bool isVoice)
+    {
+        isVoice = false;
+        if (segments.Length < 2 || !string.Equals(segments[0], pack.ArchiveRootFolder, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        if (segments.Length == 2 && IsTextFile(segments[1]))
+        {
+            return segments[1];
+        }
+
+        if (segments.Length == 3 && string.Equals(segments[1], VoicesDirectoryName, StringComparison.Ordinal))
+        {
+            if (string.Equals(segments[2], "README.md", StringComparison.Ordinal))
+            {
+                return Path.Combine(VoicesDirectoryName, segments[2]);
+            }
+
+            if (segments[2].EndsWith(VoiceExtension, StringComparison.OrdinalIgnoreCase) && segments[2].Length > VoiceExtension.Length)
+            {
+                isVoice = true;
+                return Path.Combine(VoicesDirectoryName, segments[2]);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Determines whether a root-level file is one of the license/readme files that are extracted.</summary>
+    private static bool IsTextFile(string name) =>
+        string.Equals(name, "LICENSE.md", StringComparison.Ordinal) || string.Equals(name, "README.md", StringComparison.Ordinal);
+
+    /// <summary>Copies one entry to disk, enforcing the per-entry and total byte caps on the bytes actually read.</summary>
+    private static long CopyEntry(ZipArchiveEntry entry, string destination, long totalSoFar, CancellationToken cancellationToken)
+    {
+        long copied = 0;
+        var buffer = new byte[BufferSize];
+        using var source = entry.Open();
+        using var target = new FileStream(destination, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+        int read;
+        while ((read = source.Read(buffer, 0, buffer.Length)) > 0)
+        {
+            copied += read;
+            if (copied > MaximumEntryBytes || totalSoFar + copied > MaximumTotalBytes)
+            {
+                throw new InvalidDataException($"Archive entry '{entry.FullName}' exceeds the allowed extraction size.");
+            }
+
+            target.Write(buffer, 0, read);
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+
+        return copied;
+    }
+
+    /// <summary>Writes <c>pack.json</c> describing the installed pack.</summary>
+    private static void WriteMetadata(ReferenceVoicePack pack, string stagingRoot, int voiceCount)
+    {
+        var metadata = new
+        {
+            id = pack.Id,
+            name = pack.DisplayName,
+            license = pack.LicenseName,
+            licenseUrl = pack.LicenseUrl.ToString(),
+            attribution = pack.Attribution,
+            sourceUrl = pack.SourceUrl.ToString(),
+            archiveUrl = pack.Uri.ToString(),
+            archiveSha256 = pack.Sha256Checksum,
+            voiceCount,
+            variants = new[] { VoicesDirectoryName },
+        };
+
+        File.WriteAllText(Path.Combine(stagingRoot, PackMetadataFileName), JsonSerializer.Serialize(metadata, JsonOptions));
+    }
+}

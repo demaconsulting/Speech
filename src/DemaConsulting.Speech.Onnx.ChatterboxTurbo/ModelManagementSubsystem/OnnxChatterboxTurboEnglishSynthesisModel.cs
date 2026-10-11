@@ -22,9 +22,11 @@ namespace DemaConsulting.Speech.Onnx.ChatterboxTurbo.ModelManagementSubsystem;
 ///     installed-file check stays correct for the selected file set.
 ///     </para>
 ///     <para>
-///     <b>Voices</b>: nothing is bundled; voices come from <see cref="ChatterboxTurboModelOptions"/>
-///     and are never placed in the model store (the store only holds checksum-verified downloads). The first
-///     voice is the default. With no voices the model still enumerates and downloads, but
+///     <b>Voices</b>: nothing is bundled in this package. Voices come from <see cref="ChatterboxTurboModelOptions"/>
+///     (explicit voices, then a voice directory) followed by the model-agnostic <see cref="ReferenceVoiceLibrary"/>
+///     (the user folder, then installed packs such as the CC0 voice-zero pack), which are read lazily - a clip is
+///     decoded when its voice is first used. The first voice is the default. With no voices the model still
+///     enumerates and downloads, but
 ///     <see cref="CreateBackend"/> throws <see cref="InvalidOperationException"/>, which the core library turns
 ///     into an unavailable synthesizer.
 ///     </para>
@@ -106,6 +108,17 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModel : ISynthesisModel
     /// <exception cref="DirectoryNotFoundException">Thrown when <see cref="ChatterboxTurboModelOptions.ReferenceVoiceDirectory"/> does not exist.</exception>
     /// <exception cref="InvalidDataException">Thrown when a voice file in the directory is not a valid WAV or FLAC file.</exception>
     public OnnxChatterboxTurboEnglishSynthesisModel(ChatterboxTurboModelOptions? options = null)
+        : this(options, defaultLibrary: null)
+    {
+    }
+
+    /// <summary>
+    ///     Initializes a new instance with a fallback voice library (used by the catalog extension, which supplies a
+    ///     library over the catalog's own store when the options name none).
+    /// </summary>
+    /// <param name="options">The configuration, or <see langword="null"/> for defaults.</param>
+    /// <param name="defaultLibrary">The library used when <see cref="ChatterboxTurboModelOptions.ReferenceVoiceLibrary"/> is <see langword="null"/>.</param>
+    internal OnnxChatterboxTurboEnglishSynthesisModel(ChatterboxTurboModelOptions? options, ReferenceVoiceLibrary? defaultLibrary)
     {
         _options = options ?? new ChatterboxTurboModelOptions();
         if (!Enum.IsDefined(_options.LanguageModelVariant) || !Enum.IsDefined(_options.AuxiliaryModelVariant))
@@ -129,7 +142,7 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModel : ISynthesisModel
         _speechEncoderName = "speech_encoder" + auxiliarySuffix;
         _conditionalDecoderName = "conditional_decoder" + auxiliarySuffix;
 
-        _voices = ResolveVoices(_options);
+        _voices = ResolveVoices(_options, defaultLibrary);
 
         Id = _options is { LanguageModelVariant: ChatterboxTurboLanguageModelVariant.Fp16, AuxiliaryModelVariant: ChatterboxTurboAuxiliaryModelVariant.Q4 }
             ? BaseModelId
@@ -143,7 +156,7 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModel : ISynthesisModel
                 new ChoiceParameter(
                     VoiceParameterId,
                     "Voice",
-                    "Selects the reference voice the model clones. The first supplied voice is the default.",
+                    "Selects the reference voice the model clones. The first voice is the default. " + ReferenceVoiceLibrary.ConsentNotice,
                     [.. _voices.Select(voice => new ChoiceParameterOption(voice.Id, voice.DisplayName))],
                     _voices[0].Id),
             ];
@@ -213,7 +226,7 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModel : ISynthesisModel
         if (_voices.Count == 0)
         {
             throw new InvalidOperationException(
-                "Chatterbox Turbo needs at least one reference voice: supply one through ChatterboxTurboModelOptions.");
+                "Chatterbox Turbo needs at least one reference voice: install the reference-voice pack (CLI: 'voices install'), add .wav or .flac files to the reference-voices 'user' folder in the model store, or supply voices through ChatterboxTurboModelOptions (for example --voices-dir).");
         }
 
         // Check every graph and weights file up front for a clear message
@@ -291,8 +304,8 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModel : ISynthesisModel
         return assembly.GetManifestResourceStream(name)!;
     }
 
-    /// <summary>Combines explicit voices with those found in the voice directory.</summary>
-    private static List<ChatterboxTurboReferenceVoice> ResolveVoices(ChatterboxTurboModelOptions options)
+    /// <summary>Combines explicit voices, those in the voice directory and those from the voice library (user folder, installed packs).</summary>
+    private static List<ChatterboxTurboReferenceVoice> ResolveVoices(ChatterboxTurboModelOptions options, ReferenceVoiceLibrary? defaultLibrary)
     {
         var voices = new List<ChatterboxTurboReferenceVoice>(options.ReferenceVoices);
         if (options.ReferenceVoiceDirectory is not null)
@@ -311,7 +324,35 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModel : ISynthesisModel
             voices.AddRange(files.Select(file => ChatterboxTurboReferenceVoice.FromFile(Path.GetFileNameWithoutExtension(file), file)));
         }
 
+        if (options.IncludeStoreVoices)
+        {
+            AddLibraryVoices(voices, options.ReferenceVoiceLibrary ?? defaultLibrary);
+        }
         return voices;
+    }
+
+    /// <summary>Appends the library's voices lazily; an id that is already present wins.</summary>
+    private static void AddLibraryVoices(List<ChatterboxTurboReferenceVoice> voices, ReferenceVoiceLibrary? library)
+    {
+        if (library is null)
+        {
+            return;
+        }
+
+        var ids = new HashSet<string>(voices.Select(voice => voice.Id), StringComparer.Ordinal);
+        var labels = new HashSet<string>(voices.Select(voice => voice.DisplayName), StringComparer.Ordinal);
+        foreach (var info in library.EnumerateVoices().Where(info => ids.Add(info.Id)))
+        {
+            // Labels need not be unique, but a source suffix keeps same-named voices distinguishable
+            var label = info.DisplayName;
+            if (!labels.Add(label))
+            {
+                var source = info.Source == ReferenceVoiceSource.Pack ? "pack" : "user";
+                label = $"{label} ({source})";
+                labels.Add(label);
+            }
+            voices.Add(ChatterboxTurboReferenceVoice.FromFileLazy(info.Id, info.FilePath, label));
+        }
     }
 
     /// <summary>Builds the download descriptor for the selected variants (graph plus weights file each).</summary>

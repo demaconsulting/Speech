@@ -397,6 +397,69 @@ public sealed class SpeechModelDownloaderTests : IDisposable
     }
 
     /// <summary>
+    ///     Proves that the internal install-hook-delegate overload runs the delegate on the verified
+    ///     staging directory before <c>current/</c> exists, and that what the delegate leaves behind
+    ///     is what gets installed.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_WithInstallHookDelegate_RunsHookBeforeSwapAndInstallsItsOutput()
+    {
+        // Arrange
+        var payload = "hello, hook!"u8.ToArray();
+        var descriptor = SingleFileDescriptor(payload, "model.bin");
+        var store = NewStore();
+        var downloader = new SpeechModelDownloader(store, new FakeModelDownloadClient(payload, chunkSize: 1024));
+        var currentExistedInHook = true;
+
+        // Act
+        var result = await downloader.DownloadAsync(
+            "pack-a",
+            descriptor,
+            (staging, _) =>
+            {
+                currentExistedInHook = Directory.Exists(store.GetCurrentDirectory("pack-a"));
+                File.Delete(Path.Join(staging, "model.bin"));
+                File.WriteAllText(Path.Join(staging, "extracted.txt"), "done");
+                return Task.CompletedTask;
+            },
+            progress: null,
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, result.Outcome);
+        Assert.False(currentExistedInHook);
+        Assert.True(File.Exists(Path.Join(store.GetCurrentDirectory("pack-a"), "extracted.txt")));
+        Assert.False(File.Exists(Path.Join(store.GetCurrentDirectory("pack-a"), "model.bin")));
+    }
+
+    /// <summary>
+    ///     Proves that an install-hook delegate that throws leaves nothing installed and reports a
+    ///     failure rather than success.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_WithThrowingInstallHookDelegate_ReportsFailureAndInstallsNothing()
+    {
+        // Arrange
+        var payload = "hello, hook!"u8.ToArray();
+        var descriptor = SingleFileDescriptor(payload, "model.bin");
+        var store = NewStore();
+        var downloader = new SpeechModelDownloader(store, new FakeModelDownloadClient(payload, chunkSize: 1024));
+
+        // Act
+        var result = await downloader.DownloadAsync(
+            "pack-b",
+            descriptor,
+            (_, _) => throw new InvalidDataException("bad pack"),
+            progress: null,
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.NotEqual(SpeechModelDownloadOutcome.Installed, result.Outcome);
+        Assert.IsType<InvalidDataException>(result.Error);
+        Assert.False(store.IsInstalled("pack-b"));
+    }
+
+    /// <summary>
     ///     Proves that a zip-archive-payload model, downloaded end to end through the
     ///     <see cref="ISpeechModel"/>-aware overload, results in the store's <c>current/</c>
     ///     directory containing the archive's extracted entry rather than the archive itself.

@@ -1,3 +1,5 @@
+using DemaConsulting.Speech.ModelManagementSubsystem;
+
 namespace DemaConsulting.Speech.Onnx.ChatterboxTurbo.ModelManagementSubsystem;
 
 /// <summary>
@@ -114,4 +116,21 @@ public sealed class ChatterboxTurboModelOptions
     ///     extension, ordinal order, after <see cref="ReferenceVoices"/>); <see langword="null"/> for none.
     /// </summary>
     public string? ReferenceVoiceDirectory { get; set; }
+
+    /// <summary>
+    ///     Gets or sets the library that supplies the user-folder and installed-pack voices, or <see langword="null"/>
+    ///     to let <c>AddChatterboxTurboModels</c> create one over the catalog's own model store.
+    /// </summary>
+    /// <remarks>
+    ///     The library's voices are listed after <see cref="ReferenceVoices"/> and <see cref="ReferenceVoiceDirectory"/>;
+    ///     an id that is already present wins. The list is read when the model is created, so a newly installed pack
+    ///     appears once the catalog is rebuilt.
+    /// </remarks>
+    public ReferenceVoiceLibrary? ReferenceVoiceLibrary { get; set; }
+
+    /// <summary>
+    ///     Gets or sets whether voices from <see cref="ReferenceVoiceLibrary"/> (the user folder and installed packs)
+    ///     are offered. Defaults to <see langword="true"/>; set to <see langword="false"/> to use only the explicit voices.
+    /// </summary>
+    public bool IncludeStoreVoices { get; set; } = true;
 }

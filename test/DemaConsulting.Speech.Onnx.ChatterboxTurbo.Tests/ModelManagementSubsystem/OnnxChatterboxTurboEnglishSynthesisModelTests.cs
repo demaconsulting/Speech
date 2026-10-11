@@ -283,6 +283,92 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModelTests : IDisposable
         Assert.Throws<ArgumentNullException>(() => SpeechModelCatalogChatterboxTurboExtensions.AddChatterboxTurboModels(null!));
     }
 
+    /// <summary>Proves library user voices are appended after explicit and directory voices, with the first id winning.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboEnglishSynthesisModel_Constructor_StoreVoices_MergedAfterExplicitAndDirectoryFirstIdWins()
+    {
+        // Arrange
+        using var library = new ReferenceVoiceLibrary(
+            new SpeechModelStore(new SpeechModelStoreOptions { RootPathOverride = Path.Combine(_root, "store") }));
+        var user = library.EnsureUserDirectory();
+        WriteWav(Path.Combine(user, "a.wav"));
+        WriteWav(Path.Combine(user, "dir_voice.wav"));
+        WriteWav(Path.Combine(user, "mine.wav"));
+        var directory = Path.Combine(_root, "voices");
+        Directory.CreateDirectory(directory);
+        WriteWav(Path.Combine(directory, "dir_voice.wav"));
+
+        // Act
+        var model = new OnnxChatterboxTurboEnglishSynthesisModel(
+            new ChatterboxTurboModelOptions
+            {
+                ReferenceVoices = [Voice("a")],
+                ReferenceVoiceDirectory = directory,
+                ReferenceVoiceLibrary = library,
+            });
+
+        // Assert
+        var choice = Assert.IsType<ChoiceParameter>(Assert.Single(model.Parameters));
+        Assert.Equal(["a", "dir_voice", "mine"], choice.Options.Select(option => option.Value));
+        Assert.Equal("a", choice.Default);
+    }
+
+    /// <summary>Proves store voices are loaded lazily: a corrupt user file does not fail construction.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboEnglishSynthesisModel_Constructor_CorruptStoreVoice_DoesNotFailConstruction()
+    {
+        // Arrange
+        using var library = new ReferenceVoiceLibrary(
+            new SpeechModelStore(new SpeechModelStoreOptions { RootPathOverride = Path.Combine(_root, "store") }));
+        File.WriteAllText(Path.Combine(library.EnsureUserDirectory(), "broken.wav"), "not audio");
+
+        // Act
+        var model = new OnnxChatterboxTurboEnglishSynthesisModel(new ChatterboxTurboModelOptions { ReferenceVoiceLibrary = library });
+
+        // Assert
+        var choice = Assert.IsType<ChoiceParameter>(Assert.Single(model.Parameters));
+        Assert.Equal(["broken"], choice.Options.Select(option => option.Value));
+    }
+
+    /// <summary>Proves <c>IncludeStoreVoices = false</c> ignores the library entirely.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboEnglishSynthesisModel_Constructor_IncludeStoreVoicesFalse_IgnoresLibrary()
+    {
+        // Arrange
+        using var library = new ReferenceVoiceLibrary(
+            new SpeechModelStore(new SpeechModelStoreOptions { RootPathOverride = Path.Combine(_root, "store") }));
+        WriteWav(Path.Combine(library.EnsureUserDirectory(), "mine.wav"));
+
+        // Act
+        var model = new OnnxChatterboxTurboEnglishSynthesisModel(
+            new ChatterboxTurboModelOptions { ReferenceVoiceLibrary = library, IncludeStoreVoices = false });
+
+        // Assert
+        Assert.Empty(model.Parameters);
+    }
+
+    /// <summary>Proves the catalog extension offers voices from the catalog store's library by default.</summary>
+    [Fact]
+    public void SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_DefaultsToCatalogStoreVoices()
+    {
+        // Arrange
+        using var catalog = new SpeechModelCatalog(new SpeechModelStoreOptions { RootPathOverride = Path.Combine(_root, "store") });
+        using (var library = new ReferenceVoiceLibrary(catalog.Store))
+        {
+            WriteWav(Path.Combine(library.EnsureUserDirectory(), "mine.wav"));
+        }
+
+        var options = new ChatterboxTurboModelOptions();
+
+        // Act
+        catalog.AddChatterboxTurboModels(options);
+
+        // Assert
+        var model = Assert.IsType<OnnxChatterboxTurboEnglishSynthesisModel>(Assert.Single(catalog.Enumerate()).Model);
+        var choice = Assert.IsType<ChoiceParameter>(Assert.Single(model.Parameters));
+        Assert.Equal(["mine"], choice.Options.Select(option => option.Value));
+        Assert.Null(options.ReferenceVoiceLibrary);
+    }
     /// <summary>Creates a one-second voice.</summary>
     private static ChatterboxTurboReferenceVoice Voice(string id) =>
         ChatterboxTurboReferenceVoice.FromSamples(id, new float[24000], 24000);

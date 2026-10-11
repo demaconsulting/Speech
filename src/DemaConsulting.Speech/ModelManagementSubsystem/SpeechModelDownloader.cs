@@ -217,7 +217,7 @@ public sealed class SpeechModelDownloader : IDisposable
         await modelLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            return await DownloadWhileLockedAsync(modelId, descriptor, model: null, progress, cancellationToken)
+            return await DownloadWhileLockedAsync(modelId, descriptor, installHook: null, progress, cancellationToken)
                 .ConfigureAwait(false);
         }
         finally
@@ -288,7 +288,45 @@ public sealed class SpeechModelDownloader : IDisposable
         await modelLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            return await DownloadWhileLockedAsync(model.Id, model.DownloadDescriptor, model, progress, cancellationToken)
+            return await DownloadWhileLockedAsync(model.Id, model.DownloadDescriptor, model.InstallAsync, progress, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            modelLock.Release();
+        }
+    }
+
+    /// <summary>
+    ///     Downloads, verifies, atomically installs, and runs a caller-supplied install hook for
+    ///     one payload identified by a store id (used by the reference-voice pack, which is not an
+    ///     <see cref="ISpeechModel"/>).
+    /// </summary>
+    /// <param name="modelId">The id to install under in the store. Must be a valid directory name.</param>
+    /// <param name="descriptor">The ordered files to download and their expected checksums.</param>
+    /// <param name="installHook">
+    ///     Invoked with the staging directory after every file is verified and before the atomic
+    ///     swap; a thrown exception abandons the staging directory and is classified as an
+    ///     install-hook failure.
+    /// </param>
+    /// <param name="progress">An optional progress sink invoked as each file transfers.</param>
+    /// <param name="cancellationToken">A token that, when canceled, aborts the in-progress download.</param>
+    /// <returns>A <see cref="SpeechModelDownloadResult"/> describing the outcome.</returns>
+    internal async Task<SpeechModelDownloadResult> DownloadAsync(
+        string modelId,
+        SpeechModelDownloadDescriptor descriptor,
+        Func<string, CancellationToken, Task>? installHook,
+        IProgress<SpeechModelDownloadProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(descriptor);
+        _store.GetModelDirectory(modelId);
+
+        var modelLock = _perModelLocks.GetOrAdd(modelId, static _ => new SemaphoreSlim(1, 1));
+        await modelLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            return await DownloadWhileLockedAsync(modelId, descriptor, installHook, progress, cancellationToken)
                 .ConfigureAwait(false);
         }
         finally
@@ -303,18 +341,17 @@ public sealed class SpeechModelDownloader : IDisposable
     /// </summary>
     /// <param name="modelId">The model identifier to install under in the store.</param>
     /// <param name="descriptor">The ordered files to download and their expected checksums.</param>
-    /// <param name="model">
-    ///     The model whose <see cref="ISpeechModel.InstallAsync"/> hook should be invoked on the
-    ///     verified staged files before the atomic swap, or <see langword="null"/> when the
-    ///     caller used the bare <c>(modelId, descriptor, ...)</c> overload, in which case no
-    ///     install hook runs at all.
+    /// <param name="installHook">
+    ///     The install hook (an <see cref="ISpeechModel.InstallAsync"/> delegate, or a caller-owned
+    ///     equivalent) invoked on the verified staged files before the atomic swap, or
+    ///     <see langword="null"/> when no install hook runs at all.
     /// </param>
     /// <param name="progress">An optional progress sink invoked as each file transfers.</param>
     /// <param name="cancellationToken">A token that, when canceled, aborts the in-progress download.</param>
     private async Task<SpeechModelDownloadResult> DownloadWhileLockedAsync(
         string modelId,
         SpeechModelDownloadDescriptor descriptor,
-        ISpeechModel? model,
+        Func<string, CancellationToken, Task>? installHook,
         IProgress<SpeechModelDownloadProgress>? progress,
         CancellationToken cancellationToken)
     {
@@ -390,9 +427,9 @@ public sealed class SpeechModelDownloader : IDisposable
             // declares an install hook) before the atomic current/ swap. The default
             // ISpeechModel.InstallAsync implementation is a no-op, so this is always safe to
             // call even for a model that needs no post-download processing at all.
-            if (model is not null)
+            if (installHook is not null)
             {
-                await model.InstallAsync(stagingDirectory, cancellationToken).ConfigureAwait(false);
+                await installHook(stagingDirectory, cancellationToken).ConfigureAwait(false);
 
                 // The install hook may have expanded, shrunk, added, or removed files (e.g. by
                 // unpacking an archive and deleting it), so recompute the installed size from
