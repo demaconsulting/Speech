@@ -8,6 +8,8 @@ using DemaConsulting.Speech.Demo.RecognitionPanelSubsystem;
 using DemaConsulting.Speech.Demo.ShellSubsystem;
 using DemaConsulting.Speech.Demo.SynthesisPanelSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
+using DemaConsulting.Speech.Onnx.ChatterboxTurbo;
+using DemaConsulting.Speech.Onnx.ChatterboxTurbo.ModelManagementSubsystem;
 using DemaConsulting.Speech.Onnx.Kokoro;
 using DemaConsulting.Speech.Onnx.NemotronStt;
 using DemaConsulting.Speech.Sherpa;
@@ -82,16 +84,29 @@ public sealed class App : Application
             var storeOptions = LaunchOptions?.CreateStoreOptions();
             var downloaderOptions = LaunchOptions?.CreateDownloaderOptions();
 
-            // Captures storeOptions and the Sherpa/Kokoro/Nemotron composition so the catalog service
-            // below can rebuild an equivalent catalog, pointed at a new mirror, whenever the
-            // user applies new mirror settings from the model catalog panel.
-            SpeechModelCatalog CatalogFactory(SpeechModelDownloaderOptions? options) =>
-                new SpeechModelCatalog(storeOptions, options, diagnostics: null)
+            // Captures storeOptions and the Sherpa/Kokoro/Nemotron/Chatterbox composition so the
+            // catalog service below can rebuild an equivalent catalog, pointed at a new mirror,
+            // whenever the user applies new mirror settings from the model catalog panel, or
+            // installs/removes a reference-voice pack (the Chatterbox voice list is read when the
+            // catalog is built). Exactly one ReferenceVoiceLibrary is created per catalog and shared
+            // between the Chatterbox model (voice list) and the service (pack install/uninstall),
+            // so both use the same store root and mirror - the same arrangement the CLI uses.
+            ModelCatalogComposition CatalogFactory(SpeechModelDownloaderOptions? options)
+            {
+                var catalog = new SpeechModelCatalog(storeOptions, options, diagnostics: null)
                     .AddSherpaModels()
                     .AddKokoroModels()
                     .AddNemotronSttModels();
+                var voiceLibrary = new ReferenceVoiceLibrary(catalog.Store, options);
+                catalog.AddChatterboxTurboModels(new ChatterboxTurboModelOptions
+                {
+                    ReferenceVoiceDirectory = LaunchOptions?.VoicesDir,
+                    ReferenceVoiceLibrary = voiceLibrary,
+                });
+                return new ModelCatalogComposition(catalog, voiceLibrary);
+            }
 
-            var initialCatalog = CatalogFactory(downloaderOptions);
+            var initialComposition = CatalogFactory(downloaderOptions);
 
             // A second store instance resolving the same root directory as the catalog's own
             // internal store (honoring the same --models-dir override, if supplied), used only
@@ -102,7 +117,7 @@ public sealed class App : Application
             // Wrap each concrete/static library entry point in the demo's own service seam so the
             // panel ViewModels depend only on interfaces this application owns.
             var deviceService = new AudioDeviceService(audioFactory);
-            var catalogService = new ModelCatalogService(initialCatalog, CatalogFactory);
+            var catalogService = new ModelCatalogService(initialComposition, downloaderOptions, CatalogFactory);
             _catalogService = catalogService;
             var synthesizerSessionFactory = new SynthesizerSessionFactory(modelStore);
             var recognizerSessionFactory = new RecognizerSessionFactory(modelStore);

@@ -584,4 +584,207 @@ public class ModelCatalogViewModelTests
         Assert.Null(row.FailureMessage);
         Assert.False(row.HasFailureMessage);
     }
+
+    /// <summary>
+    ///     Builds a catalog service fake offering the built-in voice pack in the given state.
+    /// </summary>
+    /// <param name="state">The pack's reported state.</param>
+    /// <param name="descriptors">The model descriptors to report.</param>
+    /// <returns>The configured fake.</returns>
+    private static IModelCatalogService VoiceService(SpeechModelState state, params SpeechModelDescriptor[] descriptors)
+    {
+        var service = Service(descriptors);
+        service.ReferenceVoicePacks.Returns([ReferenceVoicePack.VoiceZero10]);
+        service.GetReferenceVoicePackState(ReferenceVoicePack.VoiceZero10.Id).Returns(state);
+        service.UserVoicesDirectory.Returns("C:\\voices\\user");
+        return service;
+    }
+
+    /// <summary>
+    ///     Proves that the panel lists the reference-voice packs with their state, the user folder
+    ///     and the consent notice.
+    /// </summary>
+    [Fact]
+    public void ModelCatalogViewModel_Constructor_ListsVoicePacks()
+    {
+        // Arrange & Act
+        var viewModel = new ModelCatalogViewModel(VoiceService(SpeechModelState.NotDownloaded));
+
+        // Assert
+        var row = Assert.Single(viewModel.VoicePacks);
+        Assert.True(viewModel.HasVoicePacks);
+        Assert.Equal("voice-zero-1.0", row.Id);
+        Assert.True(row.CanInstall);
+        Assert.False(row.CanRemove);
+        Assert.Equal("C:\\voices\\user", viewModel.UserVoicesDirectory);
+        Assert.Equal(ReferenceVoiceLibrary.ConsentNotice, viewModel.VoiceConsentNotice);
+    }
+
+    /// <summary>
+    ///     Proves that a service without voice support yields an empty, hidden voices section.
+    /// </summary>
+    [Fact]
+    public void ModelCatalogViewModel_Constructor_NoVoicePacks_HidesSection()
+    {
+        var viewModel = new ModelCatalogViewModel(Service());
+        Assert.False(viewModel.HasVoicePacks);
+        Assert.Empty(viewModel.VoicePacks);
+    }
+
+    /// <summary>
+    ///     Proves that a successful pack install goes through the service with progress and then
+    ///     refreshes the rows from the (rebuilt) catalog.
+    /// </summary>
+    [Fact]
+    public async Task ModelCatalogViewModel_InstallVoicePackAsync_Installed_RefreshesRows()
+    {
+        // Arrange: not installed at first, installed once the service has done its work
+        var service = VoiceService(SpeechModelState.NotDownloaded);
+        service.InstallReferenceVoicePackAsync(
+                "voice-zero-1.0", Arg.Any<IProgress<SpeechModelDownloadProgress>?>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                service.GetReferenceVoicePackState("voice-zero-1.0").Returns(SpeechModelState.Downloaded);
+                return Task.FromResult(new SpeechModelDownloadResult(SpeechModelDownloadOutcome.Installed));
+            });
+        var viewModel = new ModelCatalogViewModel(service);
+
+        // Act
+        await viewModel.InstallVoicePackAsync(viewModel.VoicePacks[0], TestContext.Current.CancellationToken);
+
+        // Assert
+        var row = Assert.Single(viewModel.VoicePacks);
+        Assert.Equal(SpeechModelState.Downloaded, row.State);
+        Assert.True(row.CanRemove);
+        Assert.False(row.CanInstall);
+    }
+
+    /// <summary>
+    ///     Proves that a failed, cancelled or faulted pack install is reported in the row.
+    /// </summary>
+    [Fact]
+    public async Task ModelCatalogViewModel_InstallVoicePackAsync_FailureModes_ReportedInRow()
+    {
+        // Arrange: three consecutive attempts - checksum mismatch, cancellation, fault
+        var service = VoiceService(SpeechModelState.NotDownloaded);
+        service.InstallReferenceVoicePackAsync(
+                "voice-zero-1.0", Arg.Any<IProgress<SpeechModelDownloadProgress>?>(), Arg.Any<CancellationToken>())
+            .Returns(
+                _ => Task.FromResult(new SpeechModelDownloadResult(SpeechModelDownloadOutcome.ChecksumMismatch)),
+                _ => Task.FromException<SpeechModelDownloadResult>(new OperationCanceledException()),
+                _ => Task.FromException<SpeechModelDownloadResult>(new InvalidOperationException("boom")));
+        var viewModel = new ModelCatalogViewModel(service);
+        var row = viewModel.VoicePacks[0];
+
+        // Act & Assert
+        await viewModel.InstallVoicePackAsync(row, TestContext.Current.CancellationToken);
+        Assert.Equal(SpeechModelState.FailedOrCorrupt, row.State);
+        Assert.Contains("checksums", row.FailureMessage, StringComparison.Ordinal);
+
+        await viewModel.InstallVoicePackAsync(row, TestContext.Current.CancellationToken);
+        Assert.Equal(SpeechModelState.NotDownloaded, row.State);
+        Assert.Equal("Install canceled.", row.FailureMessage);
+
+        await viewModel.InstallVoicePackAsync(row, TestContext.Current.CancellationToken);
+        Assert.Equal(SpeechModelState.FailedOrCorrupt, row.State);
+        Assert.Equal("boom", row.FailureMessage);
+    }
+
+    /// <summary>
+    ///     Proves that a pack install is refused while a model download is in flight, and that a
+    ///     null or already-installed row is ignored.
+    /// </summary>
+    [Fact]
+    public async Task ModelCatalogViewModel_InstallVoicePackAsync_ModelDownloading_RefusedWithoutCallingService()
+    {
+        // Arrange
+        var service = VoiceService(
+            SpeechModelState.NotDownloaded,
+            FakeSpeechModel.Descriptor("m1", SpeechModelState.Downloading));
+        var viewModel = new ModelCatalogViewModel(service);
+        var row = viewModel.VoicePacks[0];
+
+        // Act
+        await viewModel.InstallVoicePackAsync(row, TestContext.Current.CancellationToken);
+        await viewModel.InstallVoicePackAsync(null, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(ModelCatalogViewModel.VoiceBusyMessage, row.FailureMessage);
+        Assert.Equal(SpeechModelState.NotDownloaded, row.State);
+        await service.DidNotReceiveWithAnyArgs().InstallReferenceVoicePackAsync(default!, default, TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>
+    ///     Proves that a model download is refused while a pack install is in flight, because the
+    ///     install's catalog rebuild would abort it.
+    /// </summary>
+    [Fact]
+    public async Task ModelCatalogViewModel_DownloadAsync_PackInstalling_RefusedWithoutCallingService()
+    {
+        // Arrange
+        var service = VoiceService(SpeechModelState.NotDownloaded, FakeSpeechModel.Descriptor("m1"));
+        var viewModel = new ModelCatalogViewModel(service);
+        viewModel.VoicePacks[0].State = SpeechModelState.Downloading;
+        var model = viewModel.Models[0];
+
+        // Act
+        await viewModel.DownloadAsync(model, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(ModelCatalogViewModel.VoiceBusyMessage, model.FailureMessage);
+        await service.DidNotReceiveWithAnyArgs().DownloadAsync(default!, default, TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>
+    ///     Proves that applying a mirror is refused while a pack install is in flight.
+    /// </summary>
+    [Fact]
+    public void ModelCatalogViewModel_ApplyMirror_PackInstalling_IsRefused()
+    {
+        // Arrange
+        var service = VoiceService(SpeechModelState.NotDownloaded);
+        var viewModel = new ModelCatalogViewModel(service);
+        viewModel.VoicePacks[0].State = SpeechModelState.Downloading;
+
+        // Act
+        viewModel.ApplyMirror();
+
+        // Assert
+        Assert.True(viewModel.MirrorHasError);
+        service.DidNotReceiveWithAnyArgs().ApplyMirror(default);
+    }
+
+    /// <summary>
+    ///     Proves that removing an installed pack uninstalls it through the service and refreshes
+    ///     the rows, that a non-installed row is ignored, and that a fault is shown in the row.
+    /// </summary>
+    [Fact]
+    public void ModelCatalogViewModel_RemoveVoicePack_UninstallsRefreshesAndReportsFaults()
+    {
+        // Arrange
+        var service = VoiceService(SpeechModelState.Downloaded);
+        var viewModel = new ModelCatalogViewModel(service);
+        var row = viewModel.VoicePacks[0];
+
+        // Act: remove succeeds and the pack then reports as not installed
+        service.When(s => s.UninstallReferenceVoicePack("voice-zero-1.0"))
+            .Do(_ => service.GetReferenceVoicePackState("voice-zero-1.0").Returns(SpeechModelState.NotDownloaded));
+        viewModel.RemoveVoicePack(row);
+
+        // Assert
+        service.Received(1).UninstallReferenceVoicePack("voice-zero-1.0");
+        Assert.Equal(SpeechModelState.NotDownloaded, viewModel.VoicePacks[0].State);
+
+        // Act & Assert: ignored when not installed, or null
+        viewModel.RemoveVoicePack(viewModel.VoicePacks[0]);
+        viewModel.RemoveVoicePack(null);
+        service.Received(1).UninstallReferenceVoicePack("voice-zero-1.0");
+
+        // Act & Assert: a service fault is reported in the row
+        var faulty = VoiceService(SpeechModelState.Downloaded);
+        faulty.When(s => s.UninstallReferenceVoicePack(Arg.Any<string>())).Do(_ => throw new IOException("locked"));
+        var faultyViewModel = new ModelCatalogViewModel(faulty);
+        faultyViewModel.RemoveVoicePack(faultyViewModel.VoicePacks[0]);
+        Assert.Equal("locked", faultyViewModel.VoicePacks[0].FailureMessage);
+    }
 }

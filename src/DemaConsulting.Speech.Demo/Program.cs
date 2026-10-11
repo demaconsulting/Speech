@@ -21,7 +21,7 @@ internal static class Program
     ///     for common dialogs and clipboard interaction. Nothing that touches Avalonia may run
     ///     before <see cref="BuildAvaloniaApp"/>, so initialization order here is deliberate.
     ///     <para>
-    ///     This demo's own small <c>--models-dir</c>/<c>--mirror-*</c> launch options (see
+    ///     This demo's own small <c>--models-dir</c>/<c>--voices-dir</c>/<c>--mirror-*</c> launch options (see
     ///     <see cref="AppLaunchOptions"/>) are parsed before Avalonia starts, since an invalid
     ///     option (for example a malformed mirror URL) should fail fast with a clear console
     ///     message rather than surfacing later as an exception from

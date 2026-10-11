@@ -5,7 +5,7 @@
              x:Class="DemaConsulting.Speech.Demo.SynthesisPanelSubsystem.SynthesisPanelView"
              x:DataType="synthesis:SynthesisPanelViewModel">
 
-  <Grid Margin="16" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto,Auto">
+  <Grid Margin="16" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto,Auto,Auto">
 
     <TextBlock Grid.Row="0" Text="Text to Speech" FontSize="18" FontWeight="SemiBold" />
 
@@ -64,6 +64,13 @@
     <Border Grid.Row="7" Margin="0,8,0,0" IsEnabled="{Binding CanChangeModel}">
       <settings:ModelSettingsView DataContext="{Binding Settings}" />
     </Border>
+
+    <TextBlock Grid.Row="8"
+               Margin="0,4,0,0"
+               TextWrapping="Wrap"
+               Opacity="0.7"
+               IsVisible="{Binding HasVoiceNotice}"
+               Text="{Binding VoiceNotice}" />
 
   </Grid>
 

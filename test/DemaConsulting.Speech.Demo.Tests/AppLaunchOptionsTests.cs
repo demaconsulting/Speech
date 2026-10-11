@@ -238,4 +238,64 @@ public sealed class AppLaunchOptionsTests
         var options = AppLaunchOptions.Parse(["--mirror-bearer-token", "token-value"]);
         Assert.Throws<ArgumentException>(() => options.CreateDownloaderOptions());
     }
+
+    /// <summary>
+    ///     Test that <c>--voices-dir</c> with an existing directory is captured in
+    ///     <see cref="AppLaunchOptions.VoicesDir"/>, and is <see langword="null"/> otherwise.
+    /// </summary>
+    [Fact]
+    public void Parse_VoicesDir_ExistingDirectory_SetsVoicesDir()
+    {
+        // Act
+        var options = AppLaunchOptions.Parse(["--voices-dir", AppContext.BaseDirectory]);
+
+        // Assert
+        Assert.Equal(AppContext.BaseDirectory, options.VoicesDir);
+        Assert.Null(AppLaunchOptions.Parse([]).VoicesDir);
+    }
+
+    /// <summary>
+    ///     Test that <c>--voices-dir</c> naming a missing directory fails fast.
+    /// </summary>
+    [Fact]
+    public void Parse_VoicesDir_MissingDirectory_ThrowsArgumentException()
+    {
+        var missing = Path.Join(AppContext.BaseDirectory, Guid.NewGuid().ToString("N"));
+        var exception = Assert.Throws<ArgumentException>(() => AppLaunchOptions.Parse(["--voices-dir", missing]));
+        Assert.Contains("--voices-dir", exception.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Test that <c>--voices-dir</c> as the last argument is rejected for lacking a value.
+    /// </summary>
+    [Fact]
+    public void Parse_VoicesDir_NoValue_ThrowsArgumentException()
+    {
+        Assert.Throws<ArgumentException>(() => AppLaunchOptions.Parse(["--voices-dir"]));
+    }
+
+    /// <summary>
+    ///     Test that the help text documents <c>--voices-dir</c>.
+    /// </summary>
+    [Fact]
+    public void PrintHelp_ListsVoicesDirOption()
+    {
+        // Arrange: capture console output
+        var original = Console.Out;
+        using var writer = new StringWriter();
+        Console.SetOut(writer);
+
+        try
+        {
+            // Act
+            AppLaunchOptions.PrintHelp();
+        }
+        finally
+        {
+            Console.SetOut(original);
+        }
+
+        // Assert
+        Assert.Contains("--voices-dir <path>", writer.ToString(), StringComparison.Ordinal);
+    }
 }

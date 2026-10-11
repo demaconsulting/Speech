@@ -132,6 +132,50 @@ public sealed partial class ModelSettingsViewModel : ObservableObject
         Parameters.ToDictionary(parameter => parameter.Id, parameter => parameter.BoxedValue);
 
     /// <summary>
+    ///     Re-applies previously captured parameter values (see <see cref="BuildValueBag"/>) to the
+    ///     currently presented parameters, for example after a catalog rebuild produced a new model
+    ///     instance with the same parameter ids.
+    /// </summary>
+    /// <param name="values">
+    ///     The values to restore, keyed by parameter id. Entries with no matching parameter, a
+    ///     mismatched value type, or (for a choice) an option the parameter no longer offers are
+    ///     ignored, leaving that control at its default.
+    /// </param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="values"/> is <see langword="null"/>.</exception>
+    public void RestoreValues(IReadOnlyDictionary<string, object> values)
+    {
+        ArgumentNullException.ThrowIfNull(values);
+
+        foreach (var parameter in Parameters)
+        {
+            if (!values.TryGetValue(parameter.Id, out var value))
+            {
+                continue;
+            }
+
+            switch (parameter)
+            {
+                case ChoiceParameterViewModel choice when value is string text:
+                    var option = choice.Options.FirstOrDefault(o => string.Equals(o.Value, text, StringComparison.Ordinal));
+                    if (option is not null)
+                    {
+                        choice.SelectedOption = option;
+                    }
+
+                    break;
+                case NumericParameterViewModel numeric when value is double number:
+                    numeric.Value = number;
+                    break;
+                case BooleanParameterViewModel boolean when value is bool flag:
+                    boolean.Value = flag;
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+
+    /// <summary>
     ///     Rebuilds <see cref="Parameters"/> from <see cref="Model"/>'s currently declared
     ///     parameters, pattern-matching each one to its concrete presenter.
     /// </summary>

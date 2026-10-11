@@ -6,6 +6,7 @@ using DemaConsulting.Speech.Demo.DeviceSelectionSubsystem;
 using DemaConsulting.Speech.Demo.ModelCatalogSubsystem;
 using DemaConsulting.Speech.Demo.ModelSettingsSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
+using DemaConsulting.Speech.Onnx.ChatterboxTurbo.ModelManagementSubsystem;
 using DemaConsulting.Speech.SynthesisSubsystem;
 
 namespace DemaConsulting.Speech.Demo.SynthesisPanelSubsystem;
@@ -212,6 +213,35 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IAsyncDi
     public bool CanChangeModel => State is SynthesisPlaybackState.Idle or SynthesisPlaybackState.Error;
 
     /// <summary>
+    ///     Gets the consent note and voice attribution shown under the voice dropdown when the
+    ///     selected model is a voice-cloning model, or <see langword="null"/> when it is not.
+    /// </summary>
+    /// <remarks>
+    ///     Always contains <see cref="ReferenceVoiceLibrary.ConsentNotice"/>, followed by the
+    ///     attribution and license of every installed reference-voice pack (for example the CC0
+    ///     "voice-zero" pack), so a user sees whose voices they may be cloning.
+    /// </remarks>
+    public string? VoiceNotice
+    {
+        get
+        {
+            if (SelectedModel is not OnnxChatterboxTurboEnglishSynthesisModel)
+            {
+                return null;
+            }
+
+            var lines = new List<string> { ReferenceVoiceLibrary.ConsentNotice };
+            lines.AddRange(_catalogService.ReferenceVoicePacks
+                .Where(pack => _catalogService.GetReferenceVoicePackState(pack.Id) == SpeechModelState.Downloaded)
+                .Select(static pack => $"Voices from {pack.DisplayName}: {pack.Attribution} ({pack.LicenseName})."));
+            return string.Join(" ", lines);
+        }
+    }
+
+    /// <summary>Gets a value indicating whether <see cref="VoiceNotice"/> has content to show.</summary>
+    public bool HasVoiceNotice => VoiceNotice is not null;
+
+    /// <summary>
     ///     Initializes a new instance of the <see cref="SynthesisPanelViewModel"/> class and loads
     ///     the currently installed synthesis models.
     /// </summary>
@@ -237,6 +267,7 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IAsyncDi
         _sessionFactory = sessionFactory;
 
         _catalogService.ModelInstalled += OnModelInstalled;
+        _catalogService.ReferenceVoicesChanged += OnReferenceVoicesChanged;
 
         _preRefreshHook = StopBeforeDeviceRefreshAsync;
         _deviceSelection.RegisterPreRefreshHook(_preRefreshHook);
@@ -280,7 +311,12 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IAsyncDi
     ///     detects the model change lazily on its next call (see the "Engine/session reuse"
     ///     remarks above) by comparing against <see cref="_engineModel"/>.
     /// </remarks>
-    partial void OnSelectedModelChanged(ISpeechModel? value) => Settings.Model = value;
+    partial void OnSelectedModelChanged(ISpeechModel? value)
+    {
+        Settings.Model = value;
+        OnPropertyChanged(nameof(VoiceNotice));
+        OnPropertyChanged(nameof(HasVoiceNotice));
+    }
 
     /// <summary>
     ///     Maps a <see cref="SynthesisSessionState"/> to the corresponding
@@ -598,6 +634,38 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IAsyncDi
     }
 
     /// <summary>
+    ///     Marshals a <see cref="IModelCatalogService.ReferenceVoicesChanged"/> event onto the UI
+    ///     thread and re-reads the catalog so the voice dropdown offers the current voices.
+    /// </summary>
+    /// <param name="sender">The raising catalog service. Unused.</param>
+    /// <param name="e">The event arguments. Unused.</param>
+    private void OnReferenceVoicesChanged(object? sender, EventArgs e)
+    {
+        if (_catalogEventUiContext is null)
+        {
+            RefreshKeepingSettings();
+        }
+        else
+        {
+            _catalogEventUiContext.Post(_ => RefreshKeepingSettings(), null);
+        }
+    }
+
+    /// <summary>
+    ///     Refreshes the model list after a catalog rebuild, then re-applies the user's previous
+    ///     parameter choices (for example the selected voice) where the rebuilt model still offers
+    ///     them, instead of silently reverting every control to its default.
+    /// </summary>
+    private void RefreshKeepingSettings()
+    {
+        var previousValues = Settings.BuildValueBag();
+        Refresh();
+        Settings.RestoreValues(previousValues);
+        OnPropertyChanged(nameof(VoiceNotice));
+        OnPropertyChanged(nameof(HasVoiceNotice));
+    }
+
+    /// <summary>
     ///     Stops any in-flight Play, unsubscribes from <see cref="IModelCatalogService.ModelInstalled"/>
     ///     and the device-selection panel's pre-refresh hook, and releases the cached session and
     ///     engine, if any.
@@ -605,6 +673,7 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IAsyncDi
     public async ValueTask DisposeAsync()
     {
         _catalogService.ModelInstalled -= OnModelInstalled;
+        _catalogService.ReferenceVoicesChanged -= OnReferenceVoicesChanged;
         _deviceSelection.UnregisterPreRefreshHook(_preRefreshHook);
 
         if (PlayCommand.IsRunning)

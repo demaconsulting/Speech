@@ -22,6 +22,12 @@ public sealed class AppLaunchOptions
     /// <summary>Gets the models directory override supplied via <c>--models-dir</c>, or <see langword="null"/>.</summary>
     public string? ModelsDir { get; private init; }
 
+    /// <summary>
+    ///     Gets the extra reference-voice directory supplied via <c>--voices-dir</c>, or
+    ///     <see langword="null"/>. When set, it is guaranteed to have existed when parsed.
+    /// </summary>
+    public string? VoicesDir { get; private init; }
+
     /// <summary>Gets the internal download mirror base URL supplied via <c>--mirror-url</c>, or <see langword="null"/>.</summary>
     public string? MirrorUrl { get; private init; }
 
@@ -51,6 +57,7 @@ public sealed class AppLaunchOptions
         ArgumentNullException.ThrowIfNull(args);
 
         string? modelsDir = null;
+        string? voicesDir = null;
         string? mirrorUrl = null;
         string? mirrorUser = null;
         string? mirrorPassword = null;
@@ -71,6 +78,10 @@ public sealed class AppLaunchOptions
 
                 case "--models-dir":
                     modelsDir = RequireValue(arg, args, ref i);
+                    break;
+
+                case "--voices-dir":
+                    voicesDir = RequireValue(arg, args, ref i);
                     break;
 
                 case "--mirror-url":
@@ -94,9 +105,16 @@ public sealed class AppLaunchOptions
             }
         }
 
+        // Fail fast on a mistyped folder rather than silently offering no extra voices.
+        if (voicesDir is not null && !Directory.Exists(voicesDir))
+        {
+            throw new ArgumentException($"--voices-dir '{voicesDir}' is not an existing directory.", nameof(args));
+        }
+
         return new AppLaunchOptions
         {
             ModelsDir = modelsDir,
+            VoicesDir = voicesDir,
             MirrorUrl = mirrorUrl,
             MirrorUser = mirrorUser,
             MirrorPassword = mirrorPassword,
@@ -167,6 +185,7 @@ public sealed class AppLaunchOptions
         Console.WriteLine("Options:");
         Console.WriteLine("  -h, -?, --help             Display this help message and exit");
         Console.WriteLine("  --models-dir <path>        Override the model store root directory");
+        Console.WriteLine("  --voices-dir <path>        Add reference voices (.wav/.flac) for voice-cloning models from this directory");
         Console.WriteLine("  --mirror-url <url>         Download every model from this internal mirror instead of its public URI");
         Console.WriteLine("  --mirror-user <user>       HTTP Basic username for --mirror-url (requires --mirror-password)");
         Console.WriteLine("  --mirror-password <pass>   HTTP Basic password for --mirror-url (requires --mirror-user)");

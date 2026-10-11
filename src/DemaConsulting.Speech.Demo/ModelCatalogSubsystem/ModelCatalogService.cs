@@ -47,6 +47,19 @@ public sealed class ModelCatalogService : IModelCatalogService, IDisposable
     private readonly Func<SpeechModelDownloaderOptions?, SpeechModelCatalog>? _catalogFactory;
 
     /// <summary>
+    ///     Rebuilds a catalog and its shared reference-voice library as a pair, or
+    ///     <see langword="null"/> when this service was not constructed with a composition factory
+    ///     and therefore has no reference-voice support.
+    /// </summary>
+    private readonly Func<SpeechModelDownloaderOptions?, ModelCatalogComposition>? _compositionFactory;
+
+    /// <summary>The reference-voice library shared with the current catalog, if any.</summary>
+    private volatile ReferenceVoiceLibrary? _voiceLibrary;
+
+    /// <summary>The downloader options the current catalog was built with (mirror), reused for pack-driven rebuilds.</summary>
+    private SpeechModelDownloaderOptions? _downloaderOptions;
+
+    /// <summary>
     ///     Initializes a new instance of the <see cref="ModelCatalogService"/> class that
     ///     forwards to a fixed catalog and does not support <see cref="ApplyMirror"/>.
     /// </summary>
@@ -92,8 +105,119 @@ public sealed class ModelCatalogService : IModelCatalogService, IDisposable
         _catalogFactory = catalogFactory;
     }
 
+    /// <summary>
+    ///     Initializes a new instance of the <see cref="ModelCatalogService"/> class that supports
+    ///     <see cref="ApplyMirror"/> and reference-voice pack management by rebuilding its catalog
+    ///     and shared <see cref="ReferenceVoiceLibrary"/> through <paramref name="compositionFactory"/>.
+    /// </summary>
+    /// <param name="initial">The initial catalog and its reference-voice library. Must not be <see langword="null"/>.</param>
+    /// <param name="initialDownloaderOptions">
+    ///     The downloader options <paramref name="initial"/> was built with, reused when a pack
+    ///     install or uninstall rebuilds the catalog; <see langword="null"/> for public downloads.
+    /// </param>
+    /// <param name="compositionFactory">
+    ///     Builds a fresh catalog and library pair for given downloader options. Must not be <see langword="null"/>.
+    /// </param>
+    /// <exception cref="ArgumentNullException">
+    ///     Thrown when <paramref name="initial"/> or <paramref name="compositionFactory"/> is <see langword="null"/>.
+    /// </exception>
+    public ModelCatalogService(
+        ModelCatalogComposition initial,
+        SpeechModelDownloaderOptions? initialDownloaderOptions,
+        Func<SpeechModelDownloaderOptions?, ModelCatalogComposition> compositionFactory)
+    {
+        ArgumentNullException.ThrowIfNull(initial);
+        ArgumentNullException.ThrowIfNull(compositionFactory);
+
+        _catalog = initial.Catalog;
+        _voiceLibrary = initial.VoiceLibrary;
+        _downloaderOptions = initialDownloaderOptions;
+        _compositionFactory = compositionFactory;
+        _catalogFactory = options => compositionFactory(options).Catalog;
+    }
+
     /// <inheritdoc/>
     public event EventHandler<ModelInstalledEventArgs>? ModelInstalled;
+
+    /// <inheritdoc/>
+    public event EventHandler? ReferenceVoicesChanged;
+
+    /// <inheritdoc/>
+    public IReadOnlyList<ReferenceVoicePack> ReferenceVoicePacks =>
+        _voiceLibrary is null ? [] : ReferenceVoiceLibrary.Packs;
+
+    /// <inheritdoc/>
+    public string? UserVoicesDirectory => _voiceLibrary?.UserDirectory;
+
+    /// <inheritdoc/>
+    public SpeechModelState GetReferenceVoicePackState(string packId) =>
+        RequireVoiceLibrary().GetPackState(packId);
+
+    /// <inheritdoc/>
+    /// <remarks>
+    ///     When the pack was installed, the catalog and library are rebuilt (so the Chatterbox model
+    ///     re-reads its voices) and <see cref="ReferenceVoicesChanged"/> is raised. The rebuild aborts
+    ///     any model download in flight; see <see cref="IModelCatalogService.InstallReferenceVoicePackAsync"/>.
+    /// </remarks>
+    public async Task<SpeechModelDownloadResult> InstallReferenceVoicePackAsync(
+        string packId,
+        IProgress<SpeechModelDownloadProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        var result = await RequireVoiceLibrary()
+            .InstallPackAsync(packId, progress, cancellationToken)
+            .ConfigureAwait(true);
+
+        if (result.Outcome == SpeechModelDownloadOutcome.Installed)
+        {
+            RebuildAndNotifyVoicesChanged();
+        }
+
+        return result;
+    }
+
+    /// <inheritdoc/>
+    public void UninstallReferenceVoicePack(string packId)
+    {
+        RequireVoiceLibrary().UninstallPack(packId);
+        RebuildAndNotifyVoicesChanged();
+    }
+
+    /// <summary>Returns the current voice library or throws when this service has none.</summary>
+    /// <returns>The current library.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when this service has no reference-voice library.</exception>
+    private ReferenceVoiceLibrary RequireVoiceLibrary() =>
+        _voiceLibrary ?? throw new InvalidOperationException(
+            "This service was constructed without a reference-voice library. Use the " +
+            "ModelCatalogService(ModelCatalogComposition, SpeechModelDownloaderOptions?, Func<...>) constructor instead.");
+
+    /// <summary>
+    ///     Replaces the catalog and library with freshly composed ones (same downloader options) and
+    ///     raises <see cref="ReferenceVoicesChanged"/>.
+    /// </summary>
+    private void RebuildAndNotifyVoicesChanged()
+    {
+        Recompose(_downloaderOptions);
+        ReferenceVoicesChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    ///     Builds a new catalog/library pair for <paramref name="options"/>, publishes it, and
+    ///     disposes the pair it replaces.
+    /// </summary>
+    /// <param name="options">The downloader options for the new pair.</param>
+    private void Recompose(SpeechModelDownloaderOptions? options)
+    {
+        var factory = _compositionFactory!;
+        var previousCatalog = _catalog;
+        var previousLibrary = _voiceLibrary;
+        var composition = factory(options);
+        _catalog = composition.Catalog;
+        _voiceLibrary = composition.VoiceLibrary;
+        _downloaderOptions = options;
+        previousCatalog.Dispose();
+        previousLibrary?.Dispose();
+    }
 
     /// <inheritdoc/>
     public IReadOnlyList<SpeechModelDescriptor> Enumerate()
@@ -157,6 +281,13 @@ public sealed class ModelCatalogService : IModelCatalogService, IDisposable
         }
 
         var downloaderOptions = mirror is null ? null : new SpeechModelDownloaderOptions { Mirror = mirror };
+        if (_compositionFactory is not null)
+        {
+            Recompose(downloaderOptions);
+            ReferenceVoicesChanged?.Invoke(this, EventArgs.Empty);
+            return;
+        }
+
         var previousCatalog = _catalog;
         _catalog = _catalogFactory(downloaderOptions);
         previousCatalog.Dispose();
@@ -178,6 +309,7 @@ public sealed class ModelCatalogService : IModelCatalogService, IDisposable
         if (_catalogFactory is not null)
         {
             _catalog.Dispose();
+            _voiceLibrary?.Dispose();
         }
     }
 }

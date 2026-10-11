@@ -42,6 +42,29 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
     public ObservableCollection<ModelListItemViewModel> Models { get; } = [];
 
     /// <summary>
+    ///     Gets the rows of the "Reference voices" section: one per installable reference-voice pack.
+    ///     Empty when the catalog service has no reference-voice support.
+    /// </summary>
+    public ObservableCollection<ReferenceVoicePackListItemViewModel> VoicePacks { get; } = [];
+
+    /// <summary>Gets a value indicating whether the "Reference voices" section has any pack to show.</summary>
+    public bool HasVoicePacks => VoicePacks.Count > 0;
+
+    /// <summary>
+    ///     Gets the user folder where the user may drop their own <c>.wav</c>/<c>.flac</c> voices, or
+    ///     <see langword="null"/> when unavailable.
+    /// </summary>
+    public string? UserVoicesDirectory => _catalogService.UserVoicesDirectory;
+
+    /// <summary>Gets the consent notice shown with the reference-voice section.</summary>
+    public string VoiceConsentNotice { get; } = ReferenceVoiceLibrary.ConsentNotice;
+
+    /// <summary>The explanation shown when a voice-pack action is refused because a transfer is in flight.</summary>
+    public const string VoiceBusyMessage =
+        "Wait for the current model or voice-pack download to finish (or cancel it) and try again: " +
+        "installing or removing a voice pack rebuilds the catalog, which would abort it.";
+
+    /// <summary>
     ///     Gets or sets the row the user has selected, or <see langword="null"/> when none is
     ///     selected.
     /// </summary>
@@ -169,7 +192,7 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
     [RelayCommand]
     public void ApplyMirror()
     {
-        if (Models.Any(model => model.IsDownloading))
+        if (Models.Any(model => model.IsDownloading) || VoicePacks.Any(pack => pack.IsInstalling))
         {
             MirrorHasError = true;
             MirrorStatusMessage =
@@ -233,8 +256,16 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
             : Models.FirstOrDefault(model => string.Equals(model.Id, previousId, StringComparison.Ordinal))
               ?? Models.FirstOrDefault();
 
+        VoicePacks.Clear();
+        foreach (var pack in _catalogService.ReferenceVoicePacks)
+        {
+            VoicePacks.Add(new ReferenceVoicePackListItemViewModel(pack, _catalogService.GetReferenceVoicePackState(pack.Id)));
+        }
+
         OnPropertyChanged(nameof(HasModels));
         OnPropertyChanged(nameof(IsCatalogEmpty));
+        OnPropertyChanged(nameof(HasVoicePacks));
+        OnPropertyChanged(nameof(UserVoicesDirectory));
     }
 
     /// <summary>
@@ -259,6 +290,13 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
     {
         if (model is null || !model.CanDownload)
         {
+            return;
+        }
+
+        // A voice-pack install rebuilds the catalog on completion, which would abort this download.
+        if (VoicePacks.Any(pack => pack.IsInstalling))
+        {
+            model.FailureMessage = VoiceBusyMessage;
             return;
         }
 
@@ -308,6 +346,104 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
             model.State = SpeechModelState.FailedOrCorrupt;
             model.ProgressFraction = null;
             model.FailureMessage = exception.Message;
+        }
+    }
+
+    /// <summary>
+    ///     Downloads and installs one reference-voice pack, reflecting progress and the final outcome
+    ///     in that pack\'s row, then refreshes the panel so the new voices are offered.
+    /// </summary>
+    /// <param name="pack">The row to install, or <see langword="null"/> (ignored).</param>
+    /// <param name="cancellationToken">A token supplied by the command infrastructure that cancels the install.</param>
+    /// <returns>A task that completes when the install attempt has finished and been reported.</returns>
+    /// <remarks>
+    ///     Refused (with <see cref="VoiceBusyMessage"/> on the row) while any model download is in
+    ///     flight, because the catalog rebuild after a successful install would abort it. Every
+    ///     failure is reported in-row rather than thrown.
+    /// </remarks>
+    [RelayCommand]
+    public async Task InstallVoicePackAsync(ReferenceVoicePackListItemViewModel? pack, CancellationToken cancellationToken)
+    {
+        if (pack is null || !pack.CanInstall)
+        {
+            return;
+        }
+
+        if (Models.Any(model => model.IsDownloading) || VoicePacks.Any(other => other.IsInstalling))
+        {
+            pack.FailureMessage = VoiceBusyMessage;
+            return;
+        }
+
+        pack.FailureMessage = null;
+        pack.ProgressFraction = null;
+        pack.State = SpeechModelState.Downloading;
+
+        var progress = new Progress<SpeechModelDownloadProgress>(value => pack.ProgressFraction = value.FractionComplete);
+
+        try
+        {
+            var result = await _catalogService
+                .InstallReferenceVoicePackAsync(pack.Id, progress, cancellationToken)
+                .ConfigureAwait(true);
+
+            if (result.Outcome == SpeechModelDownloadOutcome.Installed)
+            {
+                // The service rebuilt the catalog (so Chatterbox re-reads its voices); re-read the rows.
+                Refresh();
+            }
+            else
+            {
+                pack.State = SpeechModelState.FailedOrCorrupt;
+                pack.ProgressFraction = null;
+                pack.FailureMessage = DescribeFailure(result);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            pack.State = SpeechModelState.NotDownloaded;
+            pack.ProgressFraction = null;
+            pack.FailureMessage = "Install canceled.";
+        }
+#pragma warning disable CA1031 // Presentation layer must not crash the application on any seam fault.
+        catch (Exception exception)
+#pragma warning restore CA1031
+        {
+            pack.State = SpeechModelState.FailedOrCorrupt;
+            pack.ProgressFraction = null;
+            pack.FailureMessage = exception.Message;
+        }
+    }
+
+    /// <summary>
+    ///     Removes one installed reference-voice pack and refreshes the panel so its voices disappear
+    ///     from the voice choice.
+    /// </summary>
+    /// <param name="pack">The row to remove, or <see langword="null"/> (ignored).</param>
+    [RelayCommand]
+    public void RemoveVoicePack(ReferenceVoicePackListItemViewModel? pack)
+    {
+        if (pack is null || !pack.CanRemove)
+        {
+            return;
+        }
+
+        if (Models.Any(model => model.IsDownloading) || VoicePacks.Any(other => other.IsInstalling))
+        {
+            pack.FailureMessage = VoiceBusyMessage;
+            return;
+        }
+
+        try
+        {
+            _catalogService.UninstallReferenceVoicePack(pack.Id);
+            Refresh();
+        }
+#pragma warning disable CA1031 // Presentation layer must not crash the application on any seam fault.
+        catch (Exception exception)
+#pragma warning restore CA1031
+        {
+            pack.FailureMessage = exception.Message;
         }
     }
 

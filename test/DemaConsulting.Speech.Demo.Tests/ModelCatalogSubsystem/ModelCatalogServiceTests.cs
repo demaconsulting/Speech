@@ -23,6 +23,168 @@ public class ModelCatalogServiceTests
     };
 
     /// <summary>
+    ///     Builds a catalog/library composition rooted in an isolated store, standing in for the
+    ///     demo composition root's factory.
+    /// </summary>
+    /// <param name="root">The store root to use.</param>
+    /// <param name="options">The downloader options (mirror) for this composition.</param>
+    /// <returns>The composed pair.</returns>
+    private static ModelCatalogComposition Compose(string root, SpeechModelDownloaderOptions? options)
+    {
+        var catalog = new SpeechModelCatalog(new SpeechModelStoreOptions { RootPathOverride = root }, options, diagnostics: null);
+        return new ModelCatalogComposition(catalog, new ReferenceVoiceLibrary(catalog.Store, options));
+    }
+
+    /// <summary>
+    ///     Proves that the composition constructor rejects missing arguments.
+    /// </summary>
+    [Fact]
+    public void ModelCatalogService_Constructor_NullComposition_ThrowsArgumentNullException()
+    {
+        // Arrange
+        var root = IsolatedOptions().RootPathOverride!;
+        var composition = Compose(root, null);
+
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => new ModelCatalogService(null!, null, o => Compose(root, o)));
+        Assert.Throws<ArgumentNullException>(() => new ModelCatalogService(composition, null, null!));
+        composition.Catalog.Dispose();
+        composition.VoiceLibrary.Dispose();
+    }
+
+    /// <summary>
+    ///     Proves that a service built without a voice library reports no packs and refuses pack
+    ///     operations.
+    /// </summary>
+    [Fact]
+    public void ModelCatalogService_ReferenceVoices_NoLibrary_ReportsNoPacksAndRefusesOperations()
+    {
+        // Arrange
+        using var catalog = new SpeechModelCatalog(IsolatedOptions());
+        var service = new ModelCatalogService(catalog);
+
+        // Act & Assert
+        Assert.Empty(service.ReferenceVoicePacks);
+        Assert.Null(service.UserVoicesDirectory);
+        Assert.Throws<InvalidOperationException>(() => service.GetReferenceVoicePackState("voice-zero-1.0"));
+        Assert.Throws<InvalidOperationException>(() => service.UninstallReferenceVoicePack("voice-zero-1.0"));
+    }
+
+    /// <summary>
+    ///     Proves that a composed service lists the built-in pack as not installed, exposes the user
+    ///     voices folder, and shares the catalog's store root.
+    /// </summary>
+    [Fact]
+    public void ModelCatalogService_ReferenceVoices_Composed_ListsPackAndUserDirectory()
+    {
+        // Arrange
+        var root = IsolatedOptions().RootPathOverride!;
+        using var service = new ModelCatalogService(Compose(root, null), null, o => Compose(root, o));
+
+        // Act & Assert
+        var pack = Assert.Single(service.ReferenceVoicePacks);
+        Assert.Equal("voice-zero-1.0", pack.Id);
+        Assert.Equal(SpeechModelState.NotDownloaded, service.GetReferenceVoicePackState(pack.Id));
+        Assert.StartsWith(root, service.UserVoicesDirectory, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    ///     Proves that uninstalling a pack rebuilds the catalog and raises
+    ///     <see cref="IModelCatalogService.ReferenceVoicesChanged"/> exactly once.
+    /// </summary>
+    [Fact]
+    public void ModelCatalogService_UninstallReferenceVoicePack_RebuildsCatalogAndRaisesEvent()
+    {
+        // Arrange
+        var root = IsolatedOptions().RootPathOverride!;
+        var builds = 0;
+        using var service = new ModelCatalogService(
+            Compose(root, null),
+            null,
+            o =>
+            {
+                builds++;
+                return Compose(root, o);
+            });
+        var raised = 0;
+        service.ReferenceVoicesChanged += (_, _) => raised++;
+
+        // Act
+        service.UninstallReferenceVoicePack("voice-zero-1.0");
+
+        // Assert: one rebuild, one notification, and the service still works afterwards
+        Assert.Equal(1, builds);
+        Assert.Equal(1, raised);
+        Assert.Equal(SpeechModelState.NotDownloaded, service.GetReferenceVoicePackState("voice-zero-1.0"));
+        Assert.Throws<ArgumentException>(() => service.UninstallReferenceVoicePack("missing-pack"));
+    }
+
+    /// <summary>
+    ///     Proves that applying a mirror to a composed service rebuilds the pair with the new
+    ///     options and raises <see cref="IModelCatalogService.ReferenceVoicesChanged"/>.
+    /// </summary>
+    [Fact]
+    public void ModelCatalogService_ApplyMirror_Composed_RebuildsPairAndRaisesEvent()
+    {
+        // Arrange
+        var root = IsolatedOptions().RootPathOverride!;
+        SpeechModelDownloaderOptions? lastOptions = null;
+        using var service = new ModelCatalogService(
+            Compose(root, null),
+            null,
+            o =>
+            {
+                lastOptions = o;
+                return Compose(root, o);
+            });
+        var raised = 0;
+        service.ReferenceVoicesChanged += (_, _) => raised++;
+        var mirror = new DownloadMirror(new Uri("https://mirror.example.test/"));
+
+        // Act
+        service.ApplyMirror(mirror);
+
+        // Assert
+        Assert.Equal(1, raised);
+        Assert.Same(mirror, lastOptions!.Mirror);
+    }
+
+    /// <summary>
+    ///     Proves that a pack install that does not succeed (here an unreachable loopback mirror)
+    ///     reports the failure without rebuilding the catalog or raising the changed event.
+    /// </summary>
+    [Fact]
+    public async Task ModelCatalogService_InstallReferenceVoicePackAsync_Failure_DoesNotRebuildOrRaise()
+    {
+        // Arrange: a loopback mirror with nothing listening, so the download fails quickly
+        var root = IsolatedOptions().RootPathOverride!;
+        var builds = 0;
+        var mirrorOptions = new SpeechModelDownloaderOptions
+        {
+            Mirror = new DownloadMirror(new Uri("http://127.0.0.1:1/")),
+        };
+        using var service = new ModelCatalogService(
+            Compose(root, mirrorOptions),
+            mirrorOptions,
+            o =>
+            {
+                builds++;
+                return Compose(root, o);
+            });
+        var raised = 0;
+        service.ReferenceVoicesChanged += (_, _) => raised++;
+
+        // Act
+        var result = await service.InstallReferenceVoicePackAsync(
+            "voice-zero-1.0", null, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.NotEqual(SpeechModelDownloadOutcome.Installed, result.Outcome);
+        Assert.Equal(0, builds);
+        Assert.Equal(0, raised);
+    }
+
+    /// <summary>
     ///     Proves that the adapter rejects a missing catalog rather than deferring the failure to
     ///     the first enumeration.
     /// </summary>

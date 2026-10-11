@@ -5,6 +5,7 @@ using DemaConsulting.Speech.Demo.ModelSettingsSubsystem;
 using DemaConsulting.Speech.Demo.SynthesisPanelSubsystem;
 using DemaConsulting.Speech.Demo.Tests.Fakes;
 using DemaConsulting.Speech.ModelManagementSubsystem;
+using DemaConsulting.Speech.Onnx.ChatterboxTurbo.ModelManagementSubsystem;
 using DemaConsulting.Speech.SynthesisSubsystem;
 using NSubstitute;
 
@@ -734,5 +735,104 @@ public class SynthesisPanelViewModelTests
 
         // Assert: no fault
         Assert.Null(exception);
+    }
+
+    /// <summary>
+    ///     Proves that a <see cref="IModelCatalogService.ReferenceVoicesChanged"/> event makes the
+    ///     panel re-read the catalog (so a rebuilt model's new voice list is offered) and keeps the
+    ///     voice the user had chosen where it is still available.
+    /// </summary>
+    [Fact]
+    public void SynthesisPanelViewModel_ReferenceVoicesChanged_RefreshesAndKeepsChosenVoice()
+    {
+        // Arrange: a synthesis model with a 150-voice list; the user picks voice 120
+        ISpeechModel NewModel(int count) => new FakeSpeechModel(
+            "tts",
+            "TTS",
+            SpeechModelRole.Synthesis,
+            [new ChoiceParameter(
+                "voice",
+                "Voice",
+                "Reference voice.",
+                [.. Enumerable.Range(0, count).Select(i => new ChoiceParameterOption($"v{i}", $"Voice {i}"))],
+                "v0")]);
+        var catalog = Substitute.For<IModelCatalogService>();
+        var descriptors = new[] { new SpeechModelDescriptor(NewModel(10), SpeechModelState.Downloaded) };
+        catalog.Enumerate().Returns(_ => descriptors);
+        var viewModel = new SynthesisPanelViewModel(
+            catalog, Substitute.For<IAudioDeviceService>(), DeviceSelection(),
+            Substitute.For<ISynthesizerSessionFactory>());
+        var first = viewModel.SelectedModel;
+
+        // Act: a pack install grows the voice list on the rebuilt model; the event fires
+        descriptors = [new SpeechModelDescriptor(NewModel(150), SpeechModelState.Downloaded)];
+        ((ChoiceParameterViewModel)viewModel.Settings.Parameters[0]).SelectedOption =
+            ((ChoiceParameterViewModel)viewModel.Settings.Parameters[0]).Options[5];
+        catalog.ReferenceVoicesChanged += Raise.Event<EventHandler>(catalog, EventArgs.Empty);
+
+        // Assert: a new model instance with 150 options, still on the previously chosen voice
+        Assert.NotSame(first, viewModel.SelectedModel);
+        var voice = (ChoiceParameterViewModel)viewModel.Settings.Parameters[0];
+        Assert.Equal(150, voice.Options.Count);
+        Assert.Equal("v5", voice.SelectedOption.Value);
+    }
+
+    /// <summary>
+    ///     Proves that <see cref="SynthesisPanelViewModel.DisposeAsync"/> unsubscribes from
+    ///     <see cref="IModelCatalogService.ReferenceVoicesChanged"/>.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisPanelViewModel_DisposeAsync_UnsubscribesFromReferenceVoicesChanged()
+    {
+        // Arrange
+        var catalog = Substitute.For<IModelCatalogService>();
+        var descriptors = Array.Empty<SpeechModelDescriptor>();
+        catalog.Enumerate().Returns(_ => descriptors);
+        var viewModel = new SynthesisPanelViewModel(
+            catalog, Substitute.For<IAudioDeviceService>(), DeviceSelection(),
+            Substitute.For<ISynthesizerSessionFactory>());
+
+        // Act: dispose, then the catalog gains a model and raises the event
+        await viewModel.DisposeAsync();
+        descriptors = [FakeSpeechModel.Descriptor("tts", SpeechModelState.Downloaded, role: SpeechModelRole.Synthesis)];
+        catalog.ReferenceVoicesChanged += Raise.Event<EventHandler>(catalog, EventArgs.Empty);
+
+        // Assert: no refresh happened after disposal
+        Assert.False(viewModel.HasModels);
+    }
+
+    /// <summary>
+    ///     Proves that the consent note and the installed pack's attribution are shown for the
+    ///     Chatterbox voice-cloning model, and nothing is shown for other models.
+    /// </summary>
+    [Fact]
+    public void SynthesisPanelViewModel_VoiceNotice_ChatterboxShowsConsentAndAttribution_OthersShowNothing()
+    {
+        // Arrange: the real Chatterbox model (no store voices, so nothing is read from disk) and a pack that is installed
+        var chatterbox = new OnnxChatterboxTurboEnglishSynthesisModel(
+            new ChatterboxTurboModelOptions { IncludeStoreVoices = false });
+        var catalog = Substitute.For<IModelCatalogService>();
+        catalog.ReferenceVoicePacks.Returns([ReferenceVoicePack.VoiceZero10]);
+        catalog.GetReferenceVoicePackState(ReferenceVoicePack.VoiceZero10.Id).Returns(SpeechModelState.Downloaded);
+        var descriptors = new[] { new SpeechModelDescriptor(chatterbox, SpeechModelState.Downloaded) };
+        catalog.Enumerate().Returns(_ => descriptors);
+
+        // Act
+        var viewModel = new SynthesisPanelViewModel(
+            catalog, Substitute.For<IAudioDeviceService>(), DeviceSelection(),
+            Substitute.For<ISynthesizerSessionFactory>());
+
+        // Assert: Chatterbox shows consent + attribution
+        Assert.True(viewModel.HasVoiceNotice);
+        Assert.Contains(ReferenceVoiceLibrary.ConsentNotice, viewModel.VoiceNotice, StringComparison.Ordinal);
+        Assert.Contains("OwenTyme", viewModel.VoiceNotice, StringComparison.Ordinal);
+
+        // Act: a different synthesis model is selected instead
+        descriptors = [FakeSpeechModel.Descriptor("other", SpeechModelState.Downloaded, role: SpeechModelRole.Synthesis)];
+        viewModel.Refresh();
+
+        // Assert: no voice notice
+        Assert.False(viewModel.HasVoiceNotice);
+        Assert.Null(viewModel.VoiceNotice);
     }
 }

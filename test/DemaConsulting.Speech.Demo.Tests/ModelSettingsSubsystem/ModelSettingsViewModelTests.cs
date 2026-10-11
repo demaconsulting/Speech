@@ -324,4 +324,60 @@ public class ModelSettingsViewModelTests
         Assert.Throws<ArgumentNullException>(() => new ChoiceParameterViewModel(null!));
         Assert.Throws<ArgumentNullException>(() => new BooleanParameterViewModel(null!));
     }
+
+    /// <summary>
+    ///     Proves that <see cref="ModelSettingsViewModel.RestoreValues"/> re-applies previously
+    ///     captured choice, numeric and boolean values to a freshly rebuilt model's parameters,
+    ///     including a choice drawn from a 150-option voice list.
+    /// </summary>
+    [Fact]
+    public void ModelSettingsViewModel_RestoreValues_AppliesCapturedValues()
+    {
+        // Arrange: a model with a large voice list, a numeric and a boolean parameter
+        var voices = Enumerable.Range(0, 150)
+            .Select(i => new ChoiceParameterOption($"v{i}", $"Voice {i}"))
+            .ToArray();
+        var voiceParam = new ChoiceParameter("voice", "Voice", "Reference voice.", voices, "v0");
+        ISpeechModel NewModel() => new FakeSpeechModel(
+            "m", "M", SpeechModelRole.Synthesis, [voiceParam, NumericParam, BooleanParam]);
+        var viewModel = new ModelSettingsViewModel(NewModel());
+        ((ChoiceParameterViewModel)viewModel.Parameters[0]).SelectedOption = voices[120];
+        ((NumericParameterViewModel)viewModel.Parameters[1]).Value = 1.5;
+        ((BooleanParameterViewModel)viewModel.Parameters[2]).Value = false;
+        var captured = viewModel.BuildValueBag();
+
+        // Act: the model is replaced by an equivalent new instance (a catalog rebuild), then restored
+        viewModel.Model = NewModel();
+        Assert.Equal("v0", viewModel.BuildValueBag()["voice"]);
+        viewModel.RestoreValues(captured);
+
+        // Assert: every control is back at the captured value
+        var bag = viewModel.BuildValueBag();
+        Assert.Equal("v120", bag["voice"]);
+        Assert.Equal(1.5, (double)bag["speed"], 3);
+        Assert.False((bool)bag["denoise"]);
+    }
+
+    /// <summary>
+    ///     Proves that restoring a voice the rebuilt model no longer offers (or an unknown key)
+    ///     leaves that control at its default instead of throwing.
+    /// </summary>
+    [Fact]
+    public void ModelSettingsViewModel_RestoreValues_UnavailableOptionOrKey_KeepsDefault()
+    {
+        // Arrange
+        var viewModel = new ModelSettingsViewModel(
+            new FakeSpeechModel("m", "M", SpeechModelRole.Synthesis, [ChoiceParam]));
+
+        // Act
+        viewModel.RestoreValues(new Dictionary<string, object>
+        {
+            ["voice"] = "removed-voice",
+            ["unknown"] = "x",
+        });
+
+        // Assert
+        Assert.Equal("alto", viewModel.BuildValueBag()["voice"]);
+        Assert.Throws<ArgumentNullException>(() => viewModel.RestoreValues(null!));
+    }
 }

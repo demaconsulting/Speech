@@ -4,7 +4,7 @@
              x:Class="DemaConsulting.Speech.Demo.ModelCatalogSubsystem.ModelCatalogView"
              x:DataType="models:ModelCatalogViewModel">
 
-  <Grid Margin="16" RowDefinitions="Auto,Auto,Auto,*,Auto">
+  <Grid Margin="16" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto">
 
     <TextBlock Grid.Row="0" Text="Model Catalog" FontSize="18" FontWeight="SemiBold" />
 
@@ -84,7 +84,63 @@
       </ListBox.ItemTemplate>
     </ListBox>
 
-    <Button Grid.Row="4"
+    <Border Grid.Row="4"
+            Margin="0,8,0,0"
+            Padding="8"
+            BorderBrush="Gray"
+            BorderThickness="1"
+            CornerRadius="4"
+            IsVisible="{Binding HasVoicePacks}">
+      <StackPanel Spacing="4">
+        <TextBlock Text="Reference voices" FontWeight="SemiBold" />
+        <TextBlock TextWrapping="Wrap"
+                   Opacity="0.7"
+                   Text="Voice packs add reference voices that voice-cloning text-to-speech models (such as Chatterbox Turbo) can imitate. Installing or removing a pack refreshes the voice dropdown in the Text to Speech panel." />
+        <TextBlock TextWrapping="Wrap"
+                   FontWeight="SemiBold"
+                   Text="{Binding VoiceConsentNotice}" />
+        <TextBlock TextWrapping="Wrap" Opacity="0.7">
+          <Run Text="Your own .wav/.flac voices: place them in" />
+          <Run Text="{Binding UserVoicesDirectory}" />
+          <Run Text="and refresh the catalog." />
+        </TextBlock>
+
+        <ItemsControl ItemsSource="{Binding VoicePacks}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="models:ReferenceVoicePackListItemViewModel">
+              <StackPanel Spacing="4" Margin="0,4">
+                <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
+                <TextBlock Text="{Binding Id}" Opacity="0.6" />
+                <TextBlock Text="{Binding LicenseText}" Opacity="0.6" TextWrapping="Wrap" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <TextBlock Text="{Binding StatusText}" />
+                  <TextBlock Text="{Binding SizeText}" Opacity="0.6" />
+                </StackPanel>
+                <ProgressBar Minimum="0" Maximum="1"
+                             Value="{Binding ProgressFraction}"
+                             IsVisible="{Binding IsInstalling}" />
+                <TextBlock Text="{Binding FailureMessage}"
+                           TextWrapping="Wrap"
+                           IsVisible="{Binding HasFailureMessage}"
+                           Foreground="IndianRed" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <Button Content="Install"
+                          IsEnabled="{Binding CanInstall}"
+                          Command="{Binding $parent[ItemsControl].((models:ModelCatalogViewModel)DataContext).InstallVoicePackCommand}"
+                          CommandParameter="{Binding}" />
+                  <Button Content="Remove"
+                          IsEnabled="{Binding CanRemove}"
+                          Command="{Binding $parent[ItemsControl].((models:ModelCatalogViewModel)DataContext).RemoveVoicePackCommand}"
+                          CommandParameter="{Binding}" />
+                </StackPanel>
+              </StackPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </Border>
+
+    <Button Grid.Row="5"
             Margin="0,8,0,0"
             Content="Refresh catalog"
             Command="{Binding RefreshCommand}"
