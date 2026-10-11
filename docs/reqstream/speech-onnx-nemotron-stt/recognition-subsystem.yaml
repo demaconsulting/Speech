@@ -1,0 +1,119 @@
+---
+# Software Subsystem Requirements for the SpeechOnnxNemotronStt RecognitionSubsystem
+#
+# These requirements describe the subsystem-level behavior of the SpeechOnnxNemotronStt
+# RecognitionSubsystem, decomposing the system-level requirements in
+# docs/reqstream/speech-onnx-nemotron-stt.yaml. This subsystem contains the real raw-ONNX
+# implementation of the Speech library's public IRecognitionBackend seam
+# (OnnxNemotronRecognitionEngine) and the units it composes: the streaming log-mel feature
+# extractor (NemotronFeatureExtractor), the RNN-T greedy decoder (NemotronRnntGreedyDecoder), and
+# the leading-silence limiter with its dither source (SilenceRunLimiter, DitherNoise). All
+# recognition policy above that seam (session state machine, resampling, cancellation, fault
+# containment) remains in the Speech library's own RecognitionSubsystem.
+#
+# Covered by test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/; unit-level
+# requirements live in docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem/.
+
+sections:
+  - title: SpeechOnnxNemotronStt Requirements
+    sections:
+      - title: RecognitionSubsystem Requirements
+        requirements:
+          - id: SpeechOnnxNemotronStt-Recognition-OnnxBackend
+            title: >-
+              The SpeechOnnxNemotronStt RecognitionSubsystem shall implement the Speech library's
+              IRecognitionBackend seam over the Nemotron encoder, decoder, and joint ONNX graphs
+              run through ONNX Runtime, buffering accepted audio, decoding in fixed chunks to
+              report provisional text when it changes, finalizing an utterance on endpoints and
+              on flush, and releasing its model resources on disposal.
+            justification: |
+              The Speech library confines every speech-recognition interop call behind its
+              public IRecognitionBackend seam so its own recognition policy is verifiable
+              without a native runtime. A real, ONNX-Runtime-backed implementation of that seam
+              is what turns that policy into text for the Nemotron model this package ships.
+            children:
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-Construction
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-Buffering
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-ProvisionalResults
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-Flush
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-QuietEndpointing
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-QuietPadding
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-EncoderWiring
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-EmptyChunkEndpointing
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-ResetAndDispose
+            tests:
+              - TryDecode_SpeechChunk_ReportsProvisionalText
+              - TryFlush_PartialAudio_ReturnsFinalText
+              - TryDecode_QuietAfterSpeech_EndpointsAndResets
+              - TryDecode_EmptyChunksAfterText_FinalizesKeepingState
+              - Reset_ClearsState
+              - Dispose_DisposesCollaboratorsAndBlocksUse
+
+          - id: SpeechOnnxNemotronStt-Recognition-FeatureExtraction
+            title: >-
+              The RecognitionSubsystem shall convert 16 kHz mono audio into the model's
+              128-band log-mel feature frames incrementally, producing the same frames whether
+              the audio arrives in one piece or in arbitrary chunks.
+            justification: |
+              The encoder consumes log-mel features rather than samples, and a streaming
+              recognizer receives audio in arbitrary pieces; the features must not depend on
+              how the audio was split.
+            children:
+              - SpeechOnnxNemotronStt-Recognition-NemotronFeatureExtractor-LogMel
+              - SpeechOnnxNemotronStt-Recognition-NemotronFeatureExtractor-StreamingEquivalence
+              - SpeechOnnxNemotronStt-Recognition-NemotronFeatureExtractor-Flush
+            tests:
+              - Extract_GoldenSignal_MatchesReference
+              - Extract_Chunked_EqualsOneShot
+              - Flush_VeryShortInput_ProducesFrames
+
+          - id: SpeechOnnxNemotronStt-Recognition-GreedyDecoding
+            title: >-
+              The RecognitionSubsystem shall decode encoder output into token ids with RNN-T
+              greedy search over a decoder-and-joint network seam, bounding the symbols emitted
+              per encoder frame and advancing the prediction state per emitted token.
+            justification: |
+              The RNN-T decoder is the stage that turns encoder frames into tokens; keeping it
+              behind a seam makes the search policy verifiable without the model files, and
+              bounding symbols per frame prevents a runaway decode loop.
+            children:
+              - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-Greedy
+              - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-SymbolCap
+              - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-BlankPenalty
+              - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-NetworkWiring
+              - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-ResetAndDispose
+              - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-ArgumentValidation
+            tests:
+              - Decode_AllBlank_EmitsNothing
+              - Decode_Tokens_AreCollectedAndAdvanced
+              - Decode_NeverBlank_StopsAtTenSymbolsPerFrame
+
+          - id: SpeechOnnxNemotronStt-Recognition-LeadingSilenceLimiting
+            title: >-
+              The RecognitionSubsystem shall limit quiet runs in the incoming audio to a fixed
+              maximum length using a stateful streaming limiter with an adaptive threshold
+              calibrated from the start of the stream, keep flowing audio during calibration,
+              preserve all speech samples, and add a small deterministic dither to the limited
+              audio before feature extraction.
+            justification: |
+              The Nemotron model emits nothing, or garbage, after long leading digital silence
+              or very low noise. Truncating long quiet runs to 400 ms keeps context while
+              preventing the failure, and dither avoids the exact-zero log-mel degeneracy of
+              digital silence. Calibration is internal to the engine: the Speech library's
+              RecognitionSessionState.Starting means the audio device is starting, and
+              calibration is content-driven on the audio stream, so it cannot map to a state
+              transition without a Speech contract change.
+            children:
+              - SpeechOnnxNemotronStt-Recognition-SilenceRunLimiter-Truncation
+              - SpeechOnnxNemotronStt-Recognition-SilenceRunLimiter-PreservesSpeech
+              - SpeechOnnxNemotronStt-Recognition-SilenceRunLimiter-AdaptiveThreshold
+              - SpeechOnnxNemotronStt-Recognition-SilenceRunLimiter-StreamingEquivalence
+              - SpeechOnnxNemotronStt-Recognition-SilenceRunLimiter-ResetAndClock
+              - SpeechOnnxNemotronStt-Recognition-DitherNoise-Deterministic
+              - SpeechOnnxNemotronStt-Recognition-DitherNoise-Amplitude
+            tests:
+              - Process_DigitalSilence_TruncatesToCap
+              - Process_SilenceThenTone_KeepsAllToneSamples
+              - Process_DuringCalibration_AudioStillFlows
+              - Apply_SameSeed_IsDeterministicAndResettable
+              - Apply_Statistics_MatchAmplitude

@@ -11,6 +11,7 @@ package Speech {
         expose SpeechSherpa;
         expose SpeechOnnx;
         expose SpeechOnnxKokoro;
+        expose SpeechOnnxNemotronStt;
     }
 
     view SpeechView {
@@ -131,5 +132,23 @@ package SpeechOnnxKokoro {
 
     view KokoroSynthesisSubsystemView {
         expose SynthesisSubsystem;
+    }
+}
+
+// SpeechOnnxNemotronStt views. Declared in their own package so each 'expose' statement can reference
+// its target part def directly, exactly as the Speech views above do. The subsystem views carry
+// a 'Nemotron' prefix because rendered SVG filenames are keyed by bare view name, so reusing the
+// Speech/SpeechSherpa subsystem view names would overwrite their own diagrams.
+package SpeechOnnxNemotronStt {
+    view SpeechOnnxNemotronSttView {
+        expose SpeechOnnxNemotronSttSystem;
+    }
+
+    view NemotronModelManagementSubsystemView {
+        expose ModelManagementSubsystem;
+    }
+
+    view NemotronRecognitionSubsystemView {
+        expose RecognitionSubsystem;
     }
 }

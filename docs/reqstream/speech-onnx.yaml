@@ -6,7 +6,8 @@
 # specifying implementation details. SpeechOnnx is a sibling system to Speech: it supplies
 # generic ONNX Runtime infrastructure - today, execution-provider probing and selection - reusable
 # by any ONNX-Runtime-backed model package (for example the sibling
-# DemaConsulting.Speech.Onnx.Kokoro package), and declares zero models itself.
+# DemaConsulting.Speech.Onnx.Kokoro and DemaConsulting.Speech.Onnx.NemotronStt packages), and declares zero
+# models itself.
 #
 # Covered by test/DemaConsulting.Speech.Onnx.Tests - see
 # docs/reqstream/speech-onnx/onnx-runtime-subsystem/onnx-execution-provider-selector.yaml for the

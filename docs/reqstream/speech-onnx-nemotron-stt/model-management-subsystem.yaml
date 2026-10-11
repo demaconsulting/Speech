@@ -1,0 +1,88 @@
+---
+# Software Subsystem Requirements for the SpeechOnnxNemotronStt ModelManagementSubsystem
+#
+# These requirements describe the subsystem-level behavior of the SpeechOnnxNemotronStt
+# ModelManagementSubsystem, decomposing the system-level requirements in
+# docs/reqstream/speech-onnx-nemotron-stt.yaml. This subsystem supplies the one concrete,
+# ONNX-Runtime-backed speech model that implements the Speech library's IRecognitionModel
+# contract (OnnxNemotronMultilingualRecognitionModel), the supporting vocabulary unit
+# (NemotronVocabulary), and the AddNemotronSttModels() catalog-registration extension method.
+#
+# Unit-level content lives in per-unit files under
+# docs/reqstream/speech-onnx-nemotron-stt/model-management-subsystem/. The AddNemotronSttModels()
+# extension method (SpeechModelCatalogNemotronSttExtensions) has no separate unit file; its
+# requirements are consolidated here at subsystem level, matching the sibling SpeechOnnxKokoro
+# and SpeechSherpa systems' established convention for their own catalog extension methods.
+#
+# This package is covered by test/DemaConsulting.Speech.Onnx.NemotronStt.Tests - see per-unit files
+# under docs/reqstream/speech-onnx-nemotron-stt/model-management-subsystem/ for the full tests:
+# lists.
+
+sections:
+  - title: SpeechOnnxNemotronStt Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        requirements:
+          - id: SpeechOnnxNemotronStt-Models-CatalogRegistration
+            title: >-
+              The SpeechOnnxNemotronStt ModelManagementSubsystem shall provide a public
+              AddNemotronSttModels() extension method on the Speech library's SpeechModelCatalog
+              that registers exactly its one ONNX-Runtime-backed recognition model, optionally
+              accepting an ordered list of preferred execution provider names, and returns the
+              same catalog instance for chaining.
+            justification: |
+              The Speech library's catalog has no compiled-in model registry; a host must
+              register the models it wants through SpeechModelCatalog.AddModels. A single,
+              discoverable registration entry point lets a host opt into this package's model
+              with one call, while returning the same instance keeps the catalog composable
+              with other model packages in one fluent expression.
+            tests:
+              - AddNemotronSttModels_Called_ReturnsSameCatalogInstance
+              - AddNemotronSttModels_Called_RegistersOneRecognitionModel
+              - AddNemotronSttModels_WithProviders_Registers
+
+          - id: SpeechOnnxNemotronStt-Models-RealRecognitionModelWithLanguageSelection
+            title: >-
+              The ModelManagementSubsystem shall provide one real, concrete IRecognitionModel
+              class (OnnxNemotronMultilingualRecognitionModel) declaring a language
+              ChoiceParameter (en-US default, en-GB), a download descriptor naming every one of
+              the model's eleven files, and a CreateBackend method that builds the encoder,
+              decoder, and joint sessions and fails clearly for an unusable installation.
+            justification: |
+              The Speech library defines the recognition-model contract but ships no concrete
+              models; a host needs a real, checksum-verified, installable recognition model
+              exposing a language choice to perform offline speech-to-text with this model
+              family at all.
+            children:
+              - SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-Identity
+              - SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-License
+              - SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-DownloadDescriptor
+              - SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-LanguageParameter
+              - SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-CreateBackendValidation
+            tests:
+              - Metadata_IsDeclared
+              - DownloadDescriptor_ListsElevenFiles
+              - Parameters_LanguageChoice
+              - CreateBackend_EmptyDirectory_Throws
+              - CreateBackend_MissingFiles_Throws
+
+          - id: SpeechOnnxNemotronStt-Models-VocabularyPipeline
+            title: >-
+              The ModelManagementSubsystem shall load the model's own vocabulary and use it to
+              derive the encoder language identifier and the RNN-T blank token id, and to
+              convert emitted token ids into normalized text (NemotronVocabulary).
+            justification: |
+              The language identifier and blank id are properties of the exported model, so
+              they must be derived from the model's own vocabulary file at load time rather
+              than hard-coded, and the model emits SentencePiece-style tokens that must be
+              converted back to readable text.
+            children:
+              - SpeechOnnxNemotronStt-Models-NemotronVocabulary-Load
+              - SpeechOnnxNemotronStt-Models-NemotronVocabulary-LanguageIds
+              - SpeechOnnxNemotronStt-Models-NemotronVocabulary-BlankId
+              - SpeechOnnxNemotronStt-Models-NemotronVocabulary-Detokenize
+            tests:
+              - Load_File_ReadsTokens
+              - TryGetLanguageId_KnownLocales_ReturnsOrdinal
+              - BlankId_IsBlankTokenIndex
+              - Detokenize_Tokens_NormalizesText

@@ -112,6 +112,15 @@ includes:
   - docs/reqstream/speech-onnx-kokoro/model-management-subsystem/kokoro-phoneme-vocabulary.yaml
   - docs/reqstream/speech-onnx-kokoro/synthesis-subsystem.yaml
   - docs/reqstream/speech-onnx-kokoro/synthesis-subsystem/onnx-kokoro-synthesis-engine.yaml
+  - docs/reqstream/speech-onnx-nemotron-stt.yaml
+  - docs/reqstream/speech-onnx-nemotron-stt/model-management-subsystem.yaml
+  - docs/reqstream/speech-onnx-nemotron-stt/model-management-subsystem/onnx-nemotron-multilingual-recognition-model.yaml
+  - docs/reqstream/speech-onnx-nemotron-stt/model-management-subsystem/nemotron-vocabulary.yaml
+  - docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem.yaml
+  - docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem/onnx-nemotron-recognition-engine.yaml
+  - docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-feature-extractor.yaml
+  - docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-rnnt-greedy-decoder.yaml
+  - docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem/silence-run-limiter.yaml
   - docs/reqstream/ots/port-audio-sharp2.yaml
   - docs/reqstream/ots/sherpa-onnx.yaml
   - docs/reqstream/ots/sharp-compress.yaml

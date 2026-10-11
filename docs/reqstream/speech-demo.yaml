@@ -120,15 +120,17 @@ sections:
       - id: SpeechDemo-Models-RealCatalogReporting
         title: >-
           The demo application shall report exactly what the library's host-populated model
-          catalog contains, whether that is the five real models (two recognition, three
-          synthesis) registered via DemaConsulting.Speech.Sherpa's AddSherpaModels() and
-          DemaConsulting.Speech.Onnx.Kokoro's AddKokoroModels() extensions, or an empty registry
+          catalog contains, whether that is the six real models (three recognition, three
+          synthesis) registered via DemaConsulting.Speech.Sherpa's AddSherpaModels(),
+          DemaConsulting.Speech.Onnx.Kokoro's AddKokoroModels(), and
+          the NemotronStt package's AddNemotronSttModels() extensions, or an empty registry
           for a caller-supplied catalog with none.
         tags: [system]
         justification: |
-          The demo's composition root registers the sibling DemaConsulting.Speech.Sherpa and
-          DemaConsulting.Speech.Onnx.Kokoro packages' production models into its
-          SpeechModelCatalog via AddSherpaModels() and AddKokoroModels() - core
+          The demo's composition root registers the sibling DemaConsulting.Speech.Sherpa,
+          DemaConsulting.Speech.Onnx.Kokoro, and DemaConsulting.Speech.Onnx.NemotronStt packages'
+          production models into its
+          SpeechModelCatalog via AddSherpaModels(), AddKokoroModels(), and AddNemotronSttModels() - core
           DemaConsulting.Speech ships zero built-in models - so the demo's catalog panel must
           surface those real models rather than continuing to assert emptiness as the expected
           state. The underlying "explain an empty catalog plainly" capability remains a real,
