@@ -87,6 +87,12 @@ internal sealed class NemotronRnntNetwork : IRnntNetwork
     /// <summary>Tensor over <see cref="_encoderFrame"/>.</summary>
     private readonly OrtValue _encoderFrameValue;
 
+    /// <summary>The decoder input tensors, reused by every call.</summary>
+    private readonly OrtValue[] _decoderInputs;
+
+    /// <summary>The joint input tensors, reused by every call.</summary>
+    private readonly OrtValue[] _jointInputs;
+
     /// <summary>Whether <see cref="Dispose"/> has run.</summary>
     private bool _disposed;
 
@@ -115,6 +121,8 @@ internal sealed class NemotronRnntNetwork : IRnntNetwork
         _cellValue = OrtValue.CreateTensorValueFromMemory(_cell, [DecoderLayers, 1, DecoderHidden]);
         _decoderOutputValue = OrtValue.CreateTensorValueFromMemory(_decoderOutput, [1, 1, DecoderHidden]);
         _encoderFrameValue = OrtValue.CreateTensorValueFromMemory(_encoderFrame, [1, 1, encoderHiddenSize]);
+        _decoderInputs = [_targetValue, _hiddenValue, _cellValue];
+        _jointInputs = [_encoderFrameValue, _decoderOutputValue];
     }
 
     /// <inheritdoc/>
@@ -149,7 +157,7 @@ internal sealed class NemotronRnntNetwork : IRnntNetwork
         using var results = _decoder.Run(
             _runOptions,
             DecoderInputNames,
-            [_targetValue, _hiddenValue, _cellValue],
+            _decoderInputs,
             DecoderOutputNames);
 
         // The prediction network is run for one target token, so its output holds one step
@@ -169,7 +177,7 @@ internal sealed class NemotronRnntNetwork : IRnntNetwork
         using var results = _joint.Run(
             _runOptions,
             JointInputNames,
-            [_encoderFrameValue, _decoderOutputValue],
+            _jointInputs,
             JointOutputNames);
 
         return SelectToken(results[0].GetTensorDataAsSpan<float>(), BlankId);

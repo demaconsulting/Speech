@@ -210,18 +210,22 @@ public sealed class OnnxNemotronMultilingualRecognitionModel : IRecognitionModel
             network = new NemotronRnntNetwork(decoderSession, jointSession, vocabulary.BlankId);
             decoderSession = null;
             jointSession = null;
-            var greedyDecoder = new NemotronRnntGreedyDecoder(network);
+            NemotronRnntGreedyDecoder? greedyDecoder = new NemotronRnntGreedyDecoder(network);
             network = null;
+            NemotronEncoder? encoder = null;
             try
             {
-                return new OnnxNemotronRecognitionEngine(
-                    new NemotronEncoder(encoderSession, languageId),
-                    greedyDecoder,
-                    vocabulary);
+                encoder = new NemotronEncoder(encoderSession, languageId);
+                encoderSession = null;
+                var engine = new OnnxNemotronRecognitionEngine(encoder, greedyDecoder, vocabulary);
+                encoder = null;
+                greedyDecoder = null;
+                return engine;
             }
             catch
             {
-                greedyDecoder.Dispose();
+                encoder?.Dispose();
+                greedyDecoder?.Dispose();
                 throw;
             }
         }
