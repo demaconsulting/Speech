@@ -1,0 +1,93 @@
+---
+# Software System Requirements for SpeechOnnxNemotronStt
+#
+# These requirements describe the externally visible behavior of the SpeechOnnxNemotronStt library
+# (DemaConsulting.Speech.Onnx.NemotronStt) from the perspective of a host application consuming it,
+# without specifying implementation details. SpeechOnnxNemotronStt is a sibling system to Speech: it
+# supplies a concrete, ONNX-Runtime-backed NVIDIA Nemotron 3.5 ASR streaming speech-recognition
+# model and inference engine through the Speech library's IRecognitionModel extension seam, ships
+# as its own package, and is versioned as part of this repository. The Speech library never
+# depends on it.
+#
+# Covered by test/DemaConsulting.Speech.Onnx.NemotronStt.Tests - see the subsystem/unit-level
+# reqstream files under docs/reqstream/speech-onnx-nemotron-stt/ for the full tests: lists these
+# system requirements decompose into.
+
+sections:
+  - title: SpeechOnnxNemotronStt Requirements
+    requirements:
+      - id: SpeechOnnxNemotronStt-Models-AddNemotronSttModels
+        title: >-
+          The library shall let a host register its ONNX-Runtime-backed Nemotron recognition
+          model with a Speech library SpeechModelCatalog through a single AddNemotronSttModels()
+          call that returns the same catalog for chaining.
+        tags: [system]
+        justification: |
+          The Speech library's catalog ships empty and carries no ONNX Runtime dependency, so a
+          host needs one discoverable, opt-in entry point to make this package's model available
+          for enumeration, download, and composition, composable with registrations from any
+          other model package.
+        children:
+          - SpeechOnnxNemotronStt-Models-CatalogRegistration
+        tests:
+          - AddNemotronSttModels_Called_ReturnsSameCatalogInstance
+          - AddNemotronSttModels_Called_RegistersOneRecognitionModel
+
+      - id: SpeechOnnxNemotronStt-Models-RecognitionModel
+        title: >-
+          The library shall provide a real, downloadable, ONNX-Runtime-backed streaming
+          recognition model implementing the Speech library's IRecognitionModel contract,
+          including a selectable language, deriving the language identifier the model expects
+          from the model's own vocabulary.
+        tags: [system]
+        justification: |
+          A host needs a real, checksum-verified, installable recognition model to perform
+          offline speech-to-text with this model family at all, and language selection lets a
+          host choose between the supported locales without installing the same ~790 MB of
+          model files twice.
+        children:
+          - SpeechOnnxNemotronStt-Models-RealRecognitionModelWithLanguageSelection
+          - SpeechOnnxNemotronStt-Models-VocabularyPipeline
+        tests:
+          - Metadata_IsDeclared
+          - DownloadDescriptor_ListsElevenFiles
+          - Parameters_LanguageChoice
+          - TryGetLanguageId_KnownLocales_ReturnsOrdinal
+
+      - id: SpeechOnnxNemotronStt-Recognition-StreamingTranscription
+        title: >-
+          The library shall transcribe streamed audio into provisional and final text through
+          the Speech library's recognition pipeline using ONNX Runtime inference over the
+          Nemotron encoder, decoder, and joint model graphs.
+        tags: [system]
+        justification: |
+          The Speech library's recognition policy is verified against a fake backend; only a
+          real, ONNX-Runtime-backed backend turns captured audio into text for this package's
+          recognition model.
+        children:
+          - SpeechOnnxNemotronStt-Recognition-OnnxBackend
+          - SpeechOnnxNemotronStt-Recognition-FeatureExtraction
+          - SpeechOnnxNemotronStt-Recognition-GreedyDecoding
+        tests:
+          - TryDecode_SpeechChunk_ReportsProvisionalText
+          - TryFlush_PartialAudio_ReturnsFinalText
+          - Extract_Chunked_EqualsOneShot
+          - Decode_Tokens_AreCollectedAndAdvanced
+
+      - id: SpeechOnnxNemotronStt-Recognition-LeadingSilenceMitigation
+        title: >-
+          The library shall keep transcription working when audio begins with long digital
+          silence or very low-level noise, by truncating long quiet runs while preserving all
+          speech samples.
+        tags: [system]
+        justification: |
+          The Nemotron model emits nothing, or garbage, when a stream opens with a long run of
+          digital silence or very low noise. Truncating long quiet runs to a short fixed length
+          keeps context while preventing that failure, and adding a tiny deterministic dither
+          avoids the exact-zero log-mel degeneracy of pure digital silence.
+        children:
+          - SpeechOnnxNemotronStt-Recognition-LeadingSilenceLimiting
+        tests:
+          - Process_DigitalSilence_TruncatesToCap
+          - Process_SilenceThenTone_KeepsAllToneSamples
+          - Apply_Statistics_MatchAmplitude

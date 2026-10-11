@@ -21,6 +21,7 @@
 using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.Onnx.Kokoro;
+using DemaConsulting.Speech.Onnx.NemotronStt;
 using DemaConsulting.Speech.RecognitionSubsystem;
 using DemaConsulting.Speech.Sherpa;
 using DemaConsulting.Speech.SynthesisSubsystem;
@@ -62,7 +63,8 @@ internal sealed class SpeechModelCatalogAdapter : ICliModelCatalog, IDisposable
     {
         _catalog = new SpeechModelCatalog(options, downloaderOptions, diagnostics: null)
             .AddSherpaModels()
-            .AddKokoroModels();
+            .AddKokoroModels()
+            .AddNemotronSttModels();
     }
 
     /// <inheritdoc/>

@@ -6,6 +6,7 @@ using DemaConsulting.Speech.Demo.ShellSubsystem;
 using DemaConsulting.Speech.Demo.SynthesisPanelSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.Onnx.Kokoro;
+using DemaConsulting.Speech.Onnx.NemotronStt;
 using DemaConsulting.Speech.Sherpa;
 
 namespace DemaConsulting.Speech.Demo.Tests;
@@ -122,10 +123,12 @@ public class SpeechDemoTests
     ///     models, but the sibling <c>DemaConsulting.Speech.Sherpa</c> package's
     ///     <c>AddSherpaModels()</c> registers four real models (two recognition, two synthesis)
     ///     and the sibling <c>DemaConsulting.Speech.Onnx.Kokoro</c> package's
-    ///     <c>AddKokoroModels()</c> registers one further real synthesis model - the same two
+    ///     <c>AddKokoroModels()</c> registers one further real synthesis model, and the sibling
+    ///     <c>DemaConsulting.Speech.Onnx.NemotronStt</c> package's <c>AddNemotronSttModels()</c> registers
+    ///     one further real recognition model - the same three
     ///     extension methods the demo's own composition root (<c>App.OnFrameworkInitializationCompleted</c>)
     ///     calls in combination - into the catalog the demo composes, so this test now proves the
-    ///     panel surfaces all five real models instead of the empty-catalog message or only the
+    ///     panel surfaces all six real models instead of the empty-catalog message or only the
     ///     Sherpa subset.
     /// </remarks>
     [Fact]
@@ -133,17 +136,17 @@ public class SpeechDemoTests
     {
         // Arrange: the real library catalog over an isolated store root, seeded with the same
         // models the application's own composition root registers (AddSherpaModels() followed
-        // by AddKokoroModels(), exactly as App.OnFrameworkInitializationCompleted composes them)
-        using var catalog = new SpeechModelCatalog(IsolatedOptions()).AddSherpaModels().AddKokoroModels();
+        // by AddKokoroModels() and AddNemotronSttModels(), exactly as App.OnFrameworkInitializationCompleted composes them)
+        using var catalog = new SpeechModelCatalog(IsolatedOptions()).AddSherpaModels().AddKokoroModels().AddNemotronSttModels();
         using var referenceCatalog =
-            new SpeechModelCatalog(IsolatedOptions()).AddSherpaModels().AddKokoroModels();
+            new SpeechModelCatalog(IsolatedOptions()).AddSherpaModels().AddKokoroModels().AddNemotronSttModels();
 
         // Act: build the model catalog panel over it
         var viewModel = new ModelCatalogViewModel(new ModelCatalogService(catalog));
 
-        // Assert: the panel lists exactly the registered models (five: two recognition, three
+        // Assert: the panel lists exactly the registered models (six: three recognition, three
         // synthesis), not an empty state and not only the four Sherpa models
-        Assert.Equal(5, referenceCatalog.Enumerate().Count);
+        Assert.Equal(6, referenceCatalog.Enumerate().Count);
         Assert.Equal(referenceCatalog.Enumerate().Count, viewModel.Models.Count);
         Assert.False(viewModel.IsCatalogEmpty);
     }

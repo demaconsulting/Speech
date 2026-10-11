@@ -17,7 +17,8 @@ names no Speech type, since it is purely an ONNX Runtime helper with no knowledg
 model/catalog contracts. (The project file still carries a `ProjectReference` to the Speech
 library, left over for the currently-empty `SynthesisSubsystem` folder this pass does not cover -
 see the Scope note below.) SpeechOnnx declares zero models itself; each concrete model family (for
-example the sibling `DemaConsulting.Speech.Onnx.Kokoro` package) references this package and adds
+example the sibling `DemaConsulting.Speech.Onnx.Kokoro` and `DemaConsulting.Speech.Onnx.NemotronStt`
+packages) reference this package and add
 its own `AddXxxModels()` extension method and model classes.
 
 The library consists of one subsystem:

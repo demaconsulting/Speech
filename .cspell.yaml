@@ -15,6 +15,8 @@ language: en
 # Project-specific technical terms and tool names
 words:
   - Damerau
+  - logit
+  - logits
   - ieth
   - phonemized
   - recieve
@@ -113,6 +115,19 @@ words:
   - Nemotron
   - nemotron
   - RNNT
+  - genai
+  - preemphasis
+  - Hann
+  - hann
+  - Slaney
+  - LSTM
+  - logits
+  - scipy
+  - fftbins
+  - librosa
+  - mels
+  - numpy
+  - disableable
   - huggingface
   - Libri
   - librispeech
@@ -214,3 +229,4 @@ ignorePaths:
   # Embedded tokenizer data (phoneme symbol tables, not prose)
   - "**/kokoro-v1.0-tokenizer.json"
   - tools/KokoroSpike/models/**
+  - tools/NemotronSpike/**

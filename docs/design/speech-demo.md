@@ -75,7 +75,9 @@ SpeechDemo has three project dependencies — the Speech library; the SpeechSher
 the demo composes (see _SpeechSherpa Design_); and the `DemaConsulting.Speech.Onnx.Kokoro`
 library whose `AddKokoroModels()` extension method registers the shipped Kokoro ONNX
 text-to-speech model alongside the SpeechSherpa models in that same catalog (see
-_SpeechOnnxKokoro Design_) — and the following NuGet dependencies:
+_SpeechOnnxKokoro Design_); and the `DemaConsulting.Speech.Onnx.NemotronStt` library whose
+`AddNemotronSttModels()` extension method registers the shipped Nemotron ONNX speech-recognition
+model in that same catalog (see _SpeechOnnxNemotronStt Design_) — and the following NuGet dependencies:
 
 - **Avalonia** (with `Avalonia.Desktop`, `Avalonia.Themes.Fluent`, and `Avalonia.Fonts.Inter`)
   supplies the cross-platform desktop application host, styling, and view layer;
@@ -105,7 +107,8 @@ N/A - SpeechDemo provides no safety-critical functionality requiring risk contro
 1. **Input**: The process entry point configures the Avalonia application host
 2. **Composition**: On framework initialization the application parses `AppLaunchOptions` and
    constructs an `AudioDeviceFactory` and a `SpeechModelCatalog` populated through SpeechSherpa's
-   `AddSherpaModels()` and SpeechOnnxKokoro's `AddKokoroModels()` (see _Launch Options and
+   `AddSherpaModels()`, SpeechOnnxKokoro's `AddKokoroModels()`, and SpeechOnnxNemotronStt's
+   `AddNemotronSttModels()` (see _Launch Options and
    Mirror Configuration_), wraps each in its demo-owned service
    adapter, and injects those adapters into the panel view models and the window view model
 3. **Output**: The main window opens on its first panel; the catalog is disposed when the
@@ -192,7 +195,7 @@ enforced once, by `DownloadMirror`'s own constructor, rather than duplicated in 
 point.
 
 `App`'s composition root threads these options through a `CatalogFactory` local function —
-capturing the resolved `SpeechModelStoreOptions` and the `AddSherpaModels()`/`AddKokoroModels()`
+capturing the resolved `SpeechModelStoreOptions` and the `AddSherpaModels()`/`AddKokoroModels()`/`AddNemotronSttModels()`
 composition — that `ModelCatalogService` (see _SpeechDemo ModelCatalogSubsystem Design_) calls
 again, with freshly resolved downloader options, whenever the user applies new mirror settings
 from the catalog panel. This is what lets the mirror be reconfigured from the running

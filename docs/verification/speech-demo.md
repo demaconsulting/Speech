@@ -18,8 +18,9 @@ views show is produced by a view model that is verified directly.
 
 Automated coverage **does not** extend to driving the user interface, to real audio hardware, or to
 a real, multi-hundred-megabyte model download. The demo's catalog is populated through
-SpeechSherpa's `AddSherpaModels()` and SpeechOnnxKokoro's `AddKokoroModels()` with five real,
-production models (two recognition, three synthesis) covering both the recognition and synthesis
+SpeechSherpa's `AddSherpaModels()`, SpeechOnnxKokoro's `AddKokoroModels()`, and
+the SpeechOnnxNemotronStt `AddNemotronSttModels()` with six real,
+production models (three recognition, three synthesis) covering both the recognition and synthesis
 roles, but the full download/install lifecycle is still verified at the subsystem level against
 controlled catalog data, never a real network fetch.
 
@@ -74,8 +75,9 @@ picker a user would read as a bug.
 **Test**: `SpeechDemo_SystemIntegration_RealModelCatalog_ReportsKnownModels`
 
 Verifies that the catalog panel composed over the real library catalog, populated through
-SpeechSherpa's `AddSherpaModels()` and SpeechOnnxKokoro's `AddKokoroModels()`, lists exactly the
-five real, production models those two extension methods register - spanning both the
+SpeechSherpa's `AddSherpaModels()`, SpeechOnnxKokoro's `AddKokoroModels()`, and
+the SpeechOnnxNemotronStt `AddNemotronSttModels()`, lists exactly the
+six real, production models those extension methods register - spanning both the
 recognition and synthesis roles - rather than reporting an empty catalog or only the four Sherpa
 models.
 
