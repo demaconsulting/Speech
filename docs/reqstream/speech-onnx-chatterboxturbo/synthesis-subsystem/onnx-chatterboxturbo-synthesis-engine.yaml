@@ -37,6 +37,21 @@ sections:
                   - OnnxChatterboxTurboSynthesisEngine_Generate_NeverStops_IsBoundedAndFlagged
                   - OnnxChatterboxTurboSynthesisEngine_Generate_ProportionalBound_StopsRunawayEarly
 
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-RunLengthCap
+                title: >-
+                  The OnnxChatterboxTurboSynthesisEngine class shall limit identical consecutive
+                  speech tokens to the configured maximum by excluding the repeated token from the
+                  next selection, shall never exclude the stop token, and shall not limit repeats
+                  when the maximum is zero.
+                justification: |
+                  The model can lock onto one speech token and produce a sustained tone; breaking
+                  the run restores progress without affecting normal speech.
+                tests:
+                  - OnnxChatterboxTurboSynthesisEngine_Generate_StuckToken_IsCappedAtRunLength
+                  - OnnxChatterboxTurboSynthesisEngine_Generate_StuckToken_NeverExceedsCapAnywhere
+                  - OnnxChatterboxTurboSynthesisEngine_Generate_CapZero_AllowsUnboundedRepeats
+                  - OnnxChatterboxTurboSynthesisEngine_Generate_StopToken_IsNeverBlocked
+
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-Voices
                 title: >-
                   The OnnxChatterboxTurboSynthesisEngine class shall encode each voice once and

@@ -27,3 +27,16 @@ sections:
                   - ChatterboxTurboTokenSelector_Select_RepeatedPositive_IsPenalized
                   - ChatterboxTurboTokenSelector_Select_RepeatedNegative_IsPushedDown
                   - ChatterboxTurboTokenSelector_Select_TiesAndInvalidInput_AreHandled
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-BlockedToken
+                title: >-
+                  The ChatterboxTurboTokenSelector class shall exclude an optional blocked token
+                  from selection for one call, never block the stop token, and fall back to the
+                  unblocked choice when every id would be excluded.
+                justification: |
+                  The run-length cap needs to break a token loop without ever preventing the
+                  model from ending speech.
+                tests:
+                  - ChatterboxTurboTokenSelector_Select_BlockedToken_IsSkipped
+                  - ChatterboxTurboTokenSelector_Select_BlockedStopToken_IsIgnored
+                  - ChatterboxTurboTokenSelector_Select_AllBlocked_FallsBackToArgmax

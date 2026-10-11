@@ -19,6 +19,9 @@ public sealed class ChatterboxTurboModelOptions
     /// <summary>The default cap on generated speech tokens per text token.</summary>
     public const double DefaultMaxAudioTokensPerTextToken = 25.0;
 
+    /// <summary>The default cap on identical consecutive speech tokens; the reference model can lock into one token.</summary>
+    public const int DefaultMaxConsecutiveSpeechTokenRepeats = 12;
+
     /// <summary>The largest default intra-op thread count; more threads do not speed this workload up.</summary>
     private const int DefaultThreadCeiling = 6;
 
@@ -27,6 +30,9 @@ public sealed class ChatterboxTurboModelOptions
 
     /// <summary>Backing field for <see cref="MaxNewTokens"/>.</summary>
     private int _maxNewTokens = DefaultMaxNewTokens;
+
+    /// <summary>Backing field for <see cref="MaxConsecutiveSpeechTokenRepeats"/>.</summary>
+    private int _maxConsecutiveSpeechTokenRepeats = DefaultMaxConsecutiveSpeechTokenRepeats;
 
     /// <summary>Backing field for <see cref="MaxAudioTokensPerTextToken"/>.</summary>
     private double _maxAudioTokensPerTextToken = DefaultMaxAudioTokensPerTextToken;
@@ -75,6 +81,21 @@ public sealed class ChatterboxTurboModelOptions
         {
             ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(value, 0);
             _maxAudioTokensPerTextToken = value;
+        }
+    }
+
+    /// <summary>
+    ///     Gets or sets the most times the same speech token may be generated in a row before it is excluded from
+    ///     the next step (a "stuck in a loop" guard); 0 disables the cap. The stop token is never excluded.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when set to a negative value.</exception>
+    public int MaxConsecutiveSpeechTokenRepeats
+    {
+        get => _maxConsecutiveSpeechTokenRepeats;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            _maxConsecutiveSpeechTokenRepeats = value;
         }
     }
 

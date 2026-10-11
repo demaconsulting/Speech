@@ -14,8 +14,11 @@ times to the decoder input) and embedding size 1024.
   otherwise tokenizes and embeds the text ids, prepends the voice conditioning, steps the language
   model, selects tokens with `ChatterboxTurboTokenSelector`, stops at the stop token or at
   `min(maxNewTokens, ceil(textIds * maxAudioTokensPerTextToken) + 32)`, then decodes the prompt
-  tokens, the speech tokens and trailing silence. Hitting the bound sets `HitTokenLimit`; it never
-  throws. An out-of-range speaker id falls back to the first voice. The `speed` argument is not
+  tokens, the speech tokens and trailing silence. The loop also tracks the last token and its run
+  length; once the run reaches `maxConsecutiveSpeechTokenRepeats` (default 12, 0 disables) that
+  token is passed to the selector as blocked for the next step only. The stop token is never blocked.
+  Hitting the bound sets `HitTokenLimit`; it never throws. An out-of-range speaker id falls back to
+  the first voice. The `speed` argument is not
   used by the model.
 - **Dispose()**: disposes the networks; later `Generate` throws `ObjectDisposedException`
 

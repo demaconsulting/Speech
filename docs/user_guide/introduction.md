@@ -398,8 +398,9 @@ id. It runs on the CPU only. It renders `[laugh]`, `[clear throat]` and `[gasp]`
 sighs and pauses as silence and omits every other tag; `EndOfSentenceTagPolicy` controls whether a
 native tag that would end a sentence is moved before the final word (default), suffixed, or
 stripped. Generation is bounded (`MaxNewTokens`, `MaxAudioTokensPerTextToken`), so a failure to stop
-produces truncated audio rather than a hang. You are responsible for having the right to clone any
-voice you use.
+produces truncated audio rather than a hang, and `MaxConsecutiveSpeechTokenRepeats` (default 12, 0
+disables) stops the model from locking onto one speech token and producing a sustained tone. You are
+responsible for having the right to clone any voice you use.
 
 ### Reading WAV and FLAC files
 

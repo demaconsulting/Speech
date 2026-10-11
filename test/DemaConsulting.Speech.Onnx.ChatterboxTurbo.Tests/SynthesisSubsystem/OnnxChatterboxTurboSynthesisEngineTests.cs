@@ -55,6 +55,81 @@ public sealed class OnnxChatterboxTurboSynthesisEngineTests
         Assert.Equal(5, result.SpeechTokenCount);
     }
 
+    /// <summary>Proves a token stuck in a loop is capped at the configured run length and then broken.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboSynthesisEngine_Generate_StuckToken_IsCappedAtRunLength()
+    {
+        // Arrange
+        var networks = new FakeNetworks([100], repeatLast: true);
+        using var engine = Create(networks, maxNewTokens: 13, maxRepeats: 12);
+
+        // Act
+        var result = engine.GenerateDetailed("Hello there.", 0);
+        var speech = SpeechTokens(networks, result);
+
+        // Assert
+        Assert.Equal(13, speech.Length);
+        Assert.All(speech.Take(12), token => Assert.Equal(100, token));
+        Assert.NotEqual(100, speech[12]);
+    }
+
+    /// <summary>Proves no run anywhere exceeds the cap because the block applies per step.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboSynthesisEngine_Generate_StuckToken_NeverExceedsCapAnywhere()
+    {
+        // Arrange
+        var networks = new FakeNetworks([100], repeatLast: true);
+        using var engine = Create(networks, maxNewTokens: 100, ratio: 100, maxRepeats: 3);
+
+        // Act
+        var result = engine.GenerateDetailed("Hello there.", 0);
+        var speech = SpeechTokens(networks, result);
+
+        // Assert
+        var longest = 0;
+        var run = 0;
+        for (var i = 0; i < speech.Length; i++)
+        {
+            run = i > 0 && speech[i] == speech[i - 1] ? run + 1 : 1;
+            longest = Math.Max(longest, run);
+        }
+
+        Assert.Equal(100, speech.Length);
+        Assert.Equal(3, longest);
+    }
+
+    /// <summary>Proves a cap of zero disables the guard.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboSynthesisEngine_Generate_CapZero_AllowsUnboundedRepeats()
+    {
+        // Arrange
+        var networks = new FakeNetworks([100], repeatLast: true);
+        using var engine = Create(networks, maxNewTokens: 50, maxRepeats: 0);
+
+        // Act
+        var result = engine.GenerateDetailed("Hello there.", 0);
+
+        // Assert
+        Assert.All(SpeechTokens(networks, result), token => Assert.Equal(100, token));
+        Assert.Equal(50, result.SpeechTokenCount);
+    }
+
+    /// <summary>Proves the stop token is never blocked even when it repeats beyond the cap.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboSynthesisEngine_Generate_StopToken_IsNeverBlocked()
+    {
+        // Arrange
+        var networks = new FakeNetworks([100, 100, OnnxChatterboxTurboSynthesisEngine.StopSpeechToken]);
+        using var engine = Create(networks, maxRepeats: 2);
+
+        // Act
+        var result = engine.GenerateDetailed("Hello there.", 0);
+
+        // Assert
+        Assert.False(result.HitTokenLimit);
+        Assert.Equal(2, result.SpeechTokenCount);
+    }
+
     /// <summary>Proves the length-proportional bound stops a runaway earlier than the hard cap.</summary>
     [Fact]
     public void OnnxChatterboxTurboSynthesisEngine_Generate_ProportionalBound_StopsRunawayEarly()
@@ -134,20 +209,26 @@ public sealed class OnnxChatterboxTurboSynthesisEngineTests
         var voices = new[] { Voice("a") };
 
         // Assert
-        Assert.Throws<ArgumentNullException>(() => new OnnxChatterboxTurboSynthesisEngine(null!, Tokenizer, voices, 10, 1));
-        Assert.Throws<ArgumentNullException>(() => new OnnxChatterboxTurboSynthesisEngine(networks, null!, voices, 10, 1));
-        Assert.Throws<ArgumentException>(() => new OnnxChatterboxTurboSynthesisEngine(networks, Tokenizer, [], 10, 1));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new OnnxChatterboxTurboSynthesisEngine(networks, Tokenizer, voices, 0, 1));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new OnnxChatterboxTurboSynthesisEngine(networks, Tokenizer, voices, 10, 0));
+        Assert.Throws<ArgumentNullException>(() => new OnnxChatterboxTurboSynthesisEngine(null!, Tokenizer, voices, 10, 1, 12));
+        Assert.Throws<ArgumentNullException>(() => new OnnxChatterboxTurboSynthesisEngine(networks, null!, voices, 10, 1, 12));
+        Assert.Throws<ArgumentException>(() => new OnnxChatterboxTurboSynthesisEngine(networks, Tokenizer, [], 10, 1, 12));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new OnnxChatterboxTurboSynthesisEngine(networks, Tokenizer, voices, 0, 1, 12));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new OnnxChatterboxTurboSynthesisEngine(networks, Tokenizer, voices, 10, 0, 12));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new OnnxChatterboxTurboSynthesisEngine(networks, Tokenizer, voices, 10, 1, -1));
     }
+
+    /// <summary>Extracts the generated speech tokens from the last decoder input.</summary>
+    private static long[] SpeechTokens(FakeNetworks networks, ChatterboxTurboGenerationResult result) =>
+        networks.DecodedTokens[1..(1 + result.SpeechTokenCount)];
 
     /// <summary>Creates an engine over fake networks.</summary>
     private static OnnxChatterboxTurboSynthesisEngine Create(
         FakeNetworks networks,
         int maxNewTokens = 1024,
         double ratio = 25.0,
-        int voiceCount = 1) =>
-        new(networks, Tokenizer, [.. Enumerable.Range(0, voiceCount).Select(i => Voice("v" + i))], maxNewTokens, ratio);
+        int voiceCount = 1,
+        int maxRepeats = 12) =>
+        new(networks, Tokenizer, [.. Enumerable.Range(0, voiceCount).Select(i => Voice("v" + i))], maxNewTokens, ratio, maxRepeats);
 
     /// <summary>Creates a one-second voice.</summary>
     private static ChatterboxTurboReferenceVoice Voice(string id) =>

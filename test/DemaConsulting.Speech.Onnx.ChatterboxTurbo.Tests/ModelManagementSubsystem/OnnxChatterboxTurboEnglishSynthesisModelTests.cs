@@ -163,12 +163,16 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModelTests : IDisposable
         Assert.Equal(ChatterboxTurboAuxiliaryModelVariant.Q4, options.AuxiliaryModelVariant);
         Assert.Equal(1024, options.MaxNewTokens);
         Assert.Equal(25.0, options.MaxAudioTokensPerTextToken);
+        Assert.Equal(12, options.MaxConsecutiveSpeechTokenRepeats);
         Assert.InRange(options.IntraOpThreads, 1, 6);
         Assert.Equal(ChatterboxTurboEndOfSentenceTagPolicy.MoveBeforeFinalWord, options.EndOfSentenceTagPolicy);
         Assert.Empty(options.ReferenceVoices);
         Assert.Throws<ArgumentOutOfRangeException>(() => options.IntraOpThreads = 0);
         Assert.Throws<ArgumentOutOfRangeException>(() => options.MaxNewTokens = 0);
         Assert.Throws<ArgumentOutOfRangeException>(() => options.MaxAudioTokensPerTextToken = 0);
+        Assert.Throws<ArgumentOutOfRangeException>(() => options.MaxConsecutiveSpeechTokenRepeats = -1);
+        options.MaxConsecutiveSpeechTokenRepeats = 0;
+        Assert.Equal(0, options.MaxConsecutiveSpeechTokenRepeats);
     }
 
     /// <summary>Proves creating a backend without voices fails with a clear message.</summary>

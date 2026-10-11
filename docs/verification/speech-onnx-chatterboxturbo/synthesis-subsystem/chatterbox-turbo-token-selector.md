@@ -12,7 +12,8 @@ Verified by `ChatterboxTurboTokenSelectorTests.cs` with hand-computed logits.
 #### Acceptance Criteria
 
 Without history the argmax wins; repeated positive logits are divided and repeated negative logits
-multiplied; ties resolve to the lowest id; invalid input is handled safely.
+multiplied; ties resolve to the lowest id; invalid input is handled safely; a blocked token is
+skipped, the stop token is never blocked, and an all-blocked input falls back to the argmax.
 
 #### Test Scenarios
 
@@ -31,3 +32,15 @@ multiplied; ties resolve to the lowest id; invalid input is handled safely.
 ##### Ties and invalid input are handled
 
 **Test**: `ChatterboxTurboTokenSelector_Select_TiesAndInvalidInput_AreHandled`
+
+##### A blocked token is skipped
+
+**Test**: `ChatterboxTurboTokenSelector_Select_BlockedToken_IsSkipped`
+
+##### The stop token is never blocked
+
+**Test**: `ChatterboxTurboTokenSelector_Select_BlockedStopToken_IsIgnored`
+
+##### An all-blocked input falls back
+
+**Test**: `ChatterboxTurboTokenSelector_Select_AllBlocked_FallsBackToArgmax`

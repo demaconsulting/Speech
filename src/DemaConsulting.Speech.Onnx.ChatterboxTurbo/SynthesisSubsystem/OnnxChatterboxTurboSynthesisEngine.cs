@@ -65,6 +65,9 @@ internal sealed class OnnxChatterboxTurboSynthesisEngine : ISynthesisBackend
     /// <summary>The configured cap on generated tokens per text token.</summary>
     private readonly double _maxAudioTokensPerTextToken;
 
+    /// <summary>The configured cap on identical consecutive speech tokens; 0 disables it.</summary>
+    private readonly int _maxConsecutiveSpeechTokenRepeats;
+
     /// <summary>Conditioning cache by speaker id; guarded by <see cref="_gate"/>.</summary>
     private readonly Dictionary<int, ChatterboxTurboConditioning> _conditioningCache = [];
 
@@ -82,15 +85,20 @@ internal sealed class OnnxChatterboxTurboSynthesisEngine : ISynthesisBackend
     /// <param name="voices">The reference voices; must contain at least one.</param>
     /// <param name="maxNewTokens">The hard cap on generated tokens; must be positive.</param>
     /// <param name="maxAudioTokensPerTextToken">The cap on generated tokens per text token; must be positive.</param>
+    /// <param name="maxConsecutiveSpeechTokenRepeats">
+    ///     The most identical speech tokens allowed in a row before that token is excluded from the next step; 0
+    ///     disables the cap; must not be negative.
+    /// </param>
     /// <exception cref="ArgumentNullException">Thrown when a reference argument is null.</exception>
     /// <exception cref="ArgumentException">Thrown when <paramref name="voices"/> is empty.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when a bound is not positive.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when a bound is not positive or the cap is negative.</exception>
     public OnnxChatterboxTurboSynthesisEngine(
         IChatterboxTurboNetworks networks,
         ByteLevelBpeTokenizer tokenizer,
         IReadOnlyList<ChatterboxTurboReferenceVoice> voices,
         int maxNewTokens,
-        double maxAudioTokensPerTextToken)
+        double maxAudioTokensPerTextToken,
+        int maxConsecutiveSpeechTokenRepeats)
     {
         ArgumentNullException.ThrowIfNull(networks);
         ArgumentNullException.ThrowIfNull(tokenizer);
@@ -102,12 +110,14 @@ internal sealed class OnnxChatterboxTurboSynthesisEngine : ISynthesisBackend
 
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(maxNewTokens, 0);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(maxAudioTokensPerTextToken, 0);
+        ArgumentOutOfRangeException.ThrowIfNegative(maxConsecutiveSpeechTokenRepeats);
 
         _networks = networks;
         _tokenizer = tokenizer;
         _voices = voices;
         _maxNewTokens = maxNewTokens;
         _maxAudioTokensPerTextToken = maxAudioTokensPerTextToken;
+        _maxConsecutiveSpeechTokenRepeats = maxConsecutiveSpeechTokenRepeats;
     }
 
     /// <inheritdoc/>
@@ -160,6 +170,8 @@ internal sealed class OnnxChatterboxTurboSynthesisEngine : ISynthesisBackend
             var attentionLength = sequenceLength;
             var firstPosition = 0;
             var stopped = false;
+            var lastToken = -1;
+            var runLength = 0;
 
             using (var state = _networks.BeginGeneration())
             {
@@ -168,7 +180,13 @@ internal sealed class OnnxChatterboxTurboSynthesisEngine : ISynthesisBackend
                     ObjectDisposedException.ThrowIf(_disposed, this);
 
                     var logits = state.Step(inputs, sequenceLength, attentionLength, firstPosition);
-                    var token = ChatterboxTurboTokenSelector.Select(logits, penalized);
+                    // Run-length cap: once a token has repeated the allowed number of times, exclude it for this step
+                    var blocked = _maxConsecutiveSpeechTokenRepeats > 0 && runLength >= _maxConsecutiveSpeechTokenRepeats
+                        ? lastToken
+                        : -1;
+                    var token = ChatterboxTurboTokenSelector.Select(logits, penalized, blocked);
+                    runLength = token == lastToken ? runLength + 1 : 1;
+                    lastToken = token;
                     generated.Add(token);
                     penalized.Add(token);
                     if (token == StopSpeechToken)

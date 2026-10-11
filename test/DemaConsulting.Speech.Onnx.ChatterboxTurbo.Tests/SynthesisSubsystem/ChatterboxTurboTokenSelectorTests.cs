@@ -7,6 +7,43 @@ namespace DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests.SynthesisSubsystem;
 /// </summary>
 public sealed class ChatterboxTurboTokenSelectorTests
 {
+    /// <summary>Proves a blocked token is skipped for the call and the next best id wins.</summary>
+    [Fact]
+    public void ChatterboxTurboTokenSelector_Select_BlockedToken_IsSkipped()
+    {
+        // Act
+        var token = ChatterboxTurboTokenSelector.Select([0.1f, 2f, 1f], new HashSet<long>(), 1);
+
+        // Assert
+        Assert.Equal(2, token);
+    }
+
+    /// <summary>Proves the stop token is never blocked.</summary>
+    [Fact]
+    public void ChatterboxTurboTokenSelector_Select_BlockedStopToken_IsIgnored()
+    {
+        // Arrange
+        var logits = new float[OnnxChatterboxTurboSynthesisEngine.StopSpeechToken + 1];
+        logits[OnnxChatterboxTurboSynthesisEngine.StopSpeechToken] = 5f;
+
+        // Act
+        var token = ChatterboxTurboTokenSelector.Select(logits, new HashSet<long>(), OnnxChatterboxTurboSynthesisEngine.StopSpeechToken);
+
+        // Assert
+        Assert.Equal(OnnxChatterboxTurboSynthesisEngine.StopSpeechToken, token);
+    }
+
+    /// <summary>Proves a blocked only id falls back to the unblocked choice.</summary>
+    [Fact]
+    public void ChatterboxTurboTokenSelector_Select_AllBlocked_FallsBackToArgmax()
+    {
+        // Act
+        var token = ChatterboxTurboTokenSelector.Select([3f], new HashSet<long>(), 0);
+
+        // Assert
+        Assert.Equal(0, token);
+    }
+
     /// <summary>Proves the highest logit wins when nothing was generated.</summary>
     [Fact]
     public void ChatterboxTurboTokenSelector_Select_NoHistory_ReturnsArgmax()

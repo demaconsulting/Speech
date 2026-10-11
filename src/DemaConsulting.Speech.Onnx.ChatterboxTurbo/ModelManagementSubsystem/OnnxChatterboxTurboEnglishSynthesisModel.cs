@@ -242,7 +242,8 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModel : ISynthesisModel
                 LoadTokenizer(),
                 _voices,
                 _options.MaxNewTokens,
-                _options.MaxAudioTokensPerTextToken);
+                _options.MaxAudioTokensPerTextToken,
+                _options.MaxConsecutiveSpeechTokenRepeats);
         }
         catch
         {

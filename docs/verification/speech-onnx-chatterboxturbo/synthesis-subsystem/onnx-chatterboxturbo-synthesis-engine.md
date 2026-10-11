@@ -14,7 +14,8 @@ that records calls and replays scripted logits, so the algorithm is checked with
 
 The prompt and decoder input are assembled as designed; generation is bounded and flagged; empty
 text makes no network calls; voices are encoded once with fallback; dispose and argument validation
-behave as documented.
+behave as documented; a stuck token is capped at the configured run length, a cap of zero disables
+the guard, and the stop token is never blocked.
 
 #### Test Scenarios
 
@@ -29,6 +30,22 @@ behave as documented.
 ##### The proportional bound stops a runaway early
 
 **Test**: `OnnxChatterboxTurboSynthesisEngine_Generate_ProportionalBound_StopsRunawayEarly`
+
+##### A stuck token is capped at the run length
+
+**Test**: `OnnxChatterboxTurboSynthesisEngine_Generate_StuckToken_IsCappedAtRunLength`
+
+##### No run exceeds the cap anywhere
+
+**Test**: `OnnxChatterboxTurboSynthesisEngine_Generate_StuckToken_NeverExceedsCapAnywhere`
+
+##### A cap of zero disables the guard
+
+**Test**: `OnnxChatterboxTurboSynthesisEngine_Generate_CapZero_AllowsUnboundedRepeats`
+
+##### The stop token is never blocked
+
+**Test**: `OnnxChatterboxTurboSynthesisEngine_Generate_StopToken_IsNeverBlocked`
 
 ##### Empty text returns empty audio without network calls
 

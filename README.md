@@ -173,6 +173,8 @@ silence, and omits every other tag. Because the model misbehaves when a native t
 in a sentence, `EndOfSentenceTagPolicy` controls whether such a tag is moved before the final word
 (the default), suffixed, or stripped. Generation is bounded by `MaxNewTokens` and
 `MaxAudioTokensPerTextToken`, so a failure to stop yields truncated audio rather than a hang.
+`MaxConsecutiveSpeechTokenRepeats` (default 12, 0 disables) stops the model from locking onto one
+speech token and producing a sustained tone.
 The table above is a convenience view for at-a-glance browsing, not the sole source of license
 information: every model also reports its license programmatically via
 `ISpeechModel.LicenseName`/`LicenseUrl` (also available through `SpeechModelCatalog.Enumerate()`'s

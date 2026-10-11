@@ -9,6 +9,9 @@
 - **Select(logits, history)**: copies the logits, applies the repetition penalty to every token in
   the history (positive logits are divided, negative logits multiplied), and returns the argmax with
   ties resolved to the lowest id
+- **Select(logits, history, blockedToken)**: as above, but the optional `blockedToken` (-1 for none)
+  is skipped for this call; a blocked stop token (6562) is ignored so speech can always end, and if
+  nothing remains the unblocked choice is returned
 
 **Error Handling**: empty or null input is handled without throwing (see the tests for the exact
 result); no other exceptions are expected.
