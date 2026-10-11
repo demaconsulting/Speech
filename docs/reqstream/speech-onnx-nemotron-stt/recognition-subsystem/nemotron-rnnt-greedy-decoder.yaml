@@ -63,6 +63,26 @@ sections:
                   - SelectToken_BlankBeyondPenalty_ReturnsBlank
                   - SelectToken_NonBlankIds_AreNotPenalized
 
+              - id: SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-NetworkWiring
+                title: >-
+                  The NemotronRnntNetwork collaborator shall feed the target token and recurrent
+                  states to the decoder session and each call's new states back as the next call's
+                  states, shall pass the decoder output and the encoder frame to the joint session
+                  and select from its scores, shall restore zero states on Reset, and shall reject
+                  use after disposal.
+                justification: |
+                  The production tensor and state wiring cannot be exercised by the managed fake,
+                  and the real model is too large for CI, so tiny synthetic ONNX models with the
+                  same tensor contracts verify the wiring.
+                tests:
+                  - Reset_PredictToken_UsesPrimedDecoderOutput
+                  - Advance_FeedsTokenAndRecurrentState
+                  - Reset_AfterAdvance_ClearsRecurrentState
+                  - PredictToken_UsesEncoderFrame
+                  - PredictToken_ScoreEqualsBlank_AppliesPenalty
+                  - Dispose_BlocksFurtherUse
+                  - Constructor_NullSessions_Throw
+
               - id: SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-ArgumentValidation
                 title: >-
                   The NemotronRnntGreedyDecoder class shall throw ArgumentNullException for a

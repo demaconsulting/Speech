@@ -80,6 +80,7 @@ sections:
               - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-Greedy
               - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-SymbolCap
               - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-BlankPenalty
+              - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-NetworkWiring
               - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-ResetAndDispose
               - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-ArgumentValidation
             tests:

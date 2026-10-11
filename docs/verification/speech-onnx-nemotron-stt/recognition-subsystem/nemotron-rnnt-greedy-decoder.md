@@ -3,8 +3,11 @@
 #### Verification Approach
 
 Verified by deterministic unit tests against a scripted managed `IRnntNetwork` fake. The
-ONNX-backed `NemotronRnntNetwork` is not covered by these tests except for its pure-logic
-penalized arg-max, `NemotronRnntNetwork.SelectToken`, which is tested directly on logit arrays.
+ONNX-backed `NemotronRnntNetwork` is verified separately in `NemotronRnntNetworkTests.cs` against
+tiny synthetic ONNX decoder and joint models with the real tensor contracts (built in
+`NemotronNetworkFixture.cs`), covering token and recurrent-state feedback, the joint inputs,
+reset, the blank penalty on the real joint output, and disposal. Its pure-logic penalized arg-max,
+`NemotronRnntNetwork.SelectToken`, is also tested directly on score arrays.
 
 #### Test Environment
 
@@ -56,3 +59,31 @@ arguments throw.
 ##### Null arguments throw
 
 **Test**: `NullArguments_Throw`
+
+##### Network primed decoder output reaches the joint
+
+**Test**: `Reset_PredictToken_UsesPrimedDecoderOutput`
+
+##### Network feeds the token and recurrent state
+
+**Test**: `Advance_FeedsTokenAndRecurrentState`
+
+##### Network reset clears the recurrent state
+
+**Test**: `Reset_AfterAdvance_ClearsRecurrentState`
+
+##### Network scores the encoder frame
+
+**Test**: `PredictToken_UsesEncoderFrame`
+
+##### Network applies the blank penalty
+
+**Test**: `PredictToken_ScoreEqualsBlank_AppliesPenalty`
+
+##### Network rejects use after disposal
+
+**Test**: `Dispose_BlocksFurtherUse`
+
+##### Network null sessions throw
+
+**Test**: `Constructor_NullSessions_Throw`

@@ -110,7 +110,7 @@ public sealed class OnnxNemotronMultilingualRecognitionModelTests
 
     /// <summary>
     ///     Transcribes the repository's spike audio with the real model when the files are present;
-    ///     otherwise returns without asserting (the model is ~790 MB and never a unit-test requirement).
+    ///     otherwise the test is skipped (the model is ~790 MB and never a unit-test requirement).
     /// </summary>
     [Fact]
     public void CreateBackend_RealModel_TranscribesWhenPresent()
@@ -118,13 +118,13 @@ public sealed class OnnxNemotronMultilingualRecognitionModelTests
         var modelDirectory = FindModelDirectory();
         if (modelDirectory is null)
         {
-            return;
+            Assert.Skip("The real Nemotron ONNX model is not installed in this environment.");
         }
 
         var wav = Path.Join(Path.GetDirectoryName(modelDirectory)!, "yes.wav");
         if (!File.Exists(wav))
         {
-            return;
+            Assert.Skip("The optional yes.wav fixture is not present next to the model.");
         }
 
         using var backend = new OnnxNemotronMultilingualRecognitionModel().CreateBackend(modelDirectory);

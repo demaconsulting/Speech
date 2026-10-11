@@ -1768,6 +1768,7 @@ reviews:
       - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/Fakes.cs"
       - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/NemotronEncoderTests.cs"
       - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/NemotronEncoderFixture.cs"
+      - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/OnnxModelWriter.cs"
 
   # SpeechOnnxNemotronStt-RecognitionSubsystem-NemotronFeatureExtractor Review (one per unit)
   - id: SpeechOnnxNemotronStt-RecognitionSubsystem-NemotronFeatureExtractor
@@ -1804,6 +1805,9 @@ reviews:
       - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/IRnntNetwork.cs"
       - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/NemotronRnntNetwork.cs"
       - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/NemotronRnntGreedyDecoderTests.cs"
+      - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/NemotronRnntNetworkTests.cs"
+      - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/NemotronNetworkFixture.cs"
+      - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/OnnxModelWriter.cs"
 
   # SpeechOnnxNemotronStt-RecognitionSubsystem-SilenceRunLimiter Review (one per unit)
   - id: SpeechOnnxNemotronStt-RecognitionSubsystem-SilenceRunLimiter
