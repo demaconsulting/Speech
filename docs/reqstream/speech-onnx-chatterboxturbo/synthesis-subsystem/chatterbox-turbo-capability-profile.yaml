@@ -1,0 +1,68 @@
+---
+# Software Unit Requirements for ChatterboxTurboCapabilityProfile
+#
+# Unit-level behavior of the ChatterboxTurboCapabilityProfile unit (with its tag kind and
+# treatment types), decomposing the parent SpeechOnnxChatterboxTurbo SynthesisSubsystem
+# requirements.
+#
+# Covered by test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/SynthesisSubsystem/
+# ChatterboxTurboCapabilityProfileTests.cs.
+
+sections:
+  - title: SpeechOnnxChatterboxTurbo Requirements
+    sections:
+      - title: SynthesisSubsystem Requirements
+        sections:
+          - title: ChatterboxTurboCapabilityProfile Requirements
+            requirements:
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-NativeTags
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall render laugh, throat-clear and
+                  gasp tags as the model's native bracketed tokens, keeping a mid-sentence tag
+                  inline with the speech around it.
+                justification: |
+                  These tokens are the model's reliable paralinguistic output.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_MidSentenceLaugh_StaysInlineWithNativeToken
+                  - ChatterboxTurboCapabilityProfile_Render_NativeTags_UseModelTokens
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-Unsupported
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall render sighs and pauses as
+                  silence segments, omit every other tag, and never emit bracketed text the model
+                  could speak aloud; its treatments shall cover every tag kind without emotion
+                  tokens.
+                justification: |
+                  The model mispronounces unknown brackets, so tags it cannot render must become
+                  silence or nothing.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_UnsupportedTags_NeverEmitBracketText
+                  - ChatterboxTurboCapabilityProfile_Render_Sigh_BecomesSilenceSegment
+                  - ChatterboxTurboCapabilityProfile_Render_PauseTags_BecomeSilence
+                  - ChatterboxTurboCapabilityProfile_Treatments_CoverEveryTagWithoutEmotionTokens
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-TrailingTag
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall handle a native tag that would
+                  end a sentence according to the configured policy (move before the final word,
+                  suffix, or strip), and shall attach a tag between sentences to the following
+                  sentence.
+                justification: |
+                  A tag with no speech after it makes the model misbehave.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_TrailingTag_MoveBeforeFinalWord_RelocatesTag
+                  - ChatterboxTurboCapabilityProfile_Render_TrailingTag_Suffix_AppendsOrDrops
+                  - ChatterboxTurboCapabilityProfile_Render_TrailingTag_Strip_DropsTag
+                  - ChatterboxTurboCapabilityProfile_Render_TagBetweenSentences_LeadsNextSentence
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-Segmentation
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall split text into sentences with
+                  a short pause after ellipsis endings, split over-long sentences, and return a
+                  safe result for empty or invalid input.
+                justification: |
+                  The model is reliable only on moderate-length sentences.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_Sentences_AreSplitWithEllipsisPause
+                  - ChatterboxTurboCapabilityProfile_Render_LongSentence_IsSplit
+                  - ChatterboxTurboCapabilityProfile_Render_EmptyOrInvalid_BehavesSafely

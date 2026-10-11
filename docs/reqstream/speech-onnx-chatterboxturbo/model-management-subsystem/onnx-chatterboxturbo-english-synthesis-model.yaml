@@ -1,0 +1,88 @@
+---
+# Software Unit Requirements for OnnxChatterboxTurboEnglishSynthesisModel
+#
+# Unit-level behavior of the OnnxChatterboxTurboEnglishSynthesisModel unit (with its
+# ChatterboxTurboModelOptions, variant enums and end-of-sentence policy), decomposing the parent
+# SpeechOnnxChatterboxTurbo ModelManagementSubsystem requirements.
+#
+# Covered by test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/ModelManagementSubsystem/
+# OnnxChatterboxTurboEnglishSynthesisModelTests.cs.
+
+sections:
+  - title: SpeechOnnxChatterboxTurbo Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        sections:
+          - title: OnnxChatterboxTurboEnglishSynthesisModel Requirements
+            requirements:
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-Identity
+                title: >-
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall declare a stable id,
+                  display name, English language, the model's license, a 24 kHz mono output
+                  format, and a capability profile that supports native audio tags.
+                justification: |
+                  The model store and Speech library select, list and render for a model based
+                  on this metadata.
+                tests:
+                  - OnnxChatterboxTurboEnglishSynthesisModel_Metadata_DescribesNativeTagSynthesisModel
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-DownloadDescriptor
+                title: >-
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall describe the default
+                  precision variants as eight downloadable files, each with a source URI, a
+                  SHA-256 checksum and a relative install path.
+                justification: |
+                  The model store verifies and installs exactly what the descriptor lists.
+                tests:
+                  - OnnxChatterboxTurboEnglishSynthesisModel_DownloadDescriptor_DefaultVariant_ListsEightFiles
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-Variants
+                title: >-
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall support selectable
+                  language-model and auxiliary-graph precision variants, each combination having
+                  a distinct id and a complete file set, and shall load the graphs of the
+                  selected variant.
+                justification: |
+                  Variants let a host trade download size against fidelity, and mixing files of
+                  different variants under one id would corrupt the installed model.
+                tests:
+                  - OnnxChatterboxTurboEnglishSynthesisModel_Variants_HaveDistinctIdsAndCompleteFileSets
+                  - OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_Fp32Variant_UsesFp32Graph
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-Voices
+                title: >-
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall expose the supplied
+                  voices as a voice choice, map a voice id to its index (first voice by
+                  default), and load every WAV file of a supplied voice directory as a voice.
+                justification: |
+                  The model has no built-in voices, so the host's own clips define the voice
+                  list a user can choose from.
+                tests:
+                  - OnnxChatterboxTurboEnglishSynthesisModel_Parameters_ReflectSuppliedVoices
+                  - OnnxChatterboxTurboEnglishSynthesisModel_ResolveSpeakerId_MapsVoiceIdToIndex
+                  - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_VoiceDirectory_LoadsWavFiles
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-CreateBackend
+                title: >-
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall build a working
+                  backend from an installed model directory, and shall fail with a clear
+                  exception, without leaking sessions, when no voice is supplied, a model file is
+                  missing, or a graph is invalid.
+                justification: |
+                  A broken install must be reported precisely, and native sessions must never
+                  leak when construction fails.
+                tests:
+                  - OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_SyntheticInstall_SynthesizesAudio
+                  - OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_NoVoices_Throws
+                  - OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_MissingFile_ThrowsFileNotFound
+                  - OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_InvalidGraph_DisposesSessionsAndThrows
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-Options
+                title: >-
+                  The ChatterboxTurboModelOptions class shall provide safe defaults for every
+                  option and shall validate values assigned to them.
+                justification: |
+                  A host that supplies no options gets sensible behavior, and invalid values fail
+                  at assignment rather than during synthesis.
+                tests:
+                  - ChatterboxTurboModelOptions_Properties_HaveSafeDefaultsAndValidate

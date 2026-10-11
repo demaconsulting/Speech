@@ -1,0 +1,74 @@
+---
+# Software Subsystem Requirements for the SpeechOnnxChatterboxTurbo ModelManagementSubsystem
+#
+# These requirements describe the subsystem-level behavior of the SpeechOnnxChatterboxTurbo
+# ModelManagementSubsystem, decomposing the system-level requirements in
+# docs/reqstream/speech-onnx-chatterboxturbo.yaml. The subsystem holds the catalog extension
+# method, the ISynthesisModel implementation (with its options and variant enums), the embedded
+# byte-level BPE tokenizer, and the reference-voice type with its audio resampler.
+#
+# Covered by test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/ModelManagementSubsystem/;
+# unit-level requirements live under
+# docs/reqstream/speech-onnx-chatterboxturbo/model-management-subsystem/.
+
+sections:
+  - title: SpeechOnnxChatterboxTurbo Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        requirements:
+          - id: SpeechOnnxChatterboxTurbo-Models-CatalogRegistration
+            title: >-
+              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall expose an
+              AddChatterboxTurboModels extension method that registers the package's single
+              synthesis model, configured with the supplied options, into a SpeechModelCatalog
+              and returns that same catalog.
+            justification: |
+              Registration is the opt-in seam through which a host composes this package with
+              the Speech library without the library depending on it.
+            tests:
+              - SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_RegistersModelAndReturnsCatalog
+
+          - id: SpeechOnnxChatterboxTurbo-Models-RealSynthesisModel
+            title: >-
+              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall provide an
+              ISynthesisModel for Chatterbox Turbo English that declares its identity, license,
+              native audio-tag support and 24 kHz mono output, describes the downloadable file
+              set for the selected precision variants, exposes a voice choice for the supplied
+              voices, and builds a loaded backend from an installed model directory.
+            justification: |
+              This is the seam through which the model store downloads, verifies and loads the
+              model, and through which a host selects a voice.
+            children:
+              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-Identity
+              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-DownloadDescriptor
+              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-Variants
+              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-Voices
+              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-CreateBackend
+              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-Options
+
+          - id: SpeechOnnxChatterboxTurbo-Models-TextTokenization
+            title: >-
+              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall tokenize text into
+              exactly the ids the reference tokenizer produces, using a tokenizer document
+              embedded in the package.
+            justification: |
+              The language model is only correct for the exact ids its training tokenizer
+              produced, and an embedded tokenizer avoids a second download and a runtime
+              dependency on a tokenizer library.
+            children:
+              - SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-Encoding
+              - SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-SpecialTokens
+              - SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-Errors
+
+          - id: SpeechOnnxChatterboxTurbo-Models-ReferenceVoices
+            title: >-
+              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall create reference
+              voices from in-memory audio or 16-bit PCM WAV files of any sample rate and
+              channel count, normalizing them to mono 24 kHz and bounding their length.
+            justification: |
+              The speech encoder expects mono 24 kHz audio of a useful length, while hosts hold
+              clips in whatever format they were recorded.
+            children:
+              - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-Normalization
+              - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-FileLoading
+              - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-Validation

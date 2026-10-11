@@ -112,6 +112,16 @@ includes:
   - docs/reqstream/speech-onnx-kokoro/model-management-subsystem/kokoro-phoneme-vocabulary.yaml
   - docs/reqstream/speech-onnx-kokoro/synthesis-subsystem.yaml
   - docs/reqstream/speech-onnx-kokoro/synthesis-subsystem/onnx-kokoro-synthesis-engine.yaml
+  - docs/reqstream/speech-onnx-chatterboxturbo.yaml
+  - docs/reqstream/speech-onnx-chatterboxturbo/model-management-subsystem.yaml
+  - docs/reqstream/speech-onnx-chatterboxturbo/model-management-subsystem/onnx-chatterboxturbo-english-synthesis-model.yaml
+  - docs/reqstream/speech-onnx-chatterboxturbo/model-management-subsystem/byte-level-bpe-tokenizer.yaml
+  - docs/reqstream/speech-onnx-chatterboxturbo/model-management-subsystem/chatterbox-turbo-reference-voice.yaml
+  - docs/reqstream/speech-onnx-chatterboxturbo/synthesis-subsystem.yaml
+  - docs/reqstream/speech-onnx-chatterboxturbo/synthesis-subsystem/onnx-chatterboxturbo-synthesis-engine.yaml
+  - docs/reqstream/speech-onnx-chatterboxturbo/synthesis-subsystem/onnx-chatterboxturbo-networks.yaml
+  - docs/reqstream/speech-onnx-chatterboxturbo/synthesis-subsystem/chatterbox-turbo-token-selector.yaml
+  - docs/reqstream/speech-onnx-chatterboxturbo/synthesis-subsystem/chatterbox-turbo-capability-profile.yaml
   - docs/reqstream/speech-onnx-nemotron-stt.yaml
   - docs/reqstream/speech-onnx-nemotron-stt/model-management-subsystem.yaml
   - docs/reqstream/speech-onnx-nemotron-stt/model-management-subsystem/onnx-nemotron-multilingual-recognition-model.yaml

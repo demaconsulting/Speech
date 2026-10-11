@@ -1,0 +1,49 @@
+---
+# Software Unit Requirements for OnnxChatterboxTurboNetworks
+#
+# Unit-level behavior of the OnnxChatterboxTurboNetworks unit, decomposing the parent
+# SpeechOnnxChatterboxTurbo SynthesisSubsystem requirements.
+#
+# Covered by test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/SynthesisSubsystem/
+# OnnxChatterboxTurboNetworksTests.cs using synthetic ONNX graphs.
+
+sections:
+  - title: SpeechOnnxChatterboxTurbo Requirements
+    sections:
+      - title: SynthesisSubsystem Requirements
+        sections:
+          - title: OnnxChatterboxTurboNetworks Requirements
+            requirements:
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-Inference
+                title: >-
+                  The OnnxChatterboxTurboNetworks class shall run the speech encoder (binding
+                  outputs by name, or positionally when unnamed), token embedder, cached language
+                  model step and conditional decoder, returning the data the engine needs.
+                justification: |
+                  This unit is the only place the graphs' tensor contracts are known.
+                tests:
+                  - OnnxChatterboxTurboNetworks_Encode_NamedOutputs_ReturnsConditioning
+                  - OnnxChatterboxTurboNetworks_Encode_UnnamedFourOutputs_BindsPositionally
+                  - OnnxChatterboxTurboNetworks_Embed_TokenIds_ReturnsTableRows
+                  - OnnxChatterboxTurboNetworks_Step_TwoSteps_ReusesCacheAndReturnsLastLogits
+                  - OnnxChatterboxTurboNetworks_Decode_SpeechTokens_ReturnsWaveform
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-Configuration
+                title: >-
+                  The OnnxChatterboxTurboNetworks class shall apply a configured intra-op thread
+                  count to every session and reject invalid counts.
+                justification: |
+                  Hosts must be able to bound CPU use.
+                tests:
+                  - OnnxChatterboxTurboNetworks_Constructor_ThreadCount_IsAppliedAndValidated
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-Lifecycle
+                title: >-
+                  The OnnxChatterboxTurboNetworks class shall dispose every session on dispose,
+                  and dispose already-created sessions when construction fails.
+                justification: |
+                  Native sessions hold large memory-mapped weights that must not leak.
+                tests:
+                  - OnnxChatterboxTurboNetworks_Constructor_InvalidLanguageModel_DisposesSessionsAndThrows
+                  - OnnxChatterboxTurboNetworks_Constructor_MissingGraph_DisposesEarlierSessionsAndThrows
+                  - OnnxChatterboxTurboNetworks_Dispose_DisposesAllSessions

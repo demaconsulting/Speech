@@ -45,7 +45,9 @@ sibling package supplying the four sherpa-onnx-backed models used by this README
 `.AddSherpaModels()` on a `SpeechModelCatalog` registers them. The optional
 `DemaConsulting.Speech.Onnx.Kokoro` package adds a fifth, raw ONNX Runtime Kokoro v1.0 model via
 `.AddKokoroModels()`, and the optional `DemaConsulting.Speech.Onnx.NemotronStt` package adds a raw ONNX Runtime
-streaming NVIDIA Nemotron 3.5 ASR recognition model via `.AddNemotronSttModels()`. A host that only needs the
+streaming NVIDIA Nemotron 3.5 ASR recognition model via `.AddNemotronSttModels()`. The optional
+`DemaConsulting.Speech.Onnx.ChatterboxTurbo` package adds a raw ONNX Runtime Chatterbox Turbo voice-cloning TTS model via
+`.AddChatterboxTurboModels(options)`. A host that only needs the
 catalog/contract seam - for example to ship its own `IRecognitionModel`/`ISynthesisModel`
 implementation - can depend on the core package alone.
 
@@ -104,10 +106,12 @@ result without touching the network. On first download it can instead return `Fa
 transport or I/O failure, with the underlying exception in `SpeechModelDownloadResult.Error`) or
 `ChecksumMismatch`, or throw `ArgumentException` for an unrecognized model id.
 
-This release ships six models through three packages. `DemaConsulting.Speech.Sherpa`
+This release ships seven models through four packages. `DemaConsulting.Speech.Sherpa`
 (`AddSherpaModels()`) supplies the first four; `DemaConsulting.Speech.Onnx.Kokoro`
 (`AddKokoroModels()`) supplies the raw ONNX Runtime Kokoro model; `DemaConsulting.Speech.Onnx.NemotronStt`
-(`AddNemotronSttModels()`) supplies the raw ONNX Runtime Nemotron 3.5 streaming recognition model:
+(`AddNemotronSttModels()`) supplies the raw ONNX Runtime Nemotron 3.5 streaming recognition model; and
+`DemaConsulting.Speech.Onnx.ChatterboxTurbo` (`AddChatterboxTurboModels()`) supplies the
+Chatterbox Turbo voice-cloning model:
 
 | Model | Role | License |
 | --- | --- | --- |
@@ -117,6 +121,7 @@ This release ships six models through three packages. `DemaConsulting.Speech.She
 | `SherpaOnnxKokoroEnglishSynthesisModel` | TTS, 11 voices | Apache-2.0 |
 | `OnnxKokoroEnglishSynthesisModel` | TTS, 29 English voices (Kokoro v1.0) | Apache-2.0 |
 | `OnnxNemotronMultilingualRecognitionModel` | Streaming STT, en-US/en-GB | MIT and NVIDIA Open Model License |
+| `OnnxChatterboxTurboEnglishSynthesisModel` | TTS, voice cloning from your reference clip | MIT |
 
 The Nemotron 3.5 model (`nemotron-3.5-asr-streaming-0.6b-onnx-int4`) is an int4-quantized ONNX
 export of about 790 MB. It runs on the CPU by default, with the encoder optionally accelerated
@@ -131,6 +136,40 @@ The engine shortens any run of near-silence longer than 400 ms (leading silence 
 noise would otherwise make the model emit nothing), calibrates its quiet threshold from the first
 400 ms of audio, and ends an utterance after 2.5 seconds of quiet following speech.
 
+The optional `DemaConsulting.Speech.Onnx.ChatterboxTurbo` package adds a voice-cloning synthesis
+model through `AddChatterboxTurboModels(options)`: `OnnxChatterboxTurboEnglishSynthesisModel`
+(`chatterbox-turbo-onnx-en`, the ONNX export of ResembleAI's Chatterbox Turbo, 24,000 Hz, licensed
+**MIT**). The model has no built-in voices and the package bundles no voice audio: you supply one or
+more short reference clips (1 to 30 seconds of clean speech, 16-bit PCM WAV of any sample rate and
+channel count, or in-memory samples) and the model speaks in that voice. The first voice is the
+default and the `voice` choice parameter selects among them. You are responsible for having the
+right to clone any voice you use.
+
+```csharp
+using DemaConsulting.Speech;
+using DemaConsulting.Speech.ModelManagementSubsystem;
+
+var options = new ChatterboxTurboModelOptions
+{
+    ReferenceVoices =
+    [
+        ChatterboxTurboReferenceVoice.FromFile("narrator", "narrator.wav"),
+    ],
+    // Or load every .wav file in a folder as a voice named after the file:
+    // ReferenceVoiceDirectory = "voices",
+};
+
+var catalog = new SpeechModelCatalog().AddChatterboxTurboModels(options);
+```
+
+By default the package downloads the fp16 language model with q4-quantized helper graphs (eight
+files, roughly 1.1 GB); `LanguageModelVariant` and `AuxiliaryModelVariant` select other precisions,
+each installed under its own model id. The model runs on the CPU only. It renders the `[laugh]`,
+`[clear throat]` and `[gasp]` audio tags with its own native tokens, renders sighs and pauses as
+silence, and omits every other tag. Because the model misbehaves when a native tag is the last thing
+in a sentence, `EndOfSentenceTagPolicy` controls whether such a tag is moved before the final word
+(the default), suffixed, or stripped. Generation is bounded by `MaxNewTokens` and
+`MaxAudioTokensPerTextToken`, so a failure to stop yields truncated audio rather than a hang.
 The table above is a convenience view for at-a-glance browsing, not the sole source of license
 information: every model also reports its license programmatically via
 `ISpeechModel.LicenseName`/`LicenseUrl` (also available through `SpeechModelCatalog.Enumerate()`'s

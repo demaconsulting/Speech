@@ -1,0 +1,52 @@
+---
+# Software Unit Requirements for ByteLevelBpeTokenizer
+#
+# Unit-level behavior of the ByteLevelBpeTokenizer unit, decomposing the parent
+# SpeechOnnxChatterboxTurbo ModelManagementSubsystem requirements.
+#
+# Covered by test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/ModelManagementSubsystem/
+# ByteLevelBpeTokenizerTests.cs.
+
+sections:
+  - title: SpeechOnnxChatterboxTurbo Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        sections:
+          - title: ByteLevelBpeTokenizer Requirements
+            requirements:
+              - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-Encoding
+                title: >-
+                  The ByteLevelBpeTokenizer class shall encode text into exactly the ids the
+                  reference tokenizer produces for a broad set of golden cases, load from an
+                  embedded document whose content matches the pinned upstream hash, and return
+                  only the post-processor trailing ids for empty text.
+                justification: |
+                  Any id deviation changes the speech the model produces.
+                tests:
+                  - ByteLevelBpeTokenizer_Encode_GoldenText_MatchesReferenceIds
+                  - ByteLevelBpeTokenizer_GoldenCases_ContainManyCases
+                  - ByteLevelBpeTokenizer_Encode_EmptyText_ReturnsOnlyTrailingPair
+                  - ByteLevelBpeTokenizer_EmbeddedResource_MatchesPinnedUpstreamHash
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-SpecialTokens
+                title: >-
+                  The ByteLevelBpeTokenizer class shall keep added special tokens such as audio
+                  tags atomic and shall append the configured number of end-of-text tokens.
+                justification: |
+                  Tags must map to their single dedicated ids, and the language model expects the
+                  trailing end-of-text ids.
+                tests:
+                  - ByteLevelBpeTokenizer_Encode_Tag_IsAtomicAndSpaceIsSeparate
+                  - ByteLevelBpeTokenizer_FromGzipStream_ZeroTrailing_AddsNoEndOfText
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-Errors
+                title: >-
+                  The ByteLevelBpeTokenizer class shall throw InvalidDataException for a document
+                  that is not valid gzip or not a valid tokenizer, and ArgumentNullException for
+                  null arguments.
+                justification: |
+                  A corrupt resource or programming error must surface with a clear exception.
+                tests:
+                  - ByteLevelBpeTokenizer_Constructor_InvalidDocument_ThrowsInvalidData
+                  - ByteLevelBpeTokenizer_FromGzipStream_NotGzip_ThrowsInvalidData
+                  - ByteLevelBpeTokenizer_NullArguments_Throw

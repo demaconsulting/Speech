@@ -467,6 +467,23 @@ folder because it is the package's public composition entry point in the
 `DemaConsulting.Speech.Sherpa` namespace. It belongs to the ModelManagementSubsystem for review
 and traceability purposes.
 
+The SpeechOnnxChatterboxTurbo library's folder structure also mirrors its software structure:
+
+```text
+src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/
+├── SpeechModelCatalogChatterboxTurboExtensions.cs         — `AddChatterboxTurboModels()` registration
+├── ModelManagementSubsystem/
+│   ├── OnnxChatterboxTurboEnglishSynthesisModel.cs        — Voice-cloning synthesis model
+│   ├── ChatterboxTurboModelOptions.cs                     — Voices, variants, and tuning options
+│   ├── ByteLevelBpeTokenizer.cs                           — Embedded byte-level BPE tokenizer
+│   └── ChatterboxTurboReferenceVoice.cs                   — Normalized reference clip
+└── SynthesisSubsystem/
+    ├── OnnxChatterboxTurboSynthesisEngine.cs              — Bounded autoregressive backend
+    ├── OnnxChatterboxTurboNetworks.cs                     — Four ONNX Runtime sessions
+    ├── ChatterboxTurboTokenSelector.cs                    — Repetition-penalized selection
+    └── ChatterboxTurboCapabilityProfile.cs                — Audio-tag rendering policy
+```
+
 ## Document Conventions
 
 Throughout this document:

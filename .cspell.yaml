@@ -136,6 +136,18 @@ words:
   - tvjf
   - Kokoro
   - kokoro
+  - Chatterbox
+  - chatterbox
+  - ResembleAI
+  - paralinguistic
+  - paralinguistics
+  - chatterboxturbo
+  - embedder
+  - autoregressively
+  - argmax
+  - endoftext
+  - Efmt
+  - matmul
   - jieba
   - USTAR
   - libritts
@@ -230,3 +242,7 @@ ignorePaths:
   - "**/kokoro-v1.0-tokenizer.json"
   - tools/KokoroSpike/models/**
   - tools/NemotronSpike/**
+  # Chatterbox Turbo spike scratch area and embedded/golden tokenizer data (token tables, not prose)
+  - tools/ChatterboxTurboSpike/**
+  - "**/chatterbox-turbo-tokenizer-golden.json"
+  - "**/chatterbox-turbo-tokenizer.json.gz"

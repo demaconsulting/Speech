@@ -375,6 +375,32 @@ dither; it also finalizes an utterance after 2.5 seconds of quiet following spee
 mirror serves its files from `<mirror>/nemotron-3.5-asr-streaming-0.6b-onnx-int4/<file>`. See
 "Synthesizing Speech" below for this release's two production synthesis models.
 
+The optional `DemaConsulting.Speech.Onnx.ChatterboxTurbo` package adds a voice-cloning synthesis
+model through `AddChatterboxTurboModels(options)`: `OnnxChatterboxTurboEnglishSynthesisModel`
+(`chatterbox-turbo-onnx-en`, 24,000 Hz, licensed **MIT**). It has no built-in voices and bundles no
+voice audio; you supply short reference clips (1 to 30 seconds, 16-bit PCM WAV of any sample rate
+and channel count, or in-memory samples) and the model speaks in that voice:
+
+```csharp
+var options = new ChatterboxTurboModelOptions
+{
+    ReferenceVoices = [ChatterboxTurboReferenceVoice.FromFile("narrator", "narrator.wav")],
+    // Or: ReferenceVoiceDirectory = "voices",   // every .wav file becomes a voice
+};
+
+var catalog = new SpeechModelCatalog().AddChatterboxTurboModels(options);
+```
+
+The first voice is the default and the `voice` choice parameter selects another. The default
+download is the fp16 language model with q4 helper graphs (eight files, roughly 1.1 GB);
+`LanguageModelVariant` and `AuxiliaryModelVariant` choose other precisions, each with its own model
+id. It runs on the CPU only. It renders `[laugh]`, `[clear throat]` and `[gasp]` natively, renders
+sighs and pauses as silence and omits every other tag; `EndOfSentenceTagPolicy` controls whether a
+native tag that would end a sentence is moved before the final word (default), suffixed, or
+stripped. Generation is bounded (`MaxNewTokens`, `MaxAudioTokensPerTextToken`), so a failure to stop
+produces truncated audio rather than a hang. You are responsible for having the right to clone any
+voice you use.
+
 ## Natural Language Audio Tags
 
 This release also ships the closed, fixed Natural Language Audio Tag vocabulary and its

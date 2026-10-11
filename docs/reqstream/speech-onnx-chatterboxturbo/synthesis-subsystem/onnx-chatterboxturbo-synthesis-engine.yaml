@@ -1,0 +1,58 @@
+---
+# Software Unit Requirements for OnnxChatterboxTurboSynthesisEngine
+#
+# Unit-level behavior of the OnnxChatterboxTurboSynthesisEngine unit, decomposing the parent
+# SpeechOnnxChatterboxTurbo SynthesisSubsystem requirements.
+#
+# Covered by test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/SynthesisSubsystem/
+# OnnxChatterboxTurboSynthesisEngineTests.cs.
+
+sections:
+  - title: SpeechOnnxChatterboxTurbo Requirements
+    sections:
+      - title: SynthesisSubsystem Requirements
+        sections:
+          - title: OnnxChatterboxTurboSynthesisEngine Requirements
+            requirements:
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-Generate
+                title: >-
+                  The OnnxChatterboxTurboSynthesisEngine class shall assemble the language-model
+                  prompt from the voice conditioning and embedded text, generate speech tokens,
+                  decode them with the prompt tokens and trailing silence, and return empty audio
+                  without network calls for empty text.
+                justification: |
+                  This is the Chatterbox Turbo inference procedure; deviations change the audio.
+                tests:
+                  - OnnxChatterboxTurboSynthesisEngine_Generate_ScriptedTokens_AssemblesPromptAndDecoderInput
+                  - OnnxChatterboxTurboSynthesisEngine_Generate_EmptyText_ReturnsEmptyAudioWithoutNetworkCalls
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-Bounds
+                title: >-
+                  The OnnxChatterboxTurboSynthesisEngine class shall bound generation by both an
+                  absolute maximum and a limit proportional to the text length, flag a bounded
+                  result as truncated, and never throw for hitting a bound.
+                justification: |
+                  A missing end-of-speech token must not hang or fail the host application.
+                tests:
+                  - OnnxChatterboxTurboSynthesisEngine_Generate_NeverStops_IsBoundedAndFlagged
+                  - OnnxChatterboxTurboSynthesisEngine_Generate_ProportionalBound_StopsRunawayEarly
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-Voices
+                title: >-
+                  The OnnxChatterboxTurboSynthesisEngine class shall encode each voice once and
+                  use the voice selected by speaker id, falling back to the first voice for an
+                  invalid id.
+                justification: |
+                  Voice encoding is expensive and the speaker id comes from host configuration.
+                tests:
+                  - OnnxChatterboxTurboSynthesisEngine_Generate_Voices_AreEncodedOnceAndFallBack
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-Lifecycle
+                title: >-
+                  The OnnxChatterboxTurboSynthesisEngine class shall validate its constructor
+                  arguments and, on dispose, dispose its networks and reject further generation.
+                justification: |
+                  Native sessions must be released deterministically and misuse must be loud.
+                tests:
+                  - OnnxChatterboxTurboSynthesisEngine_Constructor_InvalidArguments_Throw
+                  - OnnxChatterboxTurboSynthesisEngine_Dispose_DisposesNetworksAndRejectsGenerate

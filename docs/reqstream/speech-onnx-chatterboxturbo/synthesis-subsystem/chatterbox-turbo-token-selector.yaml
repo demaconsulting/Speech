@@ -1,0 +1,29 @@
+---
+# Software Unit Requirements for ChatterboxTurboTokenSelector
+#
+# Unit-level behavior of the ChatterboxTurboTokenSelector unit, decomposing the parent
+# SpeechOnnxChatterboxTurbo SynthesisSubsystem requirements.
+#
+# Covered by test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/SynthesisSubsystem/
+# ChatterboxTurboTokenSelectorTests.cs.
+
+sections:
+  - title: SpeechOnnxChatterboxTurbo Requirements
+    sections:
+      - title: SynthesisSubsystem Requirements
+        sections:
+          - title: ChatterboxTurboTokenSelector Requirements
+            requirements:
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-Selection
+                title: >-
+                  The ChatterboxTurboTokenSelector class shall choose the highest-scoring token
+                  after applying a repetition penalty to previously generated tokens (dividing
+                  positive logits and multiplying negative ones), resolve ties to the lowest id,
+                  and handle empty or invalid input safely.
+                justification: |
+                  Without the penalty greedy decoding loops on one token.
+                tests:
+                  - ChatterboxTurboTokenSelector_Select_NoHistory_ReturnsArgmax
+                  - ChatterboxTurboTokenSelector_Select_RepeatedPositive_IsPenalized
+                  - ChatterboxTurboTokenSelector_Select_RepeatedNegative_IsPushedDown
+                  - ChatterboxTurboTokenSelector_Select_TiesAndInvalidInput_AreHandled

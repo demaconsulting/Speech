@@ -1,0 +1,52 @@
+---
+# Software Unit Requirements for ChatterboxTurboReferenceVoice
+#
+# Unit-level behavior of the ChatterboxTurboReferenceVoice unit and its ReferenceAudioResampler
+# helper, decomposing the parent SpeechOnnxChatterboxTurbo ModelManagementSubsystem requirements.
+#
+# Covered by test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/ModelManagementSubsystem/
+# ChatterboxTurboReferenceVoiceTests.cs.
+
+sections:
+  - title: SpeechOnnxChatterboxTurbo Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        sections:
+          - title: ChatterboxTurboReferenceVoice Requirements
+            requirements:
+              - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-Normalization
+                title: >-
+                  The ChatterboxTurboReferenceVoice class shall keep mono 24 kHz samples as
+                  supplied, down-mix multi-channel audio by averaging, resample other rates to
+                  24 kHz preserving content, and trim over-long clips to the maximum length.
+                justification: |
+                  The speech encoder requires mono 24 kHz audio of bounded length.
+                tests:
+                  - ChatterboxTurboReferenceVoice_FromSamples_Mono24k_KeepsSamples
+                  - ChatterboxTurboReferenceVoice_FromSamples_Stereo48k_IsDownMixedAndResampled
+                  - ChatterboxTurboReferenceVoice_FromSamples_TooLong_IsTrimmed
+                  - ReferenceAudioResampler_Resample_ChangesRateAndPreservesTone
+                  - ReferenceAudioResampler_DownMix_AveragesChannels
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-FileLoading
+                title: >-
+                  The ChatterboxTurboReferenceVoice class shall load 16-bit PCM WAV files of any
+                  channel count and shall report unreadable, unsupported or malformed files with
+                  distinct exceptions.
+                justification: |
+                  Hosts hold clips as WAV files, and a caller needs to tell a missing file from
+                  an unsupported format.
+                tests:
+                  - ChatterboxTurboReferenceVoice_FromFile_Pcm16Wav_LoadsVoice
+                  - ChatterboxTurboReferenceVoice_FromFile_StereoWav_LoadsVoice
+                  - ChatterboxTurboReferenceVoice_FromFile_BadFiles_ThrowDistinctExceptions
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-Validation
+                title: >-
+                  The ChatterboxTurboReferenceVoice class shall reject clips shorter than the
+                  minimum useful length and invalid arguments.
+                justification: |
+                  A too-short clip cannot condition the model and would produce poor speech.
+                tests:
+                  - ChatterboxTurboReferenceVoice_FromSamples_TooShort_Throws
+                  - ChatterboxTurboReferenceVoice_FromSamples_InvalidArguments_Throw

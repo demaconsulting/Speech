@@ -1,0 +1,71 @@
+---
+# Software Subsystem Requirements for the SpeechOnnxChatterboxTurbo SynthesisSubsystem
+#
+# These requirements describe the subsystem-level behavior of the SpeechOnnxChatterboxTurbo
+# SynthesisSubsystem, decomposing the system-level requirements in
+# docs/reqstream/speech-onnx-chatterboxturbo.yaml. The subsystem implements the Speech library's
+# public ISynthesisBackend seam over the four Chatterbox Turbo graphs: the engine (generation
+# loop), the networks (ONNX Runtime sessions), the token selector, and the capability profile
+# (audio-tag rendering policy).
+#
+# Covered by test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/SynthesisSubsystem/;
+# unit-level requirements live under
+# docs/reqstream/speech-onnx-chatterboxturbo/synthesis-subsystem/.
+
+sections:
+  - title: SpeechOnnxChatterboxTurbo Requirements
+    sections:
+      - title: SynthesisSubsystem Requirements
+        requirements:
+          - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxBackend
+            title: >-
+              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall implement the Speech
+              library's ISynthesisBackend seam over the Chatterbox Turbo ONNX graphs run through
+              ONNX Runtime on the CPU, reporting the true 24 kHz output sample rate.
+            justification: |
+              A real, ONNX-Runtime-backed implementation of the backend seam is what turns the
+              Speech library's synthesis policy into audible speech for this package's model.
+            children:
+              - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-Generate
+              - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-Lifecycle
+              - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-Inference
+              - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-Configuration
+              - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-Lifecycle
+
+          - id: SpeechOnnxChatterboxTurbo-Synthesis-VoiceConditioning
+            title: >-
+              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall encode each reference voice
+              once and condition every utterance on the voice selected by speaker id, falling
+              back to the first voice for an out-of-range id.
+            justification: |
+              Encoding a clip is expensive and deterministic, so caching it keeps per-sentence
+              latency low, and a safe fallback keeps a bad id from failing synthesis.
+            children:
+              - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-Voices
+
+          - id: SpeechOnnxChatterboxTurbo-Synthesis-TagProfile
+            title: >-
+              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall provide a capability
+              profile that renders audio tags as native model tokens, silence segments or
+              omission, relocates or drops a tag that would end a sentence, and splits text into
+              sentences within the model's reliable length.
+            justification: |
+              The model's tag behavior is model-specific, so the policy belongs with the
+              package rather than the generic Speech library renderer.
+            children:
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-NativeTags
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-Unsupported
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-TrailingTag
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-Segmentation
+
+          - id: SpeechOnnxChatterboxTurbo-Synthesis-GenerationGuards
+            title: >-
+              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall select speech tokens with a
+              repetition-penalized greedy rule and stop generation at the end-of-speech token or
+              a bound proportional to the text length.
+            justification: |
+              Without a penalty the model loops on a single token, and without a bound a missing
+              end-of-speech token would never terminate.
+            children:
+              - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-Bounds
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-Selection
