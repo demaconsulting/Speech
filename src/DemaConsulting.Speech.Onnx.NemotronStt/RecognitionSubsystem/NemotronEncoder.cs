@@ -142,6 +142,8 @@ internal sealed class NemotronEncoder : INemotronEncoder
     /// <inheritdoc/>
     public void Reset()
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
         _previousResults?.Dispose();
         _previousResults = null;
         DisposeInitialCaches();

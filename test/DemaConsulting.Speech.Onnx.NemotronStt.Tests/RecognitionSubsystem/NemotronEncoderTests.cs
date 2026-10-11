@@ -88,6 +88,7 @@ public sealed class NemotronEncoderTests
         encoder.Dispose();
 
         Assert.Throws<ObjectDisposedException>(() => encoder.Encode(new float[Frames * 128], Frames, out _));
+        Assert.Throws<ObjectDisposedException>(encoder.Reset);
     }
 
     /// <summary>Proves a null session is rejected.</summary>
