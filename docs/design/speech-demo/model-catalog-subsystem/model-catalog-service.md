@@ -24,6 +24,11 @@ every interface consumer - `ModelCatalogViewModel`, the panel view models that o
 | `DownloadAsync(modelId, progress, cancellationToken)` | `Task<SpeechModelDownloadResult>` | Throws if id unknown |
 | `ModelInstalled` | `event EventHandler<ModelInstalledEventArgs>?` | Raised once a model installs |
 | `ApplyMirror(mirror)` | `void` | Rebuilds the catalog against a new mirror, or `null` to revert to public URIs |
+| `ReferenceVoicePacks` / `UserVoicesDirectory` | list / `string?` | Packs (empty without a library), user folder |
+| `GetReferenceVoicePackState(packId)` | `SpeechModelState` | The pack's install state |
+| `InstallReferenceVoicePackAsync(...)` | `Task<SpeechModelDownloadResult>` | Installs a pack; rebuilds if installed |
+| `UninstallReferenceVoicePack(packId)` | `void` | Removes a pack and rebuilds the pair |
+| `ReferenceVoicesChanged` | `event EventHandler?` | Raised after a rebuild caused by a voice or mirror change |
 
 **Key Methods**:
 
@@ -47,6 +52,16 @@ every interface consumer - `ModelCatalogViewModel`, the panel view models that o
   one of their own downloads is in progress; `ModelCatalogViewModel.ApplyMirror` (see its own
   design doc) is this demo's sole production caller and enforces that by refusing to call
   through - reporting an explained panel error instead - while any row is downloading.
+
+- **Reference voice packs**: Supported when the service was constructed with the composition
+  constructor (`ModelCatalogService(ModelCatalogComposition, SpeechModelDownloaderOptions?,
+  Func<SpeechModelDownloaderOptions?, ModelCatalogComposition>)`), where the composition pairs the
+  catalog with the one shared `ReferenceVoiceLibrary`. Install (when the outcome is `Installed`),
+  uninstall and `ApplyMirror` call a private recompose step that builds a new pair through the
+  factory, publishes it, disposes the old catalog and library, and raises `ReferenceVoicesChanged`.
+  A failed or canceled install leaves the working pair untouched and raises nothing. Services built
+  with the older constructors have no library: `ReferenceVoicePacks` is empty, the state is
+  `NotDownloaded`, and install/uninstall throw `InvalidOperationException`.
 
 **Error Handling**: `Enumerate()` never throws; it never invents placeholder models when the
 library's registry is empty - presenting an honest empty catalog is a presentation concern, not

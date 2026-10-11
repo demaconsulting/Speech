@@ -92,6 +92,12 @@ parameter bag on any member, so for recognition it remains built and fully exerc
 tests, ready for a future library revision exposing a per-call recognition parameter surface.
 This is stated plainly here rather than silently implied.
 
+**Restoring values.** `RestoreValues(values)` applies a previously captured bag onto the current
+presenters: choices by option value, numerics as `double`, booleans as `bool`. Unknown keys,
+wrongly typed values and options the model no longer offers are ignored, leaving the default.
+`SynthesisPanelViewModel` captures the bag before a catalog rebuild (a voice pack install or
+removal) and restores it afterwards so the user keeps their chosen voice and other settings.
+
 ### Interactions with Other Units
 
 `ModelSettingsViewModel` is embedded directly by `SynthesisPanelViewModel` and

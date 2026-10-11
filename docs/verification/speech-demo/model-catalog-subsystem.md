@@ -413,6 +413,42 @@ a bound row cannot go stale mid-download.
 
 **Requirement coverage**: `SpeechDemo-Models-StatePresentation`.
 
+#### Reference voice pack scenarios
+
+- `ModelCatalogService_Constructor_NullComposition_ThrowsArgumentNullException`: a null
+  composition is rejected.
+- `ModelCatalogService_ReferenceVoices_NoLibrary_ReportsNoPacksAndRefusesOperations`: a service
+  without a voice library reports no packs and install/uninstall throw `InvalidOperationException`.
+- `ModelCatalogService_ReferenceVoices_Composed_ListsPackAndUserDirectory`: a composed service
+  reports the library's pack and user voices folder.
+- `ModelCatalogService_UninstallReferenceVoicePack_RebuildsCatalogAndRaisesEvent`,
+  `ModelCatalogService_ApplyMirror_Composed_RebuildsPairAndRaisesEvent`: the pair is rebuilt (the
+  old one disposed) and `ReferenceVoicesChanged` raised exactly once.
+- `ModelCatalogService_InstallReferenceVoicePackAsync_Failure_DoesNotRebuildOrRaise`: an install
+  against an unreachable loopback mirror reports a non-installed outcome without a rebuild or event.
+- `ModelCatalogViewModel_Constructor_ListsVoicePacks`,
+  `ModelCatalogViewModel_Constructor_NoVoicePacks_HidesSection`: pack rows appear, or the section
+  hides.
+- `ModelCatalogViewModel_InstallVoicePackAsync_Installed_RefreshesRows`,
+  `ModelCatalogViewModel_InstallVoicePackAsync_FailureModes_ReportedInRow`,
+  `ModelCatalogViewModel_RemoveVoicePack_UninstallsRefreshesAndReportsFaults`: install and removal
+  update the rows; failure, cancellation and faults are reported on the row.
+- `ModelCatalogViewModel_InstallVoicePackAsync_ModelDownloading_RefusedWithoutCallingService`,
+  `ModelCatalogViewModel_DownloadAsync_PackInstalling_RefusedWithoutCallingService`,
+  `ModelCatalogViewModel_ApplyMirror_PackInstalling_IsRefused`: overlapping operations are refused.
+- `ReferenceVoicePackListItemViewModel_Constructor_NullPack_ThrowsArgumentNullException`,
+  `ReferenceVoicePackListItemViewModel_Constructor_ProjectsPackDetails`,
+  `ReferenceVoicePackListItemViewModel_State_DrivesFlagsAndStatusText`,
+  `ReferenceVoicePackListItemViewModel_FailureMessage_UpdatesHasFailureMessage`: the row's
+  projection, derived flags and change announcements.
+- `Parse_VoicesDir_ExistingDirectory_SetsVoicesDir`, `Parse_VoicesDir_MissingDirectory_ThrowsArgumentException`,
+  `Parse_VoicesDir_NoValue_ThrowsArgumentException`, `PrintHelp_ListsVoicesDirOption`: the
+  `--voices-dir` launch option.
+
+**Requirement coverage**: `SpeechDemo-Voices-LaunchOption`, `SpeechDemo-Voices-PackService`,
+`SpeechDemo-Voices-PackPanel`, `SpeechDemo-Voices-PackBlockedDuringDownload`,
+`SpeechDemo-Voices-PackRowPresentation`.
+
 ### Requirements Coverage
 
 - **`SpeechDemo-Models-Enumeration`**:
@@ -473,6 +509,19 @@ a bound row cannot go stale mid-download.
   `ModelCatalogViewModel_ApplyMirror_ServiceRejectsReconfiguration_ReportsError`
 - **`SpeechDemo-Models-MirrorBlockedDuringDownload`**:
   `ModelCatalogViewModel_ApplyMirror_DownloadInProgress_RefusesAndReportsError`
+
+- **`SpeechDemo-Voices-LaunchOption`**: the four `Parse_VoicesDir_*`/`PrintHelp_ListsVoicesDirOption` tests
+- **`SpeechDemo-Voices-PackService`**: the six `ModelCatalogService_*` voice tests listed above
+- **`SpeechDemo-Voices-PackPanel`**: `ModelCatalogViewModel_Constructor_ListsVoicePacks`,
+  `ModelCatalogViewModel_Constructor_NoVoicePacks_HidesSection`,
+  `ModelCatalogViewModel_InstallVoicePackAsync_Installed_RefreshesRows`,
+  `ModelCatalogViewModel_InstallVoicePackAsync_FailureModes_ReportedInRow`,
+  `ModelCatalogViewModel_RemoveVoicePack_UninstallsRefreshesAndReportsFaults`
+- **`SpeechDemo-Voices-PackBlockedDuringDownload`**:
+  `ModelCatalogViewModel_InstallVoicePackAsync_ModelDownloading_RefusedWithoutCallingService`,
+  `ModelCatalogViewModel_DownloadAsync_PackInstalling_RefusedWithoutCallingService`,
+  `ModelCatalogViewModel_ApplyMirror_PackInstalling_IsRefused`
+- **`SpeechDemo-Voices-PackRowPresentation`**: the four `ReferenceVoicePackListItemViewModel_*` tests
 
 ### Acceptance Criteria
 

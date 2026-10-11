@@ -120,17 +120,20 @@ sections:
       - id: SpeechDemo-Models-RealCatalogReporting
         title: >-
           The demo application shall report exactly what the library's host-populated model
-          catalog contains, whether that is the six real models (three recognition, three
+          catalog contains, whether that is the seven real models (three recognition, four
           synthesis) registered via DemaConsulting.Speech.Sherpa's AddSherpaModels(),
-          DemaConsulting.Speech.Onnx.Kokoro's AddKokoroModels(), and
-          the NemotronStt package's AddNemotronSttModels() extensions, or an empty registry
+          DemaConsulting.Speech.Onnx.Kokoro's AddKokoroModels(),
+          the NemotronStt package's AddNemotronSttModels(), and the ChatterboxTurbo
+          package's AddChatterboxTurboModels() extensions, or an empty registry
           for a caller-supplied catalog with none.
         tags: [system]
         justification: |
           The demo's composition root registers the sibling DemaConsulting.Speech.Sherpa,
-          DemaConsulting.Speech.Onnx.Kokoro, and DemaConsulting.Speech.Onnx.NemotronStt packages'
+          DemaConsulting.Speech.Onnx.Kokoro, DemaConsulting.Speech.Onnx.NemotronStt, and
+          DemaConsulting.Speech.Onnx.ChatterboxTurbo packages'
           production models into its
-          SpeechModelCatalog via AddSherpaModels(), AddKokoroModels(), and AddNemotronSttModels() - core
+          SpeechModelCatalog via AddSherpaModels(), AddKokoroModels(), AddNemotronSttModels(), and
+          AddChatterboxTurboModels() - core
           DemaConsulting.Speech ships zero built-in models - so the demo's catalog panel must
           surface those real models rather than continuing to assert emptiness as the expected
           state. The underlying "explain an empty catalog plainly" capability remains a real,
@@ -165,6 +168,33 @@ sections:
           - ModelCatalogService_ApplyMirror_WithFactory_RebuildsCatalogThroughFactory
           - ModelCatalogViewModel_ApplyMirror_ValidMirror_ForwardsConfiguredMirrorAndReportsSuccess
 
+      - id: SpeechDemo-Voices-ReferenceVoicePacks
+        title: >-
+          The demo application shall let a user install and remove the optional reference
+          voice pack from the model catalog panel, choose a reference voice for Chatterbox
+          Turbo synthesis, and add their own voices from a folder given at launch with
+          --voices-dir, seeing the consent note and the pack's attribution while doing so.
+        tags: [system]
+        justification: |
+          Chatterbox Turbo clones a voice from a short reference recording. Without a voice
+          the model has nothing to imitate, and cloning a real person's voice raises consent
+          and licensing questions, so the demo must make voices installable and removable
+          from the same place models are managed, refresh the voice choice immediately, and
+          state the consent note and the pack's license attribution where the voice is
+          chosen. SpeechCli offers the same capability through its own voices commands and
+          --voices-dir option.
+        children:
+          - SpeechDemo-Voices-LaunchOption
+          - SpeechDemo-Voices-PackService
+          - SpeechDemo-Voices-PackPanel
+          - SpeechDemo-Voices-PackBlockedDuringDownload
+          - SpeechDemo-Voices-PackRowPresentation
+          - SpeechDemo-Voices-SynthesisRefresh
+          - SpeechDemo-Voices-ConsentAndAttribution
+          - SpeechDemo-Settings-RestoreValues
+        tests:
+          - Parse_VoicesDir_ExistingDirectory_SetsVoicesDir
+          - SpeechDemo_SystemIntegration_RealModelCatalog_ReportsKnownModels
       - id: SpeechDemo-Settings-PerModelParameters
         title: >-
           The demo application shall let a user view and adjust a selected installed model's

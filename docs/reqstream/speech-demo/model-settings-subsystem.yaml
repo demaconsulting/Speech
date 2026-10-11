@@ -158,3 +158,18 @@ sections:
             tests:
               - ModelSettingsViewModel_Constructor_NoModel_ReportsNoModelEmptyState
               - ModelSettingsViewModel_Model_ModelWithNoParameters_ReportsNoParametersEmptyState
+
+          - id: SpeechDemo-Settings-RestoreValues
+            title: >-
+              The ModelSettingsSubsystem shall be able to restore previously captured parameter
+              values onto the controls of a replacement model instance, ignoring unknown keys,
+              wrongly typed values and options the new model no longer offers.
+            justification: |
+              Installing or removing a reference voice pack rebuilds the model, which resets
+              every control to its default. Restoring the user's captured choices (such as the
+              selected voice and sliders) keeps a catalog rebuild from silently discarding their
+              settings, while ignoring values that no longer apply prevents a stale choice from
+              failing the refresh.
+            tests:
+              - ModelSettingsViewModel_RestoreValues_AppliesCapturedValues
+              - ModelSettingsViewModel_RestoreValues_UnavailableOptionOrKey_KeepsDefault

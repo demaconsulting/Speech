@@ -85,6 +85,15 @@ playback device differs from the one it was last bound to. `ISynthesisSession.St
 drives `State` (via `MapSessionState`, below) rather than the explicit `State = ...` assignments
 a prior design made around the `await SpeakAsync` call.
 
+**Reference voice refresh and notice.** The constructor also subscribes to
+`IModelCatalogService.ReferenceVoicesChanged` (unsubscribed in `DisposeAsync`). The handler posts to
+the UI context and re-reads the catalog while keeping the user's settings: it captures
+`Settings.BuildValueBag()`, calls `Refresh()`, then `Settings.RestoreValues(...)`, so a rebuilt
+Chatterbox Turbo model offers the new voice list without resetting the chosen voice. `VoiceNotice`
+(with `HasVoiceNotice`) is non-null only when the selected model is the Chatterbox Turbo model; it
+carries the voice-cloning consent note and, for each installed pack, "Voices from {name}:
+{attribution} ({license})."; the view shows it under the voice dropdown.
+
 **Stops deterministically before a shared device refresh.** The constructor also registers a
 pre-refresh hook with the shared `DeviceSelectionViewModel` via `RegisterPreRefreshHook`,
 mirroring the `ModelInstalled` subscription precedent above. Unlike

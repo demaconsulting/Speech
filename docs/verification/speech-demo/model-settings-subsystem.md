@@ -160,6 +160,24 @@ regardless of write order.
 
 **Requirement coverage**: `SpeechDemo-Settings-ParameterConstructionGuards`.
 
+#### ModelSettingsViewModel_RestoreValues_AppliesCapturedValues
+
+**Scenario**: A model with a 150-voice choice, a numeric and a boolean parameter is changed, the
+bag captured, the model replaced by an equivalent instance (defaults restored) and the bag restored.
+
+**Expected**: Every control is back at its captured value.
+
+**Requirement coverage**: `SpeechDemo-Settings-RestoreValues`.
+
+#### ModelSettingsViewModel_RestoreValues_UnavailableOptionOrKey_KeepsDefault
+
+**Scenario**: A bag with an option the model no longer offers, an unknown key, a wrongly typed
+value and a null is restored.
+
+**Expected**: Nothing throws and the affected controls keep their defaults.
+
+**Requirement coverage**: `SpeechDemo-Settings-RestoreValues`.
+
 ### Requirements Coverage
 
 - **`SpeechDemo-Settings-GenericParameterRendering`**:
@@ -189,6 +207,9 @@ regardless of write order.
 - **`SpeechDemo-Settings-HonestEmptyState`**:
   `ModelSettingsViewModel_Constructor_NoModel_ReportsNoModelEmptyState`,
   `ModelSettingsViewModel_Model_ModelWithNoParameters_ReportsNoParametersEmptyState`
+
+- **`SpeechDemo-Settings-RestoreValues`**: `ModelSettingsViewModel_RestoreValues_AppliesCapturedValues`,
+  `ModelSettingsViewModel_RestoreValues_UnavailableOptionOrKey_KeepsDefault`
 
 ### Acceptance Criteria
 

@@ -376,6 +376,15 @@ section for their validation rules), read once at start-up before the main windo
 Catalog panel's mirror-settings fields also let you change the mirror from the running
 application - no restart required - using the same validation rules.
 
+The demo also hosts the Chatterbox Turbo voice-cloning model. Its Model Catalog tab has a
+**Reference voices** section where you can install or remove the optional `voice-zero-1.0` pack
+(about 570 MiB download, CC0 1.0 Universal, attribution: voice-zero by OwenTyme) and shows the
+folder for your own `.wav`/`.flac` voices; `--voices-dir <path>` (an existing folder) adds your
+own voices at launch. Installing or removing a pack refreshes the Text-to-Speech voice dropdown
+immediately, keeping your other settings, and the Text-to-Speech tab shows the consent note
+(only clone voices you have permission to use) and the pack's attribution under the voice
+dropdown.
+
 ## SpeechCli
 
 `speech-cli` is a cross-platform .NET global tool that exposes the library's model management,

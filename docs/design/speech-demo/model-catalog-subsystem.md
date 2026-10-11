@@ -14,11 +14,13 @@ following units, each documented in its own file:
   refresh and download commands, and the empty-catalog message — see _ModelCatalogViewModel
   Design_
 - **ModelListItemViewModel**: one row's presentation state — see _ModelListItemViewModel Design_
+- **ReferenceVoicePackListItemViewModel**: one reference voice pack row's presentation state — see
+  _ReferenceVoicePackListItemViewModel Design_
 
 ### Interfaces
 
 The subsystem exposes `IModelCatalogService`, `ModelCatalogService`, `ModelCatalogViewModel`, and
-`ModelListItemViewModel` to the shell composition root and to the other panels
+`ModelListItemViewModel`, and `ReferenceVoicePackListItemViewModel` to the shell composition root and to the other panels
 (`SynthesisPanelSubsystem`, `RecognitionPanelSubsystem`) that subscribe to
 `IModelCatalogService.ModelInstalled` for auto-refresh-on-install. It consumes the library's
 `SpeechModelCatalog` (via the seam, never directly by the view models) for enumeration and
@@ -57,6 +59,19 @@ because it was not built with a catalog factory) is reported as an explained pan
 than thrown at the user, consistent with how every other seam failure in this panel is handled; a
 blank URL applies a `null` mirror, reverting every subsequent download to each model's own public
 URI.
+
+### Reference Voice Packs
+
+A `ModelCatalogService` constructed with a `ModelCatalogComposition` (a catalog plus the shared
+`ReferenceVoiceLibrary`) and a composition factory also exposes the library's voice packs, their
+install state and the user voices folder, and installs or uninstalls a pack. Because the
+Chatterbox voice list is fixed when the model is constructed, a successful install, an uninstall
+and a mirror change each rebuild the catalog and library together through the factory, dispose the
+old pair, and raise `ReferenceVoicesChanged`. The panel (`ModelCatalogViewModel`) lists packs as
+`ReferenceVoicePackListItemViewModel` rows in a "Reference voices" section with the consent note
+and the user folder, and refuses pack operations while a model downloads (and model downloads or
+mirror changes while a pack installs) because the rebuild would dispose the catalog an in-flight
+download uses. Services built without a library report no packs and hide the section.
 
 ### Thread Safety
 

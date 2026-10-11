@@ -18,9 +18,10 @@ views show is produced by a view model that is verified directly.
 
 Automated coverage **does not** extend to driving the user interface, to real audio hardware, or to
 a real, multi-hundred-megabyte model download. The demo's catalog is populated through
-SpeechSherpa's `AddSherpaModels()`, SpeechOnnxKokoro's `AddKokoroModels()`, and
-the SpeechOnnxNemotronStt `AddNemotronSttModels()` with six real,
-production models (three recognition, three synthesis) covering both the recognition and synthesis
+SpeechSherpa's `AddSherpaModels()`, SpeechOnnxKokoro's `AddKokoroModels()`,
+the SpeechOnnxNemotronStt `AddNemotronSttModels()`, and the SpeechOnnxChatterboxTurbo
+`AddChatterboxTurboModels()` with seven real,
+production models (three recognition, four synthesis) covering both the recognition and synthesis
 roles, but the full download/install lifecycle is still verified at the subsystem level against
 controlled catalog data, never a real network fetch.
 
@@ -75,11 +76,18 @@ picker a user would read as a bug.
 **Test**: `SpeechDemo_SystemIntegration_RealModelCatalog_ReportsKnownModels`
 
 Verifies that the catalog panel composed over the real library catalog, populated through
-SpeechSherpa's `AddSherpaModels()`, SpeechOnnxKokoro's `AddKokoroModels()`, and
-the SpeechOnnxNemotronStt `AddNemotronSttModels()`, lists exactly the
-six real, production models those extension methods register - spanning both the
+SpeechSherpa's `AddSherpaModels()`, SpeechOnnxKokoro's `AddKokoroModels()`,
+the SpeechOnnxNemotronStt `AddNemotronSttModels()`, and the SpeechOnnxChatterboxTurbo
+`AddChatterboxTurboModels()`, lists exactly the
+seven real, production models those extension methods register - spanning both the
 recognition and synthesis roles - rather than reporting an empty catalog or only the four Sherpa
 models.
+
+The `SpeechDemo-Voices-ReferenceVoicePacks` system requirement is verified by the same scenario
+(the Chatterbox Turbo model is part of the real catalog) together with the `--voices-dir` launch
+option tests; the pack install/uninstall flow and voice refresh are proven at the subsystem level
+(see the ModelCatalogSubsystem and SynthesisPanelSubsystem verification documents), and the
+download of the real multi-hundred-megabyte pack is left to manual verification.
 
 ### Integration: Real Catalog Leaves the TTS and STT Panels Honestly Empty
 

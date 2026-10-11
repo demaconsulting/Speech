@@ -87,6 +87,7 @@ includes:
   - docs/reqstream/speech-demo/model-catalog-subsystem/model-catalog-service.yaml
   - docs/reqstream/speech-demo/model-catalog-subsystem/model-catalog-view-model.yaml
   - docs/reqstream/speech-demo/model-catalog-subsystem/model-list-item-view-model.yaml
+  - docs/reqstream/speech-demo/model-catalog-subsystem/reference-voice-pack-list-item-view-model.yaml
   - docs/reqstream/speech-demo/model-settings-subsystem.yaml
   - docs/reqstream/speech-demo/synthesis-panel-subsystem.yaml
   - docs/reqstream/speech-demo/synthesis-panel-subsystem/synthesizer-session-factory.yaml

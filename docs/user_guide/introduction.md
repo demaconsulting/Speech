@@ -805,7 +805,13 @@ The application opens with four panels, one of which embeds a fifth:
   no device of that kind is connected, rather than showing a blank list.
 - **Model Catalog**: lists the models `SpeechModelCatalog` knows about, each with its
   installation state (not downloaded, downloading, installed, or failed or corrupt), and offers a
-  download action that reports progress and reports failure with an explanation.
+  download action that reports progress and reports failure with an explanation. A
+  **Reference voices** section lists the optional reference voice pack for the Chatterbox Turbo
+  voice-cloning model (`voice-zero-1.0`, about 570 MiB, CC0 1.0 Universal, attribution
+  "voice-zero by OwenTyme") with Install and Remove buttons, progress and failure reporting, the
+  consent note, and the folder for your own `.wav`/`.flac` voices. Installing or removing a pack
+  rebuilds the catalog, so it is refused while a model is downloading (and model downloads and
+  mirror changes are refused while a pack installs).
 - **Text-to-Speech**: lists installed synthesis models, offers a text box with inline hints
   showing a few of the library's Natural Language Audio Tags (such as `[whispers]`,
   `[short pause]`, and `[excited]`), and Play/Stop controls that compose an
@@ -820,7 +826,10 @@ The application opens with four panels, one of which embeds a fifth:
   automatically the moment a synthesis model finishes downloading from the Model Catalog panel,
   with no manual click or application restart needed. The model picker and its Model Settings
   controls disable while audio is synthesizing or playing, so a voice/speaker cannot be changed
-  mid-playback.
+  mid-playback. When the Chatterbox Turbo model is selected the voice dropdown lists the
+  installed pack voices and your own voices, refreshes immediately after a pack is installed or
+  removed (keeping your other settings), and a note below it states the consent reminder (only
+  clone voices you have permission to use) and the attribution of each installed pack.
 - **Speech-to-Text**: offers Start/Stop streaming transcription that composes an
   `ISpeechRecognizerEngine`/`IRecognitionSession` through a demo-owned seam over
   `SpeechRecognizerFactory`. Start loads/reuses the cached engine, creates a fresh session (a
@@ -844,6 +853,15 @@ The application opens with four panels, one of which embeds a fifth:
   reload on the next Play) - selecting a different voice in the dropdown audibly changes the
   synthesized speech.
 
+### Launch options
+
+The demo accepts `--models-dir <path>`, `--mirror-url <url>` (with `--mirror-user`,
+`--mirror-password` or `--mirror-bearer-token`), and `--voices-dir <path>`, matching
+`speech-cli`; run `dotnet run --project src/DemaConsulting.Speech.Demo -- --help` for the list.
+`--voices-dir` names an existing folder of your own `.wav`/`.flac` reference voices that is
+offered to Chatterbox Turbo alongside the installed pack and the user folder under the models
+root; a missing folder is rejected at start-up with an explanatory message.
+
 ### Diagnostics: Raw Capture Recording (Temporary)
 
 The Speech-to-Text panel supports an opt-in, temporary diagnostic aid for investigating
@@ -854,7 +872,8 @@ resampling) to a new timestamped `capture-{yyyyMMdd-HHmmss}-{suffix}.wav` file i
 directory. The console prints the exact path written for each session. Leave the variable unset
 for normal use - this has no effect and no overhead when disabled.
 
-The model catalog now ships four real, production models (see "Recognizing Speech" and
+The model catalog now ships four real, production models plus the Chatterbox Turbo voice-cloning model
+(see "Recognizing Speech" and
 "Synthesizing Speech" above), so the Model Catalog, Text-to-Speech, and Speech-to-Text panels
 populate rows for all four once the library composes, each with its own installation state
 and download action. A future model needing a bespoke, non-generic UI beyond the generic Model

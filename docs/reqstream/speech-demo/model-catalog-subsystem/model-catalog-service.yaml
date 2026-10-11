@@ -94,3 +94,43 @@ sections:
                   - ModelCatalogService_ApplyMirror_WithFactory_DisposesReplacedCatalog
                   - ModelCatalogService_Dispose_WithFactory_DisposesCurrentCatalog
                   - ModelCatalogService_Dispose_WithoutFactory_DoesNotDisposeCatalog
+
+              - id: SpeechDemo-Voices-LaunchOption
+                title: >-
+                  The demo application shall accept a --voices-dir launch option naming an
+                  existing folder of the user's own reference voices, shall list it in the
+                  help text, and shall reject a missing value or a folder that does not exist.
+                justification: |
+                  Chatterbox Turbo needs reference recordings to clone. A launch option lets a
+                  user bring their own voices, matching the speech-cli --voices-dir option; validating
+                  the folder up front turns a typo into an immediate explained error instead of
+                  a silently empty voice list.
+                tests:
+                  - Parse_VoicesDir_ExistingDirectory_SetsVoicesDir
+                  - Parse_VoicesDir_MissingDirectory_ThrowsArgumentException
+                  - Parse_VoicesDir_NoValue_ThrowsArgumentException
+                  - PrintHelp_ListsVoicesDirOption
+
+              - id: SpeechDemo-Voices-PackService
+                title: >-
+                  A ModelCatalogSubsystem seam constructed over a catalog and reference voice
+                  library pair shall report the library's voice packs, their install state and
+                  the user voices folder; shall rebuild and replace the pair (disposing the old
+                  one) and raise ReferenceVoicesChanged after a pack is uninstalled, after an
+                  install that completes as Installed, and after a mirror change; shall raise
+                  nothing after a failed install; and shall report no packs and refuse pack
+                  operations when it has no voice library.
+                justification: |
+                  The Chatterbox voice list is fixed when the model is constructed, so a voice
+                  change is only visible after the catalog is rebuilt. Rebuilding the catalog
+                  and the shared library together and announcing it is what lets the
+                  synthesis panel offer the new voices immediately, while a failed install must
+                  leave the working catalog untouched. Seams built without a library (every
+                  other consumer) must stay inert rather than throwing at enumeration.
+                tests:
+                  - ModelCatalogService_Constructor_NullComposition_ThrowsArgumentNullException
+                  - ModelCatalogService_ReferenceVoices_NoLibrary_ReportsNoPacksAndRefusesOperations
+                  - ModelCatalogService_ReferenceVoices_Composed_ListsPackAndUserDirectory
+                  - ModelCatalogService_UninstallReferenceVoicePack_RebuildsCatalogAndRaisesEvent
+                  - ModelCatalogService_ApplyMirror_Composed_RebuildsPairAndRaisesEvent
+                  - ModelCatalogService_InstallReferenceVoicePackAsync_Failure_DoesNotRebuildOrRaise

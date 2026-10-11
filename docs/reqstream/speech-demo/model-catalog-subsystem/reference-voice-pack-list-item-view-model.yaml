@@ -1,0 +1,29 @@
+---
+# Software Unit Requirements for the SpeechDemo ReferenceVoicePackListItemViewModel
+#
+# These requirements describe the design-level behavior of the ReferenceVoicePackListItemViewModel
+# unit - one row of the reference voice pack section of the catalog panel - decomposing the
+# parent ModelCatalogSubsystem requirements.
+
+sections:
+  - title: SpeechDemo Requirements
+    sections:
+      - title: ModelCatalogSubsystem Requirements
+        sections:
+          - title: ReferenceVoicePackListItemViewModel Requirements
+            requirements:
+              - id: SpeechDemo-Voices-PackRowPresentation
+                title: >-
+                  The ModelCatalogSubsystem shall present each reference voice pack's name, size,
+                  license and attribution, and consent note in readable form, derive the install
+                  and remove enablement and status caption from its install state, and announce
+                  those derived values when the state or failure message changes.
+                justification: |
+                  A user must see what they are about to download (size and license) and whether
+                  the pack is installed, installing or broken. Announcing the derived values
+                  together keeps a bound row from going stale while an install runs.
+                tests:
+                  - ReferenceVoicePackListItemViewModel_Constructor_NullPack_ThrowsArgumentNullException
+                  - ReferenceVoicePackListItemViewModel_Constructor_ProjectsPackDetails
+                  - ReferenceVoicePackListItemViewModel_State_DrivesFlagsAndStatusText
+                  - ReferenceVoicePackListItemViewModel_FailureMessage_UpdatesHasFailureMessage

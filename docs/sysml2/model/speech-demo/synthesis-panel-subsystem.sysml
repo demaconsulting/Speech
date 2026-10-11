@@ -59,7 +59,9 @@ package SpeechDemo {
              * calls instead of recomposing them on every click - fixing the bug where a prior
              * design recreated the engine and session on every Play. Forwards
              * Settings.BuildValueBag() to the session factory on an engine reload, so a selected
-             * voice genuinely changes synthesized output. */
+             * voice genuinely changes synthesized output. Re-reads the catalog on
+             * ReferenceVoicesChanged keeping the chosen settings, and shows the voice-cloning
+             * consent note and installed pack attribution for Chatterbox Turbo. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech.Demo/SynthesisPanelSubsystem/SynthesisPanelViewModel.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Demo.Tests/SynthesisPanelSubsystem/SynthesisPanelViewModelTests.cs */

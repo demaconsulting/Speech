@@ -139,3 +139,35 @@ sections:
                   through the only production caller of the service.
                 tests:
                   - ModelCatalogViewModel_ApplyMirror_DownloadInProgress_RefusesAndReportsError
+
+              - id: SpeechDemo-Voices-PackPanel
+                title: >-
+                  The ModelCatalogSubsystem shall list the reference voice packs with the
+                  user voices folder and the consent note, hide the section when there are no
+                  packs, and install or remove a pack on command, refreshing the rows on
+                  success and reporting failure, cancellation and faults on the pack's row.
+                justification: |
+                  Packs are managed where models are managed. The user must see what a pack
+                  is, where their own voices go and the consent note before installing, and
+                  see an honest failure on the row when an install does not work.
+                tests:
+                  - ModelCatalogViewModel_Constructor_ListsVoicePacks
+                  - ModelCatalogViewModel_Constructor_NoVoicePacks_HidesSection
+                  - ModelCatalogViewModel_InstallVoicePackAsync_Installed_RefreshesRows
+                  - ModelCatalogViewModel_InstallVoicePackAsync_FailureModes_ReportedInRow
+                  - ModelCatalogViewModel_RemoveVoicePack_UninstallsRefreshesAndReportsFaults
+
+              - id: SpeechDemo-Voices-PackBlockedDuringDownload
+                title: >-
+                  The ModelCatalogSubsystem shall refuse a pack install or removal while any
+                  model is downloading, and shall refuse a model download or mirror change
+                  while a pack is installing, without calling the catalog service.
+                justification: |
+                  Installing, removing or re-mirroring rebuilds the catalog, and disposing the
+                  old catalog aborts any download in flight against it. Refusing the
+                  overlapping operation in the panel keeps that from happening through the
+                  only production caller.
+                tests:
+                  - ModelCatalogViewModel_InstallVoicePackAsync_ModelDownloading_RefusedWithoutCallingService
+                  - ModelCatalogViewModel_DownloadAsync_PackInstalling_RefusedWithoutCallingService
+                  - ModelCatalogViewModel_ApplyMirror_PackInstalling_IsRefused

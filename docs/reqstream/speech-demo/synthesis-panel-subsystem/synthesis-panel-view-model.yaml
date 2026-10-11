@@ -216,3 +216,28 @@ sections:
                 tests:
                   - SynthesisPanelViewModel_PreRefreshHook_WhilePlaying_StopsAndAwaitsExecutionTaskBeforeDeviceRefreshSucceeds
                   - SynthesisPanelViewModel_PreRefreshHook_WhileIdle_IsNoOpAndDeviceRefreshSucceeds
+
+              - id: SpeechDemo-Voices-SynthesisRefresh
+                title: >-
+                  The SynthesisPanelViewModel shall re-read the catalog when the catalog service
+                  reports ReferenceVoicesChanged, keeping the user's chosen parameter values
+                  (such as the voice) where still available, and shall unsubscribe on disposal.
+                justification: |
+                  A voice pack install or removal rebuilds the model, so the panel must adopt
+                  the new voice list immediately without the user losing the voice they had
+                  chosen; a disposed panel must not keep reacting to catalog events.
+                tests:
+                  - SynthesisPanelViewModel_ReferenceVoicesChanged_RefreshesAndKeepsChosenVoice
+                  - SynthesisPanelViewModel_DisposeAsync_UnsubscribesFromReferenceVoicesChanged
+
+              - id: SpeechDemo-Voices-ConsentAndAttribution
+                title: >-
+                  The SynthesisPanelViewModel shall show the voice-cloning consent note and the
+                  license attribution of every installed voice pack when the Chatterbox Turbo
+                  model is selected, and shall show nothing for any other model.
+                justification: |
+                  Cloning a voice needs the speaker's consent and the pack's license requires
+                  attribution, so both must be visible where the voice is chosen; other models
+                  have no reference voices and must not show a misleading note.
+                tests:
+                  - SynthesisPanelViewModel_VoiceNotice_ChatterboxShowsConsentAndAttribution_OthersShowNothing

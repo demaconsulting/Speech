@@ -17,6 +17,9 @@ and the empty-catalog message, driven entirely by `IModelCatalogService`.
 | `MirrorStatusMessage` / `MirrorHasError` | `string?` / `bool` | The outcome of the most recent `ApplyMirrorCommand` |
 | `HasMirrorStatusMessage` / `MirrorAppliedSuccessfully` | `bool` | Derived display flags for the status message |
 | `ApplyMirrorCommand` | generated command | Applies the typed mirror settings |
+| `VoicePacks` / `HasVoicePacks` | `ObservableCollection<...>` / `bool` | The pack rows; whether to show the section |
+| `UserVoicesDirectory` / `VoiceConsentNotice` | `string?` / `string` | The user folder and the consent note |
+| `InstallVoicePackAsync` / `RemoveVoicePack` | generated commands | Install or remove the given pack |
 
 **Key Methods**:
 
@@ -52,6 +55,14 @@ and the empty-catalog message, driven entirely by `IModelCatalogService`.
   cannot be reconfigured), records the exception's message as an error instead of letting it
   escape - consistent with how every other seam failure in this panel is reported in place
   rather than thrown at the user.
+
+- **InstallVoicePackAsync(pack, cancellationToken) / RemoveVoicePack(pack)**: Refuse (setting
+  `VoiceBusyMessage` on the row, without calling the service) while any model row is downloading
+  or any pack is installing. Otherwise they mark the row `Downloading` (install) and call the
+  seam; a successful install or removal calls `Refresh()`, while a non-installed outcome,
+  cancellation or a fault is reported on the pack's row. `DownloadAsync` and `ApplyMirror` in turn
+  refuse while a pack is installing, because a pack change rebuilds (and disposes) the catalog.
+  `Refresh()` also rebuilds the pack rows.
 
 **Error Handling**: Never lets a seam fault, checksum mismatch, transport failure, or
 cancellation escape as an unhandled exception; every outcome resolves to a row state and,

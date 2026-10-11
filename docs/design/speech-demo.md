@@ -70,14 +70,18 @@ external interfaces are its user interface and the interfaces it consumes.
 
 ## Dependencies
 
-SpeechDemo has three project dependencies — the Speech library; the SpeechSherpa library whose
+SpeechDemo has five project dependencies — the Speech library; the SpeechSherpa library whose
 `AddSherpaModels()` extension method registers the shipped sherpa-onnx models with the catalog
 the demo composes (see _SpeechSherpa Design_); and the `DemaConsulting.Speech.Onnx.Kokoro`
 library whose `AddKokoroModels()` extension method registers the shipped Kokoro ONNX
 text-to-speech model alongside the SpeechSherpa models in that same catalog (see
 _SpeechOnnxKokoro Design_); and the `DemaConsulting.Speech.Onnx.NemotronStt` library whose
 `AddNemotronSttModels()` extension method registers the shipped Nemotron ONNX speech-recognition
-model in that same catalog (see _SpeechOnnxNemotronStt Design_) — and the following NuGet dependencies:
+model in that same catalog (see _SpeechOnnxNemotronStt Design_); and the
+`DemaConsulting.Speech.Onnx.ChatterboxTurbo` library whose `AddChatterboxTurboModels()` extension
+method registers the Chatterbox Turbo voice-cloning synthesis model and whose shared
+`ReferenceVoiceLibrary` provides the optional reference voice pack (see _SpeechOnnxChatterboxTurbo
+Design_) — and the following NuGet dependencies:
 
 - **Avalonia** (with `Avalonia.Desktop`, `Avalonia.Themes.Fluent`, and `Avalonia.Fonts.Inter`)
   supplies the cross-platform desktop application host, styling, and view layer;
@@ -107,9 +111,10 @@ N/A - SpeechDemo provides no safety-critical functionality requiring risk contro
 1. **Input**: The process entry point configures the Avalonia application host
 2. **Composition**: On framework initialization the application parses `AppLaunchOptions` and
    constructs an `AudioDeviceFactory` and a `SpeechModelCatalog` populated through SpeechSherpa's
-   `AddSherpaModels()`, SpeechOnnxKokoro's `AddKokoroModels()`, and SpeechOnnxNemotronStt's
-   `AddNemotronSttModels()` (see _Launch Options and
-   Mirror Configuration_), wraps each in its demo-owned service
+   `AddSherpaModels()`, SpeechOnnxKokoro's `AddKokoroModels()`, SpeechOnnxNemotronStt's
+   `AddNemotronSttModels()`, and SpeechOnnxChatterboxTurbo's `AddChatterboxTurboModels()` over one
+   shared `ReferenceVoiceLibrary` (see _Launch Options and
+   Mirror Configuration_ and _Reference Voices_), wraps each in its demo-owned service
    adapter, and injects those adapters into the panel view models and the window view model
 3. **Output**: The main window opens on its first panel; the catalog is disposed when the
    desktop lifetime signals shutdown
@@ -173,7 +178,7 @@ N/A - SpeechDemo provides no safety-critical functionality requiring risk contro
 ## Launch Options and Mirror Configuration
 
 `AppLaunchOptions` parses this demo's own small set of launch-time command-line arguments
-(`--models-dir`, `--mirror-url`, `--mirror-user`, `--mirror-password`, `--mirror-bearer-token`,
+(`--models-dir`, `--voices-dir`, `--mirror-url`, `--mirror-user`, `--mirror-password`, `--mirror-bearer-token`,
 and `--help`/`-h`/`-?`), mirroring `DemaConsulting.Speech.Cli`'s global options of the same name
 so a user behind a network policy that blocks a model's public download host can redirect every
 model download to an internal mirror the same way with either tool. `Program.Main` parses
@@ -195,12 +200,33 @@ enforced once, by `DownloadMirror`'s own constructor, rather than duplicated in 
 point.
 
 `App`'s composition root threads these options through a `CatalogFactory` local function —
-capturing the resolved `SpeechModelStoreOptions` and the `AddSherpaModels()`/`AddKokoroModels()`/`AddNemotronSttModels()`
+capturing the resolved `SpeechModelStoreOptions` and the `AddSherpaModels()`/`AddKokoroModels()`/`AddNemotronSttModels()`/`AddChatterboxTurboModels()`
 composition — that `ModelCatalogService` (see _SpeechDemo ModelCatalogSubsystem Design_) calls
 again, with freshly resolved downloader options, whenever the user applies new mirror settings
 from the catalog panel. This is what lets the mirror be reconfigured from the running
 application instead of only at launch, without the library's own `SpeechModelCatalog` needing to
 support in-place reconfiguration.
+
+## Reference Voices
+
+Chatterbox Turbo clones a voice from a short reference recording, so the demo lets the user
+supply voices in two ways: an optional downloadable reference voice pack (`voice-zero-1.0`,
+CC0 1.0 Universal, attributed to voice-zero by OwenTyme), and their own recordings placed in
+the folder named by `--voices-dir` (`AppLaunchOptions.VoicesDir`, which `Parse` validates as an
+existing directory and rejects otherwise, like the CLI).
+
+`App`'s `CatalogFactory` therefore returns a `ModelCatalogComposition` — a catalog and the one
+`ReferenceVoiceLibrary` built over that catalog's store — and chains
+`AddChatterboxTurboModels` over that same library, exactly as the CLI shares a library between
+its model catalog and its voice commands. `ModelCatalogService` owns the pair. Because the
+Chatterbox voice list is read when the model is constructed, installing or removing a pack (and
+re-applying a mirror) rebuilds the pair through the factory, disposes the old one, and raises
+`IModelCatalogService.ReferenceVoicesChanged`; `SynthesisPanelViewModel` reacts by re-reading
+the catalog, restoring the user's chosen parameter values (including the selected voice), so the
+voice dropdown immediately offers the new voices. The model catalog panel hosts the install and
+remove controls, the consent note and the user voices folder; the synthesis panel shows the
+consent note and each installed pack's attribution under the voice dropdown when Chatterbox
+Turbo is selected.
 
 ## Design Constraints
 

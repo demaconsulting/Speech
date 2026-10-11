@@ -279,6 +279,34 @@ prior coverage to rely on.
 
 **Requirement coverage**: `SpeechDemo-Synthesis-ResourceLifetime`.
 
+#### SynthesisPanelViewModel_ReferenceVoicesChanged_RefreshesAndKeepsChosenVoice
+
+**Scenario**: A 10-voice model is selected and voice 5 chosen; the catalog then reports a rebuilt
+150-voice model and raises `ReferenceVoicesChanged`.
+
+**Expected**: A new model instance with 150 options, still set to the previously chosen voice.
+
+**Requirement coverage**: `SpeechDemo-Voices-SynthesisRefresh`.
+
+#### SynthesisPanelViewModel_DisposeAsync_UnsubscribesFromReferenceVoicesChanged
+
+**Scenario**: The panel is disposed, then `ReferenceVoicesChanged` is raised after the catalog
+gains a model.
+
+**Expected**: The panel does not refresh.
+
+**Requirement coverage**: `SpeechDemo-Voices-SynthesisRefresh`.
+
+#### SynthesisPanelViewModel_VoiceNotice_ChatterboxShowsConsentAndAttribution_OthersShowNothing
+
+**Scenario**: The real Chatterbox Turbo model is selected with the pack reported installed, then a
+different synthesis model.
+
+**Expected**: The notice contains the consent note and "OwenTyme" for Chatterbox, and is absent
+for the other model.
+
+**Requirement coverage**: `SpeechDemo-Voices-ConsentAndAttribution`.
+
 ### Requirements Coverage
 
 - **`SpeechDemo-Synthesis-ModelSelection`**:
@@ -321,6 +349,12 @@ prior coverage to rely on.
 - **`SpeechDemo-Synthesis-StopsBeforeDeviceRefresh`**:
   `SynthesisPanelViewModel_PreRefreshHook_WhilePlaying_StopsAndAwaitsExecutionTaskBeforeDeviceRefreshSucceeds`,
   `SynthesisPanelViewModel_PreRefreshHook_WhileIdle_IsNoOpAndDeviceRefreshSucceeds`
+
+- **`SpeechDemo-Voices-SynthesisRefresh`**:
+  `SynthesisPanelViewModel_ReferenceVoicesChanged_RefreshesAndKeepsChosenVoice`,
+  `SynthesisPanelViewModel_DisposeAsync_UnsubscribesFromReferenceVoicesChanged`
+- **`SpeechDemo-Voices-ConsentAndAttribution`**:
+  `SynthesisPanelViewModel_VoiceNotice_ChatterboxShowsConsentAndAttribution_OthersShowNothing`
 
 ### Acceptance Criteria
 
