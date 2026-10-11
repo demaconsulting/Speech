@@ -81,6 +81,12 @@ internal sealed class Context : IDisposable
     public string? ModelsDir { get; private init; }
 
     /// <summary>
+    ///     Gets the extra reference-voice directory supplied via <c>--voices-dir</c>, or
+    ///     <see langword="null"/> when none was given. When set, it is guaranteed to exist.
+    /// </summary>
+    public string? VoicesDir { get; private init; }
+
+    /// <summary>
     ///     Gets the internal download mirror base URL supplied via <c>--mirror-url</c>, or
     ///     <see langword="null"/> to download every model from its own declared public URI
     ///     (the default).
@@ -214,6 +220,7 @@ internal sealed class Context : IDisposable
             Validate = parser.Validate,
             Diagnostics = parser.Diagnostics,
             ModelsDir = parser.ModelsDir,
+            VoicesDir = parser.VoicesDir,
             MirrorUrl = parser.MirrorUrl,
             MirrorUser = parser.MirrorUser,
             MirrorPassword = parser.MirrorPassword,
@@ -226,6 +233,12 @@ internal sealed class Context : IDisposable
 
         // Validate mirror options up front so every invocation (including --help/--version) rejects bad combinations
         _ = result.CreateMirror();
+
+        // Validate --voices-dir up front so a mistyped folder fails fast rather than silently listing no voices
+        if (result.VoicesDir is not null && !Directory.Exists(result.VoicesDir))
+        {
+            throw new ArgumentException($"--voices-dir '{result.VoicesDir}' is not an existing directory.");
+        }
 
         // Open log file if specified
         if (parser.LogFile != null)
@@ -291,6 +304,11 @@ internal sealed class Context : IDisposable
         ///     Gets the models directory override.
         /// </summary>
         public string? ModelsDir { get; private set; }
+
+        /// <summary>
+        ///     Gets the extra reference-voice directory.
+        /// </summary>
+        public string? VoicesDir { get; private set; }
 
         /// <summary>
         ///     Gets the internal download mirror base URL.
@@ -395,6 +413,10 @@ internal sealed class Context : IDisposable
 
                 case "--models-dir":
                     ModelsDir = GetRequiredStringArgument(arg, args, index, "a directory path argument");
+                    return index + 1;
+
+                case "--voices-dir":
+                    VoicesDir = GetRequiredStringArgument(arg, args, index, "a directory path argument");
                     return index + 1;
 
                 case "--mirror-url":

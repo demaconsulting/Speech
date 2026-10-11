@@ -78,6 +78,14 @@ internal static class CommandDispatch
             "clean <modelId>",
             CleanCommand.Run),
         new CommandDescriptor(
+            "list-voices",
+            "list-voices [--format table|json]",
+            ListVoicesCommand.Run),
+        new CommandDescriptor(
+            "voices",
+            "voices (packs | install <packId> | uninstall <packId>)",
+            VoicesCommand.Run),
+        new CommandDescriptor(
             "list-devices",
             "list-devices [--direction input|output]",
             ListDevicesCommand.Run),

@@ -219,4 +219,78 @@ internal sealed class FakeCliModelCatalog : ICliModelCatalog
             ?? throw new InvalidOperationException(
                 $"{nameof(FakeCliModelCatalog)}.{nameof(CreateRecognizerEngineOverride)} was not configured for this test.");
     }
+
+    /// <summary>Gets the voices <see cref="EnumerateVoices"/> returns; tests add to it.</summary>
+    public List<ReferenceVoiceInfo> Voices { get; } = [];
+
+    /// <summary>Gets or sets the user voices directory this fake reports.</summary>
+    public string UserVoicesDirectoryValue { get; set; } = "user-voices";
+
+    /// <summary>Gets the per-pack state this fake reports (missing = NotDownloaded).</summary>
+    public Dictionary<string, SpeechModelState> PackStates { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>Gets the ordered pack ids passed to <see cref="InstallVoicePackAsync"/>.</summary>
+    public List<string> InstallPackCalls { get; } = [];
+
+    /// <summary>Gets the ordered pack ids passed to <see cref="UninstallVoicePack"/>.</summary>
+    public List<string> UninstallPackCalls { get; } = [];
+
+    /// <summary>Gets or sets the outcome <see cref="InstallVoicePackAsync"/> returns.</summary>
+    public SpeechModelDownloadResult InstallPackResult { get; set; } = new(SpeechModelDownloadOutcome.Installed);
+
+    /// <summary>Gets or sets an action invoked with the progress sink during an install.</summary>
+    public Action<IProgress<SpeechModelDownloadProgress>?>? OnInstallPack { get; set; }
+
+    /// <summary>Gets or sets an exception thrown by <see cref="UninstallVoicePack"/>.</summary>
+    public Exception? UninstallPackException { get; set; }
+
+    /// <inheritdoc/>
+    public IReadOnlyList<ReferenceVoicePack> VoicePacks => ReferenceVoicePack.All;
+
+    /// <inheritdoc/>
+    public string UserVoicesDirectory => UserVoicesDirectoryValue;
+
+    /// <inheritdoc/>
+    public IReadOnlyList<ReferenceVoiceInfo> EnumerateVoices() => Voices.ToList();
+
+    /// <inheritdoc/>
+    public SpeechModelState GetVoicePackState(string packId)
+    {
+        if (!VoicePacks.Any(pack => pack.Id == packId))
+        {
+            throw new ArgumentException($"'{packId}' is not a known reference-voice pack.", nameof(packId));
+        }
+
+        return PackStates.GetValueOrDefault(packId, SpeechModelState.NotDownloaded);
+    }
+
+    /// <inheritdoc/>
+    public Task<SpeechModelDownloadResult> InstallVoicePackAsync(
+        string packId,
+        IProgress<SpeechModelDownloadProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        InstallPackCalls.Add(packId);
+        cancellationToken.ThrowIfCancellationRequested();
+        OnInstallPack?.Invoke(progress);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (InstallPackResult.Outcome == SpeechModelDownloadOutcome.Installed)
+        {
+            PackStates[packId] = SpeechModelState.Downloaded;
+        }
+
+        return Task.FromResult(InstallPackResult);
+    }
+
+    /// <inheritdoc/>
+    public void UninstallVoicePack(string packId)
+    {
+        UninstallPackCalls.Add(packId);
+        if (UninstallPackException is not null)
+        {
+            throw UninstallPackException;
+        }
+
+        PackStates[packId] = SpeechModelState.NotDownloaded;
+    }
 }

@@ -20,11 +20,13 @@
 
 using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
+using DemaConsulting.Speech.Onnx.ChatterboxTurbo;
 using DemaConsulting.Speech.Onnx.Kokoro;
 using DemaConsulting.Speech.Onnx.NemotronStt;
 using DemaConsulting.Speech.RecognitionSubsystem;
 using DemaConsulting.Speech.Sherpa;
 using DemaConsulting.Speech.SynthesisSubsystem;
+using ChatterboxTurboModels = DemaConsulting.Speech.Onnx.ChatterboxTurbo.ModelManagementSubsystem;
 
 namespace DemaConsulting.Speech.Cli.Commands.ModelCommandsSubsystem;
 
@@ -43,6 +45,12 @@ internal sealed class SpeechModelCatalogAdapter : ICliModelCatalog, IDisposable
     /// <summary>The real library catalog every call is forwarded to.</summary>
     private readonly SpeechModelCatalog _catalog;
 
+    /// <summary>The reference-voice library shared by the Chatterbox model and the voice commands.</summary>
+    private readonly ReferenceVoiceLibrary _voiceLibrary;
+
+    /// <summary>The extra <c>--voices-dir</c> folder, or <see langword="null"/>.</summary>
+    private readonly string? _voicesDir;
+
     /// <summary>
     ///     Initializes a new instance of the <see cref="SpeechModelCatalogAdapter"/> class,
     ///     composing a real <see cref="SpeechModelCatalog"/>.
@@ -57,15 +65,53 @@ internal sealed class SpeechModelCatalogAdapter : ICliModelCatalog, IDisposable
     ///     <c>--mirror-*</c> overrides), or <see langword="null"/> to download every model from
     ///     its own declared public URI.
     /// </param>
+    /// <param name="voicesDir">
+    ///     Optional extra reference-voice directory (the CLI's <c>--voices-dir</c>), or
+    ///     <see langword="null"/> for only the user folder and installed packs.
+    /// </param>
     public SpeechModelCatalogAdapter(
         SpeechModelStoreOptions? options = null,
-        SpeechModelDownloaderOptions? downloaderOptions = null)
+        SpeechModelDownloaderOptions? downloaderOptions = null,
+        string? voicesDir = null)
     {
+        _voicesDir = voicesDir;
         _catalog = new SpeechModelCatalog(options, downloaderOptions, diagnostics: null)
             .AddSherpaModels()
             .AddKokoroModels()
             .AddNemotronSttModels();
+
+        // One library instance serves both the Chatterbox model (voice list read now) and the
+        // voice commands (install/uninstall/enumerate), so they share the same store and mirror.
+        _voiceLibrary = new ReferenceVoiceLibrary(_catalog.Store, downloaderOptions);
+        _catalog.AddChatterboxTurboModels(new ChatterboxTurboModels.ChatterboxTurboModelOptions
+        {
+            ReferenceVoiceDirectory = voicesDir,
+            ReferenceVoiceLibrary = _voiceLibrary
+        });
     }
+
+    /// <inheritdoc/>
+    public IReadOnlyList<ReferenceVoicePack> VoicePacks => ReferenceVoiceLibrary.Packs;
+
+    /// <inheritdoc/>
+    public string UserVoicesDirectory => _voiceLibrary.UserDirectory;
+
+    /// <inheritdoc/>
+    public IReadOnlyList<ReferenceVoiceInfo> EnumerateVoices() =>
+        _voiceLibrary.EnumerateVoices(string.IsNullOrEmpty(_voicesDir) ? null : [_voicesDir]);
+
+    /// <inheritdoc/>
+    public SpeechModelState GetVoicePackState(string packId) => _voiceLibrary.GetPackState(packId);
+
+    /// <inheritdoc/>
+    public Task<SpeechModelDownloadResult> InstallVoicePackAsync(
+        string packId,
+        IProgress<SpeechModelDownloadProgress>? progress,
+        CancellationToken cancellationToken) =>
+        _voiceLibrary.InstallPackAsync(packId, progress, cancellationToken);
+
+    /// <inheritdoc/>
+    public void UninstallVoicePack(string packId) => _voiceLibrary.UninstallPack(packId);
 
     /// <inheritdoc/>
     public IReadOnlyList<SpeechModelDescriptor> Enumerate() => _catalog.Enumerate();
@@ -172,5 +218,9 @@ internal sealed class SpeechModelCatalogAdapter : ICliModelCatalog, IDisposable
     /// <summary>
     ///     Disposes the underlying <see cref="SpeechModelCatalog"/>.
     /// </summary>
-    public void Dispose() => _catalog.Dispose();
+    public void Dispose()
+    {
+        _voiceLibrary.Dispose();
+        _catalog.Dispose();
+    }
 }

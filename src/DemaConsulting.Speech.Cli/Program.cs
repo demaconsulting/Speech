@@ -21,6 +21,7 @@
 using System.Reflection;
 using DemaConsulting.Speech.Cli.Cli;
 using DemaConsulting.Speech.Cli.SelfTest;
+using DemaConsulting.Speech.ModelManagementSubsystem;
 
 namespace DemaConsulting.Speech.Cli;
 
@@ -215,6 +216,7 @@ internal static class Program
         context.WriteLine("  --depth <#>                Set heading depth for markdown output (default: 1)");
         context.WriteLine("  --log <file>               Write output to log file");
         context.WriteLine("  --models-dir <path>        Override the model store root directory");
+        context.WriteLine("  --voices-dir <path>        Extra folder of .wav/.flac reference voices for Chatterbox Turbo (must exist)");
         context.WriteLine("  --mirror-url <url>         Download every model from this internal mirror instead of its public URI");
         context.WriteLine("  --mirror-user <user>       HTTP Basic username for --mirror-url (requires --mirror-password)");
         context.WriteLine("  --mirror-password <pass>   HTTP Basic password for --mirror-url (requires --mirror-user)");
@@ -230,6 +232,9 @@ internal static class Program
         context.WriteLine("");
         context.WriteLine("Each command above is listed with its full flag summary; run");
         context.WriteLine("'speech-cli doctor' to check the local audio, model, and native-runtime environment.");
+        context.WriteLine("");
+        context.WriteLine("Voice cloning: pick a Chatterbox Turbo voice with 'speak --tts-model <id> --tts-param voice=<voiceId>';");
+        context.WriteLine("see 'list-voices' for ids. " + ReferenceVoiceLibrary.ConsentNotice);
     }
 
     /// <summary>

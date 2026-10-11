@@ -174,4 +174,50 @@ internal interface ICliModelCatalog
         SpeechModelDescriptor descriptor,
         IReadOnlyDictionary<string, object>? parameterValues,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    ///     Gets the reference-voice packs this catalog can install.
+    /// </summary>
+    IReadOnlyList<ReferenceVoicePack> VoicePacks { get; }
+
+    /// <summary>
+    ///     Gets the folder where the user's own reference-voice files are kept (<c>.wav</c>/<c>.flac</c>).
+    /// </summary>
+    string UserVoicesDirectory { get; }
+
+    /// <summary>
+    ///     Enumerates every available reference voice (the <c>--voices-dir</c> folder, the user folder, and
+    ///     installed packs), re-reading the file system on every call.
+    /// </summary>
+    /// <returns>The voices in precedence order. Never null; may be empty.</returns>
+    IReadOnlyList<ReferenceVoiceInfo> EnumerateVoices();
+
+    /// <summary>
+    ///     Gets the install state of a reference-voice pack.
+    /// </summary>
+    /// <param name="packId">The pack identifier.</param>
+    /// <returns>The pack's current state.</returns>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="packId"/> matches no known pack.</exception>
+    SpeechModelState GetVoicePackState(string packId);
+
+    /// <summary>
+    ///     Downloads, verifies, and installs a reference-voice pack.
+    /// </summary>
+    /// <param name="packId">The pack identifier.</param>
+    /// <param name="progress">An optional progress sink.</param>
+    /// <param name="cancellationToken">A token that aborts the download.</param>
+    /// <returns>The outcome of the install attempt.</returns>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="packId"/> matches no known pack.</exception>
+    /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is canceled.</exception>
+    Task<SpeechModelDownloadResult> InstallVoicePackAsync(
+        string packId,
+        IProgress<SpeechModelDownloadProgress>? progress,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    ///     Removes an installed reference-voice pack (a pack that is not installed is a no-op).
+    /// </summary>
+    /// <param name="packId">The pack identifier.</param>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="packId"/> matches no known pack.</exception>
+    void UninstallVoicePack(string packId);
 }

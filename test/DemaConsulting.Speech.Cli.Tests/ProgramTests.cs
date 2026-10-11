@@ -548,6 +548,81 @@ public class ProgramTests
     }
 
     /// <summary>
+    ///     Test that <c>--voices-dir</c> parses onto the context, anywhere relative to the subcommand,
+    ///     when the directory exists.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithExistingVoicesDir_ParsesOntoContext()
+    {
+        // Arrange
+        var dir = Path.Join(Path.GetTempPath(), "DemaConsulting.Speech.Cli.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            // Act
+            using var context = Context.Create(["list-voices", "--voices-dir", dir]);
+
+            // Assert
+            Assert.Equal(dir, context.VoicesDir);
+            Assert.Empty(context.CommandArgs);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    /// <summary>
+    ///     Test that a <c>--voices-dir</c> naming a missing directory, or lacking a value, is rejected.
+    /// </summary>
+    [Fact]
+    public void Context_Create_WithBadVoicesDir_ThrowsArgumentException()
+    {
+        var missing = Path.Join(Path.GetTempPath(), "DemaConsulting.Speech.Cli.Tests", Guid.NewGuid().ToString("N"));
+
+        Assert.Throws<ArgumentException>(() => Context.Create(["list-voices", "--voices-dir", missing]));
+        Assert.Throws<ArgumentException>(() => Context.Create(["list-voices", "--voices-dir"]));
+    }
+
+    /// <summary>
+    ///     Test that help documents <c>--voices-dir</c>, the voice commands, voice selection, and the consent note.
+    /// </summary>
+    [Fact]
+    public void Program_Run_Help_DocumentsVoicesOptionsAndConsentNote()
+    {
+        var originalOut = Console.Out;
+        try
+        {
+            using var writer = new StringWriter();
+            Console.SetOut(writer);
+            using var context = Context.Create(["--help"]);
+
+            Program.Run(context);
+
+            var output = writer.ToString();
+            Assert.Contains("--voices-dir", output);
+            Assert.Contains("list-voices", output);
+            Assert.Contains("voices (packs | install <packId> | uninstall <packId>)", output);
+            Assert.Contains("--tts-param voice=<voiceId>", output);
+            Assert.Contains("Only clone voices you have permission to use", output);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+    }
+
+    /// <summary>
+    ///     Test that <c>list-voices</c> and <c>voices</c> are registered in the dispatch table.
+    /// </summary>
+    [Fact]
+    public void CommandDispatch_Find_VoiceCommands_AreRegistered()
+    {
+        Assert.NotNull(CommandDispatch.Find("list-voices"));
+        Assert.NotNull(CommandDispatch.Find("voices"));
+    }
+
+    /// <summary>
     ///     Test that Run passes through to Main's ArgumentException handling with a null-safe
     ///     path when <see cref="Program.Run"/> itself is given a null context.
     /// </summary>

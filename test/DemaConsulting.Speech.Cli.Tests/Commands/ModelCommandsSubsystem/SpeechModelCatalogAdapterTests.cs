@@ -22,6 +22,7 @@ using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.Cli.Cli;
 using DemaConsulting.Speech.Cli.Commands.ModelCommandsSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
+using DemaConsulting.Speech.Onnx.ChatterboxTurbo.ModelManagementSubsystem;
 using DemaConsulting.Speech.Onnx.Kokoro.ModelManagementSubsystem;
 using DemaConsulting.Speech.Onnx.NemotronStt.ModelManagementSubsystem;
 using DemaConsulting.Speech.Sherpa.ModelManagementSubsystem;
@@ -79,10 +80,11 @@ public sealed class SpeechModelCatalogAdapterTests : IDisposable
         var descriptors = adapter.Enumerate();
 
         // Assert: the adapter registers the same models the application's own composition
-        // root does via AddSherpaModels().AddKokoroModels().AddNemotronSttModels()
+        // root does via AddSherpaModels().AddKokoroModels().AddNemotronSttModels().AddChatterboxTurboModels()
         Assert.Contains(descriptors, d => d.Id == SherpaOnnxZipformerEnRecognitionModel.ModelId);
         Assert.Contains(descriptors, d => d.Id == OnnxKokoroEnglishSynthesisModel.ModelId);
         Assert.Contains(descriptors, d => d.Id == OnnxNemotronMultilingualRecognitionModel.ModelId);
+        Assert.Contains(descriptors, d => d.Id.StartsWith(OnnxChatterboxTurboEnglishSynthesisModel.BaseModelId, StringComparison.Ordinal));
         Assert.All(descriptors, descriptor => Assert.Equal(SpeechModelState.NotDownloaded, descriptor.State));
     }
 
@@ -133,7 +135,95 @@ public sealed class SpeechModelCatalogAdapterTests : IDisposable
         using var adapter = CliModelCatalogFactory.Create(context);
 
         // Assert: enumerating does not throw and returns the compiled-in known models
-        Assert.Equal(6, adapter.Enumerate().Count);
+        Assert.Equal(7, adapter.Enumerate().Count);
+    }
+
+    /// <summary>
+    ///     Test that the adapter's voice members use the store's reference-voice library: the pack is
+    ///     listed as not downloaded, user and <c>--voices-dir</c> voices are enumerated, and the user
+    ///     directory lies under the models root.
+    /// </summary>
+    [Fact]
+    public void SpeechModelCatalogAdapter_Voices_ListsUserAndVoicesDirVoices()
+    {
+        // Arrange
+        var voicesDir = Path.Join(_testRoot, "extra-voices");
+        Directory.CreateDirectory(voicesDir);
+        WriteTinyWav(Path.Join(voicesDir, "zoe.wav"));
+        using var adapter = new SpeechModelCatalogAdapter(
+            new SpeechModelStoreOptions { RootPathOverride = _testRoot },
+            voicesDir: voicesDir);
+        Directory.CreateDirectory(adapter.UserVoicesDirectory);
+        WriteTinyWav(Path.Join(adapter.UserVoicesDirectory, "yan.wav"));
+
+        // Act
+        var voices = adapter.EnumerateVoices();
+
+        // Assert
+        Assert.StartsWith(_testRoot, adapter.UserVoicesDirectory, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(voices, v => v.Id == "zoe" && v.Source == ReferenceVoiceSource.Directory);
+        Assert.Contains(voices, v => v.Id == "yan" && v.Source == ReferenceVoiceSource.User);
+        var pack = Assert.Single(adapter.VoicePacks);
+        Assert.Equal(SpeechModelState.NotDownloaded, adapter.GetVoicePackState(pack.Id));
+    }
+
+    /// <summary>
+    ///     Test that uninstalling a never-installed pack is a no-op and an unknown pack id is rejected.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelCatalogAdapter_VoicePackUninstallAndInstall_UnknownOrMissingPack_BehaveCleanly()
+    {
+        // Arrange
+        using var adapter = new SpeechModelCatalogAdapter(new SpeechModelStoreOptions { RootPathOverride = _testRoot });
+        var packId = adapter.VoicePacks[0].Id;
+
+        // Act & Assert
+        adapter.UninstallVoicePack(packId);
+        Assert.Equal(SpeechModelState.NotDownloaded, adapter.GetVoicePackState(packId));
+        Assert.Throws<ArgumentException>(() => adapter.GetVoicePackState("nope"));
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => adapter.InstallVoicePackAsync("nope", null, TestContext.Current.CancellationToken));
+    }
+
+    /// <summary>
+    ///     Test that <see cref="CliModelCatalogFactory.Create"/> threads <c>--voices-dir</c> into the adapter.
+    /// </summary>
+    [Fact]
+    public void CliModelCatalogFactory_Create_WithVoicesDir_EnumeratesThatFolder()
+    {
+        // Arrange
+        var voicesDir = Path.Join(_testRoot, "voices-from-flag");
+        Directory.CreateDirectory(voicesDir);
+        WriteTinyWav(Path.Join(voicesDir, "kim.wav"));
+        using var context = Context.Create(["list-voices", "--models-dir", _testRoot, "--voices-dir", voicesDir]);
+
+        // Act
+        using var adapter = CliModelCatalogFactory.Create(context);
+
+        // Assert
+        Assert.Contains(adapter.EnumerateVoices(), v => v.Id == "kim");
+    }
+
+    /// <summary>Writes a tiny, valid 16-bit mono 24 kHz silent 1.5 s WAV file (a decodable reference voice).</summary>
+    private static void WriteTinyWav(string path)
+    {
+        const int sampleRate = 24000;
+        const int samples = 36000;
+        using var stream = File.Create(path);
+        using var writer = new BinaryWriter(stream);
+        writer.Write("RIFF"u8);
+        writer.Write(36 + (samples * 2));
+        writer.Write("WAVEfmt "u8);
+        writer.Write(16);
+        writer.Write((short)1);
+        writer.Write((short)1);
+        writer.Write(sampleRate);
+        writer.Write(sampleRate * 2);
+        writer.Write((short)2);
+        writer.Write((short)16);
+        writer.Write("data"u8);
+        writer.Write(samples * 2);
+        writer.Write(new byte[samples * 2]);
     }
 
     /// <summary>
