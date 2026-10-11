@@ -16,9 +16,10 @@ the ONNX-backed encoder and prediction networks, so no test depends on model fil
 - **`OnnxNemotronRecognitionEngine`**: chunking, provisional and final results, endpointing,
   reset, and disposal - see _SpeechOnnxNemotronStt OnnxNemotronRecognitionEngine Verification_
 
-The ONNX Runtime-backed `NemotronEncoder` and `NemotronRnntNetwork` are exercised only by the
-manual real-model run and the self-skipping real-model test described in _SpeechOnnxNemotronStt
-System Verification_.
+The ONNX Runtime-backed `NemotronEncoder` and `NemotronRnntNetwork` are exercised in CI by
+`NemotronEncoderTests` and `NemotronRnntNetworkTests` against tiny synthetic ONNX models that
+honor the real tensor contracts, and end to end by the self-skipping real-model test and the
+manual real-model run described in _SpeechOnnxNemotronStt System Verification_.
 
 ### Test Environment
 

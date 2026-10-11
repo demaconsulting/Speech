@@ -60,6 +60,6 @@ public sealed class DitherNoiseTests
         new DitherNoise(1e-3f, 1).Apply(a);
         new DitherNoise(1e-3f, 2).Apply(b);
 
-        Assert.NotEqual(a, b);
+        Assert.False(a.SequenceEqual(b));
     }
 }
