@@ -139,7 +139,7 @@ noise would otherwise make the model emit nothing), calibrates its quiet thresho
 The optional `DemaConsulting.Speech.Onnx.ChatterboxTurbo` package adds a voice-cloning synthesis
 model through `AddChatterboxTurboModels(options)`: `OnnxChatterboxTurboEnglishSynthesisModel`
 (`chatterbox-turbo-onnx-en`, the ONNX export of ResembleAI's Chatterbox Turbo, 24,000 Hz, licensed
-**MIT**). The model has no built-in voices and the package bundles no voice audio: you supply one or
+**MIT**). The model has no built-in voices: you supply one or
 more short reference clips (1 to 30 seconds of clean speech, WAV or FLAC of any sample rate and
 channel count, or in-memory samples) and the model speaks in that voice. The first voice is the
 default and the `voice` choice parameter selects among them. You are responsible for having the
@@ -165,6 +165,27 @@ var options = new ChatterboxTurboModelOptions
 var catalog = new SpeechModelCatalog().AddChatterboxTurboModels(options);
 ```
 
+The package bundles no voice audio, but the core package can download an optional **reference-voice
+pack** and keeps a folder for your own clips, and the model lists all of them as voices
+automatically when registered through `AddChatterboxTurboModels` (set `IncludeStoreVoices = false`
+to opt out). The built-in pack is **voice-zero 1.0** by OwenTyme (154 clips, **CC0 1.0 Universal**,
+[source](https://github.com/OwenTyme/voice-zero)). Install it with `ReferenceVoiceLibrary`:
+
+```csharp
+using var voices = new ReferenceVoiceLibrary(catalog.Store);
+await voices.InstallPackAsync(ReferenceVoicePack.VoiceZero10.Id);   // ~570 MiB download, ~46 MB installed
+// Your own .wav/.flac clips go in voices.UserDirectory (voices.EnsureUserDirectory() creates it).
+```
+
+The download is the whole upstream archive, verified against its published SHA-256 and fetched
+through the same mirror-aware downloader as models (with a mirror configured the path is
+`{mirror}/voice-zero-1.0/voice-zero-1.0.zip`); only the voice clips and license files are kept
+(about 46 MB). Voices are stored under `<models root>\reference-voices\`: the pack in
+`voice-zero-1.0\current\voices\` and your own clips in `user\`. The voice list merges explicit
+`ReferenceVoices`, then `ReferenceVoiceDirectory`, then `user\`, then the pack, and the first voice
+with a given id wins, so your own clip overrides a pack voice of the same name. The voice list is
+read when the catalog is built, so rebuild it after installing a pack. Cloning a real person's voice
+requires that person's consent (`ReferenceVoiceLibrary.ConsentNotice`).
 By default the package downloads the fp16 language model with q4-quantized helper graphs (eight
 files, roughly 1.1 GB); `LanguageModelVariant` and `AuxiliaryModelVariant` select other precisions,
 each installed under its own model id. The model runs on the CPU only. It renders the `[laugh]`,

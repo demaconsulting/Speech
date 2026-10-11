@@ -377,9 +377,9 @@ mirror serves its files from `<mirror>/nemotron-3.5-asr-streaming-0.6b-onnx-int4
 
 The optional `DemaConsulting.Speech.Onnx.ChatterboxTurbo` package adds a voice-cloning synthesis
 model through `AddChatterboxTurboModels(options)`: `OnnxChatterboxTurboEnglishSynthesisModel`
-(`chatterbox-turbo-onnx-en`, 24,000 Hz, licensed **MIT**). It has no built-in voices and bundles no
-voice audio; you supply short reference clips (1 to 30 seconds, WAV or FLAC of any sample rate
-and channel count, or in-memory samples) and the model speaks in that voice:
+(`chatterbox-turbo-onnx-en`, 24,000 Hz, licensed **MIT**). It has no built-in voices; you supply short
+reference clips (1 to 30 seconds, WAV or FLAC of any sample rate and channel count, or in-memory
+samples) and the model speaks in that voice:
 
 ```csharp
 var options = new ChatterboxTurboModelOptions
@@ -391,6 +391,27 @@ var options = new ChatterboxTurboModelOptions
 var catalog = new SpeechModelCatalog().AddChatterboxTurboModels(options);
 ```
 
+The package bundles no voice audio, but the core package can download an optional **reference-voice
+pack** and keeps a folder for your own clips, and the model lists all of them as voices
+automatically when registered through `AddChatterboxTurboModels` (set `IncludeStoreVoices = false`
+to opt out). The built-in pack is **voice-zero 1.0** by OwenTyme (154 clips, **CC0 1.0 Universal**,
+[source](https://github.com/OwenTyme/voice-zero)). Install it with `ReferenceVoiceLibrary`:
+
+```csharp
+using var voices = new ReferenceVoiceLibrary(catalog.Store);
+await voices.InstallPackAsync(ReferenceVoicePack.VoiceZero10.Id);   // ~570 MiB download, ~46 MB installed
+// Your own .wav/.flac clips go in voices.UserDirectory (voices.EnsureUserDirectory() creates it).
+```
+
+The download is the whole upstream archive, verified against its published SHA-256 and fetched
+through the same mirror-aware downloader as models (with a mirror configured the path is
+`{mirror}/voice-zero-1.0/voice-zero-1.0.zip`); only the voice clips and license files are kept
+(about 46 MB). Voices are stored under `<models root>\reference-voices\`: the pack in
+`voice-zero-1.0\current\voices\` and your own clips in `user\`. The voice list merges explicit
+`ReferenceVoices`, then `ReferenceVoiceDirectory`, then `user\`, then the pack, and the first voice
+with a given id wins, so your own clip overrides a pack voice of the same name. The voice list is
+read when the catalog is built, so rebuild it after installing a pack. Cloning a real person's voice
+requires that person's consent (`ReferenceVoiceLibrary.ConsentNotice`).
 The first voice is the default and the `voice` choice parameter selects another. The default
 download is the fp16 language model with q4 helper graphs (eight files, roughly 1.1 GB);
 `LanguageModelVariant` and `AuxiliaryModelVariant` choose other precisions, each with its own model

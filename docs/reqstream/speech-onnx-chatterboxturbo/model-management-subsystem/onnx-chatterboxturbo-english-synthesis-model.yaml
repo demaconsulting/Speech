@@ -86,3 +86,20 @@ sections:
                   at assignment rather than during synthesis.
                 tests:
                   - ChatterboxTurboModelOptions_Properties_HaveSafeDefaultsAndValidate
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoices
+                title: >-
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall append the voices of a
+                  core ReferenceVoiceLibrary after explicit and directory voices with the first id
+                  winning, load them lazily so a corrupt file does not fail construction, let a
+                  host opt out, and default to the library of the catalog's store when registered
+                  through the catalog extension without mutating the caller's options.
+                justification: |
+                  The downloaded voice pack and the user's own clips must appear in the voice list
+                  without any host code, while explicit voices keep working unchanged and a
+                  hundred-plus clips are never decoded up front.
+                tests:
+                  - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_StoreVoices_MergedAfterExplicitAndDirectoryFirstIdWins
+                  - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_CorruptStoreVoice_DoesNotFailConstruction
+                  - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_IncludeStoreVoicesFalse_IgnoresLibrary
+                  - SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_DefaultsToCatalogStoreVoices

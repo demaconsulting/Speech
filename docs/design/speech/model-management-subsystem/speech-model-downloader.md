@@ -91,6 +91,13 @@ underlying exception, populated for every non-`Installed` outcome.
   genuinely installed even when a model expands or shrinks during unpacking. `SpeechModelCatalog`
   uses this overload exclusively, so every catalog-driven download genuinely runs the model's
   install hook.
+- **DownloadAsync(modelId, descriptor, installHook, progress?, cancellationToken)** (internal): The
+  model-agnostic form of the overload above. Both overloads share one private core that
+  takes an optional `Func<string, CancellationToken, Task>` hook; the `ISpeechModel` overload passes
+  `model.InstallAsync`. It exists so a payload that is not an `ISpeechModel` - the reference-voice
+  pack - gets the identical verified, mirror-aware, atomic download plus its own extraction step. A hook
+  failure is classified exactly as a model hook failure is (`InvalidDataException` is `Failed`,
+  `IOException` is `IoFailure`) and installs nothing.
 
 **Error Handling**: A checksum mismatch returns `SpeechModelDownloadOutcome.ChecksumMismatch` with
 `Error` populated with a descriptive `InvalidOperationException` naming the model id and the

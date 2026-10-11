@@ -33,6 +33,9 @@ input-files:
   - docs/verification/speech/model-management-subsystem.md
   - docs/verification/speech/model-management-subsystem/speech-model-store.md
   - docs/verification/speech/model-management-subsystem/speech-model-store-options.md
+  - docs/verification/speech/model-management-subsystem/reference-voice-pack.md
+  - docs/verification/speech/model-management-subsystem/reference-voice-pack-installer.md
+  - docs/verification/speech/model-management-subsystem/reference-voice-library.md
   - docs/verification/speech/model-management-subsystem/speech-model-store-exception.md
   - docs/verification/speech/model-management-subsystem/speech-model-download-file.md
   - docs/verification/speech/model-management-subsystem/speech-model-download-descriptor.md

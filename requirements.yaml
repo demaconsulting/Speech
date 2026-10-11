@@ -44,6 +44,9 @@ includes:
   - docs/reqstream/speech/model-management-subsystem.yaml
   - docs/reqstream/speech/model-management-subsystem/speech-model-store.yaml
   - docs/reqstream/speech/model-management-subsystem/speech-model-store-options.yaml
+  - docs/reqstream/speech/model-management-subsystem/reference-voice-pack.yaml
+  - docs/reqstream/speech/model-management-subsystem/reference-voice-pack-installer.yaml
+  - docs/reqstream/speech/model-management-subsystem/reference-voice-library.yaml
   - docs/reqstream/speech/model-management-subsystem/speech-model-store-exception.yaml
   - docs/reqstream/speech/model-management-subsystem/speech-model-downloader.yaml
   - docs/reqstream/speech/model-management-subsystem/speech-model-downloader-options.yaml

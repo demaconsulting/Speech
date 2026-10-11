@@ -72,3 +72,16 @@ sections:
               - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-Normalization
               - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-FileLoading
               - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-Validation
+
+          - id: SpeechOnnxChatterboxTurbo-Models-StoreReferenceVoices
+            title: >-
+              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall offer the voices of the
+              model store's reference-voice library, downloaded pack and user folder, as selectable
+              voices alongside explicitly supplied ones.
+            justification: |
+              Voice cloning needs reference clips, and shipping a ready-to-download pack of
+              permissively licensed clips plus a user folder removes the need for every host to
+              source and wire up its own.
+            children:
+              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoices
+              - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-LazyFileLoading

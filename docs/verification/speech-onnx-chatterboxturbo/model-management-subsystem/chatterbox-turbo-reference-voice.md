@@ -57,3 +57,8 @@ exceptions.
 ##### Bad files throw distinct exceptions
 
 **Test**: `ChatterboxTurboReferenceVoice_FromFile_BadFiles_ThrowDistinctExceptions`
+
+##### Lazy file voices defer decoding
+
+**Test**: `ChatterboxTurboReferenceVoice_FromFileLazy_CorruptFile_FailsOnFirstUseNamingFile`
+**Test**: `ChatterboxTurboReferenceVoice_FromFileLazy_ValidFile_LoadsOnceOnFirstUse`

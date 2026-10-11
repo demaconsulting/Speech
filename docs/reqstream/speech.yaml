@@ -139,6 +139,7 @@ sections:
           - Speech-Models-DownloadProgress
           - Speech-Models-MockableHttpSeam
           - Speech-Models-MirrorRedirect
+          - Speech-Models-ReferenceVoicePack
           - Speech-Models-RicherFailureClassification
         tests:
           - Speech_SystemIntegration_ModelDownload_VerifiesAndAtomicallyInstallsModel

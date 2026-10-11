@@ -121,6 +121,14 @@ reclassified as `NetworkBlocked`.
 
 **Test**: `SpeechModelDownloader_DownloadAsync_TwoConcurrentRequestsForSameModelId_AreSerialized`
 
+##### Download: Install-Hook Delegate Overload Runs the Hook Before the Swap
+
+**Test**: `SpeechModelDownloader_DownloadAsync_WithInstallHookDelegate_RunsHookBeforeSwapAndInstallsItsOutput`
+
+##### Download: Throwing Install-Hook Delegate Reports Failure and Installs Nothing
+
+**Test**: `SpeechModelDownloader_DownloadAsync_WithThrowingInstallHookDelegate_ReportsFailureAndInstallsNothing`
+
 ##### Download: Model-Aware Overload Invokes InstallAsync Before CompleteInstall
 
 **Test**: `SpeechModelDownloader_DownloadAsync_WithModel_InvokesInstallAsyncBeforeCompleteInstall`

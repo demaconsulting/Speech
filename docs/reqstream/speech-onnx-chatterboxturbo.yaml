@@ -75,6 +75,7 @@ sections:
           already has, and no third-party voice audio can be bundled with the package.
         children:
           - SpeechOnnxChatterboxTurbo-Models-ReferenceVoices
+          - SpeechOnnxChatterboxTurbo-Models-StoreReferenceVoices
           - SpeechOnnxChatterboxTurbo-Synthesis-VoiceConditioning
         tests:
           - ChatterboxTurboReferenceVoice_FromFile_StereoWav_LoadsVoice

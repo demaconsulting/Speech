@@ -67,3 +67,19 @@ file or with an invalid graph; options have safe defaults and validate.
 ##### Options have safe defaults and validate
 
 **Test**: `ChatterboxTurboModelOptions_Properties_HaveSafeDefaultsAndValidate`
+
+##### Library voices merge after explicit and directory voices, first id wins
+
+**Test**: `OnnxChatterboxTurboEnglishSynthesisModel_Constructor_StoreVoices_MergedAfterExplicitAndDirectoryFirstIdWins`
+
+##### A corrupt library voice does not fail construction
+
+**Test**: `OnnxChatterboxTurboEnglishSynthesisModel_Constructor_CorruptStoreVoice_DoesNotFailConstruction`
+
+##### IncludeStoreVoices false ignores the library
+
+**Test**: `OnnxChatterboxTurboEnglishSynthesisModel_Constructor_IncludeStoreVoicesFalse_IgnoresLibrary`
+
+##### The catalog extension defaults to the catalog store's library
+
+**Test**: `SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_DefaultsToCatalogStoreVoices`

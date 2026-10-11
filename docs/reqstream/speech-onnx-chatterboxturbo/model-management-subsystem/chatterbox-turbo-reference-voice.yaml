@@ -51,3 +51,15 @@ sections:
                 tests:
                   - ChatterboxTurboReferenceVoice_FromSamples_TooShort_Throws
                   - ChatterboxTurboReferenceVoice_FromSamples_InvalidArguments_Throw
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-LazyFileLoading
+                title: >-
+                  The ChatterboxTurboReferenceVoice class shall support a file-backed voice whose
+                  audio is decoded on first use only, and shall report a decoding failure then with
+                  an exception that names the file.
+                justification: |
+                  A library of over a hundred clips must list instantly, and one damaged clip must
+                  fail only when chosen, with a message that identifies it.
+                tests:
+                  - ChatterboxTurboReferenceVoice_FromFileLazy_CorruptFile_FailsOnFirstUseNamingFile
+                  - ChatterboxTurboReferenceVoice_FromFileLazy_ValidFile_LoadsOnceOnFirstUse

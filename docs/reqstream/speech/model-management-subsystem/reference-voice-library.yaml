@@ -1,0 +1,61 @@
+---
+# Software Unit Requirements for ReferenceVoiceLibrary
+#
+# Unit-level behavior of ReferenceVoiceLibrary, decomposing the parent ModelManagementSubsystem
+# requirements. Covered by
+# test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/ReferenceVoiceLibraryTests.cs using
+# synthetic archives and a fake download client (no network access).
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: ModelManagementSubsystem Requirements
+        sections:
+          - title: ReferenceVoiceLibrary Requirements
+            requirements:
+              - id: Speech-Models-ReferenceVoiceLibrary-StoreLayout
+                title: >-
+                  The ReferenceVoiceLibrary class shall keep packs and a user voice folder under a
+                  reference-voices folder inside the model store root, laying each pack out as
+                  reference-voices/{packId}/current, and shall not create any folder until asked to.
+                justification: |
+                  Keeping reference voices beside the models they serve lets one store location
+                  (and one configurable root) cover everything, while lazy creation keeps merely
+                  constructing a library free of side effects.
+                tests:
+                  - ReferenceVoiceLibrary_Paths_FollowDocumentedLayout
+                  - ReferenceVoiceLibrary_InvalidArguments_Throw
+                  - ReferenceVoiceLibrary_EnsureUserDirectory_CreatesFolderAndListsUserVoices
+
+              - id: Speech-Models-ReferenceVoiceLibrary-PackInstall
+                title: >-
+                  The ReferenceVoiceLibrary class shall download a pack's whole archive through the
+                  hash-verifying, mirror-aware model downloader, install only a verified archive,
+                  treat a repeat install as a no-op, report honest pack states, and uninstall a
+                  pack without touching the user folder.
+                justification: |
+                  Reusing the existing downloader gives the pack the same integrity, atomic-swap
+                  and mirror behavior as models; the user folder holds the user's own files and
+                  must survive any pack operation.
+                tests:
+                  - ReferenceVoiceLibrary_InstallPack_Success_InstallsVoicesAndUpdatesState
+                  - ReferenceVoiceLibrary_InstallPack_WithMirror_RequestsMirrorUri
+                  - ReferenceVoiceLibrary_InstallPack_SecondCall_IsNoOp
+                  - ReferenceVoiceLibrary_InstallPack_ChecksumMismatch_InstallsNothingAndReportsFailedState
+                  - ReferenceVoiceLibrary_InstallPack_ArchiveWithoutVoices_FailsWithoutInstalling
+                  - ReferenceVoiceLibrary_UninstallPack_RemovesPackKeepsUserFolder
+                  - ReferenceVoiceLibrary_InstallPack_AfterDispose_Throws
+
+              - id: Speech-Models-ReferenceVoiceLibrary-VoiceMerge
+                title: >-
+                  The ReferenceVoiceLibrary class shall list voices from caller-named directories,
+                  then the user folder, then installed packs, de-duplicating by voice id with the
+                  first occurrence winning, and shall return an empty list rather than throwing
+                  when nothing is present.
+                justification: |
+                  A voice a user deliberately supplies must override a bundled one of the same
+                  name, and a first run before any download must simply offer no voices.
+                tests:
+                  - ReferenceVoiceLibrary_EnumerateVoices_MergesInPrecedenceOrderFirstIdWins
+                  - ReferenceVoiceLibrary_EnumerateVoices_NothingPresent_ReturnsEmptyWithoutCreatingFolders
+                  - ReferenceVoiceLibrary_Humanize_FormatsName

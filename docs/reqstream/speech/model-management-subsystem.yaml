@@ -109,6 +109,7 @@ sections:
               - Speech-Models-SpeechModelDownloader-ConcurrentDownloadsAcrossModels
               - Speech-Models-SpeechModelDownloader-FetchVerifyInstall
               - Speech-Models-SpeechModelDownloader-InvokesModelInstallHook
+              - Speech-Models-SpeechModelDownloader-InstallHookOverload
             tests:
               - SpeechModelDownloader_DownloadAsync_ValidPayload_InstallsModelAndReportsProgress
               - SpeechModelDownloader_DownloadAsync_TwoConcurrentRequestsForSameModelId_AreSerialized
@@ -407,3 +408,23 @@ sections:
               - Speech-Models-SpeechModelCatalog-StoreExposure
             tests:
               - SpeechModelCatalog_Store_Always_ReturnsInternalStoreInstance
+
+          - id: Speech-Models-ReferenceVoicePack
+            title: >-
+              The ModelManagementSubsystem shall provide a model-agnostic reference-voice library
+              that downloads a verified, licensed voice pack through the model downloader, installs
+              only its voice clips and license files, keeps a user voice folder beside it, and
+              lists all available voices merged and de-duplicated.
+            justification: |
+              Voice-cloning synthesis models need reference clips, and a hundred-plus permissively
+              licensed clips are far more useful as an optional, verified download than as
+              something every host must source itself. Placing the library in the core, rather
+              than in one synthesis engine, lets any current or future cloning model share it.
+            children:
+              - Speech-Models-ReferenceVoicePack-PublishedMetadata
+              - Speech-Models-ReferenceVoicePack-ArgumentValidation
+              - Speech-Models-ReferenceVoicePackInstaller-SelectiveExtraction
+              - Speech-Models-ReferenceVoicePackInstaller-ArchiveSafety
+              - Speech-Models-ReferenceVoiceLibrary-StoreLayout
+              - Speech-Models-ReferenceVoiceLibrary-PackInstall
+              - Speech-Models-ReferenceVoiceLibrary-VoiceMerge

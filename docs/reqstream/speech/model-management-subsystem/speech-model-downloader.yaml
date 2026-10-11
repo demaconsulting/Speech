@@ -209,3 +209,17 @@ sections:
                   - SpeechModelDownloader_DownloadAsync_UnauthorizedAccessException_ReportsIoFailure
                   - SpeechModelDownloader_DownloadAsync_UnmatchedExceptionType_ReportsFailed
                   - SpeechModelDownloader_DownloadAsync_CanceledMidDownload_ThrowsAndInstallsNothing
+
+              - id: Speech-Models-SpeechModelDownloader-InstallHookOverload
+                title: >-
+                  The SpeechModelDownloader class shall offer an internal overload that runs a
+                  caller-supplied install hook on the verified staging directory before the atomic
+                  swap, installing whatever the hook leaves behind and installing nothing, with a
+                  classified failure outcome, when the hook throws.
+                justification: |
+                  Model-agnostic payloads such as a reference-voice pack need the same verified,
+                  mirror-aware, atomic download as models without implementing ISpeechModel; a
+                  delegate hook shares the one orchestration path instead of duplicating it.
+                tests:
+                  - SpeechModelDownloader_DownloadAsync_WithInstallHookDelegate_RunsHookBeforeSwapAndInstallsItsOutput
+                  - SpeechModelDownloader_DownloadAsync_WithThrowingInstallHookDelegate_ReportsFailureAndInstallsNothing

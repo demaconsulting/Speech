@@ -41,6 +41,11 @@ It contains the following units:
   `SpeechModelDownloadOutcome` result states (including network/HTTP/I-O failure classification),
   plus the optional configuration seam and mirror-description type that let a host redirect every
   model download through an internal, possibly-authenticated HTTPS mirror
+- **ReferenceVoicePack** / **ReferenceVoicePackInstaller** / **ReferenceVoiceLibrary**: the model-agnostic
+  reference-voice library - a descriptor for a downloadable, checksum-verified voice pack (the built-in
+  voice-zero 1.0, CC0), the safe selective extractor the downloader runs on it, and the library that
+  installs/removes packs, keeps a user voice folder and lists all voices merged and de-duplicated; any
+  voice-cloning model (the first is ChatterboxTurbo) consumes it
 - **SpeechModelDownloadFile** / **SpeechModelDownloadDescriptor**: HTTPS-only URL(s) plus
   SHA-256 checksum descriptor types describing what a downloader fetches and verifies
 - **SpeechModelDownloadProgress**: the `IProgress<T>`-compatible download-progress payload

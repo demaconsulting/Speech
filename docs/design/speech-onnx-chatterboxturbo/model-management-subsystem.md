@@ -29,9 +29,16 @@ limits; every option has a safe default and validates on assignment.
 
 The registration method constructs one `OnnxChatterboxTurboEnglishSynthesisModel` from the options
 and passes it to `SpeechModelCatalog.AddModels`. The model has no built-in voices: its `voice`
-choice parameter lists the supplied voices in order, with the first as default, and
+choice parameter lists the available voices in order, with the first as default, and
 `ResolveSpeakerId` maps a voice id to its index. When a voice directory is supplied every `.wav`
-file in it becomes a voice named after the file.
+or `.flac` file in it becomes a voice named after the file.
+
+Voices also come from the core `ReferenceVoiceLibrary` over the catalog's store (or the one set in
+`ChatterboxTurboModelOptions.ReferenceVoiceLibrary`; `IncludeStoreVoices = false` opts out): the user
+folder and the downloaded voice pack are appended after the explicit and directory voices, first id
+wins, and are decoded lazily so listing many clips is cheap and one corrupt clip fails only when it is
+chosen. Explicit `ReferenceVoices` and `ReferenceVoiceDirectory` keep working unchanged. See
+_ReferenceVoiceLibrary_ in the core ModelManagementSubsystem design for the pack, layout and merge rules.
 
 The model's catalog id is `chatterbox-turbo-onnx-en` for the default variants (fp16 language model,
 q4 auxiliary graphs) and `chatterbox-turbo-onnx-en-lm-<variant>-aux-<variant>` otherwise, so
