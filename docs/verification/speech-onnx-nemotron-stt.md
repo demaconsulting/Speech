@@ -44,9 +44,10 @@ the CPU, and are recorded here as evidence only; they are not automated coverage
   and "Wait, I will be right back" respectively (16 of 16 variants).
 - DirectML and other GPU execution providers could not be verified; only CPU execution was
   exercised.
-- **UNVERIFIED**: the declared license, "NVIDIA Open Model License", could not be confirmed
-  because the upstream Hugging Face model card was unreachable from the development sandbox (its
-  front matter may say `mit`). It must be confirmed against the live model card before release.
+- **License**: the upstream model is dual-licensed under the MIT License and the NVIDIA Open
+  Model License (confirmed by the project maintainer), and both apply. The declared license,
+  "MIT and NVIDIA Open Model License", names both. The upstream Hugging Face model card was
+  unreachable from the development sandbox, so the declaration was not cross-checked against it.
 
 ## Test Environment
 
