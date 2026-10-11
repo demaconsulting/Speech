@@ -37,6 +37,7 @@ sections:
               - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-ProvisionalResults
               - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-Flush
               - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-QuietEndpointing
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-QuietPadding
               - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-EmptyChunkEndpointing
               - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-ResetAndDispose
             tests:
@@ -77,6 +78,7 @@ sections:
             children:
               - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-Greedy
               - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-SymbolCap
+              - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-BlankPenalty
               - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-ResetAndDispose
               - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-ArgumentValidation
             tests:

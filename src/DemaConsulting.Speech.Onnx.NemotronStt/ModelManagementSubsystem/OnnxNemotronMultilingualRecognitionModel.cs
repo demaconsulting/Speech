@@ -193,6 +193,8 @@ public sealed class OnnxNemotronMultilingualRecognitionModel : IRecognitionModel
 
         InferenceSession? encoderSession = null;
         InferenceSession? decoderSession = null;
+        InferenceSession? jointSession = null;
+        NemotronRnntNetwork? network = null;
         try
         {
             encoderSession = OnnxExecutionProviderSelector.Create(
@@ -200,20 +202,33 @@ public sealed class OnnxNemotronMultilingualRecognitionModel : IRecognitionModel
                 _preferredExecutionProviderNames,
                 NemotronEncoder.RunProbeInference);
 
-            using (var options = NemotronRnntNetwork.CreateSessionOptions())
+            using var options = NemotronRnntNetwork.CreateSessionOptions();
+            decoderSession = new InferenceSession(ResolvePath(installedModelDirectory, DecoderPath), options);
+            jointSession = new InferenceSession(ResolvePath(installedModelDirectory, JointPath), options);
+
+            // The network takes ownership of the decoder and joint sessions once it exists.
+            network = new NemotronRnntNetwork(decoderSession, jointSession, vocabulary.BlankId);
+            decoderSession = null;
+            jointSession = null;
+            var greedyDecoder = new NemotronRnntGreedyDecoder(network);
+            network = null;
+            try
             {
-                decoderSession = new InferenceSession(ResolvePath(installedModelDirectory, DecoderPath), options);
-                var jointSession = new InferenceSession(ResolvePath(installedModelDirectory, JointPath), options);
-                var network = new NemotronRnntNetwork(decoderSession, jointSession, vocabulary.BlankId);
-                decoderSession = null;
                 return new OnnxNemotronRecognitionEngine(
                     new NemotronEncoder(encoderSession, languageId),
-                    new NemotronRnntGreedyDecoder(network),
+                    greedyDecoder,
                     vocabulary);
+            }
+            catch
+            {
+                greedyDecoder.Dispose();
+                throw;
             }
         }
         catch
         {
+            network?.Dispose();
+            jointSession?.Dispose();
             decoderSession?.Dispose();
             encoderSession?.Dispose();
             throw;

@@ -8,7 +8,7 @@ namespace DemaConsulting.Speech.Onnx.NemotronStt.RecognitionSubsystem;
 /// <param name="DitherSeed">The dither random seed.</param>
 /// <param name="EndpointQuietMs">
 ///     How long, in input audio, the signal must stay quiet (per the <see cref="SilenceRunLimiter"/>)
-///     after speech before the utterance is finalized (default 1500 ms). Measured on the input
+///     after speech before the utterance is finalized (default 2500 ms). Measured on the input
 ///     clock, not the limiter's output, because the limiter removes most of a long quiet run.
 /// </param>
 /// <param name="EndpointEmptyChunks">
