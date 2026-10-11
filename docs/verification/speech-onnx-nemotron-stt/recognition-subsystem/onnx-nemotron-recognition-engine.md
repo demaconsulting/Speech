@@ -62,6 +62,10 @@ count, reset, the probe inference, and disposal without the real model files.
 
 **Test**: `TryDecode_QuietAfterSpeech_EndpointsAndResets`
 
+##### Quiet inside one large block splits the utterance
+
+**Test**: `TryDecode_QuietInsideOneBlock_SplitsUtterance`
+
 ##### Quiet after short speech reports before the endpoint
 
 **Test**: `TryDecode_QuietAfterShortSpeech_ReportsBeforeEndpoint`

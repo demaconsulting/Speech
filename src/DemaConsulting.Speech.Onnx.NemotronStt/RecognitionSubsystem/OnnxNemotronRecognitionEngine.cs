@@ -37,6 +37,9 @@ internal sealed class OnnxNemotronRecognitionEngine : IRecognitionBackend
     /// <summary>Frames in one encoder input: pre-encode context plus the new chunk.</summary>
     private const int EncoderFrames = NemotronEngineOptions.PreEncodeFrames + NemotronEngineOptions.ChunkFrames;
 
+    /// <summary>The slice length (100 ms at 16 kHz) in which input is checked for endpoints.</summary>
+    private const int SliceSamples = 1600;
+
     /// <summary>The encoder.</summary>
     private readonly INemotronEncoder _encoder;
 
@@ -60,6 +63,10 @@ internal sealed class OnnxNemotronRecognitionEngine : IRecognitionBackend
 
     /// <summary>The limiter output for the current call.</summary>
     private readonly List<float> _limited = [];
+
+    /// <summary>Audio received after an endpoint was requested, awaiting that endpoint's processing.</summary>
+    private readonly List<float> _held = [];
+
 
     /// <summary>The encoder input: pre-encode context rows followed by the chunk rows.</summary>
     private readonly float[] _chunkInput = new float[EncoderFrames * NemotronFeatureExtractor.MelBands];
@@ -140,9 +147,42 @@ internal sealed class OnnxNemotronRecognitionEngine : IRecognitionBackend
             return;
         }
 
+        if (_endpointRequested)
+        {
+            _held.AddRange(monoSamples);
+            return;
+        }
+
+        AcceptSlices(monoSamples);
+    }
+
+    /// <summary>
+    ///     Feeds <paramref name="samples"/> in short slices so a quiet run inside one large block is
+    ///     still seen by the endpoint check. Audio after a slice that requests an endpoint is held
+    ///     until the endpoint has been processed, so it starts the next utterance.
+    /// </summary>
+    private void AcceptSlices(ReadOnlySpan<float> samples)
+    {
+        var offset = 0;
+        while (offset < samples.Length)
+        {
+            var count = Math.Min(SliceSamples, samples.Length - offset);
+            AcceptSlice(samples.Slice(offset, count));
+            offset += count;
+            if (_endpointRequested)
+            {
+                _held.AddRange(samples[offset..]);
+                return;
+            }
+        }
+    }
+
+    /// <summary>Limits, buffers, and checks the endpoint and padding conditions for one slice.</summary>
+    private void AcceptSlice(ReadOnlySpan<float> slice)
+    {
         var loudBefore = _limiter.LoudSamples;
         _limited.Clear();
-        _limiter.Process(monoSamples, _limited);
+        _limiter.Process(slice, _limited);
         FeedExtractor();
 
         if (_limiter.LoudSamples > loudBefore)
@@ -199,22 +239,26 @@ internal sealed class OnnxNemotronRecognitionEngine : IRecognitionBackend
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
+        // Finish any pending endpoint and replay audio held behind it before flushing the tail.
+        Pump();
         _limited.Clear();
         _limiter.Flush(_limited);
         FeedExtractor();
         Pump();
         FinishUtterance();
 
-        // Return the final result; any earlier provisional ones are superseded by it.
-        result = null;
+        // Earlier provisional results are superseded; the final results are joined so text
+        // finalized by an endpoint inside the flushed audio is not lost.
+        var finals = new List<string>();
         while (_results.TryDequeue(out var queued))
         {
             if (queued.IsFinal)
             {
-                result = queued;
+                finals.Add(queued.Text);
             }
         }
 
+        result = finals.Count > 0 ? new SpeechRecognitionResult(string.Join(' ', finals), IsFinal: true) : null;
         return result is not null;
     }
 
@@ -226,6 +270,7 @@ internal sealed class OnnxNemotronRecognitionEngine : IRecognitionBackend
         _limiter.Reset();
         _dither.Reset();
         _results.Clear();
+        _held.Clear();
         ResetModelState();
     }
 
@@ -274,7 +319,22 @@ internal sealed class OnnxNemotronRecognitionEngine : IRecognitionBackend
         if (_endpointRequested)
         {
             FinishUtterance();
+            ReplayHeldAudio();
         }
+    }
+
+    /// <summary>Feeds audio held back by an endpoint, then decodes it (it may request another endpoint).</summary>
+    private void ReplayHeldAudio()
+    {
+        if (_held.Count == 0)
+        {
+            return;
+        }
+
+        var held = _held.ToArray();
+        _held.Clear();
+        AcceptSlices(held);
+        Pump();
     }
 
     /// <summary>

@@ -84,6 +84,7 @@ sections:
                   stream of only silence has no utterance to finalize.
                 tests:
                   - TryDecode_QuietAfterSpeech_EndpointsAndResets
+                  - TryDecode_QuietInsideOneBlock_SplitsUtterance
                   - TryDecode_OnlySilence_NeverEndpoints
 
               - id: SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-QuietPadding

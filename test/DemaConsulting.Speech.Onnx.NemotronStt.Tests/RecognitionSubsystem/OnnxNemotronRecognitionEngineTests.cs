@@ -182,6 +182,25 @@ public sealed class OnnxNemotronRecognitionEngineTests
         Assert.True(network.ResetCount > resetsBefore);
     }
 
+    /// <summary>Proves a quiet run inside a single large block still splits the utterance.</summary>
+    [Fact]
+    public void TryDecode_QuietInsideOneBlock_SplitsUtterance()
+    {
+        var (engine, encoder, network) = Create(null, 1, Blank);
+        var (reference, referenceEncoder, _) = Create(null, 1, Blank);
+        var resetsBefore = network.ResetCount;
+        reference.AcceptSamples(Tone(1).Concat(new float[3 * Rate]).ToArray());
+        Drain(reference);
+
+        engine.AcceptSamples(Tone(1).Concat(new float[3 * Rate]).Concat(Tone(1)).ToArray());
+        var results = Drain(engine);
+
+        var final = Assert.Single(results, r => r.IsFinal);
+        Assert.Equal("hello", final.Text);
+        Assert.True(network.ResetCount > resetsBefore);
+        Assert.True(encoder.EncodeCalls > referenceEncoder.EncodeCalls);
+    }
+
     /// <summary>Proves a partial chunk is completed with silence once the quiet cap is reached, before the endpoint.</summary>
     [Fact]
     public void TryDecode_QuietAfterShortSpeech_ReportsBeforeEndpoint()

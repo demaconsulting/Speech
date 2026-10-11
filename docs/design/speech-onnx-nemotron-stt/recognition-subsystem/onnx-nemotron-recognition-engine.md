@@ -26,11 +26,14 @@ a token seen since the last model reset; `_audioSinceReset`; `_endpointRequested
   required argument; `options` defaults to the documented constants. Called only from
   `OnnxNemotronMultilingualRecognitionModel.CreateBackend`.
 - **SampleRate**: the model's required input rate, 16000 Hz.
-- **AcceptSamples(monoSamples)**: ignores empty input; otherwise passes the samples through the
-  limiter, dithers the limiter output, and hands it to the feature extractor - buffering only, no
+- **AcceptSamples(monoSamples)**: ignores empty input; otherwise processes it in 100 ms slices
+  (so a quiet run inside one large block is still seen). Each slice passes through the
+  limiter, is dithered, and is handed to the feature extractor - buffering only, no
   decoding. It marks the engine dirty when the limiter has seen new loud samples and requests an
   input-clock endpoint when the engine is dirty and the limiter's `QuietRunSamples` has reached
-  `EndpointQuietMs` (2500 ms). Otherwise, once the quiet run reaches the limiter's 400 ms cap
+  `EndpointQuietMs` (2500 ms). Audio after the slice that requested an endpoint is held and
+  replayed once the endpoint has been finalized, so it starts the next utterance. Otherwise, once
+  the quiet run reaches the limiter's 400 ms cap
   (after which no more audio reaches the extractor), a partly filled chunk is completed with
   dithered silence so the last words are decoded promptly instead of waiting for the endpoint.
 - **TryDecode(out result)**: when no result is pending, pumps the pipeline - decodes every
@@ -40,8 +43,9 @@ a token seen since the last model reset; `_audioSinceReset`; `_endpointRequested
 - **TryFlush(out result)**: flushes the limiter's partial frame into the extractor, pumps, then
   finishes the utterance (extractor right pad, zero-padded final partial chunk, and
   `FlushTailChunks` all-zero tail chunk) and returns the final result; returns `false` when no
-  audio or no text was produced. Earlier provisional results are superseded by the final one.
-- **Reset()**: resets the limiter, dither, and pending results, and returns the encoder,
+  audio or no text was produced. Earlier provisional results are superseded by the final one;
+  when an endpoint inside the flushed audio produced earlier final results, they are joined.
+- **Reset()**: resets the limiter, dither, pending results, and held audio, and returns the encoder,
   decoder, extractor, and utterance bookkeeping to the start-of-stream state.
 - **Dispose()**: disposes the decoder and encoder once; later operations throw
   `ObjectDisposedException`.
