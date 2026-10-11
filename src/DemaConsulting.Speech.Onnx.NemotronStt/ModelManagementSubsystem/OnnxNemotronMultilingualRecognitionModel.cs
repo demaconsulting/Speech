@@ -33,10 +33,10 @@ namespace DemaConsulting.Speech.Onnx.NemotronStt.ModelManagementSubsystem;
 ///     <see cref="Languages"/>. An unrecognized or missing selection degrades to <c>en-US</c>.
 ///     </para>
 ///     <para>
-///     <b>License</b>: recorded as the NVIDIA Open Model License, matching the sibling Sherpa
-///     package's Nemotron model. The upstream model card's front matter was not reachable from
-///     this project's development environment at implementation time (see the design document's
-///     license note), so this value must be confirmed against the live model card before release.
+///     <b>License</b>: the model is dual-licensed under the MIT License and the NVIDIA Open
+///     Model License and both apply, so <see cref="LicenseName"/> names both. The single
+///     <see cref="LicenseUrl"/> points at the NVIDIA Open Model License, the one with
+///     substantive terms (the MIT License is the standard text).
 ///     </para>
 ///     <para>
 ///     <b>Execution providers</b>: the encoder honors the preferred execution provider names with
@@ -111,7 +111,7 @@ public sealed class OnnxNemotronMultilingualRecognitionModel : IRecognitionModel
     ///     <inheritdoc/>
     ///     See the type-level remarks' "License" paragraph.
     /// </summary>
-    public string LicenseName => "NVIDIA Open Model License";
+    public string LicenseName => "MIT and NVIDIA Open Model License";
 
     /// <inheritdoc/>
     public Uri? LicenseUrl { get; } = new("https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-license/");

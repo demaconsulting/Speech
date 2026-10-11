@@ -161,13 +161,11 @@ clinical or safety role.
 - **Quality**: zero warnings, complete documentation; automated unit tests never depend on model
   files, and a single real-model test self-skips when the model is not installed
 
-### License Note (Unverified)
+### License Note
 
-The model declares `LicenseName = "NVIDIA Open Model License"` with the NVIDIA Open Model License
-URL, matching the sibling SpeechSherpa package's Nemotron model. The upstream Hugging Face model
-card for `onnx-community/nemotron-3.5-asr-streaming-0.6b-onnx-int4` was unreachable from the
-development sandbox, so this value is **UNVERIFIED**: the card's front matter may declare a
-different license such as `mit`. It must be confirmed against the live model card before release.
+The upstream model is dual-licensed under the MIT License and the NVIDIA Open Model License, and
+both apply. The model declares `LicenseName = "MIT and NVIDIA Open Model License"`; its single
+`LicenseUrl` is the NVIDIA Open Model License URL, the license with substantive terms.
 
 ### Platform Support
 

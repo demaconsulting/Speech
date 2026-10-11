@@ -113,14 +113,14 @@ This release ships six models through three packages. `DemaConsulting.Speech.She
 | `SherpaOnnxVitsLibriTtsEnglishSynthesisModel` | TTS, 904 speakers | CC BY 4.0 |
 | `SherpaOnnxKokoroEnglishSynthesisModel` | TTS, 11 voices | Apache-2.0 |
 | `OnnxKokoroEnglishSynthesisModel` | TTS, 29 English voices (Kokoro v1.0) | Apache-2.0 |
-| `OnnxNemotronMultilingualRecognitionModel` | Streaming STT, en-US/en-GB | NVIDIA Open Model License |
+| `OnnxNemotronMultilingualRecognitionModel` | Streaming STT, en-US/en-GB | MIT and NVIDIA Open Model License |
 
 The Nemotron 3.5 model (`nemotron-3.5-asr-streaming-0.6b-onnx-int4`) is an int4-quantized ONNX
 export of about 790 MB. It runs on the CPU by default, with the encoder optionally accelerated
 through `AddNemotronSttModels(preferredExecutionProviderNames)`, and falls back to the CPU when an
-accelerated provider cannot run the model. Its license is recorded as the NVIDIA Open Model
-License; the upstream model card could not be reached when this package was written, so confirm
-the license against the live model card before redistributing the model. To select the spoken
+accelerated provider cannot run the model. The model is dual-licensed under the MIT License and
+the NVIDIA Open Model License, and both apply; review the NVIDIA license's terms before
+redistributing the model. To select the spoken
 language, pass the `language` parameter (`en-US` by default, or `en-GB`), for example
 `speech-cli recognize --stt-model nemotron-3.5-asr-streaming-0.6b-onnx-int4 --stt-param language=en-GB --input speech.wav`.
 When a download mirror is used, files are fetched from `<mirror>/nemotron-3.5-asr-streaming-0.6b-onnx-int4/<file>`.

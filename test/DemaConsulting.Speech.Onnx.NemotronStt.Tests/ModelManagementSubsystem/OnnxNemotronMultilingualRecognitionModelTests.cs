@@ -28,7 +28,7 @@ public sealed class OnnxNemotronMultilingualRecognitionModelTests
         Assert.Equal("nemotron-3.5-asr-streaming-0.6b-onnx-int4", model.Id);
         Assert.Equal(OnnxNemotronMultilingualRecognitionModel.ModelId, model.Id);
         Assert.Equal(SpeechModelRole.Recognition, model.Role);
-        Assert.Equal("NVIDIA Open Model License", model.LicenseName);
+        Assert.Equal("MIT and NVIDIA Open Model License", model.LicenseName);
         Assert.NotNull(model.LicenseUrl);
         Assert.False(string.IsNullOrWhiteSpace(model.DisplayName));
         Assert.Equal(SpeechModelAudioTagSupport.None, model.AudioTagSupport);

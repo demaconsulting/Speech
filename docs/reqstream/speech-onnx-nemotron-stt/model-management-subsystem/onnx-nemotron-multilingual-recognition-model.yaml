@@ -38,14 +38,13 @@ sections:
               - id: SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-License
                 title: >-
                   The OnnxNemotronMultilingualRecognitionModel class shall declare
-                  LicenseName = "NVIDIA Open Model License" with the NVIDIA Open Model License
-                  URL as its LicenseUrl.
+                  LicenseName = "MIT and NVIDIA Open Model License" (the model is dual-licensed
+                  and both licenses apply) with the NVIDIA Open Model License URL as its
+                  LicenseUrl.
                 justification: |
                   This model's license must be discoverable programmatically, not only via
-                  DisplayName prose or XML documentation. The upstream model card could not be
-                  verified at implementation time (see the design document's license note), so
-                  the declared value must be confirmed against the live model card before
-                  release.
+                  DisplayName prose or XML documentation. The upstream model is dual-licensed
+                  under the MIT License and the NVIDIA Open Model License, so both are named.
                 tests:
                   - Metadata_IsDeclared
 

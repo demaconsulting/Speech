@@ -17,8 +17,8 @@ The model declares id `nemotron-3.5-asr-streaming-0.6b-onnx-int4`, the Recogniti
 tag support, mono 16000 Hz, and the license name and URL; lists eleven files with well-formed
 SHA-256 checksums; exposes one `language` choice parameter (`en-US` default, `en-GB`); and
 `CreateBackend` throws for an empty directory, missing files, or a vocabulary lacking the locale.
-The license value is **UNVERIFIED** against the live upstream model card and must be confirmed
-before release.
+The license name is `"MIT and NVIDIA Open Model License"` (the upstream model is dual-licensed
+and both apply).
 
 #### Test Scenarios
 

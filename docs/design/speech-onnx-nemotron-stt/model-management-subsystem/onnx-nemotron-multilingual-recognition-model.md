@@ -17,10 +17,9 @@ parameter, and download descriptor, and builds the recognition backend from an i
 - **Id / DisplayName / Role / AudioTagSupport / AudioFormat**: `Id` equals `ModelId`, which is
   also the download mirror's one folder name (mirror layout `<mirror>/<modelId>/<file>`);
   `Role = Recognition`; `AudioTagSupport = None`; `AudioFormat` is mono 16000 Hz.
-- **LicenseName / LicenseUrl**: `"NVIDIA Open Model License"` with the NVIDIA Open Model License
-  URL. **UNVERIFIED**: the upstream Hugging Face model card was unreachable from the development
-  sandbox (its front matter may declare `mit`), so this value must be confirmed against the live
-  model card before release.
+- **LicenseName / LicenseUrl**: `"MIT and NVIDIA Open Model License"` (the upstream model is
+  dual-licensed and both apply) with the NVIDIA Open Model License URL, the license with
+  substantive terms.
 - **Parameters**: exactly one `ChoiceParameter` with id `language`, options `en-US` (default) and
   `en-GB`.
 - **DownloadDescriptor**: eleven HTTPS files served from the repository's `resolve/main` path,

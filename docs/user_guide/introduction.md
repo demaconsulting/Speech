@@ -363,9 +363,9 @@ reports `"Apache-2.0 (likely)"`, preserving the same uncertainty rating in the v
 
 The optional `DemaConsulting.Speech.Onnx.NemotronStt` package adds a third, streaming
 recognition model through `AddNemotronSttModels()`: `OnnxNemotronMultilingualRecognitionModel`
-(`nemotron-3.5-asr-streaming-0.6b-onnx-int4`, an int4 ONNX export of about 790 MB, recorded as
-**NVIDIA Open Model License**; the upstream model card was unreachable when this package was
-written, so confirm the license on the live card before redistributing). It declares one
+(`nemotron-3.5-asr-streaming-0.6b-onnx-int4`, an int4 ONNX export of about 790 MB, dual-licensed
+under the **MIT License and the NVIDIA Open Model License**, both of which apply; review the
+NVIDIA license's terms before redistributing). It declares one
 `language` choice parameter (`en-US` by default, or `en-GB`) that you pass like any other model
 parameter, for example `--stt-param language=en-GB` with `speech-cli recognize`. Its engine runs
 entirely on ONNX Runtime, keeps the decoder and joint networks on a single non-spinning CPU
