@@ -27,6 +27,7 @@ section below.
 Rather than a general-purpose argument-parsing library (e.g. `System.CommandLine`), SpeechCli
 extends the hand-rolled, single-purpose parser pattern the reference `TemplateDotNetTool` uses for
 its own flag set. `Context.Create(args)` resolves a fixed set of global options - `--models-dir`,
+`--voices-dir <path>` (an existing folder of extra `.wav`/`.flac` reference voices; missing folder is rejected with `ArgumentException` in `Context.Create`),
 `--verbose`/`--diagnostics`, `--silent`, `--log <file>`, `--results <file>`, `--depth <#>`,
 `-v`/`--version`, `-h`/`-?`/`--help`, `--validate` - regardless of where they appear on the
 command line relative to the subcommand name, because every subcommand needs the same
@@ -69,7 +70,7 @@ error identically to every other command-line configuration mistake - never a st
 
 This pass adds the tool's first implemented subsystem: **ModelCommandsSubsystem**, covering the
 five model-management subcommands - `list-models`, `model-info`, `download`, `uninstall`, and
-`clean` - and the CLI-owned catalog seam (`ICliModelCatalog`/`SpeechModelCatalogAdapter`/
+`clean` - plus the two reference-voice subcommands `list-voices` and `voices`, and the CLI-owned catalog seam (`ICliModelCatalog`/`SpeechModelCatalogAdapter`/
 `CliModelCatalogFactory`) they all share over the library's `SpeechModelCatalog`/
 `SpeechModelStore`. See _SpeechCli ModelCommandsSubsystem Design_ for its full design.
 
@@ -110,9 +111,9 @@ already do individually. See _SpeechCli ConversationCommandSubsystem Design_ for
 ### Subcommand Dispatch Table
 
 `CommandDispatch` defines the fixed, ordered set of subcommands SpeechCli recognizes:
-`list-models`, `model-info`, `download`, `uninstall`, `clean`, `list-devices`, `devices`,
-`doctor`, `speak`, `recognize`, and `ask`. Each entry pairs the subcommand's canonical name with a
-one-line usage summary (shown by `--help`) and a handler delegate. As of this pass, all eleven
+`list-models`, `model-info`, `download`, `uninstall`, `clean`, `list-voices`, `voices`,
+`list-devices`, `devices`, `doctor`, `speak`, `recognize`, and `ask`. Each entry pairs the subcommand's canonical name with
+a one-line usage summary (shown by `--help`) and a handler delegate. As of this pass, all thirteen
 subcommands' handlers are the real `ModelCommandsSubsystem`/`DeviceCommandsSubsystem`/
 `SynthesisCommandSubsystem`/`RecognitionCommandSubsystem`/`ConversationCommandSubsystem`
 implementations described above - no subcommand handler remains a `NotImplementedException` stub.

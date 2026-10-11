@@ -7,11 +7,12 @@
 # ships as a separately packaged .NET global tool (`speech-cli`).
 #
 # This pass covers only the scaffold-level behavior actually implemented: subcommand dispatch,
-# global options, version/help display, self-validation, and global-tool packaging. The eleven
-# recognized subcommands (list-models, model-info, download, uninstall, clean, list-devices,
-# devices, doctor, speak, recognize, ask) are dispatched to by name and listed in --help, and all
-# eleven are now implemented. Requirements for the five model-management subcommands' functional
-# behavior are decomposed into docs/reqstream/speech-cli/model-commands-subsystem.yaml;
+# global options, version/help display, self-validation, and global-tool packaging. The
+# thirteen recognized subcommands (list-models, model-info, download, uninstall, clean,
+# list-voices, voices, list-devices, devices, doctor, speak, recognize, ask) are dispatched to
+# by name and listed in --help, and all thirteen are now implemented. Requirements for the
+# seven model-management and reference-voice subcommands' functional behavior are decomposed into
+# docs/reqstream/speech-cli/model-commands-subsystem.yaml;
 # requirements for the three device-related subcommands' functional behavior are decomposed into
 # docs/reqstream/speech-cli/device-commands-subsystem.yaml; requirements for the speak
 # subcommand's functional behavior are decomposed into
@@ -40,7 +41,7 @@ sections:
 
       - id: SpeechCli-Cli-GlobalOptions
         title: >-
-          The tool shall recognize its global options - `--models-dir`, `--mirror-url`,
+          The tool shall recognize its global options - `--models-dir`, `--voices-dir`, `--mirror-url`,
           `--mirror-user`, `--mirror-password`, `--mirror-bearer-token`, `--verbose`/
           `--diagnostics`, `--silent`, `--log <file>` - regardless of whether they appear before
           or after the subcommand name on the command line.
@@ -53,6 +54,7 @@ sections:
           rule.
         tests:
           - Context_Create_ModelsDirAfterCommand_IsRecognizedAsGlobalOption
+          - Context_Create_WithExistingVoicesDir_ParsesOntoContext
           - Context_Create_WithMirrorOptions_ParsesOntoContext
           - SpeechCli_SilentFlag_Provided_SuppressesOutput
           - SpeechCli_LogFlag_Provided_WritesOutputToFile

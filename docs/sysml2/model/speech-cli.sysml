@@ -20,7 +20,9 @@ package SpeechCli {
      * an eleventh subcommand (ask) that speaks a prompt and then listens for the
      * reply, combining the synthesis and recognition passes' own CreateSynthesizer/
      * CreateRecognizer seam members into one invocation with no new seam member of
-     * its own.
+     * its own. A later pass adds two reference-voice subcommands (list-voices, voices) and the
+     * --voices-dir global option to ModelCommandsSubsystem, composing the ChatterboxTurbo
+     * model into the catalog - thirteen subcommands in all.
      */
 
     part def SpeechCliSystem {

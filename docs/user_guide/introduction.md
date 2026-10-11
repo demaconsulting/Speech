@@ -895,6 +895,8 @@ a healthy state on the current machine.
 | `download <modelId> [<modelId>...]` | Download one or more models into the local model store |
 | `uninstall <modelId>` | Remove a downloaded model's files, keeping its catalog entry |
 | `clean <modelId>` | Best-effort remove leftover partial-install artifacts for a model (not a full uninstall) |
+| `list-voices` | List reference voices (id, source) for the voice-cloning model, as a table or JSON |
+| `voices packs\|install\|uninstall` | List, download, or remove the optional reference-voice pack |
 | `list-devices` | List capture and/or playback audio devices |
 | `devices test` | Play or record a short test tone/clip on a chosen device |
 | `doctor` | Report overall environment health (audio, native runtimes, model store) |
@@ -905,6 +907,33 @@ a healthy state on the current machine.
 Every command's exact flags are shown by `speech-cli --help`, which always reflects the installed
 version - run it locally rather than relying solely on the summary above, which is illustrative
 only.
+
+### Reference voices (Chatterbox Turbo)
+
+The `chatterbox-turbo-onnx-en` text-to-speech model clones a *reference voice*, so it needs at
+least one voice to speak. Voices come from three places, all listed by `list-voices`:
+
+- the optional **voice pack** `voice-zero-1.0` (CC0-licensed, about 570 MiB to download and about
+  45 MB installed): `speech-cli voices install voice-zero-1.0` (`voices packs` shows its state,
+  `voices uninstall voice-zero-1.0` removes it). Installation honors `--models-dir` and
+  `--mirror-*` (the mirror serves `{mirror-url}/voice-zero-1.0/voice-zero-1.0.zip`)
+- the **user folder** `<models-dir>/reference-voices/user`: drop `.wav` or `.flac` files here
+- any folder given with `--voices-dir <path>` (must exist)
+
+Each voice file must be 1-30 seconds of clean speech; the file name (without extension) is the
+voice id. Choose a voice with `--tts-param voice=<id>`:
+
+```bash
+speech-cli voices install voice-zero-1.0
+speech-cli list-voices
+speech-cli speak --tts-model chatterbox-turbo-onnx-en --tts-param voice=<id> --text "Hello"
+```
+
+Newly installed voices appear on the next invocation. An undecodable file in `--voices-dir` makes
+every command fail until it is removed, because that folder is read when the catalog is built.
+
+> **Consent:** only clone voices you have permission to use. `list-voices`, `voices packs`,
+> `voices install`, and `--help` all repeat this note.
 
 ### Worked Examples
 

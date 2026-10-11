@@ -225,3 +225,88 @@ sections:
               - SpeechModelCatalogAdapter_GetAudioFormat_NullDescriptor_ThrowsArgumentNullException
               - SpeechModelCatalogAdapter_CreateRecognizerEngineAsync_SynthesisRoleModel_ThrowsArgumentException
               - SpeechModelCatalogAdapter_CreateRecognizerEngineAsync_NullDescriptor_ThrowsArgumentNullException
+
+          - id: SpeechCli-ModelCommands-ChatterboxComposition
+            title: >-
+              The ModelCommandsSubsystem shall compose the ChatterboxTurbo synthesis model into
+              every catalog it builds (after the Sherpa, Kokoro, and Nemotron models), sharing one
+              reference-voice library with the voice commands, and shall pass the `--voices-dir`
+              folder to that model as an extra reference-voice directory.
+            tags: [subsystem]
+            justification: |
+              Chatterbox Turbo is a voice-cloning model: it can speak only with a reference
+              voice, so the command line must be able to supply voices (an installed pack, the
+              per-user folder, or `--voices-dir`) and the model must see exactly the voices the
+              voice commands list and install.
+            tests:
+              - SpeechModelCatalogAdapter_Enumerate_ReturnsCompiledInKnownModels
+              - CliModelCatalogFactory_Create_WithModelsDir_UsesGivenRoot
+              - CliModelCatalogFactory_Create_WithVoicesDir_EnumeratesThatFolder
+              - SpeechModelCatalogAdapter_Voices_ListsUserAndVoicesDirVoices
+
+          - id: SpeechCli-ModelCommands-ListVoices
+            title: >-
+              The tool shall list every available reference voice (id, source, display name)
+              when invoked with `list-voices`, as an aligned table (default) or a JSON array
+              (`--format json`), shall tell the operator how to obtain voices when there are none,
+              shall show how to choose a voice (`speak --tts-param voice=<id>`), and shall print
+              the consent note that only voices the operator has permission to use may be cloned.
+            tags: [subsystem]
+            justification: |
+              Voice ids are the values of the Chatterbox `voice` parameter and there can be well
+              over a hundred of them, so an operator needs a discoverable list. Cloning a voice
+              reproduces a person's vocal identity, so the consent note is shown where voices are
+              chosen.
+            tests:
+              - ListVoicesCommand_Run_Table_ListsVoicesAndConsentNote
+              - ListVoicesCommand_Run_NoVoices_ExplainsHowToAddVoices
+              - ListVoicesCommand_Run_Json_WritesParseableArray
+              - ListVoicesCommand_Run_BadArguments_ThrowsArgumentException
+              - ListVoicesCommand_Run_UnknownFormat_ThrowsArgumentException
+              - ListVoicesCommand_Run_NullArguments_Throw
+              - CommandDispatch_Find_VoiceCommands_AreRegistered
+
+          - id: SpeechCli-ModelCommands-VoicePacks
+            title: >-
+              The tool shall list the installable reference-voice packs with their install state
+              (`voices packs`), download, verify, and install a pack with live progress through
+              the configured `--models-dir` and `--mirror-*` options (`voices install <packId>`),
+              remove an installed pack, treating a pack with nothing installed as a safe no-op
+              (`voices uninstall <packId>`), reject an unknown pack id, a missing or extra
+              argument, or an unknown sub-action with a clean error, exit non-zero when an
+              install fails or is canceled, and print the consent note after a successful
+              install.
+            tags: [subsystem]
+            justification: |
+              The reference-voice pack is a large optional download, so installing it must follow
+              the same conventions as model downloads (mirror, progress, cancellation, clean
+              errors, idempotent removal). The consent note is repeated at install time because
+              that is when a pack of real people's voices arrives on the machine.
+            tests:
+              - VoicesCommand_RunAsync_Packs_ListsPackStateAndConsentNote
+              - VoicesCommand_RunAsync_Install_ReportsProgressAndConsentNote
+              - VoicesCommand_RunAsync_InstallFails_ReportsErrorExitCode
+              - VoicesCommand_RunAsync_InstallCanceled_ReportsErrorExitCode
+              - VoicesCommand_RunAsync_Uninstall_ForwardsAndReports
+              - VoicesCommand_RunAsync_UninstallStoreThrows_ThrowsInvalidOperationException
+              - VoicesCommand_RunAsync_InstallUnknownPack_ThrowsArgumentException
+              - VoicesCommand_RunAsync_BadArguments_ThrowsArgumentException
+              - VoicesCommand_RunAsync_NullArguments_Throw
+              - SpeechModelCatalogAdapter_VoicePackUninstallAndInstall_UnknownOrMissingPack_BehaveCleanly
+
+          - id: SpeechCli-ModelCommands-VoicesDir
+            title: >-
+              The tool shall accept a global `--voices-dir <path>` option naming an extra folder
+              of `.wav`/`.flac` reference voices, shall reject a path that is not an existing
+              directory (or an option without a value) with a clear error before running any
+              command, and shall document the option, the voice commands, voice selection with
+              `--tts-param voice=<id>`, and the consent note in `--help`.
+            tags: [subsystem]
+            justification: |
+              A mistyped voices folder would otherwise silently yield no voices; failing fast
+              names the problem. Help is the primary place an operator learns the option and the
+              consent expectation.
+            tests:
+              - Context_Create_WithExistingVoicesDir_ParsesOntoContext
+              - Context_Create_WithBadVoicesDir_ThrowsArgumentException
+              - Program_Run_Help_DocumentsVoicesOptionsAndConsentNote

@@ -1,7 +1,8 @@
 package SpeechCli {
     part def ModelCommandsSubsystem {
         doc /* The five model-management subcommands (list-models, model-info, download,
-             * uninstall, clean), plus the CLI-owned catalog seam
+             * uninstall, clean) and the two reference-voice subcommands (list-voices, voices),
+             * plus the CLI-owned catalog seam
              * (ICliModelCatalog/SpeechModelCatalogAdapter/CliModelCatalogFactory) they all
              * share over the library's SpeechModelCatalog/SpeechModelStore. */
 
@@ -17,6 +18,8 @@ package SpeechCli {
         part downloadCommand : DownloadCommand;
         part uninstallCommand : UninstallCommand;
         part cleanCommand : CleanCommand;
+        part listVoicesCommand : ListVoicesCommand;
+        part voicesCommand : VoicesCommand;
     }
 
     part def ICliModelCatalog {
@@ -28,7 +31,9 @@ package SpeechCli {
              * GetAudioFormat/CreateRecognizerEngineAsync) returning the library's async
              * ISpeechSynthesizerEngine/ISpeechRecognizerEngine, each later bound to a device
              * via CreateSessionAsync rather than returning a device-bound synthesizer or
-             * recognizer directly. */
+             * recognizer directly. Also exposes the reference-voice members (VoicePacks,
+             * UserVoicesDirectory, EnumerateVoices, GetVoicePackState, InstallVoicePackAsync,
+             * UninstallVoicePack) used by list-voices and voices. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech.Cli/Commands/ModelCommandsSubsystem/ICliModelCatalog.cs */
     }
@@ -40,7 +45,9 @@ package SpeechCli {
              * CreateSynthesizerEngineAsync and GetAudioFormat/CreateRecognizerEngineAsync
              * unchanged to the resolved model's real SpeechSynthesizerFactory/
              * SpeechRecognizerFactory, preserving each factory's own honestly-unavailable
-             * fallback contract rather than masking it. */
+             * fallback contract rather than masking it. Chains AddChatterboxTurboModels after the
+             * Sherpa/Kokoro/Nemotron models, sharing one ReferenceVoiceLibrary with the voice
+             * members and passing --voices-dir as the extra reference-voice directory. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech.Cli/Commands/ModelCommandsSubsystem/SpeechModelCatalogAdapter.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Cli.Tests/Commands/ModelCommandsSubsystem/SpeechModelCatalogAdapterTests.cs */
@@ -50,7 +57,7 @@ package SpeechCli {
         doc /* Composes a SpeechModelCatalogAdapter per command invocation, honoring
              * --models-dir via SpeechModelStoreOptions.RootPathOverride, and --mirror-url/
              * --mirror-user/--mirror-password/--mirror-bearer-token (via Context.CreateMirror())
-             * wrapped in a SpeechModelDownloaderOptions. */
+             * wrapped in a SpeechModelDownloaderOptions, and --voices-dir as the extra voices folder. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech.Cli/Commands/ModelCommandsSubsystem/CliModelCatalogFactory.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Cli.Tests/Commands/ModelCommandsSubsystem/SpeechModelCatalogAdapterTests.cs */
@@ -96,4 +103,20 @@ package SpeechCli {
         comment sourceRef /* Source: src/DemaConsulting.Speech.Cli/Commands/ModelCommandsSubsystem/CleanCommand.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Cli.Tests/Commands/ModelCommandsSubsystem/CleanCommandTests.cs */
     }
-}
+
+    part def ListVoicesCommand {
+        doc /* Implements list-voices: prints every available reference voice as a table or, with
+             * --format json, a JSON array, plus how to choose a voice and the consent note. */
+
+        comment sourceRef /* Source: src/DemaConsulting.Speech.Cli/Commands/ModelCommandsSubsystem/ListVoicesCommand.cs */
+        comment testRef /* Test: test/DemaConsulting.Speech.Cli.Tests/Commands/ModelCommandsSubsystem/ListVoicesCommandTests.cs */
+    }
+
+    part def VoicesCommand {
+        doc /* Implements voices packs|install|uninstall: lists reference-voice packs, installs one
+             * with mirror-aware progress and cancellation, or removes it, printing the consent
+             * note. */
+
+        comment sourceRef /* Source: src/DemaConsulting.Speech.Cli/Commands/ModelCommandsSubsystem/VoicesCommand.cs */
+        comment testRef /* Test: test/DemaConsulting.Speech.Cli.Tests/Commands/ModelCommandsSubsystem/VoicesCommandTests.cs */
+    }}

@@ -153,6 +153,58 @@ rejected with `ArgumentException`; the nothing-to-clean-up path exits `0` agains
 
 **Requirement coverage**: `SpeechCli-ModelCommands-Clean`.
 
+#### ListVoicesCommand
+
+**Tests**: `ListVoicesCommand_Run_Table_ListsVoicesAndConsentNote`,
+`ListVoicesCommand_Run_NoVoices_ExplainsHowToAddVoices`,
+`ListVoicesCommand_Run_Json_WritesParseableArray`,
+`ListVoicesCommand_Run_BadArguments_ThrowsArgumentException`,
+`ListVoicesCommand_Run_UnknownFormat_ThrowsArgumentException`,
+`ListVoicesCommand_Run_NullArguments_Throw`, `CommandDispatch_Find_VoiceCommands_AreRegistered`
+
+**Scenario/Expected**: The table lists every voice with its source and shows the consent note and
+how to choose a voice; an empty list explains how to add voices; JSON is a parseable array; an
+unknown format or extra argument is rejected with `ArgumentException`; null arguments are rejected.
+
+**Requirement coverage**: `SpeechCli-ModelCommands-ListVoices`.
+
+#### VoicesCommand
+
+**Tests**: `VoicesCommand_RunAsync_Packs_ListsPackStateAndConsentNote`,
+`VoicesCommand_RunAsync_Install_ReportsProgressAndConsentNote`,
+`VoicesCommand_RunAsync_InstallFails_ReportsErrorExitCode`,
+`VoicesCommand_RunAsync_InstallCanceled_ReportsErrorExitCode`,
+`VoicesCommand_RunAsync_Uninstall_ForwardsAndReports`,
+`VoicesCommand_RunAsync_UninstallStoreThrows_ThrowsInvalidOperationException`,
+`VoicesCommand_RunAsync_InstallUnknownPack_ThrowsArgumentException`,
+`VoicesCommand_RunAsync_BadArguments_ThrowsArgumentException`,
+`VoicesCommand_RunAsync_NullArguments_Throw`,
+`SpeechModelCatalogAdapter_VoicePackUninstallAndInstall_UnknownOrMissingPack_BehaveCleanly`
+
+**Scenario/Expected**: `packs` shows each pack's state and the consent note; `install` forwards to
+the catalog, prints progress and the consent note, and exits non-zero on failure or cancellation;
+`uninstall` forwards and reports (a store failure becomes `InvalidOperationException`); unknown
+pack ids, bad arguments, and null arguments are rejected cleanly. Tests use the fake catalog, so
+no pack is downloaded.
+
+**Requirement coverage**: `SpeechCli-ModelCommands-VoicePacks`.
+
+#### Chatterbox Composition and `--voices-dir`
+
+**Tests**: `SpeechModelCatalogAdapter_Voices_ListsUserAndVoicesDirVoices`,
+`CliModelCatalogFactory_Create_WithVoicesDir_EnumeratesThatFolder`,
+`Context_Create_WithExistingVoicesDir_ParsesOntoContext`,
+`Context_Create_WithBadVoicesDir_ThrowsArgumentException`,
+`Program_Run_Help_DocumentsVoicesOptionsAndConsentNote`
+
+**Scenario/Expected**: A real catalog over a temporary store lists Chatterbox among its models (the
+known-model test expects seven models), enumerates user-folder and `--voices-dir` voices, a bad
+`--voices-dir` is rejected before any command runs, and `--help` documents the options and consent
+note.
+
+**Requirement coverage**: `SpeechCli-ModelCommands-ChatterboxComposition`,
+`SpeechCli-ModelCommands-VoicesDir`.
+
 #### Seam Delegation and Null Guards
 
 **Tests**: `ListModelsCommand_Run_NullContext_ThrowsArgumentNullException`,
@@ -202,6 +254,10 @@ threaded through the composed catalog/downloader rather than merely parsed and d
 - **`SpeechCli-ModelCommands-Clean`**: see _CleanCommand_ above
 - **`SpeechCli-ModelCommands-LibraryDelegation`**: see _Seam Delegation and Null Guards_ above
 - **`SpeechCli-ModelCommands-DownloadMirrorComposition`**: see _Download Mirror Composition_ above
+- **`SpeechCli-ModelCommands-ChatterboxComposition`**, **`SpeechCli-ModelCommands-VoicesDir`**: see
+  _Chatterbox Composition and `--voices-dir`_ above
+- **`SpeechCli-ModelCommands-ListVoices`**: see _ListVoicesCommand_ above
+- **`SpeechCli-ModelCommands-VoicePacks`**: see _VoicesCommand_ above
 
 ### Acceptance Criteria
 
@@ -221,5 +277,7 @@ real model download requires network access unavailable in CI:
 
 - `dotnet run --project src/DemaConsulting.Speech.Cli -- list-models` against an isolated
   `--models-dir` lists the real compiled-in known models with sane column output
+- `dotnet run --project src/DemaConsulting.Speech.Cli -- voices install voice-zero-1.0` against a
+  real or mirrored pack downloads and installs it, after which `list-voices` shows its voices
 - `dotnet run --project src/DemaConsulting.Speech.Cli -- model-info <a-real-known-model-id>`
   prints a real model's full identity and parameter surface without requiring it to be downloaded

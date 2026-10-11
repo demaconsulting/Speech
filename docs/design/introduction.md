@@ -91,8 +91,8 @@ The following software items of the SpeechCli system are also covered:
   capabilities from the command line. It is a sibling system to Speech, not a subsystem of it: it
   is separately built, separately packaged, and separately versioned, has its own users
   (command-line operators and scripts), and the library must never depend on it
-- **ModelCommandsSubsystem (Subsystem)** — The five model-management subcommands (`list-models`,
-  `model-info`, `download`, `uninstall`, `clean`) and the CLI-owned catalog seam
+- **ModelCommandsSubsystem (Subsystem)** — The model-management and reference-voice subcommands (`list-models`,
+  `model-info`, `download`, `uninstall`, `clean`, `list-voices`, `voices`) and the CLI-owned catalog seam
   (`ICliModelCatalog`/`SpeechModelCatalogAdapter`/`CliModelCatalogFactory`) they share over the
   library's `SpeechModelCatalog`/`SpeechModelStore`
 - **DeviceCommandsSubsystem (Subsystem)** — The three device-related subcommands

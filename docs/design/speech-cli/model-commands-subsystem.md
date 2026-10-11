@@ -5,15 +5,17 @@
 ### Overview
 
 The ModelCommandsSubsystem implements the five model-management subcommands dispatched to by
-`CommandDispatch`: `list-models`, `model-info`, `download`, `uninstall`, and `clean`. It contains
-one command handler per subcommand, plus one shared catalog seam used by all five:
+`CommandDispatch` (`list-models`, `model-info`, `download`, `uninstall`, and `clean`) and the two
+reference-voice subcommands `list-voices` and `voices`. It contains one command handler per
+subcommand, plus one shared catalog seam used by all of them:
 
 - **`ICliModelCatalog`** / **`SpeechModelCatalogAdapter`**: the CLI-owned seam over the library's
   `SpeechModelCatalog`/`SpeechModelStore`, and its real implementation
 - **`CliModelCatalogFactory`**: composes a `SpeechModelCatalogAdapter` honoring `--models-dir` and
   `--mirror-*`
 - **`ListModelsCommand`**, **`ModelInfoCommand`**, **`DownloadCommand`**, **`UninstallCommand`**,
-  **`CleanCommand`**: one handler per subcommand
+  **`CleanCommand`**: one handler per model-management subcommand
+- **`ListVoicesCommand`**, **`VoicesCommand`**: the reference-voice handlers (see below)
 
 ### Why a CLI-Owned Seam
 
@@ -112,12 +114,51 @@ is documented as fully best-effort and never throwing, so this handler needs no 
 handling of its own; a model with nothing to clean up is reported the same way as one with
 leftovers actually removed.
 
+### ListVoicesCommand
+
+Parses the optional `--format table|json` flag (anything else is an `ArgumentException`) and prints
+`catalog.EnumerateVoices()` as an aligned table (Id, Source, Display Name) or an indented JSON
+array. When there are no voices it explains how to obtain some (`voices install voice-zero-1.0`,
+the per-user folder `catalog.UserVoicesDirectory`, or `--voices-dir`). The table form also shows
+how to choose a voice (`speak --tts-param voice=<id>`) and the reference-voice consent note
+(`ReferenceVoiceLibrary.ConsentNotice`: only clone voices you have permission to use).
+
+### VoicesCommand
+
+Dispatches on the first argument:
+
+- **`packs`** lists `catalog.VoicePacks` with each pack's `GetVoicePackState` and the consent note
+- **`install <packId>`** calls `InstallVoicePackAsync` with an `IProgress` that prints throttled
+  percent (or KB) lines, exactly as `DownloadCommand` does, and prints the consent note on success.
+  A failed or canceled install is reported with `WriteError` and a non-zero exit code. `Ctrl+C` is
+  wired to a `CancellationTokenSource` the same way as `DownloadCommand`
+- **`uninstall <packId>`** calls `UninstallVoicePack`, a safe no-op when nothing is installed; a
+  `SpeechModelStoreException` is re-thrown as `InvalidOperationException`
+
+An unknown pack id, a missing or extra argument, or an unknown action is an `ArgumentException`.
+Because the catalog is built from the same `--models-dir` and `--mirror-*` options, pack downloads
+honor a mirror (`{mirror}/voice-zero-1.0/voice-zero-1.0.zip`) without any command-specific logic.
+Installed pack voices appear on the next invocation, since the voice list is fixed when the
+catalog (and the Chatterbox model) is constructed.
+
+### Chatterbox and Voice Seam Members
+
+`SpeechModelCatalogAdapter` builds `.AddSherpaModels().AddKokoroModels().AddNemotronSttModels()`,
+creates one `ReferenceVoiceLibrary` over the catalog's store and the mirror-aware downloader
+options, and then calls `AddChatterboxTurboModels` with `ReferenceVoiceDirectory = --voices-dir`
+and that same library, so the model and the voice commands see identical voices. `ICliModelCatalog`
+gains `VoicePacks`, `UserVoicesDirectory`, `EnumerateVoices()`, `GetVoicePackState`,
+`InstallVoicePackAsync`, and `UninstallVoicePack`. Voice choice itself uses the model's existing
+generic `voice` choice parameter (`speak --tts-param voice=<id>`). Voices from an explicit
+`--voices-dir` are decoded when the catalog is built, so an undecodable file there fails every
+command that builds the catalog; pack and user-folder voices are decoded lazily.
+
 ### Interactions with Other Units
 
 Every command depends only on `ICliModelCatalog` and on the library's descriptor, state,
 parameter, progress, and result value types — none touches `SpeechModelCatalog` or
 `SpeechModelStore` directly. This is what allows the full argument-parsing, filtering, error, and
-progress-reporting behavior of all five commands to be verified deterministically with no network
+progress-reporting behavior of all seven commands to be verified deterministically with no network
 access and no real model download, using a fake `ICliModelCatalog` (see each command's own test
 file under `test/DemaConsulting.Speech.Cli.Tests/Commands/ModelCommandsSubsystem/`).
 

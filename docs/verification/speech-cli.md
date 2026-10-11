@@ -10,6 +10,7 @@ integration tests, which invoke the built tool as a child process the way an ope
 assert on its console output and exit code. This pass covers the scaffold behavior carried over
 from Pass 2 - global-option and subcommand dispatch, version/help display, `--validate`
 self-testing, and .NET global tool packaging - plus the five model-management subcommands
+(and the two reference-voice subcommands `list-voices` and `voices`, verified in _SpeechCli ModelCommandsSubsystem Verification_)
 implemented in Pass 3 (`list-models`, `model-info`, `download`, `uninstall`, `clean`, verified in
 detail in _SpeechCli ModelCommandsSubsystem Verification_), the three device-related subcommands
 implemented in Pass 4 (`list-devices`, `devices test`, `doctor`, verified in detail in
@@ -62,11 +63,12 @@ as a child process.
 
 **Tests**: `Program_Run_WithHelpFlag_DisplaysUsageInformation`,
 `Program_Run_WithShortHelpFlag_DisplaysUsage`, `Program_Run_WithQuestionMarkFlag_DisplaysUsage`,
-`Program_Run_NoArguments_DisplaysBannerAndUsage`, `SpeechCli_HelpFlag_Provided_ListsAllSubcommands`,
+`Program_Run_NoArguments_DisplaysBannerAndUsage`, `Program_Run_Help_DocumentsVoicesOptionsAndConsentNote`, `SpeechCli_HelpFlag_Provided_ListsAllSubcommands`,
 `SpeechCli_NoArguments_Invoked_DisplaysBannerAndUsage`
 
 Verifies that `-h`/`-?`/`--help`, and running with no arguments at all, print the banner and usage
-text listing every one of the eleven recognized subcommands, and exit `0`.
+text listing every one of the thirteen recognized subcommands (including `list-voices` and `voices`),
+the `--voices-dir` option, and the reference-voice consent note, and exit `0`.
 
 ### Subcommand Dispatch
 
@@ -88,11 +90,13 @@ Verification_ for the implemented subcommands' own detailed test scenarios.
 
 **Tests**: `Context_Create_ModelsDirAfterCommand_IsRecognizedAsGlobalOption`,
 `Context_Create_WithMirrorOptions_ParsesOntoContext`,
+`Context_Create_WithExistingVoicesDir_ParsesOntoContext`, `Context_Create_WithBadVoicesDir_ThrowsArgumentException`,
 `SpeechCli_SilentFlag_Provided_SuppressesOutput`, `SpeechCli_LogFlag_Provided_WritesOutputToFile`
 
 Verifies that a global option appearing after the subcommand name is still recognized as a global
 option (not absorbed into the subcommand's raw argument list), and that `--silent`/`--log`
 actually suppress console output/write a log file respectively.
+`--voices-dir` is parsed onto the context when it names an existing folder and rejected with `ArgumentException` otherwise.
 
 ### Download Mirror Configuration
 
