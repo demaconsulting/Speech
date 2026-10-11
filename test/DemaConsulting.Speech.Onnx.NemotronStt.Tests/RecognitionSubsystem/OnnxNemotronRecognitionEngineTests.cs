@@ -197,6 +197,21 @@ public sealed class OnnxNemotronRecognitionEngineTests
         Assert.False(result.IsFinal);
     }
 
+    /// <summary>Proves the padding threshold follows the configured limiter cap.</summary>
+    [Fact]
+    public void TryDecode_CustomLimiterCap_PadsAtThatCap()
+    {
+        var options = new NemotronEngineOptions(Limiter: new SilenceRunLimiterOptions(MaxQuietFrames: 10));
+        var (engine, _, _) = Create(options, 1, Blank);
+
+        engine.AcceptSamples(Tone(0.3));
+        engine.AcceptSamples(new float[(int)(0.3 * Rate)]);
+        var results = Drain(engine);
+
+        var result = Assert.Single(results);
+        Assert.Equal("hello", result.Text);
+    }
+
     /// <summary>Proves leading silence alone never endpoints (no speech yet).</summary>
     [Fact]
     public void TryDecode_OnlySilence_NeverEndpoints()

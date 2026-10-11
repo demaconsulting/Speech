@@ -66,6 +66,10 @@ count, reset, the probe inference, and disposal without the real model files.
 
 **Test**: `TryDecode_QuietAfterShortSpeech_ReportsBeforeEndpoint`
 
+##### Padding follows the configured limiter cap
+
+**Test**: `TryDecode_CustomLimiterCap_PadsAtThatCap`
+
 ##### Silence alone never endpoints
 
 **Test**: `TryDecode_OnlySilence_NeverEndpoints`

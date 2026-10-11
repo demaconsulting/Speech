@@ -89,14 +89,15 @@ sections:
               - id: SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-QuietPadding
                 title: >-
                   The OnnxNemotronRecognitionEngine class shall, once the limiter's quiet run
-                  after speech reaches 6400 samples and before the endpoint, complete a partly
-                  filled chunk with dithered silence so its text is reported as a provisional
-                  result.
+                  after speech reaches the limiter's quiet cap (6400 samples by default) and
+                  before the endpoint, complete a partly filled chunk with dithered silence so
+                  its text is reported as a provisional result.
                 justification: |
                   The limiter drops audio during a long quiet run, so the last words would
                   otherwise wait in an incomplete chunk until the 2500 ms endpoint.
                 tests:
                   - TryDecode_QuietAfterShortSpeech_ReportsBeforeEndpoint
+                  - TryDecode_CustomLimiterCap_PadsAtThatCap
 
               - id: SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-EncoderWiring
                 title: >-

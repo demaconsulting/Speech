@@ -37,9 +37,6 @@ internal sealed class OnnxNemotronRecognitionEngine : IRecognitionBackend
     /// <summary>Frames in one encoder input: pre-encode context plus the new chunk.</summary>
     private const int EncoderFrames = NemotronEngineOptions.PreEncodeFrames + NemotronEngineOptions.ChunkFrames;
 
-    /// <summary>The quiet-run length (the limiter's 400 ms cap) after which a partial chunk is padded.</summary>
-    private const int PadAfterQuietSamples = 6400;
-
     /// <summary>The encoder.</summary>
     private readonly INemotronEncoder _encoder;
 
@@ -78,6 +75,9 @@ internal sealed class OnnxNemotronRecognitionEngine : IRecognitionBackend
 
     /// <summary>The input-clock quiet duration, in samples, that triggers endpointing.</summary>
     private readonly long _endpointQuietSamples;
+
+    /// <summary>The quiet-run length (the limiter's quiet cap) after which a partial chunk is padded.</summary>
+    private readonly long _padAfterQuietSamples;
 
     /// <summary>The text last reported as a provisional result.</summary>
     private string _lastReported = string.Empty;
@@ -122,6 +122,8 @@ internal sealed class OnnxNemotronRecognitionEngine : IRecognitionBackend
         _vocabulary = vocabulary;
         _options = options ?? new NemotronEngineOptions();
         _limiter = new SilenceRunLimiter(_options.Limiter);
+        var limiterOptions = _options.Limiter ?? new SilenceRunLimiterOptions();
+        _padAfterQuietSamples = (long)limiterOptions.MaxQuietFrames * limiterOptions.FrameSamples;
         _dither = new DitherNoise(_options.DitherAmplitude, _options.DitherSeed);
         _endpointQuietSamples = (long)_options.EndpointQuietMs * NemotronFeatureExtractor.SampleRate / 1000;
     }
@@ -152,7 +154,7 @@ internal sealed class OnnxNemotronRecognitionEngine : IRecognitionBackend
         {
             _endpointRequested = true;
         }
-        else if (_dirty && _limiter.QuietRunSamples >= PadAfterQuietSamples)
+        else if (_dirty && _limiter.QuietRunSamples >= _padAfterQuietSamples)
         {
             PadPartialChunk();
         }
