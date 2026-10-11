@@ -1766,6 +1766,8 @@ reviews:
       - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/NemotronEncoder.cs"
       - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/OnnxNemotronRecognitionEngineTests.cs"
       - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/Fakes.cs"
+      - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/NemotronEncoderTests.cs"
+      - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/NemotronEncoderFixture.cs"
 
   # SpeechOnnxNemotronStt-RecognitionSubsystem-NemotronFeatureExtractor Review (one per unit)
   - id: SpeechOnnxNemotronStt-RecognitionSubsystem-NemotronFeatureExtractor

@@ -98,6 +98,25 @@ sections:
                 tests:
                   - TryDecode_QuietAfterShortSpeech_ReportsBeforeEndpoint
 
+              - id: SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-EncoderWiring
+                title: >-
+                  The NemotronEncoder class shall feed the audio features, length, caches, and
+                  language id to the encoder session by the model's tensor names, shall feed each
+                  call's cache outputs back as the next call's cache inputs, shall report the
+                  encoded frame count, shall restore zero caches on Reset, and shall reject use
+                  after disposal.
+                justification: |
+                  The production tensor and cache wiring cannot be exercised by the managed fakes,
+                  and the real model is too large for CI, so a tiny synthetic ONNX model with the
+                  same tensor contract verifies the wiring.
+                tests:
+                  - Encode_FirstChunk_ReturnsFramesWithLanguage
+                  - Encode_SecondChunk_UsesPreviousCaches
+                  - Reset_AfterEncoding_RestartsCaches
+                  - RunProbeInference_ValidSession_LeavesSessionUsable
+                  - Encode_AfterDispose_Throws
+                  - Constructor_NullSession_Throws
+
               - id: SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-EmptyChunkEndpointing
                 title: >-
                   The OnnxNemotronRecognitionEngine class shall finalize an utterance after

@@ -19,7 +19,10 @@ chunk with dithered silence once the limiter's quiet run reaches 6400 samples, s
 before the endpoint; endpoints
 on input-clock quiet after speech (resetting model state) but never on silence alone; finalizes
 after three empty chunks keeping state; and resets, disposes, and validates arguments as
-documented. The ONNX-backed `NemotronEncoder` is not covered by these tests.
+documented. The ONNX-backed `NemotronEncoder` is verified separately in `NemotronEncoderTests.cs`
+against a tiny synthetic ONNX model with the real encoder's tensor contract (built in
+`NemotronEncoderFixture.cs`), covering tensor names, cache feedback across calls, output frame
+count, reset, the probe inference, and disposal without the real model files.
 
 #### Test Scenarios
 
@@ -82,3 +85,27 @@ documented. The ONNX-backed `NemotronEncoder` is not covered by these tests.
 ##### Null constructor arguments throw
 
 **Test**: `Constructor_NullArguments_Throw`
+
+##### Encoder first chunk returns frames with the language
+
+**Test**: `Encode_FirstChunk_ReturnsFramesWithLanguage`
+
+##### Encoder second chunk uses the previous caches
+
+**Test**: `Encode_SecondChunk_UsesPreviousCaches`
+
+##### Encoder reset restarts the caches
+
+**Test**: `Reset_AfterEncoding_RestartsCaches`
+
+##### Encoder probe inference leaves the session usable
+
+**Test**: `RunProbeInference_ValidSession_LeavesSessionUsable`
+
+##### Encoder rejects use after disposal
+
+**Test**: `Encode_AfterDispose_Throws`
+
+##### Encoder null session throws
+
+**Test**: `Constructor_NullSession_Throws`

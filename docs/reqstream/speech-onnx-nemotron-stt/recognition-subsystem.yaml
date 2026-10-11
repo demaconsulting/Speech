@@ -38,6 +38,7 @@ sections:
               - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-Flush
               - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-QuietEndpointing
               - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-QuietPadding
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-EncoderWiring
               - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-EmptyChunkEndpointing
               - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-ResetAndDispose
             tests:
