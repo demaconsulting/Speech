@@ -1,7 +1,7 @@
 package SpeechOnnxChatterboxTurbo {
     part def ChatterboxTurboReferenceVoice {
-        doc /* A reference voice created from in-memory audio or a 16-bit PCM WAV file,
-             * normalized to mono 24 kHz and bounded in length by ReferenceAudioResampler. */
+        doc /* A reference voice created from in-memory audio or a WAV or FLAC file,
+             * normalized to mono 24 kHz (via the core AudioResampler) and bounded in length. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/ModelManagementSubsystem/ChatterboxTurboReferenceVoice.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/ModelManagementSubsystem/ChatterboxTurboReferenceVoiceTests.cs */

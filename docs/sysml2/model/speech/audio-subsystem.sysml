@@ -29,6 +29,11 @@ package Speech {
         part audioDeviceInUseException : AudioDeviceInUseException;
         part wavFileAudioPlaybackDevice : WavFileAudioPlaybackDevice;
         part wavFileAudioCaptureDevice : WavFileAudioCaptureDevice;
+        part audioFileReader : AudioFileReader;
+        part audioClip : AudioClip;
+        part audioResampler : AudioResampler;
+        part wavDecoder : WavDecoder;
+        part flacDecoder : FlacDecoder;
         part portAudio : PortAudio;
     }
 }

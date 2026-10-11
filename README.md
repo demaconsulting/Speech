@@ -140,10 +140,13 @@ The optional `DemaConsulting.Speech.Onnx.ChatterboxTurbo` package adds a voice-c
 model through `AddChatterboxTurboModels(options)`: `OnnxChatterboxTurboEnglishSynthesisModel`
 (`chatterbox-turbo-onnx-en`, the ONNX export of ResembleAI's Chatterbox Turbo, 24,000 Hz, licensed
 **MIT**). The model has no built-in voices and the package bundles no voice audio: you supply one or
-more short reference clips (1 to 30 seconds of clean speech, 16-bit PCM WAV of any sample rate and
+more short reference clips (1 to 30 seconds of clean speech, WAV or FLAC of any sample rate and
 channel count, or in-memory samples) and the model speaks in that voice. The first voice is the
 default and the `voice` choice parameter selects among them. You are responsible for having the
-right to clone any voice you use.
+right to clone any voice you use. WAV and FLAC files are decoded by the core package's managed
+`AudioFileReader` (no native decoder), which you can also use directly:
+`AudioFileReader.Read("clip.flac")` returns an `AudioClip` of float samples, and `AudioResampler`
+down-mixes and resamples it.
 
 ```csharp
 using DemaConsulting.Speech;
@@ -155,7 +158,7 @@ var options = new ChatterboxTurboModelOptions
     [
         ChatterboxTurboReferenceVoice.FromFile("narrator", "narrator.wav"),
     ],
-    // Or load every .wav file in a folder as a voice named after the file:
+    // Or load every .wav and .flac file in a folder as a voice named after the file:
     // ReferenceVoiceDirectory = "voices",
 };
 

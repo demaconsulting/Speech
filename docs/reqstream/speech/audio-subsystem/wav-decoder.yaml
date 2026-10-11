@@ -1,0 +1,36 @@
+---
+# Software Unit Requirements for WavDecoder
+#
+# The internal unit decodes RIFF/WAVE images for AudioFileReader.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: AudioSubsystem Requirements
+        sections:
+          - title: WavDecoder Requirements
+            requirements:
+              - id: Speech-Audio-WavDecoder-Encodings
+                title: >-
+                  The WavDecoder class shall decode 8-, 16-, 24- and 32-bit PCM and 32-bit float WAV data,
+                  including the extensible header, scaling integer samples to [-1, 1), skipping unknown chunks
+                  and clamping an overstated data size.
+                justification: |
+                  These are the encodings hosts commonly produce; tolerance of real-world headers avoids
+                  needless failures.
+                tests:
+                  - WavDecoder_Decode_PcmDepths_ScaleToUnitRange
+                  - WavDecoder_Decode_Float32_PassesThrough
+                  - WavDecoder_Decode_ExtensibleWithExtraChunks_Decodes
+                  - WavDecoder_Decode_OverstatedDataSize_IsClamped
+
+              - id: Speech-Audio-WavDecoder-Rejections
+                title: >-
+                  The WavDecoder class shall reject unsupported encodings with NotSupportedException, malformed
+                  images with InvalidDataException, and images larger than the sample cap.
+                justification: |
+                  Hostile or damaged files must fail clearly with a bounded cost.
+                tests:
+                  - WavDecoder_Decode_UnsupportedEncoding_Throws
+                  - WavDecoder_Decode_MalformedImages_Throw
+                  - WavDecoder_Decode_ExceedsMaxSamples_Throws

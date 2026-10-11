@@ -43,7 +43,7 @@ and the reference-voice type. It implements Speech's public `ISynthesisModel` an
 | --- | --- | --- | --- |
 | `AddChatterboxTurboModels()` | Inbound | Extension method | Throws for a null catalog |
 | `OnnxChatterboxTurboEnglishSynthesisModel` | Inbound | Public class | Holds options and voices |
-| `ChatterboxTurboReferenceVoice.FromSamples/FromFile` | Inbound | Static factory | 16-bit PCM WAV or samples |
+| `ChatterboxTurboReferenceVoice.FromSamples/FromFile` | Inbound | Static factory | WAV or FLAC file, or samples |
 | `ISynthesisModel.CreateBackend(...)` | Inbound/Outbound | Public method call | Throws when unusable |
 | `ISynthesisBackend` | Inbound | Public interface | Not thread-safe |
 | `SpeechModelCatalog.AddModels(...)` | Outbound | Method call/return | Builder-phase only |

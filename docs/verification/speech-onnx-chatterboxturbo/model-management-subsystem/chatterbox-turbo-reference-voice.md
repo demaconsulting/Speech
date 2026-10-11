@@ -2,8 +2,8 @@
 
 #### Verification Approach
 
-Verified by `ChatterboxTurboReferenceVoiceTests.cs` using generated sine tones and WAV files written
-to a scratch directory.
+Verified by `ChatterboxTurboReferenceVoiceTests.cs` using generated sine tones, WAV files written
+to a scratch directory and a small FLAC fixture (`TestData/voice-mono-16-16000.flac`).
 
 #### Test Environment
 
@@ -13,7 +13,7 @@ to a scratch directory.
 #### Acceptance Criteria
 
 Mono 24 kHz samples are kept; other layouts are down-mixed and resampled preserving tone; long clips
-are trimmed and short clips rejected; WAV files load; bad files and arguments throw the documented
+are trimmed and short clips rejected; WAV and FLAC files load; bad files and arguments throw the documented
 exceptions.
 
 #### Test Scenarios
@@ -46,14 +46,14 @@ exceptions.
 
 **Test**: `ChatterboxTurboReferenceVoice_FromFile_StereoWav_LoadsVoice`
 
+##### Float32 WAV loads
+
+**Test**: `ChatterboxTurboReferenceVoice_FromFile_Float32Wav_LoadsVoice`
+
+##### FLAC loads at its natural duration
+
+**Test**: `ChatterboxTurboReferenceVoice_FromFile_Flac_LoadsVoice`
+
 ##### Bad files throw distinct exceptions
 
 **Test**: `ChatterboxTurboReferenceVoice_FromFile_BadFiles_ThrowDistinctExceptions`
-
-##### The resampler changes rate and preserves tone
-
-**Test**: `ReferenceAudioResampler_Resample_ChangesRateAndPreservesTone`
-
-##### The down-mix averages channels
-
-**Test**: `ReferenceAudioResampler_DownMix_AveragesChannels`

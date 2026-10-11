@@ -34,6 +34,9 @@ subsystem:
   `IAudioPlaybackDevice`/`IAudioCaptureDevice` implementations that write/read a mono, 16-bit PCM
   `.wav` file instead of using real hardware, for deterministic file-based synthesis/recognition
   by any host application
+- **AudioFileReader** / **AudioClip** / **AudioResampler**: managed WAV and FLAC decoding into a
+  floating-point clip, plus down-mixing and resampling, with no native decoder dependency
+- **WavDecoder** / **FlacDecoder**: the internal container decoders behind `AudioFileReader`
 - **PortAudio**: child subsystem containing the internal interop seam and the real
   PortAudioSharp2 adapter
 
@@ -42,7 +45,8 @@ subsystem:
 The subsystem exposes `IAudioCaptureDevice`, `IAudioPlaybackDevice`,
 `IAudioCaptureDeviceProbe`, `IAudioPlaybackDeviceProbe`, `AudioFormat`,
 `AudioDeviceDescription`, `AudioDeviceSelection`, `AudioDeviceFactory`,
-`AudioDeviceUnavailableException`, and `AudioDeviceInUseException` as its public API. It consumes
+`AudioDeviceUnavailableException`, `AudioDeviceInUseException`, `AudioFileReader`,
+`AudioFileReadOptions`, `AudioClip` and `AudioResampler` as its public API. It consumes
 `ISpeechDiagnostics` from the
 Diagnostics subsystem to report structural selection, start/stop, and fallback facts without
 ever exposing raw audio content. The ModelManagementSubsystem also consumes `AudioFormat` as a

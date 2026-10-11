@@ -76,6 +76,19 @@ sections:
           - WavFileAudioPlaybackDevice_WriteThenDispose_RoundTripsSamplesWithinQuantizationTolerance
           - WavFileAudioCaptureDevice_Start_FixtureFile_DeliversExpectedTotalSampleCount
 
+      - id: Speech-Audio-ManagedAudioFileDecoding
+        title: >-
+          The library shall read WAV and FLAC audio files into floating-point clips with managed
+          code only, so reference voices and test audio can be supplied in either format.
+        tags: [system]
+        justification: |
+          Hosts store reference clips and recordings as WAV or FLAC. Decoding them in managed
+          code removes any native decoder dependency and works on every supported platform.
+        children:
+          - Speech-Audio-AudioFileReading
+        tests:
+          - AudioFileReader_Read_DetectsContainerByContent
+          - FlacDecoder_Decode_SoundfileFixture_MatchesWavBitExact
       - id: Speech-Audio-InitializationFailureFallback
         title: >-
           The library shall degrade to honest unavailable audio devices when the PortAudio

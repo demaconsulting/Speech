@@ -8,6 +8,11 @@ input-files:
   - docs/design/speech.md
   - docs/design/speech/diagnostics.md
   - docs/design/speech/audio-subsystem.md
+  - docs/design/speech/audio-subsystem/audio-file-reader.md
+  - docs/design/speech/audio-subsystem/audio-clip.md
+  - docs/design/speech/audio-subsystem/audio-resampler.md
+  - docs/design/speech/audio-subsystem/wav-decoder.md
+  - docs/design/speech/audio-subsystem/flac-decoder.md
   - docs/design/speech/audio-subsystem/audio-device-description.md
   - docs/design/speech/audio-subsystem/audio-device-selection.md
   - docs/design/speech/audio-subsystem/i-audio-capture-device.md

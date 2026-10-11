@@ -36,6 +36,11 @@ includes:
   - docs/reqstream/speech/audio-subsystem/port-audio/port-audio-supporting-types.yaml
   - docs/reqstream/speech/audio-subsystem/unavailable-fallbacks.yaml
   - docs/reqstream/speech/audio-subsystem/audio-device-refresh.yaml
+  - docs/reqstream/speech/audio-subsystem/audio-file-reader.yaml
+  - docs/reqstream/speech/audio-subsystem/audio-clip.yaml
+  - docs/reqstream/speech/audio-subsystem/audio-resampler.yaml
+  - docs/reqstream/speech/audio-subsystem/wav-decoder.yaml
+  - docs/reqstream/speech/audio-subsystem/flac-decoder.yaml
   - docs/reqstream/speech/model-management-subsystem.yaml
   - docs/reqstream/speech/model-management-subsystem/speech-model-store.yaml
   - docs/reqstream/speech/model-management-subsystem/speech-model-store-options.yaml

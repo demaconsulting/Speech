@@ -378,14 +378,14 @@ mirror serves its files from `<mirror>/nemotron-3.5-asr-streaming-0.6b-onnx-int4
 The optional `DemaConsulting.Speech.Onnx.ChatterboxTurbo` package adds a voice-cloning synthesis
 model through `AddChatterboxTurboModels(options)`: `OnnxChatterboxTurboEnglishSynthesisModel`
 (`chatterbox-turbo-onnx-en`, 24,000 Hz, licensed **MIT**). It has no built-in voices and bundles no
-voice audio; you supply short reference clips (1 to 30 seconds, 16-bit PCM WAV of any sample rate
+voice audio; you supply short reference clips (1 to 30 seconds, WAV or FLAC of any sample rate
 and channel count, or in-memory samples) and the model speaks in that voice:
 
 ```csharp
 var options = new ChatterboxTurboModelOptions
 {
     ReferenceVoices = [ChatterboxTurboReferenceVoice.FromFile("narrator", "narrator.wav")],
-    // Or: ReferenceVoiceDirectory = "voices",   // every .wav file becomes a voice
+    // Or: ReferenceVoiceDirectory = "voices",   // every .wav and .flac file becomes a voice
 };
 
 var catalog = new SpeechModelCatalog().AddChatterboxTurboModels(options);
@@ -400,6 +400,17 @@ native tag that would end a sentence is moved before the final word (default), s
 stripped. Generation is bounded (`MaxNewTokens`, `MaxAudioTokensPerTextToken`), so a failure to stop
 produces truncated audio rather than a hang. You are responsible for having the right to clone any
 voice you use.
+
+### Reading WAV and FLAC files
+
+The core package decodes audio files with managed code only. `AudioFileReader.Read(path)` (or
+`Read(stream)`) detects WAV (8/16/24/32-bit PCM and 32-bit float) or FLAC by content and returns an
+`AudioClip` holding interleaved float samples in [-1, 1] with its `SampleRate`, `ChannelCount` and
+`BitsPerSample`. `AudioFileReader.ReadMono(path)` returns down-mixed samples and the native rate,
+and `AudioResampler.ToMonoResampled(clip, 16000)` prepares a clip for a model. A missing file throws
+`FileNotFoundException`, a malformed file `InvalidDataException` and an unsupported WAV encoding
+`NotSupportedException`. `AudioFileReadOptions` lets you disable FLAC checksum verification or lower
+the `MaxSamples` guard against oversized files.
 
 ## Natural Language Audio Tags
 

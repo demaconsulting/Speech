@@ -67,7 +67,7 @@ sections:
       - id: SpeechOnnxChatterboxTurbo-Synthesis-VoiceCloning
         title: >-
           The library shall speak in a voice cloned from a caller-supplied reference clip,
-          accepting clips of any sample rate and channel count as in-memory audio or WAV files.
+          accepting clips of any sample rate and channel count as in-memory audio or WAV or FLAC files.
         tags: [system]
         justification: |
           Chatterbox Turbo has no built-in voices; its distinguishing capability is conditioning

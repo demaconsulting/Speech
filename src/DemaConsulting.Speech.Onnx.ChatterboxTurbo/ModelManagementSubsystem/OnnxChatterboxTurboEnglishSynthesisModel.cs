@@ -104,7 +104,7 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModel : ISynthesisModel
     /// <param name="options">The configuration, or <see langword="null"/> for defaults (which supply no voices).</param>
     /// <exception cref="ArgumentException">Thrown when voice ids are duplicated or a variant is not a defined value.</exception>
     /// <exception cref="DirectoryNotFoundException">Thrown when <see cref="ChatterboxTurboModelOptions.ReferenceVoiceDirectory"/> does not exist.</exception>
-    /// <exception cref="InvalidDataException">Thrown when a voice file in the directory is not a valid WAV file.</exception>
+    /// <exception cref="InvalidDataException">Thrown when a voice file in the directory is not a valid WAV or FLAC file.</exception>
     public OnnxChatterboxTurboEnglishSynthesisModel(ChatterboxTurboModelOptions? options = null)
     {
         _options = options ?? new ChatterboxTurboModelOptions();
@@ -302,7 +302,10 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModel : ISynthesisModel
                     $"Reference voice directory '{options.ReferenceVoiceDirectory}' was not found.");
             }
 
-            var files = Directory.GetFiles(options.ReferenceVoiceDirectory, "*.wav");
+            // Match by extension, case-insensitively, against the formats the core audio reader understands
+            var files = Directory.GetFiles(options.ReferenceVoiceDirectory)
+                .Where(file => AudioFileReader.SupportedExtensions.Contains(Path.GetExtension(file), StringComparer.OrdinalIgnoreCase))
+                .ToArray();
             Array.Sort(files, StringComparer.Ordinal);
             voices.AddRange(files.Select(file => ChatterboxTurboReferenceVoice.FromFile(Path.GetFileNameWithoutExtension(file), file)));
         }

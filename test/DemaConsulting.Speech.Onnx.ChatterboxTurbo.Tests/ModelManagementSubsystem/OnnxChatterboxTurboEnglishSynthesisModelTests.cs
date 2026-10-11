@@ -128,15 +128,16 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModelTests : IDisposable
         Assert.Equal(0, model.ResolveSpeakerId(null));
     }
 
-    /// <summary>Proves voices are loaded from a directory of WAV files in ordinal order after explicit voices.</summary>
+    /// <summary>Proves voices are loaded from a directory of WAV and FLAC files in ordinal order after explicit voices.</summary>
     [Fact]
-    public void OnnxChatterboxTurboEnglishSynthesisModel_Constructor_VoiceDirectory_LoadsWavFiles()
+    public void OnnxChatterboxTurboEnglishSynthesisModel_Constructor_VoiceDirectory_LoadsWavAndFlacFiles()
     {
         // Arrange
         var directory = Path.Combine(_root, "voices");
         Directory.CreateDirectory(directory);
         WriteWav(Path.Combine(directory, "zed.wav"));
         WriteWav(Path.Combine(directory, "amy.wav"));
+        File.Copy(Path.Combine(AppContext.BaseDirectory, "TestData", "voice-mono-16-16000.flac"), Path.Combine(directory, "mid.FLAC"));
         File.WriteAllText(Path.Combine(directory, "ignored.txt"), "x");
 
         // Act
@@ -145,7 +146,7 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModelTests : IDisposable
 
         // Assert
         var choice = Assert.IsType<ChoiceParameter>(Assert.Single(model.Parameters));
-        Assert.Equal(["first", "amy", "zed"], choice.Options.Select(option => option.Value));
+        Assert.Equal(["first", "amy", "mid", "zed"], choice.Options.Select(option => option.Value));
         Assert.Throws<DirectoryNotFoundException>(() => new OnnxChatterboxTurboEnglishSynthesisModel(
             new ChatterboxTurboModelOptions { ReferenceVoiceDirectory = Path.Combine(_root, "nope") }));
     }

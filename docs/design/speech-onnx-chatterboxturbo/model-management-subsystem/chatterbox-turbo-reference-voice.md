@@ -10,16 +10,16 @@ defines the voices a user can choose.
 **Key Methods**:
 
 - **FromSamples(id, name, samples, sampleRate, channelCount)**: down-mix by averaging channels
-  (`ReferenceAudioResampler.DownMix`), resample to 24 kHz (`ReferenceAudioResampler.Resample`, a
-  windowed-sinc resampler), reject clips under the minimum and trim clips over the maximum
-- **FromFile(id, name, path)**: parse a RIFF/WAVE 16-bit PCM file of any channel count with a small
-  in-house reader, then delegate to `FromSamples`
+  (`AudioResampler.DownMix` from the core AudioSubsystem), resample to 24 kHz (`AudioResampler.Resample`,
+  a windowed-sinc resampler), reject clips under the minimum and trim clips over the maximum
+- **FromFile(id, name, path)**: decode a WAV or FLAC file of any channel count with the core
+  `AudioFileReader`, then delegate to `FromSamples`
 
 **Error Handling**: `ArgumentException`/`ArgumentNullException`/`ArgumentOutOfRangeException` for
 invalid arguments; `FileNotFoundException` for a missing file; `InvalidDataException` for malformed
-RIFF data; `NotSupportedException` for non-PCM16 formats; too-short clips throw `ArgumentException`.
+audio data; `NotSupportedException` for unsupported encodings; too-short clips throw `ArgumentException`.
 
-**Dependencies**: none beyond the base class library.
+**Dependencies**: `AudioFileReader` and `AudioResampler` from the core `DemaConsulting.Speech` AudioSubsystem.
 
 **Callers**: `ChatterboxTurboModelOptions`, `OnnxChatterboxTurboEnglishSynthesisModel` and the
 synthesis engine.

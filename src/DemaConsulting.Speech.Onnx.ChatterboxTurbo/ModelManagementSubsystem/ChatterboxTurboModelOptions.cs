@@ -89,7 +89,7 @@ public sealed class ChatterboxTurboModelOptions
     public IReadOnlyList<ChatterboxTurboReferenceVoice> ReferenceVoices { get; set; } = [];
 
     /// <summary>
-    ///     Gets or sets a directory whose <c>*.wav</c> files each become a voice (id = file name without
+    ///     Gets or sets a directory whose <c>.wav</c> and <c>.flac</c> files each become a voice (id = file name without
     ///     extension, ordinal order, after <see cref="ReferenceVoices"/>); <see langword="null"/> for none.
     /// </summary>
     public string? ReferenceVoiceDirectory { get; set; }

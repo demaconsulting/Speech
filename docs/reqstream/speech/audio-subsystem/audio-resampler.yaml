@@ -1,0 +1,39 @@
+---
+# Software Unit Requirements for AudioResampler
+#
+# The unit down-mixes and resamples float audio, decomposing the AudioSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: AudioSubsystem Requirements
+        sections:
+          - title: AudioResampler Requirements
+            requirements:
+              - id: Speech-Audio-AudioResampler-DownMix
+                title: >-
+                  The AudioResampler class shall down-mix interleaved audio by averaging channels and reject
+                  a non-positive channel count.
+                justification: |
+                  Averaging preserves content for mono-oriented models.
+                tests:
+                  - AudioResampler_DownMix_AveragesChannels
+
+              - id: Speech-Audio-AudioResampler-Resample
+                title: >-
+                  The AudioResampler class shall resample mono audio between sample rates with a windowed-sinc
+                  filter that preserves duration and tone content, return a copy at equal rates and reject
+                  non-positive rates.
+                justification: |
+                  Models need audio at a fixed rate; band-limited interpolation avoids aliasing.
+                tests:
+                  - AudioResampler_Resample_ChangesRateKeepingTone
+                  - AudioResampler_Resample_SameRateOrEmpty_AreTrivial
+
+              - id: Speech-Audio-AudioResampler-ToMonoResampled
+                title: >-
+                  The AudioResampler class shall combine down-mixing and resampling of an AudioClip.
+                justification: |
+                  The common model-input preparation is one call.
+                tests:
+                  - AudioResampler_ToMonoResampled_StereoClip_ProducesMonoAtTargetRate

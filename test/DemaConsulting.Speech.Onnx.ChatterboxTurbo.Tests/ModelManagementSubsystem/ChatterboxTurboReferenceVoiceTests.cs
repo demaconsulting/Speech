@@ -124,48 +124,50 @@ public sealed class ChatterboxTurboReferenceVoiceTests : IDisposable
         Assert.Equal(24000, voice.Samples.Length);
     }
 
-    /// <summary>Proves a missing file, a non-PCM16 file and a non-WAV file are reported distinctly.</summary>
+    /// <summary>Proves a float32 WAV file is read now that the core reader supports it.</summary>
+    [Fact]
+    public void ChatterboxTurboReferenceVoice_FromFile_Float32Wav_LoadsVoice()
+    {
+        // Arrange
+        var path = Path.Combine(_root, "f.wav");
+        File.WriteAllBytes(path, Wav(Tone(24000, 24000, 300), 24000, 1, format: 3, bits: 32));
+
+        // Act
+        var voice = ChatterboxTurboReferenceVoice.FromFile("f", path);
+
+        // Assert
+        Assert.Equal(24000, voice.Samples.Length);
+    }
+
+    /// <summary>Proves a FLAC file is decoded, resampled to 24 kHz and kept at its natural 1.2 s duration.</summary>
+    [Fact]
+    public void ChatterboxTurboReferenceVoice_FromFile_Flac_LoadsVoice()
+    {
+        // Arrange
+        var path = Path.Combine(AppContext.BaseDirectory, "TestData", "voice-mono-16-16000.flac");
+
+        // Act
+        var voice = ChatterboxTurboReferenceVoice.FromFile("flac", path, "Flac voice");
+
+        // Assert
+        Assert.Equal("flac", voice.Id);
+        Assert.Equal(28800, voice.Samples.Length);
+    }
+
+    /// <summary>Proves a missing file, an unsupported encoding and a non-audio file are reported distinctly.</summary>
     [Fact]
     public void ChatterboxTurboReferenceVoice_FromFile_BadFiles_ThrowDistinctExceptions()
     {
-        // Arrange
-        var float32 = Path.Combine(_root, "f.wav");
-        File.WriteAllBytes(float32, Wav(Tone(24000, 24000, 300), 24000, 1, format: 3, bits: 32));
+        // Arrange: format tag 2 (ADPCM) is not supported
+        var adpcm = Path.Combine(_root, "f.wav");
+        File.WriteAllBytes(adpcm, Wav(Tone(24000, 24000, 300), 24000, 1, format: 2, bits: 16));
         var garbage = Path.Combine(_root, "g.wav");
         File.WriteAllBytes(garbage, Encoding.ASCII.GetBytes("this is not a wav file at all"));
 
         // Assert
         Assert.Throws<FileNotFoundException>(() => ChatterboxTurboReferenceVoice.FromFile("m", Path.Combine(_root, "none.wav")));
-        Assert.Throws<NotSupportedException>(() => ChatterboxTurboReferenceVoice.FromFile("f", float32));
+        Assert.Throws<NotSupportedException>(() => ChatterboxTurboReferenceVoice.FromFile("f", adpcm));
         Assert.Throws<InvalidDataException>(() => ChatterboxTurboReferenceVoice.FromFile("g", garbage));
-    }
-
-    /// <summary>Proves the resampler preserves duration and a low-frequency tone's amplitude, and is the identity at equal rates.</summary>
-    [Fact]
-    public void ReferenceAudioResampler_Resample_ChangesRateAndPreservesTone()
-    {
-        // Arrange
-        var input = Tone(16000, 16000, 200);
-
-        // Act
-        var up = ReferenceAudioResampler.Resample(input, 16000, 24000);
-        var same = ReferenceAudioResampler.Resample(input, 16000, 16000);
-
-        // Assert
-        Assert.Equal(24000, up.Length);
-        Assert.InRange(up.Skip(2000).Take(20000).Max(), 0.9f, 1.05f);
-        Assert.Equal(input, same);
-    }
-
-    /// <summary>Proves the down-mix averages interleaved channels.</summary>
-    [Fact]
-    public void ReferenceAudioResampler_DownMix_AveragesChannels()
-    {
-        // Act
-        var mono = ReferenceAudioResampler.DownMix([1f, 0f, 0.5f, 0.5f], 2);
-
-        // Assert
-        Assert.Equal([0.5f, 0.5f], mono);
     }
 
     /// <summary>Builds a sine tone.</summary>

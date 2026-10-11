@@ -1,16 +1,15 @@
-namespace DemaConsulting.Speech.Onnx.ChatterboxTurbo.ModelManagementSubsystem;
+namespace DemaConsulting.Speech.AudioSubsystem;
 
 /// <summary>
-///     Converts caller-supplied reference audio to the mono 24 kHz float stream the speech encoder consumes.
+///     Down-mixes and resamples decoded audio, for example to the mono stream a speech model consumes.
 /// </summary>
 /// <remarks>
-///     The core library's playback resampler is internal and deliberately not shared with this package, so this
-///     small in-house converter exists: down-mix by averaging channels, then band-limited (windowed-sinc)
-///     resampling. A windowed-sinc kernel with the cutoff lowered for down-sampling is used instead of linear
-///     interpolation because the conditioning clip is typically recorded at 44.1/48 kHz and linear
-///     interpolation would alias high frequencies into the speaker embedding. Stateless and thread-safe.
+///     Channels are down-mixed by averaging, then resampled with a Hann-windowed sinc kernel whose cutoff is
+///     lowered when down-sampling. A band-limited kernel is used instead of linear interpolation because clips
+///     are typically recorded at 44.1/48 kHz and linear interpolation would alias high frequencies. The kernel
+///     is normalized so DC passes with unity gain, including at the clip edges. Stateless and thread-safe.
 /// </remarks>
-internal static class ReferenceAudioResampler
+public static class AudioResampler
 {
     /// <summary>The one-sided kernel width, in zero crossings of the (cutoff-scaled) sinc.</summary>
     private const int KernelLobes = 16;
@@ -75,26 +74,45 @@ internal static class ReferenceAudioResampler
 
         for (var i = 0; i < outputLength; i++)
         {
-            var center = i * step;
-            var first = Math.Max(0, (int)Math.Ceiling(center - halfWidth));
-            var last = Math.Min(input.Length - 1, (int)Math.Floor(center + halfWidth));
-            double sum = 0;
-            double weightSum = 0;
-            for (var n = first; n <= last; n++)
-            {
-                var distance = n - center;
-                var window = 0.5 * (1 + Math.Cos(Math.PI * distance / halfWidth));
-                var x = Math.PI * distance * cutoff;
-                var sinc = Math.Abs(x) < 1e-12 ? 1.0 : Math.Sin(x) / x;
-                var weight = cutoff * sinc * window;
-                sum += input[n] * weight;
-                weightSum += weight;
-            }
-
-            // Normalizing by the weight sum keeps unity DC gain, including at the clip edges
-            output[i] = weightSum > 1e-9 ? (float)(sum / weightSum) : 0f;
+            output[i] = InterpolateAt(input, i * step, cutoff, halfWidth);
         }
 
         return output;
+    }
+
+    /// <summary>
+    ///     Down-mixes a clip to mono and resamples it to <paramref name="outputRate"/>.
+    /// </summary>
+    /// <param name="clip">The decoded clip. Must not be null.</param>
+    /// <param name="outputRate">The output sample rate in Hz; must be positive.</param>
+    /// <returns>The mono samples at <paramref name="outputRate"/>.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="clip"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="outputRate"/> is not positive.</exception>
+    public static float[] ToMonoResampled(AudioClip clip, int outputRate)
+    {
+        ArgumentNullException.ThrowIfNull(clip);
+        return Resample(clip.ToMono(), clip.SampleRate, outputRate);
+    }
+
+    /// <summary>Evaluates the band-limited interpolation of <paramref name="input"/> at the fractional index <paramref name="center"/>.</summary>
+    private static float InterpolateAt(ReadOnlySpan<float> input, double center, double cutoff, double halfWidth)
+    {
+        var first = Math.Max(0, (int)Math.Ceiling(center - halfWidth));
+        var last = Math.Min(input.Length - 1, (int)Math.Floor(center + halfWidth));
+        double sum = 0;
+        double weightSum = 0;
+        for (var n = first; n <= last; n++)
+        {
+            var distance = n - center;
+            var window = 0.5 * (1 + Math.Cos(Math.PI * distance / halfWidth));
+            var x = Math.PI * distance * cutoff;
+            var sinc = Math.Abs(x) < 1e-12 ? 1.0 : Math.Sin(x) / x;
+            var weight = cutoff * sinc * window;
+            sum += input[n] * weight;
+            weightSum += weight;
+        }
+
+        // Normalizing by the weight sum keeps unity DC gain, including at the clip edges
+        return weightSum > 1e-9 ? (float)(sum / weightSum) : 0f;
     }
 }

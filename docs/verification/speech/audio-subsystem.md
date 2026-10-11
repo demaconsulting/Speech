@@ -37,6 +37,8 @@ An AudioSubsystem test run passes when:
   refused with `AudioDeviceInUseException` (without terminating the native runtime) while any
   capture/playback device has an active stream, and succeeds again once every active stream is
   unregistered
+- WAV and FLAC files decode through `AudioFileReader` (FLAC bit-exactly against libFLAC fixtures)
+  and are down-mixed and resampled by `AudioResampler`, with malformed input rejected
 - The automated verification boundary remains honest about the absence of hardware I/O coverage
 
 ### Test Scenarios

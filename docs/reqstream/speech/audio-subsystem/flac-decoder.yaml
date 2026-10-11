@@ -1,0 +1,60 @@
+---
+# Software Unit Requirements for FlacDecoder
+#
+# The internal unit (with FlacFrameDecoder, FlacBitReader, FlacCrc and FlacStreamInfo) decodes
+# FLAC streams for AudioFileReader.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: AudioSubsystem Requirements
+        sections:
+          - title: FlacDecoder Requirements
+            requirements:
+              - id: Speech-Audio-FlacDecoder-Prediction
+                title: >-
+                  The FlacDecoder shall decode constant, verbatim, fixed-predictor and linear-predictor subframes
+                  with both Rice residual methods, escape partitions and wasted bits.
+                justification: |
+                  A decoder must support every subframe type of the FLAC format to read arbitrary encoder output.
+                tests:
+                  - FlacDecoder_Decode_ConstantSubframe_RepeatsValue
+                  - FlacDecoder_Decode_VerbatimMultiFrame_RoundTrips
+                  - FlacDecoder_Decode_FixedPredictor_RoundTrips
+                  - FlacDecoder_Decode_LpcPredictor_RoundTrips
+                  - FlacDecoder_Decode_ResidualCoding_RoundTrips
+                  - FlacDecoder_Decode_WastedBits_AreRestored
+
+              - id: Speech-Audio-FlacDecoder-StreamShapes
+                title: >-
+                  The FlacDecoder shall handle all stereo decorrelation modes, bit depths from 4 to 32, every
+                  sample-rate and block-size header code, multi-byte frame numbers, up to eight channels, ID3v2
+                  prefixes, extra metadata blocks and streams of unknown length.
+                justification: |
+                  Real FLAC files vary in all of these ways.
+                tests:
+                  - FlacDecoder_Decode_StereoModes_RoundTrip
+                  - FlacDecoder_Decode_BitDepths_RoundTrip
+                  - FlacDecoder_Decode_SampleRateCodes_ReportRate
+                  - FlacDecoder_Decode_BlockSizeCodes_RoundTrip
+                  - FlacDecoder_Decode_ManyFrames_ParsesMultiByteFrameNumbers
+                  - FlacDecoder_Decode_ContainerVariants_RoundTrip
+                  - FlacDecoder_Decode_UnknownTotal_DecodesUntilData_Ends
+
+              - id: Speech-Audio-FlacDecoder-Integrity
+                title: >-
+                  The FlacDecoder shall verify frame-header CRC-8 and frame CRC-16 checksums unless disabled, and
+                  shall reject truncated streams, invalid header or predictor fields, oversized blocks and
+                  streams exceeding the sample cap with InvalidDataException.
+                justification: |
+                  Corrupt or hostile input must fail with a clear, bounded error instead of producing garbage
+                  or exhausting memory.
+                tests:
+                  - FlacCrc_Checksums_StandardCheckString_MatchPublishedValues
+                  - FlacDecoder_Decode_BadChecksums_ThrowUnlessVerificationDisabled
+                  - FlacDecoder_Decode_Truncated_Throws
+                  - FlacDecoder_Decode_MissingFrames_Throws
+                  - FlacDecoder_Decode_InvalidFields_Throw
+                  - FlacDecoder_Decode_BlockLargerThanMaximum_Throws
+                  - FlacDecoder_Decode_InvalidPredictorParameters_Throw
+                  - FlacDecoder_Decode_ExceedsMaxSamples_Throws

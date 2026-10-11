@@ -1,0 +1,20 @@
+---
+# Software Unit Requirements for AudioClip
+#
+# The unit is the decoded-audio value type returned by AudioFileReader.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: AudioSubsystem Requirements
+        sections:
+          - title: AudioClip Requirements
+            requirements:
+              - id: Speech-Audio-AudioClip-DerivedMembers
+                title: >-
+                  The AudioClip record shall report its frame count and duration, down-mix to mono, and
+                  convert to clamped 16-bit PCM.
+                justification: |
+                  Consumers need common views of decoded audio without re-implementing them.
+                tests:
+                  - AudioClip_DerivedMembers_AreConsistent

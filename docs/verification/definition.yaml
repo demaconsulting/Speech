@@ -8,6 +8,11 @@ input-files:
   - docs/verification/speech.md
   - docs/verification/speech/diagnostics.md
   - docs/verification/speech/audio-subsystem.md
+  - docs/verification/speech/audio-subsystem/audio-file-reader.md
+  - docs/verification/speech/audio-subsystem/audio-clip.md
+  - docs/verification/speech/audio-subsystem/audio-resampler.md
+  - docs/verification/speech/audio-subsystem/wav-decoder.md
+  - docs/verification/speech/audio-subsystem/flac-decoder.md
   - docs/verification/speech/audio-subsystem/audio-device-description.md
   - docs/verification/speech/audio-subsystem/audio-device-selection.md
   - docs/verification/speech/audio-subsystem/i-audio-capture-device.md

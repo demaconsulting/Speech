@@ -53,14 +53,14 @@ sections:
                 title: >-
                   The OnnxChatterboxTurboEnglishSynthesisModel class shall expose the supplied
                   voices as a voice choice, map a voice id to its index (first voice by
-                  default), and load every WAV file of a supplied voice directory as a voice.
+                  default), and load every WAV or FLAC file of a supplied voice directory as a voice.
                 justification: |
                   The model has no built-in voices, so the host's own clips define the voice
                   list a user can choose from.
                 tests:
                   - OnnxChatterboxTurboEnglishSynthesisModel_Parameters_ReflectSuppliedVoices
                   - OnnxChatterboxTurboEnglishSynthesisModel_ResolveSpeakerId_MapsVoiceIdToIndex
-                  - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_VoiceDirectory_LoadsWavFiles
+                  - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_VoiceDirectory_LoadsWavAndFlacFiles
 
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-CreateBackend
                 title: >-

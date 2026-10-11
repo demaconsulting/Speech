@@ -7,8 +7,8 @@ and builds the loaded backend from an installed directory. Its companion types a
 `ChatterboxTurboAuxiliaryModelVariant` and `ChatterboxTurboEndOfSentenceTagPolicy`.
 
 **Data Model**: Immutable after construction: the options, the resolved list of
-`ChatterboxTurboReferenceVoice` values (supplied directly or loaded from a directory of `.wav`
-files), the selected variants, and a static table of SHA-256 checksums keyed by file. The model id
+`ChatterboxTurboReferenceVoice` values (supplied directly or loaded from a directory of `.wav` or
+`.flac` files), the selected variants, and a static table of SHA-256 checksums keyed by file. The model id
 is `chatterbox-turbo-onnx-en` (`BaseModelId`) for the default fp16 language model with q4 auxiliary
 graphs, and `chatterbox-turbo-onnx-en-lm-<variant>-aux-<variant>` for any other combination.
 

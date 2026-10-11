@@ -303,3 +303,29 @@ sections:
               - AudioDeviceFactory_RefreshDevices_ActiveStreamInUse_PropagatesAudioDeviceInUseException
               - PortAudioEnvironment_Refresh_NoActiveStreams_ReinitializesAndReflectsNewOutcome
               - PortAudioEnvironment_Refresh_ActiveStreamRegistered_ThrowsAudioDeviceInUseExceptionAndDoesNotTerminate
+
+          - id: Speech-Audio-AudioFileReading
+            title: >-
+              The AudioSubsystem shall decode WAV and FLAC audio files into floating-point clips
+              using only managed code, and shall provide down-mixing and resampling of those clips.
+            justification: |
+              Hosts keep reference clips and test audio as WAV or FLAC files. A managed decoder
+              adds no native dependency, so it behaves identically on every supported platform
+              and keeps the library trim- and AOT-friendly.
+            children:
+              - Speech-Audio-AudioFileReader-DetectsContainer
+              - Speech-Audio-AudioFileReader-ReportsErrors
+              - Speech-Audio-AudioFileReader-ReadMono
+              - Speech-Audio-AudioFileReader-FlacFixtures
+              - Speech-Audio-AudioClip-DerivedMembers
+              - Speech-Audio-AudioResampler-DownMix
+              - Speech-Audio-AudioResampler-Resample
+              - Speech-Audio-AudioResampler-ToMonoResampled
+              - Speech-Audio-WavDecoder-Encodings
+              - Speech-Audio-WavDecoder-Rejections
+              - Speech-Audio-FlacDecoder-Prediction
+              - Speech-Audio-FlacDecoder-StreamShapes
+              - Speech-Audio-FlacDecoder-Integrity
+            tests:
+              - AudioFileReader_Read_DetectsContainerByContent
+              - FlacDecoder_Decode_SoundfileFixture_MatchesWavBitExact

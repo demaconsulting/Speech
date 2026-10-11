@@ -44,9 +44,9 @@ file or with an invalid graph; options have safe defaults and validate.
 
 **Test**: `OnnxChatterboxTurboEnglishSynthesisModel_ResolveSpeakerId_MapsVoiceIdToIndex`
 
-##### A voice directory loads WAV files
+##### A voice directory loads WAV and FLAC files
 
-**Test**: `OnnxChatterboxTurboEnglishSynthesisModel_Constructor_VoiceDirectory_LoadsWavFiles`
+**Test**: `OnnxChatterboxTurboEnglishSynthesisModel_Constructor_VoiceDirectory_LoadsWavAndFlacFiles`
 
 ##### Backend creation synthesizes from a synthetic install
 
