@@ -191,21 +191,8 @@ internal static class RecognizeCommand
         ArgumentNullException.ThrowIfNull(factory);
 
         using var cancellationSource = new CancellationTokenSource();
-        ConsoleCancelEventHandler onCancelKeyPress = (_, e) =>
-        {
-            e.Cancel = true;
-            cancellationSource.Cancel();
-        };
-
-        Console.CancelKeyPress += onCancelKeyPress;
-        try
-        {
-            RunAsync(context, catalog, factory, cancellationSource.Token).GetAwaiter().GetResult();
-        }
-        finally
-        {
-            Console.CancelKeyPress -= onCancelKeyPress;
-        }
+        using var cancelRegistration = ConsoleCancellation.Register(cancellationSource);
+        RunAsync(context, catalog, factory, cancellationSource.Token).GetAwaiter().GetResult();
     }
 
     /// <summary>
@@ -283,8 +270,6 @@ internal static class RecognizeCommand
         // pump below naturally; cancellationToken is also forwarded into GetResultsAsync as a
         // belt-and-suspenders safety net for the documented edge case where StopAsync called
         // while the session never started does not itself complete that stream.
-        ConsoleCancelEventHandler onCancelKeyPress = (_, _) => _ = session.StopAsync(CancellationToken.None);
-
         var results = silenceTimeout?.GetResultsAsync(cancellationToken) ?? session.GetResultsAsync(cancellationToken);
 
         // Started before StartAsync is awaited (see this type's remarks on live interim
@@ -292,8 +277,8 @@ internal static class RecognizeCommand
         // suspends immediately since no result exists yet, handing control straight back here.
         var pumpTask = PumpResultsAsync(results, outputWriter, options, consoleLine, cancellationToken);
 
-        Console.CancelKeyPress += onCancelKeyPress;
-        try
+        // Fire-and-forget by design: the handler is synchronous and must not block.
+        using (ConsoleCancellation.Observe(() => _ = session.StopAsync(CancellationToken.None)))
         {
             try
             {
@@ -315,10 +300,6 @@ internal static class RecognizeCommand
             }
 
             await pumpTask.ConfigureAwait(false);
-        }
-        finally
-        {
-            Console.CancelKeyPress -= onCancelKeyPress;
         }
 
         // Settle any interim line still pending (e.g. a session that ends right after an

@@ -86,12 +86,12 @@ the `--voices-dir` option, and the reference-voice consent note, and exit `0`.
 
 ### Subcommand Dispatch
 
-**Tests**: `Program_Run_WithListModelsCommand_DoesNotThrowNotImplemented`,
-`Program_Run_WithListDevicesCommand_DoesNotThrowNotImplemented`,
-`Program_Run_WithDoctorCommand_DoesNotThrowNotImplemented`,
-`Program_Run_WithSpeakCommand_DoesNotThrowNotImplemented`,
-`Program_Run_WithRecognizeCommand_DoesNotThrowNotImplemented`,
-`Program_Run_WithAskCommand_DoesNotThrowNotImplemented`,
+**Tests**: `Program_Run_WithListModelsCommand_ListsModelsAndSucceeds`,
+`Program_Run_WithListDevicesCommand_CompletesWithSuccessExitCode`,
+`Program_Run_WithDoctorCommand_ProducesReportWithoutThrowing`,
+`Program_Run_WithSpeakCommandAndNoModel_ThrowsArgumentException`,
+`Program_Run_WithRecognizeCommandAndNoModel_ThrowsArgumentException`,
+`Program_Run_WithAskCommandAndNoModel_ThrowsArgumentException`,
 `CommandDispatch_Find_VoiceCommands_AreRegistered`,
 `Program_Main_WithUnknownCommand_ReturnsNonZeroExitCodeAndReportsCommand`,
 `Program_Main_WithUnknownCommandAndSilentFlag_SuppressesErrorOutput`,
@@ -113,12 +113,23 @@ scenarios.
 **Tests**: `Context_Create_ModelsDirAfterCommand_IsRecognizedAsGlobalOption`,
 `Context_Create_WithMirrorOptions_ParsesOntoContext`,
 `Context_Create_WithExistingVoicesDir_ParsesOntoContext`, `Context_Create_WithBadVoicesDir_ThrowsArgumentException`,
-`SpeechCli_SilentFlag_Provided_SuppressesOutput`, `SpeechCli_LogFlag_Provided_WritesOutputToFile`
+`SpeechCli_SilentFlag_Provided_SuppressesOutput`, `SpeechCli_LogFlag_Provided_WritesOutputToFile`,
+`Context_Create_DepthWithinRange_ParsesOntoContext`,
+`Context_Create_DepthOutOfRangeOrNonNumeric_ThrowsArgumentException`,
+`Context_Create_DepthWithoutValue_ThrowsArgumentException`,
+`Context_Create_VerboseOrDiagnosticsFlag_SetsDiagnostics`,
+`Context_Create_VerboseAfterCommand_IsRecognizedAsGlobalOption`,
+`Context_Create_NoEmotionsOnNonVoicesCommand_IsRecognizedAsGlobalOption`,
+`Context_Create_ResultsOption_ParsesPathAndRejectsMissingValue`
 
 Verifies that a global option appearing after the subcommand name is still recognized as a global
 option (not absorbed into the subcommand's raw argument list), and that `--silent`/`--log`
 actually suppress console output/write a log file respectively.
 `--voices-dir` is parsed onto the context when it names an existing folder and rejected with `ArgumentException` otherwise.
+`--depth` accepts 1 through 6 and rejects 0, 7, negative, non-numeric, and missing values;
+`--verbose` and its `--diagnostics` alias set the diagnostics flag before or after the subcommand;
+`--no-emotions` is recognized before or after any subcommand; and `--results`/`--result` carry
+the results file path.
 
 ### Download Mirror Configuration
 
@@ -150,15 +161,27 @@ apply almost always indicates a missing or misspelled `--mirror-url`.
 ### Self-Validation
 
 **Tests**: `Program_Run_WithValidateFlag_RunsValidation`,
-`SpeechCli_ValidateFlag_Provided_RunsValidation`,
-`SpeechCli_ValidateWithTrxResults_Requested_GeneratesTrxFile`,
-`SpeechCli_ValidateWithDepth_DepthThree_OutputsCorrectHeadingLevel`
+`SpeechCli_ValidateFlag_Provided_RunsValidation`
 
 Verifies that `--validate` runs all five self-test checks (version display, help display,
 the dispatch table being well formed, audio-backend probe composition, the model-store root being
 writable) to completion without throwing regardless of the host machine's audio hardware or
-installed models, reports a pass/fail summary, honors `--depth` for its markdown heading level,
-and, when `--results <file>` is given, writes a `.trx`/`.xml` file.
+installed models, and reports a pass/fail summary.
+
+### Self-Validation Results File
+
+**Tests**: `SpeechCli_ValidateWithTrxResults_Requested_GeneratesTrxFile`,
+`SpeechCli_ValidateWithDepth_DepthThree_OutputsCorrectHeadingLevel`,
+`Context_Create_ResultsOption_ParsesPathAndRejectsMissingValue`,
+`Program_Main_ValidateWithXmlResults_WritesJUnitFile`,
+`Program_Main_ValidateWithUnsupportedResultsExtension_ReturnsNonZeroExitCode`,
+`Program_Main_ValidateWithUnwritableResultsPath_ReturnsNonZeroExitCode`
+
+Verifies that `--results <file>` (alias `--result`) writes a TRX file for a `.trx` path and a JUnit
+file for a `.xml` path, that `--depth` sets the report's markdown heading level, that a missing
+`--results` value is rejected, and that an unsupported extension or an unwritable path produces an
+error message and a non-zero exit code (the failure path is driven through `Program.Main` without
+any production test seam).
 
 ### Argument Errors
 

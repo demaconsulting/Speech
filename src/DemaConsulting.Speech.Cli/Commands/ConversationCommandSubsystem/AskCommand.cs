@@ -213,14 +213,11 @@ internal static class AskCommand
 
         // Ask an in-flight speak/listen session to cancel cooperatively rather than letting the
         // runtime kill the process outright, so partially-played audio, an in-flight capture, and
-        // any open output file are still disposed cleanly. Whether Ctrl+C lands during Phase 1 or
-        // Phase 2, both cancellation paths are armed for the whole call.
-        ConsoleCancelEventHandler onCancelKeyPress = (_, e) =>
+        // any open output file are still disposed cleanly. Whether Ctrl+C lands during the speak
+        // phase or the listen phase, both cancellation paths are armed for the whole call.
+        using var cancelRegistration = ConsoleCancellation.Register(cancellationSource, () =>
         {
-            e.Cancel = true;
-            cancellationSource.Cancel();
-
-            // Fire-and-forget: this handler must stay synchronous. StopAsync is idempotent and
+            // Fire-and-forget: this callback must stay synchronous. StopAsync is idempotent and
             // safe to call concurrently per IRecognitionSession's own contract. The lock is only
             // used to read the torn/stale-reference-safe snapshot; the async call itself is
             // started outside the lock.
@@ -232,40 +229,30 @@ internal static class AskCommand
 
             if (currentSession is not null)
             {
-                // Intentional fire-and-forget: this handler must stay synchronous (the
-                // ConsoleCancelEventHandler delegate signature is non-async), and StopAsync is
-                // idempotent and safe to call concurrently per IRecognitionSession's own
-                // contract, so neither the result nor any exception needs to be observed here.
+                // Intentional fire-and-forget: neither the result nor any exception needs to be
+                // observed here (StopAsync is idempotent and safe to call concurrently).
 #pragma warning disable S1854
                 _ = currentSession.StopAsync(CancellationToken.None);
 #pragma warning restore S1854
             }
 
             stopSignal.Set();
-        };
+        });
 
-        Console.CancelKeyPress += onCancelKeyPress;
-        try
-        {
-            RunAsync(
-                context,
-                catalog,
-                deviceSource,
-                captureSource,
-                stopSignal,
-                s =>
+        RunAsync(
+            context,
+            catalog,
+            deviceSource,
+            captureSource,
+            stopSignal,
+            s =>
+            {
+                lock (sessionGate)
                 {
-                    lock (sessionGate)
-                    {
-                        session = s;
-                    }
-                },
-                cancellationSource.Token).GetAwaiter().GetResult();
-        }
-        finally
-        {
-            Console.CancelKeyPress -= onCancelKeyPress;
-        }
+                    session = s;
+                }
+            },
+            cancellationSource.Token).GetAwaiter().GetResult();
     }
 
     /// <summary>

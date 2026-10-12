@@ -52,21 +52,8 @@ internal static class VoicesCommand
         using var catalog = CliModelCatalogFactory.Create(context);
         using var cancellationSource = new CancellationTokenSource();
 
-        ConsoleCancelEventHandler onCancelKeyPress = (_, e) =>
-        {
-            e.Cancel = true;
-            cancellationSource.Cancel();
-        };
-
-        Console.CancelKeyPress += onCancelKeyPress;
-        try
-        {
-            RunAsync(context, catalog, cancellationSource.Token).GetAwaiter().GetResult();
-        }
-        finally
-        {
-            Console.CancelKeyPress -= onCancelKeyPress;
-        }
+        using var cancelRegistration = ConsoleCancellation.Register(cancellationSource);
+        RunAsync(context, catalog, cancellationSource.Token).GetAwaiter().GetResult();
     }
 
     /// <summary>
@@ -177,7 +164,7 @@ internal static class VoicesCommand
                 context.WriteLine("The installed pack has no emotion variants: it is removed and downloaded again to add them.");
             }
 
-            var progress = CreateProgressReporter(context, packId);
+            var progress = DownloadProgressReporter.Create(context, _ => $"'{packId}'");
             var result = await catalog.InstallVoicePackAsync(packId, includeEmotions, progress, cancellationToken).ConfigureAwait(false);
 
             if (result.Outcome == SpeechModelDownloadOutcome.Installed)
@@ -215,37 +202,5 @@ internal static class VoicesCommand
         }
 
         context.WriteLine($"Voice pack '{packId}' uninstalled (or was already not installed).");
-    }
-
-    /// <summary>Creates a progress reporter that prints a throttled live progress line.</summary>
-    private static Progress<SpeechModelDownloadProgress> CreateProgressReporter(Context context, string packId)
-    {
-        var lastReportedPercent = -1;
-        var lastReportedKilobytes = -1L;
-        return new Progress<SpeechModelDownloadProgress>(progress =>
-        {
-            if (progress.FractionComplete is { } fraction)
-            {
-                var percent = (int)(fraction * 100);
-                if (percent == lastReportedPercent)
-                {
-                    return;
-                }
-
-                lastReportedPercent = percent;
-                context.WriteLine($"  '{packId}': {percent}%");
-            }
-            else
-            {
-                var kilobytes = progress.BytesTransferred / 1024;
-                if (kilobytes == lastReportedKilobytes)
-                {
-                    return;
-                }
-
-                lastReportedKilobytes = kilobytes;
-                context.WriteLine($"  '{packId}': {kilobytes:N0} KB");
-            }
-        });
     }
 }

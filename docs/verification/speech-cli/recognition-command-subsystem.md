@@ -69,7 +69,7 @@ adding a cross-project `.csproj` content-copy item.
 `SpeechCli_RecognizeCommandWithNotDownloadedModel_Invoked_ReturnsCleanErrorWithDownloadHint`,
 `SpeechCli_RecognizeCommandWithConflictingInputSources_Invoked_ReturnsCleanError`,
 `SpeechCli_RecognizeCommandWithRealSttModel_Invoked_ProducesNonEmptyRecognizedText`,
-`Program_Run_WithRecognizeCommand_DoesNotThrowNotImplemented`
+`Program_Run_WithRecognizeCommandAndNoModel_ThrowsArgumentException`
 
 **Scenario/Expected**: A missing `--stt-model`, an unsupported argument, or a value-less flag are all
 rejected with `ArgumentException`; `--input`/`--mic` each parse correctly; supplying both

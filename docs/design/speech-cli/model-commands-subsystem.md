@@ -124,13 +124,23 @@ models is never interleaved). For each model:
    requested model — a single bad id must not abandon the rest of a multi-model request, mirroring
    the CI `ModelDownloader` tool's own per-model failure isolation
 
-`Ctrl+C` is wired to a `CancellationTokenSource` via `Console.CancelKeyPress` (which sets
-`e.Cancel = true` so the runtime does not kill the process outright, then cancels the token
-cooperatively). Unlike any other per-model failure, a genuine cancellation **stops the whole
+`Ctrl+C` is wired to a `CancellationTokenSource` through the shared `ConsoleCancellation.Register`
+helper (see _SpeechCli System Design_), which sets `e.Cancel = true` so the runtime does not kill
+the process outright, then cancels the token
+cooperatively. Unlike any other per-model failure, a genuine cancellation **stops the whole
 batch**: the loop checks the token before starting each model and treats `OperationCanceledException`
 as "stop", not "report and continue", because an operator interrupting the process is asking the
 whole operation to end, not just the model currently downloading. Any requested model that fails
 for any reason still causes the process to exit non-zero, per the CI tool's existing convention.
+
+### DownloadProgressReporter
+
+`DownloadProgressReporter.Create(context, describe)` builds the throttled live progress reporter
+shared by `DownloadCommand` and `VoicesCommand`: it prints one `{label}: {percent}%` line per
+whole percent (or `{label}: {n} KB` per whole kilobyte when the total size is unknown) and
+suppresses repeats, so it never prints one line per transferred chunk. The caller supplies the
+label (`'id' file i/n` for `download`, `'id'` for `voices install`), so the two commands keep one
+throttling implementation instead of two copies.
 
 ### UninstallCommand
 

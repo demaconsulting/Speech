@@ -1567,6 +1567,7 @@ reviews:
       - "docs/verification/speech-cli.md"                                  # system verification
       - "src/DemaConsulting.Speech.Cli/Program.cs"                        # process entry point
       - "src/DemaConsulting.Speech.Cli/Cli/Context.cs"                    # global-option/subcommand parser
+      - "src/DemaConsulting.Speech.Cli/Cli/ConsoleCancellation.cs"        # shared Ctrl+C wiring
       - "src/DemaConsulting.Speech.Cli/Cli/CommandDispatch.cs"            # subcommand dispatch table
       - "src/DemaConsulting.Speech.Cli/SelfTest/Validation.cs"            # self-validation
       - "src/DemaConsulting.Speech.Cli/Utilities/PathHelpers.cs"          # path-traversal-safe combine
@@ -1574,6 +1575,7 @@ reviews:
       - "test/DemaConsulting.Speech.Cli.Tests/ProgramTests.cs"            # in-process tests
       - "test/DemaConsulting.Speech.Cli.Tests/IntegrationTests.cs"        # out-of-process tests
       - "test/DemaConsulting.Speech.Cli.Tests/Runner.cs"                  # process-invocation helper
+      - "test/DemaConsulting.Speech.Cli.Tests/Cli/ConsoleCancellationTests.cs"  # ConsoleCancellation tests
       - "test/DemaConsulting.Speech.Cli.Tests/Utilities/PathHelpersTests.cs"  # PathHelpers tests
 
   # SpeechCli-Design Review (one per system)

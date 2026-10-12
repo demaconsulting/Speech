@@ -46,7 +46,7 @@ sections:
               - SpeechCli_SpeakCommandWithWrongRoleModel_Invoked_ReturnsCleanError
               - SpeechCli_SpeakCommandWithNotDownloadedModel_Invoked_ReturnsCleanErrorWithDownloadHint
               - SpeechCli_SpeakCommandWithConflictingTextSources_Invoked_ReturnsCleanError
-              - Program_Run_WithSpeakCommand_DoesNotThrowNotImplemented
+              - Program_Run_WithSpeakCommandAndNoModel_ThrowsArgumentException
 
           - id: SpeechCli-SynthesisCommands-ParamValidation
             title: >-

@@ -122,6 +122,21 @@ or during a model's download.
 
 **Requirement coverage**: `SpeechCli-ModelCommands-DownloadCancellation`.
 
+#### DownloadProgressReporter and ConsoleCancellation
+
+**Tests**: `DownloadProgressReporter_Create_KnownTotal_PrintsOneLinePerWholePercent`,
+`DownloadProgressReporter_Create_UnknownTotal_ReportsKilobytes`,
+`ConsoleCancellation_Register_Raise_CancelsSourceRunsCallbackAndSuppressesTermination`,
+`ConsoleCancellation_Observe_Raise_RunsCallbackWithoutSuppressingTermination`
+
+**Scenario/Expected**: The shared progress reporter prints one line per whole percent (or per
+whole kilobyte when the total is unknown) and suppresses repeats; `ConsoleCancellation.Register`
+cancels its source, runs the callback afterward, and suppresses default termination, while
+`Observe` only runs its callback. The console signal cannot be raised from a test, so the
+registration's internal `Raise` seam stands in for it.
+
+**Requirement coverage**: `SpeechCli-ModelCommands-Download`, `SpeechCli-ModelCommands-DownloadCancellation`.
+
 #### UninstallCommand
 
 **Tests**: `UninstallCommand_Run_InstalledModel_UninstallsAndReportsSuccess`,

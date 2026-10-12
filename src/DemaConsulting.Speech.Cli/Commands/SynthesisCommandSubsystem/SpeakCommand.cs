@@ -90,21 +90,8 @@ internal static class SpeakCommand
         // Ask an in-flight speak session to cancel cooperatively rather than letting the runtime
         // kill the process outright, so partially-played audio and any open output file are
         // still disposed cleanly.
-        ConsoleCancelEventHandler onCancelKeyPress = (_, e) =>
-        {
-            e.Cancel = true;
-            cancellationSource.Cancel();
-        };
-
-        Console.CancelKeyPress += onCancelKeyPress;
-        try
-        {
-            RunAsync(context, catalog, deviceSource, cancellationSource.Token).GetAwaiter().GetResult();
-        }
-        finally
-        {
-            Console.CancelKeyPress -= onCancelKeyPress;
-        }
+        using var cancelRegistration = ConsoleCancellation.Register(cancellationSource);
+        RunAsync(context, catalog, deviceSource, cancellationSource.Token).GetAwaiter().GetResult();
     }
 
     /// <summary>

@@ -71,7 +71,7 @@ documents for the same convention applied elsewhere).
 `SpeechCli_SpeakCommandWithWrongRoleModel_Invoked_ReturnsCleanError`,
 `SpeechCli_SpeakCommandWithNotDownloadedModel_Invoked_ReturnsCleanErrorWithDownloadHint`,
 `SpeechCli_SpeakCommandWithConflictingTextSources_Invoked_ReturnsCleanError`,
-`Program_Run_WithSpeakCommand_DoesNotThrowNotImplemented`
+`Program_Run_WithSpeakCommandAndNoModel_ThrowsArgumentException`
 
 **Scenario/Expected**: A missing `--tts-model`, an unsupported argument, or a value-less flag are all
 rejected with `ArgumentException`; `--text` parses its value; supplying both `--text` and

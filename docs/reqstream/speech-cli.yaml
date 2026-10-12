@@ -55,6 +55,13 @@ sections:
           - Context_Create_ModelsDirAfterCommand_IsRecognizedAsGlobalOption
           - Context_Create_WithExistingVoicesDir_ParsesOntoContext
           - Context_Create_WithMirrorOptions_ParsesOntoContext
+          - Context_Create_DepthWithinRange_ParsesOntoContext
+          - Context_Create_DepthOutOfRangeOrNonNumeric_ThrowsArgumentException
+          - Context_Create_DepthWithoutValue_ThrowsArgumentException
+          - Context_Create_VerboseOrDiagnosticsFlag_SetsDiagnostics
+          - Context_Create_VerboseAfterCommand_IsRecognizedAsGlobalOption
+          - Context_Create_NoEmotionsOnNonVoicesCommand_IsRecognizedAsGlobalOption
+          - Context_Create_ResultsOption_ParsesPathAndRejectsMissingValue
           - SpeechCli_SilentFlag_Provided_SuppressesOutput
           - SpeechCli_LogFlag_Provided_WritesOutputToFile
 
@@ -135,8 +142,7 @@ sections:
           The tool shall run a self-validation, when invoked with `--validate`, that exercises
           version display, help display, whether the subcommand dispatch table is well formed,
           audio-backend probe composition, and whether the model-store root can be written to,
-          without requiring a downloaded speech model or real audio hardware to be present, and
-          shall optionally write the results to a `.trx` or `.xml` file named by `--results`.
+          without requiring a downloaded speech model or real audio hardware to be present.
         tags: [system]
         justification: |
           A CI-safe self-test lets an operator or CI pipeline confirm the tool is installed and
@@ -147,8 +153,24 @@ sections:
         tests:
           - Program_Run_WithValidateFlag_RunsValidation
           - SpeechCli_ValidateFlag_Provided_RunsValidation
+
+      - id: SpeechCli-Cli-SelfValidationResults
+        title: >-
+          The tool shall write the self-validation results to the `.trx` or `.xml` file named by
+          `--results` (alias `--result`), and shall report an unsupported extension or an
+          unwritable path as an error with a non-zero exit code.
+        tags: [system]
+        justification: |
+          A CI pipeline consumes the self-validation outcome as a test-result file; silently
+          skipping the file, or exiting zero when it could not be written, would let a pipeline
+          pass without any recorded evidence.
+        tests:
           - SpeechCli_ValidateWithTrxResults_Requested_GeneratesTrxFile
           - SpeechCli_ValidateWithDepth_DepthThree_OutputsCorrectHeadingLevel
+          - Context_Create_ResultsOption_ParsesPathAndRejectsMissingValue
+          - Program_Main_ValidateWithXmlResults_WritesJUnitFile
+          - Program_Main_ValidateWithUnsupportedResultsExtension_ReturnsNonZeroExitCode
+          - Program_Main_ValidateWithUnwritableResultsPath_ReturnsNonZeroExitCode
 
       - id: SpeechCli-ModelManagement
         title: >-
@@ -285,7 +307,7 @@ sections:
           - SpeechCli-ConversationCommands-PrewarmRecognizer
           - SpeechCli-ConversationCommands-NullGuards
         tests:
-          - Program_Run_WithAskCommand_DoesNotThrowNotImplemented
+          - Program_Run_WithAskCommandAndNoModel_ThrowsArgumentException
 
       - id: SpeechCli-Packaging-GlobalTool
         title: >-

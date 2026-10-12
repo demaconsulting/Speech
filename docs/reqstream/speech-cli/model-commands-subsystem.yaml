@@ -103,6 +103,10 @@ sections:
             tests:
               - DownloadCommand_RunAsync_CanceledBeforeStart_ReportsErrorAndStopsBatch
               - DownloadCommand_RunAsync_Canceled_ReportsErrorAndStopsBatch
+              - ConsoleCancellation_Register_Raise_CancelsSourceRunsCallbackAndSuppressesTermination
+              - ConsoleCancellation_Observe_Raise_RunsCallbackWithoutSuppressingTermination
+              - DownloadProgressReporter_Create_KnownTotal_PrintsOneLinePerWholePercent
+              - DownloadProgressReporter_Create_UnknownTotal_ReportsKilobytes
 
           - id: SpeechCli-ModelCommands-Uninstall
             title: >-

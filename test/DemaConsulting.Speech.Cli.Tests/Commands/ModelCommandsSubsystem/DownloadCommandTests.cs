@@ -276,14 +276,27 @@ public sealed class DownloadCommandTests
             .WithModel(new FakeSpeechModel("model-1"), SpeechModelState.NotDownloaded)
             .WithModel(new FakeSpeechModel("model-2"), SpeechModelState.NotDownloaded);
         using var context = Context.Create(["download", "model-1", "model-2"]);
+        var originalError = Console.Error;
+        using var errorWriter = new StringWriter();
+        Console.SetError(errorWriter);
 
         // Act
-        await DownloadCommand.RunAsync(context, catalog, cts.Token);
+        try
+        {
+            await DownloadCommand.RunAsync(context, catalog, cts.Token);
+        }
+        finally
+        {
+            Console.SetError(originalError);
+        }
 
         // Assert: model-1 genuinely started and was then canceled mid-flight; model-2 was never
-        // attempted because a genuine cancellation stops the whole batch.
+        // attempted because a genuine cancellation stops the whole batch, and the error names the
+        // model whose download was in progress.
         Assert.Equal(["model-1"], catalog.DownloadCalls);
         Assert.Equal(1, context.ExitCode);
+        Assert.Contains("model-1", errorWriter.ToString());
+        Assert.DoesNotContain("model-2", errorWriter.ToString());
     }
 
     /// <summary>

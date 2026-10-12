@@ -46,7 +46,7 @@ sections:
               - SpeechCli_RecognizeCommandWithNotDownloadedModel_Invoked_ReturnsCleanErrorWithDownloadHint
               - SpeechCli_RecognizeCommandWithConflictingInputSources_Invoked_ReturnsCleanError
               - SpeechCli_RecognizeCommandWithRealSttModel_Invoked_ProducesNonEmptyRecognizedText
-              - Program_Run_WithRecognizeCommand_DoesNotThrowNotImplemented
+              - Program_Run_WithRecognizeCommandAndNoModel_ThrowsArgumentException
 
           - id: SpeechCli-RecognitionCommands-ParamValidation
             title: >-

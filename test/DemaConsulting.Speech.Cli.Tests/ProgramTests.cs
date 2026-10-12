@@ -281,14 +281,14 @@ public class ProgramTests
     }
 
     /// <summary>
-    ///     Test that dispatching to <c>recognize</c> with no arguments runs the real
-    ///     implementation (never throwing <see cref="NotImplementedException"/>), proving the
-    ///     dispatch table wiring for the <c>recognize</c> command - the last of all 10
-    ///     subcommands to be implemented. Full <c>recognize</c> coverage lives in
+    ///     Test that dispatching to <c>recognize</c> with no arguments reaches the real
+    ///     implementation, which rejects the missing model with an
+    ///     <see cref="ArgumentException"/>, proving the dispatch table wiring for the
+    ///     <c>recognize</c> command. Full <c>recognize</c> coverage lives in
     ///     <c>RecognizeCommandTests</c>.
     /// </summary>
     [Fact]
-    public void Program_Run_WithRecognizeCommand_DoesNotThrowNotImplemented()
+    public void Program_Run_WithRecognizeCommandAndNoModel_ThrowsArgumentException()
     {
         var originalError = Console.Error;
         try
@@ -297,8 +297,7 @@ public class ProgramTests
             Console.SetError(errWriter);
             using var context = Context.Create(["recognize"]);
 
-            var exception = Record.Exception(() => Program.Run(context));
-            Assert.IsNotType<NotImplementedException>(exception);
+            Assert.ThrowsAny<ArgumentException>(() => Program.Run(context));
         }
         finally
         {
@@ -307,12 +306,12 @@ public class ProgramTests
     }
 
     /// <summary>
-    ///     Test that dispatching to <c>list-models</c> with no arguments runs the real
-    ///     implementation (never throwing <see cref="NotImplementedException"/>), proving the
-    ///     dispatch table wiring for the five model-management commands.
+    ///     Test that dispatching to <c>list-models</c> with no arguments reaches the real
+    ///     implementation and completes with a success exit code and a model listing, proving
+    ///     the dispatch table wiring for the model-management commands.
     /// </summary>
     [Fact]
-    public void Program_Run_WithListModelsCommand_DoesNotThrowNotImplemented()
+    public void Program_Run_WithListModelsCommand_ListsModelsAndSucceeds()
     {
         // Arrange: an isolated, empty models directory so no real network access occurs
         var modelsDir = Path.Join(Path.GetTempPath(), "DemaConsulting.Speech.Cli.Tests", Guid.NewGuid().ToString("N"));
@@ -324,9 +323,12 @@ public class ProgramTests
             Console.SetOut(outWriter);
             using var context = Context.Create(["--models-dir", modelsDir, "list-models"]);
 
-            // Act & Assert: does not throw NotImplementedException
-            var exception = Record.Exception(() => Program.Run(context));
-            Assert.Null(exception);
+            // Act
+            Program.Run(context);
+
+            // Assert
+            Assert.Equal(0, context.ExitCode);
+            Assert.NotEqual(string.Empty, outWriter.ToString());
         }
         finally
         {
@@ -339,12 +341,12 @@ public class ProgramTests
     }
 
     /// <summary>
-    ///     Test that dispatching to <c>list-devices</c> with no arguments runs the real
-    ///     implementation (never throwing <see cref="NotImplementedException"/>), proving the
-    ///     dispatch table wiring for the device-related commands.
+    ///     Test that dispatching to <c>list-devices</c> with no arguments reaches the real
+    ///     implementation and completes with a success exit code, proving the dispatch table
+    ///     wiring for the device-related commands.
     /// </summary>
     [Fact]
-    public void Program_Run_WithListDevicesCommand_DoesNotThrowNotImplemented()
+    public void Program_Run_WithListDevicesCommand_CompletesWithSuccessExitCode()
     {
         var originalOut = Console.Out;
         try
@@ -353,8 +355,9 @@ public class ProgramTests
             Console.SetOut(outWriter);
             using var context = Context.Create(["list-devices"]);
 
-            var exception = Record.Exception(() => Program.Run(context));
-            Assert.Null(exception);
+            Program.Run(context);
+
+            Assert.Equal(0, context.ExitCode);
         }
         finally
         {
@@ -363,12 +366,12 @@ public class ProgramTests
     }
 
     /// <summary>
-    ///     Test that dispatching to <c>doctor</c> with no arguments runs the real implementation
-    ///     (never throwing <see cref="NotImplementedException"/>), against an isolated, empty
+    ///     Test that dispatching to <c>doctor</c> with no arguments reaches the real
+    ///     implementation and produces a report without throwing, against an isolated, empty
     ///     models directory so no real network access or per-user store is touched.
     /// </summary>
     [Fact]
-    public void Program_Run_WithDoctorCommand_DoesNotThrowNotImplemented()
+    public void Program_Run_WithDoctorCommand_ProducesReportWithoutThrowing()
     {
         var modelsDir = Path.Join(Path.GetTempPath(), "DemaConsulting.Speech.Cli.Tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(modelsDir);
@@ -380,7 +383,9 @@ public class ProgramTests
             using var context = Context.Create(["--models-dir", modelsDir, "doctor"]);
 
             var exception = Record.Exception(() => Program.Run(context));
+
             Assert.Null(exception);
+            Assert.NotEqual(string.Empty, outWriter.ToString());
         }
         finally
         {
@@ -393,14 +398,13 @@ public class ProgramTests
     }
 
     /// <summary>
-    ///     Test that dispatching to <c>speak</c> without <c>--model</c> reports a clean,
-    ///     missing-model <see cref="ArgumentException"/> rather than
-    ///     <see cref="NotImplementedException"/>, proving the dispatch table wiring for this
-    ///     <c>speak</c> command. Full <c>speak</c> coverage lives in
-    ///     <c>SpeakCommandTests</c>.
+    ///     Test that dispatching to <c>speak</c> without <c>--model</c> reaches the real
+    ///     implementation, which rejects the missing model with an
+    ///     <see cref="ArgumentException"/>, proving the dispatch table wiring for the
+    ///     <c>speak</c> command. Full <c>speak</c> coverage lives in <c>SpeakCommandTests</c>.
     /// </summary>
     [Fact]
-    public void Program_Run_WithSpeakCommand_DoesNotThrowNotImplemented()
+    public void Program_Run_WithSpeakCommandAndNoModel_ThrowsArgumentException()
     {
         var originalError = Console.Error;
         try
@@ -409,8 +413,7 @@ public class ProgramTests
             Console.SetError(errWriter);
             using var context = Context.Create(["speak"]);
 
-            var exception = Record.Exception(() => Program.Run(context));
-            Assert.IsNotType<NotImplementedException>(exception);
+            Assert.ThrowsAny<ArgumentException>(() => Program.Run(context));
         }
         finally
         {
@@ -419,14 +422,13 @@ public class ProgramTests
     }
 
     /// <summary>
-    ///     Test that dispatching to <c>ask</c> without <c>--tts-model</c> reports a clean,
-    ///     missing-model <see cref="ArgumentException"/> rather than
-    ///     <see cref="NotImplementedException"/>, proving the dispatch table wiring for the
-    ///     eleventh, later-added <c>ask</c> command. Full <c>ask</c> coverage lives in
-    ///     <c>AskCommandTests</c>.
+    ///     Test that dispatching to <c>ask</c> without <c>--tts-model</c> reaches the real
+    ///     implementation, which rejects the missing model with an
+    ///     <see cref="ArgumentException"/>, proving the dispatch table wiring for the
+    ///     <c>ask</c> command. Full <c>ask</c> coverage lives in <c>AskCommandTests</c>.
     /// </summary>
     [Fact]
-    public void Program_Run_WithAskCommand_DoesNotThrowNotImplemented()
+    public void Program_Run_WithAskCommandAndNoModel_ThrowsArgumentException()
     {
         var originalError = Console.Error;
         try
@@ -435,8 +437,7 @@ public class ProgramTests
             Console.SetError(errWriter);
             using var context = Context.Create(["ask"]);
 
-            var exception = Record.Exception(() => Program.Run(context));
-            Assert.IsNotType<NotImplementedException>(exception);
+            Assert.ThrowsAny<ArgumentException>(() => Program.Run(context));
         }
         finally
         {
@@ -796,5 +797,208 @@ public class ProgramTests
     {
         // Act and Assert (mirror options are validated while creating the context)
         Assert.Throws<ArgumentException>(() => Context.Create(["list-models", "--mirror-bearer-token", "token-value"]));
+    }
+
+    /// <summary>
+    ///     Test that <c>--depth</c> accepts every value from 1 through 6 and stores it on the context.
+    /// </summary>
+    [Theory]
+    [InlineData("1", 1)]
+    [InlineData("6", 6)]
+    public void Context_Create_DepthWithinRange_ParsesOntoContext(string value, int expected)
+    {
+        // Act
+        using var context = Context.Create(["--validate", "--depth", value]);
+
+        // Assert
+        Assert.Equal(expected, context.HeadingDepth);
+    }
+
+    /// <summary>
+    ///     Test that <c>--depth</c> rejects a value outside 1-6, a non-numeric value, and a missing value.
+    /// </summary>
+    [Theory]
+    [InlineData("0")]
+    [InlineData("7")]
+    [InlineData("-1")]
+    [InlineData("deep")]
+    public void Context_Create_DepthOutOfRangeOrNonNumeric_ThrowsArgumentException(string value)
+    {
+        // Act and Assert
+        var exception = Assert.Throws<ArgumentException>(() => Context.Create(["--validate", "--depth", value]));
+        Assert.Contains("--depth", exception.Message);
+    }
+
+    /// <summary>
+    ///     Test that <c>--depth</c> without a value is rejected.
+    /// </summary>
+    [Fact]
+    public void Context_Create_DepthWithoutValue_ThrowsArgumentException()
+    {
+        Assert.Throws<ArgumentException>(() => Context.Create(["--validate", "--depth"]));
+    }
+
+    /// <summary>
+    ///     Test that <c>--verbose</c> and its alias <c>--diagnostics</c> enable diagnostics output,
+    ///     and that diagnostics stay off by default.
+    /// </summary>
+    [Theory]
+    [InlineData("--verbose", true)]
+    [InlineData("--diagnostics", true)]
+    [InlineData("", false)]
+    public void Context_Create_VerboseOrDiagnosticsFlag_SetsDiagnostics(string flag, bool expected)
+    {
+        // Arrange
+        string[] args = flag.Length == 0 ? ["list-devices"] : [flag, "list-devices"];
+
+        // Act
+        using var context = Context.Create(args);
+
+        // Assert
+        Assert.Equal(expected, context.Diagnostics);
+    }
+
+    /// <summary>
+    ///     Test that <c>--verbose</c> after the subcommand is still a global option and is not
+    ///     collected into the subcommand's arguments.
+    /// </summary>
+    [Fact]
+    public void Context_Create_VerboseAfterCommand_IsRecognizedAsGlobalOption()
+    {
+        using var context = Context.Create(["list-devices", "--verbose"]);
+
+        Assert.True(context.Diagnostics);
+        Assert.Empty(context.CommandArgs);
+    }
+
+    /// <summary>
+    ///     Test that <c>--no-emotions</c> is a global option recognized before or after any
+    ///     subcommand (not only <c>voices install</c>), and that it is off by default.
+    /// </summary>
+    [Fact]
+    public void Context_Create_NoEmotionsOnNonVoicesCommand_IsRecognizedAsGlobalOption()
+    {
+        // Act
+        using var before = Context.Create(["--no-emotions", "list-devices"]);
+        using var after = Context.Create(["list-devices", "--no-emotions"]);
+        using var absent = Context.Create(["list-devices"]);
+
+        // Assert
+        Assert.True(before.NoEmotions);
+        Assert.True(after.NoEmotions);
+        Assert.Empty(after.CommandArgs);
+        Assert.False(absent.NoEmotions);
+    }
+
+    /// <summary>
+    ///     Test that <c>--results</c> and its alias <c>--result</c> store the results file path,
+    ///     and that a missing value is rejected.
+    /// </summary>
+    [Fact]
+    public void Context_Create_ResultsOption_ParsesPathAndRejectsMissingValue()
+    {
+        // Act
+        using var results = Context.Create(["--validate", "--results", "out.trx"]);
+        using var alias = Context.Create(["--validate", "--result", "out.xml"]);
+
+        // Assert
+        Assert.Equal("out.trx", results.ResultsFile);
+        Assert.Equal("out.xml", alias.ResultsFile);
+        Assert.Throws<ArgumentException>(() => Context.Create(["--validate", "--results"]));
+    }
+
+    /// <summary>
+    ///     Test that <c>--validate</c> with a <c>--results</c> file of an unsupported extension
+    ///     reports the error and makes <c>Main</c> return a non-zero exit code.
+    /// </summary>
+    [Fact]
+    public void Program_Main_ValidateWithUnsupportedResultsExtension_ReturnsNonZeroExitCode()
+    {
+        // Arrange
+        var resultsFile = Path.Join(Path.GetTempPath(), $"speech_cli_results_{Guid.NewGuid():N}.txt");
+        var originalError = Console.Error;
+        var originalOut = Console.Out;
+        try
+        {
+            using var errWriter = new StringWriter();
+            using var outWriter = new StringWriter();
+            Console.SetError(errWriter);
+            Console.SetOut(outWriter);
+
+            // Act
+            var result = Program.Main(["--validate", "--results", resultsFile]);
+
+            // Assert
+            Assert.Equal(1, result);
+            Assert.Contains("Unsupported results file format", errWriter.ToString());
+            Assert.False(File.Exists(resultsFile));
+        }
+        finally
+        {
+            Console.SetError(originalError);
+            Console.SetOut(originalOut);
+            File.Delete(resultsFile);
+        }
+    }
+
+    /// <summary>
+    ///     Test that <c>--validate</c> with a <c>--results</c> path that cannot be written reports
+    ///     the error and makes <c>Main</c> return a non-zero exit code.
+    /// </summary>
+    [Fact]
+    public void Program_Main_ValidateWithUnwritableResultsPath_ReturnsNonZeroExitCode()
+    {
+        // Arrange: the parent directory does not exist, so the write fails
+        var resultsFile = Path.Join(Path.GetTempPath(), Guid.NewGuid().ToString("N"), "results.trx");
+        var originalError = Console.Error;
+        var originalOut = Console.Out;
+        try
+        {
+            using var errWriter = new StringWriter();
+            using var outWriter = new StringWriter();
+            Console.SetError(errWriter);
+            Console.SetOut(outWriter);
+
+            // Act
+            var result = Program.Main(["--validate", "--results", resultsFile]);
+
+            // Assert
+            Assert.Equal(1, result);
+            Assert.NotEqual(string.Empty, errWriter.ToString());
+        }
+        finally
+        {
+            Console.SetError(originalError);
+            Console.SetOut(originalOut);
+        }
+    }
+
+    /// <summary>
+    ///     Test that <c>--validate</c> with a <c>.xml</c> results file writes a JUnit report and exits successfully.
+    /// </summary>
+    [Fact]
+    public void Program_Main_ValidateWithXmlResults_WritesJUnitFile()
+    {
+        // Arrange
+        var resultsFile = Path.Join(Path.GetTempPath(), $"speech_cli_results_{Guid.NewGuid():N}.xml");
+        var originalOut = Console.Out;
+        try
+        {
+            using var outWriter = new StringWriter();
+            Console.SetOut(outWriter);
+
+            // Act
+            var result = Program.Main(["--validate", "--results", resultsFile]);
+
+            // Assert
+            Assert.Equal(0, result);
+            Assert.True(File.Exists(resultsFile), "Results file was not created");
+            Assert.Contains("<testsuite", File.ReadAllText(resultsFile));
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+            File.Delete(resultsFile);
+        }
     }
 }

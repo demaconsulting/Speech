@@ -277,6 +277,29 @@ public sealed class AskCommandTests
             () => AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureSource()));
     }
 
+    /// <summary>
+    ///     Test that omitting every text source (<c>--text</c>, <c>--file</c>) with no piped stdin
+    ///     throws, naming the three accepted sources.
+    /// </summary>
+    [Fact]
+    public void AskCommand_Run_NoTextSource_ThrowsArgumentException()
+    {
+        // Skip when stdin actually is redirected (e.g. under some CI/test-runner harnesses),
+        // since this test specifically covers the "no source available" branch.
+        if (Console.IsInputRedirected)
+        {
+            return;
+        }
+
+        var catalog = CreateCatalogWithModels();
+        using var context = Context.Create(["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1"]);
+
+        var exception = Assert.Throws<ArgumentException>(
+            () => AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureSource()));
+        Assert.Contains("--text", exception.Message);
+        Assert.Contains("--file", exception.Message);
+    }
+
     // --- Model validation ---
 
     /// <summary>Test that an unknown --tts-model id throws before any --stt-model resolution.</summary>

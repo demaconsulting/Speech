@@ -48,21 +48,8 @@ internal static class DownloadCommand
         // Ask the in-progress download to cancel cooperatively rather than letting the runtime
         // kill the process outright, so a partially-staged download is cleaned up honestly by
         // the store's own staging/abandon logic instead of leaving orphaned scratch files.
-        ConsoleCancelEventHandler onCancelKeyPress = (_, e) =>
-        {
-            e.Cancel = true;
-            cancellationSource.Cancel();
-        };
-
-        Console.CancelKeyPress += onCancelKeyPress;
-        try
-        {
-            RunAsync(context, catalog, cancellationSource.Token).GetAwaiter().GetResult();
-        }
-        finally
-        {
-            Console.CancelKeyPress -= onCancelKeyPress;
-        }
+        using var cancelRegistration = ConsoleCancellation.Register(cancellationSource);
+        RunAsync(context, catalog, cancellationSource.Token).GetAwaiter().GetResult();
     }
 
     /// <summary>
@@ -166,7 +153,9 @@ internal static class DownloadCommand
             }
 
             context.WriteLine($"Downloading model '{modelId}'...");
-            var progress = CreateProgressReporter(context, modelId);
+            var progress = DownloadProgressReporter.Create(
+                context,
+                p => $"'{modelId}' file {p.FileIndex + 1}/{p.FileCount}");
             var result = await catalog.DownloadAsync(modelId, progress, cancellationToken).ConfigureAwait(false);
 
             if (result.Outcome == SpeechModelDownloadOutcome.Installed)
@@ -193,42 +182,5 @@ internal static class DownloadCommand
             context.WriteError($"Model '{modelId}' failed: {ex.Message}");
             return true;
         }
-    }
-
-    /// <summary>
-    ///     Creates a progress reporter that prints a throttled live progress line for one
-    ///     model's download to the context's output.
-    /// </summary>
-    private static Progress<SpeechModelDownloadProgress> CreateProgressReporter(Context context, string modelId)
-    {
-        var lastReportedPercent = -1;
-        var lastReportedKilobytes = -1L;
-        return new Progress<SpeechModelDownloadProgress>(progress =>
-        {
-            if (progress.FractionComplete is { } fraction)
-            {
-                var percent = (int)(fraction * 100);
-                if (percent == lastReportedPercent)
-                {
-                    return;
-                }
-
-                lastReportedPercent = percent;
-                context.WriteLine($"  '{modelId}' file {progress.FileIndex + 1}/{progress.FileCount}: {percent}%");
-            }
-            else
-            {
-                // TotalBytes is unknown (no Content-Length reported); report by whole kilobytes
-                // transferred instead, throttled the same way.
-                var kilobytes = progress.BytesTransferred / 1024;
-                if (kilobytes == lastReportedKilobytes)
-                {
-                    return;
-                }
-
-                lastReportedKilobytes = kilobytes;
-                context.WriteLine($"  '{modelId}' file {progress.FileIndex + 1}/{progress.FileCount}: {kilobytes:N0} KB");
-            }
-        });
     }
 }

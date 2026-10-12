@@ -212,9 +212,13 @@ directory.
 - **No new library API**: SpeechCli adds no public API to the Speech library and uses no
   internal access to it; the self-test's `AudioDeviceFactory` and `SpeechModelStore` usages are
   both already-public library entry points
-- **No general-purpose argument-parsing library**: The hand-rolled `Context`/`ArgumentParser`
+- **No general-purpose argument-parsing library**: The hand-rolled `Context` option parser
   pattern is a deliberate choice over `System.CommandLine` for this tool, extended (rather than
   replaced) to add subcommand dispatch on top of the template's existing global-option handling
+- **One Ctrl+C wiring**: `ConsoleCancellation` (`Register` for the commands that own cancellation,
+  `Observe` for a nested listener that must not decide termination) is the only place that
+  subscribes to `Console.CancelKeyPress`, so every long-running subcommand shares one
+  subscribe/unsubscribe implementation
 - **CI-safe self-validation**: No self-test check may depend on a real, multi-hundred-megabyte
   model download or physical audio hardware being present, mirroring the same constraint the
   Speech library's own `SpeechModelCatalog`/`AudioDeviceFactory` composition guarantees satisfy
