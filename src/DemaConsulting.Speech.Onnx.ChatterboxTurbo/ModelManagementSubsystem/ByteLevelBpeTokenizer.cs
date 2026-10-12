@@ -98,21 +98,31 @@ internal sealed class ByteLevelBpeTokenizer
             foreach (var merge in model.GetProperty("merges").EnumerateArray())
             {
                 var pair = merge.ValueKind == JsonValueKind.String
-                    ? merge.GetString()!.Split(' ')
-                    : [merge[0].GetString()!, merge[1].GetString()!];
-                _mergeRanks[(pair[0], pair[1])] = rank++;
+                    ? (merge.GetString() ?? throw new InvalidDataException("A merge entry is null.")).Split(' ')
+                    : [merge[0].GetString() ?? throw new InvalidDataException("A merge entry is null."),
+                       merge[1].GetString() ?? throw new InvalidDataException("A merge entry is null.")];
+                if (pair.Length != 2)
+                {
+                    throw new InvalidDataException("A merge entry must contain exactly two pieces.");
+                }
+
+                // The first occurrence has the lowest rank and wins, as in the reference implementation
+                _mergeRanks.TryAdd((pair[0], pair[1]), rank);
+                rank++;
             }
 
             if (root.TryGetProperty("added_tokens", out var added))
             {
                 foreach (var token in added.EnumerateArray())
                 {
-                    _addedTokens[token.GetProperty("content").GetString()!] = token.GetProperty("id").GetInt32();
+                    var content = token.GetProperty("content").GetString()
+                                  ?? throw new InvalidDataException("An added token has null content.");
+                    _addedTokens[content] = token.GetProperty("id").GetInt32();
                 }
             }
         }
         catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException
-                                       or FormatException or IndexOutOfRangeException or NullReferenceException)
+                                       or FormatException or IndexOutOfRangeException)
         {
             throw new InvalidDataException("The tokenizer document is not a valid byte-level BPE tokenizer.", ex);
         }

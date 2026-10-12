@@ -42,11 +42,27 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-Errors
                 title: >-
                   The ByteLevelBpeTokenizer class shall throw InvalidDataException for a document
-                  that is not valid gzip or not a valid tokenizer, and ArgumentNullException for
-                  null arguments.
+                  that is not valid gzip, not a valid tokenizer (including malformed merges) or
+                  lacks the end-of-text token, InvalidOperationException when encoding hits a
+                  piece without a vocabulary entry, ArgumentOutOfRangeException for a negative
+                  trailing count, and ArgumentNullException for null arguments.
                 justification: |
                   A corrupt resource or programming error must surface with a clear exception.
                 tests:
                   - ByteLevelBpeTokenizer_Constructor_InvalidDocument_ThrowsInvalidData
+                  - ByteLevelBpeTokenizer_Constructor_MalformedMerge_ThrowsInvalidData
+                  - ByteLevelBpeTokenizer_Constructor_MissingEndOfText_ThrowsInvalidData
+                  - ByteLevelBpeTokenizer_Constructor_NegativeTrailingCount_ThrowsArgumentOutOfRange
+                  - ByteLevelBpeTokenizer_Encode_PieceWithoutVocabularyEntry_ThrowsInvalidOperation
                   - ByteLevelBpeTokenizer_FromGzipStream_NotGzip_ThrowsInvalidData
                   - ByteLevelBpeTokenizer_NullArguments_Throw
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-MergeRanks
+                title: >-
+                  The ByteLevelBpeTokenizer class shall give a duplicated merge the rank of its
+                  first occurrence.
+                justification: |
+                  The reference implementation ranks merges by first occurrence; a later duplicate
+                  must not change the merge order and so the produced ids.
+                tests:
+                  - ByteLevelBpeTokenizer_Constructor_DuplicateMerge_KeepsFirstRank

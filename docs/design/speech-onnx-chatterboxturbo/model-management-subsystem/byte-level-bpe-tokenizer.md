@@ -11,12 +11,20 @@ Turbo, id 50256).
 
 **Key Methods**:
 
-- **FromGzipStream(stream)** / constructor: load and validate a gzip-compressed `tokenizer.json`
+- **FromGzipStream(stream, trailingEndOfTextCount)** / constructor `(stream, endOfTextToken, trailingEndOfTextCount)`:
+  load and validate a gzip-compressed `tokenizer.json`. `endOfTextToken` (default `<|endoftext|>`) is
+  looked up in the added tokens then the vocabulary; `trailingEndOfTextCount` (default 2, 0 disables) is how
+  many of its id are appended to every encoding. A duplicate merge keeps its first (lowest) rank.
 - **Encode(text)**: split out added tokens, pre-tokenize the remaining text with the GPT-2 style
   regex, map bytes to unicode, apply merges by rank, look up ids, and append the trailing ids
 
-**Error Handling**: `InvalidDataException` for a non-gzip stream or an invalid tokenizer document;
-`ArgumentNullException` for null arguments. Regex matches use a timeout.
+**Error Handling**: `InvalidDataException` for a non-gzip stream, an invalid or empty tokenizer
+document (including null or malformed merge entries and null added-token content) or an
+end-of-text token that is not in the tokenizer when ids must be appended;
+`ArgumentNullException` for null arguments; `ArgumentOutOfRangeException` for a negative
+`trailingEndOfTextCount`; `InvalidOperationException` from `Encode` when a merged piece has no
+vocabulary entry (corrupt tokenizer). Regex matches use a five-second timeout, so a pathological
+input fails with `RegexMatchTimeoutException` instead of hanging.
 
 **Dependencies**: `System.Text.Json`, `System.IO.Compression`, `System.Text.RegularExpressions`.
 
