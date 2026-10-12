@@ -8,15 +8,15 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     A pack is model-agnostic: it only names audio clips of speakers. Any voice-cloning text-to-speech model can
 ///     consume the extracted clips through <see cref="ReferenceVoiceLibrary"/>. The pack is downloaded as one
 ///     whole, SHA-256-verified archive through the same mirror-aware downloader the models use, so a mirror serves
-///     it at <c>{mirror}/{Id}/{ArchiveFileName}</c>. Only the <c>voices/</c> clips and the license/readme files are
-///     extracted; the archive is deleted afterwards. See <see cref="VoiceZero10"/> for the one built-in pack.
+///     it at <c>{mirror}/{Id}/{ArchiveFileName}</c>. The <c>voices/</c> clips, the optional <c>voices-emotion/</c> mood clips and
+///     the license/readme files are extracted; the archive is deleted afterwards. See <see cref="VoiceZero10"/> for the one built-in pack.
 /// </remarks>
 public sealed record ReferenceVoicePack
 {
     /// <summary>The characters that make a pack id unusable as a single directory name segment.</summary>
     private static readonly char[] InvalidIdCharacters = [.. Path.GetInvalidFileNameChars(), '/', '\\'];
 
-    /// <summary>Gets the built-in voice-zero 1.0 pack (CC0, about 154 speakers, about 570 MiB to download).</summary>
+    /// <summary>Gets the built-in voice-zero 1.0 pack (CC0, 154 speakers, 13 moods each; about 570 MiB to download, about 44 MiB installed as voices only and about 572 MiB with emotions).</summary>
 #pragma warning disable S1075 // Download URLs are intentionally compiled-in, reviewed literals.
     public static ReferenceVoicePack VoiceZero10 { get; } = new(
         id: "voice-zero-1.0",
@@ -29,7 +29,9 @@ public sealed record ReferenceVoicePack
         licenseName: "CC0 1.0 Universal",
         licenseUrl: new Uri("https://creativecommons.org/publicdomain/zero/1.0/"),
         attribution: "voice-zero by OwenTyme",
-        sourceUrl: new Uri("https://github.com/OwenTyme/voice-zero"));
+        sourceUrl: new Uri("https://github.com/OwenTyme/voice-zero"),
+        voicesBytes: 45_632_432L,
+        emotionsBytes: 553_873_246L);
 #pragma warning restore S1075
 
     /// <summary>Gets every pack this library version knows about.</summary>
@@ -49,9 +51,11 @@ public sealed record ReferenceVoicePack
     /// <param name="licenseUrl">The license page.</param>
     /// <param name="attribution">The attribution line to show with the voices.</param>
     /// <param name="sourceUrl">The upstream project page.</param>
+    /// <param name="voicesBytes">The extracted size in bytes of the base <c>voices/</c> clips plus license/readme files; zero when unknown; must not be negative.</param>
+    /// <param name="emotionsBytes">The extracted size in bytes of the optional <c>voices-emotion/</c> clips; zero when the pack has none or it is unknown; must not be negative.</param>
     /// <exception cref="ArgumentException">Thrown when a text argument is blank, the id/file name/root folder is not a safe name, the URI is not HTTPS, or the checksum is malformed.</exception>
     /// <exception cref="ArgumentNullException">Thrown when an argument is <see langword="null"/>.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="sizeBytes"/> is not positive.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="sizeBytes"/> is not positive or an installed size is negative.</exception>
     public ReferenceVoicePack(
         string id,
         string displayName,
@@ -63,7 +67,9 @@ public sealed record ReferenceVoicePack
         string licenseName,
         Uri licenseUrl,
         string attribution,
-        Uri sourceUrl)
+        Uri sourceUrl,
+        long voicesBytes = 0,
+        long emotionsBytes = 0)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
         ArgumentException.ThrowIfNullOrWhiteSpace(displayName);
@@ -76,6 +82,8 @@ public sealed record ReferenceVoicePack
         ArgumentNullException.ThrowIfNull(licenseUrl);
         ArgumentException.ThrowIfNullOrWhiteSpace(attribution);
         ArgumentNullException.ThrowIfNull(sourceUrl);
+        ArgumentOutOfRangeException.ThrowIfNegative(voicesBytes);
+        ArgumentOutOfRangeException.ThrowIfNegative(emotionsBytes);
 
         RequireSafeName(id, nameof(id));
         RequireSafeName(archiveFileName, nameof(archiveFileName));
@@ -95,6 +103,8 @@ public sealed record ReferenceVoicePack
         LicenseUrl = licenseUrl;
         Attribution = attribution;
         SourceUrl = sourceUrl;
+        VoicesBytes = voicesBytes;
+        EmotionsBytes = emotionsBytes;
     }
 
     /// <summary>Gets the pack identifier (also its directory name in the store).</summary>
@@ -129,6 +139,19 @@ public sealed record ReferenceVoicePack
 
     /// <summary>Gets the upstream project page.</summary>
     public Uri SourceUrl { get; }
+
+    /// <summary>Gets the extracted size in bytes of the base voice clips plus license/readme files (zero when unknown).</summary>
+    public long VoicesBytes { get; }
+
+    /// <summary>Gets the extracted size in bytes of the optional emotion (mood) clips (zero when none or unknown).</summary>
+    public long EmotionsBytes { get; }
+
+    /// <summary>
+    ///     Gets the number of bytes the pack occupies once installed.
+    /// </summary>
+    /// <param name="includeEmotions"><see langword="true"/> to include the emotion clips.</param>
+    /// <returns><see cref="VoicesBytes"/>, plus <see cref="EmotionsBytes"/> when <paramref name="includeEmotions"/> is set.</returns>
+    public long InstalledSizeBytes(bool includeEmotions) => includeEmotions ? VoicesBytes + EmotionsBytes : VoicesBytes;
 
     /// <summary>Gets the download descriptor for the archive (one file at <see cref="ArchiveFileName"/>).</summary>
     internal SpeechModelDownloadDescriptor DownloadDescriptor { get; }

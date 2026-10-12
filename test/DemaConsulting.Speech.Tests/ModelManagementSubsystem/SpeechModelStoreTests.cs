@@ -103,6 +103,44 @@ public sealed class SpeechModelStoreTests : IDisposable
     }
 
     /// <summary>
+    ///     Proves that a completed install leaves no empty <c>.tmp</c> staging root behind.
+    /// </summary>
+    [Fact]
+    public void SpeechModelStore_CompleteInstall_RemovesEmptyStagingRoot()
+    {
+        // Arrange
+        var store = NewStore();
+        var (operationId, stagingDirectory) = BeginStagingWithFile(store, "model-a", "payload.bin", "hello");
+
+        // Act
+        store.CompleteInstall("model-a", operationId, stagingDirectory, 5);
+
+        // Assert
+        Assert.False(Directory.Exists(Path.Join(store.GetModelDirectory("model-a"), ".tmp")));
+        Assert.True(store.IsInstalled("model-a"));
+    }
+
+    /// <summary>
+    ///     Proves that a staging root still holding another operation's directory is left alone.
+    /// </summary>
+    [Fact]
+    public void SpeechModelStore_CompleteInstall_OtherOperationStaging_KeepsStagingRoot()
+    {
+        // Arrange
+        var store = NewStore();
+        var (otherOperation, otherStaging) = BeginStagingWithFile(store, "model-a", "other.bin", "x");
+        var (operationId, stagingDirectory) = BeginStagingWithFile(store, "model-a", "payload.bin", "hello");
+
+        // Act
+        store.CompleteInstall("model-a", operationId, stagingDirectory, 5);
+
+        // Assert
+        Assert.NotEqual(otherOperation, operationId);
+        Assert.True(Directory.Exists(otherStaging));
+        Assert.True(store.IsInstalled("model-a"));
+    }
+
+    /// <summary>
     ///     Proves that installing over an existing current/ (a repair/re-download) replaces the
     ///     content and the old directory is cleaned up.
     /// </summary>

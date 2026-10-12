@@ -175,6 +175,114 @@ public sealed class ReferenceVoiceLibraryTests : IDisposable
     }
 
     /// <summary>
+    ///     Proves that a default install extracts the emotion clips, attaches them to their speaker as
+    ///     <c>MoodClips</c> (lower-case mood, sorted), adds no extra voice ids, and records the variant.
+    /// </summary>
+    [Fact]
+    public async Task ReferenceVoiceLibrary_InstallPack_Default_AttachesMoodClipsWithoutExtraVoices()
+    {
+        // Arrange
+        using var library = NewLibrary(ReferenceVoiceTestPacks.BuildTypicalZip(), out _);
+
+        // Act
+        await library.InstallPackAsync("voice-zero-1.0", cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert
+        var voices = library.EnumerateVoices();
+        Assert.Equal(["alan_davis_drake2", "alana_jordan"], voices.Select(voice => voice.Id).ToArray());
+        Assert.True(library.PackHasEmotions("voice-zero-1.0"));
+        Assert.Equal(["voices", "voices-emotion"], library.GetPackInstalledVariants("voice-zero-1.0").ToArray());
+        var alana = voices.Single(voice => voice.Id == "alana_jordan");
+        Assert.Null(alana.Mood);
+        Assert.NotNull(alana.MoodClips);
+        Assert.Equal(["happy", "sad"], alana.MoodClips.Keys.ToArray());
+        Assert.All(alana.MoodClips.Values, path => Assert.True(File.Exists(path)));
+        Assert.Equal(["anger"], voices.Single(voice => voice.Id == "alan_davis_drake2").MoodClips!.Keys.ToArray());
+    }
+
+    /// <summary>
+    ///     Proves that opting out leaves no emotion clips, no <c>MoodClips</c> and no emotion variant.
+    /// </summary>
+    [Fact]
+    public async Task ReferenceVoiceLibrary_InstallPack_NoEmotions_LeavesVoicesOnly()
+    {
+        // Arrange
+        using var library = NewLibrary(ReferenceVoiceTestPacks.BuildTypicalZip(), out _);
+
+        // Act
+        await library.InstallPackAsync("voice-zero-1.0", includeEmotions: false, cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.False(library.PackHasEmotions("voice-zero-1.0"));
+        Assert.Equal(["voices"], library.GetPackInstalledVariants("voice-zero-1.0").ToArray());
+        Assert.False(Directory.Exists(Path.Join(library.GetPackDirectory("voice-zero-1.0"), "voices-emotion")));
+        Assert.All(library.EnumerateVoices(), voice => Assert.Null(voice.MoodClips));
+    }
+
+    /// <summary>
+    ///     Proves that installing with emotions over a voices-only install upgrades it (uninstall, then install) and that a
+    ///     later request for the base voices only never downgrades or downloads again.
+    /// </summary>
+    [Fact]
+    public async Task ReferenceVoiceLibrary_InstallPack_UpgradeFromVoicesOnly_AddsEmotions()
+    {
+        // Arrange
+        using var library = NewLibrary(ReferenceVoiceTestPacks.BuildTypicalZip(), out var client);
+        await library.InstallPackAsync("voice-zero-1.0", includeEmotions: false, cancellationToken: TestContext.Current.CancellationToken);
+
+        // Act
+        var upgrade = await library.InstallPackAsync("voice-zero-1.0", cancellationToken: TestContext.Current.CancellationToken);
+        var again = await library.InstallPackAsync("voice-zero-1.0", includeEmotions: false, cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, upgrade.Outcome);
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, again.Outcome);
+        Assert.Equal(2, client.Requests.Count);
+        Assert.True(library.PackHasEmotions("voice-zero-1.0"));
+        Assert.NotNull(library.EnumerateVoices().Single(voice => voice.Id == "alana_jordan").MoodClips);
+        Assert.Equal(SpeechModelState.Downloaded, library.GetPackState("voice-zero-1.0"));
+    }
+
+    /// <summary>
+    ///     Proves that the source-compatible overload installs with emotions.
+    /// </summary>
+    [Fact]
+    public async Task ReferenceVoiceLibrary_InstallPack_ProgressOverload_IncludesEmotions()
+    {
+        // Arrange
+        using var library = NewLibrary(ReferenceVoiceTestPacks.BuildTypicalZip(), out _);
+
+        // Act
+        var result = await library.InstallPackAsync("voice-zero-1.0", null, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, result.Outcome);
+        Assert.True(library.PackHasEmotions("voice-zero-1.0"));
+    }
+
+    /// <summary>
+    ///     Proves that the variant queries never throw: nothing installed, unknown pack, or unreadable metadata.
+    /// </summary>
+    [Fact]
+    public async Task ReferenceVoiceLibrary_PackVariants_MissingOrCorruptMetadata_AreEmptyAndNeverThrow()
+    {
+        // Arrange
+        using var library = NewLibrary(ReferenceVoiceTestPacks.BuildTypicalZip(), out _);
+        Assert.False(library.PackHasEmotions("voice-zero-1.0"));
+        Assert.Throws<ArgumentException>(() => library.PackHasEmotions("nope"));
+        await library.InstallPackAsync("voice-zero-1.0", cancellationToken: TestContext.Current.CancellationToken);
+        var metadata = Path.Join(library.GetPackDirectory("voice-zero-1.0"), "pack.json");
+
+        // Act & Assert
+        await File.WriteAllTextAsync(metadata, "{ not json", TestContext.Current.CancellationToken);
+        Assert.Empty(library.GetPackInstalledVariants("voice-zero-1.0"));
+        await File.WriteAllTextAsync(metadata, "{\"variants\": 3}", TestContext.Current.CancellationToken);
+        Assert.False(library.PackHasEmotions("voice-zero-1.0"));
+        File.Delete(metadata);
+        Assert.False(library.PackHasEmotions("voice-zero-1.0"));
+    }
+
+    /// <summary>
     ///     Proves that a second install of an installed pack does not download again.
     /// </summary>
     [Fact]

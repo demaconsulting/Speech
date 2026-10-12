@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Text.Json;
 using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.Diagnostics;
 
@@ -163,17 +164,30 @@ public sealed class ReferenceVoiceLibrary : IDisposable
     }
 
     /// <summary>
-    ///     Downloads, verifies and installs a pack; a no-op when it is already installed.
+    ///     Downloads, verifies and installs a pack, optionally with its emotion (mood) clips; a no-op when it is already
+    ///     installed with everything requested.
     /// </summary>
     /// <param name="packId">The pack id.</param>
+    /// <param name="includeEmotions">
+    ///     <see langword="true"/> (the default) to also extract the pack's <c>voices-emotion</c> clips; <see langword="false"/>
+    ///     for the base voices only. The archive is the same single download either way.
+    /// </param>
     /// <param name="progress">An optional progress sink for the archive transfer.</param>
     /// <param name="cancellationToken">A token that aborts the install.</param>
     /// <returns>The classified result; only <see cref="SpeechModelDownloadOutcome.Installed"/> means voices are available.</returns>
+    /// <remarks>
+    ///     <b>Upgrade</b>: when the pack is installed without emotions and <paramref name="includeEmotions"/> is
+    ///     <see langword="true"/>, the pack is uninstalled and installed again (the downloader never replaces an
+    ///     installed id), so a failed or canceled re-download leaves the pack not installed until retried. An installed
+    ///     pack that already has emotions is never downgraded by <c>includeEmotions: false</c>; uninstall it first.
+    /// </remarks>
     /// <exception cref="ArgumentException">Thrown when <paramref name="packId"/> is not a known pack.</exception>
     /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is canceled.</exception>
     /// <exception cref="ObjectDisposedException">Thrown when this instance is disposed.</exception>
+    /// <exception cref="SpeechModelStoreException">Thrown when an upgrade cannot remove the existing install because its files are in use.</exception>
     public async Task<SpeechModelDownloadResult> InstallPackAsync(
         string packId,
+        bool includeEmotions = true,
         IProgress<SpeechModelDownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
@@ -183,11 +197,17 @@ public sealed class ReferenceVoiceLibrary : IDisposable
         _installing[pack.Id] = 0;
         try
         {
+            if (includeEmotions && _packStore.IsInstalled(pack.Id) && !PackHasEmotions(pack.Id))
+            {
+                // Upgrade: the downloader fast-paths an installed id, so remove the voices-only install first
+                _packStore.Uninstall(pack.Id);
+            }
+
             var result = await downloader
                 .DownloadAsync(
                     pack.Id,
                     pack.DownloadDescriptor,
-                    (stagingDirectory, token) => ReferenceVoicePackInstaller.InstallAsync(pack, stagingDirectory, token),
+                    (stagingDirectory, token) => ReferenceVoicePackInstaller.InstallAsync(pack, includeEmotions, stagingDirectory, token),
                     progress,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -208,6 +228,67 @@ public sealed class ReferenceVoiceLibrary : IDisposable
             _installing.TryRemove(pack.Id, out _);
         }
     }
+
+    /// <summary>
+    ///     Downloads, verifies and installs a pack with its emotion clips; equivalent to
+    ///     <see cref="InstallPackAsync(string, bool, IProgress{SpeechModelDownloadProgress}, CancellationToken)"/> with
+    ///     <c>includeEmotions: true</c>.
+    /// </summary>
+    /// <param name="packId">The pack id.</param>
+    /// <param name="progress">A progress sink for the archive transfer, or <see langword="null"/>.</param>
+    /// <param name="cancellationToken">A token that aborts the install.</param>
+    /// <returns>The classified result.</returns>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="packId"/> is not a known pack.</exception>
+    /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is canceled.</exception>
+    /// <exception cref="ObjectDisposedException">Thrown when this instance is disposed.</exception>
+    public Task<SpeechModelDownloadResult> InstallPackAsync(
+        string packId,
+        IProgress<SpeechModelDownloadProgress>? progress,
+        CancellationToken cancellationToken) =>
+        InstallPackAsync(packId, includeEmotions: true, progress, cancellationToken);
+
+    /// <summary>
+    ///     Gets the variants an installed pack was extracted with, as recorded in its <c>pack.json</c>.
+    /// </summary>
+    /// <param name="packId">The pack id.</param>
+    /// <returns>
+    ///     The variant names (<c>voices</c>, and <c>voices-emotion</c> when the emotion clips were extracted); empty
+    ///     when the pack is not installed or its metadata is missing or unreadable. Never throws for a known id.
+    /// </returns>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="packId"/> is not a known pack.</exception>
+    public IReadOnlyList<string> GetPackInstalledVariants(string packId)
+    {
+        var pack = FindPack(packId);
+        try
+        {
+            var path = Path.Join(_packStore.GetCurrentDirectory(pack.Id), ReferenceVoicePackInstaller.PackMetadataFileName);
+            if (!File.Exists(path))
+            {
+                return [];
+            }
+
+            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            if (!document.RootElement.TryGetProperty("variants", out var variants) || variants.ValueKind != JsonValueKind.Array)
+            {
+                return [];
+            }
+
+            return [.. variants.EnumerateArray().Where(item => item.ValueKind == JsonValueKind.String).Select(item => item.GetString()!)];
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
+        {
+            return [];
+        }
+    }
+
+    /// <summary>
+    ///     Determines whether an installed pack was extracted with its emotion (mood) clips.
+    /// </summary>
+    /// <param name="packId">The pack id.</param>
+    /// <returns><see langword="true"/> when the pack is installed with emotion clips; otherwise <see langword="false"/>. Never throws for a known id.</returns>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="packId"/> is not a known pack.</exception>
+    public bool PackHasEmotions(string packId) =>
+        GetPackInstalledVariants(packId).Contains(ReferenceVoicePackInstaller.EmotionsDirectoryName, StringComparer.Ordinal);
 
     /// <summary>
     ///     Removes an installed pack; a no-op when it is not installed. The user folder is never touched.
@@ -244,8 +325,9 @@ public sealed class ReferenceVoiceLibrary : IDisposable
 
         foreach (var pack in _packs.Where(pack => _packStore.IsInstalled(pack.Id)))
         {
-            var voicesDirectory = Path.Join(_packStore.GetCurrentDirectory(pack.Id), ReferenceVoicePackInstaller.VoicesDirectoryName);
-            AddVoicesFrom(voicesDirectory, ReferenceVoiceSource.Pack, pack, voices, seen);
+            var current = _packStore.GetCurrentDirectory(pack.Id);
+            var voicesDirectory = Path.Join(current, ReferenceVoicePackInstaller.VoicesDirectoryName);
+            AddVoicesFrom(voicesDirectory, ReferenceVoiceSource.Pack, pack, voices, seen, Path.Join(current, ReferenceVoicePackInstaller.EmotionsDirectoryName));
         }
 
         return voices;
@@ -309,13 +391,48 @@ public sealed class ReferenceVoiceLibrary : IDisposable
         }
     }
 
+    /// <summary>
+    ///     Finds the mood clips of one speaker under <c>{emotionsDirectory}\{speaker}\{mood}.flac</c>, keyed by lower-case
+    ///     mood and sorted ordinally; <see langword="null"/> when there are none or the folder cannot be read.
+    /// </summary>
+    private SortedDictionary<string, string>? FindMoodClips(string emotionsDirectory, string speaker)
+    {
+        try
+        {
+            var speakerDirectory = Path.Join(emotionsDirectory, speaker);
+            if (!Directory.Exists(speakerDirectory))
+            {
+                return null;
+            }
+
+            var clips = new SortedDictionary<string, string>(StringComparer.Ordinal);
+            foreach (var file in Directory.EnumerateFiles(speakerDirectory)
+                .Where(file => AudioFileReader.SupportedExtensions.Contains(Path.GetExtension(file), StringComparer.OrdinalIgnoreCase)))
+            {
+                var mood = Path.GetFileNameWithoutExtension(file).Trim().ToLowerInvariant();
+                if (mood.Length > 0)
+                {
+                    clips.TryAdd(mood, file);
+                }
+            }
+
+            return clips.Count == 0 ? null : clips;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _diagnostics.Report(SpeechDiagnosticLevel.Warning, DiagnosticsCategory, $"Reference voice mood folder for '{speaker}' could not be read: {ex.Message}");
+            return null;
+        }
+    }
+
     /// <summary>Adds the supported audio files of one directory, skipping ids that are already present.</summary>
     private void AddVoicesFrom(
         string directory,
         ReferenceVoiceSource source,
         ReferenceVoicePack? pack,
         List<ReferenceVoiceInfo> voices,
-        HashSet<string> seen)
+        HashSet<string> seen,
+        string? emotionsDirectory = null)
     {
         string[] files;
         try
@@ -358,7 +475,8 @@ public sealed class ReferenceVoiceLibrary : IDisposable
                 id,
                 Mood: null,
                 LicenseName: pack?.LicenseName,
-                Attribution: pack?.Attribution));
+                Attribution: pack?.Attribution,
+                MoodClips: emotionsDirectory is null ? null : FindMoodClips(emotionsDirectory, id)));
         }
     }
 }

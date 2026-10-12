@@ -42,6 +42,8 @@ internal static class ReferenceVoiceTestPacks
         ($"{Root}/voices/notes.txt", "ignored"u8.ToArray()),
         ($"{Root}/voices-emotion/README.md", "emotion readme"u8.ToArray()),
         ($"{Root}/voices-emotion/alana_jordan/happy.flac", "emotion"u8.ToArray()),
+        ($"{Root}/voices-emotion/alana_jordan/Sad.flac", "emotion-sad"u8.ToArray()),
+        ($"{Root}/voices-emotion/alan_davis_drake2/anger.flac", "emotion-anger"u8.ToArray()),
     ]);
 
     /// <summary>Creates a pack descriptor whose checksum matches <paramref name="zipBytes"/>.</summary>

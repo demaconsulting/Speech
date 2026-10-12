@@ -70,6 +70,42 @@ public sealed class ReferenceVoicePackTests
     }
 
     /// <summary>
+    ///     Proves that the built-in pack carries the sizes measured from the real archive (voices plus license/readme
+    ///     files, and the emotion clips) and that the installed-size arithmetic adds them only when emotions are included.
+    /// </summary>
+    [Fact]
+    public void ReferenceVoicePack_VoiceZero10_InstalledSizes_AreMeasuredValues()
+    {
+        // Act
+        var pack = ReferenceVoicePack.VoiceZero10;
+
+        // Assert
+        Assert.Equal(45_632_432L, pack.VoicesBytes);
+        Assert.Equal(553_873_246L, pack.EmotionsBytes);
+        Assert.Equal(pack.VoicesBytes, pack.InstalledSizeBytes(includeEmotions: false));
+        Assert.Equal(599_505_678L, pack.InstalledSizeBytes(includeEmotions: true));
+    }
+
+    /// <summary>
+    ///     Proves that a pack constructed without installed sizes reports zero and that negative sizes are rejected.
+    /// </summary>
+    [Fact]
+    public void ReferenceVoicePack_Constructor_InstalledSizes_DefaultZeroAndRejectNegative()
+    {
+        // Act
+        var pack = Create();
+
+        // Assert
+        Assert.Equal(0L, pack.InstalledSizeBytes(includeEmotions: true));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new ReferenceVoicePack(
+            "pack-1", "Pack", new Uri("https://example.invalid/pack-1.zip"), ValidChecksum, 10, "pack-1.zip", "root", "CC0",
+            new Uri("https://example.invalid/license"), "Attribution", new Uri("https://example.invalid/source"), voicesBytes: -1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new ReferenceVoicePack(
+            "pack-1", "Pack", new Uri("https://example.invalid/pack-1.zip"), ValidChecksum, 10, "pack-1.zip", "root", "CC0",
+            new Uri("https://example.invalid/license"), "Attribution", new Uri("https://example.invalid/source"), emotionsBytes: -1));
+    }
+
+    /// <summary>
     ///     Proves that a non-HTTPS archive URI is rejected.
     /// </summary>
     [Fact]

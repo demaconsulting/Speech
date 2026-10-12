@@ -152,6 +152,9 @@ public sealed class SpeechModelStore
         // atomic and effectively instantaneous on NTFS/POSIX.
         Directory.Move(stagingDirectory, currentDirectory);
 
+        // The staging root is now usually empty; remove it so no stray .tmp folder is left behind
+        TryDeleteEmptyDirectory(Path.Join(modelDirectory, StagingRootName));
+
         // Write the manifest last: only a crash after this point is indistinguishable from a
         // fully successful install, and that is the safe direction for the failure to lean.
         var manifest = new InstallManifest(totalSizeBytes, DateTimeOffset.UtcNow);
@@ -328,6 +331,26 @@ public sealed class SpeechModelStore
             throw new ArgumentException(
                 $"Model id '{modelId}' must not be a relative-path segment ('.' or '..').",
                 nameof(modelId));
+        }
+    }
+
+    /// <summary>
+    ///     Deletes a directory only when it is empty, swallowing any failure so cleanup never blocks or throws.
+    /// </summary>
+    /// <param name="path">The directory to delete, if it exists and is empty.</param>
+    private static void TryDeleteEmptyDirectory(string path)
+    {
+        try
+        {
+            // A non-recursive delete fails (and is ignored) when another operation still has a staging directory in it
+            if (Directory.Exists(path) && !Directory.EnumerateFileSystemEntries(path).Any())
+            {
+                Directory.Delete(path, recursive: false);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Best-effort: a concurrent operation may be using it; leave it for a later cleanup.
         }
     }
 

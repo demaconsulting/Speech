@@ -29,12 +29,12 @@ public sealed class ReferenceVoicePackInstallerTests : IDisposable
     }
 
     /// <summary>Stages an archive and runs the installer over it.</summary>
-    private async Task<string> InstallAsync(byte[] zipBytes)
+    private async Task<string> InstallAsync(byte[] zipBytes, bool includeEmotions = false)
     {
         var pack = ReferenceVoiceTestPacks.PackFor(zipBytes);
         var staging = Path.Join(_root, "staging");
         ReferenceVoiceTestPacks.WriteArchive(staging, pack, zipBytes);
-        await ReferenceVoicePackInstaller.InstallAsync(pack, staging, TestContext.Current.CancellationToken);
+        await ReferenceVoicePackInstaller.InstallAsync(pack, includeEmotions, staging, TestContext.Current.CancellationToken);
         return staging;
     }
 
@@ -64,6 +64,109 @@ public sealed class ReferenceVoicePackInstallerTests : IDisposable
             ],
             files);
         Assert.Equal("flac-a", await File.ReadAllTextAsync(Path.Join(staging, "voices", "alan_davis_drake2.flac"), TestContext.Current.CancellationToken));
+    }
+
+    /// <summary>
+    ///     Proves that, with emotions requested, <c>voices-emotion/{speaker}/{mood}.flac</c> and its readme are extracted
+    ///     beside the base voices and <c>pack.json</c> records the variant and clip count.
+    /// </summary>
+    [Fact]
+    public async Task ReferenceVoicePackInstaller_Install_WithEmotions_ExtractsMoodClipsAndRecordsVariant()
+    {
+        // Act
+        var staging = await InstallAsync(ReferenceVoiceTestPacks.BuildTypicalZip(), includeEmotions: true);
+
+        // Assert
+        var files = Directory.GetFiles(staging, "*", SearchOption.AllDirectories)
+            .Select(file => Path.GetRelativePath(staging, file).Replace('\\', '/'))
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        Assert.Contains("voices-emotion/README.md", files);
+        Assert.Contains("voices-emotion/alana_jordan/happy.flac", files);
+        Assert.Contains("voices-emotion/alana_jordan/Sad.flac", files);
+        Assert.Contains("voices-emotion/alan_davis_drake2/anger.flac", files);
+        Assert.Equal(3, files.Count(file => file.StartsWith("voices-emotion/", StringComparison.Ordinal) && file.EndsWith(".flac", StringComparison.Ordinal)));
+        using var document = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Join(staging, "pack.json"), TestContext.Current.CancellationToken));
+        var json = document.RootElement;
+        Assert.Equal(2, json.GetProperty("voiceCount").GetInt32());
+        Assert.Equal(3, json.GetProperty("emotionClipCount").GetInt32());
+        Assert.Equal(["voices", "voices-emotion"], json.GetProperty("variants").EnumerateArray().Select(item => item.GetString()).ToArray());
+    }
+
+    /// <summary>
+    ///     Proves that without emotions nothing under <c>voices-emotion</c> is extracted and the metadata says so.
+    /// </summary>
+    [Fact]
+    public async Task ReferenceVoicePackInstaller_Install_WithoutEmotions_SkipsMoodClips()
+    {
+        // Act
+        var staging = await InstallAsync(ReferenceVoiceTestPacks.BuildTypicalZip(), includeEmotions: false);
+
+        // Assert
+        Assert.False(Directory.Exists(Path.Join(staging, "voices-emotion")));
+        using var document = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Join(staging, "pack.json"), TestContext.Current.CancellationToken));
+        Assert.Equal(0, document.RootElement.GetProperty("emotionClipCount").GetInt32());
+        Assert.Equal(["voices"], document.RootElement.GetProperty("variants").EnumerateArray().Select(item => item.GetString()).ToArray());
+    }
+
+    /// <summary>
+    ///     Proves that emotion entries outside the exact <c>voices-emotion/{speaker}/{mood}.flac</c> shape (too deep, loose,
+    ///     or not FLAC) are ignored even when emotions are requested.
+    /// </summary>
+    [Fact]
+    public async Task ReferenceVoicePackInstaller_Install_WithEmotions_IgnoresMisshapenEmotionEntries()
+    {
+        // Arrange
+        var zip = ReferenceVoiceTestPacks.BuildZip(
+        [
+            ($"{ReferenceVoiceTestPacks.Root}/voices/alana_jordan.flac", "flac"u8.ToArray()),
+            ($"{ReferenceVoiceTestPacks.Root}/voices-emotion/happy.flac", "loose"u8.ToArray()),
+            ($"{ReferenceVoiceTestPacks.Root}/voices-emotion/alana_jordan/deep/happy.flac", "deep"u8.ToArray()),
+            ($"{ReferenceVoiceTestPacks.Root}/voices-emotion/alana_jordan/notes.txt", "text"u8.ToArray()),
+            ($"{ReferenceVoiceTestPacks.Root}/voices-emotion/alana_jordan/.flac", "empty"u8.ToArray()),
+            ($"{ReferenceVoiceTestPacks.Root}/voices-emotion/alana_jordan/calm.flac", "ok"u8.ToArray()),
+        ]);
+
+        // Act
+        var staging = await InstallAsync(zip, includeEmotions: true);
+
+        // Assert
+        var emotionFiles = Directory.GetFiles(Path.Join(staging, "voices-emotion"), "*", SearchOption.AllDirectories)
+            .Select(file => Path.GetRelativePath(staging, file).Replace('\\', '/'))
+            .ToArray();
+        Assert.Equal(["voices-emotion/alana_jordan/calm.flac"], emotionFiles);
+    }
+
+    /// <summary>
+    ///     Proves that unsafe emotion entry names fail the install when emotions are requested, like any other entry.
+    /// </summary>
+    [Theory]
+    [InlineData("voice-zero/voices-emotion/../../evil.flac")]
+    [InlineData("voice-zero/voices-emotion/alana_jordan/..\\evil.flac")]
+    public async Task ReferenceVoicePackInstaller_Install_WithEmotions_UnsafeEmotionEntry_Throws(string entryName)
+    {
+        // Arrange
+        var zip = ReferenceVoiceTestPacks.BuildZip(
+        [
+            ("voice-zero/voices/a.flac", "flac"u8.ToArray()),
+            (entryName, "evil"u8.ToArray()),
+        ]);
+
+        // Act & Assert
+        await Assert.ThrowsAsync<InvalidDataException>(() => InstallAsync(zip, includeEmotions: true));
+    }
+
+    /// <summary>
+    ///     Proves that emotion clips alone never satisfy the "at least one voice" requirement.
+    /// </summary>
+    [Fact]
+    public async Task ReferenceVoicePackInstaller_Install_OnlyEmotionClips_Throws()
+    {
+        // Arrange
+        var zip = ReferenceVoiceTestPacks.BuildZip([($"{ReferenceVoiceTestPacks.Root}/voices-emotion/alana_jordan/happy.flac", "x"u8.ToArray())]);
+
+        // Act & Assert
+        await Assert.ThrowsAsync<InvalidDataException>(() => InstallAsync(zip, includeEmotions: true));
     }
 
     /// <summary>
@@ -190,6 +293,6 @@ public sealed class ReferenceVoicePackInstallerTests : IDisposable
 
         // Act / Assert
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            () => ReferenceVoicePackInstaller.InstallAsync(pack, staging, source.Token));
+            () => ReferenceVoicePackInstaller.InstallAsync(pack, includeEmotions: false, staging, source.Token));
     }
 }
