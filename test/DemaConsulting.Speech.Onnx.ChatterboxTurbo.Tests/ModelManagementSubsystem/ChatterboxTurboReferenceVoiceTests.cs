@@ -4,7 +4,7 @@ using DemaConsulting.Speech.Onnx.ChatterboxTurbo.ModelManagementSubsystem;
 namespace DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests.ModelManagementSubsystem;
 
 /// <summary>
-///     Unit tests for <see cref="ChatterboxTurboReferenceVoice"/> and its internal audio resampler.
+///     Unit tests for <see cref="ChatterboxTurboReferenceVoice"/>.
 /// </summary>
 public sealed class ChatterboxTurboReferenceVoiceTests : IDisposable
 {
@@ -26,6 +26,10 @@ public sealed class ChatterboxTurboReferenceVoiceTests : IDisposable
             Directory.Delete(_root, recursive: true);
         }
         catch (IOException)
+        {
+            // Best-effort cleanup only.
+        }
+        catch (UnauthorizedAccessException)
         {
             // Best-effort cleanup only.
         }
@@ -253,7 +257,48 @@ public sealed class ChatterboxTurboReferenceVoiceTests : IDisposable
         Assert.Contains("v/calm", exception.Message, StringComparison.Ordinal);
         Assert.Contains("short.wav", exception.Message, StringComparison.Ordinal);
         Assert.Throws<ArgumentException>(() => voice.WithMoodFiles(new Dictionary<string, string> { [" "] = shortPath }));
-        Assert.Same(voice.Id, voice.WithMoodFiles(null).Id);
+        Assert.Throws<ArgumentException>(() => voice.WithMoodFiles(new Dictionary<string, string> { ["calm"] = " " }));
+        var unchanged = voice.WithMoodFiles(null);
+        Assert.Equal(voice.Moods, unchanged.Moods);
+        Assert.Equal(voice.Id, unchanged.Id);
+        Assert.Equal(voice.DisplayName, unchanged.DisplayName);
+    }
+
+    /// <summary>Proves mood names are trimmed and lower-cased, and a later clip of the same name replaces an earlier one.</summary>
+    [Fact]
+    public void ChatterboxTurboReferenceVoice_WithMoodFiles_NamesAreTrimmedAndLowerCased()
+    {
+        // Arrange
+        var basePath = Path.Combine(_root, "base.wav");
+        var moodPath = Path.Combine(_root, "mood.wav");
+        File.WriteAllBytes(basePath, Wav(Tone(24000, 24000, 300), 24000, 1, format: 1, bits: 16));
+        File.WriteAllBytes(moodPath, Wav(Tone(36000, 24000, 200), 24000, 1, format: 1, bits: 16));
+
+        // Act
+        var voice = ChatterboxTurboReferenceVoice.FromFileLazy("v", basePath)
+            .WithMoodFiles(new Dictionary<string, string> { ["  Sad "] = moodPath });
+
+        // Assert
+        Assert.Equal(["sad"], voice.Moods);
+        Assert.True(voice.TryGetMoodSamples("sad", out var samples));
+        Assert.Equal(36000, samples.Length);
+        Assert.False(voice.HasMood("Sad"));
+    }
+
+    /// <summary>Proves FromFile reports a too-short clip and blank arguments.</summary>
+    [Fact]
+    public void ChatterboxTurboReferenceVoice_FromFile_TooShortOrBlankArguments_Throw()
+    {
+        // Arrange
+        var shortPath = Path.Combine(_root, "short.wav");
+        File.WriteAllBytes(shortPath, Wav(Tone(1000, 24000, 300), 24000, 1, format: 1, bits: 16));
+
+        // Assert
+        Assert.Throws<ArgumentException>(() => ChatterboxTurboReferenceVoice.FromFile("s", shortPath));
+        Assert.Throws<ArgumentException>(() => ChatterboxTurboReferenceVoice.FromFile(" ", shortPath));
+        Assert.Throws<ArgumentException>(() => ChatterboxTurboReferenceVoice.FromFile("s", " "));
+        Assert.Throws<ArgumentException>(() => ChatterboxTurboReferenceVoice.FromFileLazy(" ", shortPath));
+        Assert.Throws<ArgumentException>(() => ChatterboxTurboReferenceVoice.FromFileLazy("s", " "));
     }
 
     /// <summary>Builds a sine tone.</summary>

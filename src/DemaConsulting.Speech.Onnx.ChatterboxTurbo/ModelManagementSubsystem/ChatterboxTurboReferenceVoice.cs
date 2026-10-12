@@ -154,8 +154,7 @@ public sealed class ChatterboxTurboReferenceVoice
         if (normalized.Length < MinimumDurationSeconds * SampleRate)
         {
             throw new ArgumentException(
-                $"A reference voice needs at least {MinimumDurationSeconds:0.#} second(s) of audio.",
-                nameof(samples));
+                $"A reference voice needs at least {MinimumDurationSeconds:0.#} second(s) of audio.");
         }
 
         // Only a bounded prefix is useful for conditioning and the encoder cost grows with length

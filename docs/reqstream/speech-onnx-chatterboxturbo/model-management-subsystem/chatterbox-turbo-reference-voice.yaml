@@ -51,6 +51,7 @@ sections:
                 tests:
                   - ChatterboxTurboReferenceVoice_FromSamples_TooShort_Throws
                   - ChatterboxTurboReferenceVoice_FromSamples_InvalidArguments_Throw
+                  - ChatterboxTurboReferenceVoice_FromFile_TooShortOrBlankArguments_Throw
 
               - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-LazyFileLoading
                 title: >-
@@ -75,3 +76,4 @@ sections:
                 tests:
                   - ChatterboxTurboReferenceVoice_WithMoodFiles_LoadsMoodClipsLazilyAndReportsMissingMoods
                   - ChatterboxTurboReferenceVoice_WithMoodFiles_TooShortClip_FailsOnFirstUse
+                  - ChatterboxTurboReferenceVoice_WithMoodFiles_NamesAreTrimmedAndLowerCased

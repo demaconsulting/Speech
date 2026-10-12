@@ -13,8 +13,9 @@ to a scratch directory and a small FLAC fixture (`TestData/voice-mono-16-16000.f
 #### Acceptance Criteria
 
 Mono 24 kHz samples are kept; other layouts are down-mixed and resampled preserving tone; long clips
-are trimmed and short clips rejected; WAV and FLAC files load; bad files and arguments throw the documented
-exceptions.
+are trimmed and short clips rejected; WAV and FLAC files load; lazy voices and mood clips decode on first
+use with failures naming the file; mood names are trimmed and lower-cased; bad files and arguments throw the
+documented exceptions.
 
 #### Test Scenarios
 
@@ -36,7 +37,8 @@ exceptions.
 
 ##### Invalid arguments throw
 
-**Test**: `ChatterboxTurboReferenceVoice_FromSamples_InvalidArguments_Throw`
+**Tests**: `ChatterboxTurboReferenceVoice_FromSamples_InvalidArguments_Throw` and
+`ChatterboxTurboReferenceVoice_FromFile_TooShortOrBlankArguments_Throw`
 
 ##### PCM16 WAV loads
 
@@ -60,10 +62,11 @@ exceptions.
 
 ##### Lazy file voices defer decoding
 
-**Test**: `ChatterboxTurboReferenceVoice_FromFileLazy_CorruptFile_FailsOnFirstUseNamingFile`
-**Test**: `ChatterboxTurboReferenceVoice_FromFileLazy_ValidFile_LoadsOnceOnFirstUse`
+**Tests**: `ChatterboxTurboReferenceVoice_FromFileLazy_CorruptFile_FailsOnFirstUseNamingFile` and
+`ChatterboxTurboReferenceVoice_FromFileLazy_ValidFile_LoadsOnceOnFirstUse`
 
 ##### Mood clips load lazily and a missing mood is reported
 
 **Tests**: `ChatterboxTurboReferenceVoice_WithMoodFiles_LoadsMoodClipsLazilyAndReportsMissingMoods`,
-`ChatterboxTurboReferenceVoice_WithMoodFiles_TooShortClip_FailsOnFirstUse`
+`ChatterboxTurboReferenceVoice_WithMoodFiles_TooShortClip_FailsOnFirstUse`,
+`ChatterboxTurboReferenceVoice_WithMoodFiles_NamesAreTrimmedAndLowerCased`
