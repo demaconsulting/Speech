@@ -37,14 +37,23 @@ sections:
               - id: SpeechDemo-Settings-HonestEmptyState
                 title: >-
                   The ModelSettingsViewModel shall explain, rather than silently show nothing,
-                  when no model is selected, including when the model is cleared after having
-                  been selected.
+                  when it has no model selected.
                 justification: |
                   Consistent with the honest-empty-state precedent set by the model catalog panel
                   for an empty known-model registry, an unexplained blank settings panel would
                   read to a user as a broken application rather than an expected state.
                 tests:
                   - ModelSettingsViewModel_Constructor_NoModel_ReportsNoModelEmptyState
+
+              - id: SpeechDemo-Settings-EmptyStateAfterModelCleared
+                title: >-
+                  The ModelSettingsViewModel shall discard every presented parameter and explain
+                  that no model is selected when the model is cleared after having been
+                  selected.
+                justification: |
+                  Deselecting a model must not leave the previous model's controls on screen; the
+                  panel returns to the same explained empty state it started in.
+                tests:
                   - ModelSettingsViewModel_Model_ChangedToNull_ClearsPresentersAndReportsNoModelState
 
               - id: SpeechDemo-Settings-NoParametersExplained
@@ -103,13 +112,22 @@ sections:
 
               - id: SpeechDemo-Settings-RestoreIgnoresStaleValues
                 title: >-
-                  The ModelSettingsViewModel shall ignore captured values that no longer apply -
-                  unknown keys, wrongly typed values and options the new model no longer offers -
-                  leaving the affected controls at their defaults.
+                  The ModelSettingsViewModel shall leave a control at its default when a
+                  restored value names a key the new model does not declare or an option the new
+                  model no longer offers.
                 justification: |
                   A captured bag can outlive the model it was captured from; ignoring entries that
                   no longer apply prevents a stale choice from failing the refresh that triggered
                   the restore.
                 tests:
                   - ModelSettingsViewModel_RestoreValues_UnavailableOptionOrKey_KeepsDefault
+
+              - id: SpeechDemo-Settings-RestoreIgnoresWrongTypedValues
+                title: >-
+                  The ModelSettingsViewModel shall leave a control at its default when a restored
+                  value has the wrong type for that control's parameter.
+                justification: |
+                  A captured bag is untyped; a value of the wrong type must not fault or corrupt
+                  the control that the refresh triggering the restore is rebuilding.
+                tests:
                   - ModelSettingsViewModel_RestoreValues_WrongTypedValues_KeepsDefaults

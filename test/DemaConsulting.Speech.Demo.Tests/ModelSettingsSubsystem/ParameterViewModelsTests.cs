@@ -52,6 +52,20 @@ public class ParameterViewModelsTests
     }
 
     /// <summary>
+    ///     Proves that a choice presenter presents exactly the options its parameter declares,
+    ///     in declaration order.
+    /// </summary>
+    [Fact]
+    public void ChoiceParameterViewModel_Constructor_Parameter_PresentsDeclaredOptionsInOrder()
+    {
+        // Act: build a presenter for a parameter declaring three options
+        var presenter = new ChoiceParameterViewModel(NonFirstDefaultParam);
+
+        // Assert: every declared option is presented, in the declared order
+        Assert.Equal(["alto", "tenor", "bass"], presenter.Options.Select(option => option.Value));
+    }
+
+    /// <summary>
     ///     Proves that a continuous numeric presenter keeps a fractional value unrounded.
     /// </summary>
     [Fact]

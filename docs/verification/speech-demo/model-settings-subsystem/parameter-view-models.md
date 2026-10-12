@@ -76,6 +76,12 @@ instead of `Slider` for this presenter.
 **Expected**: `SelectedOption` starts at the option whose value matches the declared default, and
 `Options` carries the full declared option list.
 
+##### ChoiceParameterViewModel_Constructor_Parameter_PresentsDeclaredOptionsInOrder
+
+**Scenario**: A choice presenter is built from a descriptor declaring three options.
+
+**Expected**: `Options` carries exactly the declared options, in declaration order.
+
 ##### ChoiceParameterViewModel_Constructor_NonFirstDefault_SelectsOptionMatchingDefaultByValue
 
 **Scenario**: A choice presenter is built from a descriptor whose default is not the first option.

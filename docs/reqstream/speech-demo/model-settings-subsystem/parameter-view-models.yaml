@@ -75,13 +75,22 @@ sections:
 
               - id: SpeechDemo-Settings-ChoicePresenter
                 title: >-
-                  The ChoiceParameterViewModel shall present its parameter's declared options and
-                  preselect the option whose value matches the declared default.
+                  The ChoiceParameterViewModel shall present exactly the options its parameter
+                  declares, in declaration order.
                 justification: |
-                  A dropdown or radio group needs a concrete list of selectable options and a
-                  sane starting selection; resolving the default by value (rather than by
-                  position) keeps the starting selection correct regardless of the declared
-                  option order.
+                  A dropdown or radio group needs a concrete list of selectable options that
+                  matches what the model actually accepts.
+                tests:
+                  - ChoiceParameterViewModel_Constructor_Parameter_PresentsDeclaredOptionsInOrder
+
+              - id: SpeechDemo-Settings-ChoicePresenterDefaultSelection
+                title: >-
+                  The ChoiceParameterViewModel shall start with the option whose value matches
+                  its parameter's declared default selected.
+                justification: |
+                  A dropdown or radio group needs a sane starting selection; resolving the
+                  default by value (rather than by position) keeps the starting selection correct
+                  regardless of the declared option order.
                 tests:
                   - ChoiceParameterViewModel_Constructor_Parameter_StartsAtDeclaredDefaultOption
                   - ChoiceParameterViewModel_Constructor_NonFirstDefault_SelectsOptionMatchingDefaultByValue
@@ -89,13 +98,20 @@ sections:
               - id: SpeechDemo-Settings-ChoicePresenterSelection
                 title: >-
                   The ChoiceParameterViewModel shall reflect a newly selected option in its boxed
-                  value and notify observers of the change.
+                  value.
                 justification: |
                   The value bag is assembled from the boxed value, so a user's selection must be
-                  visible there; the notification keeps a bound control in step with the
-                  selection.
+                  visible there.
                 tests:
                   - ChoiceParameterViewModel_SelectedOption_ChangedToDifferentOption_UpdatesBoxedValue
+
+              - id: SpeechDemo-Settings-ChoicePresenterSelectionNotification
+                title: >-
+                  The ChoiceParameterViewModel shall notify observers when its selected option
+                  changes.
+                justification: |
+                  The notification keeps a bound control in step with the selection.
+                tests:
                   - ChoiceParameterViewModel_SelectedOption_Changed_RaisesPropertyChanged
 
               - id: SpeechDemo-Settings-BooleanPresenter
