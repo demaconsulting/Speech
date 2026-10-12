@@ -44,6 +44,10 @@ public sealed class OnnxChatterboxTurboNetworksTests : IDisposable
         {
             // Best-effort cleanup only.
         }
+        catch (UnauthorizedAccessException)
+        {
+            // Best-effort cleanup only.
+        }
     }
 
     /// <summary>Proves the encoder outputs are bound by name and reshaped into the conditioning record.</summary>
@@ -142,6 +146,69 @@ public sealed class OnnxChatterboxTurboNetworksTests : IDisposable
         Assert.Equal([5f, 6f, 7f], waveform);
     }
 
+    /// <summary>Proves a half-precision <c>inputs_embeds</c> input and half-precision logits are converted both ways.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboNetworks_Step_HalfEmbeddingsAndLogits_AreConverted()
+    {
+        // Arrange
+        var paths = ChatterboxTurboGraphFixture.Write(_root, halfEmbeddings: true, halfLogits: true);
+        using var networks = Create(paths);
+        using var state = networks.BeginGeneration();
+        var embeddings = Enumerable.Repeat(1f, ChatterboxTurboGraphFixture.EmbeddingSize).ToArray();
+
+        // Act
+        var logits = state.Step(embeddings, 1, 1, 0);
+
+        // Assert: 1024 * (3 / 1000) = 3.072, within half precision
+        Assert.Equal(ChatterboxTurboGraphFixture.Vocabulary, logits.Length);
+        Assert.Equal(3.072f, logits[3], 2);
+    }
+
+    /// <summary>Proves an embeddings array of the wrong length is rejected.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboNetworks_Step_WrongEmbeddingLength_ThrowsArgumentException()
+    {
+        // Arrange
+        var paths = ChatterboxTurboGraphFixture.Write(_root);
+        using var networks = Create(paths);
+        using var state = networks.BeginGeneration();
+
+        // Act and Assert
+        Assert.Throws<ArgumentException>(() => state.Step(new float[ChatterboxTurboGraphFixture.EmbeddingSize - 1], 1, 1, 0));
+    }
+
+    /// <summary>Proves an attention length shorter than the sequence length is rejected.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboNetworks_Step_AttentionShorterThanSequence_ThrowsArgumentOutOfRangeException()
+    {
+        // Arrange
+        var paths = ChatterboxTurboGraphFixture.Write(_root);
+        using var networks = Create(paths);
+        using var state = networks.BeginGeneration();
+
+        // Act and Assert
+        Assert.Throws<ArgumentOutOfRangeException>(() => state.Step(new float[2 * ChatterboxTurboGraphFixture.EmbeddingSize], 2, 1, 0));
+    }
+
+    /// <summary>Proves an encoder graph without the expected outputs is rejected.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboNetworks_Constructor_UnrecognizedEncoderOutputs_ThrowsInvalidOperationException()
+    {
+        // Arrange: a single-output encoder matches neither the named nor the positional contract
+        var paths = ChatterboxTurboGraphFixture.Write(_root);
+        File.WriteAllBytes(
+            paths.Encoder,
+            new OnnxModelWriter("encoder")
+                .Input("audio_values", OnnxModelWriter.Float, "1", "n")
+                .FloatInitializer("c_only", [1, 1], [1f])
+                .Node("Identity", ["c_only"], ["only"])
+                .Output("only", OnnxModelWriter.Float, "1", "1")
+                .Build());
+
+        // Act and Assert
+        Assert.Throws<InvalidOperationException>(() => Create(paths));
+    }
+
     /// <summary>Proves the intra-op thread count is applied and a non-positive count is rejected.</summary>
     [Fact]
     public void OnnxChatterboxTurboNetworks_Constructor_ThreadCount_IsAppliedAndValidated()
@@ -190,7 +257,7 @@ public sealed class OnnxChatterboxTurboNetworksTests : IDisposable
         try
         {
             // Act & Assert
-            Assert.ThrowsAny<Exception>(() => new OnnxChatterboxTurboNetworks(
+            Assert.Throws<FileNotFoundException>(() => new OnnxChatterboxTurboNetworks(
                 paths.Encoder,
                 paths.Embedder,
                 Path.Combine(_root, "missing.onnx"),

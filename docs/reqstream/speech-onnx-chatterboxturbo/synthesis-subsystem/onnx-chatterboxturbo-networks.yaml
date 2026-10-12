@@ -27,6 +27,9 @@ sections:
                   - OnnxChatterboxTurboNetworks_Embed_TokenIds_ReturnsTableRows
                   - OnnxChatterboxTurboNetworks_ReadFloats_HandlesFloat32AndFloat16
                   - OnnxChatterboxTurboNetworks_Step_TwoSteps_ReusesCacheAndReturnsLastLogits
+                  - OnnxChatterboxTurboNetworks_Step_HalfEmbeddingsAndLogits_AreConverted
+                  - OnnxChatterboxTurboNetworks_Step_WrongEmbeddingLength_ThrowsArgumentException
+                  - OnnxChatterboxTurboNetworks_Step_AttentionShorterThanSequence_ThrowsArgumentOutOfRangeException
                   - OnnxChatterboxTurboNetworks_Decode_SpeechTokens_ReturnsWaveform
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-Configuration
@@ -46,5 +49,6 @@ sections:
                   Native sessions hold large memory-mapped weights that must not leak.
                 tests:
                   - OnnxChatterboxTurboNetworks_Constructor_InvalidLanguageModel_DisposesSessionsAndThrows
+                  - OnnxChatterboxTurboNetworks_Constructor_UnrecognizedEncoderOutputs_ThrowsInvalidOperationException
                   - OnnxChatterboxTurboNetworks_Constructor_MissingGraph_DisposesEarlierSessionsAndThrows
                   - OnnxChatterboxTurboNetworks_Dispose_DisposesAllSessions

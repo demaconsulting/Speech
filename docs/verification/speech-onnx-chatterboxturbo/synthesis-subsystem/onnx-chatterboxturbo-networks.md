@@ -14,8 +14,9 @@ collection.
 
 #### Acceptance Criteria
 
-Each of the four graph calls returns the documented data; the intra-op thread count is applied and
-validated; sessions are disposed on dispose and on construction failure.
+Each of the four graph calls returns the documented data, including half-precision embeddings and logits;
+invalid step arguments are rejected; the intra-op thread count is applied and validated; a missing graph
+throws `FileNotFoundException`; sessions are disposed on dispose and on construction failure.
 
 #### Test Scenarios
 
@@ -31,11 +32,22 @@ validated; sessions are disposed on dispose and on construction failure.
 
 **Test**: `OnnxChatterboxTurboNetworks_Embed_TokenIds_ReturnsTableRows`
 
+##### ReadFloats handles float32 and float16
+
 **Test**: `OnnxChatterboxTurboNetworks_ReadFloats_HandlesFloat32AndFloat16`
 
 ##### Step reuses the cache and returns the last logits
 
 **Test**: `OnnxChatterboxTurboNetworks_Step_TwoSteps_ReusesCacheAndReturnsLastLogits`
+
+##### Step converts half-precision embeddings and logits
+
+**Test**: `OnnxChatterboxTurboNetworks_Step_HalfEmbeddingsAndLogits_AreConverted`
+
+##### Step rejects invalid arguments
+
+**Tests**: `OnnxChatterboxTurboNetworks_Step_WrongEmbeddingLength_ThrowsArgumentException` and
+`OnnxChatterboxTurboNetworks_Step_AttentionShorterThanSequence_ThrowsArgumentOutOfRangeException`
 
 ##### Decode returns the waveform
 
@@ -49,9 +61,14 @@ validated; sessions are disposed on dispose and on construction failure.
 
 **Test**: `OnnxChatterboxTurboNetworks_Constructor_InvalidLanguageModel_DisposesSessionsAndThrows`
 
-##### A missing graph disposes earlier sessions
+##### Unrecognized encoder outputs are rejected
+
+**Test**: `OnnxChatterboxTurboNetworks_Constructor_UnrecognizedEncoderOutputs_ThrowsInvalidOperationException`
+
+##### A missing graph throws and disposes earlier sessions
 
 **Test**: `OnnxChatterboxTurboNetworks_Constructor_MissingGraph_DisposesEarlierSessionsAndThrows`
+(asserts `FileNotFoundException`)
 
 ##### Dispose disposes all sessions
 

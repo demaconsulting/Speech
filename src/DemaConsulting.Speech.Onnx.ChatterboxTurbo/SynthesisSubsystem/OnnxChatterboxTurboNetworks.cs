@@ -74,8 +74,8 @@ internal sealed class OnnxChatterboxTurboNetworks : IChatterboxTurboNetworks
     /// <summary>The per-head width.</summary>
     private readonly int _headDimension;
 
-    /// <summary>Shared run options.</summary>
-    private readonly RunOptions _runOptions = new();
+    /// <summary>Shared run options; created after the constructor arguments are validated.</summary>
+    private readonly RunOptions _runOptions;
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="OnnxChatterboxTurboNetworks"/> class, creating all four sessions.
@@ -86,6 +86,7 @@ internal sealed class OnnxChatterboxTurboNetworks : IChatterboxTurboNetworks
     /// <param name="conditionalDecoderPath">The conditional decoder graph path.</param>
     /// <param name="intraOpThreads">The intra-op thread count; must be positive.</param>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="intraOpThreads"/> is not positive.</exception>
+    /// <exception cref="FileNotFoundException">Thrown when a graph file does not exist; sessions created so far are disposed.</exception>
     /// <exception cref="OnnxRuntimeException">Thrown when a graph cannot be loaded; sessions created so far are disposed.</exception>
     /// <exception cref="InvalidOperationException">Thrown when a graph does not have the expected inputs/outputs.</exception>
     public OnnxChatterboxTurboNetworks(
@@ -97,6 +98,7 @@ internal sealed class OnnxChatterboxTurboNetworks : IChatterboxTurboNetworks
     {
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(intraOpThreads, 0);
         IntraOpThreads = intraOpThreads;
+        _runOptions = new RunOptions();
 
         // Create sessions one at a time, disposing everything created so far if any step fails
         var created = new List<InferenceSession>();
@@ -250,6 +252,12 @@ internal sealed class OnnxChatterboxTurboNetworks : IChatterboxTurboNetworks
     /// <summary>Creates one CPU session and registers it for failure cleanup.</summary>
     private static InferenceSession Create(string path, int intraOpThreads, List<InferenceSession> created)
     {
+        // A missing graph is a file problem, not an ONNX Runtime one
+        if (!File.Exists(path))
+        {
+            throw new FileNotFoundException($"The Chatterbox Turbo graph '{path}' does not exist.", path);
+        }
+
         using var options = new SessionOptions
         {
             IntraOpNumThreads = intraOpThreads,
@@ -298,6 +306,21 @@ internal sealed class OnnxChatterboxTurboNetworks : IChatterboxTurboNetworks
         public float[] Step(float[] inputEmbeddings, int sequenceLength, int attentionLength, int firstPosition)
         {
             ArgumentNullException.ThrowIfNull(inputEmbeddings);
+            ArgumentOutOfRangeException.ThrowIfNegative(sequenceLength);
+            if (inputEmbeddings.Length != (long)sequenceLength * OnnxChatterboxTurboSynthesisEngine.EmbeddingSize)
+            {
+                throw new ArgumentException(
+                    $"The embeddings must contain sequenceLength * {OnnxChatterboxTurboSynthesisEngine.EmbeddingSize} values.",
+                    nameof(inputEmbeddings));
+            }
+
+            if (attentionLength < sequenceLength)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(attentionLength),
+                    attentionLength,
+                    "The attention length must be at least the sequence length.");
+            }
 
             var owner = _owner;
             var names = new List<string> { "inputs_embeds", "attention_mask", "position_ids" };

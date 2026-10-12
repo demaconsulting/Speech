@@ -24,13 +24,17 @@ internal static class ChatterboxTurboGraphFixture
     /// <param name="auxiliarySuffix">The auxiliary suffix (for example _q4).</param>
     /// <param name="halfCache">True for a float16 key/value cache, false for float32.</param>
     /// <param name="namedEncoderOutputs">False to give the encoder differently named (but four) outputs.</param>
+    /// <param name="halfEmbeddings">True for a float16 language model <c>inputs_embeds</c> input.</param>
+    /// <param name="halfLogits">True for float16 language model logits.</param>
     /// <returns>The speech encoder, embedder, language model and decoder paths.</returns>
     public static (string Encoder, string Embedder, string LanguageModel, string Decoder) Write(
         string directory,
         string languageModelName = "language_model_fp16",
         string auxiliarySuffix = "_q4",
         bool halfCache = true,
-        bool namedEncoderOutputs = true)
+        bool namedEncoderOutputs = true,
+        bool halfEmbeddings = false,
+        bool halfLogits = false)
     {
         Directory.CreateDirectory(directory);
         var encoder = Path.Combine(directory, "speech_encoder" + auxiliarySuffix + ".onnx");
@@ -40,7 +44,7 @@ internal static class ChatterboxTurboGraphFixture
 
         File.WriteAllBytes(encoder, Encoder(namedEncoderOutputs));
         File.WriteAllBytes(embedder, Embedder());
-        File.WriteAllBytes(languageModel, LanguageModel(halfCache, withPastInputs: true));
+        File.WriteAllBytes(languageModel, LanguageModel(halfCache, withPastInputs: true, halfEmbeddings, halfLogits));
         File.WriteAllBytes(decoder, Decoder());
         foreach (var path in new[] { encoder, embedder, languageModel, decoder })
         {
@@ -98,7 +102,9 @@ internal static class ChatterboxTurboGraphFixture
     /// </summary>
     /// <param name="halfCache">True for a float16 cache.</param>
     /// <param name="withPastInputs">False to omit the cache inputs (an invalid graph).</param>
-    public static byte[] LanguageModel(bool halfCache, bool withPastInputs)
+    /// <param name="halfEmbeddings">True to declare a float16 <c>inputs_embeds</c> input (cast to float32 inside the graph).</param>
+    /// <param name="halfLogits">True to emit float16 logits (cast from float32 inside the graph).</param>
+    public static byte[] LanguageModel(bool halfCache, bool withPastInputs, bool halfEmbeddings = false, bool halfLogits = false)
     {
         var projection = new float[EmbeddingSize * Vocabulary];
         for (var row = 0; row < EmbeddingSize; row++)
@@ -111,12 +117,32 @@ internal static class ChatterboxTurboGraphFixture
 
         var type = halfCache ? OnnxModelWriter.Float16 : OnnxModelWriter.Float;
         var writer = new OnnxModelWriter("language_model")
-            .Input("inputs_embeds", OnnxModelWriter.Float, "1", "s", "1024")
+            .Input("inputs_embeds", halfEmbeddings ? OnnxModelWriter.Float16 : OnnxModelWriter.Float, "1", "s", "1024")
             .Input("attention_mask", OnnxModelWriter.Int64, "1", "a")
             .Input("position_ids", OnnxModelWriter.Int64, "1", "s")
-            .FloatInitializer("projection", [EmbeddingSize, Vocabulary], projection)
-            .Node("MatMul", ["inputs_embeds", "projection"], ["logits"])
-            .Output("logits", OnnxModelWriter.Float, "1", "s", Vocabulary.ToString());
+            .FloatInitializer("projection", [EmbeddingSize, Vocabulary], projection);
+
+        // Half-precision inputs and outputs are converted around the float32 matmul (CPU MatMul has no float16 kernel)
+        var matmulInput = "inputs_embeds";
+        if (halfEmbeddings)
+        {
+            writer.Node("Cast", ["inputs_embeds"], ["embeds_float"], OnnxModelWriter.IntAttribute("to", OnnxModelWriter.Float));
+            matmulInput = "embeds_float";
+        }
+
+        if (halfLogits)
+        {
+            writer
+                .Node("MatMul", [matmulInput, "projection"], ["logits_float"])
+                .Node("Cast", ["logits_float"], ["logits"], OnnxModelWriter.IntAttribute("to", OnnxModelWriter.Float16))
+                .Output("logits", OnnxModelWriter.Float16, "1", "s", Vocabulary.ToString());
+        }
+        else
+        {
+            writer
+                .Node("MatMul", [matmulInput, "projection"], ["logits"])
+                .Output("logits", OnnxModelWriter.Float, "1", "s", Vocabulary.ToString());
+        }
 
         if (!withPastInputs)
         {
