@@ -35,6 +35,14 @@ WAV twin.
 
 **Test**: `AudioFileReader_Read_UnsupportedWav_ThrowsNotSupportedWithPath`
 
+**Test**: `AudioFileReader_Read_FileLargerThanByteCap_ThrowsBeforeDecoding`
+
+**Test**: `AudioFileReader_Read_SeekableStreamLargerThanByteCap_Throws`
+
+**Test**: `AudioFileReader_Read_NonSeekableStreamLargerThanByteCap_Throws`
+
+**Test**: `AudioFileReader_Read_NonSeekableStream_Decodes`
+
 ##### Mono read down-mixes at the native rate
 
 **Test**: `AudioFileReader_ReadMono_Stereo_DownMixesAtNativeRate`

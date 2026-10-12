@@ -35,7 +35,17 @@ public static class AudioFileReader
 
         try
         {
-            return Decode(File.ReadAllBytes(path), options ?? new AudioFileReadOptions());
+            options ??= new AudioFileReadOptions();
+            var maxBytes = GetMaxBytes(options);
+
+            // Reject an oversized file before reading any of it
+            var length = new FileInfo(path).Length;
+            if (length > maxBytes)
+            {
+                throw new InvalidDataException($"The file is {length} bytes, which exceeds the {maxBytes}-byte limit implied by MaxSamples.");
+            }
+
+            return Decode(File.ReadAllBytes(path), options);
         }
         catch (InvalidDataException ex)
         {
@@ -60,9 +70,8 @@ public static class AudioFileReader
     public static AudioClip Read(Stream stream, AudioFileReadOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(stream);
-        using var buffer = new MemoryStream();
-        stream.CopyTo(buffer);
-        return Decode(buffer.ToArray(), options ?? new AudioFileReadOptions());
+        options ??= new AudioFileReadOptions();
+        return Decode(ReadBounded(stream, GetMaxBytes(options)), options);
     }
 
     /// <summary>
@@ -89,6 +98,56 @@ public static class AudioFileReader
     {
         var clip = Read(stream, options);
         return (clip.ToMono(), clip.SampleRate);
+    }
+
+    /// <summary>
+    ///     Derives the largest input size, in bytes, a file allowed to decode to <see cref="AudioFileReadOptions.MaxSamples"/>
+    ///     samples can have: at most four bytes per sample (32-bit PCM/float, or incompressible 32-bit FLAC) plus slack
+    ///     for headers, tags and frame overhead, capped at the largest array length.
+    /// </summary>
+    private static long GetMaxBytes(AudioFileReadOptions options)
+    {
+        if (options.MaxSamples < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), "MaxSamples must not be negative.");
+        }
+
+        const long slack = 1L << 20;
+        var wanted = options.MaxSamples > (long.MaxValue - slack) / 5 ? long.MaxValue : (options.MaxSamples * 5) + slack;
+        return Math.Min(wanted, Array.MaxLength);
+    }
+
+    /// <summary>Reads a stream to its end, failing as soon as more than <paramref name="maxBytes"/> bytes are seen.</summary>
+    private static byte[] ReadBounded(Stream stream, long maxBytes)
+    {
+        // A seekable stream tells us its size up front, so allocate exactly once
+        if (stream.CanSeek)
+        {
+            var remaining = stream.Length - stream.Position;
+            if (remaining > maxBytes)
+            {
+                throw new InvalidDataException($"The stream holds {remaining} bytes, which exceeds the {maxBytes}-byte limit implied by MaxSamples.");
+            }
+
+            var exact = new byte[remaining];
+            stream.ReadExactly(exact);
+            return exact;
+        }
+
+        using var buffer = new MemoryStream();
+        var chunk = new byte[81920];
+        int read;
+        while ((read = stream.Read(chunk, 0, chunk.Length)) > 0)
+        {
+            if (buffer.Length + read > maxBytes)
+            {
+                throw new InvalidDataException($"The stream exceeds the {maxBytes}-byte limit implied by MaxSamples.");
+            }
+
+            buffer.Write(chunk, 0, read);
+        }
+
+        return buffer.ToArray();
     }
 
     /// <summary>Sniffs the container and dispatches to the matching decoder.</summary>

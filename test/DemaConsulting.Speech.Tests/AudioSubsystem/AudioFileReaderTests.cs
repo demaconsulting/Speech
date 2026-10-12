@@ -127,4 +127,60 @@ public sealed class AudioFileReaderTests
         Assert.Equal(-32768, pcm[5]);
         Assert.Equal(0, pcm[7]);
     }
+
+    /// <summary>Proves an oversized file is rejected from its length alone, naming the file.</summary>
+    [Fact]
+    public void AudioFileReader_Read_FileLargerThanByteCap_ThrowsBeforeDecoding()
+    {
+        // Arrange - with MaxSamples 0 the cap is the 1 MiB slack, so 2 MiB of zeros is over it
+        var path = Path.Combine(Path.GetTempPath(), $"speech-{Guid.NewGuid():N}.wav");
+        File.WriteAllBytes(path, new byte[2 << 20]);
+
+        try
+        {
+            // Act
+            var ex = Assert.Throws<InvalidDataException>(() => AudioFileReader.Read(path, new AudioFileReadOptions { MaxSamples = 0 }));
+
+            // Assert
+            Assert.Contains("limit", ex.Message);
+            Assert.Contains(path, ex.Message);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Proves a seekable stream over the byte cap is rejected from its length.</summary>
+    [Fact]
+    public void AudioFileReader_Read_SeekableStreamLargerThanByteCap_Throws() =>
+        Assert.Throws<InvalidDataException>(() =>
+            AudioFileReader.Read(new MemoryStream(new byte[2 << 20]), new AudioFileReadOptions { MaxSamples = 0 }));
+
+    /// <summary>Proves a non-seekable stream is read in bounded fashion and rejected once it passes the cap.</summary>
+    [Fact]
+    public void AudioFileReader_Read_NonSeekableStreamLargerThanByteCap_Throws() =>
+        Assert.Throws<InvalidDataException>(() =>
+            AudioFileReader.Read(new NonSeekableStream(new byte[2 << 20]), new AudioFileReadOptions { MaxSamples = 0 }));
+
+    /// <summary>Proves a non-seekable stream within the cap still decodes.</summary>
+    [Fact]
+    public void AudioFileReader_Read_NonSeekableStream_Decodes()
+    {
+        // Arrange
+        var bytes = File.ReadAllBytes(Path.Combine(FlacDirectory, "mono-16-44100.flac"));
+
+        // Act
+        var clip = AudioFileReader.Read(new NonSeekableStream(bytes));
+
+        // Assert
+        Assert.Equal(44100, clip.SampleRate);
+    }
+
+    /// <summary>A read-only stream that reports it cannot seek.</summary>
+    private sealed class NonSeekableStream(byte[] data) : MemoryStream(data, writable: false)
+    {
+        /// <inheritdoc/>
+        public override bool CanSeek => false;
+    }
 }
