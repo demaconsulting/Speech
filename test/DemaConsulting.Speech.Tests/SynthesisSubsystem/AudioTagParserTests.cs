@@ -253,6 +253,36 @@ public class AudioTagParserTests
     }
 
     /// <summary>
+    ///     Proves a nested opening bracket inside an unresolved candidate does not swallow a
+    ///     valid tag that follows it.
+    /// </summary>
+    [Fact]
+    public void AudioTagParser_Parse_NestedOpeningBracketBeforeValidTag_ResolvesTag()
+    {
+        // Act
+        var spans = AudioTagParser.Parse("[ [fast] word");
+
+        // Assert
+        Assert.Collection(
+            spans,
+            span =>
+            {
+                Assert.Equal(TaggedTextSpanKind.PlainText, span.Kind);
+                Assert.Equal("[ ", span.Text);
+            },
+            span =>
+            {
+                Assert.Equal(TaggedTextSpanKind.Tag, span.Kind);
+                Assert.Equal(NaturalLanguageAudioTag.Fast, span.Tag);
+            },
+            span =>
+            {
+                Assert.Equal(TaggedTextSpanKind.PlainText, span.Kind);
+                Assert.Equal(" word", span.Text);
+            });
+    }
+
+    /// <summary>
     ///     Proves a recognized tag immediately followed by an unrecognized bracketed word keeps
     ///     both as distinct, correctly-typed spans in order.
     /// </summary>

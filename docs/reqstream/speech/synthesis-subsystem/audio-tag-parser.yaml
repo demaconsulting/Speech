@@ -72,6 +72,8 @@ sections:
                   for its most error-prone entries.
                 tests:
                   - AudioTagParser_Parse_TagWithExtraInternalWhitespace_ResolvesToCanonicalTag
+                  - AudioTagCatalog_TryResolve_MixedCaseWithExtraWhitespace_ResolvesToCanonicalTag
+                  - AudioTagCatalog_TryResolve_EmptyOrWhitespace_ReturnsFalse
 
               - id: Speech-Synthesis-AudioTagParser-OrderedSpanSequence
                 title: >-
@@ -109,3 +111,5 @@ sections:
                   - AudioTagParser_Parse_EmptyBrackets_PassesThroughAsLiteralText
                   - AudioTagParser_Parse_StrayClosingBracket_PassesThroughAsLiteralText
                   - AudioTagParser_Parse_RecognizedTagFollowedByUnknownBracket_ReturnsTagThenLiteralSpans
+                  - AudioTagParser_Parse_NestedOpeningBracketBeforeValidTag_ResolvesTag
+                  - AudioTagCatalog_NormalizeAndTryResolve_NullContent_ThrowsArgumentNullException

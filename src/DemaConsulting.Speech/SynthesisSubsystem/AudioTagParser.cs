@@ -71,10 +71,13 @@ public static class AudioTagParser
             }
             else
             {
-                // Unknown tag name or empty brackets: malformed/unrecognized bracket content
-                // passes through literally, brackets included, per the "never worse than plain
-                // narration" guarantee
-                plain.Append(text, i, closeIndex - i + 1);
+                // Unknown tag name or empty brackets: emit only the opening bracket literally and
+                // resume scanning just after it, so a nested '[' inside the candidate (as in
+                // "[ [laugh]") can still open a valid tag; the "never worse than plain
+                // narration" guarantee is preserved because all text is still passed through
+                plain.Append('[');
+                i++;
+                continue;
             }
 
             i = closeIndex + 1;

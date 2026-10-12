@@ -125,6 +125,18 @@ public class AudioTagCatalogTests
     }
 
     /// <summary>
+    ///     Proves null bracket content is rejected by both <see cref="AudioTagCatalog.Normalize"/>
+    ///     and <see cref="AudioTagCatalog.TryResolve"/>.
+    /// </summary>
+    [Fact]
+    public void AudioTagCatalog_NormalizeAndTryResolve_NullContent_ThrowsArgumentNullException()
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => AudioTagCatalog.Normalize(null!));
+        Assert.Throws<ArgumentNullException>(() => AudioTagCatalog.TryResolve(null!, out _, out _));
+    }
+
+    /// <summary>
     ///     Proves an unrecognized word does not resolve, so callers can distinguish a genuine tag
     ///     from arbitrary bracketed text.
     /// </summary>

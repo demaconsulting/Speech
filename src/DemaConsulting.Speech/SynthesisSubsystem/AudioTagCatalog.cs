@@ -42,8 +42,11 @@ public static class AudioTagCatalog
     /// </summary>
     /// <param name="rawBracketContent">The raw text found between <c>[</c> and <c>]</c>.</param>
     /// <returns>The normalized text, or an empty string when <paramref name="rawBracketContent"/> is empty or all whitespace.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="rawBracketContent"/> is <see langword="null"/>.</exception>
     public static string Normalize(string rawBracketContent)
     {
+        ArgumentNullException.ThrowIfNull(rawBracketContent);
+
         var trimmed = rawBracketContent.Trim();
         if (trimmed.Length == 0)
         {
@@ -85,8 +88,11 @@ public static class AudioTagCatalog
     ///     <see langword="true"/> when <paramref name="rawBracketContent"/> normalizes to a known
     ///     alias; otherwise <see langword="false"/>.
     /// </returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="rawBracketContent"/> is <see langword="null"/>.</exception>
     public static bool TryResolve(string rawBracketContent, out NaturalLanguageAudioTag tag, out NaturalLanguageAudioTagKind kind)
     {
+        ArgumentNullException.ThrowIfNull(rawBracketContent);
+
         var normalized = Normalize(rawBracketContent);
         if (normalized.Length > 0 && AliasLookup.TryGetValue(normalized, out var entry))
         {
