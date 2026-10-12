@@ -431,6 +431,72 @@ public sealed class SpeechModelStoreTests : IDisposable
     }
 
     /// <summary>
+    ///     Proves that a failed repair swap restores the previous manifest byte-for-byte along with the previous
+    ///     content, because the manifest is removed before the swap begins.
+    /// </summary>
+    [Fact]
+    public void SpeechModelStore_CompleteInstall_RepairSwapFails_RestoresPreviousManifest()
+    {
+        // Arrange
+        var store = NewStore();
+        var (firstOperationId, firstStaging) = BeginStagingWithFile(store, "model-a", "payload.bin", "version-1");
+        store.CompleteInstall("model-a", firstOperationId, firstStaging, 9);
+        var manifestPath = Path.Join(store.GetModelDirectory("model-a"), "install-manifest.json");
+        var manifestBefore = File.ReadAllText(manifestPath);
+        var missingStaging = Path.Join(store.GetModelDirectory("model-a"), ".tmp", "does-not-exist");
+
+        // Act
+        Assert.ThrowsAny<IOException>(() => store.CompleteInstall("model-a", "op-2", missingStaging, 123));
+
+        // Assert
+        Assert.Equal(manifestBefore, File.ReadAllText(manifestPath));
+        Assert.True(store.IsInstalled("model-a"));
+    }
+
+    /// <summary>
+    ///     Proves that a successful repair replaces the manifest with one describing the new install.
+    /// </summary>
+    [Fact]
+    public void SpeechModelStore_CompleteInstall_Repair_WritesNewManifest()
+    {
+        // Arrange
+        var store = NewStore();
+        var (firstOperationId, firstStaging) = BeginStagingWithFile(store, "model-a", "payload.bin", "version-1");
+        store.CompleteInstall("model-a", firstOperationId, firstStaging, 9);
+        var (secondOperationId, secondStaging) = BeginStagingWithFile(store, "model-a", "payload.bin", "version-2");
+
+        // Act
+        store.CompleteInstall("model-a", secondOperationId, secondStaging, 77);
+
+        // Assert
+        Assert.Equal(77, store.TryReadManifest("model-a")!.TotalSizeBytes);
+    }
+
+    /// <summary>
+    ///     Proves that uninstalling removes superseded <c>current.replaced-*</c> directories but leaves another
+    ///     operation's live <c>.tmp</c> staging directory alone.
+    /// </summary>
+    [Fact]
+    public void SpeechModelStore_Uninstall_LeavesLiveStagingAndRemovesReplacedDirectories()
+    {
+        // Arrange
+        var store = NewStore();
+        var (firstOperationId, firstStaging) = BeginStagingWithFile(store, "model-a", "payload.bin", "version-1");
+        store.CompleteInstall("model-a", firstOperationId, firstStaging, 9);
+        var replaced = Path.Join(store.GetModelDirectory("model-a"), "current.replaced-old");
+        Directory.CreateDirectory(replaced);
+        var (_, liveStaging) = BeginStagingWithFile(store, "model-a", "other.bin", "x");
+
+        // Act
+        store.Uninstall("model-a");
+
+        // Assert
+        Assert.False(store.IsInstalled("model-a"));
+        Assert.False(Directory.Exists(replaced));
+        Assert.True(Directory.Exists(liveStaging));
+    }
+
+    /// <summary>
     ///     Proves that an invalid model id is rejected by <see cref="SpeechModelStore.Uninstall"/>.
     /// </summary>
     /// <param name="modelId">The invalid model id.</param>

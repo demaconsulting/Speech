@@ -373,6 +373,59 @@ public sealed class SpeechModelDownloaderTests : IDisposable
     }
 
     /// <summary>
+    ///     Proves that a download canceled while queued behind another download of the same model id
+    ///     throws <see cref="OperationCanceledException"/> without ever reaching the client, and does
+    ///     not disturb the first download.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_CanceledWhileQueued_ThrowsWithoutReachingClient()
+    {
+        // Arrange
+        var payload = "payload-a"u8.ToArray();
+        var descriptor = SingleFileDescriptorFor(payload, "a.bin");
+        var store = NewStore();
+        var client = new OrderTrackingModelDownloadClient(new Dictionary<Uri, byte[]> { [descriptor.Files[0].Uri] = payload });
+        using var downloader = new SpeechModelDownloader(store, client);
+        using var queuedCancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var first = downloader.DownloadAsync("model-a", descriptor, cancellationToken: TestContext.Current.CancellationToken);
+        await client.FirstCallEntered.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        var queued = downloader.DownloadAsync("model-a", descriptor, cancellationToken: queuedCancellation.Token);
+
+        // Act
+        await queuedCancellation.CancelAsync();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => queued);
+        client.ReleaseFirstCall();
+        var result = await first;
+
+        // Assert
+        Assert.Equal([1], client.EntryOrder);
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, result.Outcome);
+    }
+
+    /// <summary>
+    ///     Proves that every download overload throws <see cref="ObjectDisposedException"/> after the downloader is
+    ///     disposed, and that disposing twice is harmless.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelDownloader_DownloadAsync_AfterDispose_ThrowsObjectDisposed()
+    {
+        // Arrange
+        var payload = "payload-a"u8.ToArray();
+        var descriptor = SingleFileDescriptorFor(payload, "a.bin");
+        var downloader = new SpeechModelDownloader(NewStore(), new OrderTrackingModelDownloadClient(new Dictionary<Uri, byte[]>()));
+
+        // Act
+        downloader.Dispose();
+        downloader.Dispose();
+
+        // Assert
+        await Assert.ThrowsAsync<ObjectDisposedException>(() =>
+            downloader.DownloadAsync("model-a", descriptor, cancellationToken: TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<ObjectDisposedException>(() =>
+            downloader.DownloadAsync("model-a", descriptor, installHook: null, progress: null, TestContext.Current.CancellationToken));
+    }
+
+    /// <summary>
     ///     Proves that the <see cref="ISpeechModel"/>-aware overload invokes the model's own
     ///     <see cref="ISpeechModel.InstallAsync"/> hook after checksum verification but before
     ///     <c>current/</c> exists, passing it the staging directory containing the verified file.

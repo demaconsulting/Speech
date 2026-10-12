@@ -61,6 +61,8 @@ sections:
                   A failed repair must not turn a working installed model into a missing one.
                 tests:
                   - SpeechModelStore_CompleteInstall_SecondMoveFails_RollsBackPreviousInstall
+                  - SpeechModelStore_CompleteInstall_RepairSwapFails_RestoresPreviousManifest
+                  - SpeechModelStore_CompleteInstall_Repair_WritesNewManifest
 
               - id: Speech-Models-SpeechModelStore-UninstallFailureReporting
                 title: >-
@@ -111,6 +113,7 @@ sections:
                 tests:
                   - SpeechModelStore_Uninstall_InstalledModel_RemovesCurrentAndManifest
                   - SpeechModelStore_Uninstall_NotInstalled_DoesNotThrow
+                  - SpeechModelStore_Uninstall_LeavesLiveStagingAndRemovesReplacedDirectories
 
               - id: Speech-Models-SpeechModelStore-CleanUpLeftovers
                 title: >-

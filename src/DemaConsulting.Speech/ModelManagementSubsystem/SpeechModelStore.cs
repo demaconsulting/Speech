@@ -144,9 +144,11 @@ public sealed class SpeechModelStore
     ///     <c>current.replaced-{operationId}</c> (a metadata-only rename that does not touch file
     ///     contents), then <paramref name="stagingDirectory"/> is renamed into <c>current/</c>.
     ///     The manifest is written only after the rename succeeds, so a crash between the two
-    ///     steps leaves <c>current/</c> present but the manifest missing/stale - which
+    ///     steps leaves <c>current/</c> present but the manifest missing - which
     ///     <see cref="IsInstalled"/> correctly reports as not-installed, making a repeat of this
-    ///     entire sequence safe. The old <c>current.replaced-{operationId}</c> directory (if any)
+    ///     entire sequence safe. On a repair the previous manifest is deleted before the swap (and restored if the
+    ///     swap fails and the old content is put back), so it never vouches for the new content. The old
+    ///     <c>current.replaced-{operationId}</c> directory (if any)
     ///     is then deleted best-effort; a failure (e.g. an open file handle held by an in-use
     ///     model) is swallowed and left for <see cref="CleanUpLeftovers"/> to retry later.
     /// </remarks>
@@ -158,10 +160,28 @@ public sealed class SpeechModelStore
         // Rename any existing installed content aside first - a plain directory rename does not
         // require exclusive access to the files inside it, so an in-use model keeps working.
         string? replacedDirectory = null;
+        string? previousManifest = null;
         if (Directory.Exists(currentDirectory))
         {
+            // On a repair the old manifest would otherwise still vouch for the new content during the swap, so
+            // remove it first (keeping its text for rollback): a crash from here on reads as not-installed
+            var manifestPath = GetManifestPath(modelId);
+            if (File.Exists(manifestPath))
+            {
+                previousManifest = File.ReadAllText(manifestPath);
+                File.Delete(manifestPath);
+            }
+
             replacedDirectory = Path.Join(modelDirectory, ReplacedDirectoryPrefix + operationId);
-            Directory.Move(currentDirectory, replacedDirectory);
+            try
+            {
+                Directory.Move(currentDirectory, replacedDirectory);
+            }
+            catch
+            {
+                RestoreManifest(modelId, previousManifest);
+                throw;
+            }
         }
 
         // The verified staging directory becomes the new current/ - also a same-volume rename,
@@ -183,6 +203,11 @@ public sealed class SpeechModelStore
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
                     // Best-effort: the original failure is the one worth reporting
+                }
+
+                if (Directory.Exists(currentDirectory))
+                {
+                    RestoreManifest(modelId, previousManifest);
                 }
             }
 
@@ -216,7 +241,7 @@ public sealed class SpeechModelStore
     internal static void AbandonStaging(string stagingDirectory) => TryDeleteDirectoryRecursively(stagingDirectory);
 
     /// <summary>
-    ///     Removes a model's installed content, manifest, and any leftover scratch directories.
+    ///     Removes a model's installed content, manifest, and any superseded <c>current.replaced-*</c> directories.
     /// </summary>
     /// <param name="modelId">The model identifier. Must not be null, empty, or an invalid directory name.</param>
     /// <exception cref="ArgumentException">Thrown when <paramref name="modelId"/> is null, empty, or not a valid directory name.</exception>
@@ -264,7 +289,36 @@ public sealed class SpeechModelStore
             }
         }
 
-        CleanUpLeftovers(modelId);
+        // Only superseded current.replaced-* directories are removed here; .tmp/* may be a concurrent installer's
+        // live staging directory, so it is left for CleanUpLeftovers
+        var modelDirectory = GetModelDirectory(modelId);
+        if (Directory.Exists(modelDirectory))
+        {
+            foreach (var directory in Directory.EnumerateDirectories(modelDirectory, ReplacedDirectoryPrefix + "*"))
+            {
+                TryDeleteDirectoryRecursively(directory);
+            }
+        }
+    }
+
+    /// <summary>Writes back a manifest removed earlier in a repair, best-effort.</summary>
+    /// <param name="modelId">The model identifier.</param>
+    /// <param name="manifestText">The previous manifest text, or <see langword="null"/> when there was none.</param>
+    private void RestoreManifest(string modelId, string? manifestText)
+    {
+        if (manifestText is null)
+        {
+            return;
+        }
+
+        try
+        {
+            File.WriteAllText(GetManifestPath(modelId), manifestText);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Best-effort: without it the model reads as not-installed and a repeat install repairs it
+        }
     }
 
     /// <summary>

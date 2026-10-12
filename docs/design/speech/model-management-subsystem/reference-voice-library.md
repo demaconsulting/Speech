@@ -49,7 +49,9 @@ Disk layout (the unit's contract with the CLI, demo and documentation):
   or malformed file; it never throws); `PackHasEmotions` is true when `voices-emotion` is among them.
 - `GetPackState` reports `Downloading`, `Downloaded`, `FailedOrCorrupt` (a failed attempt in this
   process) or `NotDownloaded`, and never throws for a known id.
-- `UninstallPack` removes the pack only; the user folder is never touched.
+- `UninstallPack` removes the pack only; the user folder is never touched. It takes the same
+  per-pack lock as `InstallPackAsync` without waiting; if an install of that pack is in flight it
+  throws `SpeechModelStoreException` and changes nothing, so callers retry after the install ends.
 - `EnumerateVoices` returns, in order, voices from the caller-named directories (in the order given),
   then the user folder, then each installed pack. Within a directory files are sorted by name
   (ordinal); `.wav` and `.flac` (any case) are accepted. The first voice with a given id (ordinal)

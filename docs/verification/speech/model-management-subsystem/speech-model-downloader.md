@@ -127,6 +127,14 @@ reclassified as `NetworkBlocked`.
 
 **Test**: `SpeechModelDownloader_DownloadAsync_TwoConcurrentRequestsForSameModelId_AreSerialized`
 
+##### Download: Canceled While Queued Never Reaches the Client
+
+**Test**: `SpeechModelDownloader_DownloadAsync_CanceledWhileQueued_ThrowsWithoutReachingClient`
+
+##### Download: After Dispose Throws ObjectDisposedException
+
+**Test**: `SpeechModelDownloader_DownloadAsync_AfterDispose_ThrowsObjectDisposed`
+
 ##### Download: Install-Hook Delegate Overload Runs the Hook Before the Swap
 
 **Test**: `SpeechModelDownloader_DownloadAsync_WithInstallHookDelegate_RunsHookBeforeSwapAndInstallsItsOutput`

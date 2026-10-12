@@ -61,6 +61,10 @@ uninstall removes an installed model while being a no-op for one that was never 
 
 **Test**: `SpeechModelStore_Uninstall_NotInstalled_DoesNotThrow`
 
+##### Uninstall: Live Staging Is Kept, Replaced Directories Are Removed
+
+**Test**: `SpeechModelStore_Uninstall_LeavesLiveStagingAndRemovesReplacedDirectories`
+
 ##### Uninstall: Open File Handle Throws SpeechModelStoreException (Windows only)
 
 **Test**: `SpeechModelStore_Uninstall_OpenFileHandleInCurrent_ThrowsSpeechModelStoreException`
@@ -100,6 +104,14 @@ asserts `IsInstalled` returns `false` without throwing; it is skipped on non-Win
 ##### Atomic Swap: Failed Swap Rolls Back the Previous Install
 
 **Test**: `SpeechModelStore_CompleteInstall_SecondMoveFails_RollsBackPreviousInstall`
+
+##### Repair: Failed Swap Restores the Previous Manifest
+
+**Test**: `SpeechModelStore_CompleteInstall_RepairSwapFails_RestoresPreviousManifest`
+
+##### Repair: Successful Swap Writes the New Manifest
+
+**Test**: `SpeechModelStore_CompleteInstall_Repair_WritesNewManifest`
 
 ##### Model Id Validation: Dot Segments and Null Are Rejected
 

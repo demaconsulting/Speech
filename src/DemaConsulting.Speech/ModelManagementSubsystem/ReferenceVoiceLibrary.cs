@@ -453,21 +453,43 @@ public sealed class ReferenceVoiceLibrary : IDisposable
     /// </summary>
     /// <param name="packId">The pack id.</param>
     /// <exception cref="ArgumentException">Thrown when <paramref name="packId"/> is not a known pack.</exception>
-    /// <exception cref="SpeechModelStoreException">Thrown when the pack's files are still in use and cannot be removed.</exception>
+    /// <exception cref="SpeechModelStoreException">
+    ///     Thrown when an install or upgrade of the same pack is in progress (it is not canceled or waited for), or when
+    ///     the pack's files are still in use and cannot be removed.
+    /// </exception>
+    /// <remarks>
+    ///     Uses the same per-pack operation lock as <see cref="InstallPackAsync(string, bool, IProgress{SpeechModelDownloadProgress}, CancellationToken)"/>
+    ///     but never blocks: if the lock is held, the call fails immediately so the caller can retry once the install
+    ///     finishes.
+    /// </remarks>
     public void UninstallPack(string packId)
     {
         var pack = FindPack(packId);
-        _packStore.Uninstall(pack.Id);
-        _failed.TryRemove(pack.Id, out _);
-
-        // An uninstall also discards any upgrade backup so it cannot resurrect the pack
-        var modelDirectory = _packStore.GetModelDirectory(pack.Id);
-        if (Directory.Exists(modelDirectory))
+        var gate = _installLocks.GetOrAdd(pack.Id, _ => new SemaphoreSlim(1, 1));
+        if (!gate.Wait(0))
         {
-            foreach (var backup in Directory.EnumerateDirectories(modelDirectory, UpgradeBackupPrefix + "*"))
+            throw new SpeechModelStoreException(
+                $"Cannot uninstall reference voice pack '{pack.Id}' while it is being installed; wait for the install to finish and try again.");
+        }
+
+        try
+        {
+            _packStore.Uninstall(pack.Id);
+            _failed.TryRemove(pack.Id, out _);
+
+            // An uninstall also discards any upgrade backup so it cannot resurrect the pack
+            var modelDirectory = _packStore.GetModelDirectory(pack.Id);
+            if (Directory.Exists(modelDirectory))
             {
-                TryDeleteDirectory(backup);
+                foreach (var backup in Directory.EnumerateDirectories(modelDirectory, UpgradeBackupPrefix + "*"))
+                {
+                    TryDeleteDirectory(backup);
+                }
             }
+        }
+        finally
+        {
+            gate.Release();
         }
     }
 

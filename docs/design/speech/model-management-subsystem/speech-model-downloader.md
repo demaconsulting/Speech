@@ -48,8 +48,8 @@ underlying exception, populated for every non-`Installed` outcome.
   With no mirror configured, returns `originalUri` completely unchanged - byte-for-byte identical to
   this type's behavior before the mirror feature existed. With a mirror configured, returns
   `{mirror.BaseUri.AbsoluteUri}/{modelId}/{relativeInstallPath}`, combined via `Uri`-segment
-  construction that normalizes exactly one separating slash regardless of whether
-  `mirror.BaseUri` itself ends in a trailing slash, and percent-escapes `modelId` and each
+  construction that normalizes exactly one separating slash (exactly one trailing slash of
+  `mirror.BaseUri` is trimmed, never more), and percent-escapes `modelId` and each
   `RelativeInstallPath` segment individually (so a subdirectory such as `tokens/vocab.txt`
   still resolves as two escaped segments, not one single escaped string containing a literal
   slash).
@@ -102,7 +102,8 @@ underlying exception, populated for every non-`Installed` outcome.
   failure is classified exactly as a model hook failure is (`InvalidDataException` is `Failed`,
   `IOException` is `IoFailure`) and installs nothing.
 
-**Error Handling**: A checksum mismatch returns `SpeechModelDownloadOutcome.ChecksumMismatch` with
+**Error Handling**: Every `DownloadAsync` overload throws `ObjectDisposedException` once the
+downloader has been disposed. A checksum mismatch returns `SpeechModelDownloadOutcome.ChecksumMismatch` with
 `Error` populated with a descriptive `InvalidOperationException` naming the model id and the
 offending file's relative install path. Any other exception - raised either by the transport fetch
 or by a model's own `InstallAsync` hook - is first checked by a guarded

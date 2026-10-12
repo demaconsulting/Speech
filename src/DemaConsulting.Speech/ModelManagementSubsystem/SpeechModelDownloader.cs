@@ -45,6 +45,8 @@ public sealed class SpeechModelDownloader : IDisposable
     /// <summary>Whether <see cref="_client"/> was created internally and so must be disposed by this instance.</summary>
     private readonly bool _ownsClient;
 
+    /// <summary>Whether <see cref="Dispose"/> has been called; later downloads throw <see cref="ObjectDisposedException"/>.</summary>
+    private volatile bool _disposed;
     /// <summary>
     ///     The mirror every declared file's effective download URI is resolved beneath, or
     ///     <see langword="null"/> to fetch every file from exactly the URI its own
@@ -205,6 +207,7 @@ public sealed class SpeechModelDownloader : IDisposable
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(descriptor);
+        ObjectDisposedException.ThrowIf(_disposed, this);
 
         // Validate modelId (and thereby fail fast, before ever touching the queue or disk) by
         // resolving its directory - GetModelDirectory performs the same validation the store
@@ -276,6 +279,7 @@ public sealed class SpeechModelDownloader : IDisposable
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(model);
+        ObjectDisposedException.ThrowIf(_disposed, this);
 
         // Validate the model's id (and thereby fail fast, before ever touching the queue or
         // disk) by resolving its directory - GetModelDirectory performs the same validation the
@@ -320,6 +324,7 @@ public sealed class SpeechModelDownloader : IDisposable
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(descriptor);
+        ObjectDisposedException.ThrowIf(_disposed, this);
         _store.GetModelDirectory(modelId);
 
         var modelLock = _perModelLocks.GetOrAdd(modelId, static _ => new SemaphoreSlim(1, 1));
@@ -566,7 +571,8 @@ public sealed class SpeechModelDownloader : IDisposable
 
         // Trim exactly one trailing slash from the mirror's base so "https://mirror/" and
         // "https://mirror" both combine identically with the segments that follow.
-        var basePath = mirror.BaseUri.AbsoluteUri.TrimEnd('/');
+        var baseUri = mirror.BaseUri.AbsoluteUri;
+        var basePath = baseUri.EndsWith('/') ? baseUri[..^1] : baseUri;
 
         // RelativeInstallPath may use either path separator (SpeechModelDownloadFile accepts
         // both when validating "no parent-escaping segments"), so split on both and
@@ -689,6 +695,7 @@ public sealed class SpeechModelDownloader : IDisposable
     /// </summary>
     public void Dispose()
     {
+        _disposed = true;
         foreach (var modelLock in _perModelLocks.Values)
         {
             modelLock.Dispose();

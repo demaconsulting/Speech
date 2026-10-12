@@ -442,6 +442,102 @@ public sealed class ReferenceVoiceLibraryTests : IDisposable
     }
 
     /// <summary>
+    ///     Proves that uninstalling while an install of the same pack is in flight fails with a store exception and
+    ///     leaves the install running, and that the uninstall succeeds once the install has finished.
+    /// </summary>
+    [Fact]
+    public async Task ReferenceVoiceLibrary_UninstallPack_WhileInstalling_ThrowsThenSucceedsAfterwards()
+    {
+        // Arrange
+        using var library = NewLibrary(ReferenceVoiceTestPacks.BuildTypicalZip(), out var client);
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        client.OnDownload = async (_, _) =>
+        {
+            entered.SetResult();
+            await release.Task;
+        };
+        var install = library.InstallPackAsync("voice-zero-1.0", cancellationToken: TestContext.Current.CancellationToken);
+        await entered.Task;
+
+        // Act
+        var ex = Assert.Throws<SpeechModelStoreException>(() => library.UninstallPack("voice-zero-1.0"));
+        var stateWhileInstalling = library.GetPackState("voice-zero-1.0");
+        release.SetResult();
+        var result = await install;
+        library.UninstallPack("voice-zero-1.0");
+
+        // Assert
+        Assert.Contains("being installed", ex.Message);
+        Assert.Equal(SpeechModelState.Downloading, stateWhileInstalling);
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, result.Outcome);
+        Assert.Equal(SpeechModelState.NotDownloaded, library.GetPackState("voice-zero-1.0"));
+    }
+
+    /// <summary>
+    ///     Proves that uninstalling discards an upgrade backup folder left by an interrupted upgrade so it cannot
+    ///     resurrect the pack.
+    /// </summary>
+    [Fact]
+    public async Task ReferenceVoiceLibrary_UninstallPack_DiscardsUpgradeBackup()
+    {
+        // Arrange
+        using var library = NewLibrary(ReferenceVoiceTestPacks.BuildTypicalZip(), out _);
+        await library.InstallPackAsync("voice-zero-1.0", cancellationToken: TestContext.Current.CancellationToken);
+        var modelDirectory = new SpeechModelStore(new SpeechModelStoreOptions { RootPathOverride = library.RootPath }).GetModelDirectory("voice-zero-1.0");
+        var backup = Path.Join(modelDirectory, "current.upgrade-backup-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(backup);
+
+        // Act
+        library.UninstallPack("voice-zero-1.0");
+
+        // Assert
+        Assert.False(Directory.Exists(backup));
+    }
+
+    /// <summary>
+    ///     Proves that an install restores a backup left behind by an interrupted upgrade (the installed folder
+    ///     missing, a backup present) instead of downloading again.
+    /// </summary>
+    [Fact]
+    public async Task ReferenceVoiceLibrary_InstallPack_AbandonedBackup_IsRestored()
+    {
+        // Arrange
+        using var library = NewLibrary(ReferenceVoiceTestPacks.BuildTypicalZip(), out var client);
+        await library.InstallPackAsync("voice-zero-1.0", cancellationToken: TestContext.Current.CancellationToken);
+        var store = new SpeechModelStore(new SpeechModelStoreOptions { RootPathOverride = library.RootPath });
+        var current = store.GetCurrentDirectory("voice-zero-1.0");
+        var backup = Path.Join(store.GetModelDirectory("voice-zero-1.0"), "current.upgrade-backup-" + Guid.NewGuid().ToString("N"));
+        Directory.Move(current, backup);
+
+        // Act
+        var result = await library.InstallPackAsync("voice-zero-1.0", cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, result.Outcome);
+        Assert.True(Directory.Exists(current));
+        Assert.False(Directory.Exists(backup));
+        Assert.Single(client.Requests);
+    }
+
+    /// <summary>
+    ///     Proves that disposing the library more than once is harmless.
+    /// </summary>
+    [Fact]
+    public void ReferenceVoiceLibrary_Dispose_Twice_DoesNotThrow()
+    {
+        // Arrange
+        var library = NewLibrary(ReferenceVoiceTestPacks.BuildTypicalZip(), out _);
+
+        // Act
+        library.Dispose();
+        var second = Record.Exception(library.Dispose);
+
+        // Assert
+        Assert.Null(second);
+    }
+
+    /// <summary>
     ///     Proves the merge order (extra directory, then user, then pack) and that the first id wins.
     /// </summary>
     [Fact]

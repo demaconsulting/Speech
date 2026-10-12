@@ -23,6 +23,8 @@ sections:
                   same-model race without constraining unrelated models.
                 tests:
                   - SpeechModelDownloader_DownloadAsync_TwoConcurrentRequestsForSameModelId_AreSerialized
+                  - SpeechModelDownloader_DownloadAsync_CanceledWhileQueued_ThrowsWithoutReachingClient
+                  - SpeechModelDownloader_DownloadAsync_AfterDispose_ThrowsObjectDisposed
 
               - id: Speech-Models-SpeechModelDownloader-ConcurrentDownloadsAcrossModels
                 title: >-

@@ -41,6 +41,22 @@ survives uninstall, and the merged voice list follows the documented order with 
 
 **Test**: `ReferenceVoiceLibrary_UninstallPack_RemovesPackKeepsUserFolder`
 
+##### Uninstall while an install is in flight throws, then succeeds
+
+**Test**: `ReferenceVoiceLibrary_UninstallPack_WhileInstalling_ThrowsThenSucceedsAfterwards`
+
+##### Uninstall discards an upgrade backup
+
+**Test**: `ReferenceVoiceLibrary_UninstallPack_DiscardsUpgradeBackup`
+
+##### Abandoned upgrade backup is restored
+
+**Test**: `ReferenceVoiceLibrary_InstallPack_AbandonedBackup_IsRestored`
+
+##### Dispose is idempotent
+
+**Test**: `ReferenceVoiceLibrary_Dispose_Twice_DoesNotThrow`
+
 **Test**: `ReferenceVoiceLibrary_InstallPack_AfterDispose_Throws`
 
 ##### Voice Merge

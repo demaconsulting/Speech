@@ -27,7 +27,9 @@ staging space, never read as installed content). A nested `internal` `InstallMan
   directory, never touching `current/`. Called only by `SpeechModelDownloader`.
 - **CompleteInstall(modelId, operationId, stagingDirectory, totalSizeBytes)** _(internal)_:
   Atomically swaps a verified staging directory into place as the new `current/` via a directory
-  rename (renaming any existing `current/` aside first), then writes the manifest. Best-effort
+  rename (renaming any existing `current/` aside first), then writes the manifest. On a repair the
+  old manifest is removed before the swap and restored (best-effort) if the swap fails, so a stale
+  manifest never describes different content. Best-effort
   deletes the superseded directory afterward. The staging directory this promotes may already
   have been modified in place by the model's own `ISpeechModel.InstallAsync` hook, invoked by
   `SpeechModelDownloader` before this call; `SpeechModelStore` itself remains entirely
@@ -48,8 +50,9 @@ that cannot yet be deleted) - these degrade to an honest state or a best-effort 
 members that accept a model id throw `ArgumentException` for a null, empty, whitespace-only,
 invalid-file-name, `.`, or `..` id. `Uninstall` throws `SpeechModelStoreException` when `current/`
 or the manifest cannot be removed, most commonly because another process still holds an open file
-handle into it; after both are removed it runs `CleanUpLeftovers`, so leftover `.tmp/*` and
-`current.replaced-*` directories are also deleted best-effort. `CompleteInstall` propagates
+handle into it; after both are removed it deletes leftover `current.replaced-*` directories
+(best-effort) but not `.tmp/*`, so a concurrent installer's live staging directory is never
+removed. `CompleteInstall` propagates
 I/O failures; if the second directory rename fails after an existing `current/` was renamed
 aside, it renames the previous content back into place (best-effort) before rethrowing, so a
 previously installed model remains installed.
