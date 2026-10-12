@@ -14,7 +14,8 @@ produced segments.
 
 Native tags use model tokens and never emit unsupported bracket text; sighs and pauses become
 silence; trailing tags follow the configured policy; sentences are split with ellipsis pauses and
-long sentences are split; empty or invalid input is safe.
+long sentences are split; a trailing tag-only chunk joins the previous unit; null arguments throw;
+empty or invalid input is safe.
 
 #### Test Scenarios
 
@@ -81,9 +82,18 @@ long sentences are split; empty or invalid input is safe.
 `ChatterboxTurboCapabilityProfile_Render_PauseBetweenMoods_IsUnmarkedAndNotDoubled`,
 `ChatterboxTurboCapabilityProfile_Render_NativeTagInMoodSpan_KeepsPolicyPerSegment`,
 `ChatterboxTurboCapabilityProfile_Render_MarkerCharactersInUserText_AreStripped`,
-`ChatterboxTurboCapabilityProfile_MoodMarker_RoundTripsAndJoinIsValidated`
+`ChatterboxTurboCapabilityProfile_MoodMarker_RoundTripsAndJoinIsValidated`,
+`ChatterboxTurboCapabilityProfile_Constructor_JoinBoundariesAcceptedAndUndefinedPolicyRejected`
 
 Verifies the tag-to-mood mapping, that a mood applies until the next mood tag, that adjacent
 segments with different moods get the join silence (and none otherwise), that pauses stay
-unmarked, that the end-of-sentence policy is applied per segment, and that marker characters in
-user text are removed.
+unmarked, that the end-of-sentence policy is applied per segment, that marker characters in
+user text are removed and that the join boundaries 0 and 1000 are accepted.
+
+##### A trailing tag-only chunk joins the previous unit
+
+**Test**: `ChatterboxTurboCapabilityProfile_Render_TrailingTagOnlyChunk_JoinsPreviousUnit`
+
+##### Render rejects null arguments
+
+**Test**: `ChatterboxTurboCapabilityProfile_Render_NullArguments_Throw`

@@ -393,6 +393,42 @@ public sealed class ChatterboxTurboCapabilityProfileTests
         Assert.Throws<ArgumentOutOfRangeException>(() => new ChatterboxTurboCapabilityProfile(ChatterboxTurboEndOfSentenceTagPolicy.Strip, 1001));
     }
 
+    /// <summary>Proves the join boundaries 0 and 1000 are accepted and an undefined policy is rejected.</summary>
+    [Fact]
+    public void ChatterboxTurboCapabilityProfile_Constructor_JoinBoundariesAcceptedAndUndefinedPolicyRejected()
+    {
+        // Act & Assert
+        Assert.NotNull(new ChatterboxTurboCapabilityProfile(ChatterboxTurboEndOfSentenceTagPolicy.Strip, 0));
+        Assert.NotNull(new ChatterboxTurboCapabilityProfile(ChatterboxTurboEndOfSentenceTagPolicy.Strip, ChatterboxTurboCapabilityProfile.MaxMoodJoinMilliseconds));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new ChatterboxTurboCapabilityProfile((ChatterboxTurboEndOfSentenceTagPolicy)99));
+    }
+
+    /// <summary>Proves null arguments to Render are rejected.</summary>
+    [Fact]
+    public void ChatterboxTurboCapabilityProfile_Render_NullArguments_Throw()
+    {
+        // Arrange
+        var profile = new ChatterboxTurboCapabilityProfile(ChatterboxTurboEndOfSentenceTagPolicy.Strip);
+
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => profile.Render(null!, Model));
+        Assert.Throws<ArgumentNullException>(() => profile.Render([], null!));
+    }
+
+    /// <summary>Proves a trailing tag-only chunk joins the previous unit and is placed by the policy, and tags alone yield no speech.</summary>
+    [Fact]
+    public void ChatterboxTurboCapabilityProfile_Render_TrailingTagOnlyChunk_JoinsPreviousUnit()
+    {
+        // Act
+        var joined = Render(ChatterboxTurboEndOfSentenceTagPolicy.MoveBeforeFinalWord, Text("Hello there. "), Tag(NaturalLanguageAudioTag.Laughs));
+        var tagsOnly = Render(ChatterboxTurboEndOfSentenceTagPolicy.MoveBeforeFinalWord, Tag(NaturalLanguageAudioTag.Laughs));
+
+        // Assert
+        var segment = Assert.Single(joined.Segments);
+        Assert.Equal("Hello [laugh] there.", segment.Text);
+        Assert.Empty(tagsOnly.Segments);
+    }
+
     /// <summary>Renders spans with a profile.</summary>
     private static SpeechPlan Render(ChatterboxTurboEndOfSentenceTagPolicy policy, params TaggedTextSpan[] spans) =>
         new ChatterboxTurboCapabilityProfile(policy).Render(spans, Model);

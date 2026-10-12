@@ -9,7 +9,7 @@ suffix form), `[clear throat]` and `[gasp]`. Sighs and short and long pauses bec
 of 300, 300 and 900 ms; every other non-mood tag is omitted. No emotion tokens are used.
 
 **Moods**: the model has no emotion tokens, so a mood tag selects a different reference clip for the
-text that follows. The nine mood tags and their aliases map as: excited, enthused, happy, sad,
+text that follows. The 15 mood tags and their aliases map to 13 reference clips: excited, enthused, happy, sad,
 angry (anger), loud (shout), calm, surprised, bored (tired), worried and panicked (worried),
 confused, frustrated, neutral and serious (neutral). A mood applies until the next mood tag; the last
 of consecutive mood tags wins. Whispers, sarcastic, soft and breathy remain stripped. Each spoken
@@ -23,16 +23,23 @@ spoken segments differ in mood, the earlier segment's post-silence becomes at le
 **Limitations**: every segment pays its own prefill cost, prosody resets at each join, and mood tags
 work best at sentence boundaries. The end-of-sentence tag policy is applied per segment.
 
+**Constructor**: `(policy, moodJoinMilliseconds = 150)`. `ArgumentOutOfRangeException` for an undefined policy
+or a join outside 0 to 1000 (both bounds accepted).
+
 **Key Methods**:
 
+- **WithMoodMarker(mood, text)** / **ReadMoodMarker(text, out mood)** (internal): add or split off the leading
+  marker; an unknown or null mood leaves the text unchanged, and reading removes every marker character.
 - **Render(...)**: replaces tags with private-use placeholder characters while splitting text into
   sentences (digit-flanked punctuation is not a boundary), applies the end-of-sentence policy (move
   the tag before the final word, else a per-tag suffix, else strip), attaches a tag between
-  sentences to the following sentence, adds a 500 ms pause after ellipsis-ending sentences, and splits
+  sentences to the following sentence, attaches a trailing tag-only chunk (a tag with no speech after it) to
+  the previous unit so the policy places it, adds a 500 ms pause after ellipsis-ending sentences, and splits
   sentences over 200 characters at `,;:` and then by word budget. Output never contains
   bracketed text for unsupported tags.
 
-**Error Handling**: empty or invalid input produces an empty, safe result.
+**Error Handling**: `ArgumentNullException` for null `spans` or `model`; otherwise empty or invalid input
+produces an empty, safe result.
 
 **Dependencies**: Speech's public capability-profile and rendering types.
 
