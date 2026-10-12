@@ -102,6 +102,11 @@
     <ApiMarkOutputDir>$(MSBuildProjectDirectory)\bin\$(Configuration)\apimark-docs</ApiMarkOutputDir>
     <!-- Pack generated API docs into the NuGet package under api/ -->
     <ApiMarkPackDocs>false</ApiMarkPackDocs>
+    <!-- The generated page for OnnxChatterboxTurboEnglishSynthesisModel packs at a 164-character
+         path under api/, just over NuGet's NU5123 path-length threshold. The file is
+         documentation only (never loaded), and the extracted path stays under 260 characters
+         for typical NuGet cache locations, so the warning is suppressed for this project only. -->
+    <NoWarn>$(NoWarn);NU5123</NoWarn>
     <ApiMarkPackDocs Condition="'$(TargetFramework)' == '$(ApiDocsTargetFramework)'">true</ApiMarkPackDocs>
     <!-- Disable for non-primary framework to avoid duplicate generation in multi-targeted builds -->
     <DisableApiMark Condition="'$(TargetFramework)' != '$(ApiDocsTargetFramework)'">true</DisableApiMark>
