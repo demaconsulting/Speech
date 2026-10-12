@@ -19,14 +19,32 @@ existing catalog seam with two further members:
   (see _Extending the ModelCommandsSubsystem Seam_ below), implemented by
   `SpeechModelCatalogAdapter`
 
-### Extending the ModelCommandsSubsystem Seam
+### Interfaces
+
+**Exposed**: `RecognizeCommand.Run(Context)` (the `CommandDispatch` entry point) and the
+`SilenceTimeoutRecognizerSession` decorator, which `AskCommand` also reuses. Operator mistakes are
+reported as `ArgumentException` or `InvalidOperationException`.
+
+**Consumed**: `ICliModelCatalog` (`Enumerate`, `GetAudioFormat`, `CreateRecognizerEngineAsync`),
+the library's `ISpeechRecognizerEngine`/`IRecognitionSession`/`SpeechRecognitionEvent`/
+`SpeechRecognitionResult`, `AudioFormat`, `AudioDeviceFactory`, `WavFileAudioCaptureDevice`,
+`ParameterBagParser`, and `DevicesTestCommand.ResolveDeviceSelectionOrThrow`.
+
+### Design
+
+`RecognizeCommand` validates its arguments, resolves the model through the seam, resolves a
+capture source (a WAV file read to its end, or a microphone), loads the engine and session,
+drives the session, and writes recognized text to the console and optionally a file. In `--mic`
+mode the session's results are wrapped by `SilenceTimeoutRecognizerSession`, which ends the
+session after the start-timeout or silence-timeout window elapses; the default silence timeout is
+5 seconds when `--silence-timeout` is omitted. The sections below describe each concern.
 
 `recognize` needs to load a real `ISpeechRecognizerEngine`, which requires an `IRecognitionModel` -
-the library's recognition-capable model interface, exposing `AudioFormat`. Exactly as
-`SpeakCommand`'s pass established for `ISynthesisModel`, that cast is only safe inside
-`SpeechModelCatalogAdapter` (same assembly as the library's internal model types), never inside a
-hand-written `FakeSpeechModel` test double. Two further members, symmetric to the synthesis pair,
-are added to `ICliModelCatalog`:
+the library's recognition-capable model interface, exposing `AudioFormat`. `IRecognitionModel` is a
+public interface, but exactly as for `ISynthesisModel` in `SpeakCommand`, the cast is performed
+inside `SpeechModelCatalogAdapter` rather than by the command or a hand-written `FakeSpeechModel`
+test double, so the role-specific narrowing stays confined to one seam. Two further members,
+symmetric to the synthesis pair, are exposed on `ICliModelCatalog`:
 
 | Member | Returns | Behavior |
 | --- | --- | --- |
@@ -38,7 +56,7 @@ mirroring `RequireSynthesisModel` exactly: it performs the cast once and throws 
 `ArgumentException` naming the offending model id when it fails. In production this branch is
 unreachable through the CLI's own dispatch - `RecognizeCommand` already validates
 `descriptor.Role == SpeechModelRole.Recognition` itself before calling either new member - but is
-retained for the same defensive reason `SpeakCommand`'s pass documented.
+retained for the same defensive reason documented for `SpeakCommand`.
 `CreateRecognizerEngineAsync`'s production implementation forwards unchanged to
 `SpeechRecognizerFactory.LoadAsync(IRecognitionModel, SpeechModelCatalog, ISpeechDiagnostics?,
 IReadOnlyDictionary<string,object>?, CancellationToken)`, returning an `ISpeechRecognizerEngine`
@@ -71,7 +89,7 @@ established: an id absent from the catalog entirely (suggesting `list-models`), 
 with the wrong role (suggesting `list-models --role stt`), and an id present with the recognition
 role but not yet downloaded (suggesting `download <modelId>` by name). Once resolved, `--stt-param`
 values are validated against the resolved model's own declared parameters, reusing
-`ParameterBagParser.Resolve` unmodified from the synthesis pass.
+`ParameterBagParser.Resolve` unmodified.
 
 **Async composition flow.** `Run` resolves the capture device, then awaits `catalog
 .CreateRecognizerEngineAsync(descriptor, parameterValues, cancellationToken)` followed by
@@ -188,8 +206,8 @@ background-thread timer callback racing a concurrent caller-driven disposal.
 
 ### Interactions with Other Units
 
-`RecognizeCommand` depends on the `ICliModelCatalog` seam (both its original five members, the two
-added by the synthesis pass, and the two added by this pass), the library's public
+`RecognizeCommand` depends on the `ICliModelCatalog` seam (the four model-management members, the
+two synthesis members it does not use, and the two recognition members), the library's public
 `AudioFormat`/`ISpeechRecognizerEngine`/`IRecognitionSession`/`SpeechRecognitionEvent`/
 `SpeechRecognitionResult` types, `AudioDeviceFactory` from the library's audio subsystem,
 `WavFileAudioCaptureDevice`, and reuses `DeviceCommandsSubsystem`'s `DevicesTestCommand

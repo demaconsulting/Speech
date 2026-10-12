@@ -6,11 +6,9 @@
 # SpeechCli is a sibling system to Speech: it consumes the Speech library's public API and
 # ships as a separately packaged .NET global tool (`speech-cli`).
 #
-# This pass covers only the scaffold-level behavior actually implemented: subcommand dispatch,
-# global options, version/help display, self-validation, and global-tool packaging. The
-# thirteen recognized subcommands (list-models, model-info, download, uninstall, clean,
+# The thirteen subcommands (list-models, model-info, download, uninstall, clean,
 # list-voices, voices, list-devices, devices, doctor, speak, recognize, ask) are dispatched to
-# by name and listed in --help, and all thirteen are now implemented. Requirements for the
+# by name and listed in --help. Requirements for the
 # seven model-management and reference-voice subcommands' functional behavior are decomposed into
 # docs/reqstream/speech-cli/model-commands-subsystem.yaml;
 # requirements for the three device-related subcommands' functional behavior are decomposed into
@@ -42,8 +40,9 @@ sections:
       - id: SpeechCli-Cli-GlobalOptions
         title: >-
           The tool shall recognize its global options - `--models-dir`, `--voices-dir`, `--mirror-url`,
-          `--mirror-user`, `--mirror-password`, `--mirror-bearer-token`, `--verbose`/
-          `--diagnostics`, `--silent`, `--log <file>` - regardless of whether they appear before
+          `--mirror-user`, `--mirror-password`, `--mirror-bearer-token`, `--no-emotions`,
+          `--verbose`/`--diagnostics`, `--silent`, `--log <file>`, `--results <file>`,
+          `--depth <#>` - regardless of whether they appear before
           or after the subcommand name on the command line.
         tags: [system]
         justification: |
@@ -174,7 +173,11 @@ sections:
           - SpeechCli-ModelCommands-RecognitionSeamExtension
         tests:
           - SpeechCli_ListModelsCommand_Invoked_ListsKnownModelsAsTable
-          - DownloadCommand_RunAsync_MultipleModels_DownloadsEachSequentially
+          - SpeechCli_ListModelsCommandWithJsonFormat_Invoked_EmitsJsonArray
+          - SpeechCli_ModelInfoCommandWithUnknownId_Invoked_ReturnsCleanError
+          - SpeechCli_DownloadCommandWithUnknownId_Invoked_ReturnsNonZeroExitCode
+          - SpeechCli_UninstallCommand_Invoked_NeverInstalledModel_ExitsCleanly
+          - SpeechCli_CleanCommand_Invoked_NothingToCleanUp_ExitsCleanly
 
       - id: SpeechCli-ReferenceVoices
         title: >-
@@ -192,7 +195,9 @@ sections:
           - SpeechCli-ModelCommands-VoicePacks
           - SpeechCli-ModelCommands-VoicesDir
           - SpeechCli-ModelCommands-VoiceEmotions
-
+        tests:
+          - CommandDispatch_Find_VoiceCommands_AreRegistered
+          - Program_Run_Help_DocumentsVoicesOptionsAndConsentNote
       - id: SpeechCli-DeviceInspection
         title: >-
           The tool shall let an operator list available audio devices, test a device with a
@@ -211,8 +216,8 @@ sections:
           - SpeechCli-DeviceCommands-Doctor
           - SpeechCli-DeviceCommands-LibraryDelegation
         tests:
-          - ListDevicesCommand_Run_NoFilter_ListsBothDirections
-          - DoctorCommand_Run_WritableModelStore_ReportsHealthy
+          - SpeechCli_ListDevicesCommand_Invoked_ExitsCleanly
+          - SpeechCli_DoctorCommand_Invoked_ReportsHealthChecklist
 
       - id: SpeechCli-TextToSpeech
         title: >-
@@ -232,7 +237,8 @@ sections:
           - SpeechCli-SynthesisCommands-CatalogSeamExtension
           - SpeechCli-SynthesisCommands-NullGuards
         tests:
-          - SpeakCommand_RunAsync_Output_ConstructsWavFileDeviceFromPreferredFormat
+          - SpeechCli_SpeakCommandWithUnknownModel_Invoked_ReturnsCleanError
+          - SpeechCli_SpeakCommandWithNotDownloadedModel_Invoked_ReturnsCleanErrorWithDownloadHint
 
       - id: SpeechCli-SpeechToText
         title: >-
@@ -255,8 +261,8 @@ sections:
           - SpeechCli-RecognitionCommands-CatalogSeamExtension
           - SpeechCli-RecognitionCommands-NullGuards
         tests:
-          - RecognizeCommand_Run_ValidParam_ForwardsToCreateRecognizerEngine
-          - RecognizeCommand_Run_Success_DisposesEngineAndSessionOnce
+          - SpeechCli_RecognizeCommandWithUnknownModel_Invoked_ReturnsCleanError
+          - SpeechCli_RecognizeCommandWithNotDownloadedModel_Invoked_ReturnsCleanErrorWithDownloadHint
 
       - id: SpeechCli-VoiceConversation
         title: >-
@@ -281,8 +287,7 @@ sections:
           - SpeechCli-ConversationCommands-PrewarmRecognizer
           - SpeechCli-ConversationCommands-NullGuards
         tests:
-          - AskCommand_Run_Success_SpeaksThenListensAndPrintsFinalResult
-          - AskCommand_Run_OutputText_WritesRecognizedTextToFile
+          - Program_Run_WithAskCommand_DoesNotThrowNotImplemented
 
       - id: SpeechCli-Packaging-GlobalTool
         title: >-

@@ -20,6 +20,26 @@ small seam over real playback-device resolution:
   below), letting `SpeakCommand`'s own device-dispatch logic be unit tested deterministically
   without depending on real PortAudio hardware being present
 
+### Interfaces
+
+**Exposed**: `SpeakCommand.Run(Context)` (the `CommandDispatch` entry point, which runs the
+asynchronous work to completion), `ParameterBagParser.Resolve`, and the CLI-owned
+`ICliPlaybackDeviceSource` seam. Operator mistakes are reported as `ArgumentException` or
+`InvalidOperationException`.
+
+**Consumed**: `ICliModelCatalog` (`Enumerate`, `GetPreferredAudioFormat`,
+`CreateSynthesizerEngineAsync`), the library's `ISpeechSynthesizerEngine`/`ISynthesisSession`,
+`AudioFormat`, `AudioTagParser`/`TaggedTextSpan`, `AudioDeviceFactory`, `WavFileAudioPlaybackDevice`,
+and `DevicesTestCommand.ResolveDeviceSelectionOrThrow` from `DeviceCommandsSubsystem`.
+
+### Design
+
+`SpeakCommand` validates its arguments, resolves the model through the seam, resolves the text
+source and tags, loads the engine, binds a playback device (real playback through
+`ICliPlaybackDeviceSource`, or a WAV file for `--output-audio`), speaks, and disposes everything in
+a fixed order. `ParameterBagParser` is a stateless helper that `AskCommand` and `RecognizeCommand`
+also reuse. The sections below describe the seam use and each concern.
+
 ### Extending the ModelCommandsSubsystem Seam
 
 `speak` needs to load a real `ISpeechSynthesizerEngine`, which requires an `ISynthesisModel` -
@@ -199,8 +219,8 @@ propagating as a stack trace.
 
 ### Interactions with Other Units
 
-`SpeakCommand` depends on the `ICliModelCatalog` seam (both its original five members and the two
-new ones added by this pass), the library's public `AudioFormat`/`ISpeechSynthesizerEngine`/
+`SpeakCommand` depends on the `ICliModelCatalog` seam (the four model-management members and the
+two synthesis members), the library's public `AudioFormat`/`ISpeechSynthesizerEngine`/
 `ISynthesisSession`/`AudioTagParser`/`TaggedTextSpan` types, its own `ICliPlaybackDeviceSource`
 seam (composed over `AudioDeviceFactory` from the library's audio subsystem in production, via
 `AudioDeviceFactoryPlaybackDeviceSource`), `WavFileAudioPlaybackDevice`, and reuses

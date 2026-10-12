@@ -82,7 +82,8 @@ sections:
               The tool shall end its listen phase as soon as the first final recognition result
               arrives, and shall additionally accept optional `--start-timeout <seconds>`/
               `--silence-timeout <seconds>` flags with identical meaning and defaulting to
-              `recognize --mic`'s own flags, reusing `SilenceTimeoutRecognizerSession` unmodified
+              `recognize --mic`'s own defaults (5 seconds for silence, 8 seconds for start), reusing
+              `SilenceTimeoutRecognizerSession` unmodified
               as a safety net for a reply that never finishes or never starts.
             tags: [subsystem]
             justification: |

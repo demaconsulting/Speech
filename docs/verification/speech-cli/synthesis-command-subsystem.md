@@ -13,7 +13,7 @@ a `FakeAudioPlaybackDevice`, so every `speak` device-dispatch scenario is determ
 machine, headless or not - unlike constructing a real `AudioDeviceFactory` with an injected probe,
 which still resolves to the honestly unavailable fallback whenever
 `PortAudioEnvironment.Shared.IsInitialized` is `false`, regardless of the injected probe (the
-exact bug this pass fixed; see `AudioDeviceFactoryPlaybackDeviceSourceTests` below for the seam's
+(the original defect this seam fixes; see `AudioDeviceFactoryPlaybackDeviceSourceTests` below for the seam's
 own forwarding proof). `ParameterBagParser` is verified entirely in isolation against hand-built
 `NumericParameter`/`ChoiceParameter`/`BooleanParameter` instances, with no model catalog or
 synthesizer involved at all. The two new `ICliModelCatalog` seam members
@@ -242,8 +242,7 @@ against a real catalog; and every entry point rejects a missing required depende
 ## Manual / Build-Time Verification
 
 The following is verified manually, rather than by an automated test, because it requires a real,
-downloaded text-to-speech model and this environment/CI has no cached TTS model available (per
-this pass's planning report, Assumption 4):
+downloaded text-to-speech model and this environment/CI has no cached TTS model available:
 
 - `dotnet run --project src/DemaConsulting.Speech.Cli -- speak --tts-model <id> --text "hello world"
   --output-audio <path>.wav`, run against a real, downloaded synthesis model on a development machine

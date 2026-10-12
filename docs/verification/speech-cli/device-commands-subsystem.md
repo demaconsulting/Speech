@@ -178,7 +178,7 @@ and every command rejects a missing context, probe, factory, or catalog.
 
 ## Manual / Build-Time Verification
 
-The following are verified manually for this pass, rather than by an automated test, because they
+The following are verified manually, rather than by an automated test, because they
 require real audio hardware or depend on the actual host machine's environment:
 
 - `dotnet run --project src/DemaConsulting.Speech.Cli -- list-devices` against a real development

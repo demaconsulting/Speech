@@ -25,8 +25,8 @@ sections:
             tags: [subsystem]
             justification: |
               An operator or script needs to discover which audio devices this machine offers,
-              and by what name, before selecting one for `devices test` or (in later passes)
-              `speak`/`recognize`. Treating "no devices" as a plain informational message, not an
+              and by what name, before selecting one for `devices test`, `speak`, `recognize`, or
+              `ask`. Treating "no devices" as a plain informational message, not an
               error, mirrors this library's own graceful-degradation convention for optional
               audio hardware, since a headless/CI machine with no audio hardware is a normal,
               not exceptional, condition.

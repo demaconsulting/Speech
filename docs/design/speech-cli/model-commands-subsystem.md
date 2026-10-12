@@ -17,6 +17,38 @@ subcommand, plus one shared catalog seam used by all of them:
   **`CleanCommand`**: one handler per model-management subcommand
 - **`ListVoicesCommand`**, **`VoicesCommand`**: the reference-voice handlers (see below)
 
+### Interfaces
+
+**Exposed**: each command exposes a static `Run(Context)` entry point (`DownloadCommand` and
+`VoicesCommand` run their asynchronous work to completion inside it). `ICliModelCatalog` is the
+subsystem's public-to-the-CLI seam, and `CliModelCatalogFactory.Create(context)` composes the real
+implementation. Errors for operator mistakes are `ArgumentException` or
+`InvalidOperationException`, which `Program.Main` reports as a one-line message and exit code `1`.
+
+**Consumed**: the library's `SpeechModelCatalog`, `SpeechModelStore`, `SpeechModelDownloaderOptions`,
+`SpeechModelDescriptor`, parameter, progress and result types, `ReferenceVoiceLibrary`,
+`SpeechSynthesizerFactory`, `SpeechRecognizerFactory`, and the `AddSherpaModels`/`AddKokoroModels`/
+`AddNemotronSttModels`/`AddChatterboxTurboModels` registration extensions; and `Context` for
+global options (`--models-dir`, `--voices-dir`, `--mirror-*`, `--no-emotions`).
+
+The `ICliModelCatalog` members fall into three groups:
+
+| Group | Members |
+| --- | --- |
+| Model management (4) | `Enumerate`, `DownloadAsync`, `Uninstall`, `CleanUpLeftovers` |
+| Format and engine (4) | `GetPreferredAudioFormat`, `CreateSynthesizerEngineAsync`, `GetAudioFormat`, |
+| | `CreateRecognizerEngineAsync` |
+| Reference voices (7) | `VoicePacks`, `UserVoicesDirectory`, `EnumerateVoices`, `GetVoicePackState`, |
+| | `VoicePackHasEmotions`, `InstallVoicePackAsync`, `UninstallVoicePack` |
+
+### Design
+
+The seven commands are independent handlers that share a single `ICliModelCatalog` created per
+invocation by `CliModelCatalogFactory`; no command touches `SpeechModelCatalog` or
+`SpeechModelStore` directly. `SpeechModelCatalogAdapter` owns and disposes the real catalog, and
+the commands, `speak`, `recognize`, `ask`, and `doctor` all consume the same seam. The sections
+below describe the seam and each unit.
+
 ### Why a CLI-Owned Seam
 
 `SpeechModelCatalog`'s test-friendly constructor (accepting an injected known-model list, store,
@@ -32,6 +64,10 @@ established for the same reason (`IModelCatalogService`/`ModelCatalogService`):
 | `DownloadAsync(id, progress, token)` | `Task<SpeechModelDownloadResult>` | Throws for unknown id; no-op if installed |
 | `Uninstall(id)` | `void` | Safe no-op if nothing is installed |
 | `CleanUpLeftovers(id)` | `void` | Never throws |
+
+These four model-management members are the original seam; the format/engine members (see _Seam
+Extension for SynthesisCommandSubsystem and RecognitionCommandSubsystem_ below) and the
+reference-voice members (see _Chatterbox and Voice Seam Members_) extend it.
 
 `SpeechModelCatalogAdapter` is the only production implementation. It owns (and disposes) a real
 `SpeechModelCatalog`, constructed as `new SpeechModelCatalog(options).AddSherpaModels()` -
@@ -157,8 +193,9 @@ gains `VoicePacks`, `UserVoicesDirectory`, `EnumerateVoices()`, `GetVoicePackSta
 `InstallVoicePackAsync(packId, includeEmotions, progress, ct)`, `VoicePackHasEmotions`, and
 `UninstallVoicePack`. Voice choice itself uses the model's existing
 generic `voice` choice parameter (`speak --tts-param voice=<id>`). Voices from an explicit
-`--voices-dir` are decoded when the catalog is built, so an undecodable file there fails every
-command that builds the catalog; pack and user-folder voices are decoded lazily.
+`--voices-dir` are decoded lazily (`FromFileLazy`) like pack and user-folder voices: the file is read
+only when that voice is selected, so an undecodable file does not fail the commands that build the
+catalog.
 
 ### Interactions with Other Units
 
@@ -169,14 +206,14 @@ progress-reporting behavior of all seven commands to be verified deterministical
 access and no real model download, using a fake `ICliModelCatalog` (see each command's own test
 file under `test/DemaConsulting.Speech.Cli.Tests/Commands/ModelCommandsSubsystem/`).
 
-### Addendum (Pass 5): Seam Extension for SynthesisCommandSubsystem and RecognitionCommandSubsystem
+### Seam Extension for SynthesisCommandSubsystem and RecognitionCommandSubsystem
 
 `speak` needs to load a real `ISpeechSynthesizerEngine`, and `recognize` needs to load a real
 `ISpeechRecognizerEngine`, each of which requires casting a resolved model to the library's fully
 public `ISynthesisModel`/`IRecognitionModel` interface - both interfaces are implementable (and
 their `is`/`as` casts compilable) from any assembly, including `DemaConsulting.Speech.Cli.Tests`.
 Rather than introduce competing seam interfaces for each subsystem, `ICliModelCatalog` is extended
-with four further members that keep the same shape as the original five - narrow,
+with four further members that keep the same shape as the four model-management members - narrow,
 purpose-specific operations, never throwing for a genuinely absent capability where the library
 itself would return a graceful fallback - so the role-specific narrowing stays confined to one
 seam instead of being repeated across every caller:

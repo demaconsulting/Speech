@@ -26,8 +26,7 @@ the test, not a shared binary fixture), paired with `FakeRecognitionSession` wir
 `StartAsync`-then-explicit-`StopAsync` sequencing for file mode genuinely drives a real device
 rather than only being exercised against a fully-faked recognizer/device pair.
 
-This environment does have at least one real, downloaded speech-to-text model available (unlike
-the SynthesisCommandSubsystem pass's TTS gap), so `SpeechCli_RecognizeCommandWithRealSttModel_
+This environment does have at least one real, downloaded speech-to-text model available, so `SpeechCli_RecognizeCommandWithRealSttModel_
 Invoked_ProducesNonEmptyRecognizedText` runs a genuine end-to-end `recognize --input` invocation
 against the built tool and asserts non-empty recognized text, skipping cleanly (rather than
 failing or fabricating a pass) if no downloaded recognition model is present when the test suite
@@ -260,11 +259,11 @@ end-to-end `recognize --input` run against a real WAV fixture produces non-empty
 
 ## Manual / Build-Time Verification
 
-A real, downloaded speech-to-text model was available in the environment this pass was
-implemented in, so `SpeechCli_RecognizeCommandWithRealSttModel_Invoked_ProducesNonEmptyRecognizedText`
-is an automated test, not a manual verification gap - unlike the SynthesisCommandSubsystem pass's
-TTS model, which required manual verification because no TTS model was cached. If this repository
-is later built in an environment with no downloaded recognition model at all (for example, a
+A real, downloaded speech-to-text model may be available in the build environment, in which case
+`SpeechCli_RecognizeCommandWithRealSttModel_Invoked_ProducesNonEmptyRecognizedText`
+is an automated test, not a manual verification gap - unlike text-to-speech, which requires
+manual verification because no TTS model is cached in CI. If this repository
+is built in an environment with no downloaded recognition model at all (for example, a
 network-isolated CI runner that has never run `download`), that one test skips cleanly (asserting
 nothing, rather than failing or fabricating a pass) and the following becomes a manual/local
 verification step instead:

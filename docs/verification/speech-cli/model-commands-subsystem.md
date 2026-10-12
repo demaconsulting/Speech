@@ -30,9 +30,9 @@ document).
   `--models-dir`/`RootPathOverride`, deleted afterward
 - **Test doubles**: `FakeCliModelCatalog` (hand-written fake implementing `ICliModelCatalog`,
   tracking `Uninstall`/`CleanUpLeftovers`/`Download` calls for assertion) and `FakeSpeechModel`
-  (hand-written fake implementing `ISpeechModel`, since the role-specific
-  `IRecognitionModel`/`ISynthesisModel` interfaces restrict implementation to the library's own
-  `InternalsVisibleTo` assemblies)
+  (hand-written fake implementing `ISpeechModel`, used for descriptor-level scenarios; the
+  role-specific `IRecognitionModel`/`ISynthesisModel` interfaces are public, so seam tests may
+  also implement them)
 
 ### Test Scenarios
 
@@ -213,8 +213,9 @@ column and a `moods` JSON array. Tests use the fake catalog, so nothing is downl
 `Context_Create_WithBadVoicesDir_ThrowsArgumentException`,
 `Program_Run_Help_DocumentsVoicesOptionsAndConsentNote`
 
-**Scenario/Expected**: A real catalog over a temporary store lists Chatterbox among its models (the
-known-model test expects seven models), enumerates user-folder and `--voices-dir` voices, a bad
+**Scenario/Expected**: A real catalog over a temporary store lists Chatterbox among its models, enumerates user-folder
+and `--voices-dir` voices, an undecodable `--voices-dir` file does not break the adapter or the
+listing, a bad
 `--voices-dir` is rejected before any command runs, and `--help` documents the options and consent
 note.
 
@@ -248,7 +249,32 @@ context.
 
 **Requirement coverage**: `SpeechCli-ModelCommands-LibraryDelegation`.
 
-### Download Mirror Composition
+#### Seam Extension for Synthesis and Recognition
+
+**Tests**: `SpeechModelCatalogAdapter_GetPreferredAudioFormat_RecognitionRoleModel_ThrowsArgumentException`,
+`SpeechModelCatalogAdapter_GetPreferredAudioFormat_NullDescriptor_ThrowsArgumentNullException`,
+`SpeechModelCatalogAdapter_CreateSynthesizerEngineAsync_RecognitionRoleModel_ThrowsArgumentException`,
+`SpeechModelCatalogAdapter_CreateSynthesizerEngineAsync_NullDescriptor_ThrowsArgumentNullException`,
+`SpeechModelCatalogAdapter_GetAudioFormat_SynthesisRoleModel_ThrowsArgumentException`,
+`SpeechModelCatalogAdapter_GetAudioFormat_NullDescriptor_ThrowsArgumentNullException`,
+`SpeechModelCatalogAdapter_CreateRecognizerEngineAsync_SynthesisRoleModel_ThrowsArgumentException`,
+`SpeechModelCatalogAdapter_CreateRecognizerEngineAsync_NullDescriptor_ThrowsArgumentNullException`,
+`SpeechModelCatalogAdapter_GetPreferredAudioFormat_WithSynthesisModel_ReturnsFormat`,
+`SpeechModelCatalogAdapter_GetAudioFormat_WithRecognitionModel_ReturnsFormat`,
+`SpeechModelCatalogAdapter_CreateSynthesizerEngineAsync_WithSynthesisModel_ReturnsEngine`,
+`SpeechModelCatalogAdapter_CreateRecognizerEngineAsync_WithRecognitionModel_ReturnsEngine`
+
+**Scenario/Expected**: Each of the four seam members (`GetPreferredAudioFormat`,
+`CreateSynthesizerEngineAsync`, `GetAudioFormat`, `CreateRecognizerEngineAsync`) rejects a `null`
+descriptor with `ArgumentNullException` and a model of the wrong role with an `ArgumentException`
+naming the model. The positive-path tests use a fake synthesis or recognition model, which is
+possible because `ISynthesisModel` and `IRecognitionModel` are public interfaces, to prove that a
+model of the right role yields its preferred audio format and a loaded engine with no device bound.
+
+**Requirement coverage**: `SpeechCli-ModelCommands-SynthesisSeamExtension`,
+`SpeechCli-ModelCommands-RecognitionSeamExtension`.
+
+#### Download Mirror Composition
 
 **Tests**: `CliModelCatalogFactory_Create_WithMirrorUrl_AppliesMirrorToDownloads`
 
@@ -260,35 +286,31 @@ threaded through the composed catalog/downloader rather than merely parsed and d
 
 **Requirement coverage**: `SpeechCli-ModelCommands-DownloadMirrorComposition`.
 
-### Requirements Coverage
-
-- **`SpeechCli-ModelCommands-ListModels`**: see _ListModelsCommand_ above
-- **`SpeechCli-ModelCommands-ModelInfo`**: see _ModelInfoCommand_ above
-- **`SpeechCli-ModelCommands-Download`**: see _DownloadCommand_ above
-- **`SpeechCli-ModelCommands-DownloadCancellation`**: see _DownloadCommand Cancellation_ above
-- **`SpeechCli-ModelCommands-Uninstall`**: see _UninstallCommand_ above
-- **`SpeechCli-ModelCommands-Clean`**: see _CleanCommand_ above
-- **`SpeechCli-ModelCommands-LibraryDelegation`**: see _Seam Delegation and Null Guards_ above
-- **`SpeechCli-ModelCommands-DownloadMirrorComposition`**: see _Download Mirror Composition_ above
-- **`SpeechCli-ModelCommands-ChatterboxComposition`**, **`SpeechCli-ModelCommands-VoicesDir`**: see
-  _Chatterbox Composition and `--voices-dir`_ above
-- **`SpeechCli-ModelCommands-ListVoices`**: see _ListVoicesCommand_ above
-- **`SpeechCli-ModelCommands-VoicePacks`**: see _VoicesCommand_ above
-
 ### Acceptance Criteria
 
-A ModelCommandsSubsystem test run passes when: `list-models` lists and filters the catalog
-correctly in both table and JSON form; `model-info` prints a known model's full identity and
-parameter surface and cleanly rejects an unknown id; `download` installs every requested model it
-can, isolates and reports any single model's failure without abandoning the rest of the batch,
-honors `--force`'s uninstall-then-redownload semantics, and stops the whole batch (rather than
-continuing) on a genuine cancellation; `uninstall` and `clean` both treat "nothing to do" as a
-successful no-op; and every command rejects a `null` context or catalog and forwards correctly to
-a real, isolated `SpeechModelCatalog`/`SpeechModelStore` with no network access.
+A ModelCommandsSubsystem test run passes when every test above passes and:
 
-## Manual / Build-Time Verification
+- `list-models` lists and filters the catalog correctly in both table and JSON form
+- `model-info` prints a known model's full identity and parameter surface and cleanly rejects an
+  unknown id
+- `download` installs every requested model it can, isolates and reports any single model's failure
+  without abandoning the rest of the batch, honors `--force`'s uninstall-then-redownload semantics,
+  and stops the whole batch on a genuine cancellation
+- `uninstall` and `clean` both treat "nothing to do" as a successful no-op
+- `list-voices` lists voices (table and JSON) with the consent note, and `voices` lists, installs,
+  and uninstalls voice packs, reporting failure or cancellation with a non-zero exit code
+- Voice-pack installs include emotion variants by default and omit them with `--no-emotions`
+- The real catalog composes Chatterbox with the voice library, enumerates `--voices-dir` voices,
+  and does not fail when a `--voices-dir` file is undecodable
+- A configured download mirror is threaded through to downloads
+- The seam members for audio format and engine creation accept a model of the right role and reject
+  a `null` descriptor or a model of the wrong role with a clean exception
+- Every command rejects a `null` context or catalog and forwards correctly to a real, isolated
+  `SpeechModelCatalog`/`SpeechModelStore` with no network access
 
-The following are verified manually for this pass, rather than by an automated test, because a
+### Manual / Build-Time Verification
+
+The following are verified manually, rather than by an automated test, because a
 real model download requires network access unavailable in CI:
 
 - `dotnet run --project src/DemaConsulting.Speech.Cli -- list-models` against an isolated

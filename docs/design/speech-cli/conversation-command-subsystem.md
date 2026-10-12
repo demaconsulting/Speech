@@ -3,12 +3,12 @@
 ### Overview
 
 The ConversationCommandSubsystem implements the one voice-conversation subcommand dispatched to
-by `CommandDispatch`: `ask` - a new, eleventh subcommand added after all ten scaffolded
-subcommands were implemented. It contains one type, `AskCommand`, and introduces **no new
+by `CommandDispatch`: `ask` - speak a prompt, then listen for the reply. It contains one command
+type, `AskCommand` (plus a small capture-device seam), and introduces **no new
 `ICliModelCatalog` seam member**: `ask` combines `SynthesisCommandSubsystem`'s existing
 `GetPreferredAudioFormat`/`CreateSynthesizerEngineAsync` members and
 `RecognitionCommandSubsystem`'s existing `GetAudioFormat`/`CreateRecognizerEngineAsync` members -
-both already extending the original `ModelCommandsSubsystem` seam - to run a speak-then-listen
+both already part of the `ModelCommandsSubsystem` seam - to run a speak-then-listen
 turn as one CLI invocation, built entirely on the async Engine/Session API.
 
 - **`AskCommand`**: implements
@@ -25,11 +25,31 @@ turn as one CLI invocation, built entirely on the async Engine/Session API.
   implementation, forwarding every call unchanged to a composed, real `AudioDeviceFactory`, mirroring
   `AudioDeviceFactoryPlaybackDeviceSource` exactly.
 
+### Interfaces
+
+**Exposed**: `AskCommand.Run(Context)` (the `CommandDispatch` entry point), and the
+`ICliCaptureDeviceSource` seam with its production `AudioDeviceFactoryCaptureDeviceSource`.
+Operator mistakes are reported as `ArgumentException` or `InvalidOperationException`.
+
+**Consumed**: `ICliModelCatalog` (`Enumerate` and the synthesis and recognition format/engine
+members), the library's `ISpeechSynthesizerEngine`/`ISynthesisSession`/`ISpeechRecognizerEngine`/
+`IRecognitionSession` types, `ICliPlaybackDeviceSource` and `ParameterBagParser` from
+`SynthesisCommandSubsystem`, `SilenceTimeoutRecognizerSession` from `RecognitionCommandSubsystem`,
+and `DevicesTestCommand.ResolveDeviceSelectionOrThrow` from `DeviceCommandsSubsystem`.
+
+### Design
+
+`AskCommand` validates its arguments, resolves the TTS and STT models, starts pre-warming the
+recognizer in the background, speaks the prompt (the first phase), and then listens for the reply
+(the second phase) with the same idle-timeout behavior as `recognize --mic`. A single shared
+cancellation token and wait handle coordinate `Ctrl+C`, and every engine, session, and device is
+disposed on every exit path. The sections below describe each concern.
+
 ### Reuse of the Existing ModelCommandsSubsystem Seam (No New Member)
 
 `ask` needs to load both a real `ISpeechSynthesizerEngine` and a real `ISpeechRecognizerEngine` for
-its two phases. Both capabilities already exist on `ICliModelCatalog`, added by the synthesis and
-recognition passes respectively: `CreateSynthesizerEngineAsync(descriptor, parameterValues,
+its two phases. Both capabilities already exist on `ICliModelCatalog`, as used by `speak` and
+`recognize` respectively: `CreateSynthesizerEngineAsync(descriptor, parameterValues,
 cancellationToken)` and `CreateRecognizerEngineAsync(descriptor, parameterValues,
 cancellationToken)`, each already validating (via `SpeechModelCatalogAdapter`'s own internal
 casts) that the resolved model actually has the corresponding role, and each returning an engine
@@ -62,7 +82,7 @@ matches `ask`'s own natural phase order - Phase 1 (speak) happens first - and re
 wrong role, not downloaded), each naming its own flag (`--tts-model`/`--stt-model`) so the correct
 next step (`list-models --role tts`/`--role stt`, or `download <modelId>`) is always unambiguous.
 `--tts-param`/`--stt-param` values are each validated against their own resolved model's declared
-parameters, reusing `ParameterBagParser.Resolve` unmodified from the synthesis pass, exactly as
+parameters, reusing `ParameterBagParser.Resolve` unmodified, exactly as
 `recognize`'s own `--stt-param` handling already does.
 
 **Two-phase execution.** `RunAsync` kicks off Phase 2's recognizer engine/session pre-warm on a
@@ -140,7 +160,7 @@ for this concurrency.
 
 Unlike `RecognizeCommand`, which resolves its capture device directly from an injected
 `AudioDeviceFactory`, Phase 2 resolves its capture device through `ICliCaptureDeviceSource` - a
-small, CLI-owned seam introduced in this pass and mirroring `ICliPlaybackDeviceSource` exactly
+small, CLI-owned seam mirroring `ICliPlaybackDeviceSource` exactly
 (same `*Probe` property/`Create*Device(selection)` method shape, same rationale). This exists
 because `AudioDeviceFactory.CreateCaptureDevice` checks real PortAudio initialization state
 _before_ even consulting an injected probe, so a test that only fakes the probe (as
@@ -212,13 +232,13 @@ reporting a false "Recognized text written" success.
 
 ### Interactions with Other Units
 
-`AskCommand` depends on the `ICliModelCatalog` seam (all members added by both the synthesis and
-recognition passes; no new member of its own), the library's public `ISpeechSynthesizerEngine`/
+`AskCommand` depends on the `ICliModelCatalog` seam (the synthesis and recognition members;
+no new member of its own), the library's public `ISpeechSynthesizerEngine`/
 `ISynthesisSession`/`ISpeechRecognizerEngine`/`IRecognitionSession` types, `SynthesisCommandSubsystem`'s
 `ICliPlaybackDeviceSource`/`ParameterBagParser`, `RecognitionCommandSubsystem`'s
 `SilenceTimeoutRecognizerSession`, and `DeviceCommandsSubsystem`'s
 `DevicesTestCommand.ResolveDeviceSelectionOrThrow` internal helper - all four reused entirely
-unmodified, rather than duplicated. This pass introduces two new types local to this subsystem:
+unmodified, rather than duplicated. The subsystem owns two types:
 `ICliCaptureDeviceSource` and its production implementation
 `AudioDeviceFactoryCaptureDeviceSource`, mirroring `SynthesisCommandSubsystem`'s
 `ICliPlaybackDeviceSource`/`AudioDeviceFactoryPlaybackDeviceSource` pair exactly. No new

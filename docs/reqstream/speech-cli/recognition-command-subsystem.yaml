@@ -89,9 +89,10 @@ sections:
 
           - id: SpeechCli-RecognitionCommands-SilenceTimeout
             title: >-
-              The tool shall, in `--mic` mode with `--silence-timeout <seconds>` given, stop the
+              The tool shall, in `--mic` mode, stop the
               session and end its result stream automatically once no recognition result (partial
-              or final) has been yielded within the given idle window since the last result (or
+              or final) has been yielded within the idle window given by `--silence-timeout
+              <seconds>` (5 seconds when omitted) since the last result (or
               session start), via `SilenceTimeoutRecognizerSession`, a stateless
               `IAsyncEnumerable<SpeechRecognitionEvent>` decorator that re-arms a fresh idle timer
               on every yielded result and raises `TimedOut` exactly once, after calling

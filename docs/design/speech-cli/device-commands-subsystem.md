@@ -10,6 +10,24 @@ per subcommand:
 - **`DevicesTestCommand`**: implements `devices test [--device <name>] [--direction input|output]`
 - **`DoctorCommand`**: implements `doctor`
 
+### Interfaces
+
+**Exposed**: each command handler exposes a static `Run(Context)` entry point (invoked from the
+`CommandDispatch` table), which writes to `Context` and sets its exit code; argument errors are
+reported as `ArgumentException`, and unavailable devices as `InvalidOperationException`.
+
+**Consumed**: the library's public `AudioDeviceFactory`, `IAudioCaptureDeviceProbe`,
+`IAudioPlaybackDeviceProbe`, `IAudioCaptureDevice`, `IAudioPlaybackDevice`, `AudioDeviceDescription`
+and `AudioDeviceSelection` types; and, for `doctor` only, `ICliModelCatalog` and `SpeechModelStore`
+from `ModelCommandsSubsystem`. `DevicesTestCommand.ResolveDeviceSelectionOrThrow` is also called by
+`AskCommand` in `ConversationCommandSubsystem`.
+
+### Design
+
+The three commands are independent of one another and share no state: each parses its own flags
+from `Context.CommandArgs`, composes an `AudioDeviceFactory` (or an injected fake in tests), and
+writes its report through `Context`. The sections below describe each unit.
+
 ### Why No CLI-Owned Seam
 
 Unlike `ModelCommandsSubsystem`, which needed a CLI-owned `ICliModelCatalog` seam because the
@@ -78,7 +96,7 @@ Runs a broader environment/health check than `--validate`'s five CI-safe checks 
    from the root), and available disk space at that location
 3. **Audio devices**: input/output device counts only (not a full enumeration - that is
    `list-devices`'s job)
-4. **Models**: installed-versus-known model counts, via the `ICliModelCatalog` seam from Pass 3
+4. **Models**: installed-versus-known model counts, via the `ICliModelCatalog` seam
 
 Each check is printed as a `[ OK ]`/`[INFO]`/`[FAIL]` line, followed by an overall
 `HEALTHY`/`UNHEALTHY` summary.
@@ -111,7 +129,7 @@ never cause a non-zero exit, for two reasons:
 - This mirrors the library's own designed graceful-degradation philosophy for optional hardware
   and native inference runtimes: missing audio hardware or an unresolvable native library does
   not prevent the rest of the tool from working, and every command that genuinely needs one of
-  them (`devices test`, and the `speak`/`recognize` commands added in later passes) already
+  them (`devices test`, `speak`, `recognize`, and `ask`) already
   reports its own clean, specific error at the point of use, so `doctor` reporting the same
   condition as a hard failure would be redundant and would make `doctor` fail on perfectly normal
   headless/CI machines with no audio hardware
@@ -126,5 +144,5 @@ never cause a non-zero exit, for two reasons:
 `AudioDeviceFactory`/`IAudioCaptureDeviceProbe`/`IAudioPlaybackDeviceProbe`/
 `IAudioCaptureDevice`/`IAudioPlaybackDevice`/`AudioDeviceDescription`/`AudioDeviceSelection` types.
 `DoctorCommand` additionally depends on the `ICliModelCatalog` seam and `SpeechModelStore` from
-`ModelCommandsSubsystem`, reusing rather than duplicating that pass's composition. None of the
+`ModelCommandsSubsystem`, reusing rather than duplicating that composition. None of the
 three commands touches any internal library type.

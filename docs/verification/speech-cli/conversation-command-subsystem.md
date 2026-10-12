@@ -3,7 +3,7 @@
 ### Verification Approach
 
 The ConversationCommandSubsystem is verified entirely through deterministic unit tests against
-the same test doubles the synthesis and recognition passes already established: no new fake test
+the same test doubles the synthesis and recognition subsystems already use: no new fake test
 double is needed for the engine/session/catalog types themselves. `FakeCliModelCatalog`'s existing
 `CreateSynthesizerEngineOverride`/`CreateRecognizerEngineOverride` delegates resolve `AskCommand`'s
 two engines; `FakeSynthesisSession`/`FakeSpeechSynthesizerEngine` (recording `SpeakAsync`/
@@ -11,7 +11,7 @@ two engines; `FakeSynthesisSession`/`FakeSpeechSynthesizerEngine` (recording `Sp
 `FakeRecognitionSession`/`FakeSpeechRecognizerEngine` (recording `StartAsync`/`StopAsync`/
 `DisposeAsync` call counts, driving `GetResultsAsync` from an in-memory result sequence) drive both
 phases. Device resolution reuses `FakePlaybackDeviceSource` (unmodified, from
-`SynthesisCommandSubsystem`'s own tests) for Phase 1, and this pass's own new
+`SynthesisCommandSubsystem`'s own tests) for Phase 1, and its own
 `FakeCaptureDeviceSource`/`FakeAudioCaptureDevice` (mirroring `FakePlaybackDeviceSource`/
 `FakeAudioPlaybackDevice` exactly) for Phase 2 - never a real `AudioDeviceFactory` - so every
 `AskCommandTests` scenario that expects a successfully resolved capture device is deterministic
@@ -53,7 +53,7 @@ fails the test explicitly rather than deadlocking.
   `FakeRecognitionSession`/`FakeSpeechRecognizerEngine`, `FakePlaybackDeviceSource`,
   `FakeAudioPlaybackDevice` (tracking a `DisposeCallCount`, so a test can prove the playback device
   resolved by `SpeakPromptAsync` is disposed exactly once), `FakeAudioPlaybackDeviceProbe` (reused,
-  mostly unmodified, from `SynthesisCommandSubsystem`'s own tests), and this pass's own new
+  mostly unmodified, from `SynthesisCommandSubsystem`'s own tests), and its own
   `FakeCaptureDeviceSource`/`FakeAudioCaptureDevice`/`FakeAudioCaptureDeviceProbe` (mirroring
   `FakePlaybackDeviceSource`/`FakeAudioPlaybackDevice` exactly), so no `AskCommandTests` scenario
   ever depends on a real `AudioDeviceFactory`

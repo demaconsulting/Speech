@@ -7,20 +7,16 @@ This document describes the system-level verification strategy for the SpeechCli
 SpeechCli is verified through a mix of in-process unit/integration tests, which compose the real
 `Context`, `Program`, `CommandDispatch`, and `Validation` types directly, and out-of-process
 integration tests, which invoke the built tool as a child process the way an operator would, and
-assert on its console output and exit code. This pass covers the scaffold behavior carried over
-from Pass 2 - global-option and subcommand dispatch, version/help display, `--validate`
-self-testing, and .NET global tool packaging - plus the five model-management subcommands
-(and the two reference-voice subcommands `list-voices` and `voices`, verified in _SpeechCli ModelCommandsSubsystem Verification_)
-implemented in Pass 3 (`list-models`, `model-info`, `download`, `uninstall`, `clean`, verified in
-detail in _SpeechCli ModelCommandsSubsystem Verification_), the three device-related subcommands
-implemented in Pass 4 (`list-devices`, `devices test`, `doctor`, verified in detail in
-_SpeechCli DeviceCommandsSubsystem Verification_), the one text-to-speech subcommand implemented
-in Pass 5 (`speak`, verified in detail in _SpeechCli SynthesisCommandSubsystem Verification_),
-and the one speech-to-text subcommand implemented in this pass (`recognize`, verified in detail
-in _SpeechCli RecognitionCommandSubsystem Verification_) - the tenth of what are now eleven
-recognized subcommands to be implemented (the eleventh, `ask`, was added afterward and is
-verified separately in _SpeechCli ConversationCommandSubsystem Verification_); no subcommand
-handler remains a `NotImplementedException` stub.
+assert on its console output and exit code. It covers the tool's own behavior - global-option and
+subcommand dispatch, version/help display, `--validate` self-testing, and .NET global tool
+packaging - plus all thirteen subcommands: the five model-management subcommands and the two
+reference-voice subcommands (`list-models`, `model-info`, `download`, `uninstall`, `clean`,
+`list-voices`, `voices`, verified in detail in _SpeechCli ModelCommandsSubsystem Verification_),
+the three device-related subcommands (`list-devices`, `devices test`, `doctor`, verified in
+_SpeechCli DeviceCommandsSubsystem Verification_), the text-to-speech subcommand (`speak`, verified
+in _SpeechCli SynthesisCommandSubsystem Verification_), the speech-to-text subcommand (`recognize`,
+verified in _SpeechCli RecognitionCommandSubsystem Verification_), and the voice-conversation
+subcommand (`ask`, verified in _SpeechCli ConversationCommandSubsystem Verification_).
 
 Automated coverage **does not** extend to real audio hardware or to a real, downloaded speech
 model: the `--validate` self-test's audio and model-store checks are composed exactly as the
@@ -49,7 +45,25 @@ machine-independent result is required (audio backend probing), the test only as
 composition and enumeration complete without throwing, matching the library's own contract for
 those types.
 
-## System-Level Test Scenarios
+## Acceptance Criteria
+
+The SpeechCli system is accepted when all of the following hold (IEC 62304 §5.7.2):
+
+- Every test linked to a SpeechCli system requirement in `docs/reqstream/speech-cli.yaml`, and
+  every test linked to a requirement of the five command subsystems, passes with no skipped or
+  failing result in the CI test run on every supported platform
+- `speech-cli --validate` reports `Failed: 0`, with every self-test check passing
+- `--version` and `--help` exit `0`, and `--help` lists all thirteen subcommands and every global
+  option
+- An unrecognized subcommand or option exits non-zero with a one-line error and no stack trace
+- The ReqStream requirements-to-tests enforcement reports every SpeechCli requirement as covered
+- The manual build-time checks listed in _Manual / Build-Time Verification_ are performed for each
+  release and produce the expected result
+
+## Test Scenarios
+
+The scenarios below are system-level; each subsystem's detailed scenarios are in its own
+verification document.
 
 ### Version Display
 
@@ -73,18 +87,26 @@ the `--voices-dir` option, and the reference-voice consent note, and exit `0`.
 ### Subcommand Dispatch
 
 **Tests**: `Program_Run_WithListModelsCommand_DoesNotThrowNotImplemented`,
+`Program_Run_WithListDevicesCommand_DoesNotThrowNotImplemented`,
+`Program_Run_WithDoctorCommand_DoesNotThrowNotImplemented`,
+`Program_Run_WithSpeakCommand_DoesNotThrowNotImplemented`,
 `Program_Run_WithRecognizeCommand_DoesNotThrowNotImplemented`,
+`Program_Run_WithAskCommand_DoesNotThrowNotImplemented`,
+`CommandDispatch_Find_VoiceCommands_AreRegistered`,
 `Program_Main_WithUnknownCommand_ReturnsNonZeroExitCodeAndReportsCommand`,
+`Program_Main_WithUnknownCommandAndSilentFlag_SuppressesErrorOutput`,
 `SpeechCli_UnknownCommand_Provided_ReturnsCleanError`
 
 Verifies that `list-models` (representative of the five model-management subcommands),
-`list-devices`/`doctor` (representative of the three device-related subcommands), `speak`, and
-`recognize` no longer throw `NotImplementedException` - `recognize` being the tenth of what are
-now eleven subcommands to reach that state - and that an unrecognized subcommand name is rejected
-cleanly with a non-zero exit code rather than a stack trace. See _SpeechCli ModelCommandsSubsystem
+`list-devices`/`doctor` (representative of the three device-related subcommands), `speak`,
+`recognize`, and `ask` dispatch to their real handlers and do not throw `NotImplementedException`,
+that the `list-voices` and `voices` subcommands are registered in the dispatch table, and that an
+unrecognized subcommand name is rejected cleanly with a non-zero exit code rather than a stack
+trace (and that `--silent` suppresses that error output). See _SpeechCli ModelCommandsSubsystem
 Verification_, _SpeechCli DeviceCommandsSubsystem Verification_, _SpeechCli
-SynthesisCommandSubsystem Verification_, and _SpeechCli RecognitionCommandSubsystem
-Verification_ for the implemented subcommands' own detailed test scenarios.
+SynthesisCommandSubsystem Verification_, _SpeechCli RecognitionCommandSubsystem Verification_,
+and _SpeechCli ConversationCommandSubsystem Verification_ for the subcommands' own detailed test
+scenarios.
 
 ### Global Options Recognized Regardless of Position
 
@@ -101,6 +123,7 @@ actually suppress console output/write a log file respectively.
 ### Download Mirror Configuration
 
 **Tests**: `Context_CreateMirror_NoMirrorUrl_ReturnsNull`,
+`Context_Create_MirrorCredentialWithoutUrlAndHelp_ThrowsArgumentException`,
 `Context_CreateMirror_ValidCredentialedMirror_ReturnsConfiguredMirror`,
 `Context_CreateMirror_BearerTokenMirror_ReturnsConfiguredMirror`,
 `Context_CreateMirror_InvalidMirrorUrl_ThrowsArgumentException`,
@@ -139,9 +162,12 @@ and, when `--results <file>` is given, writes a `.trx`/`.xml` file.
 
 ### Argument Errors
 
-**Test**: `Program_Main_WithInvalidArgs_ReturnsNonZeroExitCode`
+**Tests**: `Program_Main_WithInvalidArgs_ReturnsNonZeroExitCode`,
+`Program_Main_WithInvalidArgsAndSilentFlag_SuppressesErrorOutput`,
+`SpeechCli_UnknownOption_Provided_ReturnsCleanError`
 
-Verifies that an unsupported flag is reported as a clean error with a non-zero exit code, using
+Verifies that an unsupported flag is reported as a clean error with a non-zero exit code (and that
+`--silent` suppresses the message), using
 the same `ArgumentException`/`InvalidOperationException` handling convention the reference
 `TemplateDotNetTool` uses.
 
@@ -154,7 +180,7 @@ runtime state for the process's own entry point to reach.
 
 ## Manual / Build-Time Verification
 
-The following are verified manually for this pass, rather than by an automated test, because they
+The following are verified manually, rather than by an automated test, because they
 are properties of the build and packaging pipeline rather than of runtime behavior:
 
 - `dotnet pack src/DemaConsulting.Speech.Cli/DemaConsulting.Speech.Cli.csproj -c Release` produces

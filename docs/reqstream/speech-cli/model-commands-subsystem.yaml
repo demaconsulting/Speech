@@ -1,11 +1,11 @@
 ---
 # Software Subsystem Requirements for the SpeechCli ModelCommandsSubsystem
 #
-# These requirements describe the subsystem-level behavior of the five model-management
-# subcommands (list-models, model-info, download, uninstall, clean), decomposing the
-# system-level dispatch requirements in docs/reqstream/speech-cli.yaml.
+# These requirements describe the subsystem-level behavior of the seven model-management and
+# reference-voice subcommands (list-models, model-info, download, uninstall, clean, list-voices,
+# voices), decomposing the system-level dispatch requirements in docs/reqstream/speech-cli.yaml.
 #
-# Unit-level content is consolidated here rather than split per command: all five commands
+# Unit-level content is consolidated here rather than split per command: all seven commands
 # share one seam (ICliModelCatalog/SpeechModelCatalogAdapter) over the library's
 # SpeechModelCatalog/SpeechModelStore, and each command's own logic is a small, single-purpose
 # argument parser plus a thin call through that seam, so per-command requirement files would
@@ -192,17 +192,19 @@ sections:
               cast exception.
             tags: [subsystem]
             justification: |
-              Added in Pass 5 alongside `SynthesisCommandSubsystem`: a resolved model must be cast
-              to the library's internal `ISynthesisModel` before either operation is possible, and
-              that cast is only compilable inside this same assembly, not inside the test
-              project. Extending this existing seam - rather than introducing a second, competing
-              one for the new subsystem - keeps a single, narrow, already-established boundary
-              between the CLI and the library's internal model types.
+              `speak` must load a real synthesis engine and know its preferred audio format, both
+              of which depend on the resolved model being a synthesis model. Exposing these
+              operations through the existing seam - rather than a second, competing one - keeps a
+              single, narrow boundary between the CLI and the library's model types. The library's
+              `ISynthesisModel` is a public interface, so the positive path is verified with a fake
+              synthesis model in addition to the rejection paths.
             tests:
               - SpeechModelCatalogAdapter_GetPreferredAudioFormat_RecognitionRoleModel_ThrowsArgumentException
               - SpeechModelCatalogAdapter_GetPreferredAudioFormat_NullDescriptor_ThrowsArgumentNullException
               - SpeechModelCatalogAdapter_CreateSynthesizerEngineAsync_RecognitionRoleModel_ThrowsArgumentException
               - SpeechModelCatalogAdapter_CreateSynthesizerEngineAsync_NullDescriptor_ThrowsArgumentNullException
+              - SpeechModelCatalogAdapter_GetPreferredAudioFormat_WithSynthesisModel_ReturnsFormat
+              - SpeechModelCatalogAdapter_CreateSynthesizerEngineAsync_WithSynthesisModel_ReturnsEngine
 
           - id: SpeechCli-ModelCommands-RecognitionSeamExtension
             title: >-
@@ -213,18 +215,20 @@ sections:
               unhandled cast exception.
             tags: [subsystem]
             justification: |
-              Added in Pass 6 alongside `RecognitionCommandSubsystem`, symmetric to the synthesis
-              extension above: a resolved model must be cast to the library's internal
-              `IRecognitionModel` before either operation is possible, and that cast is only
-              compilable inside this same assembly, not inside the test project. Extending this
-              existing seam - rather than introducing a third, competing one - keeps a single,
-              narrow, already-established boundary between the CLI and the library's internal
-              model types.
+              `recognize` must load a real recognition engine and know its required audio format,
+              both of which depend on the resolved model being a recognition model, symmetric to
+              the synthesis extension above. Exposing these operations through the existing seam -
+              rather than a third, competing one - keeps a single, narrow boundary between the CLI
+              and the library's model types. The library's `IRecognitionModel` is a public
+              interface, so the positive path is verified with a fake recognition model in
+              addition to the rejection paths.
             tests:
               - SpeechModelCatalogAdapter_GetAudioFormat_SynthesisRoleModel_ThrowsArgumentException
               - SpeechModelCatalogAdapter_GetAudioFormat_NullDescriptor_ThrowsArgumentNullException
               - SpeechModelCatalogAdapter_CreateRecognizerEngineAsync_SynthesisRoleModel_ThrowsArgumentException
               - SpeechModelCatalogAdapter_CreateRecognizerEngineAsync_NullDescriptor_ThrowsArgumentNullException
+              - SpeechModelCatalogAdapter_GetAudioFormat_WithRecognitionModel_ReturnsFormat
+              - SpeechModelCatalogAdapter_CreateRecognizerEngineAsync_WithRecognitionModel_ReturnsEngine
 
           - id: SpeechCli-ModelCommands-ChatterboxComposition
             title: >-

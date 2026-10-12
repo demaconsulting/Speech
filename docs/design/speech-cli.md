@@ -15,12 +15,11 @@ is separately built, separately packaged, and separately versioned, it has its o
 line operators and scripts rather than an interactive desktop user), and the library must never
 depend on it.
 
-This pass delivers only the tool's scaffolding: process entry point, global-option and subcommand
-dispatch, self-validation, and .NET global tool packaging. It recognizes all ten planned
-subcommand names for `--help` purposes; all ten subcommands are implemented as of the
-RecognitionCommandSubsystem pass described below. An eleventh subcommand, `ask`, was added after
-all ten scaffolded subcommands were implemented, described in the ConversationCommandSubsystem
-section below.
+SpeechCli provides the process entry point, global-option and subcommand dispatch,
+self-validation, and .NET global tool packaging, plus five command subsystems that implement all
+thirteen subcommands: `list-models`, `model-info`, `download`, `uninstall`, `clean`, `list-voices`,
+`voices`, `list-devices`, `devices`, `doctor`, `speak`, `recognize`, and `ask`. Each subsystem is
+described in its own section below.
 
 ### Global Options and Subcommand Dispatch
 
@@ -29,7 +28,8 @@ extends the hand-rolled, single-purpose parser pattern the reference `TemplateDo
 its own flag set. `Context.Create(args)` resolves a fixed set of global options - `--models-dir`,
 `--voices-dir <path>` (an existing folder of extra `.wav`/`.flac` reference voices; a missing
 folder is rejected with `ArgumentException` in `Context.Create`),
-`--verbose`/`--diagnostics`, `--silent`, `--log <file>`, `--results <file>`, `--depth <#>`,
+`--no-emotions` (voice-pack installs omit emotion variants), `--verbose`/`--diagnostics`, `--silent`,
+`--log <file>`, `--results <file>`, `--depth <#>`,
 `-v`/`--version`, `-h`/`-?`/`--help`, `--validate` - regardless of where they appear on the
 command line relative to the subcommand name, because every subcommand needs the same
 cross-cutting configuration. The first token that is not a recognized global option resolves the
@@ -69,15 +69,15 @@ error identically to every other command-line configuration mistake - never a st
 
 ### ModelCommandsSubsystem
 
-This pass adds the tool's first implemented subsystem: **ModelCommandsSubsystem**, covering the
-five model-management subcommands - `list-models`, `model-info`, `download`, `uninstall`, and
-`clean` - plus the two reference-voice subcommands `list-voices` and `voices`, and the CLI-owned catalog seam (`ICliModelCatalog`/`SpeechModelCatalogAdapter`/
-`CliModelCatalogFactory`) they all share over the library's `SpeechModelCatalog`/
-`SpeechModelStore`. See _SpeechCli ModelCommandsSubsystem Design_ for its full design.
+**ModelCommandsSubsystem** covers the five model-management subcommands - `list-models`,
+`model-info`, `download`, `uninstall`, and `clean` - plus the two reference-voice subcommands
+`list-voices` and `voices`, and the CLI-owned catalog seam (`ICliModelCatalog`/
+`SpeechModelCatalogAdapter`/`CliModelCatalogFactory`) they all share over the library's
+`SpeechModelCatalog`/`SpeechModelStore`. See _SpeechCli ModelCommandsSubsystem Design_ for its full design.
 
 ### DeviceCommandsSubsystem
 
-This pass adds **DeviceCommandsSubsystem**, covering the three device-related subcommands -
+**DeviceCommandsSubsystem** covers the three device-related subcommands -
 `list-devices`, `devices test`, and `doctor` - directly over the library's already-public
 `IAudioCaptureDeviceProbe`/`IAudioPlaybackDeviceProbe`/`AudioDeviceFactory`, with no CLI-owned
 seam wrapper (unlike `ModelCommandsSubsystem`'s `ICliModelCatalog`), because those probe
@@ -86,38 +86,39 @@ Design_ for its full design.
 
 ### SynthesisCommandSubsystem
 
-This pass adds **SynthesisCommandSubsystem**, covering the one text-to-speech subcommand -
-`speak` - and extending `ModelCommandsSubsystem`'s `ICliModelCatalog` seam with two further
-members (`GetPreferredAudioFormat`/`CreateSynthesizer`) rather than introducing a second,
+**SynthesisCommandSubsystem** covers the one text-to-speech subcommand -
+`speak` - and uses `ModelCommandsSubsystem`'s `ICliModelCatalog` seam members
+(`GetPreferredAudioFormat`/`CreateSynthesizerEngineAsync`) rather than introducing a second,
 competing seam. See _SpeechCli SynthesisCommandSubsystem Design_ for its full design.
 
 ### RecognitionCommandSubsystem
 
-This pass adds **RecognitionCommandSubsystem**, covering the one speech-to-text subcommand -
-`recognize` - the last of all 10 subcommands to be implemented, plus the
-`SilenceTimeoutRecognizerSession` idle-timeout utility, extending `ModelCommandsSubsystem`'s
-`ICliModelCatalog` seam with two further members (`GetAudioFormat`/`CreateRecognizer`) symmetric
-to the synthesis pair, rather than introducing a second, competing seam. See _SpeechCli
+**RecognitionCommandSubsystem** covers the one speech-to-text subcommand -
+`recognize` - plus the `SilenceTimeoutRecognizerSession` idle-timeout utility, and uses
+`ModelCommandsSubsystem`'s `ICliModelCatalog` seam members (`GetAudioFormat`/
+`CreateRecognizerEngineAsync`) symmetric to the synthesis pair, rather than introducing a second, competing seam. See _SpeechCli
 RecognitionCommandSubsystem Design_ for its full design.
 
 ### ConversationCommandSubsystem
 
-This pass adds **ConversationCommandSubsystem**, covering the one voice-conversation subcommand -
+**ConversationCommandSubsystem** covers the one voice-conversation subcommand -
 `ask` - which speaks a prompt and then listens for the reply, combining `speak`'s synthesis-then-
 play flow and `recognize --mic`'s mic-listen flow into a single invocation. It introduces no new
-`ICliModelCatalog` seam member: it reuses `SynthesisCommandSubsystem`'s `CreateSynthesizer` and
-`RecognitionCommandSubsystem`'s `CreateRecognizer` members exactly as `speak` and `recognize`
-already do individually. See _SpeechCli ConversationCommandSubsystem Design_ for its full design.
+`ICliModelCatalog` seam member: it reuses the `CreateSynthesizerEngineAsync` and
+`CreateRecognizerEngineAsync` members exactly as `speak` and `recognize` already do individually.
+It adds the CLI-owned `ICliCaptureDeviceSource` seam for microphone resolution, and reuses
+`DeviceCommandsSubsystem`'s `DevicesTestCommand.ResolveDeviceSelectionOrThrow` for device
+selection. See _SpeechCli ConversationCommandSubsystem Design_ for its full design.
 
 ### Subcommand Dispatch Table
 
 `CommandDispatch` defines the fixed, ordered set of subcommands SpeechCli recognizes:
 `list-models`, `model-info`, `download`, `uninstall`, `clean`, `list-voices`, `voices`,
 `list-devices`, `devices`, `doctor`, `speak`, `recognize`, and `ask`. Each entry pairs the subcommand's canonical name with
-a one-line usage summary (shown by `--help`) and a handler delegate. As of this pass, all thirteen
+a one-line usage summary (shown by `--help`) and a handler delegate. All thirteen
 subcommands' handlers are the real `ModelCommandsSubsystem`/`DeviceCommandsSubsystem`/
 `SynthesisCommandSubsystem`/`RecognitionCommandSubsystem`/`ConversationCommandSubsystem`
-implementations described above - no subcommand handler remains a `NotImplementedException` stub.
+implementations described above.
 
 ## External Interfaces
 
@@ -137,6 +138,9 @@ consumes.
 | Audio device hardware (`devices test`) | Bidirectional | PCM samples | Real I/O; fails cleanly if unavailable |
 | `ISpeechSynthesizerEngine`/`ISynthesisSession` (`speak`) | Outbound | Method call | Real I/O; graceful fallback |
 | `ISpeechRecognizerEngine`/`IRecognitionSession` (`recognize`) | Outbound | Method call | Real I/O; graceful fallback |
+| Synthesis/recognition engines, capture and playback devices (`ask`) | Outbound | Method call | Speaks, then listens |
+| Voice-pack download (`voices install`) | Outbound | Download via the seam | Honors `--mirror-*`, `--no-emotions` |
+| `--file`, `--output-audio`, `--output-text`, `--voices-dir` | In/Out | Files and folders | Text in, WAV/text out |
 
 ## Dependencies
 
@@ -159,7 +163,7 @@ the CLI composes (see _SpeechSherpa Design_) - and the following NuGet dependenc
   path) needs
 
 See _OTS Integration Design_ for details of any OTS items shared with other systems in this
-repository.
+repository. Each dependency's own design is described in the corresponding OTS design document.
 
 ## Risk Control Measures
 
@@ -168,7 +172,7 @@ N/A - SpeechCli provides no safety-critical functionality requiring risk control
 
 ## Data Flow
 
-**Process entry and dispatch path (this pass):**
+**Process entry and dispatch path:**
 
 1. **Input**: The process is started with zero or more command-line arguments
 2. **Parsing**: `Context.Create(args)` resolves every global option and, if present, the
@@ -191,18 +195,26 @@ N/A - SpeechCli provides no safety-critical functionality requiring risk control
    stdout, and, if `--results <file>` was given, a `.trx` or `.xml` file is written with the same
    results
 
+## Error Handling
+
+`Program.Main` reports `ArgumentException` and `InvalidOperationException` (the types every
+subcommand uses for operator-facing mistakes and store failures) as a one-line message on the
+error stream with exit code `1`, never a stack trace; any other exception type is a defect, is
+written to the error stream, and is rethrown so crash/event logs preserve diagnostics. `--silent`
+only suppresses the console write, never the exit code. `Context` reports exit code `1` once any
+error has been written through `WriteError`, and `0` otherwise; when `--log <file>` is given, all
+output is also written to that file. The self-test combines paths through
+`PathHelpers.SafePathCombine`, which rejects any relative path that would escape its base
+directory.
+
 ## Design Constraints
 
-- **No new library API**: This pass adds no public API to the Speech library and uses no
+- **No new library API**: SpeechCli adds no public API to the Speech library and uses no
   internal access to it; the self-test's `AudioDeviceFactory` and `SpeechModelStore` usages are
   both already-public library entry points
 - **No general-purpose argument-parsing library**: The hand-rolled `Context`/`ArgumentParser`
   pattern is a deliberate choice over `System.CommandLine` for this tool, extended (rather than
   replaced) to add subcommand dispatch on top of the template's existing global-option handling
-- **Stubs are honest, not silent**: Every recognized-but-unimplemented subcommand throws
-  `NotImplementedException` naming itself when dispatched, rather than silently doing nothing or
-  reporting success, so a caller of this pass's build can never mistake a stub for a working
-  command
 - **CI-safe self-validation**: No self-test check may depend on a real, multi-hundred-megabyte
   model download or physical audio hardware being present, mirroring the same constraint the
   Speech library's own `SpeechModelCatalog`/`AudioDeviceFactory` composition guarantees satisfy
@@ -218,14 +230,14 @@ SpeechCli targets only `net10.0`, unlike the library (`net8.0`/`net9.0`/`net10.0
 target framework; packing all three of the library's frameworks multiplied the bundled native
 payload three-fold for no benefit, since a globally-installed tool only ever runs on one .NET
 version at a time. The packed native runtime assets are further pruned to `win-x64`, `linux-x64`,
-and `osx-arm64` only (see the Dependencies section above), rather than every RID the transitive
+and `osx-arm64` only (configured in the project file), rather than every RID the transitive
 `org.k2fsa.sherpa.onnx.runtime.*` packages support (including irrelevant ones like Android),
 keeping the packed tool a manageable size instead of bundling every platform's native binaries.
 
 ### Integration Patterns
 
 - **Context object**: A single `Context` instance carries every parsed command-line option and
-  the resolved subcommand name/arguments through to `Program.Run` and (in later passes) to each
+  the resolved subcommand name/arguments through to `Program.Run` and to each
   subcommand handler, mirroring the reference template's own `Context` pattern
 - **Fixed dispatch table**: `CommandDispatch.Commands` is the single source of truth for which
   subcommand names exist, their `--help` usage summaries, and their handlers, so `--help` output
