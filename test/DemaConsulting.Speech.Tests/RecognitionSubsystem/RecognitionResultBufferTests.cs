@@ -5,7 +5,7 @@ namespace DemaConsulting.Speech.Tests.RecognitionSubsystem;
 
 /// <summary>
 ///     Unit tests for <see cref="RecognitionResultBuffer"/>, exercising its provisional-coalescing
-///     and final-result-queueing backpressure policy (Decision #5) directly, without a session.
+///     and final-result-queueing backpressure policy directly, without a session.
 /// </summary>
 public class RecognitionResultBufferTests
 {

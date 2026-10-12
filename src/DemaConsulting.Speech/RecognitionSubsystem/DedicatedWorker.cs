@@ -15,10 +15,9 @@ namespace DemaConsulting.Speech.RecognitionSubsystem;
 ///     it does not, the returned task completes as cancelled, the delegate's thread is detached
 ///     to finish in the background with its eventual result discarded, and the condition is
 ///     reported through the supplied <see cref="ISpeechDiagnostics"/> sink at
-///     <see cref="SpeechDiagnosticLevel.Warning"/>. See Decision #4 in the engine/session async
-///     redesign planning report for the full rationale, including why callers that abandon as
-///     part of their own explicit stop/dispose treat that outcome as best-effort completion
-///     rather than a fault.
+///     <see cref="SpeechDiagnosticLevel.Warning"/>. Callers that abandon as part of their
+///     own explicit stop/dispose treat that outcome as best-effort completion rather than a
+///     fault.
 ///     <para>
 ///     The delegate always runs via <see cref="TaskCreationOptions.LongRunning"/>, which asks the
 ///     scheduler for a dedicated thread rather than a pooled one - appropriate here because the
@@ -146,8 +145,15 @@ internal sealed class DedicatedWorker
         {
             // The caller asked the delegate to stop; give it AbandonTimeout to actually do so
             // before giving up on waiting for it any further.
-            var abandonDelay = Task.Delay(AbandonTimeout, CancellationToken.None);
+            // The delay is cancelable so its timer is released as soon as the delegate finishes.
+            using var abandonCts = new CancellationTokenSource();
+            var abandonDelay = Task.Delay(AbandonTimeout, abandonCts.Token);
             var finished = await Task.WhenAny(worker, abandonDelay).ConfigureAwait(false);
+            if (finished == worker)
+            {
+                await abandonCts.CancelAsync().ConfigureAwait(false);
+            }
+
             if (finished != worker)
             {
                 _diagnostics.Report(

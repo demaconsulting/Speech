@@ -248,7 +248,7 @@ public class SynthesisSessionTests
     /// <summary>
     ///     Proves that <see cref="ISynthesisSession.SpeakAsync"/> returns control to its caller
     ///     well before a slow, synchronous <see cref="IAudioPlaybackDevice.Start"/> call returns -
-    ///     closing the review finding that the native playback device-start call used to run
+    ///     guarding the regression where the native playback device-start call used to run
     ///     inline on the calling thread, before this already-async method's first await, blocking
     ///     the caller (for example a UI thread) for however long the native call took.
     /// </summary>
@@ -451,7 +451,7 @@ public class SynthesisSessionTests
     ///     still awaits the original, still-in-flight operation (and its raw native completion)
     ///     before disposing the backend/releasing the lease, rather than observing only the
     ///     rejected call's already-completed (faulted) task and disposing the backend out from
-    ///     under the original call (finding 20).
+    ///     under the original call.
     /// </summary>
     [Fact]
     public async Task SynthesisSession_DisposeAsync_AfterRejectedOverlappingCall_StillAwaitsOriginalOperation()
@@ -724,7 +724,7 @@ public class SynthesisSessionTests
             backend, device, new FakeSynthesisModel(), null, NullSpeechDiagnostics.Instance, () => releaseCount++);
 
         // Act: start speaking, wait until the backend call has begun, then begin disposing
-        // directly (DisposeAsync requests its own cancellation and - per finding 27 - must wait
+        // directly (DisposeAsync requests its own cancellation and must wait
         // for the native call's genuine raw completion, not just the abandon-aware operation
         // task, before releasing the lease)
         var speakTask = session.SpeakAsync("Hello world.", TestContext.Current.CancellationToken);
@@ -750,7 +750,7 @@ public class SynthesisSessionTests
     }
 
     /// <summary>
-    ///     Proves that an abandoned native <c>Generate</c> call (finding 26) faults the session
+    ///     Proves that an abandoned native <c>Generate</c> call faults the session
     ///     rather than returning it to the reusable <see cref="SynthesisSessionState.Stopped"/>
     ///     state, so a subsequent <see cref="ISynthesisSession.SpeakAsync"/>/
     ///     <see cref="ISynthesisSession.SynthesizeAsync"/> call can never start a second native
@@ -791,7 +791,7 @@ public class SynthesisSessionTests
 
     /// <summary>
     ///     Proves that <see cref="ISynthesisSession.StopAsync"/> does not complete merely because
-    ///     the abandon-aware operation task has settled (finding 27): while the native
+    ///     the abandon-aware operation task has settled: while the native
     ///     <c>Generate</c> call is still genuinely running in the background past the abandon
     ///     timeout, the task <c>StopAsync</c> returns must remain incomplete, matching its
     ///     documented "operation has stopped" contract.
@@ -829,7 +829,7 @@ public class SynthesisSessionTests
 
     /// <summary>
     ///     Proves that <c>DisposeAsync</c>, called after an abandoned native <c>Generate</c> call
-    ///     has already faulted the session (finding 30), still waits for that native call's
+    ///     has already faulted the session, still waits for that native call's
     ///     genuine raw completion before releasing the engine's exclusivity lease. The session's
     ///     abandon-fault handling clears the operation's tracked task eagerly, alongside the
     ///     Faulted transition, so a naive re-read of that cleared task (without also re-checking
@@ -879,7 +879,7 @@ public class SynthesisSessionTests
 
     /// <summary>
     ///     Proves that an abandoned playback <see cref="IAudioPlaybackDevice.Start"/> call (the
-    ///     device-start review finding mirroring finding 27, but for the one-shot playback-device
+    ///     device-start counterpart of the abandoned-Generate case, but for the one-shot playback-device
     ///     startup rather than the per-segment native <c>Generate</c> call) is routed through the
     ///     same <see cref="DedicatedWorker"/> cooperative-cancel-then-abandon policy: cancelling
     ///     while <see cref="IAudioPlaybackDevice.Start"/> is still genuinely blocked must not hang
@@ -933,7 +933,7 @@ public class SynthesisSessionTests
 
     /// <summary>
     ///     Proves that a canceled caller token passed to <see cref="ISynthesisSession.StopAsync"/>
-    ///     only bounds that caller's own wait (finding 28) rather than aborting the shared
+    ///     only bounds that caller's own wait rather than aborting the shared
     ///     cancel-and-await teardown: the caller observes <see cref="OperationCanceledException"/>
     ///     promptly, but the in-flight operation is still genuinely requested to cancel and the
     ///     session still converges normally afterward.
@@ -960,18 +960,32 @@ public class SynthesisSessionTests
     }
 
     /// <summary>
-    ///     Polls <paramref name="session"/>'s <see cref="ISynthesisSession.State"/> until it
-    ///     equals <paramref name="expected"/> or <paramref name="timeout"/> elapses, used only to
-    ///     bound a wait for an asynchronous state transition driven by
-    ///     <see cref="DedicatedWorker"/>'s own abandon-timeout delay, not as a substitute for
-    ///     awaiting a task directly.
+    ///     Waits until <paramref name="session"/>'s <see cref="ISynthesisSession.State"/> equals
+    ///     <paramref name="expected"/> by observing <see cref="ISynthesisSession.StateChanged"/>
+    ///     (no polling), bounded by <paramref name="timeout"/>.
     /// </summary>
     private static async Task WaitForStateAsync(ISynthesisSession session, SynthesisSessionState expected, TimeSpan timeout)
     {
-        var deadline = DateTime.UtcNow + timeout;
-        while (session.State != expected && DateTime.UtcNow < deadline)
+        var reached = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        void Handler(object? sender, SessionStateChangedEventArgs e)
         {
-            await Task.Delay(TimeSpan.FromMilliseconds(20), TestContext.Current.CancellationToken);
+            if (session.State == expected)
+            {
+                reached.TrySetResult();
+            }
+        }
+
+        session.StateChanged += Handler;
+        try
+        {
+            if (session.State != expected)
+            {
+                await reached.Task.WaitAsync(timeout, TestContext.Current.CancellationToken);
+            }
+        }
+        finally
+        {
+            session.StateChanged -= Handler;
         }
 
         Assert.Equal(expected, session.State);

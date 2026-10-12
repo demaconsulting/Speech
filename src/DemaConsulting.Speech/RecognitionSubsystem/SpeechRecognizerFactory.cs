@@ -431,7 +431,7 @@ public static class SpeechRecognizerFactory
 
         if (cancellationToken.IsCancellationRequested)
         {
-            // Finding 30: the worker's delegate finished within the abandon grace period - so
+            // The worker's delegate finished within the abandon grace period - so
             // RunAsync above returned normally with no exception and backend creation may have
             // genuinely succeeded - but cancellation was still requested before that happened.
             // The caller must not receive a loaded engine for a call it asked to cancel; dispose

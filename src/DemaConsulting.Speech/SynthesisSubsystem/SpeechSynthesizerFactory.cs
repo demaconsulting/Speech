@@ -398,7 +398,7 @@ public static class SpeechSynthesizerFactory
 
         if (cancellationToken.IsCancellationRequested)
         {
-            // Finding 31: the worker's delegate finished within the abandon grace period - so
+            // The worker's delegate finished within the abandon grace period - so
             // run.Task above returned normally with a genuinely created backend - but
             // cancellation was still requested before that happened. The caller must not
             // receive a loaded engine for a call it asked to cancel; dispose the backend that

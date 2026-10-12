@@ -282,7 +282,7 @@ public class SpeechTests
             // The scripted provisional result ("hello") arrived before the consumer started
             // draining, and its own final ("hello world") was buffered before it was ever read,
             // so the provisional was superseded rather than delivered as a stale partial
-            // transcript trailing its own final (Decision #5).
+            // transcript trailing its own final.
             Assert.True(session.IsAvailable);
             var result = Assert.Single(received);
             Assert.True(result.IsFinal);

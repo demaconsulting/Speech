@@ -13,8 +13,8 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     narration" reasoning, any bracket content this parser cannot resolve against
 ///     <see cref="AudioTagCatalog"/> - an unknown word, an unclosed bracket, or empty brackets -
 ///     is emitted as literal <see cref="TaggedTextSpanKind.PlainText"/> (including the brackets
-///     themselves) rather than thrown away or raised as an error. Layer 2 per-model rendering (a
-///     later phase) consumes this parser's output to build a <c>SpeechPlan</c>.
+///     themselves) rather than thrown away or raised as an error. Layer 2 per-model rendering
+///     (implemented by each synthesis model) consumes this parser's output to build a <c>SpeechPlan</c>.
 /// </remarks>
 public static class AudioTagParser
 {

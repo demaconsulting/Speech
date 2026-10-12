@@ -18,7 +18,7 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 /// </param>
 /// <remarks>
 ///     This type is a pure, model-independent value shape: it carries no opinion about how a
-///     tag should be rendered into audio. Layer 2 per-model rendering (a later phase) consumes an
+///     tag should be rendered into audio. Layer 2 per-model rendering consumes an
 ///     ordered sequence of these spans to build a <c>SpeechPlan</c>. The record is immutable and
 ///     therefore safe to share across threads.
 /// </remarks>

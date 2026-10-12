@@ -508,7 +508,7 @@ public sealed class SpeechRecognizerFactoryTests : IDisposable
     ///     Proves that when <see cref="IRecognitionBackendFactory.Create"/> ignores cancellation
     ///     but still finishes within the dedicated worker's abandon grace period - so the worker
     ///     genuinely completes rather than being abandoned - <see cref="SpeechRecognizerFactory.LoadAsync(IRecognitionModel,string,ISpeechDiagnostics?,IRecognitionBackendFactory,IReadOnlyDictionary{string,object}?,CancellationToken)"/>
-    ///     still honors the cancellation request (finding 30) rather than reporting a loaded
+    ///     still honors the cancellation request rather than reporting a loaded
     ///     engine, and disposes the backend that was created so it does not leak.
     /// </summary>
     [Fact(Timeout = 10000)]

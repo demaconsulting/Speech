@@ -10,8 +10,7 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 /// <remarks>
 ///     <see cref="AudioTagParser"/> is the only production consumer of
 ///     <see cref="TryResolve"/>/<see cref="Normalize"/>; this class contains no scanning logic of
-///     its own so the alias table can be reasoned about, tested, and (in a later phase) rendered
-///     into a user guide independently of how bracket text is located in a larger string.
+///     its own so the alias table can be reasoned about, tested, and rendered into a user guide independently of how bracket text is located in a larger string.
 /// </remarks>
 public static class AudioTagCatalog
 {

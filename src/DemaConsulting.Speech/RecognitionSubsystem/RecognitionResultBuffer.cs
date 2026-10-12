@@ -8,7 +8,7 @@ namespace DemaConsulting.Speech.RecognitionSubsystem;
 ///     one overwritable "latest provisional" slot plus a byte-capped FIFO of final results.
 /// </summary>
 /// <remarks>
-///     Implements Decision #5 of the engine/session async redesign: a provisional result that
+///     Applies a two-tier backpressure policy: a provisional result that
 ///     arrives before the consumer has read the previous one simply overwrites it (coalescing is
 ///     the documented common case and costs no allocation beyond the record itself), while final
 ///     results are queued and never silently coalesced - they are capped by total UTF-16 byte size

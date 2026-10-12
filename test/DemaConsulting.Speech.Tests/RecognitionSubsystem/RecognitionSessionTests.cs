@@ -43,7 +43,7 @@ public class RecognitionSessionTests
     /// <summary>
     ///     Proves that <see cref="RecognitionSession.StartAsync"/> returns control to
     ///     its caller well before a slow, synchronous <see cref="IAudioCaptureDevice.Start"/>
-    ///     call returns - closing the review finding that the native device-start call used to
+    ///     call returns - guarding the regression where the native device-start call used to
     ///     run inline on the calling thread, blocking it (for example a UI thread) for the whole
     ///     capture window.
     /// </summary>
@@ -86,7 +86,7 @@ public class RecognitionSessionTests
     /// <summary>
     ///     Proves that starting a session that has already reached
     ///     <see cref="RecognitionSessionState.Stopped"/> throws <see cref="InvalidOperationException"/>
-    ///     rather than permitting a restart (Decision #1): a session is single-use.
+    ///     rather than permitting a restart: a session is single-use.
     /// </summary>
     [Fact]
     public async Task RecognitionSession_StartAsync_FromStopped_ThrowsInvalidOperationException()
@@ -328,7 +328,7 @@ public class RecognitionSessionTests
     /// <summary>
     ///     Proves that a slow consumer of <see cref="RecognitionSession.GetResultsAsync"/>
     ///     never sees every provisional result produced while it was not reading: later
-    ///     provisional results coalesce into the latest one (Decision #5).
+    ///     provisional results coalesce into the latest one.
     /// </summary>
     [Fact]
     public async Task RecognitionSession_GetResultsAsync_SlowConsumer_CoalescesProvisionalResults()
@@ -359,8 +359,8 @@ public class RecognitionSessionTests
 
     /// <summary>
     ///     Proves that a slow consumer of <see cref="RecognitionSession.GetResultsAsync"/>
-    ///     never loses a final result while the buffered backlog remains under the byte cap
-    ///     (Decision #5): every final result is still delivered, in order.
+    ///     never loses a final result while the buffered backlog remains under the byte cap:
+    ///     every final result is still delivered, in order.
     /// </summary>
     [Fact]
     public async Task RecognitionSession_GetResultsAsync_SlowConsumer_NeverDropsFinalResultsUnderByteCap()
@@ -418,7 +418,7 @@ public class RecognitionSessionTests
     ///     Proves that a dedicated worker's delegate which never observes cancellation (standing
     ///     in for a stuck native call) is bounded by the abandon-timeout policy rather than
     ///     hanging <see cref="RecognitionSession.StopAsync"/> forever, and that the
-    ///     abandonment is reported through diagnostics (Decision #4).
+    ///     abandonment is reported through diagnostics.
     /// </summary>
     [Fact]
     public async Task RecognitionSession_NativeCallExceedsAbandonTimeout_TaskCompletesAndDiagnosticsReportsWarning()
@@ -457,7 +457,7 @@ public class RecognitionSessionTests
     /// <summary>
     ///     Proves that cancelling <see cref="RecognitionSession.StartAsync"/>'s own
     ///     <see cref="CancellationToken"/> while <see cref="IAudioCaptureDevice.Start"/> is still
-    ///     blocking is actually honored - closing the review finding that the device-start worker
+    ///     blocking is actually honored - guarding the regression where the device-start worker
     ///     call used <see cref="CancellationToken.None"/>, so a caller's cancellation request was
     ///     ignored indefinitely rather than bounded by the abandon-timeout policy every other
     ///     dedicated-worker call in this session already uses.
@@ -555,7 +555,7 @@ public class RecognitionSessionTests
 
     /// <summary>
     ///     Proves, across many iterations, that the Stopping transition is always raised before
-    ///     the Stopped transition it logically precedes (findings 32/33): with every dependency
+    ///     the Stopped transition it logically precedes: with every dependency
     ///     trivially fast to complete (as here), the teardown that produces the Stopped transition
     ///     can genuinely run to completion synchronously the instant it is started, so only
     ///     starting it strictly after Stopping has already been raised - never racing that
@@ -677,7 +677,7 @@ public class RecognitionSessionTests
     ///     observe a <see cref="RecognitionSession.StartAsync"/> call's intermediate
     ///     <see cref="RecognitionSessionState.Starting"/> state, converge the session to
     ///     <see cref="RecognitionSessionState.Stopped"/>, and return while the device is still
-    ///     being started - closing the review finding that this race could leave capture running
+    ///     being started - guarding the regression where this race could leave capture running
     ///     against a session the caller believes is stopped.
     /// </summary>
     [Fact]
@@ -803,7 +803,7 @@ public class RecognitionSessionTests
 
     /// <summary>
     ///     Proves that <see cref="RecognitionSession.StopAsync"/>'s
-    ///     <see cref="CancellationToken"/> parameter is genuinely observed (finding 19): a caller
+    ///     <see cref="CancellationToken"/> parameter is genuinely observed: a caller
     ///     who cancels it stops waiting for that call's own completion promptly, without being
     ///     stuck behind a slow drain - but the shared teardown itself is never aborted by that
     ///     cancellation, since it is shared with every other concurrent/overlapping caller (and
@@ -931,7 +931,7 @@ public class RecognitionSessionTests
     /// <summary>
     ///     Proves that a <see cref="RecognitionSession.StateChanged"/> handler calling
     ///     back into this session (for example <see cref="RecognitionSession.StopAsync"/>)
-    ///     and then synchronously blocking on the result does not deadlock (finding 21): the event
+    ///     and then synchronously blocking on the result does not deadlock: the event
     ///     must be raised only after <c>_syncRoot</c> has been released.
     /// </summary>
     [Fact(Timeout = 5000)]
@@ -970,8 +970,7 @@ public class RecognitionSessionTests
     ///     Proves that a backend exception thrown from <see cref="IRecognitionBackend.AcceptSamples"/>
     ///     faults the session and completes <see cref="RecognitionSession.GetResultsAsync"/>
     ///     with <see cref="RecognitionSessionFaultedException"/>, rather than leaving the session
-    ///     <see cref="RecognitionSessionState.Running"/> with its result buffer open forever
-    ///     (finding 22).
+    ///     <see cref="RecognitionSessionState.Running"/> with its result buffer open forever.
     /// </summary>
     [Fact]
     public async Task RecognitionSession_BackendThrowsFromAcceptSamples_FaultsSessionAndCompletesResultBuffer()
@@ -1002,7 +1001,7 @@ public class RecognitionSessionTests
     ///     Proves that calling <see cref="RecognitionSession.StopAsync"/> on a session
     ///     that was never started still completes its result buffer, so
     ///     <see cref="RecognitionSession.GetResultsAsync"/> returns instead of hanging
-    ///     forever (finding 23).
+    ///     forever.
     /// </summary>
     [Fact]
     public async Task RecognitionSession_StopAsync_BeforeStartAsync_CompletesResultBuffer()
@@ -1027,7 +1026,7 @@ public class RecognitionSessionTests
     ///     recognition backend is not reset (nor the device stopped) until the pump thread has
     ///     genuinely exited, closing the race in which the raw pump thread could still be inside
     ///     <see cref="IRecognitionBackend.AcceptSamples"/> while teardown concurrently reset the
-    ///     same backend (finding 24).
+    ///     same backend.
     /// </summary>
     [Fact(Timeout = 10000)]
     public async Task RecognitionSession_AbandonedPumpWorker_DoesNotResetBackendUntilWorkerExits()
@@ -1074,7 +1073,7 @@ public class RecognitionSessionTests
     ///     Proves that passing an already-canceled token to <see cref="RecognitionSession.StopAsync"/>
     ///     only bounds this caller's own wait - the call throws <see cref="OperationCanceledException"/>
     ///     immediately rather than waiting for teardown - while the shared teardown itself still
-    ///     converges for every other observer (findings 19/25).
+    ///     converges for every other observer.
     /// </summary>
     [Fact]
     public async Task RecognitionSession_StopAsync_PreCanceledToken_ThrowsButTeardownStillConverges()

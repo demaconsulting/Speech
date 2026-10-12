@@ -6,7 +6,7 @@ namespace DemaConsulting.Speech.Tests.RecognitionSubsystem;
 
 /// <summary>
 ///     Unit tests for <see cref="DedicatedWorker"/>, exercising the cooperative-cancel-then-abandon
-///     policy (Decision #4) without any real recognition backend.
+///     policy without any real recognition backend.
 /// </summary>
 public class DedicatedWorkerTests
 {

@@ -481,7 +481,7 @@ public sealed class SpeechSynthesizerFactoryTests : IDisposable
     ///     Proves that when <see cref="ISynthesisBackendFactory.Create"/> ignores cancellation but
     ///     still finishes within the dedicated worker's abandon grace period - so the worker
     ///     genuinely completes rather than being abandoned - <c>LoadAsync</c> still honors the
-    ///     cancellation request (finding 31) rather than reporting a loaded engine, and disposes
+    ///     cancellation request rather than reporting a loaded engine, and disposes
     ///     the backend that was created so it does not leak.
     /// </summary>
     [Fact(Timeout = 10000)]
