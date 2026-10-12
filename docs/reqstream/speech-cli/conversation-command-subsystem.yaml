@@ -82,9 +82,8 @@ sections:
               The tool shall end its listen phase as soon as the first final recognition result
               arrives, and shall additionally accept optional `--start-timeout <seconds>`/
               `--silence-timeout <seconds>` flags with identical meaning and defaulting to
-              `recognize --mic`'s own defaults (5 seconds for silence, 8 seconds for start), reusing
-              `SilenceTimeoutRecognizerSession` unmodified
-              as a safety net for a reply that never finishes or never starts.
+              `recognize --mic`'s own defaults (5 seconds for silence, 8 seconds for start), as a
+              safety net for a reply that never finishes or never starts.
             tags: [subsystem]
             justification: |
               `ask` models one bounded question/answer turn, not open-ended transcription, so
@@ -156,21 +155,21 @@ sections:
 
           - id: SpeechCli-ConversationCommands-PrewarmRecognizer
             title: >-
-              The tool shall begin constructing Phase 2's recognizer (including resolving its
-              capture device) concurrently with Phase 1's speak/playback wait, rather than only
-              after playback finishes, so Phase 2 can start listening with minimal added latency;
-              a pre-warm failure shall surface at Phase 2's start rather than being silently
-              lost, and any recognizer produced by a canceled Phase 1 shall be disposed rather
-              than leaked.
+              The tool shall have the listen phase's recognizer prepared by the time the speak
+              phase's playback finishes, so listening begins without a model-loading delay after
+              the prompt; a failure preparing the recognizer shall be reported when the listen
+              phase starts rather than being lost, and a cancellation during the speak phase
+              shall release anything already prepared.
             tags: [subsystem, performance]
             justification: |
               Loading a recognition model into native memory is the expensive step in
-              constructing an `IRecognitionSession`; deferring that load until after Phase 1's
-              playback finishes introduces an avoidable turnaround-gap latency between finishing
-              speaking and starting to listen, which matters for a natural-feeling voice
-              conversation. Overlapping the load with the time a person spends listening to the
-              prompt removes that gap without starting real microphone capture early, and without
-              changing any other observable behavior, exit code, or error message.
+              constructing a recognition session; deferring it until playback finishes
+              introduces an avoidable gap between finishing speaking and starting to listen,
+              which matters for a natural-feeling voice conversation. Overlapping the load with
+              the time a person spends listening to the prompt removes that gap without starting
+              microphone capture early and without changing any other observable behavior, exit
+              code, or error message. The concurrency strategy is described in the
+              ConversationCommandSubsystem design document.
             tests:
               - AskCommand_Run_PrewarmsRecognizerConcurrentlyWithPlayback_CreatesRecognizerBeforePlaybackCompletes
               - AskCommand_Run_CanceledDuringSpeak_SkipsListenPhase

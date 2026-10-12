@@ -77,16 +77,17 @@ sections:
 
           - id: SpeechCli-DeviceCommands-ToneGeneration
             title: >-
-              The tool shall generate its `devices test` output-direction test tone as an
-              in-process sine wave (never invoking any text-to-speech model), producing the
-              correct sample count for the requested sample rate/duration, with every sample
-              within the normalized `[-1.0, 1.0]` range and identical across every channel.
+              The tool shall play a generated test tone for the output direction of `devices
+              test`, with no downloaded model required, having the sample count for the
+              requested sample rate and duration, every sample within the normalized range -1.0
+              to 1.0, and identical samples on every channel.
             tags: [subsystem]
             justification: |
               Sanity-checking playback hardware must not depend on a downloaded synthesis model
-              being available; a simple, deterministic sine wave is sufficient to prove audio
-              actually reaches the device, and its correctness (sample count, normalized range,
-              per-channel identity) can be proven with pure math, with no real hardware.
+              being available; a simple, deterministic tone is sufficient to prove audio
+              actually reaches the device, and its correctness (sample count, range, per-channel
+              identity) can be proven with pure math, with no real hardware. The in-process
+              sine-wave generation is described in the DeviceCommandsSubsystem design document.
             tests:
               - DevicesTestCommand_GenerateToneSamples_ReturnsExpectedSampleCount
               - DevicesTestCommand_GenerateToneSamples_AllSamplesWithinNormalizedRange
@@ -126,18 +127,15 @@ sections:
 
           - id: SpeechCli-DeviceCommands-LibraryDelegation
             title: >-
-              The DeviceCommandsSubsystem shall obtain every audio device probe/factory result it
-              reports directly through the library's public `AudioDeviceFactory`/
-              `IAudioCaptureDeviceProbe`/`IAudioPlaybackDeviceProbe` types (introducing no
-              additional CLI-owned seam wrapper over them), and shall reject a missing context,
-              probe, factory, or model catalog.
+              The tool shall report every audio device probe and device-creation result exactly
+              as the speech library's audio device facilities provide it, and shall reject a
+              missing context, probe, factory, or model catalog immediately with an exception.
             tags: [subsystem]
             justification: |
-              Those probe interfaces are already public and directly fakeable, so an additional
-              seam layer (as `ICliModelCatalog` provides for the sealed `SpeechModelCatalog`)
-              would duplicate testability the library already provides for no benefit, while
-              still requiring every command to reject a missing dependency immediately so a
-              programming error is never silently ignored.
+              The library's probe interfaces are already public and directly replaceable in
+              tests, so the subsystem adds no wrapper of its own; a missing dependency must
+              still fail immediately so a programming error is never silently ignored. See the
+              DeviceCommandsSubsystem design document.
             tests:
               - ListDevicesCommand_Run_NullContext_ThrowsArgumentNullException
               - ListDevicesCommand_Run_NullCaptureProbe_ThrowsArgumentNullException

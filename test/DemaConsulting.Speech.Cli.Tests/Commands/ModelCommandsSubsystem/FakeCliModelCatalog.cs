@@ -177,13 +177,6 @@ internal sealed class FakeCliModelCatalog : ICliModelCatalog
     }
 
     /// <summary>
-    ///     Gets or sets the delegate <see cref="GetAudioFormat"/> forwards to, or
-    ///     <see langword="null"/> to throw a clear "not configured" exception if a test forgets
-    ///     to set it and the code path is reached.
-    /// </summary>
-    public Func<SpeechModelDescriptor, AudioFormat>? GetAudioFormatOverride { get; set; }
-
-    /// <summary>
     ///     Gets or sets the delegate <see cref="CreateRecognizerEngineAsync"/> forwards to, or
     ///     <see langword="null"/> to throw a clear "not configured" exception if a test forgets
     ///     to set it and the code path is reached.
@@ -194,16 +187,6 @@ internal sealed class FakeCliModelCatalog : ICliModelCatalog
 
     /// <summary>Gets the ordered list of parameter value bags passed to <see cref="CreateRecognizerEngineAsync"/>.</summary>
     public List<IReadOnlyDictionary<string, object>?> CreateRecognizerParameterValueCalls { get; } = [];
-
-    /// <inheritdoc/>
-    public AudioFormat GetAudioFormat(SpeechModelDescriptor descriptor)
-    {
-        ArgumentNullException.ThrowIfNull(descriptor);
-
-        return GetAudioFormatOverride?.Invoke(descriptor)
-            ?? throw new InvalidOperationException(
-                $"{nameof(FakeCliModelCatalog)}.{nameof(GetAudioFormatOverride)} was not configured for this test.");
-    }
 
     /// <inheritdoc/>
     public Task<ISpeechRecognizerEngine> CreateRecognizerEngineAsync(

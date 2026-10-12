@@ -196,7 +196,8 @@ cast genuinely rejects a non-synthesis model rather than only being exercised th
 automated test exercises a real, downloaded synthesis-role model against these two members - see
 _Manual / Build-Time Verification_ below.
 
-**Requirement coverage**: `SpeechCli-SynthesisCommands-CatalogSeamExtension`.
+**Requirement coverage**: `SpeechCli-ModelCommands-SynthesisSeamExtension` (see the
+ModelCommandsSubsystem verification document).
 
 #### Null Guards
 
@@ -224,8 +225,6 @@ missing dependency.
   above
 - **`SpeechCli-SynthesisCommands-CancellationAndDisposal`**: see _Cancellation and Disposal
   Ordering_ above
-- **`SpeechCli-SynthesisCommands-CatalogSeamExtension`**: see _ICliModelCatalog Seam Extension
-  (Real Catalog)_ above
 - **`SpeechCli-SynthesisCommands-NullGuards`**: see _Null Guards_ above
 
 ### Acceptance Criteria

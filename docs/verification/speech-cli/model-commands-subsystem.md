@@ -255,17 +255,14 @@ context.
 `SpeechModelCatalogAdapter_GetPreferredAudioFormat_NullDescriptor_ThrowsArgumentNullException`,
 `SpeechModelCatalogAdapter_CreateSynthesizerEngineAsync_RecognitionRoleModel_ThrowsArgumentException`,
 `SpeechModelCatalogAdapter_CreateSynthesizerEngineAsync_NullDescriptor_ThrowsArgumentNullException`,
-`SpeechModelCatalogAdapter_GetAudioFormat_SynthesisRoleModel_ThrowsArgumentException`,
-`SpeechModelCatalogAdapter_GetAudioFormat_NullDescriptor_ThrowsArgumentNullException`,
 `SpeechModelCatalogAdapter_CreateRecognizerEngineAsync_SynthesisRoleModel_ThrowsArgumentException`,
 `SpeechModelCatalogAdapter_CreateRecognizerEngineAsync_NullDescriptor_ThrowsArgumentNullException`,
 `SpeechModelCatalogAdapter_GetPreferredAudioFormat_WithSynthesisModel_ReturnsFormat`,
-`SpeechModelCatalogAdapter_GetAudioFormat_WithRecognitionModel_ReturnsFormat`,
 `SpeechModelCatalogAdapter_CreateSynthesizerEngineAsync_WithSynthesisModel_ReturnsEngine`,
 `SpeechModelCatalogAdapter_CreateRecognizerEngineAsync_WithRecognitionModel_ReturnsEngine`
 
-**Scenario/Expected**: Each of the four seam members (`GetPreferredAudioFormat`,
-`CreateSynthesizerEngineAsync`, `GetAudioFormat`, `CreateRecognizerEngineAsync`) rejects a `null`
+**Scenario/Expected**: Each of the three seam members (`GetPreferredAudioFormat`,
+`CreateSynthesizerEngineAsync`, `CreateRecognizerEngineAsync`) rejects a `null`
 descriptor with `ArgumentNullException` and a model of the wrong role with an `ArgumentException`
 naming the model. The positive-path tests use a fake synthesis or recognition model, which is
 possible because `ISynthesisModel` and `IRecognitionModel` are public interfaces, to prove that a

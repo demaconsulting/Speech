@@ -363,37 +363,6 @@ public sealed class SpeechModelCatalogAdapterTests : IDisposable
     }
 
     /// <summary>
-    ///     Test that <see cref="SpeechModelCatalogAdapter.GetAudioFormat"/> throws a clean
-    ///     <see cref="ArgumentException"/> for a real, compiled-in synthesis-role model (not a
-    ///     recognition model).
-    /// </summary>
-    [Fact]
-    public void SpeechModelCatalogAdapter_GetAudioFormat_SynthesisRoleModel_ThrowsArgumentException()
-    {
-        // Arrange
-        using var adapter = new SpeechModelCatalogAdapter(new SpeechModelStoreOptions { RootPathOverride = _testRoot });
-        var descriptor = adapter.Enumerate().First(d => d.Role == SpeechModelRole.Synthesis);
-
-        // Act & Assert
-        var exception = Assert.Throws<ArgumentException>(() => adapter.GetAudioFormat(descriptor));
-        Assert.Equal("descriptor", exception.ParamName);
-    }
-
-    /// <summary>
-    ///     Test that <see cref="SpeechModelCatalogAdapter.GetAudioFormat"/> rejects a null
-    ///     descriptor.
-    /// </summary>
-    [Fact]
-    public void SpeechModelCatalogAdapter_GetAudioFormat_NullDescriptor_ThrowsArgumentNullException()
-    {
-        // Arrange
-        using var adapter = new SpeechModelCatalogAdapter(new SpeechModelStoreOptions { RootPathOverride = _testRoot });
-
-        // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => adapter.GetAudioFormat(null!));
-    }
-
-    /// <summary>
     ///     Test that <see cref="SpeechModelCatalogAdapter.CreateRecognizerEngineAsync"/> throws a
     ///     clean <see cref="ArgumentException"/> for a real, compiled-in synthesis-role model (not
     ///     a recognition model).
@@ -443,26 +412,6 @@ public sealed class SpeechModelCatalogAdapterTests : IDisposable
 
         // Assert
         Assert.Equal(24000, format.SampleRate);
-        Assert.Equal(1, format.ChannelCount);
-    }
-
-    /// <summary>
-    ///     Test that <see cref="SpeechModelCatalogAdapter.GetAudioFormat"/> returns the recognition
-    ///     model's declared input format.
-    /// </summary>
-    [Fact]
-    public void SpeechModelCatalogAdapter_GetAudioFormat_WithRecognitionModel_ReturnsFormat()
-    {
-        // Arrange
-        using var adapter = new SpeechModelCatalogAdapter(new SpeechModelStoreOptions { RootPathOverride = _testRoot });
-        var descriptor = new SpeechModelDescriptor(
-            new FakeRecognitionModel("fake-stt", new AudioFormat(16000, 1)), SpeechModelState.NotDownloaded);
-
-        // Act
-        var format = adapter.GetAudioFormat(descriptor);
-
-        // Assert
-        Assert.Equal(16000, format.SampleRate);
         Assert.Equal(1, format.ChannelCount);
     }
 

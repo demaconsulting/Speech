@@ -126,20 +126,6 @@ internal interface ICliModelCatalog
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    ///     Resolves the mono audio format a recognition-role model descriptor's engine requires
-    ///     its input audio to be supplied at, symmetric to <see cref="GetPreferredAudioFormat"/>
-    ///     on the synthesis side.
-    /// </summary>
-    /// <param name="descriptor">
-    ///     The descriptor to resolve the required format for. Must not be null and must describe
-    ///     a recognition-role model.
-    /// </param>
-    /// <returns>The model's required capture audio format.</returns>
-    /// <exception cref="ArgumentNullException">Thrown when <paramref name="descriptor"/> is <see langword="null"/>.</exception>
-    /// <exception cref="ArgumentException">Thrown when <paramref name="descriptor"/> does not describe a recognition-role model.</exception>
-    AudioFormat GetAudioFormat(SpeechModelDescriptor descriptor);
-
-    /// <summary>
     ///     Loads a real <see cref="ISpeechRecognizerEngine"/> for a resolved recognition-role
     ///     model descriptor, with no capture device bound yet.
     /// </summary>

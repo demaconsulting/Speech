@@ -177,14 +177,6 @@ internal sealed class SpeechModelCatalogAdapter : ICliModelCatalog, IDisposable
     }
 
     /// <inheritdoc/>
-    public AudioFormat GetAudioFormat(SpeechModelDescriptor descriptor)
-    {
-        ArgumentNullException.ThrowIfNull(descriptor);
-
-        return RequireRecognitionModel(descriptor).AudioFormat;
-    }
-
-    /// <inheritdoc/>
     public Task<ISpeechRecognizerEngine> CreateRecognizerEngineAsync(
         SpeechModelDescriptor descriptor,
         IReadOnlyDictionary<string, object>? parameterValues,

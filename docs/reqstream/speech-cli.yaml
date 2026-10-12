@@ -234,7 +234,6 @@ sections:
           - SpeechCli-SynthesisCommands-NoTags
           - SpeechCli-SynthesisCommands-OutputDispatch
           - SpeechCli-SynthesisCommands-CancellationAndDisposal
-          - SpeechCli-SynthesisCommands-CatalogSeamExtension
           - SpeechCli-SynthesisCommands-NullGuards
         tests:
           - SpeechCli_SpeakCommandWithUnknownModel_Invoked_ReturnsCleanError
@@ -258,7 +257,6 @@ sections:
           - SpeechCli-RecognitionCommands-StartTimeout
           - SpeechCli-RecognitionCommands-VerbosityAndOutput
           - SpeechCli-RecognitionCommands-DeviceDispatch
-          - SpeechCli-RecognitionCommands-CatalogSeamExtension
           - SpeechCli-RecognitionCommands-NullGuards
         tests:
           - SpeechCli_RecognizeCommandWithUnknownModel_Invoked_ReturnsCleanError

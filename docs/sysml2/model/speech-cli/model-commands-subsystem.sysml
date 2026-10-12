@@ -28,7 +28,7 @@ package SpeechCli {
              * catalog data with no network access. Also the single seam point extended by
              * SynthesisCommandSubsystem/RecognitionCommandSubsystem with async engine-loading
              * members (GetPreferredAudioFormat/CreateSynthesizerEngineAsync,
-             * GetAudioFormat/CreateRecognizerEngineAsync) returning the library's async
+             * CreateRecognizerEngineAsync) returning the library's async
              * ISpeechSynthesizerEngine/ISpeechRecognizerEngine, each later bound to a device
              * via CreateSessionAsync rather than returning a device-bound synthesizer or
              * recognizer directly. Also exposes the reference-voice members (VoicePacks,
@@ -42,7 +42,7 @@ package SpeechCli {
         doc /* Real catalog seam implementation, owning and delegating to a real
              * SpeechModelCatalog (and, for uninstall/cleanup, its Store) without exposing the
              * library's internal-only constructor. Forwards GetPreferredAudioFormat/
-             * CreateSynthesizerEngineAsync and GetAudioFormat/CreateRecognizerEngineAsync
+             * CreateSynthesizerEngineAsync and CreateRecognizerEngineAsync
              * unchanged to the resolved model's real SpeechSynthesizerFactory/
              * SpeechRecognizerFactory, preserving each factory's own honestly-unavailable
              * fallback contract rather than masking it. Chains AddChatterboxTurboModels after the

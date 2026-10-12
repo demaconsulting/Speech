@@ -138,18 +138,17 @@ sections:
 
           - id: SpeechCli-ModelCommands-LibraryDelegation
             title: >-
-              The ModelCommandsSubsystem shall obtain every model descriptor, every download,
-              and every install/uninstall/cleanup operation it reports through an injectable
-              catalog seam over the library's `SpeechModelCatalog`/`SpeechModelStore`, and shall
-              reject a missing context or catalog seam.
+              The tool shall report every model descriptor, download, install, uninstall, and
+              cleanup outcome exactly as the speech library's model catalog and model store
+              provide it, keeping no model state of its own, and shall reject a missing context
+              or catalog immediately with `ArgumentNullException`.
             tags: [subsystem]
             justification: |
               The subsystem exists to expose the library's own model-management behavior from
-              the command line, so it must not maintain any model state of its own. Routing
-              every command through an injectable seam keeps each command's argument-parsing and
-              presentation logic testable without a real network access or a real installed
-              model, matching this repository's established seam pattern (see SpeechDemo's
-              `IModelCatalogService`).
+              the command line, so it must not maintain any model state of its own. Keeping that
+              dependency replaceable lets each command's argument parsing and presentation be
+              verified without network access or an installed model; the seam is described in
+              the ModelCommandsSubsystem design document.
             tests:
               - ListModelsCommand_Run_NullContext_ThrowsArgumentNullException
               - ListModelsCommand_Run_NullCatalog_ThrowsArgumentNullException
@@ -168,36 +167,30 @@ sections:
 
           - id: SpeechCli-ModelCommands-DownloadMirrorComposition
             title: >-
-              The ModelCommandsSubsystem shall compose every model-management command's catalog
-              seam with the download mirror resolved from the tool's global `--mirror-*` options
-              (see `SpeechCli-Cli-DownloadMirror`), so a configured mirror is genuinely applied to
-              every model download that seam performs, not merely accepted and ignored.
+              The tool shall apply the download mirror configured through the global
+              `--mirror-*` options (see `SpeechCli-Cli-DownloadMirror`) to every model download
+              performed by any model-management command, rather than accepting and ignoring it.
             tags: [subsystem]
             justification: |
-              `CliModelCatalogFactory`/`SpeechModelCatalogAdapter` are this subsystem's only path
-              from the parsed `--mirror-*` global options to the library's download machinery;
-              decomposing the system-level `SpeechCli-Cli-DownloadMirror` requirement down to this
-              subsystem makes that composition responsibility explicit and independently
-              verifiable, rather than leaving the mirror's actual effect on a real download
-              implicit in the system-level requirement alone.
+              A configured mirror is needed when the default download host is unreachable or
+              prohibited; decomposing the system-level `SpeechCli-Cli-DownloadMirror`
+              requirement down to this subsystem makes the mirror's actual effect on a real
+              download independently verifiable.
             tests:
               - CliModelCatalogFactory_Create_WithMirrorUrl_AppliesMirrorToDownloads
 
           - id: SpeechCli-ModelCommands-SynthesisSeamExtension
             title: >-
-              The `ICliModelCatalog` seam shall additionally expose a resolved model's preferred
-              audio format and construct its `ISpeechSynthesizerEngine`, for use by
-              `SynthesisCommandSubsystem`'s `speak` subcommand, rejecting a descriptor whose model
-              is not a synthesis model with a clean `ArgumentException` rather than an unhandled
-              cast exception.
+              The tool shall load the synthesis engine and determine the preferred audio format
+              of a resolved synthesis model for `speak`, and shall report a model of any other
+              role with a clean, specific error rather than an unhandled cast exception.
             tags: [subsystem]
             justification: |
-              `speak` must load a real synthesis engine and know its preferred audio format, both
-              of which depend on the resolved model being a synthesis model. Exposing these
-              operations through the existing seam - rather than a second, competing one - keeps a
-              single, narrow boundary between the CLI and the library's model types. The library's
-              `ISynthesisModel` is a public interface, so the positive path is verified with a fake
-              synthesis model in addition to the rejection paths.
+              `speak` must load a real synthesis engine and know its preferred audio format,
+              both of which depend on the resolved model being a synthesis model. A wrong-role
+              model must produce an actionable message, not a crash. The catalog seam that
+              provides these operations is described in the ModelCommandsSubsystem design
+              document.
             tests:
               - SpeechModelCatalogAdapter_GetPreferredAudioFormat_RecognitionRoleModel_ThrowsArgumentException
               - SpeechModelCatalogAdapter_GetPreferredAudioFormat_NullDescriptor_ThrowsArgumentNullException
@@ -208,26 +201,18 @@ sections:
 
           - id: SpeechCli-ModelCommands-RecognitionSeamExtension
             title: >-
-              The `ICliModelCatalog` seam shall additionally expose a resolved model's required
-              audio format and construct its `ISpeechRecognizerEngine`, for use by
-              `RecognitionCommandSubsystem`'s `recognize` subcommand, rejecting a descriptor whose
-              model is not a recognition model with a clean `ArgumentException` rather than an
-              unhandled cast exception.
+              The tool shall load the recognition engine of a resolved recognition model for
+              `recognize`, and shall report a model of any other role with a clean, specific
+              error rather than an unhandled cast exception.
             tags: [subsystem]
             justification: |
-              `recognize` must load a real recognition engine and know its required audio format,
-              both of which depend on the resolved model being a recognition model, symmetric to
-              the synthesis extension above. Exposing these operations through the existing seam -
-              rather than a third, competing one - keeps a single, narrow boundary between the CLI
-              and the library's model types. The library's `IRecognitionModel` is a public
-              interface, so the positive path is verified with a fake recognition model in
-              addition to the rejection paths.
+              `recognize` must load a real recognition engine, which depends on the resolved
+              model being a recognition model. A wrong-role model must produce an actionable
+              message, not a crash. The catalog seam that provides this operation is described
+              in the ModelCommandsSubsystem design document.
             tests:
-              - SpeechModelCatalogAdapter_GetAudioFormat_SynthesisRoleModel_ThrowsArgumentException
-              - SpeechModelCatalogAdapter_GetAudioFormat_NullDescriptor_ThrowsArgumentNullException
               - SpeechModelCatalogAdapter_CreateRecognizerEngineAsync_SynthesisRoleModel_ThrowsArgumentException
               - SpeechModelCatalogAdapter_CreateRecognizerEngineAsync_NullDescriptor_ThrowsArgumentNullException
-              - SpeechModelCatalogAdapter_GetAudioFormat_WithRecognitionModel_ReturnsFormat
               - SpeechModelCatalogAdapter_CreateRecognizerEngineAsync_WithRecognitionModel_ReturnsEngine
 
           - id: SpeechCli-ModelCommands-ChatterboxComposition

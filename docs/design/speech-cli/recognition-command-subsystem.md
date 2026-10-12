@@ -17,7 +17,7 @@ existing catalog seam with two further members:
   timeout (a start-timeout grace period before the first recognition result, a silence-timeout
   window resetting on every result thereafter) against each `MoveNextAsync`, stopping the wrapped
   session when the currently-active window elapses with no result
-- **`ICliModelCatalog.GetAudioFormat`/`CreateRecognizerEngineAsync`**: the two new seam members
+- **`ICliModelCatalog.CreateRecognizerEngineAsync`**: the new seam member
   (see _Extending the ModelCommandsSubsystem Seam_ below), implemented by
   `SpeechModelCatalogAdapter`
 
@@ -27,7 +27,7 @@ existing catalog seam with two further members:
 `SilenceTimeoutRecognizerSession` decorator, which `AskCommand` also reuses. Operator mistakes are
 reported as `ArgumentException` or `InvalidOperationException`.
 
-**Consumed**: `ICliModelCatalog` (`Enumerate`, `GetAudioFormat`, `CreateRecognizerEngineAsync`),
+**Consumed**: `ICliModelCatalog` (`Enumerate`, `CreateRecognizerEngineAsync`),
 the library's `ISpeechRecognizerEngine`/`IRecognitionSession`/`SpeechRecognitionEvent`/
 `SpeechRecognitionResult`, `AudioFormat`, `AudioDeviceFactory`, `WavFileAudioCaptureDevice`,
 `ParameterBagParser`, and `DevicesTestCommand.ResolveDeviceSelectionOrThrow`.
@@ -50,7 +50,6 @@ symmetric to the synthesis pair, are exposed on `ICliModelCatalog`:
 
 | Member | Returns | Behavior |
 | --- | --- | --- |
-| `GetAudioFormat(descriptor)` | `AudioFormat` | Throws for a non-recognition model |
 | `CreateRecognizerEngineAsync(...)` | `Task<ISpeechRecognizerEngine>` | Non-recognition model throws; no device bound |
 
 `SpeechModelCatalogAdapter` implements both via a private `RequireRecognitionModel` helper,

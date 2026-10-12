@@ -6,13 +6,12 @@ The RecognitionCommandSubsystem is verified through deterministic unit tests aga
 hand-written `FakeRecognitionSession`/`FakeSpeechRecognizerEngine` pair (recording
 `StartAsync`/`StopAsync`/`DisposeAsync` call counts, with a settable `IsAvailable` and an
 `OnStartAsync` callback letting a test simulate a session's own synchronous, blocking
-`StartAsync`-drives-the-device file-mode contract) and `FakeCliModelCatalog`'s two new delegate
-overrides (`GetAudioFormatOverride`/`CreateRecognizerEngineOverride`), reused from
+`StartAsync`-drives-the-device file-mode contract) and `FakeCliModelCatalog`'s new delegate
+override (`CreateRecognizerEngineOverride`), reused from
 `ModelCommandsSubsystem`'s own tests. `SilenceTimeoutRecognizerSession` is verified entirely in
 isolation against a hand-written `FakeTimeProvider`/`FakeTimer` pair whose callback a test invokes
 directly, so every idle/reset/timeout scenario runs deterministically with no real wall-clock
-delay. The two new `ICliModelCatalog` seam members (`GetAudioFormat`/
-`CreateRecognizerEngineAsync`) are additionally verified against a **real**
+delay. The new `ICliModelCatalog` seam member (`CreateRecognizerEngineAsync`) is additionally verified against a **real**
 `SpeechModelCatalogAdapter`, proving the production `is IRecognitionModel` cast genuinely throws
 for a real, compiled-in synthesis-role model, in `SpeechModelCatalogAdapterTests.cs`.
 Out-of-process integration tests in `IntegrationTests.cs` invoke the built tool as a child process
@@ -46,7 +45,7 @@ adding a cross-project `.csproj` content-copy item.
 - **Test doubles**: `FakeRecognitionSession`/`FakeSpeechRecognizerEngine` (hand-written
   `IRecognitionSession`/`ISpeechRecognizerEngine` fakes), `FakeTimeProvider`/`FakeTimer`
   (hand-written `TimeProvider`/`ITimer` fakes with a directly invocable callback),
-  `FakeCliModelCatalog` (extended with `GetAudioFormatOverride`/`CreateRecognizerEngineOverride`),
+  `FakeCliModelCatalog` (extended with `CreateRecognizerEngineOverride`),
   `FakeAudioCaptureDeviceProbe` (reused from `DeviceCommandsSubsystem`'s own tests)
 
 ### Test Scenarios
@@ -197,9 +196,7 @@ throws `InvalidOperationException` suggesting `--input` as an alternative.
 
 #### ICliModelCatalog Seam Extension (Real Catalog)
 
-**Tests**: `SpeechModelCatalogAdapter_GetAudioFormat_SynthesisRoleModel_ThrowsArgumentException`,
-`SpeechModelCatalogAdapter_GetAudioFormat_NullDescriptor_ThrowsArgumentNullException`,
-`SpeechModelCatalogAdapter_CreateRecognizerEngineAsync_SynthesisRoleModel_ThrowsArgumentException`,
+**Tests**: `SpeechModelCatalogAdapter_CreateRecognizerEngineAsync_SynthesisRoleModel_ThrowsArgumentException`,
 `SpeechModelCatalogAdapter_CreateRecognizerEngineAsync_NullDescriptor_ThrowsArgumentNullException`
 
 **Scenario/Expected**: Against a real, temp-directory-rooted `SpeechModelCatalogAdapter`, calling
@@ -209,7 +206,8 @@ IRecognitionModel` cast genuinely rejects a non-recognition model rather than on
 through a fake; a `null` descriptor is rejected with `ArgumentNullException` before the cast is
 even attempted.
 
-**Requirement coverage**: `SpeechCli-RecognitionCommands-CatalogSeamExtension`.
+**Requirement coverage**: `SpeechCli-ModelCommands-RecognitionSeamExtension` (see the
+ModelCommandsSubsystem verification document).
 
 #### Null Guards
 
@@ -238,8 +236,6 @@ missing dependency.
 - **`SpeechCli-RecognitionCommands-VerbosityAndOutput`**: see _`--interim`/`--final-only`/
   `--output-text` Filtering and Writing_ above
 - **`SpeechCli-RecognitionCommands-DeviceDispatch`**: see _Capture Device Dispatch_ above
-- **`SpeechCli-RecognitionCommands-CatalogSeamExtension`**: see _ICliModelCatalog Seam Extension
-  (Real Catalog)_ above
 - **`SpeechCli-RecognitionCommands-NullGuards`**: see _Null Guards_ above
 
 ### Acceptance Criteria

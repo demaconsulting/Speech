@@ -143,26 +143,6 @@ sections:
               - SpeakCommand_RunAsync_Canceled_ReportsErrorCleanly
               - SpeakCommand_RunAsync_Success_DisposesEngineAndSessionOnce
 
-          - id: SpeechCli-SynthesisCommands-CatalogSeamExtension
-            title: >-
-              The tool shall resolve a synthesis-role model's preferred audio format and construct
-              its `ISynthesisSession` exclusively through the `ICliModelCatalog` seam's
-              `GetPreferredAudioFormat`/`CreateSynthesizerEngineAsync` members, which shall reject
-              a descriptor whose model is not a synthesis model with a clean `ArgumentException`.
-            tags: [subsystem]
-            justification: |
-              `SpeakCommand` cannot itself distinguish a synthesis-capable model without internal
-              library access it is not granted; extending the existing seam (rather than
-              introducing a second, competing one) keeps a single, narrow, already-established
-              boundary between the CLI and the library's internal model types, letting
-              `SpeakCommand`'s own logic remain fully testable against a fake catalog with no
-              dependency on `ISynthesisModel`.
-            tests:
-              - SpeechModelCatalogAdapter_GetPreferredAudioFormat_RecognitionRoleModel_ThrowsArgumentException
-              - SpeechModelCatalogAdapter_GetPreferredAudioFormat_NullDescriptor_ThrowsArgumentNullException
-              - SpeechModelCatalogAdapter_CreateSynthesizerEngineAsync_RecognitionRoleModel_ThrowsArgumentException
-              - SpeechModelCatalogAdapter_CreateSynthesizerEngineAsync_NullDescriptor_ThrowsArgumentNullException
-
           - id: SpeechCli-SynthesisCommands-NullGuards
             title: >-
               The SynthesisCommandSubsystem shall reject a missing context, catalog, factory, or

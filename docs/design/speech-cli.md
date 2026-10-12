@@ -95,9 +95,9 @@ competing seam. See _SpeechCli SynthesisCommandSubsystem Design_ for its full de
 
 **RecognitionCommandSubsystem** covers the one speech-to-text subcommand -
 `recognize` - plus the `SilenceTimeoutRecognizerSession` idle-timeout utility, and uses
-`ModelCommandsSubsystem`'s `ICliModelCatalog` seam members (`GetAudioFormat`/
-`CreateRecognizerEngineAsync`) symmetric to the synthesis pair, rather than introducing a second, competing seam. See _SpeechCli
-RecognitionCommandSubsystem Design_ for its full design.
+`ModelCommandsSubsystem`'s `ICliModelCatalog` seam member (`CreateRecognizerEngineAsync`)
+symmetric to the synthesis pair, rather than introducing a second, competing seam. See
+_SpeechCli RecognitionCommandSubsystem Design_ for its full design.
 
 ### ConversationCommandSubsystem
 

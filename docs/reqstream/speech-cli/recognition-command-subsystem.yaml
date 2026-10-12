@@ -4,12 +4,8 @@
 # These requirements describe the subsystem-level behavior of the one speech-to-text subcommand
 # (recognize), decomposing the system-level dispatch requirements in docs/reqstream/speech-cli.yaml.
 #
-# This subsystem extends the ModelCommandsSubsystem seam (ICliModelCatalog) with two further
-# members - GetAudioFormat and CreateRecognizerEngineAsync - rather than introduce a second,
-# competing seam, since a resolved model must still be cast to the library's internal
-# IRecognitionModel before either operation is possible, and that cast belongs in the same
-# assembly-scoped adapter that already owns the original five members plus the two added by the
-# SynthesisCommandSubsystem.
+# The recognition-engine loading seam requirement lives with the ModelCommandsSubsystem
+# requirements (SpeechCli-ModelCommands-RecognitionSeamExtension).
 
 sections:
   - title: SpeechCli Requirements
@@ -71,37 +67,35 @@ sections:
 
           - id: SpeechCli-RecognitionCommands-FileInputEofDrivenStop
             title: >-
-              The tool shall, in `--input` mode, drive the supplied `WavFileAudioCaptureDevice` to
-              completion by explicitly draining the session after the capture device itself has
-              reported `EndOfFileReached`, awaiting `IRecognitionSession.StopAsync()` so that the
-              `GetResultsAsync()` stream completes and every result derived from the whole file
-              has already been consumed before returning control to the caller, with no additional
-              wait or fixed sleep.
+              The tool shall, in `--input` mode, print every recognition result derived from the
+              whole file and then end the command on its own once the file is exhausted, without
+              operator interruption and without a fixed waiting period.
             tags: [subsystem]
             justification: |
-              A file-input recognition session is inherently finite and must terminate on its own
-              once the file is exhausted, without an operator needing to interrupt it or the
-              command needing an arbitrary settle delay that would be either too short (truncating
-              results) or too long (wasting time) for an unknown file duration.
+              A file-input recognition session is inherently finite and must terminate on its
+              own once the file is exhausted, without an operator needing to interrupt it or the
+              command needing an arbitrary settle delay that would be either too short
+              (truncating results) or too long (wasting time) for an unknown file duration. The
+              draining and stop mechanism is described in the RecognitionCommandSubsystem design
+              document.
             tests:
               - RecognizeCommand_Run_FileInput_StartsAndStopsRecognizerViaExplicitDrain
               - RecognizeCommand_Run_FileInput_PassesWavFileCaptureDeviceToCreateSession
 
           - id: SpeechCli-RecognitionCommands-SilenceTimeout
             title: >-
-              The tool shall, in `--mic` mode, stop the
-              session and end its result stream automatically once no recognition result (partial
-              or final) has been yielded within the idle window given by `--silence-timeout
-              <seconds>` (5 seconds when omitted) since the last result (or
-              session start), via `SilenceTimeoutRecognizerSession`, a stateless
-              `IAsyncEnumerable<SpeechRecognitionEvent>` decorator that re-arms a fresh idle timer
-              on every yielded result and raises `TimedOut` exactly once, after calling
-              `IRecognitionSession.StopAsync()`.
+              The tool shall, in `--mic` mode, end the recognition session automatically, after
+              delivering every result already produced, once no recognition result (partial or
+              final) has arrived for the number of seconds given by `--silence-timeout
+              <seconds>` (5 seconds when omitted) since the previous result, and shall reject a
+              non-positive or malformed `--silence-timeout` with a clean error. The wait before
+              the first result is governed by `--start-timeout`.
             tags: [subsystem]
             justification: |
               An unattended microphone session with no natural end-of-file signal needs an
               automatic, configurable way to end itself when the speaker has stopped talking,
-              rather than requiring an operator to remain present to press `Ctrl+C`.
+              rather than requiring an operator to remain present to press `Ctrl+C`. The timer
+              mechanism is described in the RecognitionCommandSubsystem design document.
             tests:
               - RecognizeCommand_ParseArguments_SilenceTimeoutFlag_ParsesSeconds
               - RecognizeCommand_ParseArguments_NonPositiveSilenceTimeout_ThrowsArgumentException
@@ -115,24 +109,20 @@ sections:
 
           - id: SpeechCli-RecognitionCommands-StartTimeout
             title: >-
-              The tool shall, in `--mic` mode, accept an optional `--start-timeout <seconds>`
-              flag configuring a separate idle window used only before the first recognition
-              result is yielded, defaulting to a fixed 8-second value - independent of
-              `--silence-timeout` - when omitted, via `SilenceTimeoutRecognizerSession`, which
-              shall arm its idle timer with the start-timeout value for the first iteration and
-              switch to the idle-timeout value for every re-arm from the first yielded result
-              onward, rejecting a non-positive or malformed `--start-timeout` with a clean error.
+              The tool shall, in `--mic` mode, end the recognition session automatically when no
+              recognition result has arrived within the number of seconds given by the optional
+              `--start-timeout <seconds>` (8 seconds when omitted) after listening begins,
+              independently of `--silence-timeout`, which governs only the gaps after the first
+              result, and shall reject a non-positive or malformed `--start-timeout` with a
+              clean error.
             tags: [subsystem]
             justification: |
-              A grace period for a user to begin speaking is typically much longer than the brief
-              pause used to detect the end of an utterance; conflating the two into one
-              `--silence-timeout` value forces an operator to choose between a session that gives
-              up too quickly on a slow starter or one that lingers too long after the user has
-              actually stopped talking. A separate, optional `--start-timeout` resolves this
-              without changing `--silence-timeout`'s own existing behavior when the new flag is
-              not used, and a fixed default (rather than borrowing `--silence-timeout`'s value)
-              keeps the start-timeout's own meaning independent of whatever silence-timeout an
-              operator happens to choose.
+              A grace period for a user to begin speaking is typically much longer than the
+              brief pause used to detect the end of an utterance; conflating the two into one
+              `--silence-timeout` value forces an operator to choose between a session that
+              gives up too quickly on a slow starter or one that lingers too long after the user
+              has actually stopped talking. A fixed default keeps the start window independent
+              of whatever silence timeout an operator chooses.
             tests:
               - RecognizeCommand_ParseArguments_StartTimeoutFlag_ParsesSeconds
               - RecognizeCommand_ParseArguments_StartTimeoutOmitted_DefaultsToNull
@@ -187,33 +177,6 @@ sections:
             tests:
               - RecognizeCommand_Run_UnknownDevice_ThrowsArgumentException
               - RecognizeCommand_Run_NoCaptureDeviceAvailable_ThrowsInvalidOperationException
-
-          - id: SpeechCli-RecognitionCommands-CatalogSeamExtension
-            title: >-
-              The `ICliModelCatalog` seam shall expose a `GetAudioFormat` member, for a
-              recognition-role model's required audio format, and a
-              `CreateRecognizerEngineAsync` member constructing its `ISpeechRecognizerEngine`,
-              both rejecting a descriptor whose model is not a recognition model with a clean
-              `ArgumentException`. The tool shall construct every recognition session exclusively
-              through `CreateRecognizerEngineAsync`; `GetAudioFormat` is not currently consumed by
-              any production call site, mirroring `GetPreferredAudioFormat`'s symmetric synthesis
-              member and reserved for the same future/defensive uses (e.g. a host validating audio
-              compatibility before composing a session).
-            tags: [subsystem]
-            justification: |
-              `RecognizeCommand` cannot itself distinguish a recognition-capable model without
-              internal library access it is not granted; extending the existing seam (rather than
-              introducing a second, competing one) keeps a single, narrow, already-established
-              boundary between the CLI and the library's internal model types, letting
-              `RecognizeCommand`'s own logic remain fully testable against a fake catalog with no
-              dependency on `IRecognitionModel`. `GetAudioFormat` is retained unconsumed for
-              symmetry with the synthesis seam and to keep both roles' seams equally capable,
-              even though `RecognizeCommand` currently only needs `CreateRecognizerEngineAsync`.
-            tests:
-              - SpeechModelCatalogAdapter_GetAudioFormat_SynthesisRoleModel_ThrowsArgumentException
-              - SpeechModelCatalogAdapter_GetAudioFormat_NullDescriptor_ThrowsArgumentNullException
-              - SpeechModelCatalogAdapter_CreateRecognizerEngineAsync_SynthesisRoleModel_ThrowsArgumentException
-              - SpeechModelCatalogAdapter_CreateRecognizerEngineAsync_NullDescriptor_ThrowsArgumentNullException
 
           - id: SpeechCli-RecognitionCommands-NullGuards
             title: >-

@@ -9,8 +9,8 @@ by `CommandDispatch`: `ask` - speak a prompt, then listen for the reply. It cont
 type, `AskCommand` (plus a small capture-device seam), and introduces **no new
 `ICliModelCatalog` seam member**: `ask` combines `SynthesisCommandSubsystem`'s existing
 `GetPreferredAudioFormat`/`CreateSynthesizerEngineAsync` members and
-`RecognitionCommandSubsystem`'s existing `GetAudioFormat`/`CreateRecognizerEngineAsync` members -
-both already part of the `ModelCommandsSubsystem` seam - to run a speak-then-listen
+`RecognitionCommandSubsystem`'s existing `CreateRecognizerEngineAsync` member -
+all already part of the `ModelCommandsSubsystem` seam - to run a speak-then-listen
 turn as one CLI invocation, built entirely on the async Engine/Session API.
 
 - **`AskCommand`**: implements

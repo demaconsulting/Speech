@@ -36,7 +36,7 @@ The `ICliModelCatalog` members fall into three groups:
 | Group | Members |
 | --- | --- |
 | Model management (4) | `Enumerate`, `DownloadAsync`, `Uninstall`, `CleanUpLeftovers` |
-| Format and engine (4) | `GetPreferredAudioFormat`, `CreateSynthesizerEngineAsync`, `GetAudioFormat`, |
+| Format and engine (3) | `GetPreferredAudioFormat`, `CreateSynthesizerEngineAsync`, |
 | | `CreateRecognizerEngineAsync` |
 | Reference voices (7) | `VoicePacks`, `UserVoicesDirectory`, `EnumerateVoices`, `GetVoicePackState`, |
 | | `VoicePackHasEmotions`, `InstallVoicePackAsync`, `UninstallVoicePack` |
@@ -222,7 +222,6 @@ seam instead of being repeated across every caller:
 | --- | --- | --- |
 | `GetPreferredAudioFormat(descriptor)` | `AudioFormat` | Throws for a non-synthesis model |
 | `CreateSynthesizerEngineAsync(...)` | `Task<ISpeechSynthesizerEngine>` | Non-synthesis model throws; no device bound |
-| `GetAudioFormat(descriptor)` | `AudioFormat` | Throws for a non-recognition model |
 | `CreateRecognizerEngineAsync(...)` | `Task<ISpeechRecognizerEngine>` | Non-recognition model throws; no device bound |
 
 `SpeechModelCatalogAdapter` implements all four through private `RequireSynthesisModel`/
