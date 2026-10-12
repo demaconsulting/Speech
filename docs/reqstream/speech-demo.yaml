@@ -17,12 +17,17 @@ sections:
         justification: |
           The demo application design requires a single application that
           exercises the library's capabilities. Grouping each capability into its own named
-          panel lets a user find the capability they want to try, and lets later phases add
-          further capabilities without redesigning the application shell.
+          panel lets a user find the capability they want to try, and lets further capabilities
+          be added without redesigning the application shell.
         children:
           - SpeechDemo-Shell-PanelCatalog
           - SpeechDemo-Shell-DefaultPanel
           - SpeechDemo-Shell-PanelTitles
+          - SpeechDemo-Shell-PanelEntryTitles
+          - SpeechDemo-Shell-PanelHosting
+          - SpeechDemo-Shell-SelectionNotification
+          - SpeechDemo-Shell-WindowTitle
+          - SpeechDemo-Shell-PanelContent
         tests:
           - SpeechDemo_SystemIntegration_RealLibraryEntryPoints_ComposesWorkingShell
 
@@ -75,6 +80,18 @@ sections:
           - SpeechDemo-Devices-NameBasedSelection
           - SpeechDemo-Devices-Refresh
           - SpeechDemo-Devices-LibraryProbeDelegation
+          - SpeechDemo-DeviceSelection-PanelListsLibraryDevices
+          - SpeechDemo-DeviceSelection-RefreshReachesLibrary
+          - SpeechDemo-Devices-ServiceRequired
+          - SpeechDemo-Devices-FactoryRequired
+          - SpeechDemo-Devices-EnumerationCount
+          - SpeechDemo-Devices-ConstructionWithoutRefresh
+          - SpeechDemo-Devices-SelectionNotification
+          - SpeechDemo-Devices-EmptyProbeResult
+          - SpeechDemo-Devices-ProbeResultsNotCached
+          - SpeechDemo-Devices-ServiceRefreshDelegation
+          - SpeechDemo-Devices-CaptureDeviceCreation
+          - SpeechDemo-Devices-PlaybackDeviceCreation
         tests:
           - SpeechDemo_SystemIntegration_RealAudioBackend_DeviceEnumerationNeverThrows
 
@@ -90,6 +107,7 @@ sections:
         children:
           - SpeechDemo-Devices-EmptyStateExplanation
           - SpeechDemo-Devices-EmptySelectionFallback
+          - SpeechDemo-DeviceSelection-EmptyPanelExplained
         tests:
           - SpeechDemo_SystemIntegration_UnavailableAudioBackend_DevicePanelExplainsAbsence
 
@@ -109,6 +127,9 @@ sections:
           - SpeechDemo-Models-Refresh
           - SpeechDemo-Models-LibraryCatalogDelegation
           - SpeechDemo-ModelCatalog-PanelOperation
+          - SpeechDemo-Models-LibraryDownloadDelegation
+          - SpeechDemo-Models-CatalogSeamRequired
+          - SpeechDemo-Models-PanelSeamRequired
         tests:
           - SpeechDemo_SystemIntegration_RefreshAllPanels_NeverThrows
 
@@ -132,6 +153,8 @@ sections:
           - SpeechDemo-Models-DownloadRetry
           - SpeechDemo-Models-DownloadGuard
           - SpeechDemo-Models-InstallNotification
+          - SpeechDemo-Models-NoInstallNotificationOnFailure
+          - SpeechDemo-ModelCatalog-ModelDownload
         tests:
           - SpeechDemo_SystemIntegration_DownloadListedModel_ReportsProgressAndInstalledOutcome
           - SpeechDemo_SystemIntegration_DownloadListedModel_FailureIsReportedAndRetryable
@@ -176,6 +199,13 @@ sections:
           - SpeechDemo-Models-MirrorBlockedDuringDownload
           - SpeechDemo-LaunchOptions-MirrorConfiguration
           - SpeechDemo-MirrorOptions-Validation
+          - SpeechDemo-Models-MirrorDisposesCurrentCatalog
+          - SpeechDemo-Models-ExternalCatalogNotDisposed
+          - SpeechDemo-Models-MirrorSettingsPrePopulation
+          - SpeechDemo-Models-MirrorSettingsBlankRevert
+          - SpeechDemo-Models-MirrorSettingsInvalidReported
+          - SpeechDemo-Models-MirrorSettingsRejectedReported
+          - SpeechDemo-ModelCatalog-MirrorRedirection
         tests:
           - SpeechDemo_SystemIntegration_MirrorRedirection_AppliesAtLaunchAndWhileRunning
 
@@ -205,6 +235,29 @@ sections:
           - SpeechDemo-Voices-ConsentAndAttribution
           - SpeechDemo-ModelCatalog-VoicePackChangeNotification
           - SpeechDemo-Settings-RestoreValues
+          - SpeechDemo-Voices-PackServiceCompositionRequired
+          - SpeechDemo-Voices-PackServiceNoLibrary
+          - SpeechDemo-Voices-PackUninstallRebuild
+          - SpeechDemo-Voices-PackInstallRebuild
+          - SpeechDemo-Voices-PackMirrorRebuild
+          - SpeechDemo-Voices-PackUninstallRefusedWhileInstalling
+          - SpeechDemo-Voices-PackSectionHidden
+          - SpeechDemo-Voices-PackInstalledEmotionsShown
+          - SpeechDemo-Voices-PackInstall
+          - SpeechDemo-Voices-PackEmotionChoiceForwarded
+          - SpeechDemo-Voices-PackInstallFailureReported
+          - SpeechDemo-Voices-PackInstallRollbackKeepsPack
+          - SpeechDemo-Voices-PackInstallStateReadFallback
+          - SpeechDemo-Voices-PackRemove
+          - SpeechDemo-Voices-PackRemoveFaultReported
+          - SpeechDemo-Voices-PackRemoveRefusedWhileInstalling
+          - SpeechDemo-Voices-PackRowStatus
+          - SpeechDemo-Voices-PackRowChangeAnnouncement
+          - SpeechDemo-Voices-PackEmotionSizeDisplay
+          - SpeechDemo-Voices-PackAddEmotions
+          - SpeechDemo-ModelCatalog-VoicePackRollbackStaysRemovable
+          - SpeechDemo-ModelCatalog-VoicePackRemovalRefusedWhileInstalling
+          - SpeechDemo-Voices-SynthesisRefreshAfterDispose
         tests:
           - SpeechDemo_SystemIntegration_ReferenceVoicePack_InstallRemoveAndChooseVoice
           - SpeechDemo_SystemIntegration_ChatterboxSelected_ShowsConsentAndAttribution
@@ -226,6 +279,20 @@ sections:
           - SpeechDemo-Settings-GenericParameterRendering
           - SpeechDemo-Settings-ValueBag
           - SpeechDemo-Settings-ParameterConstructionGuards
+          - SpeechDemo-Settings-NumericPresenter-DefaultInitialization
+          - SpeechDemo-Settings-NumericPresenter-Clamping
+          - SpeechDemo-Settings-NumericPresenter-IntegerRounding
+          - SpeechDemo-Settings-NumericPresenter-ControlSelection
+          - SpeechDemo-Settings-ChoicePresenter
+          - SpeechDemo-Settings-BooleanPresenter
+          - SpeechDemo-Settings-ModelSwitch
+          - SpeechDemo-Settings-NumericPresenter-ContinuousPrecision
+          - SpeechDemo-Settings-ChoicePresenterSelection
+          - SpeechDemo-Settings-BooleanPresenterToggle
+          - SpeechDemo-Settings-UnrecognizedParameterSkipped
+          - SpeechDemo-Settings-ValueBagEmptyWithoutModel
+          - SpeechDemo-Settings-ValueBagDuplicateIds
+          - SpeechDemo-Settings-RestoreIgnoresStaleValues
         tests:
           - SpeechDemo_SystemIntegration_ModelParameters_RenderedAndForwardedToSynthesis
 
@@ -240,6 +307,8 @@ sections:
           broken application rather than an expected state.
         children:
           - SpeechDemo-Settings-HonestEmptyState
+          - SpeechDemo-Settings-NoParametersExplained
+          - SpeechDemo-Settings-EmptyStateNotifications
         tests:
           - SpeechDemo_SystemIntegration_RealCatalog_TtsAndSttPanelsReportEmptyStateHonestly
 
@@ -268,6 +337,22 @@ sections:
           - SpeechDemo-Synthesis-ModelSwitchGuard
           - SpeechDemo-SynthesisPanel-PlaybackThroughSeams
           - SpeechDemo-SynthesisPanel-ExternalChangeHandling
+          - SpeechDemo-SynthesisPanel-StopPlayback
+          - SpeechDemo-SynthesisPanel-UnavailableDeviceReporting
+          - SpeechDemo-SynthesisPanel-DeviceRefreshCoordination
+          - SpeechDemo-Synthesis-DependencyValidation
+          - SpeechDemo-Synthesis-SelectionPreservation
+          - SpeechDemo-Synthesis-LifecycleReporting
+          - SpeechDemo-Synthesis-PlayWhileBusyRefused
+          - SpeechDemo-Synthesis-EngineReloadOnChange
+          - SpeechDemo-Synthesis-SessionRecreateOnDeviceChange
+          - SpeechDemo-Synthesis-SessionSeamParameterBag
+          - SpeechDemo-Synthesis-SessionSeamArgumentValidation
+          - SpeechDemo-Synthesis-AutoRefreshRoleFilter
+          - SpeechDemo-Synthesis-DisposeStopsPlayback
+          - SpeechDemo-Synthesis-DisposeUnsubscribes
+          - SpeechDemo-Synthesis-StopsBeforeDeviceRefresh
+          - SpeechDemo-Synthesis-EmbeddedSettings
         tests:
           - SpeechDemo_SystemIntegration_TextToSpeech_SpeaksAndStops
 
@@ -283,6 +368,10 @@ sections:
         children:
           - SpeechDemo-Synthesis-HonestEmptyCatalogState
           - SpeechDemo-Synthesis-HonestUnavailableStates
+          - SpeechDemo-Synthesis-NoModelSelectedState
+          - SpeechDemo-Synthesis-NoPlaybackDeviceState
+          - SpeechDemo-Synthesis-EngineBusyState
+          - SpeechDemo-Synthesis-SessionFaultRecovery
         tests:
           - SpeechDemo_SystemIntegration_RealCatalog_TtsAndSttPanelsReportEmptyStateHonestly
 
@@ -304,6 +393,27 @@ sections:
           - SpeechDemo-Recognition-SessionSeam
           - SpeechDemo-Recognition-AutoRefreshOnInstall
           - SpeechDemo-Recognition-ModelSwitchGuard
+          - SpeechDemo-Recognition-StopsBeforeDeviceRefresh
+          - SpeechDemo-Recognition-IdleDeviceRefreshInert
+          - SpeechDemo-Recognition-PanelDependenciesRequired
+          - SpeechDemo-Recognition-ModelSelectionPreserved
+          - SpeechDemo-Recognition-AutoRefreshIgnoresOtherRoles
+          - SpeechDemo-Recognition-AutoRefreshStopsAfterDispose
+          - SpeechDemo-Recognition-StopSession
+          - SpeechDemo-Recognition-StopIdleSafe
+          - SpeechDemo-Recognition-ConcurrentStopSafe
+          - SpeechDemo-Recognition-EngineReuse
+          - SpeechDemo-Recognition-ModelChangeInvalidatesEngine
+          - SpeechDemo-Recognition-ModelChangeWhileListeningStopsFirst
+          - SpeechDemo-Recognition-DeviceChangeInvalidatesSession
+          - SpeechDemo-Recognition-DeviceChangeWhileListeningStopsFirst
+          - SpeechDemo-Recognition-DeviceRefreshInvalidatesSession
+          - SpeechDemo-Recognition-TranscriptFinalCommit
+          - SpeechDemo-Recognition-TranscriptText
+          - SpeechDemo-Recognition-TranscriptResetOnStart
+          - SpeechDemo-Recognition-FailedAttemptReleasesResources
+          - SpeechDemo-Recognition-SessionSeamWrongRole
+          - SpeechDemo-Recognition-SessionSeamArgumentValidation
         tests:
           - SpeechDemo_SystemIntegration_SpeechToText_StreamsPartialAndFinalThenStops
 
@@ -319,5 +429,11 @@ sections:
         children:
           - SpeechDemo-Recognition-HonestEmptyCatalogState
           - SpeechDemo-Recognition-HonestUnavailableStates
+          - SpeechDemo-Recognition-NoModelSelectedReported
+          - SpeechDemo-Recognition-NoCaptureDeviceReported
+          - SpeechDemo-Recognition-SessionStartFailureReported
+          - SpeechDemo-Recognition-EngineBusyReported
+          - SpeechDemo-Recognition-SessionFaultedReported
+          - SpeechDemo-Recognition-ResultStreamFaultReported
         tests:
           - SpeechDemo_SystemIntegration_RealCatalog_TtsAndSttPanelsReportEmptyStateHonestly

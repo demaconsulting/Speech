@@ -86,17 +86,25 @@ includes:
   - docs/reqstream/speech-demo/mirror-options-factory.yaml
   - docs/reqstream/speech-demo/program.yaml
   - docs/reqstream/speech-demo/shell-subsystem.yaml
+  - docs/reqstream/speech-demo/shell-subsystem/main-window-view-model.yaml
+  - docs/reqstream/speech-demo/shell-subsystem/demo-panel-view-model.yaml
   - docs/reqstream/speech-demo/device-selection-subsystem.yaml
+  - docs/reqstream/speech-demo/device-selection-subsystem/audio-device-service.yaml
+  - docs/reqstream/speech-demo/device-selection-subsystem/device-selection-view-model.yaml
   - docs/reqstream/speech-demo/model-catalog-subsystem.yaml
   - docs/reqstream/speech-demo/model-catalog-subsystem/model-catalog-service.yaml
   - docs/reqstream/speech-demo/model-catalog-subsystem/model-catalog-view-model.yaml
   - docs/reqstream/speech-demo/model-catalog-subsystem/model-list-item-view-model.yaml
   - docs/reqstream/speech-demo/model-catalog-subsystem/reference-voice-pack-list-item-view-model.yaml
   - docs/reqstream/speech-demo/model-settings-subsystem.yaml
+  - docs/reqstream/speech-demo/model-settings-subsystem/model-settings-view-model.yaml
+  - docs/reqstream/speech-demo/model-settings-subsystem/parameter-view-models.yaml
   - docs/reqstream/speech-demo/synthesis-panel-subsystem.yaml
   - docs/reqstream/speech-demo/synthesis-panel-subsystem/synthesizer-session-factory.yaml
   - docs/reqstream/speech-demo/synthesis-panel-subsystem/synthesis-panel-view-model.yaml
   - docs/reqstream/speech-demo/recognition-panel-subsystem.yaml
+  - docs/reqstream/speech-demo/recognition-panel-subsystem/recognition-panel-view-model.yaml
+  - docs/reqstream/speech-demo/recognition-panel-subsystem/recognizer-session-factory.yaml
   - docs/reqstream/speech-cli.yaml
   - docs/reqstream/speech-cli/model-commands-subsystem.yaml
   - docs/reqstream/speech-cli/device-commands-subsystem.yaml
