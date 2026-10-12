@@ -9,9 +9,10 @@
 # library's ISynthesisModel extension seam, ships as its own package, and is versioned as part of
 # this repository. The Speech library never depends on it.
 #
-# Covered by test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests - see the subsystem/unit-level
-# reqstream files under docs/reqstream/speech-onnx-chatterboxturbo/ for the full tests: lists
-# these system requirements decompose into.
+# Covered by test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/SpeechOnnxChatterboxTurboTests.cs
+# (system-level tests over a synthetic install, through the Speech library's real pipeline) - see the
+# subsystem/unit-level reqstream files under docs/reqstream/speech-onnx-chatterboxturbo/ for the
+# unit tests these system requirements decompose into.
 
 sections:
   - title: SpeechOnnxChatterboxTurbo Requirements
@@ -31,7 +32,7 @@ sections:
         children:
           - SpeechOnnxChatterboxTurbo-Models-CatalogRegistration
         tests:
-          - SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_RegistersModelAndReturnsCatalog
+          - SpeechOnnxChatterboxTurbo_SystemIntegration_AddChatterboxTurboModels_RegistersModelAndReturnsCatalog
 
       - id: SpeechOnnxChatterboxTurbo-Models-SynthesisModel
         title: >-
@@ -46,7 +47,7 @@ sections:
         children:
           - SpeechOnnxChatterboxTurbo-Models-RealSynthesisModel
         tests:
-          - OnnxChatterboxTurboEnglishSynthesisModel_Metadata_DescribesNativeTagSynthesisModel
+          - SpeechOnnxChatterboxTurbo_SystemIntegration_RegisteredModel_IsDownloadableWithVariantsAndVoices
 
       - id: SpeechOnnxChatterboxTurbo-Models-EmbeddedTokenizer
         title: >-
@@ -59,7 +60,7 @@ sections:
         children:
           - SpeechOnnxChatterboxTurbo-Models-TextTokenization
         tests:
-          - ByteLevelBpeTokenizer_Encode_GoldenText_MatchesReferenceIds
+          - SpeechOnnxChatterboxTurbo_SystemIntegration_EmbeddedTokenizer_SynthesizesWithoutTokenizerDownload
 
       - id: SpeechOnnxChatterboxTurbo-Synthesis-RealBackend
         title: >-
@@ -73,7 +74,7 @@ sections:
         children:
           - SpeechOnnxChatterboxTurbo-Synthesis-OnnxBackend
         tests:
-          - OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_SyntheticInstall_SynthesizesAudio
+          - SpeechOnnxChatterboxTurbo_SystemIntegration_SyntheticInstall_SynthesizesThroughSpeechPipeline
 
       - id: SpeechOnnxChatterboxTurbo-Synthesis-VoiceCloning
         title: >-
@@ -87,7 +88,7 @@ sections:
         children:
           - SpeechOnnxChatterboxTurbo-Models-ReferenceVoices
         tests:
-          - ChatterboxTurboReferenceVoice_FromFile_StereoWav_LoadsVoice
+          - SpeechOnnxChatterboxTurbo_SystemIntegration_VoiceCloning_AcceptsAnyRateAndChannelCount
 
       - id: SpeechOnnxChatterboxTurbo-Synthesis-VoiceConditioningSystem
         title: >-
@@ -98,7 +99,7 @@ sections:
         children:
           - SpeechOnnxChatterboxTurbo-Synthesis-VoiceConditioning
         tests:
-          - OnnxChatterboxTurboSynthesisEngine_Generate_Voices_AreEncodedOnceAndFallBack
+          - SpeechOnnxChatterboxTurbo_SystemIntegration_VoiceConditioning_UsesSelectedVoiceClip
 
       - id: SpeechOnnxChatterboxTurbo-Models-StoreVoices
         title: >-
@@ -112,8 +113,7 @@ sections:
         children:
           - SpeechOnnxChatterboxTurbo-Models-StoreReferenceVoices
         tests:
-          - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_StoreVoices_MergedAfterExplicitAndDirectoryFirstIdWins
-          - SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_DefaultsToCatalogStoreVoices
+          - SpeechOnnxChatterboxTurbo_SystemIntegration_StoreVoices_OfferedByDefaultAndSpoken
 
       - id: SpeechOnnxChatterboxTurbo-Models-StoreVoicesResilience
         title: >-
@@ -127,7 +127,7 @@ sections:
           - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoiceLazyLoading
           - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-LazyFileLoading
         tests:
-          - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_CorruptStoreVoice_DoesNotFailConstruction
+          - SpeechOnnxChatterboxTurbo_SystemIntegration_StoreVoicesResilience_DamagedClipDoesNotBlockOtherVoices
 
       - id: SpeechOnnxChatterboxTurbo-Synthesis-MoodVoices
         title: >-
@@ -142,9 +142,7 @@ sections:
           - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-MoodConditioning
           - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-MoodFallback
         tests:
-          - ChatterboxTurboCapabilityProfile_Render_MoodTag_MarksFollowingTextWithMood
-          - OnnxChatterboxTurboSynthesisEngine_Generate_MoodMarker_UsesMoodClipOnceAndHidesMarker
-          - OnnxChatterboxTurboSynthesisEngine_Generate_MoodMissing_FallsBackToBaseClip
+          - SpeechOnnxChatterboxTurbo_SystemIntegration_MoodVoices_UseMoodClipWithBaseFallback
 
       - id: SpeechOnnxChatterboxTurbo-Synthesis-MoodMarkerHidden
         title: >-
@@ -157,8 +155,7 @@ sections:
           - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-MoodMarkerHidden
           - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MarkerSafety
         tests:
-          - OnnxChatterboxTurboSynthesisEngine_Generate_MoodMarker_UsesMoodClipOnceAndHidesMarker
-          - ChatterboxTurboCapabilityProfile_Render_MarkerCharactersInUserText_AreStripped
+          - SpeechOnnxChatterboxTurbo_SystemIntegration_MoodMarkerHidden_NeverSpokenOrSynthesized
 
       - id: SpeechOnnxChatterboxTurbo-Synthesis-NativeTagRendering
         title: >-
@@ -173,8 +170,7 @@ sections:
         children:
           - SpeechOnnxChatterboxTurbo-Synthesis-TagProfile
         tests:
-          - ChatterboxTurboCapabilityProfile_Render_MidSentenceLaugh_StaysInlineWithNativeToken
-          - ChatterboxTurboCapabilityProfile_Render_Sigh_BecomesSilenceSegment
+          - SpeechOnnxChatterboxTurbo_SystemIntegration_NativeTagRendering_SilenceInlineOrOmitted
 
       - id: SpeechOnnxChatterboxTurbo-Synthesis-RunawayProtection
         title: >-
@@ -188,4 +184,4 @@ sections:
         children:
           - SpeechOnnxChatterboxTurbo-Synthesis-GenerationGuards
         tests:
-          - OnnxChatterboxTurboSynthesisEngine_Generate_NeverStops_IsBoundedAndFlagged
+          - SpeechOnnxChatterboxTurbo_SystemIntegration_RunawayProtection_BoundsGenerationWithoutException

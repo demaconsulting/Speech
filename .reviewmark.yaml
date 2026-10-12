@@ -2150,6 +2150,7 @@ reviews:
       - "docs/reqstream/speech-onnx-chatterboxturbo.yaml"        # system requirements
       - "docs/design/speech-onnx-chatterboxturbo.md"             # system design
       - "docs/verification/speech-onnx-chatterboxturbo.md"       # system verification
+      - "test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/SpeechOnnxChatterboxTurboTests.cs"  # system tests
 
   # SpeechOnnxChatterboxTurbo-Design Review (one per system)
   - id: SpeechOnnxChatterboxTurbo-Design
