@@ -621,6 +621,30 @@ public class ModelCatalogViewModelTests
     }
 
     /// <summary>
+    ///     Proves that refreshing reads the emotion-variant flag for an installed pack from the
+    ///     service, so the pack row reports whether the install includes emotions.
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void ModelCatalogViewModel_Refresh_InstalledPack_ReadsHasEmotionsFromService(bool hasEmotions)
+    {
+        // Arrange: a pack the service reports as installed, with or without emotion variants
+        var service = VoiceService(SpeechModelState.Downloaded);
+        service.ReferenceVoicePackHasEmotions("voice-zero-1.0").Returns(hasEmotions);
+
+        // Act
+        var viewModel = new ModelCatalogViewModel(service);
+        viewModel.Refresh();
+
+        // Assert
+        var row = Assert.Single(viewModel.VoicePacks);
+        Assert.Equal(SpeechModelState.Downloaded, row.State);
+        Assert.Equal(hasEmotions, row.HasEmotions);
+        Assert.Equal(!hasEmotions, row.CanUpgradeToEmotions);
+    }
+
+    /// <summary>
     ///     Proves that a service without voice support yields an empty, hidden voices section.
     /// </summary>
     [Fact]

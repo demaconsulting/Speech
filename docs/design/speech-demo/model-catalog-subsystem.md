@@ -17,6 +17,10 @@ following units, each documented in its own file:
 - **ReferenceVoicePackListItemViewModel**: one reference voice pack row's presentation state — see
   _ReferenceVoicePackListItemViewModel Design_
 
+The subsystem also contains **ModelCatalogView**, the Avalonia view bound to
+`ModelCatalogViewModel`, and **ModelCatalogComposition**, the value that pairs a library catalog
+with its shared `ReferenceVoiceLibrary` for the composition root and the service.
+
 ### Interfaces
 
 The subsystem exposes `IModelCatalogService`, `ModelCatalogService`, `ModelCatalogComposition`,
@@ -25,8 +29,9 @@ The subsystem exposes `IModelCatalogService`, `ModelCatalogService`, `ModelCatal
 (`SynthesisPanelSubsystem`, `RecognitionPanelSubsystem`) that subscribe to
 `IModelCatalogService.ModelInstalled` for auto-refresh-on-install; the synthesis panel also
 consumes `ReferenceVoicePacks`, `GetReferenceVoicePackState` and `ReferenceVoicesChanged`. It
-consumes the library's `SpeechModelCatalog` and `ReferenceVoiceLibrary` (via the seam, never
-directly by the view models) for enumeration, download and voice packs, and receives its
+consumes the library's `SpeechModelCatalog` and `ReferenceVoiceLibrary` (via the seam; the view
+models read only the library's value types and the static consent notice, never the catalog or
+library instances) for enumeration, download and voice packs, and receives its
 launch-time mirror values from `AppLaunchOptions` through the composition root.
 
 ### Design
@@ -68,13 +73,19 @@ URI.
 A `ModelCatalogService` constructed with a `ModelCatalogComposition` (a catalog plus the shared
 `ReferenceVoiceLibrary`) and a composition factory also exposes the library's voice packs, their
 install state and the user voices folder, and installs or uninstalls a pack. Because the
-Chatterbox voice list is fixed when the model is constructed, a successful install, an uninstall
-and a mirror change each rebuild the catalog and library together through the factory, dispose the
-old pair, and raise `ReferenceVoicesChanged`. The panel (`ModelCatalogViewModel`) lists packs as
-`ReferenceVoicePackListItemViewModel` rows in a "Reference voices" section with the consent note
-and the user folder, and refuses pack operations while a model downloads (and model downloads or
-mirror changes while a pack installs) because the rebuild would dispose the catalog an in-flight
-download uses. Services built without a library report no packs and hide the section.
+Chatterbox voice list is fixed when the model is constructed, an uninstall, a mirror change and
+every install attempt however it ends (installed, failed, canceled or thrown) each rebuild the
+catalog and library together through the factory, dispose the old pair, and raise
+`ReferenceVoicesChanged`; an uninstall refused because an install of that pack is in flight
+changes nothing, so it neither rebuilds nor raises. The panel (`ModelCatalogViewModel`) lists
+packs as `ReferenceVoicePackListItemViewModel` rows in a "Reference voices" section with the
+consent note and the user folder, and refuses pack operations while a model downloads (and model
+downloads or mirror changes while a pack installs) because the rebuild would dispose the catalog
+an in-flight download uses. After every unsuccessful install or upgrade the panel re-reads the
+pack's state from the service: a failed "Add emotions" upgrade is rolled back by the library to
+the previous voices-only install, so the row stays installed and removable, with the failure
+message preserved. A refused removal is shown as a message on the row and the pack stays
+installed. Services built without a library report no packs and hide the section.
 
 ### Thread Safety
 

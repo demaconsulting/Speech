@@ -1,12 +1,24 @@
 ---
 # Software Unit Requirements for the SpeechDemo ModelCatalogService
 #
-# These requirements describe the design-level behavior of the IModelCatalogService /
-# ModelCatalogService unit - the demo-owned catalog seam and its real implementation over the
-# library's SpeechModelCatalog - decomposing the parent ModelCatalogSubsystem requirements.
+# These requirements describe the behavior of the IModelCatalogService / ModelCatalogService
+# unit - the demo-owned catalog seam and its real implementation over the library's
+# SpeechModelCatalog - decomposing the parent ModelCatalogSubsystem requirements.
 # IModelCatalogService and ModelCatalogService are treated as one unit because the interface has
 # no independently observable behavior of its own; every test exercises it through
 # ModelCatalogService, its sole implementation.
+#
+# The requirements are grouped by concern, one criterion each:
+#   - Library catalog delegation (Models-LibraryCatalogDelegation, -LibraryDownloadDelegation,
+#     -CatalogSeamRequired)
+#   - Install notification (Models-InstallNotification, -NoInstallNotificationOnFailure)
+#   - Mirror reconfiguration (Models-MirrorRebuild, -MirrorRequiresFactory)
+#   - Catalog lifetime ownership (Models-MirrorCatalogOwnership, -MirrorDisposesCurrentCatalog,
+#     -ExternalCatalogNotDisposed)
+#   - Reference voice packs (Voices-PackService, -PackServiceCompositionRequired,
+#     -PackServiceNoLibrary, -PackUninstallRebuild, -PackInstallRebuild, -PackMirrorRebuild,
+#     -PackUninstallRefusedWhileInstalling)
+# Every test below is a ModelCatalogServiceTests test.
 
 sections:
   - title: SpeechDemo Requirements
@@ -17,106 +29,197 @@ sections:
             requirements:
               - id: SpeechDemo-Models-LibraryCatalogDelegation
                 title: >-
-                  The ModelCatalogSubsystem shall obtain every listed model and perform every
-                  download through the library's own catalog, behind an injectable seam, and
-                  shall reject a missing seam.
+                  The ModelCatalogSubsystem shall list exactly the models the library's own
+                  catalog reports, without adding or hiding any.
                 justification: |
-                  The demo must not carry its own model registry or download logic; its evidence
-                  value comes entirely from driving the library's catalog. A demo-owned seam
-                  keeps the panel testable against controlled data without adding any public API
-                  to the library.
+                  The demo must not carry its own model registry; its evidence value comes
+                  entirely from reporting what the library's catalog knows, with each model's
+                  own declared role preserved.
+                tests:
+                  - ModelCatalogService_Enumerate_LibraryKnowsRealModels_ReturnsThem
+
+              - id: SpeechDemo-Models-LibraryDownloadDelegation
+                title: >-
+                  The ModelCatalogSubsystem shall perform every model download through the
+                  library's own catalog and surface the library's error for an unknown model id.
+                justification: |
+                  The demo must not carry its own download logic. Surfacing the library's
+                  caller-error contract unchanged proves downloads are delegated rather than
+                  reimplemented.
+                tests:
+                  - ModelCatalogService_DownloadAsync_UnknownModelId_ThrowsArgumentException
+
+              - id: SpeechDemo-Models-CatalogSeamRequired
+                title: >-
+                  The ModelCatalogSubsystem shall reject a missing library catalog when its
+                  catalog service is created.
+                justification: |
+                  A catalog service with no catalog behind it could only fail                   later and with a
+                  less obvious cause; failing at creation makes the programming error immediate.
                 tests:
                   - ModelCatalogService_Constructor_NullCatalog_ThrowsArgumentNullException
-                  - ModelCatalogService_Enumerate_LibraryKnowsRealModels_ReturnsThem
-                  - ModelCatalogService_DownloadAsync_UnknownModelId_ThrowsArgumentException
-                  - ModelCatalogService_Enumerate_AfterAnotherAdapterFallsOutOfUse_StillWorks
-                  - ModelCatalogViewModel_Constructor_NullService_ThrowsArgumentNullException
 
               - id: SpeechDemo-Models-InstallNotification
                 title: >-
                   The ModelCatalogSubsystem shall raise a ModelInstalled event, carrying the
-                  installed model's id and role, once a download genuinely installs a model, and
-                  shall never raise it for a failed, canceled, or checksum-mismatched download
-                  attempt.
+                  installed model's id and role, once a download genuinely installs a model.
                 justification: |
-                  The STT and TTS panels already depend on this same seam and need a way to
-                  learn that a model they care about just finished installing, so they can
-                  refresh themselves automatically without a manual click or app restart.
-                  Raising the event only on a genuine install keeps this a reliable signal
-                  rather than a noisy one.
+                  The STT and TTS panels depend on this same service and need a way to learn
+                  that a model they care about just finished installing, so they can refresh
+                  themselves automatically without a manual click or app restart.
                 tests:
                   - ModelCatalogService_DownloadAsync_Installed_RaisesModelInstalledWithCorrectIdAndRole
+
+              - id: SpeechDemo-Models-NoInstallNotificationOnFailure
+                title: >-
+                  The ModelCatalogSubsystem shall not raise a ModelInstalled event for a failed,
+                  canceled, or checksum-mismatched download attempt.
+                justification: |
+                  Raising the event only for a genuine install keeps it a reliable signal;
+                  a spurious notification would make other panels refresh for a model that is
+                  not actually available.
+                tests:
                   - ModelCatalogService_DownloadAsync_Failed_DoesNotRaiseModelInstalled
+                  - ModelCatalogService_DownloadAsync_Canceled_DoesNotRaiseModelInstalled
+                  - ModelCatalogService_DownloadAsync_ChecksumMismatch_DoesNotRaiseModelInstalled
 
               - id: SpeechDemo-Models-MirrorRebuild
                 title: >-
-                  A ModelCatalogSubsystem seam constructed with a catalog factory shall rebuild
-                  its catalog through that factory, passing the requested mirror (or no mirror),
-                  when its mirror is reconfigured.
+                  A ModelCatalogSubsystem catalog service that can rebuild its catalog shall
+                  rebuild it when its mirror is reconfigured, passing the requested mirror (or no
+                  mirror).
                 justification: |
-                  The demo's composition root builds its catalog once at startup, but a user
-                  behind a network policy that blocks a model's public download host needs to
-                  redirect downloads to an internal mirror from the running application, not only
-                  via a launch-time argument. Because the library's SpeechModelCatalog cannot be
-                  reconfigured in place, the seam must instead be able to build an entirely new
-                  one on request.
+                  A user behind a network policy that blocks a model's public download host
+                  needs to redirect downloads to an internal mirror from the running
+                  application, not only via a launch-time argument. Because the library's
+                  catalog cannot be reconfigured in place, the service must build an entirely
+                  new one on request.
                 tests:
                   - ModelCatalogService_ApplyMirror_WithFactory_RebuildsCatalogThroughFactory
 
               - id: SpeechDemo-Models-MirrorRequiresFactory
                 title: >-
-                  A ModelCatalogSubsystem seam constructed without a catalog factory shall reject
-                  both an attempt to supply a null factory and an attempt to reconfigure its
-                  mirror, rather than silently doing nothing.
+                  A ModelCatalogSubsystem catalog service that cannot rebuild its catalog shall
+                  reject an attempt to reconfigure its mirror, and a missing rebuild capability
+                  shall be rejected when the service is created.
                 justification: |
-                  A seam built over a single, externally owned catalog has no catalog of its own
-                  to rebuild. Failing fast - at construction for a null factory, and at
-                  ApplyMirror for a seam with no factory at all - makes an unsupported
-                  reconfiguration attempt an immediate, diagnosable programming error instead of a
-                  silent no-op a caller could easily miss.
+                  A service built over a single, externally owned catalog has no catalog of its
+                  own to rebuild. Failing fast makes an unsupported reconfiguration attempt an
+                  immediate, diagnosable programming error instead of a silent no-op a caller
+                  could easily miss.
                 tests:
                   - ModelCatalogService_Constructor_NullCatalogFactory_ThrowsArgumentNullException
                   - ModelCatalogService_ApplyMirror_NoFactory_ThrowsInvalidOperationException
 
               - id: SpeechDemo-Models-MirrorCatalogOwnership
                 title: >-
-                  A ModelCatalogSubsystem seam constructed with a catalog factory shall own the
-                  lifetime of every catalog it ever builds, disposing the catalog it replaces
-                  when its mirror is reconfigured and disposing its current catalog when the seam
-                  itself is disposed; a seam constructed without a catalog factory shall never
-                  dispose its externally owned catalog.
+                  A ModelCatalogSubsystem catalog service that can rebuild its catalog shall
+                  dispose the catalog it replaces when its mirror is reconfigured.
                 justification: |
-                  Nothing outside the seam ever sees a catalog built through ApplyMirror, so
-                  nothing else is in a position to dispose it; without this, every mirror change
-                  would leak the catalog it replaced. A seam built over a single, externally
-                  owned catalog must leave that catalog's lifetime to its owner.
+                  Nothing outside the service ever sees a catalog built through a mirror change,
+                  so nothing else is in a position to dispose it; without this, every mirror
+                  change would leak the catalog it replaced.
                 tests:
                   - ModelCatalogService_ApplyMirror_WithFactory_DisposesReplacedCatalog
+
+              - id: SpeechDemo-Models-MirrorDisposesCurrentCatalog
+                title: >-
+                  A ModelCatalogSubsystem catalog service that can rebuild its catalog shall
+                  dispose its current catalog when the service itself is disposed.
+                justification: |
+                  The service owns every catalog it builds, so disposing it is the only point at
+                  which the current catalog can be released at application shutdown.
+                tests:
                   - ModelCatalogService_Dispose_WithFactory_DisposesCurrentCatalog
+
+              - id: SpeechDemo-Models-ExternalCatalogNotDisposed
+                title: >-
+                  A ModelCatalogSubsystem catalog service built over an externally owned catalog
+                  shall leave that catalog usable when the service is disposed or goes out of
+                  use.
+                justification: |
+                  A catalog shared with other parts of the application must outlive any one
+                  catalog service; its lifetime belongs to its owner.
+                tests:
                   - ModelCatalogService_Dispose_WithoutFactory_DoesNotDisposeCatalog
+                  - ModelCatalogService_Enumerate_AfterAnotherAdapterFallsOutOfUse_StillWorks
 
               - id: SpeechDemo-Voices-PackService
                 title: >-
-                  A ModelCatalogSubsystem seam constructed over a catalog and reference voice
-                  library pair shall report the library's voice packs, their install state and
-                  the user voices folder; shall rebuild and replace the pair (disposing the old
-                  one) and raise ReferenceVoicesChanged after a pack is uninstalled, after an
-                  install attempt however it ends (installed, failed, canceled or thrown), and after a
-                  mirror change; and shall report no packs and refuse pack
-                  operations when it has no voice library.
+                  A ModelCatalogSubsystem catalog service with a reference voice library shall
+                  report the library's voice packs and the user voices folder.
                 justification: |
-                  The Chatterbox voice list is fixed when the model is constructed, so a voice
-                  change is only visible after the catalog is rebuilt. Rebuilding the catalog
-                  and the shared library together and announcing it is what lets the
-                  synthesis panel offer the new voices immediately; a failed or canceled upgrade can still
-                  have changed the installed state (moved aside, then restored), so the rebuild happens
-                  however the install ends. Seams built without a library (every
-                  other consumer) must stay inert rather than throwing at enumeration.
+                  The panel and the synthesis panel need one place to learn which voice packs
+                  exist and where the user's own voices go, so voice management is driven
+                  through the same service as model management.
+                tests:
+                  - ModelCatalogService_ReferenceVoices_Composed_ListsPackAndUserDirectory
+
+              - id: SpeechDemo-Voices-PackServiceCompositionRequired
+                title: >-
+                  The ModelCatalogSubsystem shall reject a missing catalog and voice library
+                  composition when its catalog service is created.
+                justification: |
+                  Failing at creation makes a half-composed service an immediate, diagnosable
+                  programming error instead of a later fault.
                 tests:
                   - ModelCatalogService_Constructor_NullComposition_ThrowsArgumentNullException
+
+              - id: SpeechDemo-Voices-PackServiceNoLibrary
+                title: >-
+                  A ModelCatalogSubsystem catalog service without a reference voice library shall
+                  report no voice packs and shall refuse pack state, emotion and uninstall
+                  requests.
+                justification: |
+                  Catalog services built for other consumers have no voice library and must stay
+                  inert rather than throwing at enumeration, while an explicit pack request
+                  against one is a programming error that should be reported.
+                tests:
                   - ModelCatalogService_ReferenceVoices_NoLibrary_ReportsNoPacksAndRefusesOperations
-                  - ModelCatalogService_ReferenceVoices_Composed_ListsPackAndUserDirectory
+
+              - id: SpeechDemo-Voices-PackUninstallRebuild
+                title: >-
+                  The ModelCatalogSubsystem shall rebuild its catalog and voice library and
+                  raise ReferenceVoicesChanged after a voice pack is uninstalled.
+                justification: |
+                  The Chatterbox voice list is fixed when the model is constructed, so a removed
+                  voice is only withdrawn after the catalog is rebuilt. Announcing the change
+                  lets the synthesis panel stop offering the removed voices immediately.
+                tests:
                   - ModelCatalogService_UninstallReferenceVoicePack_RebuildsCatalogAndRaisesEvent
-                  - ModelCatalogService_ApplyMirror_Composed_RebuildsPairAndRaisesEvent
+
+              - id: SpeechDemo-Voices-PackInstallRebuild
+                title: >-
+                  The ModelCatalogSubsystem shall rebuild its catalog and voice library and
+                  raise ReferenceVoicesChanged after a voice pack install attempt however it
+                  ends, including a failed or canceled attempt.
+                justification: |
+                  A failed or canceled upgrade can still have changed the installed state (the
+                  old install is moved aside, then restored), so the rebuild and announcement
+                  must happen however the install ends for the voice choices to stay accurate.
+                tests:
                   - ModelCatalogService_InstallReferenceVoicePackAsync_Failure_StillRebuildsAndRaises
                   - ModelCatalogService_InstallReferenceVoicePackAsync_Canceled_StillRebuildsAndRaises
+
+              - id: SpeechDemo-Voices-PackMirrorRebuild
+                title: >-
+                  The ModelCatalogSubsystem shall rebuild its catalog and voice library and
+                  raise ReferenceVoicesChanged when its mirror is changed.
+                justification: |
+                  Voice packs download through the same mirror as models, so a mirror change
+                  must produce a freshly configured catalog and library and tell dependent
+                  panels to refresh.
+                tests:
+                  - ModelCatalogService_ApplyMirror_Composed_RebuildsPairAndRaisesEvent
+
+              - id: SpeechDemo-Voices-PackUninstallRefusedWhileInstalling
+                title: >-
+                  The ModelCatalogSubsystem shall refuse to uninstall a voice pack while an
+                  install of that pack is in progress, reporting the library's store error
+                  without rebuilding the catalog or announcing a change.
+                justification: |
+                  Removing a pack mid-install would corrupt it. Because nothing changed, no
+                  rebuild or notification may occur, which also avoids aborting unrelated
+                  downloads.
+                tests:
+                  - ModelCatalogService_UninstallReferenceVoicePack_InstallInFlight_ThrowsStoreExceptionWithoutRebuild

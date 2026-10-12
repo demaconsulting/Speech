@@ -1,9 +1,16 @@
 ---
 # Software Unit Requirements for the SpeechDemo ReferenceVoicePackListItemViewModel
 #
-# These requirements describe the design-level behavior of the ReferenceVoicePackListItemViewModel
-# unit - one row of the reference voice pack section of the catalog panel - decomposing the
-# parent ModelCatalogSubsystem requirements.
+# These requirements describe the behavior of the ReferenceVoicePackListItemViewModel unit - one
+# row of the reference voice pack section of the catalog panel - decomposing the parent
+# ModelCatalogSubsystem requirements.
+#
+# The requirements are grouped by concern, one criterion each:
+#   - Row content (Voices-PackRowPresentation)
+#   - Row state (Voices-PackRowStatus, -PackRowChangeAnnouncement)
+#   - Emotion variants (Voices-PackEmotionOption, -PackEmotionSizeDisplay, -PackAddEmotions)
+# Passing the emotion choice to the catalog service is the panel's behavior and is specified in
+# model-catalog-view-model.yaml.
 
 sections:
   - title: SpeechDemo Requirements
@@ -15,37 +22,74 @@ sections:
               - id: SpeechDemo-Voices-PackRowPresentation
                 title: >-
                   The ModelCatalogSubsystem shall present each reference voice pack's name, size,
-                  license and attribution, and consent note in readable form, derive the install
-                  and remove enablement and status caption from its install state, and announce
-                  those derived values when the state or failure message changes.
+                  license and attribution, and consent note in readable form, and shall reject a
+                  row with no pack.
                 justification: |
-                  A user must see what they are about to download (size and license) and whether
-                  the pack is installed, installing or broken. Announcing the derived values
-                  together keeps a bound row from going stale while an install runs.
+                  A user must see what they are about to download (size and license) and the
+                  voice-cloning consent note before installing.
                 tests:
                   - ReferenceVoicePackListItemViewModel_Constructor_NullPack_ThrowsArgumentNullException
                   - ReferenceVoicePackListItemViewModel_Constructor_ProjectsPackDetails
+
+              - id: SpeechDemo-Voices-PackRowStatus
+                title: >-
+                  The ModelCatalogSubsystem shall derive each voice pack row's install and remove
+                  availability and status caption from its install state, including
+                  voices-only installs and unrecognized states.
+                justification: |
+                  A user must see at a glance whether a pack is installed, installing or broken,
+                  and be offered only the actions that make sense, with a transient failure
+                  retryable.
+                tests:
                   - ReferenceVoicePackListItemViewModel_State_DrivesFlagsAndStatusText
+                  - ReferenceVoicePackListItemViewModel_State_VoicesOnly_DrivesFlagsAndStatusText
+                  - ReferenceVoicePackListItemViewModel_UnknownState_StatusTextFallsBackToStateName
+
+              - id: SpeechDemo-Voices-PackRowChangeAnnouncement
+                title: >-
+                  The ModelCatalogSubsystem shall announce a voice pack row's derived values when
+                  its state, failure message or emotion install changes.
+                justification: |
+                  Announcing the derived values together keeps a bound row from going stale
+                  while an install runs.
+                tests:
                   - ReferenceVoicePackListItemViewModel_FailureMessage_UpdatesHasFailureMessage
                   - ReferenceVoicePackListItemViewModel_State_Changed_RaisesDependentPropertyChanged
                   - ReferenceVoicePackListItemViewModel_FailureMessage_Changed_RaisesHasFailureMessageChanged
-                  - ReferenceVoicePackListItemViewModel_UnknownState_StatusTextFallsBackToStateName
+                  - ReferenceVoicePackListItemViewModel_HasEmotions_Changed_RaisesDependentPropertyChanged
 
               - id: SpeechDemo-Voices-PackEmotionOption
                 title: >-
-                  The ModelCatalogSubsystem shall let a user choose whether a voice pack is installed with its
-                  emotion variants (default on), show the download size and the installed size for the chosen
-                  option, offer "Add emotions" on a voices-only install, and pass the choice to the service
-                  when installing.
+                  The ModelCatalogSubsystem shall let a user choose, defaulting to on, whether a
+                  voice pack that has emotion variants is installed with them, and shall offer no
+                  such choice for a pack without emotion variants.
                 justification: |
-                  The emotion clips are most of the pack's size (about 570 MiB download against about 44 MiB
-                  for the base voices), so the user must see what each choice costs and be able to add the
-                  emotions later without guessing.
+                  The emotion clips are most of the pack's size, so the user must be able to
+                  decline them, while a pack that has none must not offer a meaningless option.
+                tests:
+                  - ReferenceVoicePackListItemViewModel_AddEmotions_OnlyForVoicesOnlyInstall
+                  - ReferenceVoicePackListItemViewModel_PackWithoutEmotionsOrSize_HidesEmotionOptionAndSize
+
+              - id: SpeechDemo-Voices-PackEmotionSizeDisplay
+                title: >-
+                  The ModelCatalogSubsystem shall show a voice pack's download size and the
+                  installed size for the chosen emotion option, or for the actual install once
+                  installed.
+                justification: |
+                  The emotion clips are about 570 MiB against about 44 MiB for the base voices,
+                  so the user must see what each choice costs.
                 tests:
                   - ReferenceVoicePackListItemViewModel_Constructor_ProjectsPackDetails
                   - ReferenceVoicePackListItemViewModel_InstalledSizeText_FollowsOptionAndInstall
+                  - ReferenceVoicePackListItemViewModel_IncludeEmotions_Changed_RaisesInstalledSizeTextChanged
+
+              - id: SpeechDemo-Voices-PackAddEmotions
+                title: >-
+                  The ModelCatalogSubsystem shall offer "Add emotions" for an installed voice
+                  pack that lacks its emotion variants, and for no other pack.
+                justification: |
+                  A user who chose voices only must be able to add the emotions later without
+                  guessing, and a pack that already has them must not offer a redundant action.
+                tests:
                   - ReferenceVoicePackListItemViewModel_AddEmotions_OnlyForVoicesOnlyInstall
                   - ReferenceVoicePackListItemViewModel_HasEmotions_Changed_RaisesDependentPropertyChanged
-                  - ReferenceVoicePackListItemViewModel_IncludeEmotions_Changed_RaisesInstalledSizeTextChanged
-                  - ReferenceVoicePackListItemViewModel_PackWithoutEmotionsOrSize_HidesEmotionOptionAndSize
-                  - ModelCatalogViewModel_InstallVoicePackAsync_PassesEmotionChoice

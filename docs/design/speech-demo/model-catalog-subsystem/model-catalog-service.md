@@ -20,7 +20,7 @@ every interface consumer - `ModelCatalogViewModel`, the panel view models that o
 
 | Member | Returns | Behavior |
 | --- | --- | --- |
-| `Enumerate()` | `IReadOnlyList<SpeechModelDescriptor>` | Never throws |
+| `Enumerate()` | `IReadOnlyList<SpeechModelDescriptor>` | Reports the library's models; retries once (see note) |
 | `DownloadAsync(modelId, progress, cancellationToken)` | `Task<SpeechModelDownloadResult>` | Throws if id unknown |
 | `ModelInstalled` | `event EventHandler<ModelInstalledEventArgs>?` | Raised once a model installs |
 | `ApplyMirror(mirror)` | `void` | Rebuilds the catalog against a new mirror, or `null` to revert to public URIs |
@@ -28,12 +28,17 @@ every interface consumer - `ModelCatalogViewModel`, the panel view models that o
 | `GetReferenceVoicePackState(packId)` | `SpeechModelState` | The pack's install state |
 | `ReferenceVoicePackHasEmotions(packId)` | `bool` | Whether the installed pack has emotion variants |
 | `InstallReferenceVoicePackAsync(packId, includeEmotions, ...)` | `Task<...Result>` | Installs a pack; rebuilds |
-| `UninstallReferenceVoicePack(packId)` | `void` | Removes a pack and rebuilds the pair |
+| `UninstallReferenceVoicePack(packId)` | `void` | Removes a pack, rebuilds the pair; throws mid-install (see note) |
 | `ReferenceVoicesChanged` | `event EventHandler?` | Raised after a rebuild caused by a voice or mirror change |
+
+`Enumerate()` retries once if the catalog was just replaced. `UninstallReferenceVoicePack` throws
+`SpeechModelStoreException` while an install of that pack is in flight.
 
 **Key Methods**:
 
-- **Enumerate()**: Forwards unchanged to the injected `SpeechModelCatalog.Enumerate()`.
+- **Enumerate()**: Forwards unchanged to the current `SpeechModelCatalog.Enumerate()`. If that
+  catalog was disposed by a concurrent `ApplyMirror` between the read and the call, it retries
+  once against the replacement (see Error Handling).
 - **DownloadAsync(modelId, progress?, cancellationToken)**: Forwards to the injected catalog's
   `DownloadAsync`. Its one piece of added behavior is raising `ModelInstalled` after a call whose
   result reports `SpeechModelDownloadOutcome.Installed`: it looks up the installed model's `Role`
@@ -42,8 +47,9 @@ every interface consumer - `ModelCatalogViewModel`, the panel view models that o
   the moment a matching-role model finishes installing, without a manual click or app restart.
   The event is never raised for a failed, canceled, or checksum-mismatched download attempt.
 - **ApplyMirror(mirror)**: Supported only when this service was constructed with the
-  two-argument constructor (`ModelCatalogService(SpeechModelCatalog, Func<SpeechModelDownloaderOptions?, SpeechModelCatalog>)`);
-  otherwise throws `InvalidOperationException`. When supported, builds
+  two-argument constructor
+  (`ModelCatalogService(SpeechModelCatalog, Func<SpeechModelDownloaderOptions?, SpeechModelCatalog>)`)
+  or the composition constructor; otherwise throws `InvalidOperationException`. When supported, builds
   `SpeechModelDownloaderOptions` from `mirror` (or `null` to revert to each model's own public
   URI), calls the captured factory to rebuild an equivalent catalog against those options,
   swaps this service's forwarding target to the new catalog, and disposes the catalog it
@@ -60,19 +66,27 @@ every interface consumer - `ModelCatalogViewModel`, the panel view models that o
   catalog with the one shared `ReferenceVoiceLibrary`. Install (whatever the outcome, in a `finally`, because an upgrade
   may have moved the old install aside or restored it), uninstall and `ApplyMirror` call a private
   recompose step that builds a new pair through the factory, publishes it, disposes the old catalog and
-  library, and raises `ReferenceVoicesChanged`. Services built with the older constructors have no library:
-    `ReferenceVoicePacks` is empty and `UserVoicesDirectory` is `null`, and `GetReferenceVoicePackState`,
-    `ReferenceVoicePackHasEmotions`, install and uninstall all reject the call through the private `RequireVoiceLibrary`
-    helper by throwing `InvalidOperationException` (the state is not reported as `NotDownloaded`).
+  library, and raises `ReferenceVoicesChanged`. `UninstallReferenceVoicePack` first calls the
+  library's uninstall; when the library refuses because an install of that pack is in flight it
+  throws `SpeechModelStoreException` (non-blocking), which propagates unchanged and skips the
+  recompose step and the notification, because nothing changed. Services built with the
+  single-catalog or catalog-factory constructors have no library:
+  `ReferenceVoicePacks` is empty and `UserVoicesDirectory` is `null`, and `GetReferenceVoicePackState`,
+  `ReferenceVoicePackHasEmotions`, install and uninstall all reject the call through the private `RequireVoiceLibrary`
+  helper by throwing `InvalidOperationException` (the state is not reported as `NotDownloaded`).
 
-  **Error Handling**: `Enumerate()` never throws; it never invents placeholder models when the
-  library's registry is empty - presenting an honest empty catalog is a presentation concern, not
-  a reason to fabricate data. `DownloadAsync` propagates the library's own `ArgumentException` for
-  an unknown model id. `ApplyMirror` propagates `ArgumentException` from an invalid mirror
-  configuration (surfaced by the shared `MirrorOptionsFactory` helper its caller uses to build the
-  `DownloadMirror`) and throws `InvalidOperationException` when this service cannot be
-  reconfigured. The reference-voice members (state, emotion query, install, uninstall) throw
-  `InvalidOperationException` when the service was constructed without a voice library.
+**Error Handling**: `Enumerate()` never invents placeholder models when the library's registry is
+empty - presenting an honest empty catalog is a presentation concern, not a reason to fabricate
+data. `Enumerate()` does not otherwise handle failures, but when the catalog it read was disposed
+by a concurrent `ApplyMirror` (an `ObjectDisposedException`), it retries exactly once against the
+already-published replacement catalog; a second `ObjectDisposedException` propagates.
+`DownloadAsync` propagates the library's own `ArgumentException` for an unknown model id.
+`ApplyMirror` propagates `ArgumentException` from an invalid mirror configuration (surfaced by the
+shared `MirrorOptionsFactory` helper its caller uses to build the `DownloadMirror`) and throws
+`InvalidOperationException` when this service cannot be reconfigured. The reference-voice members
+(state, emotion query, install, uninstall) throw `InvalidOperationException` when the service was
+constructed without a voice library, and `UninstallReferenceVoicePack` throws
+`SpeechModelStoreException` while an install of that pack is in flight.
 
 **Thread Safety**: `ApplyMirror` and `Dispose` are not safe to call concurrently with each other
 or with themselves - both read and then replace the same current-catalog field with no
@@ -83,7 +97,9 @@ such restriction beyond what the underlying `SpeechModelCatalog` itself document
 
 **Dependencies**: The library's `SpeechModelCatalog`, `SpeechModelDescriptor`,
 `SpeechModelDownloadResult`, `SpeechModelDownloadOutcome`, `SpeechModelDownloaderOptions`,
-`DownloadMirror`. A service constructed with the single-catalog constructor deliberately does
+`DownloadMirror`, `ReferenceVoiceLibrary`, `ReferenceVoicePack` and `SpeechModelStoreException`,
+and the subsystem's `ModelCatalogComposition` (the catalog and library pair its composition
+constructor and factory exchange). A service constructed with the single-catalog constructor deliberately does
 not dispose the catalog - the composition root owns that lifetime - so a shared catalog can
 outlive any one adapter. A service constructed with a catalog factory instead owns every
 catalog it ever points at (the one it started with and each one `ApplyMirror` later builds),

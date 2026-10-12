@@ -9,11 +9,14 @@
 # model-catalog-subsystem/ - one per independently testable unit:
 # model-catalog-service.yaml (IModelCatalogService/ModelCatalogService, treated as one unit
 # because the interface has no independently observable behavior of its own),
-# model-catalog-view-model.yaml (ModelCatalogViewModel), and
+# model-catalog-view-model.yaml (ModelCatalogViewModel),
 # model-list-item-view-model.yaml (ModelListItemViewModel), and
-# reference-voice-pack-list-item-view-model.yaml (ReferenceVoicePackListItemViewModel). The
-# requirements below are the subsystem's own behavior, verified through the panel view model
-# and the catalog service working together.
+# reference-voice-pack-list-item-view-model.yaml (ReferenceVoicePackListItemViewModel).
+#
+# The requirements below are the subsystem's own behavior, verified through the panel view
+# model and the catalog service working together. Each requirement states one criterion:
+# browsing, downloading and mirror redirection are separate requirements, as are the voice-pack
+# change notification and the two voice-pack safety behaviors.
 
 sections:
   - title: SpeechDemo Requirements
@@ -22,16 +25,36 @@ sections:
         requirements:
           - id: SpeechDemo-ModelCatalog-PanelOperation
             title: >-
-              The ModelCatalogSubsystem shall present model browsing, download and
-              mirror-redirection controls from one panel view model driven entirely through the
-              demo-owned catalog service seam.
+              The ModelCatalogSubsystem shall let a user browse the catalog's models, showing
+              one row per model with its installation state, and refresh that list on demand.
             justification: |
               The demo's evidence value is that a host can build a complete model-management
-              page against the library's catalog contract alone. Driving the panel only through
-              the seam is what keeps it deterministic to verify with no network access.
+              page against the library's catalog contract alone. Browsing is the entry point
+              to every other panel operation, and a refresh must adopt the catalog's current
+              state so a user is never shown a stale list.
+            tests:
+              - ModelCatalogViewModel_Constructor_PopulatedCatalog_BuildsOneRowPerModel
+              - ModelCatalogViewModel_Refresh_StateChanged_RebuildsRowsAndKeepsSelection
+
+          - id: SpeechDemo-ModelCatalog-ModelDownload
+            title: >-
+              The ModelCatalogSubsystem shall download a model the user chooses and show it as
+              installed once the download completes.
+            justification: |
+              Downloading a model into the per-user store is the panel's purpose; the user must
+              see from the row that the model is ready to use.
             tests:
               - ModelCatalogViewModel_DownloadAsync_Installed_MarksModelDownloaded
-              - ModelCatalogViewModel_Refresh_StateChanged_RebuildsRowsAndKeepsSelection
+
+          - id: SpeechDemo-ModelCatalog-MirrorRedirection
+            title: >-
+              The ModelCatalogSubsystem shall let a user redirect model downloads to a mirror
+              they configure in the panel and confirm that the mirror was applied.
+            justification: |
+              A user whose network blocks a model's public download host must be able to
+              redirect downloads from the running application. Confirming the applied mirror
+              tells the user the redirection took effect before they start a large download.
+            tests:
               - ModelCatalogViewModel_ApplyMirror_ValidMirror_ForwardsConfiguredMirrorAndReportsSuccess
 
           - id: SpeechDemo-ModelCatalog-VoicePackChangeNotification
@@ -48,3 +71,29 @@ sections:
               - ModelCatalogService_ApplyMirror_Composed_RebuildsPairAndRaisesEvent
               - ModelCatalogService_InstallReferenceVoicePackAsync_Failure_StillRebuildsAndRaises
               - ModelCatalogViewModel_InstallVoicePackAsync_Installed_RefreshesRows
+
+          - id: SpeechDemo-ModelCatalog-VoicePackRollbackStaysRemovable
+            title: >-
+              The ModelCatalogSubsystem shall keep a voice pack that remains installed after a
+              failed install or upgrade shown as installed and removable, together with the
+              failure explanation.
+            justification: |
+              A failed "Add emotions" upgrade leaves the previous voices-only install in place.
+              Showing such a pack as broken would hide a working install and block its removal,
+              so the panel must report what is really installed while still explaining the
+              failure.
+            tests:
+              - ModelCatalogViewModel_InstallVoicePackAsync_UpgradeFailsAndRollsBack_KeepsPackInstalledWithMessage
+
+          - id: SpeechDemo-ModelCatalog-VoicePackRemovalRefusedWhileInstalling
+            title: >-
+              The ModelCatalogSubsystem shall explain, without failing, that a voice pack cannot
+              be removed while an install of that pack is in progress, and shall leave the pack
+              installed.
+            justification: |
+              Removing a pack that is being (re)installed would corrupt the install. Refusing
+              with an explanation on the pack's row keeps the user informed and the
+              application running.
+            tests:
+              - ModelCatalogViewModel_RemoveVoicePack_InstallInFlight_ShowsMessageAndKeepsPack
+              - ModelCatalogService_UninstallReferenceVoicePack_InstallInFlight_ThrowsStoreExceptionWithoutRebuild

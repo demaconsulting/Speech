@@ -39,6 +39,13 @@ offered only for a voices-only install; and a failure message update re-announce
 
 **Expected**: The install and remove enablement and the status caption follow the state.
 
+##### ReferenceVoicePackListItemViewModel_State_VoicesOnly_DrivesFlagsAndStatusText
+
+**Scenario**: A row for a voices-only install is put through each install state.
+
+**Expected**: The install and remove enablement and the status caption follow the state, with a
+voices-only installed pack both removable and installable (the "Add emotions" upgrade).
+
 ##### ReferenceVoicePackListItemViewModel_InstalledSizeText_FollowsOptionAndInstall
 
 **Scenario**: The include-emotions option and the installed variant are varied.

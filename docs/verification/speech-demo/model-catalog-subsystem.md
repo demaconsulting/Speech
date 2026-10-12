@@ -35,7 +35,9 @@ purely through the catalog service seam and reports every outcome as row state r
 application error; mirror changes reconfigure the catalog through the seam and are refused while a
 download or pack install is in flight; and a voice pack install, removal or mirror change rebuilds
 the catalog and reference voice library and raises the voices-changed notification so other panels
-can refresh, even when an install fails or is canceled.
+can refresh, even when an install fails or is canceled; a voice pack that is still installed after a
+failed install or upgrade stays installed and removable with its failure message; and removing a
+pack while its install is in flight is refused with an explanation instead of failing.
 
 ### Test Scenarios
 
@@ -81,3 +83,26 @@ and refreshes.
 **Scenario**: A pack install completes through the panel.
 
 **Expected**: The pack row refreshes to the installed state.
+
+#### ModelCatalogViewModel_InstallVoicePackAsync_UpgradeFailsAndRollsBack_KeepsPackInstalledWithMessage
+
+**Scenario**: An "Add emotions" upgrade of an installed voices-only pack fails, hits a checksum mismatch,
+is canceled, or the service throws, and the service reports the pack still installed because the
+library rolled the upgrade back.
+
+**Expected**: The row stays installed with removal enabled and "Add emotions" still offered, and the
+failure message is shown on the row.
+
+#### ModelCatalogViewModel_RemoveVoicePack_InstallInFlight_ShowsMessageAndKeepsPack
+
+**Scenario**: The service refuses to uninstall a pack because an install of that pack is in flight.
+
+**Expected**: The refusal's message is shown on the pack's row, the pack stays installed, and nothing
+is thrown at the user.
+
+#### ModelCatalogService_UninstallReferenceVoicePack_InstallInFlight_ThrowsStoreExceptionWithoutRebuild
+
+**Scenario**: A pack is uninstalled through a composed service while an install of that pack is in flight.
+
+**Expected**: The library's store exception propagates, the catalog and library pair is not rebuilt, and
+`ReferenceVoicesChanged` is not raised.

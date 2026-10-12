@@ -67,6 +67,7 @@ public class ModelCatalogServiceTests
         Assert.Empty(service.ReferenceVoicePacks);
         Assert.Null(service.UserVoicesDirectory);
         Assert.Throws<InvalidOperationException>(() => service.GetReferenceVoicePackState("voice-zero-1.0"));
+        Assert.Throws<InvalidOperationException>(() => service.ReferenceVoicePackHasEmotions("voice-zero-1.0"));
         Assert.Throws<InvalidOperationException>(() => service.UninstallReferenceVoicePack("voice-zero-1.0"));
     }
 
@@ -569,6 +570,75 @@ public class ModelCatalogServiceTests
         // unaffected by which specific non-Installed outcome was reported.
         Assert.Equal(SpeechModelDownloadOutcome.IoFailure, result.Outcome);
         Assert.Empty(raisedEvents);
+    }
+
+    /// <summary>
+    ///     Proves that <see cref="IModelCatalogService.ModelInstalled"/> is never raised for a
+    ///     download whose files do not match the declared checksums.
+    /// </summary>
+    [Fact]
+    public async Task ModelCatalogService_DownloadAsync_ChecksumMismatch_DoesNotRaiseModelInstalled()
+    {
+        // Arrange: a model declaring one payload's checksum, served different bytes
+        var declaredPayload = "genuine model bytes"u8.ToArray();
+        var servedPayload = "tampered model bytes"u8.ToArray();
+        var model = new DownloadableFakeModel("fake-mismatch-model", SpeechModelRole.Synthesis, declaredPayload);
+        var store = new SpeechModelStore(IsolatedOptions());
+        using var catalog = new SpeechModelCatalog([model], store, new SucceedingModelDownloadClient(servedPayload));
+        var service = new ModelCatalogService(catalog);
+        var raisedEvents = new List<ModelInstalledEventArgs>();
+        service.ModelInstalled += (_, e) => raisedEvents.Add(e);
+
+        // Act
+        var result = await service.DownloadAsync(
+            model.Id, progress: null, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(SpeechModelDownloadOutcome.ChecksumMismatch, result.Outcome);
+        Assert.Empty(raisedEvents);
+    }
+
+    /// <summary>
+    ///     Proves that <see cref="IModelCatalogService.ModelInstalled"/> is never raised for a
+    ///     download that is canceled, and that the cancellation propagates to the caller.
+    /// </summary>
+    [Fact]
+    public async Task ModelCatalogService_DownloadAsync_Canceled_DoesNotRaiseModelInstalled()
+    {
+        // Arrange: a download client that observes the caller canceling mid-transfer
+        var payload = "genuine model bytes"u8.ToArray();
+        var model = new DownloadableFakeModel("fake-canceled-model", SpeechModelRole.Synthesis, payload);
+        var store = new SpeechModelStore(IsolatedOptions());
+        using var cancellation = new CancellationTokenSource();
+        using var catalog = new SpeechModelCatalog([model], store, new CancelingModelDownloadClient(cancellation));
+        var service = new ModelCatalogService(catalog);
+        var raisedEvents = new List<ModelInstalledEventArgs>();
+        service.ModelInstalled += (_, e) => raisedEvents.Add(e);
+
+        // Act & Assert: the library propagates the cancellation, and nothing is announced
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => service.DownloadAsync(model.Id, progress: null, cancellation.Token));
+        Assert.Empty(raisedEvents);
+    }
+
+    /// <summary>
+    ///     Fake <see cref="IModelDownloadClient"/> that cancels the caller's token and then
+    ///     observes it, used to prove a canceled download never raises
+    ///     <see cref="IModelCatalogService.ModelInstalled"/>.
+    /// </summary>
+    private sealed class CancelingModelDownloadClient(CancellationTokenSource cancellation) : IModelDownloadClient
+    {
+        /// <inheritdoc/>
+        public Task DownloadAsync(
+            Uri sourceUri,
+            Stream destination,
+            IProgress<SpeechModelDownloadProgress>? progress,
+            CancellationToken cancellationToken)
+        {
+            cancellation.Cancel();
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.CompletedTask;
+        }
     }
 
     /// <summary>

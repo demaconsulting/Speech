@@ -60,6 +60,28 @@ public class ReferenceVoicePackListItemViewModelTests
     }
 
     /// <summary>
+    ///     Proves that the action flags and status text follow each install state when the
+    ///     installed pack lacks its emotion clips, including the "Add emotions" upgrade.
+    /// </summary>
+    [Theory]
+    [InlineData(SpeechModelState.NotDownloaded, "Not installed", true, false, false)]
+    [InlineData(SpeechModelState.Downloading, "Installing", false, false, true)]
+    [InlineData(SpeechModelState.Downloaded, "Installed (voices only)", true, true, false)]
+    [InlineData(SpeechModelState.FailedOrCorrupt, "Failed or corrupt", true, false, false)]
+    public void ReferenceVoicePackListItemViewModel_State_VoicesOnly_DrivesFlagsAndStatusText(
+        SpeechModelState state, string text, bool canInstall, bool canRemove, bool isInstalling)
+    {
+        // Act
+        var row = new ReferenceVoicePackListItemViewModel(ReferenceVoicePack.VoiceZero10, state, hasEmotions: false);
+
+        // Assert
+        Assert.Equal(text, row.StatusText);
+        Assert.Equal(canInstall, row.CanInstall);
+        Assert.Equal(canRemove, row.CanRemove);
+        Assert.Equal(isInstalling, row.IsInstalling);
+    }
+
+    /// <summary>
     ///     Proves that the installed-size text follows the emotion option before install and the actual install after.
     /// </summary>
     [Fact]

@@ -21,12 +21,14 @@ catalog and `ReferenceVoiceLibrary` pairs built by a test factory.
 
 The unit passes when: it forwards enumeration and download to the library without adding or
 hiding anything and never disposes a catalog it does not own; `ModelInstalled` fires exactly once
-with the correct model id and role for a genuine install and never for a failed download; a
-factory-constructed instance rebuilds and takes ownership of its catalog when the mirror changes
+with the correct model id and role for a genuine install and never for a failed, canceled or
+checksum-mismatched download; a factory-constructed instance rebuilds and takes ownership of its
+catalog when the mirror changes
 while one built without a factory rejects reconfiguration; and the reference-voice members report
 the library's packs, rebuild the catalog and library pair, and raise `ReferenceVoicesChanged`
-however an operation ends, while an instance without a voice library reports no packs and refuses
-pack operations.
+however an install ends, while an instance without a voice library reports no packs and refuses
+pack operations, and an uninstall refused because an install is in flight neither rebuilds nor
+raises.
 
 #### Test Scenarios
 
@@ -70,6 +72,18 @@ declared role.
 **Scenario**: A download fails against an injected fake model and a client that always throws.
 
 **Expected**: `ModelInstalled` is never raised.
+
+##### ModelCatalogService_DownloadAsync_ChecksumMismatch_DoesNotRaiseModelInstalled
+
+**Scenario**: A download serves bytes that do not match the model's declared checksum.
+
+**Expected**: The library reports a checksum mismatch and `ModelInstalled` is never raised.
+
+##### ModelCatalogService_DownloadAsync_Canceled_DoesNotRaiseModelInstalled
+
+**Scenario**: The caller cancels a download while the fake download client is transferring.
+
+**Expected**: The cancellation propagates to the caller and `ModelInstalled` is never raised.
 
 ##### ModelCatalogService_Constructor_NullCatalogFactory_ThrowsArgumentNullException
 
@@ -118,10 +132,11 @@ attempt against it surfacing `ObjectDisposedException`.
 
 ##### ModelCatalogService_ReferenceVoices_NoLibrary_ReportsNoPacksAndRefusesOperations
 
-**Scenario**: A service built without a voice library is asked for packs and for pack operations.
+**Scenario**: A service built without a voice library is asked for packs, for a pack's state, for
+whether a pack has emotion variants, and to uninstall a pack.
 
-**Expected**: No packs and no user voices folder are reported, and the state, install and uninstall
-members throw `InvalidOperationException`.
+**Expected**: No packs and no user voices folder are reported, and the state query, emotion query
+and uninstall members throw `InvalidOperationException`.
 
 ##### ModelCatalogService_ReferenceVoices_Composed_ListsPackAndUserDirectory
 
@@ -154,3 +169,10 @@ have changed the pack's installed state.
 **Scenario**: A pack install is canceled.
 
 **Expected**: The pair is still rebuilt and `ReferenceVoicesChanged` raised.
+
+##### ModelCatalogService_UninstallReferenceVoicePack_InstallInFlight_ThrowsStoreExceptionWithoutRebuild
+
+**Scenario**: A pack is uninstalled while an install of that pack is in flight, so the library refuses.
+
+**Expected**: The library's store exception propagates without blocking, the pair is not rebuilt and
+`ReferenceVoicesChanged` is not raised, because nothing changed.

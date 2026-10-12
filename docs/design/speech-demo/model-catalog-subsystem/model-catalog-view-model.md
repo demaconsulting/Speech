@@ -20,6 +20,7 @@ and the empty-catalog message, driven entirely by `IModelCatalogService`.
 | `VoicePacks` / `HasVoicePacks` | `ObservableCollection<...>` / `bool` | The pack rows; whether to show the section |
 | `UserVoicesDirectory` / `VoiceConsentNotice` | `string?` / `string` | The user folder and the consent note |
 | `InstallVoicePackAsync` / `RemoveVoicePack` | generated commands | Install or remove the given pack |
+| `VoiceBusyMessage` | `const string` | The explanation shown when a pack action is refused during a transfer |
 
 **Key Methods**:
 
@@ -59,12 +60,23 @@ and the empty-catalog message, driven entirely by `IModelCatalogService`.
 - **InstallVoicePackAsync(pack, cancellationToken) / RemoveVoicePack(pack)**: Refuse (setting
   `VoiceBusyMessage` on the row, without calling the service) while any model row is downloading
   or any pack is installing. Otherwise they mark the row `Downloading` (install) and call the
-  seam (an install passes the row's `EffectiveIncludeEmotions`, read before the state changes; `Refresh()`
-  passes the service's `ReferenceVoicePackHasEmotions` to each row); a successful install or removal calls
-  `Refresh()`, while a non-installed outcome,
-  cancellation or a fault is reported on the pack's row. `DownloadAsync` and `ApplyMirror` in turn
-  refuse while a pack is installing, because a pack change rebuilds (and disposes) the catalog.
-  `Refresh()` also rebuilds the pack rows.
+  seam (an install passes the row's `EffectiveIncludeEmotions`, read before the state changes;
+  `Refresh()` passes the service's `ReferenceVoicePackHasEmotions` to each installed row).
+  - A successful install or removal calls `Refresh()`.
+  - After **every** unsuccessful install or upgrade outcome (a non-installed result, a checksum
+    mismatch, cancellation or an exception), a private `ApplyPackOutcome` step re-reads the pack's
+    state from the service. If the service reports the pack `Downloaded` - for example a failed
+    "Add emotions" upgrade that the library rolled back to the previous voices-only install - the
+    row stays `Downloaded`, its `HasEmotions` is re-read, and so removal stays enabled and "Add
+    emotions" stays offered. Otherwise the row shows the outcome's state (`FailedOrCorrupt`, or
+    `NotDownloaded` for a cancellation). The failure or cancellation message is preserved in
+    every case. If the service cannot report the state (the re-read throws), the row falls back
+    to the outcome's state.
+  - `RemoveVoicePack` catches any exception from the service and shows its message on the row, so
+    a store error - including the library's refusal to uninstall a pack while an install of it is
+    in flight - never crashes the panel and leaves the pack installed.
+  - `DownloadAsync` and `ApplyMirror` in turn refuse while a pack is installing, because a pack
+    change rebuilds (and disposes) the catalog. `Refresh()` also rebuilds the pack rows.
 
 **Error Handling**: Never lets a seam fault, checksum mismatch, transport failure, or
 cancellation escape as an unhandled exception; every outcome resolves to a row state and,
@@ -72,10 +84,17 @@ where applicable, a human-readable failure message. When the catalog reports not
 `IsCatalogEmpty` is true and the panel shows `EmptyCatalogMessage`. `ApplyMirror()` similarly
 never lets a validation failure, an in-progress download, or an unsupported-reconfiguration
 request escape; each resolves to `MirrorHasError` plus an explanatory `MirrorStatusMessage`.
+Voice-pack operations are fault-contained the same way: an install outcome or exception is
+reported on the pack's row (see `ApplyPackOutcome` above), a removal fault is shown as the row's
+failure message, and an operation refused because a transfer is in flight shows `VoiceBusyMessage`
+on the row. The mirror password and bearer token are held as plain strings in this demo (the view
+masks them with a password character); a production host should keep them in a secret store.
 
-**Dependencies**: `IModelCatalogService`, `ModelListItemViewModel`, the shared
-`MirrorOptionsFactory` helper, and the library's descriptor, state, progress, result, and
-`DownloadMirror` value types. Never touches `SpeechModelCatalog`, the file system, the
+**Dependencies**: `IModelCatalogService`, `ModelListItemViewModel`,
+`ReferenceVoicePackListItemViewModel`, the shared `MirrorOptionsFactory` helper, and the library's
+descriptor, state, progress, result, and `DownloadMirror` value types, plus the library's
+`ReferenceVoicePack` value type and the static `ReferenceVoiceLibrary.ConsentNotice` constant.
+It never touches a `SpeechModelCatalog` or `ReferenceVoiceLibrary` instance, the file system, the
 network, or Avalonia directly, which is what allows the whole download lifecycle - progress,
 success, checksum mismatch, transport failure, seam fault, and cancellation - to be verified
 deterministically with no network access and no downloadable model in existence.

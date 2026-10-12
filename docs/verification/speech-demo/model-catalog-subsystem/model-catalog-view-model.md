@@ -28,8 +28,11 @@ every download outcome is reported as a row state with an honest explanation rat
 application error; an installed model is never re-downloaded; an empty catalog is explained
 rather than shown blank; the mirror-settings fields apply a valid mirror (or revert to each
 model's public URI on a blank URL) while reporting any validation or reconfiguration failure as
-an explained panel state; and the reference voice pack section lists, installs and removes packs
-while refusing operations that would overlap a model download, a pack install or a mirror change.
+an explained panel state; and the reference voice pack section lists, installs and removes packs while refusing operations
+that would overlap a model download, a pack install or a mirror change; after any unsuccessful pack
+install or upgrade the row shows the state the seam reports (a pack still installed stays installed
+and removable) with its failure message, falling back to the attempt's outcome when the state cannot
+be read; and a removal the seam refuses is explained on the row.
 
 #### Test Scenarios
 
@@ -217,6 +220,38 @@ because that call would dispose the catalog the in-flight download depends on.
 **Scenario**: A pack install fails, is canceled, or the seam throws.
 
 **Expected**: Each outcome is reported in the pack row rather than escaping.
+
+##### ModelCatalogViewModel_InstallVoicePackAsync_UpgradeFailsAndRollsBack_KeepsPackInstalledWithMessage
+
+**Scenario**: An "Add emotions" upgrade of an installed voices-only pack fails, hits a checksum
+mismatch, is canceled, or the seam throws, and the seam reports the pack still installed because the
+library rolled the upgrade back.
+
+**Expected**: The row re-reads the pack from the seam: it stays installed (voices only) with removal
+enabled and "Add emotions" still offered, no progress is shown, and the failure or cancellation
+message is kept on the row.
+
+##### ModelCatalogViewModel_InstallVoicePackAsync_StateReadFails_FallsBackToOutcome
+
+**Scenario**: A pack install fails and the seam then throws when asked for the pack's state.
+
+**Expected**: The row shows the failed outcome with its failure message and the panel does not crash.
+
+##### ModelCatalogViewModel_Refresh_InstalledPack_ReadsHasEmotionsFromService
+
+**Scenario**: The seam reports an installed pack with and without emotion variants and the panel is
+refreshed.
+
+**Expected**: The row's emotion flag matches the seam's report, and "Add emotions" is offered only
+for the voices-only install.
+
+##### ModelCatalogViewModel_RemoveVoicePack_InstallInFlight_ShowsMessageAndKeepsPack
+
+**Scenario**: The seam throws its store exception because an install of the pack is in flight when
+the pack is removed.
+
+**Expected**: The exception's message is shown on the pack's row, the pack stays installed and
+removable, and nothing escapes.
 
 ##### ModelCatalogViewModel_RemoveVoicePack_UninstallsRefreshesAndReportsFaults
 
