@@ -25,6 +25,16 @@ input-files:
   - docs/design/speech/audio-subsystem/port-audio-capture-device.md
   - docs/design/speech/audio-subsystem/port-audio-playback-device.md
   - docs/design/speech/audio-subsystem/port-audio.md
+  - docs/design/speech/audio-subsystem/audio-device-in-use-exception.md
+  - docs/design/speech/audio-subsystem/audio-device-unavailable-exception.md
+  - docs/design/speech/audio-subsystem/audio-format.md
+  - docs/design/speech/audio-subsystem/unavailable-audio-capture-device-probe.md
+  - docs/design/speech/audio-subsystem/unavailable-audio-capture-device.md
+  - docs/design/speech/audio-subsystem/unavailable-audio-playback-device-probe.md
+  - docs/design/speech/audio-subsystem/unavailable-audio-playback-device.md
+  - docs/design/speech/audio-subsystem/wav-file-audio-capture-device.md
+  - docs/design/speech/audio-subsystem/wav-file-audio-playback-device.md
+  - docs/design/speech/audio-subsystem/windowed-sinc-lowpass-filter.md
   - docs/design/speech/audio-subsystem/port-audio/i-port-audio-api.md
   - docs/design/speech/audio-subsystem/port-audio/i-port-audio-stream.md
   - docs/design/speech/audio-subsystem/port-audio/port-audio-environment.md
@@ -56,6 +66,7 @@ input-files:
   - docs/design/speech/recognition-subsystem/speech-recognizer-factory.md
   - docs/design/speech/recognition-subsystem/unavailable-speech-recognizer-engine.md
   - docs/design/speech/recognition-subsystem/unavailable-recognition-session.md
+  - docs/design/speech/recognition-subsystem/recognition-session.md
   - docs/design/speech/synthesis-subsystem.md
   - docs/design/speech/synthesis-subsystem/i-speech-synthesizer-engine.md
   - docs/design/speech/synthesis-subsystem/i-synthesis-session.md
@@ -63,23 +74,73 @@ input-files:
   - docs/design/speech/synthesis-subsystem/unavailable-speech-synthesizer-engine.md
   - docs/design/speech/synthesis-subsystem/unavailable-synthesis-session.md
   - docs/design/speech/synthesis-subsystem/audio-tag-parser.md
+  - docs/design/speech/synthesis-subsystem/dedicated-worker.md
+  - docs/design/speech/synthesis-subsystem/layer2-rendering.md
+  - docs/design/speech/synthesis-subsystem/playback-audio-resampler.md
+  - docs/design/speech/synthesis-subsystem/sentence-chunker.md
+  - docs/design/speech/synthesis-subsystem/speech-synthesizer-engine.md
+  - docs/design/speech/synthesis-subsystem/synthesis-backend.md
+  - docs/design/speech/synthesis-subsystem/synthesis-session.md
   - docs/design/speech-demo.md
   - docs/design/speech-demo/app.md
   - docs/design/speech-demo/app-launch-options.md
   - docs/design/speech-demo/mirror-options-factory.md
   - docs/design/speech-demo/program.md
   - docs/design/speech-demo/shell-subsystem.md
+  - docs/design/speech-demo/shell-subsystem/demo-panel-view-model.md
+  - docs/design/speech-demo/shell-subsystem/main-window-view-model.md
   - docs/design/speech-demo/device-selection-subsystem.md
+  - docs/design/speech-demo/device-selection-subsystem/audio-device-service.md
+  - docs/design/speech-demo/device-selection-subsystem/device-selection-view-model.md
   - docs/design/speech-demo/model-catalog-subsystem.md
   - docs/design/speech-demo/model-catalog-subsystem/model-catalog-service.md
   - docs/design/speech-demo/model-catalog-subsystem/model-catalog-view-model.md
   - docs/design/speech-demo/model-catalog-subsystem/model-list-item-view-model.md
   - docs/design/speech-demo/model-catalog-subsystem/reference-voice-pack-list-item-view-model.md
   - docs/design/speech-demo/model-settings-subsystem.md
+  - docs/design/speech-demo/model-settings-subsystem/model-settings-view-model.md
+  - docs/design/speech-demo/model-settings-subsystem/parameter-view-models.md
   - docs/design/speech-demo/synthesis-panel-subsystem.md
   - docs/design/speech-demo/synthesis-panel-subsystem/synthesis-panel-view-model.md
   - docs/design/speech-demo/synthesis-panel-subsystem/synthesizer-session-factory.md
   - docs/design/speech-demo/recognition-panel-subsystem.md
+  - docs/design/speech-demo/recognition-panel-subsystem/recognition-panel-view-model.md
+  - docs/design/speech-demo/recognition-panel-subsystem/recognizer-session-factory.md
+  - docs/design/speech-cli.md
+  - docs/design/speech-cli/conversation-command-subsystem.md
+  - docs/design/speech-cli/device-commands-subsystem.md
+  - docs/design/speech-cli/model-commands-subsystem.md
+  - docs/design/speech-cli/recognition-command-subsystem.md
+  - docs/design/speech-cli/synthesis-command-subsystem.md
+  - docs/design/speech-onnx.md
+  - docs/design/speech-onnx/onnx-runtime-subsystem.md
+  - docs/design/speech-onnx/onnx-runtime-subsystem/onnx-execution-provider-selector.md
+  - docs/design/speech-onnx-chatterboxturbo.md
+  - docs/design/speech-onnx-chatterboxturbo/model-management-subsystem.md
+  - docs/design/speech-onnx-chatterboxturbo/model-management-subsystem/byte-level-bpe-tokenizer.md
+  - docs/design/speech-onnx-chatterboxturbo/model-management-subsystem/chatterbox-turbo-reference-voice.md
+  - docs/design/speech-onnx-chatterboxturbo/model-management-subsystem/onnx-chatterboxturbo-english-synthesis-model.md
+  - docs/design/speech-onnx-chatterboxturbo/synthesis-subsystem.md
+  - docs/design/speech-onnx-chatterboxturbo/synthesis-subsystem/chatterbox-turbo-capability-profile.md
+  - docs/design/speech-onnx-chatterboxturbo/synthesis-subsystem/chatterbox-turbo-token-selector.md
+  - docs/design/speech-onnx-chatterboxturbo/synthesis-subsystem/onnx-chatterboxturbo-networks.md
+  - docs/design/speech-onnx-chatterboxturbo/synthesis-subsystem/onnx-chatterboxturbo-synthesis-engine.md
+  - docs/design/speech-onnx-kokoro.md
+  - docs/design/speech-onnx-kokoro/model-management-subsystem.md
+  - docs/design/speech-onnx-kokoro/model-management-subsystem/kokoro-lexicon-phonemizer.md
+  - docs/design/speech-onnx-kokoro/model-management-subsystem/kokoro-phoneme-vocabulary.md
+  - docs/design/speech-onnx-kokoro/model-management-subsystem/onnx-kokoro-english-synthesis-model.md
+  - docs/design/speech-onnx-kokoro/synthesis-subsystem.md
+  - docs/design/speech-onnx-kokoro/synthesis-subsystem/onnx-kokoro-synthesis-engine.md
+  - docs/design/speech-onnx-nemotron-stt.md
+  - docs/design/speech-onnx-nemotron-stt/model-management-subsystem.md
+  - docs/design/speech-onnx-nemotron-stt/model-management-subsystem/nemotron-vocabulary.md
+  - docs/design/speech-onnx-nemotron-stt/model-management-subsystem/onnx-nemotron-multilingual-recognition-model.md
+  - docs/design/speech-onnx-nemotron-stt/recognition-subsystem.md
+  - docs/design/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-feature-extractor.md
+  - docs/design/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-rnnt-greedy-decoder.md
+  - docs/design/speech-onnx-nemotron-stt/recognition-subsystem/onnx-nemotron-recognition-engine.md
+  - docs/design/speech-onnx-nemotron-stt/recognition-subsystem/silence-run-limiter.md
   - docs/design/speech-sherpa.md
   - docs/design/speech-sherpa/model-management-subsystem.md
   - docs/design/speech-sherpa/model-management-subsystem/sherpa-onnx-zipformer-en-recognition-model.md
