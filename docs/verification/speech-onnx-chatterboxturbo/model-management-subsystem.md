@@ -7,7 +7,9 @@ The SpeechOnnxChatterboxTurbo ModelManagementSubsystem is verified by automated 
 options and registration extension in `OnnxChatterboxTurboEnglishSynthesisModelTests.cs`, the
 tokenizer in `ByteLevelBpeTokenizerTests.cs` and the reference voice in
 `ChatterboxTurboReferenceVoiceTests.cs`. Backend construction is verified against synthetic ONNX
-graphs, so no real model is required.
+graphs, so no real model is required. `ChatterboxTurboModelOptions` and the registration extension are
+not separate software units: the options are verified within the model unit document and the
+registration extension at subsystem level (see "Registration Extension" below).
 
 ### Test Environment
 

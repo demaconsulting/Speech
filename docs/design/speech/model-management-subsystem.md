@@ -80,8 +80,11 @@ The subsystem exposes `SpeechModelStore`, `SpeechModelStoreOptions`, `SpeechMode
 `IModelDownloadClient`, `HttpModelDownloadClient`, `SpeechModelRole`, `SpeechModelState`,
 `SpeechModelAudioTagSupport`, `ISpeechModelParameter`, `NumericParameter`, `ChoiceParameter`,
 `ChoiceParameterOption`, `BooleanParameter`, `ISpeechModel`, `IRecognitionModel`,
-`ISynthesisModel`, `SpeechModelDescriptor`, and `SpeechModelCatalog` as its public API
-(`SpeechModelParameterDiagnostics` is internal). It consumes `ISpeechDiagnostics` from the
+`ISynthesisModel`, `SpeechModelDescriptor`, `SpeechModelCatalog`, `ReferenceVoicePack`,
+`ReferenceVoiceLibrary`, `ReferenceVoiceInfo` and `ReferenceVoiceSource` as its public API
+(`SpeechModelParameterDiagnostics` and `ReferenceVoicePackInstaller` are internal; the installer
+extracts a downloaded pack archive and is driven by `ReferenceVoiceLibrary`, which obtains the archive
+through `SpeechModelDownloader` into the shared `SpeechModelStore` layout). It consumes `ISpeechDiagnostics` from the
 Diagnostics subsystem to report structural download-failure facts without ever exposing raw
 model bytes. It also consumes `AudioFormat` from the AudioSubsystem as a narrow plain-data
 dependency for public model format declarations.

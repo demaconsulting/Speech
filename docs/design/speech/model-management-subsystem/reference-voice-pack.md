@@ -29,6 +29,14 @@ through the normal verified download path. Also hosts the two small value types 
   anger, calm, confused, enthused, excited, frustrated, happy, neutral, sad, shout, surprised, tired,
   worried. Moods are variants of a voice, not separate voices; `Mood` stays `null` for pack voices.
 
+**Key Methods**:
+
+- `ReferenceVoicePack(...)` (constructor): validates every argument (see Error Handling) and builds the
+  internal one-file `DownloadDescriptor`.
+- `InstalledSizeBytes(bool includeEmotions)`: returns `VoicesBytes` when emotions are excluded, otherwise
+  `VoicesBytes + EmotionsBytes`, so a host can show the disk size of either install variant.
+- `ReferenceVoiceInfo.KnownMoods`: the static list of the 13 mood names a pack's emotion clips use.
+
 **Error Handling**: The constructor throws `ArgumentException` for a non-HTTPS URL, a malformed
 checksum, or an id, archive file name or archive root folder that is not a single safe path segment
 (no separators, `..` or rooted names), and `ArgumentOutOfRangeException` for a non-positive size or a
