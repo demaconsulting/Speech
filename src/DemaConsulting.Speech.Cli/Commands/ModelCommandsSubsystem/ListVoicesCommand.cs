@@ -117,7 +117,7 @@ internal static class ListVoicesCommand
         if (voices.Count == 0)
         {
             context.WriteLine("No reference voices are available.");
-            context.WriteLine("Install the voice pack with 'speech-cli voices install voice-zero-1.0', or put .wav/.flac");
+            context.WriteLine($"Install the voice pack with 'speech-cli voices install {ReferenceVoicePack.VoiceZero10.Id}', or put .wav/.flac");
             context.WriteLine($"files in '{catalog.UserVoicesDirectory}' (or pass --voices-dir <path>).");
             context.WriteLine(ReferenceVoiceLibrary.ConsentNotice);
             return;

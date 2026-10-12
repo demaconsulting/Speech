@@ -26,10 +26,10 @@ namespace DemaConsulting.Speech.Cli.Tests.Commands.ModelCommandsSubsystem;
 ///     Minimal, deterministic <see cref="ISpeechModel"/> fake for CLI command unit tests.
 /// </summary>
 /// <remarks>
-///     Implements the shared <see cref="ISpeechModel"/> contract directly (never
-///     <see cref="IRecognitionModel"/>/<see cref="ISynthesisModel"/>, which restrict
-///     implementation to assemblies granted <c>InternalsVisibleTo</c>), since the
+///     Implements only the shared <see cref="ISpeechModel"/> contract, since the
 ///     model-management commands under test only ever consume the common, role-agnostic surface.
+///     <see cref="FakeSynthesisModel"/> and <see cref="FakeRecognitionModel"/> cover the public
+///     role interfaces for the seam adapter tests.
 /// </remarks>
 internal sealed class FakeSpeechModel : ISpeechModel
 {

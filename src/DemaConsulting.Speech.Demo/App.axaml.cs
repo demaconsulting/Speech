@@ -156,7 +156,7 @@ public sealed class App : Application
                 }
 
                 // Set synchronously, before the first await inside CompleteShutdownAsync runs
-                // (finding 29): a second ShutdownRequested racing in during that first await -
+                // a second ShutdownRequested racing in during that first await -
                 // for example, the user closing the window again while cleanup is still pending -
                 // must see this guard already set, rather than finding it still false and
                 // starting a second concurrent cleanup task against the same ViewModels/catalog.
@@ -177,7 +177,7 @@ public sealed class App : Application
     /// </summary>
     /// <remarks>
     ///     <see cref="_shuttingDown"/> is already set to <see langword="true"/> by the caller
-    ///     before this method starts (finding 29), so no field assignment is needed here; this
+    ///     before this method starts, so no field assignment is needed here; this
     ///     method's own <see langword="finally"/> only has to resume shutdown once cleanup has
     ///     settled, whether it succeeded or faulted.
     /// </remarks>

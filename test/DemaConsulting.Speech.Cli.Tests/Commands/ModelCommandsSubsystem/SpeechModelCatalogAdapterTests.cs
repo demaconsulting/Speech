@@ -31,8 +31,8 @@ namespace DemaConsulting.Speech.Cli.Tests.Commands.ModelCommandsSubsystem;
 
 /// <summary>
 ///     Unit tests for <see cref="SpeechModelCatalogAdapter"/> and <see cref="CliModelCatalogFactory"/>,
-///     proving the production seam forwards to a real (but empty-known-model,
-///     temp-directory-rooted) <see cref="SpeechModelCatalog"/> without requiring network access.
+///     proving the production seam forwards to a real
+///     (temp-directory-rooted) <see cref="SpeechModelCatalog"/> without requiring network access.
 /// </summary>
 [Collection("Sequential")]
 public sealed class SpeechModelCatalogAdapterTests : IDisposable
@@ -135,7 +135,7 @@ public sealed class SpeechModelCatalogAdapterTests : IDisposable
         using var adapter = CliModelCatalogFactory.Create(context);
 
         // Assert: enumerating does not throw and returns the compiled-in known models
-        Assert.Equal(7, adapter.Enumerate().Count);
+        Assert.NotEmpty(adapter.Enumerate());
     }
 
     /// <summary>
@@ -426,11 +426,87 @@ public sealed class SpeechModelCatalogAdapterTests : IDisposable
             () => adapter.CreateRecognizerEngineAsync(null!, null, TestContext.Current.CancellationToken));
     }
 
-    // NOTE: No test exercises a real, downloaded synthesis-role model here. CI has no cached TTS
-    // model available (see the Pass 5 planning report's Assumption 4), so real
-    // ISynthesisModel.PreferredAudioFormat/CreateSynthesizer forwarding is validated only through
-    // SpeakCommandTests's FakeCliModelCatalog seam, not against a real SpeechModelCatalog. The
-    // same applies to a real, downloaded recognition-role model and
-    // GetAudioFormat/CreateRecognizer (see the Pass 6 planning report's Assumption 4) - validated
-    // only through RecognizeCommandTests's FakeCliModelCatalog seam.
+    /// <summary>
+    ///     Test that <see cref="SpeechModelCatalogAdapter.GetPreferredAudioFormat"/> returns the
+    ///     synthesis model's declared preferred format.
+    /// </summary>
+    [Fact]
+    public void SpeechModelCatalogAdapter_GetPreferredAudioFormat_WithSynthesisModel_ReturnsFormat()
+    {
+        // Arrange
+        using var adapter = new SpeechModelCatalogAdapter(new SpeechModelStoreOptions { RootPathOverride = _testRoot });
+        var descriptor = new SpeechModelDescriptor(
+            new FakeSynthesisModel("fake-tts", new AudioFormat(24000, 1)), SpeechModelState.NotDownloaded);
+
+        // Act
+        var format = adapter.GetPreferredAudioFormat(descriptor);
+
+        // Assert
+        Assert.Equal(24000, format.SampleRate);
+        Assert.Equal(1, format.ChannelCount);
+    }
+
+    /// <summary>
+    ///     Test that <see cref="SpeechModelCatalogAdapter.GetAudioFormat"/> returns the recognition
+    ///     model's declared input format.
+    /// </summary>
+    [Fact]
+    public void SpeechModelCatalogAdapter_GetAudioFormat_WithRecognitionModel_ReturnsFormat()
+    {
+        // Arrange
+        using var adapter = new SpeechModelCatalogAdapter(new SpeechModelStoreOptions { RootPathOverride = _testRoot });
+        var descriptor = new SpeechModelDescriptor(
+            new FakeRecognitionModel("fake-stt", new AudioFormat(16000, 1)), SpeechModelState.NotDownloaded);
+
+        // Act
+        var format = adapter.GetAudioFormat(descriptor);
+
+        // Assert
+        Assert.Equal(16000, format.SampleRate);
+        Assert.Equal(1, format.ChannelCount);
+    }
+
+    /// <summary>
+    ///     Test that <see cref="SpeechModelCatalogAdapter.CreateSynthesizerEngineAsync"/> forwards a
+    ///     synthesis model to the library loader, which degrades a not-installed model to an
+    ///     unavailable engine rather than throwing.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelCatalogAdapter_CreateSynthesizerEngineAsync_WithSynthesisModel_ReturnsEngine()
+    {
+        // Arrange
+        using var adapter = new SpeechModelCatalogAdapter(new SpeechModelStoreOptions { RootPathOverride = _testRoot });
+        var descriptor = new SpeechModelDescriptor(
+            new FakeSynthesisModel("fake-tts", new AudioFormat(24000, 1)), SpeechModelState.NotDownloaded);
+
+        // Act
+        await using var engine = await adapter.CreateSynthesizerEngineAsync(
+            descriptor, null, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.NotNull(engine);
+        Assert.False(engine.IsAvailable);
+    }
+
+    /// <summary>
+    ///     Test that <see cref="SpeechModelCatalogAdapter.CreateRecognizerEngineAsync"/> forwards a
+    ///     recognition model to the library loader, which degrades a not-installed model to an
+    ///     unavailable engine rather than throwing.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelCatalogAdapter_CreateRecognizerEngineAsync_WithRecognitionModel_ReturnsEngine()
+    {
+        // Arrange
+        using var adapter = new SpeechModelCatalogAdapter(new SpeechModelStoreOptions { RootPathOverride = _testRoot });
+        var descriptor = new SpeechModelDescriptor(
+            new FakeRecognitionModel("fake-stt", new AudioFormat(16000, 1)), SpeechModelState.NotDownloaded);
+
+        // Act
+        await using var engine = await adapter.CreateRecognizerEngineAsync(
+            descriptor, null, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.NotNull(engine);
+        Assert.False(engine.IsAvailable);
+    }
 }

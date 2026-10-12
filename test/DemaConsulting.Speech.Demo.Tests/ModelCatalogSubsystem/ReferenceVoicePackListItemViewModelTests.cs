@@ -132,4 +132,142 @@ public class ReferenceVoicePackListItemViewModelTests
         // Assert
         Assert.True(row.HasFailureMessage);
     }
+
+    /// <summary>
+    ///     Proves that changing <c>State</c> raises change notifications for every dependent property.
+    /// </summary>
+    [Fact]
+    public void ReferenceVoicePackListItemViewModel_State_Changed_RaisesDependentPropertyChanged()
+    {
+        // Arrange
+        var row = new ReferenceVoicePackListItemViewModel(ReferenceVoicePack.VoiceZero10, SpeechModelState.NotDownloaded);
+        var raised = new List<string?>();
+        row.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+        // Act
+        row.State = SpeechModelState.Downloading;
+
+        // Assert
+        foreach (var name in new[]
+        {
+            nameof(row.State), nameof(row.StatusText), nameof(row.CanInstall), nameof(row.CanRemove),
+            nameof(row.IsInstalling), nameof(row.InstalledSizeText), nameof(row.CanUpgradeToEmotions),
+            nameof(row.ShowEmotionOption), nameof(row.InstallButtonText),
+        })
+        {
+            Assert.Contains(name, raised);
+        }
+    }
+
+    /// <summary>
+    ///     Proves that changing <c>HasEmotions</c> raises change notifications for its dependent properties.
+    /// </summary>
+    [Fact]
+    public void ReferenceVoicePackListItemViewModel_HasEmotions_Changed_RaisesDependentPropertyChanged()
+    {
+        // Arrange
+        var row = new ReferenceVoicePackListItemViewModel(ReferenceVoicePack.VoiceZero10, SpeechModelState.Downloaded);
+        var raised = new List<string?>();
+        row.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+        // Act
+        row.HasEmotions = true;
+
+        // Assert
+        foreach (var name in new[]
+        {
+            nameof(row.HasEmotions), nameof(row.StatusText), nameof(row.InstalledSizeText), nameof(row.CanInstall),
+            nameof(row.CanUpgradeToEmotions), nameof(row.InstallButtonText),
+        })
+        {
+            Assert.Contains(name, raised);
+        }
+    }
+
+    /// <summary>
+    ///     Proves that changing <c>IncludeEmotions</c> raises a change notification for <c>InstalledSizeText</c>.
+    /// </summary>
+    [Fact]
+    public void ReferenceVoicePackListItemViewModel_IncludeEmotions_Changed_RaisesInstalledSizeTextChanged()
+    {
+        // Arrange
+        var row = new ReferenceVoicePackListItemViewModel(ReferenceVoicePack.VoiceZero10, SpeechModelState.NotDownloaded);
+        var raised = new List<string?>();
+        row.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+        // Act
+        row.IncludeEmotions = false;
+
+        // Assert
+        Assert.Contains(nameof(row.InstalledSizeText), raised);
+        Assert.StartsWith("Installs about", row.InstalledSizeText, StringComparison.Ordinal);
+        Assert.EndsWith("(voices only)", row.InstalledSizeText, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Proves that changing <c>FailureMessage</c> raises a change notification for <c>HasFailureMessage</c>.
+    /// </summary>
+    [Fact]
+    public void ReferenceVoicePackListItemViewModel_FailureMessage_Changed_RaisesHasFailureMessageChanged()
+    {
+        // Arrange
+        var row = new ReferenceVoicePackListItemViewModel(ReferenceVoicePack.VoiceZero10, SpeechModelState.NotDownloaded);
+        var raised = new List<string?>();
+        row.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+        // Act
+        row.FailureMessage = "oops";
+
+        // Assert
+        Assert.Contains(nameof(row.HasFailureMessage), raised);
+    }
+
+    /// <summary>
+    ///     Proves that a pack without emotion clips or a known installed size offers no emotion option, never
+    ///     requests emotions, and shows no installed-size text.
+    /// </summary>
+    [Fact]
+    public void ReferenceVoicePackListItemViewModel_PackWithoutEmotionsOrSize_HidesEmotionOptionAndSize()
+    {
+        // Arrange
+        var pack = new ReferenceVoicePack(
+            "plain-pack",
+            "Plain pack",
+            new Uri("https://example.com/plain.zip"),
+            new string('a', 64),
+            1024 * 1024,
+            "plain.zip",
+            "plain",
+            "CC0",
+            new Uri("https://example.com/license"),
+            "Someone",
+            new Uri("https://example.com/source"));
+
+        // Act
+        var row = new ReferenceVoicePackListItemViewModel(pack, SpeechModelState.NotDownloaded);
+
+        // Assert
+        Assert.False(row.HasEmotionVariants);
+        Assert.False(row.ShowEmotionOption);
+        Assert.False(row.EffectiveIncludeEmotions);
+        Assert.False(row.CanUpgradeToEmotions);
+        Assert.Equal(string.Empty, row.InstalledSizeText);
+
+        row.State = SpeechModelState.Downloaded;
+        Assert.Equal("Installed", row.StatusText);
+        Assert.False(row.CanUpgradeToEmotions);
+    }
+
+    /// <summary>
+    ///     Proves that an undefined state value falls back to its name for the status text.
+    /// </summary>
+    [Fact]
+    public void ReferenceVoicePackListItemViewModel_UnknownState_StatusTextFallsBackToStateName()
+    {
+        // Act
+        var row = new ReferenceVoicePackListItemViewModel(ReferenceVoicePack.VoiceZero10, (SpeechModelState)999);
+
+        // Assert
+        Assert.Equal("999", row.StatusText);
+    }
 }

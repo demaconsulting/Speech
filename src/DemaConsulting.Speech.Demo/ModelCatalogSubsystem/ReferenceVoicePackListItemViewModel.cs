@@ -94,7 +94,7 @@ public sealed partial class ReferenceVoicePackListItemViewModel : ObservableObje
     public bool HasFailureMessage => !string.IsNullOrEmpty(FailureMessage);
 
     /// <summary>Gets a value indicating whether an install may be started right now.</summary>
-    public bool CanInstall => State is SpeechModelState.NotDownloaded or SpeechModelState.FailedOrCorrupt || CanUpgradeToEmotions;
+    public bool CanInstall => (State is SpeechModelState.NotDownloaded or SpeechModelState.FailedOrCorrupt) || CanUpgradeToEmotions;
 
     /// <summary>
     ///     Gets a value indicating whether the pack is installed without its emotion clips and could add them (the
@@ -103,7 +103,7 @@ public sealed partial class ReferenceVoicePackListItemViewModel : ObservableObje
     public bool CanUpgradeToEmotions => State == SpeechModelState.Downloaded && HasEmotionVariants && !HasEmotions;
 
     /// <summary>Gets a value indicating whether the "Include emotion variants" option is shown (a not-yet-installed pack that has emotions).</summary>
-    public bool ShowEmotionOption => HasEmotionVariants && State is SpeechModelState.NotDownloaded or SpeechModelState.FailedOrCorrupt;
+    public bool ShowEmotionOption => HasEmotionVariants && (State is SpeechModelState.NotDownloaded or SpeechModelState.FailedOrCorrupt);
 
     /// <summary>Gets the label of the install button: <c>Add emotions</c> for an upgrade, otherwise <c>Install</c>.</summary>
     public string InstallButtonText => CanUpgradeToEmotions ? "Add emotions" : "Install";

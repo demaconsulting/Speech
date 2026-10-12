@@ -36,9 +36,7 @@ namespace DemaConsulting.Speech.Cli.Cli;
 ///     A one-line summary of the subcommand's expected flags, shown by <c>--help</c>.
 /// </param>
 /// <param name="Handler">
-///     The action that runs when this subcommand is dispatched. As of Pass 6, every subcommand
-///     handler is a real implementation; no dispatch entry remains a
-///     <see cref="NotImplementedException"/> stub.
+///     The action that runs when this subcommand is dispatched.
 /// </param>
 internal sealed record CommandDescriptor(string Name, string UsageSummary, Action<Context> Handler);
 
@@ -46,8 +44,7 @@ internal sealed record CommandDescriptor(string Name, string UsageSummary, Actio
 ///     Defines the fixed set of subcommands the CLI recognizes and dispatches to.
 /// </summary>
 /// <remarks>
-///     Every recognized subcommand name has a real implementation as of Pass 6, which replaced
-///     the last remaining stub (<c>recognize</c>).
+///     Every recognized subcommand name has a real implementation.
 /// </remarks>
 internal static class CommandDispatch
 {

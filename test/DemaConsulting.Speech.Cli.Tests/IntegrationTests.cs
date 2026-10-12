@@ -24,12 +24,10 @@ namespace DemaConsulting.Speech.Cli.Tests;
 ///     System-level integration tests that run the Speech CLI application via <c>dotnet</c>.
 /// </summary>
 /// <remarks>
-///     Covers the CI-safe scaffold subset (dispatch, help/version/self-test, a clean error for an
-///     unrecognized subcommand) plus the five model-management subcommands implemented in Pass 3
-///     (<c>list-models</c>, <c>model-info</c>, <c>download</c>, <c>uninstall</c>, <c>clean</c>),
-///     the three device-related subcommands implemented in Pass 4 (<c>list-devices</c>,
-///     <c>devices</c>, <c>doctor</c>), the <c>speak</c> subcommand implemented in Pass 5, and the
-///     <c>recognize</c> subcommand implemented in this pass - the last of all 10 subcommands -
+///     Covers dispatch, help/version/self-test, a clean error for an unrecognized subcommand, and the
+///     model-management subcommands (<c>list-models</c>, <c>model-info</c>, <c>download</c>,
+///     <c>uninstall</c>, <c>clean</c>), the device-related subcommands (<c>list-devices</c>,
+///     <c>devices</c>, <c>doctor</c>), <c>speak</c>, and <c>recognize</c>,
 ///     each exercised against an isolated, empty <c>--models-dir</c> so no test ever touches the
 ///     real per-user model store or performs a real network access. <c>speak</c>'s and
 ///     <c>recognize</c>'s error paths (missing model, unknown/wrong-role/not-downloaded model id,
