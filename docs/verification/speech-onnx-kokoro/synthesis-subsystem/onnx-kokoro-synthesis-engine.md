@@ -85,15 +85,30 @@ together synthesize non-empty audio at 24000 Hz for a real English sentence.
 **Test**: `Generate_ZeroTokenText_ReturnsEmptyAudio` (a `[Theory]` covering empty text and
 text composed entirely of out-of-vocabulary words)
 
-##### A multi-row voice selects its style row by token count and clamps to the last row
+##### A multi-row voice selects its style row by token count
 
-**Scenario**: a voice style file with several rows is used to synthesize utterances of differing
-phoneme-token counts, including one longer than the row count.
+**Scenario**: a voice style file with more rows than the utterance's phoneme-token count is used
+to synthesize an utterance.
 
-**Expected**: the row indexed by the token count is passed to the model, and a token count beyond
-the last row selects the last row.
+**Expected**: the row indexed by the token count is passed to the model.
 
-**Test**: `Generate_MultiRowVoice_SelectsRowByTokenCountAndClampsToLastRow`
+**Test**: `Generate_MultiRowVoice_SelectsRowByTokenCount`
+
+##### A short voice clamps to its last style row
+
+**Scenario**: an utterance's phoneme-token count is not smaller than the voice's row count.
+
+**Expected**: the voice's last row is passed to the model.
+
+**Test**: `Generate_ShortVoice_ClampsToLastRow`
+
+##### An unrecognized speaker id falls back to the first voice
+
+**Test**: `Generate_UnknownSpeakerId_FallsBackToFirstVoice`
+
+##### Disposing the engine releases the session
+
+**Test**: `Dispose_ReleasesSession`
 
 ##### Generate throws ArgumentNullException for null text
 

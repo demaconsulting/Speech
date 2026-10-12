@@ -53,14 +53,15 @@ produces an empty phoneme string and no unknown words; and a `null` input throws
 
 **Test**: `Phonemize_EmptyText_ReturnsEmptyPhonemesAndNoUnknownWords`
 
-##### Misspellings, acronyms, numbers and markdown are spoken
+##### Misspellings are corrected and acronyms are spelled
 
-**Scenario**: `"teh recieve dont"`, `"FBI"`, `"$5"` and `"**bold**`code`"` are phonemized.
+**Scenario**: `"teh recieve dont"` and `"FBI"` are phonemized.
 
 **Expected**: each yields the same phonemes as its corrected or expanded form (`"the receive
-don't"`, `"F B I"`, `"five dollars"`, `"bold code"`) with no unknown words.
+don't"`, `"F B I"`) with no unknown words.
 
-**Tests**: `Phonemize_MisspellingsAcronymsAndNumbers_AreSpoken`,
+**Tests**: `Phonemize_Misspellings_AreCorrectedAndNotReported`,
+`Phonemize_Acronym_IsSpokenAsLetterNames`,
 `Phonemize_AcronymLetters_UseOnlyVocabularyCharacters`, `Normalize_SpokenForm_MatchesEquivalentText`
 (numbers, currency, times, years, ordinals, abbreviations, markdown, diacritics),
 `IntegerToWords_Value_ReturnsWords`, `Normalize_HugeNumber_DoesNotThrow`, `Normalize_NullText_ThrowsArgumentNullException`
@@ -84,7 +85,8 @@ don't"`, `"F B I"`, `"five dollars"`, `"bold code"`) with no unknown words.
 
 ##### An out-of-vocabulary word is dropped and reported as unknown
 
-**Test**: `Phonemize_OutOfVocabularyWord_DroppedAndReportedAsUnknown`
+**Tests**: `Phonemize_OutOfVocabularyWord_IsOmittedFromPhonemes`,
+`Phonemize_OutOfVocabularyWord_ReportedAsUnknown`
 
 ##### Input of only unknown words returns empty phonemes
 

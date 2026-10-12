@@ -3,11 +3,12 @@
 #
 # These requirements describe the design-level behavior of the OnnxKokoroSynthesisEngine unit,
 # the real raw-ONNX implementation of the Speech library's public ISynthesisBackend seam,
-# decomposing the parent SpeechOnnxKokoro SynthesisSubsystem requirements.
+# decomposing the parent SpeechOnnxKokoro SynthesisSubsystem requirements. Each requirement
+# states one observable behavior.
 #
 # Covered by test/DemaConsulting.Speech.Onnx.Kokoro.Tests/SynthesisSubsystem/
 # OnnxKokoroSynthesisEngineTests.cs, against a tiny hand-built ONNX test fixture, plus
-# OnnxKokoroEnglishSynthesisModelTests' end-to-end CreateBackend test for Generate/style-vector
+# OnnxKokoroEnglishSynthesisModelTests' end-to-end CreateBackend test for Generate/voice
 # selection evidence. OnnxKokoroSynthesisEngineTests also contains
 # Generate_RealInstalledModel_ProducesNonEmptyAudio, a skip-conditional test against the genuine
 # production model that is NOT linked to any requirement below: the CI model-download bootstrap
@@ -29,9 +30,9 @@ sections:
             requirements:
               - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-Construction
                 title: >-
-                  The OnnxKokoroSynthesisEngine class shall take ownership of a loaded
-                  InferenceSession, a KokoroPhonemeVocabulary, a KokoroLexiconPhonemizer, and
-                  every installed voice's style-vector bytes keyed by speaker id, supplied by a
+                  The OnnxKokoroSynthesisEngine class shall be constructible from a loaded
+                  inference session, a phoneme vocabulary, a lexicon phonemizer, and every
+                  installed voice's style-vector data keyed by speaker id, as supplied by a
                   synthesis model's own CreateBackend implementation.
                 justification: |
                   The synthesis model owns the engine configuration (which session, which
@@ -39,12 +40,32 @@ sections:
                   configuration so that adding a synthesis model never requires changing the
                   synthesis backend.
                 tests:
+                  - OnnxKokoroEnglishSynthesisModel_CreateBackend_ValidModelAndVoices_GeneratesUsingSelectedVoiceStyle
+
+              - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-ConstructionNullArguments
+                title: >-
+                  The OnnxKokoroSynthesisEngine class's constructor shall throw
+                  ArgumentNullException for a null session, vocabulary, phonemizer, or
+                  voice-styles argument.
+                justification: |
+                  A programming error should surface immediately with a clear exception rather
+                  than a null-reference failure at first use.
+                tests:
                   - Constructor_NullSession_ThrowsArgumentNullException
                   - Constructor_NullVocabulary_ThrowsArgumentNullException
                   - Constructor_NullPhonemizer_ThrowsArgumentNullException
                   - Constructor_NullVoiceStyles_ThrowsArgumentNullException
+
+              - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-ConstructionEmptyVoiceStyles
+                title: >-
+                  The OnnxKokoroSynthesisEngine class's constructor shall throw
+                  ArgumentException for an empty voice-styles dictionary.
+                justification: |
+                  The engine cannot select even a fallback voice when no voices are supplied, so
+                  this misconfiguration should surface at construction rather than at first
+                  synthesis.
+                tests:
                   - Constructor_EmptyVoiceStyles_ThrowsArgumentException
-                  - OnnxKokoroEnglishSynthesisModel_CreateBackend_ValidModelAndVoices_GeneratesUsingSelectedVoiceStyle
 
               - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-SampleRate
                 title: >-
@@ -59,16 +80,13 @@ sections:
 
               - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-Generate
                 title: >-
-                  The OnnxKokoroSynthesisEngine class shall generate one audio buffer for a
-                  given text, speed, and speaker id by phonemizing the text, converting the
-                  phonemes to padded token ids, selecting the requested voice's style vector, and
-                  running a single ONNX Runtime forward pass, returning the generated samples
-                  together with their sample rate.
+                  The OnnxKokoroSynthesisEngine class's Generate method shall return, for a given
+                  text and speaker id, audio samples synthesized by the ONNX model together with
+                  the engine's sample rate.
                 justification: |
                   The Speech library's synthesis session drives the backend one rendered segment
                   at a time and needs the generated samples and their rate to resample and play
-                  them through the configured audio output device; this is the only path in this
-                  package connecting managed-code phonemization to real ONNX Runtime inference.
+                  them through the configured audio output device.
                 tests:
                   - OnnxKokoroEnglishSynthesisModel_CreateBackend_ValidModelAndVoices_GeneratesUsingSelectedVoiceStyle
 
@@ -79,69 +97,102 @@ sections:
                   tokens.
                 justification: |
                   Running the ONNX graph on a content-free, all-padding input would waste
-                  inference cost and risk producing meaningless noise; recognizing the empty
-                  case directly is cheaper and more predictable.
+                  inference cost and risk producing meaningless noise.
                 tests:
                   - Generate_ZeroTokenText_ReturnsEmptyAudio
 
+              - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-VoiceSelection
+                title: >-
+                  The OnnxKokoroSynthesisEngine class's Generate method shall synthesize with the
+                  style vector of the voice identified by the requested speaker id.
+                justification: |
+                  Voice selection is the reason the engine is configured with more than one
+                  voice; the audio must reflect the voice the host selected.
+                tests:
+                  - OnnxKokoroEnglishSynthesisModel_CreateBackend_ValidModelAndVoices_GeneratesUsingSelectedVoiceStyle
+
               - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-StyleVectorSelection
                 title: >-
-                  The OnnxKokoroSynthesisEngine class shall select a voice's style-vector row
-                  indexed by the utterance's phoneme-token count, clamped to the voice's own row
-                  count, and shall fall back to the first available voice for an unrecognized
-                  speaker id rather than throwing.
+                  The OnnxKokoroSynthesisEngine class shall select the voice's style-vector row
+                  indexed by the utterance's phoneme-token count.
                 justification: |
                   Kokoro's style vectors are indexed by utterance phoneme-token length, not
                   merely by voice identity, exactly mirroring the proven Python reference
-                  pipeline's own voices[len(ids)] lookup; falling back for an unrecognized
-                  speaker id defends this engine even against a speaker id supplied from outside
-                  ISynthesisModel.ResolveSpeakerId's own guarantee.
+                  pipeline's own voices[len(ids)] lookup.
                 tests:
-                  - OnnxKokoroEnglishSynthesisModel_CreateBackend_ValidModelAndVoices_GeneratesUsingSelectedVoiceStyle
-                  - Generate_MultiRowVoice_SelectsRowByTokenCountAndClampsToLastRow
+                  - Generate_MultiRowVoice_SelectsRowByTokenCount
+
+              - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-StyleVectorRowClamp
+                title: >-
+                  The OnnxKokoroSynthesisEngine class shall use the voice's last style-vector row
+                  when the utterance's phoneme-token count exceeds the voice's row count.
+                justification: |
+                  Long utterances must still be synthesized rather than failing with an
+                  out-of-range lookup.
+                tests:
+                  - Generate_ShortVoice_ClampsToLastRow
+
+              - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-UnknownSpeakerFallback
+                title: >-
+                  The OnnxKokoroSynthesisEngine class shall fall back to the first available
+                  voice, rather than throwing, for an unrecognized speaker id.
+                justification: |
+                  ISynthesisModel.ResolveSpeakerId guarantees a recognized id for every id it
+                  returns, but the engine defends against an id supplied from outside that
+                  contract.
+                tests:
+                  - Generate_UnknownSpeakerId_FallsBackToFirstVoice
 
               - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-ArgumentValidation
                 title: >-
                   The OnnxKokoroSynthesisEngine class's Generate method shall throw
-                  ArgumentNullException for a null text argument and ObjectDisposedException
-                  after the engine has been disposed.
+                  ArgumentNullException for a null text argument.
                 justification: |
-                  A programming error (null text or use after disposal) should surface
-                  immediately with a clear exception, matching this repository's existing
-                  argument-validation convention, rather than an opaque failure inside ONNX
-                  Runtime.
+                  A programming error (null text) should surface immediately with a clear
+                  exception, matching this repository's argument-validation convention, rather
+                  than an opaque failure inside ONNX Runtime.
                 tests:
                   - Generate_NullText_ThrowsArgumentNullException
+
+              - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-UseAfterDispose
+                title: >-
+                  The OnnxKokoroSynthesisEngine class's Generate method shall throw
+                  ObjectDisposedException after the engine has been disposed.
+                justification: |
+                  Use after disposal is a programming error that should surface with a clear
+                  exception rather than running against a released native session.
+                tests:
                   - Generate_AfterDispose_ThrowsObjectDisposedException
 
               - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-Dispose
                 title: >-
-                  The OnnxKokoroSynthesisEngine class shall release the loaded InferenceSession
-                  on Dispose, and a second Dispose call shall be a no-op.
-                justification: |-
-                  The loaded session holds native memory sized to a multi-hundred-megabyte
-                  model, so it must be released deterministically when the owning synthesizer
-                  engine is disposed, and idempotent disposal keeps teardown paths safe.
+                  The OnnxKokoroSynthesisEngine class shall release the loaded inference session
+                  when it is disposed.
+                justification: |
+                  The loaded session holds native memory sized to a multi-hundred-megabyte model,
+                  so it must be released deterministically when the owning engine is disposed.
+                tests:
+                  - Dispose_ReleasesSession
+
+              - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-DisposeIdempotent
+                title: >-
+                  The OnnxKokoroSynthesisEngine class shall treat a second Dispose call as a
+                  no-op.
+                justification: |
+                  Idempotent disposal keeps teardown paths safe.
                 tests:
                   - Dispose_CalledTwice_DoesNotThrow
 
               - id: SpeechOnnxKokoro-Synthesis-OnnxKokoroSynthesisEngine-ProbeInference
                 title: >-
-                  The OnnxKokoroSynthesisEngine class shall expose a static RunProbeInference
-                  method that runs one representative inference directly against a
-                  caller-supplied session, using the same input tensor names as Generate and a
-                  token id freshly verified as in-vocabulary against KokoroPhonemeVocabulary
-                  (never a hard-coded numeric literal trusted without verification), so that
-                  OnnxExecutionProviderSelector.Create can reject an accelerated execution
-                  provider candidate that constructs successfully but cannot actually run this
-                  model's graph.
+                  The OnnxKokoroSynthesisEngine class shall expose a RunProbeInference method
+                  that completes without error when run against a session able to execute the
+                  Kokoro graph, so an unusable accelerated execution provider can be rejected
+                  before real synthesis.
                 justification: |-
                   Some execution providers (observed with DirectML) load a Kokoro session
                   successfully yet fail at Run() time because a graph operator (ConvTranspose) is
                   unsupported for this model's shapes - a failure mode session construction alone
-                  cannot detect. Sharing the exact tensor names between Generate and this probe,
-                  and verifying the probe's token id against the real vocabulary rather than
-                  trusting a magic number, keeps the probe and the real inference path from ever
-                  silently drifting apart.
+                  cannot detect.
                 tests:
                   - RunProbeInference_RunnableSession_DoesNotThrow

@@ -2,10 +2,11 @@
 # Software Unit Requirements for KokoroLexiconPhonemizer
 #
 # These requirements describe the design-level behavior of the KokoroLexiconPhonemizer unit,
-# decomposing the parent SpeechOnnxKokoro ModelManagementSubsystem requirements.
+# decomposing the parent SpeechOnnxKokoro ModelManagementSubsystem requirements. Each
+# requirement states one observable behavior.
 #
 # Covered by test/DemaConsulting.Speech.Onnx.Kokoro.Tests/ModelManagementSubsystem/
-# KokoroLexiconPhonemizerTests.cs.
+# KokoroLexiconPhonemizerTests.cs and KokoroTextNormalizerTests.cs.
 
 sections:
   - title: SpeechOnnxKokoro Requirements
@@ -16,60 +17,153 @@ sections:
             requirements:
               - id: SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-Phonemize
                 title: >-
-                  The KokoroLexiconPhonemizer class shall convert English text into Kokoro
-                  v1.0's own IPA phoneme string by looking up each word in an embedded,
-                  precomputed lexicon, collapsing whitespace runs to a single vocabulary space
-                  character, and passing through only the closed set of punctuation characters
-                  Kokoro's own vocabulary declares.
+                  The KokoroLexiconPhonemizer class shall convert each English word of its input
+                  into Kokoro v1.0's own IPA phoneme string from an embedded lexicon, without
+                  regard to the word's letter case.
                 justification: |
                   The real Kokoro v1.0 ONNX export performs only the waveform-generation
                   forward pass; correct phonemization is a precondition for any synthesized
-                  audio to be intelligible, and this class's lexicon-lookup approach was chosen
-                  specifically because Kokoro's own phoneme encoding packs diphthongs/affricates
-                  into non-obvious single characters that a hand-written G2P would risk getting
-                  silently wrong.
+                  audio to be intelligible, and a lexicon lookup avoids the risk of a
+                  hand-written G2P silently getting Kokoro's packed diphthong and affricate
+                  characters wrong.
                 tests:
                   - Phonemize_KnownWord_ReturnsLexiconPhonemesWithNoUnknownWords
-                  - Phonemize_MultipleKnownWords_JoinsWithSingleSpace
                   - Phonemize_UpperCaseKnownWord_ResolvesSameAsLowerCase
-                  - Phonemize_VocabularyPunctuation_PassesThrough
-                  - Phonemize_NonVocabularyPunctuation_IsDropped
-                  - Phonemize_EmptyText_ReturnsEmptyPhonemesAndNoUnknownWords
+
+              - id: SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-WhitespaceCollapse
+                title: >-
+                  The KokoroLexiconPhonemizer class shall separate consecutive words in the
+                  phoneme string with a single space character.
+                justification: |
+                  The space is the word separator in Kokoro's own vocabulary; emitting more than
+                  one would add spurious pause tokens.
+                tests:
+                  - Phonemize_MultipleKnownWords_JoinsWithSingleSpace
+
+              - id: SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-ContractionRecognition
+                title: >-
+                  The KokoroLexiconPhonemizer class shall recognize common English contractions,
+                  written with either a straight or a typographic apostrophe, as known words.
+                justification: |
+                  Contractions are ubiquitous in real text; reporting them as unknown would drop
+                  them from the spoken output.
+                tests:
                   - Phonemize_CommonContractions_AreRecognized
+
+              - id: SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-PunctuationPassThrough
+                title: >-
+                  The KokoroLexiconPhonemizer class shall pass punctuation characters that
+                  Kokoro's own vocabulary declares through to the phoneme string unchanged.
+                justification: |
+                  Punctuation drives the prosody (pauses and intonation) the model was trained
+                  to produce.
+                tests:
+                  - Phonemize_VocabularyPunctuation_PassesThrough
+
+              - id: SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-PunctuationDrop
+                title: >-
+                  The KokoroLexiconPhonemizer class shall omit punctuation characters that
+                  Kokoro's vocabulary does not declare from the phoneme string, while still
+                  treating them as word separators.
+                justification: |
+                  A character outside the vocabulary has no token id; dropping it early keeps the
+                  phoneme string within the closed set the model understands.
+                tests:
+                  - Phonemize_NonVocabularyPunctuation_IsDropped
+
+              - id: SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-EllipsisToken
+                title: >-
+                  The KokoroLexiconPhonemizer class shall emit three consecutive periods as the
+                  single ellipsis character Kokoro was trained on.
+                justification: |
+                  Kokoro's vocabulary represents a trailing-off pause as one ellipsis token, not
+                  three period tokens.
+                tests:
                   - Phonemize_ThreePeriods_BecomeSingleEllipsisToken
+
+              - id: SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-EmptyInput
+                title: >-
+                  The KokoroLexiconPhonemizer class shall return an empty phoneme string and no
+                  unknown words for empty input text.
+                justification: |
+                  Callers may render empty segments; an empty result lets them skip inference
+                  cleanly.
+                tests:
+                  - Phonemize_EmptyText_ReturnsEmptyPhonemesAndNoUnknownWords
 
               - id: SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-TextNormalization
                 title: >-
-                  The KokoroLexiconPhonemizer class shall normalize input text before lookup so
-                  that numbers, currency, markdown, acronyms, accented letters, common
-                  misspellings and missing-apostrophe contractions are spoken rather than
-                  dropped.
+                  The KokoroLexiconPhonemizer class shall speak numbers, currency, times,
+                  ordinals, abbreviations, markdown markup, symbols, and accented letters in the
+                  input text as their spoken-form equivalent words.
                 justification: |
-                  Real-world text is rarely clean dictionary words; dropping digits, symbols
-                  or slightly misspelled words changes the meaning of the spoken utterance.
+                  Real-world text is rarely clean dictionary words; dropping digits, symbols,
+                  or markup changes the meaning of the spoken utterance.
                 tests:
-                  - Phonemize_MisspellingsAcronymsAndNumbers_AreSpoken
-                  - Phonemize_AcronymLetters_UseOnlyVocabularyCharacters
                   - Normalize_SpokenForm_MatchesEquivalentText
+
+              - id: SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-NumberToWords
+                title: >-
+                  The KokoroLexiconPhonemizer class shall convert integers to their English
+                  word form.
+                justification: |
+                  Spoken numbers are built from this conversion, so it must be correct on its own
+                  across magnitudes.
+                tests:
                   - IntegerToWords_Value_ReturnsWords
+
+              - id: SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-HugeNumberResilience
+                title: >-
+                  The KokoroLexiconPhonemizer class shall speak numbers too large to convert to
+                  words rather than failing.
+                justification: |
+                  Arbitrary user text must never crash synthesis.
+                tests:
                   - Normalize_HugeNumber_DoesNotThrow
-                  - Normalize_NullText_ThrowsArgumentNullException
+
+              - id: SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-SpellingCorrection
+                title: >-
+                  The KokoroLexiconPhonemizer class shall speak a word that has a near spelling
+                  match in the lexicon, including common misspellings and contractions missing
+                  their apostrophe, as the corrected word and shall not report it as unknown.
+                justification: |
+                  Near-match corrections are overwhelmingly typos of known words, so speaking
+                  them is more faithful than omitting them.
+                tests:
+                  - Phonemize_Misspellings_AreCorrectedAndNotReported
+
+              - id: SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-AcronymSpelling
+                title: >-
+                  The KokoroLexiconPhonemizer class shall speak an all-capitals acronym as its
+                  individual letter names, using only characters the Kokoro vocabulary knows.
+                justification: |
+                  A lexicon has no entry for arbitrary acronyms; spelling them letter by letter is
+                  how they are normally spoken.
+                tests:
+                  - Phonemize_Acronym_IsSpokenAsLetterNames
+                  - Phonemize_AcronymLetters_UseOnlyVocabularyCharacters
 
               - id: SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-UnknownWordHandling
                 title: >-
                   The KokoroLexiconPhonemizer class shall omit a word that has no lexicon entry
-                  and no near spelling match from the phoneme string, and shall report every
-                  distinct omitted word to the caller; a word resolved by spelling correction
-                  shall be spoken and not reported.
+                  and no near spelling match from the phoneme string.
                 justification: |
                   Guessing a pronunciation for a word with no near match risks producing
-                  confidently wrong speech, which is worse than omitting the word; reporting
-                  the omission lets a caller (or diagnostic tooling) detect when this Stage-1
-                  limitation affected a given utterance. Near-match corrections are spoken
-                  because they are overwhelmingly typos of known words.
+                  confidently wrong speech, which is worse than omitting the word.
                 tests:
-                  - Phonemize_OutOfVocabularyWord_DroppedAndReportedAsUnknown
+                  - Phonemize_OutOfVocabularyWord_IsOmittedFromPhonemes
                   - Phonemize_OnlyUnknownWords_ReturnsEmptyPhonemes
+
+              - id: SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-UnknownWordReporting
+                title: >-
+                  The KokoroLexiconPhonemizer class shall report each distinct omitted word to
+                  the caller, in lower case and in first-seen order.
+                justification: |
+                  Reporting the omission lets a caller or diagnostic tooling detect when this
+                  limitation affected a given utterance, and reporting each distinct word once
+                  keeps the report concise.
+                tests:
+                  - Phonemize_OutOfVocabularyWord_ReportedAsUnknown
                   - Phonemize_RepeatedOutOfVocabularyWord_ReportedOnceInFirstSeenOrder
 
               - id: SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-ArgumentValidation
@@ -82,3 +176,13 @@ sections:
                   tokenization.
                 tests:
                   - Phonemize_NullText_ThrowsArgumentNullException
+
+              - id: SpeechOnnxKokoro-Models-KokoroLexiconPhonemizer-NormalizationArgumentValidation
+                title: >-
+                  The KokoroTextNormalizer class's Normalize method shall throw
+                  ArgumentNullException for a null text argument.
+                justification: |-
+                  A programming error (null text) should surface immediately with a clear
+                  exception.
+                tests:
+                  - Normalize_NullText_ThrowsArgumentNullException
