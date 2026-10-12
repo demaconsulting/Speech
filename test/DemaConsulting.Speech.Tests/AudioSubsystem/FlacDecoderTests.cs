@@ -464,6 +464,109 @@ public sealed class FlacDecoderTests
         Assert.Contains("declared total", ex.Message);
     }
 
+    /// <summary>Proves an ID3v2 tag whose size field has a high bit set (not syncsafe) is rejected rather than skipped.</summary>
+    [Fact]
+    public void FlacDecoder_Decode_Id3SizeNotSyncsafe_Throws()
+    {
+        // Arrange: the size field's last byte is 0x80, which would (wrongly) mean a 128-byte tag if the top bit were ignored
+        var flac = new TestFlacEncoder { BlockSize = 100 }.Encode(Signal(1, 100, 16));
+        var header = new byte[] { (byte)'I', (byte)'D', (byte)'3', 4, 0, 0, 0, 0, 0, 0x80 };
+        var bytes = header.Concat(new byte[128]).Concat(flac).ToArray();
+
+        // Act
+        var ex = Assert.Throws<InvalidDataException>(() => Decode(bytes));
+
+        // Assert
+        Assert.Contains("neither a RIFF/WAVE nor a FLAC", ex.Message);
+    }
+
+    /// <summary>Proves <see cref="FlacDecoder.IsFlac"/> accepts a bare or ID3v2-prefixed stream and rejects everything else.</summary>
+    [Fact]
+    public void FlacDecoder_IsFlac_VariousInputs_DetectsMarkerOnly()
+    {
+        // Arrange
+        var plain = new TestFlacEncoder { BlockSize = 100 }.Encode(Signal(1, 100, 16));
+        var tagged = new TestFlacEncoder { BlockSize = 100, Id3Prefix = true }.Encode(Signal(1, 100, 16));
+
+        // Act / Assert
+        Assert.True(FlacDecoder.IsFlac(plain));
+        Assert.True(FlacDecoder.IsFlac(tagged));
+        Assert.False(FlacDecoder.IsFlac([]));
+        Assert.False(FlacDecoder.IsFlac("fLa"u8));
+        Assert.False(FlacDecoder.IsFlac("RIFF....WAVE"u8));
+        Assert.False(FlacDecoder.IsFlac(tagged[..22]));
+    }
+
+    /// <summary>Proves a STREAMINFO with an out-of-range rate, bit depth or maximum block size is rejected.</summary>
+    [Fact]
+    public void FlacDecoder_Decode_InvalidStreamInfoValues_Throw()
+    {
+        // Arrange: STREAMINFO body starts at byte 8; maximum block size is bytes 10-11, rate is bytes 18-20 (top 20 bits),
+        // and the bit depth minus one is bit 0 of byte 20 plus the top nibble of byte 21
+        var good = new TestFlacEncoder { BlockSize = 100 }.Encode(Signal(1, 100, 16));
+        var zeroRate = (byte[])good.Clone();
+        zeroRate[18] = 0;
+        zeroRate[19] = 0;
+        zeroRate[20] &= 0x0F;
+        var tinyDepth = (byte[])good.Clone();
+        tinyDepth[20] &= 0xFE;
+        tinyDepth[21] &= 0x0F;
+        var zeroBlock = (byte[])good.Clone();
+        zeroBlock[10] = 0;
+        zeroBlock[11] = 0;
+
+        // Act / Assert
+        Assert.Contains("STREAMINFO is invalid", Assert.Throws<InvalidDataException>(() => Decode(zeroRate)).Message);
+        Assert.Contains("STREAMINFO is invalid", Assert.Throws<InvalidDataException>(() => Decode(tinyDepth)).Message);
+        Assert.Contains("STREAMINFO is invalid", Assert.Throws<InvalidDataException>(() => Decode(zeroBlock)).Message);
+    }
+
+    /// <summary>Proves a stream cut inside its metadata block header, and a stream with no audio after STREAMINFO, are reported.</summary>
+    [Fact]
+    public void FlacDecoder_Decode_MetadataDamage_ReportsTruncation()
+    {
+        // Arrange
+        var good = new TestFlacEncoder { BlockSize = 100 }.Encode(Signal(1, 100, 16));
+
+        // Act
+        var cutHeader = Assert.Throws<InvalidDataException>(() => Decode(good[..6]));
+        var cutBody = Assert.Throws<InvalidDataException>(() => Decode(good[..20]));
+
+        // Assert
+        Assert.Contains("truncated in its metadata", cutHeader.Message);
+        Assert.Contains("runs past the end", cutBody.Message);
+    }
+
+    /// <summary>Proves damaged subframe headers (reserved type, padding bit, excess wasted bits, order above block size) are rejected with specific messages.</summary>
+    [Fact]
+    public void FlacDecoder_Decode_DamagedSubframeHeader_ThrowsSpecificErrors()
+    {
+        // Arrange: with a 44.1 kHz, 16-bit, 100-sample verbatim frame the subframe header is the byte after the CRC-8,
+        // seven bytes into the frame
+        var lenient = new AudioFileReadOptions { VerifyChecksums = false };
+        const int SubframeHeader = FirstFrameOffset + 7;
+        var good = new TestFlacEncoder { BlockSize = 100 }.Encode(Signal(1, 100, 16));
+
+        byte[] Tamper(byte[] source, int offset, byte value)
+        {
+            var copy = (byte[])source.Clone();
+            copy[offset] = value;
+            return copy;
+        }
+
+        var wasted = Tamper(good, SubframeHeader, 0x03);
+        wasted[SubframeHeader + 1] = 0;
+        wasted[SubframeHeader + 2] = 0;
+        wasted[SubframeHeader + 3] = 0;
+        var tinyFixed = new TestFlacEncoder { BlockSize = 2, Kind = FlacSubframeKind.Fixed, FixedOrder = 2 }.Encode(Signal(1, 2, 16));
+
+        // Act / Assert
+        Assert.Contains("reserved type", Assert.Throws<InvalidDataException>(() => Decode(Tamper(good, SubframeHeader, 0x04), lenient)).Message);
+        Assert.Contains("non-zero padding bit", Assert.Throws<InvalidDataException>(() => Decode(Tamper(good, SubframeHeader, 0x82), lenient)).Message);
+        Assert.Contains("wastes more bits", Assert.Throws<InvalidDataException>(() => Decode(wasted, lenient)).Message);
+        Assert.Contains("above its block size", Assert.Throws<InvalidDataException>(() => Decode(Tamper(tinyFixed, FirstFrameOffset + 7, 0x18), lenient)).Message);
+    }
+
     /// <summary>Proves an ID3v2-prefixed FLAC file with an unrecognized extension is detected by content and decoded through the file reader.</summary>
     [Fact]
     public void FlacDecoder_Decode_Id3PrefixedFileWithDatExtension_DecodesThroughReader()

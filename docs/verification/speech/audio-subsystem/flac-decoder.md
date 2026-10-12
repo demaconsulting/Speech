@@ -80,6 +80,16 @@ sample cap are rejected with `InvalidDataException`.
 
 **Test**: `FlacDecoder_Decode_Id3PrefixedFileWithDatExtension_DecodesThroughReader`
 
+##### ID3v2 size field that is not syncsafe
+
+**Test**: `FlacDecoder_Decode_Id3SizeNotSyncsafe_Throws`
+
+##### Marker detection, STREAMINFO values, metadata damage and subframe-header damage
+
+**Tests**: `FlacDecoder_IsFlac_VariousInputs_DetectsMarkerOnly`,
+`FlacDecoder_Decode_InvalidStreamInfoValues_Throw`, `FlacDecoder_Decode_MetadataDamage_ReportsTruncation`,
+`FlacDecoder_Decode_DamagedSubframeHeader_ThrowsSpecificErrors`
+
 ##### Unknown total length
 
 **Test**: `FlacDecoder_Decode_UnknownTotal_DecodesUntilData_Ends`

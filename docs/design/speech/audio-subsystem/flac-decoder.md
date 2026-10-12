@@ -28,7 +28,8 @@ STREAMINFO MD5 is not verified and damaged frames are not skipped.
 **Error Handling**: Every malformed condition (bad sync, reserved codes, CRC mismatch when
 `VerifyChecksums` is set, truncation, a block larger than the STREAMINFO maximum, invalid
 predictor parameters, more samples than `maxSamples` or than `Array.MaxLength`, a frame larger than
-the samples remaining of a known STREAMINFO total, a damaged ID3v2 prefix, or a frame that
+the samples remaining of a known STREAMINFO total, a damaged ID3v2 prefix (including a size field
+that is not syncsafe), or a frame that
 disagrees with STREAMINFO) throws `InvalidDataException`, with the byte offset of the problem
 where applicable.
 

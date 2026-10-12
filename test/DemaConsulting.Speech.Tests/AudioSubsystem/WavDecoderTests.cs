@@ -95,24 +95,34 @@ public sealed class WavDecoderTests
     public void WavDecoder_Decode_UnsupportedEncoding_Throws(int tag, int bits) =>
         Assert.Throws<NotSupportedException>(() => AudioFileReader.Read(new MemoryStream(Wav(tag, 8000, bits, 1, new byte[8]))));
 
-    /// <summary>Proves malformed images raise <see cref="InvalidDataException"/>.</summary>
-    [Fact]
-    public void WavDecoder_Decode_MalformedImages_Throw()
+    /// <summary>Proves malformed images raise <see cref="InvalidDataException"/> naming the defect.</summary>
+    [Theory]
+    [InlineData("NoData", "no 'data' chunk")]
+    [InlineData("DataBeforeFmt", "before its 'fmt ' chunk")]
+    [InlineData("ShortFmt", "truncated 'fmt ' chunk")]
+    [InlineData("NoRate", "no channels or no sample rate")]
+    [InlineData("NoChannels", "no channels or no sample rate")]
+    [InlineData("TruncatedFile", "truncated 'fmt ' chunk")]
+    [InlineData("TruncatedExtensible", "truncated extensible 'fmt ' chunk")]
+    public void WavDecoder_Decode_MalformedImages_Throw(string name, string fragment)
     {
         // Arrange
-        var noData = Riff(("fmt ", Format(1, 8000, 16, 1)));
-        var dataFirst = Riff(("data", new byte[2]), ("fmt ", Format(1, 8000, 16, 1)));
-        var shortFmt = Riff(("fmt ", new byte[8]), ("data", new byte[2]));
-        var noRate = Riff(("fmt ", Format(1, 0, 16, 1)), ("data", new byte[2]));
-        var noChannels = Riff(("fmt ", Format(1, 8000, 16, 0)), ("data", new byte[2]));
-        var truncatedExtensible = Format(0xFFFE, 8000, 16, 1);
-        var truncated = Wav(1, 8000, 16, 1, new byte[4])[..30];
-
-        // Act / Assert
-        foreach (var image in new[] { noData, dataFirst, shortFmt, noRate, noChannels, truncated, Riff(("fmt ", truncatedExtensible), ("data", new byte[2])) })
+        var image = name switch
         {
-            Assert.Throws<InvalidDataException>(() => AudioFileReader.Read(new MemoryStream(image)));
-        }
+            "NoData" => Riff(("fmt ", Format(1, 8000, 16, 1))),
+            "DataBeforeFmt" => Riff(("data", new byte[2]), ("fmt ", Format(1, 8000, 16, 1))),
+            "ShortFmt" => Riff(("fmt ", new byte[8]), ("data", new byte[2])),
+            "NoRate" => Riff(("fmt ", Format(1, 0, 16, 1)), ("data", new byte[2])),
+            "NoChannels" => Riff(("fmt ", Format(1, 8000, 16, 0)), ("data", new byte[2])),
+            "TruncatedFile" => Wav(1, 8000, 16, 1, new byte[4])[..30],
+            _ => Riff(("fmt ", Format(0xFFFE, 8000, 16, 1)), ("data", new byte[2]))
+        };
+
+        // Act
+        var ex = Assert.Throws<InvalidDataException>(() => AudioFileReader.Read(new MemoryStream(image)));
+
+        // Assert
+        Assert.Contains(fragment, ex.Message);
     }
 
     /// <summary>Proves the sample cap is enforced.</summary>
@@ -121,6 +131,78 @@ public sealed class WavDecoderTests
         Assert.Throws<InvalidDataException>(() => AudioFileReader.Read(
             new MemoryStream(Wav(1, 8000, 16, 1, new byte[100])),
             new AudioFileReadOptions { MaxSamples = 10 }));
+
+    /// <summary>Proves the cap is inclusive: exactly the cap decodes and one sample fewer than the data holds is rejected.</summary>
+    [Fact]
+    public void WavDecoder_Decode_ExactSampleCap_IsAcceptedAndOneUnderIsRejected()
+    {
+        // Arrange: 10 mono 16-bit samples
+        var image = Wav(1, 8000, 16, 1, new byte[20]);
+
+        // Act
+        var atCap = AudioFileReader.Read(new MemoryStream(image), new AudioFileReadOptions { MaxSamples = 10 });
+
+        // Assert
+        Assert.Equal(10, atCap.Samples.Length);
+        Assert.Throws<InvalidDataException>(() => AudioFileReader.Read(new MemoryStream(image), new AudioFileReadOptions { MaxSamples = 9 }));
+    }
+
+    /// <summary>Proves the largest positive PCM value of each depth stays below full scale and the extreme negative is exactly -1.</summary>
+    [Theory]
+    [InlineData(16, new byte[] { 0xFF, 0x7F }, 32767f / 32768f)]
+    [InlineData(24, new byte[] { 0xFF, 0xFF, 0x7F }, 8388607f / 8388608f)]
+    [InlineData(16, new byte[] { 0x00, 0x80 }, -1f)]
+    [InlineData(24, new byte[] { 0x00, 0x00, 0x80 }, -1f)]
+    public void WavDecoder_Decode_ExtremePcmValues_ScaleAsExpected(int bits, byte[] sample, float expected)
+    {
+        // Act
+        var clip = AudioFileReader.Read(new MemoryStream(Wav(1, 8000, bits, 1, sample)));
+
+        // Assert
+        Assert.Equal([expected], clip.Samples);
+    }
+
+    /// <summary>Proves a zero-length data chunk decodes to an empty clip.</summary>
+    [Fact]
+    public void WavDecoder_Decode_ZeroLengthData_YieldsEmptyClip()
+    {
+        // Act
+        var clip = AudioFileReader.Read(new MemoryStream(Wav(1, 8000, 16, 1, [])));
+
+        // Assert
+        Assert.Empty(clip.Samples);
+        Assert.Equal(8000, clip.SampleRate);
+    }
+
+    /// <summary>Proves 24-bit multichannel samples stay interleaved in channel order.</summary>
+    [Fact]
+    public void WavDecoder_Decode_TwentyFourBitStereo_KeepsChannelOrder()
+    {
+        // Arrange: left = +0.5, right = -0.5 (0x400000 and 0xC00000)
+        var data = new byte[] { 0x00, 0x00, 0x40, 0x00, 0x00, 0xC0 };
+
+        // Act
+        var clip = AudioFileReader.Read(new MemoryStream(Wav(1, 8000, 24, 2, data)));
+
+        // Assert
+        Assert.Equal([0.5f, -0.5f], clip.Samples);
+        Assert.Equal(2, clip.ChannelCount);
+    }
+
+    /// <summary>Proves a NaN float sample reaches the clip unchanged, as documented.</summary>
+    [Fact]
+    public void WavDecoder_Decode_FloatNaN_PassesThroughUnchanged()
+    {
+        // Arrange
+        var data = new byte[4];
+        BinaryPrimitives.WriteSingleLittleEndian(data, float.NaN);
+
+        // Act
+        var clip = AudioFileReader.Read(new MemoryStream(Wav(3, 8000, 32, 1, data)));
+
+        // Assert
+        Assert.True(float.IsNaN(clip.Samples[0]));
+    }
 
     /// <summary>Encodes a fractional full-scale value as little-endian PCM.</summary>
     private static byte[] PcmBytes(double fraction, int bits, int bytesPerSample)

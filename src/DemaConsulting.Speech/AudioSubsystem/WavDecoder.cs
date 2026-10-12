@@ -9,7 +9,8 @@ namespace DemaConsulting.Speech.AudioSubsystem;
 /// <remarks>
 ///     A small chunk walker: unknown chunks (for example <c>LIST</c>) are skipped, chunks are word aligned, and a
 ///     <c>data</c> size that overstates the file (streamed writers) is clamped to the bytes actually present.
-///     8-bit PCM is unsigned per the WAV convention. Stateless and thread-safe.
+///     8-bit PCM is unsigned per the WAV convention. 32-bit float samples are passed through as stored, so a
+///     NaN or out-of-range value in the file reaches the clip unchanged. Stateless and thread-safe.
 /// </remarks>
 internal static class WavDecoder
 {

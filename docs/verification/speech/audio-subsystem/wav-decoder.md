@@ -43,3 +43,9 @@ are tolerated, and unsupported, malformed or oversized input is rejected.
 ##### Sample cap is enforced
 
 **Test**: `WavDecoder_Decode_ExceedsMaxSamples_Throws`
+
+##### Boundary and extreme values
+
+**Tests**: `WavDecoder_Decode_ExactSampleCap_IsAcceptedAndOneUnderIsRejected`,
+`WavDecoder_Decode_ExtremePcmValues_ScaleAsExpected`, `WavDecoder_Decode_ZeroLengthData_YieldsEmptyClip`,
+`WavDecoder_Decode_TwentyFourBitStereo_KeepsChannelOrder`, `WavDecoder_Decode_FloatNaN_PassesThroughUnchanged`

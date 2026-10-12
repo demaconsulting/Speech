@@ -69,7 +69,12 @@ internal static class FlacDecoder
             return 0;
         }
 
-        // The tag size is four 7-bit "syncsafe" bytes; a footer adds ten more bytes when flagged
+        // The tag size is four 7-bit "syncsafe" bytes (top bit clear); a footer adds ten more bytes when flagged
+        if (((data[6] | data[7] | data[8] | data[9]) & 0x80) != 0)
+        {
+            return -1;
+        }
+
         var size = (data[6] << 21) | (data[7] << 14) | (data[8] << 7) | data[9];
         var footer = (data[5] & 0x10) != 0 ? 10 : 0;
         var end = 10L + size + footer;
