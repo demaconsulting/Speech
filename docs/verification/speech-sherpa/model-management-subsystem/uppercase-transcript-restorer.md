@@ -9,7 +9,7 @@ individually, plus capitalization, terminal-punctuation, idempotency, null/empty
 cheap provisional path's deliberate omissions. The one-time, real (non-mocked) audio spike that
 proves this restorer against genuine recognizer output (real LibriTTS-synthesized audio through
 the real `SherpaOnnxRecognitionEngine`) was run separately and its evidence is recorded in
-`SherpaOnnxZipformerEnRecognitionModel`'s XML remarks and this phase's completion report; it is
+`SherpaOnnxZipformerEnRecognitionModel`'s XML remarks; it is
 not part of the repeatable automated test suite.
 
 #### Test Environment

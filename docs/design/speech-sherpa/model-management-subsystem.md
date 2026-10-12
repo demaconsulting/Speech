@@ -83,7 +83,7 @@ fails at engine construction inside `CreateBackend`, where the core library's co
 degrades it to an honest unavailable recognizer or synthesizer.
 
 `SherpaOnnxZipformerEnRecognitionModel` and `SherpaOnnxNemotronStreamingEnRecognitionModel` are
-Phase 7a's two concrete `IRecognitionModel` implementations, both structurally similar: each
+the subsystem's two concrete `IRecognitionModel` implementations, both structurally similar: each
 declares its identity/`Id`/`DisplayName`, a `SpeechModelDownloadDescriptor` pointing at the
 model's own official upstream GitHub release URL (`k2-fsa/sherpa-onnx`'s `asr-models` tag) with a
 real, independently-computed SHA-256 checksum, a mono 16 kHz `AudioFormat`, and an internal static
@@ -110,9 +110,9 @@ dependency (see _SharpCompress Design_), that both new recognition models'
 skipping directory entries and deleting the archive only after every entry extracts
 successfully.
 
-`SherpaOnnxVitsLibriTtsEnglishSynthesisModel` is Phase 7b's one concrete `ISynthesisModel`
-implementation, completing the catalog with a shippable model for the role Phase 7a left
-unaddressed. It declares its identity/`Id`/`DisplayName` (visibly naming CC BY 4.0),
+`SherpaOnnxVitsLibriTtsEnglishSynthesisModel` is one of the subsystem's two concrete
+`ISynthesisModel` implementations, giving the catalog a shippable VITS model for the synthesis
+role. It declares its identity/`Id`/`DisplayName` (visibly naming CC BY 4.0),
 a `SpeechModelDownloadDescriptor` pointing at the model's own official upstream GitHub release
 URL (`k2-fsa/sherpa-onnx`'s `tts-models` tag) with a real, independently-computed SHA-256
 checksum, and an internal static `BuildEngineConfig` that builds an `OfflineTtsConfig` wiring
@@ -127,23 +127,17 @@ playback before the engine is loaded, while still treating the eventual loaded e
 declared, since the default `DefaultModelCapabilityProfile` already provides generically correct
 tag-stripping/pause-silence behavior for a model with no native tag support. `InstallAsync`
 delegates to the
-same `TarBz2ArchiveExtractor` Phase 7a built - reused unchanged, not duplicated - to unpack its
-downloaded `.tar.bz2` archive in place before deleting the archive file. The model's own
-`MODEL_CARD` declares 904 distinct speakers; as of Phase 7b, neither `ISynthesisModel` nor
-`SherpaOnnxSpeechSynthesizer` exposed speaker selection (`GenerateSegment` hard-coded
-`speakerId: 0` for every synthesis model), so this class exposed only that one default speaker, a
-documented, accepted, out-of-scope limitation rather than a silently-dropped capability. Phase 10
-closed the underlying `speakerId: 0` hard-coding gap for the whole subsystem by adding
-`ISynthesisModel.ResolveSpeakerId`, which the new Kokoro model below overrides immediately; this
-VITS model's own 904-speaker limitation was closed in a later pass, which declares a plain
-numeric `speaker` `NumericParameter` (0-903 - LibriTTS-R's speaker embeddings have no published
-human-readable name mapping, unlike Kokoro's small, named voice set) and overrides
-`ResolveSpeakerId` to read it, resolving gracefully to the default speaker `0` for a missing,
-non-numeric, or out-of-range selection.
+same `TarBz2ArchiveExtractor` the recognition models use - reused unchanged, not duplicated - to
+unpack its downloaded `.tar.bz2` archive in place before deleting the archive file. The model's
+own `MODEL_CARD` declares 904 distinct speakers. Speaker selection is model-owned through
+`ISynthesisModel.ResolveSpeakerId`: this VITS model declares a plain numeric `speaker`
+`NumericParameter` (0-903 - LibriTTS-R's speaker embeddings have no published human-readable name
+mapping, unlike Kokoro's small, named voice set) and overrides `ResolveSpeakerId` to read it,
+resolving gracefully to the default speaker `0` for a missing, non-numeric, or out-of-range
+selection.
 
-`SherpaOnnxKokoroEnglishSynthesisModel` is Phase 10's second concrete `ISynthesisModel`
-implementation, and the first model in the subsystem to genuinely exercise real,
-model-owned speaker selection. It declares its identity/`Id`/`DisplayName` (visibly naming
+`SherpaOnnxKokoroEnglishSynthesisModel` is the subsystem's second concrete `ISynthesisModel`
+implementation, and exercises model-owned speaker selection through a named voice set. It declares its identity/`Id`/`DisplayName` (visibly naming
 Apache-2.0), a `SpeechModelDownloadDescriptor` pointing at the model's own official upstream
 GitHub release URL (`k2-fsa/sherpa-onnx`'s `tts-models` tag) with a real,
 independently-computed SHA-256 checksum, a `Parameters` list containing one `voice`

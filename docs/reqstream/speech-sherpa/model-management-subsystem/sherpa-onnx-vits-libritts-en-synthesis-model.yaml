@@ -102,7 +102,7 @@ sections:
                   SpeechModelDownloader invokes InstallAsync after checksum verification and
                   before the atomic install swap; this model's declared payload is an archive,
                   so its files must be expanded in place for the paths BuildEngineConfig
-                  resolves to actually exist after install. Reusing the Phase 7a
+                  resolves to actually exist after install. Reusing the shared
                   TarBz2ArchiveExtractor (rather than a duplicate helper) keeps archive-extraction
                   behavior identical and once-reviewed across every model that needs it.
                 tests:

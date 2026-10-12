@@ -9,7 +9,7 @@ field-wiring assertions against the model's internal static `BuildEngineConfig` 
 `CapabilityProfile` resolution check, an `InstallAsync` test against a small synthetic
 `.tar.bz2` fixture, and `ResolveSpeakerId` resolution tests covering valid values across the
 declared range, out-of-range/non-numeric values, a null bag, and a missing key); and a one-time,
-real, personal spike performed during this pass's development that downloaded the genuine
+real, personal spike performed during development of this model that downloaded the genuine
 production archive, loaded it through the real native sherpa-onnx engine, and proved distinct,
 non-silent audio for two different selected speakers. The spike's scratch files (`.spike/`, the
 downloaded archive, and the spike test project) were deleted after evidence capture and are not
@@ -109,7 +109,7 @@ outputs.
 
 #### Real-Archive Spike Evidence (Distinct-Speaker Proof)
 
-This evidence was captured once, manually, during this pass's development, and is recorded here
+This evidence was captured once, manually, during this model's development, and is recorded here
 because the scratch spike artifacts themselves were deleted afterward (per this repository's
 convention of leaving no scratch artifacts in the working tree).
 

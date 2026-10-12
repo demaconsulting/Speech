@@ -15,14 +15,14 @@ namespace DemaConsulting.Speech.Sherpa.ModelManagementSubsystem;
 ///     specific to this one model: its declared download descriptor, how to unpack its archive
 ///     (<see cref="InstallAsync"/>, delegating to the shared <see cref="TarBz2ArchiveExtractor"/>,
 ///     reused unchanged from the existing VITS model), how to build the sherpa-onnx offline
-///     text-to-speech configuration for it (<c>BuildEngineConfig</c>), and - new in this pass -
+///     text-to-speech configuration for it (<c>BuildEngineConfig</c>), and
 ///     how to resolve a selected voice name to sherpa-onnx's real integer speaker id
 ///     (<see cref="ISynthesisModel.ResolveSpeakerId"/>), closing the "speaker selection is out of scope" gap the
 ///     sibling <see cref="SherpaOnnxVitsLibriTtsEnglishSynthesisModel"/> explicitly deferred.
 ///     <para>
 ///     <b>Download provenance</b>: <c>https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-int8-en-v0_19.tar.bz2</c>,
 ///     103,248,205 bytes, independently re-downloaded end-to-end in this project's development
-///     sandbox during this pass (not merely re-read from an earlier cached measurement); its real
+///     sandbox (not merely re-read from an earlier cached measurement); its real
 ///     SHA-256 hash, computed directly against the freshly downloaded bytes, is the exact value
 ///     recorded in <see cref="DownloadDescriptor"/> below. The archive's top-level folder
 ///     (<c>kokoro-int8-en-v0_19/</c>) and file names - <c>model.int8.onnx</c> (134,186,977 bytes),
@@ -37,13 +37,13 @@ namespace DemaConsulting.Speech.Sherpa.ModelManagementSubsystem;
 ///     </para>
 ///     <para>
 ///     <b>License</b>: Apache License 2.0 - confirmed directly from this archive's own
-///     <c>LICENSE</c> file (re-read in this pass, not assumed from memory or copied from a
+///     <c>LICENSE</c> file (read directly, not assumed from memory or copied from a
 ///     different model's docs), matching the recognition models' license family rather than the
 ///     VITS/Piper synthesis model's CC BY 4.0 attribution license.
 ///     </para>
 ///     <para>
-///     <b>Engine configuration</b> was proven end-to-end in this project's development sandbox
-///     during this pass: a real, loaded <c>OfflineTts</c> instance built from exactly the
+///     <b>Engine configuration</b> was proven end-to-end in this project's development sandbox:
+///     a real, loaded <c>OfflineTts</c> instance built from exactly the
 ///     configuration <c>BuildEngineConfig</c> below (<c>Model.Kokoro.Model</c>/
 ///     <c>Voices</c>/<c>Tokens</c>/<c>DataDir</c>, <c>LengthScale = 1.0f</c>) reported
 ///     <c>SampleRate = 24000</c> and <c>NumSpeakers = 11</c>, and generated real, audibly
@@ -58,14 +58,14 @@ namespace DemaConsulting.Speech.Sherpa.ModelManagementSubsystem;
 ///     </para>
 ///     <para>
 ///     <b>Voice list and speaker-id mapping (this class's own owned knowledge)</b>: this variant
-///     ships exactly 11 voices, confirmed by three independent means during this pass: (1) the
+///     ships exactly 11 voices, confirmed by three independent means: (1) the
 ///     upstream <c>k2-fsa/sherpa-onnx</c> repository's own
 ///     <c>scripts/kokoro/v0.19/generate_voices_bin.py</c> generation script, which hard-codes the
 ///     literal <c>id2speaker</c> map reproduced in <see cref="VoiceOrder"/> below; (2) exact byte
 ///     arithmetic against the real downloaded <c>voices.bin</c> - each voice is a
 ///     <c>(511, 1, 256)</c> float32 embedding tensor, so
 ///     <c>511 * 1 * 256 * 4 bytes * 11 voices = 5,755,904 bytes</c>, an exact match to the real
-///     file's measured size on disk; and (3) a live loaded model in this pass's own spike
+///     file's measured size on disk; and (3) a live loaded model in a development spike
 ///     reporting <c>NumSpeakers = 11</c>. <see cref="ISynthesisModel.ResolveSpeakerId"/> maps the selected
 ///     <c>VoiceParameterId</c> value to its integer index in this confirmed ordering,
 ///     falling back to the parameter's own declared default (never throwing) for a null bag, a
@@ -207,8 +207,7 @@ public sealed class SherpaOnnxKokoroEnglishSynthesisModel : ISynthesisModel
     /// <inheritdoc/>
     /// <remarks>
     ///     Declares exactly one file: the model's own published <c>.tar.bz2</c> archive. See the
-    ///     type-level remarks for the exact byte count and SHA-256 provenance re-confirmed in
-    ///     this pass.
+    ///     type-level remarks for the exact byte count and SHA-256 provenance.
     /// </remarks>
 #pragma warning disable S1075 // This model's download URL is intentionally a compiled-in, reviewed literal - the whole point of a catalog entry is to name one specific, checksum-verified release asset.
     public SpeechModelDownloadDescriptor DownloadDescriptor { get; } = new(

@@ -10,7 +10,7 @@
 # (SherpaOnnxVitsLibriTtsEnglishSynthesisModel, SherpaOnnxKokoroEnglishSynthesisModel), the
 # shared TarBz2ArchiveExtractor and UppercaseTranscriptRestorer helpers they use, and the
 # AddSherpaModels() catalog-registration extension method. These models and helpers originally
-# lived in the Speech library's own ModelManagementSubsystem (Phases 7a, 7b, and 10) and moved
+# lived in the Speech library's own ModelManagementSubsystem and moved
 # here, with their requirement ids renamed from Speech-Models-* to SpeechSherpa-Models-*, so that
 # the Speech library carries no sherpa-onnx dependency.
 #
@@ -45,14 +45,14 @@ sections:
               The ModelManagementSubsystem shall provide two real, concrete IRecognitionModel
               classes (SherpaOnnxZipformerEnRecognitionModel and
               SherpaOnnxNemotronStreamingEnRecognitionModel), a shared internal .tar.bz2
-              archive-extraction helper (TarBz2ArchiveExtractor) both new models'
+              archive-extraction helper (TarBz2ArchiveExtractor) both models'
               InstallAsync implementations use, and a shared internal transcript-restoration
               helper (UppercaseTranscriptRestorer) their NormalizeText overrides use.
             justification: |
-              The Speech library's compiled-in known-model registry was empty until Phase 7a,
-              which a user discovered and was unhappy about; Phase 7a resolved that limitation
-              for recognition models by shipping the first two production model-backing classes
-              (now shipped by SpeechSherpa), each declaring a real, checksum-verified download
+              The Speech library's compiled-in known-model registry was once empty, which a
+              user discovered and was unhappy about; SpeechSherpa resolves that limitation
+              for recognition models by shipping two production model-backing classes,
+              each declaring a real, checksum-verified download
               descriptor and engine-configuration wiring, plus the shared archive-extraction
               helper their install hooks both require (the BCL has no BZip2 decoder).
             children:
@@ -84,19 +84,18 @@ sections:
             title: >-
               The ModelManagementSubsystem shall provide one real, concrete ISynthesisModel
               class (SherpaOnnxVitsLibriTtsEnglishSynthesisModel), reusing the shared internal
-              .tar.bz2 archive-extraction helper (TarBz2ArchiveExtractor) built in Phase 7a
+              .tar.bz2 archive-extraction helper (TarBz2ArchiveExtractor)
               for its own InstallAsync implementation, and declaring a plain numeric speaker
               parameter (0-903) with a matching ResolveSpeakerId override.
             justification: |
-              Phase 7a shipped the library's first two production IRecognitionModel classes but
-              left ISynthesisModel with zero real implementations, a tracked follow-up. Phase 7b
-              completes the catalog by shipping the library's first production ISynthesisModel
+              The recognition models alone left ISynthesisModel with zero real
+              implementations. The VITS model completes the catalog by shipping a production
+              ISynthesisModel
               class, declaring a real, checksum-verified download descriptor and VITS/Piper
-              engine-configuration wiring, reusing (not duplicating) the archive-extraction
-              helper Phase 7a already built and quality-passed, but exposing only its default
-              speaker as an accepted, out-of-scope limitation. A later pass closes that
-              limitation by declaring a plain numeric speaker parameter spanning this model's
-              full 904-speaker range - LibriTTS-R's speaker embeddings have no published
+              engine-configuration wiring, and reusing (not duplicating) the archive-extraction
+              helper the recognition models already use. Its 904-speaker range is exposed
+              by declaring a plain numeric speaker parameter spanning the full range -
+              LibriTTS-R's speaker embeddings have no published
               human-readable name mapping, unlike the sibling Kokoro model's small, named voice
               set - and overriding ResolveSpeakerId to read it defensively.
             children:
@@ -120,21 +119,18 @@ sections:
             title: >-
               The ModelManagementSubsystem shall provide a second real, concrete
               ISynthesisModel class (SherpaOnnxKokoroEnglishSynthesisModel) declaring 11
-              genuinely distinct voices and a confirmed voice-name-to-speaker-id mapping via a
-              new ISynthesisModel.ResolveSpeakerId hook, reusing the shared internal .tar.bz2
+              genuinely distinct voices and a confirmed voice-name-to-speaker-id mapping via the
+              ISynthesisModel.ResolveSpeakerId hook, reusing the shared internal .tar.bz2
               archive-extraction helper (TarBz2ArchiveExtractor) for its own InstallAsync
-              implementation, closing the "speaker selection is out of scope" gap the sibling
-              VITS synthesis model explicitly deferred.
+              implementation.
             justification: |
-              Phase 7b shipped the library's first production ISynthesisModel but exposed only
-              its default speaker, an accepted, documented, out-of-scope limitation. Phase 10
-              closes that limitation for any model with real per-voice knowledge by adding a
-              second ISynthesisModel implementation (Kokoro) whose 11-voice option set and
+              The VITS model exposes only a numeric speaker index. Kokoro is a second
+              ISynthesisModel implementation whose 11-voice option set and
               speaker-id ordering were independently confirmed against upstream sherpa-onnx's
               own generation script, byte arithmetic against the real voices.bin, and a live
-              model load reporting NumSpeakers = 11, and by extending ISynthesisModel itself
-              with a non-breaking ResolveSpeakerId default-hook member that
-              SynthesisSession.GenerateSegmentAsync now calls instead of hard-coding
+              model load reporting NumSpeakers = 11. Speaker selection reaches the engine through
+              the ISynthesisModel.ResolveSpeakerId default-hook member that
+              SynthesisSession.GenerateSegmentAsync calls instead of hard-coding
               speakerId: 0.
             children:
               - SpeechSherpa-Models-SherpaOnnxKokoroEnglishSynthesisModel-Identity

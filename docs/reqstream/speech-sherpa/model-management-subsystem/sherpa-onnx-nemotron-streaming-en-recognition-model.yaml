@@ -23,7 +23,7 @@ sections:
                   with a well-formed SHA-256 checksum.
                 justification: |
                   This model's underlying weights are licensed under the NVIDIA Open Model
-                  License - materially different from every other model in this pass -
+                  License - materially different from the other Sherpa models -
                   which must be visibly and programmatically discoverable anywhere the
                   catalog/settings UI renders this model, not only in code comments;
                   LicenseName/LicenseUrl are now the mechanism a host uses to surface that
