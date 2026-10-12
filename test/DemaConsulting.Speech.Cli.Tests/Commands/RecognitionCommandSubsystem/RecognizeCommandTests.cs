@@ -470,6 +470,34 @@ public sealed class RecognizeCommandTests
 
     // --- Input WAV file validation ---
 
+    /// <summary>
+    ///     Test that <c>--start-timeout</c> and <c>--silence-timeout</c> given together with <c>--input</c> are
+    ///     accepted and have no effect: file mode never constructs the idle-timeout wrapper, so the recognizer is
+    ///     started and drained through the same explicit path as without them and the run succeeds.
+    /// </summary>
+    [Fact]
+    public async Task RecognizeCommand_Run_FileInputWithTimeouts_TimeoutsIgnoredAndRunSucceeds()
+    {
+        var catalog = CreateCatalogWithModel();
+        var (session, _) = WireRecognizer(catalog);
+        var wavPath = WriteMinimalWavFile(sampleFrameCount: 160);
+        try
+        {
+            using var context = Context.Create(
+                ["recognize", "--stt-model", "model-1", "--input", wavPath, "--start-timeout", "0.001", "--silence-timeout", "0.001"]);
+
+            await RecognizeCommand.RunAsync(context, catalog, new AudioDeviceFactory());
+
+            Assert.Equal(1, session.StartCallCount);
+            Assert.Equal(1, session.StopCallCount);
+            Assert.Equal(0, context.ExitCode);
+        }
+        finally
+        {
+            File.Delete(wavPath);
+        }
+    }
+
     /// <summary>Test that <c>--input</c> naming a file that is not a WAV file is rejected with a clear error.</summary>
     [Fact]
     public async Task RecognizeCommand_Run_InputFileIsNotWav_ThrowsInvalidOperationExceptionNamingFile()

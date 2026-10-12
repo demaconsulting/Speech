@@ -15,15 +15,14 @@ root. Out-of-process integration tests in `IntegrationTests.cs` invoke the built
 process for the argument-parsing and clean-error paths that matter most from an operator's
 perspective, plus a full `doctor` run against an isolated `--models-dir`.
 
-Automated tests do **not** exercise `devices test`'s real device-creation and audio I/O path
-(`RunPlaybackTest`/`RunCaptureTest` bodies beyond device-name validation): `AudioDeviceFactory`'s
+Automated tests do **not** exercise `devices test`'s real device creation (`AudioDeviceFactory`'s
 `CreateCaptureDevice`/`CreatePlaybackDevice` methods depend on an internal `PortAudioEnvironment`
-field independent of any injected probes, so that path cannot be deterministically faked, and this
-command inherently requires real audio hardware to be meaningful. This is manual/local
-verification only (see _Manual / Build-Time Verification_ below), following this repository's
-established convention for genuinely hardware-dependent behavior (see the
-`Speech-AudioSubsystem-UnavailableFallbacks` verification document for the same convention applied
-within the library itself).
+field independent of any injected probes, so that step cannot be deterministically faked). Once a device is
+resolved, the tone playback and capture recording logic (`PlayTestTone`/`RecordTestClip`) is tested against fake
+devices. Real-hardware verification of the device-creation step is manual/local only (see _Manual / Build-Time
+Verification_ below), following this repository's established convention for genuinely hardware-dependent
+behavior (see the `Speech-AudioSubsystem-UnavailableFallbacks` verification document for the same convention
+applied within the library itself).
 
 ### Test Environment
 
@@ -92,6 +91,21 @@ tool.
 
 **Requirement coverage**: `SpeechCli-DeviceCommands-DevicesTest`.
 
+#### Tone Playback and Capture Recording
+
+**Tests**: `DevicesTestCommand_PlayTestTone_AvailableDevice_WritesToneAndReportsIt`,
+`DevicesTestCommand_RecordTestClip_DeviceDeliversFrames_ReportsSampleCountAndPeak`,
+`DevicesTestCommand_RecordTestClip_DeviceDeliversNoFrames_ThrowsInvalidOperationException`
+
+**Scenario/Expected**: Driven through a fake `IAudioPlaybackDevice`, the output test starts the device, writes the full
+two-second tone (`sampleRate * 2 * channelCount` samples), stops the device and reports the 440 Hz tone and the device's
+sample rate. Driven through a fake `IAudioCaptureDevice` that raises one frame, the input test reports the exact sample
+count and the peak amplitude of the delivered samples. When the fake delivers no frames, the input test stops the device
+and throws `InvalidOperationException` rather than reporting a successful run with zero samples.
+
+**Requirement coverage**: `SpeechCli-DeviceCommands-DevicesTestOutput`, `SpeechCli-DeviceCommands-DevicesTestInput`,
+`SpeechCli-DeviceCommands-DevicesTestInputNoSamples`.
+
 #### Tone Generation
 
 **Tests**: `DevicesTestCommand_GenerateToneSamples_ReturnsExpectedSampleCount`,
@@ -157,22 +171,22 @@ immediately with `ArgumentNullException`, and `DoctorCommand` additionally rejec
 empty model store root path with `ArgumentException`, proving no command silently proceeds with a
 missing dependency.
 
-**Requirement coverage**: `SpeechCli-DeviceCommands-LibraryDelegation`.
+**Requirement coverage**: none. These are defensive tests, which need no requirement.
 
 ### Requirements Coverage
 
 - **`SpeechCli-DeviceCommands-ListDevices`**, **`-ListDevicesDirectionFilter`**,
   **`-ListDevicesNoDevices`**, **`-ListDevicesArgumentValidation`**: see _ListDevicesCommand_ above
 - **`SpeechCli-DeviceCommands-DevicesTest`**, **`-DevicesTestOutput`**, **`-DevicesTestInput`**,
-  **`-DevicesTestDeviceValidation`**, **`-DevicesTestArgumentValidation`**: see _DevicesTestCommand_
+  **`-DevicesTestInputNoSamples`**, **`-DevicesTestDeviceValidation`**,
+  **`-DevicesTestArgumentValidation`**: see _DevicesTestCommand_ and _Tone Playback and Capture Recording_
   above
 - **`SpeechCli-DeviceCommands-ToneGeneration`**, **`-ToneAmplitudeRange`**,
   **`-ToneChannelIdentity`**: see _Tone Generation_ above
 - **`SpeechCli-DeviceCommands-Doctor`**, **`-DoctorDiskSpace`**, **`-DoctorNativeRuntimes`**,
   **`-DoctorPortAudioRuntime`**, **`-DoctorAudioDevices`**, **`-DoctorModelCounts`**,
   **`-DoctorExitCode`**: see _DoctorCommand_ above
-- **`SpeechCli-DeviceCommands-LibraryDelegation`**, **`-NullGuards`**: see _Null Guards and
-  Delegation_ above
+- **`SpeechCli-DeviceCommands-LibraryDelegation`**: see _ListDevicesCommand_ and _DoctorCommand_ above
 
 ### Acceptance Criteria
 

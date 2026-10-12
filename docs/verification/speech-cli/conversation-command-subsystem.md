@@ -238,7 +238,9 @@ rejects a `null` `stopSignal` or `onRecognizerCreated` callback. `ParseArguments
 independently rejects a `null` argument list with `ArgumentNullException`, proving the guard holds
 even when `ParseArguments` is invoked directly rather than only through `Run`/`RunAsync`.
 
-**Requirement coverage**: `SpeechCli-ConversationCommands-NullGuards`.
+**Requirement coverage**: none. These are defensive tests: a missing required argument fails immediately with
+`ArgumentNullException`. By the repository's requirements principles, defensive tests need no requirement, so no
+requirement is defined for them.
 
 ### Requirements Coverage
 
@@ -257,7 +259,6 @@ even when `ParseArguments` is invoked directly rather than only through `Run`/`R
   *Cancellation and Disposal* above
 - **`SpeechCli-ConversationCommands-PrewarmRecognizer`**, **`-PrewarmFailureReporting`**,
   **`-PrewarmCancellationRelease`**: see *Recognizer Pre-Warming* above
-- **`SpeechCli-ConversationCommands-NullGuards`**: see *Null Guards* above
 
 ### Acceptance Criteria
 

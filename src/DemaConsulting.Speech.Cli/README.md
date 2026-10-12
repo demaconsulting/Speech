@@ -86,6 +86,10 @@ credentialed mirror must use `https://`, unless its host is loopback (`localhost
 literal). Any of `--mirror-user`, `--mirror-password`, or `--mirror-bearer-token` supplied without
 `--mirror-url` is rejected as a configuration error rather than silently ignored.
 
+Mirror credentials are accepted only as command-line options (there is no environment-variable alternative).
+Command-line values can be visible to other local users in process listings and shell history, so prefer a
+short-lived `--mirror-bearer-token` over a long-lived user and password.
+
 ### `speak` flags
 
 One of `--text <string>`, `--file <path>`, or piped stdin supplies the text to synthesize; add

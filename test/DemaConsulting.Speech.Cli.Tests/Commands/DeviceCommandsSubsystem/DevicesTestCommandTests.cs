@@ -26,10 +26,10 @@ namespace DemaConsulting.Speech.Cli.Tests.Commands.DeviceCommandsSubsystem;
 
 /// <summary>
 ///     Unit tests for <see cref="DevicesTestCommand"/>'s hardware-independent logic: argument
-///     parsing, device-not-found handling, and tone-generation math. The actual device creation
-///     and audio I/O path depends on the real native audio runtime and is not exercised here;
-///     see <c>docs/verification/speech-cli/device-commands-subsystem.md</c> for why that path is
-///     manual/local verification only.
+///     parsing, device-not-found handling, tone-generation math, and the tone playback and capture
+///     recording steps against fake devices. Real device creation depends on the native audio runtime
+///     and is not exercised here; see <c>docs/verification/speech-cli/device-commands-subsystem.md</c>
+///     for why that step is manual/local verification only.
 /// </summary>
 [Collection("Sequential")]
 public sealed class DevicesTestCommandTests
@@ -275,5 +275,143 @@ public sealed class DevicesTestCommandTests
         var context = Context.Create(["devices", "test"]);
 
         Assert.Throws<ArgumentNullException>(() => DevicesTestCommand.Run(context, null!));
+    }
+
+    /// <summary>
+    ///     Test that the output test writes the full two-second tone to the device (one frame per sample per channel),
+    ///     waits for it to drain, and reports the played tone.
+    /// </summary>
+    [Fact]
+    public void DevicesTestCommand_PlayTestTone_AvailableDevice_WritesToneAndReportsIt()
+    {
+        var context = Context.Create(["devices", "test"]);
+        var device = new RecordingPlaybackDevice();
+
+        var output = CaptureOutput(() => DevicesTestCommand.PlayTestTone(context, device));
+
+        Assert.True(device.Started);
+        Assert.True(device.Stopped);
+        Assert.Equal(48000 * 2 * 2, device.Written.Count);
+        Assert.Contains("440 Hz", output);
+        Assert.Contains("48000 Hz", output);
+    }
+
+    /// <summary>
+    ///     Test that the input test reports the number of samples recorded and the peak amplitude.
+    /// </summary>
+    [Fact]
+    public void DevicesTestCommand_RecordTestClip_DeviceDeliversFrames_ReportsSampleCountAndPeak()
+    {
+        var context = Context.Create(["devices", "test", "--direction", "input"]);
+        var device = new FramingCaptureDevice([0.1f, -0.5f, 0.25f]);
+
+        var output = CaptureOutput(() => DevicesTestCommand.RecordTestClip(context, device, TimeSpan.FromMilliseconds(10)));
+
+        Assert.True(device.Started);
+        Assert.True(device.Stopped);
+        Assert.Contains("Samples captured: 3", output);
+        Assert.Contains("Peak amplitude: 0.500", output);
+    }
+
+    /// <summary>
+    ///     Test that an input test during which the device delivers no samples fails instead of reporting success.
+    /// </summary>
+    [Fact]
+    public void DevicesTestCommand_RecordTestClip_DeviceDeliversNoFrames_ThrowsInvalidOperationException()
+    {
+        var context = Context.Create(["devices", "test", "--direction", "input"]);
+        var device = new FramingCaptureDevice([]);
+
+        var exception = Assert.Throws<InvalidOperationException>(() =>
+            DevicesTestCommand.RecordTestClip(context, device, TimeSpan.FromMilliseconds(10)));
+
+        Assert.True(device.Stopped);
+        Assert.Contains("no audio samples", exception.Message);
+    }
+
+    /// <summary>Runs an action while capturing everything written to stdout.</summary>
+    private static string CaptureOutput(Action action)
+    {
+        var originalOut = Console.Out;
+        try
+        {
+            using var outWriter = new StringWriter();
+            Console.SetOut(outWriter);
+            action();
+            return outWriter.ToString();
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+    }
+
+    /// <summary>A playback device that records what was written to it.</summary>
+    private sealed class RecordingPlaybackDevice : IAudioPlaybackDevice
+    {
+        /// <summary>Gets the samples written so far.</summary>
+        public List<float> Written { get; } = [];
+
+        /// <summary>Gets a value indicating whether <see cref="Start"/> was called.</summary>
+        public bool Started { get; private set; }
+
+        /// <summary>Gets a value indicating whether <see cref="Stop"/> was called.</summary>
+        public bool Stopped { get; private set; }
+
+        /// <inheritdoc/>
+        public bool IsAvailable => true;
+
+        /// <inheritdoc/>
+        public int ChannelCount => 2;
+
+        /// <inheritdoc/>
+        public int SampleRate => 48000;
+
+        /// <inheritdoc/>
+        public long PendingSampleCount => 0;
+
+        /// <inheritdoc/>
+        public void Start() => Started = true;
+
+        /// <inheritdoc/>
+        public void Stop() => Stopped = true;
+
+        /// <inheritdoc/>
+        public void Write(IReadOnlyList<float> samples) => Written.AddRange(samples);
+    }
+
+    /// <summary>A capture device that raises one frame with the configured samples when started (none when empty).</summary>
+    private sealed class FramingCaptureDevice(float[] samples) : IAudioCaptureDevice
+    {
+        /// <summary>Gets a value indicating whether <see cref="Start"/> was called.</summary>
+        public bool Started { get; private set; }
+
+        /// <summary>Gets a value indicating whether <see cref="Stop"/> was called.</summary>
+        public bool Stopped { get; private set; }
+
+        /// <inheritdoc/>
+        public bool IsAvailable => true;
+
+        /// <inheritdoc/>
+        public int ChannelCount => 1;
+
+        /// <inheritdoc/>
+        public int SampleRate => 16000;
+
+        /// <inheritdoc/>
+        public event EventHandler<AudioCaptureFrameEventArgs>? FrameCaptured;
+
+        /// <inheritdoc/>
+        public void Start()
+        {
+            Started = true;
+            if (samples.Length > 0)
+            {
+                FrameCaptured?.Invoke(this, new AudioCaptureFrameEventArgs(samples));
+            }
+        }
+
+        /// <inheritdoc/>
+        public void Stop() => Stopped = true;
     }
 }

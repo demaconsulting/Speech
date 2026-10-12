@@ -1068,6 +1068,9 @@ Recognize speech live from the microphone, stopping automatically after five sec
 speech-cli recognize --stt-model streaming-zipformer-en-2023-06-26 --mic --silence-timeout 5 --start-timeout 10
 ```
 
+`--silence-timeout` and `--start-timeout` apply only to `--mic`; when combined with `--input <wav-path>` they are
+accepted and ignored, because a file ends on its own.
+
 Speak a prompt and listen for the reply in one invocation, giving up to 20 seconds to start
 speaking and ending capture after 1.5 seconds of silence - the intended pattern for an AI agent
 holding a two-way voice conversation with a person through this CLI. `ask` pre-warms (constructs

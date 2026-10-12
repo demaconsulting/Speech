@@ -22,6 +22,7 @@ using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.Cli.Cli;
 using DemaConsulting.Speech.Cli.Commands.DeviceCommandsSubsystem;
 using DemaConsulting.Speech.Cli.Commands.ModelCommandsSubsystem;
+using DemaConsulting.Speech.Cli.Commands.SynthesisCommandSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.RecognitionSubsystem;
 

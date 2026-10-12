@@ -208,6 +208,19 @@ sections:
               - RecognizeCommand_ParseArguments_StartTimeoutOmitted_DefaultsToNull
               - RecognizeCommand_Run_StartTimeoutOmitted_ResolvesToFixedEightSecondDefault
 
+          - id: SpeechCli-RecognitionCommands-TimeoutsIgnoredForFileInput
+            title: >-
+              The tool shall accept `--start-timeout` and `--silence-timeout` together with `--input` and
+              ignore them, because they apply only to `--mic` mode.
+            tags: [subsystem]
+            justification: |
+              File input ends on its own once the whole file has been delivered, so it needs no idle window.
+              Accepting and ignoring the flags, rather than rejecting them, matches the documented precedent
+              that `--capture-device` is inert with `--input` and that `speak` ignores `--playback-device`
+              when a file destination is given, so one set of flags works for scripted use of either mode.
+            tests:
+              - RecognizeCommand_Run_FileInputWithTimeouts_TimeoutsIgnoredAndRunSucceeds
+
           - id: SpeechCli-RecognitionCommands-StartTimeoutValidation
             title: >-
               The tool shall reject a non-positive or malformed `--start-timeout` with a clean
@@ -299,19 +312,3 @@ sections:
             tests:
               - RecognizeCommand_Run_UnknownDevice_ThrowsArgumentException
               - RecognizeCommand_Run_NoCaptureDeviceAvailable_ThrowsInvalidOperationException
-
-          - id: SpeechCli-RecognitionCommands-NullGuards
-            title: >-
-              The RecognitionCommandSubsystem shall reject a missing context, catalog, factory, or
-              argument list immediately with `ArgumentNullException`, so a programming error is
-              never silently ignored.
-            tags: [subsystem]
-            justification: |
-              Consistent with every other subsystem in this tool, a missing required dependency
-              must fail immediately and specifically rather than surface later as a confusing
-              `NullReferenceException` deep inside recognition or device resolution logic.
-            tests:
-              - RecognizeCommand_Run_NullContext_ThrowsArgumentNullException
-              - RecognizeCommand_Run_NullCatalog_ThrowsArgumentNullException
-              - RecognizeCommand_Run_NullFactory_ThrowsArgumentNullException
-              - RecognizeCommand_ParseArguments_NullArgs_ThrowsArgumentNullException

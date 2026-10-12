@@ -189,20 +189,3 @@ sections:
               ordering `DownloadCommand` already established for its own cancellation handling.
             tests:
               - SpeakCommand_RunAsync_Success_DisposesEngineAndSessionOnce
-
-          - id: SpeechCli-SynthesisCommands-NullGuards
-            title: >-
-              The SynthesisCommandSubsystem shall reject a missing context, catalog, factory, or
-              argument list immediately with `ArgumentNullException`, so a programming error is
-              never silently ignored.
-            tags: [subsystem]
-            justification: |
-              Consistent with every other subsystem in this tool, a missing required dependency
-              must fail immediately and specifically rather than surface later as a confusing
-              `NullReferenceException` deep inside synthesis or device resolution logic.
-            tests:
-              - SpeakCommand_RunAsync_NullContext_ThrowsArgumentNullException
-              - SpeakCommand_RunAsync_NullCatalog_ThrowsArgumentNullException
-              - SpeakCommand_RunAsync_NullFactory_ThrowsArgumentNullException
-              - ParameterBagParser_Resolve_NullRawValues_ThrowsArgumentNullException
-              - ParameterBagParser_Resolve_NullDeclaredParameters_ThrowsArgumentNullException

@@ -2070,7 +2070,7 @@ reviews:
       - "docs/design/speech-cli/synthesis-command-subsystem.md"                           # subsystem design
       - "docs/verification/speech-cli/synthesis-command-subsystem.md"                     # subsystem verification
       - "src/DemaConsulting.Speech.Cli/Commands/SynthesisCommandSubsystem/**/*.cs"         # subsystem source
-      - "src/DemaConsulting.Speech.Cli/Cli/ParameterBagParser.cs"                         # subsystem parsing utility
+      - "src/DemaConsulting.Speech.Cli/Commands/SynthesisCommandSubsystem/ParameterBagParser.cs" # subsystem parsing utility
       - "test/DemaConsulting.Speech.Cli.Tests/Commands/SynthesisCommandSubsystem/**/*.cs"  # subsystem tests
 
   # SpeechCli-RecognitionCommandSubsystem Review (one per subsystem)

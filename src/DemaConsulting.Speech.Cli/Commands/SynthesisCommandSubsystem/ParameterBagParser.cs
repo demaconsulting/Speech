@@ -21,7 +21,7 @@
 using System.Globalization;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 
-namespace DemaConsulting.Speech.Cli.Cli;
+namespace DemaConsulting.Speech.Cli.Commands.SynthesisCommandSubsystem;
 
 /// <summary>
 ///     Parses and validates the <c>speak</c>/<c>recognize</c>/<c>ask</c> subcommands' repeatable

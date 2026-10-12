@@ -77,12 +77,18 @@ without needing a real device to be created. The resolved device is then checked
 than a stack trace, consistent with the library's own honest-failure convention for
 `UnavailableAudioPlaybackDevice`/`UnavailableAudioCaptureDevice`. A short (2-second, 440 Hz) sine
 wave is generated in-CLI by `GenerateToneSamples` - no TTS model is invoked for this command - and
-written to the device, polling `PendingSampleCount` until playback finishes.
+written to the device, polling `PendingSampleCount` until playback finishes. Once a device is resolved and
+available, `PlayTestTone` (which takes the device directly) does the playing and reporting, so tests can drive it
+with a fake `IAudioPlaybackDevice`.
 
 For the input direction, the same device-resolution and availability checks apply to the capture
-probe/device. A short (2-3 second) clip is recorded via the device's `FrameCaptured` event, and
-basic statistics (sample count, peak amplitude) are reported to prove capture worked, without
-saving or playing back the recording.
+probe/device. `RecordTestClip` (which takes the resolved device and a duration, so tests can drive it with a fake
+`IAudioCaptureDevice`) records a 2-second clip via the device's `FrameCaptured` event and reports basic
+statistics (sample count, peak amplitude) to prove capture worked, without saving or playing back the recording.
+
+**An empty capture is a failure.** If the device delivers no samples during the recording window, capture has not
+been proven, so the command throws an `InvalidOperationException` (a clean error message and a non-zero exit code)
+instead of reporting `Samples captured: 0` with a zero peak amplitude as if the test had passed.
 
 ### DoctorCommand
 

@@ -18,7 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-using DemaConsulting.Speech.Cli.Cli;
+using DemaConsulting.Speech.Cli.Commands.SynthesisCommandSubsystem;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 
 namespace DemaConsulting.Speech.Cli.Tests.Commands.SynthesisCommandSubsystem;

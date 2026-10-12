@@ -96,6 +96,7 @@ sections:
             tests:
               - DevicesTestCommand_ParseArguments_NoFlags_DefaultsToOutputDirection
               - DevicesTestCommand_ParseArguments_DirectionOutput_ParsesToPlaybackDirection
+              - DevicesTestCommand_PlayTestTone_AvailableDevice_WritesToneAndReportsIt
 
           - id: SpeechCli-DeviceCommands-DevicesTestInput
             title: >-
@@ -108,6 +109,18 @@ sections:
               needing a downloaded recognition model.
             tests:
               - DevicesTestCommand_ParseArguments_DirectionInput_ParsesToCaptureDirection
+              - DevicesTestCommand_RecordTestClip_DeviceDeliversFrames_ReportsSampleCountAndPeak
+
+          - id: SpeechCli-DeviceCommands-DevicesTestInputNoSamples
+            title: >-
+              The tool shall fail with a non-zero exit code and a clear message when the capture device
+              delivers no samples during a `devices test --direction input` recording.
+            tags: [subsystem]
+            justification: |
+              A capture test that recorded nothing has not proven that the microphone works, so reporting
+              success with a zero peak would hide exactly the fault the command exists to detect.
+            tests:
+              - DevicesTestCommand_RecordTestClip_DeviceDeliversNoFrames_ThrowsInvalidOperationException
 
           - id: SpeechCli-DeviceCommands-DevicesTestDeviceValidation
             title: >-
@@ -272,22 +285,3 @@ sections:
             tests:
               - ListDevicesCommand_Run_NoFilter_ListsBothDirections
               - DoctorCommand_Run_ReportsAudioDeviceCounts
-
-          - id: SpeechCli-DeviceCommands-NullGuards
-            title: >-
-              The DeviceCommandsSubsystem shall reject a missing context, probe, factory, or
-              model catalog immediately with an exception.
-            tags: [subsystem]
-            justification: |
-              A missing dependency must fail immediately so a programming error is never
-              silently ignored.
-            tests:
-              - ListDevicesCommand_Run_NullContext_ThrowsArgumentNullException
-              - ListDevicesCommand_Run_NullCaptureProbe_ThrowsArgumentNullException
-              - ListDevicesCommand_Run_NullPlaybackProbe_ThrowsArgumentNullException
-              - DevicesTestCommand_ResolveDeviceSelectionOrThrow_NullKnownDevices_ThrowsArgumentNullException
-              - DevicesTestCommand_Run_NullContext_ThrowsArgumentNullException
-              - DevicesTestCommand_Run_NullFactory_ThrowsArgumentNullException
-              - DoctorCommand_Run_NullContext_ThrowsArgumentNullException
-              - DoctorCommand_Run_NullCatalog_ThrowsArgumentNullException
-              - DoctorCommand_Run_EmptyModelStoreRootPath_ThrowsArgumentException

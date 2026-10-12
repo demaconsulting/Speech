@@ -67,6 +67,12 @@ _Speech ModelManagementSubsystem Design_), so the CLI never duplicates that logi
 surfaces as an `ArgumentException`, which `Program.Main` reports as a clean, non-zero-exit-code
 error identically to every other command-line configuration mistake - never a stack trace.
 
+Credentials are accepted only as command-line options; no environment-variable alternative is provided,
+because the mirror options are an operator convenience and a second configuration channel would add a
+surface to validate and document without a requirement that needs it. Command-line values can be visible to
+other local users in process listings and shell history, so a short-lived `--mirror-bearer-token` is
+preferred over a long-lived user and password.
+
 ### ModelCommandsSubsystem
 
 **ModelCommandsSubsystem** covers the five model-management subcommands - `list-models`,

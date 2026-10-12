@@ -21,7 +21,6 @@
 // cspell:ignore NOSONAR
 using System.Globalization;
 using System.Numerics.Tensors;
-using System.Runtime.InteropServices;
 using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.Cli.Cli;
 
@@ -274,6 +273,19 @@ internal static class DevicesTestCommand
                 "No audio playback device is available on this machine; cannot run 'devices test'.");
         }
 
+        PlayTestTone(context, device);
+    }
+
+    /// <summary>
+    ///     Plays the fixed test tone on an already resolved, available playback device and reports it.
+    /// </summary>
+    /// <param name="context">The invocation context. Must not be null.</param>
+    /// <param name="device">The available playback device to play the tone on. Must not be null.</param>
+    internal static void PlayTestTone(Context context, IAudioPlaybackDevice device)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(device);
+
         var samples = GenerateToneSamples(device.SampleRate, device.ChannelCount, ToneDurationSeconds, ToneFrequencyHz);
 
         device.Start();
@@ -315,14 +327,40 @@ internal static class DevicesTestCommand
                 "No audio capture device is available on this machine; cannot run 'devices test'.");
         }
 
+        RecordTestClip(context, device, TimeSpan.FromSeconds(CaptureDurationSeconds));
+    }
+
+    /// <summary>
+    ///     Records a clip from an already resolved, available capture device for the given duration and
+    ///     reports its basic statistics (sample count and peak amplitude).
+    /// </summary>
+    /// <param name="context">The invocation context. Must not be null.</param>
+    /// <param name="device">The available capture device to record from. Must not be null.</param>
+    /// <param name="duration">How long to record for.</param>
+    /// <exception cref="InvalidOperationException">
+    ///     Thrown when the device delivered no samples during <paramref name="duration"/>, because a capture
+    ///     test that captured nothing has not proven that capture works.
+    /// </exception>
+    internal static void RecordTestClip(Context context, IAudioCaptureDevice device, TimeSpan duration)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(device);
+
         var samples = new List<float>();
-        void OnFrameCaptured(object? sender, AudioCaptureFrameEventArgs e) => samples.AddRange(e.Samples);
+        var gate = new object();
+        void OnFrameCaptured(object? sender, AudioCaptureFrameEventArgs e)
+        {
+            lock (gate)
+            {
+                samples.AddRange(e.Samples);
+            }
+        }
 
         device.FrameCaptured += OnFrameCaptured;
         try
         {
             device.Start();
-            Thread.Sleep(TimeSpan.FromSeconds(CaptureDurationSeconds));
+            Thread.Sleep(duration);
             device.Stop();
         }
         finally
@@ -330,23 +368,30 @@ internal static class DevicesTestCommand
             device.FrameCaptured -= OnFrameCaptured;
         }
 
-        // NOSONAR (S2583): SonarQube's flow analysis cannot see that OnFrameCaptured mutates
-        // `samples` via the FrameCaptured event subscription above, so it believes the list can
-        // never be non-empty and reports the "samples.Count == 0" branch as always true. At
-        // runtime the capture device populates `samples` through the event before this line is
-        // reached, so both branches are genuinely reachable; the guard is required to avoid
-        // MaxMagnitude() throwing on an empty span when the device delivers no frames in time.
-        // CollectionsMarshal.AsSpan exposes the list's backing array with no copy, and
-        // TensorPrimitives.MaxMagnitude finds the largest-magnitude element in one vectorized
-        // pass instead of LINQ's Max(Math.Abs) invoking a delegate per element.
-        var sampleSpan = CollectionsMarshal.AsSpan(samples);
-        var peakAmplitude = sampleSpan.IsEmpty ? 0.0f : Math.Abs(TensorPrimitives.MaxMagnitude(sampleSpan)); // NOSONAR
+        float[] captured;
+        lock (gate)
+        {
+            captured = [.. samples];
+        }
+
+        // A capture test that recorded nothing has not proven capture works, so it is reported as a failure
+        // (non-zero exit code) rather than as a successful run with a zero peak amplitude.
+        if (captured.Length == 0)
+        {
+            throw new InvalidOperationException(
+                "The capture device delivered no audio samples during the test recording; " +
+                "check that the microphone is connected, enabled, and not muted.");
+        }
+
+        // TensorPrimitives.MaxMagnitude finds the largest-magnitude element in one vectorized pass instead of
+        // LINQ's Max(Math.Abs) invoking a delegate per element.
+        var peakAmplitude = Math.Abs(TensorPrimitives.MaxMagnitude(captured));
 
         context.WriteLine(
-            $"Recorded {CaptureDurationSeconds:0.#} second(s) from the resolved capture device " +
+            $"Recorded {duration.TotalSeconds:0.#} second(s) from the resolved capture device " +
             $"(sample rate {device.SampleRate.ToString(CultureInfo.InvariantCulture)} Hz, " +
             $"{device.ChannelCount.ToString(CultureInfo.InvariantCulture)} channel(s)).");
-        context.WriteLine($"Samples captured: {samples.Count.ToString(CultureInfo.InvariantCulture)}");
+        context.WriteLine($"Samples captured: {captured.Length.ToString(CultureInfo.InvariantCulture)}");
         context.WriteLine($"Peak amplitude: {peakAmplitude.ToString("0.000", CultureInfo.InvariantCulture)}");
     }
 

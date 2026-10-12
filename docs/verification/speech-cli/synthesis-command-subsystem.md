@@ -212,7 +212,9 @@ ModelCommandsSubsystem verification document).
 list immediately with `ArgumentNullException`, proving no command silently proceeds with a
 missing dependency.
 
-**Requirement coverage**: `SpeechCli-SynthesisCommands-NullGuards`.
+**Requirement coverage**: none. These are defensive tests: a missing required argument fails immediately with
+`ArgumentNullException`. By the repository's requirements principles, defensive tests need no requirement, so no
+requirement is defined for them.
 
 ### Requirements Coverage
 
@@ -226,7 +228,6 @@ missing dependency.
   _`--output-audio` Versus Real Device Dispatch_ above
 - **`SpeechCli-SynthesisCommands-CancellationAndDisposal`**, **`-Disposal`**: see
   _Cancellation and Disposal Ordering_ above
-- **`SpeechCli-SynthesisCommands-NullGuards`**: see _Null Guards_ above
 
 ### Acceptance Criteria
 

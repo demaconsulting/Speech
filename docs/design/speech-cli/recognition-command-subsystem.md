@@ -75,7 +75,9 @@ Parses its own flags (`--stt-model`, `--input`, `--mic`, `--capture-device`, `--
 `--start-timeout`, repeatable `--stt-param`, `--interim`, `--final-only`, `--output-text`) via the same
 hand-rolled loop style as every other command in this tool, requiring `--stt-model` and rejecting an
 unsupported argument or a value-less flag with `ArgumentException`. `--silence-timeout` and
-`--start-timeout` each additionally require a positive number of seconds when given.
+`--start-timeout` each additionally require a positive number of seconds when given. Both apply only to `--mic`
+mode: combined with `--input` they are still validated but then ignored, because file mode needs no idle window
+(the same convention as `--capture-device`, which is inert with `--input`).
 
 **Validation ordering mirrors `SpeakCommand`'s own verified ordering exactly**: parse-time
 `--stt-param` token shape is validated inline as each token is parsed; input-source mutual exclusion

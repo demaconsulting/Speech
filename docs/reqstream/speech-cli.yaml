@@ -305,7 +305,6 @@ sections:
           - SpeechCli-ModelCommands-ListModelsFilters
           - SpeechCli-ModelCommands-ListModelsJsonFormat
           - SpeechCli-ModelCommands-LibraryDelegation
-          - SpeechCli-ModelCommands-NullGuards
           - SpeechCli-ModelCommands-SynthesisSeamExtension
           - SpeechCli-ModelCommands-SynthesisSeamAudioFormat
           - SpeechCli-ModelCommands-SynthesisSeamRoleValidation
@@ -483,7 +482,6 @@ sections:
           - SpeechCli-DeviceCommands-ListDevicesNoDevices
           - SpeechCli-DeviceCommands-ListDevicesArgumentValidation
           - SpeechCli-DeviceCommands-LibraryDelegation
-          - SpeechCli-DeviceCommands-NullGuards
         tests:
           - SpeechCli_ListDevicesCommand_Invoked_ExitsCleanly
           - SpeechCli_ListDevicesCommandWithInvalidDirection_Invoked_ReturnsCleanError
@@ -500,6 +498,7 @@ sections:
           - SpeechCli-DeviceCommands-DevicesTest
           - SpeechCli-DeviceCommands-DevicesTestOutput
           - SpeechCli-DeviceCommands-DevicesTestInput
+          - SpeechCli-DeviceCommands-DevicesTestInputNoSamples
           - SpeechCli-DeviceCommands-DevicesTestDeviceValidation
           - SpeechCli-DeviceCommands-DevicesTestArgumentValidation
           - SpeechCli-DeviceCommands-ToneGeneration
@@ -548,7 +547,6 @@ sections:
           - SpeechCli-SynthesisCommands-PlaybackDeviceDispatch
           - SpeechCli-SynthesisCommands-CancellationAndDisposal
           - SpeechCli-SynthesisCommands-Disposal
-          - SpeechCli-SynthesisCommands-NullGuards
         tests:
           - SpeechCli_SpeakCommandWithUnknownModel_Invoked_ReturnsCleanError
           - SpeechCli_SpeakCommandWithNotDownloadedModel_Invoked_ReturnsCleanErrorWithDownloadHint
@@ -588,7 +586,6 @@ sections:
           - SpeechCli-RecognitionCommands-FinalOnly
           - SpeechCli-RecognitionCommands-VerbosityConflict
           - SpeechCli-RecognitionCommands-OutputText
-          - SpeechCli-RecognitionCommands-NullGuards
         tests:
           - SpeechCli_RecognizeCommandWithUnknownModel_Invoked_ReturnsCleanError
           - SpeechCli_RecognizeCommandWithNotDownloadedModel_Invoked_ReturnsCleanErrorWithDownloadHint
@@ -607,6 +604,7 @@ sections:
           - SpeechCli-RecognitionCommands-SilenceTimeoutValidation
           - SpeechCli-RecognitionCommands-StartTimeout
           - SpeechCli-RecognitionCommands-StartTimeoutDefault
+          - SpeechCli-RecognitionCommands-TimeoutsIgnoredForFileInput
           - SpeechCli-RecognitionCommands-StartTimeoutValidation
           - SpeechCli-RecognitionCommands-DeviceDispatch
         tests:
@@ -642,7 +640,6 @@ sections:
           - SpeechCli-ConversationCommands-PrewarmRecognizer
           - SpeechCli-ConversationCommands-PrewarmFailureReporting
           - SpeechCli-ConversationCommands-PrewarmCancellationRelease
-          - SpeechCli-ConversationCommands-NullGuards
         tests:
           - Program_Run_WithAskCommandAndNoModel_ThrowsArgumentException
           - SpeechCli_AskCommandWithoutModels_Invoked_ReturnsCleanError

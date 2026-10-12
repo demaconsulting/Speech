@@ -255,27 +255,6 @@ sections:
               - SpeechModelCatalogAdapter_DownloadAsync_UnknownModelId_ThrowsArgumentException
               - CliModelCatalogFactory_Create_WithModelsDir_UsesGivenRoot
 
-          - id: SpeechCli-ModelCommands-NullGuards
-            title: >-
-              The ModelCommandsSubsystem shall reject a missing context or catalog immediately
-              with `ArgumentNullException`, so a programming error is never silently ignored.
-            tags: [subsystem]
-            justification: |
-              A missing required dependency must fail immediately and specifically rather than
-              surface later as a confusing `NullReferenceException` deep inside a command.
-            tests:
-              - ListModelsCommand_Run_NullContext_ThrowsArgumentNullException
-              - ListModelsCommand_Run_NullCatalog_ThrowsArgumentNullException
-              - ModelInfoCommand_Run_NullContext_ThrowsArgumentNullException
-              - ModelInfoCommand_Run_NullCatalog_ThrowsArgumentNullException
-              - DownloadCommand_RunAsync_NullContext_ThrowsArgumentNullException
-              - DownloadCommand_RunAsync_NullCatalog_ThrowsArgumentNullException
-              - UninstallCommand_Run_NullContext_ThrowsArgumentNullException
-              - UninstallCommand_Run_NullCatalog_ThrowsArgumentNullException
-              - CleanCommand_Run_NullContext_ThrowsArgumentNullException
-              - CleanCommand_Run_NullCatalog_ThrowsArgumentNullException
-              - CliModelCatalogFactory_Create_NullContext_ThrowsArgumentNullException
-
           - id: SpeechCli-ModelCommands-DownloadMirrorComposition
             title: >-
               The tool shall apply the download mirror configured through the global

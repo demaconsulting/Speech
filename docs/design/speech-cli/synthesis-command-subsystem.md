@@ -40,7 +40,11 @@ and `DevicesTestCommand.ResolveDeviceSelectionOrThrow` from `DeviceCommandsSubsy
 source and tags, loads the engine, binds a playback device (real playback through
 `ICliPlaybackDeviceSource`, or a WAV file for `--output-audio`), speaks, and disposes everything in
 a fixed order. `ParameterBagParser` is a stateless helper that `AskCommand` and `RecognizeCommand`
-also reuse. The sections below describe the seam use and each concern.
+also reuse. **Ownership**: `ParameterBagParser` is a unit of this subsystem (its source, unit tests,
+requirements and design live here, and it is reviewed with this subsystem); `RecognitionCommandSubsystem`
+and `ConversationCommandSubsystem` consume it unmodified through its internal `Resolve` method, exactly as they
+consume this subsystem's `ICliPlaybackDeviceSource`, and so depend on this subsystem. The sections below describe
+the seam use and each concern.
 
 ### Extending the ModelCommandsSubsystem Seam
 

@@ -161,6 +161,17 @@ before any result has been yielded calls `_session.StopAsync` and raises `TimedO
 
 **Requirement coverage**: `SpeechCli-RecognitionCommands-StartTimeout`.
 
+#### Timeouts Ignored for File Input
+
+**Tests**: `RecognizeCommand_Run_FileInputWithTimeouts_TimeoutsIgnoredAndRunSucceeds`
+
+**Scenario/Expected**: Running `recognize --input <wav>` together with `--start-timeout` and `--silence-timeout`
+(deliberately tiny values that would end a mic session at once) is accepted; the recognizer is started and then
+drained exactly once, as it is without the flags, and the run exits with code 0. This proves the flags are ignored
+in file mode rather than rejected or applied.
+
+**Requirement coverage**: `SpeechCli-RecognitionCommands-TimeoutsIgnoredForFileInput`.
+
 #### `--interim`/`--final-only`/`--output-text` Filtering and Writing
 
 **Tests**: `RecognizeCommand_ParseArguments_InterimAndFinalOnlyFlags_ParseTrue`,
@@ -220,7 +231,9 @@ ModelCommandsSubsystem verification document).
 list immediately with `ArgumentNullException`, proving no command silently proceeds with a
 missing dependency.
 
-**Requirement coverage**: `SpeechCli-RecognitionCommands-NullGuards`.
+**Requirement coverage**: none. These are defensive tests: a missing required argument fails immediately with
+`ArgumentNullException`. By the repository's requirements principles, defensive tests need no requirement, so no
+requirement is defined for them.
 
 ### Requirements Coverage
 
@@ -237,6 +250,7 @@ missing dependency.
 - **`SpeechCli-RecognitionCommands-StartTimeout`**, **`-StartTimeoutDefault`**,
   **`-StartTimeoutValidation`**: see _Start Timeout (Two-Phase Idle Window)_
   above
+- **`SpeechCli-RecognitionCommands-TimeoutsIgnoredForFileInput`**: see _Timeouts Ignored for File Input_ above
 - **`SpeechCli-RecognitionCommands-VerbosityAndOutput`**, **`-InterimOverwrite`**,
   **`-InterimOnly`**, **`-FinalOnly`**,
   **`-VerbosityConflict`**, **`-OutputText`**: see _`--interim`/`--final-only`/
@@ -245,7 +259,6 @@ missing dependency.
   `RecognizeCommand_Run_InputFileIsNotWav_ThrowsInvalidOperationExceptionNamingFile` and
   `RecognizeCommand_Run_InputFileIsStereoWav_ThrowsInvalidOperationExceptionAboutMono`
 - **`SpeechCli-RecognitionCommands-DeviceDispatch`**: see _Capture Device Dispatch_ above
-- **`SpeechCli-RecognitionCommands-NullGuards`**: see _Null Guards_ above
 
 ### Acceptance Criteria
 
