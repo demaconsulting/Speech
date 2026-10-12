@@ -1,3 +1,4 @@
+using DemaConsulting.Speech.Diagnostics;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 
 namespace DemaConsulting.Speech.Onnx.ChatterboxTurbo.ModelManagementSubsystem;
@@ -33,6 +34,12 @@ public sealed class ChatterboxTurboModelOptions
     /// <summary>The largest default intra-op thread count; more threads do not speed this workload up.</summary>
     private const int DefaultThreadCeiling = 6;
 
+    /// <summary>Backing field for <see cref="LanguageModelVariant"/>.</summary>
+    private ChatterboxTurboLanguageModelVariant _languageModelVariant = ChatterboxTurboLanguageModelVariant.Fp16;
+
+    /// <summary>Backing field for <see cref="AuxiliaryModelVariant"/>.</summary>
+    private ChatterboxTurboAuxiliaryModelVariant _auxiliaryModelVariant = ChatterboxTurboAuxiliaryModelVariant.Q4;
+
     /// <summary>Backing field for <see cref="MoodJoinSilenceMilliseconds"/>.</summary>
     private int _moodJoinSilenceMilliseconds = DefaultMoodJoinSilenceMilliseconds;
 
@@ -52,10 +59,36 @@ public sealed class ChatterboxTurboModelOptions
     public static int DefaultIntraOpThreads => Math.Min(DefaultThreadCeiling, Math.Max(1, Environment.ProcessorCount / 2));
 
     /// <summary>Gets or sets the language-model precision. Defaults to <see cref="ChatterboxTurboLanguageModelVariant.Fp16"/>.</summary>
-    public ChatterboxTurboLanguageModelVariant LanguageModelVariant { get; set; } = ChatterboxTurboLanguageModelVariant.Fp16;
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when set to a value that is not a defined variant.</exception>
+    public ChatterboxTurboLanguageModelVariant LanguageModelVariant
+    {
+        get => _languageModelVariant;
+        set
+        {
+            if (!Enum.IsDefined(value))
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), value, "The language model variant is not defined.");
+            }
+
+            _languageModelVariant = value;
+        }
+    }
 
     /// <summary>Gets or sets the auxiliary-graph precision. Defaults to <see cref="ChatterboxTurboAuxiliaryModelVariant.Q4"/>.</summary>
-    public ChatterboxTurboAuxiliaryModelVariant AuxiliaryModelVariant { get; set; } = ChatterboxTurboAuxiliaryModelVariant.Q4;
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when set to a value that is not a defined variant.</exception>
+    public ChatterboxTurboAuxiliaryModelVariant AuxiliaryModelVariant
+    {
+        get => _auxiliaryModelVariant;
+        set
+        {
+            if (!Enum.IsDefined(value))
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), value, "The auxiliary model variant is not defined.");
+            }
+
+            _auxiliaryModelVariant = value;
+        }
+    }
 
     /// <summary>Gets or sets the intra-op CPU thread count used by every graph; must be positive.</summary>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when set to a value below one.</exception>
@@ -91,6 +124,11 @@ public sealed class ChatterboxTurboModelOptions
         set
         {
             ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(value, 0);
+            if (!double.IsFinite(value))
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), value, "The ratio must be a finite number.");
+            }
+
             _maxAudioTokensPerTextToken = value;
         }
     }
@@ -165,4 +203,10 @@ public sealed class ChatterboxTurboModelOptions
     ///     are offered. Defaults to <see langword="true"/>; set to <see langword="false"/> to use only the explicit voices.
     /// </summary>
     public bool IncludeStoreVoices { get; set; } = true;
+
+    /// <summary>
+    ///     Gets or sets the sink that receives informational messages while the voice list is resolved (for example when
+    ///     a library voice is hidden by an earlier voice with the same id); <see langword="null"/> discards them.
+    /// </summary>
+    public ISpeechDiagnostics? Diagnostics { get; set; }
 }

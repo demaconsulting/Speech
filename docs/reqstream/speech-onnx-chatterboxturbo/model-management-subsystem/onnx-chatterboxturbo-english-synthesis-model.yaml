@@ -53,15 +53,21 @@ sections:
                 title: >-
                   The OnnxChatterboxTurboEnglishSynthesisModel class shall expose the supplied
                   voices as a voice choice, map a voice id to its index (first voice by
-                  default), and load every WAV or FLAC file of a supplied voice directory as a voice.
+                  default), load every WAV or FLAC file of a supplied voice directory as a voice,
+                  and reject duplicate voice ids among the explicit and directory voices with an
+                  ArgumentException.
                 justification: |
                   The model has no built-in voices, so the host's own clips define the voice
-                  list a user can choose from.
+                  list a user can choose from, and an id that selects two voices would make the
+                  second unreachable.
                 tests:
                   - OnnxChatterboxTurboEnglishSynthesisModel_Parameters_ReflectSuppliedVoices
                   - OnnxChatterboxTurboEnglishSynthesisModel_ResolveSpeakerId_MapsVoiceIdToIndex
                   - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_VoiceDirectory_LoadsWavAndFlacFiles
                   - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_DamagedVoiceFile_DoesNotFailConstruction
+                  - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_DuplicateExplicitIds_ThrowsArgumentException
+                  - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_DirectoryVoiceDuplicatesExplicitId_ThrowsArgumentException
+                  - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_DirectoryWavAndFlacSameStem_ThrowsArgumentException
 
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-CreateBackend
                 title: >-
@@ -81,27 +87,35 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-Options
                 title: >-
                   The ChatterboxTurboModelOptions class shall provide safe defaults for every
-                  option and shall validate values assigned to them.
+                  option and shall validate values assigned to them, including undefined
+                  variant values.
                 justification: |
                   A host that supplies no options gets sensible behavior, and invalid values fail
                   at assignment rather than during synthesis.
                 tests:
                   - ChatterboxTurboModelOptions_Properties_HaveSafeDefaultsAndValidate
+                  - ChatterboxTurboModelOptions_VariantSetters_UndefinedValue_ThrowsArgumentOutOfRangeException
                   - OnnxChatterboxTurboEnglishSynthesisModel_CapabilityProfile_UsesMoodJoinSilenceOption
 
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoices
                 title: >-
                   The OnnxChatterboxTurboEnglishSynthesisModel class shall append the voices of a
-                  core ReferenceVoiceLibrary after explicit and directory voices with the first id
-                  winning, load them lazily so a corrupt file does not fail construction, let a
-                  host opt out, and default to the library of the catalog's store when registered
-                  through the catalog extension without mutating the caller's options.
+                  core ReferenceVoiceLibrary (user folder and installed packs) after explicit and
+                  directory voices, skip a library voice whose id is already present and report it
+                  at Info level, give a library voice whose display name clashes with an earlier
+                  voice a "(user)" or "(pack)" suffix, load them lazily so a corrupt file does not
+                  fail construction, let a host opt out, and default to the library of the
+                  catalog's store when registered through the catalog extension without mutating
+                  the caller's options.
                 justification: |
                   The downloaded voice pack and the user's own clips must appear in the voice list
                   without any host code, while explicit voices keep working unchanged and a
                   hundred-plus clips are never decoded up front.
                 tests:
                   - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_StoreVoices_MergedAfterExplicitAndDirectoryFirstIdWins
+                  - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_LibraryVoiceDuplicate_IsSkippedWithInfoDiagnostic
+                  - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_UserVoiceLabelClash_AddsUserSuffix
+                  - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_PackVoices_AreListedWithPackSuffixOnClash
                   - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_CorruptStoreVoice_DoesNotFailConstruction
                   - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_IncludeStoreVoicesFalse_IgnoresLibrary
                   - SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_DefaultsToCatalogStoreVoices

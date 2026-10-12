@@ -1,4 +1,5 @@
 using DemaConsulting.Speech.AudioSubsystem;
+using DemaConsulting.Speech.Diagnostics;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.Onnx.ChatterboxTurbo.SynthesisSubsystem;
 using DemaConsulting.Speech.SynthesisSubsystem;
@@ -52,6 +53,9 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModel : ISynthesisModel
     /// <summary>The embedded tokenizer resource name suffix.</summary>
     private const string TokenizerResourceSuffix = "chatterbox-turbo-tokenizer.json.gz";
 
+    /// <summary>The diagnostics category used for voice-resolution messages.</summary>
+    private const string DiagnosticsCategory = "ModelManagementSubsystem";
+
     /// <summary>SHA-256 digests by file name, for every file of every supported variant.</summary>
     private static readonly IReadOnlyDictionary<string, string> Checksums = new Dictionary<string, string>
     {
@@ -104,7 +108,11 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModel : ISynthesisModel
     ///     Initializes a new instance of the <see cref="OnnxChatterboxTurboEnglishSynthesisModel"/> class.
     /// </summary>
     /// <param name="options">The configuration, or <see langword="null"/> for defaults (which supply no voices).</param>
-    /// <exception cref="ArgumentException">Thrown when voice ids are duplicated or a variant is not a defined value.</exception>
+    /// <exception cref="ArgumentException">
+    ///     Thrown when two explicit or voice-directory voices share an id (ordinal comparison), or a variant is not a defined value.
+    ///     A voice from the voice library whose id is already present is skipped and reported at
+    ///     <see cref="SpeechDiagnosticLevel.Info"/> instead.
+    /// </exception>
     /// <exception cref="DirectoryNotFoundException">Thrown when <see cref="ChatterboxTurboModelOptions.ReferenceVoiceDirectory"/> does not exist.</exception>
     /// <remarks>
     ///     Files in <see cref="ChatterboxTurboModelOptions.ReferenceVoiceDirectory"/> are decoded lazily, so a damaged
@@ -308,10 +316,30 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModel : ISynthesisModel
         return assembly.GetManifestResourceStream(name)!;
     }
 
-    /// <summary>Combines explicit voices, those in the voice directory and those from the voice library (user folder, installed packs).</summary>
+    /// <summary>
+    ///     Combines explicit voices, those in the voice directory and those from the voice library (user folder, installed packs).
+    ///     A duplicate id among the explicit and directory voices is a caller error; a library voice whose id is already present is skipped.
+    /// </summary>
     private static List<ChatterboxTurboReferenceVoice> ResolveVoices(ChatterboxTurboModelOptions options, ReferenceVoiceLibrary? defaultLibrary)
     {
-        var voices = new List<ChatterboxTurboReferenceVoice>(options.ReferenceVoices);
+        var voices = new List<ChatterboxTurboReferenceVoice>();
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+
+        void AddUnique(ChatterboxTurboReferenceVoice voice, string source)
+        {
+            if (!ids.Add(voice.Id))
+            {
+                throw new ArgumentException($"The reference voice id '{voice.Id}' ({source}) is duplicated.");
+            }
+
+            voices.Add(voice);
+        }
+
+        foreach (var voice in options.ReferenceVoices)
+        {
+            AddUnique(voice, "explicit voices");
+        }
+
         if (options.ReferenceVoiceDirectory is not null)
         {
             if (!Directory.Exists(options.ReferenceVoiceDirectory))
@@ -325,29 +353,46 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModel : ISynthesisModel
                 .Where(file => AudioFileReader.SupportedExtensions.Contains(Path.GetExtension(file), StringComparer.OrdinalIgnoreCase))
                 .ToArray();
             Array.Sort(files, StringComparer.Ordinal);
+
             // Lazy so a damaged file never fails catalog composition: the error surfaces at first use of that voice and names the file
-            voices.AddRange(files.Select(file => ChatterboxTurboReferenceVoice.FromFileLazy(Path.GetFileNameWithoutExtension(file), file)));
+            foreach (var file in files)
+            {
+                AddUnique(ChatterboxTurboReferenceVoice.FromFileLazy(Path.GetFileNameWithoutExtension(file), file), "voice directory");
+            }
         }
 
         if (options.IncludeStoreVoices)
         {
-            AddLibraryVoices(voices, options.ReferenceVoiceLibrary ?? defaultLibrary);
+            AddLibraryVoices(voices, ids, options.ReferenceVoiceLibrary ?? defaultLibrary, options.Diagnostics ?? NullSpeechDiagnostics.Instance);
         }
+
         return voices;
     }
 
-    /// <summary>Appends the library's voices lazily; an id that is already present wins.</summary>
-    private static void AddLibraryVoices(List<ChatterboxTurboReferenceVoice> voices, ReferenceVoiceLibrary? library)
+    /// <summary>Appends the library's voices lazily; an id that is already present wins and the skip is reported.</summary>
+    private static void AddLibraryVoices(
+        List<ChatterboxTurboReferenceVoice> voices,
+        HashSet<string> ids,
+        ReferenceVoiceLibrary? library,
+        ISpeechDiagnostics diagnostics)
     {
         if (library is null)
         {
             return;
         }
 
-        var ids = new HashSet<string>(voices.Select(voice => voice.Id), StringComparer.Ordinal);
         var labels = new HashSet<string>(voices.Select(voice => voice.DisplayName), StringComparer.Ordinal);
-        foreach (var info in library.EnumerateVoices().Where(info => ids.Add(info.Id)))
+        foreach (var info in library.EnumerateVoices())
         {
+            if (!ids.Add(info.Id))
+            {
+                diagnostics.Report(
+                    SpeechDiagnosticLevel.Info,
+                    DiagnosticsCategory,
+                    $"Reference voice '{info.Id}' from '{info.FilePath}' is hidden by an earlier voice with the same id.");
+                continue;
+            }
+
             // Labels need not be unique, but a source suffix keeps same-named voices distinguishable
             var label = info.DisplayName;
             if (!labels.Add(label))
@@ -356,6 +401,7 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModel : ISynthesisModel
                 label = $"{label} ({source})";
                 labels.Add(label);
             }
+
             voices.Add(ChatterboxTurboReferenceVoice.FromFileLazy(info.Id, info.FilePath, label, info.MoodClips));
         }
     }

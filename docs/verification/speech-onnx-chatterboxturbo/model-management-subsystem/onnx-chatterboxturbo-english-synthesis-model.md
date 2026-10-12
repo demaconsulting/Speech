@@ -13,10 +13,14 @@ disposed on failure.
 
 #### Acceptance Criteria
 
-Metadata is as declared; the default descriptor lists eight files with checksums; every variant
-combination has a distinct id and complete file set; the voice choice reflects the supplied voices;
-backend creation succeeds for a synthetic install and fails cleanly without voices, with a missing
-file or with an invalid graph; options have safe defaults and validate.
+Metadata (including the display name) is as declared; the default descriptor lists eight files with
+checksums; every variant combination has a distinct id and complete file set; the voice choice reflects the
+supplied voices; duplicate explicit or directory ids are rejected; library voices (user folder and installed
+pack) follow explicit and directory voices, are loaded lazily, are skipped with an Info diagnostic when hidden
+and are disambiguated with a `(user)` or `(pack)` label suffix; `IncludeStoreVoices = false` ignores the
+library and the catalog extension defaults to the catalog store's library; the mood join silence option
+reaches the capability profile; backend creation succeeds for a synthetic install and fails cleanly without
+voices, with a missing file or with an invalid graph; options have safe defaults and validate.
 
 #### Test Scenarios
 
@@ -48,7 +52,15 @@ file or with an invalid graph; options have safe defaults and validate.
 
 **Test**: `OnnxChatterboxTurboEnglishSynthesisModel_Constructor_VoiceDirectory_LoadsWavAndFlacFiles`
 
+##### A damaged voice file does not fail construction
+
 **Test**: `OnnxChatterboxTurboEnglishSynthesisModel_Constructor_DamagedVoiceFile_DoesNotFailConstruction`
+
+##### Duplicate explicit or directory voice ids are rejected
+
+**Tests**: `OnnxChatterboxTurboEnglishSynthesisModel_Constructor_DuplicateExplicitIds_ThrowsArgumentException`,
+`OnnxChatterboxTurboEnglishSynthesisModel_Constructor_DirectoryVoiceDuplicatesExplicitId_ThrowsArgumentException`
+and `OnnxChatterboxTurboEnglishSynthesisModel_Constructor_DirectoryWavAndFlacSameStem_ThrowsArgumentException`
 
 ##### Backend creation synthesizes from a synthetic install
 
@@ -68,11 +80,24 @@ file or with an invalid graph; options have safe defaults and validate.
 
 ##### Options have safe defaults and validate
 
-**Test**: `ChatterboxTurboModelOptions_Properties_HaveSafeDefaultsAndValidate`
+**Tests**: `ChatterboxTurboModelOptions_Properties_HaveSafeDefaultsAndValidate` and
+`ChatterboxTurboModelOptions_VariantSetters_UndefinedValue_ThrowsArgumentOutOfRangeException`
 
 ##### Library voices merge after explicit and directory voices, first id wins
 
 **Test**: `OnnxChatterboxTurboEnglishSynthesisModel_Constructor_StoreVoices_MergedAfterExplicitAndDirectoryFirstIdWins`
+
+##### A hidden library voice is skipped with an Info diagnostic
+
+**Test**: `OnnxChatterboxTurboEnglishSynthesisModel_Constructor_LibraryVoiceDuplicate_IsSkippedWithInfoDiagnostic`
+
+##### A clashing user voice label gets a (user) suffix
+
+**Test**: `OnnxChatterboxTurboEnglishSynthesisModel_Constructor_UserVoiceLabelClash_AddsUserSuffix`
+
+##### Pack voices are listed and a clashing label gets a (pack) suffix
+
+**Test**: `OnnxChatterboxTurboEnglishSynthesisModel_Constructor_PackVoices_AreListedWithPackSuffixOnClash`
 
 ##### A corrupt library voice does not fail construction
 

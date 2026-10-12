@@ -1,4 +1,5 @@
 using DemaConsulting.Speech.AudioSubsystem;
+using DemaConsulting.Speech.Diagnostics;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.Onnx.ChatterboxTurbo.ModelManagementSubsystem;
 using DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests.SynthesisSubsystem;
@@ -35,6 +36,10 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModelTests : IDisposable
         {
             // Best-effort cleanup only.
         }
+        catch (UnauthorizedAccessException)
+        {
+            // Best-effort cleanup only.
+        }
     }
 
     /// <summary>Proves the model's identity metadata.</summary>
@@ -47,6 +52,7 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModelTests : IDisposable
 
         // Assert
         Assert.Equal("chatterbox-turbo-onnx-en", model.Id);
+        Assert.Contains("English", model.DisplayName, StringComparison.Ordinal);
         Assert.Equal(SpeechModelRole.Synthesis, model.Role);
         Assert.Equal("MIT", model.LicenseName);
         Assert.Equal(SpeechModelAudioTagSupport.Native, model.AudioTagSupport);
@@ -358,6 +364,123 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModelTests : IDisposable
         Assert.Equal("a", choice.Default);
     }
 
+    /// <summary>Proves two explicit voices with the same id are rejected.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboEnglishSynthesisModel_Constructor_DuplicateExplicitIds_ThrowsArgumentException()
+    {
+        // Act and Assert
+        Assert.Throws<ArgumentException>(() => new OnnxChatterboxTurboEnglishSynthesisModel(
+            new ChatterboxTurboModelOptions { ReferenceVoices = [Voice("same"), Voice("same")], IncludeStoreVoices = false }));
+    }
+
+    /// <summary>Proves a voice-directory file whose id matches an explicit voice is rejected.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboEnglishSynthesisModel_Constructor_DirectoryVoiceDuplicatesExplicitId_ThrowsArgumentException()
+    {
+        // Arrange
+        var directory = Path.Combine(_root, "dup-explicit");
+        Directory.CreateDirectory(directory);
+        WriteWav(Path.Combine(directory, "same.wav"));
+
+        // Act and Assert
+        Assert.Throws<ArgumentException>(() => new OnnxChatterboxTurboEnglishSynthesisModel(
+            new ChatterboxTurboModelOptions { ReferenceVoices = [Voice("same")], ReferenceVoiceDirectory = directory, IncludeStoreVoices = false }));
+    }
+
+    /// <summary>Proves two voice-directory files with the same stem (for example a.wav and a.flac) are rejected.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboEnglishSynthesisModel_Constructor_DirectoryWavAndFlacSameStem_ThrowsArgumentException()
+    {
+        // Arrange
+        var directory = Path.Combine(_root, "dup-stem");
+        Directory.CreateDirectory(directory);
+        WriteWav(Path.Combine(directory, "a.wav"));
+        File.Copy(Path.Combine(AppContext.BaseDirectory, "TestData", "voice-mono-16-16000.flac"), Path.Combine(directory, "a.flac"));
+
+        // Act and Assert
+        Assert.Throws<ArgumentException>(() => new OnnxChatterboxTurboEnglishSynthesisModel(
+            new ChatterboxTurboModelOptions { ReferenceVoiceDirectory = directory, IncludeStoreVoices = false }));
+    }
+
+    /// <summary>Proves a library voice hidden by an earlier voice is skipped and reported at Info level.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboEnglishSynthesisModel_Constructor_LibraryVoiceDuplicate_IsSkippedWithInfoDiagnostic()
+    {
+        // Arrange
+        using var library = new ReferenceVoiceLibrary(
+            new SpeechModelStore(new SpeechModelStoreOptions { RootPathOverride = Path.Combine(_root, "store") }));
+        WriteWav(Path.Combine(library.EnsureUserDirectory(), "taken.wav"));
+        var diagnostics = new RecordingDiagnostics();
+
+        // Act
+        var model = new OnnxChatterboxTurboEnglishSynthesisModel(
+            new ChatterboxTurboModelOptions { ReferenceVoices = [Voice("taken")], ReferenceVoiceLibrary = library, Diagnostics = diagnostics });
+
+        // Assert
+        var choice = Assert.IsType<ChoiceParameter>(Assert.Single(model.Parameters));
+        Assert.Equal(["taken"], choice.Options.Select(option => option.Value));
+        var message = Assert.Single(diagnostics.Messages);
+        Assert.Equal(SpeechDiagnosticLevel.Info, message.Level);
+        Assert.Contains("taken", message.Text, StringComparison.Ordinal);
+    }
+
+    /// <summary>Proves a library user voice whose label clashes with an earlier voice gets a "(user)" suffix.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboEnglishSynthesisModel_Constructor_UserVoiceLabelClash_AddsUserSuffix()
+    {
+        // Arrange
+        using var library = new ReferenceVoiceLibrary(
+            new SpeechModelStore(new SpeechModelStoreOptions { RootPathOverride = Path.Combine(_root, "store") }));
+        WriteWav(Path.Combine(library.EnsureUserDirectory(), "alan_x.wav"));
+        var explicitVoice = ChatterboxTurboReferenceVoice.FromSamples("explicit", new float[24000], 24000, displayName: "Alan X");
+
+        // Act
+        var model = new OnnxChatterboxTurboEnglishSynthesisModel(
+            new ChatterboxTurboModelOptions { ReferenceVoices = [explicitVoice], ReferenceVoiceLibrary = library });
+
+        // Assert
+        var choice = Assert.IsType<ChoiceParameter>(Assert.Single(model.Parameters));
+        Assert.Equal(["Alan X", "Alan X (user)"], choice.Options.Select(option => option.Label));
+        Assert.Equal(["explicit", "alan_x"], choice.Options.Select(option => option.Value));
+    }
+
+    /// <summary>Proves installed pack voices are listed after user voices and a clashing label gets a "(pack)" suffix.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboEnglishSynthesisModel_Constructor_PackVoices_AreListedWithPackSuffixOnClash()
+    {
+        // Arrange: a user voice and a pack voice whose ids differ but whose humanized labels are both "Alan X"
+        using var library = new ReferenceVoiceLibrary(
+            new SpeechModelStore(new SpeechModelStoreOptions { RootPathOverride = Path.Combine(_root, "store") }));
+        WriteWav(Path.Combine(library.EnsureUserDirectory(), "alan_x.wav"));
+        var packVoices = Path.Combine(library.RootPath, ReferenceVoicePack.VoiceZero10.Id, "current", "voices");
+        Directory.CreateDirectory(packVoices);
+        WriteWav(Path.Combine(packVoices, "alan-x.wav"));
+        WriteWav(Path.Combine(packVoices, "zoe.wav"));
+        File.WriteAllText(
+            Path.Combine(library.RootPath, ReferenceVoicePack.VoiceZero10.Id, "install-manifest.json"),
+            "{\"TotalSizeBytes\":1,\"InstalledAtUtc\":\"2026-01-01T00:00:00+00:00\"}");
+
+        // Act
+        var model = new OnnxChatterboxTurboEnglishSynthesisModel(new ChatterboxTurboModelOptions { ReferenceVoiceLibrary = library });
+
+        // Assert
+        var choice = Assert.IsType<ChoiceParameter>(Assert.Single(model.Parameters));
+        Assert.Equal(["alan_x", "alan-x", "zoe"], choice.Options.Select(option => option.Value));
+        Assert.Equal(["Alan X", "Alan X (pack)", "Zoe"], choice.Options.Select(option => option.Label));
+    }
+
+    /// <summary>Proves undefined variant values are rejected when assigned to the options.</summary>
+    [Fact]
+    public void ChatterboxTurboModelOptions_VariantSetters_UndefinedValue_ThrowsArgumentOutOfRangeException()
+    {
+        // Arrange
+        var options = new ChatterboxTurboModelOptions();
+
+        // Act and Assert
+        Assert.Throws<ArgumentOutOfRangeException>(() => options.LanguageModelVariant = (ChatterboxTurboLanguageModelVariant)99);
+        Assert.Throws<ArgumentOutOfRangeException>(() => options.AuxiliaryModelVariant = (ChatterboxTurboAuxiliaryModelVariant)99);
+    }
+
     /// <summary>Proves store voices are loaded lazily: a corrupt user file does not fail construction.</summary>
     [Fact]
     public void OnnxChatterboxTurboEnglishSynthesisModel_Constructor_CorruptStoreVoice_DoesNotFailConstruction()
@@ -414,9 +537,20 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModelTests : IDisposable
         Assert.Equal(["mine"], choice.Options.Select(option => option.Value));
         Assert.Null(options.ReferenceVoiceLibrary);
     }
+
     /// <summary>Creates a one-second voice.</summary>
     private static ChatterboxTurboReferenceVoice Voice(string id) =>
         ChatterboxTurboReferenceVoice.FromSamples(id, new float[24000], 24000);
+
+    /// <summary>Collects diagnostics messages for assertions.</summary>
+    private sealed class RecordingDiagnostics : ISpeechDiagnostics
+    {
+        /// <summary>Gets the recorded messages.</summary>
+        public List<(SpeechDiagnosticLevel Level, string Text)> Messages { get; } = [];
+
+        /// <inheritdoc/>
+        public void Report(SpeechDiagnosticLevel level, string category, string message) => Messages.Add((level, message));
+    }
 
     /// <summary>Installs synthetic graphs and weights files under the real file names.</summary>
     private void InstallSynthetic(bool halfCache, string languageModelName) =>

@@ -21,25 +21,34 @@ graphs, and `chatterbox-turbo-onnx-en-lm-<variant>-aux-<variant>` for any other 
   checksums and relative install paths under `onnx/` (eight files by default)
 - **Parameters**: a `voice` choice listing the available voices (first is default); its description
   appends the core `ReferenceVoiceLibrary.ConsentNotice`
-- **Voice resolution** (constructor): voices are merged in this order, with the first id (ordinal) winning
-  and later duplicates skipped with an `Info` diagnostic: explicit `ReferenceVoices` (eager), then
-  `ReferenceVoiceDirectory` files (lazy via `FromFileLazy`, sorted, so a damaged file fails only at first
-  use of that voice, naming the file, and never breaks catalog composition; a missing directory throws,
-  and duplicates within these two sources still throw as before), then - unless `IncludeStoreVoices` is
-  `false` - the voices of the core `ReferenceVoiceLibrary` (user folder, then installed pack), created lazily with
-  `ChatterboxTurboReferenceVoice.FromFileLazy` so listing a hundred clips decodes none. A library voice
+- **Voice resolution** (constructor): voices are merged in this order: explicit `ReferenceVoices`
+  (eager), then `ReferenceVoiceDirectory` files (lazy via `FromFileLazy`, sorted, so a damaged file fails
+  only at first use of that voice, naming the file, and never breaks catalog composition; a missing
+  directory throws `DirectoryNotFoundException`), then - unless `IncludeStoreVoices` is `false` - the voices
+  of the core `ReferenceVoiceLibrary` (user folder, then installed pack), created lazily with
+  `ChatterboxTurboReferenceVoice.FromFileLazy` so listing a hundred clips decodes none. Ids are compared
+  ordinally. A duplicate id among the explicit and directory voices (including `a.wav` and `a.flac` in one
+  directory) is a caller error and throws `ArgumentException`; a library voice whose id is already present
+  is skipped and reported to `ChatterboxTurboModelOptions.Diagnostics` at `Info` level. A library voice
   whose display name clashes with an earlier one gets a `(user)` or `(pack)` suffix. The library is
   `ChatterboxTurboModelOptions.ReferenceVoiceLibrary` when set; the catalog extension
   `AddChatterboxTurboModels` otherwise builds `new ReferenceVoiceLibrary(catalog.Store)` (without
   mutating the caller's options). The list is fixed at construction, so it refreshes when the catalog is
   rebuilt after a pack is installed.
+- **Options** (`ChatterboxTurboModelOptions`): every property has a safe default and is validated when
+  assigned: variants must be defined enum values, `IntraOpThreads` and `MaxNewTokens` at least 1,
+  `MaxAudioTokensPerTextToken` positive, `MaxConsecutiveSpeechTokenRepeats` non-negative (0 disables the
+  cap), `MoodJoinSilenceMilliseconds` between 0 and 1000 (default 150); the default thread count is half the
+  logical processors, between 1 and 6. The end-of-sentence tag policy selects how a trailing tag is rendered.
 - **ResolveSpeakerId(parameters)**: maps the selected voice id to its index, defaulting to 0
 - **CreateBackend(installDirectory)**: requires at least one voice, throws `FileNotFoundException`
   for any missing model file, builds the networks, tokenizer and engine, and disposes created
   sessions if a later step fails
 
-**Error Handling**: `InvalidOperationException` when no voice exists at backend creation;
-`FileNotFoundException` for missing files; ONNX Runtime exceptions propagate after cleanup.
+**Error Handling**: `ArgumentException` for duplicate explicit or directory voice ids or an undefined
+variant; `DirectoryNotFoundException` for a missing voice directory; `InvalidOperationException` when no
+voice exists at backend creation; `FileNotFoundException` for missing files; ONNX Runtime exceptions
+propagate after cleanup.
 
 **Dependencies**: `OnnxChatterboxTurboNetworks`, `OnnxChatterboxTurboSynthesisEngine`,
 `ByteLevelBpeTokenizer`, `ChatterboxTurboCapabilityProfile`, `ChatterboxTurboReferenceVoice`,
