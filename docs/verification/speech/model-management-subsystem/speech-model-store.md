@@ -57,6 +57,12 @@ uninstall removes an installed model while being a no-op for one that was never 
 
 **Test**: `SpeechModelStore_Uninstall_InstalledModel_RemovesCurrentAndManifest`
 
+##### UninstallAsync and CleanUpLeftoversAsync
+
+**Tests**: `SpeechModelStore_UninstallAsync_InstalledModel_RemovesCurrentAndManifest`,
+`SpeechModelStore_UninstallAsync_InvalidIdAndCanceledToken_AreRejected`,
+`SpeechModelStore_CleanUpLeftoversAsync_LeftoverTmpDirectory_IsRemoved`
+
 ##### Uninstall: Not Installed Does Not Throw
 
 **Test**: `SpeechModelStore_Uninstall_NotInstalled_DoesNotThrow`

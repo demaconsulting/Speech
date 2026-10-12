@@ -274,13 +274,13 @@ public sealed class ReferenceVoiceLibrary : IDisposable
         CancellationToken cancellationToken)
     {
         // A crash during an earlier upgrade may have left the install renamed away
-        RecoverAbandonedBackups(pack.Id);
+        await RecoverAbandonedBackupsAsync(pack.Id).ConfigureAwait(false);
 
         string? backup = null;
         var installed = false;
         try
         {
-            if (includeEmotions && _packStore.IsInstalled(pack.Id) && !PackHasEmotions(pack.Id))
+            if (includeEmotions && _packStore.IsInstalled(pack.Id) && !await PackHasEmotionsAsync(pack.Id, cancellationToken).ConfigureAwait(false))
             {
                 // Upgrade: the downloader fast-paths an installed id, so move the voices-only install aside
                 // (not delete it) so any failure can put it back
@@ -312,13 +312,14 @@ public sealed class ReferenceVoiceLibrary : IDisposable
         {
             if (backup is not null)
             {
+                // Cleanup must finish even when the install was canceled, so it takes no token
                 if (installed)
                 {
-                    TryDeleteDirectory(backup);
+                    await TryDeleteDirectoryAsync(backup).ConfigureAwait(false);
                 }
                 else
                 {
-                    RestoreBackup(pack.Id, backup);
+                    await RestoreBackupAsync(pack.Id, backup).ConfigureAwait(false);
                 }
             }
         }
@@ -345,6 +346,10 @@ public sealed class ReferenceVoiceLibrary : IDisposable
     }
 
     /// <summary>Puts a backup back as the pack's <c>current</c> folder, discarding any partial replacement.</summary>
+    /// <remarks>Directory deletion has no asynchronous API, so it runs on the thread pool.</remarks>
+    private Task RestoreBackupAsync(string packId, string backup) => Task.Run(() => RestoreBackup(packId, backup));
+
+    /// <summary>Synchronous body of <see cref="RestoreBackupAsync"/>.</summary>
     private void RestoreBackup(string packId, string backup)
     {
         var current = _packStore.GetCurrentDirectory(packId);
@@ -368,6 +373,10 @@ public sealed class ReferenceVoiceLibrary : IDisposable
     }
 
     /// <summary>Restores or deletes backup folders left behind by an interrupted upgrade.</summary>
+    /// <remarks>Directory deletion has no asynchronous API, so it runs on the thread pool.</remarks>
+    private Task RecoverAbandonedBackupsAsync(string packId) => Task.Run(() => RecoverAbandonedBackups(packId));
+
+    /// <summary>Synchronous body of <see cref="RecoverAbandonedBackupsAsync"/>.</summary>
     private void RecoverAbandonedBackups(string packId)
     {
         var modelDirectory = _packStore.GetModelDirectory(packId);
@@ -388,6 +397,9 @@ public sealed class ReferenceVoiceLibrary : IDisposable
             }
         }
     }
+
+    /// <summary>Deletes a directory tree on the thread pool, ignoring failures.</summary>
+    private static Task TryDeleteDirectoryAsync(string path) => Task.Run(() => TryDeleteDirectory(path));
 
     /// <summary>Deletes a directory tree, ignoring failures.</summary>
     private static void TryDeleteDirectory(string path)
@@ -413,8 +425,10 @@ public sealed class ReferenceVoiceLibrary : IDisposable
     ///     The variant names (<c>voices</c>, and <c>voices-emotion</c> when the emotion clips were extracted); empty
     ///     when the pack is not installed or its metadata is missing or unreadable. Never throws for a known id.
     /// </returns>
+    /// <param name="cancellationToken">A token that aborts the read.</param>
     /// <exception cref="ArgumentException">Thrown when <paramref name="packId"/> is not a known pack.</exception>
-    public IReadOnlyList<string> GetPackInstalledVariants(string packId)
+    /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is canceled.</exception>
+    public async Task<IReadOnlyList<string>> GetPackInstalledVariantsAsync(string packId, CancellationToken cancellationToken = default)
     {
         var pack = FindPack(packId);
         try
@@ -425,7 +439,8 @@ public sealed class ReferenceVoiceLibrary : IDisposable
                 return [];
             }
 
-            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            var text = await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false);
+            using var document = JsonDocument.Parse(text);
             if (!document.RootElement.TryGetProperty("variants", out var variants) || variants.ValueKind != JsonValueKind.Array)
             {
                 return [];
@@ -444,52 +459,59 @@ public sealed class ReferenceVoiceLibrary : IDisposable
     /// </summary>
     /// <param name="packId">The pack id.</param>
     /// <returns><see langword="true"/> when the pack is installed with emotion clips; otherwise <see langword="false"/>. Never throws for a known id.</returns>
+    /// <param name="cancellationToken">A token that aborts the read.</param>
     /// <exception cref="ArgumentException">Thrown when <paramref name="packId"/> is not a known pack.</exception>
-    public bool PackHasEmotions(string packId) =>
-        GetPackInstalledVariants(packId).Contains(ReferenceVoicePackInstaller.EmotionsDirectoryName, StringComparer.Ordinal);
+    /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is canceled.</exception>
+    public async Task<bool> PackHasEmotionsAsync(string packId, CancellationToken cancellationToken = default) =>
+        (await GetPackInstalledVariantsAsync(packId, cancellationToken).ConfigureAwait(false))
+        .Contains(ReferenceVoicePackInstaller.EmotionsDirectoryName, StringComparer.Ordinal);
 
     /// <summary>
     ///     Removes an installed pack; a no-op when it is not installed. The user folder is never touched.
     /// </summary>
     /// <param name="packId">The pack id.</param>
+    /// <param name="cancellationToken">
+    ///     A token that aborts the wait for the pack's operation lock. Once the removal starts it runs to completion.
+    /// </param>
+    /// <returns>A task that completes when the pack and any upgrade backup are removed.</returns>
     /// <exception cref="ArgumentException">Thrown when <paramref name="packId"/> is not a known pack.</exception>
-    /// <exception cref="SpeechModelStoreException">
-    ///     Thrown when an install or upgrade of the same pack is in progress (it is not canceled or waited for), or when
-    ///     the pack's files are still in use and cannot be removed.
-    /// </exception>
+    /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is canceled while waiting for an in-flight install or uninstall of the same pack, or before the removal starts.</exception>
+    /// <exception cref="SpeechModelStoreException">Thrown when the pack's files are still in use and cannot be removed.</exception>
     /// <remarks>
-    ///     Uses the same per-pack operation lock as <see cref="InstallPackAsync(string, bool, IProgress{SpeechModelDownloadProgress}, CancellationToken)"/>
-    ///     but never blocks: if the lock is held, the call fails immediately so the caller can retry once the install
-    ///     finishes.
+    ///     Takes the same per-pack operation lock as <see cref="InstallPackAsync(string, bool, IProgress{SpeechModelDownloadProgress}, CancellationToken)"/>
+    ///     and awaits it: when an install (or another uninstall) of the pack is in flight this call waits for it to
+    ///     finish, then removes the pack, so the two never interleave. Directory deletion has no asynchronous
+    ///     file-system API and runs on the thread pool.
     /// </remarks>
-    public void UninstallPack(string packId)
+    public async Task UninstallPackAsync(string packId, CancellationToken cancellationToken = default)
     {
         var pack = FindPack(packId);
         var gate = _installLocks.GetOrAdd(pack.Id, _ => new SemaphoreSlim(1, 1));
-        if (!gate.Wait(0))
-        {
-            throw new SpeechModelStoreException(
-                $"Cannot uninstall reference voice pack '{pack.Id}' while it is being installed; wait for the install to finish and try again.");
-        }
-
+        await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            _packStore.Uninstall(pack.Id);
+            await _packStore.UninstallAsync(pack.Id, cancellationToken).ConfigureAwait(false);
             _failed.TryRemove(pack.Id, out _);
 
             // An uninstall also discards any upgrade backup so it cannot resurrect the pack
-            var modelDirectory = _packStore.GetModelDirectory(pack.Id);
-            if (Directory.Exists(modelDirectory))
-            {
-                foreach (var backup in Directory.EnumerateDirectories(modelDirectory, UpgradeBackupPrefix + "*"))
-                {
-                    TryDeleteDirectory(backup);
-                }
-            }
+            await Task.Run(() => DeleteUpgradeBackups(pack.Id), CancellationToken.None).ConfigureAwait(false);
         }
         finally
         {
             gate.Release();
+        }
+    }
+
+    /// <summary>Deletes every upgrade backup folder of a pack, ignoring failures.</summary>
+    private void DeleteUpgradeBackups(string packId)
+    {
+        var modelDirectory = _packStore.GetModelDirectory(packId);
+        if (Directory.Exists(modelDirectory))
+        {
+            foreach (var backup in Directory.EnumerateDirectories(modelDirectory, UpgradeBackupPrefix + "*"))
+            {
+                TryDeleteDirectory(backup);
+            }
         }
     }
 

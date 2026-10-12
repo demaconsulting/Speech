@@ -26,8 +26,8 @@ Disk layout (the unit's contract with the CLI, demo and documentation):
 **Key Methods**: `RootPath`, `UserDirectory`, static `Packs`, `EnsureUserDirectory()`,
 `GetPackDirectory(packId)`, `GetPackState(packId)`, `InstallPackAsync(packId, includeEmotions = true, progress, ct)`
 (plus a source-compatible
-`InstallPackAsync(packId, progress, ct)` overload that includes emotions), `UninstallPack(packId)`,
-`PackHasEmotions(packId)`, `GetPackInstalledVariants(packId)`, `EnumerateVoices(extraDirectories)`, `Dispose()`.
+`InstallPackAsync(packId, progress, ct)` overload that includes emotions), `UninstallPackAsync(packId, ct)`,
+`PackHasEmotionsAsync(packId, ct)`, `GetPackInstalledVariantsAsync(packId, ct)`, `EnumerateVoices(extraDirectories)`, `Dispose()`.
 
 - `InstallPackAsync` calls the downloader's internal install-hook overload with the pack's descriptor
   and `ReferenceVoicePackInstaller.InstallAsync` as the hook, so the whole archive is fetched through
@@ -46,15 +46,23 @@ Disk layout (the unit's contract with the CLI, demo and documentation):
   state is reference counted so `GetPackState` reports `Downloading` until the last concurrent caller
   finishes. An install that already has emotions is never downgraded by `includeEmotions: false`,
   and a voices-only request over a voices-only install is the usual no-op.
-- `GetPackInstalledVariants` reads `pack.json` and returns its `variants` (empty for a missing, unreadable
-  or malformed file; it never throws); `PackHasEmotions` is true when `voices-emotion` is among them.
+- `GetPackInstalledVariantsAsync` reads `pack.json` (with `File.ReadAllTextAsync`) and returns its `variants` (empty for a missing, unreadable
+  or malformed file; it never throws); `PackHasEmotionsAsync` is true when `voices-emotion` is among them.
 - `GetPackState` reports `Downloading`, `Downloaded`, `FailedOrCorrupt` (a failed attempt in this
   process) or `NotDownloaded`, and never throws for a known id.
-- `UninstallPack` removes the pack only; the user folder is never touched. It takes the same
-  per-pack lock as `InstallPackAsync` without waiting; if an install of that pack is in flight it
-  throws `SpeechModelStoreException` and changes nothing, so callers retry after the install ends.
-  After the store uninstall it also deletes every `current.upgrade-backup-*` folder left in the pack
+- `UninstallPackAsync` removes the pack only; the user folder is never touched. It awaits (honoring its
+  `CancellationToken`) the same per-pack lock as `InstallPackAsync`, so an uninstall that arrives while an
+  install (or another uninstall) of that pack is in flight waits for it to finish and then runs; the two never
+  interleave and nothing is thrown for the overlap. Canceling while waiting throws
+  `OperationCanceledException` and leaves the install and the pack untouched; once the removal starts it runs to
+  completion. The directory deletions run on the thread pool through `SpeechModelStore.UninstallAsync`
+  (there is no asynchronous directory-delete API). After the store uninstall it also deletes every `current.upgrade-backup-*` folder left in the pack
   directory so a leftover backup cannot resurrect the pack, and clears the pack's failed flag.
+- **Asynchronous policy**: the synchronous `UninstallPack`, `PackHasEmotions` and `GetPackInstalledVariants` were
+  introduced with this library (never shipped), so they were replaced rather than wrapped. `EnumerateVoices`,
+  `EnsureUserDirectory` and `GetPackState` stay synchronous: they are directory-metadata scans or in-memory
+  reads, and `EnumerateVoices` is needed synchronously by public engine-constructor wiring. The upgrade
+  backup move, restore and delete steps run on the thread pool so a large pack never blocks the caller.
 - `EnumerateVoices` returns, in order, voices from the caller-named directories (in the order given),
   then the user folder, then each installed pack. Within a directory files are sorted by name
   (ordinal); the extensions in `AudioFileReader.SupportedExtensions` (`.wav` and `.flac`, any case) are

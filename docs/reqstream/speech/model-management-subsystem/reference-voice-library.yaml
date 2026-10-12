@@ -56,17 +56,20 @@ sections:
               - id: Speech-Models-ReferenceVoiceLibrary-PackUninstall
                 title: >-
                   The ReferenceVoiceLibrary class shall uninstall a pack without touching the user
-                  folder and discard any upgrade backup of that pack, and shall, without blocking,
-                  throw SpeechModelStoreException instead of uninstalling a pack whose install is in
-                  flight.
+                  folder and discard any upgrade backup of that pack, and shall, when the pack's
+                  install is in flight, wait for it (honoring cancellation) and then uninstall
+                  instead of throwing or racing it.
                 justification: |
                   The user folder holds the user's own files and must survive any pack operation; a
-                  leftover upgrade backup must not resurrect a removed pack; and an uninstall that
-                  waited for (or raced with) an install could delete files the install is writing.
+                  leftover upgrade backup must not resurrect a removed pack; and an uninstall
+                  must serialize with an install on the same per-pack lock (awaited, never blocking
+                  a thread) so it cannot delete files the install is writing.
                 tests:
-                  - ReferenceVoiceLibrary_UninstallPack_RemovesPackKeepsUserFolder
-                  - ReferenceVoiceLibrary_UninstallPack_WhileInstalling_ThrowsThenSucceedsAfterwards
-                  - ReferenceVoiceLibrary_UninstallPack_DiscardsUpgradeBackup
+                  - ReferenceVoiceLibrary_UninstallPackAsync_RemovesPackKeepsUserFolder
+                  - ReferenceVoiceLibrary_UninstallPackAsync_WhileInstalling_WaitsThenRemoves
+                  - ReferenceVoiceLibrary_UninstallPackAsync_CanceledWhileWaiting_LeavesInstallIntact
+                  - ReferenceVoiceLibrary_UninstallPackAsync_AlreadyCanceled_DoesNothingAndReleasesLock
+                  - ReferenceVoiceLibrary_UninstallPackAsync_DiscardsUpgradeBackup
 
               - id: Speech-Models-ReferenceVoiceLibrary-Disposal
                 title: >-

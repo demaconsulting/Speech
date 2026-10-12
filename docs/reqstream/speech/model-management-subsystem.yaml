@@ -90,6 +90,9 @@ sections:
               - Speech-Models-SpeechModelStoreException-StandardConstructors
             tests:
               - SpeechModelStore_Uninstall_InstalledModel_RemovesCurrentAndManifest
+              - SpeechModelStore_UninstallAsync_InstalledModel_RemovesCurrentAndManifest
+              - SpeechModelStore_UninstallAsync_InvalidIdAndCanceledToken_AreRejected
+              - SpeechModelStore_CleanUpLeftoversAsync_LeftoverTmpDirectory_IsRemoved
               - SpeechModelStore_Uninstall_NotInstalled_DoesNotThrow
               - SpeechModelStore_CleanUpLeftovers_LeftoverTmpDirectory_IsRemoved
 

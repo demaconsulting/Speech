@@ -158,10 +158,10 @@ The system exposes the following public API to external consumers:
 | `WavFileAudioCaptureDevice`/`WavFileAudioPlaybackDevice` | Inbound/Outbound | Device | File-backed; no hardware |
 | `ReferenceVoiceLibrary.EnumerateVoices(...)` | Outbound | Method call/return | User-folder and pack voices |
 | `ReferenceVoiceLibrary.InstallPackAsync(...)` | Inbound/Outbound | Call/return | Verified install; failure result |
-| `ReferenceVoiceLibrary.UninstallPack(...)` | Inbound | Method call | Never blocks; throws while that pack installs |
+| `ReferenceVoiceLibrary.UninstallPackAsync(...)` | Inbound | Method call | Awaits the pack's install lock, honoring cancellation, then removes it |
 | `SpeechModelStore.IsInstalled(...)` | Outbound | Method call/return | Never throws |
 | `SpeechModelStore.CompleteInstall(...)` | Inbound | Method call | Atomic; never touches `current/` early |
-| `SpeechModelStore.Uninstall(...)` | Inbound | Method call | Throws `SpeechModelStoreException` if blocked |
+| `SpeechModelStore.Uninstall(...)` / `UninstallAsync(...)` | Inbound | Method call | Throws `SpeechModelStoreException` if blocked; the async form runs on the thread pool |
 | `SpeechModelDownloader.DownloadAsync(...)` | Inbound/Outbound | Method call/return | One at a time; honest failures |
 | `IModelDownloadClient.DownloadAsync(...)` | Inbound | Method call | Throws on any non-success/transport failure |
 | `SpeechModelCatalog.Enumerate()` | Outbound | Method call/return | Never throws |

@@ -302,6 +302,33 @@ public sealed class SpeechModelStore
         }
     }
 
+    /// <summary>
+    ///     Asynchronously removes a model's installed content, manifest, and any superseded <c>current.replaced-*</c>
+    ///     directories; the awaitable form of <see cref="Uninstall"/> for callers that must not block (a UI thread).
+    /// </summary>
+    /// <param name="modelId">The model identifier. Must not be null, empty, or an invalid directory name.</param>
+    /// <param name="cancellationToken">
+    ///     A token observed before the removal starts. Once it starts the removal runs to completion, so a model is never
+    ///     left half-removed by a cancellation.
+    /// </param>
+    /// <returns>A task that completes when the model is removed (or was not installed).</returns>
+    /// <exception cref="ArgumentException">Thrown (synchronously) when <paramref name="modelId"/> is null, empty, or not a valid directory name.</exception>
+    /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is canceled before the removal starts.</exception>
+    /// <exception cref="SpeechModelStoreException">
+    ///     Thrown (through the task) when <c>current/</c> cannot be removed, most commonly because another process still
+    ///     holds an open file handle into it.
+    /// </exception>
+    /// <remarks>
+    ///     Directory deletion has no asynchronous file-system API, so the work runs on the thread pool
+    ///     (<see cref="Task.Run(Action, CancellationToken)"/>) rather than on the caller's thread.
+    /// </remarks>
+    public Task UninstallAsync(string modelId, CancellationToken cancellationToken = default)
+    {
+        // Validate eagerly so a bad id fails at the call site like Uninstall
+        _ = GetModelDirectory(modelId);
+        return Task.Run(() => Uninstall(modelId), cancellationToken);
+    }
+
     /// <summary>Writes back a manifest removed earlier in a repair, best-effort.</summary>
     /// <param name="modelId">The model identifier.</param>
     /// <param name="manifestText">The previous manifest text, or <see langword="null"/> when there was none.</param>
@@ -356,6 +383,22 @@ public sealed class SpeechModelStore
                 TryDeleteDirectoryRecursively(directory);
             }
         }
+    }
+
+    /// <summary>
+    ///     Asynchronously and best-effort deletes any leftover <c>current.replaced-*</c> or <c>.tmp/*</c> directories for
+    ///     a model; the awaitable form of <see cref="CleanUpLeftovers"/>.
+    /// </summary>
+    /// <param name="modelId">The model identifier. Must not be null, empty, or an invalid directory name.</param>
+    /// <param name="cancellationToken">A token observed before the cleanup starts.</param>
+    /// <returns>A task that completes when the cleanup pass has finished.</returns>
+    /// <exception cref="ArgumentException">Thrown (synchronously) when <paramref name="modelId"/> is null, empty, or not a valid directory name.</exception>
+    /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is canceled before the cleanup starts.</exception>
+    /// <remarks>Runs on the thread pool because directory deletion has no asynchronous file-system API.</remarks>
+    public Task CleanUpLeftoversAsync(string modelId, CancellationToken cancellationToken = default)
+    {
+        _ = GetModelDirectory(modelId);
+        return Task.Run(() => CleanUpLeftovers(modelId), cancellationToken);
     }
 
     /// <summary>

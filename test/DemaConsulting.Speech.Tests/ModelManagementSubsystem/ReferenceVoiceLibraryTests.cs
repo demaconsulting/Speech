@@ -79,7 +79,7 @@ public sealed class ReferenceVoiceLibraryTests : IDisposable
         using var library = new ReferenceVoiceLibrary(NewStore());
         Assert.Throws<ArgumentException>(() => library.GetPackState("nope"));
         Assert.Throws<ArgumentException>(() => library.GetPackDirectory("nope"));
-        Assert.Throws<ArgumentException>(() => library.UninstallPack("nope"));
+        await Assert.ThrowsAsync<ArgumentException>(() => library.UninstallPackAsync("nope", TestContext.Current.CancellationToken));
         await Assert.ThrowsAsync<ArgumentException>(() => library.InstallPackAsync("nope", cancellationToken: TestContext.Current.CancellationToken));
     }
 
@@ -192,8 +192,8 @@ public sealed class ReferenceVoiceLibraryTests : IDisposable
         // Assert
         var voices = library.EnumerateVoices();
         Assert.Equal(["alan_davis_drake2", "alana_jordan"], voices.Select(voice => voice.Id).ToArray());
-        Assert.True(library.PackHasEmotions("voice-zero-1.0"));
-        Assert.Equal(["voices", "voices-emotion"], library.GetPackInstalledVariants("voice-zero-1.0").ToArray());
+        Assert.True((await library.PackHasEmotionsAsync("voice-zero-1.0", TestContext.Current.CancellationToken)));
+        Assert.Equal(["voices", "voices-emotion"], (await library.GetPackInstalledVariantsAsync("voice-zero-1.0", TestContext.Current.CancellationToken)).ToArray());
         var alana = voices.Single(voice => voice.Id == "alana_jordan");
         Assert.Null(alana.Mood);
         Assert.NotNull(alana.MoodClips);
@@ -215,8 +215,8 @@ public sealed class ReferenceVoiceLibraryTests : IDisposable
         await library.InstallPackAsync("voice-zero-1.0", includeEmotions: false, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
-        Assert.False(library.PackHasEmotions("voice-zero-1.0"));
-        Assert.Equal(["voices"], library.GetPackInstalledVariants("voice-zero-1.0").ToArray());
+        Assert.False((await library.PackHasEmotionsAsync("voice-zero-1.0", TestContext.Current.CancellationToken)));
+        Assert.Equal(["voices"], (await library.GetPackInstalledVariantsAsync("voice-zero-1.0", TestContext.Current.CancellationToken)).ToArray());
         Assert.False(Directory.Exists(Path.Join(library.GetPackDirectory("voice-zero-1.0"), "voices-emotion")));
         Assert.All(library.EnumerateVoices(), voice => Assert.Null(voice.MoodClips));
     }
@@ -240,7 +240,7 @@ public sealed class ReferenceVoiceLibraryTests : IDisposable
         Assert.Equal(SpeechModelDownloadOutcome.Installed, upgrade.Outcome);
         Assert.Equal(SpeechModelDownloadOutcome.Installed, again.Outcome);
         Assert.Equal(2, client.Requests.Count);
-        Assert.True(library.PackHasEmotions("voice-zero-1.0"));
+        Assert.True((await library.PackHasEmotionsAsync("voice-zero-1.0", TestContext.Current.CancellationToken)));
         Assert.NotNull(library.EnumerateVoices().Single(voice => voice.Id == "alana_jordan").MoodClips);
         Assert.Equal(SpeechModelState.Downloaded, library.GetPackState("voice-zero-1.0"));
     }
@@ -263,7 +263,7 @@ public sealed class ReferenceVoiceLibraryTests : IDisposable
         // Assert
         Assert.NotEqual(SpeechModelDownloadOutcome.Installed, upgrade.Outcome);
         Assert.Equal(SpeechModelState.Downloaded, library.GetPackState("voice-zero-1.0"));
-        Assert.False(library.PackHasEmotions("voice-zero-1.0"));
+        Assert.False((await library.PackHasEmotionsAsync("voice-zero-1.0", TestContext.Current.CancellationToken)));
         Assert.Equal(2, library.EnumerateVoices().Count);
         Assert.Empty(Directory.EnumerateDirectories(Path.GetDirectoryName(library.GetPackDirectory("voice-zero-1.0"))!, "current.upgrade-backup-*"));
     }
@@ -321,7 +321,7 @@ public sealed class ReferenceVoiceLibraryTests : IDisposable
 
         // Assert
         Assert.All(results, result => Assert.Equal(SpeechModelDownloadOutcome.Installed, result.Outcome));
-        Assert.True(library.PackHasEmotions("voice-zero-1.0"));
+        Assert.True((await library.PackHasEmotionsAsync("voice-zero-1.0", TestContext.Current.CancellationToken)));
         Assert.Equal(2, client.Requests.Count);
         Assert.Equal(SpeechModelState.Downloaded, library.GetPackState("voice-zero-1.0"));
     }
@@ -340,7 +340,7 @@ public sealed class ReferenceVoiceLibraryTests : IDisposable
 
         // Assert
         Assert.Equal(SpeechModelDownloadOutcome.Installed, result.Outcome);
-        Assert.True(library.PackHasEmotions("voice-zero-1.0"));
+        Assert.True((await library.PackHasEmotionsAsync("voice-zero-1.0", TestContext.Current.CancellationToken)));
     }
 
     /// <summary>
@@ -351,18 +351,18 @@ public sealed class ReferenceVoiceLibraryTests : IDisposable
     {
         // Arrange
         using var library = NewLibrary(ReferenceVoiceTestPacks.BuildTypicalZip(), out _);
-        Assert.False(library.PackHasEmotions("voice-zero-1.0"));
-        Assert.Throws<ArgumentException>(() => library.PackHasEmotions("nope"));
+        Assert.False((await library.PackHasEmotionsAsync("voice-zero-1.0", TestContext.Current.CancellationToken)));
+        await Assert.ThrowsAsync<ArgumentException>(() => library.PackHasEmotionsAsync("nope", TestContext.Current.CancellationToken));
         await library.InstallPackAsync("voice-zero-1.0", cancellationToken: TestContext.Current.CancellationToken);
         var metadata = Path.Join(library.GetPackDirectory("voice-zero-1.0"), "pack.json");
 
         // Act & Assert
         await File.WriteAllTextAsync(metadata, "{ not json", TestContext.Current.CancellationToken);
-        Assert.Empty(library.GetPackInstalledVariants("voice-zero-1.0"));
+        Assert.Empty(await library.GetPackInstalledVariantsAsync("voice-zero-1.0", TestContext.Current.CancellationToken));
         await File.WriteAllTextAsync(metadata, "{\"variants\": 3}", TestContext.Current.CancellationToken);
-        Assert.False(library.PackHasEmotions("voice-zero-1.0"));
+        Assert.False((await library.PackHasEmotionsAsync("voice-zero-1.0", TestContext.Current.CancellationToken)));
         File.Delete(metadata);
-        Assert.False(library.PackHasEmotions("voice-zero-1.0"));
+        Assert.False((await library.PackHasEmotionsAsync("voice-zero-1.0", TestContext.Current.CancellationToken)));
     }
 
     /// <summary>
@@ -427,7 +427,7 @@ public sealed class ReferenceVoiceLibraryTests : IDisposable
     ///     Proves that uninstalling removes the pack's voices but keeps the user folder, and that a repeat is harmless.
     /// </summary>
     [Fact]
-    public async Task ReferenceVoiceLibrary_UninstallPack_RemovesPackKeepsUserFolder()
+    public async Task ReferenceVoiceLibrary_UninstallPackAsync_RemovesPackKeepsUserFolder()
     {
         // Arrange
         using var library = NewLibrary(ReferenceVoiceTestPacks.BuildTypicalZip(), out _);
@@ -435,8 +435,8 @@ public sealed class ReferenceVoiceLibraryTests : IDisposable
         await File.WriteAllTextAsync(Path.Join(library.EnsureUserDirectory(), "mine.wav"), "x", TestContext.Current.CancellationToken);
 
         // Act
-        library.UninstallPack("voice-zero-1.0");
-        library.UninstallPack("voice-zero-1.0");
+        await library.UninstallPackAsync("voice-zero-1.0", TestContext.Current.CancellationToken);
+        await library.UninstallPackAsync("voice-zero-1.0", TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(SpeechModelState.NotDownloaded, library.GetPackState("voice-zero-1.0"));
@@ -444,11 +444,11 @@ public sealed class ReferenceVoiceLibraryTests : IDisposable
     }
 
     /// <summary>
-    ///     Proves that uninstalling while an install of the same pack is in flight fails with a store exception and
-    ///     leaves the install running, and that the uninstall succeeds once the install has finished.
+    ///     Proves that uninstalling while an install of the same pack is in flight waits for the install to finish
+    ///     (serialized on the same per-pack lock) and then removes the pack, instead of throwing.
     /// </summary>
     [Fact]
-    public async Task ReferenceVoiceLibrary_UninstallPack_WhileInstalling_ThrowsThenSucceedsAfterwards()
+    public async Task ReferenceVoiceLibrary_UninstallPackAsync_WhileInstalling_WaitsThenRemoves()
     {
         // Arrange
         using var library = NewLibrary(ReferenceVoiceTestPacks.BuildTypicalZip(), out var client);
@@ -463,16 +463,72 @@ public sealed class ReferenceVoiceLibraryTests : IDisposable
         await entered.Task;
 
         // Act
-        var ex = Assert.Throws<SpeechModelStoreException>(() => library.UninstallPack("voice-zero-1.0"));
-        var stateWhileInstalling = library.GetPackState("voice-zero-1.0");
+        var uninstall = library.UninstallPackAsync("voice-zero-1.0", TestContext.Current.CancellationToken);
+        var stateWhileWaiting = library.GetPackState("voice-zero-1.0");
+        var completedWhileInstalling = uninstall.IsCompleted;
         release.SetResult();
         var result = await install;
-        library.UninstallPack("voice-zero-1.0");
+        await uninstall;
 
         // Assert
-        Assert.Contains("being installed", ex.Message);
-        Assert.Equal(SpeechModelState.Downloading, stateWhileInstalling);
+        Assert.False(completedWhileInstalling);
+        Assert.Equal(SpeechModelState.Downloading, stateWhileWaiting);
         Assert.Equal(SpeechModelDownloadOutcome.Installed, result.Outcome);
+        Assert.Equal(SpeechModelState.NotDownloaded, library.GetPackState("voice-zero-1.0"));
+    }
+
+    /// <summary>
+    ///     Proves that canceling an uninstall that is waiting for an in-flight install cancels only the uninstall: the
+    ///     install still completes and the pack stays installed.
+    /// </summary>
+    [Fact]
+    public async Task ReferenceVoiceLibrary_UninstallPackAsync_CanceledWhileWaiting_LeavesInstallIntact()
+    {
+        // Arrange
+        using var library = NewLibrary(ReferenceVoiceTestPacks.BuildTypicalZip(), out var client);
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        client.OnDownload = async (_, _) =>
+        {
+            entered.SetResult();
+            await release.Task;
+        };
+        var install = library.InstallPackAsync("voice-zero-1.0", cancellationToken: TestContext.Current.CancellationToken);
+        await entered.Task;
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var uninstall = library.UninstallPackAsync("voice-zero-1.0", cts.Token);
+
+        // Act
+        await cts.CancelAsync();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => uninstall);
+        release.SetResult();
+        var result = await install;
+
+        // Assert
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, result.Outcome);
+        Assert.Equal(SpeechModelState.Downloaded, library.GetPackState("voice-zero-1.0"));
+    }
+
+    /// <summary>
+    ///     Proves that an uninstall with an already-canceled token does not remove an installed pack, and that the
+    ///     per-pack lock is released so a later uninstall succeeds.
+    /// </summary>
+    [Fact]
+    public async Task ReferenceVoiceLibrary_UninstallPackAsync_AlreadyCanceled_DoesNothingAndReleasesLock()
+    {
+        // Arrange
+        using var library = NewLibrary(ReferenceVoiceTestPacks.BuildTypicalZip(), out _);
+        await library.InstallPackAsync("voice-zero-1.0", cancellationToken: TestContext.Current.CancellationToken);
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        // Act
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => library.UninstallPackAsync("voice-zero-1.0", cts.Token));
+        var stateAfterCancel = library.GetPackState("voice-zero-1.0");
+        await library.UninstallPackAsync("voice-zero-1.0", TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(SpeechModelState.Downloaded, stateAfterCancel);
         Assert.Equal(SpeechModelState.NotDownloaded, library.GetPackState("voice-zero-1.0"));
     }
 
@@ -481,7 +537,7 @@ public sealed class ReferenceVoiceLibraryTests : IDisposable
     ///     resurrect the pack.
     /// </summary>
     [Fact]
-    public async Task ReferenceVoiceLibrary_UninstallPack_DiscardsUpgradeBackup()
+    public async Task ReferenceVoiceLibrary_UninstallPackAsync_DiscardsUpgradeBackup()
     {
         // Arrange
         using var library = NewLibrary(ReferenceVoiceTestPacks.BuildTypicalZip(), out _);
@@ -491,7 +547,7 @@ public sealed class ReferenceVoiceLibraryTests : IDisposable
         Directory.CreateDirectory(backup);
 
         // Act
-        library.UninstallPack("voice-zero-1.0");
+        await library.UninstallPackAsync("voice-zero-1.0", TestContext.Current.CancellationToken);
 
         // Assert
         Assert.False(Directory.Exists(backup));

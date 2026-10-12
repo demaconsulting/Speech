@@ -53,12 +53,14 @@ no-op, and failures leave nothing installed and report a failed state.
 
 ##### Pack Uninstall
 
-**Purpose**: Uninstall removes the pack only, throws instead of blocking while an install is in
-flight (then succeeds afterwards), and discards any upgrade backup.
+**Purpose**: Uninstall removes the pack only, waits for an in-flight install of the same pack and then
+removes it (a token canceled while waiting cancels only the uninstall), and discards any upgrade backup.
 
-**Tests**: `ReferenceVoiceLibrary_UninstallPack_RemovesPackKeepsUserFolder`,
-`ReferenceVoiceLibrary_UninstallPack_WhileInstalling_ThrowsThenSucceedsAfterwards`,
-`ReferenceVoiceLibrary_UninstallPack_DiscardsUpgradeBackup`
+**Tests**: `ReferenceVoiceLibrary_UninstallPackAsync_RemovesPackKeepsUserFolder`,
+`ReferenceVoiceLibrary_UninstallPackAsync_WhileInstalling_WaitsThenRemoves`,
+`ReferenceVoiceLibrary_UninstallPackAsync_CanceledWhileWaiting_LeavesInstallIntact`,
+`ReferenceVoiceLibrary_UninstallPackAsync_AlreadyCanceled_DoesNothingAndReleasesLock`,
+`ReferenceVoiceLibrary_UninstallPackAsync_DiscardsUpgradeBackup`
 
 ##### Disposal
 

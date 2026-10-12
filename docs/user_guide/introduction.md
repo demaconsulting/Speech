@@ -453,8 +453,8 @@ calm, confused, enthused, excited, frustrated, happy, neutral, sad, shout, surpr
 Pass `includeEmotions: false` to skip them; installing again with emotions over a voices-only install
 downloads the pack again, keeping the previous install aside until the new one is in place (a failed or
 canceled re-download restores it). Concurrent installs of the same pack run one after another.
-`ReferenceVoiceLibrary.UninstallPack` never waits: if that pack is being installed it throws
-`SpeechModelStoreException` immediately, so retry after the install finishes. Each pack voice's
+`ReferenceVoiceLibrary.UninstallPackAsync` waits for an in-flight install or uninstall of that pack
+(honoring its `CancellationToken`) and then removes the pack, so it never races the install. Each pack voice's
 `ReferenceVoiceInfo.MoodClips` maps the lower-case mood name to that speaker's emotion clip (or is
 `null`; look a mood up with `TryGetMoodClip`, which ignores case and surrounding whitespace); the moods are variants of the voice, not extra voices. Voices are stored under
 `<models root>\reference-voices\`: the pack in

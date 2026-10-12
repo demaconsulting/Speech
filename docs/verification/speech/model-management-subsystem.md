@@ -84,17 +84,19 @@ installs nothing; a canceled download installs nothing.
 #### Reference voice pack install, upgrade and uninstall
 
 **Stimulus**: `ReferenceVoiceLibrary.InstallPackAsync` for a synthetic archive, then an upgrade from
-voices-only to emotions, then `UninstallPack`, including while an install is in flight.
+voices-only to emotions, then `UninstallPackAsync`, including while an install is in flight.
 
 **Expected**: Only allow-listed entries are installed; a failed or canceled upgrade keeps the previous
-install; uninstall keeps the user folder and, while an install is in flight, throws
-`SpeechModelStoreException` without blocking.
+install; uninstall keeps the user folder and, while an install is in flight, waits for it and then removes
+the pack (or throws `OperationCanceledException` if canceled while waiting).
 
 **Tests**: `ReferenceVoiceLibrary_InstallPack_Success_InstallsVoicesAndUpdatesState`,
 `ReferenceVoiceLibrary_InstallPack_UpgradeFromVoicesOnly_AddsEmotions`,
 `ReferenceVoiceLibrary_InstallPack_FailedUpgrade_KeepsPreviousInstall`,
-`ReferenceVoiceLibrary_UninstallPack_RemovesPackKeepsUserFolder`,
-`ReferenceVoiceLibrary_UninstallPack_WhileInstalling_ThrowsThenSucceedsAfterwards`
+`ReferenceVoiceLibrary_UninstallPackAsync_RemovesPackKeepsUserFolder`,
+`ReferenceVoiceLibrary_UninstallPackAsync_WhileInstalling_WaitsThenRemoves`,
+`ReferenceVoiceLibrary_UninstallPackAsync_CanceledWhileWaiting_LeavesInstallIntact`,
+`ReferenceVoiceLibrary_UninstallPackAsync_AlreadyCanceled_DoesNothingAndReleasesLock`
 
 #### Reference voice merge
 

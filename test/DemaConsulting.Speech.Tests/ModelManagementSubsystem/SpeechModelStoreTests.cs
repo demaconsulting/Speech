@@ -558,6 +558,63 @@ public sealed class SpeechModelStoreTests : IDisposable
     }
 
     /// <summary>
+    ///     Proves that the asynchronous uninstall removes current/ and the manifest like the synchronous one.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelStore_UninstallAsync_InstalledModel_RemovesCurrentAndManifest()
+    {
+        // Arrange
+        var store = NewStore();
+        var (operationId, stagingDirectory) = BeginStagingWithFile(store, "model-a", "payload.bin", "hello");
+        store.CompleteInstall("model-a", operationId, stagingDirectory, 5);
+
+        // Act
+        await store.UninstallAsync("model-a", TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.False(store.IsInstalled("model-a"));
+        Assert.False(Directory.Exists(store.GetCurrentDirectory("model-a")));
+    }
+
+    /// <summary>
+    ///     Proves that the asynchronous uninstall rejects an invalid id at the call site and honors a canceled token
+    ///     without removing anything.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelStore_UninstallAsync_InvalidIdAndCanceledToken_AreRejected()
+    {
+        // Arrange
+        var store = NewStore();
+        var (operationId, stagingDirectory) = BeginStagingWithFile(store, "model-a", "payload.bin", "hello");
+        store.CompleteInstall("model-a", operationId, stagingDirectory, 5);
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        // Act & Assert
+        await Assert.ThrowsAnyAsync<ArgumentException>(() => store.UninstallAsync("..", TestContext.Current.CancellationToken));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => store.UninstallAsync("model-a", cts.Token));
+        Assert.True(store.IsInstalled("model-a"));
+    }
+
+    /// <summary>
+    ///     Proves that the asynchronous leftover cleanup removes a leftover staging directory and rejects an invalid id.
+    /// </summary>
+    [Fact]
+    public async Task SpeechModelStore_CleanUpLeftoversAsync_LeftoverTmpDirectory_IsRemoved()
+    {
+        // Arrange
+        var store = NewStore();
+        var (_, stagingDirectory) = BeginStagingWithFile(store, "model-a", "payload.bin", "partial");
+
+        // Act
+        await store.CleanUpLeftoversAsync("model-a", TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.False(Directory.Exists(stagingDirectory));
+        await Assert.ThrowsAnyAsync<ArgumentException>(() => store.CleanUpLeftoversAsync("", TestContext.Current.CancellationToken));
+    }
+
+    /// <summary>
     ///     Proves that a null model id is rejected.
     /// </summary>
     [Fact]

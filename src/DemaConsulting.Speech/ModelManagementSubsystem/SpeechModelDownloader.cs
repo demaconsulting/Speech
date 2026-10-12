@@ -371,7 +371,7 @@ public sealed class SpeechModelDownloader : IDisposable
         // launch does not leak leftover staging/replaced directories indefinitely.
         if (_store.IsInstalled(modelId))
         {
-            _store.CleanUpLeftovers(modelId);
+            await _store.CleanUpLeftoversAsync(modelId, cancellationToken).ConfigureAwait(false);
             _diagnostics.Report(
                 SpeechDiagnosticLevel.Info,
                 "ModelManagementSubsystem",
@@ -381,7 +381,7 @@ public sealed class SpeechModelDownloader : IDisposable
 
         // Opportunistically retry cleanup of any leftovers from a prior interrupted attempt
         // before starting a new one, per the store's non-blocking cleanup policy.
-        _store.CleanUpLeftovers(modelId);
+        await _store.CleanUpLeftoversAsync(modelId, cancellationToken).ConfigureAwait(false);
 
         var (operationId, stagingDirectory) = _store.BeginStaging(modelId);
         try

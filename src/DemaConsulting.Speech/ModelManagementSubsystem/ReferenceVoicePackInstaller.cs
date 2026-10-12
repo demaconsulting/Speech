@@ -54,18 +54,15 @@ internal static class ReferenceVoicePackInstaller
     /// <param name="cancellationToken">A token that aborts the extraction.</param>
     /// <returns>A task that completes when extraction, archive deletion and the metadata write are done.</returns>
     /// <exception cref="InvalidDataException">Thrown when the archive is not a valid zip, has an unsafe entry, exceeds a size cap or contains no voices.</exception>
-    internal static Task InstallAsync(ReferenceVoicePack pack, bool includeEmotions, string stagingDirectory, CancellationToken cancellationToken)
+    internal static async Task InstallAsync(ReferenceVoicePack pack, bool includeEmotions, string stagingDirectory, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(pack);
         ArgumentException.ThrowIfNullOrEmpty(stagingDirectory);
 
-        // Extraction is synchronous file work; keep it off the caller's thread
-        return Task.Run(() => Install(pack, includeEmotions, stagingDirectory, cancellationToken), cancellationToken);
-    }
+        // The archive is opened off the caller's thread (the central directory read has no asynchronous API); every
+        // entry is then copied with asynchronous file I/O so the install never blocks a thread for the transfer
+        await Task.Yield();
 
-    /// <summary>Performs the extraction synchronously.</summary>
-    private static void Install(ReferenceVoicePack pack, bool includeEmotions, string stagingDirectory, CancellationToken cancellationToken)
-    {
         var archivePath = Path.Combine(stagingDirectory, pack.ArchiveFileName);
         var stagingRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(stagingDirectory));
         var voiceCount = 0;
@@ -100,7 +97,7 @@ internal static class ReferenceVoicePackInstaller
                 }
 
                 Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-                totalBytes += CopyEntry(entry, destination, totalBytes, cancellationToken);
+                totalBytes += await CopyEntryAsync(entry, destination, totalBytes, cancellationToken).ConfigureAwait(false);
                 voiceCount += kind == EntryKind.Voice ? 1 : 0;
                 emotionCount += kind == EntryKind.Emotion ? 1 : 0;
             }
@@ -114,7 +111,7 @@ internal static class ReferenceVoicePackInstaller
 
         // The archive was only an input; remove it so it does not stay in the store
         File.Delete(archivePath);
-        WriteMetadata(pack, stagingRoot, voiceCount, includeEmotions, emotionCount);
+        await WriteMetadataAsync(pack, stagingRoot, voiceCount, includeEmotions, emotionCount, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Opens the staged archive, converting an unreadable file into an <see cref="InvalidDataException"/>.</summary>
@@ -252,14 +249,16 @@ internal static class ReferenceVoicePackInstaller
     }
 
     /// <summary>Copies one entry to disk, enforcing the per-entry and total byte caps on the bytes actually read.</summary>
-    private static long CopyEntry(ZipArchiveEntry entry, string destination, long totalSoFar, CancellationToken cancellationToken)
+    private static async Task<long> CopyEntryAsync(ZipArchiveEntry entry, string destination, long totalSoFar, CancellationToken cancellationToken)
     {
         long copied = 0;
         var buffer = new byte[BufferSize];
-        using var source = entry.Open();
-        using var target = new FileStream(destination, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+#pragma warning disable S6966 // ZipArchiveEntry.OpenAsync exists only on net10.0; this library also targets net8.0/net9.0
+        await using var source = entry.Open();
+#pragma warning restore S6966
+        await using var target = new FileStream(destination, FileMode.CreateNew, FileAccess.Write, FileShare.None, BufferSize, useAsync: true);
         int read;
-        while ((read = source.Read(buffer, 0, buffer.Length)) > 0)
+        while ((read = await source.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) > 0)
         {
             copied += read;
             if (copied > MaximumEntryBytes || totalSoFar + copied > MaximumTotalBytes)
@@ -267,15 +266,20 @@ internal static class ReferenceVoicePackInstaller
                 throw new InvalidDataException($"Archive entry '{entry.FullName}' exceeds the allowed extraction size.");
             }
 
-            target.Write(buffer, 0, read);
-            cancellationToken.ThrowIfCancellationRequested();
+            await target.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
         }
 
         return copied;
     }
 
     /// <summary>Writes <c>pack.json</c> describing the installed pack.</summary>
-    private static void WriteMetadata(ReferenceVoicePack pack, string stagingRoot, int voiceCount, bool includeEmotions, int emotionCount)
+    private static Task WriteMetadataAsync(
+        ReferenceVoicePack pack,
+        string stagingRoot,
+        int voiceCount,
+        bool includeEmotions,
+        int emotionCount,
+        CancellationToken cancellationToken)
     {
         var metadata = new
         {
@@ -292,6 +296,6 @@ internal static class ReferenceVoicePackInstaller
             variants = includeEmotions ? new[] { VoicesDirectoryName, EmotionsDirectoryName } : new[] { VoicesDirectoryName },
         };
 
-        File.WriteAllText(Path.Combine(stagingRoot, PackMetadataFileName), JsonSerializer.Serialize(metadata, JsonOptions));
+        return File.WriteAllTextAsync(Path.Combine(stagingRoot, PackMetadataFileName), JsonSerializer.Serialize(metadata, JsonOptions), cancellationToken);
     }
 }

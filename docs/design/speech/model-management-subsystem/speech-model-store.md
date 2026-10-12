@@ -38,11 +38,14 @@ staging space, never read as installed content). A nested `internal` `InstallMan
 - **AbandonStaging(stagingDirectory)** _(internal, static)_: Deletes a failed/canceled operation's
   staging directory without touching `current/`.
 - **Uninstall(modelId)**: Removes `current/` and the manifest for an installed model; a no-op for
-  a model that was never installed.
+  a model that was never installed. **UninstallAsync(modelId, ct)** is the awaitable form for callers that must
+  not block (the directory delete has no asynchronous API, so it runs on the thread pool); it validates the id
+  at the call site, observes the token only before the removal starts, and reports failures through the task.
 - After the swap, `CompleteInstall` best-effort removes the now-empty `.tmp` root (a non-recursive delete,
   so another operation's staging directory keeps it alive and a failure is ignored).
 - **CleanUpLeftovers(modelId)**: Best-effort deletes leftover `current.replaced-*` and `.tmp/*`
-  directories from a prior interrupted operation.
+  directories from a prior interrupted operation. **CleanUpLeftoversAsync(modelId, ct)** is its awaitable form
+  (thread pool, token observed before it starts). The downloader awaits it.
 
 **Error Handling**: `IsInstalled` and `CleanUpLeftovers` never throw for ordinary storage-state
 conditions (missing model, missing, malformed, or field-less `{}` manifest, leftover directory
