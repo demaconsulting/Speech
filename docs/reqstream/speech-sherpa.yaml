@@ -14,19 +14,29 @@ sections:
       - id: SpeechSherpa-Models-AddSherpaModels
         title: >-
           The library shall let a host register every sherpa-onnx-backed speech model it ships
-          with a Speech library SpeechModelCatalog through a single AddSherpaModels() call that
-          returns the same catalog for chaining.
+          with a Speech library SpeechModelCatalog through a single AddSherpaModels() call.
         tags: [system]
         justification: |
           The Speech library's catalog ships empty and carries no sherpa-onnx dependency, so a
           host needs one discoverable, opt-in entry point to make this package's models
-          available for enumeration, download, and composition, composable with registrations
-          from any other model package.
+          available for enumeration, download, and composition.
         children:
           - SpeechSherpa-Models-CatalogRegistration
         tests:
-          - AddSherpaModels_Called_ReturnsSameCatalogInstance
           - AddSherpaModels_Called_RegistersExpectedFourModelsWithExpectedRoles
+
+      - id: SpeechSherpa-Models-AddSherpaModelsChaining
+        title: >-
+          The library's AddSherpaModels() call shall return the same catalog it was called on so
+          that registrations can be chained.
+        tags: [system]
+        justification: |
+          Chaining keeps the catalog composable with registrations from any other model package
+          in one fluent expression.
+        children:
+          - SpeechSherpa-Models-CatalogChaining
+        tests:
+          - AddSherpaModels_Called_ReturnsSameCatalogInstance
 
       - id: SpeechSherpa-Models-RecognitionModels
         title: >-
@@ -39,42 +49,72 @@ sections:
           model to perform offline speech-to-text at all.
         children:
           - SpeechSherpa-Models-RealRecognitionModels
+          - SpeechSherpa-Models-RealNemotronRecognitionModel
+          - SpeechSherpa-Models-UppercaseTranscriptRestoration
+          - SpeechSherpa-Models-TarBz2ArchiveExtraction
         tests:
           - AddSherpaModels_Called_RegistersExpectedFourModelsWithExpectedRoles
 
       - id: SpeechSherpa-Models-SynthesisModels
         title: >-
           The library shall provide real, downloadable, sherpa-onnx-backed English synthesis
-          models implementing the Speech library's ISynthesisModel contract, including
-          selectable voices or speakers.
+          models implementing the Speech library's ISynthesisModel contract.
         tags: [system]
         justification: |
           The Speech library defines the synthesis-model contract but ships no concrete
           models; a host needs at least one real, checksum-verified, installable synthesis
-          model to perform offline text-to-speech at all, and voice selection lets a host offer
-          more than a single fixed voice.
+          model to perform offline text-to-speech at all.
         children:
           - SpeechSherpa-Models-RealSynthesisModel
           - SpeechSherpa-Models-RealKokoroSynthesisModelWithVoiceSelection
+          - SpeechSherpa-Models-TarBz2ArchiveExtraction
         tests:
           - AddSherpaModels_Called_RegistersExpectedFourModelsWithExpectedRoles
+
+      - id: SpeechSherpa-Models-SelectableVoices
+        title: >-
+          The library shall let a host select among the voices or speakers of its sherpa-onnx
+          synthesis models.
+        tags: [system]
+        justification: |
+          Voice selection lets a host offer more than a single fixed voice.
+        children:
+          - SpeechSherpa-Models-VitsSpeakerSelection
+          - SpeechSherpa-Models-KokoroVoiceSelection
+        tests:
+          - SherpaOnnxVitsLibriTtsEnglishSynthesisModel_ResolveSpeakerId_ValidValue_ReturnsThatValue
+          - SherpaOnnxKokoroEnglishSynthesisModel_ResolveSpeakerId_KnownVoice_ReturnsConfirmedId
 
       - id: SpeechSherpa-Recognition-RealBackend
         title: >-
           The library shall transcribe real speech through the Speech library's recognition
-          pipeline using the sherpa-onnx streaming recognizer, without losing or leaking spoken
-          words at session boundaries or endpoints.
+          pipeline using the sherpa-onnx streaming recognizer.
         tags: [system]
         justification: |
           The Speech library's recognition policy is verified against a fake backend; only a
           real, native-backed backend turns real microphone audio into real text, so its
-          accuracy and buffering behavior must be proven directly against real installed
-          models.
+          accuracy must be proven directly against real installed models.
         children:
           - SpeechSherpa-Recognition-StreamingBackend
         tests:
           - SherpaOnnxRecognitionEngine_Transcribe_RealCrossingTheBarRecording_WordErrorRateBelowTolerance
           - SherpaOnnxRecognitionEngine_Transcribe_RealCrossingTheBarRecording_NemotronWordErrorRateBelowTolerance
+
+      - id: SpeechSherpa-Recognition-BoundaryAudioIntegrity
+        title: >-
+          The library shall not lose or leak spoken words at recognition session boundaries or
+          endpoints when transcribing with the sherpa-onnx streaming recognizer.
+        tags: [system]
+        justification: |
+          A real, native-backed streaming recognizer buffers audio across session ends and
+          endpoints, so its buffering behavior must be proven directly to neither drop genuinely
+          spoken words nor bleed an abandoned utterance into the next session.
+        children:
+          - SpeechSherpa-Recognition-SessionEndAudioHandling
+          - SpeechSherpa-Recognition-PostEndpointWarmupRecovery
+        tests:
+          - SherpaOnnxRecognitionEngine_Reset_AbandonedUtteranceWithNoTrailingSilence_DoesNotBleedIntoNextSession
+          - SherpaOnnxRecognitionEngine_TryFlush_AbandonedUtteranceWithNoTrailingSilence_RecoversTrailingWords
 
       - id: SpeechSherpa-Synthesis-RealBackend
         title: >-
@@ -87,6 +127,9 @@ sections:
           package's synthesis models.
         children:
           - SpeechSherpa-Synthesis-OfflineBackend
+          - SpeechSherpa-Synthesis-OfflineBackendSampleRate
+          - SpeechSherpa-Synthesis-OfflineBackendGeneration
+          - SpeechSherpa-Synthesis-OfflineBackendLifecycle
         tests:
           - SherpaOnnxSynthesisEngine_Construct_ReportsModelSampleRate
           - SherpaOnnxSynthesisEngine_Generate_NonEmptyText_ReturnsNonEmptyAudio

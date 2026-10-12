@@ -55,13 +55,7 @@ sections:
                   a positive IRecognitionModel.PostEndpointWarmupWindowMs, by buffering a rolling
                   window of pre-endpoint audio and silently replaying it into the freshly reset
                   stream on every endpoint that occurs after genuine (non-empty) recognized text
-                  has been produced since the stream's most recent reset, while never surfacing
-                  text derived purely from that replay as a reported result; an endpoint that
-                  fires on pure/near-silence with no genuine text recognized yet since the last
-                  reset shall not replay, dropping the buffered audio instead, since replaying it
-                  into a freshly reset (encoder-cold) stream risks corrupting the next genuinely
-                  recognized segment; models that declare the default 0 (disabled) window shall
-                  be entirely unaffected, with no buffer allocated and no replay logic invoked.
+                  has been produced since the stream's most recent reset.
                 justification: |
                   SherpaOnnxNemotronStreamingEnRecognitionModel's endpoint detector was confirmed,
                   on two real user recordings, to fire as a false positive mid-utterance; the
@@ -85,18 +79,51 @@ sections:
                   defect (a genuine mid-utterance false-positive endpoint, by definition, only
                   ever occurs after real speech is already in progress within that cycle).
                 tests:
-                  - SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsZero_NoBufferAllocated
-                  - SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsZero_AcceptSamplesAndDecode_IsNoOpForWarmupMechanism
                   - SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_BufferSizedToWindowAndAccumulates
                   - SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_BufferNeverExceedsCapacity
                   - SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_EndpointReplaysAndArmsGracePeriod
-                  - SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_SilentBuffer_IsNotReplayed
-                  - SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_ReplayNeverProducesExtraResult
                   - SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_GracePeriodSuppressesImmediateReTrigger
-                  - SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_SilenceOnlyEndpoint_NeverArmsReplay
-                  - SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_ReplayEligibility_GatedOnHasRecognizedTextSinceReset
+
+              - id: SpeechSherpa-Recognition-SherpaOnnxRecognitionEngine-PostEndpointWarmupReplayNotReported
+                title: >-
+                  The SherpaOnnxRecognitionEngine class shall never surface text derived purely
+                  from a post-endpoint warm-up replay as a reported recognition result.
+                justification: |
+                  The replay exists only to warm the freshly reset encoder; text it produces is
+                  a duplicate of audio already reported, so reporting it would show the host
+                  duplicated words.
+                tests:
+                  - SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_ReplayNeverProducesExtraResult
                   - SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_TryFlushAfterReplayWithNoNewAudio_ReportsNothing
                   - SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_TryDecodeAfterReplayWithNoNewAudio_ReportsNothing
+
+              - id: SpeechSherpa-Recognition-SherpaOnnxRecognitionEngine-PostEndpointWarmupSilenceNoReplay
+                title: >-
+                  The SherpaOnnxRecognitionEngine class shall not replay buffered audio on an
+                  endpoint that fires on pure or near silence with no genuine text recognized yet
+                  since the stream's most recent reset, dropping the buffered audio instead.
+                justification: |
+                  Replaying audio into a freshly reset (encoder-cold) stream when no speech has
+                  occurred risks corrupting the next genuinely recognized segment (found by an
+                  independent quality review of the original unconditional replay).
+                tests:
+                  - SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_SilentBuffer_IsNotReplayed
+                  - SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_SilenceOnlyEndpoint_NeverArmsReplay
+                  - SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsEnabled_ReplayEligibility_GatedOnHasRecognizedTextSinceReset
+
+              - id: SpeechSherpa-Recognition-SherpaOnnxRecognitionEngine-PostEndpointWarmupDisabledNoOp
+                title: >-
+                  The SherpaOnnxRecognitionEngine class shall be entirely unaffected by the
+                  post-endpoint warm-up mechanism for a model that declares the default 0
+                  (disabled) PostEndpointWarmupWindowMs, allocating no buffer and invoking no
+                  replay logic.
+                justification: |
+                  The feature must be opt-in per model, because forcing it onto a model that
+                  does not exhibit the word-loss defect produced genuine duplicated text, so it
+                  must be a provable no-op for every model that does not opt in.
+                tests:
+                  - SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsZero_NoBufferAllocated
+                  - SherpaOnnxRecognitionEngine_PostEndpointWarmupWindowMsZero_AcceptSamplesAndDecode_IsNoOpForWarmupMechanism
 
               - id: SpeechSherpa-Recognition-SherpaOnnxRecognitionEngine-RealSpeechAccuracy
                 title: >-

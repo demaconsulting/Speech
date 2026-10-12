@@ -46,7 +46,7 @@ suite - selecting two different voices against the same input sentence through t
 
 #### Test Scenarios
 
-##### The model declares its expected, stable catalog identity and 11-voice parameter
+##### The model declares its expected, stable catalog identity, its 11-voice parameter, and its license
 
 **Test**: `SherpaOnnxKokoroEnglishSynthesisModel_Identity_DeclaresExpectedValues`
 

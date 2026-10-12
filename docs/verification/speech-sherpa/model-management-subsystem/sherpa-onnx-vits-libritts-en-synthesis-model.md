@@ -49,7 +49,7 @@ outputs.
 
 #### Test Scenarios
 
-##### The model declares its expected, stable catalog identity
+##### The model declares its expected, stable catalog identity and its license
 
 **Test**: `SherpaOnnxVitsLibriTtsEnglishSynthesisModel_Identity_DeclaresExpectedValues`
 

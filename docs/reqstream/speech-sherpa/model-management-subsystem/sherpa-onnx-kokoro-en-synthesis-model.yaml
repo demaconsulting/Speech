@@ -15,15 +15,24 @@ sections:
               - id: SpeechSherpa-Models-SherpaOnnxKokoroEnglishSynthesisModel-Identity
                 title: >-
                   The SherpaOnnxKokoroEnglishSynthesisModel class shall declare a stable catalog
-                  identity (Id, DisplayName, Role = Synthesis, a single voice ChoiceParameter
-                  with 11 confirmed options, AudioTagSupport = None).
+                  identity (Id, DisplayName, Role = Synthesis, AudioTagSupport = None).
                 justification: |
                   SpeechModelCatalog and SpeechModelDownloader depend only on the generic
                   ISpeechModel/ISynthesisModel contract; this model must honestly declare its
-                  own fixed identity and its real 11-voice option set (confirmed against
-                  upstream sherpa-onnx's own generation script, byte arithmetic against the real
-                  voices.bin, and a live model load) for the catalog and downloader to enumerate
-                  and fetch it correctly.
+                  own fixed identity for the catalog and downloader to enumerate and fetch it
+                  correctly.
+                tests:
+                  - SherpaOnnxKokoroEnglishSynthesisModel_Identity_DeclaresExpectedValues
+
+              - id: SpeechSherpa-Models-SherpaOnnxKokoroEnglishSynthesisModel-VoiceParameter
+                title: >-
+                  The SherpaOnnxKokoroEnglishSynthesisModel class shall declare a single voice
+                  ChoiceParameter with 11 confirmed options.
+                justification: |
+                  The model's real 11-voice option set was confirmed against upstream
+                  sherpa-onnx's own generation script, byte arithmetic against the real
+                  voices.bin, and a live model load, so a host can offer exactly the voices the
+                  model actually provides.
                 tests:
                   - SherpaOnnxKokoroEnglishSynthesisModel_Identity_DeclaresExpectedValues
 
@@ -54,7 +63,7 @@ sections:
                 title: >-
                   The SherpaOnnxKokoroEnglishSynthesisModel class shall build an OfflineTtsConfig
                   wiring its Kokoro model/voices/tokens/data-dir files and this model's own
-                  recommended LengthScale, and the shared default CapabilityProfile.
+                  recommended LengthScale.
                 justification: |
                   This exact Kokoro configuration was proven end-to-end in this project's
                   development sandbox against a real, loaded OfflineTts instance that reported
@@ -65,6 +74,15 @@ sections:
                   it may be given.
                 tests:
                   - SherpaOnnxKokoroEnglishSynthesisModel_BuildEngineConfig_ResolvesKokoroFilesAndConfig
+
+              - id: SpeechSherpa-Models-SherpaOnnxKokoroEnglishSynthesisModel-CapabilityProfile
+                title: >-
+                  The SherpaOnnxKokoroEnglishSynthesisModel class shall declare the shared
+                  default CapabilityProfile.
+                justification: |
+                  The model supports no audio tags, so the shared default profile is the honest
+                  declaration the Speech library's Layer 2 rendering relies on.
+                tests:
                   - SherpaOnnxKokoroEnglishSynthesisModel_CapabilityProfile_IsDefaultProfile
 
               - id: SpeechSherpa-Models-SherpaOnnxKokoroEnglishSynthesisModel-PreferredAudioFormat
@@ -111,19 +129,25 @@ sections:
                 title: >-
                   The SherpaOnnxKokoroEnglishSynthesisModel class shall map a selected voice
                   ChoiceParameter value to sherpa-onnx's confirmed integer speaker id for that
-                  voice, falling back to the declared default voice's speaker id for a null
-                  value bag, a missing key, or an unrecognized value, and shall correctly
-                  resolve every one of its 11 declared voices.
+                  voice, correctly resolving every one of its 11 declared voices.
                 justification: |
                   ISynthesisModel.ResolveSpeakerId is this model's own owned knowledge - the
                   confirmed id2speaker ordering (index = speaker id) that lets
                   SynthesisSession.GenerateSegmentAsync turn a demo-selected or
                   library-consumer-selected voice name into the real speaker id sherpa-onnx's
                   native Generate call needs, replacing the previous hard-coded speakerId: 0.
+                tests:
+                  - SherpaOnnxKokoroEnglishSynthesisModel_ResolveSpeakerId_KnownVoice_ReturnsConfirmedId
+
+              - id: SpeechSherpa-Models-SherpaOnnxKokoroEnglishSynthesisModel-ResolveSpeakerIdFallback
+                title: >-
+                  The SherpaOnnxKokoroEnglishSynthesisModel class shall fall back to the
+                  declared default voice's speaker id from ResolveSpeakerId for a null value
+                  bag, a missing key, or an unrecognized value.
+                justification: |
                   Never throwing on a missing/unrecognized selection keeps synthesis available
                   even for a malformed or stale caller-supplied value bag.
                 tests:
-                  - SherpaOnnxKokoroEnglishSynthesisModel_ResolveSpeakerId_KnownVoice_ReturnsConfirmedId
                   - SherpaOnnxKokoroEnglishSynthesisModel_ResolveSpeakerId_UnknownVoice_ReturnsDefaultId
                   - SherpaOnnxKokoroEnglishSynthesisModel_ResolveSpeakerId_NullBag_ReturnsDefaultId
                   - SherpaOnnxKokoroEnglishSynthesisModel_ResolveSpeakerId_MissingKey_ReturnsDefaultId

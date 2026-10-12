@@ -16,32 +16,67 @@ sections:
                 title: >-
                   The SherpaOnnxNemotronStreamingEnRecognitionModel class shall declare a
                   stable catalog identity (Id, Role = Recognition, no tunable Parameters,
-                  AudioTagSupport = None) and shall declare LicenseName = "NVIDIA Open Model
-                  License" with a canonical LicenseUrl, since DisplayName no longer embeds
-                  license text; and a single validated HTTPS .tar.bz2 download file
-                  pointing at sherpa-onnx's/k2-fsa's own official GitHub Releases mirror
-                  with a well-formed SHA-256 checksum.
+                  AudioTagSupport = None).
+                justification: |
+                  SpeechModelCatalog and SpeechModelDownloader depend only on the generic
+                  ISpeechModel/IRecognitionModel contract; this model must honestly declare
+                  its own fixed identity for the catalog and downloader to enumerate and
+                  fetch it correctly.
+                tests:
+                  - SherpaOnnxNemotronStreamingEnRecognitionModel_Identity_DeclaresExpectedValues
+
+              - id: SpeechSherpa-Models-SherpaOnnxNemotronStreamingEnRecognitionModel-License
+                title: >-
+                  The SherpaOnnxNemotronStreamingEnRecognitionModel class shall declare
+                  LicenseName = "NVIDIA Open Model License" with a canonical LicenseUrl, since
+                  DisplayName no longer embeds license text.
                 justification: |
                   This model's underlying weights are licensed under the NVIDIA Open Model
                   License - materially different from the other Sherpa models -
                   which must be visibly and programmatically discoverable anywhere the
                   catalog/settings UI renders this model, not only in code comments;
                   LicenseName/LicenseUrl are now the mechanism a host uses to surface that
-                  fact, rather than DisplayName. The library must also never bundle or
-                  redistribute the weights itself, only declare where a consumer can fetch
-                  them on their own explicit action.
+                  fact, rather than DisplayName.
                 tests:
                   - SherpaOnnxNemotronStreamingEnRecognitionModel_Identity_DeclaresExpectedValues
+
+              - id: SpeechSherpa-Models-SherpaOnnxNemotronStreamingEnRecognitionModel-DownloadDescriptor
+                title: >-
+                  The SherpaOnnxNemotronStreamingEnRecognitionModel class shall declare a
+                  single validated HTTPS .tar.bz2 download file pointing at
+                  sherpa-onnx's/k2-fsa's own official GitHub Releases mirror with a well-formed
+                  SHA-256 checksum.
+                justification: |
+                  The library must never bundle or redistribute the weights itself, only declare
+                  where a consumer can fetch them on their own explicit action.
+                tests:
                   - SherpaOnnxNemotronStreamingEnRecognitionModel_DownloadDescriptor_DeclaresSingleValidatedArchiveFile
+
+              - id: SpeechSherpa-Models-SherpaOnnxNemotronStreamingEnRecognitionModel-AudioFormat
+                title: >-
+                  The SherpaOnnxNemotronStreamingEnRecognitionModel class shall report a
+                  mono 16 kHz AudioFormat.
+                justification: |
+                  The model expects 16 kHz mono input; the RecognitionSubsystem converts
+                  captured audio to the format the model reports.
+                tests:
+                  - SherpaOnnxNemotronStreamingEnRecognitionModel_AudioFormat_IsMono16000
 
               - id: SpeechSherpa-Models-SherpaOnnxNemotronStreamingEnRecognitionModel-EngineConfig
                 title: >-
-                  The SherpaOnnxNemotronStreamingEnRecognitionModel class shall report a
-                  mono 16 kHz AudioFormat and build an OnlineRecognizerConfig wiring its
-                  int8-quantized encoder/decoder/joiner/tokens files, DecodingMethod
-                  "greedy_search", and EnableEndpoint 1, deliberately leaving ModelType
-                  unset, and shall throw ArgumentException for a null or empty
-                  installed-model directory.
+                  The SherpaOnnxNemotronStreamingEnRecognitionModel class shall build an
+                  OnlineRecognizerConfig wiring its int8-quantized encoder/decoder/joiner/tokens
+                  files, DecodingMethod "greedy_search", and EnableEndpoint 1.
+                justification: |
+                  The RecognitionSubsystem depends on this configuration being wired correctly
+                  and consistently for every installed-directory argument it may be given.
+                tests:
+                  - SherpaOnnxNemotronStreamingEnRecognitionModel_BuildEngineConfig_ResolvesInt8FilesAndFeatureConfig
+
+              - id: SpeechSherpa-Models-SherpaOnnxNemotronStreamingEnRecognitionModel-ModelTypeUnset
+                title: >-
+                  The SherpaOnnxNemotronStreamingEnRecognitionModel class shall deliberately
+                  leave ModelType unset in the OnlineRecognizerConfig it builds.
                 justification: |
                   Tracing sherpa-onnx's own native dispatch source confirmed the native
                   library auto-detects the NeMo-cache-aware decoding path from the decoder
@@ -49,9 +84,18 @@ sections:
                   model's configuration must deliberately omit that field rather than
                   guessing a value that could conflict with native auto-detection.
                 tests:
-                  - SherpaOnnxNemotronStreamingEnRecognitionModel_AudioFormat_IsMono16000
-                  - SherpaOnnxNemotronStreamingEnRecognitionModel_BuildEngineConfig_ResolvesInt8FilesAndFeatureConfig
                   - SherpaOnnxNemotronStreamingEnRecognitionModel_BuildEngineConfig_ModelTypeIsUnset
+
+              - id: SpeechSherpa-Models-SherpaOnnxNemotronStreamingEnRecognitionModel-EngineConfigArgumentValidation
+                title: >-
+                  The SherpaOnnxNemotronStreamingEnRecognitionModel class shall throw
+                  ArgumentException from BuildEngineConfig for a null or empty
+                  installed-model directory.
+                justification: |
+                  A programming error (empty installed-model directory) should surface
+                  immediately with a clear, cheap-to-diagnose exception rather than an
+                  opaque failure deeper in engine configuration.
+                tests:
                   - SherpaOnnxNemotronStreamingEnRecognitionModel_BuildEngineConfig_EmptyDirectory_ThrowsArgumentException
 
               - id: SpeechSherpa-Models-SherpaOnnxNemotronStreamingEnRecognitionModel-InstallAsync

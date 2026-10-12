@@ -24,8 +24,7 @@ sections:
             title: >-
               The SpeechSherpa SynthesisSubsystem shall implement the Speech library's
               ISynthesisBackend seam over sherpa-onnx's offline text-to-speech engine, loading the
-              engine from a synthesis model's own configuration, reporting its true output sample
-              rate, and generating audio for a given text, speed, and speaker id.
+              engine from a synthesis model's own configuration.
             justification: |
               The Speech library confines every speech-synthesis interop call behind
               its public ISynthesisBackend seam so its own synthesis policy is verifiable
@@ -34,7 +33,47 @@ sections:
               this package ships.
             children:
               - SpeechSherpa-Synthesis-SherpaOnnxSynthesisEngine-LoadFromConfig
+            tests:
+              - SherpaOnnxSynthesisEngine_Construct_ReportsModelSampleRate
+
+          - id: SpeechSherpa-Synthesis-OfflineBackendSampleRate
+            title: >-
+              The SpeechSherpa SynthesisSubsystem shall report the loaded sherpa-onnx engine's
+              true output sample rate through the ISynthesisBackend seam.
+            justification: |
+              The loaded engine's own declared rate is the authoritative rate the Speech
+              library's synthesis session must resample from.
+            children:
               - SpeechSherpa-Synthesis-SherpaOnnxSynthesisEngine-SampleRate
+            tests:
+              - SherpaOnnxSynthesisEngine_Construct_ReportsModelSampleRate
+
+          - id: SpeechSherpa-Synthesis-OfflineBackendGeneration
+            title: >-
+              The SpeechSherpa SynthesisSubsystem shall generate audio for a given text, speed,
+              and speaker id through the ISynthesisBackend seam, rejecting a null text.
+            justification: |
+              The Speech library's synthesis session drives the backend one rendered segment at
+              a time and needs the generated samples to play them through the configured audio
+              output device.
+            children:
               - SpeechSherpa-Synthesis-SherpaOnnxSynthesisEngine-Generate
               - SpeechSherpa-Synthesis-SherpaOnnxSynthesisEngine-ArgumentValidation
+            tests:
+              - SherpaOnnxSynthesisEngine_Generate_NonEmptyText_ReturnsNonEmptyAudio
+              - SherpaOnnxSynthesisEngine_Generate_NullText_ThrowsArgumentNullException
+
+          - id: SpeechSherpa-Synthesis-OfflineBackendLifecycle
+            title: >-
+              The SpeechSherpa SynthesisSubsystem shall release the loaded sherpa-onnx engine
+              deterministically on disposal.
+            justification: |
+              The loaded engine holds native memory sized to a multi-hundred-megabyte model, so
+              it must be released deterministically when the owning synthesizer engine is
+              disposed, and idempotent disposal keeps teardown paths safe.
+            children:
               - SpeechSherpa-Synthesis-SherpaOnnxSynthesisEngine-Dispose
+              - SpeechSherpa-Synthesis-SherpaOnnxSynthesisEngine-DisposeIdempotent
+            tests:
+              - SherpaOnnxSynthesisEngine_Generate_AfterDispose_ThrowsObjectDisposedException
+              - SherpaOnnxSynthesisEngine_Dispose_CalledTwice_IsIdempotent
