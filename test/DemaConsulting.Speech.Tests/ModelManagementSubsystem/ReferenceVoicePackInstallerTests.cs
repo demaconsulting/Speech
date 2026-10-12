@@ -267,7 +267,28 @@ public sealed class ReferenceVoicePackInstallerTests : IDisposable
 
         // Act / Assert
         var exception = await Assert.ThrowsAsync<InvalidDataException>(() => InstallAsync(zip));
-        Assert.Contains("no", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("voice-zero/voices/*.flac", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("voice clips", exception.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Proves that an archive containing the same destination twice (here differing only in case) is rejected.
+    /// </summary>
+    [Fact]
+    public async Task ReferenceVoicePackInstaller_Install_DuplicateEntry_Throws()
+    {
+        // Arrange
+        var zip = ReferenceVoiceTestPacks.BuildZip(
+        [
+            ("voice-zero/voices/a.flac", "first"u8.ToArray()),
+            ("voice-zero/voices/A.flac", "second"u8.ToArray()),
+        ]);
+
+        // Act
+        var exception = await Assert.ThrowsAsync<InvalidDataException>(() => InstallAsync(zip));
+
+        // Assert
+        Assert.Contains("more than once", exception.Message, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -301,6 +322,25 @@ public sealed class ReferenceVoicePackInstallerTests : IDisposable
 
         // Act / Assert
         await Assert.ThrowsAsync<InvalidDataException>(() => InstallAsync(bytes));
+    }
+
+    /// <summary>
+    ///     Proves that a staging directory passed with a trailing separator still extracts correctly.
+    /// </summary>
+    [Fact]
+    public async Task ReferenceVoicePackInstaller_Install_StagingDirectoryWithTrailingSeparator_Extracts()
+    {
+        // Arrange
+        var zip = ReferenceVoiceTestPacks.BuildTypicalZip();
+        var pack = ReferenceVoiceTestPacks.PackFor(zip);
+        var staging = Path.Join(_root, "staging");
+        ReferenceVoiceTestPacks.WriteArchive(staging, pack, zip);
+
+        // Act
+        await ReferenceVoicePackInstaller.InstallAsync(pack, includeEmotions: false, staging + Path.DirectorySeparatorChar, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.True(File.Exists(Path.Join(staging, "voices", "alana_jordan.flac")));
     }
 
     /// <summary>

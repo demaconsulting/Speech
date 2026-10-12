@@ -67,7 +67,69 @@ public sealed class ReferenceVoicePackTests
         Assert.Equal("Attribution", pack.Attribution);
         Assert.Equal(new Uri("https://example.invalid/source"), pack.SourceUrl);
         Assert.Equal(new Uri("https://example.invalid/license"), pack.LicenseUrl);
+        Assert.Equal(new Uri("https://example.invalid/pack-1.zip"), pack.Uri);
+        Assert.Equal(ValidChecksum, pack.Sha256Checksum);
+        Assert.Equal(10, pack.SizeBytes);
+        Assert.Equal("pack-1.zip", pack.ArchiveFileName);
+        Assert.Equal("root", pack.ArchiveRootFolder);
+        Assert.Equal("CC0", pack.LicenseName);
     }
+
+    /// <summary>
+    ///     Proves that the download descriptor holds exactly one file naming the archive, its URI and its checksum.
+    /// </summary>
+    [Fact]
+    public void ReferenceVoicePack_DownloadDescriptor_DescribesTheArchive()
+    {
+        // Act
+        var pack = Create();
+        var file = Assert.Single(pack.DownloadDescriptor.Files);
+
+        // Assert
+        Assert.Equal(pack.Uri, file.Uri);
+        Assert.Equal(pack.Sha256Checksum, file.Sha256Checksum);
+        Assert.Equal("pack-1.zip", file.RelativeInstallPath);
+    }
+
+    /// <summary>
+    ///     Proves that the built-in pack's display name, license and source pages are the published values.
+    /// </summary>
+    [Fact]
+    public void ReferenceVoicePack_VoiceZero10_HasPublishedPresentationFields()
+    {
+        // Act
+        var pack = ReferenceVoicePack.VoiceZero10;
+
+        // Assert
+        Assert.Equal("voice-zero 1.0", pack.DisplayName);
+        Assert.Equal("voice-zero by OwenTyme", pack.Attribution);
+        Assert.Equal(new Uri("https://creativecommons.org/publicdomain/zero/1.0/"), pack.LicenseUrl);
+        Assert.Equal(new Uri("https://github.com/OwenTyme/voice-zero"), pack.SourceUrl);
+        Assert.Equal(pack.ArchiveFileName, Assert.Single(pack.DownloadDescriptor.Files).RelativeInstallPath);
+    }
+
+    /// <summary>
+    ///     Proves that an archive file name that is not a single safe name is rejected, naming the parameter.
+    /// </summary>
+    [Theory]
+    [InlineData("a/b.zip")]
+    [InlineData("..\\evil.zip")]
+    [InlineData("..")]
+    public void ReferenceVoicePack_Constructor_UnsafeArchiveFileName_Throws(string name)
+    {
+        // Act
+        var ex = Assert.Throws<ArgumentException>(() => Create(archiveFileName: name));
+
+        // Assert
+        Assert.Equal("archiveFileName", ex.ParamName);
+    }
+
+    /// <summary>
+    ///     Proves that a negative archive size is rejected.
+    /// </summary>
+    [Fact]
+    public void ReferenceVoicePack_Constructor_NegativeSize_Throws() =>
+        Assert.Throws<ArgumentOutOfRangeException>(() => Create(size: -1));
 
     /// <summary>
     ///     Proves that the built-in pack carries the sizes measured from the real archive (voices plus license/readme

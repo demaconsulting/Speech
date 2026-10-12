@@ -39,3 +39,9 @@ root folder and is listed in `All`, and when every invalid constructor argument 
 **Test**: `ReferenceVoicePack_VoiceZero10_InstalledSizes_AreMeasuredValues`
 
 **Test**: `ReferenceVoicePack_Constructor_InstalledSizes_DefaultZeroAndRejectNegative`
+
+##### Descriptor and Presentation Fields
+
+**Tests**: `ReferenceVoicePack_DownloadDescriptor_DescribesTheArchive`,
+`ReferenceVoicePack_VoiceZero10_HasPublishedPresentationFields`,
+`ReferenceVoicePack_Constructor_UnsafeArchiveFileName_Throws`, `ReferenceVoicePack_Constructor_NegativeSize_Throws`

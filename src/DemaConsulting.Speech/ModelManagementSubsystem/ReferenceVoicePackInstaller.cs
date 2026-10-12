@@ -67,7 +67,7 @@ internal static class ReferenceVoicePackInstaller
     private static void Install(ReferenceVoicePack pack, bool includeEmotions, string stagingDirectory, CancellationToken cancellationToken)
     {
         var archivePath = Path.Combine(stagingDirectory, pack.ArchiveFileName);
-        var stagingRoot = Path.GetFullPath(stagingDirectory);
+        var stagingRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(stagingDirectory));
         var voiceCount = 0;
         var emotionCount = 0;
         long totalBytes = 0;

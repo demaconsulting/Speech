@@ -265,6 +265,50 @@ public sealed class SpeechModelStoreTests : IDisposable
     }
 
     /// <summary>
+    ///     Proves that beginning an install over an installed model stages elsewhere and leaves the
+    ///     installed current/ content and manifest untouched until the swap.
+    /// </summary>
+    [Fact]
+    public void SpeechModelStore_BeginInstall_ExistingInstall_LeavesCurrentUntouchedDuringStaging()
+    {
+        // Arrange
+        var store = NewStore();
+        var (firstOperationId, firstStaging) = BeginStagingWithFile(store, "model-a", "payload.bin", "version-1");
+        store.CompleteInstall("model-a", firstOperationId, firstStaging, 9);
+
+        // Act: stage a second version but do not complete it
+        var (_, secondStaging) = BeginStagingWithFile(store, "model-a", "payload.bin", "version-2");
+
+        // Assert
+        Assert.NotEqual(store.GetCurrentDirectory("model-a"), secondStaging);
+        Assert.True(store.IsInstalled("model-a"));
+        Assert.Equal("version-1", File.ReadAllText(Path.Join(store.GetCurrentDirectory("model-a"), "payload.bin")));
+    }
+
+    /// <summary>
+    ///     Proves that <see cref="SpeechModelStore.CleanUpLeftovers"/> removes a superseded
+    ///     <c>current.replaced-*</c> directory while leaving the installed content intact.
+    /// </summary>
+    [Fact]
+    public void SpeechModelStore_CleanUpLeftovers_ReplacedDirectory_IsRemovedAndCurrentKept()
+    {
+        // Arrange
+        var store = NewStore();
+        var (operationId, staging) = BeginStagingWithFile(store, "model-a", "payload.bin", "hello");
+        store.CompleteInstall("model-a", operationId, staging, 5);
+        var replaced = Path.Join(store.GetModelDirectory("model-a"), "current.replaced-old");
+        Directory.CreateDirectory(replaced);
+        File.WriteAllText(Path.Join(replaced, "stale.bin"), "stale");
+
+        // Act
+        store.CleanUpLeftovers("model-a");
+
+        // Assert
+        Assert.False(Directory.Exists(replaced));
+        Assert.True(store.IsInstalled("model-a"));
+    }
+
+    /// <summary>
     ///     Proves that uninstalling an installed model removes current/ and the manifest, and
     ///     the model reports as not installed afterward.
     /// </summary>

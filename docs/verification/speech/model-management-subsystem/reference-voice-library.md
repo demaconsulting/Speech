@@ -62,6 +62,8 @@ survives uninstall, and the merged voice list follows the documented order with 
 ##### Voice Merge
 
 **Test**: `ReferenceVoiceLibrary_EnumerateVoices_MergesInPrecedenceOrderFirstIdWins`
+**Test**: `ReferenceVoiceLibrary_EnumerateVoices_DuplicateId_ReportsInfoDiagnostic`
+**Test**: `ReferenceVoiceLibrary_ConsentNotice_MentionsPermissionToClone`
 
 **Test**: `ReferenceVoiceLibrary_EnumerateVoices_NothingPresent_ReturnsEmptyWithoutCreatingFolders`
 

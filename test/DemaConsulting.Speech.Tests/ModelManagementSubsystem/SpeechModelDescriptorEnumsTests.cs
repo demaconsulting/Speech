@@ -45,7 +45,7 @@ public class SpeechModelDescriptorEnumsTests
 
     /// <summary>
     ///     Proves that <see cref="SpeechModelAudioTagSupport"/> declares exactly the three
-    ///     declaration-shape values (rendering logic itself is deferred to Phase 4).
+    ///     declaration-shape values (rendering logic itself is not part of these types).
     /// </summary>
     [Fact]
     public void SpeechModelAudioTagSupport_Values_DeclaresNoneParameterMappedAndNative()

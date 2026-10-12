@@ -9,8 +9,7 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     <see cref="SpeechModelStore"/> and <see cref="SpeechModelDownloader"/>.
 /// </summary>
 /// <remarks>
-///     Per this library's "model catalog and download are new capabilities" decision, this
-///     type composes the storage/download machinery from Sub-phase 2a with a mutable,
+///     This type composes the storage/download machinery with a mutable,
 ///     host-populated list of known models. This catalog ships with zero built-in models: core
 ///     has no reference to any concrete model implementation, and a host appends models via
 ///     <see cref="AddModels"/> (or an extension method such as the sibling

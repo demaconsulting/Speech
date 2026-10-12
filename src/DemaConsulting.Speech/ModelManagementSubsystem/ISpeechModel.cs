@@ -12,9 +12,9 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     URL(s)/checksum(s), declared parameters, audio-tag support declaration, own archive
 ///     unpacking (<see cref="InstallAsync"/>), own text normalization/correction
 ///     (<see cref="NormalizeText"/>), and own declared license identification
-///     (<see cref="LicenseName"/>/<see cref="LicenseUrl"/>). This pass (Sub-phase 2b) defines
+///     (<see cref="LicenseName"/>/<see cref="LicenseUrl"/>). This interface defines
 ///     only the generic identity/catalog contract plus these model-owned hooks; the recognition- and
-///     synthesis-engine construction members that Phase 3/4 add live on the role-specific
+///     synthesis-engine construction members live on the role-specific
 ///     interfaces, not here, so this contract never needs to change to add a new engine backend.
 ///     <see cref="SpeechModelCatalog"/> depends only on this common contract, so it can
 ///     enumerate and report install state for any model regardless of role.
@@ -105,11 +105,9 @@ public interface ISpeechModel
     /// <returns>The normalized text; by default, <paramref name="text"/> unchanged.</returns>
     /// <remarks>
     ///     Per this library's per-model "own text-normalization / correction (e.g. punctuation
-    ///     restoration)" responsibility. This pass defines only the hook's existence and identity
-    ///     default; the actual normalization *content* for any real model is a Phase 4 synthesis
-    ///     concern, per this library's synthesis-subsystem scope - this member exists now
-    ///     purely so the contract shape matches the approved plan and does not need a breaking
-    ///     change later.
+    ///     restoration)" responsibility. The default is the identity; the actual normalization
+    ///     content for a real model is that model's own concern, supplied by overriding this
+    ///     member.
     /// </remarks>
     string NormalizeText(string text) => text;
 

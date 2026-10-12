@@ -125,5 +125,10 @@ asserts `IsInstalled` returns `false` without throwing; it is skipped on non-Win
 
 **Test**: `SpeechModelStore_CompleteInstall_OtherOperationStaging_KeepsStagingRoot`
 
+##### Existing Install Stays Untouched During Staging; Replaced Directories Are Cleaned Up
+
+**Test**: `SpeechModelStore_BeginInstall_ExistingInstall_LeavesCurrentUntouchedDuringStaging`
+**Test**: `SpeechModelStore_CleanUpLeftovers_ReplacedDirectory_IsRemovedAndCurrentKept`
+
 These scenarios install a model and assert that the empty `.tmp` folder is gone, and that it is kept
 while another operation's staging directory is still present.

@@ -34,7 +34,10 @@ is written, the archive is deleted, every unsafe or malformed archive fails with
 
 **Test**: `ReferenceVoicePackInstaller_Install_PlatformInvalidEntryName_ThrowsInvalidData`
 
-**Test**: `ReferenceVoicePackInstaller_Install_NoVoices_Throws`
+**Test**: `ReferenceVoicePackInstaller_Install_NoVoices_Throws` (asserts the message names the expected
+`voice-zero/voices/*.flac` layout and "voice clips")
+**Test**: `ReferenceVoicePackInstaller_Install_DuplicateEntry_Throws`
+**Test**: `ReferenceVoicePackInstaller_Install_StagingDirectoryWithTrailingSeparator_Extracts`
 
 **Test**: `ReferenceVoicePackInstaller_Install_NotAZip_Throws`
 

@@ -52,8 +52,9 @@ public sealed class SpeechModelStore
     }
 
     /// <summary>
-    ///     Gets the absolute path to the root directory under which every model's own directory
-    ///     is stored.
+    ///     Gets the root directory under which every model's own directory is stored. It is the
+    ///     absolute per-user default, or <see cref="SpeechModelStoreOptions.RootPathOverride"/>
+    ///     verbatim (so as absolute as the host made it).
     /// </summary>
     public string RootPath { get; }
 
@@ -89,7 +90,7 @@ public sealed class SpeechModelStore
     ///     exists but the manifest is missing or unreadable (a crash between swap and manifest
     ///     write), which is treated as not-installed/corrupt rather than falsely "installed".
     /// </returns>
-    /// <remarks>Never throws; an unreadable manifest or I/O error is treated as "not installed".</remarks>
+    /// <remarks>Never throws for ordinary storage state; an unreadable manifest or I/O error is treated as "not installed".</remarks>
     public bool IsInstalled(string modelId) =>
         TryReadManifest(modelId) is not null && Directory.Exists(GetCurrentDirectory(modelId));
 

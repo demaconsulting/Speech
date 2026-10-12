@@ -1,5 +1,7 @@
+using DemaConsulting.Speech.Diagnostics;
 using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.Tests.ModelManagementSubsystem.Fakes;
+using NSubstitute;
 
 namespace DemaConsulting.Speech.Tests.ModelManagementSubsystem;
 
@@ -566,6 +568,40 @@ public sealed class ReferenceVoiceLibraryTests : IDisposable
             ],
             voices.Select(voice => (voice.Id, voice.Source)).ToArray());
     }
+
+    /// <summary>
+    ///     Proves that a voice hidden by an earlier voice with the same id is reported at Info level, naming the id.
+    /// </summary>
+    [Fact]
+    public async Task ReferenceVoiceLibrary_EnumerateVoices_DuplicateId_ReportsInfoDiagnostic()
+    {
+        // Arrange
+        var zip = ReferenceVoiceTestPacks.BuildTypicalZip();
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        using var library = new ReferenceVoiceLibrary(NewStore(), null, diagnostics, new FakeClient(zip), [ReferenceVoiceTestPacks.PackFor(zip)]);
+        var user = library.EnsureUserDirectory();
+        await File.WriteAllTextAsync(Path.Join(user, "mine.wav"), "a", TestContext.Current.CancellationToken);
+        var extra = Path.Join(_root, "extra");
+        Directory.CreateDirectory(extra);
+        await File.WriteAllTextAsync(Path.Join(extra, "mine.flac"), "b", TestContext.Current.CancellationToken);
+
+        // Act
+        var voices = library.EnumerateVoices([extra]);
+
+        // Assert
+        Assert.Equal(ReferenceVoiceSource.Directory, Assert.Single(voices).Source);
+        diagnostics.Received(1).Report(
+            SpeechDiagnosticLevel.Info,
+            "ModelManagementSubsystem",
+            Arg.Is<string>(message => message.Contains("'mine'") && message.Contains("hidden by an earlier voice")));
+    }
+
+    /// <summary>
+    ///     Proves that the consent notice is non-blank and tells hosts to obtain permission before cloning a voice.
+    /// </summary>
+    [Fact]
+    public void ReferenceVoiceLibrary_ConsentNotice_MentionsPermissionToClone() =>
+        Assert.Contains("permission", ReferenceVoiceLibrary.ConsentNotice, StringComparison.Ordinal);
 
     /// <summary>
     ///     Proves that voice-name humanizing handles separators, case and trailing numbers.

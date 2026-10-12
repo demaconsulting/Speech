@@ -9,13 +9,10 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     synthesis engine that runs it and render inline Natural Language Audio Tags for it.
 /// </summary>
 /// <remarks>
-///     Sub-phase 2b defined this interface as an empty role marker so
-///     <see cref="SpeechModelCatalog"/> could already report and filter models by role via a type
-///     check, and stated that Phase 4 would add "the real synthesis-engine-configuration member
-///     ... and the inline Natural Language Audio Tag rendering logic here". This pass (Sub-phase
-/// 4b) fulfills exactly that: <see cref="CreateBackend"/> and
-///     <see cref="CapabilityProfile"/> are new members added to an interface that still has no
-///     production implementations, so nothing defined in Sub-phase 2b was replaced or broken.
+///     The interface's role is recognized by <see cref="SpeechModelCatalog"/> via a type check,
+///     which lets the catalog report and filter models by role. <see cref="CreateBackend"/> and
+///     <see cref="CapabilityProfile"/> carry the synthesis-engine configuration and the inline
+///     Natural Language Audio Tag rendering declaration.
 ///     <para>
 ///     The full interface, including <see cref="CreateBackend"/>, <see cref="CapabilityProfile"/>,
 ///     and <see cref="ResolveSpeakerId"/>, is public by design, mirroring
@@ -24,10 +21,9 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     <see cref="SpeechModelCatalog.AddModels(ISpeechModel[])"/> with models it supplies itself.
 ///     A public contract lets an external package implement <see cref="ISynthesisModel"/> to add
 ///     an entirely new synthesis backend - not merely another instance of an existing
-///     sherpa-onnx-backed model - without requiring <c>InternalsVisibleTo</c> access to this
-///     assembly. The sibling <c>DemaConsulting.Speech.Sherpa</c> package is simply the first such
-///     implementer, supplying this library's built-in sherpa-onnx-backed models; it has no
-///     special access that a third-party package lacks.
+///     model - without requiring <c>InternalsVisibleTo</c> access to this assembly. Engine
+///     packages such as <c>DemaConsulting.Speech.Sherpa</c> are ordinary implementers of this
+///     interface; they have no special access that a third-party package lacks.
 ///     </para>
 /// </remarks>
 public interface ISynthesisModel : ISpeechModel
