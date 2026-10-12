@@ -7,15 +7,15 @@ piece of infrastructure every sibling raw-ONNX model package needs in order to c
 model session without each duplicating its own provider-fallback logic.
 
 **Data Model**: No instance state - a stateless static class. `DefaultProviderNames` is a
-read-only `IReadOnlyList<string>`, currently empty (Stage 1 is CPU-only).
+read-only `IReadOnlyList<string>`, empty (CPU-only by default).
 
 **Key Methods**:
 
-- **DefaultProviderNames**: The default, Stage-1 candidate execution provider names to try before
-  falling back to CPU. Deliberately empty, matching the "start simple" design decision for the
-  raw-ONNX model family; a later pass can populate it (for example with
-  `"CUDAExecutionProvider"` or `"DmlExecutionProvider"`) without changing any other code in this
-  class.
+- **DefaultProviderNames**: The default candidate execution provider names to try before falling
+  back to CPU. Deliberately empty, matching the "start simple" design decision for the raw-ONNX
+  model family; callers that want acceleration pass their own list (for example
+  `"CUDAExecutionProvider"` or `"DmlExecutionProvider"`) to `Create` without any other change to
+  this class.
 - **Create(modelPath, preferredProviderNames, validateSession)**: Creates an `InferenceSession`
   for the `.onnx` model at `modelPath`, trying each of `preferredProviderNames` (or
   `DefaultProviderNames` when `null`) in order before falling back to the CPU provider. For each

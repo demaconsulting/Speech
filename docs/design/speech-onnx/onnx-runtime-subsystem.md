@@ -39,7 +39,7 @@ uses the CPU provider built into the base package and is guaranteed to succeed f
 model - this final candidate never throws due to an unavailable accelerated provider, since it
 requires none.
 
-Stage 1 of this library's execution-provider support keeps `DefaultProviderNames` empty
-(CPU-only), matching the "start simple" design decision for the raw-ONNX model family this package
-supports; a later pass can populate it (for example with `"CUDAExecutionProvider"` or
-`"DmlExecutionProvider"`) without changing this unit's layered try/fall-back design at all.
+`DefaultProviderNames` is empty (CPU-only), matching the "start simple" design decision for the
+raw-ONNX model family this package supports. A model package opts in to acceleration by passing its
+own ordered provider list (for example `"CUDAExecutionProvider"` or `"DmlExecutionProvider"`)
+without changing this unit's layered try/fall-back design at all.

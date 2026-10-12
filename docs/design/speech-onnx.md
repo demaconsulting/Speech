@@ -14,12 +14,14 @@ separately packaged software item with its own dependencies, and the Speech libr
 depend on it. Unlike SpeechSherpa, this package's one shipped unit also does not depend on Speech
 at all: `OnnxExecutionProviderSelector` references only the `Microsoft.ML.OnnxRuntime` package and
 names no Speech type, since it is purely an ONNX Runtime helper with no knowledge of Speech's
-model/catalog contracts. (The project file still carries a `ProjectReference` to the Speech
-library, left over for the currently-empty `SynthesisSubsystem` folder this pass does not cover -
-see the Scope note below.) SpeechOnnx declares zero models itself; each concrete model family (for
-example the sibling `DemaConsulting.Speech.Onnx.Kokoro` and `DemaConsulting.Speech.Onnx.NemotronStt`
-packages) reference this package and add
-its own `AddXxxModels()` extension method and model classes.
+model/catalog contracts. (The project file carries a `ProjectReference` to the Speech library for
+the empty `SynthesisSubsystem` folder only - see the Scope note below.) SpeechOnnx declares zero
+models itself; each concrete model family (the sibling `DemaConsulting.Speech.Onnx.Kokoro`,
+`DemaConsulting.Speech.Onnx.NemotronStt`, and `DemaConsulting.Speech.Onnx.ChatterboxTurbo`
+packages) references this package or the same ONNX Runtime package and adds its own
+`AddXxxModels()` extension method and model classes. A model package decides whether to opt in to
+accelerated providers: for example `AddKokoroModels` takes an optional
+`preferredExecutionProviderNames` list, and `null` keeps CPU-only inference.
 
 The library consists of one subsystem:
 
@@ -39,7 +41,7 @@ and its `DefaultProviderNames`/`Create` members.
 
 | Interface | Direction | Format | Constraints |
 | --- | --- | --- | --- |
-| `DefaultProviderNames` | Outbound | Public static property | Read-only; empty (CPU-only Stage 1) |
+| `DefaultProviderNames` | Outbound | Public static property | Read-only; empty (CPU-only by default) |
 | `Create(modelPath, providerNames, validateSession)` | Inbound/Outbound | Static method | Never throws |
 | ONNX Runtime managed API | Outbound | Method call/return | Accelerated provider needs its own runtime from consumer |
 
