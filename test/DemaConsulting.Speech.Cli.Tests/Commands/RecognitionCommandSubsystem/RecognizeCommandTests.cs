@@ -55,7 +55,7 @@ public sealed class RecognizeCommandTests
     ///     all-zero sample frames, so a test can construct a real
     ///     <see cref="WavFileAudioCaptureDevice"/> without needing a shared binary test fixture.
     /// </summary>
-    private static string WriteMinimalWavFile(int sampleFrameCount = 0)
+    private static string WriteMinimalWavFile(int sampleFrameCount = 0, short channelCount = 1)
     {
         var path = Path.Join(Path.GetTempPath(), $"recognize-test-{Guid.NewGuid():N}.wav");
         using (var stream = new FileStream(path, FileMode.Create, FileAccess.Write))
@@ -68,10 +68,10 @@ public sealed class RecognizeCommandTests
             writer.Write("fmt "u8);
             writer.Write(16);
             writer.Write((short)1); // PCM
-            writer.Write((short)1); // mono
+            writer.Write(channelCount);
             writer.Write(16000);
-            writer.Write(32000);
-            writer.Write((short)2);
+            writer.Write(32000 * channelCount);
+            writer.Write((short)(2 * channelCount));
             writer.Write((short)16);
             writer.Write("data"u8);
             writer.Write(dataByteCount);
@@ -460,6 +460,55 @@ public sealed class RecognizeCommandTests
         finally
         {
             File.Delete(wavPath);
+        }
+    }
+
+    // --- Input WAV file validation ---
+
+    /// <summary>Test that <c>--input</c> naming a file that is not a WAV file is rejected with a clear error.</summary>
+    [Fact]
+    public void RecognizeCommand_Run_InputFileIsNotWav_ThrowsInvalidOperationExceptionNamingFile()
+    {
+        var catalog = CreateCatalogWithModel();
+        var (session, engine) = WireRecognizer(catalog);
+        session.OnStart = _ => engine.LastDevice!.Start();
+        var path = Path.Join(Path.GetTempPath(), $"recognize-test-{Guid.NewGuid():N}.wav");
+        File.WriteAllText(path, "this is not a RIFF file");
+        try
+        {
+            using var context = Context.Create(["recognize", "--stt-model", "model-1", "--input", path]);
+
+            var ex = Assert.Throws<InvalidOperationException>(
+                () => RecognizeCommand.Run(context, catalog, new AudioDeviceFactory()));
+
+            Assert.Contains(path, ex.Message);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Test that <c>--input</c> naming a stereo WAV file is rejected because only mono is supported.</summary>
+    [Fact]
+    public void RecognizeCommand_Run_InputFileIsStereoWav_ThrowsInvalidOperationExceptionAboutMono()
+    {
+        var catalog = CreateCatalogWithModel();
+        var (session, engine) = WireRecognizer(catalog);
+        session.OnStart = _ => engine.LastDevice!.Start();
+        var path = WriteMinimalWavFile(channelCount: 2);
+        try
+        {
+            using var context = Context.Create(["recognize", "--stt-model", "model-1", "--input", path]);
+
+            var ex = Assert.Throws<InvalidOperationException>(
+                () => RecognizeCommand.Run(context, catalog, new AudioDeviceFactory()));
+
+            Assert.Contains("mono", ex.Message);
+        }
+        finally
+        {
+            File.Delete(path);
         }
     }
 

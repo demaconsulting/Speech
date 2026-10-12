@@ -727,6 +727,66 @@ public class ProgramTests
     }
 
     /// <summary>
+    ///     Test that <see cref="Context.CreateMirror"/> rejects a <c>--mirror-url</c> carrying a
+    ///     query string, fragment, or user-info component, or using a scheme other than http/https.
+    /// </summary>
+    [Theory]
+    [InlineData("https://mirror.example.com/base?token=abc")]
+    [InlineData("https://mirror.example.com/base#fragment")]
+    [InlineData("https://user:secret@mirror.example.com/base")]
+    [InlineData("ftp://mirror.example.com/base")]
+    public void Context_CreateMirror_UnsupportedMirrorUrlShape_ThrowsArgumentException(string mirrorUrl)
+    {
+        // Act and Assert (mirror options are validated while creating the context)
+        Assert.Throws<ArgumentException>(() => Context.Create(["list-models", "--mirror-url", mirrorUrl]));
+    }
+
+    /// <summary>
+    ///     Test that <see cref="Context.CreateMirror"/> rejects an empty or whitespace-only bearer token.
+    /// </summary>
+    [Fact]
+    public void Context_CreateMirror_WhitespaceBearerToken_ThrowsArgumentException()
+    {
+        // Act and Assert
+        Assert.Throws<ArgumentException>(() => Context.Create([
+            "list-models",
+            "--mirror-url", "https://mirror.example.com",
+            "--mirror-bearer-token", "   "
+        ]));
+    }
+
+    /// <summary>
+    ///     Test that <see cref="Context.CreateMirror"/> rejects either credential form combined
+    ///     with a plain <c>http</c> mirror on a non-loopback host, since the credential would be
+    ///     sent in cleartext, but accepts the same combination on a loopback host.
+    /// </summary>
+    [Fact]
+    public void Context_CreateMirror_CredentialOverPlainHttp_RejectedUnlessLoopback()
+    {
+        // Act and Assert: non-loopback host, Basic credentials and bearer token
+        Assert.Throws<ArgumentException>(() => Context.Create([
+            "list-models",
+            "--mirror-url", "http://mirror.example.com",
+            "--mirror-user", "alice",
+            "--mirror-password", "secret"
+        ]));
+
+        Assert.Throws<ArgumentException>(() => Context.Create([
+            "list-models",
+            "--mirror-url", "http://mirror.example.com",
+            "--mirror-bearer-token", "token-value"
+        ]));
+
+        // Loopback host is accepted
+        using var loopback = Context.Create([
+            "list-models",
+            "--mirror-url", "http://localhost:8080",
+            "--mirror-bearer-token", "token-value"
+        ]);
+        Assert.NotNull(loopback.CreateMirror());
+    }
+
+    /// <summary>
     ///     Test that mirror credentials supplied without <c>--mirror-url</c> are rejected even for
     ///     invocations that never build a model catalog, such as <c>--help</c>.
     /// </summary>

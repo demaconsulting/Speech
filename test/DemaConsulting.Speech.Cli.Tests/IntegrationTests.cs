@@ -664,6 +664,180 @@ public class IntegrationTests
     }
 
     /// <summary>
+    ///     Test that <c>ask</c> without <c>--tts-model</c> and <c>--stt-model</c> returns a clean,
+    ///     non-zero-exit error naming the missing option, rather than a stack trace.
+    /// </summary>
+    [Fact]
+    public void SpeechCli_AskCommandWithoutModels_Invoked_ReturnsCleanError()
+    {
+        // Act
+        var exitCode = Runner.Run(out var output, "dotnet", _dllPath, "ask", "--text", "hello");
+
+        // Assert
+        Assert.NotEqual(0, exitCode);
+        Assert.Contains("--tts-model", output);
+    }
+
+    /// <summary>
+    ///     Test that <c>ask</c> naming an unknown synthesis model returns a clean, non-zero-exit
+    ///     error naming that model id, against an isolated, empty <c>--models-dir</c>.
+    /// </summary>
+    [Fact]
+    public void SpeechCli_AskCommandWithUnknownModel_Invoked_ReturnsCleanError()
+    {
+        // Arrange
+        var modelsDir = CreateTempModelsDir();
+        try
+        {
+            // Act
+            var exitCode = Runner.Run(
+                out var output,
+                "dotnet",
+                _dllPath,
+                "--models-dir",
+                modelsDir,
+                "ask",
+                "--tts-model",
+                "does-not-exist-tts",
+                "--stt-model",
+                "does-not-exist-stt",
+                "--text",
+                "hello");
+
+            // Assert
+            Assert.NotEqual(0, exitCode);
+            Assert.Contains("does-not-exist-tts", output);
+        }
+        finally
+        {
+            Directory.Delete(modelsDir, recursive: true);
+        }
+    }
+
+    /// <summary>
+    ///     Test that <c>ask</c> given both <c>--text</c> and <c>--file</c> returns a clean,
+    ///     non-zero-exit error rather than speaking an ambiguous prompt.
+    /// </summary>
+    [Fact]
+    public void SpeechCli_AskCommandWithConflictingTextSources_Invoked_ReturnsCleanError()
+    {
+        // Arrange
+        var modelsDir = CreateTempModelsDir();
+        try
+        {
+            // Act
+            var exitCode = Runner.Run(
+                out var output,
+                "dotnet",
+                _dllPath,
+                "--models-dir",
+                modelsDir,
+                "ask",
+                "--tts-model",
+                "tts-model",
+                "--stt-model",
+                "stt-model",
+                "--text",
+                "hello",
+                "--file",
+                "prompt.txt");
+
+            // Assert
+            Assert.NotEqual(0, exitCode);
+            Assert.Contains("--text", output);
+            Assert.Contains("--file", output);
+        }
+        finally
+        {
+            Directory.Delete(modelsDir, recursive: true);
+        }
+    }
+
+    /// <summary>
+    ///     Test that <c>list-voices</c> exits cleanly against an isolated models directory and
+    ///     always prints the consent note, whether or not any voices are present.
+    /// </summary>
+    [Fact]
+    public void SpeechCli_ListVoicesCommand_Invoked_PrintsConsentNote()
+    {
+        // Arrange
+        var modelsDir = CreateTempModelsDir();
+        try
+        {
+            // Act
+            var exitCode = Runner.Run(out var output, "dotnet", _dllPath, "--models-dir", modelsDir, "list-voices");
+
+            // Assert
+            Assert.Equal(0, exitCode);
+            Assert.Contains("Only clone voices you have permission to use", output);
+        }
+        finally
+        {
+            Directory.Delete(modelsDir, recursive: true);
+        }
+    }
+
+    /// <summary>
+    ///     Test that <c>list-voices --format json</c> emits a JSON array.
+    /// </summary>
+    [Fact]
+    public void SpeechCli_ListVoicesCommandWithJsonFormat_Invoked_EmitsJsonArray()
+    {
+        // Arrange
+        var modelsDir = CreateTempModelsDir();
+        try
+        {
+            // Act
+            var exitCode = Runner.Run(
+                out var output,
+                "dotnet",
+                _dllPath,
+                "--models-dir",
+                modelsDir,
+                "list-voices",
+                "--format",
+                "json");
+
+            // Assert: the banner precedes the array, so parse from the first '[' to the last ']'
+            Assert.Equal(0, exitCode);
+            var start = output.IndexOf('[', StringComparison.Ordinal);
+            var end = output.LastIndexOf(']');
+            Assert.True(start >= 0 && end > start, $"Expected a JSON array in: {output}");
+            using var document = System.Text.Json.JsonDocument.Parse(output[start..(end + 1)]);
+            Assert.Equal(System.Text.Json.JsonValueKind.Array, document.RootElement.ValueKind);
+        }
+        finally
+        {
+            Directory.Delete(modelsDir, recursive: true);
+        }
+    }
+
+    /// <summary>
+    ///     Test that <c>voices packs</c> lists the installable voice packs and the consent note
+    ///     against an isolated models directory, without downloading anything.
+    /// </summary>
+    [Fact]
+    public void SpeechCli_VoicesPacksCommand_Invoked_ListsPacksAndConsentNote()
+    {
+        // Arrange
+        var modelsDir = CreateTempModelsDir();
+        try
+        {
+            // Act
+            var exitCode = Runner.Run(out var output, "dotnet", _dllPath, "--models-dir", modelsDir, "voices", "packs");
+
+            // Assert
+            Assert.Equal(0, exitCode);
+            Assert.Contains("License", output);
+            Assert.Contains("Only clone voices you have permission to use", output);
+        }
+        finally
+        {
+            Directory.Delete(modelsDir, recursive: true);
+        }
+    }
+
+    /// <summary>
     ///     Test that <c>speak --tts-model &lt;recognitionModel&gt;</c> returns a clean, non-zero-exit
     ///     error reporting the wrong role, rather than attempting to load it as a synthesizer.
     /// </summary>
