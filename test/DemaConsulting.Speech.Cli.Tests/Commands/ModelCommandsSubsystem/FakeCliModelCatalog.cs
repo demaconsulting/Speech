@@ -36,10 +36,10 @@ internal sealed class FakeCliModelCatalog : ICliModelCatalog
     /// <summary>The descriptors this fake enumerates, keyed by model id for fast lookup/mutation.</summary>
     private readonly Dictionary<string, SpeechModelDescriptor> _descriptors = new(StringComparer.Ordinal);
 
-    /// <summary>Gets the ordered list of model ids passed to <see cref="Uninstall"/>.</summary>
+    /// <summary>Gets the ordered list of model ids passed to <see cref="UninstallAsync"/>.</summary>
     public List<string> UninstallCalls { get; } = [];
 
-    /// <summary>Gets the ordered list of model ids passed to <see cref="CleanUpLeftovers"/>.</summary>
+    /// <summary>Gets the ordered list of model ids passed to <see cref="CleanUpLeftoversAsync"/>.</summary>
     public List<string> CleanUpLeftoversCalls { get; } = [];
 
     /// <summary>Gets the ordered list of model ids passed to <see cref="DownloadAsync"/>.</summary>
@@ -58,7 +58,7 @@ internal sealed class FakeCliModelCatalog : ICliModelCatalog
     /// </summary>
     public Action<string, IProgress<SpeechModelDownloadProgress>?>? OnDownload { get; set; }
 
-    /// <summary>Gets or sets an exception to throw from <see cref="Uninstall"/>, or <see langword="null"/> for none.</summary>
+    /// <summary>Gets or sets an exception to throw from <see cref="UninstallAsync"/>, or <see langword="null"/> for none.</summary>
     public Exception? UninstallException { get; set; }
 
     /// <summary>Gets or sets an exception to throw from <see cref="DownloadAsync"/> before any result is produced.</summary>
@@ -115,22 +115,28 @@ internal sealed class FakeCliModelCatalog : ICliModelCatalog
     }
 
     /// <inheritdoc/>
-    public void Uninstall(string modelId)
+    public Task UninstallAsync(string modelId, CancellationToken cancellationToken)
     {
         UninstallCalls.Add(modelId);
         if (UninstallException is not null)
         {
-            throw UninstallException;
+            return Task.FromException(UninstallException);
         }
 
         if (_descriptors.TryGetValue(modelId, out var descriptor))
         {
             _descriptors[modelId] = new SpeechModelDescriptor(descriptor.Model, SpeechModelState.NotDownloaded);
         }
+
+        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
-    public void CleanUpLeftovers(string modelId) => CleanUpLeftoversCalls.Add(modelId);
+    public Task CleanUpLeftoversAsync(string modelId, CancellationToken cancellationToken)
+    {
+        CleanUpLeftoversCalls.Add(modelId);
+        return Task.CompletedTask;
+    }
 
     /// <summary>
     ///     Gets or sets the delegate <see cref="GetPreferredAudioFormat"/> forwards to, or
@@ -221,7 +227,7 @@ internal sealed class FakeCliModelCatalog : ICliModelCatalog
     /// <summary>Gets the pack ids this fake reports as installed with emotion clips.</summary>
     public HashSet<string> PacksWithEmotions { get; } = new(StringComparer.Ordinal);
 
-    /// <summary>Gets the ordered pack ids passed to <see cref="UninstallVoicePack"/>.</summary>
+    /// <summary>Gets the ordered pack ids passed to <see cref="UninstallVoicePackAsync"/>.</summary>
     public List<string> UninstallPackCalls { get; } = [];
 
     /// <summary>Gets or sets the outcome <see cref="InstallVoicePackAsync"/> returns.</summary>
@@ -230,7 +236,7 @@ internal sealed class FakeCliModelCatalog : ICliModelCatalog
     /// <summary>Gets or sets an action invoked with the progress sink during an install.</summary>
     public Action<IProgress<SpeechModelDownloadProgress>?>? OnInstallPack { get; set; }
 
-    /// <summary>Gets or sets an exception thrown by <see cref="UninstallVoicePack"/>.</summary>
+    /// <summary>Gets or sets an exception thrown by <see cref="UninstallVoicePackAsync"/>.</summary>
     public Exception? UninstallPackException { get; set; }
 
     /// <inheritdoc/>
@@ -254,7 +260,8 @@ internal sealed class FakeCliModelCatalog : ICliModelCatalog
     }
 
     /// <inheritdoc/>
-    public bool VoicePackHasEmotions(string packId) => PacksWithEmotions.Contains(packId);
+    public Task<bool> VoicePackHasEmotionsAsync(string packId, CancellationToken cancellationToken) =>
+        Task.FromResult(PacksWithEmotions.Contains(packId));
 
     /// <inheritdoc/>
     public Task<SpeechModelDownloadResult> InstallVoicePackAsync(
@@ -281,14 +288,15 @@ internal sealed class FakeCliModelCatalog : ICliModelCatalog
     }
 
     /// <inheritdoc/>
-    public void UninstallVoicePack(string packId)
+    public Task UninstallVoicePackAsync(string packId, CancellationToken cancellationToken)
     {
         UninstallPackCalls.Add(packId);
         if (UninstallPackException is not null)
         {
-            throw UninstallPackException;
+            return Task.FromException(UninstallPackException);
         }
 
         PackStates[packId] = SpeechModelState.NotDownloaded;
+        return Task.CompletedTask;
     }
 }

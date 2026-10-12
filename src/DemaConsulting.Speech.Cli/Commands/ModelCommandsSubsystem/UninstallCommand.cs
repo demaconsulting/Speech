@@ -51,7 +51,10 @@ internal static class UninstallCommand
         ArgumentNullException.ThrowIfNull(context);
 
         using var catalog = CliModelCatalogFactory.Create(context);
-        Run(context, catalog);
+        using var cancellationSource = new CancellationTokenSource();
+
+        using var cancelRegistration = ConsoleCancellation.Register(cancellationSource);
+        RunAsync(context, catalog, cancellationSource.Token).GetAwaiter().GetResult();
     }
 
     /// <summary>
@@ -60,13 +63,15 @@ internal static class UninstallCommand
     /// </summary>
     /// <param name="context">The invocation context. Must not be null.</param>
     /// <param name="catalog">The catalog seam to uninstall through. Must not be null.</param>
+    /// <param name="cancellationToken">A token observed before the removal starts.</param>
+    /// <returns>A task that completes once the model has been removed.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="context"/> or <paramref name="catalog"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">Thrown when no <c>&lt;modelId&gt;</c> argument (or more than one) is given.</exception>
     /// <exception cref="InvalidOperationException">
     ///     Thrown when the model's installed directory or manifest could not be removed, most
     ///     likely because another process still has an open file handle into it.
     /// </exception>
-    internal static void Run(Context context, ICliModelCatalog catalog)
+    internal static async Task RunAsync(Context context, ICliModelCatalog catalog, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(catalog);
@@ -85,7 +90,7 @@ internal static class UninstallCommand
         var modelId = args[0];
         try
         {
-            catalog.Uninstall(modelId);
+            await catalog.UninstallAsync(modelId, cancellationToken).ConfigureAwait(false);
         }
         catch (SpeechModelStoreException ex)
         {

@@ -89,20 +89,20 @@ public sealed class SpeechModelCatalogAdapterTests : IDisposable
     }
 
     /// <summary>
-    ///     Test that <see cref="SpeechModelCatalogAdapter.Uninstall"/> and
-    ///     <see cref="SpeechModelCatalogAdapter.CleanUpLeftovers"/> forward to the store without
+    ///     Test that <see cref="SpeechModelCatalogAdapter.UninstallAsync"/> and
+    ///     <see cref="SpeechModelCatalogAdapter.CleanUpLeftoversAsync"/> forward to the store without
     ///     throwing for a model with nothing installed.
     /// </summary>
     [Fact]
-    public void SpeechModelCatalogAdapter_UninstallAndCleanUpLeftovers_NeverInstalledModel_DoNotThrow()
+    public async Task SpeechModelCatalogAdapter_UninstallAndCleanUpLeftovers_NeverInstalledModel_DoNotThrow()
     {
         // Arrange
         using var adapter = new SpeechModelCatalogAdapter(new SpeechModelStoreOptions { RootPathOverride = _testRoot });
         var modelId = adapter.Enumerate()[0].Id;
 
         // Act & Assert: neither call throws for a model with nothing installed
-        adapter.Uninstall(modelId);
-        adapter.CleanUpLeftovers(modelId);
+        await adapter.UninstallAsync(modelId, TestContext.Current.CancellationToken);
+        await adapter.CleanUpLeftoversAsync(modelId, TestContext.Current.CancellationToken);
         Assert.DoesNotContain(adapter.Enumerate(), descriptor => descriptor.State == SpeechModelState.Downloaded);
     }
 
@@ -178,7 +178,7 @@ public sealed class SpeechModelCatalogAdapterTests : IDisposable
         var packId = adapter.VoicePacks[0].Id;
 
         // Act & Assert
-        adapter.UninstallVoicePack(packId);
+        await adapter.UninstallVoicePackAsync(packId, TestContext.Current.CancellationToken);
         Assert.Equal(SpeechModelState.NotDownloaded, adapter.GetVoicePackState(packId));
         Assert.Throws<ArgumentException>(() => adapter.GetVoicePackState("nope"));
         await Assert.ThrowsAsync<ArgumentException>(

@@ -34,7 +34,7 @@ public sealed class CleanCommandTests
     ///     Test that <c>clean</c> forwards to the catalog seam's cleanup and reports success.
     /// </summary>
     [Fact]
-    public void CleanCommand_Run_KnownModel_CleansUpAndReportsSuccess()
+    public async Task CleanCommand_Run_KnownModel_CleansUpAndReportsSuccess()
     {
         // Arrange
         var catalog = new FakeCliModelCatalog();
@@ -46,7 +46,7 @@ public sealed class CleanCommandTests
             using var context = Context.Create(["clean", "model-1"]);
 
             // Act
-            CleanCommand.Run(context, catalog);
+            await CleanCommand.RunAsync(context, catalog, TestContext.Current.CancellationToken);
 
             // Assert
             Assert.Equal(["model-1"], catalog.CleanUpLeftoversCalls);
@@ -63,46 +63,46 @@ public sealed class CleanCommandTests
     ///     Test that omitting the required <c>&lt;modelId&gt;</c> argument throws.
     /// </summary>
     [Fact]
-    public void CleanCommand_Run_MissingModelIdArgument_ThrowsArgumentException()
+    public async Task CleanCommand_Run_MissingModelIdArgument_ThrowsArgumentException()
     {
         // Arrange
         var catalog = new FakeCliModelCatalog();
         using var context = Context.Create(["clean"]);
 
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => CleanCommand.Run(context, catalog));
+        await Assert.ThrowsAsync<ArgumentException>(() => CleanCommand.RunAsync(context, catalog, TestContext.Current.CancellationToken));
     }
 
     /// <summary>
     ///     Test that a second, unsupported positional argument throws.
     /// </summary>
     [Fact]
-    public void CleanCommand_Run_ExtraArgument_ThrowsArgumentException()
+    public async Task CleanCommand_Run_ExtraArgument_ThrowsArgumentException()
     {
         // Arrange
         var catalog = new FakeCliModelCatalog();
         using var context = Context.Create(["clean", "model-1", "extra"]);
 
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => CleanCommand.Run(context, catalog));
+        await Assert.ThrowsAsync<ArgumentException>(() => CleanCommand.RunAsync(context, catalog, TestContext.Current.CancellationToken));
     }
 
     /// <summary>
     ///     Test that a null context is rejected.
     /// </summary>
     [Fact]
-    public void CleanCommand_Run_NullContext_ThrowsArgumentNullException()
+    public async Task CleanCommand_Run_NullContext_ThrowsArgumentNullException()
     {
-        Assert.Throws<ArgumentNullException>(() => CleanCommand.Run(null!, new FakeCliModelCatalog()));
+        await Assert.ThrowsAsync<ArgumentNullException>(() => CleanCommand.RunAsync(null!, new FakeCliModelCatalog(), TestContext.Current.CancellationToken));
     }
 
     /// <summary>
     ///     Test that a null catalog is rejected.
     /// </summary>
     [Fact]
-    public void CleanCommand_Run_NullCatalog_ThrowsArgumentNullException()
+    public async Task CleanCommand_Run_NullCatalog_ThrowsArgumentNullException()
     {
         using var context = Context.Create(["clean", "model-1"]);
-        Assert.Throws<ArgumentNullException>(() => CleanCommand.Run(context, null!));
+        await Assert.ThrowsAsync<ArgumentNullException>(() => CleanCommand.RunAsync(context, null!, TestContext.Current.CancellationToken));
     }
 }

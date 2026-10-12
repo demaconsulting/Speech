@@ -82,7 +82,7 @@ internal static class VoicesCommand
         {
             case "packs":
                 RequireArgumentCount(args, 1);
-                WritePacks(context, catalog);
+                await WritePacksAsync(context, catalog, cancellationToken).ConfigureAwait(false);
                 break;
 
             case "install":
@@ -92,7 +92,7 @@ internal static class VoicesCommand
 
             case "uninstall":
                 RequireArgumentCount(args, 2);
-                Uninstall(context, catalog, args[1]);
+                await UninstallAsync(context, catalog, args[1], cancellationToken).ConfigureAwait(false);
                 break;
 
             default:
@@ -115,7 +115,7 @@ internal static class VoicesCommand
     }
 
     /// <summary>Writes the installable packs with their state, size, and license.</summary>
-    private static void WritePacks(Context context, ICliModelCatalog catalog)
+    private static async Task WritePacksAsync(Context context, ICliModelCatalog catalog, CancellationToken cancellationToken)
     {
         var packs = catalog.VoicePacks;
         var idWidth = Math.Max("Id".Length, packs.Max(p => p.Id.Length));
@@ -128,7 +128,7 @@ internal static class VoicesCommand
             var state = states[i];
             if (catalog.GetVoicePackState(packs[i].Id) == SpeechModelState.Downloaded)
             {
-                state += catalog.VoicePackHasEmotions(packs[i].Id) ? " (with emotions)" : " (voices only)";
+                state += await catalog.VoicePackHasEmotionsAsync(packs[i].Id, cancellationToken).ConfigureAwait(false) ? " (with emotions)" : " (voices only)";
             }
 
             context.WriteLine(string.Create(
@@ -152,7 +152,7 @@ internal static class VoicesCommand
         // Resolve first so an unknown id gives the clean "not a known pack" error before any output
         var state = catalog.GetVoicePackState(packId);
         var includeEmotions = !context.NoEmotions;
-        var upgrading = includeEmotions && state == SpeechModelState.Downloaded && !catalog.VoicePackHasEmotions(packId);
+        var upgrading = includeEmotions && state == SpeechModelState.Downloaded && !await catalog.VoicePackHasEmotionsAsync(packId, cancellationToken).ConfigureAwait(false);
 
         try
         {
@@ -169,7 +169,7 @@ internal static class VoicesCommand
 
             if (result.Outcome == SpeechModelDownloadOutcome.Installed)
             {
-                var emotionsInstalled = catalog.VoicePackHasEmotions(packId);
+                var emotionsInstalled = await catalog.VoicePackHasEmotionsAsync(packId, cancellationToken).ConfigureAwait(false);
                 context.WriteLine($"Voice pack '{packId}' installed ({(emotionsInstalled ? "with emotion variants" : "base voices only")}). Run 'list-voices' to see the voices.");
                 if (emotionsInstalled)
                 {
@@ -190,11 +190,11 @@ internal static class VoicesCommand
     }
 
     /// <summary>Uninstalls one pack; a pack that is not installed is a safe no-op.</summary>
-    private static void Uninstall(Context context, ICliModelCatalog catalog, string packId)
+    private static async Task UninstallAsync(Context context, ICliModelCatalog catalog, string packId, CancellationToken cancellationToken)
     {
         try
         {
-            catalog.UninstallVoicePack(packId);
+            await catalog.UninstallVoicePackAsync(packId, cancellationToken).ConfigureAwait(false);
         }
         catch (SpeechModelStoreException ex)
         {

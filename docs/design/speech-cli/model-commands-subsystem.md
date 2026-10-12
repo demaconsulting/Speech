@@ -38,7 +38,7 @@ The `ICliModelCatalog` members fall into three groups:
 | Model management (4) | `Enumerate`, `DownloadAsync`, `Uninstall`, `CleanUpLeftovers` |
 | Format and engine (3) | `GetPreferredAudioFormat`, `CreateSynthesizerEngineAsync`, `CreateRecognizerEngineAsync` |
 | Reference voices: browse (4) | `VoicePacks`, `UserVoicesDirectory`, `EnumerateVoices`, `GetVoicePackState` |
-| Reference voices: manage (3) | `VoicePackHasEmotions`, `InstallVoicePackAsync`, `UninstallVoicePack` |
+| Reference voices: manage (3) | `VoicePackHasEmotionsAsync`, `InstallVoicePackAsync`, `UninstallVoicePackAsync` |
 
 ### Design
 
@@ -61,8 +61,8 @@ established for the same reason (`IModelCatalogService`/`ModelCatalogService`):
 | --- | --- | --- |
 | `Enumerate()` | `IReadOnlyList<SpeechModelDescriptor>` | Never throws |
 | `DownloadAsync(id, progress, token)` | `Task<SpeechModelDownloadResult>` | Throws for unknown id; no-op if installed |
-| `Uninstall(id)` | `void` | Safe no-op if nothing is installed |
-| `CleanUpLeftovers(id)` | `void` | Never throws |
+| `UninstallAsync(id, token)` | `Task` | Safe no-op if nothing is installed |
+| `CleanUpLeftoversAsync(id, token)` | `Task` | Never throws |
 
 These four model-management members are the original seam; the format/engine members (see _Seam
 Extension for SynthesisCommandSubsystem and RecognitionCommandSubsystem_ below) and the
@@ -141,9 +141,18 @@ suppresses repeats, so it never prints one line per transferred chunk. The calle
 label (`'id' file i/n` for `download`, `'id'` for `voices install`), so the two commands keep one
 throttling implementation instead of two copies.
 
+### Asynchronous execution
+
+The seam's uninstall, cleanup and pack-query members are asynchronous (`Task`, with a `CancellationToken`);
+`UninstallCommand`, `CleanCommand`, `DownloadCommand` (the `--force` uninstall) and `VoicesCommand` await them in
+their internal `RunAsync` bodies. The public `Run(Context)` entry of each command wires `Ctrl+C` to a
+`CancellationTokenSource` and bridges once to `RunAsync` at the process entry point, because `Program.Main` and the
+command dispatch table (`Action<Context>`) are synchronous; no other sync-over-async exists in the commands.
+
 ### UninstallCommand
 
-Calls `catalog.Uninstall(modelId)` and reports success. `SpeechModelStore.Uninstall` is documented
+Awaits `catalog.UninstallAsync(modelId, ct)` (the seam is internal, so the earlier synchronous member was replaced) and
+reports success. `SpeechModelStore.Uninstall` is documented
 as a safe no-op for a model with nothing installed, so this command follows that same contract —
 "nothing to remove" is a successful outcome, not an error, since an idempotent cleanup script
 should not fail merely because it ran twice. A genuine store failure
@@ -154,7 +163,7 @@ reports operator-facing failures.
 
 ### CleanCommand
 
-Calls `catalog.CleanUpLeftovers(modelId)` and reports success. `SpeechModelStore.CleanUpLeftovers`
+Awaits `catalog.CleanUpLeftoversAsync(modelId, ct)` and reports success. `SpeechModelStore.CleanUpLeftovers`
 is documented as fully best-effort and never throwing, so this handler needs no exception
 handling of its own; a model with nothing to clean up is reported the same way as one with
 leftovers actually removed.
@@ -183,7 +192,7 @@ Dispatches on the first argument:
   the pack is installed without emotions and emotions are requested, announces that it will be removed
   and downloaded again. A failed or canceled install is reported with `WriteError` and a non-zero exit code. `Ctrl+C` is
   wired to a `CancellationTokenSource` the same way as `DownloadCommand`
-- **`uninstall <packId>`** calls `UninstallVoicePack`, a safe no-op when nothing is installed; a
+- **`uninstall <packId>`** awaits `UninstallVoicePackAsync`, a safe no-op when nothing is installed; a
   `SpeechModelStoreException` is re-thrown as `InvalidOperationException`
 
 An unknown pack id, a missing or extra argument, or an unknown action is an `ArgumentException`.
@@ -199,8 +208,8 @@ creates one `ReferenceVoiceLibrary` over the catalog's store and the mirror-awar
 options, and then calls `AddChatterboxTurboModels` with `ReferenceVoiceDirectory = --voices-dir`
 and that same library, so the model and the voice commands see identical voices. `ICliModelCatalog`
 gains `VoicePacks`, `UserVoicesDirectory`, `EnumerateVoices()`, `GetVoicePackState`,
-`InstallVoicePackAsync(packId, includeEmotions, progress, ct)`, `VoicePackHasEmotions`, and
-`UninstallVoicePack`. Voice choice itself uses the model's existing
+`InstallVoicePackAsync(packId, includeEmotions, progress, ct)`, `VoicePackHasEmotionsAsync`, and
+`UninstallVoicePackAsync`. Voice choice itself uses the model's existing
 generic `voice` choice parameter (`speak --tts-param voice=<id>`). Voices from an explicit
 `--voices-dir` are decoded lazily (`FromFileLazy`) like pack and user-folder voices: the file is read
 only when that voice is selected, so an undecodable file does not fail the commands that build the

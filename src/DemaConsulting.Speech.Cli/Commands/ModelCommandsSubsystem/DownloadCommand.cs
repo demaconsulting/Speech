@@ -148,7 +148,7 @@ internal static class DownloadCommand
                 if (existing?.State == SpeechModelState.Downloaded)
                 {
                     context.WriteLine($"Uninstalling existing '{modelId}' before forced re-download...");
-                    catalog.Uninstall(modelId);
+                    await catalog.UninstallAsync(modelId, cancellationToken).ConfigureAwait(false);
                 }
             }
 

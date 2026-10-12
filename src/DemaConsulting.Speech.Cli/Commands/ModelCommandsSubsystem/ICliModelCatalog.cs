@@ -65,15 +65,19 @@ internal interface ICliModelCatalog
     ///     Removes a model's installed content, manifest, and any leftover scratch directories.
     /// </summary>
     /// <param name="modelId">The model identifier. Must not be null, empty, or an invalid directory name.</param>
+    /// <param name="cancellationToken">A token observed before the removal starts.</param>
+    /// <returns>A task that completes when the model is removed.</returns>
     /// <exception cref="ArgumentException">Thrown when <paramref name="modelId"/> is null, empty, or not a valid directory name.</exception>
-    void Uninstall(string modelId);
+    Task UninstallAsync(string modelId, CancellationToken cancellationToken);
 
     /// <summary>
     ///     Best-effort deletes any leftover partial-install/staging directories for a model.
     /// </summary>
     /// <param name="modelId">The model identifier. Must not be null, empty, or an invalid directory name.</param>
+    /// <param name="cancellationToken">A token observed before the cleanup starts.</param>
+    /// <returns>A task that completes when the cleanup pass has finished.</returns>
     /// <exception cref="ArgumentException">Thrown when <paramref name="modelId"/> is null, empty, or not a valid directory name.</exception>
-    void CleanUpLeftovers(string modelId);
+    Task CleanUpLeftoversAsync(string modelId, CancellationToken cancellationToken);
 
     /// <summary>
     ///     Resolves the preferred playback audio format for a synthesis-role model descriptor,
@@ -190,9 +194,10 @@ internal interface ICliModelCatalog
     ///     Determines whether an installed reference-voice pack was extracted with its emotion (mood) clips.
     /// </summary>
     /// <param name="packId">The pack identifier.</param>
-    /// <returns><see langword="true"/> when the pack is installed with emotion clips; otherwise <see langword="false"/>.</returns>
+    /// <param name="cancellationToken">A token that aborts the read.</param>
+    /// <returns>A task whose result is <see langword="true"/> when the pack is installed with emotion clips; otherwise <see langword="false"/>.</returns>
     /// <exception cref="ArgumentException">Thrown when <paramref name="packId"/> matches no known pack.</exception>
-    bool VoicePackHasEmotions(string packId);
+    Task<bool> VoicePackHasEmotionsAsync(string packId, CancellationToken cancellationToken);
 
     /// <summary>
     ///     Downloads, verifies, and installs a reference-voice pack.
@@ -214,6 +219,8 @@ internal interface ICliModelCatalog
     ///     Removes an installed reference-voice pack (a pack that is not installed is a no-op).
     /// </summary>
     /// <param name="packId">The pack identifier.</param>
+    /// <param name="cancellationToken">A token that aborts the wait for an in-flight install of the same pack.</param>
+    /// <returns>A task that completes when the pack is removed.</returns>
     /// <exception cref="ArgumentException">Thrown when <paramref name="packId"/> matches no known pack.</exception>
-    void UninstallVoicePack(string packId);
+    Task UninstallVoicePackAsync(string packId, CancellationToken cancellationToken);
 }

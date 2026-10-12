@@ -35,7 +35,7 @@ public sealed class UninstallCommandTests
     ///     Test that uninstalling an installed model forwards to the catalog seam and reports success.
     /// </summary>
     [Fact]
-    public void UninstallCommand_Run_InstalledModel_UninstallsAndReportsSuccess()
+    public async Task UninstallCommand_Run_InstalledModel_UninstallsAndReportsSuccess()
     {
         // Arrange
         var catalog = new FakeCliModelCatalog().WithModel(new FakeSpeechModel("model-1"), SpeechModelState.Downloaded);
@@ -47,7 +47,7 @@ public sealed class UninstallCommandTests
             using var context = Context.Create(["uninstall", "model-1"]);
 
             // Act
-            UninstallCommand.Run(context, catalog);
+            await UninstallCommand.RunAsync(context, catalog, TestContext.Current.CancellationToken);
 
             // Assert
             Assert.Equal(["model-1"], catalog.UninstallCalls);
@@ -65,14 +65,14 @@ public sealed class UninstallCommandTests
     ///     <see cref="SpeechModelStore.Uninstall"/>'s own documented behavior, not an error.
     /// </summary>
     [Fact]
-    public void UninstallCommand_Run_NeverInstalledModel_IsSafeNoOp()
+    public async Task UninstallCommand_Run_NeverInstalledModel_IsSafeNoOp()
     {
         // Arrange
         var catalog = new FakeCliModelCatalog();
         using var context = Context.Create(["uninstall", "never-installed"]);
 
         // Act
-        UninstallCommand.Run(context, catalog);
+        await UninstallCommand.RunAsync(context, catalog, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(["never-installed"], catalog.UninstallCalls);
@@ -85,7 +85,7 @@ public sealed class UninstallCommandTests
     ///     rather than crashing with a stack trace.
     /// </summary>
     [Fact]
-    public void UninstallCommand_Run_StoreThrows_ThrowsInvalidOperationException()
+    public async Task UninstallCommand_Run_StoreThrows_ThrowsInvalidOperationException()
     {
         // Arrange
         var catalog = new FakeCliModelCatalog
@@ -95,7 +95,7 @@ public sealed class UninstallCommandTests
         using var context = Context.Create(["uninstall", "model-1"]);
 
         // Act & Assert
-        var ex = Assert.Throws<InvalidOperationException>(() => UninstallCommand.Run(context, catalog));
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => UninstallCommand.RunAsync(context, catalog, TestContext.Current.CancellationToken));
         Assert.Contains("model-1", ex.Message);
     }
 
@@ -103,46 +103,46 @@ public sealed class UninstallCommandTests
     ///     Test that omitting the required <c>&lt;modelId&gt;</c> argument throws.
     /// </summary>
     [Fact]
-    public void UninstallCommand_Run_MissingModelIdArgument_ThrowsArgumentException()
+    public async Task UninstallCommand_Run_MissingModelIdArgument_ThrowsArgumentException()
     {
         // Arrange
         var catalog = new FakeCliModelCatalog();
         using var context = Context.Create(["uninstall"]);
 
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => UninstallCommand.Run(context, catalog));
+        await Assert.ThrowsAsync<ArgumentException>(() => UninstallCommand.RunAsync(context, catalog, TestContext.Current.CancellationToken));
     }
 
     /// <summary>
     ///     Test that a second, unsupported positional argument throws.
     /// </summary>
     [Fact]
-    public void UninstallCommand_Run_ExtraArgument_ThrowsArgumentException()
+    public async Task UninstallCommand_Run_ExtraArgument_ThrowsArgumentException()
     {
         // Arrange
         var catalog = new FakeCliModelCatalog();
         using var context = Context.Create(["uninstall", "model-1", "extra"]);
 
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => UninstallCommand.Run(context, catalog));
+        await Assert.ThrowsAsync<ArgumentException>(() => UninstallCommand.RunAsync(context, catalog, TestContext.Current.CancellationToken));
     }
 
     /// <summary>
     ///     Test that a null context is rejected.
     /// </summary>
     [Fact]
-    public void UninstallCommand_Run_NullContext_ThrowsArgumentNullException()
+    public async Task UninstallCommand_Run_NullContext_ThrowsArgumentNullException()
     {
-        Assert.Throws<ArgumentNullException>(() => UninstallCommand.Run(null!, new FakeCliModelCatalog()));
+        await Assert.ThrowsAsync<ArgumentNullException>(() => UninstallCommand.RunAsync(null!, new FakeCliModelCatalog(), TestContext.Current.CancellationToken));
     }
 
     /// <summary>
     ///     Test that a null catalog is rejected.
     /// </summary>
     [Fact]
-    public void UninstallCommand_Run_NullCatalog_ThrowsArgumentNullException()
+    public async Task UninstallCommand_Run_NullCatalog_ThrowsArgumentNullException()
     {
         using var context = Context.Create(["uninstall", "model-1"]);
-        Assert.Throws<ArgumentNullException>(() => UninstallCommand.Run(context, null!));
+        await Assert.ThrowsAsync<ArgumentNullException>(() => UninstallCommand.RunAsync(context, null!, TestContext.Current.CancellationToken));
     }
 }

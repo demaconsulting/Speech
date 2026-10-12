@@ -36,7 +36,7 @@ namespace DemaConsulting.Speech.Cli.Commands.ModelCommandsSubsystem;
 /// </summary>
 /// <remarks>
 ///     This adapter forwards every call to the library catalog (and, for the store-only
-///     operations <see cref="Uninstall"/>/<see cref="CleanUpLeftovers"/>, to
+///     operations <see cref="UninstallAsync"/>/<see cref="CleanUpLeftoversAsync"/>, to
 ///     <see cref="SpeechModelCatalog.Store"/>) unchanged. Owns the composed catalog and disposes
 ///     it when this adapter is disposed.
 /// </remarks>
@@ -104,7 +104,8 @@ internal sealed class SpeechModelCatalogAdapter : ICliModelCatalog, IDisposable
     public SpeechModelState GetVoicePackState(string packId) => _voiceLibrary.GetPackState(packId);
 
     /// <inheritdoc/>
-    public bool VoicePackHasEmotions(string packId) => _voiceLibrary.PackHasEmotions(packId);
+    public Task<bool> VoicePackHasEmotionsAsync(string packId, CancellationToken cancellationToken) =>
+        _voiceLibrary.PackHasEmotionsAsync(packId, cancellationToken);
 
     /// <inheritdoc/>
     public Task<SpeechModelDownloadResult> InstallVoicePackAsync(
@@ -115,7 +116,8 @@ internal sealed class SpeechModelCatalogAdapter : ICliModelCatalog, IDisposable
         _voiceLibrary.InstallPackAsync(packId, includeEmotions, progress, cancellationToken);
 
     /// <inheritdoc/>
-    public void UninstallVoicePack(string packId) => _voiceLibrary.UninstallPack(packId);
+    public Task UninstallVoicePackAsync(string packId, CancellationToken cancellationToken) =>
+        _voiceLibrary.UninstallPackAsync(packId, cancellationToken);
 
     /// <inheritdoc/>
     public IReadOnlyList<SpeechModelDescriptor> Enumerate() => _catalog.Enumerate();
@@ -128,10 +130,12 @@ internal sealed class SpeechModelCatalogAdapter : ICliModelCatalog, IDisposable
         _catalog.DownloadAsync(modelId, progress, cancellationToken);
 
     /// <inheritdoc/>
-    public void Uninstall(string modelId) => _catalog.Store.Uninstall(modelId);
+    public Task UninstallAsync(string modelId, CancellationToken cancellationToken) =>
+        _catalog.Store.UninstallAsync(modelId, cancellationToken);
 
     /// <inheritdoc/>
-    public void CleanUpLeftovers(string modelId) => _catalog.Store.CleanUpLeftovers(modelId);
+    public Task CleanUpLeftoversAsync(string modelId, CancellationToken cancellationToken) =>
+        _catalog.Store.CleanUpLeftoversAsync(modelId, cancellationToken);
 
     /// <inheritdoc/>
     public AudioFormat GetPreferredAudioFormat(SpeechModelDescriptor descriptor)

@@ -47,7 +47,10 @@ internal static class CleanCommand
         ArgumentNullException.ThrowIfNull(context);
 
         using var catalog = CliModelCatalogFactory.Create(context);
-        Run(context, catalog);
+        using var cancellationSource = new CancellationTokenSource();
+
+        using var cancelRegistration = ConsoleCancellation.Register(cancellationSource);
+        RunAsync(context, catalog, cancellationSource.Token).GetAwaiter().GetResult();
     }
 
     /// <summary>
@@ -56,9 +59,11 @@ internal static class CleanCommand
     /// </summary>
     /// <param name="context">The invocation context. Must not be null.</param>
     /// <param name="catalog">The catalog seam to clean up through. Must not be null.</param>
+    /// <param name="cancellationToken">A token observed before the cleanup starts.</param>
+    /// <returns>A task that completes once the cleanup pass has finished.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="context"/> or <paramref name="catalog"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">Thrown when no <c>&lt;modelId&gt;</c> argument (or more than one) is given.</exception>
-    internal static void Run(Context context, ICliModelCatalog catalog)
+    internal static async Task RunAsync(Context context, ICliModelCatalog catalog, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(catalog);
@@ -75,7 +80,7 @@ internal static class CleanCommand
         }
 
         var modelId = args[0];
-        catalog.CleanUpLeftovers(modelId);
+        await catalog.CleanUpLeftoversAsync(modelId, cancellationToken).ConfigureAwait(false);
         context.WriteLine($"Cleaned up leftover files for model '{modelId}' (if any were present).");
     }
 }
