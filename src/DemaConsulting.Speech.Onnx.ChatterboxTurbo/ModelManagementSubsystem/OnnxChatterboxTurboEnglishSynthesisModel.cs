@@ -126,7 +126,7 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModel : ISynthesisModel
             throw new ArgumentException("The model variants must be defined values.", nameof(options));
         }
 
-        _profile = new ChatterboxTurboCapabilityProfile(_options.EndOfSentenceTagPolicy);
+        _profile = new ChatterboxTurboCapabilityProfile(_options.EndOfSentenceTagPolicy, _options.MoodJoinSilenceMilliseconds);
 
         // Graph names follow the repository's suffix convention (none = full precision)
         var auxiliarySuffix = _options.AuxiliaryModelVariant switch
@@ -351,7 +351,7 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModel : ISynthesisModel
                 label = $"{label} ({source})";
                 labels.Add(label);
             }
-            voices.Add(ChatterboxTurboReferenceVoice.FromFileLazy(info.Id, info.FilePath, label));
+            voices.Add(ChatterboxTurboReferenceVoice.FromFileLazy(info.Id, info.FilePath, label, info.MoodClips));
         }
     }
 

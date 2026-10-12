@@ -167,12 +167,37 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModelTests : IDisposable
         Assert.InRange(options.IntraOpThreads, 1, 6);
         Assert.Equal(ChatterboxTurboEndOfSentenceTagPolicy.MoveBeforeFinalWord, options.EndOfSentenceTagPolicy);
         Assert.Empty(options.ReferenceVoices);
+        Assert.Equal(150, options.MoodJoinSilenceMilliseconds);
+        Assert.Throws<ArgumentOutOfRangeException>(() => options.MoodJoinSilenceMilliseconds = -1);
+        Assert.Throws<ArgumentOutOfRangeException>(() => options.MoodJoinSilenceMilliseconds = 1001);
+        options.MoodJoinSilenceMilliseconds = 0;
+        Assert.Equal(0, options.MoodJoinSilenceMilliseconds);
         Assert.Throws<ArgumentOutOfRangeException>(() => options.IntraOpThreads = 0);
         Assert.Throws<ArgumentOutOfRangeException>(() => options.MaxNewTokens = 0);
         Assert.Throws<ArgumentOutOfRangeException>(() => options.MaxAudioTokensPerTextToken = 0);
         Assert.Throws<ArgumentOutOfRangeException>(() => options.MaxConsecutiveSpeechTokenRepeats = -1);
         options.MaxConsecutiveSpeechTokenRepeats = 0;
         Assert.Equal(0, options.MaxConsecutiveSpeechTokenRepeats);
+    }
+
+    /// <summary>Proves the configured mood join silence reaches the capability profile.</summary>
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(150, 150)]
+    [InlineData(400, 400)]
+    public void OnnxChatterboxTurboEnglishSynthesisModel_CapabilityProfile_UsesMoodJoinSilenceOption(int configured, int expected)
+    {
+        // Arrange
+        var model = new OnnxChatterboxTurboEnglishSynthesisModel(
+            new ChatterboxTurboModelOptions { ReferenceVoices = [Voice("a")], MoodJoinSilenceMilliseconds = configured });
+        var spans = AudioTagParser.Parse("Fine. [sad] Not really.");
+
+        // Act
+        var plan = ((ISynthesisModel)model).CapabilityProfile.Render(spans, model);
+
+        // Assert
+        Assert.Equal(2, plan.Segments.Count);
+        Assert.Equal(expected, plan.Segments[0].PostSilenceMs);
     }
 
     /// <summary>Proves creating a backend without voices fails with a clear message.</summary>

@@ -118,6 +118,49 @@ public class DefaultModelCapabilityProfileTests
     }
 
     /// <summary>
+    ///     Proves every new mood tag is stripped, with the words still spoken and no bracket text
+    ///     leaked, for models that cannot act on emotion tags.
+    /// </summary>
+    [Theory]
+    [InlineData("[angry]")]
+    [InlineData("[calm]")]
+    [InlineData("[happy]")]
+    [InlineData("[enthused]")]
+    [InlineData("[surprised]")]
+    [InlineData("[worried]")]
+    [InlineData("[confused]")]
+    [InlineData("[frustrated]")]
+    [InlineData("[neutral]")]
+    public void DefaultModelCapabilityProfile_Render_NoneSupport_MoodTag_StripsAndSpeaksWords(string tag)
+    {
+        // Arrange
+        var model = new StubSpeechModel(SpeechModelAudioTagSupport.None);
+
+        // Act
+        var plan = DefaultModelCapabilityProfile.Instance.Render(AudioTagParser.Parse($"{tag} Hello world."), model);
+
+        // Assert
+        var segment = Assert.Single(plan.Segments);
+        Assert.Equal("Hello world.", segment.Text);
+        Assert.Null(segment.ParameterOverrides);
+    }
+
+    /// <summary>
+    ///     Proves a native model receives the canonical bracket text of a new mood tag.
+    /// </summary>
+    [Fact]
+    public void DefaultModelCapabilityProfile_Render_NativeSupport_MoodTag_PassesCanonicalText()
+    {
+        // Arrange
+        var model = new StubSpeechModel(SpeechModelAudioTagSupport.Native);
+
+        // Act
+        var plan = DefaultModelCapabilityProfile.Instance.Render(AudioTagParser.Parse("[angry] Hello!"), model);
+
+        // Assert
+        Assert.Contains(plan.Segments, segment => segment.Text.Contains("[angry]", StringComparison.Ordinal));
+    }
+    /// <summary>
     ///     Proves that a model declaring no support at all
     ///     (<see cref="SpeechModelAudioTagSupport.None"/>) always strips every tag, leaving only
     ///     the plain words.

@@ -24,8 +24,17 @@ public sealed class ChatterboxTurboModelOptions
     /// <summary>The default cap on identical consecutive speech tokens; the reference model can lock into one token.</summary>
     public const int DefaultMaxConsecutiveSpeechTokenRepeats = 12;
 
+    /// <summary>The default silence, in milliseconds, inserted where the mood changes between segments.</summary>
+    public const int DefaultMoodJoinSilenceMilliseconds = 150;
+
+    /// <summary>The largest accepted mood join silence, in milliseconds.</summary>
+    public const int MaxMoodJoinSilenceMilliseconds = 1000;
+
     /// <summary>The largest default intra-op thread count; more threads do not speed this workload up.</summary>
     private const int DefaultThreadCeiling = 6;
+
+    /// <summary>Backing field for <see cref="MoodJoinSilenceMilliseconds"/>.</summary>
+    private int _moodJoinSilenceMilliseconds = DefaultMoodJoinSilenceMilliseconds;
 
     /// <summary>Backing field for <see cref="IntraOpThreads"/>.</summary>
     private int _intraOpThreads = DefaultIntraOpThreads;
@@ -104,6 +113,24 @@ public sealed class ChatterboxTurboModelOptions
     /// <summary>Gets or sets how a sentence-final tag is rendered. Defaults to moving it before the final word.</summary>
     public ChatterboxTurboEndOfSentenceTagPolicy EndOfSentenceTagPolicy { get; set; } =
         ChatterboxTurboEndOfSentenceTagPolicy.MoveBeforeFinalWord;
+
+    /// <summary>
+    ///     Gets or sets the silence, in milliseconds, inserted where the mood (reference clip) changes between two
+    ///     spoken segments, for example at <c>[sad]</c> in <c>Fine. [sad] Not really.</c>; 0 inserts none, and a
+    ///     longer explicit pause is never shortened. Defaults to <see cref="DefaultMoodJoinSilenceMilliseconds"/>;
+    ///     must be between 0 and <see cref="MaxMoodJoinSilenceMilliseconds"/>.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when set outside the allowed range.</exception>
+    public int MoodJoinSilenceMilliseconds
+    {
+        get => _moodJoinSilenceMilliseconds;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(value, MaxMoodJoinSilenceMilliseconds);
+            _moodJoinSilenceMilliseconds = value;
+        }
+    }
 
     /// <summary>
     ///     Gets or sets the reference voices. The first voice is the default. Together with

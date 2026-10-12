@@ -1,4 +1,5 @@
 using DemaConsulting.Speech.AudioSubsystem;
+using DemaConsulting.Speech.ModelManagementSubsystem;
 
 namespace DemaConsulting.Speech.Onnx.ChatterboxTurbo.ModelManagementSubsystem;
 
@@ -13,6 +14,11 @@ namespace DemaConsulting.Speech.Onnx.ChatterboxTurbo.ModelManagementSubsystem;
 ///     trimmed (the model only conditions on a short prefix) and clips shorter than
 ///     <see cref="MinimumDurationSeconds"/> are rejected because they cannot characterize a speaker.
 ///     Instances are immutable and safe to share across threads.
+///     <para>
+///     <b>Moods</b>: a voice may also carry named mood clips (for example <c>sad</c>, <c>anger</c>, see
+///     <see cref="ReferenceVoiceInfo.KnownMoods"/>) of the same speaker; they are read lazily, are used only when
+///     the text is spoken in that mood, and a mood the voice lacks falls back to the base clip.
+///     </para>
 /// </remarks>
 public sealed class ChatterboxTurboReferenceVoice
 {
@@ -28,12 +34,20 @@ public sealed class ChatterboxTurboReferenceVoice
     /// <summary>The normalized mono 24 kHz samples, produced eagerly or on first access.</summary>
     private readonly Lazy<float[]> _samples;
 
+    /// <summary>The lazily normalized mood clips by lower-case mood name; empty when the voice has none.</summary>
+    private readonly IReadOnlyDictionary<string, Lazy<float[]>> _moodSamples;
+
     /// <summary>Initializes a new instance of the <see cref="ChatterboxTurboReferenceVoice"/> class.</summary>
-    private ChatterboxTurboReferenceVoice(string id, string displayName, Lazy<float[]> samples)
+    private ChatterboxTurboReferenceVoice(
+        string id,
+        string displayName,
+        Lazy<float[]> samples,
+        IReadOnlyDictionary<string, Lazy<float[]>>? moodSamples = null)
     {
         Id = id;
         DisplayName = displayName;
         _samples = samples;
+        _moodSamples = moodSamples ?? new Dictionary<string, Lazy<float[]>>();
     }
 
     /// <summary>Gets the stable identifier used as the voice choice value.</summary>
@@ -44,6 +58,63 @@ public sealed class ChatterboxTurboReferenceVoice
 
     /// <summary>Gets the normalized mono 24 kHz samples (shared; callers must not modify them).</summary>
     internal ReadOnlyMemory<float> Samples => _samples.Value;
+
+    /// <summary>
+    ///     Gets the names of the mood clips this voice has (lower case, ordinal order); empty for a plain voice.
+    /// </summary>
+    public IReadOnlyList<string> Moods => [.. _moodSamples.Keys.Order(StringComparer.Ordinal)];
+
+    /// <summary>
+    ///     Returns a copy of this voice that also has the given mood clips, each read and normalized the first
+    ///     time a mood is spoken. The base clip is shared with this instance.
+    /// </summary>
+    /// <param name="moodFiles">Mood name (case-insensitive) to <c>.wav</c>/<c>.flac</c> path; null or empty adds none.</param>
+    /// <returns>The voice with mood clips. A damaged or too-short mood file fails at first use with an <see cref="InvalidDataException"/> naming the file.</returns>
+    /// <exception cref="ArgumentException">Thrown when a mood name or path is blank.</exception>
+    public ChatterboxTurboReferenceVoice WithMoodFiles(IReadOnlyDictionary<string, string>? moodFiles)
+    {
+        var moods = new Dictionary<string, Lazy<float[]>>(_moodSamples, StringComparer.Ordinal);
+        foreach (var (mood, path) in moodFiles ?? new Dictionary<string, string>())
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(mood);
+            ArgumentException.ThrowIfNullOrWhiteSpace(path);
+            var name = mood.Trim().ToLowerInvariant();
+            moods[name] = new Lazy<float[]>(() => LoadNormalized($"{Id}/{name}", path), LazyThreadSafetyMode.PublicationOnly);
+        }
+
+        return new ChatterboxTurboReferenceVoice(Id, DisplayName, _samples, moods);
+    }
+
+    /// <summary>Returns a copy of this voice with one already-decoded mood clip (used by tests).</summary>
+    internal ChatterboxTurboReferenceVoice WithMoodSamples(string mood, ReadOnlySpan<float> samples, int sampleRate, int channelCount = 1)
+    {
+        var moods = new Dictionary<string, Lazy<float[]>>(_moodSamples, StringComparer.Ordinal)
+        {
+            [mood.Trim().ToLowerInvariant()] = new Lazy<float[]>(Normalize(samples, sampleRate, channelCount)),
+        };
+        return new ChatterboxTurboReferenceVoice(Id, DisplayName, _samples, moods);
+    }
+
+    /// <summary>
+    ///     Gets the samples of a mood clip, or reports that the voice has none so the caller falls back to the base clip.
+    /// </summary>
+    /// <param name="mood">The lower-case mood name.</param>
+    /// <param name="samples">The normalized samples when found.</param>
+    /// <returns>True when the voice has a clip for the mood.</returns>
+    internal bool TryGetMoodSamples(string mood, out ReadOnlyMemory<float> samples)
+    {
+        if (_moodSamples.TryGetValue(mood, out var lazy))
+        {
+            samples = lazy.Value;
+            return true;
+        }
+
+        samples = default;
+        return false;
+    }
+
+    /// <summary>Returns true when the voice has a clip for the mood.</summary>
+    internal bool HasMood(string mood) => _moodSamples.ContainsKey(mood);
 
     /// <summary>
     ///     Creates a voice from in-memory audio, down-mixing and resampling it to mono 24 kHz.
@@ -125,15 +196,21 @@ public sealed class ChatterboxTurboReferenceVoice
     /// <param name="id">A non-empty identifier unique among the supplied voices.</param>
     /// <param name="path">The path of the <c>.wav</c> or <c>.flac</c> file.</param>
     /// <param name="displayName">An optional display name; defaults to <paramref name="id"/>.</param>
+    /// <param name="moodClips">Optional mood name to file path map, also read lazily (see <see cref="WithMoodFiles"/>).</param>
     /// <returns>The voice. A damaged or too-short file fails at first use with an <see cref="InvalidDataException"/> naming the file.</returns>
-    internal static ChatterboxTurboReferenceVoice FromFileLazy(string id, string path, string? displayName = null)
+    internal static ChatterboxTurboReferenceVoice FromFileLazy(
+        string id,
+        string path,
+        string? displayName = null,
+        IReadOnlyDictionary<string, string>? moodClips = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
         // PublicationOnly does not cache a failure, so replacing a bad file takes effect without a restart
         var samples = new Lazy<float[]>(() => LoadNormalized(id, path), LazyThreadSafetyMode.PublicationOnly);
-        return new ChatterboxTurboReferenceVoice(id, displayName ?? id, samples);
+        var voice = new ChatterboxTurboReferenceVoice(id, displayName ?? id, samples);
+        return moodClips is { Count: > 0 } ? voice.WithMoodFiles(moodClips) : voice;
     }
 
     /// <summary>Reads and normalizes a file, naming it in any failure.</summary>

@@ -18,6 +18,14 @@ namespace DemaConsulting.Speech.Onnx.ChatterboxTurbo.SynthesisSubsystem;
 ///     synthesis unit, merges a tag-only unit into the next unit as a leading tag, and relocates a
 ///     sentence-final tag according to <see cref="ChatterboxTurboEndOfSentenceTagPolicy"/>.
 ///     <para>
+///     <b>Moods</b>: emotion tags (<c>[excited]</c>, <c>[sad]</c>, <c>[angry]</c>, <c>[loud]</c>/<c>[shout]</c>, ...)
+///     do not become model tokens. They switch the speaker's reference clip: each mood tag applies to the
+///     following text until the next mood tag, and every spoken segment of that run is prefixed with one internal
+///     private-use mood marker (never spoken, never tokenized; the engine strips it and picks the mood clip, or the
+///     base clip when the voice has none). A mood change between adjacent segments gets a short join silence.
+///     Whispers, sarcastic, soft and breathy stay stripped (no clip exists for them).
+///     </para>
+///     <para>
 ///     No library tag ever maps to the ten emotion/style tokens (<c>[angry]</c> ...): they have no audible
 ///     effect on this model. <c>Sighs</c> becomes silence because <c>[sigh]</c> is unsupported and
 ///     <c>[sigh] ...</c> triggers runaway generation; a bare dash between sentences is never produced for the
@@ -45,6 +53,15 @@ internal sealed class ChatterboxTurboCapabilityProfile : IModelCapabilityProfile
     /// <summary>The first private-use code point used as a tag placeholder.</summary>
     private const char PlaceholderBase = '\uE000';
 
+    /// <summary>The first private-use code point of the mood marker range (a separate range from the tag placeholders).</summary>
+    private const char MoodMarkerBase = '\uE100';
+
+    /// <summary>The default silence, in milliseconds, inserted where the mood (reference clip) changes between segments.</summary>
+    public const int DefaultMoodJoinMilliseconds = ChatterboxTurboModelOptions.DefaultMoodJoinSilenceMilliseconds;
+
+    /// <summary>The largest accepted mood join silence, in milliseconds.</summary>
+    public const int MaxMoodJoinMilliseconds = ChatterboxTurboModelOptions.MaxMoodJoinSilenceMilliseconds;
+
     /// <summary>The per-tag table: every catalog tag has exactly one row.</summary>
     internal static readonly IReadOnlyDictionary<NaturalLanguageAudioTag, ChatterboxTurboTagTreatment> Treatments = BuildTreatments();
 
@@ -55,20 +72,75 @@ internal sealed class ChatterboxTurboCapabilityProfile : IModelCapabilityProfile
     /// <summary>The configured sentence-final tag policy.</summary>
     private readonly ChatterboxTurboEndOfSentenceTagPolicy _policy;
 
+    /// <summary>The silence inserted where the mood changes between two spoken segments.</summary>
+    private readonly int _moodJoinMilliseconds;
+
     /// <summary>
     ///     Initializes a new instance of the <see cref="ChatterboxTurboCapabilityProfile"/> class.
     /// </summary>
     /// <param name="policy">How sentence-final tags are rendered.</param>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="policy"/> is not a defined value.</exception>
-    public ChatterboxTurboCapabilityProfile(ChatterboxTurboEndOfSentenceTagPolicy policy)
+    /// <param name="moodJoinMilliseconds">The silence, in milliseconds, added where the mood changes between segments.</param>
+    /// <exception cref="ArgumentOutOfRangeException">
+    ///     Thrown when <paramref name="policy"/> is not a defined value or <paramref name="moodJoinMilliseconds"/>
+    ///     is outside 0 to <see cref="MaxMoodJoinMilliseconds"/>.
+    /// </exception>
+    public ChatterboxTurboCapabilityProfile(
+        ChatterboxTurboEndOfSentenceTagPolicy policy,
+        int moodJoinMilliseconds = DefaultMoodJoinMilliseconds)
     {
         if (!Enum.IsDefined(policy))
         {
             throw new ArgumentOutOfRangeException(nameof(policy));
         }
 
+        ArgumentOutOfRangeException.ThrowIfNegative(moodJoinMilliseconds);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(moodJoinMilliseconds, MaxMoodJoinMilliseconds);
         _policy = policy;
+        _moodJoinMilliseconds = moodJoinMilliseconds;
     }
+
+    /// <summary>
+    ///     Prefixes <paramref name="text"/> with the internal mood marker for <paramref name="mood"/>; the text is
+    ///     returned unchanged when the mood is null or not a known mood.
+    /// </summary>
+    /// <param name="mood">The mood clip name, or null.</param>
+    /// <param name="text">The segment text.</param>
+    /// <returns>The marked text.</returns>
+    internal static string WithMoodMarker(string? mood, string text)
+    {
+        var index = mood is null ? -1 : MoodIndex(mood);
+        return index < 0 ? text : (char)(MoodMarkerBase + index) + text;
+    }
+
+    /// <summary>
+    ///     Splits a leading mood marker off <paramref name="text"/> and removes every marker character, so the
+    ///     returned text is always safe to tokenize and speak.
+    /// </summary>
+    /// <param name="text">The possibly marked segment text.</param>
+    /// <param name="mood">The mood named by a leading marker; null when there is none.</param>
+    /// <returns>The text without any marker character.</returns>
+    internal static string ReadMoodMarker(string text, out string? mood)
+    {
+        mood = text.Length > 0 && IsMoodMarker(text[0]) ? ReferenceVoiceInfo.KnownMoods[text[0] - MoodMarkerBase] : null;
+        return text.Any(IsMoodMarker) ? new string([.. text.Where(c => !IsMoodMarker(c))]) : text;
+    }
+
+    /// <summary>Returns the index of a mood in the known-mood table, or -1.</summary>
+    private static int MoodIndex(string mood)
+    {
+        for (var i = 0; i < ReferenceVoiceInfo.KnownMoods.Count; i++)
+        {
+            if (string.Equals(ReferenceVoiceInfo.KnownMoods[i], mood, StringComparison.Ordinal))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>Returns true for a mood marker character.</summary>
+    private static bool IsMoodMarker(char c) => c >= MoodMarkerBase && c < MoodMarkerBase + ReferenceVoiceInfo.KnownMoods.Count;
 
     /// <inheritdoc/>
     public SpeechPlan Render(IReadOnlyList<TaggedTextSpan> spans, ISpeechModel model)
@@ -77,7 +149,11 @@ internal sealed class ChatterboxTurboCapabilityProfile : IModelCapabilityProfile
         ArgumentNullException.ThrowIfNull(model);
 
         var segments = new List<SpeechSegment>();
+
+        // The mood of each spoken segment (null = the speaker's base clip); parallel to segments, null for silence
+        var moods = new List<string?>();
         var buffer = new StringBuilder();
+        string? currentMood = null;
 
         void Flush()
         {
@@ -86,9 +162,11 @@ internal sealed class ChatterboxTurboCapabilityProfile : IModelCapabilityProfile
                 return;
             }
 
+            // Each unit keeps its own end-of-sentence policy and ellipsis pause; the mood marker prefixes every unit
             foreach (var (text, endsWithEllipsis) in BuildUnits(buffer.ToString()))
             {
-                segments.Add(new SpeechSegment(text, 0, endsWithEllipsis ? EllipsisPauseMilliseconds : 0, null));
+                segments.Add(new SpeechSegment(WithMoodMarker(currentMood, text), 0, endsWithEllipsis ? EllipsisPauseMilliseconds : 0, null));
+                moods.Add(currentMood);
             }
 
             buffer.Clear();
@@ -96,10 +174,10 @@ internal sealed class ChatterboxTurboCapabilityProfile : IModelCapabilityProfile
 
         foreach (var span in spans)
         {
-            // Plain text passes through, minus any private-use characters that would collide with placeholders
+            // Plain text passes through, minus any private-use characters that would collide with placeholders or markers
             if (span.Kind == TaggedTextSpanKind.PlainText)
             {
-                foreach (var c in span.Text.Where(c => !IsPlaceholder(c)))
+                foreach (var c in span.Text.Where(c => !IsPlaceholder(c) && !IsMoodMarker(c)))
                 {
                     buffer.Append(c);
                 }
@@ -117,6 +195,13 @@ internal sealed class ChatterboxTurboCapabilityProfile : IModelCapabilityProfile
                 case ChatterboxTurboTagKind.Pause:
                     Flush();
                     segments.Add(new SpeechSegment(string.Empty, 0, treatment.PauseMilliseconds, null));
+                    moods.Add(null);
+                    break;
+
+                case ChatterboxTurboTagKind.Mood:
+                    // The mood applies to the text that follows, until the next mood tag
+                    Flush();
+                    currentMood = treatment.Mood;
                     break;
 
                 case ChatterboxTurboTagKind.Strip:
@@ -127,7 +212,30 @@ internal sealed class ChatterboxTurboCapabilityProfile : IModelCapabilityProfile
         }
 
         Flush();
-        return new SpeechPlan(segments);
+        return new SpeechPlan(AddMoodJoinSilence(segments, moods));
+    }
+
+    /// <summary>
+    ///     Adds the configured join silence to the last segment before each change of mood between two directly
+    ///     adjacent spoken segments (including a change from or to the base clip), never shortening a longer pause.
+    /// </summary>
+    private List<SpeechSegment> AddMoodJoinSilence(List<SpeechSegment> segments, List<string?> moods)
+    {
+        if (_moodJoinMilliseconds == 0)
+        {
+            return segments;
+        }
+
+        for (var i = 0; i + 1 < segments.Count; i++)
+        {
+            var bothSpoken = segments[i].Text.Length > 0 && segments[i + 1].Text.Length > 0;
+            if (bothSpoken && !string.Equals(moods[i], moods[i + 1], StringComparison.Ordinal))
+            {
+                segments[i] = segments[i] with { PostSilenceMs = Math.Max(segments[i].PostSilenceMs, _moodJoinMilliseconds) };
+            }
+        }
+
+        return segments;
     }
 
     /// <summary>Builds the per-tag table.</summary>
@@ -139,11 +247,32 @@ internal sealed class ChatterboxTurboCapabilityProfile : IModelCapabilityProfile
         table[NaturalLanguageAudioTag.Laughs] = new(ChatterboxTurboTagKind.Native, "[laugh]", 0, " ...");
         table[NaturalLanguageAudioTag.ClearsThroat] = new(ChatterboxTurboTagKind.Native, "[clear throat]", 0, null);
         table[NaturalLanguageAudioTag.Gasp] = new(ChatterboxTurboTagKind.Native, "[gasp]", 0, null);
+
+        // Mood tags select the speaker's emotion clip (voice-zero pack mood names)
+        table[NaturalLanguageAudioTag.Excited] = Mood("excited");
+        table[NaturalLanguageAudioTag.Enthused] = Mood("enthused");
+        table[NaturalLanguageAudioTag.Happy] = Mood("happy");
+        table[NaturalLanguageAudioTag.Sad] = Mood("sad");
+        table[NaturalLanguageAudioTag.Angry] = Mood("anger");
+        table[NaturalLanguageAudioTag.Loud] = Mood("shout");
+        table[NaturalLanguageAudioTag.Calm] = Mood("calm");
+        table[NaturalLanguageAudioTag.Surprised] = Mood("surprised");
+        table[NaturalLanguageAudioTag.Bored] = Mood("tired");
+        table[NaturalLanguageAudioTag.Worried] = Mood("worried");
+        table[NaturalLanguageAudioTag.Panicked] = Mood("worried");
+        table[NaturalLanguageAudioTag.Confused] = Mood("confused");
+        table[NaturalLanguageAudioTag.Frustrated] = Mood("frustrated");
+        table[NaturalLanguageAudioTag.Neutral] = Mood("neutral");
+        table[NaturalLanguageAudioTag.Serious] = Mood("neutral");
+
         table[NaturalLanguageAudioTag.Sighs] = new(ChatterboxTurboTagKind.Pause, null, SighMilliseconds, null);
         table[NaturalLanguageAudioTag.ShortPause] = new(ChatterboxTurboTagKind.Pause, null, ShortPauseMilliseconds, null);
         table[NaturalLanguageAudioTag.LongPause] = new(ChatterboxTurboTagKind.Pause, null, LongPauseMilliseconds, null);
         return table;
     }
+
+    /// <summary>Creates a mood row.</summary>
+    private static ChatterboxTurboTagTreatment Mood(string mood) => new(ChatterboxTurboTagKind.Mood, null, 0, null, mood);
 
     /// <summary>Returns the placeholder character standing for a native token.</summary>
     private static char PlaceholderFor(string token) => (char)(PlaceholderBase + Array.IndexOf(NativeTokens, token));

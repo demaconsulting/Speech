@@ -138,13 +138,22 @@ public static class AudioTagCatalog
         Describe(NaturalLanguageAudioTag.Emphasis, NaturalLanguageAudioTagKind.Emphasis, "emphasis"),
         Describe(NaturalLanguageAudioTag.Whispers, NaturalLanguageAudioTagKind.DeliveryVolume, "whispers", "whispering"),
         Describe(NaturalLanguageAudioTag.Soft, NaturalLanguageAudioTagKind.DeliveryVolume, "soft"),
-        Describe(NaturalLanguageAudioTag.Loud, NaturalLanguageAudioTagKind.DeliveryVolume, "loud", "shouting", "screams"),
+        Describe(NaturalLanguageAudioTag.Loud, NaturalLanguageAudioTagKind.DeliveryVolume, "loud", "shout", "shouting", "screams"),
         Describe(NaturalLanguageAudioTag.Breathy, NaturalLanguageAudioTagKind.DeliveryVolume, "breathy"),
         Describe(NaturalLanguageAudioTag.Laughs, NaturalLanguageAudioTagKind.NonVerbal, "laughs", "laughing", "giggles"),
         Describe(NaturalLanguageAudioTag.Sighs, NaturalLanguageAudioTagKind.NonVerbal, "sighs", "sigh"),
         Describe(NaturalLanguageAudioTag.Gasp, NaturalLanguageAudioTagKind.NonVerbal, "gasp", "inhale"),
         Describe(NaturalLanguageAudioTag.ClearsThroat, NaturalLanguageAudioTagKind.NonVerbal, "clears throat", "cough"),
         Describe(NaturalLanguageAudioTag.Snorts, NaturalLanguageAudioTagKind.NonVerbal, "snorts"),
+        Describe(NaturalLanguageAudioTag.Angry, NaturalLanguageAudioTagKind.Emotion, "angry", "anger"),
+        Describe(NaturalLanguageAudioTag.Calm, NaturalLanguageAudioTagKind.Emotion, "calm"),
+        Describe(NaturalLanguageAudioTag.Happy, NaturalLanguageAudioTagKind.Emotion, "happy"),
+        Describe(NaturalLanguageAudioTag.Enthused, NaturalLanguageAudioTagKind.Emotion, "enthused", "enthusiastic"),
+        Describe(NaturalLanguageAudioTag.Surprised, NaturalLanguageAudioTagKind.Emotion, "surprised"),
+        Describe(NaturalLanguageAudioTag.Worried, NaturalLanguageAudioTagKind.Emotion, "worried", "anxious"),
+        Describe(NaturalLanguageAudioTag.Confused, NaturalLanguageAudioTagKind.Emotion, "confused"),
+        Describe(NaturalLanguageAudioTag.Frustrated, NaturalLanguageAudioTagKind.Emotion, "frustrated"),
+        Describe(NaturalLanguageAudioTag.Neutral, NaturalLanguageAudioTagKind.Emotion, "neutral"),
     ];
 
     /// <summary>

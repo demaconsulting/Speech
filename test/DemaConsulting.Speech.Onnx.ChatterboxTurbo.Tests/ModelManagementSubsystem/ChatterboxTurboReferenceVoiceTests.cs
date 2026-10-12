@@ -204,6 +204,58 @@ public sealed class ChatterboxTurboReferenceVoiceTests : IDisposable
         Assert.Equal(24000, first.Length);
         Assert.True(first.Span == voice.Samples.Span);
     }
+
+    /// <summary>Proves mood clips decode lazily, are normalized and named case-insensitively, and a missing mood is reported.</summary>
+    [Fact]
+    public void ChatterboxTurboReferenceVoice_WithMoodFiles_LoadsMoodClipsLazilyAndReportsMissingMoods()
+    {
+        // Arrange
+        var basePath = Path.Combine(_root, "base.wav");
+        var sadPath = Path.Combine(_root, "sad.wav");
+        File.WriteAllBytes(basePath, Wav(Tone(24000, 24000, 300), 24000, 1, format: 1, bits: 16));
+        File.WriteAllBytes(sadPath, Wav(Tone(48000, 24000, 200), 24000, 1, format: 1, bits: 16));
+        var plain = ChatterboxTurboReferenceVoice.FromFileLazy("ok", basePath);
+
+        // Act
+        var voice = ChatterboxTurboReferenceVoice.FromFileLazy(
+            "ok",
+            basePath,
+            "Ok",
+            new Dictionary<string, string> { ["SAD"] = sadPath, ["shout"] = Path.Combine(_root, "missing.wav") });
+
+        // Assert: creating the voice read nothing, so a missing file only fails when that mood is first used
+        Assert.Empty(plain.Moods);
+        Assert.Equal(["sad", "shout"], voice.Moods);
+        Assert.True(voice.HasMood("sad"));
+        Assert.False(voice.HasMood("calm"));
+        Assert.True(voice.TryGetMoodSamples("sad", out var sad));
+        Assert.Equal(48000, sad.Length);
+        Assert.False(voice.TryGetMoodSamples("calm", out _));
+        Assert.Equal(24000, voice.Samples.Length);
+        Assert.Throws<InvalidDataException>(() => voice.TryGetMoodSamples("shout", out _));
+    }
+
+    /// <summary>Proves a too-short mood clip fails on first use naming the voice and mood, not at creation.</summary>
+    [Fact]
+    public void ChatterboxTurboReferenceVoice_WithMoodFiles_TooShortClip_FailsOnFirstUse()
+    {
+        // Arrange
+        var basePath = Path.Combine(_root, "base.wav");
+        var shortPath = Path.Combine(_root, "short.wav");
+        File.WriteAllBytes(basePath, Wav(Tone(24000, 24000, 300), 24000, 1, format: 1, bits: 16));
+        File.WriteAllBytes(shortPath, Wav(Tone(1000, 24000, 300), 24000, 1, format: 1, bits: 16));
+
+        // Act
+        var voice = ChatterboxTurboReferenceVoice.FromFileLazy("v", basePath).WithMoodFiles(new Dictionary<string, string> { ["calm"] = shortPath });
+
+        // Assert
+        var exception = Assert.Throws<InvalidDataException>(() => voice.TryGetMoodSamples("calm", out _));
+        Assert.Contains("v/calm", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("short.wav", exception.Message, StringComparison.Ordinal);
+        Assert.Throws<ArgumentException>(() => voice.WithMoodFiles(new Dictionary<string, string> { [" "] = shortPath }));
+        Assert.Same(voice.Id, voice.WithMoodFiles(null).Id);
+    }
+
     /// <summary>Builds a sine tone.</summary>
     private static float[] Tone(int count, int rate, double frequency) =>
         [.. Enumerable.Range(0, count).Select(i => (float)Math.Sin(2 * Math.PI * frequency * i / rate))];

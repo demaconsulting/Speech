@@ -20,8 +20,12 @@ namespace DemaConsulting.Speech.Onnx.ChatterboxTurbo.SynthesisSubsystem;
 ///     decoded (never an exception) and <see cref="ChatterboxTurboGenerationResult.HitTokenLimit"/> is set.
 ///     </para>
 ///     <para>
-///     <b>Voices</b>: the encoder runs once per voice, lazily, and its conditioning is cached. Speaker ids
-///     index the supplied voices; an unknown id falls back to the first voice. The speed argument is ignored
+///     <b>Voices</b>: the encoder runs once per voice and mood, lazily, and its conditioning is cached. Speaker ids
+///     index the supplied voices; an unknown id falls back to the first voice. <b>Moods</b>: the text may begin
+///     with the internal mood marker added by <see cref="ChatterboxTurboCapabilityProfile"/>; the marker is
+///     removed before tokenizing (it is never spoken), selects the voice's clip for that mood, and the voice's
+///     base clip is used when it has none. The token budget, repeat cap and end-of-speech handling apply to each
+///     call, that is to each segment. The speed argument is ignored
 ///     because the model has no speed control. <b>Threading</b>: calls are serialized internally; the type is
 ///     safe to dispose from another thread, after which <see cref="Generate"/> throws
 ///     <see cref="ObjectDisposedException"/>. The output is not watermarked.
@@ -68,8 +72,8 @@ internal sealed class OnnxChatterboxTurboSynthesisEngine : ISynthesisBackend
     /// <summary>The configured cap on identical consecutive speech tokens; 0 disables it.</summary>
     private readonly int _maxConsecutiveSpeechTokenRepeats;
 
-    /// <summary>Conditioning cache by speaker id; guarded by <see cref="_gate"/>.</summary>
-    private readonly Dictionary<int, ChatterboxTurboConditioning> _conditioningCache = [];
+    /// <summary>Conditioning cache by voice index and mood (null = the base clip); guarded by <see cref="_gate"/>.</summary>
+    private readonly Dictionary<(int Voice, string? Mood), ChatterboxTurboConditioning> _conditioningCache = [];
 
     /// <summary>Serializes generation and cache access.</summary>
     private readonly object _gate = new();
@@ -140,8 +144,11 @@ internal sealed class OnnxChatterboxTurboSynthesisEngine : ISynthesisBackend
         ArgumentNullException.ThrowIfNull(text);
         ObjectDisposedException.ThrowIf(_disposed, this);
 
+        // The mood marker the capability profile prefixes is consumed here and never reaches the tokenizer or speech
+        var spoken = ChatterboxTurboCapabilityProfile.ReadMoodMarker(text, out var mood);
+
         // Nothing to say: avoid touching the networks at all
-        if (string.IsNullOrWhiteSpace(text))
+        if (string.IsNullOrWhiteSpace(spoken))
         {
             return new ChatterboxTurboGenerationResult(new EngineAudio([], OutputSampleRate), false, 0);
         }
@@ -150,9 +157,9 @@ internal sealed class OnnxChatterboxTurboSynthesisEngine : ISynthesisBackend
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
 
-            var textIds = _tokenizer.Encode(text);
+            var textIds = _tokenizer.Encode(spoken);
             var voiceIndex = speakerId >= 0 && speakerId < _voices.Count ? speakerId : 0;
-            var conditioning = GetConditioning(voiceIndex);
+            var conditioning = GetConditioning(voiceIndex, mood);
 
             // Step 0 input: conditioning first, then the text embeddings (the start token is never embedded)
             var textEmbeddings = _networks.Embed(textIds);
@@ -233,13 +240,21 @@ internal sealed class OnnxChatterboxTurboSynthesisEngine : ISynthesisBackend
         }
     }
 
-    /// <summary>Returns the voice's cached conditioning, encoding it on first use.</summary>
-    private ChatterboxTurboConditioning GetConditioning(int voiceIndex)
+    /// <summary>
+    ///     Returns the cached conditioning for a voice and mood, encoding the clip on first use. A voice without a
+    ///     clip for the mood (or a null mood) uses its base clip and shares the base cache entry.
+    /// </summary>
+    private ChatterboxTurboConditioning GetConditioning(int voiceIndex, string? mood)
     {
-        if (!_conditioningCache.TryGetValue(voiceIndex, out var conditioning))
+        var voice = _voices[voiceIndex];
+        var effectiveMood = mood is not null && voice.HasMood(mood) ? mood : null;
+        if (!_conditioningCache.TryGetValue((voiceIndex, effectiveMood), out var conditioning))
         {
-            conditioning = _networks.Encode(_voices[voiceIndex].Samples.ToArray());
-            _conditioningCache[voiceIndex] = conditioning;
+            var samples = effectiveMood is not null && voice.TryGetMoodSamples(effectiveMood, out var moodSamples)
+                ? moodSamples
+                : voice.Samples;
+            conditioning = _networks.Encode(samples.ToArray());
+            _conditioningCache[(voiceIndex, effectiveMood)] = conditioning;
         }
 
         return conditioning;

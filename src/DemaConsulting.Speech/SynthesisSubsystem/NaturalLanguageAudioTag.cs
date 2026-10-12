@@ -66,7 +66,7 @@ public enum NaturalLanguageAudioTag
     Soft,
 
     /// <summary>
-    ///     Loud/shouted delivery (<c>[loud]</c>, <c>[shouting]</c>, <c>[screams]</c>).
+    ///     Loud/shouted delivery (<c>[loud]</c>, <c>[shout]</c>, <c>[shouting]</c>, <c>[screams]</c>).
     /// </summary>
     Loud,
 
@@ -87,4 +87,31 @@ public enum NaturalLanguageAudioTag
 
     /// <summary>Snorting (<c>[snorts]</c>).</summary>
     Snorts,
+
+    /// <summary>Angry delivery (<c>[angry]</c>, <c>[anger]</c>).</summary>
+    Angry,
+
+    /// <summary>Calm, relaxed delivery (<c>[calm]</c>).</summary>
+    Calm,
+
+    /// <summary>Happy delivery (<c>[happy]</c>).</summary>
+    Happy,
+
+    /// <summary>Enthused/enthusiastic delivery (<c>[enthused]</c>, <c>[enthusiastic]</c>).</summary>
+    Enthused,
+
+    /// <summary>Surprised delivery (<c>[surprised]</c>).</summary>
+    Surprised,
+
+    /// <summary>Worried/anxious delivery (<c>[worried]</c>, <c>[anxious]</c>).</summary>
+    Worried,
+
+    /// <summary>Confused delivery (<c>[confused]</c>).</summary>
+    Confused,
+
+    /// <summary>Frustrated delivery (<c>[frustrated]</c>).</summary>
+    Frustrated,
+
+    /// <summary>Neutral, unemotional delivery (<c>[neutral]</c>).</summary>
+    Neutral,
 }

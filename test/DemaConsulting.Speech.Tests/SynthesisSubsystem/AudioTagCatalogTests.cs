@@ -164,4 +164,36 @@ public class AudioTagCatalogTests
     {
         Assert.Null(AudioTagCatalog.Tags as List<AudioTagDescriptor>);
     }
+
+    /// <summary>
+    ///     Proves every catalog mood tag (and the <c>shout</c> alias) resolves to its canonical
+    ///     tag and the Emotion/DeliveryVolume kind, so mood-aware models can rely on them.
+    /// </summary>
+    [Theory]
+    [InlineData("angry", NaturalLanguageAudioTag.Angry, NaturalLanguageAudioTagKind.Emotion)]
+    [InlineData("anger", NaturalLanguageAudioTag.Angry, NaturalLanguageAudioTagKind.Emotion)]
+    [InlineData("calm", NaturalLanguageAudioTag.Calm, NaturalLanguageAudioTagKind.Emotion)]
+    [InlineData("happy", NaturalLanguageAudioTag.Happy, NaturalLanguageAudioTagKind.Emotion)]
+    [InlineData("enthused", NaturalLanguageAudioTag.Enthused, NaturalLanguageAudioTagKind.Emotion)]
+    [InlineData("Enthusiastic", NaturalLanguageAudioTag.Enthused, NaturalLanguageAudioTagKind.Emotion)]
+    [InlineData("surprised", NaturalLanguageAudioTag.Surprised, NaturalLanguageAudioTagKind.Emotion)]
+    [InlineData("worried", NaturalLanguageAudioTag.Worried, NaturalLanguageAudioTagKind.Emotion)]
+    [InlineData("anxious", NaturalLanguageAudioTag.Worried, NaturalLanguageAudioTagKind.Emotion)]
+    [InlineData("confused", NaturalLanguageAudioTag.Confused, NaturalLanguageAudioTagKind.Emotion)]
+    [InlineData("frustrated", NaturalLanguageAudioTag.Frustrated, NaturalLanguageAudioTagKind.Emotion)]
+    [InlineData("neutral", NaturalLanguageAudioTag.Neutral, NaturalLanguageAudioTagKind.Emotion)]
+    [InlineData("shout", NaturalLanguageAudioTag.Loud, NaturalLanguageAudioTagKind.DeliveryVolume)]
+    public void AudioTagCatalog_TryResolve_MoodTagsAndShoutAlias_ResolveToExpectedTag(
+        string content,
+        NaturalLanguageAudioTag expectedTag,
+        NaturalLanguageAudioTagKind expectedKind)
+    {
+        // Act
+        var resolved = AudioTagCatalog.TryResolve(content, out var tag, out var kind);
+
+        // Assert
+        Assert.True(resolved);
+        Assert.Equal(expectedTag, tag);
+        Assert.Equal(expectedKind, kind);
+    }
 }

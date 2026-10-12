@@ -11,6 +11,11 @@ internal enum ChatterboxTurboTagKind
     /// <summary>Approximated by real inserted silence (the model has no usable token).</summary>
     Pause,
 
+    /// <summary>
+    ///     Switches the reference clip of the following speech to the speaker's mood clip until the next mood tag.
+    /// </summary>
+    Mood,
+
     /// <summary>Dropped; the surrounding words are still spoken.</summary>
     Strip,
 }
