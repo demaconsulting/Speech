@@ -79,7 +79,7 @@ internal sealed class OnnxChatterboxTurboSynthesisEngine : ISynthesisBackend
     private readonly object _gate = new();
 
     /// <summary>Set once disposed.</summary>
-    private volatile bool _disposed;
+    private int _disposed;
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="OnnxChatterboxTurboSynthesisEngine"/> class, taking ownership of <paramref name="networks"/>.
@@ -114,6 +114,10 @@ internal sealed class OnnxChatterboxTurboSynthesisEngine : ISynthesisBackend
 
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(maxNewTokens, 0);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(maxAudioTokensPerTextToken, 0);
+        if (!double.IsFinite(maxAudioTokensPerTextToken))
+        {
+            throw new ArgumentOutOfRangeException(nameof(maxAudioTokensPerTextToken), maxAudioTokensPerTextToken, "The ratio must be a finite number.");
+        }
         ArgumentOutOfRangeException.ThrowIfNegative(maxConsecutiveSpeechTokenRepeats);
 
         _networks = networks;
@@ -142,7 +146,7 @@ internal sealed class OnnxChatterboxTurboSynthesisEngine : ISynthesisBackend
     public ChatterboxTurboGenerationResult GenerateDetailed(string text, int speakerId)
     {
         ArgumentNullException.ThrowIfNull(text);
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
 
         // The mood marker the capability profile prefixes is consumed here and never reaches the tokenizer or speech
         var spoken = ChatterboxTurboCapabilityProfile.ReadMoodMarker(text, out var mood);
@@ -155,7 +159,7 @@ internal sealed class OnnxChatterboxTurboSynthesisEngine : ISynthesisBackend
 
         lock (_gate)
         {
-            ObjectDisposedException.ThrowIf(_disposed, this);
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
 
             var textIds = _tokenizer.Encode(spoken);
             var voiceIndex = speakerId >= 0 && speakerId < _voices.Count ? speakerId : 0;
@@ -167,9 +171,9 @@ internal sealed class OnnxChatterboxTurboSynthesisEngine : ISynthesisBackend
             conditioning.ConditioningEmbeddings.CopyTo(inputs, 0);
             textEmbeddings.CopyTo(inputs, conditioning.ConditioningEmbeddings.Length);
 
-            var bound = Math.Min(
-                _maxNewTokens,
-                (int)Math.Ceiling(textIds.Length * _maxAudioTokensPerTextToken) + LengthBoundSlackTokens);
+            // Computed in double and clamped so a huge ratio cannot overflow the int conversion
+            var proportional = Math.Ceiling(textIds.Length * _maxAudioTokensPerTextToken) + LengthBoundSlackTokens;
+            var bound = double.IsFinite(proportional) && proportional < _maxNewTokens ? (int)proportional : _maxNewTokens;
 
             var generated = new List<long> { StartSpeechToken };
             var penalized = new HashSet<long> { StartSpeechToken };
@@ -184,7 +188,7 @@ internal sealed class OnnxChatterboxTurboSynthesisEngine : ISynthesisBackend
             {
                 for (var step = 0; step < bound; step++)
                 {
-                    ObjectDisposedException.ThrowIf(_disposed, this);
+                    ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
 
                     var logits = state.Step(inputs, sequenceLength, attentionLength, firstPosition);
                     // Run-length cap: once a token has repeated the allowed number of times, exclude it for this step
@@ -227,13 +231,12 @@ internal sealed class OnnxChatterboxTurboSynthesisEngine : ISynthesisBackend
     /// </summary>
     public void Dispose()
     {
-        if (_disposed)
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
         {
             return;
         }
 
-        // Flag first so an in-flight Generate stops at its next step, then wait for it before releasing
-        _disposed = true;
+        // Flag is set first so an in-flight Generate stops at its next step; then wait for it before releasing
         lock (_gate)
         {
             _networks.Dispose();

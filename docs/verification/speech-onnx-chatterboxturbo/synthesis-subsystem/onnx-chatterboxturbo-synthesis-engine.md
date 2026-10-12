@@ -13,7 +13,8 @@ that records calls and replays scripted logits, so the algorithm is checked with
 #### Acceptance Criteria
 
 The prompt and decoder input are assembled as designed; generation is bounded and flagged; empty
-text makes no network calls; voices are encoded once with fallback; dispose and argument validation
+text makes no network calls; voices are encoded once with fallback; mood markers select the mood clip
+and never reach the tokenizer; a very large ratio is clamped; dispose and argument validation
 behave as documented; a stuck token is capped at the configured run length, a cap of zero disables
 the guard, and the stop token is never blocked.
 
@@ -30,6 +31,10 @@ the guard, and the stop token is never blocked.
 ##### The proportional bound stops a runaway early
 
 **Test**: `OnnxChatterboxTurboSynthesisEngine_Generate_ProportionalBound_StopsRunawayEarly`
+
+##### A huge ratio is clamped to the absolute cap
+
+**Test**: `OnnxChatterboxTurboSynthesisEngine_Generate_HugeRatio_ClampsToMaxNewTokens`
 
 ##### A stuck token is capped at the run length
 
@@ -70,3 +75,7 @@ the guard, and the stop token is never blocked.
 ##### Invalid constructor arguments throw
 
 **Test**: `OnnxChatterboxTurboSynthesisEngine_Constructor_InvalidArguments_Throw`
+
+##### Null text throws
+
+**Test**: `OnnxChatterboxTurboSynthesisEngine_Generate_NullText_ThrowsArgumentNullException`

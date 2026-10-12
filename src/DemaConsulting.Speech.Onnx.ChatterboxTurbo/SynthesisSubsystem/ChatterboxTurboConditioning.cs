@@ -1,8 +1,8 @@
 namespace DemaConsulting.Speech.Onnx.ChatterboxTurbo.SynthesisSubsystem;
 
 /// <summary>
-///     The reference-voice conditioning produced once per voice by the speech encoder and reused for every
-///     utterance spoken in that voice.
+///     The reference-voice conditioning produced once per (voice, mood) by the speech encoder and reused for every
+///     utterance spoken with that clip.
 /// </summary>
 /// <param name="ConditioningEmbeddings">Flattened conditioning embeddings, <paramref name="ConditioningLength"/> x embedding size, prepended to the text embeddings.</param>
 /// <param name="ConditioningLength">The number of conditioning positions.</param>

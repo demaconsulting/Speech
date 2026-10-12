@@ -216,6 +216,36 @@ public sealed class OnnxChatterboxTurboSynthesisEngineTests
         Assert.Throws<ArgumentOutOfRangeException>(() => new OnnxChatterboxTurboSynthesisEngine(networks, Tokenizer, voices, 0, 1, 12));
         Assert.Throws<ArgumentOutOfRangeException>(() => new OnnxChatterboxTurboSynthesisEngine(networks, Tokenizer, voices, 10, 0, 12));
         Assert.Throws<ArgumentOutOfRangeException>(() => new OnnxChatterboxTurboSynthesisEngine(networks, Tokenizer, voices, 10, 1, -1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new OnnxChatterboxTurboSynthesisEngine(networks, Tokenizer, voices, 10, double.NaN, 12));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new OnnxChatterboxTurboSynthesisEngine(networks, Tokenizer, voices, 10, double.PositiveInfinity, 12));
+    }
+
+    /// <summary>Proves a very large (but finite) ratio is clamped to the absolute cap instead of overflowing.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboSynthesisEngine_Generate_HugeRatio_ClampsToMaxNewTokens()
+    {
+        // Arrange
+        var networks = new FakeNetworks([100], repeatLast: true);
+        using var engine = new OnnxChatterboxTurboSynthesisEngine(networks, Tokenizer, [Voice("a")], 5, double.MaxValue, 0);
+
+        // Act
+        var result = engine.GenerateDetailed("Hello there.", 0);
+
+        // Assert
+        Assert.True(result.HitTokenLimit);
+        Assert.Equal(5, networks.Steps.Count);
+    }
+
+    /// <summary>Proves null text is rejected.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboSynthesisEngine_Generate_NullText_ThrowsArgumentNullException()
+    {
+        // Arrange
+        var networks = new FakeNetworks([100]);
+        using var engine = Create(networks);
+
+        // Assert
+        Assert.Throws<ArgumentNullException>(() => engine.GenerateDetailed(null!, 0));
     }
 
     /// <summary>Proves a marked segment encodes the voice's mood clip, never tokenizes the marker, and caches per mood.</summary>

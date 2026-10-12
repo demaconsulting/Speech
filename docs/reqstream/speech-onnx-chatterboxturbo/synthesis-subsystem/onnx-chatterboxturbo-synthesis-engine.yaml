@@ -29,13 +29,15 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-Bounds
                 title: >-
                   The OnnxChatterboxTurboSynthesisEngine class shall bound generation by both an
-                  absolute maximum and a limit proportional to the text length, flag a bounded
+                  absolute maximum and a limit proportional to the text length (clamped so a
+                  very large ratio cannot overflow), flag a bounded
                   result as truncated, and never throw for hitting a bound.
                 justification: |
                   A missing end-of-speech token must not hang or fail the host application.
                 tests:
                   - OnnxChatterboxTurboSynthesisEngine_Generate_NeverStops_IsBoundedAndFlagged
                   - OnnxChatterboxTurboSynthesisEngine_Generate_ProportionalBound_StopsRunawayEarly
+                  - OnnxChatterboxTurboSynthesisEngine_Generate_HugeRatio_ClampsToMaxNewTokens
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-RunLengthCap
                 title: >-
@@ -87,4 +89,5 @@ sections:
                   Native sessions must be released deterministically and misuse must be loud.
                 tests:
                   - OnnxChatterboxTurboSynthesisEngine_Constructor_InvalidArguments_Throw
+                  - OnnxChatterboxTurboSynthesisEngine_Generate_NullText_ThrowsArgumentNullException
                   - OnnxChatterboxTurboSynthesisEngine_Dispose_DisposesNetworksAndRejectsGenerate

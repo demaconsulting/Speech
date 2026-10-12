@@ -3,17 +3,20 @@
 **Purpose**: The `ISynthesisBackend` implementation for Chatterbox Turbo. It assembles the language
 model prompt, runs the bounded autoregressive loop and decodes the speech tokens into audio.
 
-**Data Model**: The injected `IChatterboxTurboNetworks`, tokenizer, voices and options, plus a
-per-voice cache of `ChatterboxTurboConditioning` computed on first use. Constants: output rate
+**Data Model**: The injected `IChatterboxTurboNetworks`, tokenizer, voices and bounds, plus a
+cache of `ChatterboxTurboConditioning` per (voice, mood) computed on first use. Constants: output rate
 24000 Hz, start token 6561 (never embedded), stop token 6562, silence token 4299 (appended three
 times to the decoder input) and embedding size 1024.
 
 **Key Methods**:
 
-- **Generate(text, speed, speakerId)**: returns empty audio without network calls for empty text;
+- **Generate(text, speed, speakerId)**: returns `GenerateDetailed(text, speakerId).Audio`.
+- **GenerateDetailed(text, speakerId)**: returns a `ChatterboxTurboGenerationResult` (audio, `HitTokenLimit`,
+  `SpeechTokenCount`). Returns empty audio without network calls for empty text;
   otherwise tokenizes and embeds the text ids, prepends the voice conditioning, steps the language
   model, selects tokens with `ChatterboxTurboTokenSelector`, stops at the stop token or at
-  `min(maxNewTokens, ceil(textIds * maxAudioTokensPerTextToken) + 32)`, then decodes the prompt
+  `min(maxNewTokens, ceil(textIds * maxAudioTokensPerTextToken) + 32)` (computed in floating point and
+  clamped, so a huge finite ratio cannot overflow), then decodes the prompt
   tokens, the speech tokens and trailing silence. The loop also tracks the last token and its run
   length; once the run reaches `maxConsecutiveSpeechTokenRepeats` (default 12, 0 disables) that
   token is passed to the selector as blocked for the next step only. The stop token is never blocked.
@@ -27,11 +30,19 @@ times to the decoder input) and embedding size 1024.
   moods, or an unknown mood) the voice's base clip is used and shares the base cache entry. Each
   segment is a separate `Generate` call, so the stop bound and repeat cap apply per segment and
   each segment pays its own prefill cost.
-- **Dispose()**: disposes the networks; later `Generate` throws `ObjectDisposedException`
+- **Dispose()**: sets the disposed flag atomically (`Interlocked.Exchange`, so it is idempotent) and
+  then, under the generation lock, disposes the networks; an in-flight `Generate` stops at its next step
+  and later calls throw `ObjectDisposedException`
 
-**Error Handling**: null and invalid constructor arguments throw argument exceptions; runtime
-failures from the networks propagate.
+**Threading**: calls are serialized with an internal lock, so concurrent `Generate` calls are safe
+(they run one at a time); `Dispose` may be called from another thread.
 
-**Dependencies**: `IChatterboxTurboNetworks`, `ByteLevelBpeTokenizer`, `ChatterboxTurboTokenSelector`.
+**Error Handling**: null and invalid constructor arguments throw argument exceptions (a non-finite
+`maxAudioTokensPerTextToken` throws `ArgumentOutOfRangeException`); null text throws
+`ArgumentNullException`; runtime failures from the networks propagate.
+
+**Dependencies**: `IChatterboxTurboNetworks`, `ByteLevelBpeTokenizer`, `ChatterboxTurboTokenSelector`,
+`ChatterboxTurboCapabilityProfile` (`ReadMoodMarker`), `ChatterboxTurboReferenceVoice` (voice and mood
+clips) and `ChatterboxTurboConditioning`.
 
 **Callers**: `OnnxChatterboxTurboEnglishSynthesisModel.CreateBackend` and Speech's synthesis session.
