@@ -46,6 +46,9 @@ public sealed class ChatterboxTurboModelOptions
     /// <summary>Backing field for <see cref="IntraOpThreads"/>.</summary>
     private int _intraOpThreads = DefaultIntraOpThreads;
 
+    /// <summary>Backing field for <see cref="ReferenceVoices"/>.</summary>
+    private IReadOnlyList<ChatterboxTurboReferenceVoice> _referenceVoices = [];
+
     /// <summary>Backing field for <see cref="MaxNewTokens"/>.</summary>
     private int _maxNewTokens = DefaultMaxNewTokens;
 
@@ -174,7 +177,16 @@ public sealed class ChatterboxTurboModelOptions
     ///     Gets or sets the reference voices. The first voice is the default. Together with
     ///     <see cref="ReferenceVoiceDirectory"/> at least one voice is needed before the model can speak.
     /// </summary>
-    public IReadOnlyList<ChatterboxTurboReferenceVoice> ReferenceVoices { get; set; } = [];
+    /// <exception cref="ArgumentNullException">Thrown when set to <see langword="null"/>.</exception>
+    public IReadOnlyList<ChatterboxTurboReferenceVoice> ReferenceVoices
+    {
+        get => _referenceVoices;
+        set
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            _referenceVoices = value;
+        }
+    }
 
     /// <summary>
     ///     Gets or sets a directory whose <c>.wav</c> and <c>.flac</c> files each become a voice (id = file name without

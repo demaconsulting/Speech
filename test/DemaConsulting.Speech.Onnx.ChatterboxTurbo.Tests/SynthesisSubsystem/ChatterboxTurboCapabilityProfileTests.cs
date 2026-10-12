@@ -176,6 +176,33 @@ public sealed class ChatterboxTurboCapabilityProfileTests
         Assert.All(plan.Segments, segment => Assert.True(segment.Text.Length <= 200));
     }
 
+    /// <summary>Proves a full stop flanked by digits is not a sentence boundary.</summary>
+    [Fact]
+    public void ChatterboxTurboCapabilityProfile_Render_DigitFlankedStop_IsNotASentenceBoundary()
+    {
+        // Act
+        var plan = Render(ChatterboxTurboEndOfSentenceTagPolicy.Strip, Text("Version 2.5.1 costs 3.50 today. Done."));
+
+        // Assert
+        Assert.Equal(["Version 2.5.1 costs 3.50 today.", "Done."], plan.Segments.Select(s => s.Text));
+    }
+
+    /// <summary>Proves an over-long clause with no punctuation is split on a word budget without losing or reordering words.</summary>
+    [Fact]
+    public void ChatterboxTurboCapabilityProfile_Render_OverLongClause_SplitsOnWordBudgetKeepingEveryWord()
+    {
+        // Arrange
+        var words = Enumerable.Range(0, 120).Select(i => "w" + i).ToArray();
+
+        // Act
+        var plan = Render(ChatterboxTurboEndOfSentenceTagPolicy.Strip, Text(string.Join(' ', words) + "."));
+
+        // Assert
+        var rejoined = string.Join(' ', plan.Segments.Select(s => s.Text)).TrimEnd('.').Split(' ');
+        Assert.True(plan.Segments.Count > 1);
+        Assert.Equal(words, rejoined);
+    }
+
     /// <summary>Proves empty input produces an empty plan and null arguments are rejected.</summary>
     [Fact]
     public void ChatterboxTurboCapabilityProfile_Render_EmptyOrInvalid_BehavesSafely()

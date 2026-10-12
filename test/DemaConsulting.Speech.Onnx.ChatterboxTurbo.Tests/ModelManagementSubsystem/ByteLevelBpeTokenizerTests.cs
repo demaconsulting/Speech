@@ -170,6 +170,17 @@ public sealed class ByteLevelBpeTokenizerTests
         Assert.Throws<InvalidDataException>(() => new ByteLevelBpeTokenizer(stream, trailingEndOfTextCount: 1));
     }
 
+    /// <summary>Proves a document with an empty vocabulary is rejected.</summary>
+    [Fact]
+    public void ByteLevelBpeTokenizer_Constructor_EmptyVocabulary_ThrowsInvalidData()
+    {
+        // Arrange
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes("{\"model\":{\"vocab\":{},\"merges\":[]}}"));
+
+        // Act & Assert
+        Assert.Throws<InvalidDataException>(() => new ByteLevelBpeTokenizer(stream, trailingEndOfTextCount: 0));
+    }
+
     /// <summary>Proves null or malformed merge entries are reported as <see cref="InvalidDataException"/>.</summary>
     [Theory]
     [InlineData("[null]")]

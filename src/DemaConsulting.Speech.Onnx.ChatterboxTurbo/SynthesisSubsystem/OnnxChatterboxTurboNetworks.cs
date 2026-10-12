@@ -74,8 +74,11 @@ internal sealed class OnnxChatterboxTurboNetworks : IChatterboxTurboNetworks
     /// <summary>The per-head width.</summary>
     private readonly int _headDimension;
 
-    /// <summary>Shared run options; created after the constructor arguments are validated.</summary>
+    /// <summary>The run options shared by all four sessions; created after argument validation.</summary>
     private readonly RunOptions _runOptions;
+
+    /// <summary>True once <see cref="Dispose"/> has run.</summary>
+    private bool _disposed;
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="OnnxChatterboxTurboNetworks"/> class, creating all four sessions.
@@ -155,6 +158,7 @@ internal sealed class OnnxChatterboxTurboNetworks : IChatterboxTurboNetworks
     public ChatterboxTurboConditioning Encode(float[] referenceAudio)
     {
         ArgumentNullException.ThrowIfNull(referenceAudio);
+        ObjectDisposedException.ThrowIf(_disposed, this);
 
         using var input = OrtValue.CreateTensorValueFromMemory(referenceAudio, [1, referenceAudio.Length]);
         using var outputs = _encoder.Run(_runOptions, ["audio_values"], [input], _encoderOutputs);
@@ -174,6 +178,7 @@ internal sealed class OnnxChatterboxTurboNetworks : IChatterboxTurboNetworks
     public float[] Embed(long[] tokenIds)
     {
         ArgumentNullException.ThrowIfNull(tokenIds);
+        ObjectDisposedException.ThrowIf(_disposed, this);
 
         using var input = OrtValue.CreateTensorValueFromMemory(tokenIds, [1, tokenIds.Length]);
         using var outputs = _embedder.Run(
@@ -195,10 +200,22 @@ internal sealed class OnnxChatterboxTurboNetworks : IChatterboxTurboNetworks
         if (value.GetTensorTypeAndShape().ElementDataType == TensorElementType.Float16)
         {
             // ORT exposes float16 tensors as its own Float16 struct (System.Half is rejected)
-            return [.. value.GetTensorDataAsSpan<Float16>().ToArray().Select(half => (float)BitConverter.UInt16BitsToHalf(half.value))];
+            return HalfToFloats(value.GetTensorDataAsSpan<Float16>());
         }
 
         return value.GetTensorDataAsSpan<float>().ToArray();
+    }
+
+    /// <summary>Converts a span of ORT float16 values to floats.</summary>
+    private static float[] HalfToFloats(ReadOnlySpan<Float16> values)
+    {
+        var result = new float[values.Length];
+        for (var i = 0; i < values.Length; i++)
+        {
+            result[i] = (float)BitConverter.UInt16BitsToHalf(values[i].value);
+        }
+
+        return result;
     }
 
     /// <summary>Creates a float16 tensor from float values (ORT rejects <see cref="Half"/> arrays).</summary>
@@ -215,13 +232,18 @@ internal sealed class OnnxChatterboxTurboNetworks : IChatterboxTurboNetworks
     }
 
     /// <inheritdoc/>
-    public IChatterboxTurboLanguageModelState BeginGeneration() => new LanguageModelState(this);
+    public IChatterboxTurboLanguageModelState BeginGeneration()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        return new LanguageModelState(this);
+    }
 
     /// <inheritdoc/>
     public float[] Decode(long[] speechTokens, ChatterboxTurboConditioning conditioning)
     {
         ArgumentNullException.ThrowIfNull(speechTokens);
         ArgumentNullException.ThrowIfNull(conditioning);
+        ObjectDisposedException.ThrowIf(_disposed, this);
 
         var featureWidth = conditioning.SpeakerFeatures.Length / Math.Max(1, conditioning.SpeakerFeatureFrames);
         using var tokens = OrtValue.CreateTensorValueFromMemory(speechTokens, [1, speechTokens.Length]);
@@ -242,6 +264,12 @@ internal sealed class OnnxChatterboxTurboNetworks : IChatterboxTurboNetworks
     /// <inheritdoc/>
     public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
         _encoder.Dispose();
         _embedder.Dispose();
         _languageModel.Dispose();
@@ -393,7 +421,7 @@ internal sealed class OnnxChatterboxTurboNetworks : IChatterboxTurboNetworks
             var offset = (positions - 1) * vocabulary;
             if (info.ElementDataType == TensorElementType.Float16)
             {
-                return logits.GetTensorDataAsSpan<Float16>().Slice(offset, vocabulary).ToArray().Select(h => (float)BitConverter.UInt16BitsToHalf(h.value)).ToArray();
+                return HalfToFloats(logits.GetTensorDataAsSpan<Float16>().Slice(offset, vocabulary));
             }
 
             return logits.GetTensorDataAsSpan<float>().Slice(offset, vocabulary).ToArray();

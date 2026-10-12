@@ -209,6 +209,27 @@ public sealed class ChatterboxTurboReferenceVoiceTests : IDisposable
         Assert.True(first.Span == voice.Samples.Span);
     }
 
+    /// <summary>Proves concurrent first use of a lazy file voice yields one shared, fully decoded clip for every caller.</summary>
+    [Fact]
+    public void ChatterboxTurboReferenceVoice_FromFileLazy_ConcurrentFirstUse_ReturnsOneSharedClip()
+    {
+        // Arrange
+        var path = Path.Combine(_root, "shared.wav");
+        File.WriteAllBytes(path, Wav(Tone(24000, 24000, 300), 24000, 1, format: 1, bits: 16));
+        var voice = ChatterboxTurboReferenceVoice.FromFileLazy("shared", path, "Shared");
+
+        // Act
+        var clips = Enumerable.Range(0, 8)
+            .AsParallel()
+            .WithDegreeOfParallelism(8)
+            .Select(_ => voice.Samples)
+            .ToArray();
+
+        // Assert
+        Assert.All(clips, clip => Assert.Equal(24000, clip.Length));
+        Assert.All(clips, clip => Assert.True(clip.Span == clips[0].Span));
+    }
+
     /// <summary>Proves mood clips decode lazily, are normalized and named case-insensitively, and a missing mood is reported.</summary>
     [Fact]
     public void ChatterboxTurboReferenceVoice_WithMoodFiles_LoadsMoodClipsLazilyAndReportsMissingMoods()
@@ -259,7 +280,7 @@ public sealed class ChatterboxTurboReferenceVoiceTests : IDisposable
         Assert.Throws<ArgumentException>(() => voice.WithMoodFiles(new Dictionary<string, string> { [" "] = shortPath }));
         Assert.Throws<ArgumentException>(() => voice.WithMoodFiles(new Dictionary<string, string> { ["calm"] = " " }));
         var unchanged = voice.WithMoodFiles(null);
-        Assert.Equal(voice.Moods, unchanged.Moods);
+        Assert.Equal(["calm"], unchanged.Moods);
         Assert.Equal(voice.Id, unchanged.Id);
         Assert.Equal(voice.DisplayName, unchanged.DisplayName);
     }

@@ -317,21 +317,16 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModelTests : IDisposable
         }
     }
 
-    /// <summary>Proves the extension method registers the model and returns the same catalog.</summary>
+    /// <summary>Proves a null reference-voice list is rejected when assigned, with a clear argument exception.</summary>
     [Fact]
-    public void SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_RegistersModelAndReturnsCatalog()
+    public void ChatterboxTurboModelOptions_ReferenceVoices_Null_ThrowsArgumentNullException()
     {
         // Arrange
-        using var catalog = new SpeechModelCatalog(new SpeechModelStoreOptions { RootPathOverride = Path.Combine(_root, "store") });
+        var options = new ChatterboxTurboModelOptions();
 
-        // Act
-        var result = catalog.AddChatterboxTurboModels(new ChatterboxTurboModelOptions { ReferenceVoices = [Voice("a")] });
-
-        // Assert
-        Assert.Same(catalog, result);
-        var model = Assert.Single(catalog.Enumerate());
-        Assert.Equal("chatterbox-turbo-onnx-en", model.Id);
-        Assert.Throws<ArgumentNullException>(() => SpeechModelCatalogChatterboxTurboExtensions.AddChatterboxTurboModels(null!));
+        // Act and Assert
+        Assert.Throws<ArgumentNullException>(() => options.ReferenceVoices = null!);
+        Assert.Empty(options.ReferenceVoices);
     }
 
     /// <summary>Proves library user voices are appended after explicit and directory voices, with the first id winning.</summary>
@@ -513,29 +508,6 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModelTests : IDisposable
 
         // Assert
         Assert.Empty(model.Parameters);
-    }
-
-    /// <summary>Proves the catalog extension offers voices from the catalog store's library by default.</summary>
-    [Fact]
-    public void SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_DefaultsToCatalogStoreVoices()
-    {
-        // Arrange
-        using var catalog = new SpeechModelCatalog(new SpeechModelStoreOptions { RootPathOverride = Path.Combine(_root, "store") });
-        using (var library = new ReferenceVoiceLibrary(catalog.Store))
-        {
-            WriteWav(Path.Combine(library.EnsureUserDirectory(), "mine.wav"));
-        }
-
-        var options = new ChatterboxTurboModelOptions();
-
-        // Act
-        catalog.AddChatterboxTurboModels(options);
-
-        // Assert
-        var model = Assert.IsType<OnnxChatterboxTurboEnglishSynthesisModel>(Assert.Single(catalog.Enumerate()).Model);
-        var choice = Assert.IsType<ChoiceParameter>(Assert.Single(model.Parameters));
-        Assert.Equal(["mine"], choice.Options.Select(option => option.Value));
-        Assert.Null(options.ReferenceVoiceLibrary);
     }
 
     /// <summary>Creates a one-second voice.</summary>

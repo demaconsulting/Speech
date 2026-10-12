@@ -312,13 +312,68 @@ public sealed class OnnxChatterboxTurboNetworksTests : IDisposable
         Assert.Equal(single, OnnxChatterboxTurboNetworks.ReadFloats(singleValue));
     }
 
+    /// <summary>Proves a disposed networks object rejects further use with <see cref="ObjectDisposedException"/>.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboNetworks_AfterDispose_RejectsUse()
+    {
+        // Arrange
+        var paths = ChatterboxTurboGraphFixture.Write(_root);
+        var networks = Create(paths);
+        var conditioning = networks.Encode(new float[24000]);
+        networks.Dispose();
+
+        // Act and Assert
+        Assert.Throws<ObjectDisposedException>(() => networks.Encode(new float[24000]));
+        Assert.Throws<ObjectDisposedException>(() => networks.Embed([1]));
+        Assert.Throws<ObjectDisposedException>(() => networks.Decode([1], conditioning));
+        Assert.Throws<ObjectDisposedException>(() => networks.BeginGeneration());
+        networks.Dispose();
+    }
+
+    /// <summary>Proves null arguments are rejected by the encoder, embedder and decoder entry points.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboNetworks_NullArguments_Throw()
+    {
+        // Arrange
+        var paths = ChatterboxTurboGraphFixture.Write(_root);
+        using var networks = Create(paths);
+        var conditioning = networks.Encode(new float[24000]);
+
+        // Act and Assert
+        Assert.Throws<ArgumentNullException>(() => networks.Encode(null!));
+        Assert.Throws<ArgumentNullException>(() => networks.Embed(null!));
+        Assert.Throws<ArgumentNullException>(() => networks.Decode(null!, conditioning));
+        Assert.Throws<ArgumentNullException>(() => networks.Decode([1], null!));
+    }
+
+    /// <summary>Proves float16 encoder, embedder and decoder outputs are read back as floats.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboNetworks_HalfAuxiliaryOutputs_AreConvertedToFloats()
+    {
+        // Arrange
+        var paths = ChatterboxTurboGraphFixture.Write(_root, halfAuxiliary: true);
+        using var networks = Create(paths);
+
+        // Act
+        var conditioning = networks.Encode(new float[24000]);
+        var embeddings = networks.Embed([4]);
+        var waveform = networks.Decode([5, 6], conditioning);
+
+        // Assert
+        Assert.Equal([1f, 2f, 3f, 4f], conditioning.SpeakerEmbeddings);
+        Assert.Equal([1f, 2f, 3f, 4f, 5f, 6f], conditioning.SpeakerFeatures);
+        Assert.Equal(0.5f, conditioning.ConditioningEmbeddings[0]);
+        Assert.Equal(0.004f, embeddings[0], 3);
+        Assert.Equal([5f, 6f], waveform);
+    }
+
     /// <summary>Creates networks over the fixture paths.</summary>
     private static OnnxChatterboxTurboNetworks Create(
         (string Encoder, string Embedder, string LanguageModel, string Decoder) paths,
         int threads = 1) =>
         new(paths.Encoder, paths.Embedder, paths.LanguageModel, paths.Decoder, threads);
 
-    /// <summary>Reads the session's private disposed flag, since the type exposes no public equivalent.</summary>
+    /// <summary>Reads the session's private disposed flag, since ONNX Runtime exposes no public equivalent and a call on a disposed session is unsafe.</summary>
     private static bool IsDisposed(InferenceSession session)
     {
         var field = typeof(InferenceSession).GetField("_disposed", BindingFlags.NonPublic | BindingFlags.Instance);

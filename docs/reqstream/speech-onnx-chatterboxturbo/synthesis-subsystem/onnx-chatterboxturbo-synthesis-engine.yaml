@@ -52,7 +52,7 @@ sections:
                   - OnnxChatterboxTurboSynthesisEngine_Generate_StuckToken_IsCappedAtRunLength
                   - OnnxChatterboxTurboSynthesisEngine_Generate_StuckToken_NeverExceedsCapAnywhere
                   - OnnxChatterboxTurboSynthesisEngine_Generate_CapZero_AllowsUnboundedRepeats
-                  - OnnxChatterboxTurboSynthesisEngine_Generate_StopToken_IsNeverBlocked
+                  - OnnxChatterboxTurboSynthesisEngine_Generate_StopAfterCappedRun_EndsWithoutTruncation
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-Voices
                 title: >-

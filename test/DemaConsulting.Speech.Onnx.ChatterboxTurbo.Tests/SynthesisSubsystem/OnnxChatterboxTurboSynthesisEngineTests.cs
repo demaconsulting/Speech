@@ -115,9 +115,9 @@ public sealed class OnnxChatterboxTurboSynthesisEngineTests
         Assert.Equal(50, result.SpeechTokenCount);
     }
 
-    /// <summary>Proves the stop token is never blocked even when it repeats beyond the cap.</summary>
+    /// <summary>Proves a run that reaches the repeat cap still ends normally, at the stop token, and is not flagged truncated.</summary>
     [Fact]
-    public void OnnxChatterboxTurboSynthesisEngine_Generate_StopToken_IsNeverBlocked()
+    public void OnnxChatterboxTurboSynthesisEngine_Generate_StopAfterCappedRun_EndsWithoutTruncation()
     {
         // Arrange
         var networks = new FakeNetworks([100, 100, OnnxChatterboxTurboSynthesisEngine.StopSpeechToken]);
@@ -169,9 +169,9 @@ public sealed class OnnxChatterboxTurboSynthesisEngineTests
     [Fact]
     public void OnnxChatterboxTurboSynthesisEngine_Generate_Voices_AreEncodedOnceAndFallBack()
     {
-        // Arrange
+        // Arrange: voices with distinct sample values so the encoded clip identifies the voice that was used
         var networks = new FakeNetworks([OnnxChatterboxTurboSynthesisEngine.StopSpeechToken], repeatLast: true);
-        using var engine = Create(networks, voiceCount: 2);
+        using var engine = CreateWith(networks, ConstantVoice("first", 0.1f), ConstantVoice("second", 0.2f));
 
         // Act
         engine.Generate("One.", 1.0f, 0);
@@ -180,8 +180,76 @@ public sealed class OnnxChatterboxTurboSynthesisEngineTests
         engine.Generate("Four.", 1.0f, 99);
         engine.Generate("Five.", 1.0f, -1);
 
-        // Assert
+        // Assert: one encode per voice, in first-use order, each with its own clip
         Assert.Equal(2, networks.EncodeCount);
+        Assert.Equal(0.1f, networks.EncodeInputs[0][0], 3);
+        Assert.Equal(0.2f, networks.EncodeInputs[1][0], 3);
+    }
+
+    /// <summary>Proves an unknown speaker id is spoken with the first voice rather than another voice.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboSynthesisEngine_Generate_UnknownSpeaker_UsesFirstVoiceClip()
+    {
+        // Arrange
+        var networks = new FakeNetworks([OnnxChatterboxTurboSynthesisEngine.StopSpeechToken], repeatLast: true);
+        using var engine = CreateWith(networks, ConstantVoice("first", 0.1f), ConstantVoice("second", 0.2f));
+
+        // Act
+        engine.Generate("Hi.", 1.0f, 7);
+
+        // Assert
+        Assert.Single(networks.EncodeInputs);
+        Assert.Equal(0.1f, networks.EncodeInputs[0][0], 3);
+    }
+
+    /// <summary>Proves the speed argument is ignored, since the model exposes no speed control.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboSynthesisEngine_Generate_Speed_IsIgnored()
+    {
+        // Arrange
+        var networks = new FakeNetworks([100, OnnxChatterboxTurboSynthesisEngine.StopSpeechToken]);
+        using var engine = Create(networks);
+
+        // Act
+        var slow = engine.Generate("Hello there.", 0.5f, 0);
+        var fast = engine.Generate("Hello there.", 2.0f, 0);
+
+        // Assert
+        Assert.Equal(slow.Samples.Length, fast.Samples.Length);
+        Assert.Equal(slow.SampleRate, fast.SampleRate);
+    }
+
+    /// <summary>Proves disposing during a generation stops it at its next step, waits for it, and releases the networks once.</summary>
+    [Fact]
+    public async Task OnnxChatterboxTurboSynthesisEngine_Dispose_DuringGeneration_StopsGenerationAndWaitsForIt()
+    {
+        // Arrange: the first language-model step blocks until released
+        using var entered = new ManualResetEventSlim(false);
+        using var release = new ManualResetEventSlim(false);
+        var networks = new FakeNetworks([100], repeatLast: true)
+        {
+            OnStep = () =>
+            {
+                entered.Set();
+                release.Wait();
+            },
+        };
+        var engine = Create(networks);
+        var cancellation = TestContext.Current.CancellationToken;
+        var generation = Task.Run(() => engine.Generate("Hello there.", 1.0f, 0), cancellation);
+        Assert.True(entered.Wait(TimeSpan.FromSeconds(30), cancellation));
+
+        // Act: dispose from another thread; it must wait for the in-flight generation rather than free the networks under it
+        var disposal = Task.Run(engine.Dispose, cancellation);
+        await Assert.ThrowsAsync<TimeoutException>(() => disposal.WaitAsync(TimeSpan.FromMilliseconds(300), cancellation));
+        Assert.Equal(0, networks.DisposeCount);
+        release.Set();
+
+        // Assert
+        await Assert.ThrowsAsync<ObjectDisposedException>(() => generation);
+        await disposal;
+        Assert.Equal(1, networks.DisposeCount);
+        Assert.Single(networks.Steps);
     }
 
     /// <summary>Proves disposal releases the networks once and later calls throw.</summary>
@@ -395,6 +463,10 @@ public sealed class OnnxChatterboxTurboSynthesisEngineTests
         params ChatterboxTurboReferenceVoice[] voices) =>
         new(networks, Tokenizer, voices, maxNewTokens, 25.0, maxRepeats);
 
+    /// <summary>Creates a one-second voice whose every sample has the given value.</summary>
+    private static ChatterboxTurboReferenceVoice ConstantVoice(string id, float value) =>
+        ChatterboxTurboReferenceVoice.FromSamples(id, Enumerable.Repeat(value, 24000).ToArray(), 24000);
+
     /// <summary>Creates a one-second voice.</summary>
     private static ChatterboxTurboReferenceVoice Voice(string id) =>
         ChatterboxTurboReferenceVoice.FromSamples(id, new float[24000], 24000);
@@ -429,6 +501,9 @@ public sealed class OnnxChatterboxTurboSynthesisEngineTests
 
         /// <summary>Gets the reference audio passed to each encode call.</summary>
         public List<float[]> EncodeInputs { get; } = [];
+
+        /// <summary>Gets or sets an action run at the start of every language-model step.</summary>
+        public Action? OnStep { get; set; }
 
         /// <summary>Gets the number of dispose calls.</summary>
         public int DisposeCount { get; private set; }
@@ -476,6 +551,7 @@ public sealed class OnnxChatterboxTurboSynthesisEngineTests
             /// <inheritdoc/>
             public float[] Step(float[] inputEmbeddings, int sequenceLength, int attentionLength, int firstPosition)
             {
+                _owner.OnStep?.Invoke();
                 _owner.Steps.Add((sequenceLength, attentionLength, firstPosition));
                 var token = _owner._script[Math.Min(_index, _owner._script.Length - 1)];
                 if (_index >= _owner._script.Length && !_owner._repeatLast)

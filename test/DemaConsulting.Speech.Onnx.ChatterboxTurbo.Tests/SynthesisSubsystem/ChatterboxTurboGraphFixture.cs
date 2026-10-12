@@ -26,6 +26,7 @@ internal static class ChatterboxTurboGraphFixture
     /// <param name="namedEncoderOutputs">False to give the encoder differently named (but four) outputs.</param>
     /// <param name="halfEmbeddings">True for a float16 language model <c>inputs_embeds</c> input.</param>
     /// <param name="halfLogits">True for float16 language model logits.</param>
+    /// <param name="halfAuxiliary">True for float16 encoder, embedder and decoder outputs.</param>
     /// <returns>The speech encoder, embedder, language model and decoder paths.</returns>
     public static (string Encoder, string Embedder, string LanguageModel, string Decoder) Write(
         string directory,
@@ -34,7 +35,8 @@ internal static class ChatterboxTurboGraphFixture
         bool halfCache = true,
         bool namedEncoderOutputs = true,
         bool halfEmbeddings = false,
-        bool halfLogits = false)
+        bool halfLogits = false,
+        bool halfAuxiliary = false)
     {
         Directory.CreateDirectory(directory);
         var encoder = Path.Combine(directory, "speech_encoder" + auxiliarySuffix + ".onnx");
@@ -42,10 +44,10 @@ internal static class ChatterboxTurboGraphFixture
         var languageModel = Path.Combine(directory, languageModelName + ".onnx");
         var decoder = Path.Combine(directory, "conditional_decoder" + auxiliarySuffix + ".onnx");
 
-        File.WriteAllBytes(encoder, Encoder(namedEncoderOutputs));
-        File.WriteAllBytes(embedder, Embedder());
+        File.WriteAllBytes(encoder, Encoder(namedEncoderOutputs, halfAuxiliary));
+        File.WriteAllBytes(embedder, Embedder(halfAuxiliary));
         File.WriteAllBytes(languageModel, LanguageModel(halfCache, withPastInputs: true, halfEmbeddings, halfLogits));
-        File.WriteAllBytes(decoder, Decoder());
+        File.WriteAllBytes(decoder, Decoder(halfAuxiliary));
         foreach (var path in new[] { encoder, embedder, languageModel, decoder })
         {
             File.WriteAllBytes(path + "_data", []);
@@ -55,30 +57,40 @@ internal static class ChatterboxTurboGraphFixture
     }
 
     /// <summary>Builds the speech encoder: constants for the four outputs.</summary>
-    public static byte[] Encoder(bool namedOutputs)
+    public static byte[] Encoder(bool namedOutputs, bool half = false)
     {
         var names = namedOutputs
             ? new[] { "audio_features", "audio_tokens", "speaker_embeddings", "speaker_features" }
             : ["out_a", "out_b", "out_c", "out_d"];
-        return new OnnxModelWriter("encoder")
+        var floatType = half ? OnnxModelWriter.Float16 : OnnxModelWriter.Float;
+        var writer = new OnnxModelWriter("encoder")
             .Input("audio_values", OnnxModelWriter.Float, "1", "n")
             .FloatInitializer("c_features", [1, 2, EmbeddingSize], Enumerable.Repeat(0.5f, 2 * EmbeddingSize).ToArray())
             .Int64Initializer("c_tokens", [1, PromptTokens.Length], PromptTokens)
             .FloatInitializer("c_embeddings", [1, 4], [1f, 2f, 3f, 4f])
             .FloatInitializer("c_speaker", [1, 3, 2], [1f, 2f, 3f, 4f, 5f, 6f])
-            .Node("Identity", ["c_features"], [names[0]])
             .Node("Identity", ["c_tokens"], [names[1]])
-            .Node("Identity", ["c_embeddings"], [names[2]])
-            .Node("Identity", ["c_speaker"], [names[3]])
-            .Output(names[0], OnnxModelWriter.Float, "1", "2", "1024")
+            .Output(names[0], floatType, "1", "2", "1024")
             .Output(names[1], OnnxModelWriter.Int64, "1", "3")
-            .Output(names[2], OnnxModelWriter.Float, "1", "4")
-            .Output(names[3], OnnxModelWriter.Float, "1", "3", "2")
-            .Build();
+            .Output(names[2], floatType, "1", "4")
+            .Output(names[3], floatType, "1", "3", "2");
+        foreach (var (source, target) in new[] { ("c_features", names[0]), ("c_embeddings", names[2]), ("c_speaker", names[3]) })
+        {
+            if (half)
+            {
+                writer.Node("Cast", [source], [target], OnnxModelWriter.IntAttribute("to", OnnxModelWriter.Float16));
+            }
+            else
+            {
+                writer.Node("Identity", [source], [target]);
+            }
+        }
+
+        return writer.Build();
     }
 
     /// <summary>Builds the embedding graph: ids wrap modulo the table size; row <c>i</c> holds <c>i / 1000</c> in every column.</summary>
-    public static byte[] Embedder()
+    public static byte[] Embedder(bool half = false)
     {
         var table = new float[TableRows * EmbeddingSize];
         for (var row = 0; row < TableRows; row++)
@@ -86,11 +98,21 @@ internal static class ChatterboxTurboGraphFixture
             Array.Fill(table, row / 1000f, row * EmbeddingSize, EmbeddingSize);
         }
 
-        return new OnnxModelWriter("embedder")
+        var writer = new OnnxModelWriter("embedder")
             .Input("input_ids", OnnxModelWriter.Int64, "1", "s")
             .FloatInitializer("table", [TableRows, EmbeddingSize], table)
             .Int64Initializer("rows", [1], [TableRows])
-            .Node("Mod", ["input_ids", "rows"], ["wrapped_ids"])
+            .Node("Mod", ["input_ids", "rows"], ["wrapped_ids"]);
+        if (half)
+        {
+            return writer
+                .Node("Gather", ["table", "wrapped_ids"], ["gathered"])
+                .Node("Cast", ["gathered"], ["inputs_embeds"], OnnxModelWriter.IntAttribute("to", OnnxModelWriter.Float16))
+                .Output("inputs_embeds", OnnxModelWriter.Float16, "1", "s", "1024")
+                .Build();
+        }
+
+        return writer
             .Node("Gather", ["table", "wrapped_ids"], ["inputs_embeds"])
             .Output("inputs_embeds", OnnxModelWriter.Float, "1", "s", "1024")
             .Build();
@@ -170,12 +192,12 @@ internal static class ChatterboxTurboGraphFixture
     }
 
     /// <summary>Builds the decoder: the waveform is the speech tokens cast to float.</summary>
-    public static byte[] Decoder() =>
+    public static byte[] Decoder(bool half = false) =>
         new OnnxModelWriter("decoder")
             .Input("speech_tokens", OnnxModelWriter.Int64, "1", "n")
             .Input("speaker_embeddings", OnnxModelWriter.Float, "1", "4")
             .Input("speaker_features", OnnxModelWriter.Float, "1", "f", "2")
-            .Node("Cast", ["speech_tokens"], ["waveform"], OnnxModelWriter.IntAttribute("to", OnnxModelWriter.Float))
-            .Output("waveform", OnnxModelWriter.Float, "1", "n")
+            .Node("Cast", ["speech_tokens"], ["waveform"], OnnxModelWriter.IntAttribute("to", half ? OnnxModelWriter.Float16 : OnnxModelWriter.Float))
+            .Output("waveform", half ? OnnxModelWriter.Float16 : OnnxModelWriter.Float, "1", "n")
             .Build();
 }

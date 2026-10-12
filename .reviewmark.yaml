@@ -1907,6 +1907,7 @@ reviews:
       - "docs/design/speech-onnx-chatterboxturbo/model-management-subsystem.md"
       - "docs/verification/speech-onnx-chatterboxturbo/model-management-subsystem.md"
       - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/SpeechModelCatalogChatterboxTurboExtensions.cs"
+      - "test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/ModelManagementSubsystem/SpeechModelCatalogChatterboxTurboExtensionsTests.cs"
 
   # SpeechOnnxChatterboxTurbo-ModelManagementSubsystem-ByteLevelBpeTokenizer Review (one per unit)
   - id: SpeechOnnxChatterboxTurbo-ModelManagementSubsystem-ByteLevelBpeTokenizer
