@@ -1,0 +1,24 @@
+---
+# System.Numerics.Tensors OTS Software Requirements
+#
+# Requirements for the System.Numerics.Tensors vectorized numeric primitives.
+
+sections:
+  - title: OTS Software Requirements
+    sections:
+      - title: System.Numerics.Tensors Requirements
+        requirements:
+          - id: Speech-OTS-SystemNumericsTensors-VectorizedAudioMath
+            title: >-
+              System.Numerics.Tensors shall provide the vectorized float primitives (conversion,
+              division, multiplication, clamping, and dot product) that the Speech audio pipeline
+              uses for bulk sample math.
+            justification: |
+              WAV decoding, windowed-sinc resampling, and volume scaling process large sample
+              buffers; a maintained vectorized primitive library keeps those loops short and fast
+              without hand-written SIMD.
+            tags: [ots]
+            tests:
+              - WavFileAudioCaptureDevice_Start_FixtureFile_DeliversExpectedTotalSampleCount
+              - AudioResampler_Resample_ChangesRateKeepingTone
+              - SynthesisSession_SynthesizeAsync_VolumeOverride_ScalesAndClampsSamples

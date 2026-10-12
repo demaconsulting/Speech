@@ -7,6 +7,26 @@ package Speech {
         comment verificationRef /* Verification: docs/verification/ots/port-audio-sharp2.md */
         comment reqRef /* Requirements: docs/reqstream/ots/port-audio-sharp2.yaml */
     }
+
+    part def SystemNumericsTensors {
+        doc /* Maintained vectorized numeric primitives (TensorPrimitives) used by the Speech
+             * AudioSubsystem and SynthesisSubsystem for bulk sample math. */
+
+        comment designRef /* Design: docs/design/ots/system-numerics-tensors.md */
+        comment verificationRef /* Verification: docs/verification/ots/system-numerics-tensors.md */
+        comment reqRef /* Requirements: docs/reqstream/ots/system-numerics-tensors.yaml */
+    }
+}
+
+package SpeechOnnx {
+    part def MicrosoftMlOnnxRuntime {
+        doc /* Managed ONNX Runtime inference API consumed by the SpeechOnnx, SpeechOnnxKokoro,
+             * SpeechOnnxNemotronStt, and SpeechOnnxChatterboxTurbo libraries. */
+
+        comment designRef /* Design: docs/design/ots/microsoft-ml-onnxruntime.md */
+        comment verificationRef /* Verification: docs/verification/ots/microsoft-ml-onnxruntime.md */
+        comment reqRef /* Requirements: docs/reqstream/ots/microsoft-ml-onnxruntime.yaml */
+    }
 }
 
 package SpeechDemo {

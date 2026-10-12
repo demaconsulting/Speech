@@ -4,10 +4,16 @@ This document describes the overall Off-The-Shelf (OTS) integration strategy for
 
 ## Overview
 
-DemaConsulting.Speech has one runtime NuGet dependency: `PortAudioSharp2`, which provides the
-managed PortAudio binding and brings its supported native runtime packages transitively. The
-library's own source code otherwise depends primarily on the .NET Base Class Library; real audio
-I/O flows through this OTS dependency.
+DemaConsulting.Speech has two runtime NuGet dependencies: `PortAudioSharp2`, which provides the
+managed PortAudio binding and brings its supported native runtime packages transitively, and
+`System.Numerics.Tensors`, which provides the vectorized `TensorPrimitives` used by the audio
+pipeline. The library's own source code otherwise depends primarily on the .NET Base Class
+Library; real audio I/O flows through the first OTS dependency.
+
+The SpeechOnnx family of libraries (`DemaConsulting.Speech.Onnx`, `.Onnx.Kokoro`,
+`.Onnx.NemotronStt`, and `.Onnx.ChatterboxTurbo`) each reference `Microsoft.ML.OnnxRuntime`, the
+managed ONNX Runtime API through which their raw ONNX models run. The Speech library does not
+reference it.
 
 The SpeechSherpa library (`DemaConsulting.Speech.Sherpa`) adds two runtime NuGet dependencies of
 its own, `org.k2fsa.sherpa.onnx` and `SharpCompress`. The first provides the managed local
@@ -31,6 +37,8 @@ requirements-traceability, testing, and quality-reporting pipeline invoked by `b
 | OTS Item | Purpose |
 | --- | --- |
 | PortAudioSharp2 | Managed PortAudio binding and carrier for supported native runtime packages |
+| System.Numerics.Tensors | Vectorized `TensorPrimitives` for the Speech audio pipeline |
+| Microsoft.ML.OnnxRuntime | Managed ONNX Runtime API used by the SpeechOnnx family of libraries |
 | SherpaOnnx | Managed local speech-inference API used by SpeechSherpa |
 | SharpCompress | Managed BZip2/tar archive reader for SpeechSherpa model installs |
 | Avalonia | Cross-platform desktop UI framework hosting the SpeechDemo application |

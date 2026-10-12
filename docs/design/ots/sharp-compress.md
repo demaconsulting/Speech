@@ -4,7 +4,7 @@
 
 SharpCompress is used as the SpeechSherpa library's managed BZip2-compressed tar (`.tar.bz2`)
 archive reader. It was chosen because the .NET BCL has no BZip2 decoder, and sherpa-onnx's own official
-GitHub Releases publish its ASR model archives (including both models added in Phase 7a) as
+GitHub Releases publish its ASR model archives (including the Zipformer and Nemotron models) as
 `.tar.bz2`, so a maintained, permissively-licensed managed decoder is needed to unpack them
 without shelling out to an external `tar`/`bzip2` executable.
 

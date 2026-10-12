@@ -7,7 +7,7 @@ document.
 ### Required Functionality
 
 PortAudioSharp2 provides the managed PortAudio binding used by the internal `PortAudioApi`
-adapter. In this phase, the library relies on it for managed PortAudio initialization, device
+adapter. The library relies on it for managed PortAudio initialization, device
 metadata access, and callback-stream construction.
 
 ### Verification Approach

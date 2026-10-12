@@ -95,6 +95,9 @@ input-files:
   - docs/design/ots.md
   - docs/design/ots/port-audio-sharp2.md
   - docs/design/ots/sherpa-onnx.md
+  - docs/design/ots/sharp-compress.md
+  - docs/design/ots/microsoft-ml-onnxruntime.md
+  - docs/design/ots/system-numerics-tensors.md
   - docs/design/ots/avalonia.md
   - docs/design/ots/community-toolkit-mvvm.md
   - docs/design/ots/buildmark.md

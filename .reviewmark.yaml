@@ -2259,6 +2259,22 @@ reviews:
       - "docs/design/ots/sharp-compress.md"
       - "docs/verification/ots/sharp-compress.md"
 
+  # OTS-MicrosoftMlOnnxRuntime Review (one per OTS item)
+  - id: OTS-MicrosoftMlOnnxRuntime
+    title: Review that Microsoft.ML.OnnxRuntime Provides Required Functionality
+    paths:
+      - "docs/reqstream/ots/microsoft-ml-onnxruntime.yaml"
+      - "docs/design/ots/microsoft-ml-onnxruntime.md"
+      - "docs/verification/ots/microsoft-ml-onnxruntime.md"
+
+  # OTS-SystemNumericsTensors Review (one per OTS item)
+  - id: OTS-SystemNumericsTensors
+    title: Review that System.Numerics.Tensors Provides Required Functionality
+    paths:
+      - "docs/reqstream/ots/system-numerics-tensors.yaml"
+      - "docs/design/ots/system-numerics-tensors.md"
+      - "docs/verification/ots/system-numerics-tensors.md"
+
   # OTS-BuildMark Review (one per OTS item)
   - id: OTS-BuildMark
     title: Review that BuildMark Provides Required Functionality
