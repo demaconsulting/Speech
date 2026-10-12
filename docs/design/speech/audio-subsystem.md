@@ -46,7 +46,11 @@ The subsystem exposes `IAudioCaptureDevice`, `IAudioPlaybackDevice`,
 `IAudioCaptureDeviceProbe`, `IAudioPlaybackDeviceProbe`, `AudioFormat`,
 `AudioDeviceDescription`, `AudioDeviceSelection`, `AudioDeviceFactory`,
 `AudioDeviceUnavailableException`, `AudioDeviceInUseException`, `AudioFileReader`,
-`AudioFileReadOptions`, `AudioClip` and `AudioResampler` as its public API. It consumes
+`AudioFileReadOptions`, `AudioClip`, `AudioResampler`, `AudioDeviceDirection`,
+`AudioCaptureFrameEventArgs`, `UnavailableAudioCaptureDevice`, `UnavailableAudioPlaybackDevice`,
+`UnavailableAudioCaptureDeviceProbe`, `UnavailableAudioPlaybackDeviceProbe`,
+`WavFileAudioCaptureDevice` and `WavFileAudioPlaybackDevice` as its public API. The internal
+`FlacBitReader`, `FlacCrc` and `FlacFrameDecoder` helpers support `FlacDecoder`. It consumes
 `ISpeechDiagnostics` from the
 Diagnostics subsystem to report structural selection, start/stop, and fallback facts without
 ever exposing raw audio content. The ModelManagementSubsystem also consumes `AudioFormat` as a
@@ -167,7 +171,7 @@ real playback backend is available.
 
 **Data Model**: No instance fields. Exposes a single static `Instance` singleton; the
 constructor is private. `IsAvailable` always returns `false`, and `ChannelCount`/`SampleRate`,
-added in Sub-phase 4b mirroring `UnavailableAudioCaptureDevice`'s identical Phase 3 addition,
+mirroring `UnavailableAudioCaptureDevice`,
 always return `0` - reporting a plausible-looking format would mislead a consumer into preparing
 a conversion for audio that will never be played.
 

@@ -20,6 +20,20 @@ public sealed class AudioResamplerTests
         Assert.Throws<ArgumentOutOfRangeException>(() => AudioResampler.DownMix(stereo, 0));
     }
 
+    /// <summary>Proves DownMix drops a trailing partial frame rather than reading past the data.</summary>
+    [Fact]
+    public void AudioResampler_DownMix_PartialTrailingFrame_IsDropped()
+    {
+        // Arrange: one whole stereo frame plus one stray sample
+        float[] ragged = [1f, 0f, 0.75f];
+
+        // Act
+        var mixed = AudioResampler.DownMix(ragged, 2);
+
+        // Assert
+        Assert.Equal([0.5f], mixed);
+    }
+
     /// <summary>Proves Resample preserves the length ratio and a 440 Hz tone's frequency when changing rate.</summary>
     [Theory]
     [InlineData(44100, 24000)]
@@ -76,7 +90,9 @@ public sealed class AudioResamplerTests
 
         // Assert
         Assert.InRange(result.Length, 5999, 6001);
+        Assert.Contains(result, v => Math.Abs(v) > 0.1f);
         Assert.Throws<ArgumentNullException>(() => AudioResampler.ToMonoResampled(null!, 24000));
+        Assert.Throws<ArgumentOutOfRangeException>(() => AudioResampler.ToMonoResampled(clip, 0));
     }
 
     /// <summary>Proves extreme down-sampling of a constant signal keeps unity gain at every output sample, edges included.</summary>

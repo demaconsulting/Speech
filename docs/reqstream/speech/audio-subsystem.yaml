@@ -42,7 +42,8 @@ sections:
           - id: Speech-Audio-Factory
             title: >-
               The AudioSubsystem shall provide a factory that composes capture and playback
-              devices, and their enumeration probes, without ever throwing.
+              devices, and their enumeration probes, with its composition and creation methods never
+              throwing (RefreshDevices may refuse with a documented exception while a device is in use).
             justification: |
               Composition happens at application start-up, where a missing device or backend is
               an ordinary machine state; every factory method must return a working
@@ -145,7 +146,7 @@ sections:
               The AudioSubsystem shall provide a real playback-device implementation that can
               resolve a selected or default output device and stream queued samples.
             justification: |
-              The library's future speech-synthesis pipeline requires a real audio-output sink
+              The library's speech-synthesis pipeline requires a real audio-output sink
               for manual end-to-end use outside CI, while automated tests still need a mockable seam.
             children:
               - Speech-Audio-PortAudioPlaybackDevice-AvailabilityReflectsResolution
@@ -164,7 +165,7 @@ sections:
               writes queued samples to a WAV file as 16-bit PCM instead of rendering them through
               real hardware.
             justification: |
-              Any host application - not only a future command-line tool - needs a deterministic,
+              Any host application - not only a command-line tool - needs a deterministic,
               file-based way to capture synthesized speech (for example, for its own automated
               tests), the same generic need the demo application's own temporary, non-reusable
               WavFileWriter previously served informally.
@@ -187,7 +188,7 @@ sections:
               instead of capturing from real microphone hardware, signaling end-of-file through
               an additive event.
             justification: |
-              Any host application - not only a future command-line tool - needs a deterministic
+              Any host application - not only a command-line tool - needs a deterministic
               way to drive speech recognition from a pre-recorded file, mirroring the identical
               file-based need on the playback side above.
             children:
@@ -245,8 +246,8 @@ sections:
               A playback device resolves whatever format its hardware defaults to, and Write
               carries no format metadata of its own. Downstream consumers - notably speech
               synthesis, whose engine produces one fixed mono rate - cannot resample or upmix
-              correctly without being told the resolved format, mirroring the identical Sub-phase
-              3 capture-side requirement above.
+              correctly without being told the resolved format, mirroring the identical
+              capture-side requirement above.
             children:
               - Speech-Audio-IAudioPlaybackDevice-PlaybackFormat
               - Speech-Audio-PortAudioPlaybackDevice-PlaybackFormat
@@ -278,6 +279,8 @@ sections:
               - UnavailableAudioPlaybackDevice_IsAvailable_Read_ReturnsFalse
               - UnavailableAudioCaptureDeviceProbe_Enumerate_Always_ReturnsEmptyList
               - UnavailableAudioPlaybackDeviceProbe_Enumerate_Always_ReturnsEmptyList
+              - UnavailableAudioCaptureDevice_Start_Always_ThrowsAudioDeviceUnavailableException
+              - UnavailableAudioPlaybackDevice_Write_Always_ThrowsAudioDeviceUnavailableException
 
           - id: Speech-Audio-DeviceRefresh
             title: >-

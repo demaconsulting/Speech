@@ -155,6 +155,7 @@ public sealed class TestFlacEncoder
             output.AddRange(body);
         }
     }
+
     /// <summary>Encodes one frame.</summary>
     private byte[] EncodeFrame(long[][] block, int frameIndex)
     {

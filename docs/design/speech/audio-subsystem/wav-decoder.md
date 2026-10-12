@@ -13,8 +13,12 @@
   including `WAVE_FORMAT_EXTENSIBLE`
 
 **Error Handling**: `InvalidDataException` for a missing header, `fmt` or `data` chunk, a
-truncated chunk, zero channels or rate, or more samples than `maxSamples`; `NotSupportedException`
+truncated chunk, a `data` chunk that precedes `fmt`, zero channels or rate, a sample rate above
+`int.MaxValue`, a `WAVE_FORMAT_EXTENSIBLE` `fmt` chunk shorter than 40 bytes, or more samples than
+`maxSamples`; `NotSupportedException`
 for any other format tag or bit depth.
+
+Float samples are passed through as stored, so a NaN in the file reaches the clip unchanged.
 
 **Dependencies**: `AudioClip`.
 

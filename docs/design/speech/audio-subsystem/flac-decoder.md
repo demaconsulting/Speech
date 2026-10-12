@@ -6,9 +6,9 @@ decoding), `FlacBitReader` (most-significant-bit-first reader), `FlacCrc` (CRC-8
 `FlacStreamInfo` record.
 
 **Data Model**: `FlacStreamInfo` holds the sample rate, channel count, bits per sample, total
-samples (0 when unknown) and the minimum/maximum block size from STREAMINFO. Decoded samples go to
-per-channel `long` buffers that grow on demand, so a hostile declared length cannot force a large
-allocation, and are then interleaved and scaled by `2^(bits-1)`.
+samples (0 when unknown) and the maximum block size from STREAMINFO. Per-channel `long` buffers
+are fixed at the maximum block size, and the interleaved `float` output grows on demand, so a
+hostile declared length cannot force a large allocation; samples are scaled by `2^(bits-1)`.
 
 **Key Methods**:
 
@@ -27,8 +27,9 @@ STREAMINFO MD5 is not verified and damaged frames are not skipped.
 
 **Error Handling**: Every malformed condition (bad sync, reserved codes, CRC mismatch when
 `VerifyChecksums` is set, truncation, a block larger than the STREAMINFO maximum, invalid
-predictor parameters, more samples than `maxSamples`) throws `InvalidDataException` with the byte
-offset of the problem.
+predictor parameters, more samples than `maxSamples`, a damaged ID3v2 prefix, or a frame that
+disagrees with STREAMINFO) throws `InvalidDataException`, with the byte offset of the problem
+where applicable.
 
 **Dependencies**: `AudioClip`.
 

@@ -133,10 +133,9 @@ scenario above.
 Verifies that `PendingSampleCount` increases as samples are written, decreases by exactly the
 number of samples a callback genuinely dequeues (never by a zero-fill shortfall), resets to zero
 once `Stop` clears the queue, and honestly reports zero both for an unresolved real device and
-the shared unavailable fallback - fixing a bug where `SynthesisSession`
-had no way to observe genuine hardware-drain progress and so stopped the device (discarding
-whatever was still queued) as soon as every segment was enqueued, cutting audio off almost
-instantly.
+the shared unavailable fallback, so a consumer such as `SynthesisSession` can observe genuine
+hardware-drain progress rather than stopping the device (discarding whatever was still queued)
+as soon as every segment is enqueued.
 
 #### PortAudio Environment: Platform Mapping and Initialization Caching
 
@@ -219,10 +218,23 @@ exception), mirroring `AudioDeviceUnavailableException`'s identical test shape.
 **Tests**: `UnavailableAudioCaptureDevice_IsAvailable_Read_ReturnsFalse`,
 `UnavailableAudioPlaybackDevice_IsAvailable_Read_ReturnsFalse`,
 `UnavailableAudioCaptureDeviceProbe_Enumerate_Always_ReturnsEmptyList`,
-`UnavailableAudioPlaybackDeviceProbe_Enumerate_Always_ReturnsEmptyList`
+`UnavailableAudioPlaybackDeviceProbe_Enumerate_Always_ReturnsEmptyList`,
+`UnavailableAudioCaptureDevice_Start_Always_ThrowsAudioDeviceUnavailableException`,
+`UnavailableAudioCaptureDevice_Stop_Always_ThrowsAudioDeviceUnavailableException`,
+`UnavailableAudioPlaybackDevice_Start_Always_ThrowsAudioDeviceUnavailableException`,
+`UnavailableAudioPlaybackDevice_Stop_Always_ThrowsAudioDeviceUnavailableException`,
+`UnavailableAudioPlaybackDevice_Write_Always_ThrowsAudioDeviceUnavailableException`
 
 Verifies the shared unavailable fallbacks remain honest and usable as the last-resort
-composition path.
+composition path: availability and enumeration never throw, while invoking an operational member
+(`Start`, `Stop`, `Write`) throws `AudioDeviceUnavailableException`.
+
+#### File Readers and Resampler: Unit-Level Coverage
+
+The managed WAV/FLAC decoding, `AudioFileReader` container detection and size caps,
+`AudioClip`, and `AudioResampler` are verified by their own unit verification documents
+(_AudioFileReader_, _WavDecoder_, _FlacDecoder_, _AudioClip_, and _AudioResampler_ under this
+subsystem); this subsystem document does not duplicate their scenarios.
 
 #### File-Backed Playback Device: Round Trip, Format Disclosure, and Argument Validation
 

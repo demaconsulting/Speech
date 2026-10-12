@@ -76,7 +76,7 @@ public sealed class WavDecoderTests
     [Fact]
     public void WavDecoder_Decode_OverstatedDataSize_IsClamped()
     {
-        // Arrange: 3 mono-pair samples = 6 bytes for stereo means 1 whole frame (4 bytes) + 2 stray bytes
+        // Arrange: 6 data bytes of stereo 16-bit audio is one whole frame (4 bytes) plus 2 stray bytes
         var image = Wav(1, 8000, 16, 2, new byte[] { 0, 0, 0, 0x40, 0, 0x20 });
         BinaryPrimitives.WriteUInt32LittleEndian(image.AsSpan(40), 1_000_000);
 
@@ -105,11 +105,11 @@ public sealed class WavDecoderTests
         var shortFmt = Riff(("fmt ", new byte[8]), ("data", new byte[2]));
         var noRate = Riff(("fmt ", Format(1, 0, 16, 1)), ("data", new byte[2]));
         var noChannels = Riff(("fmt ", Format(1, 8000, 16, 0)), ("data", new byte[2]));
-        var shortExtensible = Format(0xFFFE, 8000, 16, 1);
+        var truncatedExtensible = Format(0xFFFE, 8000, 16, 1);
         var truncated = Wav(1, 8000, 16, 1, new byte[4])[..30];
 
         // Act / Assert
-        foreach (var image in new[] { noData, dataFirst, shortFmt, noRate, noChannels, truncated, Riff(("fmt ", shortExtensible), ("data", new byte[2])) })
+        foreach (var image in new[] { noData, dataFirst, shortFmt, noRate, noChannels, truncated, Riff(("fmt ", truncatedExtensible), ("data", new byte[2])) })
         {
             Assert.Throws<InvalidDataException>(() => AudioFileReader.Read(new MemoryStream(image)));
         }

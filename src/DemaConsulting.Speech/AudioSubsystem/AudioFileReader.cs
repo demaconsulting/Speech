@@ -102,7 +102,7 @@ public static class AudioFileReader
 
     /// <summary>
     ///     Derives the largest input size, in bytes, a file allowed to decode to <see cref="AudioFileReadOptions.MaxSamples"/>
-    ///     samples can have: at most four bytes per sample (32-bit PCM/float, or incompressible 32-bit FLAC) plus slack
+    ///     samples can have: at most five bytes per sample (32-bit PCM/float, or incompressible 32-bit FLAC with frame overhead) plus slack
     ///     for headers, tags and frame overhead, capped at the largest array length.
     /// </summary>
     private static long GetMaxBytes(AudioFileReadOptions options)

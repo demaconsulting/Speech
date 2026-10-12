@@ -38,6 +38,35 @@ public sealed class AudioFileReaderTests
         }
     }
 
+    /// <summary>Proves a WAV file is also read by content when its extension is unrelated.</summary>
+    [Fact]
+    public void AudioFileReader_Read_WavUnderUnrelatedExtension_DetectsWavByContent()
+    {
+        // Arrange: a minimal 16-bit mono WAV holding one sample
+        byte[] image =
+        [
+            .. "RIFF"u8.ToArray(), 38, 0, 0, 0, .. "WAVE"u8.ToArray(),
+            .. "fmt "u8.ToArray(), 16, 0, 0, 0, 1, 0, 1, 0, 0x40, 0x1F, 0, 0, 0x80, 0x3E, 0, 0, 2, 0, 16, 0,
+            .. "data"u8.ToArray(), 2, 0, 0, 0, 0, 0x40,
+        ];
+        var path = Path.Combine(Path.GetTempPath(), $"speech-{Guid.NewGuid():N}.dat");
+        File.WriteAllBytes(path, image);
+
+        try
+        {
+            // Act
+            var clip = AudioFileReader.Read(path);
+
+            // Assert
+            Assert.Equal(8000, clip.SampleRate);
+            Assert.Equal([0.5f], clip.Samples);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     /// <summary>Proves error cases: missing file, unknown format, bad options and path-qualified messages.</summary>
     [Fact]
     public void AudioFileReader_Read_Errors_AreReported()

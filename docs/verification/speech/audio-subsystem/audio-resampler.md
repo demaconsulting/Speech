@@ -8,12 +8,13 @@ ideal tone at the output rate.
 #### Test Environment
 
 - **Framework**: xUnit v3 running under the .NET SDK; project `test/DemaConsulting.Speech.Tests`
-- **Isolation**: in-memory images and files in the test output or temp directory; no network
+- **Isolation**: in-memory sample arrays and clips only; no files or network
 
 #### Acceptance Criteria
 
 Down-mix averages channels, resampling preserves duration and tone within 0.02 of full scale, equal
-rates copy, and invalid arguments throw.
+rates copy, extreme down-sampling of a constant signal keeps unity gain, and invalid
+arguments (null clip, non-positive rate or channel count) throw.
 
 #### Test Scenarios
 

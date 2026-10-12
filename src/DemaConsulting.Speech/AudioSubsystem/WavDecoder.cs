@@ -107,7 +107,7 @@ internal static class WavDecoder
             throw new InvalidDataException("The WAV file declares no channels or no sample rate.");
         }
 
-        var supported = tag == FormatPcm && bits is 8 or 16 or 24 or 32 || tag == FormatFloat && bits == 32;
+        var supported = (tag == FormatPcm && bits is 8 or 16 or 24 or 32) || (tag == FormatFloat && bits == 32);
         if (!supported)
         {
             throw new NotSupportedException(
