@@ -903,4 +903,125 @@ public class RecognitionPanelViewModelTests
         // Act & Assert: the model-selection control remains enabled at the Error state
         Assert.True(viewModel.CanChangeModel);
     }
+
+    /// <summary>
+    ///     Proves that Start reports the exception's explanation, rather than throwing, when the
+    ///     cached engine is already leased to another session.
+    /// </summary>
+    [Fact]
+    public async Task RecognitionPanelViewModel_Start_EngineBusy_ReportsErrorState()
+    {
+        // Arrange: an engine that refuses to create a session because it is busy
+        var descriptor = FakeSpeechModel.Descriptor("stt", SpeechModelState.Downloaded, role: SpeechModelRole.Recognition);
+        var deviceService = Substitute.For<IAudioDeviceService>();
+        var captureDevice = CaptureDevice();
+        deviceService.CreateCaptureDevice(Arg.Any<AudioDeviceSelection?>()).Returns(captureDevice);
+        var engine = new FakeSpeechRecognizerEngine
+        {
+            CreateSessionException = new RecognitionEngineBusyException("The engine is busy."),
+        };
+        var viewModel = new RecognitionPanelViewModel(
+            Catalog(descriptor), deviceService, DeviceSelection(), SessionFactory(engine));
+
+        // Act: attempt to start
+        await viewModel.StartCommand.ExecuteAsync(null);
+
+        // Assert: the explanation is reported and no session is running
+        Assert.Equal("The engine is busy.", viewModel.StatusMessage);
+        Assert.Equal(RecognitionStreamingState.Error, viewModel.State);
+        Assert.False(viewModel.CanStop);
+        Assert.Empty(engine.CreatedSessions);
+    }
+
+    /// <summary>
+    ///     Proves that a result stream faulting while listening reports the fault's explanation
+    ///     through the status message rather than crashing the panel.
+    /// </summary>
+    [Fact]
+    public async Task RecognitionPanelViewModel_ResultStream_SessionFaulted_ReportsFaultMessage()
+    {
+        // Arrange: a listening session
+        var descriptor = FakeSpeechModel.Descriptor("stt", SpeechModelState.Downloaded, role: SpeechModelRole.Recognition);
+        var deviceService = Substitute.For<IAudioDeviceService>();
+        var captureDevice = CaptureDevice();
+        deviceService.CreateCaptureDevice(Arg.Any<AudioDeviceSelection?>()).Returns(captureDevice);
+        var session = new FakeRecognitionSession();
+        var engine = new FakeSpeechRecognizerEngine { SessionFactory = _ => session };
+        var viewModel = new RecognitionPanelViewModel(
+            Catalog(descriptor), deviceService, DeviceSelection(), SessionFactory(engine));
+        await viewModel.StartCommand.ExecuteAsync(null);
+
+        // Act: the result stream faults, then wait (bounded) for the background pump to report it
+        session.Fault(new RecognitionSessionFaultedException("The result stream faulted."));
+        for (var attempt = 0; attempt < 200 && viewModel.StatusMessage is null; attempt++)
+        {
+            await Task.Delay(10, TestContext.Current.CancellationToken);
+        }
+
+        // Assert: the fault's explanation is reported
+        Assert.Equal("The result stream faulted.", viewModel.StatusMessage);
+    }
+
+    /// <summary>
+    ///     Proves that a refresh selects the first available model when the previously selected
+    ///     model is no longer installed.
+    /// </summary>
+    [Fact]
+    public void RecognitionPanelViewModel_Refresh_SelectedModelNoLongerInstalled_FallsBackToFirstModel()
+    {
+        // Arrange: a catalog offering two models, with the second selected
+        var catalog = Substitute.For<IModelCatalogService>();
+        var descriptors = new[]
+        {
+            FakeSpeechModel.Descriptor("stt-a", SpeechModelState.Downloaded, role: SpeechModelRole.Recognition),
+            FakeSpeechModel.Descriptor("stt-b", SpeechModelState.Downloaded, role: SpeechModelRole.Recognition),
+        };
+        catalog.Enumerate().Returns(_ => descriptors);
+        var viewModel = new RecognitionPanelViewModel(
+            catalog, Substitute.For<IAudioDeviceService>(), DeviceSelection(),
+            Substitute.For<IRecognizerSessionFactory>());
+        viewModel.SelectedModel = viewModel.AvailableModels[1];
+
+        // Act: the selected model is removed from the catalog and the panel refreshes
+        descriptors =
+        [
+            FakeSpeechModel.Descriptor("stt-a", SpeechModelState.Downloaded, role: SpeechModelRole.Recognition),
+            FakeSpeechModel.Descriptor("stt-c", SpeechModelState.Downloaded, role: SpeechModelRole.Recognition),
+        ];
+        viewModel.Refresh();
+
+        // Assert: the first available model is selected
+        Assert.Equal("stt-a", viewModel.SelectedModel?.Id);
+    }
+
+    /// <summary>
+    ///     Proves that starting a second run clears the previous run's transcript and status
+    ///     message.
+    /// </summary>
+    [Fact]
+    public async Task RecognitionPanelViewModel_Start_SecondRun_ClearsPreviousTranscriptAndStatus()
+    {
+        // Arrange: a completed first run that committed a final line and ended with a stopped message
+        var descriptor = FakeSpeechModel.Descriptor("stt", SpeechModelState.Downloaded, role: SpeechModelRole.Recognition);
+        var deviceService = Substitute.For<IAudioDeviceService>();
+        var captureDevice = CaptureDevice();
+        deviceService.CreateCaptureDevice(Arg.Any<AudioDeviceSelection?>()).Returns(captureDevice);
+        var engine = new FakeSpeechRecognizerEngine();
+        var viewModel = new RecognitionPanelViewModel(
+            Catalog(descriptor), deviceService, DeviceSelection(), SessionFactory(engine));
+        await viewModel.StartCommand.ExecuteAsync(null);
+        engine.CreatedSessions[0].PushResult(new SpeechRecognitionResult("first run", true));
+        await viewModel.StopCommand.ExecuteAsync(null);
+        Assert.Equal(["first run"], viewModel.Finals);
+        Assert.Equal(RecognitionPanelViewModel.StoppedMessage, viewModel.StatusMessage);
+
+        // Act: start again
+        await viewModel.StartCommand.ExecuteAsync(null);
+
+        // Assert: the previous run's transcript and message are gone
+        Assert.Empty(viewModel.Finals);
+        Assert.Equal(string.Empty, viewModel.Partial);
+        Assert.Null(viewModel.StatusMessage);
+        Assert.Equal(RecognitionStreamingState.Listening, viewModel.State);
+    }
 }

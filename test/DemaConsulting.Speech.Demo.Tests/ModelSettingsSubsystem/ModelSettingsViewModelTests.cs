@@ -380,4 +380,132 @@ public class ModelSettingsViewModelTests
         Assert.Equal("alto", viewModel.BuildValueBag()["voice"]);
         Assert.Throws<ArgumentNullException>(() => viewModel.RestoreValues(null!));
     }
+
+    /// <summary>
+    ///     Proves that restoring wrongly typed values (a string for a numeric, a number for a
+    ///     boolean, a number for a choice) ignores every one of them and leaves each control at
+    ///     its default.
+    /// </summary>
+    [Fact]
+    public void ModelSettingsViewModel_RestoreValues_WrongTypedValues_KeepsDefaults()
+    {
+        // Arrange: a panel over all three parameter kinds, at their defaults
+        var viewModel = new ModelSettingsViewModel(
+            new FakeSpeechModel("m", "M", SpeechModelRole.Synthesis, [NumericParam, ChoiceParam, BooleanParam]));
+
+        // Act: restore a bag whose every value has the wrong type for its parameter
+        viewModel.RestoreValues(new Dictionary<string, object>
+        {
+            ["speed"] = "fast",
+            ["voice"] = 3,
+            ["denoise"] = 1.0,
+        });
+
+        // Assert: nothing was applied
+        var bag = viewModel.BuildValueBag();
+        Assert.Equal(1.0, bag["speed"]);
+        Assert.Equal("alto", bag["voice"]);
+        Assert.True((bool)bag["denoise"]);
+    }
+
+    /// <summary>
+    ///     Proves that a model declaring the same parameter id twice does not fault the value
+    ///     bag: both presenters are rendered, and the later presenter's value wins.
+    /// </summary>
+    [Fact]
+    public void ModelSettingsViewModel_BuildValueBag_DuplicateParameterIds_LaterPresenterWins()
+    {
+        // Arrange: two numeric parameters sharing the id "speed", with different defaults
+        var duplicate = new NumericParameter(
+            "speed", "Speed again", "Duplicate id.", new NumericParameterBounds(0.5, 2.0, 0.1, 1.5), "x");
+        var model = new FakeSpeechModel(parameters: [NumericParam, duplicate]);
+        var viewModel = new ModelSettingsViewModel { Model = model };
+
+        // Act: assemble the value bag
+        var bag = viewModel.BuildValueBag();
+
+        // Assert: both presenters exist, and the bag holds a single entry carrying the later value
+        Assert.Equal(2, viewModel.Parameters.Count);
+        var entry = Assert.Single(bag);
+        Assert.Equal("speed", entry.Key);
+        Assert.Equal(1.5, entry.Value);
+    }
+
+    /// <summary>
+    ///     Proves that assigning no model after a model was presented discards every presenter
+    ///     and returns the panel to the "no model" empty state.
+    /// </summary>
+    [Fact]
+    public void ModelSettingsViewModel_Model_ChangedToNull_ClearsPresentersAndReportsNoModelState()
+    {
+        // Arrange: a panel presenting one parameter
+        var viewModel = new ModelSettingsViewModel(new FakeSpeechModel(parameters: [NumericParam]));
+        Assert.Single(viewModel.Parameters);
+
+        // Act: deselect the model
+        viewModel.Model = null;
+
+        // Assert: no presenters remain, and the panel explains that no model is selected
+        Assert.Empty(viewModel.Parameters);
+        Assert.False(viewModel.HasModel);
+        Assert.True(viewModel.IsEmpty);
+        Assert.Equal(ModelSettingsViewModel.NoModelMessage, viewModel.EmptyMessage);
+        Assert.Empty(viewModel.BuildValueBag());
+    }
+
+    /// <summary>
+    ///     Proves that assigning a model announces every derived empty-state value, so a bound
+    ///     view cannot show a stale message.
+    /// </summary>
+    [Fact]
+    public void ModelSettingsViewModel_Model_Changed_RaisesEmptyStateNotifications()
+    {
+        // Arrange: a panel with no model, recording every property-changed notification
+        var viewModel = new ModelSettingsViewModel();
+        var raised = new List<string?>();
+        viewModel.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+        // Act: select a model that declares a parameter
+        viewModel.Model = new FakeSpeechModel(parameters: [BooleanParam]);
+
+        // Assert: every derived value was announced
+        Assert.Contains(nameof(ModelSettingsViewModel.HasModel), raised);
+        Assert.Contains(nameof(ModelSettingsViewModel.HasParameters), raised);
+        Assert.Contains(nameof(ModelSettingsViewModel.IsEmpty), raised);
+        Assert.Contains(nameof(ModelSettingsViewModel.EmptyMessage), raised);
+    }
+
+    /// <summary>
+    ///     Proves that a parameter kind the panel does not recognize is skipped rather than
+    ///     faulting the panel, while the recognized parameters around it are still presented.
+    /// </summary>
+    [Fact]
+    public void ModelSettingsViewModel_Model_UnrecognizedParameterKind_SkipsItAndPresentsTheRest()
+    {
+        // Arrange: a model declaring an unrecognized parameter kind between two recognized ones
+        var model = new FakeSpeechModel(parameters: [NumericParam, new UnrecognizedParameter(), BooleanParam]);
+
+        // Act: select it
+        var viewModel = new ModelSettingsViewModel { Model = model };
+
+        // Assert: only the recognized parameters are presented, in declaration order
+        Assert.Equal(2, viewModel.Parameters.Count);
+        Assert.IsType<NumericParameterViewModel>(viewModel.Parameters[0]);
+        Assert.IsType<BooleanParameterViewModel>(viewModel.Parameters[1]);
+    }
+
+    /// <summary>
+    ///     A parameter implementation of a kind the panel has no presenter for.
+    /// </summary>
+    private sealed class UnrecognizedParameter : ISpeechModelParameter
+    {
+        /// <inheritdoc/>
+        public string Id => "unrecognized";
+
+        /// <inheritdoc/>
+        public string DisplayName => "Unrecognized";
+
+        /// <inheritdoc/>
+        public string Description => "A parameter kind with no presenter.";
+    }
 }

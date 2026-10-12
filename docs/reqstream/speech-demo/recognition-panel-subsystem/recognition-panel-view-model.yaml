@@ -1,0 +1,329 @@
+---
+# Software Unit Requirements for the SpeechDemo RecognitionPanelViewModel
+#
+# These requirements describe the design-level behavior of the RecognitionPanelViewModel unit - the
+# speech-to-text panel's presentation state: model offering, the Start/Stop streaming lifecycle,
+# engine and session caching, the partial-then-final transcript, and the honest unavailable states -
+# decomposing the parent RecognitionPanelSubsystem requirements.
+
+sections:
+  - title: SpeechDemo Requirements
+    sections:
+      - title: RecognitionPanelSubsystem Requirements
+        sections:
+          - title: RecognitionPanelViewModel Requirements
+            requirements:
+              - id: SpeechDemo-Recognition-PanelDependenciesRequired
+                title: >-
+                  The RecognitionPanelViewModel shall reject a missing dependency with an
+                  argument-null error.
+                justification: |
+                  A missing service is a composition mistake that must surface at construction
+                  instead of as a later, unrelated failure during Start.
+                tests:
+                  - RecognitionPanelViewModel_Constructor_NullDependency_ThrowsArgumentNullException
+
+              - id: SpeechDemo-Recognition-ModelSelection
+                title: >-
+                  The RecognitionPanelViewModel shall offer only the installed recognition models
+                  a user may choose to transcribe with.
+                justification: |
+                  A model of the wrong role, or one not yet downloaded, cannot honestly transcribe
+                  audio; offering it would let a user start a session that can only fail.
+                tests:
+                  - RecognitionPanelViewModel_Refresh_MixedCatalog_OffersOnlyInstalledRecognitionModels
+
+              - id: SpeechDemo-Recognition-ModelSelectionPreserved
+                title: >-
+                  The RecognitionPanelViewModel shall keep the current model selection across a
+                  refresh where that model is still installed, and otherwise fall back to the
+                  first offered model.
+                justification: |
+                  Preserving a still-installed selection keeps the panel from resetting a choice
+                  the user already made; falling back keeps the selection valid when the chosen
+                  model is removed.
+                tests:
+                  - RecognitionPanelViewModel_Refresh_ModelStillInstalled_PreservesSelection
+                  - RecognitionPanelViewModel_Refresh_SelectedModelNoLongerInstalled_FallsBackToFirstModel
+
+              - id: SpeechDemo-Recognition-HonestEmptyCatalogState
+                title: >-
+                  The RecognitionPanelViewModel shall explain, rather than silently show nothing,
+                  when no installed recognition model exists to choose from.
+                justification: |
+                  Consistent with the honest-empty-state precedent set by the model catalog panel,
+                  an unexplained empty picker reads to a user as a broken application rather than
+                  an expected pre-download state.
+                tests:
+                  - RecognitionPanelViewModel_Constructor_NoInstalledRecognitionModel_ReportsHonestEmptyState
+
+              - id: SpeechDemo-Recognition-AutoRefreshOnInstall
+                title: >-
+                  The RecognitionPanelViewModel shall refresh its offered models automatically
+                  when a recognition-role model is installed.
+                justification: |
+                  A user who downloads a recognition model from the Model Catalog panel should see
+                  it become available on this panel immediately, without a manual Refresh click or
+                  an application restart.
+                tests:
+                  - RecognitionPanelViewModel_ModelInstalled_MatchingRole_TriggersRefresh
+
+              - id: SpeechDemo-Recognition-AutoRefreshIgnoresOtherRoles
+                title: >-
+                  The RecognitionPanelViewModel shall not refresh its offered models when a
+                  model of another role is installed.
+                justification: |
+                  An unrelated synthesis-model install must not cause a spurious refresh of the
+                  recognition picker.
+                tests:
+                  - RecognitionPanelViewModel_ModelInstalled_NonMatchingRole_DoesNotTriggerRefresh
+
+              - id: SpeechDemo-Recognition-AutoRefreshStopsAfterDispose
+                title: >-
+                  The RecognitionPanelViewModel shall stop reacting to model installs once it is
+                  disposed.
+                justification: |
+                  A disposed panel must not keep refreshing itself in response to later installs.
+                tests:
+                  - RecognitionPanelViewModel_Dispose_UnsubscribesFromModelInstalled_NoRefreshAfterDispose
+
+              - id: SpeechDemo-Recognition-StopSession
+                title: >-
+                  The RecognitionPanelViewModel shall stop an active session when Stop is invoked,
+                  returning to the idle state while keeping the loaded engine.
+                justification: |
+                  A user must be able to end a streaming session at any time; keeping the engine
+                  lets the next Start avoid reloading the model.
+                tests:
+                  - RecognitionPanelViewModel_Stop_DuringListening_StopsWithoutDisposingSession
+
+              - id: SpeechDemo-Recognition-StopIdleSafe
+                title: >-
+                  The RecognitionPanelViewModel shall treat Stop with no active session as a safe
+                  no-op.
+                justification: |
+                  Stop can be invoked at any time, including when nothing is listening; it must
+                  not fault or change state.
+                tests:
+                  - RecognitionPanelViewModel_Stop_NothingListening_IsSafeNoOp
+
+              - id: SpeechDemo-Recognition-ConcurrentStopSafe
+                title: >-
+                  The RecognitionPanelViewModel shall let two concurrent Stop invocations both
+                  complete without throwing.
+                justification: |
+                  A double click or a stop racing an invalidation must not race to double-dispose
+                  the same session.
+                tests:
+                  - RecognitionPanelViewModel_Stop_CalledTwiceConcurrently_BothCompleteWithoutThrowing
+
+              - id: SpeechDemo-Recognition-EngineReuse
+                title: >-
+                  The RecognitionPanelViewModel shall reuse the loaded recognizer engine across
+                  Start/Stop cycles for the same model, creating a fresh single-use session for
+                  each Start.
+                justification: |
+                  Reloading the (expensive) engine on every click would reload the model from
+                  scratch each turn, contradicting the library's own "construct once, reuse across
+                  many sessions" guidance for ISpeechRecognizerEngine; a fresh session is still
+                  required per Start because a session is single-use.
+                tests:
+                  - RecognitionPanelViewModel_StartStopStart_SameSelection_ReusesEngine
+
+              - id: SpeechDemo-Recognition-ModelChangeInvalidatesEngine
+                title: >-
+                  The RecognitionPanelViewModel shall discard the cached recognizer engine when
+                  the selected model changes.
+                justification: |
+                  A cached engine is bound to its model; reusing it after a model change would
+                  transcribe with the wrong model.
+                tests:
+                  - RecognitionPanelViewModel_SelectedModelChanged_InvalidatesCachedEngine
+
+              - id: SpeechDemo-Recognition-ModelChangeWhileListeningStopsFirst
+                title: >-
+                  The RecognitionPanelViewModel shall stop an active session before discarding
+                  the engine when the selected model changes while listening.
+                justification: |
+                  The model property is only disabled in the view, not guarded at the model
+                  level; invalidating without stopping would leave the panel listening with no
+                  way to stop it.
+                tests:
+                  - RecognitionPanelViewModel_SelectedModelChanged_WhileListening_StopsAndInvalidatesEngine
+
+              - id: SpeechDemo-Recognition-DeviceChangeInvalidatesSession
+                title: >-
+                  The RecognitionPanelViewModel shall discard only the cached session, keeping the
+                  engine, when the selected capture device changes.
+                justification: |
+                  A session, not an engine, is bound to a capture device; reloading the engine on
+                  a device change would be needless work.
+                tests:
+                  - RecognitionPanelViewModel_SelectedCaptureDeviceChanged_InvalidatesSessionButNotEngine
+
+              - id: SpeechDemo-Recognition-DeviceChangeWhileListeningStopsFirst
+                title: >-
+                  The RecognitionPanelViewModel shall stop an active session before discarding it
+                  when the selected capture device changes while listening.
+                justification: |
+                  The capture picker is never disabled while listening; discarding the session
+                  without stopping it would leave the panel stuck listening on an abandoned
+                  device.
+                tests:
+                  - RecognitionPanelViewModel_SelectedCaptureDeviceChanged_WhileListening_StopsAndInvalidatesSession
+
+              - id: SpeechDemo-Recognition-DeviceRefreshInvalidatesSession
+                title: >-
+                  The RecognitionPanelViewModel shall discard only the cached session, keeping the
+                  engine, when a shared device refresh occurs.
+                justification: |
+                  A device refresh can replace the underlying capture device object without
+                  changing the selected name, so the cached session must be discarded even though
+                  no selection property changed; the engine is not bound to a device.
+                tests:
+                  - RecognitionPanelViewModel_DeviceRefresh_InvalidatesCachedSessionButNotEngine
+
+              - id: SpeechDemo-Recognition-TranscriptSequencing
+                title: >-
+                  The RecognitionPanelViewModel shall replace the trailing provisional transcript
+                  line with each new partial result.
+                justification: |
+                  A live captioning display must show the most recent provisional guess without
+                  accumulating every intermediate guess as noise.
+                tests:
+                  - RecognitionPanelViewModel_ResultReceived_PartialThenFinal_UpdatesTranscriptInOrder
+
+              - id: SpeechDemo-Recognition-TranscriptFinalCommit
+                title: >-
+                  The RecognitionPanelViewModel shall commit a final result to the ordered list of
+                  finished lines and clear the trailing partial.
+                justification: |
+                  A finished utterance must become a stable line the instant the recognizer
+                  considers it final.
+                tests:
+                  - RecognitionPanelViewModel_ResultReceived_PartialThenFinal_UpdatesTranscriptInOrder
+
+              - id: SpeechDemo-Recognition-TranscriptText
+                title: >-
+                  The RecognitionPanelViewModel shall render the transcript text as every
+                  committed line in order followed by any in-progress partial.
+                justification: |
+                  A single text rendering lets the view and copy-to-clipboard show exactly what
+                  the user has heard so far.
+                tests:
+                  - RecognitionPanelViewModel_BuildTranscriptText_FinalsAndPartial_RendersInOrder
+
+              - id: SpeechDemo-Recognition-TranscriptResetOnStart
+                title: >-
+                  The RecognitionPanelViewModel shall clear the previous transcript and status
+                  message when a new session starts.
+                justification: |
+                  A new run must not show the previous run's lines or a stale outcome message.
+                tests:
+                  - RecognitionPanelViewModel_Start_SecondRun_ClearsPreviousTranscriptAndStatus
+
+              - id: SpeechDemo-Recognition-HonestUnavailableStates
+                title: >-
+                  The RecognitionPanelViewModel shall report an explanatory error state, rather
+                  than a crash or a silent no-op, when the loaded engine reports itself
+                  unavailable.
+                justification: |
+                  A user evaluating the library on a machine with an engine fault beyond the
+                  library's control must see why Start did nothing, matching the library's own
+                  "nothing throws at composition" guarantee carried through to the panel.
+                tests:
+                  - RecognitionPanelViewModel_Start_RecognizerUnavailable_ReportsErrorStateAndDisposes
+
+              - id: SpeechDemo-Recognition-NoModelSelectedReported
+                title: >-
+                  The RecognitionPanelViewModel shall report an explanatory error state when Start
+                  is invoked with no model selected.
+                justification: |
+                  A user who clicks Start before choosing a model must see why nothing happened.
+                tests:
+                  - RecognitionPanelViewModel_Start_NoModelSelected_ReportsErrorState
+
+              - id: SpeechDemo-Recognition-NoCaptureDeviceReported
+                title: >-
+                  The RecognitionPanelViewModel shall report an explanatory error state when Start
+                  is invoked with no capture device available.
+                justification: |
+                  A user on a machine with no microphone must see why Start did nothing.
+                tests:
+                  - RecognitionPanelViewModel_Start_NoCaptureDevice_ReportsErrorState
+
+              - id: SpeechDemo-Recognition-SessionStartFailureReported
+                title: >-
+                  The RecognitionPanelViewModel shall report an explanatory error state when the
+                  created session fails to start.
+                justification: |
+                  A session can be unavailable only once it is started; that failure must be
+                  explained rather than thrown to the UI.
+                tests:
+                  - RecognitionPanelViewModel_Start_RecognizerStartThrows_ReportsErrorStateAndDisposes
+
+              - id: SpeechDemo-Recognition-EngineBusyReported
+                title: >-
+                  The RecognitionPanelViewModel shall report an explanatory error state when the
+                  engine is busy with another session.
+                justification: |
+                  An engine serves one session at a time; refusing a second session is an expected
+                  outcome that must be explained, not thrown.
+                tests:
+                  - RecognitionPanelViewModel_Start_EngineBusy_ReportsErrorState
+
+              - id: SpeechDemo-Recognition-SessionFaultedReported
+                title: >-
+                  The RecognitionPanelViewModel shall report an explanatory error state when an
+                  active session transitions to a faulted state after Start completes.
+                justification: |
+                  A session can fault asynchronously, for example when the capture device is lost;
+                  that must be reported with the same honesty as a failure found during Start.
+                tests:
+                  - RecognitionPanelViewModel_StateChanged_SessionTransitionsToFaulted_ReportsErrorState
+
+              - id: SpeechDemo-Recognition-ResultStreamFaultReported
+                title: >-
+                  The RecognitionPanelViewModel shall report the fault message when the session's
+                  result stream ends with a session fault.
+                justification: |
+                  A fault surfaced through the result stream rather than the state notification
+                  must still be explained rather than silently ending the transcript.
+                tests:
+                  - RecognitionPanelViewModel_ResultStream_SessionFaulted_ReportsFaultMessage
+
+              - id: SpeechDemo-Recognition-FailedAttemptReleasesResources
+                title: >-
+                  The RecognitionPanelViewModel shall dispose any engine or session it created
+                  for a failed Start attempt.
+                justification: |
+                  A recognizer engine and its session own unmanaged inference resources and a
+                  capture device; leaking them from a failed attempt would starve the next
+                  attempt.
+                tests:
+                  - RecognitionPanelViewModel_Start_RecognizerUnavailable_ReportsErrorStateAndDisposes
+                  - RecognitionPanelViewModel_Start_RecognizerStartThrows_ReportsErrorStateAndDisposes
+
+              - id: SpeechDemo-Recognition-ResourceLifetime
+                title: >-
+                  The RecognitionPanelViewModel shall release an active session and the cached
+                  recognizer engine when the panel is disposed, without throwing.
+                justification: |
+                  A recognizer engine and its session own unmanaged inference resources and a live
+                  capture device; leaking either when the panel's host shuts down would starve the
+                  next session or leave the device open.
+                tests:
+                  - RecognitionPanelViewModel_Dispose_ReleasesActiveSessionWithoutThrowing
+
+              - id: SpeechDemo-Recognition-ModelSwitchGuard
+                title: >-
+                  The RecognitionPanelViewModel shall report that the model may be changed in
+                  every state except while listening.
+                justification: |
+                  Switching the selected recognition model while a streaming session is active
+                  would leave a running recognizer bound to a model no longer reflected in
+                  SelectedModel; the view disables selection while this value is false, and a user
+                  must be able to pick another model after a failed attempt.
+                tests:
+                  - RecognitionPanelViewModel_CanChangeModel_TogglesAcrossStateTransitions
+                  - RecognitionPanelViewModel_CanChangeModel_ErrorState_IsTrue

@@ -1,0 +1,115 @@
+---
+# Software Unit Requirements for the SpeechDemo ModelSettingsViewModel
+#
+# These requirements describe the design-level behavior of the ModelSettingsViewModel unit - the
+# settings panel's presentation state: model switching, the honest empty states, and value-bag
+# capture and restore - decomposing the parent ModelSettingsSubsystem requirements.
+
+sections:
+  - title: SpeechDemo Requirements
+    sections:
+      - title: ModelSettingsSubsystem Requirements
+        sections:
+          - title: ModelSettingsViewModel Requirements
+            requirements:
+              - id: SpeechDemo-Settings-ModelSwitch
+                title: >-
+                  The ModelSettingsViewModel shall replace its presented parameters whenever a
+                  different model is assigned, dropping any presenter the new model does not
+                  declare.
+                justification: |
+                  A newly selected model's parameter set is unrelated to the previous one's;
+                  keeping a stale presenter alive across a model change would let the panel offer
+                  a control for a parameter the new model does not declare.
+                tests:
+                  - ModelSettingsViewModel_Model_ChangedToDifferentModel_ReplacesPresenters
+
+              - id: SpeechDemo-Settings-UnrecognizedParameterSkipped
+                title: >-
+                  The ModelSettingsViewModel shall skip a declared parameter of a kind it does not
+                  recognize and still present every recognized parameter.
+                justification: |
+                  The parameter contract is publicly implementable; one unrecognized parameter
+                  must not blank or fault the whole panel for the model's other parameters.
+                tests:
+                  - ModelSettingsViewModel_Model_UnrecognizedParameterKind_SkipsItAndPresentsTheRest
+
+              - id: SpeechDemo-Settings-HonestEmptyState
+                title: >-
+                  The ModelSettingsViewModel shall explain, rather than silently show nothing,
+                  when no model is selected, including when the model is cleared after having
+                  been selected.
+                justification: |
+                  Consistent with the honest-empty-state precedent set by the model catalog panel
+                  for an empty known-model registry, an unexplained blank settings panel would
+                  read to a user as a broken application rather than an expected state.
+                tests:
+                  - ModelSettingsViewModel_Constructor_NoModel_ReportsNoModelEmptyState
+                  - ModelSettingsViewModel_Model_ChangedToNull_ClearsPresentersAndReportsNoModelState
+
+              - id: SpeechDemo-Settings-NoParametersExplained
+                title: >-
+                  The ModelSettingsViewModel shall explain, distinctly from the no-model
+                  explanation, when the selected model declares no tunable parameters.
+                justification: |
+                  A model with nothing to tune is a normal state; telling it apart from "no model
+                  selected" keeps the explanation accurate instead of implying the user forgot to
+                  choose a model.
+                tests:
+                  - ModelSettingsViewModel_Model_ModelWithNoParameters_ReportsNoParametersEmptyState
+
+              - id: SpeechDemo-Settings-EmptyStateNotifications
+                title: >-
+                  The ModelSettingsViewModel shall notify observers that the empty-state values
+                  changed whenever a model is assigned.
+                justification: |
+                  A bound view shows or hides the explanation from these values; without a change
+                  notification the view would keep showing a stale empty state after a model is
+                  selected.
+                tests:
+                  - ModelSettingsViewModel_Model_Changed_RaisesEmptyStateNotifications
+
+              - id: SpeechDemo-Settings-ValueBagEmptyWithoutModel
+                title: >-
+                  The ModelSettingsViewModel shall produce an empty value bag, rather than fail,
+                  when no model is selected.
+                justification: |
+                  A host captures the bag before every catalog rebuild, including when no model is
+                  selected; an empty bag lets it do so unconditionally.
+                tests:
+                  - ModelSettingsViewModel_BuildValueBag_NoModel_ReturnsEmptyBag
+
+              - id: SpeechDemo-Settings-ValueBagDuplicateIds
+                title: >-
+                  The ModelSettingsViewModel shall assemble the value bag without failing when two
+                  presented parameters share an identifier, keeping the later parameter's value.
+                justification: |
+                  A model declaring a duplicate identifier is malformed but must not stop a host
+                  from synthesizing; a deterministic last-wins result keeps the bag usable.
+                tests:
+                  - ModelSettingsViewModel_BuildValueBag_DuplicateParameterIds_LaterPresenterWins
+
+              - id: SpeechDemo-Settings-RestoreValues
+                title: >-
+                  The ModelSettingsViewModel shall restore previously captured parameter values
+                  onto the controls of a replacement model instance.
+                justification: |
+                  Installing or removing a reference voice pack rebuilds the model, which resets
+                  every control to its default. Restoring the user's captured choices (such as
+                  the selected voice and sliders) keeps a catalog rebuild from silently
+                  discarding their settings.
+                tests:
+                  - ModelSettingsViewModel_RestoreValues_AppliesCapturedValues
+
+              - id: SpeechDemo-Settings-RestoreIgnoresStaleValues
+                title: >-
+                  The ModelSettingsViewModel shall ignore captured values that no longer apply -
+                  unknown keys, wrongly typed values and options the new model no longer offers -
+                  leaving the affected controls at their defaults.
+                justification: |
+                  A captured bag can outlive the model it was captured from; ignoring entries that
+                  no longer apply prevents a stale choice from failing the refresh that triggered
+                  the restore.
+                tests:
+                  - ModelSettingsViewModel_RestoreValues_UnavailableOptionOrKey_KeepsDefault
+                  - ModelSettingsViewModel_RestoreValues_WrongTypedValues_KeepsDefaults
