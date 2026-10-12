@@ -98,6 +98,12 @@ stays selected.
 
 **Expected**: The downloading row's progress fraction tracks the reported value.
 
+##### ModelCatalogViewModel_DownloadAsync_InFlight_ShowsDownloadingState
+
+**Scenario**: A download is started and the seam has not yet completed it.
+
+**Expected**: The row is in the downloading state until the download completes.
+
 ##### ModelCatalogViewModel_DownloadAsync_ChecksumMismatch_ReportsExplainedFailure
 
 **Scenario**: The library reports a checksum mismatch.
@@ -136,6 +142,12 @@ guarantees a canceled download installs nothing.
 
 **Expected**: No download is started, so working installed content is never disturbed.
 
+##### ModelCatalogViewModel_DownloadAsync_AlreadyDownloadingModel_DoesNotDownload
+
+**Scenario**: A download is requested for a model that is already downloading.
+
+**Expected**: No second download is started and the row stays downloading.
+
 ##### ModelCatalogViewModel_DownloadAsync_NullModel_DoesNothing
 
 **Scenario**: The download command is invoked with no selected row.
@@ -155,6 +167,18 @@ those values, so the GUI and launch-time entry points stay consistent.
 
 **Expected**: The seam's `ApplyMirror` is called with a `DownloadMirror` built from those fields
 and the panel reports success and refreshes.
+
+##### ModelCatalogViewModel_ApplyMirror_ValidMirror_ReportsSuccess
+
+**Scenario**: A valid mirror URL is applied.
+
+**Expected**: The panel reports no error and shows a success confirmation.
+
+##### ModelCatalogViewModel_ApplyMirror_BearerToken_ForwardsToken
+
+**Scenario**: A mirror URL and a bearer token are applied.
+
+**Expected**: The seam's `ApplyMirror` receives a `DownloadMirror` carrying that bearer token.
 
 ##### ModelCatalogViewModel_ApplyMirror_BlankUrl_AppliesNullMirror
 
@@ -197,6 +221,18 @@ because that call would dispose the catalog the in-flight download depends on.
 
 **Expected**: One pack row per reported pack appears in the reference voices section.
 
+##### ModelCatalogViewModel_Constructor_VoicePacks_ShowsUserVoicesFolder
+
+**Scenario**: The seam reports reference voice packs and a user voices folder.
+
+**Expected**: The panel shows that folder.
+
+##### ModelCatalogViewModel_Constructor_VoicePacks_ShowsConsentNote
+
+**Scenario**: The seam reports reference voice packs.
+
+**Expected**: The panel shows the voice-cloning consent note.
+
 ##### ModelCatalogViewModel_Constructor_NoVoicePacks_HidesSection
 
 **Scenario**: The seam reports no reference voice packs.
@@ -211,9 +247,15 @@ because that call would dispose the catalog the in-flight download depends on.
 
 ##### ModelCatalogViewModel_InstallVoicePackAsync_PassesEmotionChoice
 
-**Scenario**: A pack install is requested with the emotion option on and off.
+**Scenario**: A pack install is requested with the emotion option off.
 
 **Expected**: The choice is passed to the service unchanged.
+
+##### ModelCatalogViewModel_InstallVoicePackAsync_AddEmotions_AlwaysIncludesEmotions
+
+**Scenario**: "Add emotions" is requested for a voices-only install whose emotion option is off.
+
+**Expected**: The service is asked to install with emotion variants.
 
 ##### ModelCatalogViewModel_InstallVoicePackAsync_FailureModes_ReportedInRow
 
@@ -263,6 +305,12 @@ removable, and nothing escapes.
 **Scenario**: A pack is removed, and the uninstall is made to throw.
 
 **Expected**: The service uninstalls the pack and the rows refresh; a fault is reported on the row.
+
+##### ModelCatalogViewModel_RemoveVoicePack_ModelDownloading_RefusedWithoutCallingService
+
+**Scenario**: A pack removal is requested while a model is downloading.
+
+**Expected**: The request is refused with an explanation and the service is not called.
 
 ##### ModelCatalogViewModel_InstallVoicePackAsync_ModelDownloading_RefusedWithoutCallingService
 

@@ -45,6 +45,14 @@ raises.
 **Expected**: The same models the library itself knows about, reported as-is with each model's
 own declared role preserved rather than replaced with invented placeholder models.
 
+##### ModelCatalogService_DownloadAsync_LibraryModel_InstallsThroughLibraryCatalog
+
+**Scenario**: A download is requested for a model known only to an injected library catalog, served
+by a fake `IModelDownloadClient`.
+
+**Expected**: The download completes as installed and the library catalog itself reports the model
+as downloaded, proving the download is carried out by the library.
+
 ##### ModelCatalogService_DownloadAsync_UnknownModelId_ThrowsArgumentException
 
 **Scenario**: A download is requested for a model id the library does not know.
@@ -130,19 +138,30 @@ attempt against it surfacing `ObjectDisposedException`.
 
 **Expected**: `ArgumentNullException`.
 
-##### ModelCatalogService_ReferenceVoices_NoLibrary_ReportsNoPacksAndRefusesOperations
+##### ModelCatalogService_ReferenceVoices_NoLibrary_ReportsNoPacks
 
-**Scenario**: A service built without a voice library is asked for packs, for a pack's state, for
-whether a pack has emotion variants, and to uninstall a pack.
+**Scenario**: A service built without a voice library is asked for its packs and user voices folder.
 
-**Expected**: No packs and no user voices folder are reported, and the state query, emotion query
-and uninstall members throw `InvalidOperationException`.
+**Expected**: No packs and no user voices folder are reported.
 
-##### ModelCatalogService_ReferenceVoices_Composed_ListsPackAndUserDirectory
+##### ModelCatalogService_ReferenceVoices_NoLibrary_RefusesPackOperations
 
-**Scenario**: A composed service is asked for its voice packs and user voices folder.
+**Scenario**: A service built without a voice library is asked for a pack's state, for whether a
+pack has emotion variants, and to uninstall a pack.
 
-**Expected**: The library's pack and the user voices folder are reported.
+**Expected**: The state query, emotion query and uninstall members throw `InvalidOperationException`.
+
+##### ModelCatalogService_ReferenceVoices_Composed_ListsPack
+
+**Scenario**: A composed service is asked for its voice packs.
+
+**Expected**: The library's pack is reported as not installed.
+
+##### ModelCatalogService_ReferenceVoices_Composed_ReportsUserVoicesDirectory
+
+**Scenario**: A composed service is asked for its user voices folder.
+
+**Expected**: A folder inside the catalog's store root is reported.
 
 ##### ModelCatalogService_UninstallReferenceVoicePack_RebuildsCatalogAndRaisesEvent
 

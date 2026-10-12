@@ -41,11 +41,20 @@ sections:
               - id: SpeechDemo-Models-LibraryDownloadDelegation
                 title: >-
                   The ModelCatalogSubsystem shall perform every model download through the
-                  library's own catalog and surface the library's error for an unknown model id.
+                  library's own catalog.
                 justification: |
-                  The demo must not carry its own download logic. Surfacing the library's
-                  caller-error contract unchanged proves downloads are delegated rather than
-                  reimplemented.
+                  The demo must not carry its own download logic; delegating to the library's
+                  catalog keeps the demo evidence of the library's contract.
+                tests:
+                  - ModelCatalogService_DownloadAsync_LibraryModel_InstallsThroughLibraryCatalog
+
+              - id: SpeechDemo-Models-LibraryUnknownModelError
+                title: >-
+                  The ModelCatalogSubsystem shall surface the library's error, unchanged, when
+                  a download is requested for an unknown model id.
+                justification: |
+                  Surfacing the library's caller-error contract unchanged proves downloads are
+                  delegated rather than reimplemented.
                 tests:
                   - ModelCatalogService_DownloadAsync_UnknownModelId_ThrowsArgumentException
 
@@ -54,7 +63,7 @@ sections:
                   The ModelCatalogSubsystem shall reject a missing library catalog when its
                   catalog service is created.
                 justification: |
-                  A catalog service with no catalog behind it could only fail                   later and with a
+                  A catalog service with no catalog behind it could only fail later and with a
                   less obvious cause; failing at creation makes the programming error immediate.
                 tests:
                   - ModelCatalogService_Constructor_NullCatalog_ThrowsArgumentNullException
@@ -100,16 +109,24 @@ sections:
               - id: SpeechDemo-Models-MirrorRequiresFactory
                 title: >-
                   A ModelCatalogSubsystem catalog service that cannot rebuild its catalog shall
-                  reject an attempt to reconfigure its mirror, and a missing rebuild capability
-                  shall be rejected when the service is created.
+                  reject an attempt to reconfigure its mirror.
                 justification: |
                   A service built over a single, externally owned catalog has no catalog of its
                   own to rebuild. Failing fast makes an unsupported reconfiguration attempt an
                   immediate, diagnosable programming error instead of a silent no-op a caller
                   could easily miss.
                 tests:
-                  - ModelCatalogService_Constructor_NullCatalogFactory_ThrowsArgumentNullException
                   - ModelCatalogService_ApplyMirror_NoFactory_ThrowsInvalidOperationException
+
+              - id: SpeechDemo-Models-CatalogFactoryRequired
+                title: >-
+                  The ModelCatalogSubsystem shall reject a missing catalog rebuild capability
+                  when a rebuilding catalog service is created.
+                justification: |
+                  Failing at creation makes a service that was meant to rebuild its catalog but
+                  has no means to do so an immediate, diagnosable programming error.
+                tests:
+                  - ModelCatalogService_Constructor_NullCatalogFactory_ThrowsArgumentNullException
 
               - id: SpeechDemo-Models-MirrorCatalogOwnership
                 title: >-
@@ -147,13 +164,23 @@ sections:
               - id: SpeechDemo-Voices-PackService
                 title: >-
                   A ModelCatalogSubsystem catalog service with a reference voice library shall
-                  report the library's voice packs and the user voices folder.
+                  report the library's voice packs.
                 justification: |
                   The panel and the synthesis panel need one place to learn which voice packs
-                  exist and where the user's own voices go, so voice management is driven
-                  through the same service as model management.
+                  exist, so voice management is driven through the same service as model
+                  management.
                 tests:
-                  - ModelCatalogService_ReferenceVoices_Composed_ListsPackAndUserDirectory
+                  - ModelCatalogService_ReferenceVoices_Composed_ListsPack
+
+              - id: SpeechDemo-Voices-UserVoicesFolder
+                title: >-
+                  A ModelCatalogSubsystem catalog service with a reference voice library shall
+                  report the user voices folder.
+                justification: |
+                  The panel needs to tell the user where their own voices go, and that folder
+                  belongs with the catalog's store.
+                tests:
+                  - ModelCatalogService_ReferenceVoices_Composed_ReportsUserVoicesDirectory
 
               - id: SpeechDemo-Voices-PackServiceCompositionRequired
                 title: >-
@@ -168,14 +195,22 @@ sections:
               - id: SpeechDemo-Voices-PackServiceNoLibrary
                 title: >-
                   A ModelCatalogSubsystem catalog service without a reference voice library shall
-                  report no voice packs and shall refuse pack state, emotion and uninstall
-                  requests.
+                  report no voice packs.
                 justification: |
                   Catalog services built for other consumers have no voice library and must stay
-                  inert rather than throwing at enumeration, while an explicit pack request
-                  against one is a programming error that should be reported.
+                  inert rather than throwing at enumeration.
                 tests:
-                  - ModelCatalogService_ReferenceVoices_NoLibrary_ReportsNoPacksAndRefusesOperations
+                  - ModelCatalogService_ReferenceVoices_NoLibrary_ReportsNoPacks
+
+              - id: SpeechDemo-Voices-PackServiceNoLibraryRefusal
+                title: >-
+                  A ModelCatalogSubsystem catalog service without a reference voice library shall
+                  refuse pack state, emotion and uninstall requests.
+                justification: |
+                  An explicit pack request against a service with no voice library is a
+                  programming error that should be reported rather than silently ignored.
+                tests:
+                  - ModelCatalogService_ReferenceVoices_NoLibrary_RefusesPackOperations
 
               - id: SpeechDemo-Voices-PackUninstallRebuild
                 title: >-
@@ -191,14 +226,23 @@ sections:
               - id: SpeechDemo-Voices-PackInstallRebuild
                 title: >-
                   The ModelCatalogSubsystem shall rebuild its catalog and voice library and
-                  raise ReferenceVoicesChanged after a voice pack install attempt however it
-                  ends, including a failed or canceled attempt.
+                  raise ReferenceVoicesChanged after a voice pack install attempt that fails.
                 justification: |
-                  A failed or canceled upgrade can still have changed the installed state (the
-                  old install is moved aside, then restored), so the rebuild and announcement
-                  must happen however the install ends for the voice choices to stay accurate.
+                  A failed upgrade can still have changed the installed state (the old install
+                  is moved aside, then restored), so the rebuild and announcement must happen
+                  for the voice choices to stay accurate.
                 tests:
                   - ModelCatalogService_InstallReferenceVoicePackAsync_Failure_StillRebuildsAndRaises
+
+              - id: SpeechDemo-Voices-PackInstallCanceledRebuild
+                title: >-
+                  The ModelCatalogSubsystem shall rebuild its catalog and voice library and
+                  raise ReferenceVoicesChanged after a voice pack install attempt is canceled.
+                justification: |
+                  A canceled upgrade can still have changed the installed state, so the rebuild
+                  and announcement must happen even though the cancellation propagates to the
+                  caller.
+                tests:
                   - ModelCatalogService_InstallReferenceVoicePackAsync_Canceled_StillRebuildsAndRaises
 
               - id: SpeechDemo-Voices-PackMirrorRebuild
@@ -215,11 +259,19 @@ sections:
               - id: SpeechDemo-Voices-PackUninstallWaitsForInstall
                 title: >-
                   The ModelCatalogSubsystem shall wait, without blocking the caller, for an
-                  in-progress install of a voice pack to finish before uninstalling that pack,
-                  and shall not rebuild the catalog or announce a change until the removal runs.
+                  in-progress install of a voice pack to finish before uninstalling that pack.
                 justification: |
                   Removing a pack mid-install would corrupt it, and refusing would force the
-                  caller to retry. Serializing with the install keeps the pack consistent, and
-                  nothing is rebuilt or announced until something actually changed.
+                  caller to retry. Serializing with the install keeps the pack consistent.
+                tests:
+                  - ModelCatalogService_UninstallReferenceVoicePackAsync_InstallInFlight_WaitsThenUninstalls
+
+              - id: SpeechDemo-Voices-PackUninstallDefersRebuild
+                title: >-
+                  The ModelCatalogSubsystem shall not rebuild the catalog or announce a change
+                  for a voice pack uninstall until the removal actually runs.
+                justification: |
+                  Nothing is rebuilt or announced until something actually changed, so other
+                  panels are never told to refresh for a removal that has not happened yet.
                 tests:
                   - ModelCatalogService_UninstallReferenceVoicePackAsync_InstallInFlight_WaitsThenUninstalls

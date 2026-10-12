@@ -37,7 +37,8 @@ download or pack install is in flight; and a voice pack install, removal or mirr
 the catalog and reference voice library and raises the voices-changed notification so other panels
 can refresh, even when an install fails or is canceled; a voice pack that is still installed after a
 failed install or upgrade stays installed and removable with its failure message; and removing a
-pack while its install is in flight is refused with an explanation instead of failing.
+pack while its install is in flight waits for the install, and a removal that cannot complete or is
+canceled is explained on the pack's row instead of failing.
 
 ### Test Scenarios
 
@@ -59,6 +60,12 @@ pack while its install is in flight is refused with an explanation instead of fa
 
 **Expected**: The seam's `ApplyMirror` receives the configured mirror and the panel reports success
 and refreshes.
+
+#### ModelCatalogViewModel_ApplyMirror_ValidMirror_ReportsSuccess
+
+**Scenario**: A valid mirror URL is applied.
+
+**Expected**: The panel reports no error and confirms that the mirror was applied.
 
 #### ModelCatalogService_UninstallReferenceVoicePack_RebuildsCatalogAndRaisesEvent
 

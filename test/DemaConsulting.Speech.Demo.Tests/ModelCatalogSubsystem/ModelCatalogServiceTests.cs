@@ -53,11 +53,10 @@ public class ModelCatalogServiceTests
     }
 
     /// <summary>
-    ///     Proves that a service built without a voice library reports no packs and refuses pack
-    ///     operations.
+    ///     Proves that a service built without a voice library reports no packs and no user voices folder.
     /// </summary>
     [Fact]
-    public async Task ModelCatalogService_ReferenceVoices_NoLibrary_ReportsNoPacksAndRefusesOperations()
+    public void ModelCatalogService_ReferenceVoices_NoLibrary_ReportsNoPacks()
     {
         // Arrange
         using var catalog = new SpeechModelCatalog(IsolatedOptions());
@@ -66,17 +65,30 @@ public class ModelCatalogServiceTests
         // Act & Assert
         Assert.Empty(service.ReferenceVoicePacks);
         Assert.Null(service.UserVoicesDirectory);
+    }
+
+    /// <summary>
+    ///     Proves that a service built without a voice library refuses pack state, emotion and uninstall
+    ///     requests.
+    /// </summary>
+    [Fact]
+    public async Task ModelCatalogService_ReferenceVoices_NoLibrary_RefusesPackOperations()
+    {
+        // Arrange
+        using var catalog = new SpeechModelCatalog(IsolatedOptions());
+        var service = new ModelCatalogService(catalog);
+
+        // Act & Assert
         Assert.Throws<InvalidOperationException>(() => service.GetReferenceVoicePackState("voice-zero-1.0"));
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.ReferenceVoicePackHasEmotionsAsync("voice-zero-1.0", TestContext.Current.CancellationToken));
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.UninstallReferenceVoicePackAsync("voice-zero-1.0", TestContext.Current.CancellationToken));
     }
 
     /// <summary>
-    ///     Proves that a composed service lists the built-in pack as not installed, exposes the user
-    ///     voices folder, and shares the catalog's store root.
+    ///     Proves that a composed service lists the built-in pack as not installed.
     /// </summary>
     [Fact]
-    public void ModelCatalogService_ReferenceVoices_Composed_ListsPackAndUserDirectory()
+    public void ModelCatalogService_ReferenceVoices_Composed_ListsPack()
     {
         // Arrange
         var root = IsolatedOptions().RootPathOverride!;
@@ -86,7 +98,23 @@ public class ModelCatalogServiceTests
         var pack = Assert.Single(service.ReferenceVoicePacks);
         Assert.Equal("voice-zero-1.0", pack.Id);
         Assert.Equal(SpeechModelState.NotDownloaded, service.GetReferenceVoicePackState(pack.Id));
-        Assert.StartsWith(root, service.UserVoicesDirectory, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    ///     Proves that a composed service reports a user voices folder inside the catalog's store root.
+    /// </summary>
+    [Fact]
+    public void ModelCatalogService_ReferenceVoices_Composed_ReportsUserVoicesDirectory()
+    {
+        // Arrange
+        var root = IsolatedOptions().RootPathOverride!;
+        using var service = new ModelCatalogService(Compose(root, null), null, o => Compose(root, o));
+
+        // Act
+        var directory = service.UserVoicesDirectory;
+
+        // Assert
+        Assert.StartsWith(root, directory, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -496,6 +524,28 @@ public class ModelCatalogServiceTests
         // Act & Assert: the library's caller-error contract is preserved through the seam
         await Assert.ThrowsAsync<ArgumentException>(
             () => service.DownloadAsync("no-such-model", null, TestContext.Current.CancellationToken));
+    }
+
+    /// <summary>
+    ///     Proves that a download request is carried out by the library's own catalog: the model
+    ///     is installed there and the library's installed state is what the service then reports.
+    /// </summary>
+    [Fact]
+    public async Task ModelCatalogService_DownloadAsync_LibraryModel_InstallsThroughLibraryCatalog()
+    {
+        // Arrange: a model known only to the library catalog, served by a succeeding download client
+        var payload = "genuine model bytes"u8.ToArray();
+        var model = new DownloadableFakeModel("fake-delegated-model", SpeechModelRole.Recognition, payload);
+        var store = new SpeechModelStore(IsolatedOptions());
+        using var catalog = new SpeechModelCatalog([model], store, new SucceedingModelDownloadClient(payload));
+        var service = new ModelCatalogService(catalog);
+
+        // Act
+        var result = await service.DownloadAsync(model.Id, progress: null, TestContext.Current.CancellationToken);
+
+        // Assert: the library catalog itself now reports the model installed
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, result.Outcome);
+        Assert.Equal(SpeechModelState.Downloaded, Assert.Single(catalog.Enumerate()).State);
     }
 
     /// <summary>

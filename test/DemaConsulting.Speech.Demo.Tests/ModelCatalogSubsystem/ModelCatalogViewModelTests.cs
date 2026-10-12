@@ -101,6 +101,46 @@ public class ModelCatalogViewModelTests
     }
 
     /// <summary>
+    ///     Proves that applying a valid mirror reports success in the panel.
+    /// </summary>
+    [Fact]
+    public void ModelCatalogViewModel_ApplyMirror_ValidMirror_ReportsSuccess()
+    {
+        // Arrange
+        var viewModel = new ModelCatalogViewModel(Service()) { MirrorUrl = "https://mirror.example.com" };
+
+        // Act
+        viewModel.ApplyMirrorCommand.Execute(null);
+
+        // Assert
+        Assert.False(viewModel.MirrorHasError);
+        Assert.True(viewModel.HasMirrorStatusMessage);
+        Assert.True(viewModel.MirrorAppliedSuccessfully);
+    }
+
+    /// <summary>
+    ///     Proves that a typed bearer token is forwarded to the catalog service with the mirror.
+    /// </summary>
+    [Fact]
+    public void ModelCatalogViewModel_ApplyMirror_BearerToken_ForwardsToken()
+    {
+        // Arrange
+        var service = Service();
+        var viewModel = new ModelCatalogViewModel(service)
+        {
+            MirrorUrl = "https://mirror.example.com",
+            MirrorBearerToken = "token-value",
+        };
+
+        // Act
+        viewModel.ApplyMirrorCommand.Execute(null);
+
+        // Assert
+        service.Received(1).ApplyMirror(Arg.Is<DownloadMirror?>(
+            mirror => mirror != null && mirror.BearerToken == "token-value"));
+    }
+
+    /// <summary>
     ///     Proves that clearing the mirror URL and applying reverts the service to no mirror
     ///     rather than requiring a separate "clear" action.
     /// </summary>
@@ -493,6 +533,31 @@ public class ModelCatalogViewModelTests
     }
 
     /// <summary>
+    ///     Proves that a row shows the downloading state while its download is still running.
+    /// </summary>
+    [Fact]
+    public async Task ModelCatalogViewModel_DownloadAsync_InFlight_ShowsDownloadingState()
+    {
+        // Arrange: a catalog whose download stays pending until released
+        var release = new TaskCompletionSource<SpeechModelDownloadResult>();
+        var service = Service(FakeSpeechModel.Descriptor("model-a"));
+        service
+            .DownloadAsync("model-a", Arg.Any<IProgress<SpeechModelDownloadProgress>?>(), Arg.Any<CancellationToken>())
+            .Returns(release.Task);
+        var viewModel = new ModelCatalogViewModel(service);
+        var row = viewModel.Models[0];
+
+        // Act: start the download without completing it
+        var download = viewModel.DownloadAsync(row, TestContext.Current.CancellationToken);
+
+        // Assert: the row is downloading, then settles once the download completes
+        Assert.Equal(SpeechModelState.Downloading, row.State);
+        Assert.True(row.IsDownloading);
+        release.SetResult(new SpeechModelDownloadResult(SpeechModelDownloadOutcome.Installed));
+        await download;
+    }
+
+    /// <summary>
     ///     Proves that a canceled download leaves the model reported as simply not downloaded,
     ///     matching the library's guarantee that nothing was installed.
     /// </summary>
@@ -535,6 +600,26 @@ public class ModelCatalogViewModelTests
         await service.DidNotReceive().DownloadAsync(
             Arg.Any<string>(), Arg.Any<IProgress<SpeechModelDownloadProgress>?>(), Arg.Any<CancellationToken>());
         Assert.Equal(SpeechModelState.Downloaded, row.State);
+    }
+
+    /// <summary>
+    ///     Proves that a model whose download is already running is not downloaded a second time.
+    /// </summary>
+    [Fact]
+    public async Task ModelCatalogViewModel_DownloadAsync_AlreadyDownloadingModel_DoesNotDownload()
+    {
+        // Arrange: a catalog whose single model is already downloading
+        var service = Service(FakeSpeechModel.Descriptor("model-a", SpeechModelState.Downloading));
+        var viewModel = new ModelCatalogViewModel(service);
+        var row = viewModel.Models[0];
+
+        // Act
+        await viewModel.DownloadAsync(row, TestContext.Current.CancellationToken);
+
+        // Assert
+        await service.DidNotReceive().DownloadAsync(
+            Arg.Any<string>(), Arg.Any<IProgress<SpeechModelDownloadProgress>?>(), Arg.Any<CancellationToken>());
+        Assert.Equal(SpeechModelState.Downloading, row.State);
     }
 
     /// <summary>
@@ -601,8 +686,7 @@ public class ModelCatalogViewModelTests
     }
 
     /// <summary>
-    ///     Proves that the panel lists the reference-voice packs with their state, the user folder
-    ///     and the consent notice.
+    ///     Proves that the panel lists the reference-voice packs with their state.
     /// </summary>
     [Fact]
     public void ModelCatalogViewModel_Constructor_ListsVoicePacks()
@@ -616,7 +700,31 @@ public class ModelCatalogViewModelTests
         Assert.Equal("voice-zero-1.0", row.Id);
         Assert.True(row.CanInstall);
         Assert.False(row.CanRemove);
+    }
+
+    /// <summary>
+    ///     Proves that the panel shows the user voices folder the service reports.
+    /// </summary>
+    [Fact]
+    public void ModelCatalogViewModel_Constructor_VoicePacks_ShowsUserVoicesFolder()
+    {
+        // Arrange & Act
+        var viewModel = new ModelCatalogViewModel(VoiceService(SpeechModelState.NotDownloaded));
+
+        // Assert
         Assert.Equal("C:\\voices\\user", viewModel.UserVoicesDirectory);
+    }
+
+    /// <summary>
+    ///     Proves that the panel shows the voice-cloning consent note.
+    /// </summary>
+    [Fact]
+    public void ModelCatalogViewModel_Constructor_VoicePacks_ShowsConsentNote()
+    {
+        // Arrange & Act
+        var viewModel = new ModelCatalogViewModel(VoiceService(SpeechModelState.NotDownloaded));
+
+        // Assert
         Assert.Equal(ReferenceVoiceLibrary.ConsentNotice, viewModel.VoiceConsentNotice);
     }
 
@@ -686,8 +794,7 @@ public class ModelCatalogViewModelTests
     }
 
     /// <summary>
-    ///     Proves that the emotion choice is passed to the service, and that "Add emotions" on a voices-only install
-    ///     always includes them.
+    ///     Proves that the emotion choice is passed to the service when installing a pack.
     /// </summary>
     [Fact]
     public async Task ModelCatalogViewModel_InstallVoicePackAsync_PassesEmotionChoice()
@@ -703,12 +810,30 @@ public class ModelCatalogViewModelTests
 
         // Act
         await viewModel.InstallVoicePackAsync(row, TestContext.Current.CancellationToken);
-        var upgradeRow = new ReferenceVoicePackListItemViewModel(ReferenceVoicePack.VoiceZero10, SpeechModelState.Downloaded, hasEmotions: false);
-        upgradeRow.IncludeEmotions = false;
-        await viewModel.InstallVoicePackAsync(upgradeRow, TestContext.Current.CancellationToken);
 
         // Assert
         await service.Received(1).InstallReferenceVoicePackAsync("voice-zero-1.0", false, Arg.Any<IProgress<SpeechModelDownloadProgress>?>(), Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>
+    ///     Proves that "Add emotions" on a voices-only install always installs the emotion variants.
+    /// </summary>
+    [Fact]
+    public async Task ModelCatalogViewModel_InstallVoicePackAsync_AddEmotions_AlwaysIncludesEmotions()
+    {
+        // Arrange
+        var service = VoiceService(SpeechModelState.NotDownloaded);
+        service.InstallReferenceVoicePackAsync(
+                "voice-zero-1.0", Arg.Any<bool>(), Arg.Any<IProgress<SpeechModelDownloadProgress>?>(), Arg.Any<CancellationToken>())
+            .Returns(_ => Task.FromResult(new SpeechModelDownloadResult(SpeechModelDownloadOutcome.ChecksumMismatch)));
+        var viewModel = new ModelCatalogViewModel(service);
+        var upgradeRow = new ReferenceVoicePackListItemViewModel(ReferenceVoicePack.VoiceZero10, SpeechModelState.Downloaded, hasEmotions: false);
+        upgradeRow.IncludeEmotions = false;
+
+        // Act
+        await viewModel.InstallVoicePackAsync(upgradeRow, TestContext.Current.CancellationToken);
+
+        // Assert
         await service.Received(1).InstallReferenceVoicePackAsync("voice-zero-1.0", true, Arg.Any<IProgress<SpeechModelDownloadProgress>?>(), Arg.Any<CancellationToken>());
     }
 
@@ -805,6 +930,28 @@ public class ModelCatalogViewModelTests
         // Assert
         Assert.True(viewModel.MirrorHasError);
         service.DidNotReceiveWithAnyArgs().ApplyMirror(default);
+    }
+
+    /// <summary>
+    ///     Proves that removing a voice pack is refused while a model download is in flight.
+    /// </summary>
+    [Fact]
+    public async Task ModelCatalogViewModel_RemoveVoicePack_ModelDownloading_RefusedWithoutCallingService()
+    {
+        // Arrange
+        var service = VoiceService(
+            SpeechModelState.Downloaded,
+            FakeSpeechModel.Descriptor("m1", SpeechModelState.Downloading));
+        var viewModel = new ModelCatalogViewModel(service);
+        var row = viewModel.VoicePacks[0];
+
+        // Act
+        await viewModel.RemoveVoicePack(row, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(ModelCatalogViewModel.VoiceBusyMessage, row.FailureMessage);
+        Assert.Equal(SpeechModelState.Downloaded, row.State);
+        await service.DidNotReceiveWithAnyArgs().UninstallReferenceVoicePackAsync(default!, TestContext.Current.CancellationToken);
     }
 
     /// <summary>
