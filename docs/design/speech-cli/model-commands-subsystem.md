@@ -36,10 +36,9 @@ The `ICliModelCatalog` members fall into three groups:
 | Group | Members |
 | --- | --- |
 | Model management (4) | `Enumerate`, `DownloadAsync`, `Uninstall`, `CleanUpLeftovers` |
-| Format and engine (3) | `GetPreferredAudioFormat`, `CreateSynthesizerEngineAsync`, |
-| | `CreateRecognizerEngineAsync` |
-| Reference voices (7) | `VoicePacks`, `UserVoicesDirectory`, `EnumerateVoices`, `GetVoicePackState`, |
-| | `VoicePackHasEmotions`, `InstallVoicePackAsync`, `UninstallVoicePack` |
+| Format and engine (3) | `GetPreferredAudioFormat`, `CreateSynthesizerEngineAsync`, `CreateRecognizerEngineAsync` |
+| Reference voices: browse (4) | `VoicePacks`, `UserVoicesDirectory`, `EnumerateVoices`, `GetVoicePackState` |
+| Reference voices: manage (3) | `VoicePackHasEmotions`, `InstallVoicePackAsync`, `UninstallVoicePack` |
 
 ### Design
 

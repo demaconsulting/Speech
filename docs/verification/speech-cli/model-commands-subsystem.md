@@ -60,8 +60,6 @@ unsupported flag, or a flag missing its value are all rejected with `ArgumentExc
 than a crash or silent misbehavior; both the table and JSON out-of-process forms are also proven
 against the built tool.
 
-**Requirement coverage**: `SpeechCli-ModelCommands-ListModels`.
-
 #### ModelInfoCommand
 
 **Tests**: `ModelInfoCommand_Run_KnownModel_PrintsIdentityAndState`,
@@ -80,8 +78,6 @@ option list and default; a `BooleanParameter` prints its default; an unknown mod
 `ArgumentException` whose message names the id and suggests `list-models`, both in-process and
 (as a clean, non-zero-exit-code error rather than a stack trace) out-of-process; a missing or
 extra positional argument is likewise rejected with `ArgumentException`.
-
-**Requirement coverage**: `SpeechCli-ModelCommands-ModelInfo`.
 
 #### DownloadCommand
 
@@ -106,8 +102,6 @@ progress report is forwarded to a visible percent-complete line; no `<modelId>` 
 unsupported flag is rejected with `ArgumentException`; both the unknown-id failure path and the
 missing-argument path are also proven, cleanly and non-zero-exit, against the built tool.
 
-**Requirement coverage**: `SpeechCli-ModelCommands-Download`.
-
 #### DownloadCommand Cancellation
 
 **Tests**: `DownloadCommand_RunAsync_CanceledBeforeStart_ReportsErrorAndStopsBatch`,
@@ -119,8 +113,6 @@ model's download has genuinely started and reported progress, proving the in-pro
 cancellation is reported and no further requested model is attempted - cancellation stops the
 whole batch rather than being treated as an ordinary per-model failure, whether it lands before
 or during a model's download.
-
-**Requirement coverage**: `SpeechCli-ModelCommands-DownloadCancellation`.
 
 #### DownloadProgressReporter and ConsoleCancellation
 
@@ -134,8 +126,6 @@ whole kilobyte when the total is unknown) and suppresses repeats; `ConsoleCancel
 cancels its source, runs the callback afterward, and suppresses default termination, while
 `Observe` only runs its callback. The console signal cannot be raised from a test, so the
 registration's internal `Raise` seam stands in for it.
-
-**Requirement coverage**: `SpeechCli-ModelCommands-Download`, `SpeechCli-ModelCommands-DownloadCancellation`.
 
 #### UninstallCommand
 
@@ -153,8 +143,6 @@ installed model is treated the same way (safe, successful no-op), never as an er
 positional argument is rejected with `ArgumentException`; the never-installed-model path exits
 `0` against the built tool.
 
-**Requirement coverage**: `SpeechCli-ModelCommands-Uninstall`.
-
 #### CleanCommand
 
 **Tests**: `CleanCommand_Run_KnownModel_CleansUpAndReportsSuccess`,
@@ -165,8 +153,6 @@ positional argument is rejected with `ArgumentException`; the never-installed-mo
 **Scenario/Expected**: A model with nothing (or something) to clean up is reported successful
 either way, since `CleanUpLeftovers` never throws; a missing or extra positional argument is
 rejected with `ArgumentException`; the nothing-to-clean-up path exits `0` against the built tool.
-
-**Requirement coverage**: `SpeechCli-ModelCommands-Clean`.
 
 #### ListVoicesCommand
 
@@ -180,8 +166,6 @@ rejected with `ArgumentException`; the nothing-to-clean-up path exits `0` agains
 **Scenario/Expected**: The table lists every voice with its source and shows the consent note and
 how to choose a voice; an empty list explains how to add voices; JSON is a parseable array; an
 unknown format or extra argument is rejected with `ArgumentException`; null arguments are rejected.
-
-**Requirement coverage**: `SpeechCli-ModelCommands-ListVoices`.
 
 #### VoicesCommand
 
@@ -202,8 +186,6 @@ the catalog, prints progress and the consent note, and exits non-zero on failure
 pack ids, bad arguments, and null arguments are rejected cleanly. Tests use the fake catalog, so
 no pack is downloaded.
 
-**Requirement coverage**: `SpeechCli-ModelCommands-VoicePacks`.
-
 #### Voice Emotion Variants
 
 **Tests**: `VoicesCommand_RunAsync_Install_DefaultIncludesEmotions`,
@@ -217,25 +199,16 @@ no pack is downloaded.
 upgrade; `packs` shows the download size, installed sizes and variant; `list-voices` shows a Moods
 column and a `moods` JSON array. Tests use the fake catalog, so nothing is downloaded.
 
-**Requirement coverage**: `SpeechCli-ModelCommands-VoiceEmotions`.
-
-#### Chatterbox Composition and `--voices-dir`
+#### Chatterbox Composition and Voices Folder Enumeration
 
 **Tests**: `SpeechModelCatalogAdapter_Voices_ListsUserAndVoicesDirVoices`,
 `SpeechModelCatalogAdapter_DamagedVoicesDirFile_DoesNotBreakAdapterOrListing`,
-`CliModelCatalogFactory_Create_WithVoicesDir_EnumeratesThatFolder`,
-`Context_Create_WithExistingVoicesDir_ParsesOntoContext`,
-`Context_Create_WithBadVoicesDir_ThrowsArgumentException`,
-`Program_Run_Help_DocumentsVoicesOptionsAndConsentNote`
+`CliModelCatalogFactory_Create_WithVoicesDir_EnumeratesThatFolder`
 
 **Scenario/Expected**: A real catalog over a temporary store lists Chatterbox among its models, enumerates user-folder
-and `--voices-dir` voices, an undecodable `--voices-dir` file does not break the adapter or the
-listing, a bad
-`--voices-dir` is rejected before any command runs, and `--help` documents the options and consent
-note.
-
-**Requirement coverage**: `SpeechCli-ModelCommands-ChatterboxComposition`,
-`SpeechCli-ModelCommands-VoicesDir`.
+and `--voices-dir` voices, and an undecodable `--voices-dir` file does not break the adapter or the
+listing. The `--voices-dir` option parsing and `--help` text are verified at system level
+(`SpeechCli-Cli-VoicesDir`, `SpeechCli-Cli-VoicesHelp`).
 
 #### Seam Delegation and Null Guards
 
@@ -262,8 +235,6 @@ throw; `DownloadAsync` against a real catalog throws `ArgumentException` for an 
 the known-model list; `CliModelCatalogFactory.Create` honors `--models-dir` and rejects a `null`
 context.
 
-**Requirement coverage**: `SpeechCli-ModelCommands-LibraryDelegation`.
-
 #### Seam Extension for Synthesis and Recognition
 
 **Tests**: `SpeechModelCatalogAdapter_GetPreferredAudioFormat_RecognitionRoleModel_ThrowsArgumentException`,
@@ -283,9 +254,6 @@ naming the model. The positive-path tests use a fake synthesis or recognition mo
 possible because `ISynthesisModel` and `IRecognitionModel` are public interfaces, to prove that a
 model of the right role yields its preferred audio format and a loaded engine with no device bound.
 
-**Requirement coverage**: `SpeechCli-ModelCommands-SynthesisSeamExtension`,
-`SpeechCli-ModelCommands-RecognitionSeamExtension`.
-
 #### Download Mirror Composition
 
 **Tests**: `CliModelCatalogFactory_Create_WithMirrorUrl_AppliesMirrorToDownloads`
@@ -295,8 +263,6 @@ model of the right role yields its preferred audio format and a loaded engine wi
 subsequent `DownloadAsync` call for a real, known model id fails, and the captured failure's
 exception text names that same loopback host/port, proving the configured mirror was genuinely
 threaded through the composed catalog/downloader rather than merely parsed and discarded.
-
-**Requirement coverage**: `SpeechCli-ModelCommands-DownloadMirrorComposition`.
 
 ### Acceptance Criteria
 

@@ -233,8 +233,12 @@ missing dependency.
   (`SilenceTimeoutRecognizerSession`)_ above
 - **`SpeechCli-RecognitionCommands-StartTimeout`**: see _Start Timeout (Two-Phase Idle Window)_
   above
-- **`SpeechCli-RecognitionCommands-VerbosityAndOutput`**: see _`--interim`/`--final-only`/
+- **`SpeechCli-RecognitionCommands-VerbosityAndOutput`**, **`-InterimOnly`**, **`-FinalOnly`**,
+  **`-VerbosityConflict`**, **`-OutputText`**: see _`--interim`/`--final-only`/
   `--output-text` Filtering and Writing_ above
+- **`SpeechCli-RecognitionCommands-InputFileValidation`**: verified by
+  `RecognizeCommand_Run_InputFileIsNotWav_ThrowsInvalidOperationExceptionNamingFile` and
+  `RecognizeCommand_Run_InputFileIsStereoWav_ThrowsInvalidOperationExceptionAboutMono`
 - **`SpeechCli-RecognitionCommands-DeviceDispatch`**: see _Capture Device Dispatch_ above
 - **`SpeechCli-RecognitionCommands-NullGuards`**: see _Null Guards_ above
 

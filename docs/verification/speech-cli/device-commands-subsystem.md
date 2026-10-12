@@ -164,7 +164,8 @@ missing dependency.
 - **`SpeechCli-DeviceCommands-ListDevices`**: see _ListDevicesCommand_ above
 - **`SpeechCli-DeviceCommands-DevicesTest`**: see _DevicesTestCommand_ above
 - **`SpeechCli-DeviceCommands-ToneGeneration`**: see _Tone Generation_ above
-- **`SpeechCli-DeviceCommands-Doctor`**: see _DoctorCommand_ above
+- **`SpeechCli-DeviceCommands-Doctor`**, **`-DoctorNativeRuntimes`**, **`-DoctorAudioDevices`**,
+  **`-DoctorModelCounts`**, **`-DoctorExitCode`**: see _DoctorCommand_ above
 - **`SpeechCli-DeviceCommands-LibraryDelegation`**: see _Null Guards and Delegation_ above
 
 ### Acceptance Criteria

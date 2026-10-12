@@ -242,7 +242,8 @@ even when `ParseArguments` is invoked directly rather than only through `Run`/`R
 
 ### Requirements Coverage
 
-- **`SpeechCli-ConversationCommands-Ask`**: see *AskCommand — Argument Parsing, Text Source, and
+- **`SpeechCli-ConversationCommands-Ask`**, **`-AskModelValidation`**, **`-AskTextSource`**,
+  **`-AskUnsupportedOptions`**: see *AskCommand — Argument Parsing, Text Source, and
   Model Resolution* above
 - **`SpeechCli-ConversationCommands-ParamValidation`**: see *`--tts-param`/`--stt-param`
   Validation Reuse* above

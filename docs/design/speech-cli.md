@@ -162,8 +162,11 @@ the CLI composes (see _SpeechSherpa Design_) - and the following NuGet dependenc
   transitively, which the self-test's `AudioDeviceFactory` probe (and `speak`'s real playback
   path) needs
 
-See _OTS Integration Design_ for details of any OTS items shared with other systems in this
-repository. Each dependency's own design is described in the corresponding OTS design document.
+The OTS items this tool consumes are documented in their own OTS design documents:
+`docs/design/ots/sherpa-onnx.md` (native inference runtime, via the SpeechSherpa project
+reference) and `docs/design/ots/port-audio-sharp2.md` (audio device runtime, via the Speech
+library project reference). `DemaConsulting.TestResults` is used only for self-validation
+result serialization and has no OTS design document of its own.
 
 ## Risk Control Measures
 
