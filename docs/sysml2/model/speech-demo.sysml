@@ -24,6 +24,8 @@ package SpeechDemo {
         part appLaunchOptions : AppLaunchOptions;
         part mirrorOptionsFactory : MirrorOptionsFactory;
         part program : Program;
+        part avalonia : Avalonia;
+        part communityToolkitMvvm : CommunityToolkitMvvm;
     }
 
     part def App {

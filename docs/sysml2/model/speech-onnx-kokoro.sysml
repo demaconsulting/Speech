@@ -17,5 +17,6 @@ package SpeechOnnxKokoro {
 
         part modelManagementSubsystem : ModelManagementSubsystem;
         part synthesisSubsystem : SynthesisSubsystem;
+        part microsoftMlOnnxRuntime : SpeechOnnx::MicrosoftMlOnnxRuntime;
     }
 }

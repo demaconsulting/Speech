@@ -19,5 +19,6 @@ package SpeechOnnxNemotronStt {
 
         part modelManagementSubsystem : ModelManagementSubsystem;
         part recognitionSubsystem : RecognitionSubsystem;
+        part microsoftMlOnnxRuntime : SpeechOnnx::MicrosoftMlOnnxRuntime;
     }
 }

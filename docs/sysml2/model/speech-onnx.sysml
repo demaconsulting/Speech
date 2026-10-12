@@ -15,5 +15,6 @@ package SpeechOnnx {
         comment reqRef /* Requirements: docs/reqstream/speech-onnx.yaml */
 
         part onnxRuntimeSubsystem : OnnxRuntimeSubsystem;
+        part microsoftMlOnnxRuntime : MicrosoftMlOnnxRuntime;
     }
 }

@@ -19,5 +19,6 @@ package Speech {
         part modelManagementSubsystem : ModelManagementSubsystem;
         part recognitionSubsystem : RecognitionSubsystem;
         part synthesisSubsystem : SynthesisSubsystem;
+        part systemNumericsTensors : SystemNumericsTensors;
     }
 }
