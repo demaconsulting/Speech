@@ -431,9 +431,11 @@ sections:
               - Speech-Models-ReferenceVoicePack-PublishedMetadata
               - Speech-Models-ReferenceVoicePack-ArgumentValidation
               - Speech-Models-ReferenceVoicePack-SizeMetadata
+              - Speech-Models-ReferenceVoicePack-MoodClipLookup
               - Speech-Models-ReferenceVoicePackInstaller-SelectiveExtraction
               - Speech-Models-ReferenceVoicePackInstaller-ArchiveSafety
               - Speech-Models-ReferenceVoicePackInstaller-EmotionVariants
+              - Speech-Models-ReferenceVoicePackInstaller-SizeCaps
               - Speech-Models-ReferenceVoiceLibrary-StoreLayout
               - Speech-Models-ReferenceVoiceLibrary-ArgumentValidation
               - Speech-Models-ReferenceVoiceLibrary-PackInstall
