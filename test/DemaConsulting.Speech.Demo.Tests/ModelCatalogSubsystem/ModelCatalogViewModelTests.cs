@@ -558,6 +558,36 @@ public class ModelCatalogViewModelTests
     }
 
     /// <summary>
+    ///     Proves that refreshing while a download is in flight leaves the downloading row in place and does not
+    ///     re-read the catalog, so the transfer's progress and outcome are not discarded.
+    /// </summary>
+    [Fact]
+    public async Task ModelCatalogViewModel_Refresh_DownloadInFlight_KeepsRowsAndDoesNotRereadCatalog()
+    {
+        // Arrange: a catalog whose download stays pending until released
+        var release = new TaskCompletionSource<SpeechModelDownloadResult>();
+        var service = Service(FakeSpeechModel.Descriptor("model-a"));
+        service
+            .DownloadAsync("model-a", Arg.Any<IProgress<SpeechModelDownloadProgress>?>(), Arg.Any<CancellationToken>())
+            .Returns(release.Task);
+        var viewModel = new ModelCatalogViewModel(service);
+        var row = viewModel.Models[0];
+        var download = viewModel.DownloadAsync(row, TestContext.Current.CancellationToken);
+        service.ClearReceivedCalls();
+
+        // Act: refresh while the download is running
+        await viewModel.Refresh();
+
+        // Assert: the same row is still downloading and the catalog was not enumerated again
+        Assert.Same(row, viewModel.Models[0]);
+        Assert.Equal(SpeechModelState.Downloading, row.State);
+        service.DidNotReceive().Enumerate();
+
+        release.SetResult(new SpeechModelDownloadResult(SpeechModelDownloadOutcome.Installed));
+        await download;
+    }
+
+    /// <summary>
     ///     Proves that a canceled download leaves the model reported as simply not downloaded,
     ///     matching the library's guarantee that nothing was installed.
     /// </summary>

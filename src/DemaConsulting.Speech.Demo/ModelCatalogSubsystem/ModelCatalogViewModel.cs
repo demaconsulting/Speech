@@ -226,7 +226,7 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
             // The freshly rebuilt catalog may report different install states for models whose
             // files live under a models directory this session has not yet touched, so refresh
             // the row list from it rather than leaving stale rows on display.
-            await Refresh().ConfigureAwait(true);
+            await ReloadAsync().ConfigureAwait(true);
         }
         catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
         {
@@ -248,9 +248,37 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
     ///     Rows are rebuilt rather than merged because the library's catalog is the single source
     ///     of truth for both membership and state; keeping stale rows alive across a refresh would
     ///     let the panel show a model the library no longer reports.
+    ///     <para>
+    ///     Refused (leaving the rows untouched) while any model download or voice-pack install is in
+    ///     flight, because rebuilding the rows would discard the row that is showing that transfer's
+    ///     progress and outcome. The same busy rule already guards <see cref="ApplyMirror"/> and the
+    ///     voice-pack commands.
+    ///     </para>
     /// </remarks>
     [RelayCommand]
     public async Task Refresh()
+    {
+        if (IsTransferInFlight())
+        {
+            return;
+        }
+
+        await ReloadAsync().ConfigureAwait(true);
+    }
+
+    /// <summary>
+    ///     Gets a value indicating whether a model download or voice-pack install is currently in flight.
+    /// </summary>
+    /// <returns><see langword="true"/> when any row is downloading or installing.</returns>
+    private bool IsTransferInFlight() =>
+        Models.Any(model => model.IsDownloading) || VoicePacks.Any(pack => pack.IsInstalling);
+
+    /// <summary>
+    ///     Rebuilds the rows and reads the installed packs' emotion flags without the busy check; used by the
+    ///     commands that have just finished (or deliberately completed) the transfer themselves.
+    /// </summary>
+    /// <returns>A task that completes when the rows and flags are current.</returns>
+    private async Task ReloadAsync()
     {
         RefreshCore();
         await LoadPackEmotionsAsync(CancellationToken.None).ConfigureAwait(true);
@@ -439,7 +467,7 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
             if (result.Outcome == SpeechModelDownloadOutcome.Installed)
             {
                 // The service rebuilt the catalog (so Chatterbox re-reads its voices); re-read the rows.
-                await Refresh().ConfigureAwait(true);
+                await ReloadAsync().ConfigureAwait(true);
             }
             else
             {
@@ -531,7 +559,7 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
         try
         {
             await _catalogService.UninstallReferenceVoicePackAsync(pack.Id, cancellationToken).ConfigureAwait(true);
-            await Refresh().ConfigureAwait(true);
+            await ReloadAsync().ConfigureAwait(true);
         }
         catch (OperationCanceledException)
         {
