@@ -1,10 +1,10 @@
 ## MirrorOptionsFactory
 
-**Purpose**: Validate mirror settings and build the library's `DownloaderOptions`, shared by the
+**Purpose**: Validate mirror settings and build the library's `SpeechModelDownloaderOptions`, shared by the
 launch options and the model catalog panel so both entry points apply identical rules.
 
 **Data Model**: Stateless static class. Input is a mirror URL, an optional user and password, and
-an optional bearer token, all as strings. The result is a `DownloaderOptions` carrying a
+an optional bearer token, all as strings. The result is a `SpeechModelDownloaderOptions` carrying a
 `DownloadMirror`, or `null` when no mirror is requested.
 
 **Key Methods**: `Create(url, user, password, bearerToken)`:
@@ -20,7 +20,7 @@ an optional bearer token, all as strings. The result is a `DownloaderOptions` ca
 **Error Handling**: Throws `ArgumentException` with an explanatory message for every rejected
 combination; the callers present the message to the user.
 
-**Dependencies**: The library's `DownloaderOptions`, `DownloadMirror` and credential types.
+**Dependencies**: The library's `SpeechModelDownloaderOptions` and `DownloadMirror`.
 
 **Callers**: `AppLaunchOptions.CreateDownloaderOptions` and `ModelCatalogViewModel` when applying
 mirror settings.

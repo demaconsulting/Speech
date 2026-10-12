@@ -28,7 +28,7 @@ launch as in the model catalog panel.
 folder that does not exist. `CreateDownloaderOptions` surfaces the factory's `ArgumentException`.
 
 **Dependencies**: `MirrorOptionsFactory` and the library's `SpeechModelStoreOptions` and
-`DownloaderOptions`.
+`SpeechModelDownloaderOptions`.
 
 **Callers**: `Program` (parses and validates eagerly at startup) and `App` (reads the options when
 composing the shell).

@@ -63,6 +63,9 @@ external interfaces are its user interface and the interfaces it consumes.
 | Model settings panel | Inbound/Outbound | User interface | Renders generic controls; explains empty state |
 | Text-to-speech panel | Inbound/Outbound | User interface | Text input, tag hints, Play/Stop, playback status |
 | Speech-to-text panel | Inbound/Outbound | User interface | Start/Stop, live partial/final transcript |
+| Command-line launch options | Inbound | Arguments | `--models-dir`, `--voices-dir`, `--mirror-*`, `--help` |
+| Mirror and voice-pack controls | Inbound/Outbound | User interface | Validated locally; honest failures |
+| `DEMASPEECH_CAPTURE_DEBUG_DIR` | Inbound | Environment variable | Opt-in raw capture recording; off by default |
 | Refresh commands | Inbound | User interface | Never throw |
 | Download command | Inbound/Outbound | User interface | Reports progress and honest failure |
 | `AudioDeviceFactory` | Outbound | Constructor/property | Consumed; never throws |
@@ -71,6 +74,8 @@ external interfaces are its user interface and the interfaces it consumes.
 | `AudioDeviceSelection` | Outbound | Value construction | Name-only device identity |
 | `SpeechModelCatalog.Enumerate()` | Outbound | Method call/return | Consumed; never throws |
 | `SpeechModelCatalog.DownloadAsync(...)` | Outbound | Method call/return | Throws for unknown model id |
+| `SpeechModelCatalog` mirror/voice-pack members | Outbound | Method call/return | Mirror and voice-pack calls |
+| File system | Outbound | Files | Model store, voices folder and optional capture recording |
 | `SpeechSynthesizerFactory.LoadAsync(...)` | Outbound | Method call/return | Consumed; never throws |
 | `SpeechRecognizerFactory.LoadAsync(...)` | Outbound | Method call/return | Consumed; never throws |
 | `ISynthesisSession.SpeakAsync(...)` | Outbound | Method call/return | Consumed; cancellation stops playback |
@@ -88,8 +93,9 @@ SpeechDemo has the following project dependencies:
 - **SpeechOnnxNemotronStt**: `AddNemotronSttModels()` registers the shipped Nemotron ONNX
   speech-recognition model (see _SpeechOnnxNemotronStt Design_)
 - **SpeechOnnxChatterboxTurbo**: `AddChatterboxTurboModels()` registers the Chatterbox Turbo
-  voice-cloning synthesis model, and its shared `ReferenceVoiceLibrary` provides the optional
-  reference voice pack (see _SpeechOnnxChatterboxTurbo Design_)
+  voice-cloning synthesis model, which consumes the core Speech library's shared
+  `ReferenceVoiceLibrary` for the optional reference voice pack (see _SpeechOnnxChatterboxTurbo
+  Design_)
 
 SpeechDemo also depends on the following NuGet packages:
 

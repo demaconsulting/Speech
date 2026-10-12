@@ -31,12 +31,14 @@ pre-refresh hook list described below.
 The library exposes device enumeration through a sealed `AudioDeviceFactory` and its
 `CaptureProbe`/`PlaybackProbe` properties, not through an injectable interface. Rather than add
 public API to the library purely to make a demo testable — which would compromise the evidence
-the demo exists to provide — the demo owns a three-method interface over that surface:
+the demo exists to provide — the demo owns a five-member interface over that surface:
 
 | Member | Returns | Behavior |
 | --- | --- | --- |
 | `EnumerateCaptureDevices()` | `IReadOnlyList<AudioDeviceDescription>` | Never throws |
 | `EnumeratePlaybackDevices()` | `IReadOnlyList<AudioDeviceDescription>` | Never throws |
+| `CreateCaptureDevice(AudioDeviceSelection?)` | `IAudioCaptureDevice` | Creates the selected capture device |
+| `CreatePlaybackDevice(AudioDeviceSelection?)` | `IAudioPlaybackDevice` | Creates the selected playback device |
 | `RefreshDevices()` | `void` | Forwards to the factory; throws `AudioDeviceInUseException` if a device is in use |
 
 `AudioDeviceService` is the only production implementation. It holds an `AudioDeviceFactory`,

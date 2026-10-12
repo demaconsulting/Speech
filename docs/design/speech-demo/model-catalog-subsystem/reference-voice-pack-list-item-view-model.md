@@ -18,7 +18,7 @@ captions and enablement values the row displays.
 | `InstallButtonText` | `string` | "Add emotions" for a voices-only install, otherwise "Install" |
 | `CanUpgradeToEmotions` | `bool` | `State` is `Downloaded`, the pack has emotion variants, and the install lacks them |
 | `ShowEmotionOption` | `bool` | Pack has emotion variants and `State` is `NotDownloaded` or `FailedOrCorrupt` |
-| `EffectiveIncludeEmotions` | `bool` | Install argument: `true` for an upgrade, else `IncludeEmotions` |
+| `EffectiveIncludeEmotions` | `bool` | Install argument: needs `HasEmotionVariants`, then upgrade/`IncludeEmotions` |
 | `LicenseText` | `string` | "{attribution} - {license}" |
 | `ConsentNotice` | `string` | The voice-cloning consent note |
 | `State` | `SpeechModelState` | The install lifecycle state |

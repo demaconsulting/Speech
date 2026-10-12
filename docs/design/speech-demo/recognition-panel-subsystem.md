@@ -13,7 +13,7 @@ following units:
 - **RecognitionPanelViewModel**: the panel's presentation state — the installed recognition
   models, the async Start/Stop streaming lifecycle over an `ISpeechRecognizerEngine` and an
   `IRecognitionSession`, and the progressive partial-then-final transcript
-- **CaptureDebugRecorder** / **WavFileWriter**: internal, opt-in, TEMPORARY diagnostic
+- **CaptureDebugRecorder** / **WavFileWriter**: internal, opt-in diagnostic
   instrumentation (off by default) that records raw captured audio to a `.wav` file for offline
   investigation of a reported live-microphone bug; see "Capture Debug Recording" below
 
@@ -191,9 +191,9 @@ rather than assuming the view's guard makes a mid-session change unreachable.
 
 #### Capture Debug Recording (diagnostic instrumentation)
 
-**`CaptureDebugRecorder`** and **`WavFileWriter`** are internal, opt-in, TEMPORARY diagnostic
-instrumentation added to investigate a reported live-microphone bug (a long mid-sentence pause
-sometimes dropping the first word(s) spoken right after the pause). They are not part of this
+**`CaptureDebugRecorder`** and **`WavFileWriter`** are internal, opt-in diagnostic
+instrumentation for investigating live-microphone issues such as a long mid-sentence pause
+dropping the first word(s) spoken right after the pause. They are not part of this
 subsystem's public presentation surface and are off by default. When the
 `DEMASPEECH_CAPTURE_DEBUG_DIR` environment variable names a writable directory,
 `RecognitionPanelViewModel`'s Start algorithm calls `CaptureDebugRecorder.TryStart(captureDevice)`
@@ -204,8 +204,7 @@ session-scoped `.wav` file via `WavFileWriter`, on a dedicated writer thread fed
 producer/consumer queue so a slow or failing disk can never block or throw into the audio capture
 callback. The Stop algorithm finalizes (disposes) any active recording before clearing the
 captured UI context. A recorder that fails to start (for example, an inaccessible directory)
-logs the failure to the console and live recognition proceeds completely unaffected; this
-instrumentation is intended to be removed once the investigation concludes.
+logs the failure to the console and live recognition proceeds completely unaffected.
 
 #### Testability
 
