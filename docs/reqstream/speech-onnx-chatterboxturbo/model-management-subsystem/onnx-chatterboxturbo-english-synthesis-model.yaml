@@ -18,13 +18,32 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-Identity
                 title: >-
                   The OnnxChatterboxTurboEnglishSynthesisModel class shall declare a stable id,
-                  display name, English language, the model's license, a 24 kHz mono output
-                  format, and a capability profile that supports native audio tags.
+                  display name, English language and the model's license.
                 justification: |
-                  The model store and Speech library select, list and render for a model based
-                  on this metadata.
+                  The model store and Speech library select and list a model based on this
+                  metadata.
                 tests:
                   - OnnxChatterboxTurboEnglishSynthesisModel_Metadata_DescribesNativeTagSynthesisModel
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-OutputFormat
+                title: >-
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall declare a 24 kHz mono
+                  output format.
+                justification: |
+                  The Speech library resamples and mixes based on the declared output format.
+                tests:
+                  - OnnxChatterboxTurboEnglishSynthesisModel_Metadata_DescribesNativeTagSynthesisModel
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-CapabilityProfile
+                title: >-
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall declare a capability
+                  profile that supports native audio tags and uses the configured mood join
+                  silence.
+                justification: |
+                  The Speech library renders audio tags for a model according to its profile.
+                tests:
+                  - OnnxChatterboxTurboEnglishSynthesisModel_Metadata_DescribesNativeTagSynthesisModel
+                  - OnnxChatterboxTurboEnglishSynthesisModel_CapabilityProfile_UsesMoodJoinSilenceOption
 
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-DownloadDescriptor
                 title: >-
@@ -40,31 +59,54 @@ sections:
                 title: >-
                   The OnnxChatterboxTurboEnglishSynthesisModel class shall support selectable
                   language-model and auxiliary-graph precision variants, each combination having
-                  a distinct id and a complete file set, and shall load the graphs of the
-                  selected variant.
+                  a distinct id and a complete file set.
                 justification: |
                   Variants let a host trade download size against fidelity, and mixing files of
                   different variants under one id would corrupt the installed model.
                 tests:
                   - OnnxChatterboxTurboEnglishSynthesisModel_Variants_HaveDistinctIdsAndCompleteFileSets
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-VariantLoading
+                title: >-
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall load the graphs of the
+                  selected variant.
+                justification: |
+                  A backend that loaded another variant's graphs would not match the installed
+                  files.
+                tests:
                   - OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_Fp32Variant_UsesFp32Graph
 
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-Voices
                 title: >-
                   The OnnxChatterboxTurboEnglishSynthesisModel class shall expose the supplied
-                  voices as a voice choice, map a voice id to its index (first voice by
-                  default), load every WAV or FLAC file of a supplied voice directory as a voice,
-                  and reject duplicate voice ids among the explicit and directory voices with an
-                  ArgumentException.
+                  voices as a voice choice and map a voice id to its index, selecting the first
+                  voice by default.
                 justification: |
                   The model has no built-in voices, so the host's own clips define the voice
-                  list a user can choose from, and an id that selects two voices would make the
-                  second unreachable.
+                  list a user can choose from.
                 tests:
                   - OnnxChatterboxTurboEnglishSynthesisModel_Parameters_ReflectSuppliedVoices
                   - OnnxChatterboxTurboEnglishSynthesisModel_ResolveSpeakerId_MapsVoiceIdToIndex
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-VoiceDirectory
+                title: >-
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall load every WAV or FLAC
+                  file of a supplied voice directory as a voice, without failing construction for
+                  a damaged file.
+                justification: |
+                  A user can drop clips in a folder, and one damaged clip must not remove the
+                  rest.
+                tests:
                   - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_VoiceDirectory_LoadsWavAndFlacFiles
                   - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_DamagedVoiceFile_DoesNotFailConstruction
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-DuplicateVoices
+                title: >-
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall reject duplicate voice
+                  ids among the explicit and directory voices with an ArgumentException.
+                justification: |
+                  An id that selects two voices would make the second unreachable.
+                tests:
                   - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_DuplicateExplicitIds_ThrowsArgumentException
                   - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_DirectoryVoiceDuplicatesExplicitId_ThrowsArgumentException
                   - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_DirectoryWavAndFlacSameStem_ThrowsArgumentException
@@ -72,14 +114,21 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-CreateBackend
                 title: >-
                   The OnnxChatterboxTurboEnglishSynthesisModel class shall build a working
-                  backend from an installed model directory, and shall fail with a clear
-                  exception, without leaking sessions, when no voice is supplied, a model file is
-                  missing, or a graph is invalid.
+                  backend from an installed model directory.
+                justification: |
+                  This is how the model store turns an installed model into speech.
+                tests:
+                  - OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_SyntheticInstall_SynthesizesAudio
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-CreateBackendFailures
+                title: >-
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall fail backend creation
+                  with a clear exception, without leaking sessions, when no voice is supplied, a
+                  model file is missing, or a graph is invalid.
                 justification: |
                   A broken install must be reported precisely, and native sessions must never
                   leak when construction fails.
                 tests:
-                  - OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_SyntheticInstall_SynthesizesAudio
                   - OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_NoVoices_Throws
                   - OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_MissingFile_ThrowsFileNotFound
                   - OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_InvalidGraph_DisposesSessionsAndThrows
@@ -87,35 +136,72 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-Options
                 title: >-
                   The ChatterboxTurboModelOptions class shall provide safe defaults for every
-                  option and shall validate values assigned to them, including undefined
-                  variant values.
+                  option.
                 justification: |
-                  A host that supplies no options gets sensible behavior, and invalid values fail
-                  at assignment rather than during synthesis.
+                  A host that supplies no options gets sensible behavior.
+                tests:
+                  - ChatterboxTurboModelOptions_Properties_HaveSafeDefaultsAndValidate
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-OptionsValidation
+                title: >-
+                  The ChatterboxTurboModelOptions class shall validate values assigned to its
+                  options, rejecting undefined variant values and a null reference-voice list.
+                justification: |
+                  Invalid values fail at assignment rather than during synthesis.
                 tests:
                   - ChatterboxTurboModelOptions_Properties_HaveSafeDefaultsAndValidate
                   - ChatterboxTurboModelOptions_VariantSetters_UndefinedValue_ThrowsArgumentOutOfRangeException
-                  - OnnxChatterboxTurboEnglishSynthesisModel_CapabilityProfile_UsesMoodJoinSilenceOption
+                  - ChatterboxTurboModelOptions_ReferenceVoices_Null_ThrowsArgumentNullException
 
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoices
                 title: >-
                   The OnnxChatterboxTurboEnglishSynthesisModel class shall append the voices of a
                   core ReferenceVoiceLibrary (user folder and installed packs) after explicit and
-                  directory voices, skip a library voice whose id is already present and report it
-                  at Info level, give a library voice whose display name clashes with an earlier
-                  voice a "(user)" or "(pack)" suffix, load them lazily so a corrupt file does not
-                  fail construction, let a host opt out, and default to the library of the
-                  catalog's store when registered through the catalog extension without mutating
-                  the caller's options.
+                  directory voices, skipping a library voice whose id is already present and
+                  reporting it at Info level.
                 justification: |
                   The downloaded voice pack and the user's own clips must appear in the voice list
-                  without any host code, while explicit voices keep working unchanged and a
-                  hundred-plus clips are never decoded up front.
+                  without any host code, while explicit voices keep working unchanged.
                 tests:
                   - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_StoreVoices_MergedAfterExplicitAndDirectoryFirstIdWins
                   - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_LibraryVoiceDuplicate_IsSkippedWithInfoDiagnostic
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoiceLabels
+                title: >-
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall give a library voice
+                  whose display name clashes with an earlier voice a "(user)" or "(pack)" suffix.
+                justification: |
+                  Two voices with the same visible name could not be told apart in a voice list.
+                tests:
                   - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_UserVoiceLabelClash_AddsUserSuffix
                   - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_PackVoices_AreListedWithPackSuffixOnClash
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoiceLazyLoading
+                title: >-
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall load library voices
+                  lazily so a corrupt file does not fail construction.
+                justification: |
+                  A hundred-plus clips are never decoded up front, and one damaged clip must not
+                  make the model unusable.
+                tests:
                   - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_CorruptStoreVoice_DoesNotFailConstruction
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoiceOptOut
+                title: >-
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall let a host opt out of
+                  the library voices.
+                justification: |
+                  A host that wants only its own voices must be able to say so.
+                tests:
                   - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_IncludeStoreVoicesFalse_IgnoresLibrary
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoiceDefault
+                title: >-
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall default to the library
+                  of the catalog's store when registered through the catalog extension, without
+                  mutating the caller's options.
+                justification: |
+                  A host gets the store's voices without wiring them, and its options object is
+                  never changed behind its back.
+                tests:
                   - SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_DefaultsToCatalogStoreVoices

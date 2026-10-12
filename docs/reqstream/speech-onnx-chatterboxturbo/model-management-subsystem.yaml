@@ -40,11 +40,18 @@ sections:
               model, and through which a host selects a voice.
             children:
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-Identity
+              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-OutputFormat
+              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-CapabilityProfile
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-DownloadDescriptor
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-Variants
+              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-VariantLoading
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-Voices
+              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-VoiceDirectory
+              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-DuplicateVoices
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-CreateBackend
+              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-CreateBackendFailures
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-Options
+              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-OptionsValidation
 
           - id: SpeechOnnxChatterboxTurbo-Models-TextTokenization
             title: >-
@@ -57,8 +64,12 @@ sections:
               dependency on a tokenizer library.
             children:
               - SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-Encoding
+              - SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-EmptyText
+              - SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-EmbeddedDocument
               - SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-SpecialTokens
               - SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-Errors
+              - SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-UnknownPiece
+              - SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-InvalidArguments
               - SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-MergeRanks
 
           - id: SpeechOnnxChatterboxTurbo-Models-ReferenceVoices
@@ -71,8 +82,12 @@ sections:
               clips in whatever format they were recorded.
             children:
               - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-Normalization
+              - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-Conversion
+              - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-MaximumLength
               - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-FileLoading
+              - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-FileErrors
               - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-Validation
+              - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-InvalidArguments
 
           - id: SpeechOnnxChatterboxTurbo-Models-StoreReferenceVoices
             title: >-
@@ -85,8 +100,15 @@ sections:
               source and wire up its own.
             children:
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoices
+              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoiceLabels
+              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoiceLazyLoading
+              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoiceOptOut
+              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoiceDefault
               - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-LazyFileLoading
+              - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-LazyFileErrors
               - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-MoodClips
+              - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-MoodClipLoading
+              - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-MoodNames
             tests:
               - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_StoreVoices_MergedAfterExplicitAndDirectoryFirstIdWins
               - SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_DefaultsToCatalogStoreVoices

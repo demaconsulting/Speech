@@ -16,39 +16,90 @@ sections:
             requirements:
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-Inference
                 title: >-
-                  The OnnxChatterboxTurboNetworks class shall run the speech encoder (binding
-                  outputs by name, or positionally when unnamed), token embedder, cached language
-                  model step and conditional decoder, returning the data the engine needs.
+                  The OnnxChatterboxTurboNetworks class shall encode a reference clip into the
+                  conditioning data, embed token ids into embedding rows, run a language-model
+                  step that continues from the previous steps and returns the last position's
+                  logits, and decode speech tokens into a waveform.
                 justification: |
                   This unit is the only place the graphs' tensor contracts are known.
                 tests:
                   - OnnxChatterboxTurboNetworks_Encode_NamedOutputs_ReturnsConditioning
-                  - OnnxChatterboxTurboNetworks_Encode_UnnamedFourOutputs_BindsPositionally
                   - OnnxChatterboxTurboNetworks_Embed_TokenIds_ReturnsTableRows
-                  - OnnxChatterboxTurboNetworks_ReadFloats_HandlesFloat32AndFloat16
                   - OnnxChatterboxTurboNetworks_Step_TwoSteps_ReusesCacheAndReturnsLastLogits
+                  - OnnxChatterboxTurboNetworks_Decode_SpeechTokens_ReturnsWaveform
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-EncoderOutputs
+                title: >-
+                  The OnnxChatterboxTurboNetworks class shall accept a speech encoder whose
+                  outputs are named or unnamed, and shall fail with an InvalidOperationException
+                  for outputs it cannot recognize.
+                justification: |
+                  Exports of the encoder differ in output naming; an unrecognized export must be
+                  reported rather than mis-wired.
+                tests:
+                  - OnnxChatterboxTurboNetworks_Encode_NamedOutputs_ReturnsConditioning
+                  - OnnxChatterboxTurboNetworks_Encode_UnnamedFourOutputs_BindsPositionally
+                  - OnnxChatterboxTurboNetworks_Constructor_UnrecognizedEncoderOutputs_ThrowsInvalidOperationException
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-Precision
+                title: >-
+                  The OnnxChatterboxTurboNetworks class shall return the same float values from
+                  graphs whose outputs are half-precision as from single-precision graphs.
+                justification: |
+                  Precision variants of the graphs must be interchangeable for the engine.
+                tests:
+                  - OnnxChatterboxTurboNetworks_ReadFloats_HandlesFloat32AndFloat16
                   - OnnxChatterboxTurboNetworks_Step_HalfEmbeddingsAndLogits_AreConverted
+                  - OnnxChatterboxTurboNetworks_HalfAuxiliaryOutputs_AreConvertedToFloats
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-InvalidArguments
+                title: >-
+                  The OnnxChatterboxTurboNetworks class shall reject null arguments, an embedding
+                  of the wrong length and an attention mask shorter than the sequence.
+                justification: |
+                  Misuse of a tensor contract must fail loudly rather than corrupt the cache.
+                tests:
                   - OnnxChatterboxTurboNetworks_Step_WrongEmbeddingLength_ThrowsArgumentException
                   - OnnxChatterboxTurboNetworks_Step_AttentionShorterThanSequence_ThrowsArgumentOutOfRangeException
-                  - OnnxChatterboxTurboNetworks_Decode_SpeechTokens_ReturnsWaveform
+                  - OnnxChatterboxTurboNetworks_NullArguments_Throw
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-Configuration
                 title: >-
-                  The OnnxChatterboxTurboNetworks class shall apply a configured intra-op thread
-                  count to every session and reject invalid counts.
+                  The OnnxChatterboxTurboNetworks class shall expose a configured intra-op thread
+                  count and reject invalid counts.
                 justification: |
                   Hosts must be able to bound CPU use.
                 tests:
                   - OnnxChatterboxTurboNetworks_Constructor_ThreadCount_IsAppliedAndValidated
 
-              - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-Lifecycle
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-GraphValidation
                 title: >-
-                  The OnnxChatterboxTurboNetworks class shall dispose every session on dispose,
-                  and dispose already-created sessions when construction fails.
+                  The OnnxChatterboxTurboNetworks class shall fail construction with a
+                  FileNotFoundException for a missing graph file and with an exception for an
+                  invalid language-model graph.
+                justification: |
+                  A broken install must be reported precisely at load time.
+                tests:
+                  - OnnxChatterboxTurboNetworks_Constructor_MissingGraph_DisposesEarlierSessionsAndThrows
+                  - OnnxChatterboxTurboNetworks_Constructor_InvalidLanguageModel_DisposesSessionsAndThrows
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-ConstructionCleanup
+                title: >-
+                  The OnnxChatterboxTurboNetworks class shall dispose the sessions it already
+                  created when construction fails.
                 justification: |
                   Native sessions hold large memory-mapped weights that must not leak.
                 tests:
-                  - OnnxChatterboxTurboNetworks_Constructor_InvalidLanguageModel_DisposesSessionsAndThrows
-                  - OnnxChatterboxTurboNetworks_Constructor_UnrecognizedEncoderOutputs_ThrowsInvalidOperationException
                   - OnnxChatterboxTurboNetworks_Constructor_MissingGraph_DisposesEarlierSessionsAndThrows
+                  - OnnxChatterboxTurboNetworks_Constructor_InvalidLanguageModel_DisposesSessionsAndThrows
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-Lifecycle
+                title: >-
+                  The OnnxChatterboxTurboNetworks class shall dispose every session on dispose and
+                  reject further use with an ObjectDisposedException.
+                justification: |
+                  Native sessions must be released deterministically, and a call on a released
+                  session must not reach native code.
+                tests:
                   - OnnxChatterboxTurboNetworks_Dispose_DisposesAllSessions
+                  - OnnxChatterboxTurboNetworks_AfterDispose_RejectsUse

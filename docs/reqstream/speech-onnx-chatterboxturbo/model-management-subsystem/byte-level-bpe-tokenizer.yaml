@@ -17,15 +17,31 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-Encoding
                 title: >-
                   The ByteLevelBpeTokenizer class shall encode text into exactly the ids the
-                  reference tokenizer produces for a broad set of golden cases, load from an
-                  embedded document whose content matches the pinned upstream hash, and return
-                  only the post-processor trailing ids for empty text.
+                  reference tokenizer produces for a broad set of golden cases.
                 justification: |
                   Any id deviation changes the speech the model produces.
                 tests:
                   - ByteLevelBpeTokenizer_Encode_GoldenText_MatchesReferenceIds
                   - ByteLevelBpeTokenizer_GoldenCases_ContainManyCases
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-EmptyText
+                title: >-
+                  The ByteLevelBpeTokenizer class shall return only the post-processor trailing
+                  ids for empty text.
+                justification: |
+                  Empty input must still yield the sequence the language model expects.
+                tests:
                   - ByteLevelBpeTokenizer_Encode_EmptyText_ReturnsOnlyTrailingPair
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-EmbeddedDocument
+                title: >-
+                  The ByteLevelBpeTokenizer class shall load from a tokenizer document embedded in
+                  the package whose content is identical to the upstream document it was taken
+                  from.
+                justification: |
+                  A silently altered vocabulary would change every produced id; an integrity check
+                  keeps the embedded copy faithful to the reference.
+                tests:
                   - ByteLevelBpeTokenizer_EmbeddedResource_MatchesPinnedUpstreamHash
 
               - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-SpecialTokens
@@ -42,19 +58,34 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-Errors
                 title: >-
                   The ByteLevelBpeTokenizer class shall throw InvalidDataException for a document
-                  that is not valid gzip, not a valid tokenizer (including malformed merges) or
-                  lacks the end-of-text token, InvalidOperationException when encoding hits a
-                  piece without a vocabulary entry, ArgumentOutOfRangeException for a negative
-                  trailing count, and ArgumentNullException for null arguments.
+                  that is not valid gzip, not a valid tokenizer (including an empty vocabulary or
+                  malformed merges) or lacks the end-of-text token.
                 justification: |
-                  A corrupt resource or programming error must surface with a clear exception.
+                  A corrupt resource must surface with a clear exception.
                 tests:
                   - ByteLevelBpeTokenizer_Constructor_InvalidDocument_ThrowsInvalidData
                   - ByteLevelBpeTokenizer_Constructor_MalformedMerge_ThrowsInvalidData
                   - ByteLevelBpeTokenizer_Constructor_MissingEndOfText_ThrowsInvalidData
-                  - ByteLevelBpeTokenizer_Constructor_NegativeTrailingCount_ThrowsArgumentOutOfRange
-                  - ByteLevelBpeTokenizer_Encode_PieceWithoutVocabularyEntry_ThrowsInvalidOperation
+                  - ByteLevelBpeTokenizer_Constructor_EmptyVocabulary_ThrowsInvalidData
                   - ByteLevelBpeTokenizer_FromGzipStream_NotGzip_ThrowsInvalidData
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-UnknownPiece
+                title: >-
+                  The ByteLevelBpeTokenizer class shall throw InvalidOperationException when
+                  encoding hits a piece without a vocabulary entry.
+                justification: |
+                  An incomplete vocabulary must fail loudly rather than yield wrong ids.
+                tests:
+                  - ByteLevelBpeTokenizer_Encode_PieceWithoutVocabularyEntry_ThrowsInvalidOperation
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-InvalidArguments
+                title: >-
+                  The ByteLevelBpeTokenizer class shall throw ArgumentOutOfRangeException for a
+                  negative trailing count and ArgumentNullException for null arguments.
+                justification: |
+                  Programming errors must surface with a clear exception.
+                tests:
+                  - ByteLevelBpeTokenizer_Constructor_NegativeTrailingCount_ThrowsArgumentOutOfRange
                   - ByteLevelBpeTokenizer_NullArguments_Throw
 
               - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-MergeRanks

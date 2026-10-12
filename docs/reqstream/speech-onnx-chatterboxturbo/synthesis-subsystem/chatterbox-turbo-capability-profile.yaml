@@ -26,70 +26,148 @@ sections:
                   - ChatterboxTurboCapabilityProfile_Render_MidSentenceLaugh_StaysInlineWithNativeToken
                   - ChatterboxTurboCapabilityProfile_Render_NativeTags_UseModelTokens
 
-              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-Unsupported
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-Silence
                 title: >-
                   The ChatterboxTurboCapabilityProfile class shall render sighs and pauses as
-                  silence segments, omit every other tag, and never emit bracketed text the model
-                  could speak aloud; its treatments shall cover every tag kind without emotion
-                  tokens.
+                  silence segments.
                 justification: |
-                  The model mispronounces unknown brackets, so tags it cannot render must become
-                  silence or nothing.
+                  The model has no usable token for these, so real silence is the faithful
+                  rendering.
                 tests:
-                  - ChatterboxTurboCapabilityProfile_Render_UnsupportedTags_NeverEmitBracketText
                   - ChatterboxTurboCapabilityProfile_Render_Sigh_BecomesSilenceSegment
                   - ChatterboxTurboCapabilityProfile_Render_PauseTags_BecomeSilence
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-Unsupported
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall omit every tag it has no
+                  rendering for and never emit bracketed text the model could speak aloud, and
+                  shall give every tag kind a treatment that uses no emotion tokens.
+                justification: |
+                  The model mispronounces unknown brackets, so tags it cannot render must become
+                  nothing.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_UnsupportedTags_NeverEmitBracketText
                   - ChatterboxTurboCapabilityProfile_Treatments_CoverEveryTagWithoutEmotionTokens
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-TrailingTag
                 title: >-
                   The ChatterboxTurboCapabilityProfile class shall handle a native tag that would
-                  end a sentence according to the configured policy (move before the final word,
-                  suffix, or strip), and shall attach a tag between sentences to the following
-                  sentence.
+                  end a sentence according to the configured policy: move it before the final
+                  word, suffix it, or strip it.
                 justification: |
                   A tag with no speech after it makes the model misbehave.
                 tests:
                   - ChatterboxTurboCapabilityProfile_Render_TrailingTag_MoveBeforeFinalWord_RelocatesTag
                   - ChatterboxTurboCapabilityProfile_Render_TrailingTag_Suffix_AppendsOrDrops
                   - ChatterboxTurboCapabilityProfile_Render_TrailingTag_Strip_DropsTag
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-TagBetweenSentences
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall attach a tag between sentences
+                  to the following sentence, and join a chunk holding only a trailing tag to the
+                  previous unit.
+                justification: |
+                  A tag that stands alone has no speech to attach to.
+                tests:
                   - ChatterboxTurboCapabilityProfile_Render_TagBetweenSentences_LeadsNextSentence
                   - ChatterboxTurboCapabilityProfile_Render_TrailingTagOnlyChunk_JoinsPreviousUnit
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-Segmentation
                 title: >-
                   The ChatterboxTurboCapabilityProfile class shall split text into sentences with
-                  a short pause after ellipsis endings, split over-long sentences, and return a
-                  safe result for empty or invalid input.
+                  a short pause after ellipsis endings, without splitting at a full stop flanked
+                  by digits.
                 justification: |
-                  The model is reliable only on moderate-length sentences.
+                  The model is reliable only on moderate-length sentences, and a decimal number
+                  is not a sentence boundary.
                 tests:
                   - ChatterboxTurboCapabilityProfile_Render_Sentences_AreSplitWithEllipsisPause
+                  - ChatterboxTurboCapabilityProfile_DigitFlankedStop_IsNotASentenceBoundary
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-LongSentences
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall split a sentence longer than
+                  the reliable length into parts, keeping every word.
+                justification: |
+                  The model degrades on long inputs, and splitting must never lose speech.
+                tests:
                   - ChatterboxTurboCapabilityProfile_Render_LongSentence_IsSplit
+                  - ChatterboxTurboCapabilityProfile_OverLongClause_SplitsOnWordBudgetKeepingEveryWord
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-InvalidInput
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall return a safe result for empty
+                  or invalid text and reject null arguments.
+                justification: |
+                  Rendering must never fail a synthesis call on degenerate input.
+                tests:
                   - ChatterboxTurboCapabilityProfile_Render_EmptyOrInvalid_BehavesSafely
                   - ChatterboxTurboCapabilityProfile_Render_NullArguments_Throw
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-Moods
                 title: >-
                   The ChatterboxTurboCapabilityProfile class shall map the mood tags (and the
-                  shout, tired, worried and neutral aliases) to a mood that applies until the next
-                  mood tag, prefix each spoken segment's text with an internal private-use mood
-                  marker, add the configured join silence only where the mood changes, keep the
-                  end-of-sentence policy per segment, keep whispers, sarcastic, soft and breathy
-                  stripped, and strip marker characters from user text.
+                  shout, tired, worried and neutral aliases) to a mood that applies to the
+                  following text until the next mood tag, the last of consecutive mood tags
+                  winning.
                 justification: |
                   The model has no emotion tokens, so moods are realized by switching the
-                  reference clip per segment; the marker carries that choice to the engine
-                  without changing the public plan types, and must never be spoken or forged.
+                  reference clip per segment.
                 tests:
                   - ChatterboxTurboCapabilityProfile_Render_MoodTag_MarksFollowingTextWithMood
-                  - ChatterboxTurboCapabilityProfile_Render_NonMoodStyleTags_StayStripped
                   - ChatterboxTurboCapabilityProfile_Render_MoodRuns_AppliesUntilNextMoodTagInOrder
                   - ChatterboxTurboCapabilityProfile_Render_ConsecutiveMoodTags_LastWins
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-NonMoodTags
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall keep the whispers, sarcastic,
+                  soft and breathy tags stripped rather than treating them as moods.
+                justification: |
+                  Only the tags with a recorded reference clip are realized as moods.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_NonMoodStyleTags_StayStripped
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodMarker
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall carry the mood of each spoken
+                  segment to the synthesis engine within the segment text, without changing the
+                  public plan types, in a form that can be read back losslessly.
+                justification: |
+                  The engine needs the mood choice per segment; carrying it in the text keeps the
+                  public plan types unchanged.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_MoodMarker_RoundTripsAndJoinIsValidated
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MarkerSafety
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall remove the mood-carrying
+                  characters from user text so a caller cannot forge a mood.
+                justification: |
+                  The carrier must never be spoken or forged by text the user supplies.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_MarkerCharactersInUserText_AreStripped
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodJoinSilence
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall add the configured join silence
+                  only where the mood changes, never doubling an existing pause, with zero
+                  disabling it and a longer ellipsis pause winning, and shall validate the
+                  configured boundaries and end-of-sentence policy.
+                justification: |
+                  A change of reference clip is audible, so a short silence at the change hides
+                  the seam.
+                tests:
                   - ChatterboxTurboCapabilityProfile_Render_MoodChange_AddsJoinSilenceOnlyAtChanges
                   - ChatterboxTurboCapabilityProfile_Render_JoinSilence_ZeroDisablesAndLongerEllipsisPauseWins
                   - ChatterboxTurboCapabilityProfile_Render_PauseBetweenMoods_IsUnmarkedAndNotDoubled
-                  - ChatterboxTurboCapabilityProfile_Render_NativeTagInMoodSpan_KeepsPolicyPerSegment
-                  - ChatterboxTurboCapabilityProfile_Render_MarkerCharactersInUserText_AreStripped
-                  - ChatterboxTurboCapabilityProfile_MoodMarker_RoundTripsAndJoinIsValidated
                   - ChatterboxTurboCapabilityProfile_Constructor_JoinBoundariesAcceptedAndUndefinedPolicyRejected
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodTagPolicy
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall apply the end-of-sentence tag
+                  policy to each mood segment separately.
+                justification: |
+                  Each segment is generated on its own, so a trailing tag is a problem per
+                  segment.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_NativeTagInMoodSpan_KeepsPolicyPerSegment
