@@ -245,15 +245,18 @@ even when `ParseArguments` is invoked directly rather than only through `Run`/`R
 - **`SpeechCli-ConversationCommands-Ask`**, **`-AskModelValidation`**, **`-AskTextSource`**,
   **`-AskUnsupportedOptions`**: see *AskCommand — Argument Parsing, Text Source, and
   Model Resolution* above
-- **`SpeechCli-ConversationCommands-ParamValidation`**: see *`--tts-param`/`--stt-param`
-  Validation Reuse* above
-- **`SpeechCli-ConversationCommands-ListenTermination`**: see *Listen-Phase Termination* above
-- **`SpeechCli-ConversationCommands-OutputDispatch`**: see *Output Dispatch* above
-- **`SpeechCli-ConversationCommands-DeviceDispatch`**: see *Playback and Capture Device Dispatch*
+- **`SpeechCli-ConversationCommands-ParamValidation`**, **`-ParamRejection`**: see
+  *`--tts-param`/`--stt-param` Validation Reuse* above
+- **`SpeechCli-ConversationCommands-ListenTermination`**, **`-ListenTimeouts`**: see
+  *Listen-Phase Termination* above
+- **`SpeechCli-ConversationCommands-OutputDispatch`**, **`-OutputText`**: see *Output Dispatch*
   above
-- **`SpeechCli-ConversationCommands-CancellationAndDisposal`**: see *Cancellation and Disposal*
-  above
-- **`SpeechCli-ConversationCommands-PrewarmRecognizer`**: see *Recognizer Pre-Warming* above
+- **`SpeechCli-ConversationCommands-DeviceDispatch`**, **`-CaptureDeviceDispatch`**: see
+  *Playback and Capture Device Dispatch* above
+- **`SpeechCli-ConversationCommands-CancellationAndDisposal`**, **`-Disposal`**: see
+  *Cancellation and Disposal* above
+- **`SpeechCli-ConversationCommands-PrewarmRecognizer`**, **`-PrewarmFailureReporting`**,
+  **`-PrewarmCancellationRelease`**: see *Recognizer Pre-Warming* above
 - **`SpeechCli-ConversationCommands-NullGuards`**: see *Null Guards* above
 
 ### Acceptance Criteria

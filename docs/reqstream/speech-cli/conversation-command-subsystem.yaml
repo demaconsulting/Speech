@@ -86,35 +86,50 @@ sections:
           - id: SpeechCli-ConversationCommands-ParamValidation
             title: >-
               The tool shall accept repeatable `--tts-param key=value` and `--stt-param
-              key=value` flags and apply each to the model it names, and shall reject a
-              malformed token, a value outside the range or options that model declares, or a
-              key that model does not declare, with a clean, non-zero-exit-code error rather
-              than a stack trace.
+              key=value` flags and apply each to the model it names.
             tags: [subsystem]
             justification: |
-              Both synthesis and recognition models declare tunable parameters; validating each
-              value against the respective model's declared parameters before any audio is
-              produced catches an operator typo immediately, with the same `--tts-param`/
-              `--stt-param` semantics `speak`, `recognize`, and `ask` all share.
+              Both synthesis and recognition models declare tunable parameters, with the same
+              `--tts-param`/`--stt-param` semantics `speak`, `recognize`, and `ask` all share.
             tests:
               - AskCommand_ParseArguments_RepeatedParamFlags_AccumulateInOrderIndependently
               - AskCommand_Run_ValidParams_ForwardToRespectiveCreateCalls
+
+          - id: SpeechCli-ConversationCommands-ParamRejection
+            title: >-
+              The tool shall reject an `ask` `--tts-param` or `--stt-param` with a malformed
+              token, a value outside the range or options that model declares, or a key that
+              model does not declare, with a clean, non-zero-exit-code error rather than a
+              stack trace.
+            tags: [subsystem]
+            justification: |
+              Validating each value against the respective model's declared parameters before
+              any audio is produced catches an operator typo immediately.
+            tests:
               - AskCommand_Run_InvalidTtsParam_ThrowsArgumentException
 
           - id: SpeechCli-ConversationCommands-ListenTermination
             title: >-
               The tool shall end its listen phase as soon as the first final recognition result
-              arrives, and shall additionally accept optional `--start-timeout <seconds>`/
-              `--silence-timeout <seconds>` flags with identical meaning and defaulting to
-              `recognize --mic`'s own defaults (5 seconds for silence, 8 seconds for start), as a
-              safety net for a reply that never finishes or never starts.
+              arrives.
             tags: [subsystem]
             justification: |
               `ask` models one bounded question/answer turn, not open-ended transcription, so
-              exactly one final result is always enough to end the turn; reusing
-              `recognize --mic`'s own idle-timeout session unmodified, rather than reimplementing
-              similar logic, keeps a single source of truth for the two-phase idle-window
-              semantics `--start-timeout`/`--silence-timeout` already established.
+              exactly one final result is always enough to end the turn.
+            tests:
+              - AskCommand_Run_Success_SpeaksThenListensAndPrintsFinalResult
+
+          - id: SpeechCli-ConversationCommands-ListenTimeouts
+            title: >-
+              The tool shall accept optional `--start-timeout <seconds>`/`--silence-timeout
+              <seconds>` flags with identical meaning and defaulting to `recognize --mic`'s own
+              defaults (5 seconds for silence, 8 seconds for start), ending the listen phase as
+              a safety net for a reply that never finishes or never starts.
+            tags: [subsystem]
+            justification: |
+              Reusing `recognize --mic`'s own idle-timeout session unmodified, rather than
+              reimplementing similar logic, keeps a single source of truth for the two-phase
+              idle-window semantics `--start-timeout`/`--silence-timeout` already established.
             tests:
               - AskCommand_ParseArguments_TimeoutFlags_ParseAsPositiveDoubles
               - AskCommand_ParseArguments_NonPositiveSilenceTimeout_ThrowsArgumentException
@@ -123,15 +138,23 @@ sections:
 
           - id: SpeechCli-ConversationCommands-OutputDispatch
             title: >-
-              The tool shall print the final recognized reply text to stdout by default, or write
-              it to the file named by `--output-text <text-path>` instead, creating/overwriting a
-              plain-text file containing just the recognized text (or a completely empty file
-              when no recognized text was produced), with overwrite-not-append file semantics.
+              The tool shall print the final recognized reply text to stdout by default.
             tags: [subsystem]
             justification: |
-              A scripted caller of `ask` needs the same choice between console output and a
-              stable file destination that `recognize` already offers, so an agent can either
-              read the reply from the command's own output or from a known file path.
+              A scripted caller of `ask` can read the reply from the command's own output.
+            tests:
+              - AskCommand_Run_Success_SpeaksThenListensAndPrintsFinalResult
+
+          - id: SpeechCli-ConversationCommands-OutputText
+            title: >-
+              The tool shall write the final recognized reply text to the file named by
+              `--output-text <text-path>` instead of stdout, creating or overwriting a plain-text
+              file containing just the recognized text (or a completely empty file when no
+              recognized text was produced), with overwrite-not-append file semantics.
+            tags: [subsystem]
+            justification: |
+              A scripted caller of `ask` needs the same stable file destination that `recognize`
+              already offers, so an agent can read the reply from a known file path.
             tests:
               - AskCommand_ParseArguments_OutputTextFlag_ParsesPath
               - AskCommand_Run_OutputText_WritesRecognizedTextToFile
@@ -139,18 +162,30 @@ sections:
           - id: SpeechCli-ConversationCommands-DeviceDispatch
             title: >-
               The tool shall resolve and validate a real playback device (honoring
-              `--playback-device` when given) for its speak phase and a real capture device
-              (honoring `--capture-device` when given) for its listen phase, rejecting an unknown
-              device name or an unavailable resolved device with a clean, non-zero-exit-code
-              error rather than a stack trace.
+              `--playback-device` when given) for its speak phase, rejecting an unknown device
+              name or an unavailable resolved device with a clean, non-zero-exit-code error
+              rather than a stack trace.
             tags: [subsystem]
             justification: |
-              Validating an unknown/unavailable real playback or capture device before any
-              synthesis or recognition is attempted avoids a partially-run, undeliverable turn,
-              mirroring `speak`'s and `recognize`'s own validate-before-create pattern.
+              Validating an unknown/unavailable real playback device before any synthesis is
+              attempted avoids a partially-run, undeliverable turn, mirroring `speak`'s own
+              validate-before-create pattern.
             tests:
               - AskCommand_Run_UnknownPlaybackDevice_ThrowsArgumentException
               - AskCommand_Run_NoPlaybackDeviceAvailable_ThrowsInvalidOperationException
+
+          - id: SpeechCli-ConversationCommands-CaptureDeviceDispatch
+            title: >-
+              The tool shall resolve and validate a real capture device (honoring
+              `--capture-device` when given) for its listen phase, rejecting an unknown device
+              name or an unavailable resolved device with a clean, non-zero-exit-code error
+              rather than a stack trace.
+            tags: [subsystem]
+            justification: |
+              Validating an unknown/unavailable real capture device before recognition is
+              attempted avoids a partially-run, undeliverable turn, mirroring `recognize`'s own
+              validate-before-create pattern.
+            tests:
               - AskCommand_Run_UnknownCaptureDevice_ThrowsArgumentException
               - AskCommand_Run_NoCaptureDeviceAvailable_ThrowsInvalidOperationException
 
@@ -159,31 +194,39 @@ sections:
               The tool shall cancel cleanly, with no partial recognized-text or playback state
               leaked and no crash, when `Ctrl+C` is pressed at any point during either its speak
               or listen phase, skipping the listen phase entirely when cancellation lands during
-              the speak phase, and shall dispose the synthesizer, playback device, recognizer, and
-              silence-timeout session (when present) exactly once on every exit path.
+              the speak phase.
             tags: [subsystem]
             justification: |
-              A two-phase command must not leave a half-played prompt, an orphaned recognizer, or
-              a leaked audio device behind when interrupted; a single cooperative-cancellation
-              path spanning both phases, mirroring `speak`'s/`recognize`'s own pattern, keeps this
-              guarantee simple to reason about and verify.
+              A two-phase command must not leave a half-played prompt or a partial result behind
+              when interrupted; a single cooperative-cancellation path spanning both phases,
+              mirroring `speak`'s/`recognize`'s own pattern, keeps this guarantee simple to
+              reason about and verify.
             tests:
               - AskCommand_Run_CanceledDuringSpeak_SkipsListenPhase
-              - AskCommand_Run_ExceptionDuringSpeak_DisposesPlaybackDeviceAndRethrows
-              - AskCommand_Run_Success_SpeaksThenListensAndPrintsFinalResult
               - AskCommand_RunAsync_CtrlCDuringListen_ReportsCanceledAndDoesNotPrintText
               - AskCommand_RunAsync_CtrlCBeforeListenStarts_ReportsCanceledAndDoesNotPrintText
               - AskCommand_RunAsync_CtrlCImmediatelyAfterListenReturns_ReportsCanceledAndDoesNotPrintText
               - AskCommand_RunAsync_CtrlCImmediatelyBeforeFileWrite_ReportsCanceledAndDoesNotWriteFile
               - AskCommand_RunAsync_SilenceTimeoutWithNoCtrlC_ReportsSuccessNotCanceled
 
+          - id: SpeechCli-ConversationCommands-Disposal
+            title: >-
+              The tool shall dispose the synthesizer, playback device, recognizer, and
+              silence-timeout session (when present) exactly once on every exit path of `ask`.
+            tags: [subsystem]
+            justification: |
+              A two-phase command must not leave an orphaned recognizer or a leaked audio device
+              behind on success, failure, or cancellation.
+            tests:
+              - AskCommand_Run_CanceledDuringSpeak_SkipsListenPhase
+              - AskCommand_Run_ExceptionDuringSpeak_DisposesPlaybackDeviceAndRethrows
+              - AskCommand_Run_Success_SpeaksThenListensAndPrintsFinalResult
+
           - id: SpeechCli-ConversationCommands-PrewarmRecognizer
             title: >-
               The tool shall have the listen phase's recognizer prepared by the time the speak
               phase's playback finishes, so listening begins without a model-loading delay after
-              the prompt; a failure preparing the recognizer shall be reported when the listen
-              phase starts rather than being lost, and a cancellation during the speak phase
-              shall release anything already prepared.
+              the prompt.
             tags: [subsystem, performance]
             justification: |
               Loading a recognition model into native memory is the expensive step in
@@ -196,8 +239,30 @@ sections:
               ConversationCommandSubsystem design document.
             tests:
               - AskCommand_Run_PrewarmsRecognizerConcurrentlyWithPlayback_CreatesRecognizerBeforePlaybackCompletes
-              - AskCommand_Run_CanceledDuringSpeak_SkipsListenPhase
+
+          - id: SpeechCli-ConversationCommands-PrewarmFailureReporting
+            title: >-
+              The tool shall report a failure preparing the recognizer when the listen phase
+              starts, after the prompt has been spoken, rather than losing it.
+            tags: [subsystem, performance]
+            justification: |
+              Preparing the recognizer concurrently with playback must not skip or reorder the
+              speak phase, nor swallow a setup failure.
+            tests:
               - AskCommand_Run_NoCaptureDeviceAvailable_ThrowsInvalidOperationException
+
+          - id: SpeechCli-ConversationCommands-PrewarmCancellationRelease
+            title: >-
+              The tool shall release the already-prepared recognizer when cancellation lands
+              during the speak phase, without delaying the cancellation.
+            tags: [subsystem, performance]
+            justification: |
+              A recognizer loaded ahead of time must not leak when the turn is canceled before
+              listening starts, and the expensive load must not delay responsiveness to
+              `Ctrl+C`.
+            tests:
+              - AskCommand_Run_CanceledDuringSpeak_SkipsListenPhase
+              - AskCommand_RunAsync_CanceledDuringSpeak_ReturnsPromptlyWithoutAwaitingInFlightPrewarm
 
           - id: SpeechCli-ConversationCommands-NullGuards
             title: >-

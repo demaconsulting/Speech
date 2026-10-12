@@ -216,15 +216,16 @@ missing dependency.
 
 ### Requirements Coverage
 
-- **`SpeechCli-SynthesisCommands-Speak`**: see _SpeakCommand — Text Source, Model Resolution, and
-  Argument Parsing_ above
-- **`SpeechCli-SynthesisCommands-ParamValidation`**: see _ParameterBagParser and `--tts-param`
-  Validation_ above
+- **`SpeechCli-SynthesisCommands-Speak`**, **`-ModelValidation`**, **`-TextSourceValidation`**,
+  **`-ArgumentValidation`**: see _SpeakCommand — Text Source, Model Resolution, and Argument
+  Parsing_ above
+- **`SpeechCli-SynthesisCommands-ParamValidation`**, **`-ParamRejection`**: see
+  _ParameterBagParser and `--tts-param` Validation_ above
 - **`SpeechCli-SynthesisCommands-NoTags`**: see _`--no-tags` Stripping_ above
-- **`SpeechCli-SynthesisCommands-OutputDispatch`**: see _`--output-audio` Versus Real Device Dispatch_
-  above
-- **`SpeechCli-SynthesisCommands-CancellationAndDisposal`**: see _Cancellation and Disposal
-  Ordering_ above
+- **`SpeechCli-SynthesisCommands-OutputDispatch`**, **`-PlaybackDeviceDispatch`**: see
+  _`--output-audio` Versus Real Device Dispatch_ above
+- **`SpeechCli-SynthesisCommands-CancellationAndDisposal`**, **`-Disposal`**: see
+  _Cancellation and Disposal Ordering_ above
 - **`SpeechCli-SynthesisCommands-NullGuards`**: see _Null Guards_ above
 
 ### Acceptance Criteria

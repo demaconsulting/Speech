@@ -26,17 +26,27 @@ sections:
       - id: SpeechCli-Cli-SubcommandDispatch
         title: >-
           The tool shall dispatch a command-line invocation to a named subcommand chosen from a
-          fixed, recognized set, rejecting any unrecognized subcommand name with a clear error
-          message and a non-zero exit code rather than a stack trace or silent no-op.
+          fixed, recognized set.
         tags: [system]
         justification: |
-          A CLI with multiple subcommands must fail predictably and legibly on operator typos or
-          unsupported commands, both for interactive use and for scripting, where a non-zero
-          exit code is how a calling script detects failure.
+          A CLI with multiple subcommands must run the subcommand the operator names, both for
+          interactive use and for scripting.
+        tests:
+          - Program_Run_WithListModelsCommand_ListsModelsAndSucceeds
+          - CommandDispatch_Handlers_ReturnNonNullTasks
+
+      - id: SpeechCli-Cli-UnknownSubcommandRejection
+        title: >-
+          The tool shall reject any unrecognized subcommand name with a clear error message and
+          a non-zero exit code rather than a stack trace or silent no-op.
+        tags: [system]
+        justification: |
+          A CLI must fail predictably and legibly on operator typos or unsupported commands,
+          both for interactive use and for scripting, where a non-zero exit code is how a
+          calling script detects failure.
         tests:
           - Program_Main_WithUnknownCommand_ReturnsNonZeroExitCodeAndReportsCommand
           - SpeechCli_UnknownCommand_Provided_ReturnsCleanError
-          - CommandDispatch_Handlers_ReturnNonNullTasks
 
       - id: SpeechCli-Cli-GlobalOptions
         title: >-
@@ -69,15 +79,22 @@ sections:
       - id: SpeechCli-Cli-VoicesDir
         title: >-
           The tool shall accept a global `--voices-dir <path>` option naming an extra folder of
-          `.wav`/`.flac` reference voices, and shall reject a path that is not an existing
-          directory, or the option without a value, with a clear error before running any
-          command.
+          `.wav`/`.flac` reference voices.
+        tags: [system]
+        justification: |
+          An operator needs to point the tool at their own reference voices.
+        tests:
+          - Context_Create_WithExistingVoicesDir_ParsesOntoContext
+
+      - id: SpeechCli-Cli-VoicesDirValidation
+        title: >-
+          The tool shall reject a `--voices-dir` path that is not an existing directory, or the
+          option without a value, with a clear error before running any command.
         tags: [system]
         justification: |
           A mistyped voices folder would otherwise silently yield no voices; failing fast names
           the problem.
         tests:
-          - Context_Create_WithExistingVoicesDir_ParsesOntoContext
           - Context_Create_WithBadVoicesDir_ThrowsArgumentException
 
       - id: SpeechCli-Cli-VoicesHelp
@@ -94,8 +111,7 @@ sections:
       - id: SpeechCli-Cli-DownloadMirror
         title: >-
           The tool shall redirect every model download to the internal mirror base URL supplied
-          via `--mirror-url`, and shall use the model's own download location when no mirror is
-          configured.
+          via `--mirror-url`.
         tags: [system]
         justification: |
           A model's public download host (for example `huggingface.co`) may be blocked by
@@ -104,8 +120,17 @@ sections:
         children:
           - SpeechCli-ModelCommands-DownloadMirrorComposition
         tests:
-          - Context_CreateMirror_NoMirrorUrl_ReturnsNull
           - Context_CreateMirror_ValidCredentialedMirror_ReturnsConfiguredMirror
+
+      - id: SpeechCli-Cli-DownloadMirrorDefault
+        title: >-
+          The tool shall use each model's own download location when no `--mirror-url` is
+          configured.
+        tags: [system]
+        justification: |
+          Without a mirror configured, the tool must behave exactly as it does by default.
+        tests:
+          - Context_CreateMirror_NoMirrorUrl_ReturnsNull
 
       - id: SpeechCli-Cli-DownloadMirrorUrlValidation
         title: >-
@@ -123,18 +148,35 @@ sections:
       - id: SpeechCli-Cli-DownloadMirrorCredentials
         title: >-
           The tool shall authenticate to the mirror with HTTP Basic credentials
-          (`--mirror-user`/`--mirror-password`, both required together) or a bearer token
-          (`--mirror-bearer-token`, not empty or whitespace-only and mutually exclusive with the
-          Basic credential pair), and shall reject an incomplete or conflicting credential
-          combination with a clear error message and a non-zero exit code.
+          (`--mirror-user`/`--mirror-password`) when both are supplied.
         tags: [system]
         justification: |
-          A mirror inside a network commonly requires authentication; an incomplete or
-          ambiguous credential combination must fail eagerly rather than send a half-formed
-          request.
+          A mirror inside a network commonly requires authentication.
         tests:
           - Context_CreateMirror_ValidCredentialedMirror_ReturnsConfiguredMirror
+
+      - id: SpeechCli-Cli-DownloadMirrorBearerToken
+        title: >-
+          The tool shall authenticate to the mirror with a bearer token
+          (`--mirror-bearer-token`) when one is supplied.
+        tags: [system]
+        justification: |
+          A mirror inside a network may require token authentication instead of a user name and
+          password.
+        tests:
           - Context_CreateMirror_BearerTokenMirror_ReturnsConfiguredMirror
+
+      - id: SpeechCli-Cli-DownloadMirrorCredentialValidation
+        title: >-
+          The tool shall reject an incomplete or conflicting mirror credential combination (a
+          user without a password, a Basic credential pair together with a bearer token, or an
+          empty or whitespace-only bearer token) with a clear error message and a non-zero exit
+          code.
+        tags: [system]
+        justification: |
+          An incomplete or ambiguous credential combination must fail eagerly rather than send
+          a half-formed request.
+        tests:
           - Context_CreateMirror_MirrorUserWithoutPassword_ThrowsArgumentException
           - Context_CreateMirror_BasicCredentialsAndBearerTokenTogether_ThrowsArgumentException
           - Context_CreateMirror_WhitespaceBearerToken_ThrowsArgumentException
@@ -203,181 +245,379 @@ sections:
         title: >-
           The tool shall run a self-validation, when invoked with `--validate`, that exercises
           version display, help display, whether the subcommand dispatch table is well formed,
-          audio-backend probe composition, and whether the model-store root can be written to,
-          without requiring a downloaded speech model or real audio hardware to be present.
+          audio-backend probe composition, and whether the model-store root can be written to.
         tags: [system]
         justification: |
           A CI-safe self-test lets an operator or CI pipeline confirm the tool is installed and
           functioning correctly on a target machine before relying on it, consistent with the
-          reference `TemplateDotNetTool`'s self-validation precedent. Every check must remain
-          CI-safe: none may depend on a real, multi-hundred-megabyte model download or physical
-          audio hardware, since both are unavailable in an ordinary CI runner.
+          reference `TemplateDotNetTool`'s self-validation precedent.
         tests:
           - Program_Run_WithValidateFlag_RunsValidation
+
+      - id: SpeechCli-Cli-SelfValidationHardwareIndependence
+        title: >-
+          The tool shall complete its `--validate` self-validation without requiring a
+          downloaded speech model or real audio hardware to be present.
+        tags: [system]
+        justification: |
+          Every check must remain CI-safe: none may depend on a real, multi-hundred-megabyte
+          model download or physical audio hardware, since both are unavailable in an ordinary
+          CI runner.
+        tests:
           - SpeechCli_ValidateFlag_Provided_RunsValidation
 
       - id: SpeechCli-Cli-SelfValidationResults
         title: >-
           The tool shall write the self-validation results to the `.trx` or `.xml` file named by
-          `--results` (alias `--result`), and shall report an unsupported extension or an
-          unwritable path as an error with a non-zero exit code.
+          `--results` (alias `--result`).
         tags: [system]
         justification: |
           A CI pipeline consumes the self-validation outcome as a test-result file; silently
-          skipping the file, or exiting zero when it could not be written, would let a pipeline
-          pass without any recorded evidence.
+          skipping the file would let a pipeline pass without any recorded evidence.
         tests:
           - SpeechCli_ValidateWithTrxResults_Requested_GeneratesTrxFile
           - SpeechCli_ValidateWithDepth_DepthThree_OutputsCorrectHeadingLevel
-          - Context_Create_ResultsOption_ParsesPathAndRejectsMissingValue
           - Program_Main_ValidateWithXmlResults_WritesJUnitFile
+
+      - id: SpeechCli-Cli-SelfValidationResultsErrors
+        title: >-
+          The tool shall report a `--results` file with an unsupported extension, an unwritable
+          path, or no value as an error with a non-zero exit code.
+        tags: [system]
+        justification: |
+          Exiting zero when the result file could not be written would let a pipeline pass
+          without any recorded evidence.
+        tests:
+          - Context_Create_ResultsOption_ParsesPathAndRejectsMissingValue
           - Program_Main_ValidateWithUnsupportedResultsExtension_ReturnsNonZeroExitCode
           - Program_Main_ValidateWithUnwritableResultsPath_ReturnsNonZeroExitCode
 
       - id: SpeechCli-ModelManagement
         title: >-
-          The tool shall let an operator list every known speech model, inspect a single
-          model's details, download a model, and remove a downloaded or partially downloaded
-          model, when invoked with the `list-models`, `model-info`, `download`, `uninstall`, and
-          `clean` subcommands respectively.
+          The tool shall let an operator list every known speech model when invoked with the
+          `list-models` subcommand.
         tags: [system]
         justification: |
-          An operator cannot use any speech capability without first knowing which models exist,
-          whether they are downloaded, and having a way to download or remove them; this is the
-          minimum model-lifecycle surface a command-line tool over this library must expose.
+          An operator cannot use any speech capability without first knowing which models exist
+          and whether they are downloaded.
         children:
           - SpeechCli-ModelCommands-ListModels
-          - SpeechCli-ModelCommands-ModelInfo
-          - SpeechCli-ModelCommands-Download
-          - SpeechCli-ModelCommands-DownloadContinueOnFailure
-          - SpeechCli-ModelCommands-DownloadForce
-          - SpeechCli-ModelCommands-DownloadArgumentValidation
-          - SpeechCli-ModelCommands-DownloadCancellation
-          - SpeechCli-ModelCommands-Uninstall
-          - SpeechCli-ModelCommands-Clean
+          - SpeechCli-ModelCommands-ListModelsFilters
+          - SpeechCli-ModelCommands-ListModelsJsonFormat
           - SpeechCli-ModelCommands-LibraryDelegation
+          - SpeechCli-ModelCommands-NullGuards
           - SpeechCli-ModelCommands-SynthesisSeamExtension
+          - SpeechCli-ModelCommands-SynthesisSeamAudioFormat
+          - SpeechCli-ModelCommands-SynthesisSeamRoleValidation
           - SpeechCli-ModelCommands-RecognitionSeamExtension
+          - SpeechCli-ModelCommands-RecognitionSeamRoleValidation
         tests:
           - SpeechCli_ListModelsCommand_Invoked_ListsKnownModelsAsTable
           - SpeechCli_ListModelsCommandWithJsonFormat_Invoked_EmitsJsonArray
+
+      - id: SpeechCli-ModelInspection
+        title: >-
+          The tool shall let an operator inspect a single model's details when invoked with the
+          `model-info` subcommand.
+        tags: [system]
+        justification: |
+          An operator needs a model's size, location, and install state before downloading or
+          using it.
+        children:
+          - SpeechCli-ModelCommands-ModelInfo
+          - SpeechCli-ModelCommands-ModelInfoParameters
+          - SpeechCli-ModelCommands-ModelInfoUnknownId
+        tests:
           - SpeechCli_ModelInfoCommandWithUnknownId_Invoked_ReturnsCleanError
+          - SpeechCli_ModelInfoCommandWithMissingArgument_Invoked_ReturnsCleanError
+
+      - id: SpeechCli-ModelDownload
+        title: >-
+          The tool shall let an operator download a model when invoked with the `download`
+          subcommand.
+        tags: [system]
+        justification: |
+          A model must be on disk before any speech capability can use it.
+        children:
+          - SpeechCli-ModelCommands-Download
+          - SpeechCli-ModelCommands-DownloadProgress
+          - SpeechCli-ModelCommands-DownloadContinueOnFailure
+          - SpeechCli-ModelCommands-DownloadFailureExitCode
+          - SpeechCli-ModelCommands-DownloadForce
+          - SpeechCli-ModelCommands-DownloadArgumentValidation
+          - SpeechCli-ModelCommands-DownloadCancellation
+          - SpeechCli-ModelCommands-DownloadMirrorComposition
+        tests:
           - SpeechCli_DownloadCommandWithUnknownId_Invoked_ReturnsNonZeroExitCode
+          - SpeechCli_DownloadCommandWithMissingArgument_Invoked_ReturnsCleanError
+
+      - id: SpeechCli-ModelUninstall
+        title: >-
+          The tool shall let an operator remove a downloaded model when invoked with the
+          `uninstall` subcommand.
+        tags: [system]
+        justification: |
+          An operator must be able to reclaim disk space used by a model that is no longer needed.
+        children:
+          - SpeechCli-ModelCommands-Uninstall
+          - SpeechCli-ModelCommands-UninstallNeverInstalled
+        tests:
           - SpeechCli_UninstallCommand_Invoked_NeverInstalledModel_ExitsCleanly
+
+      - id: SpeechCli-ModelClean
+        title: >-
+          The tool shall let an operator remove partially downloaded model files when invoked
+          with the `clean` subcommand.
+        tags: [system]
+        justification: |
+          An interrupted download leaves partial files that an operator must be able to discard.
+        children:
+          - SpeechCli-ModelCommands-Clean
+          - SpeechCli-ModelCommands-CleanNothingToClean
+        tests:
           - SpeechCli_CleanCommand_Invoked_NothingToCleanUp_ExitsCleanly
 
       - id: SpeechCli-ReferenceVoices
         title: >-
-          The tool shall let an operator discover, install, remove, and supply reference voices
-          for voice-cloning models, through the `list-voices` and `voices` subcommands and the
-          `--voices-dir` option, with the Chatterbox Turbo model composed into the catalog.
+          The tool shall let an operator discover the available reference voices for
+          voice-cloning models when invoked with the `list-voices` subcommand.
         tags: [system]
         justification: |
           A voice-cloning model can speak only with a reference voice, so an operator needs a
-          command-line way to see which voices exist, install a voice pack, and point the tool at
-          their own voices.
+          command-line way to see which voices exist.
         children:
-          - SpeechCli-ModelCommands-ChatterboxComposition
           - SpeechCli-ModelCommands-ListVoices
           - SpeechCli-ModelCommands-ListVoicesUsageHints
+          - SpeechCli-ModelCommands-ListVoicesEmptyHint
           - SpeechCli-ModelCommands-ListVoicesConsentNote
           - SpeechCli-ModelCommands-ListVoicesArgumentValidation
+        tests:
+          - SpeechCli_ListVoicesCommand_Invoked_PrintsConsentNote
+          - SpeechCli_ListVoicesCommandWithJsonFormat_Invoked_EmitsJsonArray
+
+      - id: SpeechCli-ReferenceVoicePacks
+        title: >-
+          The tool shall let an operator list the available reference voice packs and their
+          install state when invoked with the `voices packs` subcommand.
+        tags: [system]
+        justification: |
+          An operator must see which voice packs can be installed before choosing one.
+        children:
           - SpeechCli-ModelCommands-VoicePacks
-          - SpeechCli-ModelCommands-VoicePackInstall
-          - SpeechCli-ModelCommands-VoicePackInstallFailure
           - SpeechCli-ModelCommands-VoicePackConsentNote
-          - SpeechCli-ModelCommands-VoicePackUninstall
           - SpeechCli-ModelCommands-VoicePackArgumentValidation
+        tests:
+          - SpeechCli_VoicesPacksCommand_Invoked_ListsPacksAndConsentNote
+          - CommandDispatch_Find_VoiceCommands_AreRegistered
+
+      - id: SpeechCli-ReferenceVoicePackInstall
+        title: >-
+          The tool shall let an operator install a reference voice pack when invoked with the
+          `voices install` subcommand.
+        tags: [system]
+        justification: |
+          A voice-cloning model can speak only with a reference voice, so an operator needs a
+          command-line way to install a voice pack.
+        children:
+          - SpeechCli-ModelCommands-VoicePackInstall
+          - SpeechCli-ModelCommands-VoicePackInstallProgress
+          - SpeechCli-ModelCommands-VoicePackInstallFailure
+        tests:
+          - VoicesCommand_RunAsync_Install_ReportsProgressAndConsentNote
+
+      - id: SpeechCli-ReferenceVoicePackUninstall
+        title: >-
+          The tool shall let an operator remove an installed reference voice pack when invoked
+          with the `voices uninstall` subcommand.
+        tags: [system]
+        justification: |
+          An operator must be able to reclaim disk space used by a voice pack.
+        children:
+          - SpeechCli-ModelCommands-VoicePackUninstall
+          - SpeechCli-ModelCommands-VoicePackUninstallNeverInstalled
+        tests:
+          - VoicesCommand_RunAsync_Uninstall_ForwardsAndReports
+
+      - id: SpeechCli-ReferenceVoiceEmotions
+        title: >-
+          The tool shall include the emotion voice variants when installing a reference voice
+          pack, unless the operator opts out.
+        tags: [system]
+        justification: |
+          Emotion variants let a voice-cloning model speak in different emotional styles, but
+          they enlarge the download, so the operator must be able to decline them.
+        children:
           - SpeechCli-ModelCommands-VoiceEmotions
           - SpeechCli-ModelCommands-VoiceEmotionsOptOut
           - SpeechCli-ModelCommands-VoiceEmotionsSizes
           - SpeechCli-ModelCommands-VoiceEmotionsUpgradeNotice
           - SpeechCli-ModelCommands-VoiceEmotionsListing
         tests:
-          - CommandDispatch_Find_VoiceCommands_AreRegistered
-          - Program_Run_Help_DocumentsVoicesOptionsAndConsentNote
-          - SpeechCli_ListVoicesCommand_Invoked_PrintsConsentNote
-          - SpeechCli_ListVoicesCommandWithJsonFormat_Invoked_EmitsJsonArray
-          - SpeechCli_VoicesPacksCommand_Invoked_ListsPacksAndConsentNote
+          - VoicesCommand_RunAsync_Install_DefaultIncludesEmotions
+
+      - id: SpeechCli-ChatterboxModelCatalog
+        title: >-
+          The tool shall list the Chatterbox Turbo voice-cloning model among the known models.
+        tags: [system]
+        justification: |
+          The Chatterbox Turbo model must be discoverable and downloadable through the same
+          model commands as every other model.
+        children:
+          - SpeechCli-ModelCommands-ChatterboxComposition
+          - SpeechCli-ModelCommands-ChatterboxVoiceSupply
+          - SpeechCli-ModelCommands-ChatterboxDamagedVoiceFile
+        tests:
+          - SpeechModelCatalogAdapter_Enumerate_ReturnsCompiledInKnownModels
+
       - id: SpeechCli-DeviceInspection
         title: >-
-          The tool shall let an operator list available audio devices, test a device with a
-          generated tone, and run a combined diagnostic check of the audio and model subsystems,
-          when invoked with the `list-devices`, `devices test`, and `doctor` subcommands
-          respectively.
+          The tool shall let an operator list available audio devices when invoked with the
+          `list-devices` subcommand.
         tags: [system]
         justification: |
           An operator troubleshooting a failed `speak`/`recognize` invocation needs a way to
-          confirm which audio devices this machine actually exposes, and to positively verify
-          one works, without reasoning about the library's internal audio subsystem.
+          confirm which audio devices this machine actually exposes.
         children:
           - SpeechCli-DeviceCommands-ListDevices
+          - SpeechCli-DeviceCommands-ListDevicesDirectionFilter
+          - SpeechCli-DeviceCommands-ListDevicesNoDevices
+          - SpeechCli-DeviceCommands-ListDevicesArgumentValidation
+          - SpeechCli-DeviceCommands-LibraryDelegation
+          - SpeechCli-DeviceCommands-NullGuards
+        tests:
+          - SpeechCli_ListDevicesCommand_Invoked_ExitsCleanly
+          - SpeechCli_ListDevicesCommandWithInvalidDirection_Invoked_ReturnsCleanError
+
+      - id: SpeechCli-DeviceTest
+        title: >-
+          The tool shall let an operator test an audio device with a generated tone when invoked
+          with the `devices test` subcommand.
+        tags: [system]
+        justification: |
+          An operator needs to positively verify that a device works, without reasoning about
+          the library's internal audio subsystem.
+        children:
           - SpeechCli-DeviceCommands-DevicesTest
+          - SpeechCli-DeviceCommands-DevicesTestOutput
+          - SpeechCli-DeviceCommands-DevicesTestInput
+          - SpeechCli-DeviceCommands-DevicesTestDeviceValidation
+          - SpeechCli-DeviceCommands-DevicesTestArgumentValidation
           - SpeechCli-DeviceCommands-ToneGeneration
+          - SpeechCli-DeviceCommands-ToneAmplitudeRange
+          - SpeechCli-DeviceCommands-ToneChannelIdentity
+        tests:
+          - SpeechCli_DevicesTestCommandWithUnknownDevice_Invoked_ReturnsCleanError
+          - SpeechCli_DevicesCommandWithoutSubAction_Invoked_ReturnsCleanError
+
+      - id: SpeechCli-DeviceDoctor
+        title: >-
+          The tool shall let an operator run a combined diagnostic check of the audio and model
+          subsystems when invoked with the `doctor` subcommand.
+        tags: [system]
+        justification: |
+          An operator needs one command that reports whether this machine is ready to run the
+          tool's speech capabilities.
+        children:
           - SpeechCli-DeviceCommands-Doctor
+          - SpeechCli-DeviceCommands-DoctorDiskSpace
           - SpeechCli-DeviceCommands-DoctorNativeRuntimes
+          - SpeechCli-DeviceCommands-DoctorPortAudioRuntime
           - SpeechCli-DeviceCommands-DoctorAudioDevices
           - SpeechCli-DeviceCommands-DoctorModelCounts
           - SpeechCli-DeviceCommands-DoctorExitCode
-          - SpeechCli-DeviceCommands-LibraryDelegation
         tests:
-          - SpeechCli_ListDevicesCommand_Invoked_ExitsCleanly
           - SpeechCli_DoctorCommand_Invoked_ReportsHealthChecklist
 
       - id: SpeechCli-TextToSpeech
         title: >-
           The tool shall synthesize speech from operator-supplied text through a downloaded
-          synthesis model, either playing it back on a real audio device or writing it to a WAV
-          file, when invoked with the `speak` subcommand.
+          synthesis model and play it back on a real audio device when invoked with the `speak`
+          subcommand.
         tags: [system]
         justification: |
           Text-to-speech is one of this library's two core capabilities; an operator or script
           must be able to exercise it directly from the command line without writing any code.
         children:
           - SpeechCli-SynthesisCommands-Speak
+          - SpeechCli-SynthesisCommands-ModelValidation
+          - SpeechCli-SynthesisCommands-TextSourceValidation
+          - SpeechCli-SynthesisCommands-ArgumentValidation
           - SpeechCli-SynthesisCommands-ParamValidation
+          - SpeechCli-SynthesisCommands-ParamRejection
           - SpeechCli-SynthesisCommands-NoTags
-          - SpeechCli-SynthesisCommands-OutputDispatch
+          - SpeechCli-SynthesisCommands-PlaybackDeviceDispatch
           - SpeechCli-SynthesisCommands-CancellationAndDisposal
+          - SpeechCli-SynthesisCommands-Disposal
           - SpeechCli-SynthesisCommands-NullGuards
         tests:
           - SpeechCli_SpeakCommandWithUnknownModel_Invoked_ReturnsCleanError
           - SpeechCli_SpeakCommandWithNotDownloadedModel_Invoked_ReturnsCleanErrorWithDownloadHint
 
+      - id: SpeechCli-TextToSpeechFileOutput
+        title: >-
+          The tool shall write synthesized speech to a WAV file when the `speak` subcommand is
+          given an output file.
+        tags: [system]
+        justification: |
+          A script must be able to capture synthesized speech as a file instead of playing it.
+        children:
+          - SpeechCli-SynthesisCommands-OutputDispatch
+        tests:
+          - SpeakCommand_RunAsync_Output_ConstructsWavFileDeviceFromPreferredFormat
+
       - id: SpeechCli-SpeechToText
         title: >-
-          The tool shall recognize speech from a WAV file or from a real microphone through a
-          downloaded recognition model, printing the recognized transcript, when invoked with
-          the `recognize` subcommand.
+          The tool shall recognize speech from a WAV file through a downloaded recognition model,
+          printing the recognized transcript, when invoked with the `recognize` subcommand.
         tags: [system]
         justification: |
           Speech-to-text is this library's other core capability; an operator or script must be
-          able to exercise it directly from the command line, including a silence-timeout-driven
-          microphone session, without writing any code.
+          able to exercise it directly from the command line without writing any code.
         children:
           - SpeechCli-RecognitionCommands-Recognize
+          - SpeechCli-RecognitionCommands-ModelValidation
+          - SpeechCli-RecognitionCommands-InputSourceValidation
+          - SpeechCli-RecognitionCommands-ArgumentValidation
           - SpeechCli-RecognitionCommands-ParamValidation
+          - SpeechCli-RecognitionCommands-ParamRejection
           - SpeechCli-RecognitionCommands-InputFileValidation
           - SpeechCli-RecognitionCommands-FileInputEofDrivenStop
-          - SpeechCli-RecognitionCommands-SilenceTimeout
-          - SpeechCli-RecognitionCommands-StartTimeout
           - SpeechCli-RecognitionCommands-VerbosityAndOutput
+          - SpeechCli-RecognitionCommands-InterimOverwrite
           - SpeechCli-RecognitionCommands-InterimOnly
           - SpeechCli-RecognitionCommands-FinalOnly
           - SpeechCli-RecognitionCommands-VerbosityConflict
           - SpeechCli-RecognitionCommands-OutputText
-          - SpeechCli-RecognitionCommands-DeviceDispatch
           - SpeechCli-RecognitionCommands-NullGuards
         tests:
           - SpeechCli_RecognizeCommandWithUnknownModel_Invoked_ReturnsCleanError
           - SpeechCli_RecognizeCommandWithNotDownloadedModel_Invoked_ReturnsCleanErrorWithDownloadHint
 
+      - id: SpeechCli-SpeechToTextMicrophone
+        title: >-
+          The tool shall recognize speech from a real microphone, ending the session on a
+          configurable silence timeout, when the `recognize` subcommand is not given a file.
+        tags: [system]
+        justification: |
+          An operator must be able to dictate into a microphone and have the session end on its
+          own after they stop speaking.
+        children:
+          - SpeechCli-RecognitionCommands-SilenceTimeout
+          - SpeechCli-RecognitionCommands-SilenceTimeoutDefault
+          - SpeechCli-RecognitionCommands-SilenceTimeoutValidation
+          - SpeechCli-RecognitionCommands-StartTimeout
+          - SpeechCli-RecognitionCommands-StartTimeoutDefault
+          - SpeechCli-RecognitionCommands-StartTimeoutValidation
+          - SpeechCli-RecognitionCommands-DeviceDispatch
+        tests:
+          - RecognizeCommand_Run_SilenceTimeoutOmitted_ResolvesToFixedFiveSecondDefault
+          - RecognizeCommand_Run_UnknownDevice_ThrowsArgumentException
+
       - id: SpeechCli-VoiceConversation
         title: >-
           The tool shall speak an operator-supplied prompt through a downloaded synthesis model
           and then, once playback finishes, listen for a reply through a downloaded recognition
-          model, printing (or writing to a file) the recognized reply text, when invoked with the
-          `ask` subcommand.
+          model, printing the recognized reply text, when invoked with the `ask` subcommand.
         tags: [system]
         justification: |
           A voice conversation - an agent speaking a prompt and then listening for a person's
@@ -391,17 +631,35 @@ sections:
           - SpeechCli-ConversationCommands-AskTextSource
           - SpeechCli-ConversationCommands-AskUnsupportedOptions
           - SpeechCli-ConversationCommands-ParamValidation
+          - SpeechCli-ConversationCommands-ParamRejection
           - SpeechCli-ConversationCommands-ListenTermination
+          - SpeechCli-ConversationCommands-ListenTimeouts
           - SpeechCli-ConversationCommands-OutputDispatch
           - SpeechCli-ConversationCommands-DeviceDispatch
+          - SpeechCli-ConversationCommands-CaptureDeviceDispatch
           - SpeechCli-ConversationCommands-CancellationAndDisposal
+          - SpeechCli-ConversationCommands-Disposal
           - SpeechCli-ConversationCommands-PrewarmRecognizer
+          - SpeechCli-ConversationCommands-PrewarmFailureReporting
+          - SpeechCli-ConversationCommands-PrewarmCancellationRelease
           - SpeechCli-ConversationCommands-NullGuards
         tests:
           - Program_Run_WithAskCommandAndNoModel_ThrowsArgumentException
           - SpeechCli_AskCommandWithoutModels_Invoked_ReturnsCleanError
           - SpeechCli_AskCommandWithUnknownModel_Invoked_ReturnsCleanError
           - SpeechCli_AskCommandWithConflictingTextSources_Invoked_ReturnsCleanError
+
+      - id: SpeechCli-VoiceConversationFileOutput
+        title: >-
+          The tool shall write the recognized reply text to a file instead of standard output
+          when the `ask` subcommand is given `--output-text`.
+        tags: [system]
+        justification: |
+          A scripted caller needs a stable file path from which to read the reply.
+        children:
+          - SpeechCli-ConversationCommands-OutputText
+        tests:
+          - AskCommand_Run_OutputText_WritesRecognizedTextToFile
 
       - id: SpeechCli-Packaging-GlobalTool
         title: >-

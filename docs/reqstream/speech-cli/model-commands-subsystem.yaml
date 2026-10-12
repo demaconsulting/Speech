@@ -21,45 +21,79 @@ sections:
           - id: SpeechCli-ModelCommands-ListModels
             title: >-
               The tool shall list every known model's id, display name, role, install state, and
-              license name when invoked with `list-models`, optionally filtered to one role
-              (`--role tts`/`stt`) and/or one install-state group (`--state downloaded`/
-              `missing`), and shall print either an aligned table (default) or a JSON array
-              (`--format json`).
+              license name as an aligned table when invoked with `list-models`.
             tags: [subsystem]
             justification: |
               An operator or script needs to discover which models exist, which are already
               installed, and which still need to be downloaded, without inspecting the
-              model-store directory by hand. A machine-parseable JSON form lets a script make
-              the same decision without scraping table formatting.
+              model-store directory by hand.
             tests:
               - ListModelsCommand_Run_NoFilters_ListsEveryModelAsTable
+              - ListModelsCommand_Run_EmptyCatalog_PrintsNoModelsMessage
+              - SpeechCli_ListModelsCommand_Invoked_ListsKnownModelsAsTable
+
+          - id: SpeechCli-ModelCommands-ListModelsFilters
+            title: >-
+              The tool shall restrict the `list-models` output to one role (`--role tts`/`stt`)
+              and/or one install-state group (`--state downloaded`/`missing`) when those options
+              are given.
+            tags: [subsystem]
+            justification: |
+              An operator usually wants only the models of one kind, or only those still missing,
+              and a script needs the same selection without post-filtering the output.
+            tests:
               - ListModelsCommand_Run_RoleFilterTts_ListsOnlySynthesisModels
               - ListModelsCommand_Run_StateFilterDownloaded_ListsOnlyDownloadedModels
               - ListModelsCommand_Run_StateFilterMissing_ListsOnlyMissingModels
+
+          - id: SpeechCli-ModelCommands-ListModelsJsonFormat
+            title: >-
+              The tool shall print the `list-models` result as a JSON array when invoked with
+              `--format json`.
+            tags: [subsystem]
+            justification: |
+              A machine-parseable form lets a script decide which models to download without
+              scraping table formatting.
+            tests:
               - ListModelsCommand_Run_FormatJson_EmitsJsonArray
-              - ListModelsCommand_Run_EmptyCatalog_PrintsNoModelsMessage
-              - SpeechCli_ListModelsCommand_Invoked_ListsKnownModelsAsTable
               - SpeechCli_ListModelsCommandWithJsonFormat_Invoked_EmitsJsonArray
 
           - id: SpeechCli-ModelCommands-ModelInfo
             title: >-
               The tool shall print a model's full identity (id, display name, role, install
-              state, license name and URL, audio-tag support) and every one of its parameters
-              (with min/max/step/default for a numeric parameter, options/default for a choice
-              parameter, or default for a boolean parameter) when invoked with
-              `model-info <modelId>`, and shall reject an unrecognized model id with a clear,
-              non-zero-exit-code error naming the id and suggesting `list-models`, rather than a
-              stack trace.
+              state, license name and URL, audio-tag support) when invoked with
+              `model-info <modelId>`.
             tags: [subsystem]
             justification: |
-              An operator deciding whether a model is suitable (e.g. its voice choices, its
-              license) needs its full parameter surface, not just its name. An id typo is a
-              certainty in interactive use, so it must fail predictably rather than crash.
+              An operator deciding whether a model is suitable (for example its license) needs
+              its full identity, not just its name.
             tests:
               - ModelInfoCommand_Run_KnownModel_PrintsIdentityAndState
+
+          - id: SpeechCli-ModelCommands-ModelInfoParameters
+            title: >-
+              The tool shall print every one of a model's parameters when invoked with
+              `model-info <modelId>`, with min/max/step/default for a numeric parameter,
+              options/default for a choice parameter, or default for a boolean parameter.
+            tags: [subsystem]
+            justification: |
+              An operator deciding whether a model is suitable (for example its voice choices)
+              needs its full parameter surface to know what `--tts-param`/`--stt-param` accept.
+            tests:
               - ModelInfoCommand_Run_NumericParameter_PrintsBounds
               - ModelInfoCommand_Run_ChoiceParameter_PrintsOptions
               - ModelInfoCommand_Run_BooleanParameter_PrintsDefault
+
+          - id: SpeechCli-ModelCommands-ModelInfoUnknownId
+            title: >-
+              The tool shall reject `model-info` invoked with an unrecognized or missing model id
+              with a clear, non-zero-exit-code error naming the id and suggesting `list-models`,
+              rather than a stack trace.
+            tags: [subsystem]
+            justification: |
+              An id typo is a certainty in interactive use, so it must fail predictably rather
+              than crash.
+            tests:
               - ModelInfoCommand_Run_UnknownModelId_ThrowsArgumentException
               - SpeechCli_ModelInfoCommandWithUnknownId_Invoked_ReturnsCleanError
               - SpeechCli_ModelInfoCommandWithMissingArgument_Invoked_ReturnsCleanError
@@ -67,15 +101,21 @@ sections:
           - id: SpeechCli-ModelCommands-Download
             title: >-
               The tool shall download, verify, and install one or more models given by id when
-              invoked with `download <modelId> [<modelId>...]`, in the order given, reporting
-              live progress for the in-progress model.
+              invoked with `download <modelId> [<modelId>...]`, in the order given.
             tags: [subsystem]
             justification: |
-              An operator cannot use any speech capability without a model on disk, and a large
-              download needs visible progress so the operator can tell it is working.
+              An operator cannot use any speech capability without a model on disk.
             tests:
               - DownloadCommand_RunAsync_SingleModel_Succeeds_ReportsInstalled
               - DownloadCommand_RunAsync_MultipleModels_DownloadsEachSequentially
+
+          - id: SpeechCli-ModelCommands-DownloadProgress
+            title: >-
+              The tool shall report live progress for the in-progress model while `download` runs.
+            tags: [subsystem]
+            justification: |
+              A large download needs visible progress so the operator can tell it is working.
+            tests:
               - DownloadCommand_RunAsync_ReportsProgress_WritesPercentLine
               - DownloadProgressReporter_Create_KnownTotal_PrintsOneLinePerWholePercent
               - DownloadProgressReporter_Create_UnknownTotal_ReportsKilobytes
@@ -83,7 +123,7 @@ sections:
           - id: SpeechCli-ModelCommands-DownloadContinueOnFailure
             title: >-
               The tool shall attempt every model requested by `download` even when an earlier
-              one fails, and shall exit non-zero if any requested model's download fails.
+              one fails.
             tags: [subsystem]
             justification: |
               A single failed model (checksum mismatch, network fault, unknown id) in a
@@ -93,6 +133,16 @@ sections:
             tests:
               - DownloadCommand_RunAsync_ChecksumMismatch_ReportsErrorAndContinues
               - DownloadCommand_RunAsync_UnknownModelId_ReportsErrorAndContinues
+
+          - id: SpeechCli-ModelCommands-DownloadFailureExitCode
+            title: >-
+              The tool shall exit non-zero if any model requested by `download` fails to
+              download.
+            tags: [subsystem]
+            justification: |
+              A script must be able to detect that at least one requested model is not
+              installed.
+            tests:
               - SpeechCli_DownloadCommandWithUnknownId_Invoked_ReturnsNonZeroExitCode
 
           - id: SpeechCli-ModelCommands-DownloadForce
@@ -143,41 +193,56 @@ sections:
           - id: SpeechCli-ModelCommands-Uninstall
             title: >-
               The tool shall remove a downloaded model's installed files when invoked with
-              `uninstall <modelId>`, treating a model that has nothing installed as a safe,
-              successful no-op rather than an error.
+              `uninstall <modelId>`.
             tags: [subsystem]
             justification: |
-              Freeing disk space is the sole purpose of this command; a model with nothing
-              installed already satisfies that goal, so reporting it as an error would make a
-              defensive "uninstall it if present" script exit non-zero for no real problem.
+              Freeing disk space is the sole purpose of this command.
             tests:
               - UninstallCommand_Run_InstalledModel_UninstallsAndReportsSuccess
-              - UninstallCommand_Run_NeverInstalledModel_IsSafeNoOp
               - UninstallCommand_Run_StoreThrows_ThrowsInvalidOperationException
+
+          - id: SpeechCli-ModelCommands-UninstallNeverInstalled
+            title: >-
+              The tool shall treat `uninstall <modelId>` of a model that has nothing installed as
+              a safe, successful no-op rather than an error.
+            tags: [subsystem]
+            justification: |
+              A model with nothing installed already satisfies the goal of freeing its space, so
+              reporting it as an error would make a defensive "uninstall it if present" script
+              exit non-zero for no real problem.
+            tests:
+              - UninstallCommand_Run_NeverInstalledModel_IsSafeNoOp
               - SpeechCli_UninstallCommand_Invoked_NeverInstalledModel_ExitsCleanly
 
           - id: SpeechCli-ModelCommands-Clean
             title: >-
               The tool shall remove any partial or stale download artifacts left behind for a
-              model when invoked with `clean <modelId>`, without ever failing for a model with
-              nothing to clean up.
+              model when invoked with `clean <modelId>`.
             tags: [subsystem]
             justification: |
               A prior interrupted or failed download can leave scratch files behind; an operator
               needs a way to reclaim that space without needing to know the model store's
-              internal layout, and a routine "clean up after every attempt" script must never be
-              broken by a model that already has nothing to clean.
+              internal layout.
             tests:
               - CleanCommand_Run_KnownModel_CleansUpAndReportsSuccess
               - CleanCommand_Run_MissingModelIdArgument_ThrowsArgumentException
+
+          - id: SpeechCli-ModelCommands-CleanNothingToClean
+            title: >-
+              The tool shall succeed without error when `clean <modelId>` is invoked for a model
+              with nothing to clean up.
+            tags: [subsystem]
+            justification: |
+              A routine "clean up after every attempt" script must never be broken by a model
+              that already has nothing to clean.
+            tests:
               - SpeechCli_CleanCommand_Invoked_NothingToCleanUp_ExitsCleanly
 
           - id: SpeechCli-ModelCommands-LibraryDelegation
             title: >-
               The tool shall report every model descriptor, download, install, uninstall, and
               cleanup outcome exactly as the speech library's model catalog and model store
-              provide it, keeping no model state of its own, and shall reject a missing context
-              or catalog immediately with `ArgumentNullException`.
+              provide it, keeping no model state of its own.
             tags: [subsystem]
             justification: |
               The subsystem exists to expose the library's own model-management behavior from
@@ -185,6 +250,19 @@ sections:
               dependency replaceable lets each command's argument parsing and presentation be
               verified without network access or an installed model; the seam is described in
               the ModelCommandsSubsystem design document.
+            tests:
+              - SpeechModelCatalogAdapter_Enumerate_ReturnsCompiledInKnownModels
+              - SpeechModelCatalogAdapter_DownloadAsync_UnknownModelId_ThrowsArgumentException
+              - CliModelCatalogFactory_Create_WithModelsDir_UsesGivenRoot
+
+          - id: SpeechCli-ModelCommands-NullGuards
+            title: >-
+              The ModelCommandsSubsystem shall reject a missing context or catalog immediately
+              with `ArgumentNullException`, so a programming error is never silently ignored.
+            tags: [subsystem]
+            justification: |
+              A missing required dependency must fail immediately and specifically rather than
+              surface later as a confusing `NullReferenceException` deep inside a command.
             tests:
               - ListModelsCommand_Run_NullContext_ThrowsArgumentNullException
               - ListModelsCommand_Run_NullCatalog_ThrowsArgumentNullException
@@ -196,9 +274,6 @@ sections:
               - UninstallCommand_Run_NullCatalog_ThrowsArgumentNullException
               - CleanCommand_Run_NullContext_ThrowsArgumentNullException
               - CleanCommand_Run_NullCatalog_ThrowsArgumentNullException
-              - SpeechModelCatalogAdapter_Enumerate_ReturnsCompiledInKnownModels
-              - SpeechModelCatalogAdapter_DownloadAsync_UnknownModelId_ThrowsArgumentException
-              - CliModelCatalogFactory_Create_WithModelsDir_UsesGivenRoot
               - CliModelCatalogFactory_Create_NullContext_ThrowsArgumentNullException
 
           - id: SpeechCli-ModelCommands-DownloadMirrorComposition
@@ -217,56 +292,93 @@ sections:
 
           - id: SpeechCli-ModelCommands-SynthesisSeamExtension
             title: >-
-              The tool shall let `speak` load the synthesis engine of a resolved synthesis model
-              and size its WAV output from that model's preferred audio format, and shall reject
-              a model of any other role with a clear error naming the model rather than an
-              unhandled exception.
+              The tool shall let `speak` load the synthesis engine of a resolved synthesis model.
             tags: [subsystem]
             justification: |
-              `speak` must run a real synthesis engine and write audio in the format that model
-              produces, both of which only make sense for a synthesis model. A wrong-role model
-              must produce an actionable message, not a crash.
+              `speak` must run a real synthesis engine, which only makes sense for a synthesis
+              model.
+            tests:
+              - SpeechModelCatalogAdapter_CreateSynthesizerEngineAsync_WithSynthesisModel_ReturnsEngine
+
+          - id: SpeechCli-ModelCommands-SynthesisSeamAudioFormat
+            title: >-
+              The tool shall size the WAV output of `speak` from the resolved synthesis model's
+              preferred audio format.
+            tags: [subsystem]
+            justification: |
+              `speak` must write audio in the format that model produces.
+            tests:
+              - SpeechModelCatalogAdapter_GetPreferredAudioFormat_WithSynthesisModel_ReturnsFormat
+
+          - id: SpeechCli-ModelCommands-SynthesisSeamRoleValidation
+            title: >-
+              The tool shall reject a model of any role other than synthesis, or a missing
+              model descriptor, when `speak` loads its synthesis engine or audio format, with a
+              clear error naming the model rather than an unhandled exception.
+            tags: [subsystem]
+            justification: |
+              A wrong-role model must produce an actionable message, not a crash.
             tests:
               - SpeechModelCatalogAdapter_GetPreferredAudioFormat_RecognitionRoleModel_ThrowsArgumentException
               - SpeechModelCatalogAdapter_GetPreferredAudioFormat_NullDescriptor_ThrowsArgumentNullException
               - SpeechModelCatalogAdapter_CreateSynthesizerEngineAsync_RecognitionRoleModel_ThrowsArgumentException
               - SpeechModelCatalogAdapter_CreateSynthesizerEngineAsync_NullDescriptor_ThrowsArgumentNullException
-              - SpeechModelCatalogAdapter_GetPreferredAudioFormat_WithSynthesisModel_ReturnsFormat
-              - SpeechModelCatalogAdapter_CreateSynthesizerEngineAsync_WithSynthesisModel_ReturnsEngine
 
           - id: SpeechCli-ModelCommands-RecognitionSeamExtension
             title: >-
               The tool shall let `recognize` load the recognition engine of a resolved
-              recognition model, and shall reject a model of any other role with a clear error
-              naming the model rather than an unhandled exception.
+              recognition model.
             tags: [subsystem]
             justification: |
               `recognize` must run a real recognition engine, which only makes sense for a
-              recognition model. A wrong-role model must produce an actionable message, not a
-              crash.
+              recognition model.
+            tests:
+              - SpeechModelCatalogAdapter_CreateRecognizerEngineAsync_WithRecognitionModel_ReturnsEngine
+
+          - id: SpeechCli-ModelCommands-RecognitionSeamRoleValidation
+            title: >-
+              The tool shall reject a model of any role other than recognition, or a missing
+              model descriptor, when `recognize` loads its recognition engine, with a clear
+              error naming the model rather than an unhandled exception.
+            tags: [subsystem]
+            justification: |
+              A wrong-role model must produce an actionable message, not a crash.
             tests:
               - SpeechModelCatalogAdapter_CreateRecognizerEngineAsync_SynthesisRoleModel_ThrowsArgumentException
               - SpeechModelCatalogAdapter_CreateRecognizerEngineAsync_NullDescriptor_ThrowsArgumentNullException
-              - SpeechModelCatalogAdapter_CreateRecognizerEngineAsync_WithRecognitionModel_ReturnsEngine
 
           - id: SpeechCli-ModelCommands-ChatterboxComposition
             title: >-
               The tool shall offer the Chatterbox Turbo synthesis model alongside the other known
-              models, with the reference voices that the voice commands list and install (an
-              installed pack, the per-user folder, or the `--voices-dir` folder) as the voices it
-              can speak with, and shall keep listing and model use working when a file in the
+              models.
+            tags: [subsystem]
+            justification: |
+              Chatterbox Turbo is a voice-cloning model that a command-line user must be able to
+              find and use like any other model.
+            tests:
+              - SpeechModelCatalogAdapter_Enumerate_ReturnsCompiledInKnownModels
+
+          - id: SpeechCli-ModelCommands-ChatterboxVoiceSupply
+            title: >-
+              The tool shall give the Chatterbox Turbo model exactly the reference voices that
+              the voice commands list and install (an installed pack, the per-user folder, or the
+              `--voices-dir` folder) as the voices it can speak with.
+            tags: [subsystem]
+            justification: |
+              Chatterbox Turbo can speak only with a reference voice, so the model must see
+              exactly the voices the voice commands list and install.
+            tests:
+              - CliModelCatalogFactory_Create_WithVoicesDir_EnumeratesThatFolder
+              - SpeechModelCatalogAdapter_Voices_ListsUserAndVoicesDirVoices
+
+          - id: SpeechCli-ModelCommands-ChatterboxDamagedVoiceFile
+            title: >-
+              The tool shall keep voice listing and model use working when a file in the
               `--voices-dir` folder cannot be decoded.
             tags: [subsystem]
             justification: |
-              Chatterbox Turbo is a voice-cloning model: it can speak only with a reference
-              voice, so the command line must be able to supply voices and the model must see
-              exactly the voices the voice commands list and install. One undecodable file in a
-              user's folder must not take the whole voice list down.
+              One undecodable file in a user's folder must not take the whole voice list down.
             tests:
-              - SpeechModelCatalogAdapter_Enumerate_ReturnsCompiledInKnownModels
-              - CliModelCatalogFactory_Create_WithModelsDir_UsesGivenRoot
-              - CliModelCatalogFactory_Create_WithVoicesDir_EnumeratesThatFolder
-              - SpeechModelCatalogAdapter_Voices_ListsUserAndVoicesDirVoices
               - SpeechModelCatalogAdapter_DamagedVoicesDirFile_DoesNotBreakAdapterOrListing
 
           - id: SpeechCli-ModelCommands-ListVoices
@@ -287,15 +399,22 @@ sections:
 
           - id: SpeechCli-ModelCommands-ListVoicesUsageHints
             title: >-
-              The tool shall tell the operator how to obtain voices when `list-voices` finds
-              none, and shall show how to choose a listed voice (`speak --tts-param
-              voice=<id>`) when it finds some.
+              The tool shall tell the operator how to choose a listed voice (`speak --tts-param
+              voice=<id>`) when `list-voices` finds some.
             tags: [subsystem]
             justification: |
-              An empty list is a dead end unless it says how to add voices, and a list of ids is
-              only useful if it says where the id goes.
+              A list of ids is only useful if it says where the id goes.
             tests:
               - ListVoicesCommand_Run_Table_ListsVoicesAndConsentNote
+
+          - id: SpeechCli-ModelCommands-ListVoicesEmptyHint
+            title: >-
+              The tool shall tell the operator how to obtain voices when `list-voices` finds
+              none.
+            tags: [subsystem]
+            justification: |
+              An empty list is a dead end unless it says how to add voices.
+            tests:
               - ListVoicesCommand_Run_NoVoices_ExplainsHowToAddVoices
 
           - id: SpeechCli-ModelCommands-ListVoicesConsentNote
@@ -339,13 +458,24 @@ sections:
 
           - id: SpeechCli-ModelCommands-VoicePackInstall
             title: >-
-              The tool shall download, verify, and install a reference-voice pack with live
-              progress, through the configured `--models-dir` and `--mirror-*` options, when
-              invoked with `voices install <packId>`.
+              The tool shall download, verify, and install a reference-voice pack, through the
+              configured `--models-dir` and `--mirror-*` options, when invoked with
+              `voices install <packId>`.
             tags: [subsystem]
             justification: |
               The reference-voice pack is a large optional download, so installing it must follow
-              the same conventions as model downloads (store location, mirror, progress).
+              the same conventions as model downloads (store location and mirror).
+            tests:
+              - VoicesCommand_RunAsync_Install_ReportsProgressAndConsentNote
+
+          - id: SpeechCli-ModelCommands-VoicePackInstallProgress
+            title: >-
+              The tool shall report live progress while `voices install` downloads a
+              reference-voice pack.
+            tags: [subsystem]
+            justification: |
+              The reference-voice pack is a large download, so the operator needs visible
+              progress to tell it is working.
             tests:
               - VoicesCommand_RunAsync_Install_ReportsProgressAndConsentNote
               - DownloadProgressReporter_Create_KnownTotal_PrintsOneLinePerWholePercent
@@ -379,15 +509,24 @@ sections:
           - id: SpeechCli-ModelCommands-VoicePackUninstall
             title: >-
               The tool shall remove an installed reference-voice pack when invoked with
-              `voices uninstall <packId>`, treating a pack with nothing installed as a safe,
-              successful no-op.
+              `voices uninstall <packId>`.
             tags: [subsystem]
             justification: |
-              Freeing disk space is the sole purpose of this command; a defensive "uninstall it
-              if present" script must not exit non-zero for a pack that is already absent.
+              Freeing disk space is the sole purpose of this command.
             tests:
               - VoicesCommand_RunAsync_Uninstall_ForwardsAndReports
               - VoicesCommand_RunAsync_UninstallStoreThrows_ThrowsInvalidOperationException
+
+          - id: SpeechCli-ModelCommands-VoicePackUninstallNeverInstalled
+            title: >-
+              The tool shall treat `voices uninstall <packId>` of a pack with nothing installed
+              as a safe, successful no-op.
+            tags: [subsystem]
+            justification: |
+              A defensive "uninstall it if present" script must not exit non-zero for a pack
+              that is already absent.
+            tests:
+              - SpeechModelCatalogAdapter_VoicePackUninstallAndInstall_UnknownOrMissingPack_BehaveCleanly
 
           - id: SpeechCli-ModelCommands-VoicePackArgumentValidation
             title: >-

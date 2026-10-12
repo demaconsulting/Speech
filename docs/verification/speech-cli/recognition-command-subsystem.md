@@ -224,16 +224,21 @@ missing dependency.
 
 ### Requirements Coverage
 
-- **`SpeechCli-RecognitionCommands-Recognize`**: see _RecognizeCommand — Input Source, Model
-  Resolution, and Argument Parsing_ above
-- **`SpeechCli-RecognitionCommands-ParamValidation`**: see _`--stt-param` Validation Reuse_ above
+- **`SpeechCli-RecognitionCommands-Recognize`**, **`-ModelValidation`**,
+  **`-InputSourceValidation`**, **`-ArgumentValidation`**: see _RecognizeCommand — Input Source,
+  Model Resolution, and Argument Parsing_ above
+- **`SpeechCli-RecognitionCommands-ParamValidation`**, **`-ParamRejection`**: see _`--stt-param`
+  Validation Reuse_ above
 - **`SpeechCli-RecognitionCommands-FileInputEofDrivenStop`**: see _File-Input Explicit-Drain
   Flow_ above
-- **`SpeechCli-RecognitionCommands-SilenceTimeout`**: see _Silence Timeout
+- **`SpeechCli-RecognitionCommands-SilenceTimeout`**, **`-SilenceTimeoutDefault`**,
+  **`-SilenceTimeoutValidation`**: see _Silence Timeout
   (`SilenceTimeoutRecognizerSession`)_ above
-- **`SpeechCli-RecognitionCommands-StartTimeout`**: see _Start Timeout (Two-Phase Idle Window)_
+- **`SpeechCli-RecognitionCommands-StartTimeout`**, **`-StartTimeoutDefault`**,
+  **`-StartTimeoutValidation`**: see _Start Timeout (Two-Phase Idle Window)_
   above
-- **`SpeechCli-RecognitionCommands-VerbosityAndOutput`**, **`-InterimOnly`**, **`-FinalOnly`**,
+- **`SpeechCli-RecognitionCommands-VerbosityAndOutput`**, **`-InterimOverwrite`**,
+  **`-InterimOnly`**, **`-FinalOnly`**,
   **`-VerbosityConflict`**, **`-OutputText`**: see _`--interim`/`--final-only`/
   `--output-text` Filtering and Writing_ above
 - **`SpeechCli-RecognitionCommands-InputFileValidation`**: verified by

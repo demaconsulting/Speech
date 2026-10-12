@@ -14,55 +14,90 @@ sections:
         requirements:
           - id: SpeechCli-RecognitionCommands-Recognize
             title: >-
-              The tool shall stream speech-to-text results from exactly one of a pre-recorded
-              mono WAV file (`--input <wav-path>`) or a real microphone (`--mic`), through a
-              known, downloaded recognition model named by `--stt-model <id>`, when invoked with
-              `recognize`, rejecting a missing `--stt-model`, an unknown/wrong-role/not-downloaded
-              model id, or a conflicting/missing input source with a clean, actionable,
-              non-zero-exit-code error rather than a stack trace.
+              The tool shall stream speech-to-text results from a pre-recorded mono WAV file
+              (`--input <wav-path>`) or a real microphone (`--mic`), through a known, downloaded
+              recognition model named by `--stt-model <id>`, when invoked with `recognize`.
             tags: [subsystem]
             justification: |
               An operator or script needs one command that turns either a WAV file or a live
               microphone into recognized text without needing to know which library types compose
-              a recognizer. Input-source mutual exclusion and model validation must fail
-              predictably and with an actionable next step (`list-models`, `list-models --role
-              stt`, or `download <modelId>`) so a scripted invocation can react to the specific
-              failure rather than a generic error.
+              a recognizer.
             tests:
-              - RecognizeCommand_ParseArguments_MissingModel_ThrowsArgumentException
               - RecognizeCommand_ParseArguments_InputFlag_ParsesInputPath
               - RecognizeCommand_ParseArguments_MicFlag_ParsesTrue
-              - RecognizeCommand_ParseArguments_UnsupportedArgument_ThrowsArgumentException
-              - RecognizeCommand_ParseArguments_FlagMissingValue_ThrowsArgumentException
-              - RecognizeCommand_Run_InputAndMicBothGiven_ThrowsArgumentException
-              - RecognizeCommand_Run_NoInputSource_ThrowsArgumentException
+              - RecognizeCommand_Run_Success_DisposesEngineAndSessionOnce
+              - SpeechCli_RecognizeCommandWithRealSttModel_Invoked_ProducesNonEmptyRecognizedText
+
+          - id: SpeechCli-RecognitionCommands-ModelValidation
+            title: >-
+              The tool shall reject `recognize` invoked without `--stt-model`, or with an
+              unknown, wrong-role, or not-downloaded model id, with a clean, actionable,
+              non-zero-exit-code error rather than a stack trace.
+            tags: [subsystem]
+            justification: |
+              Model validation must fail predictably and with an actionable next step
+              (`list-models`, `list-models --role stt`, or `download <modelId>`) so a scripted
+              invocation can react to the specific failure rather than a generic error.
+            tests:
+              - RecognizeCommand_ParseArguments_MissingModel_ThrowsArgumentException
               - RecognizeCommand_Run_UnknownModelId_ThrowsArgumentException
               - RecognizeCommand_Run_WrongRoleModel_ThrowsArgumentException
               - RecognizeCommand_Run_NotDownloadedModel_ThrowsArgumentExceptionWithDownloadHint
-              - RecognizeCommand_Run_Success_DisposesEngineAndSessionOnce
               - SpeechCli_RecognizeCommandWithoutModel_Invoked_ReturnsCleanError
               - SpeechCli_RecognizeCommandWithUnknownModel_Invoked_ReturnsCleanError
               - SpeechCli_RecognizeCommandWithWrongRoleModel_Invoked_ReturnsCleanError
               - SpeechCli_RecognizeCommandWithNotDownloadedModel_Invoked_ReturnsCleanErrorWithDownloadHint
-              - SpeechCli_RecognizeCommandWithConflictingInputSources_Invoked_ReturnsCleanError
-              - SpeechCli_RecognizeCommandWithRealSttModel_Invoked_ProducesNonEmptyRecognizedText
               - Program_Run_WithRecognizeCommandAndNoModel_ThrowsArgumentException
+
+          - id: SpeechCli-RecognitionCommands-InputSourceValidation
+            title: >-
+              The tool shall reject `recognize` invoked with both `--input` and `--mic`, or with
+              neither, with a clean, actionable, non-zero-exit-code error rather than a stack
+              trace.
+            tags: [subsystem]
+            justification: |
+              An ambiguous or missing input source must fail predictably so a scripted
+              invocation never listens to the wrong source or waits on input that never arrives.
+            tests:
+              - RecognizeCommand_Run_InputAndMicBothGiven_ThrowsArgumentException
+              - RecognizeCommand_Run_NoInputSource_ThrowsArgumentException
+              - SpeechCli_RecognizeCommandWithConflictingInputSources_Invoked_ReturnsCleanError
+
+          - id: SpeechCli-RecognitionCommands-ArgumentValidation
+            title: >-
+              The tool shall reject `recognize` invoked with an unsupported argument, or a flag
+              missing its value, with a clean, non-zero-exit-code error rather than a stack
+              trace.
+            tags: [subsystem]
+            justification: |
+              A mistyped option must fail predictably rather than being silently ignored.
+            tests:
+              - RecognizeCommand_ParseArguments_UnsupportedArgument_ThrowsArgumentException
+              - RecognizeCommand_ParseArguments_FlagMissingValue_ThrowsArgumentException
 
           - id: SpeechCli-RecognitionCommands-ParamValidation
             title: >-
               The tool shall accept repeatable `--stt-param key=value` flags and apply each to
-              the recognition model, and shall reject a malformed token, a value outside the
-              range or options that model declares, or a key that model does not declare, with a
-              clean, non-zero-exit-code error rather than a stack trace.
+              the recognition model.
             tags: [subsystem]
             justification: |
               Recognition models declare tunable parameters exactly as synthesis models do (for
-              example decoding beam width); validating each value against the model's declared
-              parameters before recognition starts catches an operator typo immediately, with
-              the same `--stt-param` semantics `speak`, `recognize`, and `ask` all share.
+              example decoding beam width), with the same `--stt-param` semantics `recognize`
+              and `ask` share.
             tests:
               - RecognizeCommand_ParseArguments_RepeatedParamFlags_AccumulatesInOrder
               - RecognizeCommand_Run_ValidParam_ForwardsToCreateRecognizerEngine
+
+          - id: SpeechCli-RecognitionCommands-ParamRejection
+            title: >-
+              The tool shall reject a `--stt-param` with a malformed token, a value outside the
+              range or options that the recognition model declares, or a key that model does not
+              declare, with a clean, non-zero-exit-code error rather than a stack trace.
+            tags: [subsystem]
+            justification: |
+              Validating each value against the model's declared parameters before recognition
+              starts catches an operator typo immediately.
+            tests:
               - RecognizeCommand_Run_InvalidParam_ThrowsArgumentException
 
           - id: SpeechCli-RecognitionCommands-InputFileValidation
@@ -100,9 +135,8 @@ sections:
               The tool shall, in `--mic` mode, end the recognition session automatically, after
               delivering every result already produced, once no recognition result (partial or
               final) has arrived for the number of seconds given by `--silence-timeout
-              <seconds>` (5 seconds when omitted) since the previous result, and shall reject a
-              non-positive or malformed `--silence-timeout` with a clean error. The wait before
-              the first result is governed by `--start-timeout`.
+              <seconds>` since the previous result. The wait before the first result is governed
+              by `--start-timeout`.
             tags: [subsystem]
             justification: |
               An unattended microphone session with no natural end-of-file signal needs an
@@ -111,49 +145,86 @@ sections:
               mechanism is described in the RecognitionCommandSubsystem design document.
             tests:
               - RecognizeCommand_ParseArguments_SilenceTimeoutFlag_ParsesSeconds
-              - RecognizeCommand_ParseArguments_NonPositiveSilenceTimeout_ThrowsArgumentException
-              - RecognizeCommand_ParseArguments_MalformedSilenceTimeout_ThrowsArgumentException
               - SilenceTimeoutRecognizerSession_Construct_NullSession_ThrowsArgumentNullException
-              - SilenceTimeoutRecognizerSession_Construct_NonPositiveIdleTimeout_ThrowsArgumentOutOfRangeException
               - SilenceTimeoutRecognizerSession_Construct_NullTimeProvider_DoesNotThrow
               - SilenceTimeoutRecognizerSession_GetResultsAsync_TimeoutBeforeAnyResult_StopsSessionAndRaisesTimedOutOnce
               - SilenceTimeoutRecognizerSession_GetResultsAsync_TimeoutAfterResult_StopsSessionAndRaisesTimedOutOnce
               - SilenceTimeoutRecognizerSession_GetResultsAsync_CancellationRequested_PropagatesOperationCanceledException
 
+          - id: SpeechCli-RecognitionCommands-SilenceTimeoutDefault
+            title: >-
+              The tool shall use a silence timeout of 5 seconds in `--mic` mode when
+              `--silence-timeout` is omitted.
+            tags: [subsystem]
+            justification: |
+              A fixed default lets an unattended session end itself without the operator having
+              to choose a value.
+            tests:
+              - RecognizeCommand_Run_SilenceTimeoutOmitted_ResolvesToFixedFiveSecondDefault
+
+          - id: SpeechCli-RecognitionCommands-SilenceTimeoutValidation
+            title: >-
+              The tool shall reject a non-positive or malformed `--silence-timeout` with a clean
+              error.
+            tags: [subsystem]
+            justification: |
+              A zero, negative, or non-numeric timeout would end the session immediately or
+              never, so it must fail predictably.
+            tests:
+              - RecognizeCommand_ParseArguments_NonPositiveSilenceTimeout_ThrowsArgumentException
+              - RecognizeCommand_ParseArguments_MalformedSilenceTimeout_ThrowsArgumentException
+              - SilenceTimeoutRecognizerSession_Construct_NonPositiveIdleTimeout_ThrowsArgumentOutOfRangeException
+
           - id: SpeechCli-RecognitionCommands-StartTimeout
             title: >-
               The tool shall, in `--mic` mode, end the recognition session automatically when no
               recognition result has arrived within the number of seconds given by the optional
-              `--start-timeout <seconds>` (8 seconds when omitted) after listening begins,
-              independently of `--silence-timeout`, which governs only the gaps after the first
-              result, and shall reject a non-positive or malformed `--start-timeout` with a
-              clean error.
+              `--start-timeout <seconds>` after listening begins, independently of
+              `--silence-timeout`, which governs only the gaps after the first result.
             tags: [subsystem]
             justification: |
               A grace period for a user to begin speaking is typically much longer than the
               brief pause used to detect the end of an utterance; conflating the two into one
               `--silence-timeout` value forces an operator to choose between a session that
               gives up too quickly on a slow starter or one that lingers too long after the user
-              has actually stopped talking. A fixed default keeps the start window independent
-              of whatever silence timeout an operator chooses.
+              has actually stopped talking.
             tests:
               - RecognizeCommand_ParseArguments_StartTimeoutFlag_ParsesSeconds
-              - RecognizeCommand_ParseArguments_StartTimeoutOmitted_DefaultsToNull
-              - RecognizeCommand_ParseArguments_NonPositiveStartTimeout_ThrowsArgumentException
-              - RecognizeCommand_ParseArguments_MalformedStartTimeout_ThrowsArgumentException
-              - RecognizeCommand_Run_StartTimeoutOmitted_ResolvesToFixedEightSecondDefault
-              - RecognizeCommand_Run_SilenceTimeoutOmitted_ResolvesToFixedFiveSecondDefault
               - RecognizeCommand_Run_StartTimeoutGiven_ResolvesToGivenValue
-              - SilenceTimeoutRecognizerSession_Construct_NonPositiveStartTimeout_ThrowsArgumentOutOfRangeException
               - SilenceTimeoutRecognizerSession_GetResultsAsync_StartTimeoutOmitted_ArmsTimerWithIdleTimeout
               - SilenceTimeoutRecognizerSession_GetResultsAsync_StartTimeoutGiven_ArmsTimerWithStartTimeout
               - SilenceTimeoutRecognizerSession_GetResultsAsync_FirstResultReceived_ReArmsWithIdleTimeoutNotStartTimeout
               - SilenceTimeoutRecognizerSession_GetResultsAsync_SecondResultReceived_StaysOnIdleTimeout
 
+          - id: SpeechCli-RecognitionCommands-StartTimeoutDefault
+            title: >-
+              The tool shall use a start timeout of 8 seconds in `--mic` mode when
+              `--start-timeout` is omitted.
+            tags: [subsystem]
+            justification: |
+              A fixed default keeps the start window independent of whatever silence timeout an
+              operator chooses.
+            tests:
+              - RecognizeCommand_ParseArguments_StartTimeoutOmitted_DefaultsToNull
+              - RecognizeCommand_Run_StartTimeoutOmitted_ResolvesToFixedEightSecondDefault
+
+          - id: SpeechCli-RecognitionCommands-StartTimeoutValidation
+            title: >-
+              The tool shall reject a non-positive or malformed `--start-timeout` with a clean
+              error.
+            tags: [subsystem]
+            justification: |
+              A zero, negative, or non-numeric start window would end the session immediately or
+              never, so it must fail predictably.
+            tests:
+              - RecognizeCommand_ParseArguments_NonPositiveStartTimeout_ThrowsArgumentException
+              - RecognizeCommand_ParseArguments_MalformedStartTimeout_ThrowsArgumentException
+              - SilenceTimeoutRecognizerSession_Construct_NonPositiveStartTimeout_ThrowsArgumentOutOfRangeException
+
           - id: SpeechCli-RecognitionCommands-VerbosityAndOutput
             title: >-
-              The tool shall, by default, print both interim and final recognition results, an
-              interim result overwritten in place and a final result settled on its own line.
+              The tool shall, by default, print both interim and final recognition results, with
+              a final result settled on its own line.
             tags: [subsystem]
             justification: |
               A live console benefits from seeing an evolving interim hypothesis as well as the
@@ -161,6 +232,15 @@ sections:
             tests:
               - RecognizeCommand_ParseArguments_InterimAndFinalOnlyFlags_ParseTrue
               - RecognizeCommand_Run_DefaultVerbosity_PrintsBothInterimAndFinal
+
+          - id: SpeechCli-RecognitionCommands-InterimOverwrite
+            title: >-
+              The tool shall overwrite an interim recognition result in place on the console,
+              leaving no stale characters when a later interim result is shorter.
+            tags: [subsystem]
+            justification: |
+              An evolving interim hypothesis must stay readable on a single line.
+            tests:
               - RecognizeCommand_Run_ShrinkingInterimSequence_DoesNotLeaveStaleCharacters
 
           - id: SpeechCli-RecognitionCommands-InterimOnly

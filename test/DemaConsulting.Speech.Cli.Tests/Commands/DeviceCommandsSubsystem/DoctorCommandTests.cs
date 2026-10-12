@@ -68,6 +68,20 @@ public sealed class DoctorCommandTests : IDisposable
     }
 
     /// <summary>
+    ///     Test that the available disk space at the model store root is reported in the output.
+    /// </summary>
+    [Fact]
+    public void DoctorCommand_Run_ReportsAvailableDiskSpace()
+    {
+        var context = Context.Create(["doctor"]);
+        var catalog = new FakeCliModelCatalog();
+
+        var output = RunCapturingOutput(context, new FakeAudioCaptureDeviceProbe(), new FakeAudioPlaybackDeviceProbe(), catalog, _tempDir);
+
+        Assert.Contains("Available disk space:", output);
+    }
+
+    /// <summary>
     ///     Test that installed-versus-known model counts are reported.
     /// </summary>
     [Fact]

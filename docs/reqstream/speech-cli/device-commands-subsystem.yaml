@@ -18,111 +18,211 @@ sections:
           - id: SpeechCli-DeviceCommands-ListDevices
             title: >-
               The tool shall enumerate every currently detected audio capture (input) and
-              playback (output) device's name, direction, channel count, and sample rate when
-              invoked with `list-devices`, optionally filtered to one direction
-              (`--direction input`/`output`), printing an aligned table, or a plain "No devices
-              found." message when the result is empty, rather than an error.
+              playback (output) device's name, direction, channel count, and sample rate as an
+              aligned table when invoked with `list-devices`.
             tags: [subsystem]
             justification: |
               An operator or script needs to discover which audio devices this machine offers,
               and by what name, before selecting one for `devices test`, `speak`, `recognize`, or
-              `ask`. Treating "no devices" as a plain informational message, not an
-              error, mirrors this library's own graceful-degradation convention for optional
-              audio hardware, since a headless/CI machine with no audio hardware is a normal,
-              not exceptional, condition.
+              `ask`.
             tests:
               - ListDevicesCommand_Run_NoFilter_ListsBothDirections
+              - SpeechCli_ListDevicesCommand_Invoked_ExitsCleanly
+
+          - id: SpeechCli-DeviceCommands-ListDevicesDirectionFilter
+            title: >-
+              The tool shall restrict the `list-devices` output to one direction when
+              `--direction input` or `--direction output` is given.
+            tags: [subsystem]
+            justification: |
+              An operator selecting a microphone or a speaker only needs the devices of that
+              direction.
+            tests:
               - ListDevicesCommand_Run_DirectionInput_ListsOnlyCaptureDevices
               - ListDevicesCommand_Run_DirectionOutput_ListsOnlyPlaybackDevices
+
+          - id: SpeechCli-DeviceCommands-ListDevicesNoDevices
+            title: >-
+              The tool shall print a plain "No devices found." message, rather than an error,
+              when `list-devices` finds no devices.
+            tags: [subsystem]
+            justification: |
+              Treating "no devices" as a plain informational message mirrors this library's own
+              graceful-degradation convention for optional audio hardware, since a headless/CI
+              machine with no audio hardware is a normal, not exceptional, condition.
+            tests:
               - ListDevicesCommand_Run_NoDevices_PrintsNoDevicesMessage
+
+          - id: SpeechCli-DeviceCommands-ListDevicesArgumentValidation
+            title: >-
+              The tool shall reject a `list-devices` invocation with an invalid or valueless
+              `--direction`, or an unsupported flag, with a clear, non-zero-exit-code error
+              rather than a stack trace.
+            tags: [subsystem]
+            justification: |
+              A mistyped option must fail predictably so a script can detect it instead of
+              receiving output in an unexpected form.
+            tests:
               - ListDevicesCommand_Run_InvalidDirectionValue_ThrowsArgumentException
               - ListDevicesCommand_Run_DirectionFlagMissingValue_ThrowsArgumentException
               - ListDevicesCommand_Run_UnsupportedFlag_ThrowsArgumentException
-              - SpeechCli_ListDevicesCommand_Invoked_ExitsCleanly
               - SpeechCli_ListDevicesCommandWithInvalidDirection_Invoked_ReturnsCleanError
 
           - id: SpeechCli-DeviceCommands-DevicesTest
             title: >-
-              The tool shall sanity-check a single audio device without requiring any speech
-              model when invoked with `devices test [--device <name>] [--direction input|output]`
-              - playing a short synthesized test tone for the output direction (the default when
-              `--direction` is omitted), or recording a short clip and reporting basic capture
-              statistics (sample count, peak amplitude) for the input direction - and shall reject
-              an unrecognized `--device` name, or an unavailable resolved device, with a clean,
-              non-zero-exit-code error rather than a stack trace.
+              The tool shall sanity-check a single audio device, optionally named with
+              `--device <name>`, without requiring any speech model when invoked with
+              `devices test`.
             tags: [subsystem]
             justification: |
               An operator needs a way to prove a specific audio device actually works before
               relying on it for real speech I/O, without needing a downloaded model just to test
-              hardware. Defaulting to the output direction avoids implicitly recording real audio
-              input as a side effect of a bare invocation, since recording is inherently more
+              hardware.
+            tests:
+              - DevicesTestCommand_ParseArguments_DeviceFlag_ParsesDeviceName
+              - DevicesTestCommand_ResolveDeviceSelectionOrThrow_NullDeviceName_ReturnsNull
+              - DevicesTestCommand_ResolveDeviceSelectionOrThrow_KnownDeviceName_ReturnsSelection
+
+          - id: SpeechCli-DeviceCommands-DevicesTestOutput
+            title: >-
+              The tool shall play a short synthesized test tone on the selected playback device
+              when `devices test` is invoked for the output direction, which is the default when
+              `--direction` is omitted.
+            tags: [subsystem]
+            justification: |
+              Defaulting to the output direction avoids implicitly recording real audio input as
+              a side effect of a bare invocation, since recording is inherently more
               privacy-sensitive than playing a tone.
             tests:
               - DevicesTestCommand_ParseArguments_NoFlags_DefaultsToOutputDirection
-              - DevicesTestCommand_ParseArguments_DirectionInput_ParsesToCaptureDirection
               - DevicesTestCommand_ParseArguments_DirectionOutput_ParsesToPlaybackDirection
-              - DevicesTestCommand_ParseArguments_DeviceFlag_ParsesDeviceName
+
+          - id: SpeechCli-DeviceCommands-DevicesTestInput
+            title: >-
+              The tool shall record a short clip from the selected capture device and report
+              basic capture statistics (sample count, peak amplitude) when `devices test` is
+              invoked with `--direction input`.
+            tags: [subsystem]
+            justification: |
+              An operator needs to confirm that a microphone actually delivers audio without
+              needing a downloaded recognition model.
+            tests:
+              - DevicesTestCommand_ParseArguments_DirectionInput_ParsesToCaptureDirection
+
+          - id: SpeechCli-DeviceCommands-DevicesTestDeviceValidation
+            title: >-
+              The tool shall reject a `devices test` invocation naming an unrecognized
+              `--device`, or whose resolved device is unavailable, with a clean,
+              non-zero-exit-code error rather than a stack trace.
+            tags: [subsystem]
+            justification: |
+              Validating the device before any tone or recording is attempted makes a mistyped
+              device name fail predictably.
+            tests:
+              - DevicesTestCommand_ResolveDeviceSelectionOrThrow_UnknownDeviceName_ThrowsArgumentException
+              - DevicesTestCommand_Run_UnknownPlaybackDevice_ThrowsArgumentException
+              - DevicesTestCommand_Run_UnknownCaptureDevice_ThrowsArgumentException
+              - SpeechCli_DevicesTestCommandWithUnknownDevice_Invoked_ReturnsCleanError
+
+          - id: SpeechCli-DeviceCommands-DevicesTestArgumentValidation
+            title: >-
+              The tool shall reject a `devices` invocation with a missing or unknown sub-action,
+              an invalid or valueless `--direction` or `--device`, or an unsupported flag, with a
+              clean, non-zero-exit-code error rather than a stack trace.
+            tags: [subsystem]
+            justification: |
+              A mistyped devices command must fail predictably so a script can detect it.
+            tests:
               - DevicesTestCommand_ParseArguments_MissingSubAction_ThrowsArgumentException
               - DevicesTestCommand_ParseArguments_UnknownSubAction_ThrowsArgumentException
               - DevicesTestCommand_ParseArguments_InvalidDirectionValue_ThrowsArgumentException
               - DevicesTestCommand_ParseArguments_UnsupportedFlag_ThrowsArgumentException
               - DevicesTestCommand_ParseArguments_DeviceFlagMissingValue_ThrowsArgumentException
-              - DevicesTestCommand_ResolveDeviceSelectionOrThrow_NullDeviceName_ReturnsNull
-              - DevicesTestCommand_ResolveDeviceSelectionOrThrow_KnownDeviceName_ReturnsSelection
-              - DevicesTestCommand_ResolveDeviceSelectionOrThrow_UnknownDeviceName_ThrowsArgumentException
-              - DevicesTestCommand_Run_UnknownPlaybackDevice_ThrowsArgumentException
-              - DevicesTestCommand_Run_UnknownCaptureDevice_ThrowsArgumentException
               - SpeechCli_DevicesCommandWithoutSubAction_Invoked_ReturnsCleanError
-              - SpeechCli_DevicesTestCommandWithUnknownDevice_Invoked_ReturnsCleanError
 
           - id: SpeechCli-DeviceCommands-ToneGeneration
             title: >-
-              The tool shall play a generated test tone for the output direction of `devices
-              test`, with no downloaded model required, having the sample count for the
-              requested sample rate and duration, every sample within the normalized range -1.0
-              to 1.0, and identical samples on every channel.
+              The tool shall generate the `devices test` output tone, with no downloaded model
+              required, with the sample count for the requested sample rate and duration.
             tags: [subsystem]
             justification: |
               Sanity-checking playback hardware must not depend on a downloaded synthesis model
               being available; a simple, deterministic tone is sufficient to prove audio
-              actually reaches the device, and its correctness (sample count, range, per-channel
-              identity) can be proven with pure math, with no real hardware. The in-process
-              sine-wave generation is described in the DeviceCommandsSubsystem design document.
+              actually reaches the device, and its correctness can be proven with pure math,
+              with no real hardware. The in-process sine-wave generation is described in the
+              DeviceCommandsSubsystem design document.
             tests:
               - DevicesTestCommand_GenerateToneSamples_ReturnsExpectedSampleCount
-              - DevicesTestCommand_GenerateToneSamples_AllSamplesWithinNormalizedRange
-              - DevicesTestCommand_GenerateToneSamples_IdenticalAcrossChannels
               - DevicesTestCommand_GenerateToneSamples_NonPositiveSampleRate_ThrowsArgumentOutOfRangeException
+
+          - id: SpeechCli-DeviceCommands-ToneAmplitudeRange
+            title: >-
+              The tool shall keep every sample of the `devices test` output tone within the
+              normalized range -1.0 to 1.0.
+            tags: [subsystem]
+            justification: |
+              An out-of-range sample would clip or distort on the device and defeat the
+              sanity check.
+            tests:
+              - DevicesTestCommand_GenerateToneSamples_AllSamplesWithinNormalizedRange
+
+          - id: SpeechCli-DeviceCommands-ToneChannelIdentity
+            title: >-
+              The tool shall give the `devices test` output tone identical samples on every
+              channel.
+            tags: [subsystem]
+            justification: |
+              Identical channels let an operator confirm every speaker of a multi-channel output
+              device receives the same audible tone.
+            tests:
+              - DevicesTestCommand_GenerateToneSamples_IdenticalAcrossChannels
 
           - id: SpeechCli-DeviceCommands-Doctor
             title: >-
-              The tool shall report the model store's root path, writability, and available
-              disk space as a pass/fail checklist when invoked with `doctor`.
+              The tool shall report the model store's root path and writability as a pass/fail
+              checklist when invoked with `doctor`.
             tags: [subsystem]
             justification: |
               An operator setting up this tool on a new machine needs one command that surfaces
               the most likely cause of trouble with model downloads: a model store that is
-              missing, unwritable, or out of space.
+              missing or unwritable.
             tests:
               - DoctorCommand_Run_WritableModelStore_ReportsHealthy
               - DoctorCommand_Run_ReportsModelStoreRootPath
               - SpeechCli_DoctorCommand_Invoked_ReportsHealthChecklist
 
-          - id: SpeechCli-DeviceCommands-DoctorNativeRuntimes
+          - id: SpeechCli-DeviceCommands-DoctorDiskSpace
             title: >-
-              The tool shall report in `doctor` whether the native PortAudio and SherpaOnnx
-              runtimes are resolvable, as an informational note rather than a failure when one
-              is not.
+              The tool shall report the available disk space at the model store's root in
+              `doctor`.
             tags: [subsystem]
             justification: |
-              A missing native runtime is a common cause of audio and recognition failures, but
-              it is a normal, gracefully-degraded condition this library already handles at the
-              point of use, so `doctor` reports it without failing a healthy headless or CI
-              machine.
+              A model store that is out of space is a likely cause of failed model downloads.
+            tests:
+              - DoctorCommand_Run_ReportsAvailableDiskSpace
+
+          - id: SpeechCli-DeviceCommands-DoctorNativeRuntimes
+            title: >-
+              The tool shall report in `doctor` whether the native SherpaOnnx runtime is
+              resolvable.
+            tags: [subsystem]
+            justification: |
+              A missing native runtime is a common cause of recognition failures.
             tests:
               - DoctorCommand_Run_ReportsSherpaOnnxNativeLibraryResolvable
               - DoctorCommand_ResolveSherpaOnnxNativeLibraryPath_AssetPresent_ReturnsPath
               - DoctorCommand_ResolveSherpaOnnxNativeLibraryPath_AssetAbsent_ReturnsNull
+
+          - id: SpeechCli-DeviceCommands-DoctorPortAudioRuntime
+            title: >-
+              The tool shall report in `doctor` an unavailable native PortAudio runtime as an
+              informational note rather than a failure.
+            tags: [subsystem]
+            justification: |
+              A missing native audio runtime is a normal, gracefully-degraded condition this
+              library already handles at the point of use, so `doctor` reports it without
+              failing a healthy headless or CI machine.
+            tests:
               - DoctorCommand_Run_UnavailablePortAudio_ReportsInformationalNoteNotFailure
 
           - id: SpeechCli-DeviceCommands-DoctorAudioDevices
@@ -163,14 +263,24 @@ sections:
           - id: SpeechCli-DeviceCommands-LibraryDelegation
             title: >-
               The tool shall report every audio device probe and device-creation result exactly
-              as the speech library's audio device facilities provide it, and shall reject a
-              missing context, probe, factory, or model catalog immediately with an exception.
+              as the speech library's audio device facilities provide it.
             tags: [subsystem]
             justification: |
               The library's probe interfaces are already public and directly replaceable in
-              tests, so the subsystem adds no wrapper of its own; a missing dependency must
-              still fail immediately so a programming error is never silently ignored. See the
-              DeviceCommandsSubsystem design document.
+              tests, so the subsystem adds no wrapper of its own and must not reshape what the
+              library reports. See the DeviceCommandsSubsystem design document.
+            tests:
+              - ListDevicesCommand_Run_NoFilter_ListsBothDirections
+              - DoctorCommand_Run_ReportsAudioDeviceCounts
+
+          - id: SpeechCli-DeviceCommands-NullGuards
+            title: >-
+              The DeviceCommandsSubsystem shall reject a missing context, probe, factory, or
+              model catalog immediately with an exception.
+            tags: [subsystem]
+            justification: |
+              A missing dependency must fail immediately so a programming error is never
+              silently ignored.
             tests:
               - ListDevicesCommand_Run_NullContext_ThrowsArgumentNullException
               - ListDevicesCommand_Run_NullCaptureProbe_ThrowsArgumentNullException

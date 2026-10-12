@@ -161,12 +161,18 @@ missing dependency.
 
 ### Requirements Coverage
 
-- **`SpeechCli-DeviceCommands-ListDevices`**: see _ListDevicesCommand_ above
-- **`SpeechCli-DeviceCommands-DevicesTest`**: see _DevicesTestCommand_ above
-- **`SpeechCli-DeviceCommands-ToneGeneration`**: see _Tone Generation_ above
-- **`SpeechCli-DeviceCommands-Doctor`**, **`-DoctorNativeRuntimes`**, **`-DoctorAudioDevices`**,
-  **`-DoctorModelCounts`**, **`-DoctorExitCode`**: see _DoctorCommand_ above
-- **`SpeechCli-DeviceCommands-LibraryDelegation`**: see _Null Guards and Delegation_ above
+- **`SpeechCli-DeviceCommands-ListDevices`**, **`-ListDevicesDirectionFilter`**,
+  **`-ListDevicesNoDevices`**, **`-ListDevicesArgumentValidation`**: see _ListDevicesCommand_ above
+- **`SpeechCli-DeviceCommands-DevicesTest`**, **`-DevicesTestOutput`**, **`-DevicesTestInput`**,
+  **`-DevicesTestDeviceValidation`**, **`-DevicesTestArgumentValidation`**: see _DevicesTestCommand_
+  above
+- **`SpeechCli-DeviceCommands-ToneGeneration`**, **`-ToneAmplitudeRange`**,
+  **`-ToneChannelIdentity`**: see _Tone Generation_ above
+- **`SpeechCli-DeviceCommands-Doctor`**, **`-DoctorDiskSpace`**, **`-DoctorNativeRuntimes`**,
+  **`-DoctorPortAudioRuntime`**, **`-DoctorAudioDevices`**, **`-DoctorModelCounts`**,
+  **`-DoctorExitCode`**: see _DoctorCommand_ above
+- **`SpeechCli-DeviceCommands-LibraryDelegation`**, **`-NullGuards`**: see _Null Guards and
+  Delegation_ above
 
 ### Acceptance Criteria
 
