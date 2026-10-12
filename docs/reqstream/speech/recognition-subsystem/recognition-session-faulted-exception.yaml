@@ -1,0 +1,25 @@
+---
+# Software Unit Requirements for RecognitionSessionFaultedException
+#
+# These requirements describe the exception surfaced to a GetResultsAsync consumer when a recognition
+# session faults, decomposing the parent RecognitionSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: RecognitionSubsystem Requirements
+        sections:
+          - title: RecognitionSessionFaultedException Requirements
+            requirements:
+              - id: Speech-Recognition-RecognitionSessionFaultedException-Thrown
+                title: >-
+                  The RecognitionSessionFaultedException class shall be thrown from
+                  GetResultsAsync's enumerator, and only from it, when the session transitions to
+                  RecognitionSessionState.Faulted while being enumerated.
+                justification: |
+                  A consumer enumerating results needs an unambiguous, typed signal that the
+                  session itself has failed, distinct from an ordinary end of enumeration or a
+                  caller-initiated cancellation, so it can decide whether to recreate a session
+                  rather than silently treating a faulted session as merely finished.
+                tests:
+                  - RecognitionSession_GetResultsAsync_SessionFaulted_ThrowsRecognitionSessionFaultedException

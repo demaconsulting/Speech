@@ -1,13 +1,13 @@
 ---
-# Software Unit Requirements for SilenceRunLimiter and DitherNoise
+# Software Unit Requirements for SilenceRunLimiter
 #
-# These requirements describe the design-level behavior of the SilenceRunLimiter unit and its
-# companion DitherNoise source (documented together in one unit because they form one
-# leading-silence mitigation), decomposing the parent SpeechOnnxNemotronStt RecognitionSubsystem
-# requirements.
+# These requirements describe the design-level behavior of the SilenceRunLimiter unit, the
+# leading-silence mitigation that truncates long quiet runs, decomposing the parent
+# SpeechOnnxNemotronStt RecognitionSubsystem requirements. Its companion DitherNoise source has
+# its own file (dither-noise.yaml).
 #
 # Covered by test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/
-# SilenceRunLimiterTests.cs and DitherNoiseTests.cs.
+# SilenceRunLimiterTests.cs.
 
 sections:
   - title: SpeechOnnxNemotronStt Requirements
@@ -143,42 +143,3 @@ sections:
                   A new session must start uncalibrated.
                 tests:
                   - Reset_AfterUse_RestoresInitialState
-
-          - title: DitherNoise Requirements
-            requirements:
-              - id: SpeechOnnxNemotronStt-Recognition-DitherNoise-Deterministic
-                title: >-
-                  The DitherNoise class shall give the same noise sequence for the same seed, and
-                  shall restart the sequence on Reset.
-                justification: |
-                  Deterministic dither keeps recognition results reproducible, which is
-                  essential for verifying them.
-                tests:
-                  - Apply_SameSeed_IsDeterministicAndResettable
-
-              - id: SpeechOnnxNemotronStt-Recognition-DitherNoise-SeedVariation
-                title: >-
-                  The DitherNoise class shall give a different noise sequence for a different
-                  seed.
-                justification: |
-                  The seed must actually select the sequence, or it would be meaningless.
-                tests:
-                  - Apply_DifferentSeeds_Differ
-
-              - id: SpeechOnnxNemotronStt-Recognition-DitherNoise-Amplitude
-                title: >-
-                  The DitherNoise class shall add Gaussian noise whose standard deviation equals
-                  the configured amplitude.
-                justification: |
-                  The dither must be tiny enough not to disturb speech yet large enough to avoid
-                  the exact-zero log-mel degeneracy of digital silence.
-                tests:
-                  - Apply_Statistics_MatchAmplitude
-
-              - id: SpeechOnnxNemotronStt-Recognition-DitherNoise-ZeroAmplitude
-                title: >-
-                  The DitherNoise class shall leave samples unchanged for an amplitude of zero.
-                justification: |
-                  The dither must be disableable.
-                tests:
-                  - Apply_ZeroAmplitude_LeavesSamples

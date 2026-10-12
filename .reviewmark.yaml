@@ -267,7 +267,6 @@ reviews:
       - "docs/design/speech/audio-subsystem/windowed-sinc-lowpass-filter.md"
       - "docs/verification/speech/audio-subsystem/windowed-sinc-lowpass-filter.md"
       - "src/DemaConsulting.Speech/AudioSubsystem/WindowedSincLowpassFilter.cs"
-      - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/AudioFrameResamplerTests.cs"
       - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/PlaybackAudioResamplerTests.cs"
 
   # Speech-AudioSubsystem-IAudioCaptureDevice Review (one per unit)
@@ -886,12 +885,9 @@ reviews:
       - "docs/reqstream/speech/recognition-subsystem.yaml"
     paths:
       - "docs/reqstream/speech/recognition-subsystem/i-speech-recognizer-engine.yaml"
-      - "docs/reqstream/speech/recognition-subsystem/recognition-session-lease.yaml"
       - "docs/design/speech/recognition-subsystem/i-speech-recognizer-engine.md"
       - "docs/verification/speech/recognition-subsystem/i-speech-recognizer-engine.md"
       - "src/DemaConsulting.Speech/RecognitionSubsystem/ISpeechRecognizerEngine.cs"
-      - "src/DemaConsulting.Speech/RecognitionSubsystem/RecognitionEngineBusyException.cs"
-      - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/RecognitionEngineBusyExceptionTests.cs"
 
   # Speech-RecognitionSubsystem-IRecognitionSession Review (one per unit)
   - id: Speech-RecognitionSubsystem-IRecognitionSession
@@ -908,7 +904,6 @@ reviews:
       - "src/DemaConsulting.Speech/RecognitionSubsystem/IRecognitionSession.cs"
       - "src/DemaConsulting.Speech/RecognitionSubsystem/RecognitionSessionState.cs"
       - "src/DemaConsulting.Speech/RecognitionSubsystem/SessionStateChangedEventArgs.cs"
-      - "src/DemaConsulting.Speech/RecognitionSubsystem/RecognitionSessionFaultedException.cs"
       - "src/DemaConsulting.Speech/RecognitionSubsystem/SpeechRecognitionResult.cs"
       - "src/DemaConsulting.Speech/RecognitionSubsystem/SpeechRecognitionEvent.cs"
 
@@ -937,21 +932,10 @@ reviews:
       - "docs/reqstream/speech/recognition-subsystem.yaml"
     paths:
       - "docs/reqstream/speech/recognition-subsystem/recognition-session.yaml"
-      - "docs/reqstream/speech/recognition-subsystem/dedicated-worker.yaml"
       - "docs/design/speech/recognition-subsystem/recognition-session.md"
       - "docs/verification/speech/recognition-subsystem/recognition-session.md"
       - "src/DemaConsulting.Speech/RecognitionSubsystem/RecognitionSession.cs"
-      - "src/DemaConsulting.Speech/RecognitionSubsystem/SpeechRecognizerEngine.cs"
-      - "src/DemaConsulting.Speech/RecognitionSubsystem/IRecognitionBackend.cs"
-      - "src/DemaConsulting.Speech/RecognitionSubsystem/IRecognitionBackendFactory.cs"
-      - "src/DemaConsulting.Speech/RecognitionSubsystem/DefaultRecognitionBackendFactory.cs"
-      - "src/DemaConsulting.Speech/RecognitionSubsystem/AudioFrameResampler.cs"
-      - "src/DemaConsulting.Speech/RecognitionSubsystem/RecognitionResultBuffer.cs"
-      - "src/DemaConsulting.Speech/RecognitionSubsystem/DedicatedWorker.cs"
       - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/RecognitionSessionTests.cs"
-      - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/RecognitionResultBufferTests.cs"
-      - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/SpeechRecognizerEngineTests.cs"
-      - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/DedicatedWorkerTests.cs"
       - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/AudioFrameResamplerTests.cs"
       - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/Fakes/FakeRecognitionEngine.cs"
       - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/Fakes/FakeRecognitionEngineFactory.cs"
@@ -969,6 +953,132 @@ reviews:
       - "docs/design/speech/recognition-subsystem/unavailable-speech-recognizer-engine.md"
       - "docs/verification/speech/recognition-subsystem/unavailable-speech-recognizer-engine.md"
       - "src/DemaConsulting.Speech/RecognitionSubsystem/UnavailableSpeechRecognizerEngine.cs"
+      - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/UnavailableSpeechRecognizerEngineTests.cs"
+
+  # Speech-RecognitionSubsystem-SpeechRecognizerEngine Review (one per unit)
+  - id: Speech-RecognitionSubsystem-SpeechRecognizerEngine
+    title: Review that Speech RecognitionSubsystem SpeechRecognizerEngine Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/recognition-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/recognition-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/recognition-subsystem/speech-recognizer-engine.yaml"
+      - "docs/design/speech/recognition-subsystem/speech-recognizer-engine.md"
+      - "docs/verification/speech/recognition-subsystem/speech-recognizer-engine.md"
+      - "src/DemaConsulting.Speech/RecognitionSubsystem/SpeechRecognizerEngine.cs"
+      - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/SpeechRecognizerEngineTests.cs"
+      - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/Fakes/FakeRecognitionEngine.cs"
+      - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/Fakes/FakeRecognitionEngineFactory.cs"
+
+  # Speech-RecognitionSubsystem-RecognitionBackend Review (one per unit)
+  - id: Speech-RecognitionSubsystem-RecognitionBackend
+    title: Review that Speech RecognitionSubsystem RecognitionBackend Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/recognition-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/recognition-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/recognition-subsystem/recognition-backend.yaml"
+      - "docs/design/speech/recognition-subsystem/recognition-backend.md"
+      - "docs/verification/speech/recognition-subsystem/recognition-backend.md"
+      - "src/DemaConsulting.Speech/RecognitionSubsystem/IRecognitionBackend.cs"
+      - "src/DemaConsulting.Speech/RecognitionSubsystem/IRecognitionBackendFactory.cs"
+      - "src/DemaConsulting.Speech/RecognitionSubsystem/DefaultRecognitionBackendFactory.cs"
+      - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/RecognitionSessionTests.cs"
+      - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/SpeechRecognizerFactoryTests.cs"
+
+  # Speech-RecognitionSubsystem-RecognitionResultBuffer Review (one per unit)
+  - id: Speech-RecognitionSubsystem-RecognitionResultBuffer
+    title: Review that Speech RecognitionSubsystem RecognitionResultBuffer Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/recognition-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/recognition-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/recognition-subsystem/recognition-result-buffer.yaml"
+      - "docs/design/speech/recognition-subsystem/recognition-result-buffer.md"
+      - "docs/verification/speech/recognition-subsystem/recognition-result-buffer.md"
+      - "src/DemaConsulting.Speech/RecognitionSubsystem/RecognitionResultBuffer.cs"
+      - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/RecognitionResultBufferTests.cs"
+      - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/RecognitionSessionTests.cs"
+
+  # Speech-RecognitionSubsystem-DedicatedWorker Review (one per unit)
+  - id: Speech-RecognitionSubsystem-DedicatedWorker
+    title: Review that Speech RecognitionSubsystem DedicatedWorker Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/recognition-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/recognition-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/recognition-subsystem/dedicated-worker.yaml"
+      - "docs/design/speech/recognition-subsystem/dedicated-worker.md"
+      - "docs/verification/speech/recognition-subsystem/dedicated-worker.md"
+      - "src/DemaConsulting.Speech/RecognitionSubsystem/DedicatedWorker.cs"
+      - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/DedicatedWorkerTests.cs"
+
+  # Speech-RecognitionSubsystem-AudioFrameResampler Review (one per unit)
+  - id: Speech-RecognitionSubsystem-AudioFrameResampler
+    title: Review that Speech RecognitionSubsystem AudioFrameResampler Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/recognition-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/recognition-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/recognition-subsystem/audio-frame-resampler.yaml"
+      - "docs/design/speech/recognition-subsystem/audio-frame-resampler.md"
+      - "docs/verification/speech/recognition-subsystem/audio-frame-resampler.md"
+      - "src/DemaConsulting.Speech/RecognitionSubsystem/AudioFrameResampler.cs"
+      - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/AudioFrameResamplerTests.cs"
+
+  # Speech-RecognitionSubsystem-RecognitionSessionFaultedException Review (one per unit)
+  - id: Speech-RecognitionSubsystem-RecognitionSessionFaultedException
+    title: Review that Speech RecognitionSubsystem RecognitionSessionFaultedException Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/recognition-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/recognition-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/recognition-subsystem/recognition-session-faulted-exception.yaml"
+      - "docs/design/speech/recognition-subsystem/recognition-session-faulted-exception.md"
+      - "docs/verification/speech/recognition-subsystem/recognition-session-faulted-exception.md"
+      - "src/DemaConsulting.Speech/RecognitionSubsystem/RecognitionSessionFaultedException.cs"
+      - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/RecognitionSessionTests.cs"
+
+  # Speech-RecognitionSubsystem-RecognitionEngineBusyException Review (one per unit)
+  - id: Speech-RecognitionSubsystem-RecognitionEngineBusyException
+    title: Review that Speech RecognitionSubsystem RecognitionEngineBusyException Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/recognition-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/recognition-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/recognition-subsystem/recognition-engine-busy-exception.yaml"
+      - "docs/design/speech/recognition-subsystem/recognition-engine-busy-exception.md"
+      - "docs/verification/speech/recognition-subsystem/recognition-engine-busy-exception.md"
+      - "src/DemaConsulting.Speech/RecognitionSubsystem/RecognitionEngineBusyException.cs"
+      - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/RecognitionEngineBusyExceptionTests.cs"
+      - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/SpeechRecognizerEngineTests.cs"
+
+  # Speech-RecognitionSubsystem-SpeechRecognizerUnavailableException Review (one per unit)
+  - id: Speech-RecognitionSubsystem-SpeechRecognizerUnavailableException
+    title: Review that Speech RecognitionSubsystem SpeechRecognizerUnavailableException Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/recognition-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/recognition-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/recognition-subsystem/speech-recognizer-unavailable-exception.yaml"
+      - "docs/design/speech/recognition-subsystem/speech-recognizer-unavailable-exception.md"
+      - "docs/verification/speech/recognition-subsystem/speech-recognizer-unavailable-exception.md"
       - "src/DemaConsulting.Speech/RecognitionSubsystem/SpeechRecognizerUnavailableException.cs"
       - "test/DemaConsulting.Speech.Tests/RecognitionSubsystem/UnavailableSpeechRecognizerEngineTests.cs"
 
@@ -1077,11 +1187,10 @@ reviews:
       - "docs/reqstream/speech.yaml"
       - "docs/reqstream/speech/synthesis-subsystem.yaml"
     paths:
-      - "docs/reqstream/speech/synthesis-subsystem/synthesis-session-lease.yaml"
+      - "docs/reqstream/speech/synthesis-subsystem/speech-synthesizer-engine.yaml"
       - "docs/design/speech/synthesis-subsystem/speech-synthesizer-engine.md"
       - "docs/verification/speech/synthesis-subsystem/speech-synthesizer-engine.md"
       - "src/DemaConsulting.Speech/SynthesisSubsystem/SpeechSynthesizerEngine.cs"
-      - "src/DemaConsulting.Speech/SynthesisSubsystem/SynthesisEngineBusyException.cs"
       - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/SpeechSynthesizerEngineTests.cs"
 
   # Speech-SynthesisSubsystem-SynthesisSession Review (one per unit)
@@ -1097,12 +1206,55 @@ reviews:
       - "docs/design/speech/synthesis-subsystem/synthesis-session.md"
       - "docs/verification/speech/synthesis-subsystem/synthesis-session.md"
       - "src/DemaConsulting.Speech/SynthesisSubsystem/SynthesisSession.cs"
-      - "src/DemaConsulting.Speech/SynthesisSubsystem/SynthesisSessionFaultedException.cs"
       - "src/DemaConsulting.Speech/SynthesisSubsystem/EngineAudio.cs"
       - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/SynthesisSessionTests.cs"
-      - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/SynthesisSessionFaultedExceptionTests.cs"
       - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/Fakes/FakeSynthesisEngine.cs"
       - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/Fakes/FakeSynthesisEngineFactory.cs"
+
+  # Speech-SynthesisSubsystem-SynthesisSessionFaultedException Review (one per unit)
+  - id: Speech-SynthesisSubsystem-SynthesisSessionFaultedException
+    title: Review that Speech SynthesisSubsystem SynthesisSessionFaultedException Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/synthesis-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/synthesis-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/synthesis-subsystem/synthesis-session-faulted-exception.yaml"
+      - "docs/design/speech/synthesis-subsystem/synthesis-session-faulted-exception.md"
+      - "docs/verification/speech/synthesis-subsystem/synthesis-session-faulted-exception.md"
+      - "src/DemaConsulting.Speech/SynthesisSubsystem/SynthesisSessionFaultedException.cs"
+      - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/SynthesisSessionFaultedExceptionTests.cs"
+
+  # Speech-SynthesisSubsystem-SynthesisEngineBusyException Review (one per unit)
+  - id: Speech-SynthesisSubsystem-SynthesisEngineBusyException
+    title: Review that Speech SynthesisSubsystem SynthesisEngineBusyException Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/synthesis-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/synthesis-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/synthesis-subsystem/synthesis-engine-busy-exception.yaml"
+      - "docs/design/speech/synthesis-subsystem/synthesis-engine-busy-exception.md"
+      - "docs/verification/speech/synthesis-subsystem/synthesis-engine-busy-exception.md"
+      - "src/DemaConsulting.Speech/SynthesisSubsystem/SynthesisEngineBusyException.cs"
+      - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/SpeechSynthesizerEngineTests.cs"
+
+  # Speech-SynthesisSubsystem-SpeechSynthesizerUnavailableException Review (one per unit)
+  - id: Speech-SynthesisSubsystem-SpeechSynthesizerUnavailableException
+    title: Review that Speech SynthesisSubsystem SpeechSynthesizerUnavailableException Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/synthesis-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/synthesis-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/synthesis-subsystem/speech-synthesizer-unavailable-exception.yaml"
+      - "docs/design/speech/synthesis-subsystem/speech-synthesizer-unavailable-exception.md"
+      - "docs/verification/speech/synthesis-subsystem/speech-synthesizer-unavailable-exception.md"
+      - "src/DemaConsulting.Speech/SynthesisSubsystem/SpeechSynthesizerUnavailableException.cs"
+      - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/UnavailableSpeechSynthesizerEngineTests.cs"
 
   # Speech-SynthesisSubsystem-SynthesisBackend Review (one per unit)
   - id: Speech-SynthesisSubsystem-SynthesisBackend
@@ -1198,7 +1350,6 @@ reviews:
       - "docs/design/speech/synthesis-subsystem/unavailable-speech-synthesizer-engine.md"
       - "docs/verification/speech/synthesis-subsystem/unavailable-speech-synthesizer-engine.md"
       - "src/DemaConsulting.Speech/SynthesisSubsystem/UnavailableSpeechSynthesizerEngine.cs"
-      - "src/DemaConsulting.Speech/SynthesisSubsystem/SpeechSynthesizerUnavailableException.cs"
       - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/UnavailableSpeechSynthesizerEngineTests.cs"
 
   # Speech-SynthesisSubsystem-UnavailableSynthesisSession Review (one per unit)
@@ -2532,8 +2683,23 @@ reviews:
       - "docs/design/speech-onnx-nemotron-stt/recognition-subsystem/silence-run-limiter.md"
       - "docs/verification/speech-onnx-nemotron-stt/recognition-subsystem/silence-run-limiter.md"
       - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/SilenceRunLimiter.cs"
-      - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/DitherNoise.cs"
       - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/SilenceRunLimiterTests.cs"
+
+  # SpeechOnnxNemotronStt-RecognitionSubsystem-DitherNoise Review (one per unit)
+  - id: SpeechOnnxNemotronStt-RecognitionSubsystem-DitherNoise
+    title: >-
+      Review that SpeechOnnxNemotronStt RecognitionSubsystem
+      DitherNoise Implementation is Correct
+    context:
+      - "docs/design/speech-onnx-nemotron-stt.md"
+      - "docs/design/speech-onnx-nemotron-stt/recognition-subsystem.md"
+      - "docs/reqstream/speech-onnx-nemotron-stt.yaml"
+      - "docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-nemotron-stt/recognition-subsystem/dither-noise.yaml"
+      - "docs/design/speech-onnx-nemotron-stt/recognition-subsystem/dither-noise.md"
+      - "docs/verification/speech-onnx-nemotron-stt/recognition-subsystem/dither-noise.md"
+      - "src/DemaConsulting.Speech.Onnx.NemotronStt/RecognitionSubsystem/DitherNoise.cs"
       - "test/DemaConsulting.Speech.Onnx.NemotronStt.Tests/RecognitionSubsystem/DitherNoiseTests.cs"
 
   # OTS-PortAudioSharp2 Review (one per OTS item)

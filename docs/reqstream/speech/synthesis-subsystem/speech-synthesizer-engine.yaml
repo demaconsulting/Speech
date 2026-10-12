@@ -1,11 +1,12 @@
 ---
-# Software Unit Requirements for engine session exclusivity (lease) and SynthesisEngineBusyException
+# Software Unit Requirements for SpeechSynthesizerEngine
 #
-# Describes the design-level behavior of SpeechSynthesizerEngine's own session-creation
-# and lease-tracking logic: an engine hosts at most one live ISynthesisSession at a time, and
-# SynthesisEngineBusyException is the documented signal for a caller that requests a second
-# session while the first is still live. Mirrors the recognition direction's equivalent lease
-# requirements file for the async Engine/Session redesign.
+# Describes the design-level behavior of SpeechSynthesizerEngine's own session-creation and
+# lease-tracking logic: an engine hosts at most one live ISynthesisSession at a time, and
+# disposes its leased session before its backend. SynthesisEngineBusyException, the signal for a
+# second concurrent session request, has its own file (synthesis-engine-busy-exception.yaml).
+# Mirrors the recognition direction's speech-recognizer-engine.yaml for the async Engine/Session
+# redesign.
 
 sections:
   - title: Speech Requirements
@@ -51,19 +52,3 @@ sections:
                 tests:
                   - SpeechSynthesizerEngine_DisposeAsync_WithActiveLeasedSession_DisposesSessionFirst
                   - SpeechSynthesizerEngine_DisposeAsync_CalledTwice_DisposesBackendOnce
-
-          - title: SynthesisEngineBusyException Requirements
-            requirements:
-              - id: Speech-Synthesis-SynthesisEngineBusyException-Thrown
-                title: >-
-                  The SynthesisEngineBusyException class shall be the documented exception type
-                  thrown by CreateSessionAsync when a session is requested while an earlier
-                  leased session is still live, and shall provide standard exception
-                  constructors.
-                justification: |
-                  A distinct, documented exception type lets a caller distinguish "the engine is
-                  busy with another session" from any other failure mode, and lets it decide
-                  whether to retry after disposing its current session rather than treating the
-                  failure as fatal.
-                tests:
-                  - SpeechSynthesizerEngine_CreateSessionAsync_LeaseAlreadyHeld_ThrowsSynthesisEngineBusyException

@@ -3,8 +3,9 @@
 #
 # These requirements describe the design-level behavior of the ISpeechRecognizerEngine contract,
 # decomposing the parent RecognitionSubsystem requirements. Engine exclusivity/lease behavior and
-# RecognitionEngineBusyException are documented separately in recognition-session-lease.yaml,
-# since that behavior is a cross-cutting policy shared with SpeechRecognizerEngine.
+# RecognitionEngineBusyException are documented separately in speech-recognizer-engine.yaml and
+# recognition-engine-busy-exception.yaml, since that behavior is a cross-cutting policy shared with
+# SpeechRecognizerEngine.
 
 sections:
   - title: Speech Requirements

@@ -1,10 +1,11 @@
 ---
-# Software Unit Requirements for the real synthesis session implementation
+# Software Unit Requirements for SynthesisSession
 #
-# Covers SynthesisSession and SynthesisSessionFaultedException. The units the session
-# coordinates have their own requirement files in this folder: synthesis-backend.yaml,
-# layer2-rendering.yaml, sentence-chunker.yaml, playback-audio-resampler.yaml and
-# dedicated-worker.yaml.
+# Covers SynthesisSession only. The units the session coordinates have their own requirement files
+# in this folder: synthesis-backend.yaml, layer2-rendering.yaml, sentence-chunker.yaml,
+# playback-audio-resampler.yaml and dedicated-worker.yaml. The fault type it surfaces is covered by
+# synthesis-session-faulted-exception.yaml.
+
 sections:
   - title: Speech Requirements
     sections:
@@ -307,18 +308,3 @@ sections:
                 tests:
                   - SynthesisSession_SpeakAsync_SegmentWithPreAndPostSilence_WritesSilenceAroundAudio
                   - SynthesisSession_SynthesizeAsync_VolumeOverride_ScalesAndClampsSamples
-          - title: SynthesisSessionFaultedException Requirements
-            requirements:
-              - id: Speech-Synthesis-SynthesisSessionFaultedException-Thrown
-                title: >-
-                  The SynthesisSessionFaultedException class shall be the documented exception
-                  type thrown by SynthesisSession for every call made after it has
-                  transitioned to the terminal Faulted state, wrapping the original fault as its
-                  inner exception.
-                justification: |
-                  A distinct, documented exception type lets a caller distinguish "this session
-                  has already faulted and must be replaced" from an ordinary new failure, and the
-                  wrapped inner exception preserves the original root cause for diagnostics.
-                tests:
-                  - SynthesisSession_SynthesizeAsync_AfterFault_ThrowsSynthesisSessionFaultedException
-                  - SynthesisSessionFaultedException_Constructors_PreserveMessageAndInnerException

@@ -3,7 +3,7 @@
 #### Verification Approach
 
 Verified by deterministic in-memory unit tests feeding synthetic silence, noise, and tone to the
-limiter and dither (`SilenceRunLimiterTests.cs`, `DitherNoiseTests.cs`).
+limiter (`SilenceRunLimiterTests.cs`).
 
 #### Test Environment
 
@@ -15,8 +15,7 @@ Long quiet runs (digital silence or low-level noise) are truncated to the 400 ms
 immediate speech, and very quiet speech pass through intact; the adaptive threshold is clamped
 to its bounds and non-adaptive mode keeps the default; audio flows during calibration; chunked
 feeding equals single feeding; flush emits partial frames; reset restores the initial state;
-`QuietRunSamples` follows the input clock; and the dither is deterministic, resettable, matches
-its amplitude, and leaves samples unchanged at zero amplitude.
+`QuietRunSamples` follows the input clock.
 
 #### Test Scenarios
 
@@ -75,19 +74,3 @@ its amplitude, and leaves samples unchanged at zero amplitude.
 ##### Quiet run tracks the input clock
 
 **Test**: `QuietRunSamples_TracksInputClock`
-
-##### Dither is deterministic and resettable
-
-**Test**: `Apply_SameSeed_IsDeterministicAndResettable`
-
-##### Dither statistics match the amplitude
-
-**Test**: `Apply_Statistics_MatchAmplitude`
-
-##### Zero amplitude leaves samples unchanged
-
-**Test**: `Apply_ZeroAmplitude_LeavesSamples`
-
-##### Different seeds differ
-
-**Test**: `Apply_DifferentSeeds_Differ`

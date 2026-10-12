@@ -147,3 +147,5 @@ The units the session coordinates are documented in their own files:
 - _SentenceChunker_: [sentence-chunker.md](sentence-chunker.md)
 - _PlaybackAudioResampler_: [playback-audio-resampler.md](playback-audio-resampler.md)
 - _DedicatedWorker_: [dedicated-worker.md](dedicated-worker.md)
+- _SynthesisSessionFaultedException_, the fault type the session throws once it is `Faulted`:
+  [synthesis-session-faulted-exception.md](synthesis-session-faulted-exception.md)

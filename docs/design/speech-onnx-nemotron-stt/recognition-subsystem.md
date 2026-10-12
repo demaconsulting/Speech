@@ -17,8 +17,8 @@ and drive this backend only through `IRecognitionBackend`. It contains the follo
 - **NemotronFeatureExtractor**: the streaming log-mel front end
 - **NemotronRnntGreedyDecoder**: RNN-T greedy search over the `IRnntNetwork` seam; also documents
   the ONNX-backed `NemotronRnntNetwork`
-- **SilenceRunLimiter**: the stateful streaming leading-silence limiter; also documents its
-  `DitherNoise` companion
+- **SilenceRunLimiter**: the stateful streaming leading-silence limiter
+- **DitherNoise**: the seeded Gaussian dither source applied after the limiter
 
 ### Interfaces
 
@@ -42,7 +42,7 @@ dedicated worker at a time and is not thread-safe by contract.
 The signal path inside the engine is:
 
 1. `SilenceRunLimiter` truncates long quiet runs (see `silence-run-limiter.md`)
-2. `DitherNoise` adds seeded Gaussian noise (amplitude 1e-5) so digital silence never yields an
+2. `DitherNoise` adds seeded Gaussian noise (amplitude 1e-5; see `dither-noise.md`) so digital silence never yields an
    exactly-zero log-mel input
 3. `NemotronFeatureExtractor` produces 128-band log-mel frames
 4. The engine groups frames into 56-frame chunks, prepends a 9-frame pre-encode cache (the

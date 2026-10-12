@@ -6,8 +6,8 @@ package Speech {
 
         comment sourceRef /* Source: src/DemaConsulting.Speech/RecognitionSubsystem/SpeechRecognizerUnavailableException.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Tests/RecognitionSubsystem/UnavailableSpeechRecognizerEngineTests.cs */
-        comment designRef /* Design: docs/design/speech/recognition-subsystem.md (documented as a supporting fallback type) */
-        comment verificationRef /* Verification: docs/verification/speech/recognition-subsystem.md (documented as a supporting fallback type) */
-        comment reqRef /* Requirements: docs/reqstream/speech/recognition-subsystem/unavailable-speech-recognizer-engine.yaml */
+        comment designRef /* Design: docs/design/speech/recognition-subsystem/speech-recognizer-unavailable-exception.md */
+        comment verificationRef /* Verification: docs/verification/speech/recognition-subsystem/speech-recognizer-unavailable-exception.md */
+        comment reqRef /* Requirements: docs/reqstream/speech/recognition-subsystem/speech-recognizer-unavailable-exception.yaml */
     }
 }

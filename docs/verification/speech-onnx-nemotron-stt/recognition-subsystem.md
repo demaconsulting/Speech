@@ -6,8 +6,9 @@ The SpeechOnnxNemotronStt RecognitionSubsystem is verified through deterministic
 `test/DemaConsulting.Speech.Onnx.NemotronStt.Tests` that use managed fakes (`Fakes.cs`) in place of
 the ONNX-backed encoder and prediction networks, so no test depends on model files:
 
-- **`SilenceRunLimiter` and `DitherNoise`**: truncation, speech preservation, adaptive threshold,
-  streaming equivalence, and deterministic noise - see _SpeechOnnxNemotronStt SilenceRunLimiter
+- **`SilenceRunLimiter`**: truncation, speech preservation, adaptive threshold, and streaming
+  equivalence - see _SpeechOnnxNemotronStt SilenceRunLimiter Verification_
+- **`DitherNoise`**: deterministic, resettable, amplitude-matched noise - see _DitherNoise
   Verification_
 - **`NemotronFeatureExtractor`**: golden log-mel values, chunked equals one-shot, flush behavior -
   see _SpeechOnnxNemotronStt NemotronFeatureExtractor Verification_
@@ -39,4 +40,4 @@ and resets and disposes correctly.
 ### Test Scenarios
 
 See each unit's own verification document: `onnx-nemotron-recognition-engine.md`,
-`nemotron-feature-extractor.md`, `nemotron-rnnt-greedy-decoder.md`, and `silence-run-limiter.md`.
+`nemotron-feature-extractor.md`, `nemotron-rnnt-greedy-decoder.md`, `silence-run-limiter.md`, and `dither-noise.md`.

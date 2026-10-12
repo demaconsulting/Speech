@@ -37,3 +37,6 @@ second engine instance instead.
 ModelManagementSubsystem, `ISpeechDiagnostics` from the Diagnostics subsystem.
 
 **Callers**: `SpeechSynthesizerFactory.LoadAsync(...)`.
+
+The exception this unit throws when the lease is held, `SynthesisEngineBusyException`, is
+documented in its own design document (_SynthesisEngineBusyException_).

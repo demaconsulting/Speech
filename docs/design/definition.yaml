@@ -67,6 +67,14 @@ input-files:
   - docs/design/speech/recognition-subsystem/unavailable-speech-recognizer-engine.md
   - docs/design/speech/recognition-subsystem/unavailable-recognition-session.md
   - docs/design/speech/recognition-subsystem/recognition-session.md
+  - docs/design/speech/recognition-subsystem/speech-recognizer-engine.md
+  - docs/design/speech/recognition-subsystem/recognition-backend.md
+  - docs/design/speech/recognition-subsystem/recognition-result-buffer.md
+  - docs/design/speech/recognition-subsystem/dedicated-worker.md
+  - docs/design/speech/recognition-subsystem/audio-frame-resampler.md
+  - docs/design/speech/recognition-subsystem/recognition-session-faulted-exception.md
+  - docs/design/speech/recognition-subsystem/recognition-engine-busy-exception.md
+  - docs/design/speech/recognition-subsystem/speech-recognizer-unavailable-exception.md
   - docs/design/speech/synthesis-subsystem.md
   - docs/design/speech/synthesis-subsystem/i-speech-synthesizer-engine.md
   - docs/design/speech/synthesis-subsystem/i-synthesis-session.md
@@ -81,6 +89,9 @@ input-files:
   - docs/design/speech/synthesis-subsystem/speech-synthesizer-engine.md
   - docs/design/speech/synthesis-subsystem/synthesis-backend.md
   - docs/design/speech/synthesis-subsystem/synthesis-session.md
+  - docs/design/speech/synthesis-subsystem/synthesis-session-faulted-exception.md
+  - docs/design/speech/synthesis-subsystem/synthesis-engine-busy-exception.md
+  - docs/design/speech/synthesis-subsystem/speech-synthesizer-unavailable-exception.md
   - docs/design/speech-demo.md
   - docs/design/speech-demo/app.md
   - docs/design/speech-demo/app-launch-options.md
@@ -142,6 +153,7 @@ input-files:
   - docs/design/speech-onnx-nemotron-stt/recognition-subsystem/nemotron-rnnt-greedy-decoder.md
   - docs/design/speech-onnx-nemotron-stt/recognition-subsystem/onnx-nemotron-recognition-engine.md
   - docs/design/speech-onnx-nemotron-stt/recognition-subsystem/silence-run-limiter.md
+  - docs/design/speech-onnx-nemotron-stt/recognition-subsystem/dither-noise.md
   - docs/design/speech-sherpa.md
   - docs/design/speech-sherpa/model-management-subsystem.md
   - docs/design/speech-sherpa/model-management-subsystem/sherpa-onnx-zipformer-en-recognition-model.md

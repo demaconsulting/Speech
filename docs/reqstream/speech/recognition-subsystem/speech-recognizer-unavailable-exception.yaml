@@ -1,0 +1,26 @@
+---
+# Software Unit Requirements for SpeechRecognizerUnavailableException
+#
+# These requirements describe the exception thrown when an operational member of an unavailable
+# recognizer engine or session is invoked, or when a capture device fails at first use,
+# decomposing the parent RecognitionSubsystem requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: RecognitionSubsystem Requirements
+        sections:
+          - title: SpeechRecognizerUnavailableException Requirements
+            requirements:
+              - id: Speech-Recognition-SpeechRecognizerUnavailableException-Thrown
+                title: >-
+                  The SpeechRecognizerUnavailableException class shall provide standard exception
+                  constructors (default, message, message with inner exception).
+                justification: |
+                  Standard exception conformance lets callers construct, catch, and inspect this
+                  exception like any other .NET exception type, including wrapping an underlying
+                  capture-device failure as the inner exception.
+                tests:
+                  - SpeechRecognizerUnavailableException_Constructor_WithMessage_ExposesMessage
+                  - SpeechRecognizerUnavailableException_Constructor_WithInnerException_ExposesBoth
+                  - SpeechRecognizerUnavailableException_Constructor_Default_HasNonEmptyMessage

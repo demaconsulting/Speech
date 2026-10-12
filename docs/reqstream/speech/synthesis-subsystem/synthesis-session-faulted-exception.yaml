@@ -1,0 +1,27 @@
+---
+# Software Unit Requirements for SynthesisSessionFaultedException
+#
+# These requirements describe the exception SynthesisSession throws for every operation attempted on a
+# session that has reached its terminal Faulted state, decomposing the parent SynthesisSubsystem
+# requirements.
+
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: SynthesisSubsystem Requirements
+        sections:
+          - title: SynthesisSessionFaultedException Requirements
+            requirements:
+              - id: Speech-Synthesis-SynthesisSessionFaultedException-Thrown
+                title: >-
+                  The SynthesisSessionFaultedException class shall be the documented exception
+                  type thrown by SynthesisSession for every call made after it has
+                  transitioned to the terminal Faulted state, wrapping the original fault as its
+                  inner exception.
+                justification: |
+                  A distinct, documented exception type lets a caller distinguish "this session
+                  has already faulted and must be replaced" from an ordinary new failure, and the
+                  wrapped inner exception preserves the original root cause for diagnostics.
+                tests:
+                  - SynthesisSession_SynthesizeAsync_AfterFault_ThrowsSynthesisSessionFaultedException
+                  - SynthesisSessionFaultedException_Constructors_PreserveMessageAndInnerException

@@ -3,8 +3,9 @@
 **Purpose**: Prevent the Nemotron model's failure mode after long leading digital silence or very
 low-level noise, where it emits nothing or garbage. The limiter truncates long quiet runs to a
 short fixed length: that keeps some context for the model while preventing the failure, and it
-never removes speech. `DitherNoise`, its companion in this unit, then adds a tiny deterministic
-noise so digital silence does not produce an exactly-zero log-mel input.
+never removes speech. `DitherNoise` (documented separately in `dither-noise.md`), its companion
+in the Nemotron recognition pipeline, adds a tiny deterministic noise so digital silence does not
+produce an exactly-zero log-mel input.
 
 **Data Model**: `SilenceRunLimiter` is a stateful streaming limiter that works on 20 ms frames
 (320 samples). A frame is *quiet* when its RMS is below the current threshold. Quiet runs longer
@@ -19,18 +20,12 @@ including dropped samples), `DroppedSamples`, and `LoudSamples`. The constants c
 internal `SilenceRunLimiterOptions` record; adaptation can be disabled, which keeps the default
 threshold.
 
-`DitherNoise` holds a seeded Gaussian noise source: `DefaultAmplitude` 1e-5 (standard deviation)
-and `DefaultSeed` 20260101.
-
 **Key Methods**:
 
 - **Process(input, output)**: appends the limited audio for `input` to `output`; equivalent
   output regardless of how the audio is split across calls.
 - **Flush(output)**: emits the held partial frame.
 - **Reset()**: restores the initial, uncalibrated state.
-- **DitherNoise.Apply(samples)**: adds Gaussian noise of the configured amplitude in place;
-  an amplitude of zero leaves samples unchanged; the same seed yields the same sequence.
-- **DitherNoise.Reset()**: restarts the noise sequence from the seed.
 
 **Design Decision (D2)**: the limiter's calibration is deliberately kept internal to the
 recognition engine. The Speech library's `RecognitionSessionState.Starting` means the audio
@@ -42,5 +37,5 @@ cannot map to a session state transition without a Speech contract change.
 **Dependencies**: `System.Math` only; no ONNX Runtime dependency.
 
 **Callers**: `OnnxNemotronRecognitionEngine` processes every `AcceptSamples` input through the
-limiter, applies the dither to the limiter output, reads `LoudSamples` and `QuietRunSamples` to
-detect speech and input-clock quiet, and resets or flushes them with the engine.
+limiter, reads `LoudSamples` and `QuietRunSamples` to
+detect speech and input-clock quiet, and resets or flushes it with the engine.

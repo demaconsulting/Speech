@@ -2,9 +2,10 @@
 
 #### Verification Approach
 
-The streaming session, its companion Layer 3 engine, the recognition-backend seam, and the
-audio-format converter are verified together, since the session's whole purpose is to move audio
-from the converter into the backend on the right thread.
+The streaming session is verified against its collaborators' test doubles. The Layer 3 engine,
+recognition-backend seam, result buffer, dedicated worker, and audio-format converter each have
+their own verification document; the session's whole purpose is to move audio from the converter
+into the backend on the right thread, so it is exercised here with those units in place.
 
 The backend seam is replaced by a deterministic fake that records the mono samples it was fed and
 yields a scripted sequence of results, so no downloaded model and no platform-specific native
@@ -23,10 +24,6 @@ against a backend gated by the test, with the lease-release ordering captured by
 cooperative-cancel-then-abandon policy is the one place a bounded wait is genuinely under test,
 and it is verified deterministically with an injectable abandon-timeout override rather than the
 real multi-second default.
-
-The converter is verified separately as a pure function over plain float arrays, with a
-tolerance-based float comparer so assertions describe signal content rather than exact binary
-floating-point representation.
 
 The real, native-backed `IRecognitionBackend` implementation, `SherpaOnnxRecognitionEngine`, is
 not part of the Speech library: it ships in the sibling SpeechSherpa library, where its
@@ -64,15 +61,13 @@ faulted.
 - **Framework**: xUnit v3 running under the .NET SDK
 - **Execution**: `dotnet test` invoked by `build.ps1` and the CI pipeline
 - **Dependencies**: No external services, no downloaded model, no native speech-inference runtime,
-  and no physical audio hardware for `RecognitionSessionTests`/
-  `SpeechRecognizerEngineTests`/`DedicatedWorkerTests`
+  and no physical audio hardware for `RecognitionSessionTests`
 - **Test doubles**: Fake `IRecognitionBackend`/`IRecognitionBackendFactory` implementations plus
-  NSubstitute capture devices and diagnostics sinks for `RecognitionSessionTests` and
-  `SpeechRecognizerEngineTests`
+  NSubstitute capture devices and diagnostics sinks
 
 #### Acceptance Criteria
 
-The units are considered verified when captured audio reaches the backend downmixed and
+The unit is considered verified when captured audio reaches the backend downmixed and
 resampled to the model's declared `AudioFormat`, with above-target-Nyquist energy attenuated
 before any downsampling decimation; every decoded result is delivered through `GetResultsAsync` in
 order with its provisional/final flag intact; `StartAsync`/`StopAsync`/`DisposeAsync` are
@@ -80,11 +75,8 @@ idempotent and drain queued audio before returning; the session's state machine 
 forward-only, documented transitions; backend and handler faults are reported without escaping
 uncontrolled and surface to an active `GetResultsAsync` consumer as
 `RecognitionSessionFaultedException`; a capture-start or mid-session device failure surfaces the
-documented exception; the engine's single lease permits exactly one live session at a time; a
-non-cooperative native call is abandoned after its configured timeout with a `Warning`
-diagnostic; and the converter produces the documented output for identity, upsampling,
-downsampling, multi-channel, and boundary inputs while rejecting non-positive rates and channel
-counts. `StopAsync`/`DisposeAsync` flush the backend's trailing audio - recovering, as one last
+documented exception; and a non-cooperative native call is abandoned after its configured timeout with a `Warning`
+diagnostic. `StopAsync`/`DisposeAsync` flush the backend's trailing audio - recovering, as one last
 final result, even the tail of an utterance a streaming backend could not otherwise decode
 without audio it will now never receive (for example a push-to-talk release with no trailing
 silence) - before resetting the backend, so no accepted audio is silently lost; a fault in either
@@ -97,10 +89,9 @@ _SpeechSherpa RecognitionSubsystem Verification_.
 
 #### Test Scenarios
 
-See the RecognitionSubsystem-level scenarios "Engine Exclusivity and Lease Behavior", "Session
+See the RecognitionSubsystem-level scenarios "Session
 Lifecycle: State Machine Transitions", "Session Lifecycle: Stop, Dispose, and Draining", "Session
 Pipeline: Capture Format Conversion and Text Normalization", "Session Pipeline: Result Delivery
-and Backpressure", "Cooperative-Cancel-Then-Abandon Policy", and "Audio Conversion: Downmix, Rate
-Conversion, and Boundaries", plus the trailing-flush pipeline tests
+and Backpressure", and "Cooperative-Cancel-Then-Abandon Policy", plus the trailing-flush pipeline tests
 `RecognitionSession_StopAsync_FlushesTrailingResultsBeforeCompleting` and
 `RecognitionSession_StopAsync_BackendResetFails_CompletesAndReportsFault` described above.

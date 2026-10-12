@@ -28,3 +28,6 @@ implements `ISpeechSynthesizerEngine`.
 
 **Callers**: `SpeechSynthesizerFactory.LoadAsync(...)` when the model is not installed, the
 model's role is not synthesis, or the backend cannot be loaded.
+
+The exception this unit throws, `SpeechSynthesizerUnavailableException`, is documented in its own
+design document (_SpeechSynthesizerUnavailableException_).
