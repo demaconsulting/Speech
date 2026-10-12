@@ -7,7 +7,7 @@ with it, `ReferenceVoiceSource` and `ReferenceVoiceInfo`; the library populates 
 
 **Data Model**:
 
-- `ReferenceVoicePack` (sealed record): `Id`, `DisplayName`, `Uri` (HTTPS), `Sha256Checksum` (64 hex),
+- `ReferenceVoicePack` (sealed class): `Id`, `DisplayName`, `Uri` (HTTPS), `Sha256Checksum` (64 hex),
   `SizeBytes`, `VoicesBytes`, `EmotionsBytes`, `ArchiveFileName`, `ArchiveRootFolder`, `LicenseName`, `LicenseUrl`, `Attribution`,
   `SourceUrl`. `VoicesBytes`/`EmotionsBytes` (default 0) are the measured installed sizes of the base
   voices (with the license and readme files) and of the emotion clips, and `InstalledSizeBytes(bool

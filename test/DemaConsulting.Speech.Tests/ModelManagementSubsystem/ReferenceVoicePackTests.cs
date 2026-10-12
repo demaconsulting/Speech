@@ -53,6 +53,22 @@ public sealed class ReferenceVoicePackTests
     }
 
     /// <summary>
+    ///     Proves that the descriptor has reference identity semantics (it is a class, not a value-equal record).
+    /// </summary>
+    [Fact]
+    public void ReferenceVoicePack_Equals_SameValuesDifferentInstances_AreNotEqual()
+    {
+        // Arrange
+        var first = Create();
+        var second = Create();
+
+        // Assert
+        Assert.NotSame(first, second);
+        Assert.NotEqual(first, second);
+        Assert.Equal(first, first);
+    }
+
+    /// <summary>
     ///     Proves that a valid descriptor is accepted and exposes its values.
     /// </summary>
     [Fact]

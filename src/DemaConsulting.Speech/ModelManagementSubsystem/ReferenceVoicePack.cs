@@ -11,7 +11,7 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     it at <c>{mirror}/{Id}/{ArchiveFileName}</c>. The <c>voices/</c> clips, the optional <c>voices-emotion/</c> mood clips and
 ///     the license/readme files are extracted; the archive is deleted afterwards. See <see cref="VoiceZero10"/> for the one built-in pack.
 /// </remarks>
-public sealed record ReferenceVoicePack
+public sealed class ReferenceVoicePack
 {
     /// <summary>The characters that make a pack id unusable as a single directory name segment on any platform (the drive colon is included).</summary>
     private static readonly char[] InvalidIdCharacters = [.. Path.GetInvalidFileNameChars(), '/', '\\', ':'];
