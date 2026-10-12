@@ -23,7 +23,8 @@ mono, 24 kHz, bounded in length. Chatterbox Turbo has no built-in voices, so thi
   library voice's `MoodClips` (mood name to file path).
 - **WithMoodFiles(moods)**: returns a copy with lazily decoded mood clips (names lower-cased and
   trimmed; blank names or paths throw; null or empty adds none). `Moods` lists the mood names; `TryGetMoodSamples`
-  and `HasMood` report an absent mood as missing so the engine falls back to the base clip. A short or
+  and `HasMood` match the mood name case-insensitively after trimming (null or blank never matches) and report
+  an absent mood as missing so the engine falls back to the base clip. A short or
   damaged mood clip fails on first use with an `InvalidDataException` naming the voice, mood and file.
 - **WithMoodSamples(mood, samples, sampleRate, channelCount)** (internal): the same with an already-decoded clip,
   used by tests.

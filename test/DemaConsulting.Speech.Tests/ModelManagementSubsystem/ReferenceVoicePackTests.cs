@@ -207,4 +207,32 @@ public sealed class ReferenceVoicePackTests
     [Fact]
     public void ReferenceVoicePack_Constructor_NonPositiveSize_Throws() =>
         Assert.Throws<ArgumentOutOfRangeException>(() => Create(size: 0));
+
+    /// <summary>
+    ///     Proves that a voice's mood clip is found case-insensitively after trimming the requested name, and that
+    ///     null, blank, unknown names and a voice without mood clips never match.
+    /// </summary>
+    [Fact]
+    public void ReferenceVoiceInfo_TryGetMoodClip_IsCaseInsensitiveAndTrimmed()
+    {
+        // Arrange
+        var clips = new Dictionary<string, string> { ["sad"] = "/m/sad.flac", ["anger"] = "/m/anger.flac" };
+        var voice = new ReferenceVoiceInfo("v", "V", "/v.flac", ReferenceVoiceSource.Pack, "p", "v", MoodClips: clips);
+        var plain = new ReferenceVoiceInfo("v", "V", "/v.flac", ReferenceVoiceSource.User, null, "v");
+
+        // Act and Assert
+        foreach (var name in new[] { "sad", "SAD", " Sad ", "\tsAd" })
+        {
+            Assert.True(voice.TryGetMoodClip(name, out var path), name);
+            Assert.Equal("/m/sad.flac", path);
+        }
+
+        foreach (var name in new[] { null, "", "  ", "calm", "sa d" })
+        {
+            Assert.False(voice.TryGetMoodClip(name, out var missing), name);
+            Assert.Null(missing);
+        }
+
+        Assert.False(plain.TryGetMoodClip("sad", out _));
+    }
 }

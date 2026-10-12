@@ -132,3 +132,14 @@ sections:
                   Mood lookup is by lower-case name, so supplied names must be normalized once.
                 tests:
                   - ChatterboxTurboReferenceVoice_WithMoodFiles_NamesAreTrimmedAndLowerCased
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-MoodLookup
+                title: >-
+                  The ChatterboxTurboReferenceVoice class shall match a mood name case-insensitively
+                  after trimming it when reporting or returning a mood clip, and shall treat a null
+                  or blank mood name as absent.
+                justification: |
+                  Mood names reach the voice from tags, caller options and file names in varying
+                  case and spacing, and must resolve to the same clip.
+                tests:
+                  - ChatterboxTurboReferenceVoice_MoodLookup_IsCaseInsensitiveAndTrimmed

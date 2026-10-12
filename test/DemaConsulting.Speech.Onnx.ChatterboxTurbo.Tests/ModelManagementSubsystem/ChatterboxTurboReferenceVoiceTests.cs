@@ -303,7 +303,35 @@ public sealed class ChatterboxTurboReferenceVoiceTests : IDisposable
         Assert.Equal(["sad"], voice.Moods);
         Assert.True(voice.TryGetMoodSamples("sad", out var samples));
         Assert.Equal(36000, samples.Length);
-        Assert.False(voice.HasMood("Sad"));
+        Assert.True(voice.HasMood("Sad"));
+    }
+
+    /// <summary>Proves mood lookups match case-insensitively after trimming, and null or blank names never match.</summary>
+    [Fact]
+    public void ChatterboxTurboReferenceVoice_MoodLookup_IsCaseInsensitiveAndTrimmed()
+    {
+        // Arrange
+        var basePath = Path.Combine(_root, "base.wav");
+        var moodPath = Path.Combine(_root, "mood.wav");
+        File.WriteAllBytes(basePath, Wav(Tone(24000, 24000, 300), 24000, 1, format: 1, bits: 16));
+        File.WriteAllBytes(moodPath, Wav(Tone(36000, 24000, 200), 24000, 1, format: 1, bits: 16));
+        var voice = ChatterboxTurboReferenceVoice.FromFileLazy("v", basePath)
+            .WithMoodFiles(new Dictionary<string, string> { ["sad"] = moodPath });
+
+        // Act and Assert
+        foreach (var name in new[] { "sad", "SAD", "Sad", "  sAd\t", " sad" })
+        {
+            Assert.True(voice.HasMood(name), name);
+            Assert.True(voice.TryGetMoodSamples(name, out var samples), name);
+            Assert.Equal(36000, samples.Length);
+        }
+
+        foreach (var name in new[] { null, "", " ", "\t", "calm", "sa d" })
+        {
+            Assert.False(voice.HasMood(name), name);
+            Assert.False(voice.TryGetMoodSamples(name, out var missing), name);
+            Assert.True(missing.IsEmpty);
+        }
     }
 
     /// <summary>Proves FromFile reports a too-short clip and blank arguments.</summary>

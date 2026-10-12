@@ -39,6 +39,9 @@ with it, `ReferenceVoiceSource` and `ReferenceVoiceInfo`; the library populates 
 - `InstalledSizeBytes(bool includeEmotions)`: returns `VoicesBytes` when emotions are excluded, otherwise
   `VoicesBytes + EmotionsBytes`, so a host can show the disk size of either install variant.
 - `ReferenceVoiceInfo.KnownMoods`: the static list of the 13 mood names a pack's emotion clips use.
+- `ReferenceVoiceInfo.TryGetMoodClip(mood, out filePath)`: finds a mood clip in `MoodClips`, matching the name
+  case-insensitively after trimming; a null or blank name, an unknown mood or a voice without mood clips
+  reports no match. Consumers use it instead of indexing `MoodClips` directly.
 
 **Error Handling**: The constructor throws `ArgumentException` for a non-HTTPS URL, a malformed
 checksum, or an id, archive file name or archive root folder that is not a single safe path segment

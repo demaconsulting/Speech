@@ -45,3 +45,10 @@ root folder and is listed in `All`, and when every invalid constructor argument 
 **Tests**: `ReferenceVoicePack_DownloadDescriptor_DescribesTheArchive`,
 `ReferenceVoicePack_VoiceZero10_HasPublishedPresentationFields`,
 `ReferenceVoicePack_Constructor_UnsafeArchiveFileName_Throws`, `ReferenceVoicePack_Constructor_NegativeSize_Throws`
+
+##### Mood Clip Lookup
+
+**Test**: `ReferenceVoiceInfo_TryGetMoodClip_IsCaseInsensitiveAndTrimmed`
+
+Verifies `TryGetMoodClip` resolves `sad`, `SAD` and ` Sad ` to the same path, and that null, blank, unknown names and a
+voice without mood clips report no match.

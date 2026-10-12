@@ -420,6 +420,21 @@ public sealed class ChatterboxTurboCapabilityProfileTests
         Assert.Throws<ArgumentOutOfRangeException>(() => new ChatterboxTurboCapabilityProfile(ChatterboxTurboEndOfSentenceTagPolicy.Strip, 1001));
     }
 
+    /// <summary>Proves the mood marker lookup is case-insensitive and trimmed, and blank names add no marker.</summary>
+    [Fact]
+    public void ChatterboxTurboCapabilityProfile_WithMoodMarker_IsCaseInsensitiveAndTrimmed()
+    {
+        // Act and Assert
+        foreach (var name in new[] { "SAD", " Sad ", "sad" })
+        {
+            Assert.Equal("hi", ChatterboxTurboCapabilityProfile.ReadMoodMarker(ChatterboxTurboCapabilityProfile.WithMoodMarker(name, "hi"), out var read));
+            Assert.Equal("sad", read);
+        }
+
+        Assert.Equal("x", ChatterboxTurboCapabilityProfile.WithMoodMarker("", "x"));
+        Assert.Equal("x", ChatterboxTurboCapabilityProfile.WithMoodMarker("   ", "x"));
+    }
+
     /// <summary>Proves the join boundaries 0 and 1000 are accepted and an undefined policy is rejected.</summary>
     [Fact]
     public void ChatterboxTurboCapabilityProfile_Constructor_JoinBoundariesAcceptedAndUndefinedPolicyRejected()

@@ -32,6 +32,34 @@ public sealed record ReferenceVoiceInfo(
     IReadOnlyDictionary<string, string>? MoodClips = null)
 {
     /// <summary>
+    ///     Finds the clip of a mood in <see cref="MoodClips"/>, matching the mood name case-insensitively after
+    ///     trimming it.
+    /// </summary>
+    /// <param name="mood">The mood name (for example <c>Sad</c> or <c> sad </c>); null or blank never matches.</param>
+    /// <param name="filePath">The absolute audio file path when found; otherwise <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when this voice has a clip for the mood.</returns>
+    public bool TryGetMoodClip(string? mood, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out string? filePath)
+    {
+        filePath = null;
+        if (string.IsNullOrWhiteSpace(mood) || MoodClips is null)
+        {
+            return false;
+        }
+
+        var name = mood.Trim();
+        foreach (var (key, path) in MoodClips)
+        {
+            if (string.Equals(key.Trim(), name, StringComparison.OrdinalIgnoreCase))
+            {
+                filePath = path;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     ///     Gets the mood names the built-in voice-zero pack provides for every speaker, in ordinal order:
     ///     <c>anger</c>, <c>calm</c>, <c>confused</c>, <c>enthused</c>, <c>excited</c>, <c>frustrated</c>, <c>happy</c>,
     ///     <c>neutral</c>, <c>sad</c>, <c>shout</c>, <c>surprised</c>, <c>tired</c>, <c>worried</c>.

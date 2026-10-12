@@ -101,14 +101,14 @@ internal sealed class ChatterboxTurboCapabilityProfile : IModelCapabilityProfile
 
     /// <summary>
     ///     Prefixes <paramref name="text"/> with the internal mood marker for <paramref name="mood"/>; the text is
-    ///     returned unchanged when the mood is null or not a known mood.
+    ///     returned unchanged when the mood is null, blank or not a known mood (matched case-insensitively after trimming).
     /// </summary>
     /// <param name="mood">The mood clip name, or null.</param>
     /// <param name="text">The segment text.</param>
     /// <returns>The marked text.</returns>
     internal static string WithMoodMarker(string? mood, string text)
     {
-        var index = mood is null ? -1 : MoodIndex(mood);
+        var index = MoodIndex(mood);
         return index < 0 ? text : (char)(MoodMarkerBase + index) + text;
     }
 
@@ -125,12 +125,18 @@ internal sealed class ChatterboxTurboCapabilityProfile : IModelCapabilityProfile
         return text.Any(IsMoodMarker) ? new string([.. text.Where(c => !IsMoodMarker(c))]) : text;
     }
 
-    /// <summary>Returns the index of a mood in the known-mood table, or -1.</summary>
-    private static int MoodIndex(string mood)
+    /// <summary>Returns the index of a mood in the known-mood table (case-insensitive, trimmed), or -1.</summary>
+    private static int MoodIndex(string? mood)
     {
+        if (string.IsNullOrWhiteSpace(mood))
+        {
+            return -1;
+        }
+
+        mood = mood.Trim();
         for (var i = 0; i < ReferenceVoiceInfo.KnownMoods.Count; i++)
         {
-            if (string.Equals(ReferenceVoiceInfo.KnownMoods[i], mood, StringComparison.Ordinal))
+            if (string.Equals(ReferenceVoiceInfo.KnownMoods[i], mood, StringComparison.OrdinalIgnoreCase))
             {
                 return i;
             }

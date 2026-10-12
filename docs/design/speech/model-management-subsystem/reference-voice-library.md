@@ -64,7 +64,9 @@ Disk layout (the unit's contract with the CLI, demo and documentation):
   Pack voices carry the pack's license and attribution. For a pack installed with emotions, each pack
   voice's `MoodClips` maps the lower-case mood (file stem) to the absolute path of
   `voices-emotion\{voiceId}\{mood}.{ext}` (the shipped pack uses `.flac`; any supported extension is
-  found), ordinally sorted, or is `null` when there are none. Moods
+  found), ordinally sorted, or is `null` when there are none; a clip whose stem differs only in case or
+  surrounding whitespace from an earlier one is skipped, and `ReferenceVoiceInfo.TryGetMoodClip` looks a mood up
+  case-insensitively after trimming. Moods
   add no voice ids and do not change voice ordering.
 
 **Error Handling**: Unknown pack ids throw `ArgumentException`; a disposed library throws

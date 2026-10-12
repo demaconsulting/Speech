@@ -138,6 +138,17 @@ sections:
                 tests:
                   - ChatterboxTurboCapabilityProfile_MoodMarker_RoundTripsAndJoinIsValidated
 
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodMarkerLookup
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall match a mood name to a known
+                  mood case-insensitively after trimming it, and shall add no marker for a null,
+                  blank or unknown mood.
+                justification: |
+                  Mood names reach the profile in varying case and spacing and must select the
+                  same clip.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_WithMoodMarker_IsCaseInsensitiveAndTrimmed
+
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MarkerSafety
                 title: >-
                   The ChatterboxTurboCapabilityProfile class shall remove the mood-carrying

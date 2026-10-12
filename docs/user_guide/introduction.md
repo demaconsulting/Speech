@@ -456,7 +456,7 @@ canceled re-download restores it). Concurrent installs of the same pack run one 
 `ReferenceVoiceLibrary.UninstallPack` never waits: if that pack is being installed it throws
 `SpeechModelStoreException` immediately, so retry after the install finishes. Each pack voice's
 `ReferenceVoiceInfo.MoodClips` maps the lower-case mood name to that speaker's emotion clip (or is
-`null`); the moods are variants of the voice, not extra voices. Voices are stored under
+`null`; look a mood up with `TryGetMoodClip`, which ignores case and surrounding whitespace); the moods are variants of the voice, not extra voices. Voices are stored under
 `<models root>\reference-voices\`: the pack in
 `voice-zero-1.0\current\voices\` and your own clips in `user\`. The voice list merges explicit
 `ReferenceVoices`, then `ReferenceVoiceDirectory`, then `user\`, then the pack, and the first voice

@@ -70,3 +70,10 @@ documented exceptions.
 **Tests**: `ChatterboxTurboReferenceVoice_WithMoodFiles_LoadsMoodClipsLazilyAndReportsMissingMoods`,
 `ChatterboxTurboReferenceVoice_WithMoodFiles_TooShortClip_FailsOnFirstUse`,
 `ChatterboxTurboReferenceVoice_WithMoodFiles_NamesAreTrimmedAndLowerCased`
+
+##### Mood lookup is case-insensitive and trimmed
+
+**Test**: `ChatterboxTurboReferenceVoice_MoodLookup_IsCaseInsensitiveAndTrimmed`
+
+Verifies `HasMood` and `TryGetMoodSamples` match `sad`, `SAD` and ` sAd ` to the same clip, and that null, empty,
+whitespace and unknown names report the mood as absent.

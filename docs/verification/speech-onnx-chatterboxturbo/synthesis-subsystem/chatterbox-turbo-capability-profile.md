@@ -83,12 +83,14 @@ empty or invalid input is safe.
 `ChatterboxTurboCapabilityProfile_Render_NativeTagInMoodSpan_KeepsPolicyPerSegment`,
 `ChatterboxTurboCapabilityProfile_Render_MarkerCharactersInUserText_AreStripped`,
 `ChatterboxTurboCapabilityProfile_MoodMarker_RoundTripsAndJoinIsValidated`,
+`ChatterboxTurboCapabilityProfile_WithMoodMarker_IsCaseInsensitiveAndTrimmed`,
 `ChatterboxTurboCapabilityProfile_Constructor_JoinBoundariesAcceptedAndUndefinedPolicyRejected`
 
 Verifies the tag-to-mood mapping, that a mood applies until the next mood tag, that adjacent
 segments with different moods get the join silence (and none otherwise), that pauses stay
 unmarked, that the end-of-sentence policy is applied per segment, that marker characters in
-user text are removed and that the join boundaries 0 and 1000 are accepted.
+user text are removed, that mood names match case-insensitively after trimming (blank names add no marker) and that
+the join boundaries 0 and 1000 are accepted.
 
 ##### A trailing tag-only chunk joins the previous unit
 

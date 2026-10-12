@@ -53,3 +53,14 @@ sections:
                 tests:
                   - ReferenceVoicePack_VoiceZero10_InstalledSizes_AreMeasuredValues
                   - ReferenceVoicePack_Constructor_InstalledSizes_DefaultZeroAndRejectNegative
+
+              - id: Speech-Models-ReferenceVoicePack-MoodClipLookup
+                title: >-
+                  The ReferenceVoiceInfo record shall find a mood clip case-insensitively after
+                  trimming the requested mood name, and shall report no match for a null, blank or
+                  unknown mood or for a voice without mood clips.
+                justification: |
+                  Mood names reach consumers from tags and options in varying case and spacing, and
+                  must resolve to the same clip.
+                tests:
+                  - ReferenceVoiceInfo_TryGetMoodClip_IsCaseInsensitiveAndTrimmed

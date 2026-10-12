@@ -98,12 +98,12 @@ public sealed class ChatterboxTurboReferenceVoice
     /// <summary>
     ///     Gets the samples of a mood clip, or reports that the voice has none so the caller falls back to the base clip.
     /// </summary>
-    /// <param name="mood">The lower-case mood name.</param>
+    /// <param name="mood">The mood name; matched case-insensitively after trimming. Null or blank never matches.</param>
     /// <param name="samples">The normalized samples when found.</param>
     /// <returns>True when the voice has a clip for the mood.</returns>
-    internal bool TryGetMoodSamples(string mood, out ReadOnlyMemory<float> samples)
+    internal bool TryGetMoodSamples(string? mood, out ReadOnlyMemory<float> samples)
     {
-        if (_moodSamples.TryGetValue(mood, out var lazy))
+        if (NormalizeMoodName(mood) is { } name && _moodSamples.TryGetValue(name, out var lazy))
         {
             samples = lazy.Value;
             return true;
@@ -113,8 +113,12 @@ public sealed class ChatterboxTurboReferenceVoice
         return false;
     }
 
-    /// <summary>Returns true when the voice has a clip for the mood.</summary>
-    internal bool HasMood(string mood) => _moodSamples.ContainsKey(mood);
+    /// <summary>Returns true when the voice has a clip for the mood (case-insensitive, trimmed; null or blank is false).</summary>
+    internal bool HasMood(string? mood) => NormalizeMoodName(mood) is { } name && _moodSamples.ContainsKey(name);
+
+    /// <summary>Normalizes a mood name (trimmed, lower case) for lookup; null when it is null or blank.</summary>
+    private static string? NormalizeMoodName(string? mood) =>
+        string.IsNullOrWhiteSpace(mood) ? null : mood.Trim().ToLowerInvariant();
 
     /// <summary>
     ///     Creates a voice from in-memory audio, down-mixing and resampling it to mono 24 kHz.
