@@ -128,10 +128,19 @@ public interface IModelCatalogService
     SpeechModelState GetReferenceVoicePackState(string packId);
 
     /// <summary>
+    ///     Determines whether an installed reference-voice pack was extracted with its emotion (mood) clips.
+    /// </summary>
+    /// <param name="packId">The identifier of a pack listed in <see cref="ReferenceVoicePacks"/>.</param>
+    /// <returns><see langword="true"/> when the pack is installed with emotion clips; otherwise <see langword="false"/>.</returns>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="packId"/> matches no known pack.</exception>
+    bool ReferenceVoicePackHasEmotions(string packId);
+
+    /// <summary>
     ///     Downloads and installs one reference-voice pack, then rebuilds the catalog and raises
     ///     <see cref="ReferenceVoicesChanged"/> when it was installed.
     /// </summary>
     /// <param name="packId">The identifier of a pack listed in <see cref="ReferenceVoicePacks"/>.</param>
+    /// <param name="includeEmotions"><see langword="true"/> to also extract the pack's emotion (mood) clips (an installed voices-only pack is upgraded); <see langword="false"/> for the base voices only.</param>
     /// <param name="progress">An optional progress sink, or <see langword="null"/>.</param>
     /// <param name="cancellationToken">A token that, when canceled, aborts the download.</param>
     /// <returns>The outcome describing whether the pack was installed.</returns>
@@ -143,6 +152,7 @@ public interface IModelCatalogService
     /// </remarks>
     Task<SpeechModelDownloadResult> InstallReferenceVoicePackAsync(
         string packId,
+        bool includeEmotions,
         IProgress<SpeechModelDownloadProgress>? progress,
         CancellationToken cancellationToken);
 

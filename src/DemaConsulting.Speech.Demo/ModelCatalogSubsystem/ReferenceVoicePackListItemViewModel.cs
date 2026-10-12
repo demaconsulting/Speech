@@ -22,8 +22,20 @@ public sealed partial class ReferenceVoicePackListItemViewModel : ObservableObje
     /// <summary>Gets the human-readable pack name.</summary>
     public string DisplayName { get; }
 
-    /// <summary>Gets the download size, formatted in MiB for display.</summary>
+    /// <summary>Gets the download size, formatted in MiB for display (for example <c>Download: 570 MiB</c>).</summary>
     public string SizeText { get; }
+
+    /// <summary>
+    ///     Gets a value indicating whether the pack offers optional emotion (mood) clips, so the emotion option and the
+    ///     "Add emotions" upgrade are meaningful.
+    /// </summary>
+    public bool HasEmotionVariants { get; }
+
+    /// <summary>Gets the installed size of the base voices in bytes (zero when unknown).</summary>
+    private long VoicesBytes { get; }
+
+    /// <summary>Gets the installed size of the emotion clips in bytes (zero when none or unknown).</summary>
+    private long EmotionsBytes { get; }
 
     /// <summary>Gets the license name and attribution line, shown with the pack.</summary>
     public string LicenseText { get; }
@@ -39,7 +51,30 @@ public sealed partial class ReferenceVoicePackListItemViewModel : ObservableObje
     [NotifyPropertyChangedFor(nameof(CanInstall))]
     [NotifyPropertyChangedFor(nameof(CanRemove))]
     [NotifyPropertyChangedFor(nameof(IsInstalling))]
+    [NotifyPropertyChangedFor(nameof(InstalledSizeText))]
+    [NotifyPropertyChangedFor(nameof(CanUpgradeToEmotions))]
+    [NotifyPropertyChangedFor(nameof(ShowEmotionOption))]
+    [NotifyPropertyChangedFor(nameof(InstallButtonText))]
     public partial SpeechModelState State { get; set; }
+
+    /// <summary>
+    ///     Gets or sets a value indicating whether a fresh install also extracts the emotion (mood) clips; <see langword="true"/>
+    ///     by default. Ignored when the pack is already installed (see <see cref="CanUpgradeToEmotions"/>).
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(InstalledSizeText))]
+    public partial bool IncludeEmotions { get; set; } = true;
+
+    /// <summary>
+    ///     Gets or sets a value indicating whether the installed pack was extracted with its emotion clips.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(StatusText))]
+    [NotifyPropertyChangedFor(nameof(InstalledSizeText))]
+    [NotifyPropertyChangedFor(nameof(CanInstall))]
+    [NotifyPropertyChangedFor(nameof(CanUpgradeToEmotions))]
+    [NotifyPropertyChangedFor(nameof(InstallButtonText))]
+    public partial bool HasEmotions { get; set; }
 
     /// <summary>
     ///     Gets or sets the fraction of the download that has completed (<c>0.0</c> to <c>1.0</c>),
@@ -59,7 +94,46 @@ public sealed partial class ReferenceVoicePackListItemViewModel : ObservableObje
     public bool HasFailureMessage => !string.IsNullOrEmpty(FailureMessage);
 
     /// <summary>Gets a value indicating whether an install may be started right now.</summary>
-    public bool CanInstall => State is SpeechModelState.NotDownloaded or SpeechModelState.FailedOrCorrupt;
+    public bool CanInstall => State is SpeechModelState.NotDownloaded or SpeechModelState.FailedOrCorrupt || CanUpgradeToEmotions;
+
+    /// <summary>
+    ///     Gets a value indicating whether the pack is installed without its emotion clips and could add them (the
+    ///     "Add emotions" action, which downloads the archive again).
+    /// </summary>
+    public bool CanUpgradeToEmotions => State == SpeechModelState.Downloaded && HasEmotionVariants && !HasEmotions;
+
+    /// <summary>Gets a value indicating whether the "Include emotion variants" option is shown (a not-yet-installed pack that has emotions).</summary>
+    public bool ShowEmotionOption => HasEmotionVariants && State is SpeechModelState.NotDownloaded or SpeechModelState.FailedOrCorrupt;
+
+    /// <summary>Gets the label of the install button: <c>Add emotions</c> for an upgrade, otherwise <c>Install</c>.</summary>
+    public string InstallButtonText => CanUpgradeToEmotions ? "Add emotions" : "Install";
+
+    /// <summary>
+    ///     Gets a value indicating whether the next install request should extract the emotion clips: always for an
+    ///     "Add emotions" upgrade, otherwise the <see cref="IncludeEmotions"/> choice.
+    /// </summary>
+    public bool EffectiveIncludeEmotions => HasEmotionVariants && (CanUpgradeToEmotions || IncludeEmotions);
+
+    /// <summary>
+    ///     Gets the disk space the pack uses once installed (or would use), for example
+    ///     <c>Installs about 572 MiB (with emotions)</c>; empty when the pack's installed size is unknown.
+    /// </summary>
+    public string InstalledSizeText
+    {
+        get
+        {
+            if (VoicesBytes <= 0)
+            {
+                return string.Empty;
+            }
+
+            var installed = State == SpeechModelState.Downloaded;
+            var withEmotions = HasEmotionVariants && (installed ? HasEmotions : IncludeEmotions);
+            var bytes = withEmotions ? VoicesBytes + EmotionsBytes : VoicesBytes;
+            var label = withEmotions ? "with emotions" : "voices only";
+            return string.Create(CultureInfo.InvariantCulture, $"{(installed ? "Uses" : "Installs")} about {bytes / (1024.0 * 1024.0):0} MiB ({label})");
+        }
+    }
 
     /// <summary>Gets a value indicating whether the installed pack may be removed right now.</summary>
     public bool CanRemove => State == SpeechModelState.Downloaded;
@@ -72,6 +146,7 @@ public sealed partial class ReferenceVoicePackListItemViewModel : ObservableObje
     {
         SpeechModelState.NotDownloaded => "Not installed",
         SpeechModelState.Downloading => "Installing",
+        SpeechModelState.Downloaded when HasEmotionVariants => HasEmotions ? "Installed (with emotions)" : "Installed (voices only)",
         SpeechModelState.Downloaded => "Installed",
         SpeechModelState.FailedOrCorrupt => "Failed or corrupt",
         _ => State.ToString(),
@@ -82,14 +157,19 @@ public sealed partial class ReferenceVoicePackListItemViewModel : ObservableObje
     /// </summary>
     /// <param name="pack">The pack descriptor supplying this row's identity. Must not be <see langword="null"/>.</param>
     /// <param name="state">The pack's current install state.</param>
+    /// <param name="hasEmotions">Whether the installed pack was extracted with its emotion clips.</param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="pack"/> is <see langword="null"/>.</exception>
-    public ReferenceVoicePackListItemViewModel(ReferenceVoicePack pack, SpeechModelState state)
+    public ReferenceVoicePackListItemViewModel(ReferenceVoicePack pack, SpeechModelState state, bool hasEmotions = false)
     {
         ArgumentNullException.ThrowIfNull(pack);
 
         Id = pack.Id;
         DisplayName = pack.DisplayName;
-        SizeText = string.Create(CultureInfo.InvariantCulture, $"{pack.SizeBytes / (1024.0 * 1024.0):0} MiB download");
+        SizeText = string.Create(CultureInfo.InvariantCulture, $"Download: {pack.SizeBytes / (1024.0 * 1024.0):0} MiB");
+        VoicesBytes = pack.VoicesBytes;
+        EmotionsBytes = pack.EmotionsBytes;
+        HasEmotionVariants = pack.EmotionsBytes > 0;
+        HasEmotions = hasEmotions;
         LicenseText = $"{pack.Attribution} - {pack.LicenseName}";
         State = state;
     }

@@ -641,10 +641,11 @@ public class ModelCatalogViewModelTests
         // Arrange: not installed at first, installed once the service has done its work
         var service = VoiceService(SpeechModelState.NotDownloaded);
         service.InstallReferenceVoicePackAsync(
-                "voice-zero-1.0", Arg.Any<IProgress<SpeechModelDownloadProgress>?>(), Arg.Any<CancellationToken>())
+                "voice-zero-1.0", Arg.Any<bool>(), Arg.Any<IProgress<SpeechModelDownloadProgress>?>(), Arg.Any<CancellationToken>())
             .Returns(_ =>
             {
                 service.GetReferenceVoicePackState("voice-zero-1.0").Returns(SpeechModelState.Downloaded);
+                service.ReferenceVoicePackHasEmotions("voice-zero-1.0").Returns(true);
                 return Task.FromResult(new SpeechModelDownloadResult(SpeechModelDownloadOutcome.Installed));
             });
         var viewModel = new ModelCatalogViewModel(service);
@@ -660,6 +661,33 @@ public class ModelCatalogViewModelTests
     }
 
     /// <summary>
+    ///     Proves that the emotion choice is passed to the service, and that "Add emotions" on a voices-only install
+    ///     always includes them.
+    /// </summary>
+    [Fact]
+    public async Task ModelCatalogViewModel_InstallVoicePackAsync_PassesEmotionChoice()
+    {
+        // Arrange
+        var service = VoiceService(SpeechModelState.NotDownloaded);
+        service.InstallReferenceVoicePackAsync(
+                "voice-zero-1.0", Arg.Any<bool>(), Arg.Any<IProgress<SpeechModelDownloadProgress>?>(), Arg.Any<CancellationToken>())
+            .Returns(_ => Task.FromResult(new SpeechModelDownloadResult(SpeechModelDownloadOutcome.ChecksumMismatch)));
+        var viewModel = new ModelCatalogViewModel(service);
+        var row = viewModel.VoicePacks[0];
+        row.IncludeEmotions = false;
+
+        // Act
+        await viewModel.InstallVoicePackAsync(row, TestContext.Current.CancellationToken);
+        var upgradeRow = new ReferenceVoicePackListItemViewModel(ReferenceVoicePack.VoiceZero10, SpeechModelState.Downloaded, hasEmotions: false);
+        upgradeRow.IncludeEmotions = false;
+        await viewModel.InstallVoicePackAsync(upgradeRow, TestContext.Current.CancellationToken);
+
+        // Assert
+        await service.Received(1).InstallReferenceVoicePackAsync("voice-zero-1.0", false, Arg.Any<IProgress<SpeechModelDownloadProgress>?>(), Arg.Any<CancellationToken>());
+        await service.Received(1).InstallReferenceVoicePackAsync("voice-zero-1.0", true, Arg.Any<IProgress<SpeechModelDownloadProgress>?>(), Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>
     ///     Proves that a failed, cancelled or faulted pack install is reported in the row.
     /// </summary>
     [Fact]
@@ -668,7 +696,7 @@ public class ModelCatalogViewModelTests
         // Arrange: three consecutive attempts - checksum mismatch, cancellation, fault
         var service = VoiceService(SpeechModelState.NotDownloaded);
         service.InstallReferenceVoicePackAsync(
-                "voice-zero-1.0", Arg.Any<IProgress<SpeechModelDownloadProgress>?>(), Arg.Any<CancellationToken>())
+                "voice-zero-1.0", Arg.Any<bool>(), Arg.Any<IProgress<SpeechModelDownloadProgress>?>(), Arg.Any<CancellationToken>())
             .Returns(
                 _ => Task.FromResult(new SpeechModelDownloadResult(SpeechModelDownloadOutcome.ChecksumMismatch)),
                 _ => Task.FromException<SpeechModelDownloadResult>(new OperationCanceledException()),
@@ -711,7 +739,7 @@ public class ModelCatalogViewModelTests
         // Assert
         Assert.Equal(ModelCatalogViewModel.VoiceBusyMessage, row.FailureMessage);
         Assert.Equal(SpeechModelState.NotDownloaded, row.State);
-        await service.DidNotReceiveWithAnyArgs().InstallReferenceVoicePackAsync(default!, default, TestContext.Current.CancellationToken);
+        await service.DidNotReceiveWithAnyArgs().InstallReferenceVoicePackAsync(default!, default, default, TestContext.Current.CancellationToken);
     }
 
     /// <summary>

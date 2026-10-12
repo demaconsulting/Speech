@@ -259,7 +259,9 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
         VoicePacks.Clear();
         foreach (var pack in _catalogService.ReferenceVoicePacks)
         {
-            VoicePacks.Add(new ReferenceVoicePackListItemViewModel(pack, _catalogService.GetReferenceVoicePackState(pack.Id)));
+            var packState = _catalogService.GetReferenceVoicePackState(pack.Id);
+            var hasEmotions = packState == SpeechModelState.Downloaded && _catalogService.ReferenceVoicePackHasEmotions(pack.Id);
+            VoicePacks.Add(new ReferenceVoicePackListItemViewModel(pack, packState, hasEmotions));
         }
 
         OnPropertyChanged(nameof(HasModels));
@@ -375,6 +377,9 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
             return;
         }
 
+        // Read the choice before the state changes: an "Add emotions" upgrade always includes them
+        var includeEmotions = pack.EffectiveIncludeEmotions;
+
         pack.FailureMessage = null;
         pack.ProgressFraction = null;
         pack.State = SpeechModelState.Downloading;
@@ -384,7 +389,7 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
         try
         {
             var result = await _catalogService
-                .InstallReferenceVoicePackAsync(pack.Id, progress, cancellationToken)
+                .InstallReferenceVoicePackAsync(pack.Id, includeEmotions, progress, cancellationToken)
                 .ConfigureAwait(true);
 
             if (result.Outcome == SpeechModelDownloadOutcome.Installed)

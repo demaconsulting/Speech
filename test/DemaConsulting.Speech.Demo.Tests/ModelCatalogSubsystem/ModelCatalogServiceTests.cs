@@ -176,7 +176,7 @@ public class ModelCatalogServiceTests
 
         // Act
         var result = await service.InstallReferenceVoicePackAsync(
-            "voice-zero-1.0", null, TestContext.Current.CancellationToken);
+            "voice-zero-1.0", true, null, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.NotEqual(SpeechModelDownloadOutcome.Installed, result.Outcome);

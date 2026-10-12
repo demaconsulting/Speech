@@ -154,6 +154,10 @@ public sealed class ModelCatalogService : IModelCatalogService, IDisposable
         RequireVoiceLibrary().GetPackState(packId);
 
     /// <inheritdoc/>
+    public bool ReferenceVoicePackHasEmotions(string packId) =>
+        RequireVoiceLibrary().PackHasEmotions(packId);
+
+    /// <inheritdoc/>
     /// <remarks>
     ///     When the pack was installed, the catalog and library are rebuilt (so the Chatterbox model
     ///     re-reads its voices) and <see cref="ReferenceVoicesChanged"/> is raised. The rebuild aborts
@@ -161,11 +165,12 @@ public sealed class ModelCatalogService : IModelCatalogService, IDisposable
     /// </remarks>
     public async Task<SpeechModelDownloadResult> InstallReferenceVoicePackAsync(
         string packId,
+        bool includeEmotions,
         IProgress<SpeechModelDownloadProgress>? progress,
         CancellationToken cancellationToken)
     {
         var result = await RequireVoiceLibrary()
-            .InstallPackAsync(packId, progress, cancellationToken)
+            .InstallPackAsync(packId, includeEmotions, progress, cancellationToken)
             .ConfigureAwait(true);
 
         if (result.Outcome == SpeechModelDownloadOutcome.Installed)
