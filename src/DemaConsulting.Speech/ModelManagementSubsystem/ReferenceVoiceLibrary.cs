@@ -46,6 +46,9 @@ public sealed class ReferenceVoiceLibrary : IDisposable
     /// <summary>The diagnostics category used by this type.</summary>
     private const string DiagnosticsCategory = "ModelManagementSubsystem";
 
+    /// <summary>The name prefix of the sibling folder an upgrade renames the installed <c>current</c> folder to.</summary>
+    private const string UpgradeBackupPrefix = "current.upgrade-backup-";
+
     /// <summary>The store that holds installed packs.</summary>
     private readonly SpeechModelStore _packStore;
 
@@ -61,9 +64,6 @@ public sealed class ReferenceVoiceLibrary : IDisposable
     /// <summary>Guards creation and disposal of <see cref="_downloader"/>.</summary>
     private readonly object _gate = new();
 
-    /// <summary>The name prefix of the sibling folder an upgrade renames the installed <c>current</c> folder to.</summary>
-    private const string UpgradeBackupPrefix = "current.upgrade-backup-";
-
     /// <summary>Reference counts of install calls (running or queued) per pack id; guarded by <see cref="_installingGate"/>.</summary>
     private readonly Dictionary<string, int> _installing = new(StringComparer.Ordinal);
 
@@ -76,11 +76,11 @@ public sealed class ReferenceVoiceLibrary : IDisposable
     /// <summary>Pack ids whose most recent install attempt failed.</summary>
     private readonly ConcurrentDictionary<string, byte> _failed = new(StringComparer.Ordinal);
 
-    /// <summary>The lazily created downloader.</summary>
-    private SpeechModelDownloader? _downloader;
-
     /// <summary>The packs this instance can install (the built-in list unless a test supplies its own).</summary>
     private readonly IReadOnlyList<ReferenceVoicePack> _packs;
+
+    /// <summary>The lazily created downloader.</summary>
+    private SpeechModelDownloader? _downloader;
 
     /// <summary>Whether this instance has been disposed.</summary>
     private bool _disposed;

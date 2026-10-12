@@ -29,7 +29,8 @@ sections:
                 title: >-
                   The ReferenceVoicePack constructor shall reject a non-HTTPS archive URL, a
                   malformed SHA-256 checksum, a non-positive size, and an id, archive file name or
-                  archive root folder that is not a single safe path segment.
+                  archive root folder that is not a single safe path segment (separators, a drive
+                  colon, a rooted path, "." or "..", on every platform).
                 justification: |
                   The id and archive names become directory and file names, and the archive is
                   fetched over the network, so a descriptor must be unable to describe an insecure
@@ -38,6 +39,8 @@ sections:
                   - ReferenceVoicePack_Constructor_NonHttpsUri_Throws
                   - ReferenceVoicePack_Constructor_BadChecksum_Throws
                   - ReferenceVoicePack_Constructor_UnsafeId_Throws
+                  - ReferenceVoicePack_Constructor_RootedRootFolder_Throws
+                  - ReferenceVoicePack_Constructor_UnsafeArchiveFileName_Throws
                   - ReferenceVoicePack_Constructor_UnsafeRootFolder_Throws
                   - ReferenceVoicePack_Constructor_NonPositiveSize_Throws
 

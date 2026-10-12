@@ -54,7 +54,28 @@ internal static class ReferenceVoicePackInstaller
     /// <param name="cancellationToken">A token that aborts the extraction.</param>
     /// <returns>A task that completes when extraction, archive deletion and the metadata write are done.</returns>
     /// <exception cref="InvalidDataException">Thrown when the archive is not a valid zip, has an unsafe entry, exceeds a size cap or contains no voices.</exception>
-    internal static async Task InstallAsync(ReferenceVoicePack pack, bool includeEmotions, string stagingDirectory, CancellationToken cancellationToken)
+    internal static Task InstallAsync(ReferenceVoicePack pack, bool includeEmotions, string stagingDirectory, CancellationToken cancellationToken) =>
+        InstallAsync(pack, includeEmotions, stagingDirectory, MaximumEntryBytes, MaximumTotalBytes, cancellationToken);
+
+    /// <summary>
+    ///     Extracts the pack's allowed entries with explicit size caps (a test seam; production uses
+    ///     <see cref="MaximumEntryBytes"/> and <see cref="MaximumTotalBytes"/>).
+    /// </summary>
+    /// <param name="pack">The pack being installed.</param>
+    /// <param name="includeEmotions"><see langword="true"/> to also extract the <c>voices-emotion</c> clips.</param>
+    /// <param name="stagingDirectory">The staging directory holding the verified archive; also the extraction target.</param>
+    /// <param name="maximumEntryBytes">The largest accepted extracted size of one entry (bytes).</param>
+    /// <param name="maximumTotalBytes">The largest accepted total extracted size (bytes).</param>
+    /// <param name="cancellationToken">A token that aborts the extraction.</param>
+    /// <returns>A task that completes when extraction, archive deletion and the metadata write are done.</returns>
+    /// <exception cref="InvalidDataException">Thrown when the archive is not a valid zip, has an unsafe entry, exceeds a size cap or contains no voices.</exception>
+    internal static async Task InstallAsync(
+        ReferenceVoicePack pack,
+        bool includeEmotions,
+        string stagingDirectory,
+        long maximumEntryBytes,
+        long maximumTotalBytes,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(pack);
         ArgumentException.ThrowIfNullOrEmpty(stagingDirectory);
@@ -97,7 +118,7 @@ internal static class ReferenceVoicePackInstaller
                 }
 
                 Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-                totalBytes += await CopyEntryAsync(entry, destination, totalBytes, cancellationToken).ConfigureAwait(false);
+                totalBytes += await CopyEntryAsync(entry, destination, totalBytes, maximumEntryBytes, maximumTotalBytes, cancellationToken).ConfigureAwait(false);
                 voiceCount += kind == EntryKind.Voice ? 1 : 0;
                 emotionCount += kind == EntryKind.Emotion ? 1 : 0;
             }
@@ -249,7 +270,13 @@ internal static class ReferenceVoicePackInstaller
     }
 
     /// <summary>Copies one entry to disk, enforcing the per-entry and total byte caps on the bytes actually read.</summary>
-    private static async Task<long> CopyEntryAsync(ZipArchiveEntry entry, string destination, long totalSoFar, CancellationToken cancellationToken)
+    private static async Task<long> CopyEntryAsync(
+        ZipArchiveEntry entry,
+        string destination,
+        long totalSoFar,
+        long maximumEntryBytes,
+        long maximumTotalBytes,
+        CancellationToken cancellationToken)
     {
         long copied = 0;
         var buffer = new byte[BufferSize];
@@ -261,7 +288,7 @@ internal static class ReferenceVoicePackInstaller
         while ((read = await source.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) > 0)
         {
             copied += read;
-            if (copied > MaximumEntryBytes || totalSoFar + copied > MaximumTotalBytes)
+            if (copied > maximumEntryBytes || totalSoFar + copied > maximumTotalBytes)
             {
                 throw new InvalidDataException($"Archive entry '{entry.FullName}' exceeds the allowed extraction size.");
             }

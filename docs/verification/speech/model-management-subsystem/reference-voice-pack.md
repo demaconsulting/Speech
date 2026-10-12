@@ -32,6 +32,11 @@ root folder and is listed in `All`, and when every invalid constructor argument 
 
 **Test**: `ReferenceVoicePack_Constructor_UnsafeRootFolder_Throws`
 
+**Test**: `ReferenceVoicePack_Constructor_RootedRootFolder_Throws`
+
+Drive-qualified (`C:`, `C:\x`) and leading-slash names for the id, archive file name and root folder are
+rejected on every platform, not only where the platform's invalid-character set happens to include them.
+
 **Test**: `ReferenceVoicePack_Constructor_NonPositiveSize_Throws`
 
 ##### Size Metadata

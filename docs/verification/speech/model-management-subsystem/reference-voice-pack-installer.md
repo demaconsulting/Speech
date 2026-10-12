@@ -43,6 +43,17 @@ is written, the archive is deleted, every unsafe or malformed archive fails with
 
 **Test**: `ReferenceVoicePackInstaller_Install_CanceledToken_Throws`
 
+##### Size Caps
+
+**Test**: `ReferenceVoicePackInstaller_Install_EntryExceedsEntryCap_Throws`
+
+**Test**: `ReferenceVoicePackInstaller_Install_TotalExceedsTotalCap_Throws`
+
+**Test**: `ReferenceVoicePackInstaller_Install_AtCaps_Succeeds`
+
+These use the internal `InstallAsync` overload that takes the two caps, with limits of 50-100 bytes, so
+no large allocation is needed; the last test also asserts the default constants are 128 MiB and 2 GiB.
+
 ##### Emotion Variants
 
 **Test**: `ReferenceVoicePackInstaller_Install_WithEmotions_ExtractsMoodClipsAndRecordsVariant`

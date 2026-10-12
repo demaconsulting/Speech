@@ -20,8 +20,9 @@ hostile declared length cannot force a large allocation; samples are scaled by `
   returned `AudioClip` holds exactly the declared total samples when it is known (a frame that would
   exceed the remaining count is rejected rather than truncated), the clip's rate, channel count and
   bit depth come from STREAMINFO, and the effective cap is `maxSamples` clamped to
-  `Array.MaxLength`
-- **FlacFrameDecoder.Decode**: parse the frame header (block size, sample rate and bit depth codes,
+  `Array.MaxLength`. An internal overload `Decode(data, verifyChecksums, maxSamples, maxArrayLength)`
+  takes the array-length ceiling explicitly (the public form passes `Array.MaxLength`) so tests can
+  exercise the clamp with a small value: parse the frame header (block size, sample rate and bit depth codes,
   UTF-8 frame number, CRC-8), decode each subframe (constant, verbatim, fixed order 0-4, LPC order
   1-32 with Rice residual methods 0 and 1 and escape partitions, wasted bits), call
   `FlacBitReader.AlignToByte` to reach the frame footer, check the CRC-16, and undo left/side,

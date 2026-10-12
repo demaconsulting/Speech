@@ -61,5 +61,6 @@ sections:
                   - FlacDecoder_Decode_BlockLargerThanMaximum_Throws
                   - FlacDecoder_Decode_InvalidPredictorParameters_Throw
                   - FlacDecoder_Decode_ExceedsMaxSamples_Throws
+                  - FlacDecoder_Decode_ExceedsArrayLimit_Throws
                   - FlacDecoder_Decode_FrameExceedsDeclaredTotal_Throws
                   - FlacDecoder_Decode_Id3SizeNotSyncsafe_Throws

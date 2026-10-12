@@ -13,8 +13,8 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 /// </remarks>
 public sealed record ReferenceVoicePack
 {
-    /// <summary>The characters that make a pack id unusable as a single directory name segment.</summary>
-    private static readonly char[] InvalidIdCharacters = [.. Path.GetInvalidFileNameChars(), '/', '\\'];
+    /// <summary>The characters that make a pack id unusable as a single directory name segment on any platform (the drive colon is included).</summary>
+    private static readonly char[] InvalidIdCharacters = [.. Path.GetInvalidFileNameChars(), '/', '\\', ':'];
 
     /// <summary>Gets the built-in voice-zero 1.0 pack (CC0, 154 speakers, 13 moods each; about 570 MiB to download, about 44 MiB installed as voices only and about 572 MiB with emotions).</summary>
 #pragma warning disable S1075 // Download URLs are intentionally compiled-in, reviewed literals.
@@ -156,10 +156,10 @@ public sealed record ReferenceVoicePack
     /// <summary>Gets the download descriptor for the archive (one file at <see cref="ArchiveFileName"/>).</summary>
     internal SpeechModelDownloadDescriptor DownloadDescriptor { get; }
 
-    /// <summary>Rejects a name that is not a single, safe path segment.</summary>
+    /// <summary>Rejects a name that is not a single, safe path segment (separators, drive colons, rooted paths, <c>.</c> and <c>..</c>).</summary>
     private static void RequireSafeName(string value, string parameterName)
     {
-        if (value.IndexOfAny(InvalidIdCharacters) >= 0 || value is "." or "..")
+        if (value.IndexOfAny(InvalidIdCharacters) >= 0 || value is "." or ".." || Path.IsPathRooted(value))
         {
             throw new ArgumentException($"'{value}' is not a valid single file or directory name.", parameterName);
         }

@@ -49,6 +49,20 @@ sections:
                   - ReferenceVoicePackInstaller_Install_NotAZip_Throws
                   - ReferenceVoicePackInstaller_Install_CanceledToken_Throws
 
+              - id: Speech-Models-ReferenceVoicePackInstaller-SizeCaps
+                title: >-
+                  The ReferenceVoicePackInstaller shall fail the install with an InvalidDataException when
+                  the bytes actually read for one entry exceed 128 MiB or the running total exceeds 2 GiB,
+                  regardless of what the archive headers claim, and shall accept content exactly at a cap.
+                justification: |
+                  Zip headers can understate the uncompressed size, so only the bytes actually read can
+                  bound disk use against a decompression bomb. The caps are internal parameters (defaults
+                  unchanged) so tests exercise both with small limits instead of gigabytes of data.
+                tests:
+                  - ReferenceVoicePackInstaller_Install_EntryExceedsEntryCap_Throws
+                  - ReferenceVoicePackInstaller_Install_TotalExceedsTotalCap_Throws
+                  - ReferenceVoicePackInstaller_Install_AtCaps_Succeeds
+
               - id: Speech-Models-ReferenceVoicePackInstaller-EmotionVariants
                 title: >-
                   The ReferenceVoicePackInstaller shall, when emotion variants are requested,

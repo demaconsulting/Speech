@@ -292,6 +292,81 @@ public sealed class ReferenceVoicePackInstallerTests : IDisposable
     }
 
     /// <summary>
+    ///     Proves that an entry larger than the per-entry cap is rejected using the bytes actually read.
+    /// </summary>
+    [Fact]
+    public async Task ReferenceVoicePackInstaller_Install_EntryExceedsEntryCap_Throws()
+    {
+        // Arrange
+        var zip = ReferenceVoiceTestPacks.BuildZip(
+        [
+            ("voice-zero/voices/a.flac", new byte[100]),
+            ("voice-zero/voices/b.flac", new byte[101]),
+        ]);
+        var pack = ReferenceVoiceTestPacks.PackFor(zip);
+        var staging = Path.Join(_root, "staging");
+        ReferenceVoiceTestPacks.WriteArchive(staging, pack, zip);
+
+        // Act
+        var exception = await Assert.ThrowsAsync<InvalidDataException>(() => ReferenceVoicePackInstaller.InstallAsync(
+            pack, false, staging, maximumEntryBytes: 100, maximumTotalBytes: 10_000, TestContext.Current.CancellationToken));
+
+        // Assert
+        Assert.Contains("b.flac", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("allowed extraction size", exception.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Proves that entries each within the per-entry cap are rejected once their running total passes the total cap.
+    /// </summary>
+    [Fact]
+    public async Task ReferenceVoicePackInstaller_Install_TotalExceedsTotalCap_Throws()
+    {
+        // Arrange
+        var zip = ReferenceVoiceTestPacks.BuildZip(
+        [
+            ("voice-zero/voices/a.flac", new byte[60]),
+            ("voice-zero/voices/b.flac", new byte[60]),
+        ]);
+        var pack = ReferenceVoiceTestPacks.PackFor(zip);
+        var staging = Path.Join(_root, "staging");
+        ReferenceVoiceTestPacks.WriteArchive(staging, pack, zip);
+
+        // Act
+        var exception = await Assert.ThrowsAsync<InvalidDataException>(() => ReferenceVoicePackInstaller.InstallAsync(
+            pack, false, staging, maximumEntryBytes: 100, maximumTotalBytes: 100, TestContext.Current.CancellationToken));
+
+        // Assert
+        Assert.Contains("b.flac", exception.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Proves that content exactly at both caps is accepted (the caps are inclusive) and the defaults are unchanged.
+    /// </summary>
+    [Fact]
+    public async Task ReferenceVoicePackInstaller_Install_AtCaps_Succeeds()
+    {
+        // Arrange
+        var zip = ReferenceVoiceTestPacks.BuildZip(
+        [
+            ("voice-zero/voices/a.flac", new byte[50]),
+            ("voice-zero/voices/b.flac", new byte[50]),
+        ]);
+        var pack = ReferenceVoiceTestPacks.PackFor(zip);
+        var staging = Path.Join(_root, "staging");
+        ReferenceVoiceTestPacks.WriteArchive(staging, pack, zip);
+
+        // Act
+        await ReferenceVoicePackInstaller.InstallAsync(
+            pack, false, staging, maximumEntryBytes: 50, maximumTotalBytes: 100, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(2, Directory.GetFiles(Path.Join(staging, "voices"), "*.flac").Length);
+        Assert.Equal(128L * 1024 * 1024, ReferenceVoicePackInstaller.MaximumEntryBytes);
+        Assert.Equal(2L * 1024 * 1024 * 1024, ReferenceVoicePackInstaller.MaximumTotalBytes);
+    }
+
+    /// <summary>
     ///     Proves that entries outside the pack's root folder are ignored.
     /// </summary>
     [Fact]

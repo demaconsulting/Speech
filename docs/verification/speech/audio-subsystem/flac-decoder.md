@@ -123,6 +123,10 @@ larger than the declared total, a non-syncsafe ID3v2 size and the sample cap are
 
 **Test**: `FlacDecoder_Decode_ExceedsMaxSamples_Throws`
 
+**Test**: `FlacDecoder_Decode_ExceedsArrayLimit_Throws` (uses the internal `Decode` overload that takes the
+array-length ceiling, with a limit of 150 samples instead of `Array.MaxLength`, so no multi-gigabyte
+allocation is needed)
+
 ##### Frame larger than the declared total
 
 **Test**: `FlacDecoder_Decode_FrameExceedsDeclaredTotal_Throws`

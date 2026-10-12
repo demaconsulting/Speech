@@ -42,7 +42,19 @@ internal static class FlacDecoder
     /// <param name="maxSamples">The most samples (across channels) the clip may contain.</param>
     /// <returns>The decoded clip.</returns>
     /// <exception cref="InvalidDataException">Thrown when the stream is malformed, truncated or too large.</exception>
-    public static AudioClip Decode(byte[] data, bool verifyChecksums, long maxSamples)
+    public static AudioClip Decode(byte[] data, bool verifyChecksums, long maxSamples) =>
+        Decode(data, verifyChecksums, maxSamples, Array.MaxLength);
+
+    /// <summary>
+    ///     Decodes a FLAC stream with an explicit array-length ceiling (a test seam for the <see cref="Array.MaxLength"/> clamp).
+    /// </summary>
+    /// <param name="data">The file bytes.</param>
+    /// <param name="verifyChecksums">Whether frame CRCs are verified.</param>
+    /// <param name="maxSamples">The most samples (across channels) the clip may contain.</param>
+    /// <param name="maxArrayLength">The largest sample array the decoder may allocate; production passes <see cref="Array.MaxLength"/>.</param>
+    /// <returns>The decoded clip.</returns>
+    /// <exception cref="InvalidDataException">Thrown when the stream is malformed, truncated or too large.</exception>
+    internal static AudioClip Decode(byte[] data, bool verifyChecksums, long maxSamples, int maxArrayLength)
     {
         var position = SkipId3(data);
         if (position < 0 || !IsFlac(data))
@@ -57,7 +69,7 @@ internal static class FlacDecoder
                 $"The FLAC stream declares {info.TotalSamples * info.ChannelCount} samples, more than the allowed {maxSamples}.");
         }
 
-        var samples = DecodeFrames(data, position, info, verifyChecksums, maxSamples);
+        var samples = DecodeFrames(data, position, info, verifyChecksums, maxSamples, maxArrayLength);
         return new AudioClip(samples, info.SampleRate, info.ChannelCount, info.BitsPerSample);
     }
 
@@ -142,7 +154,7 @@ internal static class FlacDecoder
     }
 
     /// <summary>Decodes all frames into one interleaved float array.</summary>
-    private static float[] DecodeFrames(byte[] data, int position, FlacStreamInfo info, bool verify, long maxSamples)
+    private static float[] DecodeFrames(byte[] data, int position, FlacStreamInfo info, bool verify, long maxSamples, int maxArrayLength)
     {
         var buffers = new long[info.ChannelCount][];
         for (var channel = 0; channel < buffers.Length; channel++)
@@ -170,14 +182,14 @@ internal static class FlacDecoder
 
             var frames = (int)Math.Min(blockSize, remainingFrames);
             var needed = written + ((long)frames * info.ChannelCount);
-            if (needed > maxSamples || needed > Array.MaxLength)
+            if (needed > maxSamples || needed > maxArrayLength)
             {
-                throw new InvalidDataException($"The FLAC stream holds more than the allowed {Math.Min(maxSamples, Array.MaxLength)} samples.");
+                throw new InvalidDataException($"The FLAC stream holds more than the allowed {Math.Min(maxSamples, maxArrayLength)} samples.");
             }
 
             if (needed > output.Length)
             {
-                Array.Resize(ref output, (int)Math.Min(Math.Max(needed, output.Length * 2L), Math.Min(maxSamples, Array.MaxLength)));
+                Array.Resize(ref output, (int)Math.Min(Math.Max(needed, output.Length * 2L), Math.Min(maxSamples, maxArrayLength)));
             }
 
             written = Interleave(buffers, frames, scale, output, written);

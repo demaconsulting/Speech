@@ -450,6 +450,24 @@ public sealed class FlacDecoderTests
         Assert.Throws<InvalidDataException>(() => Decode(unknown, options));
     }
 
+    /// <summary>Proves the array-length clamp rejects a stream whose samples exceed the allocatable array length, declared or unknown.</summary>
+    [Fact]
+    public void FlacDecoder_Decode_ExceedsArrayLimit_Throws()
+    {
+        // Arrange: 300 samples against a seam limit of 150 while maxSamples is effectively unbounded
+        var known = new TestFlacEncoder { BlockSize = 100 }.Encode(Signal(1, 300, 16));
+        var unknown = new TestFlacEncoder { BlockSize = 100, UnknownTotal = true }.Encode(Signal(1, 300, 16));
+
+        // Act
+        var knownEx = Assert.Throws<InvalidDataException>(() => FlacDecoder.Decode(known, true, long.MaxValue, 150));
+        var unknownEx = Assert.Throws<InvalidDataException>(() => FlacDecoder.Decode(unknown, true, long.MaxValue, 150));
+
+        // Assert
+        Assert.Contains("150", knownEx.Message, StringComparison.Ordinal);
+        Assert.Contains("150", unknownEx.Message, StringComparison.Ordinal);
+        Assert.Equal(300, FlacDecoder.Decode(known, true, long.MaxValue, 300).Samples.Length);
+    }
+
     /// <summary>Proves a frame holding more samples than remain in the declared STREAMINFO total is rejected, not truncated.</summary>
     [Fact]
     public void FlacDecoder_Decode_FrameExceedsDeclaredTotal_Throws()

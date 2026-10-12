@@ -115,6 +115,11 @@ public sealed class ReferenceVoicePackTests
     [InlineData("a/b.zip")]
     [InlineData("..\\evil.zip")]
     [InlineData("..")]
+    [InlineData("C:")]
+    [InlineData("C:evil.zip")]
+    [InlineData("C:\\evil.zip")]
+    [InlineData("/evil.zip")]
+    [InlineData("a:b.zip")]
     public void ReferenceVoicePack_Constructor_UnsafeArchiveFileName_Throws(string name)
     {
         // Act
@@ -191,8 +196,22 @@ public sealed class ReferenceVoicePackTests
     [InlineData("a\\b")]
     [InlineData("..")]
     [InlineData("  ")]
+    [InlineData("C:")]
+    [InlineData("C:pack")]
+    [InlineData("C:\\pack")]
+    [InlineData("/pack")]
     public void ReferenceVoicePack_Constructor_UnsafeId_Throws(string id) =>
         Assert.ThrowsAny<ArgumentException>(() => Create(id: id));
+
+    /// <summary>
+    ///     Proves that a rooted or drive-qualified archive root folder is rejected on every platform.
+    /// </summary>
+    [Theory]
+    [InlineData("C:")]
+    [InlineData("C:root")]
+    [InlineData("/root")]
+    public void ReferenceVoicePack_Constructor_RootedRootFolder_Throws(string root) =>
+        Assert.Throws<ArgumentException>(() => Create(root: root));
 
     /// <summary>
     ///     Proves that an unsafe archive root folder is rejected.

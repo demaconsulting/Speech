@@ -8,7 +8,9 @@ voice library needs, safely, and leave the staging directory in the shape that b
 `VoicesDirectoryName` (`voices`), `EmotionsDirectoryName` (`voices-emotion`), `MaximumEntryBytes` (128 MiB)
 and `MaximumTotalBytes` (2 GiB).
 
-**Key Methods**: `InstallAsync(pack, includeEmotions, stagingDirectory, cancellationToken)`:
+**Key Methods**: `InstallAsync(pack, includeEmotions, stagingDirectory, cancellationToken)` (uses the default
+caps) delegates to an internal overload that also takes `maximumEntryBytes` and `maximumTotalBytes`, which
+exists so tests can exercise the caps with small limits:
 
 1. Opens `{stagingDirectory}\{pack.ArchiveFileName}` as a zip archive.
 2. Considers only entries under `{ArchiveRootFolder}/`: `voices/*.flac`, `voices/README.md`,
