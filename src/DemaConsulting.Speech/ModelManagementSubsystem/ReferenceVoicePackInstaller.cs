@@ -86,6 +86,8 @@ internal static class ReferenceVoicePackInstaller
                     continue;
                 }
 
+                ValidateDestinationSegments(entry.FullName, relativePath);
+
                 var destination = Path.GetFullPath(Path.Combine(stagingRoot, relativePath));
                 if (!destination.StartsWith(stagingRoot + Path.DirectorySeparatorChar, StringComparison.Ordinal))
                 {
@@ -149,6 +151,38 @@ internal static class ReferenceVoicePackInstaller
         }
 
         return segments;
+    }
+
+    /// <summary>The characters rejected in any extracted path segment on every platform (the Windows-invalid set).</summary>
+    private static readonly char[] InvalidSegmentChars = [.. Path.GetInvalidFileNameChars(), '*', '?', '<', '>', '|', '"', ':'];
+
+    /// <summary>The Windows reserved device names (matched with or without an extension).</summary>
+    private static readonly HashSet<string> ReservedNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "CON", "PRN", "AUX", "NUL",
+        "COM0", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+        "LPT0", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+    };
+
+    /// <summary>
+    ///     Rejects a destination whose segments cannot be created on every platform (invalid characters, control
+    ///     characters, reserved device names, trailing dots or spaces) with an <see cref="InvalidDataException"/>
+    ///     instead of letting the file system throw an unrelated exception type.
+    /// </summary>
+    private static void ValidateDestinationSegments(string entryName, string relativePath)
+    {
+        foreach (var segment in relativePath.Replace('\\', '/').Split('/'))
+        {
+            var stem = segment.Split('.')[0].TrimEnd(' ');
+            if (segment.IndexOfAny(InvalidSegmentChars) >= 0
+                || segment.Any(char.IsControl)
+                || segment.EndsWith('.')
+                || segment.EndsWith(' ')
+                || ReservedNames.Contains(stem))
+            {
+                throw new InvalidDataException($"Archive entry '{entryName}' has a name that is not valid on every platform.");
+            }
+        }
     }
 
     /// <summary>

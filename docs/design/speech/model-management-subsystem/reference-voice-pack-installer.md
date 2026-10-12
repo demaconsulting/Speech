@@ -27,7 +27,9 @@ alone never satisfy step 4.
 
 **Error Handling**: All problems are `InvalidDataException` (which the downloader classifies as
 `Failed`, installing nothing): a file that is not a zip archive, an entry name containing a backslash,
-a colon, a leading slash, a NUL, or a `..` or `.` segment, a resolved path outside the staging
+a colon, a leading slash, a NUL, or a `..` or `.` segment, an extracted entry with a segment that is not
+valid on every platform (characters `* ? < > | "` or control characters, Windows reserved device names
+such as `CON`/`NUL`/`COM1`, a trailing dot or space), a resolved path outside the staging
 directory, two entries mapping to one destination, an entry or total size over its cap, or no voices.
 Cancellation propagates as `OperationCanceledException`. Because the archive is checksum-verified the
 caps are a second line of protection rather than the first.

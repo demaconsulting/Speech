@@ -157,6 +157,32 @@ public sealed class ReferenceVoicePackInstallerTests : IDisposable
     }
 
     /// <summary>
+    ///     Proves that entries with names invalid on Windows (wildcards, quotes, reserved device names, trailing dot)
+    ///     fail with <see cref="InvalidDataException"/> rather than a platform-specific exception.
+    /// </summary>
+    [Theory]
+    [InlineData("voice-zero/voices/bad*name.flac")]
+    [InlineData("voice-zero/voices/what?.flac")]
+    [InlineData("voice-zero/voices/a<b>.flac")]
+    [InlineData("voice-zero/voices/pipe|d.flac")]
+    [InlineData("voice-zero/voices/quo\"te.flac")]
+    [InlineData("voice-zero/voices/CON.flac")]
+    [InlineData("voice-zero/voices/nul.flac")]
+    [InlineData("voice-zero/voices/lpt1.flac")]
+    public async Task ReferenceVoicePackInstaller_Install_PlatformInvalidEntryName_ThrowsInvalidData(string entryName)
+    {
+        // Arrange
+        var zip = ReferenceVoiceTestPacks.BuildZip(
+        [
+            ("voice-zero/voices/a.flac", "flac"u8.ToArray()),
+            (entryName, "evil"u8.ToArray()),
+        ]);
+
+        // Act & Assert
+        await Assert.ThrowsAsync<InvalidDataException>(() => InstallAsync(zip));
+    }
+
+    /// <summary>
     ///     Proves that emotion clips alone never satisfy the "at least one voice" requirement.
     /// </summary>
     [Fact]

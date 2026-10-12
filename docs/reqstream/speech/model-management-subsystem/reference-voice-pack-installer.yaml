@@ -40,6 +40,7 @@ sections:
                   than produce an empty voice library.
                 tests:
                   - ReferenceVoicePackInstaller_Install_UnsafeEntryName_ThrowsAndWritesNothingOutside
+                  - ReferenceVoicePackInstaller_Install_PlatformInvalidEntryName_ThrowsInvalidData
                   - ReferenceVoicePackInstaller_Install_NoVoices_Throws
                   - ReferenceVoicePackInstaller_Install_NotAZip_Throws
                   - ReferenceVoicePackInstaller_Install_CanceledToken_Throws

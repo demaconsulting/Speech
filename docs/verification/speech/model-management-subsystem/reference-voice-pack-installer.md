@@ -32,6 +32,8 @@ is written, the archive is deleted, every unsafe or malformed archive fails with
 
 **Test**: `ReferenceVoicePackInstaller_Install_UnsafeEntryName_ThrowsAndWritesNothingOutside`
 
+**Test**: `ReferenceVoicePackInstaller_Install_PlatformInvalidEntryName_ThrowsInvalidData`
+
 **Test**: `ReferenceVoicePackInstaller_Install_NoVoices_Throws`
 
 **Test**: `ReferenceVoicePackInstaller_Install_NotAZip_Throws`
