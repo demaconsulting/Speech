@@ -27,7 +27,8 @@ namespace DemaConsulting.Speech.Cli.Commands.ModelCommandsSubsystem;
 /// <summary>
 ///     Implements the <c>voices</c> subcommand: <c>voices packs</c> lists the installable
 ///     reference-voice packs with their state, <c>voices install &lt;packId&gt;</c> downloads and
-///     installs one (honoring <c>--mirror-*</c> and <c>--models-dir</c>, with live progress), and
+///     installs one (honoring <c>--mirror-*</c> and <c>--models-dir</c>, with live progress; the pack's emotion
+///     clips are included unless <c>--no-emotions</c> is given, and an installed voices-only pack is upgraded), and
 ///     <c>voices uninstall &lt;packId&gt;</c> removes one.
 /// </summary>
 /// <remarks>
@@ -134,35 +135,60 @@ internal static class VoicesCommand
         var states = packs.Select(p => catalog.GetVoicePackState(p.Id).ToString()).ToList();
         var stateWidth = Math.Max("State".Length, states.Max(s => s.Length));
 
-        context.WriteLine($"{"Id".PadRight(idWidth)}  {"State".PadRight(stateWidth)}  Download  License");
+        context.WriteLine($"{"Id".PadRight(idWidth)}  {"State".PadRight(stateWidth)}  Download  Voices  +Emotions  License");
         for (var i = 0; i < packs.Count; i++)
         {
-            var megabytes = packs[i].SizeBytes / (1024.0 * 1024.0);
+            var state = states[i];
+            if (catalog.GetVoicePackState(packs[i].Id) == SpeechModelState.Downloaded)
+            {
+                state += catalog.VoicePackHasEmotions(packs[i].Id) ? " (with emotions)" : " (voices only)";
+            }
+
             context.WriteLine(string.Create(
                 CultureInfo.InvariantCulture,
-                $"{packs[i].Id.PadRight(idWidth)}  {states[i].PadRight(stateWidth)}  {megabytes,6:F0} MB  {packs[i].LicenseName} - {packs[i].DisplayName}"));
+                $"{packs[i].Id.PadRight(idWidth)}  {state.PadRight(stateWidth)}  {ToMegabytes(packs[i].SizeBytes),5:F0} MB  {ToMegabytes(packs[i].VoicesBytes),3:F0} MB  {ToMegabytes(packs[i].EmotionsBytes),6:F0} MB  {packs[i].LicenseName} - {packs[i].DisplayName}"));
         }
 
         context.WriteLine("");
+        context.WriteLine("Download is the archive transferred; Voices and +Emotions are the extra disk space used once installed");
+        context.WriteLine("(the archive is the same download either way; use --no-emotions with 'voices install' to skip the emotion clips).");
         context.WriteLine($"Your own voices: put .wav/.flac files in '{catalog.UserVoicesDirectory}' or pass --voices-dir <path>.");
         context.WriteLine(ReferenceVoiceLibrary.ConsentNotice);
     }
+
+    /// <summary>Converts a byte count to megabytes (MiB).</summary>
+    private static double ToMegabytes(long bytes) => bytes / (1024.0 * 1024.0);
 
     /// <summary>Installs one pack, reporting progress and the consent note.</summary>
     private static async Task InstallAsync(Context context, ICliModelCatalog catalog, string packId, CancellationToken cancellationToken)
     {
         // Resolve first so an unknown id gives the clean "not a known pack" error before any output
-        _ = catalog.GetVoicePackState(packId);
+        var state = catalog.GetVoicePackState(packId);
+        var includeEmotions = !context.NoEmotions;
+        var upgrading = includeEmotions && state == SpeechModelState.Downloaded && !catalog.VoicePackHasEmotions(packId);
 
         try
         {
-            context.WriteLine($"Installing reference-voice pack '{packId}'...");
+            context.WriteLine(includeEmotions
+                ? $"Installing reference-voice pack '{packId}' with emotion variants (use --no-emotions to skip them)..."
+                : $"Installing reference-voice pack '{packId}' with the base voices only (--no-emotions)...");
+            if (upgrading)
+            {
+                context.WriteLine("The installed pack has no emotion variants: it is removed and downloaded again to add them.");
+            }
+
             var progress = CreateProgressReporter(context, packId);
-            var result = await catalog.InstallVoicePackAsync(packId, progress, cancellationToken).ConfigureAwait(false);
+            var result = await catalog.InstallVoicePackAsync(packId, includeEmotions, progress, cancellationToken).ConfigureAwait(false);
 
             if (result.Outcome == SpeechModelDownloadOutcome.Installed)
             {
-                context.WriteLine($"Voice pack '{packId}' installed. Run 'list-voices' to see the voices.");
+                var emotionsInstalled = catalog.VoicePackHasEmotions(packId);
+                context.WriteLine($"Voice pack '{packId}' installed ({(emotionsInstalled ? "with emotion variants" : "base voices only")}). Run 'list-voices' to see the voices.");
+                if (emotionsInstalled)
+                {
+                    context.WriteLine("Emotion variants are more intense recordings of the same speakers, so they clone the same speaker's vocal identity.");
+                }
+
                 context.WriteLine(ReferenceVoiceLibrary.ConsentNotice);
             }
             else

@@ -18,6 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+using System.Globalization;
 using System.Text.Json;
 using DemaConsulting.Speech.Cli.Cli;
 using DemaConsulting.Speech.ModelManagementSubsystem;
@@ -70,7 +71,8 @@ internal static class ListVoicesCommand
                     voice.Source.ToString(),
                     voice.PackId,
                     voice.FilePath,
-                    voice.LicenseName))
+                    voice.LicenseName,
+                    [.. (voice.MoodClips?.Keys ?? [])]))
                 .ToList();
             context.WriteLine(JsonSerializer.Serialize(rows, JsonOptions));
             return;
@@ -123,15 +125,18 @@ internal static class ListVoicesCommand
 
         var idWidth = Math.Max("Id".Length, voices.Max(v => v.Id.Length));
         var sourceWidth = Math.Max("Source".Length, voices.Max(v => v.Source.ToString().Length));
+        const int MoodsWidth = 5;
 
-        context.WriteLine($"{"Id".PadRight(idWidth)}  {"Source".PadRight(sourceWidth)}  Display Name");
-        context.WriteLine($"{new string('-', idWidth)}  {new string('-', sourceWidth)}  {new string('-', "Display Name".Length)}");
+        context.WriteLine($"{"Id".PadRight(idWidth)}  {"Source".PadRight(sourceWidth)}  {"Moods".PadRight(MoodsWidth)}  Display Name");
+        context.WriteLine($"{new string('-', idWidth)}  {new string('-', sourceWidth)}  {new string('-', MoodsWidth)}  {new string('-', "Display Name".Length)}");
         foreach (var voice in voices)
         {
-            context.WriteLine($"{voice.Id.PadRight(idWidth)}  {voice.Source.ToString().PadRight(sourceWidth)}  {voice.DisplayName}");
+            var moods = voice.MoodClips is { Count: > 0 } clips ? clips.Count.ToString(CultureInfo.InvariantCulture) : "-";
+            context.WriteLine($"{voice.Id.PadRight(idWidth)}  {voice.Source.ToString().PadRight(sourceWidth)}  {moods.PadRight(MoodsWidth)}  {voice.DisplayName}");
         }
 
         context.WriteLine("");
+        context.WriteLine("Moods is the number of emotion variants of the voice (installed with 'voices install', not with --no-emotions).");
         context.WriteLine("Use a voice with: speak --tts-model <id> --tts-param voice=<Id> ...");
         context.WriteLine(ReferenceVoiceLibrary.ConsentNotice);
     }
@@ -140,5 +145,5 @@ internal static class ListVoicesCommand
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
     /// <summary>One JSON-serializable voice row.</summary>
-    private sealed record VoiceRow(string Id, string DisplayName, string Source, string? PackId, string FilePath, string? LicenseName);
+    private sealed record VoiceRow(string Id, string DisplayName, string Source, string? PackId, string FilePath, string? LicenseName, IReadOnlyList<string> Moods);
 }

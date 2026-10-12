@@ -182,7 +182,7 @@ public sealed class SpeechModelCatalogAdapterTests : IDisposable
         Assert.Equal(SpeechModelState.NotDownloaded, adapter.GetVoicePackState(packId));
         Assert.Throws<ArgumentException>(() => adapter.GetVoicePackState("nope"));
         await Assert.ThrowsAsync<ArgumentException>(
-            () => adapter.InstallVoicePackAsync("nope", null, TestContext.Current.CancellationToken));
+            () => adapter.InstallVoicePackAsync("nope", true, null, TestContext.Current.CancellationToken));
     }
 
     /// <summary>

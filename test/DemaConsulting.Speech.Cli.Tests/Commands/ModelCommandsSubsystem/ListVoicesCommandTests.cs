@@ -53,6 +53,39 @@ public sealed class ListVoicesCommandTests
     }
 
     /// <summary>
+    ///     Test that the table and JSON show how many mood variants a voice has (and none as a dash).
+    /// </summary>
+    [Fact]
+    public void ListVoicesCommand_Run_MoodClips_ShowsMoodsColumnAndJson()
+    {
+        // Arrange
+        var catalog = new FakeCliModelCatalog();
+        catalog.Voices.Add(new ReferenceVoiceInfo("alice", "Alice", "/v/alice.wav", ReferenceVoiceSource.User, null, "alice"));
+        catalog.Voices.Add(new ReferenceVoiceInfo(
+            "bob-1",
+            "Bob 1",
+            "/v/bob-1.flac",
+            ReferenceVoiceSource.Pack,
+            "voice-zero-1.0",
+            "bob-1",
+            MoodClips: new Dictionary<string, string> { ["happy"] = "/m/happy.flac", ["sad"] = "/m/sad.flac" }));
+
+        // Act
+        var table = Execute(["list-voices"], catalog, out _);
+        var json = Execute(["list-voices", "--format", "json"], catalog, out _);
+
+        // Assert
+        var lines = table.Split('\n');
+        Assert.Contains("Moods", lines[0], StringComparison.Ordinal);
+        Assert.Contains(lines, line => line.StartsWith("alice", StringComparison.Ordinal) && line.Contains(" -  ", StringComparison.Ordinal));
+        Assert.Contains(lines, line => line.StartsWith("bob-1", StringComparison.Ordinal) && line.Contains(" 2  ", StringComparison.Ordinal));
+        using var document = JsonDocument.Parse(json);
+        var moods = document.RootElement[1].GetProperty("Moods").EnumerateArray().Select(item => item.GetString()).ToArray();
+        Assert.Equal(["happy", "sad"], moods);
+        Assert.Empty(document.RootElement[0].GetProperty("Moods").EnumerateArray());
+    }
+
+    /// <summary>
     ///     Test that with no voices the command explains how to get some and still prints the consent note.
     /// </summary>
     [Fact]

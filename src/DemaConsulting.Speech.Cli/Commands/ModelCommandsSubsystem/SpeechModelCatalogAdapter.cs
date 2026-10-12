@@ -104,11 +104,15 @@ internal sealed class SpeechModelCatalogAdapter : ICliModelCatalog, IDisposable
     public SpeechModelState GetVoicePackState(string packId) => _voiceLibrary.GetPackState(packId);
 
     /// <inheritdoc/>
+    public bool VoicePackHasEmotions(string packId) => _voiceLibrary.PackHasEmotions(packId);
+
+    /// <inheritdoc/>
     public Task<SpeechModelDownloadResult> InstallVoicePackAsync(
         string packId,
+        bool includeEmotions,
         IProgress<SpeechModelDownloadProgress>? progress,
         CancellationToken cancellationToken) =>
-        _voiceLibrary.InstallPackAsync(packId, progress, cancellationToken);
+        _voiceLibrary.InstallPackAsync(packId, includeEmotions, progress, cancellationToken);
 
     /// <inheritdoc/>
     public void UninstallVoicePack(string packId) => _voiceLibrary.UninstallPack(packId);

@@ -232,6 +232,12 @@ internal sealed class FakeCliModelCatalog : ICliModelCatalog
     /// <summary>Gets the ordered pack ids passed to <see cref="InstallVoicePackAsync"/>.</summary>
     public List<string> InstallPackCalls { get; } = [];
 
+    /// <summary>Gets the ordered <c>includeEmotions</c> values passed to <see cref="InstallVoicePackAsync"/>.</summary>
+    public List<bool> InstallEmotionsCalls { get; } = [];
+
+    /// <summary>Gets the pack ids this fake reports as installed with emotion clips.</summary>
+    public HashSet<string> PacksWithEmotions { get; } = new(StringComparer.Ordinal);
+
     /// <summary>Gets the ordered pack ids passed to <see cref="UninstallVoicePack"/>.</summary>
     public List<string> UninstallPackCalls { get; } = [];
 
@@ -265,18 +271,27 @@ internal sealed class FakeCliModelCatalog : ICliModelCatalog
     }
 
     /// <inheritdoc/>
+    public bool VoicePackHasEmotions(string packId) => PacksWithEmotions.Contains(packId);
+
+    /// <inheritdoc/>
     public Task<SpeechModelDownloadResult> InstallVoicePackAsync(
         string packId,
+        bool includeEmotions,
         IProgress<SpeechModelDownloadProgress>? progress,
         CancellationToken cancellationToken)
     {
         InstallPackCalls.Add(packId);
+        InstallEmotionsCalls.Add(includeEmotions);
         cancellationToken.ThrowIfCancellationRequested();
         OnInstallPack?.Invoke(progress);
         cancellationToken.ThrowIfCancellationRequested();
         if (InstallPackResult.Outcome == SpeechModelDownloadOutcome.Installed)
         {
             PackStates[packId] = SpeechModelState.Downloaded;
+            if (includeEmotions)
+            {
+                PacksWithEmotions.Add(packId);
+            }
         }
 
         return Task.FromResult(InstallPackResult);

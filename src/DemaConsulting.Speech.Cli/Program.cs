@@ -211,6 +211,7 @@ internal static class Program
         context.WriteLine("  -v, --version              Display version information");
         context.WriteLine("  -?, -h, --help             Display this help message");
         context.WriteLine("  --silent                   Suppress console output");
+        context.WriteLine("  --no-emotions              With 'voices install': skip the pack's emotion (mood) clips");
         context.WriteLine("  --validate                 Run self-validation");
         context.WriteLine("  --results <file>           Write validation results to file (.trx or .xml)");
         context.WriteLine("  --depth <#>                Set heading depth for markdown output (default: 1)");

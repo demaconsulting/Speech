@@ -201,9 +201,18 @@ internal interface ICliModelCatalog
     SpeechModelState GetVoicePackState(string packId);
 
     /// <summary>
+    ///     Determines whether an installed reference-voice pack was extracted with its emotion (mood) clips.
+    /// </summary>
+    /// <param name="packId">The pack identifier.</param>
+    /// <returns><see langword="true"/> when the pack is installed with emotion clips; otherwise <see langword="false"/>.</returns>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="packId"/> matches no known pack.</exception>
+    bool VoicePackHasEmotions(string packId);
+
+    /// <summary>
     ///     Downloads, verifies, and installs a reference-voice pack.
     /// </summary>
     /// <param name="packId">The pack identifier.</param>
+    /// <param name="includeEmotions"><see langword="true"/> to also extract the pack's emotion (mood) clips (an installed voices-only pack is upgraded); <see langword="false"/> for the base voices only.</param>
     /// <param name="progress">An optional progress sink.</param>
     /// <param name="cancellationToken">A token that aborts the download.</param>
     /// <returns>The outcome of the install attempt.</returns>
@@ -211,6 +220,7 @@ internal interface ICliModelCatalog
     /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is canceled.</exception>
     Task<SpeechModelDownloadResult> InstallVoicePackAsync(
         string packId,
+        bool includeEmotions,
         IProgress<SpeechModelDownloadProgress>? progress,
         CancellationToken cancellationToken);
 

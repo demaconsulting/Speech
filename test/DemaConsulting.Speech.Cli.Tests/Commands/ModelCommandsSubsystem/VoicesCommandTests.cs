@@ -86,6 +86,83 @@ public sealed class VoicesCommandTests
     }
 
     /// <summary>
+    ///     Test that <c>voices install</c> includes the emotion clips by default and says so.
+    /// </summary>
+    [Fact]
+    public async Task VoicesCommand_RunAsync_Install_DefaultIncludesEmotions()
+    {
+        // Arrange
+        var catalog = new FakeCliModelCatalog();
+
+        // Act
+        var (output, exitCode) = await ExecuteAsync(["voices", "install", PackId], catalog, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal([true], catalog.InstallEmotionsCalls);
+        Assert.Contains("with emotion variants", output);
+        Assert.Equal(0, exitCode);
+    }
+
+    /// <summary>
+    ///     Test that <c>--no-emotions</c> installs the base voices only and is forwarded to the seam.
+    /// </summary>
+    [Fact]
+    public async Task VoicesCommand_RunAsync_InstallNoEmotions_InstallsBaseVoicesOnly()
+    {
+        // Arrange
+        var catalog = new FakeCliModelCatalog();
+
+        // Act
+        var (output, exitCode) = await ExecuteAsync(["voices", "install", PackId, "--no-emotions"], catalog, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal([false], catalog.InstallEmotionsCalls);
+        Assert.Contains("base voices only", output);
+        Assert.DoesNotContain("with emotion variants", output);
+        Assert.Equal(0, exitCode);
+    }
+
+    /// <summary>
+    ///     Test that installing over a voices-only pack announces the upgrade.
+    /// </summary>
+    [Fact]
+    public async Task VoicesCommand_RunAsync_InstallOverVoicesOnly_AnnouncesUpgrade()
+    {
+        // Arrange
+        var catalog = new FakeCliModelCatalog();
+        catalog.PackStates[PackId] = SpeechModelState.Downloaded;
+
+        // Act
+        var (output, _) = await ExecuteAsync(["voices", "install", PackId], catalog, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Contains("removed and downloaded again", output);
+        Assert.Equal([true], catalog.InstallEmotionsCalls);
+    }
+
+    /// <summary>
+    ///     Test that <c>voices packs</c> shows the real download size and the installed sizes with and without emotions.
+    /// </summary>
+    [Fact]
+    public async Task VoicesCommand_RunAsync_Packs_ShowsDownloadAndInstalledSizes()
+    {
+        // Arrange
+        var catalog = new FakeCliModelCatalog();
+        catalog.PackStates[PackId] = SpeechModelState.Downloaded;
+        catalog.PacksWithEmotions.Add(PackId);
+
+        // Act
+        var (output, _) = await ExecuteAsync(["voices", "packs"], catalog, TestContext.Current.CancellationToken);
+
+        // Assert: 597,269,359 B download; 45,632,432 B voices; 553,873,246 B emotions
+        Assert.Contains("+Emotions", output);
+        Assert.Contains("570 MB", output);
+        Assert.Contains(" 44 MB", output);
+        Assert.Contains("528 MB", output);
+        Assert.Contains("Downloaded (with emotions)", output);
+    }
+
+    /// <summary>
     ///     Test that a failed install is reported as an error (non-zero exit) without the consent note of success.
     /// </summary>
     [Fact]

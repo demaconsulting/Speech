@@ -64,6 +64,12 @@ internal sealed class Context : IDisposable
     public bool Silent { get; private init; }
 
     /// <summary>
+    ///     Gets a value indicating whether <c>--no-emotions</c> was specified, which makes <c>voices install</c> extract
+    ///     only the base voices of a pack and skip its emotion (mood) clips. It has no effect on other commands.
+    /// </summary>
+    public bool NoEmotions { get; private init; }
+
+    /// <summary>
     ///     Gets a value indicating whether the validate flag was specified.
     /// </summary>
     public bool Validate { get; private init; }
@@ -217,6 +223,7 @@ internal sealed class Context : IDisposable
             Version = parser.Version,
             Help = parser.Help,
             Silent = parser.Silent,
+            NoEmotions = parser.NoEmotions,
             Validate = parser.Validate,
             Diagnostics = parser.Diagnostics,
             ModelsDir = parser.ModelsDir,
@@ -289,6 +296,11 @@ internal sealed class Context : IDisposable
         ///     Gets a value indicating whether the silent flag was specified.
         /// </summary>
         public bool Silent { get; private set; }
+
+        /// <summary>
+        ///     Gets a value indicating whether the no-emotions flag was specified.
+        /// </summary>
+        public bool NoEmotions { get; private set; }
 
         /// <summary>
         ///     Gets a value indicating whether the validate flag was specified.
@@ -400,6 +412,10 @@ internal sealed class Context : IDisposable
 
                 case "--silent":
                     Silent = true;
+                    return index;
+
+                case "--no-emotions":
+                    NoEmotions = true;
                     return index;
 
                 case "--validate":
