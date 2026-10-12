@@ -10,8 +10,8 @@ units:
 
 - **OnnxChatterboxTurboSynthesisEngine**: prompt assembly and the bounded generation loop
 - **OnnxChatterboxTurboNetworks**: the four ONNX Runtime sessions behind an internal seam
-- **ChatterboxTurboTokenSelector**: repetition-penalized greedy token selection
-- **ChatterboxTurboCapabilityProfile**: the model's audio-tag rendering policy
+- **ChatterboxTurboTokenSelector**: repetition-penalized greedy token selection with blocked-token support
+- **ChatterboxTurboCapabilityProfile**: the model's audio-tag and mood rendering policy
 
 ### Interfaces
 
@@ -28,7 +28,13 @@ segment at a time. The engine encodes each voice once (speech encoder over the r
 caches the conditioning, then per call tokenizes and embeds the text, prefixes the voice
 conditioning, runs the language model step by step through the token selector until the stop token
 or the bound, and passes the prompt tokens, speech tokens and trailing silence tokens to the
-decoder. The engine is not thread-safe; one caller at a time.
+decoder. Mood tags choose which reference clip of the voice conditions each segment; the model has no
+emotion tokens. Calls are serialized by an internal lock, so concurrent callers run one at a time.
+
+The engine also applies run-length capping (a token repeated more than the configured number of times is
+blocked for the next step; the stop token never is), runs on the CPU provider only, and produces 24 kHz
+mono audio. An out-of-range speaker id falls back to the first voice, and a voice without a clip for the
+requested mood uses its base clip.
 
 The capability profile maps tag kinds to treatments: laugh, throat-clear and gasp become native
 bracketed model tokens; sighs and pauses become silence segments; every other tag is omitted so the

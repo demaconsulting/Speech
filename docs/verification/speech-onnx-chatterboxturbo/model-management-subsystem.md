@@ -16,20 +16,28 @@ graphs, so no real model is required.
 - **Project**: `test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests`
 - **Dependencies**: no network, no audio hardware, no real model files
 
-### Unit-Level Test Scenarios
+### Test Scenarios
 
 See the unit verification documents: `onnx-chatterboxturbo-english-synthesis-model.md`,
 `byte-level-bpe-tokenizer.md` and `chatterbox-turbo-reference-voice.md`.
 
-### Registration Extension
+#### Registration Extension
 
 **Test**: `SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_RegistersModelAndReturnsCatalog`
 
 Verifies that the extension registers the one model with the supplied options and returns the same
 catalog instance.
 
+#### Registration Extension defaults the voice library to the catalog store
+
+**Test**: `SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_DefaultsToCatalogStoreVoices`
+
+Verifies that with no library in the options the model lists the voices of the catalog's store and the
+caller's options are not modified.
+
 ### Acceptance Criteria
 
-The subsystem is accepted when the registration test passes and every unit suite passes: the model
-metadata, descriptor, variants, voices and backend creation behave as documented, the tokenizer
-reproduces the reference ids, and reference voices are normalized and validated.
+The subsystem is accepted when both registration tests pass and every unit suite passes: the model
+metadata, descriptor, variants, voices (explicit, directory, user folder and pack, with duplicate and label
+handling) and backend creation behave as documented, the tokenizer reproduces the reference ids, and
+reference voices (with lazy and mood clips) are normalized and validated.

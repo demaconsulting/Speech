@@ -36,35 +36,46 @@ Synthetic ONNX graphs (an encoder, an embedder, a language model with a key/valu
 decoder) are generated at test time by a small in-test ONNX writer. The generation loop is
 additionally tested against a fake `IChatterboxTurboNetworks`.
 
-## System-Level Test Scenarios
+## Test Scenarios
 
-### Integration: AddChatterboxTurboModels registers the model and returns the catalog
+### AddChatterboxTurboModels registers the model and returns the catalog
 
 **Test**: `SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_RegistersModelAndReturnsCatalog`
 
-### Integration: the registered model declares native-tag synthesis metadata
+### The registered model declares native-tag synthesis metadata
 
 **Test**: `OnnxChatterboxTurboEnglishSynthesisModel_Metadata_DescribesNativeTagSynthesisModel`
 
-### Integration: tokenization matches the reference tokenizer
+### Tokenization matches the reference tokenizer
 
 **Test**: `ByteLevelBpeTokenizer_Encode_GoldenText_MatchesReferenceIds`
 
-### Integration: a synthetic install synthesizes audio
+### A synthetic install synthesizes audio
 
 **Test**: `OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_SyntheticInstall_SynthesizesAudio`
 
-### Integration: voice loading and selection
+### Voice loading and selection
 
 **Tests**: `ChatterboxTurboReferenceVoice_FromFile_StereoWav_LoadsVoice`,
 `OnnxChatterboxTurboSynthesisEngine_Generate_Voices_AreEncodedOnceAndFallBack`
 
-### Integration: tag rendering
+### Store voices (user folder and voice pack) are offered by default
+
+**Tests**: `OnnxChatterboxTurboEnglishSynthesisModel_Constructor_StoreVoices_MergedAfterExplicitAndDirectoryFirstIdWins`,
+`SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_DefaultsToCatalogStoreVoices`
+
+### Mood tags select the mood clip with a base-clip fallback
+
+**Tests**: `ChatterboxTurboCapabilityProfile_Render_MoodTag_MarksFollowingTextWithMood`,
+`OnnxChatterboxTurboSynthesisEngine_Generate_MoodMarker_UsesMoodClipOnceAndHidesMarker`,
+`OnnxChatterboxTurboSynthesisEngine_Generate_MoodMissing_FallsBackToBaseClip`
+
+### Tag rendering
 
 **Tests**: `ChatterboxTurboCapabilityProfile_Render_MidSentenceLaugh_StaysInlineWithNativeToken`,
 `ChatterboxTurboCapabilityProfile_Render_Sigh_BecomesSilenceSegment`
 
-### Integration: runaway generation is bounded
+### Runaway generation is bounded
 
 **Test**: `OnnxChatterboxTurboSynthesisEngine_Generate_NeverStops_IsBoundedAndFlagged`
 

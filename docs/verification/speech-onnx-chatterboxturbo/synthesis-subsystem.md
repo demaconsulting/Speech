@@ -18,14 +18,25 @@ capability profile are pure functions tested directly. End-to-end construction t
 - **Dependencies**: no network, no audio hardware, no real model files; tests observing ONNX
   sessions run in a non-parallel collection
 
-### Unit-Level Test Scenarios
+### Test Scenarios
 
 See the unit verification documents: `onnx-chatterboxturbo-synthesis-engine.md`,
 `onnx-chatterboxturbo-networks.md`, `chatterbox-turbo-token-selector.md` and
 `chatterbox-turbo-capability-profile.md`.
 
+#### End-to-end synthesis through a synthetic install
+
+**Test**: `OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_SyntheticInstall_SynthesizesAudio`
+
+#### Mood conditioning and generation guards
+
+**Tests**: `OnnxChatterboxTurboSynthesisEngine_Generate_MoodMarker_UsesMoodClipOnceAndHidesMarker`,
+`OnnxChatterboxTurboSynthesisEngine_Generate_NeverStops_IsBoundedAndFlagged` and
+`OnnxChatterboxTurboSynthesisEngine_Generate_StuckToken_IsCappedAtRunLength`
+
 ### Acceptance Criteria
 
-The subsystem is accepted when every unit suite passes: prompt assembly, bounding and voice caching
-in the engine; tensor contracts, thread configuration and disposal in the networks; penalized
-selection; and tag rendering and segmentation in the capability profile.
+The subsystem is accepted when every unit suite passes: prompt assembly, bounding, run-length capping,
+mood conditioning and voice caching in the engine; tensor contracts, thread configuration and disposal in the
+networks; penalized selection that is safe for NaN and infinite logits; and tag and mood rendering and
+segmentation in the capability profile.

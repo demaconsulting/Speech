@@ -16,9 +16,12 @@ carries the `ChatterboxTurbo` suffix so that a separate package for the original
 family can be added later without a naming clash.
 
 Chatterbox Turbo is a voice-cloning model: it has no built-in voices and instead conditions
-generation on a short reference clip. This package therefore accepts caller-supplied reference
-voices through its options; it bundles no voice audio and the model store carries no voice
-downloads. The model is distributed as four ONNX graphs (speech encoder, token embedder, language
+generation on a short reference clip. Voices therefore come from the host through its options, from a
+user voice folder and from a separately installed reference-voice pack, all listed through the Speech
+library's `ReferenceVoiceLibrary` over the model store. Clips are WAV or FLAC, are decoded lazily on
+first use, and a voice may carry per-mood clips (sad, shout, ...) that are used when the text is spoken
+in that mood through the mood audio tags. The model download itself contains no voice audio and the package
+bundles none. The model is distributed as four ONNX graphs (speech encoder, token embedder, language
 model, conditional decoder), each with an external-data file, which this package runs directly
 through ONNX Runtime on the CPU. The package owns its text tokenizer (an embedded byte-level BPE
 vocabulary), its autoregressive generation loop, and its audio-tag rendering policy.
@@ -44,8 +47,9 @@ and the reference-voice type. It implements Speech's public `ISynthesisModel` an
 | `AddChatterboxTurboModels()` | Inbound | Extension method | Throws for a null catalog |
 | `OnnxChatterboxTurboEnglishSynthesisModel` | Inbound | Public class | Holds options and voices |
 | `ChatterboxTurboReferenceVoice.FromSamples/FromFile` | Inbound | Static factory | WAV or FLAC file, or samples |
+| `ReferenceVoiceLibrary` | Outbound | Core library type | User folder and installed voice pack |
 | `ISynthesisModel.CreateBackend(...)` | Inbound/Outbound | Public method call | Throws when unusable |
-| `ISynthesisBackend` | Inbound | Public interface | Not thread-safe |
+| `ISynthesisBackend` | Inbound | Public interface | Calls serialized internally |
 | `SpeechModelCatalog.AddModels(...)` | Outbound | Method call/return | Builder-phase only |
 | Microsoft.ML.OnnxRuntime managed API | Outbound | Method call/return | CPU provider only |
 
@@ -65,7 +69,9 @@ safety role.
 ## Data Flow
 
 **Model registration path:** a host calls `AddChatterboxTurboModels(options)` on a
-`SpeechModelCatalog`; the method registers the one model instance and returns the same catalog.
+`SpeechModelCatalog`; the method defaults the voice library to one over the catalog's store, registers
+the one model instance and returns the same catalog. The model lists explicit, directory and library
+(user and pack) voices, decoded lazily.
 
 **Model install path:** Speech's downloader fetches and checksum-verifies the files of the selected
 precision variants (eight by default) directly into the install directory; no extraction step is
@@ -78,8 +84,10 @@ already-opened sessions before rethrowing.
 **Synthesis path:**
 
 1. Speech's session renders audio tags through the package's capability profile and passes one
-   text segment, speed and speaker id to `Generate`
-2. The engine tokenizes the text, embeds the ids, and prefixes the selected voice's conditioning
+   text segment, speed and speaker id to `Generate`; a mood tag prefixes the following segments with an
+   internal mood marker
+2. The engine removes the marker, tokenizes the text, embeds the ids, and prefixes the conditioning of the
+   selected voice's clip for that mood (the voice's base clip when it has none)
 3. The language model is stepped autoregressively with a repetition-penalized greedy selector until
    the stop token or a bound proportional to the text length
 4. The conditional decoder converts the prompt and speech tokens into a 24 kHz waveform, which is
@@ -88,8 +96,8 @@ already-opened sessions before rethrowing.
 ## Design Constraints
 
 - **Speech must never depend on SpeechOnnxChatterboxTurbo**: the dependency is one-way
-- **No bundled audio or weights**: voices are caller-supplied and model files are downloaded on the
-  host's explicit action
+- **No bundled audio or weights**: voices come from the host, the user folder or the installed voice
+  pack, and model files are downloaded on the host's explicit action
 - **CPU only**: the model is run on the ONNX Runtime CPU provider; no accelerated provider is
   referenced
 - **Bounded generation**: generation never loops unboundedly and never throws for hitting a bound

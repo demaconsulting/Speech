@@ -5,7 +5,7 @@
 # ModelManagementSubsystem, decomposing the system-level requirements in
 # docs/reqstream/speech-onnx-chatterboxturbo.yaml. The subsystem holds the catalog extension
 # method, the ISynthesisModel implementation (with its options and variant enums), the embedded
-# byte-level BPE tokenizer, and the reference-voice type with its audio resampler.
+# byte-level BPE tokenizer, and the reference-voice type with its mood clips.
 #
 # Covered by test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/ModelManagementSubsystem/;
 # unit-level requirements live under
@@ -63,7 +63,7 @@ sections:
           - id: SpeechOnnxChatterboxTurbo-Models-ReferenceVoices
             title: >-
               The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall create reference
-              voices from in-memory audio or 16-bit PCM WAV files of any sample rate and
+              voices from in-memory audio or WAV or FLAC files of any sample rate and
               channel count, normalizing them to mono 24 kHz and bounding their length.
             justification: |
               The speech encoder expects mono 24 kHz audio of a useful length, while hosts hold
@@ -77,7 +77,7 @@ sections:
             title: >-
               The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall offer the voices of the
               model store's reference-voice library, downloaded pack and user folder, as selectable
-              voices alongside explicitly supplied ones.
+              voices alongside explicitly supplied ones, including each voice's mood clips.
             justification: |
               Voice cloning needs reference clips, and shipping a ready-to-download pack of
               permissively licensed clips plus a user folder removes the need for every host to
@@ -86,3 +86,6 @@ sections:
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoices
               - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-LazyFileLoading
               - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-MoodClips
+            tests:
+              - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_StoreVoices_MergedAfterExplicitAndDirectoryFirstIdWins
+              - SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_DefaultsToCatalogStoreVoices
