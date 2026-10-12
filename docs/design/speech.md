@@ -8,17 +8,23 @@ This document provides the system-level design for the Speech.
 ## Architecture
 
 Speech is a cross-platform .NET library providing local, offline speech-to-text and
-text-to-speech services for desktop applications. In this phase, the implemented system
-consists of five subsystems:
+text-to-speech services for desktop applications. The system consists of five subsystems:
 
 - **Diagnostics**: reports structural diagnostic events to an optional host-supplied sink,
   carrying structural facts only, never raw audio or text — see _Diagnostics Subsystem Design_
 - **AudioSubsystem**: defines the public capture/playback device and probe contracts, the
   name-only device identity model, honest unavailable fallbacks, real PortAudio-backed device
-  implementations, and the `AudioDeviceFactory` composition root — see _AudioSubsystem Design_
+  implementations, file-backed WAV capture and playback devices (`WavFileAudioCaptureDevice`/
+  `WavFileAudioPlaybackDevice`, constructed directly for tests and headless use), the managed
+  WAV/FLAC decoding pipeline (`AudioFileReader` content-sniffing into an `AudioClip`, with
+  `AudioResampler` rate conversion), and the `AudioDeviceFactory` composition root — see
+  _AudioSubsystem Design_
 - **ModelManagementSubsystem**: per-user speech model storage with atomic
   `current/`/`install-manifest.json`/`.tmp/{guid}` install/repair/uninstall, the queued
-  fetch-verify-install download orchestration with a mockable HTTP seam, and the model
+  fetch-verify-install download orchestration with a mockable HTTP seam and an optional
+  `DownloadMirror` that redirects download URIs, the reference-voice support used by
+  voice-cloning models (installable `ReferenceVoicePack`s and the `ReferenceVoiceLibrary` that
+  lists user-folder and installed-pack voices), and the model
   catalog/contract seam: typed tunable-parameter descriptors, the common `ISpeechModel`
   contract with its `IRecognitionModel`/`ISynthesisModel` role markers (the extension point
   concrete models implement), and `SpeechModelCatalog`'s enumeration of the host-registered
@@ -39,8 +45,10 @@ consists of five subsystems:
   pipeline-friendly chunk boundaries, and the public async Engine/Session streaming/playback
   contract (`ISpeechSynthesizerEngine`/`ISynthesisSession`), whose `SpeechSynthesizerFactory`
   composition root's `LoadAsync` returns either the real `SynthesisSession` pipeline
-  or the honest `UnavailableSpeechSynthesizerEngine`/`UnavailableSynthesisSession` fallback —
-  see _SynthesisSubsystem Design_
+  or the honest `UnavailableSpeechSynthesizerEngine`/`UnavailableSynthesisSession` fallback.
+  Voice selection is expressed through the model's own parameter bag (a model-declared choice
+  parameter, applied when the engine is loaded), with `null` selecting the model's default voice
+  — see _SynthesisSubsystem Design_
 
 Within AudioSubsystem, a child **PortAudio** subsystem isolates PortAudioSharp2 and the
 supplementary native host-API bindings behind internal `IPortAudioApi` and `IPortAudioStream`
@@ -63,6 +71,19 @@ The system exposes the following public API to external consumers:
   probes
 - **AudioDeviceUnavailableException**: thrown when an operational member of an unavailable device
   is invoked
+- **WavFileAudioCaptureDevice** / **WavFileAudioPlaybackDevice**: file-backed capture (WAV/FLAC
+  source, optional end-of-file event) and playback (WAV sink) devices implementing the same
+  device contracts
+- **AudioFileReader** / **AudioFileReadOptions** / **AudioClip** / **AudioResampler**: managed
+  WAV and FLAC decoding by content sniffing, optional downmix/resample, and the decoded clip
+  value type
+- **AudioFormat** / **AudioDeviceInUseException**: the audio format description and the
+  exception reporting a device already held elsewhere
+- **DownloadMirror** / **SpeechModelDownloaderOptions**: optional mirror redirect (with
+  credentials or a bearer token) and downloader options
+- **ReferenceVoiceLibrary** / **ReferenceVoicePack** / **ReferenceVoiceInfo** /
+  **ReferenceVoiceSource**: installable reference-voice packs and the listing of user-folder and
+  installed-pack voices (installer and diagnostics helpers stay internal to the subsystem)
 - **SpeechModelStore** / **SpeechModelStoreOptions** / **SpeechModelStoreException**: per-user
   model storage with atomic install/repair/uninstall and a host-configurable root override
 - **SpeechModelDownloader**: queued fetch-verify-install download orchestration
@@ -127,6 +148,10 @@ The system exposes the following public API to external consumers:
 | `IAudioCaptureDeviceProbe.Enumerate()` | Outbound | Method call/return | Never throws; preferred host API only |
 | `IAudioPlaybackDeviceProbe.Enumerate()` | Outbound | Method call/return | Never throws; preferred host API only |
 | `AudioDeviceSelection.Resolve(...)` | Inbound/Outbound | Method call/return | Throws for a null list |
+| `AudioFileReader.Read(...)`/`.ReadMono(...)` | Inbound/Outbound | Call/return | WAV/FLAC by content; throws if bad |
+| `WavFileAudioCaptureDevice`/`WavFileAudioPlaybackDevice` | Inbound/Outbound | Device | File-backed; no hardware |
+| `ReferenceVoiceLibrary.EnumerateVoices(...)` | Outbound | Method call/return | User-folder and pack voices |
+| `ReferenceVoiceLibrary.InstallPackAsync(...)` | Inbound/Outbound | Call/return | Verified install; failure result |
 | `SpeechModelStore.IsInstalled(...)` | Outbound | Method call/return | Never throws |
 | `SpeechModelStore.CompleteInstall(...)` | Inbound | Method call | Atomic; never touches `current/` early |
 | `SpeechModelStore.Uninstall(...)` | Inbound | Method call | Throws `SpeechModelStoreException` if blocked |
@@ -147,10 +172,13 @@ The system exposes the following public API to external consumers:
 
 ## Dependencies
 
-Speech has one runtime NuGet dependency: **PortAudioSharp2**. PortAudioSharp2 supplies the managed
+Speech has two runtime NuGet dependencies: **PortAudioSharp2** and **System.Numerics.Tensors**.
+PortAudioSharp2 supplies the managed
 PortAudio binding and transitively restores native runtime packages for `win-x64`, `linux-x64`,
-`linux-aarch64`, `osx-x64`, and `osx-arm64`. No `win-arm64` PortAudio runtime package is available
-in this phase. See _OTS Integration Design_ and _PortAudioSharp2 Design_ for details.
+`linux-aarch64`, `osx-x64`, and `osx-arm64`. No `win-arm64` PortAudio runtime package is
+currently available. System.Numerics.Tensors supplies the vectorized `TensorPrimitives` used by
+the audio pipeline (file-backed capture, the windowed-sinc resampling filter). See _OTS
+Integration Design_, _PortAudioSharp2 Design_, and _System.Numerics.Tensors Design_ for details.
 
 Speech carries no speech-inference engine dependency of its own. Concrete speech models and their
 inference backends plug in through the `IRecognitionModel`/`ISynthesisModel` extension seam, whose
@@ -177,9 +205,9 @@ part of the compiled NuGet package:
 
 ## Risk Control Measures
 
-N/A - Speech in this phase provides no safety-critical functionality requiring risk control
-measures (IEC 62304 §5.3.3). This is revisited if a later phase introduces functionality with a
-direct safety impact.
+N/A - Speech provides no safety-critical functionality requiring risk control
+measures (IEC 62304 §5.3.3). This is revisited if functionality with a
+direct safety impact is introduced.
 
 ## Data Flow
 
@@ -212,6 +240,26 @@ direct safety impact.
    callback stream and zero-fills any underrun
 4. **Output**: The selected playback device renders the queued samples, or the device reports
    itself unavailable when no device could be resolved
+
+**File-backed device and audio-file decoding path:**
+
+1. **Input**: A caller constructs a `WavFileAudioCaptureDevice` over a WAV or FLAC path, or calls
+   `AudioFileReader.Read(...)`/`ReadMono(...)` with a path or stream
+2. **Decode**: `AudioFileReader` sniffs the container from the content (not the extension) and
+   routes to `WavDecoder` or `FlacDecoder`; malformed input throws
+3. **Convert**: Optional `AudioFileReadOptions` downmix to mono and `AudioResampler` rate
+   conversion (windowed-sinc low-pass filtering) produce the requested format
+4. **Output**: The capture device raises `FrameCaptured` blocks and `EndOfFileReached`; a
+   `WavFileAudioPlaybackDevice` instead writes the samples it is given to a WAV file
+
+**Reference-voice listing and install path:**
+
+1. **Input**: A voice-cloning model host asks a `ReferenceVoiceLibrary` for
+   `EnumerateVoices(...)` or installs a `ReferenceVoicePack` with `InstallPackAsync(...)`
+2. **Install**: The pack is fetched through the same verified download path (honoring an optional
+   `DownloadMirror`), extracted, and installed atomically under the library root
+3. **Output**: Each `ReferenceVoiceInfo` reports its name, source (user folder or installed
+   pack), and available clips; the model decodes a chosen clip lazily with `AudioFileReader`
 
 **Model download and install path:**
 

@@ -22,24 +22,28 @@ This document is intended for:
 ## Scope
 
 This document covers the verification design for the Speech system and its constituent software
-items, for the SpeechSherpa library system and its constituent software items, and for the
-SpeechDemo application system and its constituent software items, specifically:
+items, for the SpeechSherpa library system, for the SpeechOnnx, SpeechOnnxKokoro,
+SpeechOnnxNemotronStt, and SpeechOnnxChatterboxTurbo library systems, for the SpeechCli command-line
+tool system, and for the SpeechDemo application system, each with its constituent software items,
+specifically:
 
 - **Speech (System)** — The complete .NET library system providing speech capture, recognition,
   and synthesis capabilities to host applications
 - **Diagnostics (Subsystem)** — Reports structural diagnostic events to an optional
   host-supplied sink
-- **AudioSubsystem (Subsystem)** — Audio contracts, selection logic, honest fallbacks, and real
-  PortAudio-backed device/probe implementations
+- **AudioSubsystem (Subsystem)** — Audio contracts, selection logic, honest fallbacks, real
+  PortAudio-backed device/probe implementations, file-backed WAV devices, and managed WAV/FLAC
+  decoding and resampling
 - **PortAudio (Subsystem)** — Internal child subsystem under AudioSubsystem that isolates
   PortAudioSharp2 and supplementary host-API P/Invoke bindings behind mockable abstractions
 - **RecognitionSubsystem (Subsystem)** — Streaming speech-to-text: recognizer contract and
   result types, composition with honest unavailable fallback, the capture-to-engine pipeline and
-  its audio-format converter, and the mockable recognition-engine seam
+  its audio-format converter, and the public, mockable recognition-backend seam
 - **ModelManagementSubsystem (Subsystem)** — Per-user speech model storage, download/install
-  orchestration, and the empty-by-default, host-populated model catalog
+  orchestration with an optional mirror, reference-voice packs and library, and the
+  empty-by-default, host-populated model catalog
 - **SynthesisSubsystem (Subsystem)** — Text-to-speech: the closed Natural Language Audio Tag
-  vocabulary, the async Engine/Session synthesis API, and the mockable synthesis-backend seam
+  vocabulary, the async Engine/Session synthesis API, and the public, mockable synthesis-backend seam
 
 The following software items of the SpeechSherpa system are also covered:
 
@@ -53,6 +57,29 @@ The following software items of the SpeechSherpa system are also covered:
   recognition backend
 - **SynthesisSubsystem (Subsystem)** — The real, native-backed `SherpaOnnxSynthesisEngine`
   synthesis backend
+
+The following software items of the SpeechOnnx family of systems are also covered; each is a
+sibling system that `Speech` must never depend on:
+
+- **SpeechOnnx (System)** and its **OnnxRuntimeSubsystem (Subsystem)** — Shared ONNX Runtime
+  infrastructure: the layered execution-provider selector with CPU fallback
+- **SpeechOnnxKokoro (System)** — The ONNX Runtime Kokoro-82M text-to-speech package, with its
+  **ModelManagementSubsystem** (catalog extension, model, text normalizer, lexicon phonemizer,
+  phoneme vocabulary) and **SynthesisSubsystem** (the engine)
+- **SpeechOnnxNemotronStt (System)** — The ONNX Runtime Nemotron streaming speech-recognition
+  package, with its **ModelManagementSubsystem** (catalog extension, model, vocabulary) and
+  **RecognitionSubsystem** (the engine, feature extractor, RNN-T decoder, silence limiter)
+- **SpeechOnnxChatterboxTurbo (System)** — The ONNX Runtime voice-cloning text-to-speech package,
+  with its **ModelManagementSubsystem** (catalog extension, model and options, tokenizer,
+  reference voice) and **SynthesisSubsystem** (engine, networks, token selector, capability
+  profile)
+
+The following software items of the SpeechCli system are also covered:
+
+- **SpeechCli (System)** — The cross-platform `speech-cli` .NET global tool, with its five
+  subsystems: **ModelCommandsSubsystem** (the seven model-management subcommands),
+  **DeviceCommandsSubsystem** (three device subcommands), **SynthesisCommandSubsystem** (`speak`),
+  **RecognitionCommandSubsystem** (`recognize`), and **ConversationCommandSubsystem** (`ask`)
 
 The following software items of the SpeechDemo system are also covered:
 
@@ -68,8 +95,8 @@ The following software items of the SpeechDemo system are also covered:
 - **ModelSettingsSubsystem (Subsystem)** — The generic per-model parameter settings panel
 - **SynthesisPanelSubsystem (Subsystem)** — The text-to-speech panel and its demo-owned
   synthesizer-session seam
-- **RecognitionPanelSubsystem (Subsystem)** — The speech-to-text panel and its demo-owned
-  recognizer-session seam
+- **RecognitionPanelSubsystem (Subsystem)** — The speech-to-text panel, its demo-owned
+  recognizer-session seam, and the opt-in capture-to-WAV diagnostic recorder
 - **App, AppLaunchOptions, MirrorOptionsFactory, Program (Units)** — The units that belong
   directly to the SpeechDemo system: the composition root, the command-line options, the shared
   mirror-option validation, and the process entry point
@@ -79,6 +106,8 @@ The following OTS items are also covered:
 - **PortAudioSharp2** — managed PortAudio binding and transitive native runtime carrier
 - **SherpaOnnx** — managed local speech-inference API used by SpeechSherpa
 - **SharpCompress** — managed `.tar.bz2` archive reader used by SpeechSherpa model installs
+- **System.Numerics.Tensors** — vectorized `TensorPrimitives` used by the Speech audio pipeline
+- **Microsoft.ML.OnnxRuntime** — managed ONNX Runtime API used by the SpeechOnnx libraries
 - **Avalonia** — cross-platform desktop UI framework hosting the SpeechDemo application
 - **CommunityToolkit.Mvvm** — MVVM change-notification and command source generators
 - **BuildMark** — build-notes documentation tool
@@ -123,7 +152,9 @@ trees. In-house items have artifacts in these parallel locations:
 The SpeechSherpa system follows the same pattern as a sibling system: its verification design
 lives under `docs/verification/speech-sherpa/` (system document `docs/verification/speech-sherpa.md`),
 its design under `docs/design/speech-sherpa/`, its source under `src/DemaConsulting.Speech.Sherpa/`,
-and its tests under `test/DemaConsulting.Speech.Sherpa.Tests/`.
+and its tests under `test/DemaConsulting.Speech.Sherpa.Tests/`. The SpeechCli, SpeechDemo, SpeechOnnx,
+SpeechOnnxKokoro, SpeechOnnxNemotronStt, and SpeechOnnxChatterboxTurbo systems follow the same
+sibling-system pattern under their own kebab-case folders and `test/DemaConsulting.Speech.*.Tests`.
 
 OTS items have parallel artifacts in:
 

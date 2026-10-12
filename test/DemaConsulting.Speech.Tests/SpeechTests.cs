@@ -338,6 +338,102 @@ public class SpeechTests
     }
 
     /// <summary>
+    ///     Proves the file-backed devices work as a system without audio hardware: speech
+    ///     synthesized through a real <see cref="ISynthesisSession"/> is written to a WAV file by
+    ///     <see cref="WavFileAudioPlaybackDevice"/>, and the same file then streams back through
+    ///     <see cref="WavFileAudioCaptureDevice"/> as captured frames with the written format.
+    /// </summary>
+    [Fact]
+    public async Task Speech_SystemIntegration_FileBackedDevices_SynthesizedSpeechRoundTripsThroughWavFile()
+    {
+        // Arrange: a scratch model directory, a WAV output path, and a deterministic backend
+        var root = Path.Join(Path.GetTempPath(), "DemaConsulting.Speech.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var wavPath = Path.Join(root, "speech.wav");
+        try
+        {
+            var backendFactory = new FakeSynthesisEngineFactory(new FakeSynthesisEngine(sampleRate: 16000));
+            var cancellationToken = TestContext.Current.CancellationToken;
+
+            // Act: synthesize into the file-backed playback device, then replay the file
+            using (var playbackDevice = new WavFileAudioPlaybackDevice(wavPath, 16000, 1))
+            {
+                await using var engine = await SpeechSynthesizerFactory.LoadAsync(
+                    new FakeSynthesisModel(), root, null, backendFactory, cancellationToken: cancellationToken);
+                await using var session = await engine.CreateSessionAsync(playbackDevice, cancellationToken);
+                await session.SpeakAsync("hello world", cancellationToken);
+            }
+
+            var captureDevice = new WavFileAudioCaptureDevice(wavPath);
+            var capturedSampleCount = 0;
+            captureDevice.FrameCaptured += (_, args) => capturedSampleCount += args.Samples.Count;
+            captureDevice.Start();
+
+            // Assert: the file holds the synthesized audio in the written format
+            Assert.True(File.Exists(wavPath));
+            Assert.True(capturedSampleCount > 0);
+            Assert.Equal(16000, captureDevice.SampleRate);
+            Assert.Equal(1, captureDevice.ChannelCount);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    /// <summary>
+    ///     Proves managed audio-file decoding works through the public API alone: a FLAC file and
+    ///     its WAV twin read to identical clips, the container is detected by content rather
+    ///     than extension, and a stereo clip converts to mono at a requested rate.
+    /// </summary>
+    [Fact]
+    public void Speech_SystemIntegration_ManagedAudioFileDecoding_FlacAndWavReadIdenticallyByContent()
+    {
+        // Arrange: a FLAC fixture, its WAV twin, and a copy of the FLAC under an unrelated extension
+        var directory = Path.Combine(AppContext.BaseDirectory, "TestData", "flac");
+        var renamedPath = Path.Combine(Path.GetTempPath(), $"speech-{Guid.NewGuid():N}.dat");
+        File.Copy(Path.Combine(directory, "stereo-16-48000.flac"), renamedPath);
+        try
+        {
+            // Act
+            var flac = AudioFileReader.Read(Path.Combine(directory, "stereo-16-48000.flac"));
+            var wav = AudioFileReader.Read(Path.Combine(directory, "stereo-16-48000.wav"));
+            var sniffed = AudioFileReader.Read(renamedPath);
+            var (monoSamples, monoRate) = AudioFileReader.ReadMono(Path.Combine(directory, "stereo-16-48000.flac"));
+
+            // Assert: identical decode, content-based detection, and mono conversion
+            Assert.Equal(wav.Samples, flac.Samples);
+            Assert.Equal(wav.SampleRate, flac.SampleRate);
+            Assert.Equal(2, flac.ChannelCount);
+            Assert.Equal(flac.Samples, sniffed.Samples);
+            Assert.Equal(flac.Samples.Length / 2, monoSamples.Length);
+            Assert.Equal(flac.SampleRate, monoRate);
+        }
+        finally
+        {
+            File.Delete(renamedPath);
+        }
+    }
+
+    /// <summary>
+    ///     Proves the closed audio-tag vocabulary is usable through the public parser alone: a
+    ///     known tag becomes a tag span and an unrecognized bracketed phrase passes through as
+    ///     plain narration text rather than being dropped or rejected.
+    /// </summary>
+    [Fact]
+    public void Speech_SystemIntegration_AudioTagVocabulary_KnownTagParsedAndUnknownBracketPassesThrough()
+    {
+        // Act
+        var spans = AudioTagParser.Parse("Hello [laughs] world [nonsense].");
+
+        // Assert: exactly one tag span, and the unknown bracket survives in the narration text
+        var tagSpan = Assert.Single(spans, span => span.Kind == TaggedTextSpanKind.Tag);
+        Assert.Equal(NaturalLanguageAudioTag.Laughs, tagSpan.Tag);
+        var narration = string.Concat(spans.Where(span => span.Kind == TaggedTextSpanKind.PlainText).Select(span => span.Text));
+        Assert.Contains("[nonsense]", narration);
+    }
+
+    /// <summary>
     ///     Minimal fake <see cref="ISpeechModel"/> used only by the system-level catalog
     ///     integration test, so that test does not depend on the wider test project's
     ///     <c>Fakes</c> helpers.

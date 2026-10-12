@@ -11,7 +11,8 @@ compose `SpeechRecognizerFactory` over an installed test model, a substitute cap
 fake recognition engine, and compose `SpeechSynthesizerFactory`/`AudioTagParser` over an installed
 test model, a substitute playback device, and a fake synthesis engine. This proves the public
 composition surface, fallback behavior, diagnostics reporting, the streaming-recognition pipeline,
-the Natural Language Audio Tag vocabulary/parser, and the chunked streaming-synthesis pipeline
+the Natural Language Audio Tag vocabulary/parser, file-backed WAV devices and managed WAV/FLAC
+decoding, and the chunked streaming-synthesis pipeline
 without requiring physical audio hardware, network access, a downloaded speech model, or a native
 speech-inference runtime in CI.
 
@@ -92,7 +93,8 @@ consistent with `AudioDeviceFactory` consulting its probe before constructing a 
 Verifies the full public streaming-recognition surface end to end: composing a recognizer for an
 installed model and an available capture device, streaming one captured block through audio-format
 conversion into the recognition engine, and surfacing the resulting provisional and final text
-through the recognizer's result event. The recognition engine is a deterministic test double, so
+through the session's IRecognitionSession.GetResultsAsync stream. The recognition engine is a deterministic test double,
+so
 this scenario proves the composed pipeline rather than speech-recognition accuracy.
 
 ### Integration: Model Download Verifies and Atomically Installs the Model
@@ -121,21 +123,32 @@ confirming the playback device is started, receives at least one written block o
 stopped. The synthesis engine is a deterministic test double, so this scenario proves the composed
 chunked pipeline rather than speech-synthesis audio quality.
 
-### Unit: Every Documented Audio Tag Alias Resolves to Its Canonical Tag Span
+### Integration: File-Backed Devices Round-Trip Synthesized Speech Through a WAV File
 
-**Test**: `AudioTagParser_Parse_EveryDocumentedAlias_ResolvesToItsCanonicalTagSpan`
+**Test**: `Speech_SystemIntegration_FileBackedDevices_SynthesizedSpeechRoundTripsThroughWavFile`
 
-Verifies, for every alias in the closed Natural Language Audio Tag vocabulary, that
-`AudioTagParser.Parse` resolves the bracketed alias to its canonical tag span, proving the
-model-independent Layer 1 parser recognizes the complete documented vocabulary.
+Verifies the file-backed devices end to end without audio hardware: speech synthesized by a real
+session over a deterministic test engine is written to a WAV file by `WavFileAudioPlaybackDevice`,
+and the same file then streams back through `WavFileAudioCaptureDevice` as captured frames in the
+written format.
 
-### Unit: Unknown Bracketed Word Passes Through as Literal Text
+### Integration: Managed Audio File Decoding Reads WAV and FLAC by Content
 
-**Test**: `AudioTagParser_Parse_UnknownBracketedWord_PassesThroughAsLiteralText`
+**Test**: `Speech_SystemIntegration_ManagedAudioFileDecoding_FlacAndWavReadIdenticallyByContent`
 
-Verifies that a bracketed word outside the closed vocabulary is passed through as plain narration
-text rather than dropped or rejected, proving the "never worse than plain narration" guarantee for
-unrecognized or malformed bracket content.
+Verifies, through the public `AudioFileReader` alone, that a FLAC fixture and its WAV twin decode
+to identical samples, that the container is detected by content rather than file extension, and
+that `ReadMono` yields one sample per frame at the source rate.
+
+### Integration: Audio Tag Vocabulary Parses Known Tags and Passes Unknown Brackets Through
+
+**Test**: `Speech_SystemIntegration_AudioTagVocabulary_KnownTagParsedAndUnknownBracketPassesThrough`
+
+Verifies through the public `AudioTagParser` that a bracketed alias from the closed Natural
+Language Audio Tag vocabulary becomes a tag span while a bracketed word outside the vocabulary
+remains in the plain narration text rather than being dropped or rejected, proving the "never
+worse than plain narration" guarantee. Exhaustive per-alias coverage is proven at unit level by
+`AudioTagParserTests.cs`.
 
 ## Acceptance Criteria
 
