@@ -20,7 +20,7 @@ and the empty-catalog message, driven entirely by `IModelCatalogService`.
 | `VoicePacks` / `HasVoicePacks` | `ObservableCollection<...>` / `bool` | The pack rows; whether to show the section |
 | `UserVoicesDirectory` / `VoiceConsentNotice` | `string?` / `string` | The user folder and the consent note |
 | `InstallVoicePackAsync` / `RemoveVoicePack` | generated async commands | Install or remove the given pack |
-| `InitialLoadTask` | `Task` | The background load of the installed packs' emotion flags started by the constructor; never faults |
+| `InitialLoadTask` | `Task` | Background load of installed packs' emotion flags; never faults |
 | `VoiceBusyMessage` | `const string` | The explanation shown when a pack action is refused during a transfer |
 
 **Key Methods**:
@@ -42,7 +42,8 @@ and the empty-catalog message, driven entirely by `IModelCatalogService`.
      library guarantees a canceled download installs nothing
   5. Treats an unexpected seam exception as `FailedOrCorrupt` carrying that exception's message,
      because a presentation layer must not crash the application on a seam fault
-- **ApplyMirror()**: Asynchronous (it awaits `Refresh()`). While any row's `IsDownloading` is true, refuses outright - recording an
+- **ApplyMirror()**: Asynchronous (it awaits `Refresh()`). While any row's `IsDownloading` is true, refuses outright -
+  recording an
   explained `MirrorHasError`/`MirrorStatusMessage` and returning without calling
   `IModelCatalogService.ApplyMirror` at all - because that service call disposes the catalog
   instance any in-flight `DownloadAsync` call depends on, which would otherwise abort that

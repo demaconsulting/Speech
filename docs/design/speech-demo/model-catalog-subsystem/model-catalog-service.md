@@ -28,7 +28,7 @@ every interface consumer - `ModelCatalogViewModel`, the panel view models that o
 | `GetReferenceVoicePackState(packId)` | `SpeechModelState` | The pack's install state |
 | `ReferenceVoicePackHasEmotionsAsync(packId, ct)` | `Task<bool>` | Whether the installed pack has emotion variants |
 | `InstallReferenceVoicePackAsync(packId, includeEmotions, ...)` | `Task<...Result>` | Installs a pack; rebuilds |
-| `UninstallReferenceVoicePackAsync(packId, ct)` | `Task` | Removes a pack, rebuilds the pair; waits for an in-flight install (see note) |
+| `UninstallReferenceVoicePackAsync(packId, ct)` | `Task` | Removes a pack and rebuilds; waits for an install |
 | `ReferenceVoicesChanged` | `event EventHandler?` | Raised after a rebuild caused by a voice or mirror change |
 
 `Enumerate()` retries once if the catalog was just replaced. `UninstallReferenceVoicePackAsync` waits
@@ -69,7 +69,8 @@ for an in-flight install of that pack to finish (honoring cancellation) and then
   library, and raises `ReferenceVoicesChanged`. `UninstallReferenceVoicePackAsync` first awaits the
   library's asynchronous uninstall, which serializes with an in-flight install of that pack
   (waiting for it, honoring cancellation); if the uninstall throws or is canceled the exception
-  propagates unchanged and the recompose step and notification are skipped, because nothing changed. Services built with the
+  propagates unchanged and the recompose step and notification are skipped, because nothing changed. Services built
+  with the
   single-catalog or catalog-factory constructors have no library:
   `ReferenceVoicePacks` is empty and `UserVoicesDirectory` is `null`, and `GetReferenceVoicePackState`,
   `ReferenceVoicePackHasEmotionsAsync`, install and uninstall all reject the call through the private `RequireVoiceLibrary`

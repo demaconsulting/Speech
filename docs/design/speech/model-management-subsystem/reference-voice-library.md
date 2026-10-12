@@ -46,7 +46,8 @@ Disk layout (the unit's contract with the CLI, demo and documentation):
   state is reference counted so `GetPackState` reports `Downloading` until the last concurrent caller
   finishes. An install that already has emotions is never downgraded by `includeEmotions: false`,
   and a voices-only request over a voices-only install is the usual no-op.
-- `GetPackInstalledVariantsAsync` reads `pack.json` (with `File.ReadAllTextAsync`) and returns its `variants` (empty for a missing, unreadable
+- `GetPackInstalledVariantsAsync` reads `pack.json` (with `File.ReadAllTextAsync`) and returns its `variants` (empty
+  for a missing, unreadable
   or malformed file; it never throws); `PackHasEmotionsAsync` is true when `voices-emotion` is among them.
 - `GetPackState` reports `Downloading`, `Downloaded`, `FailedOrCorrupt` (a failed attempt in this
   process) or `NotDownloaded`, and never throws for a known id.
@@ -56,7 +57,8 @@ Disk layout (the unit's contract with the CLI, demo and documentation):
   interleave and nothing is thrown for the overlap. Canceling while waiting throws
   `OperationCanceledException` and leaves the install and the pack untouched; once the removal starts it runs to
   completion. The directory deletions run on the thread pool through `SpeechModelStore.UninstallAsync`
-  (there is no asynchronous directory-delete API). After the store uninstall it also deletes every `current.upgrade-backup-*` folder left in the pack
+  (there is no asynchronous directory-delete API). After the store uninstall it also deletes every
+  `current.upgrade-backup-*` folder left in the pack
   directory so a leftover backup cannot resurrect the pack, and clears the pack's failed flag.
 - **Asynchronous policy**: the synchronous `UninstallPack`, `PackHasEmotions` and `GetPackInstalledVariants` were
   introduced with this library (never shipped), so they were replaced rather than wrapped. `EnumerateVoices`,

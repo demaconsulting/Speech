@@ -456,7 +456,8 @@ canceled re-download restores it). Concurrent installs of the same pack run one 
 `ReferenceVoiceLibrary.UninstallPackAsync` waits for an in-flight install or uninstall of that pack
 (honoring its `CancellationToken`) and then removes the pack, so it never races the install. Each pack voice's
 `ReferenceVoiceInfo.MoodClips` maps the lower-case mood name to that speaker's emotion clip (or is
-`null`; look a mood up with `TryGetMoodClip`, which ignores case and surrounding whitespace); the moods are variants of the voice, not extra voices. Voices are stored under
+`null`; look a mood up with `TryGetMoodClip`, which ignores case and surrounding whitespace); the moods are variants
+of the voice, not extra voices. Voices are stored under
 `<models root>\reference-voices\`: the pack in
 `voice-zero-1.0\current\voices\` and your own clips in `user\`. The voice list merges explicit
 `ReferenceVoices`, then `ReferenceVoiceDirectory`, then `user\`, then the pack, and the first voice

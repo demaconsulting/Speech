@@ -29,7 +29,8 @@ or a join outside 0 to 1000 (both bounds accepted).
 **Key Methods**:
 
 - **WithMoodMarker(mood, text)** / **ReadMoodMarker(text, out mood)** (internal): add or split off the leading
-  marker; the mood is matched against the known moods case-insensitively after trimming, and an unknown, null or blank mood leaves the text unchanged, and reading removes every marker character.
+  marker; the mood is matched against the known moods case-insensitively after trimming, and an unknown, null or
+  blank mood leaves the text unchanged, and reading removes every marker character.
 - **Render(...)**: replaces tags with private-use placeholder characters while splitting text into
   sentences (digit-flanked punctuation is not a boundary), applies the end-of-sentence policy (move
   the tag before the final word, else a per-tag suffix, else strip), attaches a tag between
