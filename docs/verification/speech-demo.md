@@ -25,8 +25,9 @@ synthesis roles, but the full download/install lifecycle is still verified at th
 against controlled catalog data, never a real network fetch.
 
 System tests reside in `SpeechDemoTests.cs` within the `DemaConsulting.Speech.Demo.Tests`
-project, with the model-download outcome scenario additionally proven by
-`ModelCatalogViewModelTests.cs` in the same project.
+project. They compose the real shell with the library's fakes (catalog service, synthesis and
+recognition sessions) so every system requirement is proven through the composed application
+rather than a single unit.
 
 ## Test Environment
 
@@ -88,11 +89,7 @@ the SpeechOnnxNemotronStt `AddNemotronSttModels()`, and the SpeechOnnxChatterbox
 register - spanning both the recognition and synthesis roles - rather than reporting an empty
 catalog or only the Sherpa models.
 
-The `SpeechDemo-Voices-ReferenceVoicePacks` system requirement is verified by the same scenario
-(the Chatterbox Turbo model is part of the real catalog) together with the `--voices-dir` launch
-option tests; the pack install/uninstall flow and voice refresh are proven at the subsystem level
-(see the ModelCatalogSubsystem and SynthesisPanelSubsystem verification documents), and the
-download of the real multi-hundred-megabyte pack is left to manual verification.
+The real multi-hundred-megabyte reference voice pack download is left to manual verification.
 
 ### Integration: Real Catalog Leaves the TTS and STT Panels Honestly Empty
 
@@ -103,15 +100,71 @@ factory and an isolated model catalog with a fresh, empty install store, both ho
 having no *installed* model to choose from - known models are registered in the catalog, but
 none are downloaded in a fresh store - rather than crashing or silently rendering blank.
 
-### Integration: Downloading a Model Marks It Installed
+### Integration: Downloading a Listed Model Reports Progress and Installed Outcome
 
-**Test**: `ModelCatalogViewModel_DownloadAsync_Installed_MarksModelDownloaded`
+**Test**: `SpeechDemo_SystemIntegration_DownloadListedModel_ReportsProgressAndInstalledOutcome`
 
-Verifies that invoking the download command for a listed model against a catalog whose download
-succeeds updates that row to report the `Downloaded` state, full progress, no further downloadable
-action, and no failure message - proving a user can download a listed model and see the outcome
-reported. This is verified against a controlled fake catalog service rather than a real network
-download, consistent with SpeechDemo-Models-RealCatalogReporting's real-catalog enumeration proof.
+Verifies that, in a composed shell over a controlled catalog service, downloading a listed model
+reports progress and ends with the row marked `Downloaded`, with no failure message. A controlled
+service is used because automated tests must not depend on network access.
+
+### Integration: A Failed Download Is Reported and Retryable
+
+**Test**: `SpeechDemo_SystemIntegration_DownloadListedModel_FailureIsReportedAndRetryable`
+
+Verifies that a failed download is shown as a failure message on the row without crashing, and
+that the user can retry the download to success.
+
+### Integration: Mirror Redirection at Launch and While Running
+
+**Test**: `SpeechDemo_SystemIntegration_MirrorRedirection_AppliesAtLaunchAndWhileRunning`
+
+Verifies that a mirror given at launch reaches the catalog service, and that changing or clearing
+the mirror in the catalog panel while the application runs redirects subsequent downloads.
+
+### Integration: Launch Options Configure the Store and Voices and Reject Bad Options
+
+**Test**: `SpeechDemo_SystemIntegration_LaunchOptions_ConfigureStoreAndVoicesAndRejectBadOptions`
+
+Verifies that the model store folder and user voices folder options take effect in the resulting
+store and voice settings, and that an unrecognized or incomplete option is rejected with an
+explained error. Rejection is verified at the option parser because the entry point starts the
+graphical application.
+
+### Integration: Reference Voice Pack Install, Remove and Voice Choice
+
+**Test**: `SpeechDemo_SystemIntegration_ReferenceVoicePack_InstallRemoveAndChooseVoice`
+
+Verifies that a user can install and remove the reference voice pack from the catalog panel, that
+the synthesis voice choice refreshes immediately, and that a voice can be chosen.
+
+### Integration: Chatterbox Selection Shows Consent and Attribution
+
+**Test**: `SpeechDemo_SystemIntegration_ChatterboxSelected_ShowsConsentAndAttribution`
+
+Verifies that selecting the Chatterbox Turbo model shows the voice consent note and the pack
+attribution in the synthesis panel.
+
+### Integration: Model Parameters Are Rendered and Forwarded to Synthesis
+
+**Test**: `SpeechDemo_SystemIntegration_ModelParameters_RenderedAndForwardedToSynthesis`
+
+Verifies that a selected installed model's declared parameters render with controls appropriate to
+their kind and that adjusted values reach the model when synthesis loads.
+
+### Integration: Text-to-Speech Speaks and Stops
+
+**Test**: `SpeechDemo_SystemIntegration_TextToSpeech_SpeaksAndStops`
+
+Verifies that entered text is spoken through the selected model, playback status is reported, and
+the stop control ends playback.
+
+### Integration: Speech-to-Text Streams Partial and Final Transcript Then Stops
+
+**Test**: `SpeechDemo_SystemIntegration_SpeechToText_StreamsPartialAndFinalThenStops`
+
+Verifies that a started recognition session shows the partial then committed final transcript and
+that the user can stop it.
 
 ### Integration: Refreshing Every Panel Never Throws
 

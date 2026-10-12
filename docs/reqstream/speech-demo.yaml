@@ -58,7 +58,7 @@ sections:
           - SpeechDemo-LaunchOptions-Parsing
           - SpeechDemo-LaunchOptions-StoreFolder
         tests:
-          - Parse_AllOptions_ParsesOntoProperties
+          - SpeechDemo_SystemIntegration_LaunchOptions_ConfigureStoreAndVoicesAndRejectBadOptions
 
       - id: SpeechDemo-Devices-Selection
         title: >-
@@ -123,10 +123,9 @@ sections:
           demo must therefore surface both progress and honest failure in the list rather than
           crashing or silently doing nothing.
 
-          This requirement is verified against controlled catalog data rather than a real
+          This requirement is verified against a controlled catalog service rather than a real
           multi-hundred-megabyte download, since automated tests must not depend on network
-          access (see SpeechDemo-Models-RealCatalogReporting for the real-catalog enumeration
-          proof).
+          access.
         children:
           - SpeechDemo-Models-DownloadProgress
           - SpeechDemo-Models-DownloadOutcomes
@@ -134,14 +133,14 @@ sections:
           - SpeechDemo-Models-DownloadGuard
           - SpeechDemo-Models-InstallNotification
         tests:
-          - ModelCatalogViewModel_DownloadAsync_Installed_MarksModelDownloaded
+          - SpeechDemo_SystemIntegration_DownloadListedModel_ReportsProgressAndInstalledOutcome
+          - SpeechDemo_SystemIntegration_DownloadListedModel_FailureIsReportedAndRetryable
 
       - id: SpeechDemo-Models-RealCatalogReporting
         title: >-
-          The demo application shall report exactly what the library's host-populated model
-          catalog contains - the real recognition and synthesis models registered through the
-          Sherpa, Kokoro, NemotronStt and ChatterboxTurbo packages' registration extensions -
-          or an empty registry for a caller-supplied catalog with none.
+          The demo application shall list every recognition and synthesis model the shipped
+          model packages provide, or explain an empty catalog when a caller-supplied catalog
+          has none.
         tags: [system]
         justification: |
           The demo's composition root registers the sibling packages' production models into
@@ -178,8 +177,7 @@ sections:
           - SpeechDemo-LaunchOptions-MirrorConfiguration
           - SpeechDemo-MirrorOptions-Validation
         tests:
-          - ModelCatalogService_ApplyMirror_WithFactory_RebuildsCatalogThroughFactory
-          - ModelCatalogViewModel_ApplyMirror_ValidMirror_ForwardsConfiguredMirrorAndReportsSuccess
+          - SpeechDemo_SystemIntegration_MirrorRedirection_AppliesAtLaunchAndWhileRunning
 
       - id: SpeechDemo-Voices-ReferenceVoicePacks
         title: >-
@@ -208,8 +206,9 @@ sections:
           - SpeechDemo-ModelCatalog-VoicePackChangeNotification
           - SpeechDemo-Settings-RestoreValues
         tests:
-          - Parse_VoicesDir_ExistingDirectory_SetsVoicesDir
-          - SpeechDemo_SystemIntegration_RealModelCatalog_ReportsKnownModels
+          - SpeechDemo_SystemIntegration_ReferenceVoicePack_InstallRemoveAndChooseVoice
+          - SpeechDemo_SystemIntegration_ChatterboxSelected_ShowsConsentAndAttribution
+          - SpeechDemo_SystemIntegration_LaunchOptions_ConfigureStoreAndVoicesAndRejectBadOptions
 
       - id: SpeechDemo-Settings-PerModelParameters
         title: >-
@@ -228,7 +227,7 @@ sections:
           - SpeechDemo-Settings-ValueBag
           - SpeechDemo-Settings-ParameterConstructionGuards
         tests:
-          - SpeechDemo_SystemIntegration_RealCatalog_TtsAndSttPanelsReportEmptyStateHonestly
+          - SpeechDemo_SystemIntegration_ModelParameters_RenderedAndForwardedToSynthesis
 
       - id: SpeechDemo-Settings-EmptyStateExplanation
         title: >-
@@ -270,7 +269,7 @@ sections:
           - SpeechDemo-SynthesisPanel-PlaybackThroughSeams
           - SpeechDemo-SynthesisPanel-ExternalChangeHandling
         tests:
-          - SpeechDemo_SystemIntegration_RealCatalog_TtsAndSttPanelsReportEmptyStateHonestly
+          - SpeechDemo_SystemIntegration_TextToSpeech_SpeaksAndStops
 
       - id: SpeechDemo-Synthesis-UnavailableExplanation
         title: >-
@@ -306,7 +305,7 @@ sections:
           - SpeechDemo-Recognition-AutoRefreshOnInstall
           - SpeechDemo-Recognition-ModelSwitchGuard
         tests:
-          - SpeechDemo_SystemIntegration_RealCatalog_TtsAndSttPanelsReportEmptyStateHonestly
+          - SpeechDemo_SystemIntegration_SpeechToText_StreamsPartialAndFinalThenStops
 
       - id: SpeechDemo-Recognition-UnavailableExplanation
         title: >-
