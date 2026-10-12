@@ -5,7 +5,7 @@
 # decomposing the parent SynthesisSubsystem requirements. Updated for the async Engine/Session
 # redesign: Create() became the asynchronous LoadAsync(), returning Task<ISpeechSynthesizerEngine>
 # with no playback-device parameter, since device binding now happens later at
-# CreateSessionAsync. Mirrors speech-recognizer-factory.yaml's identical Phase 3 pattern.
+# CreateSessionAsync. Mirrors speech-recognizer-factory.yaml's identical pattern.
 
 sections:
   - title: Speech Requirements

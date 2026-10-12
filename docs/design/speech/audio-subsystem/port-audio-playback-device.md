@@ -4,9 +4,9 @@
 
 **Data Model**: Holds a `PortAudioEnvironment`, an `AudioDeviceSelection`, a diagnostics sink,
 an optional preferred `AudioFormat`, and either resolved device metadata or `null` when no device
-could be resolved. `ChannelCount` and `SampleRate`, added in Sub-phase 4b mirroring
-`PortAudioCaptureDevice`'s identical Phase 3 addition, project the values requested when the
-playback stream is opened: either the resolved device's own default/full-capacity format, or the
+could be resolved. `ChannelCount` and `SampleRate`, mirroring `PortAudioCaptureDevice`'s identical members,
+project the values requested when the playback stream is opened: either the resolved device's own
+default/full-capacity format, or the
 caller-preferred format with channel count clamped down to device capability and sample rate
 negotiated against the device/host API's actual capability. They report `0` when nothing was
 resolved. The resolved device metadata also captures the environment's `Generation` at the moment

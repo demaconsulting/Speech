@@ -1,7 +1,7 @@
 ### SpeechModelCatalog
 
 **Purpose**: Enumerate the models a host has registered with the catalog alongside each one's
-current install state, and orchestrate downloading a known model by id, composing Sub-phase 2a's
+current install state, and orchestrate downloading a known model by id, composing the
 storage/download machinery with the model contract.
 
 **Data Model**: Per instance: a mutable known-model list (`List<ISpeechModel>`), which starts

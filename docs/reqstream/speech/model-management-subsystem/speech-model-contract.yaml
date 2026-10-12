@@ -5,7 +5,7 @@
 # These requirements describe the design-level behavior of the common per-model contract and its
 # two role-specific marker interfaces, decomposing the parent ModelManagementSubsystem
 # requirements. The three interfaces are documented together since the two role markers carry no
-# independent behavior beyond ISpeechModel in this pass.
+# independent behavior beyond ISpeechModel.
 
 sections:
   - title: Speech Requirements
@@ -16,14 +16,13 @@ sections:
             requirements:
               - id: Speech-Models-SpeechModelContract-RoleMarkerInterfaces
                 title: >-
-                  IRecognitionModel and ISynthesisModel shall each extend ISpeechModel with no
-                  additional members in this pass, letting a model's role be determined by a type
-                  check while remaining usable through the common ISpeechModel contract.
+                  IRecognitionModel and ISynthesisModel shall each extend ISpeechModel with a fixed
+                  role, letting a model's role be determined by a type check while remaining usable
+                  through the common ISpeechModel contract.
                 justification: |
-                  The design defers real recognition/synthesis engine-construction methods
-                  to Phase 3/4; defining the role markers as empty now means adding those members
-                  later is a new-member addition, not a breaking change to any contract defined
-                  in this pass.
+                  Role-specific engine-construction members live on the two role
+                  interfaces, while the common ISpeechModel contract stays role-neutral so a
+                  catalog can handle every model uniformly.
                 tests:
                   - IRecognitionModel_Role_IsRecognition
                   - ISynthesisModel_Role_IsSynthesis
@@ -76,9 +75,9 @@ sections:
                 justification: |
                   The design lists "own text-normalization / correction (e.g. punctuation
                   restoration)" as a per-model responsibility alongside a model's declared
-                  parameters and audio-tag support. This pass defines only the hook's existence
+                  parameters and audio-tag support. The contract defines only the hook's existence
                   and identity default; the actual normalization content for any real model is a
-                  Phase 4 synthesis concern, per this library's synthesis-subsystem scope.
+                  concern of that model's own package.
                 tests:
                   - ISpeechModel_NormalizeText_DefaultImplementation_ReturnsInputUnchanged
 

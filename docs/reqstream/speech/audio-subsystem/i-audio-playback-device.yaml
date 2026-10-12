@@ -44,8 +44,8 @@ sections:
                 justification: |
                   Synthesized audio carries no format metadata of its own until it is converted,
                   so a consumer that must resample and upmix it before playback - speech
-                  synthesis, added in Sub-phase 4b - has no other way to learn the device's
-                  resolved format. Mirroring IAudioCaptureDevice's identical Sub-phase 3 addition
+                  synthesis - has no other way to learn the device's
+                  resolved format. Mirroring IAudioCaptureDevice's identical members
                   keeps both capture and playback format contracts consistent, and reporting zero
                   rather than a plausible default when no device was resolved keeps the contract
                   honest and consistent with the availability flag.

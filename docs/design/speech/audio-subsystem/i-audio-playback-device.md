@@ -4,9 +4,8 @@
 playback behavior without depending on native PortAudio types.
 
 **Data Model**: `IsAvailable` indicates whether the device can currently render audio.
-`ChannelCount` and `SampleRate`, added in Sub-phase 4b mirroring `IAudioCaptureDevice`'s identical
-Phase 3 addition, report the format `Write` actually renders - the resolved device's own values,
-not requested or probed ones - and both report `0` when the device is unavailable.
+`ChannelCount` and `SampleRate`, mirroring `IAudioCaptureDevice`'s identical members, report the format `Write` actually
+renders - the resolved device's own values, not requested or probed ones - and both report `0` when the device is unavailable.
 
 **Key Methods**:
 

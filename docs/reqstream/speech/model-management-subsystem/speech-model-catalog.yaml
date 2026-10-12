@@ -78,8 +78,7 @@ sections:
                   installed model's directory, or compose a recognizer or synthesizer, through
                   the same catalog instance used for enumeration and download.
                 justification: |
-                  Phase 3 added SpeechModelStore-accepting Create overloads on
-                  SpeechRecognizerFactory/SpeechSynthesizerFactory, but a host still had to
+                  SpeechRecognizerFactory and SpeechSynthesizerFactory accept a SpeechModelStore, but a host still had to
                   construct a second, independent SpeechModelStore to use them, risking silent
                   divergence from the catalog's own store (for example, a custom
                   SpeechModelStoreOptions root passed to one but not the other). Exposing the

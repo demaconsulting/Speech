@@ -10,7 +10,7 @@ atomic install/replace semantics, and a queued downloader fetches, SHA-256-verif
 atomically installs a model's declared files. A generic model catalog/
 contract seam on top: a typed tunable-parameter descriptor set, the common `ISpeechModel`
 contract with its `IRecognitionModel`/`ISynthesisModel` role markers, and `SpeechModelCatalog`
-itself. Later passes added the model-owned extension hooks concrete models build on - an
+itself. The contracts also carry the model-owned extension hooks concrete models build on - an
 `ISynthesisModel.ResolveSpeakerId` hook for model-owned voice/speaker selection, a recognition-only
 `IRecognitionModel.NormalizeText(text, isFinal)` hook (a default pass-through, distinct from the
 shared `ISpeechModel.NormalizeText(string)` used on the synthesis side) for restoring readable

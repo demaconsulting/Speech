@@ -2,11 +2,11 @@
 # Software Subsystem Requirements for ModelManagementSubsystem
 #
 # These requirements describe the subsystem-level behavior of the ModelManagementSubsystem,
-# decomposing the system-level requirements in docs/reqstream/speech.yaml. Sub-phase 2a covers
+# decomposing the system-level requirements in docs/reqstream/speech.yaml. They cover
 # the storage and download machinery: SpeechModelStore's atomic current/ swap, SpeechModelDownloader's
 # queued fetch/verify/install orchestration, the mockable IModelDownloadClient seam and its real
 # HttpModelDownloadClient implementation, and the small descriptor/progress/options/exception
-# supporting types. Sub-phase 2b adds the model catalog/contract machinery on top: the typed
+# supporting types, and the model catalog/contract machinery on top: the typed
 # tunable-parameter descriptors, the common ISpeechModel contract with its
 # IRecognitionModel/ISynthesisModel role markers, the SpeechModelDescriptor catalog read-model,
 # and SpeechModelCatalog itself. The catalog starts empty and is populated by the host through
@@ -276,14 +276,13 @@ sections:
               null), with role-specific recognition/synthesis marker interfaces so a catalog can
               report and filter models by role ahead of any engine-specific construction logic.
             justification: |
-              The design defers engine-specific construction to Phase 3/4 behind
-              IRecognitionModel/ISynthesisModel; defining them as empty marker interfaces now
-              lets SpeechModelCatalog already report/filter by role without any change when
-              Phase 3/4 add real engine-configuration members to those same interfaces.
+              The design keeps engine-specific construction behind IRecognitionModel/ISynthesisModel,
+              so SpeechModelCatalog can report and filter by role through the common contract
+              without knowing any engine-specific member.
               The design additionally lists "own archive unpacking" and "own
               text-normalization/correction" as per-model responsibilities alongside a model's
-              declared parameters and audio-tag support, so the contract declares both hooks now
-              (with no-op-friendly defaults) rather than adding them as a later breaking change.
+              declared parameters and audio-tag support, so the contract declares both hooks
+              (with no-op-friendly defaults) rather than leaving them to each host.
               License information previously existed only as DisplayName prose or per-class XML
               documentation, neither reliably discoverable by a host; declaring LicenseName/
               LicenseUrl as further default-hooked members closes that gap without breaking any

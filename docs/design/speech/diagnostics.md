@@ -23,7 +23,7 @@ leaf dependency that other subsystems (such as AudioSubsystem) depend on.
 
 ### Design
 
-`NullSpeechDiagnostics` is the only implementation the library ships in this phase. It is
+`NullSpeechDiagnostics` is the only implementation the library ships. It is
 exposed as a process-wide singleton (`NullSpeechDiagnostics.Instance`) so that any factory
 needing a default `ISpeechDiagnostics` can obtain one without allocating and without ever
 failing to do so, per this library's "nothing throws at composition" decision. There is no

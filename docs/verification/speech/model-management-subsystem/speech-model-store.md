@@ -67,8 +67,9 @@ uninstall removes an installed model while being a no-op for one that was never 
 
 This scenario opens a file handle inside `current/` with `FileShare.Read` (which omits
 `FileShare.Delete`), so that deleting the directory fails, and asserts the documented exception.
-It is Windows-specific (POSIX allows deleting an open file) and calls `Assert.Skip(...)` when not running on Windows, so CI on other
-platforms records the scenario as skipped rather than failing.
+It is Windows-specific (POSIX allows deleting an open file) and calls `Assert.Skip(...)` when not
+running on Windows, so CI
+on other platforms records the scenario as skipped rather than failing.
 
 ##### Uninstall: Manifest Delete Failure Throws SpeechModelStoreException (Windows only)
 

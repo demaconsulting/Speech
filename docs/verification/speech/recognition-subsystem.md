@@ -17,7 +17,7 @@ verified with an injectable abandon-timeout override rather than real multi-seco
 
 Automated coverage **does not** include recognizing real speech. Proving that real audio from a
 real microphone produces correct text through a real model requires both a downloaded production
-model (which this phase deliberately does not ship) and audio hardware, so it remains a
+model (which this library deliberately does not ship) and audio hardware, so it remains a
 manual/local verification activity. The real, native-backed `IRecognitionBackend`
 implementation, `SherpaOnnxRecognitionEngine`, is no longer part of this subsystem: it ships in the
 sibling SpeechSherpa library, and its bookkeeping and accuracy against real installed models (when
