@@ -33,5 +33,6 @@ package Speech {
         part referenceVoicePack : ReferenceVoicePack;
         part referenceVoicePackInstaller : ReferenceVoicePackInstaller;
         part referenceVoiceLibrary : ReferenceVoiceLibrary;
+        part numericParameterBounds : NumericParameterBounds;
     }
 }

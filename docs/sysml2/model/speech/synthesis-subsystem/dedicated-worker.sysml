@@ -11,8 +11,8 @@ package Speech {
 
         comment sourceRef /* Source: src/DemaConsulting.Speech/SynthesisSubsystem/DedicatedWorker.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Tests/SynthesisSubsystem/DedicatedWorkerTests.cs */
-        comment designRef /* Design: docs/design/speech/synthesis-subsystem/synthesis-session.md (documented with the pipeline it serves) */
-        comment verificationRef /* Verification: docs/verification/speech/synthesis-subsystem/synthesis-session.md (documented with the pipeline it serves) */
+        comment designRef /* Design: docs/design/speech/synthesis-subsystem/dedicated-worker.md */
+        comment verificationRef /* Verification: docs/verification/speech/synthesis-subsystem/dedicated-worker.md */
         comment reqRef /* Requirements: docs/reqstream/speech/synthesis-subsystem/dedicated-worker.yaml */
     }
 }

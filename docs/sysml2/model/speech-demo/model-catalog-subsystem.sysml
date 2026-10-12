@@ -16,5 +16,6 @@ package SpeechDemo {
         part modelCatalogViewModel : ModelCatalogViewModel;
         part modelListItemViewModel : ModelListItemViewModel;
         part referenceVoicePackListItemViewModel : ReferenceVoicePackListItemViewModel;
+        part modelCatalogComposition : ModelCatalogComposition;
     }
 }

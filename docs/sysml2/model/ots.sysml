@@ -1,4 +1,10 @@
 package Speech {
+    comment buildToolNote /* The build-tool OTS parts below (BuildMark, FileAssert, Pandoc, ReqStream,
+        * ReviewMark, SarifMark, SonarMark, SysML2Tools, VersionMark, WeasyPrint and xUnit) are
+        * repository-level process tooling shared by every package; they are not linked into any
+        * shipped assembly, so they have no part usage inside a software-system part def. Their
+        * requirements are grouped under the Quality-* requirements in docs/reqstream/quality.yaml. */
+
     part def PortAudioSharp2 {
         doc /* Managed PortAudio binding and carrier for the supported transitive native runtime
              * packages consumed by the Speech PortAudio child subsystem. */

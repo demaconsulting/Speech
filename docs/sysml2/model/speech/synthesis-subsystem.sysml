@@ -30,5 +30,8 @@ package Speech {
         part synthesisEngineBusyException : SynthesisEngineBusyException;
         part synthesisSessionFaultedException : SynthesisSessionFaultedException;
         part dedicatedWorker : SynthesisDedicatedWorker;
+        part engineAudio : EngineAudio;
+        part audioTagDescriptor : AudioTagDescriptor;
+        part speechParameterConventions : SpeechParameterConventions;
     }
 }

@@ -26,5 +26,7 @@ package SpeechCli {
         part synthesisCommandSubsystem : SynthesisCommandSubsystem;
         part recognitionCommandSubsystem : RecognitionCommandSubsystem;
         part conversationCommandSubsystem : ConversationCommandSubsystem;
+        part commandDispatch : CommandDispatch;
+        part pathHelpers : PathHelpers;
     }
 }

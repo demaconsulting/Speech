@@ -27,5 +27,6 @@ package Speech {
         part unavailableSpeechRecognizerEngine : UnavailableSpeechRecognizerEngine;
         part unavailableRecognitionSession : UnavailableRecognitionSession;
         part speechRecognizerUnavailableException : SpeechRecognizerUnavailableException;
+        part speechRecognitionResult : SpeechRecognitionResult;
     }
 }

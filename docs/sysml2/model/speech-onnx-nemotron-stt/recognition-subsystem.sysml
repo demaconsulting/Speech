@@ -13,5 +13,6 @@ package SpeechOnnxNemotronStt {
         part nemotronFeatureExtractor : NemotronFeatureExtractor;
         part nemotronRnntGreedyDecoder : NemotronRnntGreedyDecoder;
         part silenceRunLimiter : SilenceRunLimiter;
+        part nemotronEngineOptions : NemotronEngineOptions;
     }
 }

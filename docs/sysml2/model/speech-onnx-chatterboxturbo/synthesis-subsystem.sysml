@@ -13,5 +13,6 @@ package SpeechOnnxChatterboxTurbo {
         part onnxChatterboxTurboNetworks : OnnxChatterboxTurboNetworks;
         part chatterboxTurboTokenSelector : ChatterboxTurboTokenSelector;
         part chatterboxTurboCapabilityProfile : ChatterboxTurboCapabilityProfile;
+        part chatterboxTurboConditioning : ChatterboxTurboConditioning;
     }
 }

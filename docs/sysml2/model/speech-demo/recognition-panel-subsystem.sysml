@@ -12,5 +12,6 @@ package SpeechDemo {
         part iRecognizerSessionFactory : IRecognizerSessionFactory;
         part recognizerSessionFactory : RecognizerSessionFactory;
         part recognitionPanelViewModel : RecognitionPanelViewModel;
+        part captureDebugRecorder : CaptureDebugRecorder;
     }
 }
