@@ -33,8 +33,7 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     entirely if there is no preceding chunk (a degenerate run at the very start of the text).
 ///     This is a best-effort UX quality heuristic, not a correctness requirement: an oversized or
 ///     undersized chunk still synthesizes and plays correctly.
-/// </remarks>
-/// <remarks>
+///     <para>
 ///     The numeral exceptions above assume English/US-style numeral punctuation, where <c>,</c>
 ///     is the thousands separator and <c>.</c> is the decimal point (e.g. <c>"1,000.5"</c>).
 ///     Locales that swap these roles (e.g. many European locales, where <c>.</c> is the
@@ -47,6 +46,7 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     future non-English model or locale-aware caller would need to adjust these rules (e.g.
 ///     swap which of <c>,</c>/<c>.</c> gets the one-sided, no-leading-digit exception) rather
 ///     than assuming this class's heuristics generalize as-is.
+///     </para>
 /// </remarks>
 internal static class SentenceChunker
 {

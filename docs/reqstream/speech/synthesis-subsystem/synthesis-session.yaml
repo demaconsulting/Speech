@@ -114,6 +114,7 @@ sections:
                 tests:
                   - SynthesisSession_StateChanged_OneSuccessfulOperation_RaisesExpectedTransitionsInOrder
                   - SynthesisSession_StateChanged_HandlerThrows_IsIsolatedAndDoesNotPropagate
+                  - SynthesisSession_StateChanged_HandlerBlocksOnOtherThreadReadingState_DoesNotDeadlock
 
               - id: Speech-Synthesis-SynthesisSession-HotReuse
                 title: >-

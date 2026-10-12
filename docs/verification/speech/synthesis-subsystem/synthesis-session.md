@@ -20,7 +20,11 @@ asserting the exact ordered sequence of transitions raised for one successful op
 (`Created → Starting → Running → Stopping → Stopped`), and separately for a faulting operation
 (ending in `Faulted`, reported through diagnostics). A handler that throws from `StateChanged` is
 asserted to be isolated: the exception is caught and reported through diagnostics rather than
-propagated or allowed to destabilize the session. The overlap rule is verified deterministically
+propagated or allowed to destabilize the session. A handler that blocks while another thread reads
+`State` proves handlers are never invoked under the session lock
+(`SynthesisSession_StateChanged_HandlerBlocksOnOtherThreadReadingState_DoesNotDeadlock`). A few
+tests still use short `Task.Delay` windows to assert that something has not yet happened; these are
+accepted absence-waits (they can only pass late, never fail spuriously). The overlap rule is verified deterministically
 with a `BlockingSynthesisEngine`-style test double that holds the first call's `Generate` open on
 a `SemaphoreSlim` until the test releases it, letting a test assert that a second
 `SpeakAsync`/`SynthesizeAsync` call made while the first is still in flight throws

@@ -45,8 +45,10 @@ thread can change.
 
 - **SpeakAsync(text, cancellationToken)** / **SynthesizeAsync(text, cancellationToken)**: Both
   validate `text` eagerly, then delegate to the shared `RunOperationAsync(text,
-  playAfterSynthesis, cancellationToken)`, which validates the overlap rule and current state
-  under the lock, transitions `Starting` → `Running`, runs
+  playAfterSynthesis, cancellationToken)`. `StartOperation` validates the overlap rule and current
+  state under the lock, sets `Starting` and registers the operation task there, then (after the lock
+  is released, so `StateChanged` handlers never run under it) raises `Starting` and runs the operation,
+  which transitions `Starting` → `Running`, runs
   `GenerateAndOptionallyPlayAsync`, then transitions `Stopping` → `Stopped` on success or
   cancellation, or to `Faulted` (reporting the fault via diagnostics) on any other exception. A
   second call while an operation is already `Starting`/`Running`/`Stopping` throws

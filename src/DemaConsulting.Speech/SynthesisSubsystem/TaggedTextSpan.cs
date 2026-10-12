@@ -29,7 +29,12 @@ public sealed record TaggedTextSpan(TaggedTextSpanKind Kind, string Text, Natura
     /// </summary>
     /// <param name="text">The literal text this span carries. Must not be <see langword="null"/>.</param>
     /// <returns>A new plain-text span.</returns>
-    public static TaggedTextSpan PlainText(string text) => new(TaggedTextSpanKind.PlainText, text, null);
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> is <see langword="null"/>.</exception>
+    public static TaggedTextSpan PlainText(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        return new(TaggedTextSpanKind.PlainText, text, null);
+    }
 
     /// <summary>
     ///     Creates a <see cref="TaggedTextSpanKind.Tag"/> span.

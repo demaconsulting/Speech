@@ -190,16 +190,14 @@ internal sealed class SynthesisSession : ISynthesisSession
     ///     with that validation.
     /// </summary>
     /// <remarks>
-    ///     Validation and registration both run inside one <see cref="_syncRoot"/> critical
-    ///     section, including the call into <see cref="RunOperationAsync"/> itself: <c>lock</c> is
-    ///     reentrant on the same thread, and calling an <see langword="async"/> method runs it
-    ///     synchronously up to its first genuine <see langword="await"/> before control returns
-    ///     here with a <see cref="Task"/> handle - so <see cref="RunOperationAsync"/>'s own state
-    ///     transitions to <see cref="SynthesisSessionState.Running"/> have already happened by the
-    ///     time <see cref="_operationTask"/> is assigned below. This closes the window where a
-    ///     concurrent <see cref="DisposeAsync"/> could otherwise observe <see cref="_operationTask"/>
-    ///     as <see langword="null"/> while the operation is already inside
-    ///     <see cref="GenerateSegmentAsync"/>/native <c>Generate</c>.
+    ///     Validation, the move to <see cref="SynthesisSessionState.Starting"/> and registration of the in-flight
+    ///     operation (a tracker task that completes when the operation settles, so it exists before any of the
+    ///     operation runs) all happen inside one <see cref="_syncRoot"/> critical section. This closes the window
+    ///     where a concurrent <see cref="DisposeAsync"/> could otherwise observe <see cref="_operationTask"/> as
+    ///     <see langword="null"/> while the operation is already inside <see cref="GenerateSegmentAsync"/>/native
+    ///     <c>Generate</c>. The <see cref="StateChanged"/> notification for <c>Starting</c> and the operation itself
+    ///     then run after the lock is released, so handlers never execute under <see cref="_syncRoot"/>; the
+    ///     operation still runs synchronously on the caller's thread up to its first genuine await.
     /// </remarks>
     private Task<IReadOnlyList<SynthesizedSpeech>> StartOperation(
         string text,
@@ -207,6 +205,8 @@ internal sealed class SynthesisSession : ISynthesisSession
         CancellationToken callerToken)
     {
         var operationCancellation = CancellationTokenSource.CreateLinkedTokenSource(callerToken);
+        var tracker = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        SynthesisSessionState previous;
         lock (_syncRoot)
         {
             if (_disposeTask is not null)
@@ -229,12 +229,24 @@ internal sealed class SynthesisSession : ISynthesisSession
                     "session already has an operation in progress; await completion before calling again");
             }
 
+            previous = _state;
+            _state = SynthesisSessionState.Starting;
             _operationCancellation = operationCancellation;
-
-            var task = RunOperationAsync(text, playAfterSynthesis, operationCancellation);
-            _operationTask = task;
-            return task;
+            _operationTask = tracker.Task;
         }
+
+        RaiseStateChanged(previous, SynthesisSessionState.Starting);
+
+        var task = RunOperationAsync(text, playAfterSynthesis, operationCancellation);
+
+        // The tracker only tells StopAsync/DisposeAsync when the operation has settled; callers get the real task
+        _ = task.ContinueWith(
+            static (_, state) => ((TaskCompletionSource)state!).TrySetResult(),
+            tracker,
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+        return task;
     }
 
     /// <inheritdoc/>
@@ -401,7 +413,6 @@ internal sealed class SynthesisSession : ISynthesisSession
         bool playAfterSynthesis,
         CancellationTokenSource operationCancellation)
     {
-        TransitionTo(SynthesisSessionState.Starting);
         TransitionTo(SynthesisSessionState.Running);
 
         try
@@ -829,6 +840,14 @@ internal sealed class SynthesisSession : ISynthesisSession
             _state = newState;
         }
 
+        RaiseStateChanged(previous, newState);
+    }
+
+    /// <summary>Raises <see cref="StateChanged"/> (never while holding <see cref="_syncRoot"/>), isolating handler exceptions.</summary>
+    /// <param name="previous">The state before the transition.</param>
+    /// <param name="newState">The state after the transition.</param>
+    private void RaiseStateChanged(SynthesisSessionState previous, SynthesisSessionState newState)
+    {
         if (previous == newState)
         {
             return;

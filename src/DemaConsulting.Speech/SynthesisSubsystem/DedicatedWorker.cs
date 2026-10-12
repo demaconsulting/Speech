@@ -139,10 +139,13 @@ internal static class DedicatedWorker
         }
 
         // Cancellation was requested: give the worker a bounded grace period to stop cooperatively.
-        var abandonDelay = Task.Delay(timeout, CancellationToken.None);
+        using var abandonCancellation = new CancellationTokenSource();
+        var abandonDelay = Task.Delay(timeout, abandonCancellation.Token);
         var raceResult = await Task.WhenAny(workerTask, abandonDelay).ConfigureAwait(false);
         if (raceResult == workerTask)
         {
+            // The grace timer is no longer needed
+            await abandonCancellation.CancelAsync().ConfigureAwait(false);
             return await workerTask.ConfigureAwait(false);
         }
 

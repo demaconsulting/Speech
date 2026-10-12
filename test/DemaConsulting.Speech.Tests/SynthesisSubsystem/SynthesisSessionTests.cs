@@ -516,6 +516,35 @@ public class SynthesisSessionTests
     }
 
     /// <summary>
+    ///     Proves <see cref="ISynthesisSession.StateChanged"/> handlers do not run under the session's
+    ///     internal lock: a handler that waits for another thread to read the lock-protected state completes.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_StateChanged_HandlerBlocksOnOtherThreadReadingState_DoesNotDeadlock()
+    {
+        // Arrange
+        var backend = new FakeSynthesisEngine();
+        var device = CreateAvailablePlaybackDevice();
+        await using var session = CreateSession(backend, device);
+        var observedOnOtherThread = new List<SynthesisSessionState>();
+        session.StateChanged += (_, _) =>
+        {
+            var read = Task.Run(() => session.State);
+            Assert.True(read.Wait(TimeSpan.FromSeconds(10)), "State read blocked while a handler was running");
+            lock (observedOnOtherThread)
+            {
+                observedOnOtherThread.Add(read.Result);
+            }
+        };
+
+        // Act
+        await session.SynthesizeAsync("Hello world.", TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(4, observedOnOtherThread.Count);
+    }
+
+    /// <summary>
     ///     Proves that a <see cref="ISynthesisSession.StateChanged"/> handler that throws does not
     ///     propagate out of the session and does not destabilize its own lifecycle, mirroring this
     ///     library's event-exception-isolation convention.
