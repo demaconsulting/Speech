@@ -25,8 +25,10 @@ sections:
             justification: |
               Registration is the opt-in seam through which a host composes this package with
               the Speech library without the library depending on it.
-            tests:
-              - SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_RegistersModelAndReturnsCatalog
+            children:
+              - SpeechOnnxChatterboxTurbo-Models-SpeechModelCatalogChatterboxTurboExtensions-Registration
+              - SpeechOnnxChatterboxTurbo-Models-SpeechModelCatalogChatterboxTurboExtensions-ReturnsCatalog
+              - SpeechOnnxChatterboxTurbo-Models-SpeechModelCatalogChatterboxTurboExtensions-NullCatalog
 
           - id: SpeechOnnxChatterboxTurbo-Models-RealSynthesisModel
             title: >-
@@ -109,6 +111,7 @@ sections:
               - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-MoodClips
               - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-MoodClipLoading
               - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-MoodNames
+              - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-MoodLookup
+              - SpeechOnnxChatterboxTurbo-Models-SpeechModelCatalogChatterboxTurboExtensions-DefaultStoreVoices
             tests:
               - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_StoreVoices_MergedAfterExplicitAndDirectoryFirstIdWins
-              - SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_DefaultsToCatalogStoreVoices

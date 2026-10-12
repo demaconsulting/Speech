@@ -5,12 +5,11 @@
 The SpeechOnnxChatterboxTurbo ModelManagementSubsystem is verified by automated unit tests in
 `test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/ModelManagementSubsystem/`: the model,
 options in `OnnxChatterboxTurboEnglishSynthesisModelTests.cs`, the registration extension in
-`SpeechModelCatalogChatterboxTurboExtensionsTests.cs`, the
+`SpeechModelCatalogChatterboxTurboExtensionsTests.cs` (see its unit document), the
 tokenizer in `ByteLevelBpeTokenizerTests.cs` and the reference voice in
 `ChatterboxTurboReferenceVoiceTests.cs`. Backend construction is verified against synthetic ONNX
-graphs, so no real model is required. `ChatterboxTurboModelOptions` and the registration extension are
-not separate software units: the options are verified within the model unit document and the
-registration extension at subsystem level (see "Registration Extension" below).
+graphs, so no real model is required. `ChatterboxTurboModelOptions` is not a separate software unit: the
+options are verified within the model unit document.
 
 ### Test Environment
 
@@ -21,26 +20,13 @@ registration extension at subsystem level (see "Registration Extension" below).
 
 ### Acceptance Criteria
 
-The subsystem is accepted when both registration tests pass and every unit suite passes: the model
+The subsystem is accepted when every unit suite passes: the registration extension, the model
 metadata, descriptor, variants, voices (explicit, directory, user folder and pack, with duplicate and label
 handling) and backend creation behave as documented, the tokenizer reproduces the reference ids, and
 reference voices (with lazy and mood clips) are normalized and validated.
 
 ### Test Scenarios
 
-See the unit verification documents: `onnx-chatterboxturbo-english-synthesis-model.md`,
-`byte-level-bpe-tokenizer.md` and `chatterbox-turbo-reference-voice.md`.
-
-#### Registration Extension
-
-**Test**: `SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_RegistersModelAndReturnsCatalog`
-
-Verifies that the extension registers the one model with the supplied options and returns the same
-catalog instance.
-
-#### Registration Extension defaults the voice library to the catalog store
-
-**Test**: `SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_DefaultsToCatalogStoreVoices`
-
-Verifies that with no library in the options the model lists the voices of the catalog's store and the
-caller's options are not modified.
+See the unit verification documents: `speech-model-catalog-chatterbox-turbo-extensions.md`,
+`onnx-chatterboxturbo-english-synthesis-model.md`, `byte-level-bpe-tokenizer.md` and
+`chatterbox-turbo-reference-voice.md`.

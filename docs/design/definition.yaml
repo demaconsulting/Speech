@@ -120,6 +120,7 @@ input-files:
   - docs/design/speech-onnx-chatterboxturbo/model-management-subsystem/byte-level-bpe-tokenizer.md
   - docs/design/speech-onnx-chatterboxturbo/model-management-subsystem/chatterbox-turbo-reference-voice.md
   - docs/design/speech-onnx-chatterboxturbo/model-management-subsystem/onnx-chatterboxturbo-english-synthesis-model.md
+  - docs/design/speech-onnx-chatterboxturbo/model-management-subsystem/speech-model-catalog-chatterbox-turbo-extensions.md
   - docs/design/speech-onnx-chatterboxturbo/synthesis-subsystem.md
   - docs/design/speech-onnx-chatterboxturbo/synthesis-subsystem/chatterbox-turbo-capability-profile.md
   - docs/design/speech-onnx-chatterboxturbo/synthesis-subsystem/chatterbox-turbo-token-selector.md

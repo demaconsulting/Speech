@@ -83,7 +83,7 @@ sections:
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-Moods
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-NonMoodTags
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodMarker
-              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MarkerSafety
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodMarkerLookup
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodJoinSilence
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodTagPolicy
             tests:

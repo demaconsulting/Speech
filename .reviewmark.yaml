@@ -2183,8 +2183,7 @@ reviews:
   - id: SpeechOnnxChatterboxTurbo-ModelManagementSubsystem
     title: >-
       Review that SpeechOnnxChatterboxTurbo ModelManagementSubsystem Satisfies Subsystem
-      Requirements (covers SpeechModelCatalogChatterboxTurboExtensions and its
-      SpeechModelCatalogChatterboxTurboExtensionsTests test file)
+      Requirements
     context:
       - "docs/design/speech-onnx-chatterboxturbo.md"
       - "docs/reqstream/speech-onnx-chatterboxturbo.yaml"
@@ -2192,6 +2191,21 @@ reviews:
       - "docs/reqstream/speech-onnx-chatterboxturbo/model-management-subsystem.yaml"
       - "docs/design/speech-onnx-chatterboxturbo/model-management-subsystem.md"
       - "docs/verification/speech-onnx-chatterboxturbo/model-management-subsystem.md"
+
+  # SpeechOnnxChatterboxTurbo-ModelManagementSubsystem-SpeechModelCatalogChatterboxTurboExtensions Review (one per unit)
+  - id: SpeechOnnxChatterboxTurbo-ModelManagementSubsystem-SpeechModelCatalogChatterboxTurboExtensions
+    title: >-
+      Review that SpeechOnnxChatterboxTurbo ModelManagementSubsystem
+      SpeechModelCatalogChatterboxTurboExtensions Implementation is Correct
+    context:
+      - "docs/design/speech-onnx-chatterboxturbo.md"
+      - "docs/design/speech-onnx-chatterboxturbo/model-management-subsystem.md"
+      - "docs/reqstream/speech-onnx-chatterboxturbo.yaml"
+      - "docs/reqstream/speech-onnx-chatterboxturbo/model-management-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-chatterboxturbo/model-management-subsystem/speech-model-catalog-chatterbox-turbo-extensions.yaml"
+      - "docs/design/speech-onnx-chatterboxturbo/model-management-subsystem/speech-model-catalog-chatterbox-turbo-extensions.md"
+      - "docs/verification/speech-onnx-chatterboxturbo/model-management-subsystem/speech-model-catalog-chatterbox-turbo-extensions.md"
       - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/SpeechModelCatalogChatterboxTurboExtensions.cs"
       - "test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/ModelManagementSubsystem/SpeechModelCatalogChatterboxTurboExtensionsTests.cs"
 

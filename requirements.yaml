@@ -148,6 +148,7 @@ includes:
   - docs/reqstream/speech-onnx-chatterboxturbo/model-management-subsystem/onnx-chatterboxturbo-english-synthesis-model.yaml
   - docs/reqstream/speech-onnx-chatterboxturbo/model-management-subsystem/byte-level-bpe-tokenizer.yaml
   - docs/reqstream/speech-onnx-chatterboxturbo/model-management-subsystem/chatterbox-turbo-reference-voice.yaml
+  - docs/reqstream/speech-onnx-chatterboxturbo/model-management-subsystem/speech-model-catalog-chatterbox-turbo-extensions.yaml
   - docs/reqstream/speech-onnx-chatterboxturbo/synthesis-subsystem.yaml
   - docs/reqstream/speech-onnx-chatterboxturbo/synthesis-subsystem/onnx-chatterboxturbo-synthesis-engine.yaml
   - docs/reqstream/speech-onnx-chatterboxturbo/synthesis-subsystem/onnx-chatterboxturbo-networks.yaml

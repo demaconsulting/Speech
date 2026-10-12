@@ -50,6 +50,13 @@ public sealed class SpeechModelCatalogChatterboxTurboExtensionsTests : IDisposab
         Assert.Same(catalog, result);
         var model = Assert.Single(catalog.Enumerate());
         Assert.Equal("chatterbox-turbo-onnx-en", model.Id);
+    }
+
+    /// <summary>Proves a null catalog is rejected.</summary>
+    [Fact]
+    public void SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_NullCatalog_ThrowsArgumentNullException()
+    {
+        // Act / Assert
         Assert.Throws<ArgumentNullException>(() => SpeechModelCatalogChatterboxTurboExtensions.AddChatterboxTurboModels(null!));
     }
 

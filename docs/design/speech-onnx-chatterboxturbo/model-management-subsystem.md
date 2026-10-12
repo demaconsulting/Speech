@@ -10,7 +10,7 @@ and owns the model-specific input pipeline: the embedded tokenizer and the refer
 normalization. It contains the following units:
 
 - **SpeechModelCatalogChatterboxTurboExtensions**: the `AddChatterboxTurboModels()` extension
-  method (documented here as a subsystem unit)
+  method
 - **OnnxChatterboxTurboEnglishSynthesisModel**: the `ISynthesisModel` implementation, with
   `ChatterboxTurboModelOptions`, the language-model and auxiliary-graph variant enums and the
   end-of-sentence tag policy enum
