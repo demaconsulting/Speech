@@ -34,14 +34,26 @@ bit-exactly to its WAV twin.
 **Expected**: A FLAC fixture copied to a `.dat` file decodes as FLAC (44100 Hz, mono), and a
 hand-built one-sample WAV under a `.dat` extension decodes as WAV (8000 Hz, sample `0.5`).
 
-##### Errors are reported
+##### Missing file is reported
 
-**Test**: `AudioFileReader_Read_Errors_AreReported`
+**Test**: `AudioFileReader_Read_MissingFile_ThrowsFileNotFound`
 
-**Expected**: A missing file throws `FileNotFoundException`; a text file or a three-byte stream
-throws `InvalidDataException` (the file case names the path); a null stream throws
-`ArgumentNullException`; an empty path throws `ArgumentException`; a negative `MaxSamples` throws
-`ArgumentOutOfRangeException`.
+**Expected**: A path that does not exist throws `FileNotFoundException`.
+
+##### Malformed input is reported
+
+**Tests**: `AudioFileReader_Read_UnrecognizedFile_ThrowsInvalidDataWithPath`,
+`AudioFileReader_Read_Errors_AreReported`
+
+**Expected**: A text file throws `InvalidDataException` whose message names the path; a
+three-byte stream throws `InvalidDataException`.
+
+##### Invalid arguments are rejected
+
+**Test**: `AudioFileReader_Read_InvalidArguments_ThrowArgumentExceptions`
+
+**Expected**: A null stream throws `ArgumentNullException`; an empty path throws
+`ArgumentException`; a negative `MaxSamples` throws `ArgumentOutOfRangeException`.
 
 ##### Unsupported WAV names the path
 

@@ -38,8 +38,7 @@ sections:
                 title: >-
                   The WavFileAudioCaptureDevice class shall raise an additive EndOfFileReached
                   event exactly once, after the last FrameCaptured event, when the file is fully
-                  consumed without interruption, and shall not raise it when Stop interrupts
-                  delivery first.
+                  consumed without interruption.
                 justification: |
                   The public IAudioCaptureDevice contract has no "end of stream" concept because
                   a real live-mic device has no equivalent "end"; the shipped recognize --input
@@ -47,20 +46,36 @@ sections:
                   further recognition results.
                 tests:
                   - WavFileAudioCaptureDevice_Start_FixtureFile_RaisesEndOfFileReachedExactlyOnceAfterLastFrame
+
+              - id: Speech-Audio-WavFileAudioCaptureDevice-EndOfFileSuppressedOnStop
+                title: >-
+                  The WavFileAudioCaptureDevice class shall not raise EndOfFileReached when Stop
+                  interrupts delivery before the file is fully consumed.
+                justification: |
+                  An interrupted delivery has not reached the end of the file; signaling it would
+                  make a consumer treat a partial recognition as complete.
+                tests:
                   - WavFileAudioCaptureDevice_Stop_CalledDuringFrameCaptured_InterruptsDeliveryWithoutEndOfFileReached
 
               - id: Speech-Audio-WavFileAudioCaptureDevice-ReportsResolvedFormat
                 title: >-
                   The WavFileAudioCaptureDevice class shall report the mono channel count and the
-                  file's declared sample rate once Start has parsed the header, and shall report
-                  zero for both beforehand.
+                  file's declared sample rate once Start has parsed the header.
                 justification: |
                   A consumer converting captured audio into another format needs to know the
                   exact format actually delivered, mirroring the disclosure contract every other
-                  IAudioCaptureDevice implementation honors; reporting zero before resolution
-                  avoids implying a format that has not actually been confirmed yet.
+                  IAudioCaptureDevice implementation honors.
                 tests:
                   - WavFileAudioCaptureDevice_Start_FixtureFile_ReportsMonoSixteenKilohertzFormat
+
+              - id: Speech-Audio-WavFileAudioCaptureDevice-ZeroFormatBeforeStart
+                title: >-
+                  The WavFileAudioCaptureDevice class shall report a channel count and sample rate
+                  of zero before Start has parsed the header.
+                justification: |
+                  Reporting zero before resolution avoids implying a format that has not actually
+                  been confirmed yet.
+                tests:
                   - WavFileAudioCaptureDevice_Format_BeforeStart_ReturnsZero
 
               - id: Speech-Audio-WavFileAudioCaptureDevice-UnsupportedFormatThrowsInvalidOperationException

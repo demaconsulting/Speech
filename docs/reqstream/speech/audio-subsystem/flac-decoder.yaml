@@ -44,23 +44,39 @@ sections:
 
               - id: Speech-Audio-FlacDecoder-Integrity
                 title: >-
-                  The FlacDecoder shall verify frame-header CRC-8 and frame CRC-16 checksums unless disabled, and
-                  shall reject truncated streams, invalid header or predictor fields, oversized blocks, a frame
-                  that holds more samples than remain of a known STREAMINFO total, a damaged ID3v2 prefix
-                  (including a size field that is not syncsafe) and streams exceeding the sample cap (clamped
-                  to the maximum array length) with InvalidDataException.
+                  The FlacDecoder shall verify frame-header CRC-8 and frame CRC-16 checksums unless
+                  verification is disabled, rejecting a frame whose checksum is wrong with
+                  InvalidDataException.
                 justification: |
-                  Corrupt or hostile input must fail with a clear, bounded error instead of producing garbage
-                  or exhausting memory.
+                  Corrupt input must fail with a clear error instead of producing garbage.
                 tests:
                   - FlacCrc_Checksums_StandardCheckString_MatchPublishedValues
                   - FlacDecoder_Decode_BadChecksums_ThrowUnlessVerificationDisabled
+
+              - id: Speech-Audio-FlacDecoder-MalformedStreamRejection
+                title: >-
+                  The FlacDecoder shall reject truncated streams, invalid header or predictor fields,
+                  oversized blocks, a frame that holds more samples than remain of a known STREAMINFO
+                  total, and a damaged ID3v2 prefix (including a size field that is not syncsafe) with
+                  InvalidDataException.
+                justification: |
+                  Corrupt or hostile input must fail with a clear, bounded error instead of producing
+                  garbage.
+                tests:
                   - FlacDecoder_Decode_Truncated_Throws
                   - FlacDecoder_Decode_MissingFrames_Throws
                   - FlacDecoder_Decode_InvalidFields_Throw
                   - FlacDecoder_Decode_BlockLargerThanMaximum_Throws
                   - FlacDecoder_Decode_InvalidPredictorParameters_Throw
-                  - FlacDecoder_Decode_ExceedsMaxSamples_Throws
-                  - FlacDecoder_Decode_ExceedsArrayLimit_Throws
                   - FlacDecoder_Decode_FrameExceedsDeclaredTotal_Throws
                   - FlacDecoder_Decode_Id3SizeNotSyncsafe_Throws
+
+              - id: Speech-Audio-FlacDecoder-SampleCap
+                title: >-
+                  The FlacDecoder shall reject a stream exceeding the sample cap (clamped to the maximum
+                  array length) with InvalidDataException.
+                justification: |
+                  A bounded decode cost protects hosts from oversized or hostile files.
+                tests:
+                  - FlacDecoder_Decode_ExceedsMaxSamples_Throws
+                  - FlacDecoder_Decode_ExceedsArrayLimit_Throws

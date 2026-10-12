@@ -93,6 +93,45 @@ public sealed class AudioFileReaderTests
         }
     }
 
+    /// <summary>Proves a missing file is reported with <see cref="FileNotFoundException"/>.</summary>
+    [Fact]
+    public void AudioFileReader_Read_MissingFile_ThrowsFileNotFound() =>
+        Assert.Throws<FileNotFoundException>(() =>
+            AudioFileReader.Read(Path.Combine(Path.GetTempPath(), $"speech-missing-{Guid.NewGuid():N}.wav")));
+
+    /// <summary>Proves an unrecognized file is reported with <see cref="InvalidDataException"/> naming the path.</summary>
+    [Fact]
+    public void AudioFileReader_Read_UnrecognizedFile_ThrowsInvalidDataWithPath()
+    {
+        // Arrange
+        var path = Path.Combine(Path.GetTempPath(), $"speech-{Guid.NewGuid():N}.wav");
+        File.WriteAllBytes(path, "not audio at all, just text"u8.ToArray());
+
+        try
+        {
+            // Act
+            var error = Assert.Throws<InvalidDataException>(() => AudioFileReader.Read(path));
+
+            // Assert
+            Assert.Contains(path, error.Message);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>Proves invalid arguments are reported with the matching argument exception.</summary>
+    [Fact]
+    public void AudioFileReader_Read_InvalidArguments_ThrowArgumentExceptions()
+    {
+        // Act / Assert
+        Assert.Throws<ArgumentNullException>(() => AudioFileReader.Read((Stream)null!));
+        Assert.Throws<ArgumentException>(() => AudioFileReader.Read(string.Empty));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            AudioFileReader.Read(new MemoryStream([1]), new AudioFileReadOptions { MaxSamples = -1 }));
+    }
+
     /// <summary>Proves an unsupported WAV encoding is reported with the path.</summary>
     [Fact]
     public void AudioFileReader_Read_UnsupportedWav_ThrowsNotSupportedWithPath()
@@ -155,6 +194,31 @@ public sealed class AudioFileReaderTests
         Assert.Equal(32767, pcm[4]);
         Assert.Equal(-32768, pcm[5]);
         Assert.Equal(0, pcm[7]);
+    }
+
+    /// <summary>Proves ToMono averages the channels of each frame.</summary>
+    [Fact]
+    public void AudioClip_ToMono_AveragesChannels()
+    {
+        // Arrange
+        var clip = new AudioClip([1f, 0f, 0.5f, 0.5f], 4, 2, 16);
+
+        // Act / Assert
+        Assert.Equal([0.5f, 0.5f], clip.ToMono());
+    }
+
+    /// <summary>Proves ToPcm16 clamps out-of-range samples to the 16-bit range.</summary>
+    [Fact]
+    public void AudioClip_ToPcm16_ClampsOutOfRangeSamples()
+    {
+        // Arrange
+        var clip = new AudioClip([2f, -2f, 0f], 8000, 1, 16);
+
+        // Act
+        var pcm = clip.ToPcm16();
+
+        // Assert
+        Assert.Equal([32767, -32768, 0], pcm.Select(v => (int)v));
     }
 
     /// <summary>Proves <see cref="AudioClip"/> rejects a null sample array and non-positive rates or channel counts, including through <c>with</c>.</summary>

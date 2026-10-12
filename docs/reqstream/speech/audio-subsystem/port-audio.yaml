@@ -24,6 +24,8 @@ sections:
                   - Speech-Audio-PortAudio-IPortAudioStream-AbstractsStreamLifecycle
                   - Speech-Audio-PortAudio-PortAudioEnvironment-CachesInitialization
                   - Speech-Audio-PortAudio-PortAudioEnvironment-Refresh
+                  - Speech-Audio-PortAudio-PortAudioEnvironment-RefreshRefusedWhileActive
+                  - Speech-Audio-PortAudio-PortAudioEnvironment-RefreshAdvancesGeneration
                   - Speech-Audio-PortAudio-PortAudioEnvironment-SerializedInitializationEvaluation
                   - Speech-Audio-PortAudio-PortAudioApi-BridgesManagedAndNativeCalls
                   - Speech-Audio-PortAudio-SupportingTypes-DescribeInteropMetadata
@@ -35,18 +37,28 @@ sections:
               - id: Speech-Audio-PortAudio-PreferredHostApiResolution
                 title: >-
                   The PortAudio subsystem shall map each supported operating system to exactly
-                  one preferred PortAudio host API and resolve its runtime host-API index.
+                  one preferred PortAudio host API.
                 justification: |
                   The higher-level audio subsystem relies on a single host API per platform to
                   avoid duplicate device listings and host-API ambiguity.
                 children:
                   - Speech-Audio-PortAudio-PortAudioEnvironment-PlatformMapping
                   - Speech-Audio-PortAudio-SupportingTypes-DeclareHostApiConstants
-                  - Speech-Audio-PortAudio-SupportingTypes-BindMissingHostApiInterop
-                  - Speech-Audio-PortAudio-PortAudioEnvironment-ResolvesPreferredHostApi
                 tests:
                   - PortAudioEnvironment_ResolvePreferredHostApiType_Windows_ReturnsWasapi
                   - PortAudioEnvironment_ResolvePreferredHostApiType_Linux_ReturnsAlsa
                   - PortAudioEnvironment_ResolvePreferredHostApiType_MacOs_ReturnsCoreAudio
+
+              - id: Speech-Audio-PortAudio-HostApiIndexResolution
+                title: >-
+                  The PortAudio subsystem shall resolve the preferred PortAudio host API's runtime
+                  host-API index.
+                justification: |
+                  Device enumeration and default-device selection are scoped by the runtime
+                  host-API index, which only the native runtime can report.
+                children:
+                  - Speech-Audio-PortAudio-SupportingTypes-BindMissingHostApiInterop
+                  - Speech-Audio-PortAudio-PortAudioEnvironment-ResolvesPreferredHostApi
+                tests:
                   - PortAudioEnvironment_TryResolvePreferredHostApi_InitializedAndMapped_ReturnsHostApiInfo
                   - PortAudioEnvironment_TryResolvePreferredHostApi_PreferredHostApiMissing_ReturnsFalse

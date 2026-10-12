@@ -22,8 +22,13 @@ unity gain, and invalid arguments (null clip, non-positive rate or channel count
 
 **Test**: `AudioResampler_DownMix_AveragesChannels`
 
-**Expected**: `[1, 0, 0.5, 0.5]` down-mixes to `[0.5, 0.5]`; mono input passes through; a channel
-count of 0 throws `ArgumentOutOfRangeException`.
+**Expected**: `[1, 0, 0.5, 0.5]` down-mixes to `[0.5, 0.5]`; mono input passes through.
+
+##### Down-mix rejects a non-positive channel count
+
+**Test**: `AudioResampler_DownMix_NonPositiveChannelCount_Throws`
+
+**Expected**: A channel count of 0 or -1 throws `ArgumentOutOfRangeException`.
 
 ##### Down-mix drops a trailing partial frame
 
@@ -46,7 +51,7 @@ expected length (within one sample) and matches the ideal tone within 0.02 in th
 
 ##### Invalid sample rates are rejected
 
-**Test**: `AudioResampler_Resample_SameRateOrEmpty_AreTrivial` (same test, final assertions)
+**Test**: `AudioResampler_Resample_NonPositiveRates_Throw`
 
 **Expected**: A source or target rate of 0 throws `ArgumentOutOfRangeException`.
 
@@ -61,6 +66,11 @@ non-empty output whose every sample, edges included, lies within 0.99 to 1.01.
 
 **Test**: `AudioResampler_ToMonoResampled_StereoClip_ProducesMonoAtTargetRate`
 
-**Expected**: A 16 kHz stereo clip resampled to 24 kHz yields about 6000 non-silent mono samples;
-a null clip throws `ArgumentNullException` and a target rate of 0 throws
+**Expected**: A 16 kHz stereo clip resampled to 24 kHz yields about 6000 non-silent mono samples.
+
+##### Mono resampling rejects invalid arguments
+
+**Test**: `AudioResampler_ToMonoResampled_InvalidArguments_Throw`
+
+**Expected**: A null clip throws `ArgumentNullException` and a target rate of 0 throws
 `ArgumentOutOfRangeException`.

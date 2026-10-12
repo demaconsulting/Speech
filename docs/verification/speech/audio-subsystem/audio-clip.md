@@ -46,3 +46,19 @@ valid `with { SampleRate = 16000 }` succeeds.
 with `1.0 -> 32767`, `-1.0 -> -32768`, out-of-range values clamped, and `NaN -> 0`.
 
 **Test**: `AudioClip_DerivedMembers_AreConsistent` (`AudioFileReaderTests.cs`)
+
+##### Mono down-mix averages channels
+
+**Stimulus**: A 2-channel clip `[1, 0, 0.5, 0.5]`; call `ToMono()`.
+
+**Expected**: `[0.5, 0.5]`.
+
+**Test**: `AudioClip_ToMono_AveragesChannels` (`AudioFileReaderTests.cs`)
+
+##### PCM16 conversion clamps out-of-range samples
+
+**Stimulus**: A mono clip `[2, -2, 0]`; call `ToPcm16()`.
+
+**Expected**: `[32767, -32768, 0]`.
+
+**Test**: `AudioClip_ToPcm16_ClampsOutOfRangeSamples` (`AudioFileReaderTests.cs`)

@@ -12,13 +12,23 @@ sections:
             requirements:
               - id: Speech-Audio-AudioFileReader-DetectsContainer
                 title: >-
-                  The AudioFileReader class shall decode a WAV or FLAC file or stream into an AudioClip,
-                  choosing the decoder from the file content rather than the file extension.
+                  The AudioFileReader class shall choose the WAV or FLAC decoder from the file content
+                  rather than the file extension.
                 justification: |
                   Files are often renamed or extension-less; the content is the reliable signal.
                 tests:
                   - AudioFileReader_Read_DetectsContainerByContent
                   - AudioFileReader_Read_WavUnderUnrelatedExtension_DetectsWavByContent
+
+              - id: Speech-Audio-AudioFileReader-DecodesFileOrStream
+                title: >-
+                  The AudioFileReader class shall decode a WAV or FLAC file path or a stream into an
+                  AudioClip.
+                justification: |
+                  Hosts hold audio either on disk or in memory, including non-seekable sources.
+                tests:
+                  - AudioFileReader_Read_DetectsContainerByContent
+                  - AudioFileReader_Read_NonSeekableStream_Decodes
 
               - id: Speech-Audio-AudioFileReader-ListsSupportedExtensions
                 title: >-
@@ -31,16 +41,39 @@ sections:
 
               - id: Speech-Audio-AudioFileReader-ReportsErrors
                 title: >-
-                  The AudioFileReader class shall report a missing file with FileNotFoundException, an
-                  unrecognized or malformed file with InvalidDataException, an unsupported encoding with
-                  NotSupportedException, and invalid arguments with the matching argument exception, naming
-                  the file path in path-based failures.
+                  The AudioFileReader class shall report a missing file with FileNotFoundException.
                 justification: |
-                  Callers must be able to tell a missing file from a bad format and to locate the offender.
+                  Callers must be able to tell a missing file from a bad format.
                 tests:
+                  - AudioFileReader_Read_MissingFile_ThrowsFileNotFound
+
+              - id: Speech-Audio-AudioFileReader-ReportsMalformedFile
+                title: >-
+                  The AudioFileReader class shall report an unrecognized or malformed file with
+                  InvalidDataException, naming the file path in path-based failures.
+                justification: |
+                  Callers must be able to tell a bad format from a missing file and to locate the offender.
+                tests:
+                  - AudioFileReader_Read_UnrecognizedFile_ThrowsInvalidDataWithPath
                   - AudioFileReader_Read_Errors_AreReported
+
+              - id: Speech-Audio-AudioFileReader-ReportsUnsupportedEncoding
+                title: >-
+                  The AudioFileReader class shall report an unsupported encoding with NotSupportedException,
+                  naming the file path in path-based failures.
+                justification: |
+                  Callers must be able to tell an unsupported encoding from a damaged file.
+                tests:
                   - AudioFileReader_Read_UnsupportedWav_ThrowsNotSupportedWithPath
 
+              - id: Speech-Audio-AudioFileReader-ReportsInvalidArguments
+                title: >-
+                  The AudioFileReader class shall report invalid arguments with the matching argument
+                  exception.
+                justification: |
+                  Caller mistakes must fail at the call site with a conventional exception type.
+                tests:
+                  - AudioFileReader_Read_InvalidArguments_ThrowArgumentExceptions
               - id: Speech-Audio-AudioFileReader-ByteCap
                 title: >-
                   The AudioFileReader class shall reject an input larger than the byte cap derived from

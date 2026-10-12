@@ -54,28 +54,42 @@ sections:
                     title: >-
                       The PortAudioEnvironment class shall expose an internal Refresh() method
                       that reinitializes the native runtime (terminating it first only if it was
-                      previously initialized), reflects a new initialization outcome, and
-                      advances an internal generation counter exactly once for every refresh
-                      that actually proceeds (not one refused via AudioDeviceInUseException), but
-                      refuses with AudioDeviceInUseException without terminating while any
-                      registered capture/playback device currently has an active stream.
+                      previously initialized) and reflects a new initialization outcome.
                     justification: |
                       See the AudioSubsystem-level Speech-Audio-DeviceRefresh requirement and the
                       dedicated audio-device-refresh.yaml requirement file for the full
                       rationale shared with AudioDeviceFactory.RefreshDevices(); this entry ties
-                      that behavior specifically to PortAudioEnvironment's own Refresh()/
-                      RegisterActiveStream()/UnregisterActiveStream() members, which is why it is
-                      not duplicated here beyond this cross-reference. The generation counter is
-                      what lets PortAudioCaptureDevice/PortAudioPlaybackDevice detect that they
-                      were resolved before a refresh invalidated the device table (see
-                      Speech-Audio-AudioDeviceRefresh-InvalidatesPreRefreshInstances).
+                      that behavior specifically to PortAudioEnvironment's own Refresh() member.
                     tests:
                       - PortAudioEnvironment_Refresh_NoActiveStreams_ReinitializesAndReflectsNewOutcome
-                      - PortAudioEnvironment_Refresh_ActiveStreamRegistered_ThrowsAudioDeviceInUseExceptionAndDoesNotTerminate
                       - PortAudioEnvironment_Refresh_NotPreviouslyInitialized_SkipsTerminateAndReinitializes
-                      - PortAudioEnvironment_RegisterThenUnregisterActiveStream_Refresh_Succeeds
                       - PortAudioEnvironment_Refresh_OutcomeChanges_ReflectsNewInitializationResult
                       - PortAudioEnvironment_Refresh_TerminateThrows_PropagatesAndLeavesCachedStateUntouched
+
+                  - id: Speech-Audio-PortAudio-PortAudioEnvironment-RefreshRefusedWhileActive
+                    title: >-
+                      The PortAudioEnvironment class shall refuse Refresh() with
+                      AudioDeviceInUseException, without terminating the native runtime, while any
+                      registered capture/playback device currently has an active stream.
+                    justification: |
+                      Refreshing under a live stream would silently tear down audio that is
+                      playing or recording; the refusal is driven by the environment's own
+                      RegisterActiveStream()/UnregisterActiveStream() members.
+                    tests:
+                      - PortAudioEnvironment_Refresh_ActiveStreamRegistered_ThrowsAudioDeviceInUseExceptionAndDoesNotTerminate
+                      - PortAudioEnvironment_RegisterThenUnregisterActiveStream_Refresh_Succeeds
+
+                  - id: Speech-Audio-PortAudio-PortAudioEnvironment-RefreshAdvancesGeneration
+                    title: >-
+                      The PortAudioEnvironment class shall advance an internal generation counter
+                      exactly once for every refresh that actually proceeds, and not for one
+                      refused via AudioDeviceInUseException.
+                    justification: |
+                      The generation counter is what lets PortAudioCaptureDevice/
+                      PortAudioPlaybackDevice detect that they were resolved before a refresh
+                      invalidated the device table (see
+                      Speech-Audio-AudioDeviceRefresh-InvalidatesPreRefreshInstances).
+                    tests:
                       - PortAudioEnvironment_Refresh_NoActiveStreams_IncrementsGeneration
                       - PortAudioEnvironment_Refresh_ActiveStreamRegistered_DoesNotIncrementGeneration
 

@@ -12,11 +12,29 @@ sections:
             requirements:
               - id: Speech-Audio-AudioClip-DerivedMembers
                 title: >-
-                  The AudioClip record shall report its frame count and duration, down-mix to mono, and
-                  convert to clamped 16-bit PCM.
+                  The AudioClip record shall report its frame count and duration.
                 justification: |
-                  Consumers need common views of decoded audio without re-implementing them.
+                  Consumers need the common size views of decoded audio without re-implementing them.
                 tests:
+                  - AudioClip_DerivedMembers_AreConsistent
+                  - AudioClip_EmptySamples_HasZeroDuration
+
+              - id: Speech-Audio-AudioClip-ToMono
+                title: >-
+                  The AudioClip record shall down-mix to mono.
+                justification: |
+                  Mono-oriented consumers need a down-mixed view of decoded audio.
+                tests:
+                  - AudioClip_ToMono_AveragesChannels
+                  - AudioClip_DerivedMembers_AreConsistent
+
+              - id: Speech-Audio-AudioClip-ToPcm16
+                title: >-
+                  The AudioClip record shall convert to 16-bit PCM, clamping out-of-range samples.
+                justification: |
+                  Playback and file writers need 16-bit PCM and must not overflow on out-of-range samples.
+                tests:
+                  - AudioClip_ToPcm16_ClampsOutOfRangeSamples
                   - AudioClip_DerivedMembers_AreConsistent
               - id: Speech-Audio-AudioClip-ValidatesInput
                 title: >-

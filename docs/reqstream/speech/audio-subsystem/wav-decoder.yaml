@@ -12,31 +12,60 @@ sections:
             requirements:
               - id: Speech-Audio-WavDecoder-Encodings
                 title: >-
-                  The WavDecoder class shall decode 8-bit unsigned, 16-, 24- and 32-bit signed PCM and
-                  32-bit float WAV data, scaling integer samples to [-1, 1) (the most negative value
-                  maps to exactly -1 and the largest positive value stays below 1) and passing float
-                  samples, including NaN, through unchanged.
+                  The WavDecoder class shall decode 8-bit unsigned and 16-, 24- and 32-bit signed PCM
+                  WAV data, scaling integer samples to [-1, 1) (the most negative value maps to
+                  exactly -1 and the largest positive value stays below 1).
                 justification: |
-                  These are the encodings hosts commonly produce; exact scaling keeps full-scale audio
-                  within the unit range.
+                  These are the integer encodings hosts commonly produce; exact scaling keeps
+                  full-scale audio within the unit range.
                 tests:
                   - WavDecoder_Decode_PcmDepths_ScaleToUnitRange
-                  - WavDecoder_Decode_Float32_PassesThrough
                   - WavDecoder_Decode_ExtremePcmValues_ScaleAsExpected
+
+              - id: Speech-Audio-WavDecoder-FloatPassThrough
+                title: >-
+                  The WavDecoder class shall decode 32-bit float WAV data, passing float samples,
+                  including NaN, through unchanged.
+                justification: |
+                  Float audio is already in the unit range; altering it would corrupt the signal.
+                tests:
+                  - WavDecoder_Decode_Float32_PassesThrough
                   - WavDecoder_Decode_FloatNaN_PassesThroughUnchanged
 
               - id: Speech-Audio-WavDecoder-HeaderTolerance
                 title: >-
-                  The WavDecoder class shall tolerate real-world headers by decoding the
-                  WAVE_FORMAT_EXTENSIBLE form, skipping unknown chunks and padding odd-sized chunks,
-                  clamping an overstated data size to the bytes present, dropping a trailing partial
-                  frame, and decoding a zero-length data chunk to an empty clip.
+                  The WavDecoder class shall decode the WAVE_FORMAT_EXTENSIBLE form, skipping unknown
+                  chunks and padding odd-sized chunks.
                 justification: |
-                  Encoders in the wild write extra chunks and inexact sizes; tolerating them avoids
-                  needless failures on files that are otherwise valid.
+                  Encoders in the wild write extra chunks; tolerating them avoids needless failures
+                  on files that are otherwise valid.
                 tests:
                   - WavDecoder_Decode_ExtensibleWithExtraChunks_Decodes
+
+              - id: Speech-Audio-WavDecoder-OverstatedDataSize
+                title: >-
+                  The WavDecoder class shall clamp an overstated data chunk size to the bytes actually
+                  present.
+                justification: |
+                  Streaming and interrupted encoders write inexact sizes; clamping avoids needless
+                  failures on files that are otherwise valid.
+                tests:
                   - WavDecoder_Decode_OverstatedDataSize_IsClamped
+
+              - id: Speech-Audio-WavDecoder-TrailingPartialFrame
+                title: >-
+                  The WavDecoder class shall drop a trailing partial frame.
+                justification: |
+                  A ragged final frame cannot be interpreted and must not misalign or fail the decode.
+                tests:
+                  - WavDecoder_Decode_OverstatedDataSize_IsClamped
+
+              - id: Speech-Audio-WavDecoder-ZeroLengthData
+                title: >-
+                  The WavDecoder class shall decode a zero-length data chunk to an empty clip.
+                justification: |
+                  An empty recording is valid input and must not be treated as damaged.
+                tests:
                   - WavDecoder_Decode_ZeroLengthData_YieldsEmptyClip
 
               - id: Speech-Audio-WavDecoder-MultichannelOrder

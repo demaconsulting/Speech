@@ -113,6 +113,39 @@ public sealed class AudioResamplerTests
         Assert.All(output, sample => Assert.InRange(sample, 0.99f, 1.01f));
     }
 
+    /// <summary>Proves DownMix rejects a non-positive channel count.</summary>
+    [Fact]
+    public void AudioResampler_DownMix_NonPositiveChannelCount_Throws()
+    {
+        // Act / Assert
+        Assert.Throws<ArgumentOutOfRangeException>(() => AudioResampler.DownMix([0.1f, 0.2f], 0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => AudioResampler.DownMix([0.1f, 0.2f], -1));
+    }
+
+    /// <summary>Proves Resample rejects a non-positive input or output rate.</summary>
+    [Fact]
+    public void AudioResampler_Resample_NonPositiveRates_Throw()
+    {
+        // Arrange
+        float[] input = [0.1f, 0.2f, 0.3f];
+
+        // Act / Assert
+        Assert.Throws<ArgumentOutOfRangeException>(() => AudioResampler.Resample(input, 0, 16000));
+        Assert.Throws<ArgumentOutOfRangeException>(() => AudioResampler.Resample(input, 8000, 0));
+    }
+
+    /// <summary>Proves ToMonoResampled rejects a null clip and a non-positive target rate.</summary>
+    [Fact]
+    public void AudioResampler_ToMonoResampled_InvalidArguments_Throw()
+    {
+        // Arrange
+        var clip = new AudioClip([0.1f, 0.2f], 16000, 1, 16);
+
+        // Act / Assert
+        Assert.Throws<ArgumentNullException>(() => AudioResampler.ToMonoResampled(null!, 24000));
+        Assert.Throws<ArgumentOutOfRangeException>(() => AudioResampler.ToMonoResampled(clip, 0));
+    }
+
     /// <summary>Generates a sine tone.</summary>
     private static float[] Tone(int rate, double seconds, double frequency) =>
         [.. Enumerable.Range(0, (int)(rate * seconds)).Select(i => (float)(0.5 * Math.Sin(2 * Math.PI * frequency * i / rate)))];

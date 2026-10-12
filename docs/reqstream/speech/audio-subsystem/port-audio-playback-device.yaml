@@ -34,16 +34,23 @@ sections:
               - id: Speech-Audio-PortAudioPlaybackDevice-QueuedPlayback
                 title: >-
                   The PortAudioPlaybackDevice class shall queue interleaved floating-point
-                  samples and zero-fill any playback underrun.
+                  samples and deliver them to the playback callback in the order written.
                 justification: |
-                  Callback-driven playback must avoid blocking for new audio data and must
-                  return a complete output buffer to PortAudio on every callback.
+                  Callback-driven playback must avoid blocking for new audio data.
                 tests:
-                  - PortAudioPlaybackDevice_Write_StreamRequestsSamples_DrainsQueueAndZeroFills
                   - PortAudioPlaybackDevice_Write_MultipleBlocksOfVaryingSize_DrainsInOrder
                   - PortAudioPlaybackDevice_Write_BlockLargerThanRequest_DrainsRemainderOnNextCall
                   - PortAudioPlaybackDevice_Write_SmallBlockFollowedByAnotherWrite_ConcatenatesAcrossBoundary
                   - PortAudioPlaybackDevice_Stop_PartiallyConsumedBlock_RestartNeverReplaysStaleAudio
+
+              - id: Speech-Audio-PortAudioPlaybackDevice-UnderrunZeroFill
+                title: >-
+                  The PortAudioPlaybackDevice class shall zero-fill any playback underrun.
+                justification: |
+                  The callback must return a complete output buffer to PortAudio on every
+                  invocation, even when fewer samples are queued than requested.
+                tests:
+                  - PortAudioPlaybackDevice_Write_StreamRequestsSamples_DrainsQueueAndZeroFills
 
               - id: Speech-Audio-PortAudioPlaybackDevice-NativeFaultsThrowUnavailable
                 title: >-
@@ -58,8 +65,7 @@ sections:
               - id: Speech-Audio-PortAudioPlaybackDevice-PlaybackFormat
                 title: >-
                   The PortAudioPlaybackDevice class shall report the channel count and sample
-                  rate it requested when opening the resolved device, and shall report zero for
-                  both when no device could be resolved.
+                  rate it requested when opening the resolved device.
                 justification: |
                   The reported format must describe the audio Write actually sends to the device,
                   whether that request came from the hardware default or a caller-supplied
@@ -67,25 +73,47 @@ sections:
                   notably speech synthesis - converts it correctly.
                 tests:
                   - PortAudioPlaybackDevice_PlaybackFormat_ResolvedDevice_ReflectsResolvedDeviceFormat
+
+              - id: Speech-Audio-PortAudioPlaybackDevice-ZeroPlaybackFormatWhenUnresolved
+                title: >-
+                  The PortAudioPlaybackDevice class shall report a channel count and sample rate
+                  of zero when no device could be resolved.
+                justification: |
+                  Reporting zero when nothing was resolved keeps the report consistent with the
+                  device's honest availability flag.
+                tests:
                   - PortAudioPlaybackDevice_PlaybackFormat_NoResolvableDevice_ReturnsZeroRateAndChannelCount
 
               - id: Speech-Audio-PortAudioPlaybackDevice-PreferredFormatSelection
                 title: >-
                   The PortAudioPlaybackDevice class shall request the caller's preferred sample
                   rate when one is supplied and the resolved device's host API confirms it can
-                  be opened, and shall clamp a preferred channel count down to the resolved
-                  device's maximum output-channel capability; when no preference is supplied it
-                  shall request the device's own default sample rate and full output capability.
+                  be opened.
                 justification: |
-                  A playback hint must never ask PortAudio to open more output channels than the
-                  device exposes, but should otherwise let model-driven composition bias the
-                  opened stream toward the model's preferred format and potentially avoid later
-                  resampling or upmixing work.
+                  Letting model-driven composition bias the opened stream toward the model's
+                  preferred format potentially avoids later resampling or upmixing work.
                 tests:
                   - PortAudioPlaybackDevice_Constructor_PreferredFormatWithinCapability_UsesPreferredFormat
-                  - PortAudioPlaybackDevice_Constructor_PreferredChannelCountExceedsCapability_ClampsAndReportsDiagnostic
-                  - PortAudioPlaybackDevice_Constructor_PreferredFormatOmitted_UsesDeviceDefaultFormat
                   - PortAudioPlaybackDevice_Constructor_PreferredSampleRateSupported_UsesPreferredFormat
+
+              - id: Speech-Audio-PortAudioPlaybackDevice-PreferredChannelCountClamp
+                title: >-
+                  The PortAudioPlaybackDevice class shall clamp a preferred channel count down to
+                  the resolved device's maximum output-channel capability.
+                justification: |
+                  A playback hint must never ask PortAudio to open more output channels than the
+                  device exposes.
+                tests:
+                  - PortAudioPlaybackDevice_Constructor_PreferredChannelCountExceedsCapability_ClampsAndReportsDiagnostic
+
+              - id: Speech-Audio-PortAudioPlaybackDevice-DefaultFormatWithoutPreference
+                title: >-
+                  The PortAudioPlaybackDevice class shall request the device's own default sample
+                  rate and full output capability when no preferred format is supplied.
+                justification: |
+                  Callers that express no preference must keep today's device-native behavior.
+                tests:
+                  - PortAudioPlaybackDevice_Constructor_PreferredFormatOmitted_UsesDeviceDefaultFormat
 
               - id: Speech-Audio-PortAudioPlaybackDevice-PreferredSampleRateNegotiated
                 title: >-
@@ -107,8 +135,7 @@ sections:
                   The PortAudioPlaybackDevice class shall track, with PendingSampleCount, how
                   many samples passed to Write have not yet been dequeued by the playback
                   callback, decrementing only by samples the callback genuinely dequeues (never
-                  by a zero-fill shortfall), and shall reset the count to zero when Stop clears
-                  the queue or when no device was resolved.
+                  by a zero-fill shortfall).
                 justification: |
                   Fixes a bug where SynthesisSession stopped the
                   device (discarding whatever was still queued) as soon as every segment had been
@@ -122,24 +149,40 @@ sections:
                   - PortAudioPlaybackDevice_Write_MultipleBlocksOfVaryingSize_DrainsInOrder
                   - PortAudioPlaybackDevice_Write_BlockLargerThanRequest_DrainsRemainderOnNextCall
                   - PortAudioPlaybackDevice_Write_SmallBlockFollowedByAnotherWrite_ConcatenatesAcrossBoundary
+
+              - id: Speech-Audio-PortAudioPlaybackDevice-PendingSampleCountReset
+                title: >-
+                  The PortAudioPlaybackDevice class shall reset PendingSampleCount to zero when
+                  Stop clears the queue or when no device was resolved.
+                justification: |
+                  A discarded queue or a device that never resolved can never deliver samples,
+                  so reporting them as pending would stall drain-waiting callers.
+                tests:
                   - PortAudioPlaybackDevice_Stop_PartiallyConsumedBlock_RestartNeverReplaysStaleAudio
+                  - PortAudioPlaybackDevice_IsAvailable_NoResolvableDevice_ReturnsFalse
 
               - id: Speech-Audio-PortAudioPlaybackDevice-ActiveStreamRegistration
                 title: >-
                   The PortAudioPlaybackDevice class shall register itself with the environment's
-                  active-stream tracking before Start opens a native stream, and unregister
-                  itself once Stop completes (or Start's open attempt fails), so a concurrent or
-                  later PortAudioEnvironment.Refresh() knows whether this device's stream is
-                  genuinely active.
+                  active-stream tracking before Start opens a native stream, so a concurrent or
+                  later PortAudioEnvironment.Refresh() knows this device's stream is active.
                 justification: |
                   PortAudioEnvironment.Refresh()'s refusal behavior (see
                   Speech-Audio-PortAudio-PortAudioEnvironment-Refresh) is only correct if this
-                  device accurately reports its own active/inactive state to the shared
-                  environment; an unregistered active stream would let a refresh silently tear
-                  down live audio, and a stream left registered after Stop would block every
-                  future refresh indefinitely.
+                  device accurately reports its own active state to the shared environment; an
+                  unregistered active stream would let a refresh silently tear down live audio.
                 tests:
                   - PortAudioPlaybackDevice_Start_RegistersActiveStreamWithEnvironment_RefreshThrowsWhileStarted
+
+              - id: Speech-Audio-PortAudioPlaybackDevice-ActiveStreamUnregistration
+                title: >-
+                  The PortAudioPlaybackDevice class shall unregister itself from the environment's
+                  active-stream tracking once Stop completes (or Start's open attempt fails), so a
+                  later PortAudioEnvironment.Refresh() is no longer blocked by this device.
+                justification: |
+                  A stream left registered after Stop would block every future refresh
+                  indefinitely.
+                tests:
                   - PortAudioPlaybackDevice_Stop_UnregistersActiveStream_RefreshSucceedsAfterStop
                   - PortAudioPlaybackDevice_Start_DisposeThrowsDuringStartFailureCleanup_UnregistersActiveStreamAndThrowsOriginalStartFailure
 

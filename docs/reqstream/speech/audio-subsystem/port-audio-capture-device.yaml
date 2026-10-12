@@ -54,34 +54,54 @@ sections:
               - id: Speech-Audio-PortAudioCaptureDevice-CaptureFormat
                 title: >-
                   The PortAudioCaptureDevice class shall report the channel count and sample rate
-                  it requested when opening the resolved device, and shall report zero for both
-                  when no device could be resolved.
+                  it requested when opening the resolved device.
                 justification: |
                   The reported format must describe the audio actually requested and then
                   delivered through FrameCaptured, whether it came from the device default or a
-                  caller-supplied preference; reporting zero when nothing was resolved keeps the
-                  report consistent with the device's honest availability flag.
+                  caller-supplied preference.
                 tests:
                   - PortAudioCaptureDevice_CaptureFormat_ResolvedDevice_ReflectsResolvedDeviceFormat
+
+              - id: Speech-Audio-PortAudioCaptureDevice-ZeroCaptureFormatWhenUnresolved
+                title: >-
+                  The PortAudioCaptureDevice class shall report a channel count and sample rate of
+                  zero when no device could be resolved.
+                justification: |
+                  Reporting zero when nothing was resolved keeps the report consistent with the
+                  device's honest availability flag.
+                tests:
                   - PortAudioCaptureDevice_CaptureFormat_NoResolvableDevice_ReturnsZeroRateAndChannelCount
 
               - id: Speech-Audio-PortAudioCaptureDevice-PreferredFormatSelection
                 title: >-
                   The PortAudioCaptureDevice class shall request the caller's preferred sample
                   rate when one is supplied and the resolved device's host API confirms it can
-                  be opened, and shall clamp a preferred channel count down to the resolved
-                  device's maximum input-channel capability; when no preference is supplied it
-                  shall request the device's own default sample rate and full input capability.
+                  be opened.
                 justification: |
-                  A format hint must never ask PortAudio to open more input channels than the
-                  device exposes, but should otherwise let model-driven composition bias the
-                  opened stream toward the model's own format and potentially avoid later
-                  resampling or downmixing work.
+                  Letting model-driven composition bias the opened stream toward the model's own
+                  format potentially avoids later resampling or downmixing work.
                 tests:
                   - PortAudioCaptureDevice_Constructor_PreferredFormatWithinCapability_UsesPreferredFormat
-                  - PortAudioCaptureDevice_Constructor_PreferredChannelCountExceedsCapability_ClampsAndReportsDiagnostic
-                  - PortAudioCaptureDevice_Constructor_PreferredFormatOmitted_UsesDeviceDefaultFormat
                   - PortAudioCaptureDevice_Constructor_PreferredSampleRateSupported_UsesPreferredFormat
+
+              - id: Speech-Audio-PortAudioCaptureDevice-PreferredChannelCountClamp
+                title: >-
+                  The PortAudioCaptureDevice class shall clamp a preferred channel count down to the
+                  resolved device's maximum input-channel capability.
+                justification: |
+                  A format hint must never ask PortAudio to open more input channels than the
+                  device exposes.
+                tests:
+                  - PortAudioCaptureDevice_Constructor_PreferredChannelCountExceedsCapability_ClampsAndReportsDiagnostic
+
+              - id: Speech-Audio-PortAudioCaptureDevice-DefaultFormatWithoutPreference
+                title: >-
+                  The PortAudioCaptureDevice class shall request the device's own default sample
+                  rate and full input capability when no preferred format is supplied.
+                justification: |
+                  Callers that express no preference must keep today's device-native behavior.
+                tests:
+                  - PortAudioCaptureDevice_Constructor_PreferredFormatOmitted_UsesDeviceDefaultFormat
 
               - id: Speech-Audio-PortAudioCaptureDevice-PreferredSampleRateNegotiated
                 title: >-
@@ -101,19 +121,25 @@ sections:
               - id: Speech-Audio-PortAudioCaptureDevice-ActiveStreamRegistration
                 title: >-
                   The PortAudioCaptureDevice class shall register itself with the environment's
-                  active-stream tracking before Start opens a native stream, and unregister
-                  itself once Stop completes (or Start's open attempt fails), so a concurrent or
-                  later PortAudioEnvironment.Refresh() knows whether this device's stream is
-                  genuinely active.
+                  active-stream tracking before Start opens a native stream, so a concurrent or
+                  later PortAudioEnvironment.Refresh() knows this device's stream is active.
                 justification: |
                   PortAudioEnvironment.Refresh()'s refusal behavior (see
                   Speech-Audio-PortAudio-PortAudioEnvironment-Refresh) is only correct if this
-                  device accurately reports its own active/inactive state to the shared
-                  environment; an unregistered active stream would let a refresh silently tear
-                  down live audio, and a stream left registered after Stop would block every
-                  future refresh indefinitely.
+                  device accurately reports its own active state to the shared environment; an
+                  unregistered active stream would let a refresh silently tear down live audio.
                 tests:
                   - PortAudioCaptureDevice_Start_RegistersActiveStreamWithEnvironment_RefreshThrowsWhileStarted
+
+              - id: Speech-Audio-PortAudioCaptureDevice-ActiveStreamUnregistration
+                title: >-
+                  The PortAudioCaptureDevice class shall unregister itself from the environment's
+                  active-stream tracking once Stop completes (or Start's open attempt fails), so a
+                  later PortAudioEnvironment.Refresh() is no longer blocked by this device.
+                justification: |
+                  A stream left registered after Stop would block every future refresh
+                  indefinitely.
+                tests:
                   - PortAudioCaptureDevice_Stop_UnregistersActiveStream_RefreshSucceedsAfterStop
 
               - id: Speech-Audio-PortAudioCaptureDevice-StaleAfterRefreshThrows
