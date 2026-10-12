@@ -79,7 +79,6 @@ sections:
                 tests:
                   - AudioTagParser_Parse_TagWithExtraInternalWhitespace_ResolvesToCanonicalTag
                   - AudioTagCatalog_TryResolve_MixedCaseWithExtraWhitespace_ResolvesToCanonicalTag
-                  - AudioTagCatalog_TryResolve_EmptyOrWhitespace_ReturnsFalse
 
               - id: Speech-Synthesis-AudioTagParser-OrderedSpanSequence
                 title: >-
@@ -112,8 +111,7 @@ sections:
                 title: >-
                   AudioTagParser.Parse shall pass empty brackets, unclosed brackets, and stray
                   closing brackets through as literal text, exactly as they appeared, rather than
-                  throwing or discarding them, and shall still resolve a valid tag that follows a
-                  nested opening bracket.
+                  throwing or discarding them.
                 justification: |
                   This library's "never worse than plain narration" guarantee requires that an
                   unbalanced bracket in host- or user-supplied text degrades to ordinary
@@ -122,21 +120,38 @@ sections:
                   - AudioTagParser_Parse_UnclosedOpeningBracket_PassesThroughAsLiteralText
                   - AudioTagParser_Parse_EmptyBrackets_PassesThroughAsLiteralText
                   - AudioTagParser_Parse_StrayClosingBracket_PassesThroughAsLiteralText
+
+              - id: Speech-Synthesis-AudioTagParser-NestedBracketTagResolution
+                title: >-
+                  AudioTagParser.Parse shall still resolve a valid tag that follows a nested
+                  opening bracket.
+                justification: |
+                  A stray opening bracket in front of a valid tag must not swallow the tag, or
+                  the tag's intent would be lost for the sake of an unrelated typo.
+                tests:
                   - AudioTagParser_Parse_NestedOpeningBracketBeforeValidTag_ResolvesTag
 
               - id: Speech-Synthesis-AudioTagParser-UnknownBracketPassthrough
                 title: >-
                   AudioTagParser.Parse shall pass unrecognized bracket content through as literal
-                  text, exactly as it appeared, and AudioTagCatalog shall report unknown, empty or
-                  whitespace-only content as unresolved.
+                  text, exactly as it appeared.
                 justification: |
                   A typo or an unsupported bracket phrase must degrade to ordinary narration rather
                   than failing synthesis or silently losing content.
                 tests:
-                  - AudioTagCatalog_TryResolve_UnknownWord_ReturnsFalse
-                  - AudioTagCatalog_TryResolve_EmptyOrWhitespace_ReturnsFalse
                   - AudioTagParser_Parse_UnknownBracketedWord_PassesThroughAsLiteralText
                   - AudioTagParser_Parse_RecognizedTagFollowedByUnknownBracket_ReturnsTagThenLiteralSpans
+
+              - id: Speech-Synthesis-AudioTagParser-UnknownContentUnresolved
+                title: >-
+                  AudioTagCatalog shall report unknown, empty, or whitespace-only content as
+                  unresolved.
+                justification: |
+                  The parser relies on the catalog to say that content is not a tag, so that
+                  bracketed text that is not a tag can be treated as ordinary narration.
+                tests:
+                  - AudioTagCatalog_TryResolve_UnknownWord_ReturnsFalse
+                  - AudioTagCatalog_TryResolve_EmptyOrWhitespace_ReturnsFalse
 
               - id: Speech-Synthesis-AudioTagParser-NullContentRejection
                 title: >-

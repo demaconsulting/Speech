@@ -29,8 +29,7 @@ sections:
                 title: >-
                   The ISpeechRecognizerEngine interface shall expose an async CreateSessionAsync
                   method that binds a supplied capture device to a new IRecognitionSession for
-                  the session's entire life, rejecting a null device and honoring caller
-                  cancellation.
+                  the session's entire life.
                 justification: |
                   A mockable Layer 3 engine contract lets hosts and tests depend on recognition
                   behavior without tying themselves to a specific inference backend, while
@@ -38,36 +37,70 @@ sections:
                   created, per this library's Engine/Session split.
                 tests:
                   - UnavailableSpeechRecognizerEngine_CreateSessionAsync_Always_ReturnsUnavailableSession
+                  - SpeechRecognizerEngine_CreateSessionAsync_NoActiveSession_ReturnsSession
+
+              - id: Speech-Recognition-ISpeechRecognizerEngine-CreateSessionNullDevice
+                title: >-
+                  The ISpeechRecognizerEngine interface's CreateSessionAsync shall reject a null
+                  device with ArgumentNullException.
+                justification: |
+                  A null device is a programming error at the call site and must surface
+                  immediately rather than producing a session that can never capture audio.
+                tests:
                   - UnavailableSpeechRecognizerEngine_CreateSessionAsync_NullDevice_ThrowsArgumentNullException
                   - SpeechRecognizerEngine_CreateSessionAsync_NullDevice_ThrowsArgumentNullException
-                  - SpeechRecognizerEngine_CreateSessionAsync_NoActiveSession_ReturnsSession
-                  - SpeechRecognizerFactory_LoadAsync_CancelledToken_FaultsWithOperationCanceledException
+
+              - id: Speech-Recognition-ISpeechRecognizerEngine-CreateSessionCancellation
+                title: >-
+                  The ISpeechRecognizerEngine interface's CreateSessionAsync shall honor caller
+                  cancellation by throwing OperationCanceledException for an already-cancelled
+                  token.
+                justification: |
+                  Caller cancellation is a caller decision and must be honored uniformly by every
+                  engine implementation, including the unavailable fallback.
+                tests:
+                  - UnavailableSpeechRecognizerEngine_CreateSessionAsync_CancelledToken_ThrowsOperationCanceledException
 
               - id: Speech-Recognition-ISpeechRecognizerEngine-Disposal
                 title: >-
                   The ISpeechRecognizerEngine interface shall expose an idempotent async
-                  DisposeAsync that disposes any still-active session it created before
-                  releasing the engine's own native resources.
+                  DisposeAsync.
+                justification: |
+                  Repeated disposal from multiple owners must stay safe.
+                tests:
+                  - UnavailableSpeechRecognizerEngine_DisposeAsync_CalledTwice_DoesNotThrow
+
+              - id: Speech-Recognition-ISpeechRecognizerEngine-DisposalReleasesActiveSession
+                title: >-
+                  The ISpeechRecognizerEngine interface's DisposeAsync shall dispose any
+                  still-active session it created before releasing the engine's own native
+                  resources.
                 justification: |
                   An engine owns the native-backed recognition backend across many sessions, so
                   disposing the engine while a session it created is still active must not leak
-                  that session's resources, and repeated disposal from multiple owners must stay
-                  safe.
+                  that session's resources.
                 tests:
-                  - UnavailableSpeechRecognizerEngine_DisposeAsync_CalledTwice_DoesNotThrow
                   - SpeechRecognizerEngine_DisposeAsync_WithActiveSession_DisposesSessionFirst
 
               - id: Speech-Recognition-RecognitionBackend-UnavailableDeviceFallback
                 title: >-
-                  SpeechRecognizerEngine's CreateSessionAsync shall report a Warning
-                  diagnostic and return UnavailableRecognitionSession.Instance, without attempting
-                  to lease its backend, when the supplied capture device itself reports
-                  unavailable.
+                  SpeechRecognizerEngine's CreateSessionAsync shall return
+                  UnavailableRecognitionSession.Instance, without attempting to lease its
+                  backend, when the supplied capture device itself reports unavailable.
                 justification: |
                   No microphone (or no working audio backend) is an ordinary machine state,
                   exactly like a model not being installed - there is nothing to stream, so this
                   engine returns the same honest fallback used elsewhere in this library rather
-                  than a session doomed to fail the instant it is started, while still telling an
-                  observer why via the Warning diagnostic.
+                  than a session doomed to fail the instant it is started.
+                tests:
+                  - SpeechRecognizerEngine_CreateSessionAsync_DeviceUnavailable_ReturnsFallbackAndReportsWarning
+
+              - id: Speech-Recognition-RecognitionBackend-UnavailableDeviceWarning
+                title: >-
+                  SpeechRecognizerEngine's CreateSessionAsync shall report a Warning diagnostic
+                  when the supplied capture device itself reports unavailable.
+                justification: |
+                  An observer must be told why the engine returned the unavailable fallback
+                  session rather than a working one.
                 tests:
                   - SpeechRecognizerEngine_CreateSessionAsync_DeviceUnavailable_ReturnsFallbackAndReportsWarning

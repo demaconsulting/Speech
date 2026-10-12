@@ -16,8 +16,7 @@ sections:
                 title: >-
                   The SynthesisEngineBusyException class shall be the documented exception type
                   thrown by CreateSessionAsync when a session is requested while an earlier
-                  leased session is still live, and shall provide standard exception
-                  constructors.
+                  leased session is still live.
                 justification: |
                   A distinct, documented exception type lets a caller distinguish "the engine is
                   busy with another session" from any other failure mode, and lets it decide
@@ -25,3 +24,13 @@ sections:
                   failure as fatal.
                 tests:
                   - SpeechSynthesizerEngine_CreateSessionAsync_LeaseAlreadyHeld_ThrowsSynthesisEngineBusyException
+
+              - id: Speech-Synthesis-SynthesisEngineBusyException-StandardConstructors
+                title: >-
+                  The SynthesisEngineBusyException class shall provide standard exception
+                  constructors that preserve the supplied message and inner exception.
+                justification: |
+                  Standard constructors let callers and tests create the exception in the usual
+                  .NET way, with the message and cause intact for diagnostics.
+                tests:
+                  - SynthesisEngineBusyException_Constructors_PreserveMessageAndInnerException

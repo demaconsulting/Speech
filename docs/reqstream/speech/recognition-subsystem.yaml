@@ -15,29 +15,51 @@ sections:
               contract split into a Layer 3 engine (one loaded model, reusable across many
               sessions) and a Layer 5 session (bound to one capture device for its entire life),
               that reports availability, starts and stops recognition, and delivers provisional
-              and final results through an async-enumerable surface, without exposing any
-              inference-backend type.
+              and final results through an async-enumerable surface.
             justification: |
-              This library's "engine backend stays swappable at the public API surface"
-              decision requires that a future non-sherpa-onnx backend can replace the current one
-              without a breaking API change, and hosts must be able to test their transcript
-              handling against the contract with no model, microphone, or native runtime present.
-              Splitting the mockable surface into an engine and a session lets a host amortize the
-              expensive model-load step across many device-bound sessions, and lets the
-              session-level state machine and result delivery be verified independently of engine
-              composition.
+              Hosts must be able to test their transcript handling against the contract with no
+              model, microphone, or native runtime present. Splitting the mockable surface into an
+              engine and a session lets a host amortize the expensive model-load step across many
+              device-bound sessions, and lets the session-level state machine and result delivery
+              be verified independently of engine composition.
             children:
               - Speech-Recognition-ISpeechRecognizerEngine-AvailabilityFlag
               - Speech-Recognition-ISpeechRecognizerEngine-CreateSession
+              - Speech-Recognition-ISpeechRecognizerEngine-CreateSessionNullDevice
+              - Speech-Recognition-ISpeechRecognizerEngine-CreateSessionCancellation
               - Speech-Recognition-ISpeechRecognizerEngine-Disposal
+              - Speech-Recognition-ISpeechRecognizerEngine-DisposalReleasesActiveSession
               - Speech-Recognition-IRecognitionSession-AvailabilityFlag
               - Speech-Recognition-IRecognitionSession-StateMachine
+              - Speech-Recognition-IRecognitionSession-ForwardOnlyTransitions
+              - Speech-Recognition-IRecognitionSession-FaultedState
               - Speech-Recognition-IRecognitionSession-StartStopLifecycle
+              - Speech-Recognition-IRecognitionSession-StopFlushesTrailingAudio
+              - Speech-Recognition-IRecognitionSession-StopConcurrencySafe
               - Speech-Recognition-IRecognitionSession-ResultDelivery
+              - Speech-Recognition-IRecognitionSession-SingleConsumer
+              - Speech-Recognition-IRecognitionSession-EnumerationCancellation
+              - Speech-Recognition-IRecognitionSession-FaultedEnumeration
               - Speech-Recognition-IRecognitionSession-Backpressure
             tests:
               - UnavailableSpeechRecognizerEngine_IsAvailable_Read_ReturnsFalse
               - RecognitionSession_StartAsync_FromCreated_TransitionsToRunning
+
+          - id: Speech-Recognition-BackendIsolation
+            title: >-
+              The RecognitionSubsystem shall confine every inference-backend type behind an
+              internal recognition-backend seam, exposing none through its public API, so the
+              session's behavior can be verified against a fake backend.
+            justification: |
+              This library's "engine backend stays swappable at the public API surface"
+              decision requires that a future non-sherpa-onnx backend can replace the current one
+              without a breaking API change, and CI runners cannot be assumed to have a
+              downloaded speech model or a platform-specific native inference binary available.
+            children:
+              - Speech-Recognition-RecognitionBackend-MockableSeam
+            tests:
+              - RecognitionSession_StartAsync_FromCreated_TransitionsToRunning
+              - RecognitionSession_FrameCaptured_FinalResult_AppliesModelNormalizeTextWithIsFinalTrue
 
           - id: Speech-Recognition-EngineExclusivity
             title: >-
@@ -54,6 +76,7 @@ sections:
               - Speech-Recognition-EngineExclusivity-FailFastNotQueued
               - Speech-Recognition-EngineExclusivity-DisposalOwnsSession
               - Speech-Recognition-RecognitionEngineBusyException-Thrown
+              - Speech-Recognition-RecognitionEngineBusyException-NotThrownWhenLeaseFree
               - Speech-Recognition-RecognitionEngineBusyException-Constructors
             tests:
               - SpeechRecognizerEngine_CreateSessionAsync_SessionAlreadyLeased_ThrowsRecognitionEngineBusyException
@@ -63,40 +86,58 @@ sections:
             title: >-
               The RecognitionSubsystem shall compose, via an async LoadAsync, a speech recognizer
               engine for an installed recognition model without ever faulting the returned task
-              for an ordinary machine state, while validating any supplied parameterValues up
-              front: silently ignoring an unrecognized parameter id (an ordinary
-              cross-model-compatibility gap) but faulting with ArgumentException for a recognized
-              parameter's invalid value (a caller bug, not an ordinary machine state).
+              for an ordinary machine state.
             justification: |
               Composition happens at application start-up, where a model that has not been
               downloaded yet and a machine without the speech engine's native runtime are both
               ordinary states rather than programming errors, per this library's "nothing throws
-              at composition" decision. A caller explicitly targeting a parameter it knows this
-              model declares, with a value invalid for it, is a distinct case - a programming
-              error at the call site - so it must be surfaced through the returned task's fault
-              rather than folded into the same never-fault contract as genuine machine-state
-              unavailability.
+              at composition" decision.
             children:
               - Speech-Recognition-SpeechRecognizerFactory-RealEngine
               - Speech-Recognition-SpeechRecognizerFactory-HonestFallbacks
               - Speech-Recognition-SpeechRecognizerFactory-EngineLoadFailureFallback
+              - Speech-Recognition-SpeechRecognizerFactory-EngineLoadFailureReported
               - Speech-Recognition-SpeechRecognizerFactory-ArgumentValidation
-              - Speech-Recognition-SpeechRecognizerFactory-ParameterValuesForwarding
-              - Speech-Recognition-SpeechRecognizerFactory-UnrecognizedParameterIdIgnored
-              - Speech-Recognition-SpeechRecognizerFactory-InvalidRecognizedParameterValueThrows
-              - Speech-Recognition-RecognitionBackend-MockableSeam
+              - Speech-Recognition-SpeechRecognizerFactory-CancellationFault
               - Speech-Recognition-RecognitionBackend-ModelOwnedConfiguration
             tests:
               - SpeechRecognizerFactory_LoadAsync_ModelInstalled_ReturnsRealEngine
               - SpeechRecognizerFactory_LoadAsync_ModelNotInstalled_ReturnsUnavailableEngine
+
+          - id: Speech-Recognition-UnrecognizedParameterIgnored
+            title: >-
+              The RecognitionSubsystem shall compose a speech recognizer engine even when a
+              supplied parameterValues bag names a parameter id the model does not declare,
+              silently ignoring that id.
+            justification: |
+              An unrecognized parameter id is an ordinary cross-model-compatibility gap, such as
+              a host reusing one settings dictionary across different recognition models, not a
+              caller bug, so it must never fault the returned task.
+            children:
+              - Speech-Recognition-SpeechRecognizerFactory-ParameterValuesForwarding
+              - Speech-Recognition-SpeechRecognizerFactory-UnrecognizedParameterIdIgnored
+            tests:
               - SpeechRecognizerFactory_LoadAsync_UnrecognizedParameterId_ComposesAndReportsInfo
+
+          - id: Speech-Recognition-InvalidParameterValueRejected
+            title: >-
+              The RecognitionSubsystem shall fault LoadAsync's returned task with
+              ArgumentException when a supplied parameterValues bag gives a recognized parameter
+              a value that is invalid for it.
+            justification: |
+              A caller explicitly targeting a parameter it knows this model declares, with a
+              value invalid for it, has made a programming error at the call site, so it must be
+              surfaced through the returned task's fault rather than folded into the never-fault
+              contract for genuine machine-state unavailability.
+            children:
+              - Speech-Recognition-SpeechRecognizerFactory-InvalidRecognizedParameterValueThrows
+            tests:
               - SpeechRecognizerFactory_LoadAsync_RecognizedNumericParameterOutOfRange_FaultsWithArgumentException
 
           - id: Speech-Recognition-StreamingPipeline
             title: >-
               The RecognitionSubsystem shall convert captured audio into the format the selected
-              model requires and deliver the resulting recognition results through
-              GetResultsAsync while the session runs.
+              model requires before feeding it to the recognition backend while the session runs.
             justification: |
               A capture device resolves whatever channel count and sample rate its hardware
               defaults to, while a recognition model requires a single fixed mono rate. Without
@@ -104,22 +145,39 @@ sections:
               happened to match the model, which is not an acceptable cross-platform promise.
             children:
               - Speech-Recognition-RecognitionSession-FormatConversion
-              - Speech-Recognition-RecognitionSession-TextNormalization
+              - Speech-Recognition-RecognitionSession-RateConversion
               - Speech-Recognition-RecognitionSession-FiniteSourceLossless
-              - Speech-Recognition-RecognitionResultBuffer-TwoTierBackpressure
               - Speech-Recognition-AudioFrameResampler-Downmix
               - Speech-Recognition-AudioFrameResampler-RateConversion
+              - Speech-Recognition-AudioFrameResampler-EqualRatePassthrough
+              - Speech-Recognition-AudioFrameResampler-AntiAliasing
               - Speech-Recognition-AudioFrameResampler-BoundaryHandling
+              - Speech-Recognition-AudioFrameResampler-InvalidFormatRejected
+              - Speech-Recognition-AudioFrameResampler-UndersizedDestinationRejected
             tests:
               - RecognitionSession_FrameCaptured_StereoAtModelRate_FeedsDownmixedMonoToBackend
+              - RecognitionSession_FrameCaptured_MonoAtHigherRate_FeedsResampledMonoToBackend
+
+          - id: Speech-Recognition-StreamingResultDelivery
+            title: >-
+              The RecognitionSubsystem shall deliver recognition results, with their text
+              normalized by the owning model, through GetResultsAsync while the session runs.
+            justification: |
+              Some recognition models' raw output is unpunctuated or in a different case than a
+              consumer expects, and a host must be able to tell from a single result whether to
+              replace an in-progress transcript line or commit it, without a slow consumer ever
+              losing a committed final result.
+            children:
+              - Speech-Recognition-RecognitionSession-TextNormalization
+              - Speech-Recognition-RecognitionResultBuffer-TwoTierBackpressure
+            tests:
               - RecognitionSession_FrameCaptured_FinalResult_AppliesModelNormalizeTextWithIsFinalTrue
 
           - id: Speech-Recognition-FaultContainment
             title: >-
               The RecognitionSubsystem shall contain and report faults raised while recognizing
-              captured audio or driving the native recognition backend, surfacing a faulted
-              session through GetResultsAsync as a documented exception rather than propagating
-              the underlying fault into the audio capture path or silently ending the session.
+              captured audio or driving the native recognition backend, rather than propagating
+              the underlying fault into the audio capture path or hanging the session.
             justification: |
               Captured audio is delivered on a high-priority audio callback thread where an
               escaping exception tears down the audio stream, and a stuck native call must never
@@ -130,37 +188,63 @@ sections:
             children:
               - Speech-Recognition-RecognitionSession-DeviceLostFault
               - Speech-Recognition-RecognitionSession-NativeCallAbandonIntegration
-              - Speech-Recognition-RecognitionSessionFaultedException-Thrown
+              - Speech-Recognition-RecognitionSession-NativeCallAbandonWarning
               - Speech-Recognition-DedicatedWorker-LongRunningDedicatedThread
               - Speech-Recognition-DedicatedWorker-CooperativeCancellation
               - Speech-Recognition-DedicatedWorker-AbandonAfterTimeout
+              - Speech-Recognition-DedicatedWorker-AbandonDiagnostic
             tests:
               - RecognitionSession_DeviceLostMidSession_TransitionsToFaulted
               - RecognitionSession_NativeCallExceedsAbandonTimeout_TaskCompletesAndDiagnosticsReportsWarning
+
+          - id: Speech-Recognition-FaultedSessionSurfacing
+            title: >-
+              The RecognitionSubsystem shall surface a faulted session through GetResultsAsync as
+              a documented RecognitionSessionFaultedException rather than silently ending the
+              enumeration.
+            justification: |
+              A consumer enumerating results must learn promptly, and unambiguously, that the
+              session can no longer produce results, so it can decide whether to recreate a
+              session rather than treating a faulted session as merely finished.
+            children:
+              - Speech-Recognition-RecognitionSessionFaultedException-Thrown
+            tests:
               - RecognitionSession_GetResultsAsync_SessionFaulted_ThrowsRecognitionSessionFaultedException
 
           - id: Speech-Recognition-UnavailableFallback
             title: >-
               The RecognitionSubsystem shall provide an honest unavailable engine and an honest
               unavailable session that report unavailability rather than faulting or throwing at
-              composition, and throw a documented exception only when an operational member is
-              actually invoked.
+              composition.
             justification: |
               Per this library's "nothing throws at composition" decision, obtaining and holding
-              a fallback engine or session must never throw or fault; only misuse of an already
-              unavailable engine or session is a programming error that should surface as an
-              exception.
+              a fallback engine or session must never throw or fault.
             children:
               - Speech-Recognition-UnavailableSpeechRecognizerEngine-ReportsUnavailable
               - Speech-Recognition-UnavailableSpeechRecognizerEngine-CreateSessionReturnsFallback
+              - Speech-Recognition-UnavailableSpeechRecognizerEngine-CreateSessionRejectsNullDevice
+              - Speech-Recognition-UnavailableSpeechRecognizerEngine-CreateSessionHonorsCancellation
               - Speech-Recognition-UnavailableSpeechRecognizerEngine-DisposalIdempotent
               - Speech-Recognition-UnavailableRecognitionSession-ReportsUnavailable
-              - Speech-Recognition-UnavailableRecognitionSession-OperationsThrow
               - Speech-Recognition-UnavailableRecognitionSession-SafeNoOps
-              - Speech-Recognition-SpeechRecognizerUnavailableException-Thrown
+              - Speech-Recognition-UnavailableRecognitionSession-DisposalIdempotent
               - Speech-Recognition-RecognitionBackend-UnavailableDeviceFallback
+              - Speech-Recognition-RecognitionBackend-UnavailableDeviceWarning
             tests:
               - UnavailableSpeechRecognizerEngine_IsAvailable_Read_ReturnsFalse
               - UnavailableSpeechRecognizerEngine_CreateSessionAsync_Always_ReturnsUnavailableSession
-              - UnavailableRecognitionSession_StartAsync_Always_ThrowsSpeechRecognizerUnavailableException
               - UnavailableRecognitionSession_StopAsync_Always_IsSafeNoOp
+
+          - id: Speech-Recognition-UnavailableOperationsThrow
+            title: >-
+              The RecognitionSubsystem shall throw a documented SpeechRecognizerUnavailableException
+              only when an operational member of an unavailable session is actually invoked.
+            justification: |
+              Only misuse of an already unavailable session, by a caller that ignored its
+              IsAvailable flag, is a programming error that should surface as an exception
+              rather than silently recognizing nothing.
+            children:
+              - Speech-Recognition-UnavailableRecognitionSession-OperationsThrow
+              - Speech-Recognition-SpeechRecognizerUnavailableException-Thrown
+            tests:
+              - UnavailableRecognitionSession_StartAsync_Always_ThrowsSpeechRecognizerUnavailableException

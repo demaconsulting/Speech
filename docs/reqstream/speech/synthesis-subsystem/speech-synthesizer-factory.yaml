@@ -2,10 +2,9 @@
 # Software Unit Requirements for SpeechSynthesizerFactory
 #
 # These requirements describe the design-level behavior of the SpeechSynthesizerFactory unit,
-# decomposing the parent SynthesisSubsystem requirements. Updated for the async Engine/Session
-# redesign: Create() became the asynchronous LoadAsync(), returning Task<ISpeechSynthesizerEngine>
-# with no playback-device parameter, since device binding now happens later at
-# CreateSessionAsync. Mirrors speech-recognizer-factory.yaml's identical pattern.
+# decomposing the parent SynthesisSubsystem requirements. LoadAsync returns
+# Task<ISpeechSynthesizerEngine> with no playback-device parameter, since device binding happens
+# later at CreateSessionAsync.
 
 sections:
   - title: Speech Requirements
@@ -22,7 +21,7 @@ sections:
                 justification: |
                   A single composition entry point keeps all "can this machine speak right now?"
                   logic in one reviewable place, so a host never has to reason about model
-                  installation and backend loading separately. Composition no longer depends on
+                  installation and backend loading separately. Composition does not depend on
                   playback-device availability, since LoadAsync produces a Layer 3 engine that is
                   not yet bound to any device.
                 tests:
@@ -61,22 +60,28 @@ sections:
               - id: Speech-Synthesis-SpeechSynthesizerFactory-ArgumentValidationAndCancellation
                 title: >-
                   The SpeechSynthesizerFactory class shall reject a null model, a null
-                  SpeechModelStore, or a null SpeechModelCatalog, and shall throw
-                  OperationCanceledException when the supplied cancellation token is already
-                  cancelled.
+                  SpeechModelStore, or a null SpeechModelCatalog with ArgumentNullException.
                 justification: |
                   A null model, store, or catalog is a programming error at the call site, not an
                   ordinary "unavailable" machine state, and must fail immediately with a clear
-                  exception rather than being silently treated as unavailable. An already
-                  cancelled token means the caller no longer wants the result, so LoadAsync must
-                  honor it rather than performing the (potentially slow) load anyway.
+                  exception rather than being silently treated as unavailable.
                 tests:
                   - SpeechSynthesizerFactory_LoadAsync_NullModel_ThrowsArgumentNullException
-                  - SpeechSynthesizerFactory_LoadAsync_CancelledToken_ThrowsOperationCanceledException
                   - SpeechSynthesizerFactory_LoadAsync_WithStoreNullModel_ThrowsArgumentNullException
                   - SpeechSynthesizerFactory_LoadAsync_WithStoreNullStore_ThrowsArgumentNullException
                   - SpeechSynthesizerFactory_LoadAsync_WithCatalogNullModel_ThrowsArgumentNullException
                   - SpeechSynthesizerFactory_LoadAsync_WithCatalogNullCatalog_ThrowsArgumentNullException
+
+              - id: Speech-Synthesis-SpeechSynthesizerFactory-CancelledTokenThrows
+                title: >-
+                  The SpeechSynthesizerFactory class shall throw OperationCanceledException when
+                  the supplied cancellation token is already cancelled.
+                justification: |
+                  An already cancelled token means the caller no longer wants the result, so
+                  LoadAsync must honor it rather than performing the (potentially slow) load
+                  anyway.
+                tests:
+                  - SpeechSynthesizerFactory_LoadAsync_CancelledToken_ThrowsOperationCanceledException
 
               - id: Speech-Synthesis-SpeechSynthesizerFactory-ParameterValuesForwarding
                 title: >-

@@ -331,13 +331,15 @@ fresh session per call (so repeated calls never conflict with the exclusivity le
 
 **Tests**: `SynthesisSession_StateChanged_OneSuccessfulOperation_RaisesExpectedTransitionsInOrder`,
 `SynthesisSession_StateChanged_HandlerThrows_IsIsolatedAndDoesNotPropagate`,
-`SynthesisSession_IsAvailable_BeforeAndAfterDispose_ReflectsLifecycle`
+`SynthesisSession_StateChanged_FaultingOperation_RaisesTransitionsEndingInFaulted`,
+`SynthesisSession_IsAvailable_BeforeAndAfterDispose_ReflectsLifecycle`,
+`SynthesisSession_IsAvailable_AfterFault_ReturnsFalse`
 
 Verifies that one successful `SpeakAsync`/`SynthesizeAsync` call raises the documented
 `Created → Starting → Running → Stopping → Stopped` sequence via `StateChanged`, in order; that a
-subscriber's handler exception is caught and routed to diagnostics rather than propagated or
-destabilizing the session; and that `IsAvailable` correctly reflects the session's lifecycle
-before and after disposal.
+faulting operation raises `Starting → Running → Faulted`; that a subscriber's handler exception
+is caught and routed to diagnostics rather than propagated or destabilizing the session; and that
+`IsAvailable` reports false once the session is disposed or faulted.
 
 #### Session: Overlap Rule - No Concurrent Operations
 
@@ -381,12 +383,14 @@ processes the returned segments gets a faithful, lossless reconstruction of the 
 
 **Tests**: `SynthesisSession_SynthesizeAsync_PlainText_YieldsAudioSegment`,
 `SynthesisSession_SpeakAsync_PlainText_StartsWritesAndStopsDevice`,
-`SynthesisSession_SynthesizeAsync_LongMultiSentenceInput_ProducesOrderedSegmentsSequentially`
+`SynthesisSession_SynthesizeAsync_LongMultiSentenceInput_ProducesOrderedSegmentsSequentially`,
+`SynthesisSession_SpeakAsync_MultiSentenceInput_WritesEachSegmentBeforeSynthesizingNext`
 
 Verifies that plain text yields a synthesized audio segment, that `SpeakAsync` starts the
 playback device, writes segments in order, and stops the device, and that a long, multi-sentence
 input still yields segments in the correct order with the backend never called concurrently.
-Synthesis is sequential: each segment is synthesized and written before the next is synthesized;
+Synthesis is sequential: each segment is synthesized and written before the next is synthesized
+(a backend fake records, at each `Generate` call, how many segments have already been written);
 no scenario expects synthesis to overlap playback.
 
 #### Session: Fault Containment
@@ -401,10 +405,12 @@ device still results in a stop attempt during teardown.
 
 #### Session: Genuine Playback Drain Before Stopping
 
-**Test**: `SynthesisSession_SpeakAsync_PlaybackDeviceReportsPendingSamples_WaitsForDrainBeforeStopping`
+**Tests**: `SynthesisSession_SpeakAsync_PlaybackDeviceReportsPendingSamples_WaitsForDrainBeforeStopping`,
+`SynthesisSession_SpeakAsync_CancelledDuringDrainWait_ExitsWaitPromptly`
 
 Verifies that `SpeakAsync` genuinely waits for the playback device to report a drained queue
-before stopping it, rather than stopping as soon as every segment has been written. Uses an
+before stopping it, rather than stopping as soon as every segment has been written, and that
+cancelling during that wait ends it promptly instead of waiting for the queue to drain. Uses an
 NSubstitute playback device whose `PendingSampleCount` getter signals a semaphore on every read,
 so the test deterministically observes the wait has genuinely begun (rather than racing a sleep)
 before asserting the awaited task has not completed and `Stop()` has not been called; only after
@@ -427,6 +433,8 @@ across repeated `DisposeAsync` calls; and that operating on a disposed session t
 #### Session: Abandoned Native Calls Fault the Session
 
 **Tests**: `SynthesisSession_AbandonedGenerate_FaultsSessionAndRejectsReuseImmediately`,
+`SynthesisSession_SpeakAsync_AbandonedGenerate_ReturnsCancelledOperationWhileNativeCallStillRunning`,
+`SynthesisSession_AbandonedGenerate_ReportsFaultThroughDiagnostics`,
 `SynthesisSession_StopAsync_AbandonedGenerate_DoesNotCompleteUntilNativeCallGenuinelyReturns`,
 `SynthesisSession_DisposeAsync_CalledAfterAbandonmentFault_DoesNotReleaseLeaseUntilNativeCallGenuinelyReturns`,
 `SynthesisSession_DisposeAsync_AbandonedWorker_DoesNotReleaseLeaseUntilWorkerExits`,
@@ -440,7 +448,8 @@ across repeated `DisposeAsync` calls; and that operating on a disposed session t
 `SynthesisSession_StopAsync_RacingOperationCompletion_NeverThrowsObjectDisposedException`
 
 Verifies that a cancellation request the native `Generate` call does not honor within the abandon
-timeout returns control to the caller promptly, moves the session to `Faulted`, and rejects
+timeout returns the cancelled operation to the caller promptly (while the native call is still
+running), reports the fault through diagnostics, moves the session to `Faulted`, and rejects
 reuse; that `StopAsync` and `DisposeAsync` do not complete (and the engine lease is not released)
 until the abandoned native call, or an abandoned playback-device start, has genuinely returned;
 that a device stop is deferred until an abandoned start returns; that a caller token bounds only

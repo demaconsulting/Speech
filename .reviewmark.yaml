@@ -1240,6 +1240,7 @@ reviews:
       - "docs/verification/speech/synthesis-subsystem/synthesis-engine-busy-exception.md"
       - "src/DemaConsulting.Speech/SynthesisSubsystem/SynthesisEngineBusyException.cs"
       - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/SpeechSynthesizerEngineTests.cs"
+      - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/SynthesisEngineBusyExceptionTests.cs"
 
   # Speech-SynthesisSubsystem-SpeechSynthesizerUnavailableException Review (one per unit)
   - id: Speech-SynthesisSubsystem-SpeechSynthesizerUnavailableException

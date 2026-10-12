@@ -1277,6 +1277,175 @@ public class SynthesisSessionTests
     }
 
     /// <summary>
+    ///     Proves that <see cref="ISynthesisSession.SpeakAsync"/> writes each segment to the
+    ///     playback device as soon as that segment has been synthesized, rather than after the
+    ///     whole plan has been synthesized: when the backend is asked for segment N, exactly the
+    ///     N-1 earlier segments have already been written.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_SpeakAsync_MultiSentenceInput_WritesEachSegmentBeforeSynthesizingNext()
+    {
+        // Arrange: a device that counts writes, and a backend that records that count each time
+        // it is asked to synthesize a segment
+        var writeCount = 0;
+        var device = CreateAvailablePlaybackDevice();
+        device
+            .When(d => d.Write(Arg.Any<IReadOnlyList<float>>()))
+            .Do(_ => Interlocked.Increment(ref writeCount));
+        var backend = new WriteObservingSynthesisBackend(() => Volatile.Read(ref writeCount));
+        await using var session = CreateSession(backend, device);
+
+        // Act
+        await session.SpeakAsync("First sentence. Second sentence. Third sentence.", TestContext.Current.CancellationToken);
+
+        // Assert: each segment was already written when the next one was requested
+        Assert.Equal([0, 1, 2], backend.WritesObservedAtEachGenerate);
+    }
+
+    /// <summary>
+    ///     Proves that cancelling <see cref="ISynthesisSession.SpeakAsync"/> while it is waiting
+    ///     for the playback device to drain exits the wait promptly, rather than waiting out the
+    ///     full drain: the device keeps reporting pending samples forever, so only cancellation
+    ///     can end the operation.
+    /// </summary>
+    [Fact(Timeout = 10000)]
+    public async Task SynthesisSession_SpeakAsync_CancelledDuringDrainWait_ExitsWaitPromptly()
+    {
+        // Arrange: a device that never drains, signalling a semaphore on every poll
+        var backend = new FakeSynthesisEngine();
+        var device = CreateAvailablePlaybackDevice();
+        using var polled = new SemaphoreSlim(0);
+        device.PendingSampleCount.Returns(_ =>
+        {
+            polled.Release();
+            return 1;
+        });
+        await using var session = CreateSession(backend, device);
+
+        // Act: wait until the drain wait has genuinely begun, then stop the operation
+        var speakTask = session.SpeakAsync("Hi.", TestContext.Current.CancellationToken);
+        await polled.WaitAsync(TestContext.Current.CancellationToken);
+        await session.StopAsync(TestContext.Current.CancellationToken);
+
+        // Assert: the speak call unwound via cancellation and the device was still stopped
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => speakTask);
+        device.Received(1).Stop();
+        Assert.Equal(SynthesisSessionState.Stopped, session.State);
+    }
+
+    /// <summary>
+    ///     Proves that <see cref="ISynthesisSession.StateChanged"/> raises
+    ///     <c>Starting → Running → Faulted</c>, in order, for an operation whose backend call
+    ///     throws.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_StateChanged_FaultingOperation_RaisesTransitionsEndingInFaulted()
+    {
+        // Arrange
+        var backend = new FakeSynthesisEngine(generateException: new InvalidOperationException("backend failed"));
+        var device = CreateAvailablePlaybackDevice();
+        await using var session = CreateSession(backend, device);
+        List<SynthesisSessionState> observedStates = [];
+        session.StateChanged += (_, args) => observedStates.Add(args.Current);
+
+        // Act
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => session.SynthesizeAsync("Hello world.", TestContext.Current.CancellationToken));
+
+        // Assert
+        Assert.Equal(
+            [
+                SynthesisSessionState.Starting,
+                SynthesisSessionState.Running,
+                SynthesisSessionState.Faulted
+            ],
+            observedStates);
+    }
+
+    /// <summary>
+    ///     Proves that <see cref="ISynthesisSession.IsAvailable"/> reports <see langword="false"/>
+    ///     once the session has faulted, without throwing to read it.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_IsAvailable_AfterFault_ReturnsFalse()
+    {
+        // Arrange: fault the session with one failing call
+        var backend = new FakeSynthesisEngine(generateException: new InvalidOperationException("backend failed"));
+        var device = CreateAvailablePlaybackDevice();
+        await using var session = CreateSession(backend, device);
+        Assert.True(session.IsAvailable);
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => session.SynthesizeAsync("Hello world.", TestContext.Current.CancellationToken));
+
+        // Act & Assert
+        Assert.False(session.IsAvailable);
+    }
+
+    /// <summary>
+    ///     Proves that when a native <c>Generate</c> call does not honor cancellation within the
+    ///     dedicated worker's abandon timeout, the cancelled operation is returned to its caller
+    ///     promptly - while the native call is still genuinely running.
+    /// </summary>
+    [Fact(Timeout = 10000)]
+    public async Task SynthesisSession_SpeakAsync_AbandonedGenerate_ReturnsCancelledOperationWhileNativeCallStillRunning()
+    {
+        // Arrange: a backend whose Generate blocks well past the default 2s abandon timeout
+        using var generateStarted = new SemaphoreSlim(0, 1);
+        using var generateRelease = new SemaphoreSlim(0, 1);
+        var backend = new BlockingSynthesisEngine(generateStarted, generateRelease, TestContext.Current.CancellationToken);
+        var device = CreateAvailablePlaybackDevice();
+        await using var session = CreateSession(backend, device);
+
+        // Act: start speaking, wait until the backend call has begun, then stop
+        var speakTask = session.SpeakAsync("Hello world.", TestContext.Current.CancellationToken);
+        await generateStarted.WaitAsync(TestContext.Current.CancellationToken);
+        var stopTask = session.StopAsync(TestContext.Current.CancellationToken);
+
+        // Assert: the caller's task completes as cancelled, bounded by the abandon timeout plus
+        // margin, although the native call has not returned
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => speakTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
+        Assert.False(backend.GenerateReturned);
+
+        // Cleanup: release the abandoned background call so disposal does not hang
+        generateRelease.Release();
+        await stopTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>
+    ///     Proves that an abandoned native <c>Generate</c> call is reported through diagnostics
+    ///     at <see cref="SpeechDiagnosticLevel.Error"/> when it faults the session.
+    /// </summary>
+    [Fact(Timeout = 10000)]
+    public async Task SynthesisSession_AbandonedGenerate_ReportsFaultThroughDiagnostics()
+    {
+        // Arrange: a backend whose Generate blocks well past the default 2s abandon timeout
+        using var generateStarted = new SemaphoreSlim(0, 1);
+        using var generateRelease = new SemaphoreSlim(0, 1);
+        var backend = new BlockingSynthesisEngine(generateStarted, generateRelease, TestContext.Current.CancellationToken);
+        var device = CreateAvailablePlaybackDevice();
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        await using var session = CreateSession(backend, device, diagnostics: diagnostics);
+
+        // Act: start speaking, wait until the backend call has begun, stop, and let the abandoned
+        // operation settle (the fault is reported before the operation task completes)
+        var speakTask = session.SpeakAsync("Hello world.", TestContext.Current.CancellationToken);
+        await generateStarted.WaitAsync(TestContext.Current.CancellationToken);
+        var stopTask = session.StopAsync(TestContext.Current.CancellationToken);
+        await Record.ExceptionAsync(() => speakTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
+
+        // Assert
+        diagnostics.Received().Report(
+            SpeechDiagnosticLevel.Error,
+            "SynthesisSubsystem",
+            Arg.Is<string>(message => message.Contains("faulted", StringComparison.Ordinal)));
+
+        // Cleanup: release the abandoned background call so disposal does not hang
+        generateRelease.Release();
+        await stopTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>
     ///     Builds a substitute playback device reporting itself available with the given format.
     /// </summary>
     private static IAudioPlaybackDevice CreateAvailablePlaybackDevice(int sampleRate = 16000, int channelCount = 1)
@@ -1300,6 +1469,48 @@ public class SynthesisSessionTests
         IReadOnlyDictionary<string, object>? parameterValues = null,
         ISpeechDiagnostics? diagnostics = null) =>
         new(backend, device, model ?? new FakeSynthesisModel(), parameterValues, diagnostics ?? NullSpeechDiagnostics.Instance, () => { });
+
+    /// <summary>
+    ///     Test-only <see cref="ISynthesisBackend"/> that records, at the start of every
+    ///     <see cref="Generate"/> call, the value of an externally supplied counter, so a test
+    ///     can prove what had already happened (for example, how many playback writes) by the
+    ///     time each segment was requested.
+    /// </summary>
+    /// <param name="readObservedCount">Reads the counter to record on each <see cref="Generate"/> call.</param>
+    private sealed class WriteObservingSynthesisBackend(Func<int> readObservedCount) : ISynthesisBackend
+    {
+        /// <summary>The counter values observed at the start of each call, guarded by itself.</summary>
+        private readonly List<int> _observed = [];
+
+        public int SampleRate => 16000;
+
+        /// <summary>Gets the counter value observed at the start of each <see cref="Generate"/> call, in call order.</summary>
+        public IReadOnlyList<int> WritesObservedAtEachGenerate
+        {
+            get
+            {
+                lock (_observed)
+                {
+                    return [.. _observed];
+                }
+            }
+        }
+
+        public EngineAudio Generate(string text, float speed, int speakerId)
+        {
+            lock (_observed)
+            {
+                _observed.Add(readObservedCount());
+            }
+
+            return new EngineAudio(new float[text.Length * 4], SampleRate);
+        }
+
+        public void Dispose()
+        {
+            // Nothing to release.
+        }
+    }
 
     /// <summary>
     ///     Test-only <see cref="ISynthesisBackend"/> whose <see cref="Generate"/> signals a

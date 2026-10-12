@@ -4,9 +4,8 @@
 # These requirements describe the design-level behavior of the ISynthesisSession contract
 # (Layer 5, bound to one device), its SynthesisSessionState/SessionStateChangedEventArgs
 # supporting types, and the overlap-not-allowed rule, decomposing the parent SynthesisSubsystem
-# requirements. Splits the former ISpeechSynthesizer requirements between this file and
-# i-speech-synthesizer-engine.yaml to match the async Engine/Session redesign, mirroring
-# i-synthesis-session.yaml's recognition-direction counterpart.
+# requirements. The requirements are split between this file and
+# i-speech-synthesizer-engine.yaml, mirroring the recognition-direction counterpart.
 
 sections:
   - title: Speech Requirements
@@ -18,16 +17,23 @@ sections:
               - id: Speech-Synthesis-ISynthesisSession-AvailabilityFlag
                 title: >-
                   The ISynthesisSession interface shall expose an IsAvailable flag that never
-                  throws to read, reporting false for the shared unavailable session and false
-                  once a real session has faulted or been disposed.
+                  throws to read, reporting false for the shared unavailable session.
                 justification: |
                   Callers must be able to check availability before invoking an operational
-                  member, without risk of the check itself failing, and a session's availability
-                  must honestly reflect that it can no longer perform a speak/synthesize
-                  operation once it has faulted or been disposed.
+                  member, without risk of the check itself failing.
                 tests:
                   - UnavailableSynthesisSession_IsAvailable_Read_ReturnsFalse
+
+              - id: Speech-Synthesis-ISynthesisSession-AvailabilityFalseAfterFaultOrDispose
+                title: >-
+                  The ISynthesisSession interface shall report IsAvailable as false once a real
+                  session has faulted or been disposed.
+                justification: |
+                  A session's availability must honestly reflect that it can no longer perform a
+                  speak/synthesize operation once it has faulted or been disposed.
+                tests:
                   - SynthesisSession_IsAvailable_BeforeAndAfterDispose_ReflectsLifecycle
+                  - SynthesisSession_IsAvailable_AfterFault_ReturnsFalse
 
               - id: Speech-Synthesis-ISynthesisSession-StateMachine
                 title: >-
@@ -36,17 +42,34 @@ sections:
                   Starting, Running, Stopping, Stopped, and the terminal Faulted, where
                   Starting/Running/Stopping denote one in-flight Speak/Synthesize operation
                   rather than a continuous stream, raising the documented transition sequence for
-                  both a successful and a faulting operation, and isolating a subscriber's
-                  handler exception rather than propagating it.
+                  a successful operation.
                 justification: |
                   A host rendering UI state (for example a "speaking" indicator) needs an
                   authoritative, observable state machine rather than inferring state from
-                  whether an awaited task has completed, and a misbehaving subscriber must never
-                  be able to destabilize the session it is observing.
+                  whether an awaited task has completed.
                 tests:
                   - UnavailableSynthesisSession_State_Read_ReturnsCreated
                   - UnavailableSynthesisSession_StateChanged_SubscribeAndUnsubscribe_DoesNotThrow
                   - SynthesisSession_StateChanged_OneSuccessfulOperation_RaisesExpectedTransitionsInOrder
+
+              - id: Speech-Synthesis-ISynthesisSession-StateMachineFaultTransition
+                title: >-
+                  The ISynthesisSession interface shall raise StateChanged transitions ending in
+                  the terminal Faulted state for a faulting operation.
+                justification: |
+                  A host must be able to observe that an operation failed rather than inferring it
+                  from exceptions alone.
+                tests:
+                  - SynthesisSession_StateChanged_FaultingOperation_RaisesTransitionsEndingInFaulted
+
+              - id: Speech-Synthesis-ISynthesisSession-StateChangedSubscriberIsolation
+                title: >-
+                  The ISynthesisSession interface shall isolate a StateChanged subscriber's
+                  handler exception rather than propagating it.
+                justification: |
+                  A misbehaving subscriber must never be able to destabilize the session it is
+                  observing.
+                tests:
                   - SynthesisSession_StateChanged_HandlerThrows_IsIsolatedAndDoesNotPropagate
 
               - id: Speech-Synthesis-ISynthesisSession-OverlapNotAllowed
@@ -69,24 +92,41 @@ sections:
               - id: Speech-Synthesis-ISynthesisSession-StreamingContract
                 title: >-
                   The ISynthesisSession interface shall define SpeakAsync/SynthesizeAsync
-                  operations, a StopAsync method to cancel an in-flight operation
-                  deterministically, and disposal of the resources a session holds, without
-                  exposing any inference backend or native audio type.
+                  operations without exposing any inference backend or native audio type.
                 justification: |
                   This library's "engine backend stays swappable at the public API surface"
                   decision requires that a future non-sherpa-onnx backend can replace the current
                   one without a breaking API change.
                 tests:
                   - SynthesisSession_SynthesizeAsync_PlainText_YieldsAudioSegment
+
+              - id: Speech-Synthesis-ISynthesisSession-StopContract
+                title: >-
+                  The ISynthesisSession interface shall define a StopAsync method to cancel an
+                  in-flight operation deterministically, and to do nothing when no operation is
+                  in flight.
+                justification: |
+                  A host must be able to cut speech off on demand, and calling Stop defensively
+                  must be safe.
+                tests:
                   - SynthesisSession_StopAsync_WhileSpeaking_DoesNotCompleteUntilInFlightGenerateReturns
                   - SynthesisSession_StopAsync_NoOperationInFlight_IsNoOp
+
+              - id: Speech-Synthesis-ISynthesisSession-DisposalContract
+                title: >-
+                  The ISynthesisSession interface shall define disposal of the resources a
+                  session holds, safe to call repeatedly.
+                justification: |
+                  A session holds the engine's exclusivity lease, which a host must be able to
+                  release deterministically.
+                tests:
+                  - SynthesisSession_DisposeAsync_CalledTwice_ReleasesLeaseOnce
 
               - id: Speech-Synthesis-ISynthesisSession-UnavailableOperationsThrow
                 title: >-
                   Every operational member of the ISynthesisSession contract (SpeakAsync,
                   SynthesizeAsync) shall throw a documented exception when invoked on an
-                  unavailable session, rather than silently no-op-ing or misbehaving, while
-                  StopAsync and disposal remain safe no-ops.
+                  unavailable session, rather than silently no-op-ing or misbehaving.
                 justification: |
                   Hosts must be able to test their playback logic against the contract with no
                   model, no speakers, and no native runtime present, so an unavailable session's
@@ -97,6 +137,15 @@ sections:
                   - UnavailableSynthesisSession_SpeakAsync_NullText_ThrowsArgumentNullException
                   - UnavailableSynthesisSession_SynthesizeAsync_Always_ThrowsSpeechSynthesizerUnavailableException
                   - UnavailableSynthesisSession_SynthesizeAsync_NullText_ThrowsArgumentNullException
+
+              - id: Speech-Synthesis-ISynthesisSession-UnavailableStopAndDisposeSafe
+                title: >-
+                  StopAsync and disposal on an unavailable ISynthesisSession shall remain safe
+                  no-ops.
+                justification: |
+                  A host that wraps its session in a disposal scope or stops defensively must be
+                  able to run that same code unchanged where synthesis is unavailable.
+                tests:
                   - UnavailableSynthesisSession_StopAsync_NoSessionInFlight_IsNoOp
                   - UnavailableSynthesisSession_DisposeAsync_CalledTwice_DoesNotThrow
 

@@ -36,13 +36,21 @@ sections:
 
               - id: Speech-Recognition-UnavailableRecognitionSession-SafeNoOps
                 title: >-
-                  The UnavailableRecognitionSession class shall treat StopAsync and disposal as
-                  safe, idempotent no-ops that never throw and never invalidate the shared
-                  fallback.
+                  The UnavailableRecognitionSession class shall treat StopAsync as a safe,
+                  idempotent no-op that never throws and never invalidates the shared fallback.
                 justification: |
-                  A host that calls StopAsync unconditionally during teardown and wraps its
-                  session in a disposal scope must be able to run that same code unchanged on a
-                  machine where recognition is unavailable.
+                  A host that calls StopAsync unconditionally during teardown must be able to run
+                  that same code unchanged on a machine where recognition is unavailable.
                 tests:
                   - UnavailableRecognitionSession_StopAsync_Always_IsSafeNoOp
+
+              - id: Speech-Recognition-UnavailableRecognitionSession-DisposalIdempotent
+                title: >-
+                  The UnavailableRecognitionSession class shall treat disposal as a safe,
+                  idempotent no-op that never throws and never invalidates the shared fallback.
+                justification: |
+                  A host that wraps its session in a disposal scope must be able to run that same
+                  code unchanged on a machine where recognition is unavailable, including
+                  disposing the shared fallback more than once.
+                tests:
                   - UnavailableRecognitionSession_DisposeAsync_CalledTwice_DoesNotThrow

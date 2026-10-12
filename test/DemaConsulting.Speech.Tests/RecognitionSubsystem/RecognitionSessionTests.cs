@@ -621,6 +621,27 @@ public class RecognitionSessionTests
     }
 
     /// <summary>
+    ///     Proves that a captured mono block at twice the model's rate is resampled down to the
+    ///     model's declared rate before it reaches the backend, halving the sample count.
+    /// </summary>
+    [Fact]
+    public async Task RecognitionSession_FrameCaptured_MonoAtHigherRate_FeedsResampledMonoToBackend()
+    {
+        // Arrange: a mono device at twice the model's declared 16 kHz rate
+        var device = CreateCaptureDevice(sampleRate: 32000, channelCount: 1);
+        var engine = new FakeRecognitionEngine();
+        await using var session = CreateSession(engine, device);
+        await session.StartAsync(TestContext.Current.CancellationToken);
+
+        // Act: raise one block of eight samples, then stop to drain the pipeline
+        RaiseFrameCaptured(device, [0.1f, 0.2f, 0.3f, 0.4f, 0.5f, 0.6f, 0.7f, 0.8f]);
+        await session.StopAsync(TestContext.Current.CancellationToken);
+
+        // Assert: the backend received half as many samples, i.e. audio at the model's rate
+        Assert.Equal(4, engine.AcceptedSamples.Count);
+    }
+
+    /// <summary>
     ///     Proves that a final result's text is passed through the owning model's
     ///     <see cref="IRecognitionModel.NormalizeText(string,bool)"/> hook, with <c>isFinal</c>
     ///     set to <see langword="true"/>, before it is buffered for <see cref="RecognitionSession.GetResultsAsync"/>.

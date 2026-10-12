@@ -29,64 +29,125 @@ sections:
                 title: >-
                   The IRecognitionSession interface shall expose a State property and a
                   StateChanged event that together report every RecognitionSessionState
-                  transition, in order, as the session makes only the documented forward-only
-                  transitions (Created, Starting, Running, Stopping, Stopped, Disposing,
-                  Disposed, with Faulted reachable from Starting, Running, or Stopping).
+                  transition, in order.
                 justification: |
                   A host rendering session status, and a test asserting on session lifecycle,
                   both need a single authoritative, orderable signal of what the session is doing
                   rather than inferring it from the side effects of Start/Stop/GetResults calls.
                 tests:
                   - RecognitionSession_StartAsync_FromCreated_TransitionsToRunning
-                  - RecognitionSession_StartAsync_FromStopped_ThrowsInvalidOperationException
                   - RecognitionSession_StateChanged_EmitsEveryTransitionInOrder
+                  - RecognitionSession_StateChanged_StoppingAlwaysPrecedesStoppedAcrossManyIterations
+
+              - id: Speech-Recognition-IRecognitionSession-ForwardOnlyTransitions
+                title: >-
+                  The IRecognitionSession interface shall make only the documented forward-only
+                  state transitions (Created, Starting, Running, Stopping, Stopped, Disposing,
+                  Disposed), rejecting a StartAsync call made after the session has Stopped with
+                  InvalidOperationException.
+                justification: |
+                  A session is single-use; a host that could silently restart a stopped session
+                  would observe an undefined mixture of its prior and new state.
+                tests:
+                  - RecognitionSession_StartAsync_FromStopped_ThrowsInvalidOperationException
+
+              - id: Speech-Recognition-IRecognitionSession-FaultedState
+                title: >-
+                  The IRecognitionSession interface shall report the Faulted state, reachable from
+                  Starting, Running, or Stopping, when the session can no longer continue because
+                  its capture device or recognition backend failed.
+                justification: |
+                  A host must learn through the session's own state machine, rather than by
+                  inferring it from silence, that the session has failed.
+                tests:
                   - RecognitionSession_DeviceLostMidSession_TransitionsToFaulted
+                  - RecognitionSession_BackendThrowsFromAcceptSamples_FaultsSessionAndCompletesResultBuffer
 
               - id: Speech-Recognition-IRecognitionSession-StartStopLifecycle
                 title: >-
                   The IRecognitionSession interface shall define async StartAsync/StopAsync
                   lifecycle methods and an async disposal that releases the resources a running
-                  session holds. StopAsync shall finalize and deliver any trailing audio
-                  accepted but not yet decoded before it returns, rather than carrying it over
-                  into (or losing it between) sessions, and shall be safe to call concurrently or
-                  repeatedly.
+                  session holds.
                 justification: |
                   A mockable streaming-recognition contract lets hosts and tests depend on
                   recognition behavior without tying themselves to a specific inference backend,
                   while still giving them a defined point at which backend resources are
-                  released. A streaming backend cannot decode the tail of an utterance released
-                  with no trailing silence without audio it will now never receive (for example a
-                  push-to-talk release), so without a defined finalization step that trailing
-                  audio would be silently lost rather than delivered as one last result.
+                  released.
                 tests:
                   - UnavailableRecognitionSession_StartAsync_Always_ThrowsSpeechRecognizerUnavailableException
                   - UnavailableRecognitionSession_StopAsync_Always_IsSafeNoOp
                   - UnavailableRecognitionSession_DisposeAsync_CalledTwice_DoesNotThrow
+                  - RecognitionSession_DeviceLostMidSession_DisposeAsyncStillTearsDownBackendAndDevice
+
+              - id: Speech-Recognition-IRecognitionSession-StopFlushesTrailingAudio
+                title: >-
+                  The IRecognitionSession interface's StopAsync shall finalize and deliver any
+                  trailing audio accepted but not yet decoded before it returns, rather than
+                  carrying it over into (or losing it between) sessions.
+                justification: |
+                  A streaming backend cannot decode the tail of an utterance released with no
+                  trailing silence without audio it will now never receive (for example a
+                  push-to-talk release), so without a defined finalization step that trailing
+                  audio would be silently lost rather than delivered as one last result.
+                tests:
                   - RecognitionSession_StopAsync_FlushesTrailingResultsBeforeCompleting
-                  - RecognitionSession_StopAsync_CalledConcurrentlyTwice_BothCompleteOnceStopped
                   - RecognitionSession_StopAsync_BackendResetFails_CompletesAndReportsFault
+
+              - id: Speech-Recognition-IRecognitionSession-StopConcurrencySafe
+                title: >-
+                  The IRecognitionSession interface's StopAsync shall be safe to call concurrently
+                  or repeatedly, with every caller completing once the session has stopped.
+                justification: |
+                  A host may stop a session from a UI handler and from its own teardown path at
+                  the same time, and must not have to coordinate those callers itself.
+                tests:
+                  - RecognitionSession_StopAsync_CalledConcurrentlyTwice_BothCompleteOnceStopped
 
               - id: Speech-Recognition-IRecognitionSession-ResultDelivery
                 title: >-
                   The IRecognitionSession interface shall expose an async-enumerable
                   GetResultsAsync that streams every provisional and final recognition result
-                  produced while the session runs, is single-consumer (rejecting a second
-                  concurrent enumeration), ends an individual enumeration without stopping the
-                  session when its own cancellation token is cancelled, and throws
+                  produced while the session runs.
+                justification: |
+                  The design requires streaming recognition that emits "progressive provisional
+                  and final results as audio arrives" through an async-native surface, so a host
+                  must be able to tell from a single result whether to replace an in-progress
+                  transcript line or commit it.
+                tests:
+                  - UnavailableRecognitionSession_GetResultsAsync_Always_ThrowsSpeechRecognizerUnavailableException
+                  - RecognitionSession_FrameCaptured_FinalResult_AppliesModelNormalizeTextWithIsFinalTrue
+
+              - id: Speech-Recognition-IRecognitionSession-SingleConsumer
+                title: >-
+                  The IRecognitionSession interface's GetResultsAsync shall be single-consumer,
+                  rejecting a second concurrent enumeration.
+                justification: |
+                  Results are a single ordered stream; two concurrent consumers would each see an
+                  arbitrary subset of it.
+                tests:
+                  - RecognitionSession_GetResultsAsync_CalledConcurrently_ThrowsInvalidOperationException
+
+              - id: Speech-Recognition-IRecognitionSession-EnumerationCancellation
+                title: >-
+                  The IRecognitionSession interface's GetResultsAsync shall end an individual
+                  enumeration, without stopping the session, when its own cancellation token is
+                  cancelled.
+                justification: |
+                  A consumer that stops listening is not a decision to stop recognizing; the
+                  session's lifetime is controlled only by StopAsync and disposal.
+                tests:
+                  - RecognitionSession_GetResultsAsync_CancelledToken_EndsEnumerationWithoutStoppingSession
+
+              - id: Speech-Recognition-IRecognitionSession-FaultedEnumeration
+                title: >-
+                  The IRecognitionSession interface's GetResultsAsync shall throw
                   RecognitionSessionFaultedException from the enumerator when the session
                   transitions to Faulted while being enumerated.
                 justification: |
-                  The design requires streaming recognition that emits "progressive provisional
-                  and final results as audio arrives" through a single-consumer, async-native
-                  surface, so a host must be able to tell from a single result whether to replace
-                  an in-progress transcript line or commit it, and must learn promptly, through
-                  the same enumeration, if the session can no longer produce results.
+                  A host must learn promptly, through the same enumeration, if the session can
+                  no longer produce results.
                 tests:
-                  - UnavailableRecognitionSession_GetResultsAsync_Always_ThrowsSpeechRecognizerUnavailableException
-                  - RecognitionSession_GetResultsAsync_CalledConcurrently_ThrowsInvalidOperationException
-                  - RecognitionSession_GetResultsAsync_CancelledToken_EndsEnumerationWithoutStoppingSession
                   - RecognitionSession_GetResultsAsync_SessionFaulted_ThrowsRecognitionSessionFaultedException
-                  - RecognitionSession_FrameCaptured_FinalResult_AppliesModelNormalizeTextWithIsFinalTrue
 
               - id: Speech-Recognition-IRecognitionSession-Backpressure
                 title: >-

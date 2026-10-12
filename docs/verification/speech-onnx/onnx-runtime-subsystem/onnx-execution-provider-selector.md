@@ -39,7 +39,9 @@ a working CPU session instead of throwing; a `validateSession` probe that throws
 used instead, with the CPU fallback itself never passed to the probe; a probe throwing any other
 exception type propagates to the caller instead of being treated as "try the next candidate"; and
 every candidate's `SessionOptions` instance - both a failed candidate's and the eventually
-winning candidate's - is disposed (`IsClosed == true`) by the time `Create` returns.
+winning candidate's - is disposed (`IsClosed == true`) by the time `Create` returns; candidates are
+tried in the supplied order and the first one accepted (a probe-passing session) is the one
+returned; and that returned session is not disposed and remains usable for inference.
 
 #### Test Scenarios
 
@@ -74,3 +76,15 @@ winning candidate's - is disposed (`IsClosed == true`) by the time `Create` retu
 ##### The CPU fallback is never probed when no preferred providers are supplied
 
 **Test**: `Create_EmptyPreferredProviders_NeverInvokesProbe`
+
+##### Candidates are tried in order and the first accepted candidate's session is returned
+
+**Test**: `Create_FirstCandidateFailsProbe_ReturnsSecondCandidateSession`
+
+##### A candidate whose probe succeeds is the session returned to the caller
+
+**Test**: `Create_ValidateSessionProbeSucceeds_ReturnsProbedCandidateSession`
+
+##### The returned session is not disposed and remains usable for inference
+
+**Test**: `Create_Success_ReturnedSessionRemainsUsableForInference`

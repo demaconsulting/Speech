@@ -22,22 +22,35 @@ sections:
           opportunistically prefers an ordered list of accelerated execution providers, each
           optionally verified with a caller-supplied representative-inference probe, before
           falling back to the always-available CPU provider, without requiring the package to
-          reference any provider-specific native runtime at compile time, and without leaking the
-          native SessionOptions or InferenceSession resources used to try each candidate.
+          reference any provider-specific native runtime at compile time.
         tags: [system]
         justification: |
           A raw ONNX model package must run correctly on a machine with no accelerated execution
           provider installed, and should transparently benefit from one when a consuming
           application supplies it - including degrading gracefully when a provider loads
           successfully but cannot actually run the model's graph (observed with DirectML).
-          Centralizing this fallback, probing, and resource-disposal logic in one shared,
-          once-reviewed helper means every model package built on this library gets identical
-          provider-selection behavior rather than duplicating or re-introducing a resource leak
-          in its own code.
+          Centralizing this fallback and probing logic in one shared, once-reviewed helper means
+          every model package built on this library gets identical provider-selection behavior
+          rather than duplicating it in its own code.
         children:
           - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ProviderFallback
         tests:
           - Create_NoPreferredProviders_CreatesWorkingCpuSession
           - Create_UnknownProviderName_FallsBackToCpuSession
           - Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback
+
+      - id: SpeechOnnx-Runtime-ResourceDisposal
+        title: >-
+          The library shall not leak the native SessionOptions or InferenceSession resources used
+          to try each execution-provider candidate when a model package builds an ONNX Runtime
+          InferenceSession.
+        tags: [system]
+        justification: |
+          Centralizing resource disposal in one shared, once-reviewed helper means every model
+          package built on this library avoids re-introducing a native resource leak in its own
+          provider-fallback code.
+        children:
+          - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ResourceDisposal
+        tests:
+          - Create_MultipleCandidates_DisposesEveryCandidateOptionsInstance
           - Create_ValidateSessionProbeThrowsOtherException_Rethrows

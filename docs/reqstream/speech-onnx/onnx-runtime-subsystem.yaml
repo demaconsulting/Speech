@@ -21,28 +21,43 @@ sections:
               OnnxExecutionProviderSelector, that constructs an ONNX Runtime InferenceSession by
               trying each of an ordered list of preferred execution provider names in turn,
               optionally probing each candidate with a caller-supplied representative inference,
-              before falling back to the CPU provider, disposing each candidate's SessionOptions
-              and (when it does not win) InferenceSession after its own construction/probe
-              attempt without disposing the returned InferenceSession.
+              before falling back to the CPU provider.
             justification: |
               Every sibling model package that loads an ONNX model needs identical,
-              once-reviewed provider-selection and resource-disposal behavior; centralizing it
-              here means no model package re-implements (or re-introduces a resource leak in)
-              its own fallback logic. A construction-only check is not sufficient for every
-              provider - some (notably DirectML) construct successfully yet fail on the actual
-              graph at Run() time - so an optional probe is part of this same centralized
-              contract rather than left for each model package to reinvent.
+              once-reviewed provider-selection behavior; centralizing it here means no model
+              package re-implements its own fallback logic. A construction-only check is not
+              sufficient for every provider - some (notably DirectML) construct successfully yet
+              fail on the actual graph at Run() time - so an optional probe is part of this same
+              centralized contract rather than left for each model package to reinvent.
             children:
               - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-TriesCandidatesInOrder
+              - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ProbesCandidates
               - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-FallsBackToCpu
-              - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-DisposesEachCandidateOptions
-              - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-DisposesCandidateSessionOnAnyFailure
+              - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-CpuFallbackNotProbed
               - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ArgumentValidation
             tests:
               - Create_NoPreferredProviders_CreatesWorkingCpuSession
               - Create_UnknownProviderName_FallsBackToCpuSession
               - Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback
-              - Create_ValidateSessionProbeThrowsOtherException_Rethrows
               - Create_EmptyPreferredProviders_NeverInvokesProbe
               - Create_NullModelPath_ThrowsArgumentNullException
               - Create_EmptyModelPath_ThrowsArgumentException
+
+          - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ResourceDisposal
+            title: >-
+              The SpeechOnnx OnnxRuntimeSubsystem's OnnxExecutionProviderSelector shall dispose
+              each candidate's SessionOptions and (when it does not win) InferenceSession after
+              its own construction/probe attempt, without disposing the returned
+              InferenceSession.
+            justification: |
+              Every sibling model package that loads an ONNX model needs identical,
+              once-reviewed resource-disposal behavior; centralizing it here means no model
+              package re-introduces a native resource leak in its own fallback logic.
+            children:
+              - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-DisposesEachCandidateOptions
+              - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ReturnedSessionNotDisposed
+              - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-DisposesCandidateSessionOnAnyFailure
+            tests:
+              - Create_MultipleCandidates_DisposesEveryCandidateOptionsInstance
+              - Create_Success_ReturnedSessionRemainsUsableForInference
+              - Create_ValidateSessionProbeThrowsOtherException_Rethrows

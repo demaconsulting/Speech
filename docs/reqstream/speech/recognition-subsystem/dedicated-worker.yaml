@@ -39,15 +39,23 @@ sections:
                 title: >-
                   The DedicatedWorker class shall abandon a non-cooperative delegate that ignores
                   cancellation after a configurable timeout, letting its caller's await complete
-                  while the native call itself keeps running orphaned in the background, and
-                  shall report a Warning diagnostic naming the abandonment.
+                  while the native call itself keeps running orphaned in the background.
                 justification: |
                   A native call can block indefinitely despite a cancellation request being
                   honored at the managed boundary; without a bounded abandon timeout, a single
                   stuck native call would hang its caller (for example session teardown)
                   indefinitely. Abandoning the await, rather than the underlying native call
                   itself (which cannot be forcibly terminated), is the only way to bound the
-                  caller's wait, so the abandonment must be surfaced as a diagnostic rather than
-                  silently swallowed.
+                  caller's wait.
+                tests:
+                  - DedicatedWorker_Run_NonCooperativeDelegate_AbandonsAfterTimeoutAndReportsDiagnostics
+
+              - id: Speech-Recognition-DedicatedWorker-AbandonDiagnostic
+                title: >-
+                  The DedicatedWorker class shall report a Warning diagnostic naming the
+                  abandonment when it abandons a non-cooperative delegate.
+                justification: |
+                  The abandoned native call keeps running orphaned in the background, so the
+                  abandonment must be surfaced as a diagnostic rather than silently swallowed.
                 tests:
                   - DedicatedWorker_Run_NonCooperativeDelegate_AbandonsAfterTimeoutAndReportsDiagnostics

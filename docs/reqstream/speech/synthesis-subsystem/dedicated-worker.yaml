@@ -4,7 +4,7 @@
 # Describes the design-level behavior of the internal DedicatedWorker helper that runs a native
 # synthesis call on a dedicated, long-running thread and applies a cooperative-cancel-then-abandon
 # policy, so a native call that ignores its cancellation token can never hang the caller
-# indefinitely. This is synthesis's own copy of the identical recognition-direction helper, kept
+# indefinitely. This is synthesis's own copy of the recognition-direction helper, kept
 # as a separate, independently testable type per this library's internal-class-per-subsystem
 # convention rather than a shared cross-subsystem dependency.
 
@@ -32,15 +32,23 @@ sections:
                 title: >-
                   The DedicatedWorker class shall abandon a non-cooperative delegate - one that
                   ignores its supplied cancellation token - once a configurable abandon timeout
-                  elapses, reporting a Warning-level diagnostic naming the abandonment, and shall
-                  still return control to its caller as cancelled rather than hanging
-                  indefinitely.
+                  elapses, and shall still return control to its caller as cancelled rather than
+                  hanging indefinitely.
                 justification: |
                   A native call is not guaranteed to honor .NET cancellation tokens at all; the
                   worker must bound how long a caller can be blocked by such a call, trading an
-                  orphaned background thread (reported so a host can investigate/monitor it) for
-                  guaranteed forward progress of the caller, per this library's fault-containment
-                  requirements.
+                  orphaned background thread for guaranteed forward progress of the caller, per
+                  this library's fault-containment requirements.
+                tests:
+                  - DedicatedWorker_Run_NonCooperativeDelegate_AbandonsAfterTimeoutAndReportsDiagnostics
+
+              - id: Speech-Synthesis-DedicatedWorker-AbandonmentDiagnostic
+                title: >-
+                  The DedicatedWorker class shall report a Warning-level diagnostic naming the
+                  abandonment when it abandons a non-cooperative delegate.
+                justification: |
+                  An abandoned delegate leaves an orphaned background thread; reporting it lets a
+                  host investigate and monitor the condition.
                 tests:
                   - DedicatedWorker_Run_NonCooperativeDelegate_AbandonsAfterTimeoutAndReportsDiagnostics
 

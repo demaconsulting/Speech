@@ -30,40 +30,68 @@ sections:
               - id: Speech-Recognition-AudioFrameResampler-RateConversion
                 title: >-
                   The AudioFrameResampler class shall convert single-channel audio from one sample
-                  rate to another, producing a proportional number of output samples, returning
-                  the input unchanged when the two rates are equal, and applying anti-aliasing
-                  lowpass filtering before decimation whenever it downsamples.
+                  rate to another, producing a proportional number of output samples.
                 justification: |
                   Recognition models accept exactly one input rate, so audio captured at any other
-                  rate must be converted; converting audio that already matches would introduce
-                  avoidable error and cost. A downsampling path that omits anti-aliasing folds
-                  above-target-Nyquist energy back into the speech band, degrading recognition.
+                  rate must be converted.
                 tests:
                   - AudioFrameResampler_Resample_Downsampling_ProducesProportionallyFewerSamples
-                  - AudioFrameResampler_Resample_AboveTargetNyquistTone_IsAttenuated
-                  - AudioFrameResampler_Resample_ShortInputDuringDownsampling_DoesNotThrow
                   - AudioFrameResampler_Resample_Upsampling_LinearlyInterpolatesBetweenSamples
-                  - AudioFrameResampler_Convert_MonoAtTargetRate_ReturnsSamplesUnchanged
                   - AudioFrameResampler_Convert_MonoAtDifferentRate_ResamplesWithoutDownmix
                   - AudioFrameResampler_Convert_StereoAtHigherRate_DownmixesAndResamples
 
+              - id: Speech-Recognition-AudioFrameResampler-EqualRatePassthrough
+                title: >-
+                  The AudioFrameResampler class shall return single-channel audio unchanged when
+                  the source and target sample rates are equal.
+                justification: |
+                  Converting audio that already matches the target rate would introduce avoidable
+                  error and cost.
+                tests:
+                  - AudioFrameResampler_Convert_MonoAtTargetRate_ReturnsSamplesUnchanged
+
+              - id: Speech-Recognition-AudioFrameResampler-AntiAliasing
+                title: >-
+                  The AudioFrameResampler class shall apply anti-aliasing lowpass filtering before
+                  decimation whenever it downsamples.
+                justification: |
+                  A downsampling path that omits anti-aliasing folds above-target-Nyquist energy
+                  back into the speech band, degrading recognition.
+                tests:
+                  - AudioFrameResampler_Resample_AboveTargetNyquistTone_IsAttenuated
+
               - id: Speech-Recognition-AudioFrameResampler-BoundaryHandling
                 title: >-
-                  The AudioFrameResampler class shall handle empty, single-sample, and
-                  rounds-to-empty conversions without throwing, and shall reject a non-positive
-                  sample rate or channel count, or a destination buffer too small for the input.
+                  The AudioFrameResampler class shall handle empty, single-sample, short, and
+                  rounds-to-empty conversions without throwing.
                 justification: |
                   A capture device may legitimately deliver an empty or very short block, which
-                  must not interrupt a recognition session; a non-positive rate or channel count
-                  describes no meaningful audio and must be rejected rather than silently
-                  producing corrupt output, and an undersized destination buffer must be rejected
-                  rather than written past its bounds.
+                  must not interrupt a recognition session.
                 tests:
                   - AudioFrameResampler_Convert_EmptyInput_ReturnsEmptyResult
                   - AudioFrameResampler_Resample_SingleSample_ClampsToThatSample
                   - AudioFrameResampler_Resample_OutputRoundsToZeroSamples_ReturnsEmptyResult
+                  - AudioFrameResampler_Resample_ShortInputDuringDownsampling_DoesNotThrow
+
+              - id: Speech-Recognition-AudioFrameResampler-InvalidFormatRejected
+                title: >-
+                  The AudioFrameResampler class shall reject a non-positive sample rate or channel
+                  count with ArgumentOutOfRangeException.
+                justification: |
+                  A non-positive rate or channel count describes no meaningful audio and must be
+                  rejected rather than silently producing corrupt output.
+                tests:
                   - AudioFrameResampler_Constructor_NonPositiveSourceRate_ThrowsArgumentOutOfRangeException
                   - AudioFrameResampler_Constructor_NonPositiveTargetRate_ThrowsArgumentOutOfRangeException
                   - AudioFrameResampler_Constructor_NonPositiveChannelCount_ThrowsArgumentOutOfRangeException
                   - AudioFrameResampler_DownmixToMono_NonPositiveChannelCount_ThrowsArgumentOutOfRangeException
+
+              - id: Speech-Recognition-AudioFrameResampler-UndersizedDestinationRejected
+                title: >-
+                  The AudioFrameResampler class shall reject a destination buffer too small for
+                  the input with ArgumentException.
+                justification: |
+                  An undersized destination buffer must be rejected rather than written past its
+                  bounds.
+                tests:
                   - AudioFrameResampler_DownmixToMono_DestinationOverload_DestinationTooShort_ThrowsArgumentException

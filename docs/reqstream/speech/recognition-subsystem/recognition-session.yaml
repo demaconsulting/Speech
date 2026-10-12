@@ -17,17 +17,28 @@ sections:
             requirements:
               - id: Speech-Recognition-RecognitionSession-FormatConversion
                 title: >-
-                  The RecognitionSession class shall convert each captured audio block
-                  from the capture device's reported channel count and sample rate into
-                  single-channel audio at the rate the selected model requires before feeding it
-                  to the recognition backend.
+                  The RecognitionSession class shall convert each captured audio block from the
+                  capture device's reported channel count into single-channel audio before
+                  feeding it to the recognition backend.
                 justification: |
-                  Desktop microphones commonly capture stereo audio at 44.1 or 48 kHz while
-                  recognition models require one fixed mono rate. Without this conversion,
-                  recognition would only work on machines whose microphone happened to match the
-                  model, which contradicts the library's cross-platform promise.
+                  Desktop microphones commonly capture stereo audio while recognition models
+                  require mono. Without this conversion, recognition would only work on machines
+                  whose microphone happened to match the model, which contradicts the library's
+                  cross-platform promise.
                 tests:
                   - RecognitionSession_FrameCaptured_StereoAtModelRate_FeedsDownmixedMonoToBackend
+
+              - id: Speech-Recognition-RecognitionSession-RateConversion
+                title: >-
+                  The RecognitionSession class shall convert each captured audio block from the
+                  capture device's reported sample rate into the rate the selected model requires
+                  before feeding it to the recognition backend.
+                justification: |
+                  Desktop microphones commonly capture at 44.1 or 48 kHz while recognition models
+                  require one fixed rate. Without this conversion, recognition would only work on
+                  machines whose microphone happened to match the model.
+                tests:
+                  - RecognitionSession_FrameCaptured_MonoAtHigherRate_FeedsResampledMonoToBackend
 
               - id: Speech-Recognition-RecognitionSession-TextNormalization
                 title: >-
@@ -76,11 +87,20 @@ sections:
                   The RecognitionSession class shall route every call into the
                   recognition backend through the cooperative-cancel-then-abandon policy (see
                   dedicated-worker.yaml), so a single native call that ignores cancellation
-                  cannot hang the session's await indefinitely, and shall report a Warning
-                  diagnostic through its own diagnostics sink when abandonment occurs.
+                  cannot hang the session's await indefinitely.
                 justification: |
                   The sherpa-onnx native runtime offers no cooperative cancellation of its own;
                   without this integration a single stuck native decode/reset/flush call would
                   hang the awaiting caller (for example StopAsync during teardown) indefinitely.
+                tests:
+                  - RecognitionSession_NativeCallExceedsAbandonTimeout_TaskCompletesAndDiagnosticsReportsWarning
+
+              - id: Speech-Recognition-RecognitionSession-NativeCallAbandonWarning
+                title: >-
+                  The RecognitionSession class shall report a Warning diagnostic through its own
+                  diagnostics sink when it abandons a native recognition-backend call.
+                justification: |
+                  An abandoned native call keeps running orphaned in the background, so the
+                  abandonment must be surfaced to an observer rather than silently swallowed.
                 tests:
                   - RecognitionSession_NativeCallExceedsAbandonTimeout_TaskCompletesAndDiagnosticsReportsWarning

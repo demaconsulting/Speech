@@ -24,3 +24,10 @@ by an undisposed session throws `SynthesisEngineBusyException` instead of queuin
 ##### A second session request while the lease is held fails fast
 
 **Test**: `SpeechSynthesizerEngine_CreateSessionAsync_LeaseAlreadyHeld_ThrowsSynthesisEngineBusyException`
+
+##### The standard constructors preserve the message and inner exception
+
+**Test**: `SynthesisEngineBusyException_Constructors_PreserveMessageAndInnerException`
+
+Verifies that the message-only and message-plus-inner-exception constructors expose the supplied
+message and inner exception.

@@ -42,9 +42,9 @@ sections:
 
               - id: Speech-Recognition-SpeechRecognizerFactory-EngineLoadFailureFallback
                 title: >-
-                  The SpeechRecognizerFactory class shall return an honest unavailable engine,
-                  and report the reason, when the recognition backend for an installed model
-                  cannot be loaded, without faulting the returned task.
+                  The SpeechRecognizerFactory class shall return an honest unavailable engine
+                  when the recognition backend for an installed model cannot be loaded, without
+                  faulting the returned task.
                 justification: |
                   The design requires that "a model whose native runtime is absent must degrade
                   the same honest way as a missing model file, never crash". A backend that
@@ -53,24 +53,44 @@ sections:
                 tests:
                   - SpeechRecognizerFactory_LoadAsync_EngineLoadFails_ReturnsUnavailableEngineAndDoesNotFaultTask
 
+              - id: Speech-Recognition-SpeechRecognizerFactory-EngineLoadFailureReported
+                title: >-
+                  The SpeechRecognizerFactory class shall report an Error diagnostic describing
+                  the reason when the recognition backend for an installed model cannot be
+                  loaded.
+                justification: |
+                  Degrading to an unavailable engine must not hide why recognition is
+                  unavailable from a host that wired up a diagnostics sink.
+                tests:
+                  - SpeechRecognizerFactory_LoadAsync_EngineLoadFails_ReturnsUnavailableEngineAndDoesNotFaultTask
+
               - id: Speech-Recognition-SpeechRecognizerFactory-ArgumentValidation
                 title: >-
                   The SpeechRecognizerFactory class shall fault LoadAsync's returned task with
                   ArgumentNullException for a null model, a null SpeechModelStore, or a null
-                  SpeechModelCatalog, and shall fault it with OperationCanceledException when its
-                  cancellation token is cancelled.
+                  SpeechModelCatalog.
                 justification: |
                   A null model, store, or catalog is a programming error at the call site, not an
-                  ordinary "unavailable" machine state, and caller cancellation is a caller
-                  decision - both must fail the returned task immediately with a clear exception
-                  rather than being silently treated as unavailable.
+                  ordinary "unavailable" machine state, and must fail the returned task
+                  immediately with a clear exception rather than being silently treated as
+                  unavailable.
                 tests:
                   - SpeechRecognizerFactory_LoadAsync_NullModel_FaultsWithArgumentNullException
                   - SpeechRecognizerFactory_LoadAsync_WithStoreNullModel_FaultsWithArgumentNullException
                   - SpeechRecognizerFactory_LoadAsync_WithStoreNullStore_FaultsWithArgumentNullException
                   - SpeechRecognizerFactory_LoadAsync_WithCatalogNullModel_FaultsWithArgumentNullException
                   - SpeechRecognizerFactory_LoadAsync_WithCatalogNullCatalog_FaultsWithArgumentNullException
+
+              - id: Speech-Recognition-SpeechRecognizerFactory-CancellationFault
+                title: >-
+                  The SpeechRecognizerFactory class shall fault LoadAsync's returned task with
+                  OperationCanceledException when its cancellation token is cancelled.
+                justification: |
+                  Caller cancellation is a caller decision and must fail the returned task rather
+                  than being silently treated as unavailable.
+                tests:
                   - SpeechRecognizerFactory_LoadAsync_CancelledToken_FaultsWithOperationCanceledException
+                  - SpeechRecognizerFactory_LoadAsync_CancelledDuringGraceWindowCreateSucceeds_ThrowsAndDisposesBackend
 
               - id: Speech-Recognition-SpeechRecognizerFactory-ParameterValuesForwarding
                 title: >-

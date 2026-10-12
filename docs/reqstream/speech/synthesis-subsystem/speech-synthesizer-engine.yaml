@@ -5,8 +5,7 @@
 # lease-tracking logic: an engine hosts at most one live ISynthesisSession at a time, and
 # disposes its leased session before its backend. SynthesisEngineBusyException, the signal for a
 # second concurrent session request, has its own file (synthesis-engine-busy-exception.yaml).
-# Mirrors the recognition direction's speech-recognizer-engine.yaml for the async Engine/Session
-# redesign.
+# Mirrors the recognition direction's speech-recognizer-engine.yaml.
 
 sections:
   - title: Speech Requirements
@@ -20,8 +19,7 @@ sections:
                   The SpeechSynthesizerEngine class shall allow at most one live
                   ISynthesisSession to be leased from it at a time, throwing
                   SynthesisEngineBusyException synchronously from CreateSessionAsync when a
-                  session is requested while an earlier leased session has not yet been disposed,
-                  and succeeding again once that session is disposed.
+                  session is requested while an earlier leased session has not yet been disposed.
                 justification: |
                   A single loaded model (Layer 3 engine) owns one native inference context; two
                   concurrently live sessions bound to two different playback devices would race
@@ -34,21 +32,37 @@ sections:
                 tests:
                   - SpeechSynthesizerEngine_CreateSessionAsync_NoLeaseHeld_ReturnsRealSession
                   - SpeechSynthesizerEngine_CreateSessionAsync_LeaseAlreadyHeld_ThrowsSynthesisEngineBusyException
-                  - SpeechSynthesizerEngine_CreateSessionAsync_AfterPriorSessionDisposed_SucceedsAgain
                   - SpeechSynthesizerEngine_CreateSessionAsync_NullDevice_ThrowsArgumentNullException
+
+              - id: Speech-Synthesis-SpeechSynthesizerEngine-SessionLeaseReleasedOnDispose
+                title: >-
+                  The SpeechSynthesizerEngine class shall allow CreateSessionAsync to succeed
+                  again once the previously leased session has been disposed.
+                justification: |
+                  A caller that disposes its current session must be able to request another;
+                  otherwise a single engine could serve only one session for its lifetime.
+                tests:
+                  - SpeechSynthesizerEngine_CreateSessionAsync_AfterPriorSessionDisposed_SucceedsAgain
 
               - id: Speech-Synthesis-SpeechSynthesizerEngine-DisposalOrdering
                 title: >-
                   The SpeechSynthesizerEngine class shall dispose its active leased
-                  session, if any, before disposing its owned backend, and shall dispose its
-                  backend exactly once across repeated DisposeAsync calls.
+                  session, if any, before disposing its owned backend.
                 justification: |
                   Disposing the backend (and its native inference context) while a leased session
                   may still be mid-operation would leave the session holding a reference to
                   already-freed native resources; disposing the session first guarantees any
                   in-flight native call has genuinely returned before the backend itself is torn
-                  down. Repeated disposal must remain a safe no-op, matching every other
-                  disposable type in this library.
+                  down.
                 tests:
                   - SpeechSynthesizerEngine_DisposeAsync_WithActiveLeasedSession_DisposesSessionFirst
+
+              - id: Speech-Synthesis-SpeechSynthesizerEngine-BackendDisposedOnce
+                title: >-
+                  The SpeechSynthesizerEngine class shall dispose its backend exactly once across
+                  repeated DisposeAsync calls.
+                justification: |
+                  Repeated disposal must remain a safe no-op, matching every other disposable
+                  type in this library.
+                tests:
                   - SpeechSynthesizerEngine_DisposeAsync_CalledTwice_DisposesBackendOnce

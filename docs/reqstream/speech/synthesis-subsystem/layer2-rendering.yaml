@@ -38,16 +38,25 @@ sections:
                 title: >-
                   The default Layer 2 rendering strategy shall approximate a pace or
                   delivery/volume tag as a numeric parameter override on the surrounding segment
-                  for a model declaring parameter-mapped audio-tag support, and shall silently
-                  strip a tag with no built-in convention rather than failing.
+                  for a model declaring parameter-mapped audio-tag support.
                 justification: |
                   This library's conservative risk mitigation for unsupported tags requires that
                   a model without native tag support still gets a reasonable, non-crashing
-                  approximation of pace/volume intent, while intentionally conservative scope
-                  means only the tags with a clear numeric convention are mapped; every other tag
-                  safely degrades to plain narration instead of causing an error.
+                  approximation of pace/volume intent, using only the tags with a clear numeric
+                  convention.
                 tests:
                   - DefaultModelCapabilityProfile_Render_ParameterMappedSupport_FastTag_MapsToSpeedParameter
+
+              - id: Speech-Synthesis-Layer2Rendering-ParameterMappedUnmappedStrip
+                title: >-
+                  The default Layer 2 rendering strategy shall silently strip a tag with no
+                  built-in numeric convention to plain narration, rather than failing, for a
+                  model declaring parameter-mapped audio-tag support.
+                justification: |
+                  Every tag without a clear numeric convention must safely degrade to plain
+                  narration instead of causing an error, per this library's "never worse than
+                  plain narration" guarantee.
+                tests:
                   - DefaultModelCapabilityProfile_Render_ParameterMappedSupport_EmotionTag_StripsWithNoOverride
 
               - id: Speech-Synthesis-Layer2Rendering-NoneStripsAll

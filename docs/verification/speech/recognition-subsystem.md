@@ -182,10 +182,12 @@ reported rather than thrown while teardown still completes.
 #### Session Pipeline: Capture Format Conversion and Text Normalization
 
 **Tests**: `RecognitionSession_FrameCaptured_StereoAtModelRate_FeedsDownmixedMonoToBackend`,
+`RecognitionSession_FrameCaptured_MonoAtHigherRate_FeedsResampledMonoToBackend`,
 `RecognitionSession_FrameCaptured_FinalResult_AppliesModelNormalizeTextWithIsFinalTrue`
 
 Verifies that a stereo block reaches the backend as downmixed mono at the model's declared rate,
-and that a final result's text has passed through the owning model's
+that a mono block captured at twice the model's rate reaches the backend resampled to half as many
+samples, and that a final result's text has passed through the owning model's
 `IRecognitionModel.NormalizeText(text, isFinal: true)` before being buffered.
 
 #### Session Pipeline: Result Delivery and Backpressure

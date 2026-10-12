@@ -3,9 +3,8 @@
 #
 # These requirements describe the design-level behavior of the ISpeechSynthesizerEngine contract
 # (Layer 3, a loaded model) and its adjacent SynthesizedSpeech value type, decomposing the parent
-# SynthesisSubsystem requirements. Splits the former ISpeechSynthesizer requirements between this
-# file and i-synthesis-session.yaml to match the async Engine/Session redesign, mirroring
-# i-speech-recognizer-engine.yaml's identical split.
+# SynthesisSubsystem requirements. The requirements are split between this
+# file and i-synthesis-session.yaml, mirroring i-speech-recognizer-engine.yaml's split.
 
 sections:
   - title: Speech Requirements
@@ -29,38 +28,62 @@ sections:
                 title: >-
                   The ISpeechSynthesizerEngine interface shall define an asynchronous
                   CreateSessionAsync method that binds a single ISynthesisSession to one
-                  supplied audio playback device, plus one-shot SpeakAsync/SynthesizeAsync
-                  convenience overloads that each create and dispose a session internally, and
-                  disposal of the resources an engine holds, without exposing any inference
-                  backend or native audio type.
+                  supplied audio playback device, without exposing any inference backend or
+                  native audio type.
                 justification: |
                   This library's "engine backend stays swappable at the public API surface"
                   decision requires that a future non-sherpa-onnx backend can replace the current
                   one without a breaking API change. Separating a Layer 3 engine (the loaded
                   model) from a Layer 5 session (bound to one device) lets a single engine host
-                  exactly one in-flight session while still offering a convenient one-shot API for
-                  the common case of a single speak call against a single device.
+                  exactly one in-flight session.
                 tests:
                   - SpeechSynthesizerEngine_CreateSessionAsync_NoLeaseHeld_ReturnsRealSession
+
+              - id: Speech-Synthesis-ISpeechSynthesizerEngine-OneShotConvenienceOverloads
+                title: >-
+                  The ISpeechSynthesizerEngine interface shall define one-shot
+                  SpeakAsync/SynthesizeAsync convenience overloads that each create and dispose a
+                  session internally.
+                justification: |
+                  A one-shot API serves the common case of a single speak call against a single
+                  device without the caller managing a session.
+                tests:
                   - SpeechSynthesizerEngine_SpeakAsync_CalledTwice_CreatesAndDisposesASessionEachTime
                   - SpeechSynthesizerEngine_SynthesizeAsync_NoDeviceSupplied_ReturnsSegments
+
+              - id: Speech-Synthesis-ISpeechSynthesizerEngine-EngineDisposal
+                title: >-
+                  The ISpeechSynthesizerEngine interface shall define disposal of the resources an
+                  engine holds, safe to call repeatedly.
+                justification: |
+                  A loaded model holds native resources that a host must be able to release
+                  deterministically.
+                tests:
+                  - SpeechSynthesizerEngine_DisposeAsync_CalledTwice_DisposesBackendOnce
 
               - id: Speech-Synthesis-ISpeechSynthesizerEngine-UnavailableOperationsThrow
                 title: >-
                   Every operational member of the ISpeechSynthesizerEngine contract
                   (SpeakAsync, SynthesizeAsync) shall throw a documented exception when invoked
-                  on an unavailable engine, while CreateSessionAsync shall still succeed and
-                  return the shared unavailable session rather than throwing.
+                  on an unavailable engine.
                 justification: |
                   Hosts must be able to test their playback logic against the contract with no
                   model, no speakers, and no native runtime present, so an unavailable engine's
                   one-shot operational members must fail loudly and consistently rather than
-                  silently doing nothing, while binding a device to an already unavailable engine
-                  is an ordinary (if useless) composition rather than an error.
+                  silently doing nothing.
                 tests:
-                  - UnavailableSpeechSynthesizerEngine_CreateSessionAsync_Always_ReturnsUnavailableSession
                   - UnavailableSpeechSynthesizerEngine_SpeakAsync_Always_ThrowsSpeechSynthesizerUnavailableException
                   - UnavailableSpeechSynthesizerEngine_SynthesizeAsync_Always_ThrowsSpeechSynthesizerUnavailableException
+
+              - id: Speech-Synthesis-ISpeechSynthesizerEngine-UnavailableCreateSessionSucceeds
+                title: >-
+                  CreateSessionAsync on an unavailable ISpeechSynthesizerEngine shall succeed and
+                  return the shared unavailable session rather than throwing.
+                justification: |
+                  Binding a device to an already unavailable engine is an ordinary (if useless)
+                  composition rather than an error.
+                tests:
+                  - UnavailableSpeechSynthesizerEngine_CreateSessionAsync_Always_ReturnsUnavailableSession
 
               - id: Speech-Synthesis-ISpeechSynthesizerEngine-SynthesizedSpeechShape
                 title: >-

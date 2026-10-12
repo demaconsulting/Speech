@@ -3,9 +3,8 @@
 #
 # Describes the honest-fallback engine returned when synthesis is not possible on this machine.
 # Its companion exception, SpeechSynthesizerUnavailableException, has its own file
-# (speech-synthesizer-unavailable-exception.yaml). Splits the former unavailable-speech-synthesizer.yaml
-# between this file and unavailable-synthesis-session.yaml to match the async Engine/Session
-# redesign.
+# (speech-synthesizer-unavailable-exception.yaml). The unavailable session is described in
+# unavailable-synthesis-session.yaml.
 
 sections:
   - title: Speech Requirements
@@ -28,13 +27,20 @@ sections:
                 title: >-
                   The UnavailableSpeechSynthesizerEngine class shall succeed when
                   CreateSessionAsync is invoked with a non-null device, returning the shared
-                  UnavailableSynthesisSession, while rejecting a null device.
+                  UnavailableSynthesisSession.
                 justification: |
                   Binding a device to an already unavailable engine is an ordinary (if useless)
-                  composition, not an error; only a null device argument is a programming error
-                  at the call site.
+                  composition, not an error.
                 tests:
                   - UnavailableSpeechSynthesizerEngine_CreateSessionAsync_Always_ReturnsUnavailableSession
+
+              - id: Speech-Synthesis-UnavailableSpeechSynthesizerEngine-CreateSessionRejectsNullDevice
+                title: >-
+                  The UnavailableSpeechSynthesizerEngine class shall reject a null device passed
+                  to CreateSessionAsync with ArgumentNullException.
+                justification: |
+                  A null device argument is a programming error at the call site.
+                tests:
                   - UnavailableSpeechSynthesizerEngine_CreateSessionAsync_NullDevice_ThrowsArgumentNullException
 
               - id: Speech-Synthesis-UnavailableSpeechSynthesizerEngine-OperationsThrow

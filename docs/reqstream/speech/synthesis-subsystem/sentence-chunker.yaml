@@ -14,13 +14,12 @@ sections:
                   secondary clause boundaries regardless of length, falling back to a whitespace
                   budget only when a piece still exceeds the configured maximum chunk length.
                 justification: |
-                  Gating clause-level splitting behind the length budget let a long, multi-clause
-                  sentence remain a single chunk until playback caught up to it, causing
-                  an audible playback delay at the sentence boundary; splitting every clause
-                  unconditionally keeps the audible gap at a clause boundary short and predictable
-                  regardless of overall sentence length, while the whitespace-budget fallback still
-                  guarantees no chunk exceeds the length a model or pipeline stage can handle in one
-                  synthesis call.
+                  Splitting every clause unconditionally keeps the audible gap at a clause
+                  boundary short and predictable regardless of overall sentence length, while the
+                  whitespace-budget fallback still guarantees no chunk exceeds the length a model
+                  or pipeline stage can handle in one synthesis call. A long, multi-clause
+                  sentence left as a single chunk would cause an audible playback delay at the
+                  sentence boundary.
                 tests:
                   - SentenceChunker_Chunk_ShortSingleSentence_ReturnsOneChunk
                   - SentenceChunker_Chunk_MultipleSentences_SplitsOnPrimaryBoundaries
@@ -32,16 +31,30 @@ sections:
               - id: Speech-Synthesis-SentenceChunker-BoundaryHandling
                 title: >-
                   The SentenceChunker class shall return a single word unsplit when the word
-                  alone exceeds the configured maximum chunk length, and shall reject a
-                  non-positive maximum chunk length or null text.
+                  alone exceeds the configured maximum chunk length.
                 justification: |
                   Splitting inside a single word would produce unintelligible synthesized audio,
-                  so an over-length word must still be synthesized whole; a non-positive maximum
-                  length or null text describes no meaningful chunking request and must be
-                  rejected rather than silently producing corrupt output.
+                  so an over-length word must still be synthesized whole.
                 tests:
                   - SentenceChunker_Chunk_SingleWordExceedsBudget_ReturnsWholeWord
+
+              - id: Speech-Synthesis-SentenceChunker-NonPositiveMaxLengthRejection
+                title: >-
+                  The SentenceChunker class shall reject a non-positive maximum chunk length with
+                  ArgumentOutOfRangeException.
+                justification: |
+                  A non-positive maximum length describes no meaningful chunking request and must
+                  be rejected rather than silently producing corrupt output.
+                tests:
                   - SentenceChunker_Chunk_NonPositiveMaxLength_ThrowsArgumentOutOfRangeException
+
+              - id: Speech-Synthesis-SentenceChunker-NullTextRejection
+                title: >-
+                  The SentenceChunker class shall reject null text with ArgumentNullException.
+                justification: |
+                  Null text describes no meaningful chunking request; failing fast surfaces the
+                  caller bug at the call site.
+                tests:
                   - SentenceChunker_Chunk_NullText_ThrowsArgumentNullException
 
               - id: Speech-Synthesis-SentenceChunker-NumeralPunctuationRetention
@@ -56,13 +69,13 @@ sections:
                   Splitting a time, thousands separator, or decimal point mid-numeral produces
                   meaningless fragments ("12:" / "30", "1," / "000", or "0" / "5") when the pieces
                   are later synthesized as separate chunks. This is especially harmful for a
-                  bare-fraction decimal with no leading digit: before this exception, its leading
-                  "." was indistinguishable from a sentence-ending period and was dropped as a
-                  degenerate, word-less chunk by the DegeneratePunctuationMerging requirement
-                  above, silencing the "point" when the number was spoken (".5" read as "five"
-                  instead of "point five"). Excluding a letter-preceded period from this exception
-                  (e.g. "Wait.5 more.") keeps a genuine sentence-ending period, immediately
-                  followed by a digit with no space, splitting normally.
+                  bare-fraction decimal with no leading digit: its leading "." would otherwise be
+                  indistinguishable from a sentence-ending period and be dropped as a degenerate,
+                  word-less chunk (see the DegeneratePunctuationMerging requirement), silencing
+                  the "point" when the number was spoken (".5" read as "five" instead of "point
+                  five"). Excluding a letter-preceded period from this rule (e.g. "Wait.5 more.")
+                  keeps a genuine sentence-ending period, immediately followed by a digit with no
+                  space, splitting normally.
                 tests:
                   - SentenceChunker_Chunk_ClausePunctuationEmbeddedInNumeral_StaysAttached
                   - SentenceChunker_Chunk_ShortSentenceWithSemicolonOrColon_SplitsEvenUnderBudget
@@ -110,17 +123,24 @@ sections:
                 title: >-
                   The SentenceChunker class shall expose, per chunk via ChunkWithMetadata, whether
                   the chunk's final text ends in a genuine ellipsis (three or more consecutive '.'
-                  characters, with or without interspersed whitespace), while Chunk continues to
-                  return only chunk text with an unchanged signature for every existing caller.
+                  characters, with or without interspersed whitespace).
                 justification: |
                   A genuine ellipsis warrants a longer rendered pause than an ordinary
                   sentence-ending terminator to sound natural; exposing this as per-chunk metadata
                   lets a Layer 2 rendering strategy render that longer pause without SentenceChunker
-                  itself taking on any audio-rendering responsibility, and keeping Chunk a pure
-                  projection of ChunkWithMetadata's text guarantees no existing caller's output
-                  changes.
+                  itself taking on any audio-rendering responsibility.
                 tests:
                   - SentenceChunker_ChunkWithMetadata_TrailingAdjacentEllipsis_EndsWithEllipsisIsTrue
                   - SentenceChunker_ChunkWithMetadata_TrailingSpacedEllipsis_EndsWithEllipsisIsTrue
                   - SentenceChunker_ChunkWithMetadata_FewerThanThreeDots_EndsWithEllipsisIsFalse
+
+              - id: Speech-Synthesis-SentenceChunker-ChunkTextProjection
+                title: >-
+                  The SentenceChunker class shall return, from Chunk, only chunk text, identical
+                  to the text of the chunks ChunkWithMetadata returns.
+                justification: |
+                  Keeping Chunk a pure projection of ChunkWithMetadata's text guarantees that
+                  callers needing only chunk text see the same chunks regardless of which
+                  operation they call.
+                tests:
                   - SentenceChunker_Chunk_AndChunkWithMetadata_ProduceSameChunkText

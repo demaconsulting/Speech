@@ -200,4 +200,89 @@ public sealed class OnnxExecutionProviderSelectorTests
         Assert.NotNull(session);
         Assert.Equal(0, probeInvocationCount);
     }
+
+    /// <summary>
+    ///     Proves that candidates are tried in the caller-supplied order: when the probe rejects
+    ///     the first candidate's session, the second candidate is built and probed next, and its
+    ///     session - not the first's - is the one returned.
+    /// </summary>
+    [Fact]
+    public void Create_FirstCandidateFailsProbe_ReturnsSecondCandidateSession()
+    {
+        // Arrange: two candidates, with a probe that rejects only the first session it sees
+        var preferredProviderNames = new[] { "CPUExecutionProvider", "CPUExecutionProvider" };
+        var probedSessions = new List<InferenceSession>();
+        void RejectFirstProbe(InferenceSession probedSession)
+        {
+            probedSessions.Add(probedSession);
+            if (probedSessions.Count == 1)
+            {
+                RunWithMismatchedInput(probedSession);
+            }
+        }
+
+        // Act
+        using var session = OnnxExecutionProviderSelector.Create(ModelPath, preferredProviderNames, RejectFirstProbe);
+
+        // Assert: exactly two sessions were probed, in order, and the second one was returned
+        Assert.Equal(2, probedSessions.Count);
+        Assert.NotSame(probedSessions[0], probedSessions[1]);
+        Assert.Same(probedSessions[1], session);
+    }
+
+    /// <summary>
+    ///     Proves that a candidate whose <c>validateSession</c> probe succeeds is the session
+    ///     returned to the caller, i.e. the very instance that was handed to the probe.
+    /// </summary>
+    [Fact]
+    public void Create_ValidateSessionProbeSucceeds_ReturnsProbedCandidateSession()
+    {
+        // Arrange
+        var preferredProviderNames = new[] { "CPUExecutionProvider" };
+        InferenceSession? probedSession = null;
+        void AcceptingProbe(InferenceSession candidate) => probedSession = candidate;
+
+        // Act
+        using var session = OnnxExecutionProviderSelector.Create(ModelPath, preferredProviderNames, AcceptingProbe);
+
+        // Assert
+        Assert.NotNull(probedSession);
+        Assert.Same(probedSession, session);
+    }
+
+    /// <summary>
+    ///     Proves that the <see cref="InferenceSession"/> returned on success is not disposed by
+    ///     <see cref="OnnxExecutionProviderSelector.Create"/>: the caller can still run the
+    ///     model's single identity node and read back the value it fed in.
+    /// </summary>
+    [Fact]
+    public void Create_Success_ReturnedSessionRemainsUsableForInference()
+    {
+        // Arrange
+        using var session = OnnxExecutionProviderSelector.Create(ModelPath);
+        var inputs = new List<NamedOnnxValue>
+        {
+            NamedOnnxValue.CreateFromTensor("input", new DenseTensor<float>(new[] { 3.5f }, [1])),
+        };
+
+        // Act
+        using var results = session.Run(inputs);
+
+        // Assert: the identity node echoes its input
+        Assert.Equal(3.5f, results[0].AsTensor<float>()[0]);
+    }
+
+    /// <summary>
+    ///     Feeds a wrong-typed tensor (long instead of the graph's declared float "input") so
+    ///     ONNX Runtime's own input validation throws a genuine <see cref="OnnxRuntimeException"/>.
+    /// </summary>
+    /// <param name="probedSession">The session to run the mismatched input against.</param>
+    private static void RunWithMismatchedInput(InferenceSession probedSession)
+    {
+        var mismatchedInput = new List<NamedOnnxValue>
+        {
+            NamedOnnxValue.CreateFromTensor("input", new DenseTensor<long>(new long[] { 1 }, [1])),
+        };
+        probedSession.Run(mismatchedInput);
+    }
 }
