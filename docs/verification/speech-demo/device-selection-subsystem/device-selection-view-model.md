@@ -87,7 +87,7 @@ the possible cause.
 **Expected**: The selection is cleared and the explanatory empty-state message is shown for both
 directions.
 
-**Requirement coverage**: `SpeechDemo-Devices-EmptyStateExplanation`.
+**Requirement coverage**: `SpeechDemo-Devices-EmptyStateAfterRefresh`.
 
 ##### DeviceSelectionViewModel_CaptureSelection_DeviceSelected_ReturnsNameBasedSelection
 
@@ -234,7 +234,7 @@ awaited to completion rather than fired without waiting.
 
 **Expected**: The hooks run in registration order.
 
-**Requirement coverage**: `SpeechDemo-Devices-RefreshPreHooks`.
+**Requirement coverage**: `SpeechDemo-Devices-PreRefreshHookOrder`.
 
 ##### DeviceSelectionViewModel_Refresh_UnregisteredHook_NotInvoked
 
@@ -250,12 +250,20 @@ awaited to completion rather than fired without waiting.
 
 **Expected**: No exception, and the refresh still reaches the service.
 
-**Requirement coverage**: `SpeechDemo-Devices-PreRefreshHookRemoval`.
+**Requirement coverage**: `SpeechDemo-Devices-PreRefreshHookUnregisterNeverRegistered`.
 
-##### DeviceSelectionViewModel_PreRefreshHook_NullHook_ThrowsArgumentNullException
+##### DeviceSelectionViewModel_RegisterPreRefreshHook_NullHook_ThrowsArgumentNullException
 
-**Scenario**: A null hook is registered or unregistered.
+**Scenario**: A null hook is registered.
 
-**Expected**: `ArgumentNullException` in both cases.
+**Expected**: `ArgumentNullException`.
 
 **Requirement coverage**: `SpeechDemo-Devices-PreRefreshHookRequired`.
+
+##### DeviceSelectionViewModel_UnregisterPreRefreshHook_NullHook_ThrowsArgumentNullException
+
+**Scenario**: A null hook is unregistered.
+
+**Expected**: `ArgumentNullException`.
+
+**Requirement coverage**: `SpeechDemo-Devices-PreRefreshHookUnregisterRequired`.

@@ -577,16 +577,28 @@ public class DeviceSelectionViewModelTests
     }
 
     /// <summary>
-    ///     Proves that registering or unregistering a missing hook is rejected.
+    ///     Proves that registering a missing hook is rejected.
     /// </summary>
     [Fact]
-    public void DeviceSelectionViewModel_PreRefreshHook_NullHook_ThrowsArgumentNullException()
+    public void DeviceSelectionViewModel_RegisterPreRefreshHook_NullHook_ThrowsArgumentNullException()
     {
         // Arrange: a composed panel
         var viewModel = new DeviceSelectionViewModel(Service([MicA], [Speaker]));
 
-        // Act & Assert: a null hook is a programming error in either direction
+        // Act & Assert: a null hook is a programming error
         Assert.Throws<ArgumentNullException>(() => viewModel.RegisterPreRefreshHook(null!));
+    }
+
+    /// <summary>
+    ///     Proves that unregistering a missing hook is rejected.
+    /// </summary>
+    [Fact]
+    public void DeviceSelectionViewModel_UnregisterPreRefreshHook_NullHook_ThrowsArgumentNullException()
+    {
+        // Arrange: a composed panel
+        var viewModel = new DeviceSelectionViewModel(Service([MicA], [Speaker]));
+
+        // Act & Assert: a null hook is a programming error
         Assert.Throws<ArgumentNullException>(() => viewModel.UnregisterPreRefreshHook(null!));
     }
 

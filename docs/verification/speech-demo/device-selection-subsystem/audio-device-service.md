@@ -49,7 +49,7 @@ the factory, returning the library's unavailable device when the factory knows n
 
 **Expected**: The adapter returns exactly those devices.
 
-**Requirement coverage**: `SpeechDemo-Devices-LibraryProbeDelegation`.
+**Requirement coverage**: `SpeechDemo-Devices-LibraryPlaybackProbeDelegation`.
 
 ##### AudioDeviceService_Enumerate_ProbesReportNothing_ReturnsEmptyLists
 

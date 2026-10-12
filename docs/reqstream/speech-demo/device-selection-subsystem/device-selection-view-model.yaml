@@ -11,10 +11,11 @@
 #   - Selection values (Devices-NameBasedSelection, -SelectionNotification,
 #     -EmptySelectionFallback)
 #   - Refresh (Devices-Refresh, -RefreshDelegation, -RefreshKeepsSelection,
-#     -RefreshSelectionFallback, -RefreshAvailabilityNotification, -RefreshInUseHandling,
-#     -RefreshGeneralFaultHandling, -RefreshRecovery)
-#   - Pre-refresh hooks (Devices-RefreshPreHooks, -PreRefreshHookRemoval,
-#     -PreRefreshHookRequired)
+#     -RefreshSelectionFallback, -EmptyStateAfterRefresh, -RefreshAvailabilityNotification,
+#     -RefreshInUseHandling, -RefreshGeneralFaultHandling, -RefreshRecovery)
+#   - Pre-refresh hooks (Devices-RefreshPreHooks, -PreRefreshHookOrder, -PreRefreshHookRemoval,
+#     -PreRefreshHookUnregisterNeverRegistered, -PreRefreshHookRequired,
+#     -PreRefreshHookUnregisterRequired)
 # Every test below is a DeviceSelectionViewModelTests test.
 
 sections:
@@ -81,14 +82,24 @@ sections:
               - id: SpeechDemo-Devices-EmptyStateExplanation
                 title: >-
                   The DeviceSelectionViewModel shall report an explanatory message naming the
-                  possible cause when a direction reports no devices, both at start-up and
-                  after a refresh that removes the last device.
+                  possible cause when a direction reports no devices at start-up.
                 justification: |
                   "No devices" and "the audio backend failed to initialize" look identical to a
                   user. Naming the likely cause turns a silent empty list into actionable
                   information.
                 tests:
                   - DeviceSelectionViewModel_Constructor_NoDevices_ReportsHonestEmptyState
+
+              - id: SpeechDemo-Devices-EmptyStateAfterRefresh
+                title: >-
+                  The DeviceSelectionViewModel shall clear the chosen device and report the
+                  explanatory empty-state message when a refresh removes the last device in a
+                  direction.
+                justification: |
+                  A device unplugged while the demo runs must not leave a stale selection on
+                  screen; the panel returns to the same explained empty state it shows at
+                  start-up.
+                tests:
                   - DeviceSelectionViewModel_Refresh_AllDevicesRemoved_ClearsSelectionAndExplains
 
               - id: SpeechDemo-Devices-NameBasedSelection
@@ -233,8 +244,8 @@ sections:
               - id: SpeechDemo-Devices-RefreshPreHooks
                 title: >-
                   The DeviceSelectionViewModel shall invoke and await every registered
-                  pre-refresh hook, in registration order, before asking the device service to
-                  re-scan the library's device table.
+                  pre-refresh hook to completion before asking the device service to re-scan
+                  the library's device table.
                 justification: |
                   Both the recognition and synthesis panels share this device-selection state
                   over the same underlying device factory; clicking "Refresh devices" while
@@ -246,31 +257,60 @@ sections:
                 children:
                   - SpeechDemo-Recognition-StopsBeforeDeviceRefresh
                   - SpeechDemo-Synthesis-StopsBeforeDeviceRefresh
+                  - SpeechDemo-Devices-PreRefreshHookOrder
                   - SpeechDemo-Devices-PreRefreshHookRemoval
+                  - SpeechDemo-Devices-PreRefreshHookUnregisterNeverRegistered
                   - SpeechDemo-Devices-PreRefreshHookRequired
+                  - SpeechDemo-Devices-PreRefreshHookUnregisterRequired
                 tests:
                   - DeviceSelectionViewModel_Refresh_RegisteredHook_InvokedAndAwaitedBeforeRefreshDevices
+
+              - id: SpeechDemo-Devices-PreRefreshHookOrder
+                title: >-
+                  The DeviceSelectionViewModel shall invoke registered pre-refresh hooks one
+                  after another in registration order.
+                justification: |
+                  Hooks may depend on each other's effects, so a refresh must run them in a
+                  predictable order rather than concurrently or in arbitrary order.
+                tests:
                   - DeviceSelectionViewModel_Refresh_MultipleHooks_InvokedInRegistrationOrder
 
               - id: SpeechDemo-Devices-PreRefreshHookRemoval
                 title: >-
                   The DeviceSelectionViewModel shall not invoke a pre-refresh hook that has been
-                  unregistered, and shall treat unregistering a hook that was never registered
-                  as a harmless no-op.
+                  unregistered.
                 justification: |
                   A panel that is disposed or no longer streaming must be able to withdraw its
-                  hook; a tolerant unregister keeps teardown paths from having to track whether
-                  registration happened.
+                  hook so a later refresh does not call into it.
                 tests:
                   - DeviceSelectionViewModel_Refresh_UnregisteredHook_NotInvoked
+
+              - id: SpeechDemo-Devices-PreRefreshHookUnregisterNeverRegistered
+                title: >-
+                  The DeviceSelectionViewModel shall treat unregistering a pre-refresh hook that
+                  was never registered as a harmless no-op.
+                justification: |
+                  A tolerant unregister keeps teardown paths from having to track whether
+                  registration happened.
+                tests:
                   - DeviceSelectionViewModel_UnregisterPreRefreshHook_NeverRegistered_RefreshStillSucceeds
 
               - id: SpeechDemo-Devices-PreRefreshHookRequired
                 title: >-
-                  The DeviceSelectionViewModel shall reject a missing hook when registering or
-                  unregistering a pre-refresh hook.
+                  The DeviceSelectionViewModel shall reject a missing hook when registering a
+                  pre-refresh hook.
                 justification: |
                   A null hook would fault in the middle of a later refresh; rejecting it at
                   registration surfaces the programming error at its source.
                 tests:
-                  - DeviceSelectionViewModel_PreRefreshHook_NullHook_ThrowsArgumentNullException
+                  - DeviceSelectionViewModel_RegisterPreRefreshHook_NullHook_ThrowsArgumentNullException
+
+              - id: SpeechDemo-Devices-PreRefreshHookUnregisterRequired
+                title: >-
+                  The DeviceSelectionViewModel shall reject a missing hook when unregistering a
+                  pre-refresh hook.
+                justification: |
+                  A null argument to unregister is a programming error in the caller's teardown
+                  path; rejecting it surfaces the error rather than silently doing nothing.
+                tests:
+                  - DeviceSelectionViewModel_UnregisterPreRefreshHook_NullHook_ThrowsArgumentNullException

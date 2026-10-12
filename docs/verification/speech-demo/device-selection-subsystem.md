@@ -35,10 +35,19 @@ selection is kept.
 **Scenario**: The view model is composed over the real adapter and a factory whose probes report
 two capture devices and one playback device.
 
-**Expected**: Both pickers list exactly those devices, the first of each is preselected, and the
-derived selections are the library's name-based values for them.
+**Expected**: Both pickers list exactly those devices.
 
 **Requirement coverage**: `SpeechDemo-DeviceSelection-PanelListsLibraryDevices`.
+
+#### DeviceSelectionSubsystem_Composed_ProbesReportDevices_PickersPreselectFirstOfEachDirection
+
+**Scenario**: The view model is composed over the real adapter and a factory whose probes report
+two capture devices and one playback device.
+
+**Expected**: The first device of each direction is preselected, and the derived selections are the
+library's name-based values for them.
+
+**Requirement coverage**: `SpeechDemo-DeviceSelection-PanelPreselectsFirstDevice`.
 
 #### DeviceSelectionSubsystem_Composed_ProbesReportNothing_PickersExplainAndDefault
 
@@ -50,12 +59,21 @@ library's system default.
 
 **Requirement coverage**: `SpeechDemo-DeviceSelection-EmptyPanelExplained`.
 
-#### DeviceSelectionSubsystem_Composed_Refresh_ReScansLibraryAndKeepsSelection
+#### DeviceSelectionSubsystem_Composed_Refresh_ReScansLibrary
 
 **Scenario**: The composed panel is refreshed over a factory built on a fake PortAudio
-environment, with the second capture device selected.
+environment.
 
 **Expected**: The environment is terminated once and initialized twice (the initial initialization
-plus the re-scan), and the second capture device stays selected.
+plus the re-scan).
 
 **Requirement coverage**: `SpeechDemo-DeviceSelection-RefreshReachesLibrary`.
+
+#### DeviceSelectionSubsystem_Composed_Refresh_DeviceStillReported_KeepsSelection
+
+**Scenario**: The composed panel is refreshed over a factory whose probe still reports both
+capture devices, with the second capture device selected.
+
+**Expected**: The second capture device stays selected.
+
+**Requirement coverage**: `SpeechDemo-DeviceSelection-RefreshKeepsSelection`.

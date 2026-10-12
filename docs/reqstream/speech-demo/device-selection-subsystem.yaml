@@ -22,14 +22,24 @@ sections:
           - id: SpeechDemo-DeviceSelection-PanelListsLibraryDevices
             title: >-
               The DeviceSelectionSubsystem shall list in its pickers exactly the capture and
-              playback devices the library's probes report, and shall preselect the first
-              device of each direction.
+              playback devices the library's probes report.
             justification: |
               The demo exists to show the library's device enumeration working end to end. The
               property only holds when the view model and the adapter over the library factory
               work together, so it is verified with both composed.
             tests:
               - DeviceSelectionSubsystem_Composed_ProbesReportDevices_PickersListThem
+
+          - id: SpeechDemo-DeviceSelection-PanelPreselectsFirstDevice
+            title: >-
+              The DeviceSelectionSubsystem shall preselect the first device the library's
+              probes report in each direction.
+            justification: |
+              A usable demo needs no configuration step. The selection handed back to the
+              library must name a device the library's own probes reported, which only holds
+              when the view model and the adapter work together.
+            tests:
+              - DeviceSelectionSubsystem_Composed_ProbesReportDevices_PickersPreselectFirstOfEachDirection
 
           - id: SpeechDemo-DeviceSelection-EmptyPanelExplained
             title: >-
@@ -46,11 +56,21 @@ sections:
           - id: SpeechDemo-DeviceSelection-RefreshReachesLibrary
             title: >-
               The DeviceSelectionSubsystem shall make a refresh of the pickers force the
-              library to re-scan its device table, and shall keep the chosen device when it is
-              still reported.
+              library to re-scan its device table.
             justification: |
               A refresh that only re-reads cached lists would never reveal a hot-plugged
               device. Verifying it against the library's own environment proves the refresh
               action reaches the library rather than stopping at the demo's seam.
             tests:
-              - DeviceSelectionSubsystem_Composed_Refresh_ReScansLibraryAndKeepsSelection
+              - DeviceSelectionSubsystem_Composed_Refresh_ReScansLibrary
+
+          - id: SpeechDemo-DeviceSelection-RefreshKeepsSelection
+            title: >-
+              The DeviceSelectionSubsystem shall keep the chosen device across a refresh when
+              the library still reports it.
+            justification: |
+              Discarding a still-valid choice on every refresh would be visibly wrong, and the
+              property must hold against the library's own re-scan, not only a substitute
+              service.
+            tests:
+              - DeviceSelectionSubsystem_Composed_Refresh_DeviceStillReported_KeepsSelection

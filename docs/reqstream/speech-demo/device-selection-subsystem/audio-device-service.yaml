@@ -10,7 +10,8 @@
 #
 # The requirements are grouped by concern, one criterion each:
 #   - Construction (Devices-FactoryRequired)
-#   - Enumeration (Devices-LibraryProbeDelegation, -EmptyProbeResult, -ProbeResultsNotCached)
+#   - Enumeration (Devices-LibraryProbeDelegation, -LibraryPlaybackProbeDelegation,
+#     -EmptyProbeResult, -ProbeResultsNotCached)
 #   - Refresh (Devices-ServiceRefreshDelegation)
 #   - Device creation (Devices-CaptureDeviceCreation, -PlaybackDeviceCreation)
 # Every test below is an AudioDeviceServiceTests test.
@@ -35,8 +36,8 @@ sections:
 
               - id: SpeechDemo-Devices-LibraryProbeDelegation
                 title: >-
-                  The AudioDeviceService shall return exactly the capture and playback devices
-                  the library's probes report, without filtering, sorting or supplementing them.
+                  The AudioDeviceService shall return exactly the capture devices the library's
+                  capture probe reports, without filtering, sorting or supplementing them.
                 justification: |
                   The demo exists to show the library's device enumeration working, so it must
                   not maintain a device list of its own. Routing enumeration through a
@@ -44,6 +45,15 @@ sections:
                   while leaving the library's public API untouched.
                 tests:
                   - AudioDeviceService_EnumerateCaptureDevices_ProbeReportsDevices_ReturnsProbeDevices
+
+              - id: SpeechDemo-Devices-LibraryPlaybackProbeDelegation
+                title: >-
+                  The AudioDeviceService shall return exactly the playback devices the library's
+                  playback probe reports, without filtering, sorting or supplementing them.
+                justification: |
+                  As for capture devices, the demo must not maintain a playback device list of
+                  its own; the picker shows what the library's playback probe reports.
+                tests:
                   - AudioDeviceService_EnumeratePlaybackDevices_ProbeReportsDevices_ReturnsProbeDevices
 
               - id: SpeechDemo-Devices-EmptyProbeResult

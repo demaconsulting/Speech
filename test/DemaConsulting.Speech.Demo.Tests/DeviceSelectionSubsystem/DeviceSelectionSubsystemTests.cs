@@ -32,9 +32,32 @@ public class DeviceSelectionSubsystemTests
         // Act: compose the panel over the real adapter
         var viewModel = new DeviceSelectionViewModel(service);
 
-        // Assert: the panel lists what the probes reported and preselects the first of each
+        // Assert: the panel lists what the probes reported
         Assert.Equal([micA, micB], viewModel.CaptureDevices);
         Assert.Equal([speaker], viewModel.PlaybackDevices);
+    }
+
+    /// <summary>
+    ///     Proves that the pickers preselect the first device the library's probes report in
+    ///     each direction.
+    /// </summary>
+    [Fact]
+    public void DeviceSelectionSubsystem_Composed_ProbesReportDevices_PickersPreselectFirstOfEachDirection()
+    {
+        // Arrange: a factory whose probes report two capture devices and one playback device
+        var micA = new AudioDeviceDescription("Mic A", AudioDeviceDirection.Capture, 1, 16000);
+        var micB = new AudioDeviceDescription("Mic B", AudioDeviceDirection.Capture, 2, 48000);
+        var speaker = new AudioDeviceDescription("Speaker", AudioDeviceDirection.Playback, 2, 48000);
+        var captureProbe = Substitute.For<IAudioCaptureDeviceProbe>();
+        captureProbe.Enumerate().Returns([micA, micB]);
+        var playbackProbe = Substitute.For<IAudioPlaybackDeviceProbe>();
+        playbackProbe.Enumerate().Returns([speaker]);
+        var service = new AudioDeviceService(new AudioDeviceFactory(captureProbe, playbackProbe, null));
+
+        // Act: compose the panel over the real adapter
+        var viewModel = new DeviceSelectionViewModel(service);
+
+        // Assert: the first device of each direction is the selection handed to the library
         Assert.Equal(new AudioDeviceSelection("Mic A"), viewModel.CaptureSelection);
         Assert.Equal(new AudioDeviceSelection("Speaker"), viewModel.PlaybackSelection);
     }
@@ -67,18 +90,41 @@ public class DeviceSelectionSubsystemTests
 
     /// <summary>
     ///     Proves that a refresh through the composed panel reaches the library's PortAudio
-    ///     environment and keeps the current selection when the device is still reported.
+    ///     environment, which re-scans its device table.
     /// </summary>
     [Fact]
-    public async Task DeviceSelectionSubsystem_Composed_Refresh_ReScansLibraryAndKeepsSelection()
+    public async Task DeviceSelectionSubsystem_Composed_Refresh_ReScansLibrary()
+    {
+        // Arrange: a factory over a deterministic PortAudio environment and explicit probes
+        var micA = new AudioDeviceDescription("Mic A", AudioDeviceDirection.Capture, 1, 16000);
+        var captureProbe = Substitute.For<IAudioCaptureDeviceProbe>();
+        captureProbe.Enumerate().Returns([micA]);
+        var api = new FakePortAudioApi();
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+        var service = new AudioDeviceService(new AudioDeviceFactory(captureProbe, null, null, environment));
+        var viewModel = new DeviceSelectionViewModel(service);
+
+        // Act: refresh through the panel
+        await viewModel.Refresh();
+
+        // Assert: the library re-scanned its device table
+        Assert.Equal(1, api.TerminateCallCount);
+        Assert.Equal(2, api.InitializeCallCount);
+    }
+
+    /// <summary>
+    ///     Proves that a refresh through the composed panel keeps the chosen device when the
+    ///     library still reports it.
+    /// </summary>
+    [Fact]
+    public async Task DeviceSelectionSubsystem_Composed_Refresh_DeviceStillReported_KeepsSelection()
     {
         // Arrange: a factory over a deterministic PortAudio environment and explicit probes
         var micA = new AudioDeviceDescription("Mic A", AudioDeviceDirection.Capture, 1, 16000);
         var micB = new AudioDeviceDescription("Mic B", AudioDeviceDirection.Capture, 2, 48000);
         var captureProbe = Substitute.For<IAudioCaptureDeviceProbe>();
         captureProbe.Enumerate().Returns([micA, micB]);
-        var api = new FakePortAudioApi();
-        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+        var environment = new PortAudioEnvironment(new FakePortAudioApi(), OSPlatform.Windows);
         var service = new AudioDeviceService(new AudioDeviceFactory(captureProbe, null, null, environment));
         var viewModel = new DeviceSelectionViewModel(service);
         viewModel.SelectedCaptureDevice = micB;
@@ -86,9 +132,7 @@ public class DeviceSelectionSubsystemTests
         // Act: refresh through the panel
         await viewModel.Refresh();
 
-        // Assert: the library re-scanned its device table and the chosen device stayed chosen
-        Assert.Equal(1, api.TerminateCallCount);
-        Assert.Equal(2, api.InitializeCallCount);
+        // Assert: the chosen device stayed chosen
         Assert.Same(micB, viewModel.SelectedCaptureDevice);
     }
 
