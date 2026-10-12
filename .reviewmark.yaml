@@ -1379,10 +1379,43 @@ reviews:
       - "docs/reqstream/speech-demo.yaml"
     paths:
       - "docs/reqstream/speech-demo/shell-subsystem.yaml"                   # subsystem requirements
-      - "docs/design/speech-demo/shell-subsystem.md"                        # subsystem + inline unit design
-      - "docs/verification/speech-demo/shell-subsystem.md"                  # subsystem + inline unit verification
-      - "src/DemaConsulting.Speech.Demo/ShellSubsystem/**/*.cs"             # subsystem source
-      - "test/DemaConsulting.Speech.Demo.Tests/ShellSubsystem/**/*.cs"      # subsystem tests
+      - "docs/design/speech-demo/shell-subsystem.md"                        # subsystem design
+      - "docs/verification/speech-demo/shell-subsystem.md"                  # subsystem verification
+
+  # SpeechDemo-ShellSubsystem-MainWindowViewModel Review (one per unit)
+  - id: SpeechDemo-ShellSubsystem-MainWindowViewModel
+    title: >-
+      Review that SpeechDemo ShellSubsystem MainWindowViewModel Implementation is
+      Correct
+    context:
+      - "docs/design/speech-demo.md"
+      - "docs/design/speech-demo/shell-subsystem.md"
+      - "docs/reqstream/speech-demo.yaml"
+      - "docs/reqstream/speech-demo/shell-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-demo/shell-subsystem/main-window-view-model.yaml"
+      - "docs/design/speech-demo/shell-subsystem/main-window-view-model.md"
+      - "docs/verification/speech-demo/shell-subsystem/main-window-view-model.md"
+      - "src/DemaConsulting.Speech.Demo/ShellSubsystem/MainWindowViewModel.cs"
+      - "src/DemaConsulting.Speech.Demo/ShellSubsystem/MainWindow.axaml.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/ShellSubsystem/MainWindowViewModelTests.cs"
+
+  # SpeechDemo-ShellSubsystem-DemoPanelViewModel Review (one per unit)
+  - id: SpeechDemo-ShellSubsystem-DemoPanelViewModel
+    title: >-
+      Review that SpeechDemo ShellSubsystem DemoPanelViewModel Implementation is
+      Correct
+    context:
+      - "docs/design/speech-demo.md"
+      - "docs/design/speech-demo/shell-subsystem.md"
+      - "docs/reqstream/speech-demo.yaml"
+      - "docs/reqstream/speech-demo/shell-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-demo/shell-subsystem/demo-panel-view-model.yaml"
+      - "docs/design/speech-demo/shell-subsystem/demo-panel-view-model.md"
+      - "docs/verification/speech-demo/shell-subsystem/demo-panel-view-model.md"
+      - "src/DemaConsulting.Speech.Demo/ShellSubsystem/DemoPanelViewModel.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/ShellSubsystem/DemoPanelViewModelTests.cs"
 
   # SpeechDemo-DeviceSelectionSubsystem Review (one per subsystem)
   - id: SpeechDemo-DeviceSelectionSubsystem
@@ -1392,10 +1425,45 @@ reviews:
       - "docs/reqstream/speech-demo.yaml"
     paths:
       - "docs/reqstream/speech-demo/device-selection-subsystem.yaml"                # subsystem requirements
-      - "docs/design/speech-demo/device-selection-subsystem.md"                     # subsystem + inline unit design
+      - "docs/design/speech-demo/device-selection-subsystem.md"                     # subsystem design
       - "docs/verification/speech-demo/device-selection-subsystem.md"               # subsystem verification
-      - "src/DemaConsulting.Speech.Demo/DeviceSelectionSubsystem/**/*.cs"           # subsystem source
-      - "test/DemaConsulting.Speech.Demo.Tests/DeviceSelectionSubsystem/**/*.cs"    # subsystem tests
+      - "test/DemaConsulting.Speech.Demo.Tests/DeviceSelectionSubsystem/DeviceSelectionSubsystemTests.cs"
+
+  # SpeechDemo-DeviceSelectionSubsystem-AudioDeviceService Review (one per unit)
+  - id: SpeechDemo-DeviceSelectionSubsystem-AudioDeviceService
+    title: >-
+      Review that SpeechDemo DeviceSelectionSubsystem AudioDeviceService Implementation is
+      Correct
+    context:
+      - "docs/design/speech-demo.md"
+      - "docs/design/speech-demo/device-selection-subsystem.md"
+      - "docs/reqstream/speech-demo.yaml"
+      - "docs/reqstream/speech-demo/device-selection-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-demo/device-selection-subsystem/audio-device-service.yaml"
+      - "docs/design/speech-demo/device-selection-subsystem/audio-device-service.md"
+      - "docs/verification/speech-demo/device-selection-subsystem/audio-device-service.md"
+      - "src/DemaConsulting.Speech.Demo/DeviceSelectionSubsystem/IAudioDeviceService.cs"
+      - "src/DemaConsulting.Speech.Demo/DeviceSelectionSubsystem/AudioDeviceService.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/DeviceSelectionSubsystem/AudioDeviceServiceTests.cs"
+
+  # SpeechDemo-DeviceSelectionSubsystem-DeviceSelectionViewModel Review (one per unit)
+  - id: SpeechDemo-DeviceSelectionSubsystem-DeviceSelectionViewModel
+    title: >-
+      Review that SpeechDemo DeviceSelectionSubsystem DeviceSelectionViewModel
+      Implementation is Correct
+    context:
+      - "docs/design/speech-demo.md"
+      - "docs/design/speech-demo/device-selection-subsystem.md"
+      - "docs/reqstream/speech-demo.yaml"
+      - "docs/reqstream/speech-demo/device-selection-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-demo/device-selection-subsystem/device-selection-view-model.yaml"
+      - "docs/design/speech-demo/device-selection-subsystem/device-selection-view-model.md"
+      - "docs/verification/speech-demo/device-selection-subsystem/device-selection-view-model.md"
+      - "src/DemaConsulting.Speech.Demo/DeviceSelectionSubsystem/DeviceSelectionViewModel.cs"
+      - "src/DemaConsulting.Speech.Demo/DeviceSelectionSubsystem/DeviceSelectionView.axaml.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/DeviceSelectionSubsystem/DeviceSelectionViewModelTests.cs"
 
   # SpeechDemo-ModelCatalogSubsystem Review (one per subsystem)
   - id: SpeechDemo-ModelCatalogSubsystem
@@ -1489,10 +1557,46 @@ reviews:
       - "docs/reqstream/speech-demo.yaml"
     paths:
       - "docs/reqstream/speech-demo/model-settings-subsystem.yaml"                # subsystem requirements
-      - "docs/design/speech-demo/model-settings-subsystem.md"                     # subsystem + inline unit design
-      - "docs/verification/speech-demo/model-settings-subsystem.md"               # subsystem + inline unit verification
-      - "src/DemaConsulting.Speech.Demo/ModelSettingsSubsystem/**/*.cs"           # subsystem source
-      - "test/DemaConsulting.Speech.Demo.Tests/ModelSettingsSubsystem/**/*.cs"    # subsystem tests
+      - "docs/design/speech-demo/model-settings-subsystem.md"                     # subsystem design
+      - "docs/verification/speech-demo/model-settings-subsystem.md"               # subsystem verification
+
+  # SpeechDemo-ModelSettingsSubsystem-ModelSettingsViewModel Review (one per unit)
+  - id: SpeechDemo-ModelSettingsSubsystem-ModelSettingsViewModel
+    title: >-
+      Review that SpeechDemo ModelSettingsSubsystem ModelSettingsViewModel
+      Implementation is Correct
+    context:
+      - "docs/design/speech-demo.md"
+      - "docs/design/speech-demo/model-settings-subsystem.md"
+      - "docs/reqstream/speech-demo.yaml"
+      - "docs/reqstream/speech-demo/model-settings-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-demo/model-settings-subsystem/model-settings-view-model.yaml"
+      - "docs/design/speech-demo/model-settings-subsystem/model-settings-view-model.md"
+      - "docs/verification/speech-demo/model-settings-subsystem/model-settings-view-model.md"
+      - "src/DemaConsulting.Speech.Demo/ModelSettingsSubsystem/ModelSettingsViewModel.cs"
+      - "src/DemaConsulting.Speech.Demo/ModelSettingsSubsystem/ModelSettingsView.axaml.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/ModelSettingsSubsystem/ModelSettingsViewModelTests.cs"
+
+  # SpeechDemo-ModelSettingsSubsystem-ParameterViewModels Review (one per unit)
+  - id: SpeechDemo-ModelSettingsSubsystem-ParameterViewModels
+    title: >-
+      Review that SpeechDemo ModelSettingsSubsystem ParameterViewModels Implementation is
+      Correct
+    context:
+      - "docs/design/speech-demo.md"
+      - "docs/design/speech-demo/model-settings-subsystem.md"
+      - "docs/reqstream/speech-demo.yaml"
+      - "docs/reqstream/speech-demo/model-settings-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-demo/model-settings-subsystem/parameter-view-models.yaml"
+      - "docs/design/speech-demo/model-settings-subsystem/parameter-view-models.md"
+      - "docs/verification/speech-demo/model-settings-subsystem/parameter-view-models.md"
+      - "src/DemaConsulting.Speech.Demo/ModelSettingsSubsystem/ParameterViewModelBase.cs"
+      - "src/DemaConsulting.Speech.Demo/ModelSettingsSubsystem/NumericParameterViewModel.cs"
+      - "src/DemaConsulting.Speech.Demo/ModelSettingsSubsystem/ChoiceParameterViewModel.cs"
+      - "src/DemaConsulting.Speech.Demo/ModelSettingsSubsystem/BooleanParameterViewModel.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/ModelSettingsSubsystem/ParameterViewModelsTests.cs"
 
   # SpeechDemo-SynthesisPanelSubsystem Review (one per subsystem)
   - id: SpeechDemo-SynthesisPanelSubsystem
@@ -1551,10 +1655,49 @@ reviews:
       - "docs/reqstream/speech-demo.yaml"
     paths:
       - "docs/reqstream/speech-demo/recognition-panel-subsystem.yaml"                # subsystem requirements
-      - "docs/design/speech-demo/recognition-panel-subsystem.md"               # subsystem + inline unit design
-      - "docs/verification/speech-demo/recognition-panel-subsystem.md"         # subsystem + inline unit verification
-      - "src/DemaConsulting.Speech.Demo/RecognitionPanelSubsystem/**/*.cs"           # subsystem source
-      - "test/DemaConsulting.Speech.Demo.Tests/RecognitionPanelSubsystem/**/*.cs"    # subsystem tests
+      - "docs/design/speech-demo/recognition-panel-subsystem.md"               # subsystem design
+      - "docs/verification/speech-demo/recognition-panel-subsystem.md"         # subsystem verification
+      - "src/DemaConsulting.Speech.Demo/RecognitionPanelSubsystem/CaptureDebugRecorder.cs"
+      - "src/DemaConsulting.Speech.Demo/RecognitionPanelSubsystem/WavFileWriter.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/RecognitionPanelSubsystem/CaptureDebugRecorderTests.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/RecognitionPanelSubsystem/WavFileWriterTests.cs"
+
+  # SpeechDemo-RecognitionPanelSubsystem-RecognizerSessionFactory Review (one per unit)
+  - id: SpeechDemo-RecognitionPanelSubsystem-RecognizerSessionFactory
+    title: >-
+      Review that SpeechDemo RecognitionPanelSubsystem RecognizerSessionFactory
+      Implementation is Correct
+    context:
+      - "docs/design/speech-demo.md"
+      - "docs/design/speech-demo/recognition-panel-subsystem.md"
+      - "docs/reqstream/speech-demo.yaml"
+      - "docs/reqstream/speech-demo/recognition-panel-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-demo/recognition-panel-subsystem/recognizer-session-factory.yaml"
+      - "docs/design/speech-demo/recognition-panel-subsystem/recognizer-session-factory.md"
+      - "docs/verification/speech-demo/recognition-panel-subsystem/recognizer-session-factory.md"
+      - "src/DemaConsulting.Speech.Demo/RecognitionPanelSubsystem/IRecognizerSessionFactory.cs"
+      - "src/DemaConsulting.Speech.Demo/RecognitionPanelSubsystem/RecognizerSessionFactory.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/RecognitionPanelSubsystem/RecognizerSessionFactoryTests.cs"
+
+  # SpeechDemo-RecognitionPanelSubsystem-RecognitionPanelViewModel Review (one per unit)
+  - id: SpeechDemo-RecognitionPanelSubsystem-RecognitionPanelViewModel
+    title: >-
+      Review that SpeechDemo RecognitionPanelSubsystem RecognitionPanelViewModel
+      Implementation is Correct
+    context:
+      - "docs/design/speech-demo.md"
+      - "docs/design/speech-demo/recognition-panel-subsystem.md"
+      - "docs/reqstream/speech-demo.yaml"
+      - "docs/reqstream/speech-demo/recognition-panel-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-demo/recognition-panel-subsystem/recognition-panel-view-model.yaml"
+      - "docs/design/speech-demo/recognition-panel-subsystem/recognition-panel-view-model.md"
+      - "docs/verification/speech-demo/recognition-panel-subsystem/recognition-panel-view-model.md"
+      - "src/DemaConsulting.Speech.Demo/RecognitionPanelSubsystem/RecognitionPanelViewModel.cs"
+      - "src/DemaConsulting.Speech.Demo/RecognitionPanelSubsystem/RecognitionStreamingState.cs"
+      - "src/DemaConsulting.Speech.Demo/RecognitionPanelSubsystem/RecognitionPanelView.axaml.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/RecognitionPanelSubsystem/RecognitionPanelViewModelTests.cs"
 
   # SpeechCli-Architecture Review (one per system)
   - id: SpeechCli-Architecture

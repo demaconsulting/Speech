@@ -72,28 +72,36 @@ The following software items of the SpeechDemo system are also covered:
   directly to the SpeechDemo system: the composition root application class, the command-line
   options, the shared mirror-option validation, and the process entry point
 - **ShellSubsystem (Subsystem)** — The application's manual composition root and window shell,
-  presenting one titled, selectable panel per demonstrated capability
+  presenting one titled, selectable panel per demonstrated capability; units
+  `MainWindowViewModel` and `DemoPanelViewModel`
 - **DeviceSelectionSubsystem (Subsystem)** — The capture and playback device pickers: a
   demo-owned enumeration seam over the library's device probes plus the presentation state that
-  lists devices, tracks the chosen device by name, and explains an empty machine honestly
+  lists devices, tracks the chosen device by name, and explains an empty machine honestly; units
+  `AudioDeviceService` (with its `IAudioDeviceService` seam) and `DeviceSelectionViewModel`
 - **ModelCatalogSubsystem (Subsystem)** — The model catalog and download panel: a demo-owned
   catalog seam over the library's model catalog and reference-voice library (paired by
   `ModelCatalogComposition`) plus the row presentation for models and reference-voice packs,
-  download progress and honest failure reporting, and the explanatory empty-catalog message
+  download progress and honest failure reporting, and the explanatory empty-catalog message;
+  units `ModelCatalogService` (with its `IModelCatalogService` seam), `ModelCatalogViewModel`,
+  `ModelListItemViewModel`, and `ReferenceVoicePackListItemViewModel`
 - **ModelSettingsSubsystem (Subsystem)** — The generic per-model tunable-parameter settings
   panel: presenters for the library's numeric, choice, and boolean parameter kinds, chosen by
   concrete type alone, plus the honest empty state shown with no model selected or a model
-  declaring no parameters
+  declaring no parameters; units `ModelSettingsViewModel` and `ParameterViewModels` (the base,
+  numeric, choice, and boolean presenters)
 - **RecognitionPanelSubsystem (Subsystem)** — The speech-to-text panel: a demo-owned session
   seam over the library's `SpeechRecognizerFactory` narrowing a public model to the library's
   recognition role, and the Start/Stop streaming lifecycle with progressive partial-then-final
   transcript rendering and honest reporting of every unavailable state, plus the opt-in
-  `CaptureDebugRecorder`/`WavFileWriter` diagnostic that records the captured audio to a WAV file
+  `CaptureDebugRecorder`/`WavFileWriter` diagnostic that records the captured audio to a WAV file;
+  units `RecognizerSessionFactory` (with its `IRecognizerSessionFactory` seam) and
+  `RecognitionPanelViewModel`
 - **SynthesisPanelSubsystem (Subsystem)** — The text-to-speech panel: a demo-owned session seam
   over the library's `SpeechSynthesizerFactory` narrowing a public model to the library's
   synthesis role, the embedded `ModelSettingsSubsystem` panel for the selected model's
   parameters, example Natural Language Audio Tag hints, and the Play/Stop lifecycle with honest
-  reporting of every unavailable state
+  reporting of every unavailable state; units `SynthesizerSessionFactory` (with its
+  `ISynthesizerSessionFactory` seam) and `SynthesisPanelViewModel`
 
 The following software items of the SpeechCli system are also covered:
 
