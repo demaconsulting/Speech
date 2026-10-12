@@ -16,8 +16,8 @@ sections:
           to the quality root so they participate in orphan detection without being
           falsely reported as disconnected from library functionality.
         children:
-          - Template-OTS-xUnit-Execute
-          - Template-OTS-xUnit-Report
+          - Speech-OTS-xUnit-Execute
+          - Speech-OTS-xUnit-Report
 
       - id: Quality-BuildIntegrity
         title: >-
@@ -31,9 +31,9 @@ sections:
           orphan detection without being falsely reported as disconnected from
           library functionality.
         children:
-          - Template-OTS-BuildMark
-          - Template-OTS-VersionMark
-          - Template-OTS-VersionMark-Lint
+          - Speech-OTS-BuildMark
+          - Speech-OTS-VersionMark
+          - Speech-OTS-VersionMark-Lint
 
       - id: Quality-StaticAnalysis
         title: The repository shall rely on SarifMark and SonarMark to enforce static-analysis quality gates.
@@ -45,9 +45,9 @@ sections:
           detection without being falsely reported as disconnected from library
           functionality.
         children:
-          - Template-OTS-SarifMark
-          - Template-OTS-SarifMark-Enforcement
-          - Template-OTS-SonarMark
+          - Speech-OTS-SarifMark
+          - Speech-OTS-SarifMark-Enforcement
+          - Speech-OTS-SonarMark
 
       - id: Quality-PeerReview
         title: The repository shall rely on ReviewMark to enforce peer-review tracking and reporting.
@@ -59,12 +59,12 @@ sections:
           participate in orphan detection without being falsely reported as
           disconnected from library functionality.
         children:
-          - Template-OTS-ReviewMark
-          - Template-OTS-ReviewMark-IndexScan
-          - Template-OTS-ReviewMark-Enforce
-          - Template-OTS-ReviewMark-Elaborate
-          - Template-OTS-ReviewMark-Lint
-          - Template-OTS-ReviewMark-DirectoryOverride
+          - Speech-OTS-ReviewMark
+          - Speech-OTS-ReviewMark-IndexScan
+          - Speech-OTS-ReviewMark-Enforce
+          - Speech-OTS-ReviewMark-Elaborate
+          - Speech-OTS-ReviewMark-Lint
+          - Speech-OTS-ReviewMark-DirectoryOverride
 
       - id: Quality-DocumentationGeneration
         title: The repository shall rely on Pandoc and WeasyPrint to generate HTML and PDF documentation.
@@ -75,8 +75,8 @@ sections:
           requirements to the quality root so they participate in orphan detection
           without being falsely reported as disconnected from library functionality.
         children:
-          - Template-OTS-Pandoc
-          - Template-OTS-WeasyPrint
+          - Speech-OTS-Pandoc
+          - Speech-OTS-WeasyPrint
 
       - id: Quality-RequirementsTraceability
         title: >-
@@ -90,9 +90,9 @@ sections:
           root so they participate in orphan detection without being falsely
           reported as disconnected from library functionality.
         children:
-          - Template-OTS-ReqStream
-          - Template-OTS-ReqStream-Lint
-          - Template-OTS-FileAssert
+          - Speech-OTS-ReqStream
+          - Speech-OTS-ReqStream-Lint
+          - Speech-OTS-FileAssert
 
       - id: Quality-AudioBackend
         title: >-
@@ -178,8 +178,8 @@ sections:
           detection without being falsely reported as disconnected from library
           functionality.
         children:
-          - Template-OTS-SysML2Tools-Lint
-          - Template-OTS-SysML2Tools-Render
+          - Speech-OTS-SysML2Tools-Lint
+          - Speech-OTS-SysML2Tools-Render
 
       - id: Quality-DemoUserInterface
         title: >-

@@ -32,7 +32,7 @@ not produce the required output.
 
 **Expected**: Exits 0 and successfully reads the SARIF content.
 
-**Requirement coverage**: `Template-OTS-SarifMark`.
+**Requirement coverage**: `Speech-OTS-SarifMark`.
 
 #### SarifMark_MarkdownReportGeneration
 
@@ -41,7 +41,7 @@ artifacts.
 
 **Expected**: Exits 0 and produces a non-empty markdown report.
 
-**Requirement coverage**: `Template-OTS-SarifMark`.
+**Requirement coverage**: `Speech-OTS-SarifMark`.
 
 #### SarifMark_Enforcement
 
@@ -50,9 +50,9 @@ enforcement mode.
 
 **Expected**: Returns a non-zero exit code when issues are found.
 
-**Requirement coverage**: `Template-OTS-SarifMark-Enforcement`.
+**Requirement coverage**: `Speech-OTS-SarifMark-Enforcement`.
 
 ### Requirements Coverage
 
-- **`Template-OTS-SarifMark`**: SarifMark_SarifReading, SarifMark_MarkdownReportGeneration
-- **`Template-OTS-SarifMark-Enforcement`**: SarifMark_Enforcement
+- **`Speech-OTS-SarifMark`**: SarifMark_SarifReading, SarifMark_MarkdownReportGeneration
+- **`Speech-OTS-SarifMark-Enforcement`**: SarifMark_Enforcement

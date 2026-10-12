@@ -19,7 +19,7 @@
 sections:
   - title: Platform Support
     requirements:
-      - id: Template-Platform-Windows
+      - id: Speech-Platform-Windows
         title: The library shall build and run on Windows platforms.
         tags: [system]
         justification: |
@@ -28,7 +28,7 @@ sections:
           # Tests link to "windows" to ensure results come from Windows platform
           - "windows@Speech_SystemIntegration_PortAudioInitializationFails_FactoryReturnsUnavailableDevices"
 
-      - id: Template-Platform-Linux
+      - id: Speech-Platform-Linux
         title: The library shall build and run on Linux platforms.
         tags: [system]
         justification: |
@@ -37,7 +37,7 @@ sections:
           # Tests link to "ubuntu" to ensure results come from Linux platform
           - "ubuntu@Speech_SystemIntegration_PortAudioInitializationFails_FactoryReturnsUnavailableDevices"
 
-      - id: Template-Platform-MacOS
+      - id: Speech-Platform-MacOS
         title: The library shall build and run on macOS platforms.
         tags: [system]
         justification: |
@@ -46,7 +46,7 @@ sections:
           # Tests link to "macos" to ensure results come from macOS platform
           - "macos@Speech_SystemIntegration_PortAudioInitializationFails_FactoryReturnsUnavailableDevices"
 
-      - id: Template-Platform-Net8
+      - id: Speech-Platform-Net8
         title: The library shall support .NET 8 runtime.
         tags: [system]
         justification: |
@@ -54,7 +54,7 @@ sections:
         tests:
           - "net8.0@Speech_SystemIntegration_PortAudioInitializationFails_FactoryReturnsUnavailableDevices"
 
-      - id: Template-Platform-Net9
+      - id: Speech-Platform-Net9
         title: The library shall support .NET 9 runtime.
         tags: [system]
         justification: |
@@ -62,7 +62,7 @@ sections:
         tests:
           - "net9.0@Speech_SystemIntegration_PortAudioInitializationFails_FactoryReturnsUnavailableDevices"
 
-      - id: Template-Platform-Net10
+      - id: Speech-Platform-Net10
         title: The library shall support .NET 10 runtime.
         tags: [system]
         justification: |

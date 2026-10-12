@@ -33,7 +33,7 @@ results containing both passing and failing outcomes.
 
 **Expected**: Writes a TRX results file with correctly classified pass and fail entries.
 
-**Requirement coverage**: `Template-OTS-FileAssert`.
+**Requirement coverage**: `Speech-OTS-FileAssert`.
 
 #### FileAssert_File
 
@@ -42,7 +42,7 @@ assert file existence.
 
 **Expected**: Passes when the specified file is present.
 
-**Requirement coverage**: `Template-OTS-FileAssert`.
+**Requirement coverage**: `Speech-OTS-FileAssert`.
 
 #### FileAssert_Text
 
@@ -51,7 +51,7 @@ assertion to verify plain-text file content.
 
 **Expected**: Passes when the specified content is present.
 
-**Requirement coverage**: `Template-OTS-FileAssert`.
+**Requirement coverage**: `Speech-OTS-FileAssert`.
 
 #### FileAssert_Html
 
@@ -60,7 +60,7 @@ assertion to verify generated HTML file content.
 
 **Expected**: Passes when the specified content is present in the HTML document.
 
-**Requirement coverage**: `Template-OTS-FileAssert`.
+**Requirement coverage**: `Speech-OTS-FileAssert`.
 
 #### FileAssert_Pdf
 
@@ -69,9 +69,9 @@ assertion to verify generated PDF file content.
 
 **Expected**: Passes when the specified content is present in the PDF document.
 
-**Requirement coverage**: `Template-OTS-FileAssert`.
+**Requirement coverage**: `Speech-OTS-FileAssert`.
 
 ### Requirements Coverage
 
-- **`Template-OTS-FileAssert`**: FileAssert_Results, FileAssert_File, FileAssert_Text,
+- **`Speech-OTS-FileAssert`**: FileAssert_Results, FileAssert_File, FileAssert_Text,
   FileAssert_Html, FileAssert_Pdf

@@ -39,7 +39,7 @@ and a known-bad model fixture as part of its built-in self-test suite.
 **Expected**: Exits 0 with no reported syntax or reference errors for the valid fixture, and
 correctly reports an error for the invalid fixture.
 
-**Requirement coverage**: `Template-OTS-SysML2Tools-Lint`.
+**Requirement coverage**: `Speech-OTS-SysML2Tools-Lint`.
 
 #### SysML2Tools_RenderSvgSelfTest
 
@@ -48,7 +48,7 @@ against a known-good model fixture as part of its built-in self-test suite.
 
 **Expected**: Exits 0 and produces a non-empty SVG file for the fixture's declared view.
 
-**Requirement coverage**: `Template-OTS-SysML2Tools-Render`.
+**Requirement coverage**: `Speech-OTS-SysML2Tools-Render`.
 
 #### SysML2Tools_SoftwareStructureViewSvg
 
@@ -59,7 +59,7 @@ model, then FileAssert checks the resulting file at
 **Expected**: Exactly one file exists at that path, and it is well-formed XML with a root element
 named `svg`.
 
-**Requirement coverage**: `Template-OTS-SysML2Tools-Render`.
+**Requirement coverage**: `Speech-OTS-SysML2Tools-Render`.
 
 #### SysML2Tools_SpeechViewSvg
 
@@ -70,7 +70,7 @@ model, then FileAssert checks the resulting file at
 **Expected**: Exactly one file exists at that path, and it is well-formed XML with a root element
 named `svg`.
 
-**Requirement coverage**: `Template-OTS-SysML2Tools-Render`.
+**Requirement coverage**: `Speech-OTS-SysML2Tools-Render`.
 
 #### SysML2Tools_DiagnosticsViewSvg
 
@@ -81,7 +81,7 @@ model, then FileAssert checks the resulting file at
 **Expected**: Exactly one file exists at that path, and it is well-formed XML with a root element
 named `svg`.
 
-**Requirement coverage**: `Template-OTS-SysML2Tools-Render`.
+**Requirement coverage**: `Speech-OTS-SysML2Tools-Render`.
 
 #### SysML2Tools_AudioSubsystemViewSvg
 
@@ -92,7 +92,7 @@ model, then FileAssert checks the resulting file at
 **Expected**: Exactly one file exists at that path, and it is well-formed XML with a root element
 named `svg`.
 
-**Requirement coverage**: `Template-OTS-SysML2Tools-Render`.
+**Requirement coverage**: `Speech-OTS-SysML2Tools-Render`.
 
 #### SysML2Tools_PortAudioViewSvg
 
@@ -103,7 +103,7 @@ model, then FileAssert checks the resulting file at
 **Expected**: Exactly one file exists at that path, and it is well-formed XML with a root element
 named `svg`.
 
-**Requirement coverage**: `Template-OTS-SysML2Tools-Render`.
+**Requirement coverage**: `Speech-OTS-SysML2Tools-Render`.
 
 #### SysML2Tools_RecognitionSubsystemViewSvg
 
@@ -114,12 +114,12 @@ model, then FileAssert checks the resulting file at
 **Expected**: Exactly one file exists at that path, and it is well-formed XML with a root element
 named `svg`.
 
-**Requirement coverage**: `Template-OTS-SysML2Tools-Render`.
+**Requirement coverage**: `Speech-OTS-SysML2Tools-Render`.
 
 ### Requirements Coverage
 
-- **`Template-OTS-SysML2Tools-Lint`**: SysML2Tools_LintSelfTest
-- **`Template-OTS-SysML2Tools-Render`**: SysML2Tools_RenderSvgSelfTest,
+- **`Speech-OTS-SysML2Tools-Lint`**: SysML2Tools_LintSelfTest
+- **`Speech-OTS-SysML2Tools-Render`**: SysML2Tools_RenderSvgSelfTest,
   SysML2Tools_SoftwareStructureViewSvg, SysML2Tools_SpeechViewSvg,
   SysML2Tools_DiagnosticsViewSvg, SysML2Tools_AudioSubsystemViewSvg,
   SysML2Tools_PortAudioViewSvg, SysML2Tools_RecognitionSubsystemViewSvg
