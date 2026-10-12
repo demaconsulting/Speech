@@ -5,9 +5,9 @@
 ### Overview
 
 The ModelManagementSubsystem provides the storage/download machinery and the model catalog/
-contract machinery for speech models. Sub-phase 2a implements a per-user on-disk store with
-atomic install/replace semantics, and a queued downloader that fetches, SHA-256-verifies, and
-atomically installs a model's declared files. Sub-phase 2b adds the generic model catalog/
+contract machinery for speech models. A per-user on-disk store provides
+atomic install/replace semantics, and a queued downloader fetches, SHA-256-verifies, and
+atomically installs a model's declared files. A generic model catalog/
 contract seam on top: a typed tunable-parameter descriptor set, the common `ISpeechModel`
 contract with its `IRecognitionModel`/`ISynthesisModel` role markers, and `SpeechModelCatalog`
 itself. Later passes added the model-owned extension hooks concrete models build on - an
@@ -147,9 +147,9 @@ before calling `DownloadAsync`.
 its declared `Parameters` (`ISpeechModelParameter` instances - `NumericParameter`,
 `ChoiceParameter`, or `BooleanParameter`, each self-validating an internally consistent range/
 option-set/default at construction), its declared `AudioTagSupport` (a declaration only - the
-Layer 2 rendering logic is Phase 4), its `DownloadDescriptor`, its `InstallAsync` hook (a no-op
+Layer 2 rendering logic is implemented per model), its `DownloadDescriptor`, its `InstallAsync` hook (a no-op
 default, overridable to unpack an archive payload), its `NormalizeText` hook (an identity
-default, overridable for Phase 4 text normalization), and its `LicenseName`/`LicenseUrl`
+default, overridable for model-specific text normalization), and its `LicenseName`/`LicenseUrl`
 default-hook members (`"Unknown"`/`null` by default, overridable to declare a model's real
 license name and an optional canonical URL to its full text). `IRecognitionModel` exposes a
 public plain-data `AudioFormat` declaration alongside its public

@@ -4,8 +4,9 @@
 
 Verified through direct unit tests in `SpeechModelStoreTests.cs` using a unique scratch
 directory per test. These tests prove root resolution, the atomic `current/` swap on both first
-install and repair/re-download, install-state honesty (including a manifest-missing crash
-scenario), leftover cleanup, and uninstall success/no-op paths, entirely on the local file
+install and repair/re-download (including rollback when the swap fails), install-state honesty
+(including manifest-missing, malformed, field-less, and unreadable manifests), leftover cleanup,
+uninstall success/no-op/failure paths, and model-id validation, entirely on the local file
 system with no real network access.
 
 #### Test Environment
@@ -64,10 +65,46 @@ uninstall removes an installed model while being a no-op for one that was never 
 
 **Test**: `SpeechModelStore_Uninstall_OpenFileHandleInCurrent_ThrowsSpeechModelStoreException`
 
-This scenario opens a file handle inside `current/` with `FileShare.None` and asserts the
-documented exception. It is Windows-specific (POSIX allows deleting an open file) and calls
-`Assert.Skip(...)` when not running on Windows, so CI on other platforms records the scenario as
-skipped rather than failing.
+This scenario opens a file handle inside `current/` with `FileShare.Read` (which omits
+`FileShare.Delete`), so that deleting the directory fails, and asserts the documented exception. It is Windows-specific (POSIX allows
+deleting an open file) and calls `Assert.Skip(...)` when not running on Windows, so CI on other
+platforms records the scenario as skipped rather than failing.
+
+##### Uninstall: Manifest Delete Failure Throws SpeechModelStoreException (Windows only)
+
+**Test**: `SpeechModelStore_Uninstall_ManifestDeleteFails_ThrowsSpeechModelStoreException`
+
+This scenario marks the install manifest read-only so deleting it fails, and asserts the documented
+exception; it is skipped on non-Windows platforms.
+
+##### Uninstall: Invalid Model Id Throws ArgumentException
+
+**Test**: `SpeechModelStore_Uninstall_InvalidModelId_ThrowsArgumentException`
+
+##### Install State: Malformed Manifest Reports Not Installed
+
+**Test**: `SpeechModelStore_IsInstalled_ManifestIsMalformedJson_ReturnsFalse`
+
+##### Install State: Field-less Manifest Reports Not Installed
+
+**Test**: `SpeechModelStore_IsInstalled_ManifestIsEmptyJsonObject_ReturnsFalse`
+
+##### Install State: Unreadable Manifest Reports Not Installed (Windows only)
+
+**Test**: `SpeechModelStore_IsInstalled_ManifestReadAccessDenied_ReturnsFalse`
+
+This scenario denies the current user read access to a valid manifest through an ACL rule and
+asserts `IsInstalled` returns `false` without throwing; it is skipped on non-Windows platforms.
+
+##### Atomic Swap: Failed Swap Rolls Back the Previous Install
+
+**Test**: `SpeechModelStore_CompleteInstall_SecondMoveFails_RollsBackPreviousInstall`
+
+##### Model Id Validation: Dot Segments and Null Are Rejected
+
+**Test**: `SpeechModelStore_GetModelDirectory_DotSegmentModelId_ThrowsArgumentException`
+
+**Test**: `SpeechModelStore_GetModelDirectory_NullModelId_ThrowsArgumentNullException`
 
 ##### Empty .tmp Cleanup After Install
 

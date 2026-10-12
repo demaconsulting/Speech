@@ -10,9 +10,9 @@ downloaded through this instance. Two concurrent `DownloadAsync` calls for the s
 serialize against that model id's own semaphore; calls for different model ids resolve to
 different semaphores and so run fully concurrently, with no pool limit. `SpeechModelDownloadOutcome`
 (declared alongside it) is an enum of `Installed`, `ChecksumMismatch`, `Failed`, `NetworkBlocked`,
-`HttpError`, and `IoFailure` - deliberately distinct from the Sub-phase 2b model-catalog state
-enum, since this type only ever describes one `DownloadAsync` call's outcome. The three new
-members (appended after `Failed` to preserve any existing numeric-ordinal usage) let a host
+`HttpError`, and `IoFailure` - deliberately distinct from the model-catalog state
+enum, since this type only ever describes one `DownloadAsync` call's outcome. The `NetworkBlocked`,
+`HttpError`, and `IoFailure` members (appended after `Failed` to preserve numeric-ordinal usage) let a host
 distinguish *why* a non-checksum download/install failure occurred - a blocked/intercepted network
 path, a real HTTP error response, or a local disk/permission failure - without inspecting `Error`'s
 exception type itself; `Failed` remains the final generic fallback for anything unmatched.
@@ -39,12 +39,15 @@ underlying exception, populated for every non-`Installed` outcome.
   or a `null` `options.Mirror` (both the default) preserve this type's exact pre-mirror behavior;
   a non-null `Mirror` is retained and consulted by `ResolveEffectiveUri`, and is also passed
   through to the internally-created default `HttpModelDownloadClient` (when `client` is not
-  supplied) so every request it issues carries that mirror's authentication.
-- **ResolveEffectiveUri(mirror, modelId, file)** *(internal, directly unit-testable)*: Computes
+  supplied) so every request it issues carries that mirror's authentication. A mirror that
+  carries credentials combined with a caller-supplied `IModelDownloadClient` is rejected with an
+  `ArgumentException` by the constructor, because the downloader cannot attach credentials to a
+  client it does not own.
+- **ResolveEffectiveUri(originalUri, mirror, modelId, relativeInstallPath)** *(internal, directly unit-testable)*: Computes
   the actual request URI passed to `IModelDownloadClient.DownloadAsync` for one declared file.
-  With no mirror configured, returns `file.Uri` completely unchanged - byte-for-byte identical to
+  With no mirror configured, returns `originalUri` completely unchanged - byte-for-byte identical to
   this type's behavior before the mirror feature existed. With a mirror configured, returns
-  `{mirror.BaseUri}/{modelId}/{file.RelativeInstallPath}`, combined via `Uri`-segment
+  `{mirror.BaseUri.AbsoluteUri}/{modelId}/{relativeInstallPath}`, combined via `Uri`-segment
   construction that normalizes exactly one separating slash regardless of whether
   `mirror.BaseUri` itself ends in a trailing slash, and percent-escapes `modelId` and each
   `RelativeInstallPath` segment individually (so a subdirectory such as `tokens/vocab.txt`

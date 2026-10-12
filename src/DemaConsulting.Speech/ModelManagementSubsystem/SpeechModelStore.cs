@@ -166,7 +166,28 @@ public sealed class SpeechModelStore
 
         // The verified staging directory becomes the new current/ - also a same-volume rename,
         // atomic and effectively instantaneous on NTFS/POSIX.
-        Directory.Move(stagingDirectory, currentDirectory);
+        try
+        {
+            Directory.Move(stagingDirectory, currentDirectory);
+        }
+        catch
+        {
+            // Roll back so the previously installed content is restored rather than left
+            // renamed aside (which would make a working model look not-installed)
+            if (replacedDirectory is not null && !Directory.Exists(currentDirectory))
+            {
+                try
+                {
+                    Directory.Move(replacedDirectory, currentDirectory);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // Best-effort: the original failure is the one worth reporting
+                }
+            }
+
+            throw;
+        }
 
         // The staging root is now usually empty; remove it so no stray .tmp folder is left behind
         TryDeleteEmptyDirectory(Path.Join(modelDirectory, StagingRootName));
@@ -301,7 +322,11 @@ public sealed class SpeechModelStore
 
         try
         {
-            return JsonSerializer.Deserialize<InstallManifest>(File.ReadAllText(manifestPath));
+            var manifest = JsonSerializer.Deserialize<InstallManifest>(File.ReadAllText(manifestPath));
+
+            // A "{}" (or otherwise field-less) manifest deserializes to default values; a genuine
+            // manifest always records a real install timestamp, so treat defaults as malformed
+            return manifest is not null && manifest.InstalledAtUtc != default ? manifest : null;
         }
         catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
         {

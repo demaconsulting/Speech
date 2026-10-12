@@ -48,6 +48,7 @@ sections:
                   progress to build UI.
                 tests:
                   - SpeechModelDownloader_DownloadAsync_ValidPayload_InstallsModelAndReportsProgress
+                  - SpeechModelDownloader_DownloadAsync_MultipleFiles_ReportsFileIndexAndFileCount
 
               - id: Speech-Models-SpeechModelDownloader-ChecksumMismatch
                 title: >-
@@ -149,6 +150,7 @@ sections:
                 tests:
                   - SpeechModelDownloader_DownloadAsync_WithModel_InstallAsyncThrowsUnlistedExceptionType_ReportsFailed
                   - SpeechModelDownloader_DownloadAsync_WithModel_SecondCallAfterPriorSuccess_TakesFastPathAndNeverInvokesInstallHook
+                  - SpeechModelDownloader_DownloadAsync_InstallHookThrowsIOException_ReportsIoFailure
 
               - id: Speech-Models-SpeechModelDownloader-MirrorUriResolution
                 title: >-
@@ -223,3 +225,5 @@ sections:
                 tests:
                   - SpeechModelDownloader_DownloadAsync_WithInstallHookDelegate_RunsHookBeforeSwapAndInstallsItsOutput
                   - SpeechModelDownloader_DownloadAsync_WithThrowingInstallHookDelegate_ReportsFailureAndInstallsNothing
+                  - SpeechModelDownloader_DownloadAsync_InstallHookThrowsIOException_ReportsIoFailure
+                  - SpeechModelDownloader_DownloadAsync_InstallHookCanceled_ThrowsAndInstallsNothing

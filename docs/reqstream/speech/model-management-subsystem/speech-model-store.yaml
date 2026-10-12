@@ -48,6 +48,43 @@ sections:
                 tests:
                   - SpeechModelStore_IsInstalled_NoInstall_ReturnsFalse
                   - SpeechModelStore_IsInstalled_CurrentWithoutManifest_ReturnsFalse
+                  - SpeechModelStore_IsInstalled_ManifestIsMalformedJson_ReturnsFalse
+                  - SpeechModelStore_IsInstalled_ManifestIsEmptyJsonObject_ReturnsFalse
+                  - SpeechModelStore_IsInstalled_ManifestReadAccessDenied_ReturnsFalse
+
+              - id: Speech-Models-SpeechModelStore-InstallRollback
+                title: >-
+                  The SpeechModelStore class shall restore a model's previously installed
+                  current/ content when the swap of a new staging directory into place fails
+                  after the existing content was renamed aside.
+                justification: |
+                  A failed repair must not turn a working installed model into a missing one.
+                tests:
+                  - SpeechModelStore_CompleteInstall_SecondMoveFails_RollsBackPreviousInstall
+
+              - id: Speech-Models-SpeechModelStore-UninstallFailureReporting
+                title: >-
+                  The SpeechModelStore class shall throw SpeechModelStoreException when an
+                  uninstall cannot remove a model's current/ directory or install manifest.
+                justification: |
+                  Uninstall is an explicit user action; silently leaving content behind would
+                  misreport success, so a locked file is surfaced as a documented exception.
+                tests:
+                  - SpeechModelStore_Uninstall_OpenFileHandleInCurrent_ThrowsSpeechModelStoreException
+                  - SpeechModelStore_Uninstall_ManifestDeleteFails_ThrowsSpeechModelStoreException
+
+              - id: Speech-Models-SpeechModelStore-ModelIdValidation
+                title: >-
+                  The SpeechModelStore class shall reject a null, empty, whitespace-only,
+                  invalid-file-name, ".", or ".." model id with an ArgumentException before
+                  touching the file system.
+                justification: |
+                  A model id is used as a single directory name; an unvalidated id could escape
+                  its own directory under the storage root.
+                tests:
+                  - SpeechModelStore_GetModelDirectory_DotSegmentModelId_ThrowsArgumentException
+                  - SpeechModelStore_GetModelDirectory_NullModelId_ThrowsArgumentNullException
+                  - SpeechModelStore_Uninstall_InvalidModelId_ThrowsArgumentException
 
               - id: Speech-Models-SpeechModelStore-DefaultRootResolution
                 title: >-

@@ -38,11 +38,20 @@ staging space, never read as installed content). A private nested `InstallManife
 - **CleanUpLeftovers(modelId)**: Best-effort deletes leftover `current.replaced-*` and `.tmp/*`
   directories from a prior interrupted operation.
 
-**Error Handling**: Every member except `Uninstall` never throws for ordinary storage-state
-conditions (missing model, missing/corrupt manifest, leftover directory that cannot yet be
-deleted) - these degrade to an honest state or a best-effort no-op. `Uninstall` throws
-`SpeechModelStoreException` only when `current/` cannot be removed, most commonly because
-another process still holds an open file handle into it.
+**Error Handling**: `IsInstalled` and `CleanUpLeftovers` never throw for ordinary storage-state
+conditions (missing model, missing, malformed, or field-less `{}` manifest, leftover directory
+that cannot yet be deleted) - these degrade to an honest state or a best-effort no-op. All
+members that accept a model id throw `ArgumentException` for a null, empty, whitespace-only,
+invalid-file-name, `.`, or `..` id. `Uninstall` throws `SpeechModelStoreException` when `current/`
+or the manifest cannot be removed, most commonly because another process still holds an open file
+handle into it; after both are removed it runs `CleanUpLeftovers`, so leftover `.tmp/*` and
+`current.replaced-*` directories are also deleted best-effort. `CompleteInstall` propagates
+I/O failures; if the second directory rename fails after an existing `current/` was renamed
+aside, it renames the previous content back into place (best-effort) before rethrowing, so a
+previously installed model remains installed.
+
+**Root Path**: `RootPath` is documented as an absolute path; an override is used verbatim and is
+not validated or normalized, so a host is responsible for supplying an absolute path.
 
 **Dependencies**: `SpeechModelStoreOptions`, `SpeechModelStoreException`, `System.Text.Json`.
 

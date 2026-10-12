@@ -566,7 +566,7 @@ public sealed class SpeechModelDownloader : IDisposable
 
         // Trim exactly one trailing slash from the mirror's base so "https://mirror/" and
         // "https://mirror" both combine identically with the segments that follow.
-        var basePath = mirror.BaseUri.ToString().TrimEnd('/');
+        var basePath = mirror.BaseUri.AbsoluteUri.TrimEnd('/');
 
         // RelativeInstallPath may use either path separator (SpeechModelDownloadFile accepts
         // both when validating "no parent-escaping segments"), so split on both and

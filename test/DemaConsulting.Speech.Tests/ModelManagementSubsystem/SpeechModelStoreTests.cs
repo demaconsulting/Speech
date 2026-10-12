@@ -220,7 +220,9 @@ public sealed class SpeechModelStoreTests : IDisposable
         var store = NewStore();
         Directory.CreateDirectory(store.GetCurrentDirectory("model-a"));
         var manifestPath = Path.Join(store.GetModelDirectory("model-a"), "install-manifest.json");
-        File.WriteAllText(manifestPath, "{}");
+        File.WriteAllText(
+            manifestPath,
+            """{"TotalSizeBytes":5,"InstalledAtUtc":"2026-01-01T00:00:00+00:00"}""");
 
         var fileInfo = new FileInfo(manifestPath);
         var acl = fileInfo.GetAccessControl();
@@ -385,6 +387,77 @@ public sealed class SpeechModelStoreTests : IDisposable
 
         // Act & Assert
         Assert.Throws<ArgumentException>(() => store.GetModelDirectory(modelId));
+    }
+
+    /// <summary>
+    ///     Proves that a field-less <c>{}</c> manifest, which deserializes to default values, is
+    ///     treated as malformed and the model reported as not installed.
+    /// </summary>
+    [Fact]
+    public void SpeechModelStore_IsInstalled_ManifestIsEmptyJsonObject_ReturnsFalse()
+    {
+        // Arrange
+        var store = NewStore();
+        Directory.CreateDirectory(store.GetCurrentDirectory("model-a"));
+        var manifestPath = Path.Join(store.GetModelDirectory("model-a"), "install-manifest.json");
+        File.WriteAllText(manifestPath, "{}");
+
+        // Act & Assert
+        Assert.False(store.IsInstalled("model-a"));
+    }
+
+    /// <summary>
+    ///     Proves that when the second move of an install swap fails, the previously installed
+    ///     content is restored to <c>current/</c> and the model stays installed.
+    /// </summary>
+    [Fact]
+    public void SpeechModelStore_CompleteInstall_SecondMoveFails_RollsBackPreviousInstall()
+    {
+        // Arrange: a successful first install
+        var store = NewStore();
+        var (firstOperationId, firstStaging) = BeginStagingWithFile(store, "model-a", "payload.bin", "version-1");
+        store.CompleteInstall("model-a", firstOperationId, firstStaging, 9);
+        var missingStaging = Path.Join(store.GetModelDirectory("model-a"), ".tmp", "does-not-exist");
+
+        // Act: a staging directory that does not exist makes the second Directory.Move fail
+        Assert.ThrowsAny<IOException>(() =>
+            store.CompleteInstall("model-a", "op-2", missingStaging, 9));
+
+        // Assert: the original content is back in current/ and the model is still installed
+        Assert.True(store.IsInstalled("model-a"));
+        var installedFile = Path.Join(store.GetCurrentDirectory("model-a"), "payload.bin");
+        Assert.Equal("version-1", File.ReadAllText(installedFile));
+        Assert.Empty(Directory.EnumerateDirectories(store.GetModelDirectory("model-a"), "current.replaced-*"));
+    }
+
+    /// <summary>
+    ///     Proves that an invalid model id is rejected by <see cref="SpeechModelStore.Uninstall"/>.
+    /// </summary>
+    /// <param name="modelId">The invalid model id.</param>
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("..")]
+    public void SpeechModelStore_Uninstall_InvalidModelId_ThrowsArgumentException(string modelId)
+    {
+        // Arrange
+        var store = NewStore();
+
+        // Act & Assert
+        Assert.Throws<ArgumentException>(() => store.Uninstall(modelId));
+    }
+
+    /// <summary>
+    ///     Proves that a null model id is rejected.
+    /// </summary>
+    [Fact]
+    public void SpeechModelStore_GetModelDirectory_NullModelId_ThrowsArgumentNullException()
+    {
+        // Arrange
+        var store = NewStore();
+
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => store.GetModelDirectory(null!));
     }
 
     /// <summary>

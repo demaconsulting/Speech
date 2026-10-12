@@ -22,8 +22,11 @@ itself is exercised directly (it is `internal`, reachable via this project's
 `InternalsVisibleTo` grant from the core project) across trailing-slash, subdirectory, and
 URL-unsafe-character edge cases. Cross-model concurrency and same-model-id serialization are both
 proven with deterministic synchronization primitives (a `TaskCompletionSource`-based arrival
-barrier and an explicit release gate, respectively) rather than timing-based delays, so a
-regression back to a global single-flight lock fails these tests with a bounded timeout instead
+barrier and an explicit release gate, respectively) rather than timing-based waits for the
+positive outcome; the only bounded delay is the same-model negative assertion (the second call
+has not reached the client and has not completed), which can only let a regression pass, never
+fail a correct implementation. A
+regression back to a global single-flight lock fails the cross-model test with a bounded timeout instead
 of passing by coincidence or hanging indefinitely. Progress is observed via a hand-written
 synchronous `IProgress<T>` test double rather than `System.Progress<T>`, since `Progress<T>`
 posts each report independently (via a captured `SynchronizationContext` or the thread pool) with
@@ -64,7 +67,10 @@ verified staged files before `current/` exists; a zip-archive model's `current/`
 up containing the archive's extracted entry rather than the archive itself, whether reached
 through the downloader directly or through `SpeechModelCatalog.DownloadAsync`; and an
 `InstallAsync` failure of a listed or unlisted exception type on a fresh (not-yet-installed)
-model reports `Failed` with `Error` populated and installs nothing. With no mirror configured,
+model reports `Failed` with `Error` populated and installs nothing; an install-hook delegate that
+throws `InvalidDataException` reports `Failed`, one that throws `IOException` reports
+`IoFailure`, and caller cancellation inside the hook propagates, each installing nothing; a
+multi-file descriptor reports each file's own `FileIndex` and the shared `FileCount`. With no mirror configured,
 `ResolveEffectiveUri` returns a file's own declared `Uri` unchanged (including across
 trailing-slash and URL-unsafe-character variations in the no-mirror case, where those values are
 simply never consulted) and `DownloadAsync` forwards the original URI unchanged to the download
@@ -128,6 +134,27 @@ reclassified as `NetworkBlocked`.
 ##### Download: Throwing Install-Hook Delegate Reports Failure and Installs Nothing
 
 **Test**: `SpeechModelDownloader_DownloadAsync_WithThrowingInstallHookDelegate_ReportsFailureAndInstallsNothing`
+
+##### Download: Install-Hook IOException Reports IoFailure
+
+**Test**: `SpeechModelDownloader_DownloadAsync_InstallHookThrowsIOException_ReportsIoFailure`
+
+##### Download: Install-Hook Cancellation Propagates and Installs Nothing
+
+**Test**: `SpeechModelDownloader_DownloadAsync_InstallHookCanceled_ThrowsAndInstallsNothing`
+
+##### Download: Multiple Files Report FileIndex and FileCount
+
+**Test**: `SpeechModelDownloader_DownloadAsync_MultipleFiles_ReportsFileIndexAndFileCount`
+
+##### Security: Mirror Bearer Token Is Redacted in ToString
+
+**Test**: `DownloadMirror_ToString_WithBearerToken_RedactsTokenValue` (in `DownloadMirrorTests`)
+
+##### Security: Dot-Segment Model Id Is Rejected
+
+**Test**: `SpeechModelStore_GetModelDirectory_DotSegmentModelId_ThrowsArgumentException` (in `SpeechModelStoreTests`;
+the downloader inherits this validation through `SpeechModelStore.BeginStaging`)
 
 ##### Download: Model-Aware Overload Invokes InstallAsync Before CompleteInstall
 
