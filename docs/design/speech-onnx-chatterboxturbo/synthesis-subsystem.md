@@ -41,7 +41,9 @@ bracketed model tokens; sighs and pauses become silence segments; every other ta
 model never speaks bracket text. A native tag that would end a sentence is moved before the final
 word by default (or suffixed, or stripped, per policy). Sentences are split on terminal punctuation
 (ignoring digit-flanked punctuation), ellipsis endings add a short pause, and sentences over a
-length budget are split at clause punctuation and then by word budget.
+length budget are split at clause punctuation and then by word budget. A mood tag makes the profile
+prefix the following text with a private-use mood marker and add a short join silence wherever the mood
+changes; the engine reads the marker to choose the reference clip and strips it before tokenization.
 
 ### Error Handling
 

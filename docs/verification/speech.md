@@ -77,6 +77,11 @@ Verifies that omitting the diagnostics sink still composes safely through
 Verifies that PortAudio initialization failure degrades composition to the honest unavailable
 fallback devices rather than throwing.
 
+This scenario also evidences the platform requirements (`Speech-Platform-Windows`, `-Linux`, `-MacOS`,
+`-Net8`, `-Net9` and `-Net10`): the same test runs on every CI operating system and target runtime, and
+each requirement links it through a source filter (`windows@`, `ubuntu@`, `macos@`, `net8.0@`,
+`net9.0@`, `net10.0@`) so only a pass on that platform or runtime counts as evidence.
+
 ### Validation: No Resolvable Capture Device Throws on Start
 
 **Test**: `Speech_SystemValidation_NoResolvableCaptureDevice_StartThrowsAudioDeviceUnavailableException`

@@ -49,6 +49,10 @@ uninstall removes an installed model while being a no-op for one that was never 
 
 **Test**: `SpeechModelStore_CompleteInstall_ExistingCurrent_ReplacesContentAndCleansUpOldDirectory`
 
+##### Staging: Existing Current is Untouched Until the Swap
+
+**Test**: `SpeechModelStore_BeginStaging_ExistingCurrent_LeavesInstalledContentUntouched`
+
 ##### Cleanup: Leftover Tmp Directory is Removed
 
 **Test**: `SpeechModelStore_CleanUpLeftovers_LeftoverTmpDirectory_IsRemoved`

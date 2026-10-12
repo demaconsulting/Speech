@@ -42,7 +42,7 @@ namespace DemaConsulting.Speech.Cli.Commands.DeviceCommandsSubsystem;
 ///     consistent with this library's designed graceful-degradation philosophy: missing audio
 ///     hardware or an unresolvable native inference runtime does not prevent the tool itself
 ///     from running, and every command that actually needs one of them (<c>devices test</c>,
-///     and the <c>speak</c>/<c>recognize</c> commands added in later passes) already reports its
+///     and the <c>speak</c>/<c>recognize</c> commands) already reports its
 ///     own clean, specific error at the point of use. The model store, in contrast, is
 ///     infrastructure this tool itself owns and depends on for every model-management command
 ///     to function at all, and its writability depends only on file system permissions, not on

@@ -2,7 +2,7 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 
 /// <summary>
 ///     Splits one run of plain synthesis text into sentence/clause-sized chunks, so no single
-///     synthesis call is so long that streaming, pipelined playback loses its low-latency feel.
+///     synthesis call is so long that streaming playback loses its low-latency feel.
 /// </summary>
 /// <remarks>
 ///     Splits primarily on sentence-ending punctuation (<c>.</c>, <c>!</c>, <c>?</c>). A maximal
@@ -25,8 +25,8 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     by a letter (e.g. after an abbreviation-like word, as in <c>"Wait.5 more."</c>) does not
 ///     qualify for this exception and still splits as an ordinary sentence boundary. A piece
 ///     still too long after both punctuation passes is
-///     split further on whitespace boundaries so no chunk exceeds the budget by more than one
-///     word. Finally, a piece produced by either punctuation pass whose trimmed text contains no
+///     split further on whitespace boundaries so no chunk exceeds the budget unless it is a single
+///     word longer than the budget, which is emitted unsplit. Finally, a piece produced by either punctuation pass whose trimmed text contains no
 ///     letter or digit at all (i.e. it is nothing but punctuation and/or whitespace, such as a
 ///     lone comma or a whitespace-spaced run of dots) is never emitted as its own chunk: its
 ///     punctuation is instead appended to the immediately preceding non-empty chunk, or dropped

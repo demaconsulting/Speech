@@ -164,6 +164,27 @@ public sealed class SpeechModelStoreTests : IDisposable
     }
 
     /// <summary>
+    ///     Proves that staging a repair download leaves the installed current/ content and its
+    ///     installed state untouched until the swap.
+    /// </summary>
+    [Fact]
+    public void SpeechModelStore_BeginStaging_ExistingCurrent_LeavesInstalledContentUntouched()
+    {
+        // Arrange: perform a first, successful install
+        var store = NewStore();
+        var (firstOperationId, firstStaging) = BeginStagingWithFile(store, "model-a", "payload.bin", "version-1");
+        store.CompleteInstall("model-a", firstOperationId, firstStaging, 9);
+
+        // Act: stage a repair download without completing it
+        BeginStagingWithFile(store, "model-a", "payload.bin", "version-2");
+
+        // Assert: the installed content is unchanged and still reports as installed
+        var installedFile = Path.Join(store.GetCurrentDirectory("model-a"), "payload.bin");
+        Assert.Equal("version-1", File.ReadAllText(installedFile));
+        Assert.True(store.IsInstalled("model-a"));
+    }
+
+    /// <summary>
     ///     Proves that current/ present without a valid manifest (simulating a crash between the
     ///     swap and the manifest write) is honestly reported as not installed rather than
     ///     falsely "installed".

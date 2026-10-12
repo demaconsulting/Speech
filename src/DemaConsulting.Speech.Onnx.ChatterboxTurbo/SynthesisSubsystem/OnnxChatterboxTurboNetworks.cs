@@ -58,7 +58,6 @@ internal sealed class OnnxChatterboxTurboNetworks : IChatterboxTurboNetworks
     /// <summary>Cache input names in graph order.</summary>
     private readonly string[] _pastNames;
 
-
     /// <summary>All language-model output names: logits first, then the present tensors.</summary>
     private readonly string[] _languageModelOutputs;
 

@@ -149,6 +149,7 @@ public interface IModelCatalogService
     /// <param name="cancellationToken">A token that, when canceled, aborts the download.</param>
     /// <returns>The outcome describing whether the pack was installed.</returns>
     /// <exception cref="ArgumentException">Thrown when <paramref name="packId"/> matches no known pack.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when the service has no reference-voice library.</exception>
     /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is canceled.</exception>
     /// <remarks>
     ///     The catalog rebuild aborts any model download still in flight, so callers must not start a

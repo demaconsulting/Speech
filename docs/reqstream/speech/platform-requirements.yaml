@@ -17,7 +17,7 @@
 #   net10.0@TestName  - proves the test passed under the .NET 10 runtime
 
 sections:
-  - title: Platform Support
+  - title: Speech Requirements
     requirements:
       - id: Speech-Platform-Windows
         title: The library shall build and run on Windows platforms.

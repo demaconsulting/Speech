@@ -43,6 +43,7 @@ sections:
                   reading unaffected content until the swap completes, addressing the
                   download-while-in-use concern.
                 tests:
+                  - SpeechModelStore_BeginStaging_ExistingCurrent_LeavesInstalledContentUntouched
                   - SpeechModelStore_CompleteInstall_ExistingCurrent_ReplacesContentAndCleansUpOldDirectory
 
               - id: Speech-Models-SpeechModelStore-InstallStateHonesty
