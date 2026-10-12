@@ -267,3 +267,10 @@ different synthesis model.
 
 **Expected**: The notice contains the consent note and "OwenTyme" for Chatterbox and is absent for
 the other model.
+
+##### SynthesisPanelViewModel_VoiceNotice_OtherModel_ShowsNothing
+
+**Scenario**: A catalog offering only a non-Chatterbox synthesis model is composed, with a voice pack
+reported installed.
+
+**Expected**: `HasVoiceNotice` is `false` and `VoiceNotice` is `null`.

@@ -21,9 +21,9 @@ sections:
               The SynthesisPanelSubsystem shall speak the entered text through the selected
               installed model and playback device.
             justification: |
-              Routing every library call through the demo-owned session seam is what lets the
-              whole Play lifecycle be verified with no downloaded model, native runtime or
-              speakers, while still demonstrating the library's synthesis contract.
+              Speaking the entered text with the user's chosen voice and speaker is the panel's
+              core purpose, and it must work end to end with no downloaded model, native runtime
+              or speakers so the whole Play lifecycle stays demonstrable and verifiable.
             tests:
               - SynthesisPanelViewModel_Play_SuccessfulSession_TransitionsThroughLifecycleToIdle
 
@@ -49,14 +49,22 @@ sections:
 
           - id: SpeechDemo-SynthesisPanel-ExternalChangeHandling
             title: >-
-              The SynthesisPanelSubsystem shall refresh its offered models while keeping the
-              user's chosen settings when the model catalog or the reference voices change.
+              The SynthesisPanelSubsystem shall refresh its offered models when a synthesis
+              model is installed in the model catalog.
             justification: |
               The panel shares the catalog with the model catalog panel. Without handling its
-              changes a user would see a stale model or voice list, or lose the voice already
-              chosen.
+              changes a user would see a stale model list.
             tests:
               - SynthesisPanelViewModel_ModelInstalled_MatchingRole_TriggersRefresh
+
+          - id: SpeechDemo-SynthesisPanel-ReferenceVoiceChangeHandling
+            title: >-
+              The SynthesisPanelSubsystem shall refresh its offered models while keeping the
+              user's chosen voice when the reference voices change.
+            justification: |
+              A voice pack install or removal changes the voices on offer; the user must see the
+              new voice list without losing the voice already chosen.
+            tests:
               - SynthesisPanelViewModel_ReferenceVoicesChanged_RefreshesAndKeepsChosenVoice
 
           - id: SpeechDemo-SynthesisPanel-DeviceRefreshCoordination

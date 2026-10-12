@@ -16,17 +16,25 @@ sections:
         requirements:
           - id: SpeechDemo-Recognition-SessionSeam
             title: >-
-              The RecognitionPanelSubsystem shall compose every speech recognizer engine it uses
-              through an injectable seam over the library's recognizer factory, and shall report
-              an engine the seam returns as unavailable rather than failing.
+              The RecognitionPanelSubsystem shall transcribe with an engine supplied by an
+              injectable seam, so a session can start with no downloaded model and no native
+              runtime.
             justification: |
               The library's recognizer factory requires an interface only the library's own
               assemblies can implement, so a demo-owned seam accepting the library's public model
               contract is what makes Start/Stop testable with no downloaded model and no native
-              runtime, while still reporting an unavailable engine the same honest way the
-              library itself reports an uninstalled model.
+              runtime.
             tests:
               - RecognitionPanelViewModel_Start_SuccessfulSession_EntersListeningState
+
+          - id: SpeechDemo-Recognition-SessionSeamUnavailableEngine
+            title: >-
+              The RecognitionPanelSubsystem shall report an error state, rather than failing,
+              when the seam returns an engine that is unavailable.
+            justification: |
+              An unavailable engine must be reported the same honest way the library itself
+              reports an uninstalled model.
+            tests:
               - RecognitionPanelViewModel_Start_RecognizerUnavailable_ReportsErrorStateAndDisposes
 
           - id: SpeechDemo-Recognition-StartStopLifecycle
@@ -35,11 +43,20 @@ sections:
               selected model through the selected capture device when Start is invoked.
             justification: |
               Streaming speech-to-text is only useful as a start/stop lifecycle a user directly
-              controls; this is the demonstrable proof that a host can drive the library's async
-              engine/session contract from a UI thread with ordinary property-changed
+              controls; starting is the demonstrable proof that a host can drive the library's
+              async engine/session contract from a UI thread with ordinary property-changed
               notification alone.
             tests:
               - RecognitionPanelViewModel_Start_SuccessfulSession_EntersListeningState
+
+          - id: SpeechDemo-Recognition-StopLifecycle
+            title: >-
+              The RecognitionPanelSubsystem shall stop the active streaming session and report
+              that it was stopped when Stop is invoked.
+            justification: |
+              A user must be able to end a streaming session at any time and see that it ended.
+            tests:
+              - RecognitionPanelViewModel_Stop_DuringListening_StopsWithoutDisposingSession
 
           - id: SpeechDemo-Recognition-StopsBeforeDeviceRefresh
             title: >-

@@ -28,11 +28,20 @@ sections:
 
               - id: SpeechDemo-Recognition-SessionSeamArgumentValidation
                 title: >-
-                  The RecognizerSessionFactory shall reject a missing model store or a missing
-                  model with an argument-null error.
+                  The RecognizerSessionFactory shall reject a missing model store with an
+                  argument-null error.
                 justification: |
-                  A missing store or model is a composition mistake that must surface at the
-                  call site instead of as a later, unrelated failure.
+                  A missing store is a composition mistake that must surface at the call site
+                  instead of as a later, unrelated failure.
                 tests:
                   - RecognizerSessionFactory_Constructor_NullStore_ThrowsArgumentNullException
+
+              - id: SpeechDemo-Recognition-SessionSeamModelValidation
+                title: >-
+                  The RecognizerSessionFactory shall reject a missing model with an
+                  argument-null error.
+                justification: |
+                  A missing model is a caller mistake that must surface at the call site instead
+                  of as a later, unrelated failure.
+                tests:
                   - RecognizerSessionFactory_LoadAsync_NullModel_ThrowsArgumentNullException

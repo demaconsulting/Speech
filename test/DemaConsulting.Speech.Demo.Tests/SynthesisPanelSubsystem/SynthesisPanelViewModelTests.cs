@@ -835,6 +835,32 @@ public class SynthesisPanelViewModelTests
     }
 
     /// <summary>
+    ///     Proves that no voice notice is shown when a model other than Chatterbox Turbo is selected.
+    /// </summary>
+    [Fact]
+    public void SynthesisPanelViewModel_VoiceNotice_OtherModel_ShowsNothing()
+    {
+        // Arrange: a catalog offering only a non-Chatterbox synthesis model
+        var catalog = Substitute.For<IModelCatalogService>();
+        catalog.ReferenceVoicePacks.Returns([ReferenceVoicePack.VoiceZero10]);
+        catalog.GetReferenceVoicePackState(ReferenceVoicePack.VoiceZero10.Id).Returns(SpeechModelState.Downloaded);
+        var descriptors = new[]
+        {
+            FakeSpeechModel.Descriptor("other", SpeechModelState.Downloaded, role: SpeechModelRole.Synthesis),
+        };
+        catalog.Enumerate().Returns(_ => descriptors);
+
+        // Act
+        var viewModel = new SynthesisPanelViewModel(
+            catalog, Substitute.For<IAudioDeviceService>(), DeviceSelection(),
+            Substitute.For<ISynthesizerSessionFactory>());
+
+        // Assert: no voice notice
+        Assert.False(viewModel.HasVoiceNotice);
+        Assert.Null(viewModel.VoiceNotice);
+    }
+
+    /// <summary>
     ///     Builds a panel with one installed synthesis model, an available playback device and
     ///     the supplied engine, ready to Play "Hello world".
     /// </summary>

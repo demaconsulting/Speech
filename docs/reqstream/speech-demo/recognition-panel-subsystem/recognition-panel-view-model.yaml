@@ -36,14 +36,20 @@ sections:
               - id: SpeechDemo-Recognition-ModelSelectionPreserved
                 title: >-
                   The RecognitionPanelViewModel shall keep the current model selection across a
-                  refresh where that model is still installed, and otherwise fall back to the
-                  first offered model.
+                  refresh where that model is still installed.
                 justification: |
                   Preserving a still-installed selection keeps the panel from resetting a choice
-                  the user already made; falling back keeps the selection valid when the chosen
-                  model is removed.
+                  the user already made.
                 tests:
                   - RecognitionPanelViewModel_Refresh_ModelStillInstalled_PreservesSelection
+
+              - id: SpeechDemo-Recognition-ModelSelectionFallback
+                title: >-
+                  The RecognitionPanelViewModel shall select the first offered model across a
+                  refresh when the previously selected model is no longer installed.
+                justification: |
+                  Falling back keeps the selection valid when the chosen model is removed.
+                tests:
                   - RecognitionPanelViewModel_Refresh_SelectedModelNoLongerInstalled_FallsBackToFirstModel
 
               - id: SpeechDemo-Recognition-HonestEmptyCatalogState
@@ -294,20 +300,28 @@ sections:
 
               - id: SpeechDemo-Recognition-FailedAttemptReleasesResources
                 title: >-
-                  The RecognitionPanelViewModel shall dispose any engine or session it created
-                  for a failed Start attempt.
+                  The RecognitionPanelViewModel shall dispose the engine it created when that
+                  engine reports itself unavailable for a Start attempt.
                 justification: |
-                  A recognizer engine and its session own unmanaged inference resources and a
-                  capture device; leaking them from a failed attempt would starve the next
-                  attempt.
+                  A recognizer engine owns unmanaged inference resources; leaking an unusable one
+                  from a failed attempt would starve the next attempt.
                 tests:
                   - RecognitionPanelViewModel_Start_RecognizerUnavailable_ReportsErrorStateAndDisposes
+
+              - id: SpeechDemo-Recognition-FailedStartReleasesSession
+                title: >-
+                  The RecognitionPanelViewModel shall dispose the session it created, keeping the
+                  engine, when that session fails to start.
+                justification: |
+                  A session owns a live capture device; leaking it from a failed attempt would
+                  starve the next attempt, while the engine remains usable.
+                tests:
                   - RecognitionPanelViewModel_Start_RecognizerStartThrows_ReportsErrorStateAndDisposes
 
               - id: SpeechDemo-Recognition-ResourceLifetime
                 title: >-
                   The RecognitionPanelViewModel shall release an active session and the cached
-                  recognizer engine when the panel is disposed, without throwing.
+                  recognizer engine when the panel is disposed.
                 justification: |
                   A recognizer engine and its session own unmanaged inference resources and a live
                   capture device; leaking either when the panel's host shuts down would starve the
@@ -315,15 +329,31 @@ sections:
                 tests:
                   - RecognitionPanelViewModel_Dispose_ReleasesActiveSessionWithoutThrowing
 
+              - id: SpeechDemo-Recognition-DisposeIdempotent
+                title: >-
+                  The RecognitionPanelViewModel shall tolerate being disposed more than once
+                  without throwing.
+                justification: |
+                  A duplicate dispose, however the shell triggers it, must not fault.
+                tests:
+                  - RecognitionPanelViewModel_Dispose_ReleasesActiveSessionWithoutThrowing
+
               - id: SpeechDemo-Recognition-ModelSwitchGuard
                 title: >-
-                  The RecognitionPanelViewModel shall report that the model may be changed in
-                  every state except while listening.
+                  The RecognitionPanelViewModel shall not allow the model to be changed while
+                  listening, and shall allow it again after Stop.
                 justification: |
                   Switching the selected recognition model while a streaming session is active
                   would leave a running recognizer bound to a model no longer reflected in
-                  SelectedModel; the view disables selection while this value is false, and a user
-                  must be able to pick another model after a failed attempt.
+                  SelectedModel; the view disables selection while this value is false.
                 tests:
                   - RecognitionPanelViewModel_CanChangeModel_TogglesAcrossStateTransitions
+
+              - id: SpeechDemo-Recognition-ModelSwitchAllowedAfterError
+                title: >-
+                  The RecognitionPanelViewModel shall allow the model to be changed while in an
+                  error state.
+                justification: |
+                  A user must be able to pick another model after a failed attempt.
+                tests:
                   - RecognitionPanelViewModel_CanChangeModel_ErrorState_IsTrue

@@ -39,11 +39,20 @@ sections:
 
               - id: SpeechDemo-Synthesis-SessionSeamArgumentValidation
                 title: >-
-                  The SynthesizerSessionFactory shall reject a missing model store or a missing
-                  model with an argument-null error.
+                  The SynthesizerSessionFactory shall reject a missing model store with an
+                  argument-null error.
                 justification: |
-                  A missing store or model is a composition mistake that must surface at the
-                  call site instead of as a later, unrelated failure.
+                  A missing store is a composition mistake that must surface at the call site
+                  instead of as a later, unrelated failure.
                 tests:
                   - SynthesizerSessionFactory_Constructor_NullStore_ThrowsArgumentNullException
+
+              - id: SpeechDemo-Synthesis-SessionSeamModelValidation
+                title: >-
+                  The SynthesizerSessionFactory shall reject a missing model with an
+                  argument-null error.
+                justification: |
+                  A missing model is a caller mistake that must surface at the call site instead
+                  of as a later, unrelated failure.
+                tests:
                   - SynthesizerSessionFactory_LoadAsync_NullModel_ThrowsArgumentNullException
