@@ -13,12 +13,11 @@ with it, `ReferenceVoiceSource` and `ReferenceVoiceInfo`; the library populates 
   voices (with the license and readme files) and of the emotion clips, and `InstalledSizeBytes(bool
   includeEmotions)` sums the chosen variants. An internal `DownloadDescriptor` projects it onto a one-file
   `SpeechModelDownloadDescriptor` whose relative install path is the archive file name.
-- `ReferenceVoicePack.VoiceZero10`: the built-in voice-zero 1.0 pack - archive
-  `https://github.com/OwenTyme/voice-zero/releases/download/1.0/voice-zero-1.0.zip`, 597,269,359 bytes,
-  SHA-256 `001d5982fc4b602f7c62a764046dea1f53999a493de43955f35686d2c16d7c66`, CC0 1.0 Universal,
-  attribution "voice-zero by OwenTyme", root folder `voice-zero`, 45,632,432 bytes of voices and 553,873,246
-  bytes of emotion clips (599,505,678
-  installed in total, about 572 MiB; the download is about 570 MiB). `ReferenceVoicePack.All` lists it.
+- `ReferenceVoicePack.VoiceZero10`: the built-in voice-zero 1.0 pack by OwenTyme (CC0 1.0 Universal).
+  Its archive URL, size, SHA-256, root folder and measured installed sizes are pinned only in
+  `ReferenceVoicePack.cs` and verified by the unit tests (see the requirement
+  `Speech-Models-ReferenceVoicePack-SizeMetadata`), so they are not repeated here. `ReferenceVoicePack.All`
+  lists it.
 - `ReferenceVoiceSource` (enum): `Directory` (a caller-named directory), `User` (the user folder),
   `Pack` (an installed pack). Assigned by `ReferenceVoiceLibrary.EnumerateVoices`; see the
   `ReferenceVoiceLibrary` design for the precedence rules that decide which source a voice has.
