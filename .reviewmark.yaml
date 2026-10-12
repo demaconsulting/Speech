@@ -128,6 +128,88 @@ reviews:
       - "docs/verification/speech/audio-subsystem.md"          # subsystem verification + inline units
       - "src/DemaConsulting.Speech/AudioSubsystem/NamespaceDoc.cs"        # subsystem namespace summary
 
+  # Speech-AudioSubsystem-AudioClip Review (one per unit)
+  - id: Speech-AudioSubsystem-AudioClip
+    title: >-
+      Review that Speech AudioSubsystem AudioClip Implementation is Correct (no dedicated
+      test file; exercised through other audio unit tests)
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/audio-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/audio-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/audio-subsystem/audio-clip.yaml"
+      - "docs/design/speech/audio-subsystem/audio-clip.md"
+      - "docs/verification/speech/audio-subsystem/audio-clip.md"
+      - "src/DemaConsulting.Speech/AudioSubsystem/AudioClip.cs"
+
+  # Speech-AudioSubsystem-AudioFileReader Review (one per unit)
+  - id: Speech-AudioSubsystem-AudioFileReader
+    title: Review that Speech AudioSubsystem AudioFileReader Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/audio-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/audio-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/audio-subsystem/audio-file-reader.yaml"
+      - "docs/design/speech/audio-subsystem/audio-file-reader.md"
+      - "docs/verification/speech/audio-subsystem/audio-file-reader.md"
+      - "src/DemaConsulting.Speech/AudioSubsystem/AudioFileReader.cs"
+      - "src/DemaConsulting.Speech/AudioSubsystem/AudioFileReadOptions.cs"
+      - "test/DemaConsulting.Speech.Tests/AudioSubsystem/AudioFileReaderTests.cs"
+
+  # Speech-AudioSubsystem-AudioResampler Review (one per unit)
+  - id: Speech-AudioSubsystem-AudioResampler
+    title: Review that Speech AudioSubsystem AudioResampler Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/audio-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/audio-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/audio-subsystem/audio-resampler.yaml"
+      - "docs/design/speech/audio-subsystem/audio-resampler.md"
+      - "docs/verification/speech/audio-subsystem/audio-resampler.md"
+      - "src/DemaConsulting.Speech/AudioSubsystem/AudioResampler.cs"
+      - "test/DemaConsulting.Speech.Tests/AudioSubsystem/AudioResamplerTests.cs"
+
+  # Speech-AudioSubsystem-FlacDecoder Review (one per unit)
+  - id: Speech-AudioSubsystem-FlacDecoder
+    title: Review that Speech AudioSubsystem FlacDecoder Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/audio-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/audio-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/audio-subsystem/flac-decoder.yaml"
+      - "docs/design/speech/audio-subsystem/flac-decoder.md"
+      - "docs/verification/speech/audio-subsystem/flac-decoder.md"
+      - "src/DemaConsulting.Speech/AudioSubsystem/FlacDecoder.cs"
+      - "src/DemaConsulting.Speech/AudioSubsystem/FlacFrameDecoder.cs"
+      - "src/DemaConsulting.Speech/AudioSubsystem/FlacBitReader.cs"
+      - "src/DemaConsulting.Speech/AudioSubsystem/FlacCrc.cs"
+      - "test/DemaConsulting.Speech.Tests/AudioSubsystem/FlacDecoderTests.cs"
+      - "test/DemaConsulting.Speech.Tests/AudioSubsystem/TestFlacEncoder.cs"
+      - "test/DemaConsulting.Speech.Tests/AudioSubsystem/TestBitWriter.cs"
+
+  # Speech-AudioSubsystem-WavDecoder Review (one per unit)
+  - id: Speech-AudioSubsystem-WavDecoder
+    title: Review that Speech AudioSubsystem WavDecoder Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/audio-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/audio-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/audio-subsystem/wav-decoder.yaml"
+      - "docs/design/speech/audio-subsystem/wav-decoder.md"
+      - "docs/verification/speech/audio-subsystem/wav-decoder.md"
+      - "src/DemaConsulting.Speech/AudioSubsystem/WavDecoder.cs"
+      - "test/DemaConsulting.Speech.Tests/AudioSubsystem/WavDecoderTests.cs"
+
   # Speech-AudioSubsystem-AudioDeviceDescription Review (one per unit)
   - id: Speech-AudioSubsystem-AudioDeviceDescription
     title: Review that Speech AudioSubsystem AudioDeviceDescription Implementation is Correct
@@ -403,6 +485,55 @@ reviews:
       - "docs/design/speech/model-management-subsystem.md"               # subsystem design
       - "docs/verification/speech/model-management-subsystem.md"         # subsystem verification
       - "src/DemaConsulting.Speech/ModelManagementSubsystem/NamespaceDoc.cs"  # subsystem namespace summary
+
+  # Speech-ModelManagementSubsystem-ReferenceVoicePack Review (one per unit)
+  - id: Speech-ModelManagementSubsystem-ReferenceVoicePack
+    title: Review that Speech ModelManagementSubsystem ReferenceVoicePack Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/model-management-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/model-management-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/model-management-subsystem/reference-voice-pack.yaml"
+      - "docs/design/speech/model-management-subsystem/reference-voice-pack.md"
+      - "docs/verification/speech/model-management-subsystem/reference-voice-pack.md"
+      - "src/DemaConsulting.Speech/ModelManagementSubsystem/ReferenceVoicePack.cs"
+      - "test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/ReferenceVoicePackTests.cs"
+
+  # Speech-ModelManagementSubsystem-ReferenceVoiceLibrary Review (one per unit)
+  - id: Speech-ModelManagementSubsystem-ReferenceVoiceLibrary
+    title: Review that Speech ModelManagementSubsystem ReferenceVoiceLibrary Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/model-management-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/model-management-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/model-management-subsystem/reference-voice-library.yaml"
+      - "docs/design/speech/model-management-subsystem/reference-voice-library.md"
+      - "docs/verification/speech/model-management-subsystem/reference-voice-library.md"
+      - "src/DemaConsulting.Speech/ModelManagementSubsystem/ReferenceVoiceLibrary.cs"
+      - "src/DemaConsulting.Speech/ModelManagementSubsystem/ReferenceVoiceInfo.cs"
+      - "src/DemaConsulting.Speech/ModelManagementSubsystem/ReferenceVoiceSource.cs"
+      - "test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/ReferenceVoiceLibraryTests.cs"
+      - "test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/Fakes/ReferenceVoiceTestPacks.cs"
+
+  # Speech-ModelManagementSubsystem-ReferenceVoicePackInstaller Review (one per unit)
+  - id: Speech-ModelManagementSubsystem-ReferenceVoicePackInstaller
+    title: Review that Speech ModelManagementSubsystem ReferenceVoicePackInstaller Implementation is Correct
+    context:
+      - "docs/design/speech.md"
+      - "docs/design/speech/model-management-subsystem.md"
+      - "docs/reqstream/speech.yaml"
+      - "docs/reqstream/speech/model-management-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech/model-management-subsystem/reference-voice-pack-installer.yaml"
+      - "docs/design/speech/model-management-subsystem/reference-voice-pack-installer.md"
+      - "docs/verification/speech/model-management-subsystem/reference-voice-pack-installer.md"
+      - "src/DemaConsulting.Speech/ModelManagementSubsystem/ReferenceVoicePackInstaller.cs"
+      - "test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/ReferenceVoicePackInstallerTests.cs"
+      - "test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/Fakes/ReferenceVoiceTestPacks.cs"
 
   # Speech-ModelManagementSubsystem-SpeechModelStore Review (one per unit)
   - id: Speech-ModelManagementSubsystem-SpeechModelStore
@@ -1236,7 +1367,25 @@ reviews:
       - "docs/verification/speech-demo/model-catalog-subsystem/model-catalog-service.md"
       - "src/DemaConsulting.Speech.Demo/ModelCatalogSubsystem/IModelCatalogService.cs"
       - "src/DemaConsulting.Speech.Demo/ModelCatalogSubsystem/ModelCatalogService.cs"
+      - "src/DemaConsulting.Speech.Demo/ModelCatalogSubsystem/ModelCatalogComposition.cs"
       - "test/DemaConsulting.Speech.Demo.Tests/ModelCatalogSubsystem/ModelCatalogServiceTests.cs"
+
+  # SpeechDemo-ModelCatalogSubsystem-ReferenceVoicePackListItemViewModel Review (one per unit)
+  - id: SpeechDemo-ModelCatalogSubsystem-ReferenceVoicePackListItemViewModel
+    title: >-
+      Review that SpeechDemo ModelCatalogSubsystem ReferenceVoicePackListItemViewModel
+      Implementation is Correct
+    context:
+      - "docs/design/speech-demo.md"
+      - "docs/design/speech-demo/model-catalog-subsystem.md"
+      - "docs/reqstream/speech-demo.yaml"
+      - "docs/reqstream/speech-demo/model-catalog-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-demo/model-catalog-subsystem/reference-voice-pack-list-item-view-model.yaml"
+      - "docs/design/speech-demo/model-catalog-subsystem/reference-voice-pack-list-item-view-model.md"
+      - "docs/verification/speech-demo/model-catalog-subsystem.md"
+      - "src/DemaConsulting.Speech.Demo/ModelCatalogSubsystem/ReferenceVoicePackListItemViewModel.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/ModelCatalogSubsystem/ReferenceVoicePackListItemViewModelTests.cs"
 
   # SpeechDemo-ModelCatalogSubsystem-ModelCatalogViewModel Review (one per unit)
   - id: SpeechDemo-ModelCatalogSubsystem-ModelCatalogViewModel
@@ -1645,6 +1794,204 @@ reviews:
       - "docs/verification/speech-onnx-kokoro/synthesis-subsystem/onnx-kokoro-synthesis-engine.md"
       - "src/DemaConsulting.Speech.Onnx.Kokoro/SynthesisSubsystem/OnnxKokoroSynthesisEngine.cs"
       - "test/DemaConsulting.Speech.Onnx.Kokoro.Tests/SynthesisSubsystem/OnnxKokoroSynthesisEngineTests.cs"
+
+  # SpeechOnnxChatterboxTurbo-Architecture Review (one per system)
+  - id: SpeechOnnxChatterboxTurbo-Architecture
+    title: Review that SpeechOnnxChatterboxTurbo Architecture Satisfies Requirements
+    context:
+      - "README.md"
+      - "docs/user_guide/**/*.md"
+    paths:
+      - "docs/reqstream/speech-onnx-chatterboxturbo.yaml"        # system requirements
+      - "docs/design/speech-onnx-chatterboxturbo.md"             # system design
+      - "docs/verification/speech-onnx-chatterboxturbo.md"       # system verification
+
+  # SpeechOnnxChatterboxTurbo-Design Review (one per system)
+  - id: SpeechOnnxChatterboxTurbo-Design
+    title: Review that SpeechOnnxChatterboxTurbo Design is Consistent and Complete
+    context:
+      - "docs/reqstream/speech-onnx-chatterboxturbo.yaml"
+    paths:
+      - "docs/design/speech-onnx-chatterboxturbo.md"             # system design
+      - "docs/design/speech-onnx-chatterboxturbo/**/*.md"        # all system design documents
+
+  # SpeechOnnxChatterboxTurbo-Verification Review (one per system)
+  - id: SpeechOnnxChatterboxTurbo-Verification
+    title: Review that SpeechOnnxChatterboxTurbo Verification is Consistent and Complete
+    context:
+      - "docs/reqstream/speech-onnx-chatterboxturbo.yaml"
+    paths:
+      - "docs/verification/speech-onnx-chatterboxturbo.md"       # system verification
+      - "docs/verification/speech-onnx-chatterboxturbo/**/*.md"  # all verification documents
+
+  # SpeechOnnxChatterboxTurbo-AllRequirements Review (one per system)
+  - id: SpeechOnnxChatterboxTurbo-AllRequirements
+    title: Review that All SpeechOnnxChatterboxTurbo Requirements are Complete
+    context:
+      - "docs/design/speech-onnx-chatterboxturbo.md"
+      - "docs/reqstream/speech-onnx-chatterboxturbo.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-chatterboxturbo/**/*.yaml"   # SpeechOnnxChatterboxTurbo subsystem/unit requirements
+
+  # SpeechOnnxChatterboxTurbo-ModelManagementSubsystem Review (one per subsystem)
+  - id: SpeechOnnxChatterboxTurbo-ModelManagementSubsystem
+    title: >-
+      Review that SpeechOnnxChatterboxTurbo ModelManagementSubsystem Satisfies Subsystem
+      Requirements (covers SpeechModelCatalogChatterboxTurboExtensions, which has no
+      dedicated test file)
+    context:
+      - "docs/design/speech-onnx-chatterboxturbo.md"
+      - "docs/reqstream/speech-onnx-chatterboxturbo.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-chatterboxturbo/model-management-subsystem.yaml"
+      - "docs/design/speech-onnx-chatterboxturbo/model-management-subsystem.md"
+      - "docs/verification/speech-onnx-chatterboxturbo/model-management-subsystem.md"
+      - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/SpeechModelCatalogChatterboxTurboExtensions.cs"
+
+  # SpeechOnnxChatterboxTurbo-ModelManagementSubsystem-ByteLevelBpeTokenizer Review (one per unit)
+  - id: SpeechOnnxChatterboxTurbo-ModelManagementSubsystem-ByteLevelBpeTokenizer
+    title: >-
+      Review that SpeechOnnxChatterboxTurbo ModelManagementSubsystem
+      ByteLevelBpeTokenizer Implementation is Correct
+    context:
+      - "docs/design/speech-onnx-chatterboxturbo.md"
+      - "docs/design/speech-onnx-chatterboxturbo/model-management-subsystem.md"
+      - "docs/reqstream/speech-onnx-chatterboxturbo.yaml"
+      - "docs/reqstream/speech-onnx-chatterboxturbo/model-management-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-chatterboxturbo/model-management-subsystem/byte-level-bpe-tokenizer.yaml"
+      - "docs/design/speech-onnx-chatterboxturbo/model-management-subsystem/byte-level-bpe-tokenizer.md"
+      - "docs/verification/speech-onnx-chatterboxturbo/model-management-subsystem/byte-level-bpe-tokenizer.md"
+      - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/ModelManagementSubsystem/ByteLevelBpeTokenizer.cs"
+      - "test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/ModelManagementSubsystem/ByteLevelBpeTokenizerTests.cs"
+      - "test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/TestData/chatterbox-turbo-tokenizer-golden.json"
+
+  # SpeechOnnxChatterboxTurbo-ModelManagementSubsystem-ChatterboxTurboReferenceVoice Review (one per unit)
+  - id: SpeechOnnxChatterboxTurbo-ModelManagementSubsystem-ChatterboxTurboReferenceVoice
+    title: >-
+      Review that SpeechOnnxChatterboxTurbo ModelManagementSubsystem
+      ChatterboxTurboReferenceVoice Implementation is Correct
+    context:
+      - "docs/design/speech-onnx-chatterboxturbo.md"
+      - "docs/design/speech-onnx-chatterboxturbo/model-management-subsystem.md"
+      - "docs/reqstream/speech-onnx-chatterboxturbo.yaml"
+      - "docs/reqstream/speech-onnx-chatterboxturbo/model-management-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-chatterboxturbo/model-management-subsystem/chatterbox-turbo-reference-voice.yaml"
+      - "docs/design/speech-onnx-chatterboxturbo/model-management-subsystem/chatterbox-turbo-reference-voice.md"
+      - "docs/verification/speech-onnx-chatterboxturbo/model-management-subsystem/chatterbox-turbo-reference-voice.md"
+      - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/ModelManagementSubsystem/ChatterboxTurboReferenceVoice.cs"
+      - "test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/ModelManagementSubsystem/ChatterboxTurboReferenceVoiceTests.cs"
+
+  # SpeechOnnxChatterboxTurbo-ModelManagementSubsystem-OnnxChatterboxTurboEnglishSynthesisModel Review (one per unit)
+  - id: SpeechOnnxChatterboxTurbo-ModelManagementSubsystem-OnnxChatterboxTurboEnglishSynthesisModel
+    title: >-
+      Review that SpeechOnnxChatterboxTurbo ModelManagementSubsystem
+      OnnxChatterboxTurboEnglishSynthesisModel Implementation is Correct
+    context:
+      - "docs/design/speech-onnx-chatterboxturbo.md"
+      - "docs/design/speech-onnx-chatterboxturbo/model-management-subsystem.md"
+      - "docs/reqstream/speech-onnx-chatterboxturbo.yaml"
+      - "docs/reqstream/speech-onnx-chatterboxturbo/model-management-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-chatterboxturbo/model-management-subsystem/onnx-chatterboxturbo-english-synthesis-model.yaml"
+      - "docs/design/speech-onnx-chatterboxturbo/model-management-subsystem/onnx-chatterboxturbo-english-synthesis-model.md"
+      - "docs/verification/speech-onnx-chatterboxturbo/model-management-subsystem/onnx-chatterboxturbo-english-synthesis-model.md"
+      - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/ModelManagementSubsystem/OnnxChatterboxTurboEnglishSynthesisModel.cs"
+      - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/ModelManagementSubsystem/ChatterboxTurboModelOptions.cs"
+      - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/ModelManagementSubsystem/ChatterboxTurboAuxiliaryModelVariant.cs"
+      - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/ModelManagementSubsystem/ChatterboxTurboLanguageModelVariant.cs"
+      - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/ModelManagementSubsystem/ChatterboxTurboEndOfSentenceTagPolicy.cs"
+      - "test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/ModelManagementSubsystem/OnnxChatterboxTurboEnglishSynthesisModelTests.cs"
+
+  # SpeechOnnxChatterboxTurbo-SynthesisSubsystem Review (one per subsystem)
+  - id: SpeechOnnxChatterboxTurbo-SynthesisSubsystem
+    title: >-
+      Review that SpeechOnnxChatterboxTurbo SynthesisSubsystem Satisfies Subsystem
+      Requirements (documents only; source and tests are reviewed in the per-unit sets)
+    context:
+      - "docs/design/speech-onnx-chatterboxturbo.md"
+      - "docs/reqstream/speech-onnx-chatterboxturbo.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-chatterboxturbo/synthesis-subsystem.yaml"
+      - "docs/design/speech-onnx-chatterboxturbo/synthesis-subsystem.md"
+      - "docs/verification/speech-onnx-chatterboxturbo/synthesis-subsystem.md"
+
+  # SpeechOnnxChatterboxTurbo-SynthesisSubsystem-OnnxChatterboxTurboSynthesisEngine Review (one per unit)
+  - id: SpeechOnnxChatterboxTurbo-SynthesisSubsystem-OnnxChatterboxTurboSynthesisEngine
+    title: >-
+      Review that SpeechOnnxChatterboxTurbo SynthesisSubsystem
+      OnnxChatterboxTurboSynthesisEngine Implementation is Correct
+    context:
+      - "docs/design/speech-onnx-chatterboxturbo.md"
+      - "docs/design/speech-onnx-chatterboxturbo/synthesis-subsystem.md"
+      - "docs/reqstream/speech-onnx-chatterboxturbo.yaml"
+      - "docs/reqstream/speech-onnx-chatterboxturbo/synthesis-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-chatterboxturbo/synthesis-subsystem/onnx-chatterboxturbo-synthesis-engine.yaml"
+      - "docs/design/speech-onnx-chatterboxturbo/synthesis-subsystem/onnx-chatterboxturbo-synthesis-engine.md"
+      - "docs/verification/speech-onnx-chatterboxturbo/synthesis-subsystem/onnx-chatterboxturbo-synthesis-engine.md"
+      - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/SynthesisSubsystem/OnnxChatterboxTurboSynthesisEngine.cs"
+      - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/SynthesisSubsystem/ChatterboxTurboConditioning.cs"
+      - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/SynthesisSubsystem/ChatterboxTurboGenerationResult.cs"
+      - "test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/SynthesisSubsystem/OnnxChatterboxTurboSynthesisEngineTests.cs"
+
+  # SpeechOnnxChatterboxTurbo-SynthesisSubsystem-OnnxChatterboxTurboNetworks Review (one per unit)
+  - id: SpeechOnnxChatterboxTurbo-SynthesisSubsystem-OnnxChatterboxTurboNetworks
+    title: >-
+      Review that SpeechOnnxChatterboxTurbo SynthesisSubsystem
+      OnnxChatterboxTurboNetworks Implementation is Correct
+    context:
+      - "docs/design/speech-onnx-chatterboxturbo.md"
+      - "docs/design/speech-onnx-chatterboxturbo/synthesis-subsystem.md"
+      - "docs/reqstream/speech-onnx-chatterboxturbo.yaml"
+      - "docs/reqstream/speech-onnx-chatterboxturbo/synthesis-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-chatterboxturbo/synthesis-subsystem/onnx-chatterboxturbo-networks.yaml"
+      - "docs/design/speech-onnx-chatterboxturbo/synthesis-subsystem/onnx-chatterboxturbo-networks.md"
+      - "docs/verification/speech-onnx-chatterboxturbo/synthesis-subsystem/onnx-chatterboxturbo-networks.md"
+      - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/SynthesisSubsystem/OnnxChatterboxTurboNetworks.cs"
+      - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/SynthesisSubsystem/IChatterboxTurboNetworks.cs"
+      - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/SynthesisSubsystem/IChatterboxTurboLanguageModelState.cs"
+      - "test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/SynthesisSubsystem/OnnxChatterboxTurboNetworksTests.cs"
+      - "test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/SynthesisSubsystem/ChatterboxTurboGraphFixture.cs"
+      - "test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/SynthesisSubsystem/OnnxModelWriter.cs"
+
+  # SpeechOnnxChatterboxTurbo-SynthesisSubsystem-ChatterboxTurboTokenSelector Review (one per unit)
+  - id: SpeechOnnxChatterboxTurbo-SynthesisSubsystem-ChatterboxTurboTokenSelector
+    title: >-
+      Review that SpeechOnnxChatterboxTurbo SynthesisSubsystem
+      ChatterboxTurboTokenSelector Implementation is Correct
+    context:
+      - "docs/design/speech-onnx-chatterboxturbo.md"
+      - "docs/design/speech-onnx-chatterboxturbo/synthesis-subsystem.md"
+      - "docs/reqstream/speech-onnx-chatterboxturbo.yaml"
+      - "docs/reqstream/speech-onnx-chatterboxturbo/synthesis-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-chatterboxturbo/synthesis-subsystem/chatterbox-turbo-token-selector.yaml"
+      - "docs/design/speech-onnx-chatterboxturbo/synthesis-subsystem/chatterbox-turbo-token-selector.md"
+      - "docs/verification/speech-onnx-chatterboxturbo/synthesis-subsystem/chatterbox-turbo-token-selector.md"
+      - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/SynthesisSubsystem/ChatterboxTurboTokenSelector.cs"
+      - "test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/SynthesisSubsystem/ChatterboxTurboTokenSelectorTests.cs"
+
+  # SpeechOnnxChatterboxTurbo-SynthesisSubsystem-ChatterboxTurboCapabilityProfile Review (one per unit)
+  - id: SpeechOnnxChatterboxTurbo-SynthesisSubsystem-ChatterboxTurboCapabilityProfile
+    title: >-
+      Review that SpeechOnnxChatterboxTurbo SynthesisSubsystem
+      ChatterboxTurboCapabilityProfile Implementation is Correct
+    context:
+      - "docs/design/speech-onnx-chatterboxturbo.md"
+      - "docs/design/speech-onnx-chatterboxturbo/synthesis-subsystem.md"
+      - "docs/reqstream/speech-onnx-chatterboxturbo.yaml"
+      - "docs/reqstream/speech-onnx-chatterboxturbo/synthesis-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-chatterboxturbo/synthesis-subsystem/chatterbox-turbo-capability-profile.yaml"
+      - "docs/design/speech-onnx-chatterboxturbo/synthesis-subsystem/chatterbox-turbo-capability-profile.md"
+      - "docs/verification/speech-onnx-chatterboxturbo/synthesis-subsystem/chatterbox-turbo-capability-profile.md"
+      - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/SynthesisSubsystem/ChatterboxTurboCapabilityProfile.cs"
+      - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/SynthesisSubsystem/ChatterboxTurboTagKind.cs"
+      - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/SynthesisSubsystem/ChatterboxTurboTagTreatment.cs"
+      - "test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/SynthesisSubsystem/ChatterboxTurboCapabilityProfileTests.cs"
 
   # SpeechOnnxNemotronStt-Architecture Review (one per system)
   - id: SpeechOnnxNemotronStt-Architecture
