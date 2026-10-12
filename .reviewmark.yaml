@@ -2182,8 +2182,8 @@ reviews:
   - id: SpeechOnnxChatterboxTurbo-ModelManagementSubsystem
     title: >-
       Review that SpeechOnnxChatterboxTurbo ModelManagementSubsystem Satisfies Subsystem
-      Requirements (covers SpeechModelCatalogChatterboxTurboExtensions, which has no
-      dedicated test file)
+      Requirements (covers SpeechModelCatalogChatterboxTurboExtensions and its
+      SpeechModelCatalogChatterboxTurboExtensionsTests test file)
     context:
       - "docs/design/speech-onnx-chatterboxturbo.md"
       - "docs/reqstream/speech-onnx-chatterboxturbo.yaml"
