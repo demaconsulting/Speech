@@ -63,7 +63,16 @@ internal sealed class FakeSynthesisEngine : ISynthesisBackend
     public int SampleRate { get; }
 
     /// <summary>Gets every <see cref="Generate"/> call this engine has received, in arrival order.</summary>
-    public IReadOnlyList<(string Text, float Speed, int SpeakerId)> GenerateCalls => _generateCalls;
+    public IReadOnlyList<(string Text, float Speed, int SpeakerId)> GenerateCalls
+    {
+        get
+        {
+            lock (_concurrencyLock)
+            {
+                return [.. _generateCalls];
+            }
+        }
+    }
 
     /// <summary>Gets the number of <see cref="Dispose"/> calls this engine has received.</summary>
     public int DisposeCallCount { get; private set; }
@@ -94,7 +103,10 @@ internal sealed class FakeSynthesisEngine : ISynthesisBackend
 
         try
         {
-            _generateCalls.Add((text, speed, speakerId));
+            lock (_concurrencyLock)
+            {
+                _generateCalls.Add((text, speed, speakerId));
+            }
 
             if (_simulatedGenerateDelay > TimeSpan.Zero)
             {

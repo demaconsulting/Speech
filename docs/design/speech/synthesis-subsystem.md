@@ -4,31 +4,28 @@
 
 ### Overview
 
-The SynthesisSubsystem provides text-to-speech capability. It shipped its Layer 1 concern (the
-closed, fixed Natural Language Audio Tag vocabulary and the model-independent parser) and its
-Layer 2 concern (per-model rendering of a parsed span sequence into a `SpeechPlan`) unchanged by
-this redesign. The public and internal text-to-speech API has since been redesigned from a
-single, sync-ish `ISpeechSynthesizer` streaming contract to an explicit, 5-layer async
-Engine/Session vocabulary that mirrors the RecognitionSubsystem's own Engine/Session redesign:
-`ISpeechSynthesizerEngine` (Layer 3 - the public, loaded, expensive, native-backed model, obtained
-once) creates cheap, reusable `ISynthesisSession` instances (Layer 5 - one per bound playback
-device), each with its own explicit `SynthesisSessionState` lifecycle, so a host no longer has to
-reconstruct a synthesizer per utterance to avoid the old type's single-session-per-instance
-assumption. The old `ISynthesisEngine`/`ISynthesisEngineFactory` seam was renamed to
-`ISynthesisBackend`/`ISynthesisBackendFactory`, freeing the word "engine" for the public Layer 3
-contract. `ISynthesisBackend` is public and `ISynthesisBackendFactory` remains internal. It
-contains the following direct units:
+The SynthesisSubsystem provides text-to-speech capability. Its Layer 1 concern is the closed,
+fixed Natural Language Audio Tag vocabulary and the model-independent parser; its Layer 2 concern
+is per-model rendering of a parsed span sequence into a `SpeechPlan`. Its public text-to-speech
+API is an explicit, 5-layer async Engine/Session vocabulary that mirrors the
+RecognitionSubsystem's own Engine/Session API: `ISpeechSynthesizerEngine` (Layer 3 - the public,
+loaded, expensive, native-backed model, obtained once) creates cheap, reusable
+`ISynthesisSession` instances (Layer 5 - one per bound playback device), each with its own
+explicit `SynthesisSessionState` lifecycle, so a host does not have to reconstruct a synthesizer
+per utterance. The native seam is `ISynthesisBackend`/`ISynthesisBackendFactory`, leaving the
+word "engine" for the public Layer 3 contract. `ISynthesisBackend` is public and
+`ISynthesisBackendFactory` is internal. It contains the following direct units:
 
 - **AudioTagParser**: the pure, model-independent scanner, together with the **AudioTagCatalog**
   alias/kind lookup table it consumes and the **NaturalLanguageAudioTag** /
   **NaturalLanguageAudioTagKind** / **TaggedTextSpan** / **TaggedTextSpanKind** value types it
-  operates over (unchanged by this redesign)
+  operates over
 - **IModelCapabilityProfile** and **DefaultModelCapabilityProfile**: the Layer 2 rendering
   strategy that turns a parsed span sequence into an ordered **SpeechPlan** of **SpeechSegment**s,
   deciding per tag whether to pass it through, approximate it, or strip it, driven purely by the
-  selected model's own declared audio-tag support and parameters (unchanged by this redesign)
+  selected model's own declared audio-tag support and parameters
 - **SentenceChunker**: splits synthesis-ready plain text into sentence/clause-sized chunks so
-  chunked synthesis has natural-sounding boundaries (unchanged by this redesign)
+  chunked synthesis has natural-sounding boundaries
 - **ISpeechSynthesizerEngine**: the public Layer 3 contract for a loaded synthesis model -
   availability, `CreateSessionAsync`, and one-shot `SpeakAsync`/`SynthesizeAsync` convenience
   overloads - together with the **SynthesizedSpeech** value type it and `ISynthesisSession` yield
@@ -38,7 +35,7 @@ contains the following direct units:
 - **SpeechSynthesizerFactory**: composition root that asynchronously loads a real engine or
   returns the honest unavailable fallback, and never throws for an ordinary machine state
 - **SpeechSynthesizerEngine**: the real `ISpeechSynthesizerEngine` implementation,
-  owning one loaded **SynthesisBackend** (the renamed, public
+  owning one loaded synthesis backend (the public
   **ISynthesisBackend** seam, loaded through the internal
   **ISynthesisBackendFactory** seam and its model-driven
   **DefaultSynthesisBackendFactory** implementation, which asks the model itself to construct its
@@ -214,13 +211,13 @@ the operation then unwinds through `Stopping` to `Stopped`, not `Faulted`, since
 stop is an ordinary, successful outcome rather than a fault.
 
 `SynthesisSession`'s per-operation pipeline normalizes the input text, tag-parses it,
-Layer 2 renders it into a `SpeechPlan`, then synthesizes each `SpeechSegment` in turn: unlike the
-former streaming synthesizer, synthesis is no longer pipelined ahead of playback across an
-unbounded/bounded channel - each segment is synthesized, then (for `SpeakAsync`) immediately
-written to the bound playback device, before the next segment's synthesis begins. This keeps the
-per-call state machine simple (one backend call in flight at a time) while still overlapping this
-call's own synthesis-then-playback work normally, since playback of one segment and synthesis of
-the next both still happen without the caller waiting for the whole plan up front. Each segment's
+Layer 2 renders it into a `SpeechPlan`, then synthesizes each `SpeechSegment` in turn. Synthesis
+is not pipelined ahead of playback: each segment is synthesized, then (for `SpeakAsync`)
+immediately written to the bound playback device, before the next segment's synthesis begins.
+This keeps the per-call state machine simple (exactly one backend call in flight at a time);
+playback of an early segment begins after only that segment has been synthesized, so the caller
+does not wait for the whole plan, but synthesis and playback of different segments are not
+overlapped by separate threads. Each segment's
 native `Generate` call runs through `DedicatedWorker.Run`, so a non-cooperative native call is
 bounded by the cooperative-cancel-then-abandon policy (see below) rather than awaited
 indefinitely. A pause segment (empty text) skips the backend entirely and produces pure silence
@@ -234,8 +231,7 @@ cancelled, reporting (but not rethrowing) a failure to stop so the device is nev
 backend's actual rate to the device's resolved rate using a small windowed-sinc FIR
 anti-aliasing step before downsampling decimation, then upmix mono to the device's channel
 count - mirroring `AudioFrameResampler`'s identical recognition-direction role. The public
-`ISynthesisBackend` seam, loaded through the internal `ISynthesisBackendFactory` seam (renamed
-from `ISynthesisEngine`/`ISynthesisEngineFactory`, members unchanged), keeps every native
+`ISynthesisBackend` seam, loaded through the internal `ISynthesisBackendFactory` seam, keeps every native
 inference call out of this subsystem entirely: `DefaultSynthesisBackendFactory` simply forwards
 to the model's own `ISynthesisModel.CreateBackend`, and the real sherpa-onnx backend
 (`SherpaOnnxSynthesisEngine`) lives in the sibling `SpeechSherpa` system (see _SpeechSherpa
@@ -327,8 +323,8 @@ convenience overloads.
 
 **Purpose**: Provide the single composition entry point for obtaining an
 `ISpeechSynthesizerEngine`, so all "can this machine speak right now?" logic lives in one
-reviewable place, mirroring `SpeechRecognizerFactory`. Unlike the former synchronous factory, this
-type no longer takes a playback device: an engine loaded here can create many sessions over its
+reviewable place, mirroring `SpeechRecognizerFactory`. This
+type does not take a playback device: an engine loaded here can create many sessions over its
 life, each bound to its own device, via `ISpeechSynthesizerEngine.CreateSessionAsync`. The
 blocking native model load itself runs on a `DedicatedWorker` rather than the calling thread, so
 awaiting any `LoadAsync` overload never blocks a caller's synchronization context.
@@ -467,13 +463,13 @@ already transitioned to `SynthesisSessionState.Faulted`.
 
 #### Design Constraints
 
-**Volume is applied as post-hoc amplitude scaling, not a native engine parameter.** sherpa-onnx's
-offline TTS API has no volume/gain input, so a `Loud`/`Soft`/`Whispers` tag's numeric override is
+**Volume is applied as post-hoc amplitude scaling, not a native backend parameter.** The
+`ISynthesisBackend.Generate` contract has no volume/gain input, so a `Loud`/`Soft`/`Whispers` tag's numeric override is
 applied by scaling the generated segment's samples and clamping to `[-1.0, 1.0]`, rather than
 being passed into `Generate(...)`.
 
-**Speed is applied as a native engine parameter.** Unlike volume, sherpa-onnx's `Generate(text,
-speed, speakerId)` already accepts a speed multiplier, so a `Fast`/`VeryFast`/`Slow`/`VerySlow`
+**Speed is applied as a native backend parameter.** Unlike volume, `Generate(text, speed,
+speakerId)` accepts a speed multiplier, so a `Fast`/`VeryFast`/`Slow`/`VerySlow`
 tag's override is passed straight through rather than post-processed.
 
 **Voice/speaker selection is a session-level concern, not a per-segment override.** The

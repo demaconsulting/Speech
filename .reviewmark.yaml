@@ -1018,6 +1018,7 @@ reviews:
       - "docs/reqstream/speech/synthesis-subsystem.yaml"
     paths:
       - "docs/reqstream/speech/synthesis-subsystem/synthesis-session.yaml"
+      - "docs/reqstream/speech/synthesis-subsystem/dedicated-worker.yaml"
       - "docs/design/speech/synthesis-subsystem/synthesis-session.md"
       - "docs/verification/speech/synthesis-subsystem/synthesis-session.md"
       - "src/DemaConsulting.Speech/SynthesisSubsystem/SynthesisSession.cs"
@@ -1035,6 +1036,8 @@ reviews:
       - "src/DemaConsulting.Speech/SynthesisSubsystem/PlaybackAudioResampler.cs"
       - "src/DemaConsulting.Speech/SynthesisSubsystem/DedicatedWorker.cs"
       - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/SynthesisSessionTests.cs"
+      - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/SynthesisSessionFaultedExceptionTests.cs"
+      - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/DefaultSynthesisBackendFactoryTests.cs"
       - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/DefaultModelCapabilityProfileTests.cs"
       - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/SentenceChunkerTests.cs"
       - "test/DemaConsulting.Speech.Tests/SynthesisSubsystem/PlaybackAudioResamplerTests.cs"

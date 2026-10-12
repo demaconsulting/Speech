@@ -12,18 +12,18 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     plays the resulting audio through this session's bound playback device.
 /// </summary>
 /// <remarks>
-///     Moved here from the former <c>SherpaOnnxSpeechSynthesizer</c>: the chunking/pipelined-
-///     generation logic and playback-device ownership are unchanged in substance, now wrapped in
-///     an explicit state machine (<see cref="SynthesisSessionState"/>), an overlap guard (at most
-///     one <see cref="SpeakAsync"/>/<see cref="SynthesizeAsync"/> call in flight at a time), and
-///     per-segment native calls routed through <see cref="DedicatedWorker"/> for the
-///     cooperative-cancel-then-abandon policy.
+///     The session runs an explicit state machine (<see cref="SynthesisSessionState"/>), an
+///     overlap guard (at most one <see cref="SpeakAsync"/>/<see cref="SynthesizeAsync"/> call in
+///     flight at a time), and routes per-segment native calls through <see cref="DedicatedWorker"/>
+///     for the cooperative-cancel-then-abandon policy.
 ///     <para>
-///     Unlike the former streaming pipeline, this session does not pipeline synthesis ahead of
-///     playback across an unbounded channel: each segment is synthesized, then (for
+///     Synthesis is not pipelined ahead of playback: each segment is synthesized, then (for
 ///     <see cref="SpeakAsync"/>) written to the playback device, before the next segment's
-///     synthesis begins. This keeps the per-call state machine simple (one worker call in flight
-///     at a time) while still overlapping this call's own synthesis-then-playback work normally.
+///     synthesis begins, so exactly one worker call is in flight at a time. Playback of an early
+///     segment can begin after only that segment has been synthesized.
+///     </para>
+///     <para>
+///     The session does not own or dispose the backend; the creating engine does.
 ///     </para>
 /// </remarks>
 internal sealed class SynthesisSession : ISynthesisSession
@@ -726,6 +726,12 @@ internal sealed class SynthesisSession : ISynthesisSession
             }
 
             var ratio = doubleValue / parameter.Default;
+            if (!(ratio > 0.0) || double.IsInfinity(ratio))
+            {
+                // A non-positive or non-finite ratio is not a valid speed/volume multiplier.
+                continue;
+            }
+
             if (SpeechParameterConventions.IsSpeedParameter(parameterId))
             {
                 speedRatio = (float)ratio;

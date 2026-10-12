@@ -2,17 +2,12 @@
 # Software Unit Requirements for the real synthesis session implementation
 #
 # Groups requirements for SynthesisSession together with the synthesis-backend seam
-# (ISynthesisBackend/ISynthesisBackendFactory), SynthesisSessionFaultedException, the Layer 2
-# rendering pipeline (IModelCapabilityProfile/DefaultModelCapabilityProfile, SpeechSegment/
-# SpeechPlan), the SentenceChunker, and the PlaybackAudioResampler, mirroring how
-# sherpa-onnx-speech-recognizer.yaml groups a cohesive implementation unit. Each unit's
-# requirement subset is called out in its own subsection below so every unit still has
-# requirements tracing to it individually. Renamed/restructured from the former
-# sherpa-onnx-speech-synthesizer.yaml for the async Engine/Session redesign: the former
-# "SherpaOnnxSpeechSynthesizer Requirements" section becomes "SynthesisSession
-# Requirements" (adding overlap-rule and faulted-terminal-state requirements), and the former
-# "SynthesisEngine Requirements" section becomes "SynthesisBackend Requirements".
-
+# (ISynthesisBackend/ISynthesisBackendFactory/DefaultSynthesisBackendFactory),
+# SynthesisSessionFaultedException, the Layer 2 rendering pipeline
+# (IModelCapabilityProfile/DefaultModelCapabilityProfile, SpeechSegment/SpeechPlan), the
+# SentenceChunker, and the PlaybackAudioResampler, as one cohesive implementation unit. Each
+# unit's requirement subset is called out in its own subsection below so every unit still has
+# requirements tracing to it individually.
 sections:
   - title: Speech Requirements
     sections:
@@ -24,18 +19,18 @@ sections:
                 title: >-
                   The SynthesisSession class shall normalize, tag-parse, and Layer 2
                   render input text into an ordered SpeechPlan, then synthesize each resulting
-                  segment in order, making each one available to playback as soon as it is ready
-                  rather than waiting for the whole plan to finish synthesizing. SynthesizeAsync
-                  returns the complete, ordered segment list only once every segment has been
-                  synthesized; this chunked pipelining is an internal synthesis/playback
-                  optimization, not a streaming result contract exposed to SynthesizeAsync's
-                  caller.
+                  segment in order, one backend call in flight at a time, writing each segment to
+                  the playback device (for SpeakAsync) as soon as that segment is synthesized
+                  rather than after the whole plan is synthesized. Synthesis of a later segment
+                  does not overlap synthesis of an earlier one. SynthesizeAsync returns the
+                  complete, ordered segment list only once every segment has been synthesized.
                 justification: |
-                  The design requires chunked, low-latency synthesis so playback of an early
-                  sentence can start while a later sentence is still being synthesized, rather
-                  than a host waiting for an entire utterance's inference to complete before
-                  hearing anything. SpeakAsync relies on this internal pipelining directly;
-                  SynthesizeAsync still returns a single materialized, full-fidelity segment list
+                  Chunking keeps each backend call short, so playback of an early sentence can
+                  begin after only that sentence has been synthesized, rather than a host waiting
+                  for an entire utterance's inference to complete before hearing anything.
+                  Running exactly one backend call at a time keeps the session state machine
+                  simple and the non-thread-safe backend safe. SynthesizeAsync still returns a
+                  single materialized, full-fidelity segment list
                   (see Speech-Synthesis-SynthesisSession-FullFidelitySegmentList) since a
                   caller inspecting or re-encoding the complete synthesized output needs every
                   segment together, not an incremental result surface.
@@ -62,11 +57,11 @@ sections:
                   each segment's pre-silence, resampled audio, and post-silence in order, and stop
                   the device once playback of the operation ends or faults.
                 justification: |
-                  This library's synthesize-while-playing-previous-chunk behavior requires that
-                  the playback device is driven continuously across segments rather than being
-                  restarted per segment, while still guaranteeing the device is released when the
-                  operation ends for any reason.
+                  The playback device must be driven continuously across segments rather than
+                  being restarted per segment, while still guaranteeing the device is released
+                  when the operation ends for any reason.
                 tests:
+                  - SynthesisSession_SpeakAsync_SegmentWithPreAndPostSilence_WritesSilenceAroundAudio
                   - SynthesisSession_SpeakAsync_PlainText_StartsWritesAndStopsDevice
                   - SynthesisSession_SpeakAsync_PlaybackDeviceWriteThrows_PropagatesAndStillStopsDevice
                   - SynthesisSession_SpeakAsync_PlaybackDeviceStartThrows_StillCallsStop
@@ -136,9 +131,11 @@ sections:
                 title: >-
                   The SynthesisSession class shall transition to the terminal Faulted
                   state and report the fault through diagnostics when a non-cancellation failure
-                  occurs during SpeakAsync/SynthesizeAsync, and shall throw
-                  SynthesisSessionFaultedException wrapping that same fault from every subsequent
-                  call once faulted, rather than attempting to recover or silently resetting.
+                  occurs during SpeakAsync/SynthesizeAsync - including an OperationCanceledException
+                  the backend throws without any cancellation having been requested - and shall
+                  throw SynthesisSessionFaultedException wrapping that same fault from every
+                  subsequent call once faulted, rather than attempting to recover or silently
+                  resetting.
                 justification: |
                   Once a session has faulted, its underlying native state is no longer trusted to
                   be consistent; allowing further calls to silently retry could produce corrupted
@@ -147,6 +144,7 @@ sections:
                 tests:
                   - SynthesisSession_SynthesizeAsync_BackendThrows_ReportsFaultAndTransitionsToFaulted
                   - SynthesisSession_SynthesizeAsync_AfterFault_ThrowsSynthesisSessionFaultedException
+                  - SynthesisSession_SynthesizeAsync_BackendThrowsUnrequestedOperationCanceledException_TransitionsToFaultedNotStopped
 
               - id: Speech-Synthesis-SynthesisSession-FaultContainment
                 title: >-
@@ -186,32 +184,81 @@ sections:
 
               - id: Speech-Synthesis-SynthesisSession-CancellationAndLifecycle
                 title: >-
-                  The SynthesisSession class shall cancel an in-flight
-                  SpeakAsync/SynthesizeAsync operation deterministically when StopAsync is
-                  called, treat StopAsync as a safe no-op when idle, release its lease and
-                  playback-device reference on disposal exactly once across repeated DisposeAsync
-                  calls, and never return control from an in-flight operation until the
-                  background producer - and any native backend call it may still be mid-way
-                  through - has genuinely finished, even when enumeration/awaiting is abandoned
-                  for a reason unrelated to cancellation.
+                  The SynthesisSession class shall cancel an in-flight SpeakAsync/SynthesizeAsync
+                  operation when StopAsync is called, with the cancelled operation unwinding to
+                  Stopped rather than Faulted when the native call honors the cancellation, shall
+                  treat StopAsync as a safe no-op when idle, and shall release its lease exactly
+                  once across repeated DisposeAsync calls.
                 justification: |
                   A host must be able to interrupt speech immediately in response to a user
                   action (e.g. barge-in), without the cancellation racing or hanging, and must not
-                  leak native inference resources across repeated speak/stop cycles. A confirmed
-                  AccessViolationException crash occurred in the predecessor design because the
-                  cancellation path let control return to the caller while the producer task was
-                  still genuinely executing a native Generate call on a background thread; the
-                  caller then disposed the owning engine, and the still-running native call
-                  touched freed native memory. DedicatedWorker closes this gap by always awaiting
-                  the in-flight native call's genuine completion, cooperative or abandoned, before
-                  returning control on any exit path.
+                  leak the engine's exclusivity lease across repeated speak/stop cycles.
                 tests:
                   - SynthesisSession_StopAsync_WhileSpeaking_DoesNotCompleteUntilInFlightGenerateReturns
                   - SynthesisSession_StopAsync_NoOperationInFlight_IsNoOp
+                  - SynthesisSession_StopAsync_RacingOperationCompletion_NeverThrowsObjectDisposedException
                   - SynthesisSession_DisposeAsync_CalledTwice_ReleasesLeaseOnce
+                  - SynthesisSession_DisposeAsync_CalledConcurrentlyTwice_BothCompleteAfterSingleTeardown
                   - SynthesisSession_SynthesizeAsync_AfterDispose_ThrowsObjectDisposedException
                   - SynthesisSession_IsAvailable_BeforeAndAfterDispose_ReflectsLifecycle
 
+              - id: Speech-Synthesis-SynthesisSession-NativeCompletionBeforeRelease
+                title: >-
+                  The SynthesisSession class shall not complete StopAsync or DisposeAsync, and
+                  shall not release the engine's exclusivity lease, until every native backend
+                  call and playback-device start call the operation began has genuinely returned,
+                  even when that call was abandoned by the dedicated worker. The caller token
+                  passed to StopAsync shall bound only that caller's own wait, never the
+                  teardown itself.
+                justification: |
+                  A confirmed AccessViolationException crash occurred in an earlier design
+                  because cancellation let control return to the caller while a native Generate
+                  call was still executing on a background thread; the caller then disposed the
+                  owning engine, and the still-running call touched freed native memory. The
+                  session therefore tracks each native call's raw completion separately from the
+                  abandon-aware task and awaits it before reporting the operation stopped or
+                  releasing the lease. A playback-device Stop that follows an abandoned device
+                  Start is deferred until that Start genuinely returns.
+                tests:
+                  - SynthesisSession_DisposeAsync_WhileSpeaking_DoesNotReleaseLeaseBeforeOperationSettles
+                  - SynthesisSession_DisposeAsync_RacingSpeakAsync_NeverDisposesBackendWhileOperationInFlight
+                  - SynthesisSession_DisposeAsync_AfterRejectedOverlappingCall_StillAwaitsOriginalOperation
+                  - SynthesisSession_DisposeAsync_AbandonedWorker_DoesNotReleaseLeaseUntilWorkerExits
+                  - SynthesisSession_StopAsync_AbandonedGenerate_DoesNotCompleteUntilNativeCallGenuinelyReturns
+                  - SynthesisSession_DisposeAsync_CalledAfterAbandonmentFault_DoesNotReleaseLeaseUntilNativeCallGenuinelyReturns
+                  - SynthesisSession_StopAsync_AbandonedDeviceStart_DoesNotCallDeviceStopUntilStartGenuinelyReturns
+                  - SynthesisSession_StopAsync_CallerTokenPreCanceled_ThrowsButOperationStillStops
+
+              - id: Speech-Synthesis-SynthesisSession-AbandonedNativeCallFaults
+                title: >-
+                  When a cancellation request is not honored by a native backend call within the
+                  dedicated worker's abandon timeout, the SynthesisSession class shall return the
+                  cancelled operation to its caller promptly, transition to the terminal Faulted
+                  state, report the condition through diagnostics, and reject every subsequent
+                  operation with SynthesisSessionFaultedException until the session is disposed.
+                justification: |
+                  An abandoned native call is still running against the shared, non-thread-safe
+                  backend, so the session cannot honestly return to Stopped and accept a new
+                  operation that would start a second concurrent native call. Faulting keeps the
+                  caller's cancellation prompt while preventing backend reuse; DisposeAsync still
+                  waits for the abandoned call as described by
+                  Speech-Synthesis-SynthesisSession-NativeCompletionBeforeRelease.
+                tests:
+                  - SynthesisSession_AbandonedGenerate_FaultsSessionAndRejectsReuseImmediately
+                  - SynthesisSession_SpeakAsync_SlowPlaybackDeviceStart_DoesNotBlockCaller
+
+              - id: Speech-Synthesis-SynthesisSession-SilenceAndVolume
+                title: >-
+                  The SynthesisSession class shall write each segment's declared pre-silence and
+                  post-silence to the playback device around that segment's audio, and shall apply
+                  a volume override as amplitude scaling clamped to the range -1.0 to 1.0.
+                justification: |
+                  Pause tags and sentence-ending ellipses are realized as silence durations, and a
+                  volume tag is realized as post-hoc gain because backends have no native gain
+                  input; clamping prevents a loud tag from producing out-of-range samples.
+                tests:
+                  - SynthesisSession_SpeakAsync_SegmentWithPreAndPostSilence_WritesSilenceAroundAudio
+                  - SynthesisSession_SynthesizeAsync_VolumeOverride_ScalesAndClampsSamples
           - title: SynthesisSessionFaultedException Requirements
             requirements:
               - id: Speech-Synthesis-SynthesisSessionFaultedException-Thrown
@@ -226,6 +273,7 @@ sections:
                   wrapped inner exception preserves the original root cause for diagnostics.
                 tests:
                   - SynthesisSession_SynthesizeAsync_AfterFault_ThrowsSynthesisSessionFaultedException
+                  - SynthesisSessionFaultedException_Constructors_PreserveMessageAndInnerException
 
           - title: SynthesisBackend Requirements
             requirements:
@@ -246,8 +294,10 @@ sections:
               - id: Speech-Synthesis-SynthesisBackend-ModelOwnedConfiguration
                 title: >-
                   The ISynthesisBackend seam shall load a backend using only the configuration the
-                  selected model itself declares, reusing the already-referenced sherpa-onnx
-                  package rather than adding a new native dependency.
+                  selected model itself declares, by delegating construction to the model's own
+                  CreateBackend method through DefaultSynthesisBackendFactory, so that adding a
+                  synthesis model never requires changing the synthesis subsystem or adding a
+                  native dependency to it.
                 justification: |
                   The design makes each model's backing class responsible for its own backend
                   configuration, so that adding a new synthesis model is a self-contained,
@@ -256,6 +306,8 @@ sections:
                 tests:
                   - ISynthesisModel_CreateBackend_InstalledDirectory_ReturnsSynthesisBackend
                   - SpeechSynthesizerFactory_LoadAsync_ModelInstalled_ReturnsRealEngine
+                  - DefaultSynthesisBackendFactory_Create_ValidArguments_ReturnsModelCreatedBackend
+                  - DefaultSynthesisBackendFactory_Create_InvalidArguments_Throws
 
           - title: Layer2Rendering Requirements
             requirements:

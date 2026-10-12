@@ -1098,7 +1098,7 @@ public class SynthesisSessionTests
         // Assert: the speaker id still resolves from the bag, and the segment's speed differs from 1.0
         var call = Assert.Single(backend.GenerateCalls);
         Assert.Equal(5, call.SpeakerId);
-        Assert.NotEqual(1.0f, call.Speed);
+        Assert.True(call.Speed > 1.0f);
     }
 
     /// <summary>
@@ -1136,6 +1136,58 @@ public class SynthesisSessionTests
 
         // Assert: Generate was never entered concurrently with itself
         Assert.Equal(1, backend.MaxConcurrentGenerateCalls);
+    }
+
+    /// <summary>
+    ///     Proves that <see cref="ISynthesisSession.SpeakAsync"/> writes a pause segment's
+    ///     silence as zero-valued samples sized for the device's rate and channel count (here a
+    ///     stereo device, so the mono backend audio is also up-mixed), in segment order.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_SpeakAsync_SegmentWithPreAndPostSilence_WritesSilenceAroundAudio()
+    {
+        // Arrange: a stereo 16 kHz device; the short pause renders as 300 ms of post-silence
+        var backend = new FakeSynthesisEngine(sampleRate: 16000);
+        var device = CreateAvailablePlaybackDevice(sampleRate: 16000, channelCount: 2);
+        var writes = new List<float[]>();
+        device.When(d => d.Write(Arg.Any<IReadOnlyList<float>>()))
+            .Do(call => writes.Add([.. call.Arg<IReadOnlyList<float>>()]));
+        await using var session = CreateSession(backend, device);
+
+        // Act
+        await session.SpeakAsync("Hello [short pause] world.", TestContext.Current.CancellationToken);
+
+        // Assert: speech, then 300 ms of stereo silence (4800 frames x 2 channels), then speech
+        Assert.Equal(3, writes.Count);
+        Assert.Equal("Hello".Length * 4 * 2, writes[0].Length);
+        Assert.Equal(4800 * 2, writes[1].Length);
+        Assert.All(writes[1], sample => Assert.Equal(0f, sample));
+        Assert.Equal("world.".Length * 4 * 2, writes[2].Length);
+    }
+
+    /// <summary>
+    ///     Proves that a volume tag scales the synthesized amplitude by the resolved ratio and
+    ///     that a boost large enough to exceed full scale is clamped to <c>1.0</c>.
+    /// </summary>
+    [Fact]
+    public async Task SynthesisSession_SynthesizeAsync_VolumeOverride_ScalesAndClampsSamples()
+    {
+        // Arrange: the fake backend emits 0.5 samples; "loud" resolves to ratio 4.9, "soft" to 0.5
+        var backend = new FakeSynthesisEngine();
+        var device = CreateAvailablePlaybackDevice();
+        var model = new FakeSynthesisModel(parameters:
+        [
+            new NumericParameter("volume", "Volume", "Output gain.", new NumericParameterBounds(0.5, 20.0, 0.1, 1.0), "x"),
+        ]);
+        await using var session = CreateSession(backend, device, model);
+
+        // Act
+        var loud = await session.SynthesizeAsync("[loud] Hello.", TestContext.Current.CancellationToken);
+        var soft = await session.SynthesizeAsync("[soft] Hello.", TestContext.Current.CancellationToken);
+
+        // Assert: boosted audio is clamped to full scale; reduced audio is scaled by 0.5
+        Assert.All(Assert.Single(loud).Samples, sample => Assert.Equal(1.0f, sample));
+        Assert.All(Assert.Single(soft).Samples, sample => Assert.Equal(0.25f, sample, 0.0001f));
     }
 
     /// <summary>

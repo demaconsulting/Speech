@@ -20,12 +20,20 @@ the engine's exclusivity lease, and a `_syncRoot` lock guarding its `SynthesisSe
 current operation's `CancellationTokenSource`, its fault (if any), and disposal/lease-released
 flags. `IsAvailable` is `true` unless disposed or `Faulted`.
 
-Unlike the former streaming synthesizer's pending-segment channel, this session does not
-pipeline synthesis ahead of playback: each segment is synthesized, then (for `SpeakAsync`)
-immediately written to the playback device, before the next segment's synthesis begins. This
-keeps the per-call state machine simple - exactly one backend call in flight at a time - while
-still overlapping this call's own synthesis-then-playback work normally, since playback of one
-segment proceeds without the caller waiting for the whole plan up front.
+The session does not pipeline synthesis ahead of playback: each segment is synthesized, then
+(for `SpeakAsync`) immediately written to the playback device, before the next segment's
+synthesis begins. This keeps the per-call state machine simple - exactly one backend call in
+flight at a time - and playback of an early segment begins after only that segment has been
+synthesized, without waiting for the whole plan. Synthesis of one segment never overlaps
+synthesis of another.
+
+Additional private state tracks native-call completion: `_operationTask` is the in-flight
+operation's abandon-aware task; `_pendingNativeCompletion` is the raw completion of the most
+recently started native call (a backend `Generate` or the playback device's `Start`), which
+completes only when that call genuinely returns even if the dedicated worker abandoned it;
+`_disposeTask` is the single-flight disposal operation shared by every `DisposeAsync` caller and
+doubles as the disposed flag. The session does not own or dispose the backend; the creating
+`SpeechSynthesizerEngine` does.
 
 `DrainPollInterval` (15ms) and `DrainTailMargin` (40ms) are fixed constants governing
 `WaitForPlaybackDrainAsync`'s post-loop wait in `GenerateAndOptionallyPlayAsync` (see below):
@@ -43,24 +51,37 @@ thread can change.
   cancellation, or to `Faulted` (reporting the fault via diagnostics) on any other exception. A
   second call while an operation is already `Starting`/`Running`/`Stopping` throws
   `InvalidOperationException`; a call while `Faulted` throws `SynthesisSessionFaultedException`
-  wrapping the original fault; a call after disposal throws `ObjectDisposedException`.
+  wrapping the original fault; a call after disposal throws `ObjectDisposedException`. A
+  cancellation that the native call honored promptly unwinds to `Stopped`. A cancellation
+  that the native call did not honor within the dedicated worker's abandon timeout also returns
+  to the caller promptly (as an `OperationCanceledException`), but moves the session to
+  `Faulted` with a `TimeoutException` fault, because the abandoned call is still running against
+  the shared backend; `_pendingNativeCompletion` is left set so `StopAsync`/`DisposeAsync` still
+  wait for it. An `OperationCanceledException` thrown by the backend when no cancellation was
+  requested is treated as an ordinary fault.
 - **StopAsync(cancellationToken)**: Cancels the current operation's `CancellationTokenSource`
-  under the lock, if one exists, then awaits that same tracked operation task (abandoning the
-  wait, but not the operation itself, past the dedicated worker's abandon timeout) so the
-  returned task completes only once the in-flight operation has genuinely stopped; a safe no-op
-  otherwise. The cancelled operation still unwinds through the normal `Stopping` → `Stopped`
-  path, not `Faulted`.
+  under the lock, if one exists, awaits that tracked operation task, and then re-reads and awaits
+  `_pendingNativeCompletion` (even when the operation task is already cleared by an abandon
+  fault), so the returned task completes only once every native call the operation started has
+  genuinely returned; a safe no-op when idle. The `cancellationToken` bounds only the caller's own
+  wait: a canceled token makes the returned task throw, but the underlying cancel-and-await work
+  still runs to completion for other callers and for `DisposeAsync`. A cancelled operation whose
+  native call stopped promptly unwinds through `Stopping` → `Stopped`; one whose native call
+  was abandoned leaves the session `Faulted` (see Error Handling).
 - **GenerateAndOptionallyPlayAsync(text, playAfterSynthesis, cancellationToken)**: Normalizes the
   text via `_model.NormalizeText`, parses it via `AudioTagParser.Parse`, renders it via
   `_model.CapabilityProfile.Render(spans, _model)` into a `SpeechPlan`, then synthesizes each
   `SpeechSegment` in turn via `GenerateSegmentAsync`. When `playAfterSynthesis` is `false`
   (`SynthesizeAsync`), simply collects every segment's `SynthesizedSpeech` into the returned list.
-  When `true` (`SpeakAsync`), starts the playback device, builds one `PlaybackAudioResampler` for
+  When `true` (`SpeakAsync`), starts the playback device through `DedicatedWorker.Start` (so a stuck device-open call is bounded by the same cancel-then-abandon policy, and its raw completion is published as `_pendingNativeCompletion`), builds one `PlaybackAudioResampler` for
   the call, writes each segment's pre-silence/resampled audio/post-silence as it is produced, and
   once every segment has been written, awaits `WaitForPlaybackDrainAsync` before a `finally` block
   stops the device - reporting (but not rethrowing) a failure to stop, so the device is never left
   running regardless of whether the loop, the drain wait, or neither completed, faulted, or was
-  cancelled.
+  cancelled. When the device-start call was abandoned and is still running, the device stop is
+  deferred to a background continuation that awaits the start call's genuine completion first
+  (never running `Start` and `Stop` concurrently); that continuation becomes the pending native
+  completion.
 - **GenerateSegmentAsync(segment, cancellationToken)**: An empty-text segment (a rendered pause)
   skips the backend entirely and returns a pure-silence `SynthesizedSpeech` built directly from
   the segment's declared silence durations. Otherwise resolves speed/volume overrides against the
@@ -72,8 +93,9 @@ thread can change.
   session-level voice selection), and calls `_backend.Generate(text, speedRatio, speakerId)`
   through `DedicatedWorker.Run` - so a non-cooperative native call is bounded by the
   cooperative-cancel-then-abandon policy rather than awaited indefinitely - applying any volume
-  override as post-hoc amplitude scaling (sherpa-onnx's offline TTS API has no native gain input),
-  clamped to `[-1.0, 1.0]`.
+  override as post-hoc amplitude scaling (backends have no native gain input),
+  clamped to `[-1.0, 1.0]`. A speed or volume override whose resolved ratio is not a positive
+  finite number is ignored.
 - **WaitForPlaybackDrainAsync(cancellationToken)**: Polls `_device.PendingSampleCount` every
   `DrainPollInterval` (15ms) until it reaches zero - i.e. until the playback hardware has
   genuinely rendered every sample this operation wrote, not merely until every segment was handed
@@ -81,9 +103,12 @@ thread can change.
   residual internal host buffering (e.g. PortAudio's own ring buffer) that has already left the
   managed queue but has not yet actually reached the speakers. Honors `cancellationToken`: a
   cancellation during either wait ends it immediately via `Task.Delay`'s own cancellation.
-- **DisposeAsync()**: Cancels any in-flight operation's `CancellationTokenSource`, transitions
-  `Disposing` → `Disposed`, and releases the owning engine's exclusivity lease exactly once (via
-  the constructor-supplied release callback). Idempotent.
+- **DisposeAsync()**: Starts one single-flight teardown (`_disposeTask`) shared by every caller:
+  cancels any in-flight operation, awaits the operation task and then `_pendingNativeCompletion`
+  (so an abandoned native call has genuinely returned), transitions `Disposing` → `Disposed`,
+  and only then releases the owning engine's exclusivity lease exactly once (via the
+  constructor-supplied release callback). Idempotent; concurrent callers all complete after the
+  same teardown.
 
 **Error Handling**: A fault raised synthesizing or playing a segment transitions the session to
 `Faulted` and is reported through `ISpeechDiagnostics` before being rethrown to the caller of the
@@ -91,8 +116,9 @@ operation that faulted; every subsequent `SpeakAsync`/`SynthesizeAsync` call the
 `SynthesisSessionFaultedException` wrapping that original fault, until the session is disposed. A
 playback-device write failure still stops the device via the `finally` block before propagating.
 A cancellation while `WaitForPlaybackDrainAsync` is polling ends the wait immediately via
-`Task.Delay`'s own cancellation, while `finally` still stops the device; the operation unwinds to
-`Stopped`, not `Faulted`, since cancellation is an ordinary, successful outcome. An unavailable
+`Task.Delay`'s own cancellation, while `finally` still stops the device; when no native call was
+abandoned, the operation unwinds to `Stopped`, not `Faulted`, since cancellation is then an
+ordinary outcome. An unavailable
 playback device throws promptly rather than hanging. Calling an operational member after
 disposal throws `ObjectDisposedException`; calling one while another is already in flight on the
 same session throws `InvalidOperationException`.
@@ -112,9 +138,8 @@ subsystem.
 session's chunking, Layer 2 rendering, per-segment synthesis, and fault-containment logic is
 verifiable with pure managed fakes - no downloaded model and no platform-specific native binary
 are ever required in CI. This mirrors the `IRecognitionBackend`/`IRecognitionBackendFactory` seam
-used for recognition. Renamed from `ISynthesisEngine`/`ISynthesisEngineFactory` so the "engine"
-vocabulary is reserved for the public Layer 3 `ISpeechSynthesizerEngine` contract; members are
-unchanged by the rename.
+used for recognition. The "engine" vocabulary is reserved for the public Layer 3
+`ISpeechSynthesizerEngine` contract.
 
 **Data Model**: N/A (interfaces only).
 
@@ -140,8 +165,7 @@ from exactly one `DedicatedWorker` call at a time. Load failures surface as exce
 
 #### DefaultSynthesisBackendFactory
 
-**Purpose**: Provide the one real `ISynthesisBackendFactory` implementation, replacing the former
-`SherpaOnnxSynthesisEngineFactory`. It holds no engine-specific knowledge at all: the design makes
+**Purpose**: Provide the one real `ISynthesisBackendFactory` implementation. It holds no engine-specific knowledge at all: the design makes
 each model's backing class responsible for constructing its own backend, so adding a synthesis
 model, or an entire model-supplying extension package, never requires changing this factory.
 

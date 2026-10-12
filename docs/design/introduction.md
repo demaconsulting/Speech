@@ -50,9 +50,9 @@ model-provider library system and its constituent software items, specifically:
 - **SynthesisSubsystem (Subsystem)** — Text-to-speech: the closed, fixed Natural Language Audio
   Tag vocabulary grouped into kinds and the model-independent Layer 1 parser that recognizes
   bracket syntax against it, the Layer 2 rendering strategy that turns a parsed span sequence
-  into a model-appropriate `SpeechPlan`, sentence chunking for pipelined synthesis, the public
-  async Engine/Session streaming/playback contract with its composition root and honest
-  unavailable fallbacks, the mockable internal synthesis-backend seam with its model-driven
+  into a model-appropriate `SpeechPlan`, sentence chunking for sequential chunked synthesis, the public
+  async Engine/Session synthesis/playback contract with its composition root and honest
+  unavailable fallbacks, the mockable synthesis-backend seam with its model-driven
   default backend factory, and the playback-format converter
 
 The following software items of the SpeechDemo system are also covered:
@@ -187,11 +187,11 @@ Tag vocabulary and the model-independent Layer 1 parser (`AudioTagCatalog`/`Audi
 recognizes bracket syntax against it, its Layer 2 rendering strategy
 (`IModelCapabilityProfile`/`DefaultModelCapabilityProfile`) that turns a parsed span sequence
 into a model-appropriate `SpeechPlan` of `SpeechSegment`s, its `SentenceChunker` for
-pipeline-friendly chunk boundaries, and its public async Engine/Session streaming/playback
+sentence-aligned chunk boundaries, and its public async Engine/Session synthesis/playback
 contract (`ISpeechSynthesizerEngine`/`ISynthesisSession`), which composes a synthesizer engine
 for an installed synthesis model via `LoadAsync` and then a session bound to a playback device
-via the engine's `CreateSessionAsync` without ever throwing and pipelines chunked synthesis with
-playback through an internal, mockable synthesis-backend seam.
+via the engine's `CreateSessionAsync` without ever throwing and plays each synthesized chunk in order
+through a public, mockable synthesis-backend seam.
 
 A second, sibling system, `SpeechDemo`, sits alongside `Speech` in the model. It is the Avalonia
 desktop application that consumes the library's public API and demonstrates it, and it is
@@ -337,7 +337,7 @@ src/DemaConsulting.Speech/
     ├── SpeechParameterConventions.cs             — Tag-to-numeric-parameter mapping conventions
     ├── IModelCapabilityProfile.cs                — Layer 2 rendering strategy contract (public)
     ├── DefaultModelCapabilityProfile.cs          — Generically-correct default rendering strategy
-    ├── SentenceChunker.cs                        — Sentence/clause-sized chunking for pipelining
+    ├── SentenceChunker.cs                        — Sentence/clause-sized chunking
     ├── EngineAudio.cs                             — Raw engine output: samples plus produced rate (public)
     ├── ISpeechSynthesizerEngine.cs                — Loaded-model engine contract (Layer 3)
     ├── ISynthesisSession.cs                       — Per-device session contract (Layer 5)
@@ -353,7 +353,7 @@ src/DemaConsulting.Speech/
     ├── ISynthesisBackendFactory.cs                — Mockable engine-loading seam (internal)
     ├── DefaultSynthesisBackendFactory.cs          — Real model-driven backend loader
     ├── SpeechSynthesizerEngine.cs                 — Real ISpeechSynthesizerEngine implementation
-    ├── SynthesisSession.cs                        — Real ISynthesisSession chunked/pipelined synthesis
+    ├── SynthesisSession.cs                        — Real ISynthesisSession chunked synthesis
     ├── DedicatedWorker.cs                         — Long-running worker thread with cooperative-cancel-then-abandon
     ├── PlaybackAudioResampler.cs                  — Rate conversion and upmix for playback audio
     └── SynthesizedSpeech.cs                       — One synthesized segment's audio and silence

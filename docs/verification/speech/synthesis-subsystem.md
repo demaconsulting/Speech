@@ -6,18 +6,18 @@ The SynthesisSubsystem's Layer 1 scope - the closed Natural Language Audio Tag v
 Layer 1 parser - is verified entirely through deterministic, pure unit tests over plain strings.
 Neither `AudioTagCatalog` nor `AudioTagParser` depends on a model, an inference engine, an audio
 device, or any native runtime, so no test double is required at this stage: every test calls the
-production catalog/parser directly and asserts on their return values. This remains unchanged by
-the Engine/Session redesign.
+production catalog/parser directly and asserts on their return values.
 
 The Layer 3/Layer 5 Engine/Session API is verified the same way the RecognitionSubsystem's own
-Engine/Session redesign is: a fake `ISynthesisBackend`/`ISynthesisBackendFactory` pair and an
+Engine/Session API is: a fake `ISynthesisBackend`/`ISynthesisBackendFactory` pair and an
 NSubstitute `IAudioPlaybackDevice` stand in for the native sherpa-onnx runtime and real speakers,
-making Layer 2 rendering, chunking, per-operation synthesize-then-play behavior, engine
+making Layer 2 rendering, chunking, per-operation sequential synthesize-then-play behavior, engine
 exclusivity leasing, the session state machine, the overlap rule, cancellation, fault
 containment, and honest degradation fully testable without a downloaded speech model or physical
-audio hardware. Determinism is structural, not timing-based: a deterministic fake backend plus
+audio hardware. Determinism is structural wherever practical: a deterministic fake backend plus
 `SemaphoreSlim`-based test doubles let a test assert ordering, in-flight state, and fault
-transitions without polling or sleeping.
+transitions without polling. A few tests (for example the drain-wait and abandonment tests) use
+short bounded delays to let a background wait begin or an abandon timeout elapse.
 
 The lease/exclusivity behavior is verified by driving `SpeechSynthesizerEngine`'s real
 `CreateSessionAsync`/`DisposeAsync` logic against a fake backend, asserting that a second
@@ -358,7 +358,8 @@ utterance.
 #### Session: Faulted Is Terminal
 
 **Tests**: `SynthesisSession_SynthesizeAsync_BackendThrows_ReportsFaultAndTransitionsToFaulted`,
-`SynthesisSession_SynthesizeAsync_AfterFault_ThrowsSynthesisSessionFaultedException`
+`SynthesisSession_SynthesizeAsync_AfterFault_ThrowsSynthesisSessionFaultedException`,
+`SynthesisSessionFaultedException_Constructors_PreserveMessageAndInnerException`
 
 Verifies that a non-cancellation failure during an operation reports the fault through
 diagnostics and transitions the session to the terminal `Faulted` state, and that every
@@ -383,6 +384,8 @@ processes the returned segments gets a faithful, lossless reconstruction of the 
 Verifies that plain text yields a synthesized audio segment, that `SpeakAsync` starts the
 playback device, writes segments in order, and stops the device, and that a long, multi-sentence
 input still yields segments in the correct order with the backend never called concurrently.
+Synthesis is sequential: each segment is synthesized and written before the next is synthesized;
+no scenario expects synthesis to overlap playback.
 
 #### Session: Fault Containment
 
@@ -408,16 +411,59 @@ stopped.
 
 #### Session: Cancellation and Disposal Lifecycle
 
-**Tests**: `SynthesisSession_StopAsync_WhileSpeaking_CancelsInFlightOperationOnlyAfterInFlightGenerateReturns`,
+**Tests**: `SynthesisSession_StopAsync_WhileSpeaking_DoesNotCompleteUntilInFlightGenerateReturns`,
 `SynthesisSession_StopAsync_NoOperationInFlight_IsNoOp`,
 `SynthesisSession_DisposeAsync_CalledTwice_ReleasesLeaseOnce`,
 `SynthesisSession_SynthesizeAsync_AfterDispose_ThrowsObjectDisposedException`
 
-Verifies that `StopAsync` cancels an in-flight operation deterministically, only after the
+Verifies that `StopAsync` cancels an in-flight operation and does not complete until the
 in-flight `DedicatedWorker`-routed `Generate` call has genuinely returned (never orphaning it); is
 a safe no-op when no operation is in flight; releases the engine's exclusivity lease exactly once
 across repeated `DisposeAsync` calls; and that operating on a disposed session throws
 `ObjectDisposedException`.
+
+#### Session: Abandoned Native Calls Fault the Session
+
+**Tests**: `SynthesisSession_AbandonedGenerate_FaultsSessionAndRejectsReuseImmediately`,
+`SynthesisSession_StopAsync_AbandonedGenerate_DoesNotCompleteUntilNativeCallGenuinelyReturns`,
+`SynthesisSession_DisposeAsync_CalledAfterAbandonmentFault_DoesNotReleaseLeaseUntilNativeCallGenuinelyReturns`,
+`SynthesisSession_DisposeAsync_AbandonedWorker_DoesNotReleaseLeaseUntilWorkerExits`,
+`SynthesisSession_StopAsync_AbandonedDeviceStart_DoesNotCallDeviceStopUntilStartGenuinelyReturns`,
+`SynthesisSession_StopAsync_CallerTokenPreCanceled_ThrowsButOperationStillStops`,
+`SynthesisSession_SpeakAsync_SlowPlaybackDeviceStart_DoesNotBlockCaller`,
+`SynthesisSession_DisposeAsync_WhileSpeaking_DoesNotReleaseLeaseBeforeOperationSettles`,
+`SynthesisSession_DisposeAsync_RacingSpeakAsync_NeverDisposesBackendWhileOperationInFlight`,
+`SynthesisSession_DisposeAsync_CalledConcurrentlyTwice_BothCompleteAfterSingleTeardown`,
+`SynthesisSession_DisposeAsync_AfterRejectedOverlappingCall_StillAwaitsOriginalOperation`,
+`SynthesisSession_StopAsync_RacingOperationCompletion_NeverThrowsObjectDisposedException`
+
+Verifies that a cancellation request the native `Generate` call does not honor within the abandon
+timeout returns control to the caller promptly, moves the session to `Faulted`, and rejects
+reuse; that `StopAsync` and `DisposeAsync` do not complete (and the engine lease is not released)
+until the abandoned native call, or an abandoned playback-device start, has genuinely returned;
+that a device stop is deferred until an abandoned start returns; that a caller token bounds only
+that caller's own wait; and that concurrent and racing stop/dispose calls share one teardown
+without throwing.
+
+#### Session: Silence, Volume, and Unrequested Cancellation
+
+**Tests**: `SynthesisSession_SpeakAsync_SegmentWithPreAndPostSilence_WritesSilenceAroundAudio`,
+`SynthesisSession_SynthesizeAsync_VolumeOverride_ScalesAndClampsSamples`,
+`SynthesisSession_SynthesizeAsync_BackendThrowsUnrequestedOperationCanceledException_TransitionsToFaultedNotStopped`
+
+Verifies that a pause segment's silence is written to the device as zero samples sized for the
+device's rate and channel count, with backend audio up-mixed to the device's channel count; that
+a volume tag scales the amplitude and a large boost is clamped to full scale; and that an
+`OperationCanceledException` thrown by the backend without a cancellation request is treated as
+a fault, not a stop.
+
+#### Session: Default Backend Factory
+
+**Tests**: `DefaultSynthesisBackendFactory_Create_ValidArguments_ReturnsModelCreatedBackend`,
+`DefaultSynthesisBackendFactory_Create_InvalidArguments_Throws`
+
+Verifies that the default factory returns the backend the model itself constructs and rejects a
+null model and a null or empty directory.
 
 #### Session: Voice/Speaker Selection
 

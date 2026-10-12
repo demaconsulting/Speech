@@ -209,7 +209,7 @@ sections:
           intend as a tag (a typo, an unsupported bracket phrase, an unbalanced bracket) is never
           silently dropped or rejected. This requirement covers the closed vocabulary and the
           model-independent Layer 1 parser; Layer 2 per-model rendering and the public
-          ISynthesisSession streaming/playback pipeline are described by
+          ISynthesisSession chunked synthesis and playback are described by
           Speech-Synthesis-StreamingSynthesizer below.
         children:
           - Speech-Synthesis-ClosedVocabulary
@@ -222,18 +222,18 @@ sections:
         title: >-
           The library shall synthesize speech for text containing Natural Language Audio Tags,
           using an installed synthesis model and a configured audio output device, rendering each
-          tag according to that model's own declared capabilities, chunking and pipelining
-          synthesis with playback for low latency, and shall compose without ever throwing when
+          tag according to that model's own declared capabilities, chunking text and playing each
+          synthesized chunk as soon as it is ready for low latency, and shall compose without ever throwing when
           synthesis is not possible on the machine.
         tags: [system]
         justification: |
-          This library's core promise includes chunked, low-latency streaming synthesis and
+          This library's core promise includes chunked, low-latency synthesis and
           playback of text containing Natural Language Audio Tags, built on the already-shipped
           audio playback, model management, and Layer 1 tag-parsing capabilities. Because a model
           that has not been downloaded yet, a machine with no speakers, and a machine without the
           speech engine's native runtime are all ordinary deployment states, composition must
-          degrade honestly rather than failing application start-up. This pass (Sub-phase 4b)
-          ships the Layer 2 rendering, chunked pipeline, and the mockable native-backend seam;
+          degrade honestly rather than failing application start-up. The subsystem
+          provides the Layer 2 rendering, chunked playback, and the mockable native-backend seam;
           the real sherpa-onnx synthesis backend is supplied by the sibling
           DemaConsulting.Speech.Sherpa package; end-to-end behavior is proven against a test
           model per the fakeable engine seam.

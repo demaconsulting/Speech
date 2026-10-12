@@ -4,11 +4,10 @@
 # These requirements describe the subsystem-level behavior of the SynthesisSubsystem,
 # decomposing the system-level Natural Language Audio Tag requirement in docs/reqstream/speech.yaml.
 #
-# Sub-phase 4a covers the closed tag vocabulary and the model-independent Layer 1 parser
-# (AudioTagCatalog/AudioTagParser). Sub-phase 4b adds Layer 2 per-model rendering into a
-# SpeechPlan, the chunked synthesis pipeline, the real sherpa-onnx synthesis backend, and
-# playback. A later redesign replaces the original synchronous ISpeechSynthesizer contract with
-# an asynchronous Engine/Session split: ISpeechSynthesizerEngine (Layer 3, a loaded model) hosts
+# The subsystem covers the closed tag vocabulary and the model-independent Layer 1 parser
+# (AudioTagCatalog/AudioTagParser), Layer 2 per-model rendering into a SpeechPlan, sequential
+# chunked synthesis, and playback. The API is an asynchronous Engine/Session split:
+# ISpeechSynthesizerEngine (Layer 3, a loaded model) hosts
 # at most one leased ISynthesisSession (Layer 5, bound to one playback device) at a time, adding
 # session exclusivity, a lifecycle state machine, an overlap-not-allowed rule for concurrent
 # operations on one session, a terminal Faulted state, and a dedicated-worker cancellation policy
@@ -27,7 +26,7 @@ sections:
               Emphasis).
             justification: |
               The design fixes the tag vocabulary and groups it into kinds so that Layer 2
-              per-model rendering (a later phase) and host UI code can reason about a tag's
+              per-model rendering and host UI code can reason about a tag's
               broad category generically, and so the vocabulary expands only through a new
               library release rather than being host- or model-configurable.
             children:
@@ -184,11 +183,9 @@ sections:
               regressing the independent, per-segment Natural Language Audio Tag speed/volume
               override mechanism.
             justification: |
-              Phase 7b shipped the library's first real ISynthesisModel but left voice/speaker
-              selection entirely out of scope: segment generation hard-coded speakerId: 0
-              regardless of any model-declared voice parameter, so a model such as
-              SherpaOnnxKokoroEnglishSynthesisModel's 11-voice ChoiceParameter had no real path
-              to change synthesized output. This requirement closes that gap for any model that
+              A model-declared voice parameter (for example a multi-voice ChoiceParameter) must
+              actually change synthesized output rather than every segment using a fixed
+              speakerId: 0. This requirement covers any model that
               owns real per-voice knowledge, while keeping voice selection and the existing
               per-segment speed/volume convention correctly independent of each other.
             children:
@@ -203,11 +200,14 @@ sections:
           - id: Speech-Synthesis-ChunkedPipeline
             title: >-
               The SynthesisSubsystem shall chunk synthesis-ready text into sentence/clause-sized
-              pieces and synthesize a later chunk while an earlier chunk is still playing.
+              pieces, synthesize the pieces in order one at a time, and play each piece as soon
+              as it has been synthesized rather than after the whole text has been synthesized.
             justification: |
-              The design requires low-latency synthesis where playback of an early chunk begins
-              while later chunks are still being synthesized, rather than a caller waiting for an
-              entire utterance's inference to complete before hearing anything.
+              Chunking keeps each backend call short, so playback of an early chunk begins after
+              only that chunk has been synthesized, rather than a caller waiting for an entire
+              utterance's inference to complete before hearing anything. Synthesis itself is
+              sequential: a later chunk is not synthesized while an earlier chunk is still being
+              synthesized.
             children:
               - Speech-Synthesis-SentenceChunker-BoundarySplitting
               - Speech-Synthesis-SentenceChunker-BoundaryHandling
@@ -218,6 +218,7 @@ sections:
               - Speech-Synthesis-SynthesisSession-ChunkedPipeline
               - Speech-Synthesis-SynthesisSession-FullFidelitySegmentList
               - Speech-Synthesis-SynthesisSession-PipelinedPlayback
+              - Speech-Synthesis-SynthesisSession-SilenceAndVolume
               - Speech-Synthesis-SynthesisSession-GenuinePlaybackDrainWait
               - Speech-Synthesis-PlaybackAudioResampler-RateConversion
               - Speech-Synthesis-PlaybackAudioResampler-Upmix
@@ -270,6 +271,8 @@ sections:
             children:
               - Speech-Synthesis-SynthesisSession-FaultContainment
               - Speech-Synthesis-SynthesisSession-CancellationAndLifecycle
+              - Speech-Synthesis-SynthesisSession-NativeCompletionBeforeRelease
+              - Speech-Synthesis-SynthesisSession-AbandonedNativeCallFaults
               - Speech-Synthesis-DedicatedWorker-CooperativeCancellation
               - Speech-Synthesis-DedicatedWorker-NonCooperativeAbandonment
               - Speech-Synthesis-DedicatedWorker-LongRunningExecution

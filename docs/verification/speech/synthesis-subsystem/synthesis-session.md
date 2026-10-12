@@ -40,7 +40,7 @@ semaphore to know the drain-wait loop has genuinely started polling - no sleep, 
 between the test and the implementation - before asserting the awaited `SpeakAsync` task is not
 yet complete and `Stop()` has not yet been called.
 
-Cancellation is verified deterministically, not by timing: a `BlockingSynthesisEngine` test
+Cancellation is verified with semaphore-held test doubles rather than timing assumptions where possible: a `BlockingSynthesisEngine` test
 double uses `SemaphoreSlim`s to hold the backend call open mid-segment until the test explicitly
 releases it, letting a test assert that `StopAsync` cancels the in-flight operation only after the
 in-flight `Generate` call (routed through `DedicatedWorker`) has genuinely returned - proving the
@@ -109,7 +109,10 @@ failure still stops the device; a session's `parameterValues` bag resolves to th
 id via `ISynthesisModel.ResolveSpeakerId` once per segment, coexisting correctly with an
 independent per-segment Natural Language Audio Tag speed override in the same call;
 `DedicatedWorker` completes promptly on cooperative cancellation and abandons a non-cooperative
-delegate after its timeout while always using a long-running task; and `PlaybackAudioResampler`
+delegate after its timeout while always using a long-running task; an abandoned native call
+faults the session, and `StopAsync`/`DisposeAsync` wait for its genuine return before completing
+or releasing the lease; volume overrides scale and clamp amplitude; the default backend factory
+delegates to the model; and `PlaybackAudioResampler`
 produces the documented output for identity, up/down conversion, upmix, and boundary inputs while
 rejecting a non-positive channel count.
 
@@ -121,6 +124,8 @@ Machine and StateChanged Event", "Session: Overlap Rule - No Concurrent Operatio
 Hot Reuse Across Repeated Calls", "Session: Faulted Is Terminal", "Session: SynthesizeAsync
 Full-Fidelity Segment List", "Session: Chunked Synthesis and Ordered Playback", "Session: Fault
 Containment", "Session: Genuine Playback Drain Before Stopping", "Session: Cancellation and
-Disposal Lifecycle", "Session: Voice/Speaker Selection", "DedicatedWorker: Cooperative
+Disposal Lifecycle", "Session: Abandoned Native Calls Fault the Session", "Session: Silence,
+Volume, and Unrequested Cancellation", "Session: Default Backend Factory", "Session:
+Voice/Speaker Selection", "DedicatedWorker: Cooperative
 Cancellation and Non-Cooperative Abandonment", and "Playback Format Conversion: Resampling,
 Anti-Aliasing, and Upmix".
