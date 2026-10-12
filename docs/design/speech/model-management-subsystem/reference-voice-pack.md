@@ -45,7 +45,8 @@ with it, `ReferenceVoiceSource` and `ReferenceVoiceInfo`; the library populates 
 
 **Error Handling**: The constructor throws `ArgumentException` for a non-HTTPS URL, a malformed
 checksum, or an id, archive file name or archive root folder that is not a single safe path segment
-(no separators, drive colon, `.`/`..` or rooted names, on every platform), and `ArgumentOutOfRangeException` for a non-positive size or a
+(no separators, drive colon, `.`/`..` or rooted names, on every platform), and
+`ArgumentOutOfRangeException` for a non-positive size or a
 negative `VoicesBytes` / `EmotionsBytes`.
 
 **Dependencies**: `SpeechModelDownloadDescriptor` / `SpeechModelDownloadFile`.

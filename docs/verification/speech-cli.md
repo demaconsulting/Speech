@@ -204,7 +204,7 @@ runtime state for the process's own entry point to reach.
 **Test**: `CommandDispatch_Handlers_ReturnNonNullTasks`
 
 Verifies every `CommandDispatch` handler (a `Func<Context, Task>`) is non-null and yields a non-null
-`Task` when invoked, confirming the asynchronous dispatch pipeline has no unwired entry.
+`Task` when invoked, confirming the asynchronous dispatch pipeline has no missing entry.
 
 ## Manual / Build-Time Verification
 
