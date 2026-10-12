@@ -1,0 +1,101 @@
+---
+# Software Unit Requirements for the SpeechDemo AudioDeviceService
+#
+# These requirements describe the behavior of the IAudioDeviceService / AudioDeviceService
+# unit - the demo-owned device seam and its real implementation over the library's
+# AudioDeviceFactory - decomposing the parent DeviceSelectionSubsystem requirements.
+# IAudioDeviceService and AudioDeviceService are treated as one unit because the interface has
+# no independently observable behavior of its own; every test exercises it through
+# AudioDeviceService, its sole production implementation.
+#
+# The requirements are grouped by concern, one criterion each:
+#   - Construction (Devices-FactoryRequired)
+#   - Enumeration (Devices-LibraryProbeDelegation, -EmptyProbeResult, -ProbeResultsNotCached)
+#   - Refresh (Devices-ServiceRefreshDelegation)
+#   - Device creation (Devices-CaptureDeviceCreation, -PlaybackDeviceCreation)
+# Every test below is an AudioDeviceServiceTests test.
+
+sections:
+  - title: SpeechDemo Requirements
+    sections:
+      - title: DeviceSelectionSubsystem Requirements
+        sections:
+          - title: AudioDeviceService Requirements
+            requirements:
+              - id: SpeechDemo-Devices-FactoryRequired
+                title: >-
+                  The AudioDeviceService shall reject construction without a library audio
+                  device factory.
+                justification: |
+                  Every call is forwarded to the factory, so a missing factory is a programming
+                  error that should surface at composition rather than at the first
+                  enumeration.
+                tests:
+                  - AudioDeviceService_Constructor_NullFactory_ThrowsArgumentNullException
+
+              - id: SpeechDemo-Devices-LibraryProbeDelegation
+                title: >-
+                  The AudioDeviceService shall return exactly the capture and playback devices
+                  the library's probes report, without filtering, sorting or supplementing them.
+                justification: |
+                  The demo exists to show the library's device enumeration working, so it must
+                  not maintain a device list of its own. Routing enumeration through a
+                  demo-owned seam keeps the presentation logic testable without audio hardware
+                  while leaving the library's public API untouched.
+                tests:
+                  - AudioDeviceService_EnumerateCaptureDevices_ProbeReportsDevices_ReturnsProbeDevices
+                  - AudioDeviceService_EnumeratePlaybackDevices_ProbeReportsDevices_ReturnsProbeDevices
+
+              - id: SpeechDemo-Devices-EmptyProbeResult
+                title: >-
+                  The AudioDeviceService shall return an empty list, not null and not an error,
+                  for a direction whose probe reports no devices.
+                justification: |
+                  A machine with no audio backend is an ordinary state. Returning an empty list
+                  spares every caller a null check and an exception handler.
+                tests:
+                  - AudioDeviceService_Enumerate_ProbesReportNothing_ReturnsEmptyLists
+
+              - id: SpeechDemo-Devices-ProbeResultsNotCached
+                title: >-
+                  The AudioDeviceService shall report the probe's current answer on every
+                  enumeration rather than a remembered one.
+                justification: |
+                  Devices are hot-plugged while the application runs; a cached list would hide
+                  a refresh's result from every later enumeration.
+                tests:
+                  - AudioDeviceService_EnumerateCaptureDevices_ProbeResultChanges_ReturnsLatestProbeDevices
+
+              - id: SpeechDemo-Devices-ServiceRefreshDelegation
+                title: >-
+                  The AudioDeviceService shall forward a refresh request to the library audio
+                  device factory so that the library re-scans its device table.
+                justification: |
+                  A manual refresh is only meaningful if the library re-scans hardware; the
+                  adapter must therefore forward the request rather than absorb it.
+                tests:
+                  - AudioDeviceService_RefreshDevices_Always_DelegatesToFactoryRefreshDevices
+
+              - id: SpeechDemo-Devices-CaptureDeviceCreation
+                title: >-
+                  The AudioDeviceService shall create capture devices through the library audio
+                  device factory, returning the factory's unavailable device when the factory
+                  knows no matching device.
+                justification: |
+                  The panels create the devices they stream from through this seam. Delegating
+                  to the factory keeps device creation consistent with the same probe that
+                  produced the picker's list.
+                tests:
+                  - AudioDeviceService_CreateCaptureDevice_ProbeKnowsNoDevices_ReturnsUnavailableDevice
+
+              - id: SpeechDemo-Devices-PlaybackDeviceCreation
+                title: >-
+                  The AudioDeviceService shall create playback devices through the library audio
+                  device factory, returning the factory's unavailable device when the factory
+                  knows no matching device.
+                justification: |
+                  The panels create the devices they stream to through this seam. Delegating to
+                  the factory keeps device creation consistent with the same probe that
+                  produced the picker's list.
+                tests:
+                  - AudioDeviceService_CreatePlaybackDevice_ProbeKnowsNoDevices_ReturnsUnavailableDevice

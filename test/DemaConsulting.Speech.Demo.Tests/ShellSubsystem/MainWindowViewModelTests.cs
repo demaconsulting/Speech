@@ -245,4 +245,36 @@ public class MainWindowViewModelTests
         Assert.False(viewModel.Synthesis.HasModels);
         Assert.False(viewModel.Recognition.HasModels);
     }
+
+    /// <summary>
+    ///     Proves that assigning the panel that is already selected raises no change
+    ///     notification, so the bound view is not asked to swap content needlessly.
+    /// </summary>
+    [Fact]
+    public void MainWindowViewModel_SelectedPanel_SameValue_DoesNotNotify()
+    {
+        // Arrange: a composed shell with a recorded notification list
+        var viewModel = FullShell();
+        var changed = new List<string?>();
+        viewModel.PropertyChanged += (_, args) => changed.Add(args.PropertyName);
+
+        // Act: reassign the already-selected panel
+        viewModel.SelectedPanel = viewModel.Panels[0];
+
+        // Assert: no selection change was announced
+        Assert.DoesNotContain(nameof(MainWindowViewModel.SelectedPanel), changed);
+    }
+
+    /// <summary>
+    ///     Proves that every navigation entry the shell builds carries a non-blank title.
+    /// </summary>
+    [Fact]
+    public void MainWindowViewModel_Constructor_ValidPanels_EveryEntryHasNonBlankTitle()
+    {
+        // Arrange & Act: compose the shell
+        var viewModel = FullShell();
+
+        // Assert: no entry is untitled
+        Assert.All(viewModel.Panels, entry => Assert.False(string.IsNullOrWhiteSpace(entry.Title)));
+    }
 }

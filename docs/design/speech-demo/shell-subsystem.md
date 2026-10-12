@@ -5,12 +5,12 @@
 ### Overview
 
 The ShellSubsystem owns the application's start-up composition and its navigation surface. It
-contains the following units:
+contains the following units, each documented in its own file:
 
-- **MainWindowViewModel**: the window's navigation state — the ordered list of panels, the
-  currently selected panel, and the window title
-- **DemoPanelViewModel**: one navigable entry — a display title paired with the panel view
-  model the shell was composed with
+- **MainWindowViewModel**: the window's navigation state - the ordered list of panels, the
+  currently selected panel, and the window title - see _MainWindowViewModel Design_
+- **DemoPanelViewModel**: one navigable entry - a display title paired with the panel view model
+  the shell was composed with - see _DemoPanelViewModel Design_
 
 The composition root itself lives in the `App` unit (`App.axaml.cs`) alongside the process entry
 point, the `Program` unit (`Program.cs`). Both, together with `AppLaunchOptions` and
@@ -28,8 +28,10 @@ four panel view models, `DeviceSelectionViewModel`, `ModelCatalogViewModel`,
 
 The subsystem is a thin navigation surface: `MainWindowViewModel` wraps each injected panel view
 model in a titled `DemoPanelViewModel`, in a fixed order, and tracks the selected panel. The
-composition performed by the `App` unit is summarized next for context, then each unit is
-described.
+shell depends on the four panel view models only through their concrete types, and on nothing
+else. It never touches the library, the demo's service seams, or Avalonia; that separation is
+what allows the whole navigation surface to be unit tested with no UI toolkit and no audio
+hardware. See each unit's own design document for its data model and error handling.
 
 ### Composition Root
 
@@ -66,46 +68,5 @@ calls `Shutdown()` again; it does not use an `async void` handler.
 
 No dependency-injection container is used. The demo's purpose is to show a reader exactly how a
 host application wires itself to the library, and a container would move that wiring into
-configuration a reader has to reverse-engineer. The cost — a constructor call per collaborator —
+configuration a reader has to reverse-engineer. The cost - a constructor call per collaborator -
 is trivial at this size.
-
-### MainWindowViewModel
-
-`MainWindowViewModel` is constructed with the four panel view models and rejects a null for
-any of them, because the demo composes manually and the constructor is the only place a missing
-collaborator can be detected before a half-composed window reaches a user.
-
-| Member | Type | Purpose |
-| --- | --- | --- |
-| `Title` | `static string` | Window title naming the four panels |
-| `Panels` | `ObservableCollection<DemoPanelViewModel>` | The ordered navigable panels |
-| `SelectedPanel` | `DemoPanelViewModel?` | The panel currently shown |
-| `DeviceSelection` | `DeviceSelectionViewModel` | The injected device panel state |
-| `ModelCatalog` | `ModelCatalogViewModel` | The injected catalog panel state |
-| `Synthesis` | `SynthesisPanelViewModel` | The injected text-to-speech panel state |
-| `Recognition` | `RecognitionPanelViewModel` | The injected speech-to-text panel state |
-
-`Panels` is built once, during construction, by wrapping each injected panel view model in a
-titled `DemoPanelViewModel` entry, in the fixed order Audio Devices, Model Catalog, Text to Speech,
-Speech to Text; the shell never constructs or replaces the panel state itself. `SelectedPanel`
-is initialized to the first entry so the window never opens empty, and raises change
-notification on every assignment so the bound view can swap panels with no code-behind.
-
-The window title names the four panels the shell presents.
-
-### DemoPanelViewModel
-
-`DemoPanelViewModel` pairs a display `Title` with the `Content` view model to show. It rejects a
-null or blank title, and a null content, because a navigation entry with no title or no content
-is unusable rather than merely degraded.
-
-Keeping the entry as a distinct type — rather than navigating over the panel view models
-directly — is what lets the shell present a stable, titled navigation list without every panel
-view model having to know it is being navigated to.
-
-### Interactions with Other Units
-
-The shell depends on the four panel view models only through their concrete types, and on
-nothing else. It never touches the library, the demo's service seams, or Avalonia; that
-separation is what allows the whole navigation surface to be unit tested with no UI toolkit and
-no audio hardware.

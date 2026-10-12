@@ -215,6 +215,8 @@ public class DeviceSelectionViewModelTests
         Assert.Null(viewModel.SelectedPlaybackDevice);
         Assert.False(viewModel.HasCaptureDevices);
         Assert.False(viewModel.HasPlaybackDevices);
+        Assert.Contains("audio backend may be unavailable", viewModel.CaptureStatus, StringComparison.Ordinal);
+        Assert.Contains("audio backend may be unavailable", viewModel.PlaybackStatus, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -451,7 +453,7 @@ public class DeviceSelectionViewModelTests
     /// <summary>
     ///     Proves that the existing <see cref="AudioDeviceInUseException"/> fallback still
     ///     surfaces its status message when a registered hook cannot stop the in-use session,
-    ///     preserving the safety net alongside the new hook mechanism.
+    ///     preserving the safety net alongside the pre-refresh hooks.
     /// </summary>
     [Fact]
     public async Task DeviceSelectionViewModel_Refresh_HookCannotStopInUseDevice_FallsBackToStatusMessage()
@@ -471,5 +473,139 @@ public class DeviceSelectionViewModelTests
         Assert.Null(exception);
         Assert.Equal(inUseMessage, viewModel.CaptureStatus);
         Assert.Equal(inUseMessage, viewModel.PlaybackStatus);
+    }
+
+    /// <summary>
+    ///     Proves that a refresh which succeeds after a refused one re-enumerates and replaces
+    ///     the refusal message with the normal count status.
+    /// </summary>
+    [Fact]
+    public async Task DeviceSelectionViewModel_Refresh_SucceedsAfterRefusal_ReEnumeratesAndClearsMessage()
+    {
+        // Arrange: a populated panel whose first refresh is refused and whose second succeeds
+        var service = SequencedService([MicA], [MicA, MicB], [Speaker], [Speaker]);
+        var viewModel = new DeviceSelectionViewModel(service);
+        var refusals = 0;
+        service.When(s => s.RefreshDevices()).Do(_ =>
+        {
+            if (refusals++ == 0)
+            {
+                throw new AudioDeviceInUseException("in use");
+            }
+        });
+
+        // Act: refresh twice
+        await viewModel.Refresh();
+        var refusedStatus = viewModel.CaptureStatus;
+        await viewModel.Refresh();
+
+        // Assert: the first refresh surfaced the refusal and the second recovered
+        Assert.Equal("in use", refusedStatus);
+        Assert.Equal([MicA, MicB], viewModel.CaptureDevices);
+        Assert.Contains("2 capture device(s)", viewModel.CaptureStatus, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Proves that a refresh which gains or loses devices announces the availability flags so
+    ///     a bound picker enables or disables itself.
+    /// </summary>
+    [Fact]
+    public async Task DeviceSelectionViewModel_Refresh_DevicesAppear_NotifiesAvailabilityFlags()
+    {
+        // Arrange: a panel with no devices, whose service then reports devices
+        var service = SequencedService([], [MicA], [], [Speaker]);
+        var viewModel = new DeviceSelectionViewModel(service);
+        var changed = new List<string?>();
+        viewModel.PropertyChanged += (_, args) => changed.Add(args.PropertyName);
+
+        // Act: refresh
+        await viewModel.Refresh();
+
+        // Assert: both availability flags were announced and now read true
+        Assert.Contains(nameof(DeviceSelectionViewModel.HasCaptureDevices), changed);
+        Assert.Contains(nameof(DeviceSelectionViewModel.HasPlaybackDevices), changed);
+        Assert.True(viewModel.HasCaptureDevices);
+        Assert.True(viewModel.HasPlaybackDevices);
+    }
+
+    /// <summary>
+    ///     Proves that a removed playback device falls back to the first remaining playback
+    ///     device while an unchanged capture selection is kept.
+    /// </summary>
+    [Fact]
+    public async Task DeviceSelectionViewModel_Refresh_SelectedPlaybackDeviceRemoved_FallsBackToFirstPlayback()
+    {
+        // Arrange: two playback devices with the second selected, then only the first remains
+        var otherSpeaker = new AudioDeviceDescription("Headset", AudioDeviceDirection.Playback, 2, 48000);
+        var service = SequencedService([MicA], [MicA], [Speaker, otherSpeaker], [Speaker]);
+        var viewModel = new DeviceSelectionViewModel(service);
+        viewModel.SelectedPlaybackDevice = otherSpeaker;
+
+        // Act: refresh after the selected playback device disappears
+        await viewModel.Refresh();
+
+        // Assert: playback falls back to the first remaining device and capture is unchanged
+        Assert.Same(Speaker, viewModel.SelectedPlaybackDevice);
+        Assert.Same(MicA, viewModel.SelectedCaptureDevice);
+    }
+
+    /// <summary>
+    ///     Proves that registered hooks run one after another in registration order.
+    /// </summary>
+    [Fact]
+    public async Task DeviceSelectionViewModel_Refresh_MultipleHooks_InvokedInRegistrationOrder()
+    {
+        // Arrange: two hooks recording the order in which they run
+        var viewModel = new DeviceSelectionViewModel(Service([MicA], [Speaker]));
+        var order = new List<string>();
+        viewModel.RegisterPreRefreshHook(() =>
+        {
+            order.Add("first");
+            return Task.CompletedTask;
+        });
+        viewModel.RegisterPreRefreshHook(() =>
+        {
+            order.Add("second");
+            return Task.CompletedTask;
+        });
+
+        // Act: refresh
+        await viewModel.Refresh();
+
+        // Assert: hooks ran in registration order
+        Assert.Equal(["first", "second"], order);
+    }
+
+    /// <summary>
+    ///     Proves that registering or unregistering a missing hook is rejected.
+    /// </summary>
+    [Fact]
+    public void DeviceSelectionViewModel_PreRefreshHook_NullHook_ThrowsArgumentNullException()
+    {
+        // Arrange: a composed panel
+        var viewModel = new DeviceSelectionViewModel(Service([MicA], [Speaker]));
+
+        // Act & Assert: a null hook is a programming error in either direction
+        Assert.Throws<ArgumentNullException>(() => viewModel.RegisterPreRefreshHook(null!));
+        Assert.Throws<ArgumentNullException>(() => viewModel.UnregisterPreRefreshHook(null!));
+    }
+
+    /// <summary>
+    ///     Proves that unregistering a hook that was never registered is a harmless no-op.
+    /// </summary>
+    [Fact]
+    public async Task DeviceSelectionViewModel_UnregisterPreRefreshHook_NeverRegistered_RefreshStillSucceeds()
+    {
+        // Arrange: a panel and a hook that was never registered
+        var service = Service([MicA], [Speaker]);
+        var viewModel = new DeviceSelectionViewModel(service);
+        viewModel.UnregisterPreRefreshHook(() => Task.CompletedTask);
+
+        // Act: refresh
+        var exception = await Record.ExceptionAsync(() => viewModel.Refresh());
+
+        // Assert: no fault and the refresh still reached the backend
+        Assert.Null(exception);
+        service.Received(1).RefreshDevices();
     }
 }
