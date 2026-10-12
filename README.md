@@ -62,8 +62,8 @@ packages transitively at restore time:
 - `org.k2fsa.portaudio.runtime.osx-x64`
 - `org.k2fsa.portaudio.runtime.osx-arm64`
 
-No `win-arm64` PortAudio runtime package is available through this dependency chain as of this
-phase. On an unsupported RID, or if PortAudio fails to initialize on a machine, the library
+No `win-arm64` PortAudio runtime package is available through this dependency chain. On an unsupported RID, or
+if PortAudio fails to initialize on a machine, the library
 still composes safely but reports audio devices as unavailable.
 
 ### Combining the raw ONNX packages (Kokoro, Nemotron STT) with sherpa-onnx
@@ -461,8 +461,9 @@ speech-cli list-voices
 speech-cli speak --tts-model chatterbox-turbo-onnx-en --tts-param voice=<id> --text "Hello"
 ```
 
-Newly installed voices appear on the next invocation. An undecodable file in `--voices-dir` makes
-every command fail until it is removed, because that folder is read when the catalog is built.
+Newly installed voices appear on the next invocation. Voice files in `--voices-dir` are decoded
+only when a voice is used, so an undecodable file does not break other commands: `list-voices`
+still runs and lists it, and synthesizing with that voice fails with an error naming the file.
 
 > **Consent:** only clone voices you have permission to use. `list-voices`, `voices packs`,
 > `voices install`, and `--help` all repeat this note.
@@ -537,4 +538,4 @@ By contributing to this project, you agree that your contributions will be licen
 [link-cli-readme]: https://github.com/demaconsulting/Speech/blob/main/src/DemaConsulting.Speech.Cli/README.md
 
 <!-- Image References -->
-[image-demo-audio-devices]: docs/images/demo-audio-devices.png
+[image-demo-audio-devices]: https://raw.githubusercontent.com/demaconsulting/Speech/main/docs/images/demo-audio-devices.png

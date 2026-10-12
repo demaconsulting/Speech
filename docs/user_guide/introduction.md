@@ -15,7 +15,8 @@ This user guide covers:
 - Managing per-user speech model storage and downloads
 - Recognizing speech from an audio input device
 - Recognizing inline Natural Language Audio Tags in text intended for text-to-speech
-- Running the bundled demo application
+- Synthesizing speech, including the Chatterbox Turbo reference voices
+- Running the bundled demo application and the `speech-cli` command-line tool
 - Runtime-support limitations and fallback behavior
 - Where to find full API and design detail
 
@@ -50,9 +51,20 @@ on a `SpeechModelCatalog` registers them (see "Managing speech models" below). A
 needs the catalog/contract seam - for example to ship its own `IRecognitionModel`/
 `ISynthesisModel` implementation - can depend on the core package alone.
 
+Three optional packages add raw ONNX Runtime models that do not need sherpa-onnx:
+
+- `DemaConsulting.Speech.Onnx.Kokoro` adds the Kokoro v1.0 synthesis model via `.AddKokoroModels()`.
+- `DemaConsulting.Speech.Onnx.NemotronStt` adds the streaming NVIDIA Nemotron 3.5 ASR recognition
+  model via `.AddNemotronSttModels()`.
+- `DemaConsulting.Speech.Onnx.ChatterboxTurbo` adds the Chatterbox Turbo voice-cloning synthesis
+  model via `.AddChatterboxTurboModels(options)`.
+
+Together with the Sherpa package, the library supplies seven models through four model packages
+(see "Managing speech models" below).
+
 The core package references `PortAudioSharp2`, whose transitive native runtime packages cover
 `win-x64`, `linux-x64`, `linux-aarch64`, `osx-x64`, and `osx-arm64`. No `win-arm64`
-PortAudio runtime package is available through that dependency chain in this phase.
+PortAudio runtime package is available through that dependency chain.
 
 `DemaConsulting.Speech.Sherpa` references the managed `org.k2fsa.sherpa.onnx` speech-engine
 package. It never references a per-RID `org.k2fsa.sherpa.onnx.runtime.*` package directly; the
@@ -60,11 +72,31 @@ managed package declares those as its own dependencies, so your application rest
 runtime for its target RID transitively. If that runtime is absent, speech recognition reports
 itself unavailable rather than failing.
 
+## Combining the raw ONNX packages with sherpa-onnx
+
+`DemaConsulting.Speech.Onnx.Kokoro`, `DemaConsulting.Speech.Onnx.NemotronStt` and
+`DemaConsulting.Speech.Onnx.ChatterboxTurbo` use Microsoft's `Microsoft.ML.OnnxRuntime`. The
+sherpa-onnx native runtime packages ship their own native ONNX Runtime library with the same file
+name, so an application that references one of these packages together with
+`DemaConsulting.Speech.Sherpa` restores both copies into the same `runtimes/<rid>/native/` folder.
+Microsoft's copy can overwrite sherpa's and break sherpa-onnx on Linux. In such an application, add
+a direct reference so only sherpa's native runtime is used (the managed APIs run against it):
+
+```xml
+<PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.28.0" ExcludeAssets="native" />
+```
+
+Keep that version in step with the sherpa-onnx native runtime. An application that uses only the raw
+ONNX packages needs no override and gets Microsoft's native runtime transitively. To use an
+accelerated provider (for example DirectML or CUDA), reference the matching
+`Microsoft.ML.OnnxRuntime.*` package in a host that does not also ship sherpa-onnx's runtime. The
+`speech-cli` tool and the Demo application already apply this override.
+
 # Usage
 
 ## Current Capabilities
 
-This release ships the `Diagnostics` subsystem and a real `AudioSubsystem` implementation:
+The library provides the `Diagnostics` subsystem and a real `AudioSubsystem` implementation:
 
 - **`ISpeechDiagnostics`** (`DemaConsulting.Speech.Diagnostics`): a contract for reporting
   structural diagnostic events to an optional host-supplied sink. `NullSpeechDiagnostics`
@@ -83,7 +115,7 @@ This release ships the `Diagnostics` subsystem and a real `AudioSubsystem` imple
 - **`AudioDeviceDescription`** and **`AudioDeviceSelection`**: immutable, name-only
   representations of an audio device and a persistable user device preference.
 
-This release also ships the storage and download machinery of the `ModelManagementSubsystem`
+The library also provides the storage and download machinery of the `ModelManagementSubsystem`
 (`DemaConsulting.Speech.ModelManagementSubsystem`), used to fetch and install speech models on
 a per-user basis:
 
@@ -138,13 +170,13 @@ var mirror = new DownloadMirror(
 var options = new SpeechModelDownloaderOptions { Mirror = mirror };
 var mirroredDownloader = new SpeechModelDownloader(store, client: null, diagnostics: null, options: options);
 
-// Every file now resolves to https://models.internal.example.com/mirror/my-model/model.bin
+// Every file resolves to https://models.internal.example.com/mirror/my-model/model.bin
 // and carries the configured bearer token/credentials, instead of the file's own declared URI.
 await mirroredDownloader.DownloadAsync("my-model", descriptor);
 ```
 
 `DownloadMirror.Credentials` and `DownloadMirror.BearerToken` are mutually exclusive - supply at
-most one. A `DownloadAsync` call that fails (beyond a checksum mismatch) now reports one of
+most one. A `DownloadAsync` call that fails (beyond a checksum mismatch) reports one of
 several honest outcomes rather than one generic `Failed`, so a host can react to *why* it failed:
 `NetworkBlocked` (a TLS/certificate failure, a DNS/connection failure, or a timeout - the shape a
 blocked or intercepted network path typically produces, and a strong signal to try configuring a
@@ -152,7 +184,7 @@ blocked or intercepted network path typically produces, and a strong signal to t
 (a local disk/permission failure), or the final generic `Failed` fallback for anything else - with
 the underlying exception always available in `SpeechModelDownloadResult.Error`.
 
-This release also ships the model catalog/contract seam of the `ModelManagementSubsystem`,
+The library also provides the model catalog/contract seam of the `ModelManagementSubsystem`,
 describing *which* models are available and their tunable parameters:
 
 - **`ISpeechModel`** (with **`IRecognitionModel`**/**`ISynthesisModel`** role markers): the
@@ -170,13 +202,18 @@ describing *which* models are available and their tunable parameters:
   `IoFailure`, or `Failed` on a real download problem (with the underlying exception in
   `SpeechModelDownloadResult.Error`), or throws `ArgumentException` for an unrecognized model id.
 
-This release ships **four real, production model classes** across both roles it defines, via
-the separate `DemaConsulting.Speech.Sherpa` package: calling `.AddSherpaModels()` on a
-`SpeechModelCatalog` registers all four. The catalog/contract seam, together with each model's
-own `CreateBackend(...)` and (for synthesis) `CapabilityProfile` members, lets a host already
-build a model-settings-style UI and compose a real recognizer/synthesizer against any of the
-four. See "Recognizing Speech" and "Synthesizing Speech" below for each model's identity and
-license.
+The library provides **seven production model classes** across both roles it defines, via four model
+packages. `DemaConsulting.Speech.Sherpa` supplies four through `.AddSherpaModels()`:
+`SherpaOnnxZipformerEnRecognitionModel`, `SherpaOnnxNemotronStreamingEnRecognitionModel`,
+`SherpaOnnxVitsLibriTtsEnglishSynthesisModel` and `SherpaOnnxKokoroEnglishSynthesisModel`.
+`DemaConsulting.Speech.Onnx.Kokoro` supplies `OnnxKokoroEnglishSynthesisModel` through
+`.AddKokoroModels()`, `DemaConsulting.Speech.Onnx.NemotronStt` supplies
+`OnnxNemotronMultilingualRecognitionModel` through `.AddNemotronSttModels()`, and
+`DemaConsulting.Speech.Onnx.ChatterboxTurbo` supplies `OnnxChatterboxTurboEnglishSynthesisModel`
+through `.AddChatterboxTurboModels(options)`. The catalog/contract seam, together with each model's
+own `CreateBackend(...)` and (for synthesis) `CapabilityProfile` members, lets a host build a
+model-settings-style UI and compose a real recognizer/synthesizer against any of them. See
+"Recognizing Speech" and "Synthesizing Speech" below for each model's identity and license.
 
 A model may also unpack its own downloaded archive before it becomes usable: `ISpeechModel`
 declares an `InstallAsync(stagedFilesDirectory, cancellationToken)` hook, defaulting to a no-op
@@ -221,7 +258,7 @@ if (device.IsAvailable)
 
 ## Recognizing Speech
 
-This release also ships the `RecognitionSubsystem`
+The library also provides the `RecognitionSubsystem`
 (`DemaConsulting.Speech.RecognitionSubsystem`), which turns captured audio into text:
 
 - **`ISpeechRecognizerEngine`**: the loaded, expensive, native-backed recognition model, with no
@@ -303,7 +340,7 @@ Points worth knowing:
   block to the mono rate the model declares. When you already know the chosen model, prefer
   creating the capture device with `model.AudioFormat` first so the backend can open closer to
   the target format and the recognizer often stays on its no-op equal-rate fast path. When
-  resampling is still required, the downsampling path now applies anti-alias filtering before
+  resampling is still required, the downsampling path applies anti-alias filtering before
   decimation.
 - **Results are delivered through a dedicated worker thread, not the audio callback thread.**
   `GetResultsAsync` streams events produced by the session's own dedicated decoding thread, which
@@ -345,7 +382,10 @@ Points worth knowing:
   still being revised, so running your own restoration on them would make the draft flicker
   while the user is still speaking.
 
-This release ships two production recognition models —
+The library provides three production recognition models and four production synthesis models; the
+recognition models are covered here and the synthesis models under "Synthesizing Speech".
+
+The Sherpa package supplies two recognition models:
 `SherpaOnnxZipformerEnRecognitionModel` (`streaming-zipformer-en-2023-06-26`, Apache-2.0
 license, LIKELY per icefall/LibriSpeech training-toolkit norms — not independently confirmed
 against an explicit model-specific `LICENSE` file, since `huggingface.co` is unreachable from
@@ -373,7 +413,7 @@ thread, and mitigates leading silence by shortening any quiet run longer than 40
 (the quiet threshold is calibrated from the first 400 ms of audio) and by adding a tiny seeded
 dither; it also finalizes an utterance after 2.5 seconds of quiet following speech. A download
 mirror serves its files from `<mirror>/nemotron-3.5-asr-streaming-0.6b-onnx-int4/<file>`. See
-"Synthesizing Speech" below for this release's two production synthesis models.
+"Synthesizing Speech" below for the production synthesis models.
 
 The optional `DemaConsulting.Speech.Onnx.ChatterboxTurbo` package adds a voice-cloning synthesis
 model through `AddChatterboxTurboModels(options)`: `OnnxChatterboxTurboEnglishSynthesisModel`
@@ -442,8 +482,8 @@ mood's reference clip for the text that follows, until the next mood tag. A voic
 0 to 1000) inserts a short silence where the mood changes. Honest limits: each mood segment is
 synthesized separately and pays its own prefill cost, prosody resets at every join, and the tags work
 best at sentence boundaries. Mood clips are not loudness-normalized, so levels can differ between
-moods. Models that declare no tag support (Kokoro, Sherpa) now strip these tags and speak the plain
-words; previously an unrecognized `[angry]` was spoken as literal text.
+moods. Models that declare no tag support (Kokoro, Sherpa) strip these tags and speak the plain
+words rather than reading an unrecognized `[angry]` aloud as literal text.
 
 ### Reading WAV and FLAC files
 
@@ -458,7 +498,7 @@ the `MaxSamples` guard against oversized files.
 
 ## Natural Language Audio Tags
 
-This release also ships the closed, fixed Natural Language Audio Tag vocabulary and its
+The library also provides the closed, fixed Natural Language Audio Tag vocabulary and its
 model-independent Layer 1 parser from the `SynthesisSubsystem`
 (`DemaConsulting.Speech.SynthesisSubsystem`), together with the Layer 2 rendering and streaming
 synthesis pipeline described below. Inline bracket tags let you request expressive delivery
@@ -553,7 +593,7 @@ await using var engine = await SpeechSynthesizerFactory.LoadAsync(
     parameterValues: new Dictionary<string, object> { ["voice"] = "bm_george" });
 ```
 
-A `null` (or omitted) `parameterValues` bag - the previous behavior - resolves to every declared
+A `null` (or omitted) `parameterValues` bag resolves to every declared
 parameter's own default value, including whichever speaker/voice a model's `ResolveSpeakerId`
 hook treats as its default. A supplied key naming a parameter the model does not declare is
 silently ignored (composition still succeeds, with only an `Info`-level diagnostic reported if a
@@ -586,12 +626,14 @@ the selected model's own declared audio-tag support (`IModelCapabilityProfile`):
 - A pause tag (`[short pause]`/`[long pause]`) always renders as a real timed silence segment
   regardless of a model's declared support, since honoring a pause requires no model cooperation.
 
-**Both models this release ships declare `None`** (`SherpaOnnxVitsLibriTtsEnglishSynthesisModel`
-and `SherpaOnnxKokoroEnglishSynthesisModel`), so today every non-pause tag is stripped to plain
-narration for both of them - the plain words are always spoken regardless, per the
-"never worse than plain narration" guarantee above. `Native`/`ParameterMapped` are fully
-implemented and exercised by tests, ready for a future or host-supplied model to declare, but no
-shipped model currently opts into either.
+**The Sherpa models and the raw ONNX Kokoro model declare `None`**
+(`SherpaOnnxVitsLibriTtsEnglishSynthesisModel`, `SherpaOnnxKokoroEnglishSynthesisModel` and
+`OnnxKokoroEnglishSynthesisModel`), so every non-pause tag is stripped to plain narration for them -
+the plain words are always spoken regardless, per the "never worse than plain narration" guarantee
+above. **`OnnxChatterboxTurboEnglishSynthesisModel` declares `Native`**: its capability profile maps
+`[laugh]`, `[clear throat]` and `[gasp]` to native tokens and handles the mood tags described under
+"Reference voices". `ParameterMapped` is fully implemented and exercised by tests, ready for a
+future or host-supplied model to declare, but no shipped model currently uses it.
 
 For a host implementing its own `ISynthesisModel` that declares `ParameterMapped`, only seven
 tags have a built-in conservative mapping - every other non-pause tag (all emotion and non-verbal
@@ -627,9 +669,9 @@ and is a safe no-op when nothing is speaking. A synthesis-engine fault or a play
 drops mid-utterance fails the awaited `SpeakAsync` task honestly rather than hanging or crashing
 the process.
 
-This release ships two production synthesis models (each also reports its license
+The library provides four production synthesis models (each also reports its license
 programmatically via `ISpeechModel.LicenseName`/`LicenseUrl`, without requiring you to parse
-this prose or `DisplayName`):
+this prose or `DisplayName`). Two are described below, followed by the raw ONNX Runtime models:
 
 - **`SherpaOnnxVitsLibriTtsEnglishSynthesisModel`** (`vits-piper-en_US-libritts_r-medium`, a
   VITS/Piper voice fine-tuned on the LibriTTS-R corpus, 904 declared speakers, 22,050 Hz,
@@ -654,10 +696,17 @@ this prose or `DisplayName`):
   emotion parameter (no happy/sad/excited control); expressiveness is limited to voice choice
   plus the existing speed/length-scale and Natural Language Audio Tag mechanisms described above.
 
-Both models are shipped by the separate `DemaConsulting.Speech.Sherpa` package and registered via
+Both models above are shipped by the separate `DemaConsulting.Speech.Sherpa` package and registered via
 `AddSherpaModels()`. Neither model's bytes are bundled
 with this library; `SpeechModelCatalog.DownloadAsync` fetches each one directly from its own
 official GitHub Releases URL only when you explicitly request it.
+
+The optional `DemaConsulting.Speech.Onnx.Kokoro` package adds a raw ONNX Runtime Kokoro model
+through `AddKokoroModels()`: **`OnnxKokoroEnglishSynthesisModel`** (`kokoro-onnx-v1_0-en`,
+Kokoro v1.0 running directly on ONNX Runtime, 24,000 Hz, licensed **Apache-2.0**). It declares a
+29-value English `voice` `ChoiceParameter` (default `af_heart`), declares no audio-tag support, and
+needs no sherpa-onnx. The fourth synthesis model, the Chatterbox Turbo voice-cloning model, is
+described in the Chatterbox Turbo section above and under "Reference voices (Chatterbox Turbo)".
 
 ## Hot TTS/STT: Reusing an Instance Across Turns
 
@@ -820,8 +869,8 @@ dotnet run --project src/DemaConsulting.Speech.Demo
 The application opens with four panels, one of which embeds a fifth:
 
 - **Audio Devices**: lists the capture and playback devices reported by `AudioDeviceFactory`'s
-  probes, preselects the first device in each direction, and offers a refresh button that now
-  genuinely forces a hardware re-scan via `AudioDeviceFactory.RefreshDevices()`, so a headset
+  probes, preselects the first device in each direction, and offers a refresh button that
+  forces a hardware re-scan via `AudioDeviceFactory.RefreshDevices()`, so a headset
   connected after start-up reliably appears without restarting the application. If a capture or
   playback device is currently started when refresh is clicked, the refresh is refused with an
   explanatory status message rather than crashing. Each picker reports how many devices were
@@ -888,9 +937,9 @@ The demo accepts `--models-dir <path>`, `--mirror-url <url>` (with `--mirror-use
 offered to Chatterbox Turbo alongside the installed pack and the user folder under the models
 root; a missing folder is rejected at start-up with an explanatory message.
 
-### Diagnostics: Raw Capture Recording (Temporary)
+### Diagnostics: Raw Capture Recording
 
-The Speech-to-Text panel supports an opt-in, temporary diagnostic aid for investigating
+The Speech-to-Text panel supports an opt-in diagnostic aid for investigating
 live-microphone streaming issues: set the `DEMASPEECH_CAPTURE_DEBUG_DIR` environment variable to
 a directory path before launching the demo, and each Start/Stop listening session writes the raw
 microphone audio (exactly as delivered by the capture device, before the recognizer's own
@@ -898,12 +947,11 @@ resampling) to a new timestamped `capture-{yyyyMMdd-HHmmss}-{suffix}.wav` file i
 directory. The console prints the exact path written for each session. Leave the variable unset
 for normal use - this has no effect and no overhead when disabled.
 
-The model catalog now ships four real, production models plus the Chatterbox Turbo voice-cloning model
-(see "Recognizing Speech" and
+The model catalog contains all seven production models (see "Recognizing Speech" and
 "Synthesizing Speech" above), so the Model Catalog, Text-to-Speech, and Speech-to-Text panels
-populate rows for all four once the library composes, each with its own installation state
-and download action. A future model needing a bespoke, non-generic UI beyond the generic Model
-Settings surface remains out of scope for this pass.
+populate rows for every one of them once the library composes, each with its own installation
+state and download action. A model needing a bespoke, non-generic UI beyond the generic Model
+Settings surface is not supported by the demo.
 
 The demo is verified at the view-model level. Its window, layout, and interactive behavior are
 not covered by automated tests, because CI runners have no display; visual verification of the
@@ -1039,8 +1087,7 @@ microphone or speaker. CI cannot honestly claim coverage for opening a physical 
 audio through it. The same applies to recognition accuracy and synthesized speech quality: the
 recognition and synthesis pipelines are each verified against a deterministic test engine, so
 proving that real speech becomes correct text - or that rendered text becomes intelligible speech
-
-- through a real model is also a manual/local activity.
+through a real model - is also a manual/local activity.
 
 ## Where to Look for More Detail
 
