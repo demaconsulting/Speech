@@ -20,45 +20,107 @@ sections:
         title: >-
           The library shall let a host register its ONNX-Runtime-backed Nemotron recognition
           model with a Speech library SpeechModelCatalog through a single AddNemotronSttModels()
-          call that returns the same catalog for chaining.
+          call, optionally naming preferred execution providers.
         tags: [system]
         justification: |
           The Speech library's catalog ships empty and carries no ONNX Runtime dependency, so a
           host needs one discoverable, opt-in entry point to make this package's model available
-          for enumeration, download, and composition, composable with registrations from any
-          other model package.
+          for enumeration, download, and composition.
         children:
           - SpeechOnnxNemotronStt-Models-CatalogRegistration
+          - SpeechOnnxNemotronStt-Models-CatalogRegistrationProviders
+        tests:
+          - AddNemotronSttModels_Called_RegistersOneRecognitionModel
+
+      - id: SpeechOnnxNemotronStt-Models-AddNemotronSttModelsChaining
+        title: >-
+          The library's AddNemotronSttModels() call shall return the same catalog it was called
+          on, so it chains with registrations from any other model package.
+        tags: [system]
+        justification: |
+          Returning the same instance keeps the catalog composable with other model packages in
+          one fluent expression.
+        children:
+          - SpeechOnnxNemotronStt-Models-CatalogRegistrationChaining
         tests:
           - AddNemotronSttModels_Called_ReturnsSameCatalogInstance
-          - AddNemotronSttModels_Called_RegistersOneRecognitionModel
 
       - id: SpeechOnnxNemotronStt-Models-RecognitionModel
         title: >-
-          The library shall provide a real, downloadable, ONNX-Runtime-backed streaming
-          recognition model implementing the Speech library's IRecognitionModel contract,
-          including a selectable language, deriving the language identifier the model expects
-          from the model's own vocabulary.
+          The library shall provide a real, downloadable, checksum-verified, ONNX-Runtime-backed
+          streaming recognition model implementing the Speech library's IRecognitionModel
+          contract.
         tags: [system]
         justification: |
           A host needs a real, checksum-verified, installable recognition model to perform
-          offline speech-to-text with this model family at all, and language selection lets a
-          host choose between the supported locales without installing the same ~790 MB of
-          model files twice.
+          offline speech-to-text with this model family at all.
         children:
-          - SpeechOnnxNemotronStt-Models-RealRecognitionModelWithLanguageSelection
-          - SpeechOnnxNemotronStt-Models-VocabularyPipeline
+          - SpeechOnnxNemotronStt-Models-RealRecognitionModel
+          - SpeechOnnxNemotronStt-Models-DownloadDescriptor
         tests:
           - Metadata_IsDeclared
           - DownloadDescriptor_ListsElevenFiles
+
+      - id: SpeechOnnxNemotronStt-Models-SelectableLanguage
+        title: >-
+          The library shall let a host choose the recognition language, en-US or en-GB, without
+          installing the model files twice.
+        tags: [system]
+        justification: |
+          A host chooses between the supported locales without installing the same ~790 MB of
+          model files twice.
+        children:
+          - SpeechOnnxNemotronStt-Models-LanguageSelection
+        tests:
           - Parameters_LanguageChoice
+
+      - id: SpeechOnnxNemotronStt-Models-VocabularyDerivedIds
+        title: >-
+          The library shall derive the language identifier and the blank token id the model
+          expects from the model's own vocabulary.
+        tags: [system]
+        justification: |
+          These ids are properties of the exported model, so deriving them keeps the library
+          correct if the export is revised.
+        children:
+          - SpeechOnnxNemotronStt-Models-VocabularyLoading
+          - SpeechOnnxNemotronStt-Models-VocabularyLanguageIds
+          - SpeechOnnxNemotronStt-Models-VocabularyBlankId
+        tests:
           - TryGetLanguageId_KnownLocales_ReturnsOrdinal
+          - BlankId_IsBlankTokenIndex
+
+      - id: SpeechOnnxNemotronStt-Models-ReadableTranscript
+        title: >-
+          The library shall present the model's emitted tokens to the host as normalized,
+          readable text.
+        tags: [system]
+        justification: |
+          The model emits SentencePiece pieces and locale markers that are not part of the
+          spoken text.
+        children:
+          - SpeechOnnxNemotronStt-Models-VocabularyDetokenization
+        tests:
+          - Detokenize_Tokens_NormalizesText
+
+      - id: SpeechOnnxNemotronStt-Models-UnusableInstallationRejected
+        title: >-
+          The library shall fail clearly, rather than return a partially built recognizer, when
+          the installed model is unusable.
+        tags: [system]
+        justification: |
+          A host must learn about an unusable installation at backend construction so the
+          Speech library's factory can degrade it to the honest unavailable recognizer.
+        children:
+          - SpeechOnnxNemotronStt-Models-CreateBackendValidation
+        tests:
+          - CreateBackend_MissingFiles_Throws
 
       - id: SpeechOnnxNemotronStt-Recognition-StreamingTranscription
         title: >-
-          The library shall transcribe streamed audio into provisional and final text through
-          the Speech library's recognition pipeline using ONNX Runtime inference over the
-          Nemotron encoder, decoder, and joint model graphs.
+          The library shall transcribe streamed audio into text through the Speech library's
+          recognition pipeline using ONNX Runtime inference over the Nemotron encoder, decoder,
+          and joint model graphs.
         tags: [system]
         justification: |
           The Speech library's recognition policy is verified against a fake backend; only a
@@ -66,28 +128,124 @@ sections:
           recognition model.
         children:
           - SpeechOnnxNemotronStt-Recognition-OnnxBackend
+          - SpeechOnnxNemotronStt-Recognition-EncoderWiring
           - SpeechOnnxNemotronStt-Recognition-FeatureExtraction
+          - SpeechOnnxNemotronStt-Recognition-FeatureStreaming
+          - SpeechOnnxNemotronStt-Recognition-FeatureFlush
           - SpeechOnnxNemotronStt-Recognition-GreedyDecoding
+          - SpeechOnnxNemotronStt-Recognition-DecodeSymbolBound
+          - SpeechOnnxNemotronStt-Recognition-DecoderNetworkWiring
+          - SpeechOnnxNemotronStt-Recognition-DecoderArgumentValidation
         tests:
-          - TryDecode_SpeechChunk_ReportsProvisionalText
-          - TryFlush_PartialAudio_ReturnsFinalText
           - Extract_Chunked_EqualsOneShot
           - Decode_Tokens_AreCollectedAndAdvanced
+
+      - id: SpeechOnnxNemotronStt-Recognition-QuietWordRecovery
+        title: >-
+          The library shall recover quiet, isolated words that the model would otherwise leave
+          not transcribed.
+        tags: [system]
+        justification: |
+          The model is under-confident on quiet, isolated words and otherwise emits nothing for
+          them.
+        children:
+          - SpeechOnnxNemotronStt-Recognition-BlankPenalty
+        tests:
+          - SelectToken_BlankWithinPenalty_PrefersNonBlank
+
+      - id: SpeechOnnxNemotronStt-Recognition-ProvisionalText
+        title: >-
+          The library shall report provisional text while an utterance is still being spoken,
+          each change once and only when the text changed.
+        tags: [system]
+        justification: |
+          A host displaying live text needs each change without a flood of repeats, and the
+          last words of an utterance must not wait for a long pause.
+        children:
+          - SpeechOnnxNemotronStt-Recognition-ProvisionalResults
+          - SpeechOnnxNemotronStt-Recognition-QuietPadding
+        tests:
+          - TryDecode_SpeechChunk_ReportsProvisionalText
+          - TryDecode_QuietAfterShortSpeech_ReportsBeforeEndpoint
+
+      - id: SpeechOnnxNemotronStt-Recognition-FinalText
+        title: >-
+          The library shall report final text for an utterance when the stream ends or the
+          speaker stops, and never for silence alone.
+        tags: [system]
+        justification: |
+          A host needs a final transcript of each utterance, including the last words buffered
+          when the stream ends.
+        children:
+          - SpeechOnnxNemotronStt-Recognition-FlushResult
+          - SpeechOnnxNemotronStt-Recognition-FlushNothing
+          - SpeechOnnxNemotronStt-Recognition-QuietEndpointing
+          - SpeechOnnxNemotronStt-Recognition-EmptyChunkEndpointing
+        tests:
+          - TryFlush_PartialAudio_ReturnsFinalText
+          - TryDecode_QuietAfterSpeech_EndpointsAndResets
+
+      - id: SpeechOnnxNemotronStt-Recognition-SessionIsolation
+        title: >-
+          The library shall start each recognition session from a clean state, inheriting no
+          audio or model state from an earlier session.
+        tags: [system]
+        justification: |
+          The Speech library reuses a backend across sessions.
+        children:
+          - SpeechOnnxNemotronStt-Recognition-SessionReset
+        tests:
+          - Reset_ClearsState
+
+      - id: SpeechOnnxNemotronStt-Recognition-ModelResourceRelease
+        title: >-
+          The library shall release its native model resources deterministically when disposed.
+        tags: [system]
+        justification: |
+          The model graphs hold large native resources that a host must be able to release.
+        children:
+          - SpeechOnnxNemotronStt-Recognition-ResourceRelease
+          - SpeechOnnxNemotronStt-Recognition-DecoderLifecycle
+        tests:
+          - Dispose_DisposesCollaboratorsAndBlocksUse
 
       - id: SpeechOnnxNemotronStt-Recognition-LeadingSilenceMitigation
         title: >-
           The library shall keep transcription working when audio begins with long digital
-          silence or very low-level noise, by truncating long quiet runs while preserving all
-          speech samples.
+          silence or very low-level noise, by truncating long quiet runs.
         tags: [system]
         justification: |
           The Nemotron model emits nothing, or garbage, when a stream opens with a long run of
           digital silence or very low noise. Truncating long quiet runs to a short fixed length
-          keeps context while preventing that failure, and adding a tiny deterministic dither
-          avoids the exact-zero log-mel degeneracy of pure digital silence.
+          keeps context while preventing that failure.
         children:
           - SpeechOnnxNemotronStt-Recognition-LeadingSilenceLimiting
+          - SpeechOnnxNemotronStt-Recognition-SilenceAdaptiveThreshold
+          - SpeechOnnxNemotronStt-Recognition-SilenceLimiterStreaming
+          - SpeechOnnxNemotronStt-Recognition-SilenceLimiterClockAndReset
         tests:
           - Process_DigitalSilence_TruncatesToCap
+
+      - id: SpeechOnnxNemotronStt-Recognition-SpeechPreservedWhenLimiting
+        title: >-
+          The library shall preserve all speech samples when truncating quiet runs.
+        tags: [system]
+        justification: |
+          Dropping speech samples would corrupt the transcript.
+        children:
+          - SpeechOnnxNemotronStt-Recognition-SilenceSpeechPreservation
+        tests:
           - Process_SilenceThenTone_KeepsAllToneSamples
+
+      - id: SpeechOnnxNemotronStt-Recognition-LeadingSilenceDithering
+        title: >-
+          The library shall add a tiny deterministic dither to limited audio so digital silence
+          does not produce degenerate features.
+        tags: [system]
+        justification: |
+          The dither avoids the exact-zero log-mel degeneracy of pure digital silence, and
+          determinism keeps results reproducible.
+        children:
+          - SpeechOnnxNemotronStt-Recognition-SilenceDithering
+        tests:
           - Apply_Statistics_MatchAmplitude

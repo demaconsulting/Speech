@@ -17,51 +17,80 @@ sections:
               - id: SpeechOnnxNemotronStt-Models-NemotronVocabulary-Load
                 title: >-
                   The NemotronVocabulary class shall load the model's vocabulary from a
-                  vocab.txt file (one token per line, line index equals token id) or from an
-                  in-memory token list, and shall reject an empty vocabulary.
+                  vocab.txt file, one token per line, with the line index equal to the token id.
                 justification: |
                   The vocabulary is the single source of truth for token ids, locale markers,
-                  and the blank id; an empty vocabulary indicates a corrupt installation that
-                  must surface immediately.
+                  and the blank id.
                 tests:
                   - Load_File_ReadsTokens
+
+              - id: SpeechOnnxNemotronStt-Models-NemotronVocabulary-RejectEmpty
+                title: >-
+                  The NemotronVocabulary class shall reject an empty vocabulary.
+                justification: |
+                  An empty vocabulary indicates a corrupt installation that must surface
+                  immediately.
+                tests:
                   - Constructor_Empty_Throws
 
               - id: SpeechOnnxNemotronStt-Models-NemotronVocabulary-LanguageIds
                 title: >-
                   The NemotronVocabulary class shall resolve a locale such as en-US to the
                   encoder language identifier, being its ordinal among the unknown-token and
-                  locale marker tokens in vocabulary order, and shall report false for a locale
-                  the vocabulary does not declare.
+                  locale marker tokens in vocabulary order.
                 justification: |
                   The encoder's lang_id input is defined by the export's vocabulary; deriving
                   it at load time rather than hard-coding it keeps the model correct if the
-                  export is revised, and an undeclared locale must be reportable.
+                  export is revised.
                 tests:
                   - TryGetLanguageId_KnownLocales_ReturnsOrdinal
+
+              - id: SpeechOnnxNemotronStt-Models-NemotronVocabulary-UnknownLocale
+                title: >-
+                  The NemotronVocabulary class shall report false for a locale the vocabulary
+                  does not declare.
+                justification: |
+                  An undeclared locale must be reportable so the caller can reject it instead of
+                  feeding the encoder a wrong language identifier.
+                tests:
                   - TryGetLanguageId_UnknownLocale_ReturnsFalse
 
               - id: SpeechOnnxNemotronStt-Models-NemotronVocabulary-BlankId
                 title: >-
                   The NemotronVocabulary class shall expose the RNN-T blank token id as the
-                  index of the blank token, or the last index when the vocabulary has no
-                  explicit blank token.
+                  index of the blank token.
                 justification: |
-                  The greedy decoder must know which joint output means "emit nothing"; the
-                  export places the blank after the last real token.
+                  The greedy decoder must know which joint output means "emit nothing".
                 tests:
                   - BlankId_IsBlankTokenIndex
+
+              - id: SpeechOnnxNemotronStt-Models-NemotronVocabulary-BlankIdFallback
+                title: >-
+                  The NemotronVocabulary class shall expose the last index as the RNN-T blank
+                  token id when the vocabulary has no explicit blank token.
+                justification: |
+                  The export places the blank after the last real token, so a vocabulary file
+                  without an explicit blank entry must still yield the correct blank id.
+                tests:
                   - BlankId_NoBlankToken_IsLastIndex
 
               - id: SpeechOnnxNemotronStt-Models-NemotronVocabulary-Detokenize
                 title: >-
-                  The NemotronVocabulary class shall convert a token id sequence into text by
-                  concatenating the tokens, mapping the SentencePiece word marker to a space,
-                  removing locale markers, collapsing whitespace, and trimming, returning an
-                  empty string for an empty sequence.
+                  The NemotronVocabulary class shall convert a token id sequence into clean
+                  text by mapping the SentencePiece word marker to a space, removing locale
+                  markers, collapsing whitespace, and trimming.
                 justification: |
                   The model emits SentencePiece pieces and locale markers that are not part of
                   the spoken text; the host must receive clean, readable text.
                 tests:
                   - Detokenize_Tokens_NormalizesText
+
+              - id: SpeechOnnxNemotronStt-Models-NemotronVocabulary-DetokenizeEmpty
+                title: >-
+                  The NemotronVocabulary class shall convert an empty token id sequence into an
+                  empty string.
+                justification: |
+                  A decode that produced no tokens must yield no text rather than whitespace or
+                  an error.
+                tests:
                   - Detokenize_Empty_ReturnsEmpty

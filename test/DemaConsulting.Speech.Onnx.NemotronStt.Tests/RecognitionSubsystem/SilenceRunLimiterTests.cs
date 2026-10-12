@@ -164,6 +164,21 @@ public sealed class SilenceRunLimiterTests
         Assert.Equal(1600, output.Count);
     }
 
+    /// <summary>Proves the default threshold applies before calibration and calibration sets 3.5 times the noise floor.</summary>
+    [Fact]
+    public void Process_MidLevelCalibration_ThresholdIsMultipleOfNoiseFloor()
+    {
+        var limiter = new SilenceRunLimiter();
+        Assert.Equal(0.003, limiter.Threshold);
+
+        var constant = new float[Rate];
+        Array.Fill(constant, 0.0008f);
+        Run(limiter, constant);
+
+        Assert.True(limiter.IsCalibrated);
+        Assert.Equal(0.0008 * 3.5, limiter.Threshold, 1e-5);
+    }
+
     /// <summary>Proves the non-adaptive mode keeps the fixed default threshold.</summary>
     [Fact]
     public void Process_NonAdaptive_KeepsDefaultThreshold()

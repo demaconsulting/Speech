@@ -288,6 +288,13 @@ public sealed class OnnxNemotronRecognitionEngineTests
         Assert.Throws<ObjectDisposedException>(engine.Reset);
     }
 
+    /// <summary>Proves the engine declares the 16 kHz sample rate the model consumes.</summary>
+    [Fact]
+    public void SampleRate_Is16kHz()
+    {
+        Assert.Equal(16000, OnnxNemotronRecognitionEngine.SampleRate);
+    }
+
     /// <summary>Proves null collaborators are rejected and the sample rate is 16 kHz.</summary>
     [Fact]
     public void Constructor_NullArguments_Throw()

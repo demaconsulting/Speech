@@ -21,11 +21,10 @@ sections:
         requirements:
           - id: SpeechOnnxNemotronStt-Recognition-OnnxBackend
             title: >-
-              The SpeechOnnxNemotronStt RecognitionSubsystem shall implement the Speech library's
-              IRecognitionBackend seam over the Nemotron encoder, decoder, and joint ONNX graphs
-              run through ONNX Runtime, buffering accepted audio, decoding in fixed chunks to
-              report provisional text when it changes, finalizing an utterance on endpoints and
-              on flush, and releasing its model resources on disposal.
+              The SpeechOnnxNemotronStt RecognitionSubsystem shall implement the Speech
+              library's IRecognitionBackend seam over the Nemotron encoder, decoder, and joint
+              ONNX graphs run through ONNX Runtime, accepting 16 kHz audio, buffering it
+              cheaply, and decoding it only in whole encoder chunks.
             justification: |
               The Speech library confines every speech-recognition interop call behind its
               public IRecognitionBackend seam so its own recognition policy is verifiable
@@ -33,87 +32,376 @@ sections:
               is what turns that policy into text for the Nemotron model this package ships.
             children:
               - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-Construction
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-SampleRate
               - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-Buffering
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-ChunkedDecoding
+            tests:
+              - Constructor_NullArguments_Throw
+              - SampleRate_Is16kHz
+              - AcceptSamples_Empty_IsIgnored
+              - TryDecode_LessThanChunk_ReportsNothing
+
+          - id: SpeechOnnxNemotronStt-Recognition-EncoderWiring
+            title: >-
+              The RecognitionSubsystem shall run the Nemotron encoder graph over each chunk of
+              audio features with the language identifier, carrying the encoder's cache state
+              from chunk to chunk and restoring it on reset.
+            justification: |
+              The cache-aware encoder depends on the previous chunks' context, and the
+              production tensor wiring cannot be exercised by the managed fakes, so a tiny
+              synthetic ONNX model with the same tensor contract verifies it.
+            children:
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-EncoderInputs
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-EncoderCacheFeedback
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-EncoderReset
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-EncoderProbe
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-EncoderDispose
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-EncoderArgumentValidation
+            tests:
+              - Encode_FirstChunk_ReturnsFramesWithLanguage
+              - Encode_SecondChunk_UsesPreviousCaches
+              - Reset_AfterEncoding_RestartsCaches
+              - RunProbeInference_ValidSession_LeavesSessionUsable
+              - Encode_AfterDispose_Throws
+              - Constructor_NullSession_Throws
+
+          - id: SpeechOnnxNemotronStt-Recognition-ProvisionalResults
+            title: >-
+              The RecognitionSubsystem shall report the utterance text so far as a provisional
+              result whenever it has changed after decoding a chunk, and only then.
+            justification: |
+              A host displaying live text needs each change exactly once; re-reporting
+              unchanged text would flood the result stream.
+            children:
               - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-ProvisionalResults
-              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-Flush
-              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-QuietEndpointing
-              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-QuietPadding
-              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-EncoderWiring
-              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-EmptyChunkEndpointing
-              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-ResetAndDispose
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-ProvisionalOnlyOnChange
             tests:
               - TryDecode_SpeechChunk_ReportsProvisionalText
+              - TryDecode_NoNewTokens_ReportsNothing
+
+          - id: SpeechOnnxNemotronStt-Recognition-FlushResult
+            title: >-
+              The RecognitionSubsystem shall, on flush, decode the audio still buffered and
+              the model's look-ahead delay and return the utterance text as a final result.
+            justification: |
+              When a stream ends, the audio still buffered and the model's look-ahead delay
+              must be drained, or the last words of an utterance would be lost.
+            children:
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-Flush
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-FlushTail
+            tests:
               - TryFlush_PartialAudio_ReturnsFinalText
+              - TryFlush_NoTailChunks_DecodesOnlyAudio
+
+          - id: SpeechOnnxNemotronStt-Recognition-FlushNothing
+            title: >-
+              The RecognitionSubsystem shall return no result on flush when no audio or no text
+              was produced.
+            justification: |
+              A flush of an empty or text-free stream must not invent a final result.
+            children:
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-FlushNothing
+            tests:
+              - TryFlush_NoAudio_ReturnsFalse
+              - TryFlush_AudioWithoutTokens_ReturnsFalse
+
+          - id: SpeechOnnxNemotronStt-Recognition-QuietEndpointing
+            title: >-
+              The RecognitionSubsystem shall finalize an utterance when the input has been quiet
+              for at least 2500 ms after speech, including when the quiet run lies inside a
+              single large block of audio, and shall never finalize on silence alone.
+            justification: |
+              The limiter removes most of a long quiet run, so the chunk clock stalls during
+              silence; endpointing must therefore be measured on the input clock, and a stream
+              of only silence has no utterance to finalize.
+            children:
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-QuietEndpointing
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-QuietInsideBlock
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-SilenceNeverEndpoints
+            tests:
               - TryDecode_QuietAfterSpeech_EndpointsAndResets
+              - TryDecode_QuietInsideOneBlock_SplitsUtterance
+              - TryDecode_OnlySilence_NeverEndpoints
+
+          - id: SpeechOnnxNemotronStt-Recognition-QuietPadding
+            title: >-
+              The RecognitionSubsystem shall, once the quiet run after speech reaches the
+              limiter's quiet cap and before the endpoint, report the text of a partly filled
+              chunk as a provisional result by completing it with dithered silence.
+            justification: |
+              The limiter drops audio during a long quiet run, so the last words would
+              otherwise wait in an incomplete chunk until the 2500 ms endpoint.
+            children:
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-QuietPadding
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-QuietPaddingCap
+            tests:
+              - TryDecode_QuietAfterShortSpeech_ReportsBeforeEndpoint
+              - TryDecode_CustomLimiterCap_PadsAtThatCap
+
+          - id: SpeechOnnxNemotronStt-Recognition-EmptyChunkEndpointing
+            title: >-
+              The RecognitionSubsystem shall finalize an utterance after three consecutive
+              token-free chunks once text exists, without disturbing the model state.
+            justification: |
+              Steady background noise never reads as quiet, so a fallback endpoint based on the
+              model's own lack of output is needed.
+            children:
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-EmptyChunkEndpointing
+            tests:
               - TryDecode_EmptyChunksAfterText_FinalizesKeepingState
+
+          - id: SpeechOnnxNemotronStt-Recognition-SessionReset
+            title: >-
+              The RecognitionSubsystem shall return all audio, feature, encoder, decoder, and
+              utterance state to the start-of-stream state on reset.
+            justification: |
+              The Speech library reuses a backend across sessions; a new session must not
+              inherit the previous session's audio or model state.
+            children:
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-Reset
+            tests:
               - Reset_ClearsState
+
+          - id: SpeechOnnxNemotronStt-Recognition-ResourceRelease
+            title: >-
+              The RecognitionSubsystem shall release its model resources on disposal and reject
+              later use with ObjectDisposedException.
+            justification: |
+              The Speech library owns the backend's lifetime; native model resources must be
+              released deterministically.
+            children:
+              - SpeechOnnxNemotronStt-Recognition-OnnxNemotronRecognitionEngine-Dispose
+            tests:
               - Dispose_DisposesCollaboratorsAndBlocksUse
 
           - id: SpeechOnnxNemotronStt-Recognition-FeatureExtraction
             title: >-
               The RecognitionSubsystem shall convert 16 kHz mono audio into the model's
-              128-band log-mel feature frames incrementally, producing the same frames whether
-              the audio arrives in one piece or in arbitrary chunks.
+              128-band log-mel feature frames, matching the model's reference front end.
             justification: |
-              The encoder consumes log-mel features rather than samples, and a streaming
-              recognizer receives audio in arbitrary pieces; the features must not depend on
-              how the audio was split.
+              The encoder consumes log-mel features rather than samples, and was trained on
+              exactly this front end.
             children:
               - SpeechOnnxNemotronStt-Recognition-NemotronFeatureExtractor-LogMel
-              - SpeechOnnxNemotronStt-Recognition-NemotronFeatureExtractor-StreamingEquivalence
-              - SpeechOnnxNemotronStt-Recognition-NemotronFeatureExtractor-Flush
+              - SpeechOnnxNemotronStt-Recognition-NemotronFeatureExtractor-SilenceFloor
             tests:
               - Extract_GoldenSignal_MatchesReference
+              - Extract_Silence_IsLogEpsilon
+
+          - id: SpeechOnnxNemotronStt-Recognition-FeatureStreaming
+            title: >-
+              The RecognitionSubsystem shall produce the same feature frames whether the audio
+              arrives in one piece or in arbitrary chunks, and after a reset.
+            justification: |
+              A streaming recognizer receives audio in arbitrary pieces; the features must not
+              depend on how the audio was split or on earlier sessions.
+            children:
+              - SpeechOnnxNemotronStt-Recognition-NemotronFeatureExtractor-StreamingEquivalence
+              - SpeechOnnxNemotronStt-Recognition-NemotronFeatureExtractor-Reset
+            tests:
               - Extract_Chunked_EqualsOneShot
+              - Reset_AfterUse_ReproducesFeatures
+
+          - id: SpeechOnnxNemotronStt-Recognition-FeatureFlush
+            title: >-
+              The RecognitionSubsystem shall produce the final feature frames of the accepted
+              audio on flush, including for audio shorter than one analysis window, and none
+              when no audio was accepted.
+            justification: |
+              The last audio of an utterance must reach the encoder, while an empty stream must
+              not invent frames.
+            children:
+              - SpeechOnnxNemotronStt-Recognition-NemotronFeatureExtractor-Flush
+              - SpeechOnnxNemotronStt-Recognition-NemotronFeatureExtractor-FlushNoAudio
+            tests:
               - Flush_VeryShortInput_ProducesFrames
+              - Flush_NoAudio_ProducesNoFrames
 
           - id: SpeechOnnxNemotronStt-Recognition-GreedyDecoding
             title: >-
               The RecognitionSubsystem shall decode encoder output into token ids with RNN-T
-              greedy search over a decoder-and-joint network seam, bounding the symbols emitted
-              per encoder frame and advancing the prediction state per emitted token.
+              greedy search, collecting each non-blank token and emitting nothing for blank.
             justification: |
               The RNN-T decoder is the stage that turns encoder frames into tokens; keeping it
-              behind a seam makes the search policy verifiable without the model files, and
-              bounding symbols per frame prevents a runaway decode loop.
+              behind a seam makes the search policy verifiable without the model files.
             children:
               - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-Greedy
-              - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-SymbolCap
-              - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-BlankPenalty
-              - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-NetworkWiring
-              - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-ResetAndDispose
-              - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-ArgumentValidation
+              - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-BlankOnly
+              - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-StateAdvance
             tests:
-              - Decode_AllBlank_EmitsNothing
               - Decode_Tokens_AreCollectedAndAdvanced
+              - Decode_AllBlank_EmitsNothing
+
+          - id: SpeechOnnxNemotronStt-Recognition-DecodeSymbolBound
+            title: >-
+              The RecognitionSubsystem shall emit at most ten symbols per encoder frame.
+            justification: |
+              Bounding symbols per frame prevents a runaway decode loop.
+            children:
+              - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-SymbolCap
+            tests:
               - Decode_NeverBlank_StopsAtTenSymbolsPerFrame
+
+          - id: SpeechOnnxNemotronStt-Recognition-BlankPenalty
+            title: >-
+              The RecognitionSubsystem shall prefer a non-blank token over blank for quiet,
+              isolated words by penalizing the blank score by a fixed amount.
+            justification: |
+              The model is under-confident on quiet, isolated words and otherwise emits blank
+              for them.
+            children:
+              - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-BlankPenalty
+            tests:
+              - SelectToken_BlankWithinPenalty_PrefersNonBlank
+              - SelectToken_BlankBeyondPenalty_ReturnsBlank
+              - SelectToken_NonBlankIds_AreNotPenalized
+              - PredictToken_ScoreEqualsBlank_AppliesPenalty
+
+          - id: SpeechOnnxNemotronStt-Recognition-DecoderNetworkWiring
+            title: >-
+              The RecognitionSubsystem shall predict each token from the decoder and joint
+              networks conditioned on the encoder frame and on the tokens emitted so far.
+            justification: |
+              The production tensor and state wiring cannot be exercised by the managed fake,
+              and the real model is too large for CI, so tiny synthetic ONNX models with the
+              same tensor contracts verify the wiring.
+            children:
+              - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-PrimedPrediction
+              - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-TokenFeedback
+              - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-EncoderFrameScoring
+            tests:
+              - Reset_PredictToken_UsesPrimedDecoderOutput
+              - Advance_FeedsTokenAndRecurrentState
+              - PredictToken_UsesEncoderFrame
+
+          - id: SpeechOnnxNemotronStt-Recognition-DecoderLifecycle
+            title: >-
+              The RecognitionSubsystem shall restore the decoder's initial prediction state on
+              reset, release the decoder's network on disposal, and reject use of a disposed
+              network.
+            justification: |
+              A new utterance must start from the initial prediction state, and the decoder
+              owns the network's native resources.
+            children:
+              - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-Reset
+              - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-Dispose
+              - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-NetworkReset
+              - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-NetworkDispose
+            tests:
+              - Reset_ResetsNetwork
+              - Dispose_DisposesNetwork
+              - Reset_AfterAdvance_ClearsRecurrentState
+              - Dispose_BlocksFurtherUse
+
+          - id: SpeechOnnxNemotronStt-Recognition-DecoderArgumentValidation
+            title: >-
+              The RecognitionSubsystem shall throw ArgumentNullException for a null decoder
+              network, token list, or network session.
+            justification: |
+              A programming error should surface immediately with a clear exception rather than
+              a null-reference failure deeper in decoding.
+            children:
+              - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-ArgumentValidation
+              - SpeechOnnxNemotronStt-Recognition-NemotronRnntGreedyDecoder-NetworkArgumentValidation
+            tests:
+              - NullArguments_Throw
+              - Constructor_NullSessions_Throw
 
           - id: SpeechOnnxNemotronStt-Recognition-LeadingSilenceLimiting
             title: >-
               The RecognitionSubsystem shall limit quiet runs in the incoming audio to a fixed
-              maximum length using a stateful streaming limiter with an adaptive threshold
-              calibrated from the start of the stream, keep flowing audio during calibration,
-              preserve all speech samples, and add a small deterministic dither to the limited
-              audio before feature extraction.
+              maximum length of 400 ms, for both digital silence and low-level noise.
             justification: |
               The Nemotron model emits nothing, or garbage, after long leading digital silence
               or very low noise. Truncating long quiet runs to 400 ms keeps context while
-              preventing the failure, and dither avoids the exact-zero log-mel degeneracy of
-              digital silence. Calibration is internal to the engine: the Speech library's
-              RecognitionSessionState.Starting means the audio device is starting, and
-              calibration is content-driven on the audio stream, so it cannot map to a state
-              transition without a Speech contract change.
+              preventing the failure.
             children:
               - SpeechOnnxNemotronStt-Recognition-SilenceRunLimiter-Truncation
-              - SpeechOnnxNemotronStt-Recognition-SilenceRunLimiter-PreservesSpeech
-              - SpeechOnnxNemotronStt-Recognition-SilenceRunLimiter-AdaptiveThreshold
-              - SpeechOnnxNemotronStt-Recognition-SilenceRunLimiter-StreamingEquivalence
-              - SpeechOnnxNemotronStt-Recognition-SilenceRunLimiter-ResetAndClock
-              - SpeechOnnxNemotronStt-Recognition-DitherNoise-Deterministic
-              - SpeechOnnxNemotronStt-Recognition-DitherNoise-Amplitude
             tests:
               - Process_DigitalSilence_TruncatesToCap
+              - Process_LowLevelNoise_TruncatesToCap
+
+          - id: SpeechOnnxNemotronStt-Recognition-SilenceSpeechPreservation
+            title: >-
+              The RecognitionSubsystem shall preserve every speech sample when limiting quiet
+              runs, including very quiet speech.
+            justification: |
+              The limiter exists to remove silence only; dropping speech samples would corrupt
+              the transcript.
+            children:
+              - SpeechOnnxNemotronStt-Recognition-SilenceRunLimiter-PreservesSpeech
+              - SpeechOnnxNemotronStt-Recognition-SilenceRunLimiter-PreservesQuietSpeech
+            tests:
               - Process_SilenceThenTone_KeepsAllToneSamples
+              - Process_VeryQuietSpeech_IsNotDropped
+
+          - id: SpeechOnnxNemotronStt-Recognition-SilenceAdaptiveThreshold
+            title: >-
+              The RecognitionSubsystem shall calibrate the quiet threshold from the start of
+              the stream within fixed bounds, keep audio flowing during calibration, and keep
+              the default threshold when adaptation is disabled.
+            justification: |
+              A fixed threshold is wrong for both very clean and very noisy microphones, and
+              clamping bounds the damage of a pathological calibration window. Calibration is
+              internal to the engine: the Speech library's RecognitionSessionState.Starting
+              means the audio device is starting, and calibration is content-driven on the
+              audio stream, so it cannot map to a state transition without a Speech contract
+              change.
+            children:
+              - SpeechOnnxNemotronStt-Recognition-SilenceRunLimiter-DefaultThreshold
+              - SpeechOnnxNemotronStt-Recognition-SilenceRunLimiter-AdaptiveThreshold
+              - SpeechOnnxNemotronStt-Recognition-SilenceRunLimiter-ThresholdMaximum
+              - SpeechOnnxNemotronStt-Recognition-SilenceRunLimiter-ThresholdMinimum
+              - SpeechOnnxNemotronStt-Recognition-SilenceRunLimiter-CalibrationFlow
+              - SpeechOnnxNemotronStt-Recognition-SilenceRunLimiter-NonAdaptive
+            tests:
+              - Process_MidLevelCalibration_ThresholdIsMultipleOfNoiseFloor
               - Process_DuringCalibration_AudioStillFlows
+              - Process_NonAdaptive_KeepsDefaultThreshold
+
+          - id: SpeechOnnxNemotronStt-Recognition-SilenceLimiterStreaming
+            title: >-
+              The RecognitionSubsystem shall limit quiet runs identically whether audio arrives
+              in one piece or in arbitrary chunks, and emit any partial frame still held on
+              flush.
+            justification: |
+              The recognizer receives audio in arbitrary pieces; the output must not depend on
+              the split, and the tail of a stream must not be lost.
+            children:
+              - SpeechOnnxNemotronStt-Recognition-SilenceRunLimiter-StreamingEquivalence
+              - SpeechOnnxNemotronStt-Recognition-SilenceRunLimiter-Flush
+            tests:
+              - Process_ChunkedFeed_EqualsSingleFeed
+              - Flush_PartialFrame_IsEmitted
+
+          - id: SpeechOnnxNemotronStt-Recognition-SilenceLimiterClockAndReset
+            title: >-
+              The RecognitionSubsystem shall measure the current quiet run on the input clock,
+              including dropped samples, and restore the uncalibrated limiter state on reset.
+            justification: |
+              Endpointing must see how long the input has really been quiet even though the
+              limiter removes most of it, and a new session must start uncalibrated.
+            children:
+              - SpeechOnnxNemotronStt-Recognition-SilenceRunLimiter-QuietRunClock
+              - SpeechOnnxNemotronStt-Recognition-SilenceRunLimiter-Reset
+            tests:
+              - QuietRunSamples_TracksInputClock
+              - Reset_AfterUse_RestoresInitialState
+
+          - id: SpeechOnnxNemotronStt-Recognition-SilenceDithering
+            title: >-
+              The RecognitionSubsystem shall add a small deterministic Gaussian dither of the
+              configured amplitude to the limited audio before feature extraction.
+            justification: |
+              Dither avoids the exact-zero log-mel degeneracy of digital silence, and
+              determinism keeps recognition results reproducible.
+            children:
+              - SpeechOnnxNemotronStt-Recognition-DitherNoise-Deterministic
+              - SpeechOnnxNemotronStt-Recognition-DitherNoise-SeedVariation
+              - SpeechOnnxNemotronStt-Recognition-DitherNoise-Amplitude
+              - SpeechOnnxNemotronStt-Recognition-DitherNoise-ZeroAmplitude
+            tests:
               - Apply_SameSeed_IsDeterministicAndResettable
+              - Apply_DifferentSeeds_Differ
               - Apply_Statistics_MatchAmplitude
+              - Apply_ZeroAmplitude_LeavesSamples

@@ -27,62 +27,153 @@ sections:
             title: >-
               The SpeechOnnxNemotronStt ModelManagementSubsystem shall provide a public
               AddNemotronSttModels() extension method on the Speech library's SpeechModelCatalog
-              that registers exactly its one ONNX-Runtime-backed recognition model, optionally
-              accepting an ordered list of preferred execution provider names, and returns the
-              same catalog instance for chaining.
+              that registers exactly its one ONNX-Runtime-backed recognition model.
             justification: |
               The Speech library's catalog has no compiled-in model registry; a host must
               register the models it wants through SpeechModelCatalog.AddModels. A single,
               discoverable registration entry point lets a host opt into this package's model
-              with one call, while returning the same instance keeps the catalog composable
-              with other model packages in one fluent expression.
+              with one call.
             tests:
-              - AddNemotronSttModels_Called_ReturnsSameCatalogInstance
               - AddNemotronSttModels_Called_RegistersOneRecognitionModel
+
+          - id: SpeechOnnxNemotronStt-Models-CatalogRegistrationProviders
+            title: >-
+              The AddNemotronSttModels() extension method shall optionally accept an ordered
+              list of preferred execution provider names and register the model with them.
+            justification: |
+              A host may prefer a particular ONNX Runtime execution provider, such as a GPU
+              provider, and must be able to say so at registration time.
+            tests:
               - AddNemotronSttModels_WithProviders_Registers
 
-          - id: SpeechOnnxNemotronStt-Models-RealRecognitionModelWithLanguageSelection
+          - id: SpeechOnnxNemotronStt-Models-CatalogRegistrationChaining
+            title: >-
+              The AddNemotronSttModels() extension method shall return the same catalog
+              instance it was called on.
+            justification: |
+              Returning the same instance keeps the catalog composable with other model
+              packages in one fluent expression.
+            tests:
+              - AddNemotronSttModels_Called_ReturnsSameCatalogInstance
+
+          - id: SpeechOnnxNemotronStt-Models-RealRecognitionModel
             title: >-
               The ModelManagementSubsystem shall provide one real, concrete IRecognitionModel
-              class (OnnxNemotronMultilingualRecognitionModel) declaring a language
-              ChoiceParameter (en-US default, en-GB), a download descriptor naming every one of
-              the model's eleven files, and a CreateBackend method that builds the encoder,
-              decoder, and joint sessions and fails clearly for an unusable installation.
+              class (OnnxNemotronMultilingualRecognitionModel) that declares its catalog
+              identity, audio format, audio tag support, and license.
             justification: |
               The Speech library defines the recognition-model contract but ships no concrete
-              models; a host needs a real, checksum-verified, installable recognition model
-              exposing a language choice to perform offline speech-to-text with this model
-              family at all.
+              models; a host needs a real recognition model that honestly describes itself to
+              perform offline speech-to-text with this model family at all.
             children:
               - SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-Identity
+              - SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-AudioFormat
+              - SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-AudioTagSupport
               - SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-License
-              - SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-DownloadDescriptor
-              - SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-LanguageParameter
-              - SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-CreateBackendValidation
+              - SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-LicenseUrl
             tests:
               - Metadata_IsDeclared
+
+          - id: SpeechOnnxNemotronStt-Models-DownloadDescriptor
+            title: >-
+              The ModelManagementSubsystem shall declare a download descriptor naming every one
+              of the model's eleven files, each with a checksum and an HTTPS download URI.
+            justification: |
+              A host needs a checksum-verified, installable model; the downloader can only
+              fetch and verify the files the model declares.
+            children:
+              - SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-DownloadDescriptor
+              - SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-DownloadChecksums
+              - SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-DownloadUris
+            tests:
               - DownloadDescriptor_ListsElevenFiles
+
+          - id: SpeechOnnxNemotronStt-Models-LanguageSelection
+            title: >-
+              The ModelManagementSubsystem shall let a host select the recognition language,
+              en-US by default or en-GB, through a language ChoiceParameter.
+            justification: |
+              Every locale shares the same model files, so a language choice lets a host pick a
+              locale without installing the same model twice.
+            children:
+              - SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-LanguageParameter
+              - SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-LanguageOptions
+            tests:
               - Parameters_LanguageChoice
+
+          - id: SpeechOnnxNemotronStt-Models-CreateBackendValidation
+            title: >-
+              The ModelManagementSubsystem's CreateBackend method shall fail with an exception,
+              rather than return a partially built backend, for an unusable installation: an
+              empty model directory, missing model files, or a vocabulary that does not declare
+              the selected locale.
+            justification: |
+              A host must learn about an unusable installation at backend construction so the
+              Speech library's factory can degrade it to the honest unavailable recognizer,
+              instead of failing later during recognition.
+            children:
+              - SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-EmptyDirectoryRejected
+              - SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-MissingFilesRejected
+              - SpeechOnnxNemotronStt-Models-OnnxNemotronMultilingualRecognitionModel-UnsupportedLocaleRejected
+            tests:
               - CreateBackend_EmptyDirectory_Throws
               - CreateBackend_MissingFiles_Throws
+              - CreateBackend_VocabularyWithoutLocale_Throws
 
-          - id: SpeechOnnxNemotronStt-Models-VocabularyPipeline
+          - id: SpeechOnnxNemotronStt-Models-VocabularyLoading
             title: >-
-              The ModelManagementSubsystem shall load the model's own vocabulary and use it to
-              derive the encoder language identifier and the RNN-T blank token id, and to
-              convert emitted token ids into normalized text (NemotronVocabulary).
+              The ModelManagementSubsystem shall load the model's own vocabulary file and
+              reject an empty vocabulary (NemotronVocabulary).
             justification: |
-              The language identifier and blank id are properties of the exported model, so
-              they must be derived from the model's own vocabulary file at load time rather
-              than hard-coded, and the model emits SentencePiece-style tokens that must be
-              converted back to readable text.
+              The language identifier, blank id, and token text are properties of the exported
+              model, so they must come from its own vocabulary at load time; an empty
+              vocabulary is a corrupt installation.
             children:
               - SpeechOnnxNemotronStt-Models-NemotronVocabulary-Load
-              - SpeechOnnxNemotronStt-Models-NemotronVocabulary-LanguageIds
-              - SpeechOnnxNemotronStt-Models-NemotronVocabulary-BlankId
-              - SpeechOnnxNemotronStt-Models-NemotronVocabulary-Detokenize
+              - SpeechOnnxNemotronStt-Models-NemotronVocabulary-RejectEmpty
             tests:
               - Load_File_ReadsTokens
+              - Constructor_Empty_Throws
+
+          - id: SpeechOnnxNemotronStt-Models-VocabularyLanguageIds
+            title: >-
+              The ModelManagementSubsystem shall derive the encoder language identifier for a
+              selected locale from the model's own vocabulary and report a locale the
+              vocabulary does not declare.
+            justification: |
+              The language identifier is a property of the exported model, so it must be
+              derived from the vocabulary rather than hard-coded.
+            children:
+              - SpeechOnnxNemotronStt-Models-NemotronVocabulary-LanguageIds
+              - SpeechOnnxNemotronStt-Models-NemotronVocabulary-UnknownLocale
+            tests:
               - TryGetLanguageId_KnownLocales_ReturnsOrdinal
+              - TryGetLanguageId_UnknownLocale_ReturnsFalse
+
+          - id: SpeechOnnxNemotronStt-Models-VocabularyBlankId
+            title: >-
+              The ModelManagementSubsystem shall derive the RNN-T blank token id from the
+              model's own vocabulary.
+            justification: |
+              The blank id is a property of the exported model, so it must be derived from the
+              vocabulary rather than hard-coded.
+            children:
+              - SpeechOnnxNemotronStt-Models-NemotronVocabulary-BlankId
+              - SpeechOnnxNemotronStt-Models-NemotronVocabulary-BlankIdFallback
+            tests:
               - BlankId_IsBlankTokenIndex
+              - BlankId_NoBlankToken_IsLastIndex
+
+          - id: SpeechOnnxNemotronStt-Models-VocabularyDetokenization
+            title: >-
+              The ModelManagementSubsystem shall convert emitted token ids into normalized,
+              readable text.
+            justification: |
+              The model emits SentencePiece-style tokens that must be converted back to
+              readable text.
+            children:
+              - SpeechOnnxNemotronStt-Models-NemotronVocabulary-Detokenize
+              - SpeechOnnxNemotronStt-Models-NemotronVocabulary-DetokenizeEmpty
+            tests:
               - Detokenize_Tokens_NormalizesText
+              - Detokenize_Empty_ReturnsEmpty
