@@ -1,5 +1,7 @@
 ## SpeechCli SynthesisCommandSubsystem Design
 
+![SynthesisCommandSubsystem Structure](SynthesisCommandSubsystemView.svg)
+
 ### Overview
 
 The SynthesisCommandSubsystem implements the one text-to-speech subcommand dispatched to by

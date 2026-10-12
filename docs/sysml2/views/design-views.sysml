@@ -82,6 +82,26 @@ package SpeechCli {
     view SpeechCliView {
         expose SpeechCliSystem;
     }
+
+    view ModelCommandsSubsystemView {
+        expose ModelCommandsSubsystem;
+    }
+
+    view DeviceCommandsSubsystemView {
+        expose DeviceCommandsSubsystem;
+    }
+
+    view SynthesisCommandSubsystemView {
+        expose SynthesisCommandSubsystem;
+    }
+
+    view RecognitionCommandSubsystemView {
+        expose RecognitionCommandSubsystem;
+    }
+
+    view ConversationCommandSubsystemView {
+        expose ConversationCommandSubsystem;
+    }
 }
 
 // SpeechSherpa views. Declared in their own package so each 'expose' statement can reference

@@ -1,5 +1,7 @@
 ## SpeechCli DeviceCommandsSubsystem Design
 
+![DeviceCommandsSubsystem Structure](DeviceCommandsSubsystemView.svg)
+
 ### Overview
 
 The DeviceCommandsSubsystem implements the three device-related subcommands dispatched to by

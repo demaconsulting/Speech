@@ -1,5 +1,5 @@
 package Speech {
-    part def DedicatedWorker {
+    part def SynthesisDedicatedWorker {
         doc /* Internal utility that runs a delegate on a dedicated, long-running background
              * thread, applying a cooperative-cancel-then-abandon policy for native calls that do
              * not honor cancellation promptly: on cancellation the worker gets a bounded grace

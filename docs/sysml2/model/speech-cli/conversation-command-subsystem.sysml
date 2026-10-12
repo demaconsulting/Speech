@@ -27,23 +27,23 @@ package SpeechCli {
              * recognition-role --stt-model, validates --tts-param/--stt-param values
              * via the reused ParameterBagParser, speaks the resolved text through a
              * real playback device via an ISpeechSynthesizerEngine/ISynthesisSession
-             * (Phase 1), then - once playback finishes - listens through a real
+             * (speak step), then - once playback finishes - listens through a real
              * capture device resolved via ICliCaptureDeviceSource using an
              * ISpeechRecognizerEngine/IRecognitionSession wrapped in a reused
-             * SilenceTimeoutRecognizerSession (Phase 2) until the first final
+             * SilenceTimeoutRecognizerSession (listen step) until the first final
              * recognition result arrives, the silence/start timeout elapses, or Ctrl+C
-             * is pressed. Phase 2's recognizer engine and session (and its capture
-             * device) are now constructed concurrently with Phase 1's SpeakAsync wait,
+             * is pressed. The listen step's recognizer engine and session (and its capture
+             * device) are constructed concurrently with the speak step's SpeakAsync wait,
              * via a background Task.Run (PrewarmRecognizerAsync), rather than only once
              * playback finishes, so the expensive model-load step overlaps with prompt
              * playback and the turnaround gap before listening starts is minimized;
              * only the model load is pre-warmed, never session.StartAsync (real
-             * microphone capture), which still begins only once Phase 2 genuinely
-             * runs - if Phase 1 is canceled or fails first, the pre-warmed engine and
+             * microphone capture), which still begins only once the listen step genuinely
+             * runs - if the speak step is canceled or fails first, the pre-warmed engine and
              * session are disposed fire-and-forget via DisposePrewarmedRecognizerAsync
-             * instead of being awaited directly. A genuine Ctrl+C during Phase 2 is
+             * instead of being awaited directly. A genuine Ctrl+C during the listen step is
              * distinguished from a legitimate empty result (silence/start timeout) via
-             * the shared CancellationToken, and is reported the same way a Phase-1
+             * the shared CancellationToken, and is reported the same way a speak-step
              * cancellation already is (WriteError), skipping the output-writing step
              * entirely rather than printing/writing empty text as a false success.
              * Otherwise, the final recognized text is printed (or written to

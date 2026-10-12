@@ -26,9 +26,9 @@ package Speech {
         part unavailableSynthesisSession : UnavailableSynthesisSession;
         part speechSynthesizerUnavailableException : SpeechSynthesizerUnavailableException;
         part synthesisSessionState : SynthesisSessionState;
-        part sessionStateChangedEventArgs : SessionStateChangedEventArgs;
+        part sessionStateChangedEventArgs : SynthesisSessionStateChangedEventArgs;
         part synthesisEngineBusyException : SynthesisEngineBusyException;
         part synthesisSessionFaultedException : SynthesisSessionFaultedException;
-        part dedicatedWorker : DedicatedWorker;
+        part dedicatedWorker : SynthesisDedicatedWorker;
     }
 }

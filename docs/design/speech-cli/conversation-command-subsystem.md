@@ -1,5 +1,7 @@
 ## SpeechCli ConversationCommandSubsystem Design
 
+![ConversationCommandSubsystem Structure](ConversationCommandSubsystemView.svg)
+
 ### Overview
 
 The ConversationCommandSubsystem implements the one voice-conversation subcommand dispatched to

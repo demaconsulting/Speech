@@ -1,5 +1,5 @@
 package Speech {
-    part def DedicatedWorker {
+    part def RecognitionDedicatedWorker {
         doc /* Internal long-running-task helper that runs one blocking delegate on its own
              * dedicated thread (TaskCreationOptions.LongRunning) and applies a
              * cooperative-cancel-then-abandon policy: requests cancellation first, then abandons

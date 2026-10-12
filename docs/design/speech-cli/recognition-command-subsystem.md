@@ -1,5 +1,7 @@
 ## SpeechCli RecognitionCommandSubsystem Design
 
+![RecognitionCommandSubsystem Structure](RecognitionCommandSubsystemView.svg)
+
 ### Overview
 
 The RecognitionCommandSubsystem implements the one speech-to-text subcommand dispatched to by
