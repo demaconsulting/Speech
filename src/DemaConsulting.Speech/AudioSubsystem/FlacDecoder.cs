@@ -156,16 +156,23 @@ internal static class FlacDecoder
         while (written < target && (known || reader.PeekFrameSync()))
         {
             var blockSize = FlacFrameDecoder.Decode(reader, info, verify, buffers);
-            var frames = (int)Math.Min(blockSize, (target - written) / info.ChannelCount);
-            var needed = written + ((long)frames * info.ChannelCount);
-            if (needed > maxSamples)
+            var remainingFrames = (target - written) / info.ChannelCount;
+            if (known && blockSize > remainingFrames)
             {
-                throw new InvalidDataException($"The FLAC stream holds more than the allowed {maxSamples} samples.");
+                throw new InvalidDataException(
+                    $"The FLAC frame holds {blockSize} samples per channel, more than the {remainingFrames} left in the declared total of {info.TotalSamples}.");
+            }
+
+            var frames = (int)Math.Min(blockSize, remainingFrames);
+            var needed = written + ((long)frames * info.ChannelCount);
+            if (needed > maxSamples || needed > Array.MaxLength)
+            {
+                throw new InvalidDataException($"The FLAC stream holds more than the allowed {Math.Min(maxSamples, Array.MaxLength)} samples.");
             }
 
             if (needed > output.Length)
             {
-                Array.Resize(ref output, (int)Math.Min(Math.Max(needed, output.Length * 2L), maxSamples));
+                Array.Resize(ref output, (int)Math.Min(Math.Max(needed, output.Length * 2L), Math.Min(maxSamples, Array.MaxLength)));
             }
 
             written = Interleave(buffers, frames, scale, output, written);

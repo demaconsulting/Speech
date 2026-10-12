@@ -153,11 +153,7 @@ public static class AudioFileReader
     /// <summary>Sniffs the container and dispatches to the matching decoder.</summary>
     private static AudioClip Decode(byte[] data, AudioFileReadOptions options)
     {
-        if (options.MaxSamples < 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(options), "MaxSamples must not be negative.");
-        }
-
+        // MaxSamples was already validated by GetMaxBytes, which every caller runs first
         if (WavDecoder.IsWav(data))
         {
             return WavDecoder.Decode(data, options.MaxSamples);

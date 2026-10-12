@@ -18,3 +18,12 @@ sections:
                   Consumers need common views of decoded audio without re-implementing them.
                 tests:
                   - AudioClip_DerivedMembers_AreConsistent
+              - id: Speech-Audio-AudioClip-ValidatesInput
+                title: >-
+                  The AudioClip record shall reject null samples and a non-positive sample rate or channel
+                  count, both at construction and in with-expressions.
+                justification: |
+                  A zero rate or channel count would divide by zero in Duration and the down-mix.
+                tests:
+                  - AudioClip_InvalidValues_Throw
+                  - AudioClip_EmptySamples_HasZeroDuration

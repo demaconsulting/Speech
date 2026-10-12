@@ -39,6 +39,7 @@ sections:
                   - FlacDecoder_Decode_BlockSizeCodes_RoundTrip
                   - FlacDecoder_Decode_ManyFrames_ParsesMultiByteFrameNumbers
                   - FlacDecoder_Decode_ContainerVariants_RoundTrip
+                  - FlacDecoder_Decode_Id3PrefixedFileWithDatExtension_DecodesThroughReader
                   - FlacDecoder_Decode_UnknownTotal_DecodesUntilData_Ends
 
               - id: Speech-Audio-FlacDecoder-Integrity
@@ -58,3 +59,4 @@ sections:
                   - FlacDecoder_Decode_BlockLargerThanMaximum_Throws
                   - FlacDecoder_Decode_InvalidPredictorParameters_Throw
                   - FlacDecoder_Decode_ExceedsMaxSamples_Throws
+                  - FlacDecoder_Decode_FrameExceedsDeclaredTotal_Throws

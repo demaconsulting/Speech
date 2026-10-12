@@ -450,6 +450,43 @@ public sealed class FlacDecoderTests
         Assert.Throws<InvalidDataException>(() => Decode(unknown, options));
     }
 
+    /// <summary>Proves a frame holding more samples than remain in the declared STREAMINFO total is rejected, not truncated.</summary>
+    [Fact]
+    public void FlacDecoder_Decode_FrameExceedsDeclaredTotal_Throws()
+    {
+        // Arrange: three 100-sample frames but a declared total of 250, so the last frame overruns by 50
+        var bytes = new TestFlacEncoder { BlockSize = 100, DeclaredTotal = 250 }.Encode(Signal(1, 300, 16));
+
+        // Act
+        var ex = Assert.Throws<InvalidDataException>(() => Decode(bytes));
+
+        // Assert
+        Assert.Contains("declared total", ex.Message);
+    }
+
+    /// <summary>Proves an ID3v2-prefixed FLAC file with an unrecognized extension is detected by content and decoded through the file reader.</summary>
+    [Fact]
+    public void FlacDecoder_Decode_Id3PrefixedFileWithDatExtension_DecodesThroughReader()
+    {
+        // Arrange
+        var signal = Signal(1, 300, 16);
+        var path = Path.Combine(Path.GetTempPath(), $"speech-{Guid.NewGuid():N}.dat");
+        File.WriteAllBytes(path, new TestFlacEncoder { Id3Prefix = true, BlockSize = 150 }.Encode(signal));
+
+        try
+        {
+            // Act
+            var clip = AudioFileReader.Read(path);
+
+            // Assert
+            AssertMatches(signal, clip, 16);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     /// <summary>Returns +1 for even and -1 for odd indices.</summary>
     private static long AlternatingSign(int i) => i % 2 == 0 ? 1L : -1L;
 

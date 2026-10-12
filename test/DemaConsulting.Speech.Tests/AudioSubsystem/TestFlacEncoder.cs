@@ -86,6 +86,9 @@ public sealed class TestFlacEncoder
     /// <summary>Gets or sets a value indicating whether the STREAMINFO total sample count is left as zero (unknown).</summary>
     public bool UnknownTotal { get; set; }
 
+    /// <summary>Gets or sets a STREAMINFO total sample count to declare instead of the real one, or <see langword="null"/> for the real count.</summary>
+    public int? DeclaredTotal { get; set; }
+
     /// <summary>Gets or sets a value indicating whether frames repeat the rate/depth instead of coding "as STREAMINFO".</summary>
     public bool ExplicitHeaderCodes { get; set; } = true;
 
@@ -135,7 +138,7 @@ public sealed class TestFlacEncoder
         info.Write((ulong)SampleRate, 20);
         info.Write((ulong)(channelCount - 1), 3);
         info.Write((ulong)(BitsPerSample - 1), 5);
-        info.Write(UnknownTotal ? 0UL : (ulong)total, 36);
+        info.Write(UnknownTotal ? 0UL : (ulong)(DeclaredTotal ?? total), 36);
         info.Write(0, 64);
         info.Write(0, 64);
 

@@ -157,6 +157,36 @@ public sealed class AudioFileReaderTests
         Assert.Equal(0, pcm[7]);
     }
 
+    /// <summary>Proves <see cref="AudioClip"/> rejects a null sample array and non-positive rates or channel counts, including through <c>with</c>.</summary>
+    [Fact]
+    public void AudioClip_InvalidValues_Throw()
+    {
+        // Arrange
+        var valid = new AudioClip([0f, 0f], 8000, 1, 16);
+
+        // Act / Assert
+        Assert.Throws<ArgumentNullException>(() => new AudioClip(null!, 8000, 1, 16));
+        Assert.Equal("SampleRate", Assert.Throws<ArgumentOutOfRangeException>(() => new AudioClip([0f], 0, 1, 16)).ParamName);
+        Assert.Equal("SampleRate", Assert.Throws<ArgumentOutOfRangeException>(() => new AudioClip([0f], -1, 1, 16)).ParamName);
+        Assert.Equal("ChannelCount", Assert.Throws<ArgumentOutOfRangeException>(() => new AudioClip([0f], 8000, 0, 16)).ParamName);
+        Assert.Equal("ChannelCount", Assert.Throws<ArgumentOutOfRangeException>(() => new AudioClip([0f], 8000, -2, 16)).ParamName);
+        Assert.Throws<ArgumentOutOfRangeException>(() => valid with { SampleRate = 0 });
+        Assert.Throws<ArgumentOutOfRangeException>(() => valid with { ChannelCount = 0 });
+        Assert.Equal(16000, (valid with { SampleRate = 16000 }).SampleRate);
+    }
+
+    /// <summary>Proves an empty sample array is a valid, zero-length clip.</summary>
+    [Fact]
+    public void AudioClip_EmptySamples_HasZeroDuration()
+    {
+        // Arrange / Act
+        var clip = new AudioClip([], 8000, 2, 16);
+
+        // Assert
+        Assert.Equal(0, clip.FrameCount);
+        Assert.Equal(0.0, clip.Duration);
+    }
+
     /// <summary>Proves an oversized file is rejected from its length alone, naming the file.</summary>
     [Fact]
     public void AudioFileReader_Read_FileLargerThanByteCap_ThrowsBeforeDecoding()

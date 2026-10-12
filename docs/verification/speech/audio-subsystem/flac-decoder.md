@@ -76,6 +76,10 @@ sample cap are rejected with `InvalidDataException`.
 
 **Test**: `FlacDecoder_Decode_ContainerVariants_RoundTrip`
 
+##### ID3v2-prefixed FLAC with a non-.flac extension, read by path
+
+**Test**: `FlacDecoder_Decode_Id3PrefixedFileWithDatExtension_DecodesThroughReader`
+
 ##### Unknown total length
 
 **Test**: `FlacDecoder_Decode_UnknownTotal_DecodesUntilData_Ends`
@@ -107,3 +111,7 @@ sample cap are rejected with `InvalidDataException`.
 ##### Sample cap
 
 **Test**: `FlacDecoder_Decode_ExceedsMaxSamples_Throws`
+
+##### Frame larger than the declared total
+
+**Test**: `FlacDecoder_Decode_FrameExceedsDeclaredTotal_Throws`

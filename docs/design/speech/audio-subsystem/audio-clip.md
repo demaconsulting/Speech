@@ -12,7 +12,10 @@ derived.
 - **ToPcm16()**: convert to signed 16-bit samples, clamping out-of-range values and mapping NaN
   to zero
 
-**Error Handling**: None beyond what the underlying helpers throw.
+**Error Handling**: The constructor and `with` expressions validate: `Samples` null throws
+`ArgumentNullException`; `SampleRate` or `ChannelCount` of zero or less throws
+`ArgumentOutOfRangeException` (so `Duration` and `ToMono` cannot divide by zero). An empty sample
+array is valid and has zero duration. The record keeps reference equality for `Samples`.
 
 **Dependencies**: `AudioResampler`.
 
