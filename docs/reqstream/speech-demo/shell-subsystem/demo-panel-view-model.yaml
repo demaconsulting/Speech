@@ -6,8 +6,8 @@
 # ShellSubsystem requirements.
 #
 # The requirements are grouped by concern, one criterion each:
-#   - Title (Shell-PanelTitles)
-#   - Content (Shell-PanelContent)
+#   - Title (Shell-PanelTitles, -PanelTitleRequired)
+#   - Content (Shell-PanelContent, -PanelContentRequired)
 # Every test below is a DemoPanelViewModelTests test.
 
 sections:
@@ -19,24 +19,37 @@ sections:
             requirements:
               - id: SpeechDemo-Shell-PanelTitles
                 title: >-
-                  The DemoPanelViewModel shall expose the title it was created with and shall
-                  reject a missing, empty or whitespace title.
+                  The DemoPanelViewModel shall expose the title it was created with.
+                justification: |
+                  A navigation entry must be labeled with the title the composition root chose,
+                  or a user cannot tell the entries apart.
+                tests:
+                  - DemoPanelViewModel_Constructor_ValidArguments_CarriesTitleAndContent
+
+              - id: SpeechDemo-Shell-PanelTitleRequired
+                title: >-
+                  The DemoPanelViewModel shall reject a missing, empty or whitespace title.
                 justification: |
                   A navigation entry with no readable title is unusable, so an untitled entry
                   is a programming error to surface at creation rather than a blank tab.
                 tests:
-                  - DemoPanelViewModel_Constructor_ValidArguments_CarriesTitleAndContent
                   - DemoPanelViewModel_Constructor_BlankTitle_ThrowsArgumentException
                   - DemoPanelViewModel_Constructor_NullTitle_ThrowsArgumentNullException
 
               - id: SpeechDemo-Shell-PanelContent
                 title: >-
-                  The DemoPanelViewModel shall expose the panel view model it was created with
-                  and shall reject a missing panel.
+                  The DemoPanelViewModel shall expose the panel view model it was created with.
                 justification: |
-                  An entry with no content would render a blank page; carrying the exact
-                  instance is what lets the shell present the panel state the composition root
-                  built.
+                  Carrying the exact instance is what lets the shell present the panel state
+                  the composition root built.
                 tests:
                   - DemoPanelViewModel_Constructor_ValidArguments_CarriesTitleAndContent
+
+              - id: SpeechDemo-Shell-PanelContentRequired
+                title: >-
+                  The DemoPanelViewModel shall reject a missing panel.
+                justification: |
+                  An entry with no content would render a blank page, so a missing panel is a
+                  programming error to surface at creation.
+                tests:
                   - DemoPanelViewModel_Constructor_NullContent_ThrowsArgumentNullException

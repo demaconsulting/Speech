@@ -16,7 +16,7 @@ sections:
             title: >-
               The App unit shall compose the demo's object graph by hand over the library's
               real public entry points, with every panel wired to the shared device selection
-              and model catalog, and shall remain a valid Avalonia application.
+              and model catalog.
             justification: |
               The demo exists to show how a host application wires itself to the library. A
               single explicit composition root keeps that wiring readable, and composing over
@@ -24,4 +24,12 @@ sections:
             tests:
               - SpeechDemo_SystemIntegration_RealLibraryEntryPoints_ComposesWorkingShell
               - SpeechDemo_SystemIntegration_RealModelCatalog_ReportsKnownModels
+
+          - id: SpeechDemo-App-AvaloniaApplication
+            title: >-
+              The App unit shall be a valid Avalonia application.
+            justification: |
+              Avalonia's runtime and design-time tooling can only start the demo when the
+              application object derives from the framework's application type.
+            tests:
               - Avalonia_DemoApplication_Inspected_DerivesFromAvaloniaApplication

@@ -14,18 +14,50 @@ sections:
           - id: SpeechDemo-MirrorOptions-Validation
             title: >-
               The MirrorOptionsFactory unit shall build a download mirror from raw URL,
-              credential and token strings, return no mirror for a blank URL, and reject a
-              credential or token without a URL, a half-supplied username and password pair, and
-              a URL that is not a valid absolute URL.
+              credential and token strings.
             justification: |
-              Launch-time arguments and the in-app mirror settings must validate identically.
+              Launch-time arguments and the in-app mirror settings must build the same mirror
+              from the same raw values.
+            tests:
+              - CreateDownloaderOptions_ValidCredentialedMirror_ReturnsConfiguredMirror
+
+          - id: SpeechDemo-MirrorOptions-BlankUrlNoMirror
+            title: >-
+              The MirrorOptionsFactory unit shall return no mirror for a blank URL.
+            justification: |
+              Without a mirror every model downloads from its own declared public location.
+            tests:
+              - CreateDownloaderOptions_NoMirrorUrl_ReturnsNull
+
+          - id: SpeechDemo-MirrorOptions-CredentialWithoutUrl
+            title: >-
+              The MirrorOptionsFactory unit shall reject a credential or token supplied
+              without a URL.
+            justification: |
               A credential with nowhere to apply almost always means a missing or misspelled
               URL, so it is rejected rather than silently ignored.
             tests:
-              - CreateDownloaderOptions_ValidCredentialedMirror_ReturnsConfiguredMirror
-              - CreateDownloaderOptions_InvalidMirrorUrl_ThrowsArgumentException
-              - CreateDownloaderOptions_MirrorUserWithoutPassword_ThrowsArgumentException
               - CreateDownloaderOptions_MirrorCredentialsWithoutUrl_ThrowsArgumentException
               - CreateDownloaderOptions_MirrorBearerTokenWithoutUrl_ThrowsArgumentException
-              - ModelCatalogViewModel_ApplyMirror_InvalidUrl_ReportsErrorWithoutCallingService
               - ModelCatalogViewModel_ApplyMirror_CredentialsWithoutUrl_ReportsErrorWithoutCallingService
+
+          - id: SpeechDemo-MirrorOptions-HalfCredentialPair
+            title: >-
+              The MirrorOptionsFactory unit shall reject a username supplied without a
+              password.
+            justification: |
+              Half of a Basic-authentication pair can never authenticate, so the mismatch is
+              reported instead of sending a request that is certain to fail.
+            tests:
+              - CreateDownloaderOptions_MirrorUserWithoutPassword_ThrowsArgumentException
+
+          - id: SpeechDemo-MirrorOptions-InvalidUrl
+            title: >-
+              The MirrorOptionsFactory unit shall reject a URL that is not a valid absolute
+              URL.
+            justification: |
+              Launch-time arguments and the in-app mirror settings must validate identically;
+              a malformed URL is reported before any download is attempted.
+            tests:
+              - CreateDownloaderOptions_InvalidMirrorUrl_ThrowsArgumentException
+              - ModelCatalogViewModel_ApplyMirror_InvalidUrl_ReportsErrorWithoutCallingService

@@ -105,7 +105,7 @@ no code-behind.
 
 **Expected**: No change notification is raised.
 
-**Requirement coverage**: `SpeechDemo-Shell-SelectionNotification`.
+**Requirement coverage**: `SpeechDemo-Shell-SelectionNoNotificationWhenUnchanged`.
 
 ##### MainWindowViewModel_Title_Read_NamesTheImplementedCapabilities
 

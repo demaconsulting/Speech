@@ -7,7 +7,7 @@
 #
 # The requirements are grouped by concern, one criterion each:
 #   - Panel list (Shell-PanelCatalog, -PanelEntryTitles, -PanelHosting)
-#   - Selection (Shell-DefaultPanel, -SelectionNotification)
+#   - Selection (Shell-DefaultPanel, -SelectionNotification, -SelectionNoNotificationWhenUnchanged)
 #   - Window title (Shell-WindowTitle)
 #   - Construction (Shell-CompositionRoot)
 # Every test below is a MainWindowViewModelTests test.
@@ -65,14 +65,21 @@ sections:
               - id: SpeechDemo-Shell-SelectionNotification
                 title: >-
                   The MainWindowViewModel shall raise a change notification for the selected
-                  panel when a different panel is selected, and none when the selection is
-                  unchanged.
+                  panel when a different panel is selected.
                 justification: |
                   Announcing selection changes is what lets the bound view swap panels without
-                  any code-behind; announcing a change that did not happen would ask the view
-                  to swap content needlessly.
+                  any code-behind.
                 tests:
                   - MainWindowViewModel_SelectedPanel_Changed_NotifiesSelectedPanel
+
+              - id: SpeechDemo-Shell-SelectionNoNotificationWhenUnchanged
+                title: >-
+                  The MainWindowViewModel shall raise no change notification for the selected
+                  panel when the selection is set to the panel already selected.
+                justification: |
+                  Announcing a change that did not happen would ask the view to swap content
+                  needlessly.
+                tests:
                   - MainWindowViewModel_SelectedPanel_SameValue_DoesNotNotify
 
               - id: SpeechDemo-Shell-WindowTitle

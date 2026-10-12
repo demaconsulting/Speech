@@ -13,59 +13,141 @@ sections:
           - id: SpeechDemo-LaunchOptions-Parsing
             title: >-
               The AppLaunchOptions unit shall parse the demo's launch-time arguments onto
-              typed properties, report a help request, and reject an unrecognized argument, an
-              option missing its value, or a null argument list.
+              typed properties, leaving every property unset when no argument is supplied.
+            justification: |
+              The demo's windows and composition root read launch settings from typed
+              properties, so arguments must land on the property that names them.
+            tests:
+              - Parse_NoArguments_ReturnsAllDefaults
+              - Parse_AllOptions_ParsesOntoProperties
+
+          - id: SpeechDemo-LaunchOptions-HelpRequest
+            title: >-
+              The AppLaunchOptions unit shall report a help request when --help, -h or -? is
+              supplied.
+            justification: |
+              A user starting the demo from a shell expects the conventional help flags to
+              ask for usage text rather than open a window.
+            tests:
+              - Parse_HelpFlag_SetsHelp
+
+          - id: SpeechDemo-LaunchOptions-RejectUnrecognized
+            title: >-
+              The AppLaunchOptions unit shall reject an unrecognized argument with an
+              ArgumentException.
             justification: |
               A mistyped option must fail fast with an explained error rather than being
               ignored, otherwise a user would believe a mirror or folder setting was in effect
               when it was not.
             tests:
-              - Parse_NoArguments_ReturnsAllDefaults
-              - Parse_HelpFlag_SetsHelp
-              - Parse_AllOptions_ParsesOntoProperties
               - Parse_UnrecognizedArgument_ThrowsArgumentException
+
+          - id: SpeechDemo-LaunchOptions-RejectMissingValue
+            title: >-
+              The AppLaunchOptions unit shall reject a value-taking option supplied without
+              its value with an ArgumentException.
+            justification: |
+              An option left without its value is almost always a truncated command line;
+              failing fast tells the user instead of silently running with a default.
+            tests:
               - Parse_OptionMissingValue_ThrowsArgumentException
+
+          - id: SpeechDemo-LaunchOptions-RejectNullArguments
+            title: >-
+              The AppLaunchOptions unit shall reject a null argument list with an
+              ArgumentNullException.
+            justification: |
+              A missing argument list is a programming error in the caller and must surface at
+              the call rather than as a later null reference.
+            tests:
               - Parse_NullArguments_ThrowsArgumentNullException
 
           - id: SpeechDemo-LaunchOptions-StoreFolder
             title: >-
               The AppLaunchOptions unit shall translate a supplied models directory into a
-              model store root override and shall report no override when none was supplied.
+              model store root override.
             justification: |
               Letting a user relocate the model store matches the speech-cli --models-dir option
               and lets the demo run against a pre-populated or read-only location.
             tests:
-              - CreateStoreOptions_NoModelsDir_ReturnsNull
               - CreateStoreOptions_WithModelsDir_ReturnsMatchingRootPathOverride
+
+          - id: SpeechDemo-LaunchOptions-StoreFolderDefault
+            title: >-
+              The AppLaunchOptions unit shall report no model store override when no models
+              directory was supplied.
+            justification: |
+              Without the option the demo must use the library's default per-user store, so
+              no override may be invented.
+            tests:
+              - CreateStoreOptions_NoModelsDir_ReturnsNull
 
           - id: SpeechDemo-LaunchOptions-MirrorConfiguration
             title: >-
               The AppLaunchOptions unit shall translate the supplied mirror options into
-              downloader options carrying the configured mirror, report no downloader options
-              when no mirror was supplied, and reject an invalid mirror configuration.
+              downloader options carrying the configured mirror.
             justification: |
               Launch-time mirror arguments let a user behind a network policy redirect model
-              downloads from a script. Invalid combinations must be rejected before any window
-              opens so the user gets a clear console message.
+              downloads from a script.
             tests:
-              - CreateDownloaderOptions_NoMirrorUrl_ReturnsNull
               - CreateDownloaderOptions_ValidCredentialedMirror_ReturnsConfiguredMirror
               - CreateDownloaderOptions_BearerTokenMirror_ReturnsConfiguredMirror
+
+          - id: SpeechDemo-LaunchOptions-NoMirror
+            title: >-
+              The AppLaunchOptions unit shall report no downloader options when no mirror was
+              supplied.
+            justification: |
+              Without a mirror every model downloads from its own declared public location.
+            tests:
+              - CreateDownloaderOptions_NoMirrorUrl_ReturnsNull
+
+          - id: SpeechDemo-LaunchOptions-MirrorRejection
+            title: >-
+              The AppLaunchOptions unit shall reject an invalid mirror configuration with an
+              ArgumentException.
+            justification: |
+              Invalid combinations must be rejected before any window opens so the user gets
+              a clear console message.
+            tests:
               - CreateDownloaderOptions_InvalidMirrorUrl_ThrowsArgumentException
               - CreateDownloaderOptions_MirrorUserWithoutPassword_ThrowsArgumentException
 
           - id: SpeechDemo-Voices-LaunchOption
             title: >-
               The AppLaunchOptions unit shall accept a --voices-dir launch option naming an
-              existing folder of the user's own reference voices, shall list it in the
-              help text, and shall reject a missing value or a folder that does not exist.
+              existing folder of the user's own reference voices.
             justification: |
               Chatterbox Turbo needs reference recordings to clone. A launch option lets a
-              user bring their own voices, matching the speech-cli --voices-dir option; validating
-              the folder up front turns a typo into an immediate explained error instead of
-              a silently empty voice list.
+              user bring their own voices, matching the speech-cli --voices-dir option.
             tests:
               - Parse_VoicesDir_ExistingDirectory_SetsVoicesDir
-              - Parse_VoicesDir_MissingDirectory_ThrowsArgumentException
-              - Parse_VoicesDir_NoValue_ThrowsArgumentException
+
+          - id: SpeechDemo-Voices-LaunchOptionHelp
+            title: >-
+              The AppLaunchOptions unit shall list the --voices-dir option in its help text.
+            justification: |
+              A launch option a user cannot discover from the help text might as well not
+              exist.
+            tests:
               - PrintHelp_ListsVoicesDirOption
+
+          - id: SpeechDemo-Voices-LaunchOptionValueRequired
+            title: >-
+              The AppLaunchOptions unit shall reject a --voices-dir option supplied without a
+              value.
+            justification: |
+              A truncated command line must produce an immediate explained error instead of a
+              silently empty voice list.
+            tests:
+              - Parse_VoicesDir_NoValue_ThrowsArgumentException
+
+          - id: SpeechDemo-Voices-LaunchOptionFolderMustExist
+            title: >-
+              The AppLaunchOptions unit shall reject a --voices-dir option naming a folder that
+              does not exist.
+            justification: |
+              Validating the folder up front turns a typo into an immediate explained error
+              instead of a silently empty voice list.
+            tests:
+              - Parse_VoicesDir_MissingDirectory_ThrowsArgumentException
