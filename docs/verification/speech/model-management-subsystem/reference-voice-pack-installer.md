@@ -37,3 +37,15 @@ is written, the archive is deleted, every unsafe or malformed archive fails with
 **Test**: `ReferenceVoicePackInstaller_Install_NotAZip_Throws`
 
 **Test**: `ReferenceVoicePackInstaller_Install_CanceledToken_Throws`
+
+##### Emotion Variants
+
+**Test**: `ReferenceVoicePackInstaller_Install_WithEmotions_ExtractsMoodClipsAndRecordsVariant`
+
+**Test**: `ReferenceVoicePackInstaller_Install_WithoutEmotions_SkipsMoodClips`
+
+**Test**: `ReferenceVoicePackInstaller_Install_WithEmotions_IgnoresMisshapenEmotionEntries`
+
+**Test**: `ReferenceVoicePackInstaller_Install_WithEmotions_UnsafeEmotionEntry_Throws`
+
+**Test**: `ReferenceVoicePackInstaller_Install_OnlyEmotionClips_Throws`

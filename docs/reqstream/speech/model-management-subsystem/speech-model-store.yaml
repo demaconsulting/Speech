@@ -85,3 +85,15 @@ sections:
                   the leftover directory is simply left for a future call to retry.
                 tests:
                   - SpeechModelStore_CleanUpLeftovers_LeftoverTmpDirectory_IsRemoved
+
+              - id: Speech-Models-SpeechModelStore-EmptyTempCleanup
+                title: >-
+                  The SpeechModelStore class shall remove a model's empty .tmp staging root after a
+                  successful install, and keep it while another operation's staging directory is
+                  still present.
+                justification: |
+                  An install leaves an empty .tmp folder beside the content; removing it keeps the
+                  model directory tidy, but a concurrent operation's staging must never be disturbed.
+                tests:
+                  - SpeechModelStore_CompleteInstall_RemovesEmptyStagingRoot
+                  - SpeechModelStore_CompleteInstall_OtherOperationStaging_KeepsStagingRoot

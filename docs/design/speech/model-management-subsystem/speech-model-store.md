@@ -33,6 +33,8 @@ staging space, never read as installed content). A private nested `InstallManife
   staging directory without touching `current/`.
 - **Uninstall(modelId)**: Removes `current/` and the manifest for an installed model; a no-op for
   a model that was never installed.
+- After the swap, `CompleteInstall` best-effort removes the now-empty `.tmp` root (a non-recursive delete,
+  so another operation's staging directory keeps it alive and a failure is ignored).
 - **CleanUpLeftovers(modelId)**: Best-effort deletes leftover `current.replaced-*` and `.tmp/*`
   directories from a prior interrupted operation.
 

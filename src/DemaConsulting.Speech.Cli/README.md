@@ -31,7 +31,7 @@ runtime, and local model store are all in a healthy state on the current machine
 | `uninstall <modelId>` | Remove a downloaded model's files, keeping its catalog entry |
 | `clean <modelId>` | Best-effort remove leftover partial-install artifacts for a model (not a full uninstall) |
 | `list-voices` | List reference voices (id, source) for the voice-cloning model, as a table or JSON |
-| `voices packs\|install\|uninstall` | List, download, or remove the optional reference-voice pack |
+| `voices packs\|install [--no-emotions]\|uninstall` | List, download, or remove the optional reference-voice pack |
 | `list-devices` | List capture and/or playback audio devices (`--direction input\|output`) |
 | `devices test` | Play or record a short test tone/clip (`--device <name>`, `--direction input\|output`) |
 | `doctor` | Report overall environment health |
@@ -44,9 +44,12 @@ runtime, and local model store are all in a healthy state on the current machine
 The `chatterbox-turbo-onnx-en` text-to-speech model clones a *reference voice*, so it needs at
 least one voice to speak. Voices come from three places, all listed by `list-voices`:
 
-- the optional **voice pack** `voice-zero-1.0` (CC0-licensed, about 570 MiB to download and about
-  45 MB installed): `speech-cli voices install voice-zero-1.0` (`voices packs` shows its state,
-  `voices uninstall voice-zero-1.0` removes it). Installation honors `--models-dir` and
+- the optional **voice pack** `voice-zero-1.0` (CC0-licensed, about 570 MiB to download; about 44 MiB
+  installed for the base voices, about 572 MiB with the 13 emotion variants per voice, which are
+  included by default): `speech-cli voices install voice-zero-1.0` (add `--no-emotions` for the base
+  voices only; installing with emotions over a voices-only install removes and downloads the pack
+  again; `voices packs` shows its sizes and state, `voices uninstall voice-zero-1.0` removes it;
+  `list-voices` shows a Moods column). Installation honors `--models-dir` and
   `--mirror-*` (the mirror serves `{mirror-url}/voice-zero-1.0/voice-zero-1.0.zip`)
 - the **user folder** `<models-dir>/reference-voices/user`: drop `.wav` or `.flac` files here
 - any folder given with `--voices-dir <path>` (must exist)

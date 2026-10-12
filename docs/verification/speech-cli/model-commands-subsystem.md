@@ -189,6 +189,21 @@ no pack is downloaded.
 
 **Requirement coverage**: `SpeechCli-ModelCommands-VoicePacks`.
 
+#### Voice Emotion Variants
+
+**Tests**: `VoicesCommand_RunAsync_Install_DefaultIncludesEmotions`,
+`VoicesCommand_RunAsync_InstallNoEmotions_InstallsBaseVoicesOnly`,
+`VoicesCommand_RunAsync_InstallOverVoicesOnly_AnnouncesUpgrade`,
+`VoicesCommand_RunAsync_Packs_ShowsDownloadAndInstalledSizes`,
+`ListVoicesCommand_Run_MoodClips_ShowsMoodsColumnAndJson`
+
+**Scenario/Expected**: `install` requests emotions by default and the base voices only with
+`--no-emotions`; installing over a voices-only install announces the remove-and-download-again
+upgrade; `packs` shows the download size, installed sizes and variant; `list-voices` shows a Moods
+column and a `moods` JSON array. Tests use the fake catalog, so nothing is downloaded.
+
+**Requirement coverage**: `SpeechCli-ModelCommands-VoiceEmotions`.
+
 #### Chatterbox Composition and `--voices-dir`
 
 **Tests**: `SpeechModelCatalogAdapter_Voices_ListsUserAndVoicesDirVoices`,

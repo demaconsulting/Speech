@@ -43,3 +43,21 @@ sections:
                   - ReferenceVoicePackInstaller_Install_NoVoices_Throws
                   - ReferenceVoicePackInstaller_Install_NotAZip_Throws
                   - ReferenceVoicePackInstaller_Install_CanceledToken_Throws
+
+              - id: Speech-Models-ReferenceVoicePackInstaller-EmotionVariants
+                title: >-
+                  The ReferenceVoicePackInstaller shall, when emotion variants are requested,
+                  additionally extract the per-speaker emotion clips (voices-emotion/{speaker}/{mood}.flac)
+                  and the emotion readme, record the extracted variants and emotion clip count in
+                  pack.json, ignore misshapen emotion entries, reject unsafe ones, and extract no
+                  emotion clip when they are not requested.
+                justification: |
+                  The emotion clips are the larger part of the pack (about 528 MiB against about
+                  44 MiB for the base voices), so they are opt-in. A pack with only emotion clips
+                  and no base voices is still malformed, and the same zip-slip protection applies.
+                tests:
+                  - ReferenceVoicePackInstaller_Install_WithEmotions_ExtractsMoodClipsAndRecordsVariant
+                  - ReferenceVoicePackInstaller_Install_WithoutEmotions_SkipsMoodClips
+                  - ReferenceVoicePackInstaller_Install_WithEmotions_IgnoresMisshapenEmotionEntries
+                  - ReferenceVoicePackInstaller_Install_WithEmotions_UnsafeEmotionEntry_Throws
+                  - ReferenceVoicePackInstaller_Install_OnlyEmotionClips_Throws

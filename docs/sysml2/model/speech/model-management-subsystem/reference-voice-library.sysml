@@ -1,8 +1,9 @@
 package Speech {
     part def ReferenceVoiceLibrary {
         doc /* Model-agnostic reference-voice library: installs and removes downloadable voice
-             * packs through the hash-verified model downloader, keeps a user voice folder, and
-             * lists all available voices merged and de-duplicated (first id wins). */
+             * packs (optionally with emotion variants, exposed as MoodClips) through the hash-verified
+             * model downloader, keeps a user voice folder, and lists all available voices merged
+             * and de-duplicated (first id wins). */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech/ModelManagementSubsystem/ReferenceVoiceLibrary.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/ReferenceVoiceLibraryTests.cs */

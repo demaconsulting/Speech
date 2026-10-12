@@ -173,14 +173,22 @@ to opt out). The built-in pack is **voice-zero 1.0** by OwenTyme (154 clips, **C
 
 ```csharp
 using var voices = new ReferenceVoiceLibrary(catalog.Store);
-await voices.InstallPackAsync(ReferenceVoicePack.VoiceZero10.Id);   // ~570 MiB download, ~46 MB installed
+await voices.InstallPackAsync(ReferenceVoicePack.VoiceZero10.Id);   // ~570 MiB download, ~572 MiB installed with emotions
+// Base voices only (about 44 MiB installed): InstallPackAsync(id, includeEmotions: false)
 // Your own .wav/.flac clips go in voices.UserDirectory (voices.EnsureUserDirectory() creates it).
 ```
 
 The download is the whole upstream archive, verified against its published SHA-256 and fetched
 through the same mirror-aware downloader as models (with a mirror configured the path is
-`{mirror}/voice-zero-1.0/voice-zero-1.0.zip`); only the voice clips and license files are kept
-(about 46 MB). Voices are stored under `<models root>\reference-voices\`: the pack in
+`{mirror}/voice-zero-1.0/voice-zero-1.0.zip`); only the voice clips, the license files and (by default) the
+emotion clips are kept: about
+44 MiB for the 154 base voices, plus about 528 MiB for the emotion variants (13 moods per voice: anger,
+calm, confused, enthused, excited, frustrated, happy, neutral, sad, shout, surprised, tired, worried).
+Pass `includeEmotions: false` to skip them; installing again with emotions over a voices-only install
+removes the pack and downloads it again (a failed re-download leaves it uninstalled). Each pack voice's
+`ReferenceVoiceInfo.MoodClips` maps the lower-case mood name to that speaker's emotion clip (or is
+`null`); the moods are variants of the voice, not extra voices. Voices are stored under
+`<models root>\reference-voices\`: the pack in
 `voice-zero-1.0\current\voices\` and your own clips in `user\`. The voice list merges explicit
 `ReferenceVoices`, then `ReferenceVoiceDirectory`, then `user\`, then the pack, and the first voice
 with a given id wins, so your own clip overrides a pack voice of the same name. The voice list is
@@ -378,7 +386,9 @@ application - no restart required - using the same validation rules.
 
 The demo also hosts the Chatterbox Turbo voice-cloning model. Its Model Catalog tab has a
 **Reference voices** section where you can install or remove the optional `voice-zero-1.0` pack
-(about 570 MiB download, CC0 1.0 Universal, attribution: voice-zero by OwenTyme) and shows the
+(about 570 MiB download, about 572 MiB installed with emotion variants or about 44 MiB without; an
+**Include emotion variants** checkbox chooses, and **Add emotions** upgrades a voices-only install;
+CC0 1.0 Universal, attribution: voice-zero by OwenTyme) and shows the
 folder for your own `.wav`/`.flac` voices; `--voices-dir <path>` (an existing folder) adds your
 own voices at launch. Installing or removing a pack refreshes the Text-to-Speech voice dropdown
 immediately, keeping your other settings, and the Text-to-Speech tab shows the consent note
@@ -406,7 +416,7 @@ and `osx-arm64` only.
 | `uninstall <modelId>` | Remove a downloaded model's files, keeping its catalog entry |
 | `clean <modelId>` | Best-effort remove leftover partial-install artifacts for a model (not a full uninstall) |
 | `list-voices` | List reference voices (id, source) for the voice-cloning model, as a table or JSON |
-| `voices packs\|install\|uninstall` | List, download, or remove the optional reference-voice pack |
+| `voices packs\|install [--no-emotions]\|uninstall` | List, download, or remove the optional reference-voice pack |
 | `list-devices` / `devices test` / `doctor` | Inspect audio devices and overall environment health |
 | `speak` | Synthesize text to a real playback device or a WAV file |
 | `recognize` | Recognize speech from a WAV file or the microphone |
@@ -426,9 +436,12 @@ full command reference, and worked examples.
 The `chatterbox-turbo-onnx-en` text-to-speech model clones a *reference voice*, so it needs at
 least one voice to speak. Voices come from three places, all listed by `list-voices`:
 
-- the optional **voice pack** `voice-zero-1.0` (CC0-licensed, about 570 MiB to download and about
-  45 MB installed): `speech-cli voices install voice-zero-1.0` (`voices packs` shows its state,
-  `voices uninstall voice-zero-1.0` removes it). Installation honors `--models-dir` and
+- the optional **voice pack** `voice-zero-1.0` (CC0-licensed, about 570 MiB to download; about 44 MiB
+  installed for the base voices, about 572 MiB with the 13 emotion variants per voice, which are
+  included by default): `speech-cli voices install voice-zero-1.0` (add `--no-emotions` for the base
+  voices only; installing with emotions over a voices-only install removes and downloads the pack
+  again; `voices packs` shows its sizes and state, `voices uninstall voice-zero-1.0` removes it;
+  `list-voices` shows a Moods column). Installation honors `--models-dir` and
   `--mirror-*` (the mirror serves `{mirror-url}/voice-zero-1.0/voice-zero-1.0.zip`)
 - the **user folder** `<models-dir>/reference-voices/user`: drop `.wav` or `.flac` files here
 - any folder given with `--voices-dir <path>` (must exist)

@@ -117,8 +117,9 @@ leftovers actually removed.
 ### ListVoicesCommand
 
 Parses the optional `--format table|json` flag (anything else is an `ArgumentException`) and prints
-`catalog.EnumerateVoices()` as an aligned table (Id, Source, Display Name) or an indented JSON
-array. When there are no voices it explains how to obtain some (`voices install voice-zero-1.0`,
+`catalog.EnumerateVoices()` as an aligned table (Id, Source, Moods, Display Name) or an indented JSON
+array. Moods is the number of emotion variants (`MoodClips`) the voice has, or `-`; each JSON row also
+carries a `moods` array of the mood names. When there are no voices it explains how to obtain some (`voices install voice-zero-1.0`,
 the per-user folder `catalog.UserVoicesDirectory`, or `--voices-dir`). The table form also shows
 how to choose a voice (`speak --tts-param voice=<id>`) and the reference-voice consent note
 (`ReferenceVoiceLibrary.ConsentNotice`: only clone voices you have permission to use).
@@ -127,10 +128,15 @@ how to choose a voice (`speak --tts-param voice=<id>`) and the reference-voice c
 
 Dispatches on the first argument:
 
-- **`packs`** lists `catalog.VoicePacks` with each pack's `GetVoicePackState` and the consent note
+- **`packs`** lists `catalog.VoicePacks` with each pack's `GetVoicePackState` (and, when installed, whether it
+  has emotions), the download size, the installed size without and with emotions in MiB (from the
+  pack's measured `VoicesBytes` / `EmotionsBytes`), and the consent note
 - **`install <packId>`** calls `InstallVoicePackAsync` with an `IProgress` that prints throttled
   percent (or KB) lines, exactly as `DownloadCommand` does, and prints the consent note on success.
-  A failed or canceled install is reported with `WriteError` and a non-zero exit code. `Ctrl+C` is
+  Emotion variants are included by default; `--no-emotions` (a global option parsed into
+  `Context.NoEmotions`) installs the base voices only. The command states which it is doing and, when
+  the pack is installed without emotions and emotions are requested, announces that it will be removed
+  and downloaded again. A failed or canceled install is reported with `WriteError` and a non-zero exit code. `Ctrl+C` is
   wired to a `CancellationTokenSource` the same way as `DownloadCommand`
 - **`uninstall <packId>`** calls `UninstallVoicePack`, a safe no-op when nothing is installed; a
   `SpeechModelStoreException` is re-thrown as `InvalidOperationException`
@@ -148,7 +154,8 @@ creates one `ReferenceVoiceLibrary` over the catalog's store and the mirror-awar
 options, and then calls `AddChatterboxTurboModels` with `ReferenceVoiceDirectory = --voices-dir`
 and that same library, so the model and the voice commands see identical voices. `ICliModelCatalog`
 gains `VoicePacks`, `UserVoicesDirectory`, `EnumerateVoices()`, `GetVoicePackState`,
-`InstallVoicePackAsync`, and `UninstallVoicePack`. Voice choice itself uses the model's existing
+`InstallVoicePackAsync(packId, includeEmotions, progress, ct)`, `VoicePackHasEmotions`, and
+`UninstallVoicePack`. Voice choice itself uses the model's existing
 generic `voice` choice parameter (`speak --tts-param voice=<id>`). Voices from an explicit
 `--voices-dir` are decoded when the catalog is built, so an undecodable file there fails every
 command that builds the catalog; pack and user-folder voices are decoded lazily.

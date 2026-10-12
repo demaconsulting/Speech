@@ -26,7 +26,8 @@ every interface consumer - `ModelCatalogViewModel`, the panel view models that o
 | `ApplyMirror(mirror)` | `void` | Rebuilds the catalog against a new mirror, or `null` to revert to public URIs |
 | `ReferenceVoicePacks` / `UserVoicesDirectory` | list / `string?` | Packs (empty without a library), user folder |
 | `GetReferenceVoicePackState(packId)` | `SpeechModelState` | The pack's install state |
-| `InstallReferenceVoicePackAsync(...)` | `Task<SpeechModelDownloadResult>` | Installs a pack; rebuilds if installed |
+| `ReferenceVoicePackHasEmotions(packId)` | `bool` | Whether the installed pack has emotion variants |
+| `InstallReferenceVoicePackAsync(packId, includeEmotions, ...)` | `Task<...Result>` | Installs a pack; rebuilds |
 | `UninstallReferenceVoicePack(packId)` | `void` | Removes a pack and rebuilds the pair |
 | `ReferenceVoicesChanged` | `event EventHandler?` | Raised after a rebuild caused by a voice or mirror change |
 

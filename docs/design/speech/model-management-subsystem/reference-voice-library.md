@@ -19,17 +19,28 @@ Disk layout (the unit's contract with the CLI, demo and documentation):
         current\
             pack.json  LICENSE.md  README.md
             voices\<id>.flac ...  voices\README.md
+            voices-emotion\<id>\<mood>.flac ...  voices-emotion\README.md   <- only when installed with emotions
 ```
 
 **Key Methods**: `RootPath`, `UserDirectory`, static `Packs`, `EnsureUserDirectory()`,
-`GetPackDirectory(packId)`, `GetPackState(packId)`, `InstallPackAsync(packId, progress, ct)`,
-`UninstallPack(packId)`, `EnumerateVoices(extraDirectories)`, `Dispose()`.
+`GetPackDirectory(packId)`, `GetPackState(packId)`, `InstallPackAsync(packId, includeEmotions = true, progress, ct)`
+(plus a source-compatible
+`InstallPackAsync(packId, progress, ct)` overload that includes emotions), `UninstallPack(packId)`,
+`PackHasEmotions(packId)`, `GetPackInstalledVariants(packId)`, `EnumerateVoices(extraDirectories)`, `Dispose()`.
 
 - `InstallPackAsync` calls the downloader's internal install-hook overload with the pack's descriptor
   and `ReferenceVoicePackInstaller.InstallAsync` as the hook, so the whole archive is fetched through
   the hash-verified, mirror-aware path (with a mirror the URL is
   `{mirror}/voice-zero-1.0/voice-zero-1.0.zip`), only a verified archive is extracted, and the result is
   swapped in atomically. A second call for an installed pack is a no-op returning `Installed`.
+- `includeEmotions` (default `true`) also extracts the emotion clips (see `ReferenceVoicePackInstaller`).
+  **Upgrade**: when emotions are requested and the installed pack lacks them, the library uninstalls
+  the pack and installs it again, because the downloader treats an installed id as complete and would
+  otherwise skip the download. This is a documented risk: a failed or cancelled re-download leaves the
+  pack uninstalled. An install that already has emotions is never downgraded by `includeEmotions: false`,
+  and a voices-only request over a voices-only install is the usual no-op.
+- `GetPackInstalledVariants` reads `pack.json` and returns its `variants` (empty for a missing, unreadable
+  or malformed file; it never throws); `PackHasEmotions` is true when `voices-emotion` is among them.
 - `GetPackState` reports `Downloading`, `Downloaded`, `FailedOrCorrupt` (a failed attempt in this
   process) or `NotDownloaded`, and never throws for a known id.
 - `UninstallPack` removes the pack only; the user folder is never touched.
@@ -38,7 +49,10 @@ Disk layout (the unit's contract with the CLI, demo and documentation):
   (ordinal); `.wav` and `.flac` (any case) are accepted. The first voice with a given id (ordinal)
   wins and later duplicates are skipped with an `Info` diagnostic. The id is the file name without
   extension; the display name is a humanized form (`alan_davis_drake2` becomes `Alan Davis Drake 2`).
-  Pack voices carry the pack's license and attribution.
+  Pack voices carry the pack's license and attribution. For a pack installed with emotions, each pack
+  voice's `MoodClips` maps the lower-case mood (file stem) to the absolute path of
+  `voices-emotion\{voiceId}\{mood}.flac`, ordinally sorted, or is `null` when there are none. Moods
+  add no voice ids and do not change voice ordering.
 
 **Error Handling**: Unknown pack ids throw `ArgumentException`; a disposed library throws
 `ObjectDisposedException` from `InstallPackAsync`; cancellation propagates. Install failures are

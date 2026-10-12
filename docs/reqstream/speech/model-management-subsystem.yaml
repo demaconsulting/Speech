@@ -82,6 +82,7 @@ sections:
             children:
               - Speech-Models-SpeechModelStore-Uninstall
               - Speech-Models-SpeechModelStore-CleanUpLeftovers
+              - Speech-Models-SpeechModelStore-EmptyTempCleanup
               - Speech-Models-SpeechModelStoreException-UninstallFailureSignal
               - Speech-Models-SpeechModelStoreException-StandardConstructors
             tests:
@@ -423,8 +424,11 @@ sections:
             children:
               - Speech-Models-ReferenceVoicePack-PublishedMetadata
               - Speech-Models-ReferenceVoicePack-ArgumentValidation
+              - Speech-Models-ReferenceVoicePack-SizeMetadata
               - Speech-Models-ReferenceVoicePackInstaller-SelectiveExtraction
               - Speech-Models-ReferenceVoicePackInstaller-ArchiveSafety
+              - Speech-Models-ReferenceVoicePackInstaller-EmotionVariants
               - Speech-Models-ReferenceVoiceLibrary-StoreLayout
               - Speech-Models-ReferenceVoiceLibrary-PackInstall
+              - Speech-Models-ReferenceVoiceLibrary-EmotionVariants
               - Speech-Models-ReferenceVoiceLibrary-VoiceMerge

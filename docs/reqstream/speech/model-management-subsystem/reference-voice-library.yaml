@@ -59,3 +59,24 @@ sections:
                   - ReferenceVoiceLibrary_EnumerateVoices_MergesInPrecedenceOrderFirstIdWins
                   - ReferenceVoiceLibrary_EnumerateVoices_NothingPresent_ReturnsEmptyWithoutCreatingFolders
                   - ReferenceVoiceLibrary_Humanize_FormatsName
+
+              - id: Speech-Models-ReferenceVoiceLibrary-EmotionVariants
+                title: >-
+                  The ReferenceVoiceLibrary class shall install a pack with its emotion variants by
+                  default, install base voices only on request, upgrade a voices-only install by
+                  removing it and installing again, never downgrade an install that has emotions,
+                  expose each pack voice's installed emotion clips as MoodClips (lower-case mood to
+                  file path) without adding voice ids, and report the installed variants without
+                  throwing.
+                justification: |
+                  Emotion clips let a synthesis model match a voice to the mood of the text. They
+                  are variants of an existing voice, so voice ids and ordering stay unchanged. The
+                  downloader treats an installed pack as complete, so adding emotions to a
+                  voices-only install needs a remove-and-reinstall (documented: a failed
+                  re-download leaves the pack uninstalled).
+                tests:
+                  - ReferenceVoiceLibrary_InstallPack_Default_AttachesMoodClipsWithoutExtraVoices
+                  - ReferenceVoiceLibrary_InstallPack_NoEmotions_LeavesVoicesOnly
+                  - ReferenceVoiceLibrary_InstallPack_UpgradeFromVoicesOnly_AddsEmotions
+                  - ReferenceVoiceLibrary_InstallPack_ProgressOverload_IncludesEmotions
+                  - ReferenceVoiceLibrary_PackVariants_MissingOrCorruptMetadata_AreEmptyAndNeverThrow

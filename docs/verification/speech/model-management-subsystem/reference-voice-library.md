@@ -50,3 +50,15 @@ survives uninstall, and the merged voice list follows the documented order with 
 **Test**: `ReferenceVoiceLibrary_EnumerateVoices_NothingPresent_ReturnsEmptyWithoutCreatingFolders`
 
 **Test**: `ReferenceVoiceLibrary_Humanize_FormatsName`
+
+##### Emotion Variants
+
+**Test**: `ReferenceVoiceLibrary_InstallPack_Default_AttachesMoodClipsWithoutExtraVoices`
+
+**Test**: `ReferenceVoiceLibrary_InstallPack_NoEmotions_LeavesVoicesOnly`
+
+**Test**: `ReferenceVoiceLibrary_InstallPack_UpgradeFromVoicesOnly_AddsEmotions`
+
+**Test**: `ReferenceVoiceLibrary_InstallPack_ProgressOverload_IncludesEmotions`
+
+**Test**: `ReferenceVoiceLibrary_PackVariants_MissingOrCorruptMetadata_AreEmptyAndNeverThrow`

@@ -106,7 +106,8 @@ package SpeechCli {
 
     part def ListVoicesCommand {
         doc /* Implements list-voices: prints every available reference voice as a table or, with
-             * --format json, a JSON array, plus how to choose a voice and the consent note. */
+             * --format json, a JSON array (with a Moods column / moods array of emotion variants), plus
+             * how to choose a voice and the consent note. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech.Cli/Commands/ModelCommandsSubsystem/ListVoicesCommand.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Cli.Tests/Commands/ModelCommandsSubsystem/ListVoicesCommandTests.cs */
@@ -114,8 +115,9 @@ package SpeechCli {
 
     part def VoicesCommand {
         doc /* Implements voices packs|install|uninstall: lists reference-voice packs, installs one
-             * with mirror-aware progress and cancellation, or removes it, printing the consent
-             * note. */
+             * with mirror-aware progress and cancellation (emotion variants by default, base voices
+             * only with --no-emotions), shows download and installed sizes, or removes it,
+             * printing the consent note. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech.Cli/Commands/ModelCommandsSubsystem/VoicesCommand.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Cli.Tests/Commands/ModelCommandsSubsystem/VoicesCommandTests.cs */

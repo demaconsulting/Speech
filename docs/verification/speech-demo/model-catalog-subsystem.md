@@ -447,7 +447,12 @@ a bound row cannot go stale mid-download.
 
 **Requirement coverage**: `SpeechDemo-Voices-LaunchOption`, `SpeechDemo-Voices-PackService`,
 `SpeechDemo-Voices-PackPanel`, `SpeechDemo-Voices-PackBlockedDuringDownload`,
-`SpeechDemo-Voices-PackRowPresentation`.
+`SpeechDemo-Voices-PackRowPresentation`, `SpeechDemo-Voices-PackEmotionOption`.
+
+- `ReferenceVoicePackListItemViewModel_InstalledSizeText_FollowsOptionAndInstall`,
+  `ReferenceVoicePackListItemViewModel_AddEmotions_OnlyForVoicesOnlyInstall`,
+  `ModelCatalogViewModel_InstallVoicePackAsync_PassesEmotionChoice`: the include-emotions option,
+  the size labels, "Add emotions", and the choice passed to the service.
 
 ### Requirements Coverage
 
@@ -522,6 +527,9 @@ a bound row cannot go stale mid-download.
   `ModelCatalogViewModel_DownloadAsync_PackInstalling_RefusedWithoutCallingService`,
   `ModelCatalogViewModel_ApplyMirror_PackInstalling_IsRefused`
 - **`SpeechDemo-Voices-PackRowPresentation`**: the four `ReferenceVoicePackListItemViewModel_*` tests
+- **`SpeechDemo-Voices-PackEmotionOption`**: `ReferenceVoicePackListItemViewModel_InstalledSizeText_FollowsOptionAndInstall`,
+  `ReferenceVoicePackListItemViewModel_AddEmotions_OnlyForVoicesOnlyInstall`,
+  `ModelCatalogViewModel_InstallVoicePackAsync_PassesEmotionChoice`
 
 ### Acceptance Criteria
 

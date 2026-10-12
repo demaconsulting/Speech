@@ -33,3 +33,9 @@ root folder and is listed in `All`, and when every invalid constructor argument 
 **Test**: `ReferenceVoicePack_Constructor_UnsafeRootFolder_Throws`
 
 **Test**: `ReferenceVoicePack_Constructor_NonPositiveSize_Throws`
+
+##### Size Metadata
+
+**Test**: `ReferenceVoicePack_VoiceZero10_InstalledSizes_AreMeasuredValues`
+
+**Test**: `ReferenceVoicePack_Constructor_InstalledSizes_DefaultZeroAndRejectNegative`

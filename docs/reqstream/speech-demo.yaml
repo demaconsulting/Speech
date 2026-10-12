@@ -189,6 +189,7 @@ sections:
           - SpeechDemo-Voices-PackPanel
           - SpeechDemo-Voices-PackBlockedDuringDownload
           - SpeechDemo-Voices-PackRowPresentation
+          - SpeechDemo-Voices-PackEmotionOption
           - SpeechDemo-Voices-SynthesisRefresh
           - SpeechDemo-Voices-ConsentAndAttribution
           - SpeechDemo-Settings-RestoreValues

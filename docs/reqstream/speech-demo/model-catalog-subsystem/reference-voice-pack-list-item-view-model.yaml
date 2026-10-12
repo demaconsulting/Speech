@@ -27,3 +27,20 @@ sections:
                   - ReferenceVoicePackListItemViewModel_Constructor_ProjectsPackDetails
                   - ReferenceVoicePackListItemViewModel_State_DrivesFlagsAndStatusText
                   - ReferenceVoicePackListItemViewModel_FailureMessage_UpdatesHasFailureMessage
+
+              - id: SpeechDemo-Voices-PackEmotionOption
+                title: >-
+                  The ModelCatalogSubsystem shall let a user choose whether a voice pack is installed with its
+                  emotion variants (default on), show the download size and the installed size for the chosen
+                  option, offer "Add emotions" on a voices-only install, and pass the choice to the service
+                  when installing.
+                tags: [subsystem]
+                justification: |
+                  The emotion clips are most of the pack's size (about 570 MiB download against about 44 MiB
+                  for the base voices), so the user must see what each choice costs and be able to add the
+                  emotions later without guessing.
+                tests:
+                  - ReferenceVoicePackListItemViewModel_Constructor_ProjectsPackDetails
+                  - ReferenceVoicePackListItemViewModel_InstalledSizeText_FollowsOptionAndInstall
+                  - ReferenceVoicePackListItemViewModel_AddEmotions_OnlyForVoicesOnlyInstall
+                  - ModelCatalogViewModel_InstallVoicePackAsync_PassesEmotionChoice

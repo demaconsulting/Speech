@@ -191,6 +191,7 @@ sections:
           - SpeechCli-ModelCommands-ListVoices
           - SpeechCli-ModelCommands-VoicePacks
           - SpeechCli-ModelCommands-VoicesDir
+          - SpeechCli-ModelCommands-VoiceEmotions
 
       - id: SpeechCli-DeviceInspection
         title: >-

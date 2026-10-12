@@ -68,3 +68,12 @@ This scenario opens a file handle inside `current/` with `FileShare.None` and as
 documented exception. It is Windows-specific (POSIX allows deleting an open file) and calls
 `Assert.Skip(...)` when not running on Windows, so CI on other platforms records the scenario as
 skipped rather than failing.
+
+##### Empty .tmp Cleanup After Install
+
+**Test**: `SpeechModelStore_CompleteInstall_RemovesEmptyStagingRoot`
+
+**Test**: `SpeechModelStore_CompleteInstall_OtherOperationStaging_KeepsStagingRoot`
+
+These scenarios install a model and assert that the empty `.tmp` folder is gone, and that it is kept
+while another operation's staging directory is still present.

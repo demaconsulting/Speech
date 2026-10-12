@@ -59,7 +59,9 @@ and the empty-catalog message, driven entirely by `IModelCatalogService`.
 - **InstallVoicePackAsync(pack, cancellationToken) / RemoveVoicePack(pack)**: Refuse (setting
   `VoiceBusyMessage` on the row, without calling the service) while any model row is downloading
   or any pack is installing. Otherwise they mark the row `Downloading` (install) and call the
-  seam; a successful install or removal calls `Refresh()`, while a non-installed outcome,
+  seam (an install passes the row's `EffectiveIncludeEmotions`, read before the state changes; `Refresh()`
+  passes the service's `ReferenceVoicePackHasEmotions` to each row); a successful install or removal calls
+  `Refresh()`, while a non-installed outcome,
   cancellation or a fault is reported on the pack's row. `DownloadAsync` and `ApplyMirror` in turn
   refuse while a pack is installing, because a pack change rebuilds (and disposes) the catalog.
   `Refresh()` also rebuilds the pack rows.

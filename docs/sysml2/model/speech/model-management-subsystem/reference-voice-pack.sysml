@@ -1,8 +1,9 @@
 package Speech {
     part def ReferenceVoicePack {
         doc /* Descriptor of a downloadable reference-voice pack (archive URL, size, SHA-256,
-             * license, attribution), the built-in voice-zero 1.0 pack, and the ReferenceVoiceInfo
-             * and ReferenceVoiceSource value types that describe a listed voice. */
+             * license, attribution, measured installed sizes of voices and emotion clips), the built-in
+             * voice-zero 1.0 pack, and the ReferenceVoiceInfo (including MoodClips) and
+             * ReferenceVoiceSource value types that describe a listed voice. */
 
         comment sourceRef /* Source: src/DemaConsulting.Speech/ModelManagementSubsystem/ReferenceVoicePack.cs */
         comment sourceRef2 /* Source: src/DemaConsulting.Speech/ModelManagementSubsystem/ReferenceVoiceInfo.cs */

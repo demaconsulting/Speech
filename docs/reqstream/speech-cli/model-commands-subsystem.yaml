@@ -310,3 +310,23 @@ sections:
               - Context_Create_WithExistingVoicesDir_ParsesOntoContext
               - Context_Create_WithBadVoicesDir_ThrowsArgumentException
               - Program_Run_Help_DocumentsVoicesOptionsAndConsentNote
+
+          - id: SpeechCli-ModelCommands-VoiceEmotions
+            title: >-
+              The tool shall install a reference-voice pack with its emotion variants by default and
+              install only the base voices when `voices install` is given `--no-emotions`, shall show
+              the download size and the installed size without and with emotions and the installed
+              variant in `voices packs`, announce when an install replaces a voices-only install to add
+              emotions, and show how many emotion variants (moods) each voice has in `list-voices`
+              (a Moods column, and a `moods` array in JSON).
+            tags: [subsystem]
+            justification: |
+              The emotion clips make the pack roughly thirteen times larger (about 570 MiB against about
+              44 MiB), so an operator must be able to opt out, see the sizes before choosing, and
+              discover which voices carry moods.
+            tests:
+              - VoicesCommand_RunAsync_Install_DefaultIncludesEmotions
+              - VoicesCommand_RunAsync_InstallNoEmotions_InstallsBaseVoicesOnly
+              - VoicesCommand_RunAsync_InstallOverVoicesOnly_AnnouncesUpgrade
+              - VoicesCommand_RunAsync_Packs_ShowsDownloadAndInstalledSizes
+              - ListVoicesCommand_Run_MoodClips_ShowsMoodsColumnAndJson
