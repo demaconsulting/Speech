@@ -424,8 +424,10 @@ a bound row cannot go stale mid-download.
 - `ModelCatalogService_UninstallReferenceVoicePack_RebuildsCatalogAndRaisesEvent`,
   `ModelCatalogService_ApplyMirror_Composed_RebuildsPairAndRaisesEvent`: the pair is rebuilt (the
   old one disposed) and `ReferenceVoicesChanged` raised exactly once.
-- `ModelCatalogService_InstallReferenceVoicePackAsync_Failure_DoesNotRebuildOrRaise`: an install
-  against an unreachable loopback mirror reports a non-installed outcome without a rebuild or event.
+- `ModelCatalogService_InstallReferenceVoicePackAsync_Failure_StillRebuildsAndRaises`,
+  `ModelCatalogService_InstallReferenceVoicePackAsync_Canceled_StillRebuildsAndRaises`: an install
+  that fails (unreachable loopback mirror) or is canceled still rebuilds the pair and raises
+  `ReferenceVoicesChanged`, because an upgrade may have changed the pack's installed state.
 - `ModelCatalogViewModel_Constructor_ListsVoicePacks`,
   `ModelCatalogViewModel_Constructor_NoVoicePacks_HidesSection`: pack rows appear, or the section
   hides.

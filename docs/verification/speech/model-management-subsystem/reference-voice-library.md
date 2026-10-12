@@ -59,6 +59,12 @@ survives uninstall, and the merged voice list follows the documented order with 
 
 **Test**: `ReferenceVoiceLibrary_InstallPack_UpgradeFromVoicesOnly_AddsEmotions`
 
+**Test**: `ReferenceVoiceLibrary_InstallPack_FailedUpgrade_KeepsPreviousInstall`
+
+**Test**: `ReferenceVoiceLibrary_InstallPack_CanceledUpgrade_KeepsPreviousInstall`
+
+**Test**: `ReferenceVoiceLibrary_InstallPack_ConcurrentCalls_AreSerialized`
+
 **Test**: `ReferenceVoiceLibrary_InstallPack_ProgressOverload_IncludesEmotions`
 
 **Test**: `ReferenceVoiceLibrary_PackVariants_MissingOrCorruptMetadata_AreEmptyAndNeverThrow`

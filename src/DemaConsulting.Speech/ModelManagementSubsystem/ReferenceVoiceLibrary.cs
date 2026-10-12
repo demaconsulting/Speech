@@ -61,8 +61,17 @@ public sealed class ReferenceVoiceLibrary : IDisposable
     /// <summary>Guards creation and disposal of <see cref="_downloader"/>.</summary>
     private readonly object _gate = new();
 
-    /// <summary>Pack ids with an install currently running.</summary>
-    private readonly ConcurrentDictionary<string, byte> _installing = new(StringComparer.Ordinal);
+    /// <summary>The name prefix of the sibling folder an upgrade renames the installed <c>current</c> folder to.</summary>
+    private const string UpgradeBackupPrefix = "current.upgrade-backup-";
+
+    /// <summary>Reference counts of install calls (running or queued) per pack id; guarded by <see cref="_installingGate"/>.</summary>
+    private readonly Dictionary<string, int> _installing = new(StringComparer.Ordinal);
+
+    /// <summary>Guards <see cref="_installing"/>.</summary>
+    private readonly object _installingGate = new();
+
+    /// <summary>One semaphore per pack id that serializes whole install calls for that pack.</summary>
+    private readonly ConcurrentDictionary<string, SemaphoreSlim> _installLocks = new(StringComparer.Ordinal);
 
     /// <summary>Pack ids whose most recent install attempt failed.</summary>
     private readonly ConcurrentDictionary<string, byte> _failed = new(StringComparer.Ordinal);
@@ -150,9 +159,12 @@ public sealed class ReferenceVoiceLibrary : IDisposable
     public SpeechModelState GetPackState(string packId)
     {
         var pack = FindPack(packId);
-        if (_installing.ContainsKey(pack.Id))
+        lock (_installingGate)
         {
-            return SpeechModelState.Downloading;
+            if (_installing.ContainsKey(pack.Id))
+            {
+                return SpeechModelState.Downloading;
+            }
         }
 
         if (_packStore.IsInstalled(pack.Id))
@@ -177,9 +189,13 @@ public sealed class ReferenceVoiceLibrary : IDisposable
     /// <returns>The classified result; only <see cref="SpeechModelDownloadOutcome.Installed"/> means voices are available.</returns>
     /// <remarks>
     ///     <b>Upgrade</b>: when the pack is installed without emotions and <paramref name="includeEmotions"/> is
-    ///     <see langword="true"/>, the pack is uninstalled and installed again (the downloader never replaces an
-    ///     installed id), so a failed or canceled re-download leaves the pack not installed until retried. An installed
-    ///     pack that already has emotions is never downgraded by <c>includeEmotions: false</c>; uninstall it first.
+    ///     <see langword="true"/>, the installed <c>current</c> folder is renamed to a sibling backup folder and the
+    ///     pack is installed again (the downloader never replaces an installed id). The backup is deleted on success
+    ///     and renamed back on any other outcome or exception, so a failed or canceled re-download leaves the previous
+    ///     voices-only install intact. An installed pack that already has emotions is never downgraded by
+    ///     <c>includeEmotions: false</c>; uninstall it first. Calls for the same pack are serialized (a second caller
+    ///     waits for the first and then observes its result), and <see cref="GetPackState"/> reports
+    ///     <see cref="SpeechModelState.Downloading"/> until the last concurrent caller finishes.
     /// </remarks>
     /// <exception cref="ArgumentException">Thrown when <paramref name="packId"/> is not a known pack.</exception>
     /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is canceled.</exception>
@@ -194,38 +210,40 @@ public sealed class ReferenceVoiceLibrary : IDisposable
         var pack = FindPack(packId);
         var downloader = GetDownloader();
 
-        _installing[pack.Id] = 0;
+        lock (_installingGate)
+        {
+            _installing[pack.Id] = _installing.GetValueOrDefault(pack.Id) + 1;
+        }
+
+        var gate = _installLocks.GetOrAdd(pack.Id, _ => new SemaphoreSlim(1, 1));
+        var acquired = false;
         try
         {
-            if (includeEmotions && _packStore.IsInstalled(pack.Id) && !PackHasEmotions(pack.Id))
-            {
-                // Upgrade: the downloader fast-paths an installed id, so remove the voices-only install first
-                _packStore.Uninstall(pack.Id);
-            }
-
-            var result = await downloader
-                .DownloadAsync(
-                    pack.Id,
-                    pack.DownloadDescriptor,
-                    (stagingDirectory, token) => ReferenceVoicePackInstaller.InstallAsync(pack, includeEmotions, stagingDirectory, token),
-                    progress,
-                    cancellationToken)
-                .ConfigureAwait(false);
-
-            if (result.Outcome == SpeechModelDownloadOutcome.Installed)
-            {
-                _failed.TryRemove(pack.Id, out _);
-            }
-            else
-            {
-                _failed[pack.Id] = 0;
-            }
-
-            return result;
+            // Serialize the whole call (upgrade check included) so concurrent callers cannot interleave
+            await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            acquired = true;
+            return await InstallSerializedAsync(pack, downloader, includeEmotions, progress, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
-            _installing.TryRemove(pack.Id, out _);
+            if (acquired)
+            {
+                gate.Release();
+            }
+
+            // Only the last concurrent caller clears the in-progress state
+            lock (_installingGate)
+            {
+                var remaining = _installing.GetValueOrDefault(pack.Id) - 1;
+                if (remaining <= 0)
+                {
+                    _installing.Remove(pack.Id);
+                }
+                else
+                {
+                    _installing[pack.Id] = remaining;
+                }
+            }
         }
     }
 
@@ -246,6 +264,146 @@ public sealed class ReferenceVoiceLibrary : IDisposable
         IProgress<SpeechModelDownloadProgress>? progress,
         CancellationToken cancellationToken) =>
         InstallPackAsync(packId, includeEmotions: true, progress, cancellationToken);
+
+    /// <summary>Runs one install while holding the pack's install lock, backing up the installed copy during an upgrade.</summary>
+    private async Task<SpeechModelDownloadResult> InstallSerializedAsync(
+        ReferenceVoicePack pack,
+        SpeechModelDownloader downloader,
+        bool includeEmotions,
+        IProgress<SpeechModelDownloadProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        // A crash during an earlier upgrade may have left the install renamed away
+        RecoverAbandonedBackups(pack.Id);
+
+        string? backup = null;
+        var installed = false;
+        try
+        {
+            if (includeEmotions && _packStore.IsInstalled(pack.Id) && !PackHasEmotions(pack.Id))
+            {
+                // Upgrade: the downloader fast-paths an installed id, so move the voices-only install aside
+                // (not delete it) so any failure can put it back
+                backup = MoveCurrentAside(pack.Id);
+            }
+
+            var result = await downloader
+                .DownloadAsync(
+                    pack.Id,
+                    pack.DownloadDescriptor,
+                    (stagingDirectory, token) => ReferenceVoicePackInstaller.InstallAsync(pack, includeEmotions, stagingDirectory, token),
+                    progress,
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+            installed = result.Outcome == SpeechModelDownloadOutcome.Installed;
+            if (installed)
+            {
+                _failed.TryRemove(pack.Id, out _);
+            }
+            else
+            {
+                _failed[pack.Id] = 0;
+            }
+
+            return result;
+        }
+        finally
+        {
+            if (backup is not null)
+            {
+                if (installed)
+                {
+                    TryDeleteDirectory(backup);
+                }
+                else
+                {
+                    RestoreBackup(pack.Id, backup);
+                }
+            }
+        }
+    }
+
+    /// <summary>Renames the pack's <c>current</c> folder to a unique sibling backup folder and returns the backup path.</summary>
+    /// <exception cref="SpeechModelStoreException">Thrown when the rename fails because the files are in use.</exception>
+    private string MoveCurrentAside(string packId)
+    {
+        var backup = Path.Join(_packStore.GetModelDirectory(packId), UpgradeBackupPrefix + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.Move(_packStore.GetCurrentDirectory(packId), backup);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw new SpeechModelStoreException(
+                $"Failed to upgrade reference voice pack '{packId}': its installed directory could not be moved aside, " +
+                "most likely because another process still has an open file handle into it.",
+                ex);
+        }
+
+        return backup;
+    }
+
+    /// <summary>Puts a backup back as the pack's <c>current</c> folder, discarding any partial replacement.</summary>
+    private void RestoreBackup(string packId, string backup)
+    {
+        var current = _packStore.GetCurrentDirectory(packId);
+        try
+        {
+            if (Directory.Exists(current))
+            {
+                Directory.Delete(current, recursive: true);
+            }
+
+            Directory.Move(backup, current);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Left in place; RecoverAbandonedBackups retries on the next install
+            _diagnostics.Report(
+                SpeechDiagnosticLevel.Warning,
+                DiagnosticsCategory,
+                $"Could not restore reference voice pack '{packId}' after a failed upgrade: {ex.Message}");
+        }
+    }
+
+    /// <summary>Restores or deletes backup folders left behind by an interrupted upgrade.</summary>
+    private void RecoverAbandonedBackups(string packId)
+    {
+        var modelDirectory = _packStore.GetModelDirectory(packId);
+        if (!Directory.Exists(modelDirectory))
+        {
+            return;
+        }
+
+        foreach (var backup in Directory.EnumerateDirectories(modelDirectory, UpgradeBackupPrefix + "*"))
+        {
+            if (Directory.Exists(_packStore.GetCurrentDirectory(packId)))
+            {
+                TryDeleteDirectory(backup);
+            }
+            else
+            {
+                RestoreBackup(packId, backup);
+            }
+        }
+    }
+
+    /// <summary>Deletes a directory tree, ignoring failures.</summary>
+    private static void TryDeleteDirectory(string path)
+    {
+        try
+        {
+            if (Directory.Exists(path))
+            {
+                Directory.Delete(path, recursive: true);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Best-effort: RecoverAbandonedBackups retries on the next install.
+        }
+    }
 
     /// <summary>
     ///     Gets the variants an installed pack was extracted with, as recorded in its <c>pack.json</c>.
@@ -301,6 +459,16 @@ public sealed class ReferenceVoiceLibrary : IDisposable
         var pack = FindPack(packId);
         _packStore.Uninstall(pack.Id);
         _failed.TryRemove(pack.Id, out _);
+
+        // An uninstall also discards any upgrade backup so it cannot resurrect the pack
+        var modelDirectory = _packStore.GetModelDirectory(pack.Id);
+        if (Directory.Exists(modelDirectory))
+        {
+            foreach (var backup in Directory.EnumerateDirectories(modelDirectory, UpgradeBackupPrefix + "*"))
+            {
+                TryDeleteDirectory(backup);
+            }
+        }
     }
 
     /// <summary>

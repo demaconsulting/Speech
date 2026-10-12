@@ -151,10 +151,11 @@ public class ModelCatalogServiceTests
 
     /// <summary>
     ///     Proves that a pack install that does not succeed (here an unreachable loopback mirror)
-    ///     reports the failure without rebuilding the catalog or raising the changed event.
+    ///     reports the failure and still rebuilds the catalog and raises the changed event, since an upgrade may
+    ///     have changed (or restored) the pack's installed state.
     /// </summary>
     [Fact]
-    public async Task ModelCatalogService_InstallReferenceVoicePackAsync_Failure_DoesNotRebuildOrRaise()
+    public async Task ModelCatalogService_InstallReferenceVoicePackAsync_Failure_StillRebuildsAndRaises()
     {
         // Arrange: a loopback mirror with nothing listening, so the download fails quickly
         var root = IsolatedOptions().RootPathOverride!;
@@ -180,8 +181,39 @@ public class ModelCatalogServiceTests
 
         // Assert
         Assert.NotEqual(SpeechModelDownloadOutcome.Installed, result.Outcome);
-        Assert.Equal(0, builds);
-        Assert.Equal(0, raised);
+        Assert.Equal(1, builds);
+        Assert.Equal(1, raised);
+    }
+
+    /// <summary>
+    ///     Proves that a canceled pack install (which throws) still rebuilds the catalog and raises the changed event.
+    /// </summary>
+    [Fact]
+    public async Task ModelCatalogService_InstallReferenceVoicePackAsync_Canceled_StillRebuildsAndRaises()
+    {
+        // Arrange
+        var root = IsolatedOptions().RootPathOverride!;
+        var builds = 0;
+        using var service = new ModelCatalogService(
+            Compose(root, null),
+            null,
+            o =>
+            {
+                builds++;
+                return Compose(root, o);
+            });
+        var raised = 0;
+        service.ReferenceVoicesChanged += (_, _) => raised++;
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        // Act
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            service.InstallReferenceVoicePackAsync("voice-zero-1.0", true, null, cts.Token));
+
+        // Assert
+        Assert.Equal(1, builds);
+        Assert.Equal(1, raised);
     }
 
     /// <summary>

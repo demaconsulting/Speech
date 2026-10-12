@@ -220,7 +220,7 @@ public sealed class ReferenceVoiceLibraryTests : IDisposable
     }
 
     /// <summary>
-    ///     Proves that installing with emotions over a voices-only install upgrades it (uninstall, then install) and that a
+    ///     Proves that installing with emotions over a voices-only install upgrades it (the old install is moved aside, then replaced) and that a
     ///     later request for the base voices only never downgrades or downloads again.
     /// </summary>
     [Fact]
@@ -240,6 +240,87 @@ public sealed class ReferenceVoiceLibraryTests : IDisposable
         Assert.Equal(2, client.Requests.Count);
         Assert.True(library.PackHasEmotions("voice-zero-1.0"));
         Assert.NotNull(library.EnumerateVoices().Single(voice => voice.Id == "alana_jordan").MoodClips);
+        Assert.Equal(SpeechModelState.Downloaded, library.GetPackState("voice-zero-1.0"));
+    }
+
+    /// <summary>
+    ///     Proves that a failed upgrade (checksum mismatch) keeps the previous voices-only install and leaves no backup.
+    /// </summary>
+    [Fact]
+    public async Task ReferenceVoiceLibrary_InstallPack_FailedUpgrade_KeepsPreviousInstall()
+    {
+        // Arrange
+        var zip = ReferenceVoiceTestPacks.BuildTypicalZip();
+        using var library = NewLibrary(zip, out var client);
+        await library.InstallPackAsync("voice-zero-1.0", includeEmotions: false, cancellationToken: TestContext.Current.CancellationToken);
+        client.Payload = [1, 2, 3];
+
+        // Act
+        var upgrade = await library.InstallPackAsync("voice-zero-1.0", cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.NotEqual(SpeechModelDownloadOutcome.Installed, upgrade.Outcome);
+        Assert.Equal(SpeechModelState.Downloaded, library.GetPackState("voice-zero-1.0"));
+        Assert.False(library.PackHasEmotions("voice-zero-1.0"));
+        Assert.Equal(2, library.EnumerateVoices().Count);
+        Assert.Empty(Directory.EnumerateDirectories(Path.GetDirectoryName(library.GetPackDirectory("voice-zero-1.0"))!, "current.upgrade-backup-*"));
+    }
+
+    /// <summary>
+    ///     Proves that a canceled upgrade keeps the previous voices-only install.
+    /// </summary>
+    [Fact]
+    public async Task ReferenceVoiceLibrary_InstallPack_CanceledUpgrade_KeepsPreviousInstall()
+    {
+        // Arrange
+        using var library = NewLibrary(ReferenceVoiceTestPacks.BuildTypicalZip(), out var client);
+        await library.InstallPackAsync("voice-zero-1.0", includeEmotions: false, cancellationToken: TestContext.Current.CancellationToken);
+        using var cts = new CancellationTokenSource();
+        client.OnDownload = (_, _) =>
+        {
+            cts.Cancel();
+            throw new OperationCanceledException(cts.Token);
+        };
+
+        // Act / Assert
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => library.InstallPackAsync("voice-zero-1.0", cancellationToken: cts.Token));
+        Assert.Equal(SpeechModelState.Downloaded, library.GetPackState("voice-zero-1.0"));
+        Assert.Equal(2, library.EnumerateVoices().Count);
+    }
+
+    /// <summary>
+    ///     Proves that a voices-only install in flight does not let a concurrent emotions install skip the upgrade:
+    ///     the second call waits, then upgrades, and the in-progress state lasts until both finish.
+    /// </summary>
+    [Fact]
+    public async Task ReferenceVoiceLibrary_InstallPack_ConcurrentCalls_AreSerialized()
+    {
+        // Arrange
+        using var library = NewLibrary(ReferenceVoiceTestPacks.BuildTypicalZip(), out var client);
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        client.OnDownload = async (call, _) =>
+        {
+            if (call == 1)
+            {
+                entered.SetResult();
+                await release.Task;
+            }
+        };
+
+        // Act
+        var first = library.InstallPackAsync("voice-zero-1.0", includeEmotions: false, cancellationToken: TestContext.Current.CancellationToken);
+        await entered.Task;
+        var second = library.InstallPackAsync("voice-zero-1.0", cancellationToken: TestContext.Current.CancellationToken);
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+        Assert.False(second.IsCompleted);
+        release.SetResult();
+        var results = await Task.WhenAll(first, second);
+
+        // Assert
+        Assert.All(results, result => Assert.Equal(SpeechModelDownloadOutcome.Installed, result.Outcome));
+        Assert.True(library.PackHasEmotions("voice-zero-1.0"));
+        Assert.Equal(2, client.Requests.Count);
         Assert.Equal(SpeechModelState.Downloaded, library.GetPackState("voice-zero-1.0"));
     }
 
@@ -418,6 +499,12 @@ public sealed class ReferenceVoiceLibraryTests : IDisposable
     /// <summary>A download client that serves fixed bytes and records requested URIs.</summary>
     internal sealed class FakeClient(byte[] payload) : IModelDownloadClient
     {
+        /// <summary>Gets or sets the bytes served by the next download.</summary>
+        public byte[] Payload { get; set; } = payload;
+
+        /// <summary>Gets or sets an optional hook awaited at the start of each download (it may block or throw).</summary>
+        public Func<int, CancellationToken, Task>? OnDownload { get; set; }
+
         /// <summary>Gets the URIs requested so far.</summary>
         public List<Uri> Requests { get; } = [];
 
@@ -429,7 +516,12 @@ public sealed class ReferenceVoiceLibraryTests : IDisposable
             CancellationToken cancellationToken)
         {
             Requests.Add(sourceUri);
-            await destination.WriteAsync(payload, cancellationToken);
+            if (OnDownload is not null)
+            {
+                await OnDownload(Requests.Count, cancellationToken);
+            }
+
+            await destination.WriteAsync(Payload, cancellationToken);
         }
     }
 }

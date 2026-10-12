@@ -117,15 +117,16 @@ sections:
                   library pair shall report the library's voice packs, their install state and
                   the user voices folder; shall rebuild and replace the pair (disposing the old
                   one) and raise ReferenceVoicesChanged after a pack is uninstalled, after an
-                  install that completes as Installed, and after a mirror change; shall raise
-                  nothing after a failed install; and shall report no packs and refuse pack
+                  install attempt however it ends (installed, failed, canceled or thrown), and after a
+                  mirror change; and shall report no packs and refuse pack
                   operations when it has no voice library.
                 justification: |
                   The Chatterbox voice list is fixed when the model is constructed, so a voice
                   change is only visible after the catalog is rebuilt. Rebuilding the catalog
                   and the shared library together and announcing it is what lets the
-                  synthesis panel offer the new voices immediately, while a failed install must
-                  leave the working catalog untouched. Seams built without a library (every
+                  synthesis panel offer the new voices immediately; a failed or canceled upgrade can still
+                  have changed the installed state (moved aside, then restored), so the rebuild happens
+                  however the install ends. Seams built without a library (every
                   other consumer) must stay inert rather than throwing at enumeration.
                 tests:
                   - ModelCatalogService_Constructor_NullComposition_ThrowsArgumentNullException
@@ -133,4 +134,5 @@ sections:
                   - ModelCatalogService_ReferenceVoices_Composed_ListsPackAndUserDirectory
                   - ModelCatalogService_UninstallReferenceVoicePack_RebuildsCatalogAndRaisesEvent
                   - ModelCatalogService_ApplyMirror_Composed_RebuildsPairAndRaisesEvent
-                  - ModelCatalogService_InstallReferenceVoicePackAsync_Failure_DoesNotRebuildOrRaise
+                  - ModelCatalogService_InstallReferenceVoicePackAsync_Failure_StillRebuildsAndRaises
+                  - ModelCatalogService_InstallReferenceVoicePackAsync_Canceled_StillRebuildsAndRaises

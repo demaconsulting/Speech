@@ -57,12 +57,11 @@ every interface consumer - `ModelCatalogViewModel`, the panel view models that o
 - **Reference voice packs**: Supported when the service was constructed with the composition
   constructor (`ModelCatalogService(ModelCatalogComposition, SpeechModelDownloaderOptions?,
   Func<SpeechModelDownloaderOptions?, ModelCatalogComposition>)`), where the composition pairs the
-  catalog with the one shared `ReferenceVoiceLibrary`. Install (when the outcome is `Installed`),
-  uninstall and `ApplyMirror` call a private recompose step that builds a new pair through the
-  factory, publishes it, disposes the old catalog and library, and raises `ReferenceVoicesChanged`.
-  A failed or canceled install leaves the working pair untouched and raises nothing. Services built
-  with the older constructors have no library: `ReferenceVoicePacks` is empty, the state is
-  `NotDownloaded`, and install/uninstall throw `InvalidOperationException`.
+  catalog with the one shared `ReferenceVoiceLibrary`. Install (whatever the outcome, in a `finally`, because an upgrade
+  may have moved the old install aside or restored it), uninstall and `ApplyMirror` call a private
+  recompose step that builds a new pair through the factory, publishes it, disposes the old catalog and
+  library, and raises `ReferenceVoicesChanged`. Services built with the older constructors have no library:
+  `ReferenceVoicePacks` is empty, the state is `NotDownloaded`, and install/uninstall throw `InvalidOperationException`.
 
 **Error Handling**: `Enumerate()` never throws; it never invents placeholder models when the
 library's registry is empty - presenting an honest empty catalog is a presentation concern, not

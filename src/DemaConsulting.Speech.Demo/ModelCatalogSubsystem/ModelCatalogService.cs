@@ -159,8 +159,10 @@ public sealed class ModelCatalogService : IModelCatalogService, IDisposable
 
     /// <inheritdoc/>
     /// <remarks>
-    ///     When the pack was installed, the catalog and library are rebuilt (so the Chatterbox model
-    ///     re-reads its voices) and <see cref="ReferenceVoicesChanged"/> is raised. The rebuild aborts
+    ///     Whether the install succeeds, fails or is canceled (or throws), the catalog and library are rebuilt (so
+    ///     the Chatterbox model re-reads its voices) and <see cref="ReferenceVoicesChanged"/> is raised, because the
+    ///     pack's installed state may have changed even then (an upgrade moves the old install aside and restores
+    ///     it on failure). The rebuild aborts
     ///     any model download in flight; see <see cref="IModelCatalogService.InstallReferenceVoicePackAsync"/>.
     /// </remarks>
     public async Task<SpeechModelDownloadResult> InstallReferenceVoicePackAsync(
@@ -169,16 +171,17 @@ public sealed class ModelCatalogService : IModelCatalogService, IDisposable
         IProgress<SpeechModelDownloadProgress>? progress,
         CancellationToken cancellationToken)
     {
-        var result = await RequireVoiceLibrary()
-            .InstallPackAsync(packId, includeEmotions, progress, cancellationToken)
-            .ConfigureAwait(true);
-
-        if (result.Outcome == SpeechModelDownloadOutcome.Installed)
+        var library = RequireVoiceLibrary();
+        try
+        {
+            return await library
+                .InstallPackAsync(packId, includeEmotions, progress, cancellationToken)
+                .ConfigureAwait(true);
+        }
+        finally
         {
             RebuildAndNotifyVoicesChanged();
         }
-
-        return result;
     }
 
     /// <inheritdoc/>
