@@ -96,34 +96,69 @@ sections:
 
           - id: SpeechCli-DeviceCommands-Doctor
             title: >-
-              The tool shall report, as a pass/fail checklist, when invoked with `doctor`: whether
-              the native PortAudio and SherpaOnnx runtimes are resolvable, the model store's root
-              path/writability/available disk space, a count of detected input/output audio
-              devices, and installed-versus-known model counts; and shall exit non-zero only when
-              the model store is not writable, treating every other check as informational.
+              The tool shall report the model store's root path, writability, and available
+              disk space as a pass/fail checklist when invoked with `doctor`.
             tags: [subsystem]
             justification: |
               An operator setting up this tool on a new machine needs one command that surfaces
-              every likely cause of trouble - a missing native runtime, an unwritable model
-              store, no audio hardware - without needing to run each narrower command
-              individually. Only the model store's writability is treated as a hard failure
-              because it is infrastructure this tool itself owns and depends on for every
-              model-management command; missing audio hardware or an unresolvable native
-              runtime is a normal, gracefully-degraded condition this library already handles at
-              the point of use, per its own design philosophy, so `doctor` reports it as an
-              informational note rather than failing a perfectly healthy headless/CI machine.
+              the most likely cause of trouble with model downloads: a model store that is
+              missing, unwritable, or out of space.
             tests:
               - DoctorCommand_Run_WritableModelStore_ReportsHealthy
               - DoctorCommand_Run_ReportsModelStoreRootPath
-              - DoctorCommand_Run_ReportsInstalledVersusKnownModelCounts
-              - DoctorCommand_Run_ReportsAudioDeviceCounts
+              - SpeechCli_DoctorCommand_Invoked_ReportsHealthChecklist
+
+          - id: SpeechCli-DeviceCommands-DoctorNativeRuntimes
+            title: >-
+              The tool shall report in `doctor` whether the native PortAudio and SherpaOnnx
+              runtimes are resolvable, as an informational note rather than a failure when one
+              is not.
+            tags: [subsystem]
+            justification: |
+              A missing native runtime is a common cause of audio and recognition failures, but
+              it is a normal, gracefully-degraded condition this library already handles at the
+              point of use, so `doctor` reports it without failing a healthy headless or CI
+              machine.
+            tests:
               - DoctorCommand_Run_ReportsSherpaOnnxNativeLibraryResolvable
               - DoctorCommand_ResolveSherpaOnnxNativeLibraryPath_AssetPresent_ReturnsPath
               - DoctorCommand_ResolveSherpaOnnxNativeLibraryPath_AssetAbsent_ReturnsNull
               - DoctorCommand_Run_UnavailablePortAudio_ReportsInformationalNoteNotFailure
+
+          - id: SpeechCli-DeviceCommands-DoctorAudioDevices
+            title: >-
+              The tool shall report in `doctor` the number of detected input and output audio
+              devices.
+            tags: [subsystem]
+            justification: |
+              No audio hardware is a likely cause of a failed `speak` or `recognize`, and an
+              operator needs to see that without running each narrower command individually.
+            tests:
+              - DoctorCommand_Run_ReportsAudioDeviceCounts
+
+          - id: SpeechCli-DeviceCommands-DoctorModelCounts
+            title: >-
+              The tool shall report in `doctor` the number of installed models against the
+              number of known models.
+            tags: [subsystem]
+            justification: |
+              An operator needs to see at a glance whether any model has been downloaded yet.
+            tests:
+              - DoctorCommand_Run_ReportsInstalledVersusKnownModelCounts
+
+          - id: SpeechCli-DeviceCommands-DoctorExitCode
+            title: >-
+              The tool shall make `doctor` exit non-zero only when the model store is not
+              writable, treating every other check as informational.
+            tags: [subsystem]
+            justification: |
+              Only the model store's writability is a hard failure because it is infrastructure
+              this tool itself owns and depends on for every model-management command; missing
+              audio hardware or an unresolvable native runtime must not fail a perfectly healthy
+              headless or CI machine.
+            tests:
               - DoctorCommand_Run_UnwritableModelStore_ReportsUnhealthyAndNonZeroExitCode
-              - DoctorCommand_Run_ExtraArgument_ThrowsArgumentException
-              - SpeechCli_DoctorCommand_Invoked_ReportsHealthChecklist
+              - DoctorCommand_Run_UnavailablePortAudio_ReportsInformationalNoteNotFailure
 
           - id: SpeechCli-DeviceCommands-LibraryDelegation
             title: >-

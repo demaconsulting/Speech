@@ -65,43 +65,104 @@ sections:
           - SpeechCli_SilentFlag_Provided_SuppressesOutput
           - SpeechCli_LogFlag_Provided_WritesOutputToFile
 
+      - id: SpeechCli-Cli-VoicesDir
+        title: >-
+          The tool shall accept a global `--voices-dir <path>` option naming an extra folder of
+          `.wav`/`.flac` reference voices, and shall reject a path that is not an existing
+          directory, or the option without a value, with a clear error before running any
+          command.
+        tags: [system]
+        justification: |
+          A mistyped voices folder would otherwise silently yield no voices; failing fast names
+          the problem.
+        tests:
+          - Context_Create_WithExistingVoicesDir_ParsesOntoContext
+          - Context_Create_WithBadVoicesDir_ThrowsArgumentException
+
+      - id: SpeechCli-Cli-VoicesHelp
+        title: >-
+          The tool shall document the `--voices-dir` option, the voice commands, voice selection
+          with `--tts-param voice=<id>`, and the consent note that only voices the operator has
+          permission to use may be cloned, in its `--help` output.
+        tags: [system]
+        justification: |
+          Help is the primary place an operator learns the option and the consent expectation.
+        tests:
+          - Program_Run_Help_DocumentsVoicesOptionsAndConsentNote
+
       - id: SpeechCli-Cli-DownloadMirror
         title: >-
-          The tool shall redirect every model download to an internal mirror base URL supplied
-          via `--mirror-url`, optionally authenticating with HTTP Basic credentials
-          (`--mirror-user`/`--mirror-password`, both required together) or a bearer token
-          (`--mirror-bearer-token`, mutually exclusive with the Basic credential pair), rejecting
-          an invalid mirror URL, an incomplete/conflicting credential combination, or any
-          credential option supplied without `--mirror-url` with a clear error message and a
-          non-zero exit code rather than a stack trace. The mirror base URL must be an absolute
-          `http`/`https` URL with no query string, fragment, or user-info component; a supplied
-          bearer token must not be empty or whitespace-only; and supplying either credential form
-          alongside a plain `http` (rather than `https`) mirror whose host is not a loopback
-          address is rejected, since both credential forms are sent preemptively and would
-          otherwise be transmitted in cleartext.
+          The tool shall redirect every model download to the internal mirror base URL supplied
+          via `--mirror-url`, and shall use the model's own download location when no mirror is
+          configured.
         tags: [system]
         justification: |
           A model's public download host (for example `huggingface.co`) may be blocked by
           network policy on a given machine; without a mirror option, such a machine could never
-          download a model through the tool at all. Validating the mirror configuration eagerly,
-          with a clean error, avoids a confusing failure deep inside the download transport, and
-          rejecting a credentialed plain-`http` mirror prevents a fat-fingered scheme from
-          silently leaking a secret on the wire. Rejecting a credential supplied without
-          `--mirror-url` catches a likely typo (a missing or misspelled `--mirror-url`) rather
-          than silently discarding the credential and downloading from each model's public URI
-          unauthenticated.
+          download a model through the tool at all.
         children:
           - SpeechCli-ModelCommands-DownloadMirrorComposition
         tests:
           - Context_CreateMirror_NoMirrorUrl_ReturnsNull
           - Context_CreateMirror_ValidCredentialedMirror_ReturnsConfiguredMirror
-          - Context_CreateMirror_BearerTokenMirror_ReturnsConfiguredMirror
+
+      - id: SpeechCli-Cli-DownloadMirrorUrlValidation
+        title: >-
+          The tool shall reject a `--mirror-url` that is not an absolute `http`/`https` URL, or
+          that carries a query string, fragment, or user-info component, with a clear error
+          message and a non-zero exit code rather than a stack trace.
+        tags: [system]
+        justification: |
+          Validating the mirror configuration eagerly, with a clean error, avoids a confusing
+          failure deep inside the download transport.
+        tests:
           - Context_CreateMirror_InvalidMirrorUrl_ThrowsArgumentException
+          - Context_CreateMirror_UnsupportedMirrorUrlShape_ThrowsArgumentException
+
+      - id: SpeechCli-Cli-DownloadMirrorCredentials
+        title: >-
+          The tool shall authenticate to the mirror with HTTP Basic credentials
+          (`--mirror-user`/`--mirror-password`, both required together) or a bearer token
+          (`--mirror-bearer-token`, not empty or whitespace-only and mutually exclusive with the
+          Basic credential pair), and shall reject an incomplete or conflicting credential
+          combination with a clear error message and a non-zero exit code.
+        tags: [system]
+        justification: |
+          A mirror inside a network commonly requires authentication; an incomplete or
+          ambiguous credential combination must fail eagerly rather than send a half-formed
+          request.
+        tests:
+          - Context_CreateMirror_ValidCredentialedMirror_ReturnsConfiguredMirror
+          - Context_CreateMirror_BearerTokenMirror_ReturnsConfiguredMirror
           - Context_CreateMirror_MirrorUserWithoutPassword_ThrowsArgumentException
           - Context_CreateMirror_BasicCredentialsAndBearerTokenTogether_ThrowsArgumentException
+          - Context_CreateMirror_WhitespaceBearerToken_ThrowsArgumentException
+
+      - id: SpeechCli-Cli-DownloadMirrorCredentialRequiresUrl
+        title: >-
+          The tool shall reject any mirror credential option supplied without `--mirror-url`
+          with a clear error message and a non-zero exit code.
+        tags: [system]
+        justification: |
+          Rejecting a credential supplied without `--mirror-url` catches a likely typo (a
+          missing or misspelled `--mirror-url`) rather than silently discarding the credential
+          and downloading from each model's public URI unauthenticated.
+        tests:
           - Context_CreateMirror_CredentialsWithoutMirrorUrl_ThrowsArgumentException
           - Context_CreateMirror_BearerTokenWithoutMirrorUrl_ThrowsArgumentException
           - Context_Create_MirrorCredentialWithoutUrlAndHelp_ThrowsArgumentException
+
+      - id: SpeechCli-Cli-DownloadMirrorCleartextProtection
+        title: >-
+          The tool shall reject either mirror credential form combined with a plain `http`
+          mirror whose host is not a loopback address, with a clear error message and a
+          non-zero exit code.
+        tags: [system]
+        justification: |
+          Both credential forms are sent preemptively, so a fat-fingered scheme would otherwise
+          silently transmit a secret in cleartext.
+        tests:
+          - Context_CreateMirror_CredentialOverPlainHttp_RejectedUnlessLoopback
 
       - id: SpeechCli-Cli-VersionDisplay
         title: >-
@@ -187,6 +248,9 @@ sections:
           - SpeechCli-ModelCommands-ListModels
           - SpeechCli-ModelCommands-ModelInfo
           - SpeechCli-ModelCommands-Download
+          - SpeechCli-ModelCommands-DownloadContinueOnFailure
+          - SpeechCli-ModelCommands-DownloadForce
+          - SpeechCli-ModelCommands-DownloadArgumentValidation
           - SpeechCli-ModelCommands-DownloadCancellation
           - SpeechCli-ModelCommands-Uninstall
           - SpeechCli-ModelCommands-Clean
@@ -214,12 +278,26 @@ sections:
         children:
           - SpeechCli-ModelCommands-ChatterboxComposition
           - SpeechCli-ModelCommands-ListVoices
+          - SpeechCli-ModelCommands-ListVoicesUsageHints
+          - SpeechCli-ModelCommands-ListVoicesConsentNote
+          - SpeechCli-ModelCommands-ListVoicesArgumentValidation
           - SpeechCli-ModelCommands-VoicePacks
-          - SpeechCli-ModelCommands-VoicesDir
+          - SpeechCli-ModelCommands-VoicePackInstall
+          - SpeechCli-ModelCommands-VoicePackInstallFailure
+          - SpeechCli-ModelCommands-VoicePackConsentNote
+          - SpeechCli-ModelCommands-VoicePackUninstall
+          - SpeechCli-ModelCommands-VoicePackArgumentValidation
           - SpeechCli-ModelCommands-VoiceEmotions
+          - SpeechCli-ModelCommands-VoiceEmotionsOptOut
+          - SpeechCli-ModelCommands-VoiceEmotionsSizes
+          - SpeechCli-ModelCommands-VoiceEmotionsUpgradeNotice
+          - SpeechCli-ModelCommands-VoiceEmotionsListing
         tests:
           - CommandDispatch_Find_VoiceCommands_AreRegistered
           - Program_Run_Help_DocumentsVoicesOptionsAndConsentNote
+          - SpeechCli_ListVoicesCommand_Invoked_PrintsConsentNote
+          - SpeechCli_ListVoicesCommandWithJsonFormat_Invoked_EmitsJsonArray
+          - SpeechCli_VoicesPacksCommand_Invoked_ListsPacksAndConsentNote
       - id: SpeechCli-DeviceInspection
         title: >-
           The tool shall let an operator list available audio devices, test a device with a
@@ -236,6 +314,10 @@ sections:
           - SpeechCli-DeviceCommands-DevicesTest
           - SpeechCli-DeviceCommands-ToneGeneration
           - SpeechCli-DeviceCommands-Doctor
+          - SpeechCli-DeviceCommands-DoctorNativeRuntimes
+          - SpeechCli-DeviceCommands-DoctorAudioDevices
+          - SpeechCli-DeviceCommands-DoctorModelCounts
+          - SpeechCli-DeviceCommands-DoctorExitCode
           - SpeechCli-DeviceCommands-LibraryDelegation
         tests:
           - SpeechCli_ListDevicesCommand_Invoked_ExitsCleanly
@@ -274,10 +356,15 @@ sections:
         children:
           - SpeechCli-RecognitionCommands-Recognize
           - SpeechCli-RecognitionCommands-ParamValidation
+          - SpeechCli-RecognitionCommands-InputFileValidation
           - SpeechCli-RecognitionCommands-FileInputEofDrivenStop
           - SpeechCli-RecognitionCommands-SilenceTimeout
           - SpeechCli-RecognitionCommands-StartTimeout
           - SpeechCli-RecognitionCommands-VerbosityAndOutput
+          - SpeechCli-RecognitionCommands-InterimOnly
+          - SpeechCli-RecognitionCommands-FinalOnly
+          - SpeechCli-RecognitionCommands-VerbosityConflict
+          - SpeechCli-RecognitionCommands-OutputText
           - SpeechCli-RecognitionCommands-DeviceDispatch
           - SpeechCli-RecognitionCommands-NullGuards
         tests:
@@ -299,6 +386,9 @@ sections:
           `recognize` invocations.
         children:
           - SpeechCli-ConversationCommands-Ask
+          - SpeechCli-ConversationCommands-AskModelValidation
+          - SpeechCli-ConversationCommands-AskTextSource
+          - SpeechCli-ConversationCommands-AskUnsupportedOptions
           - SpeechCli-ConversationCommands-ParamValidation
           - SpeechCli-ConversationCommands-ListenTermination
           - SpeechCli-ConversationCommands-OutputDispatch
@@ -308,6 +398,9 @@ sections:
           - SpeechCli-ConversationCommands-NullGuards
         tests:
           - Program_Run_WithAskCommandAndNoModel_ThrowsArgumentException
+          - SpeechCli_AskCommandWithoutModels_Invoked_ReturnsCleanError
+          - SpeechCli_AskCommandWithUnknownModel_Invoked_ReturnsCleanError
+          - SpeechCli_AskCommandWithConflictingTextSources_Invoked_ReturnsCleanError
 
       - id: SpeechCli-Packaging-GlobalTool
         title: >-

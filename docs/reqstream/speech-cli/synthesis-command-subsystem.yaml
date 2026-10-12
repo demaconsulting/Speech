@@ -4,11 +4,9 @@
 # These requirements describe the subsystem-level behavior of the one text-to-speech subcommand
 # (speak), decomposing the system-level dispatch requirements in docs/reqstream/speech-cli.yaml.
 #
-# This subsystem extends the ModelCommandsSubsystem seam (ICliModelCatalog) with two further
-# members - GetPreferredAudioFormat and CreateSynthesizerEngineAsync - rather than introduce a
-# second, competing seam, since a resolved model must still be cast to the library's internal
-# ISynthesisModel before either operation is possible, and that cast belongs in the same
-# assembly-scoped adapter that already owns the original five members.
+# The behavior that loads a synthesis engine and sizes the WAV output from a model's preferred
+# audio format lives with the ModelCommandsSubsystem requirements
+# (SpeechCli-ModelCommands-SynthesisSeamExtension).
 
 sections:
   - title: SpeechCli Requirements
@@ -50,23 +48,21 @@ sections:
 
           - id: SpeechCli-SynthesisCommands-ParamValidation
             title: >-
-              The tool shall parse repeatable `--tts-param key=value` flags and validate each value
-              against the resolved model's own declared parameter set - a numeric range and
-              integer-only constraint for a `NumericParameter`, a declared option match for a
-              `ChoiceParameter`, and `true`/`false` for a `BooleanParameter` - rejecting a
-              malformed token, an out-of-range or non-integral numeric value, an unmatched choice
-              value, an invalid boolean value, or a key not declared by the resolved model, with a
-              clean `ArgumentException`.
+              The tool shall accept repeatable `--tts-param key=value` flags and apply each to
+              the synthesis model, and shall reject a malformed token, a numeric value outside
+              the declared range or not a whole number where the model requires one, a choice
+              value the model does not offer, a boolean value other than `true`/`false`, or a
+              key the model does not declare, with a clean, non-zero-exit-code error rather than
+              a stack trace.
             tags: [subsystem]
             justification: |
               Every synthesis model declares its own tunable parameters with its own valid
-              ranges/options; validating `--tts-param` against that declared set before synthesis
-              starts catches an operator typo or out-of-range value immediately, rather than
-              having it silently ignored (or fail deep inside the synthesis engine) minutes into
-              a run. An unrecognized key is deliberately rejected here even though the library's
-              own `SpeechSynthesizerFactory.LoadAsync` silently ignores one, since an unrecognized
-              CLI flag value is almost always an operator mistake that should fail loudly at the
-              command line.
+              ranges and options; validating `--tts-param` against that declared set before
+              synthesis starts catches an operator typo or out-of-range value immediately,
+              rather than having it silently ignored or fail deep inside synthesis minutes into
+              a run. An unrecognized key is deliberately rejected even though the library
+              itself ignores one, since an unrecognized command-line value is almost always an
+              operator mistake that should fail loudly.
             tests:
               - ParameterBagParser_ParseToken_WellFormedToken_SplitsKeyAndValue
               - ParameterBagParser_ParseToken_NoSeparator_ThrowsArgumentException

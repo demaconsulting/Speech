@@ -5,11 +5,10 @@
 # subcommand (ask), decomposing the system-level dispatch requirements in
 # docs/reqstream/speech-cli.yaml.
 #
-# This subsystem introduces no new ICliModelCatalog seam member: it reuses
-# SynthesisCommandSubsystem's CreateSynthesizerEngineAsync and RecognitionCommandSubsystem's
-# CreateRecognizerEngineAsync members exactly as speak and recognize already do individually,
-# since ask requires exactly one synthesis-role model and exactly one recognition-role model,
-# never a single model serving both roles.
+# This subsystem reuses the speech-synthesis engine loading of SynthesisCommandSubsystem and the
+# speech-recognition engine loading of RecognitionCommandSubsystem exactly as speak and recognize
+# already do individually, since ask requires exactly one synthesis-role model and exactly one
+# recognition-role model, never a single model serving both roles.
 
 sections:
   - title: SpeechCli Requirements
@@ -19,28 +18,63 @@ sections:
           - id: SpeechCli-ConversationCommands-Ask
             title: >-
               The tool shall speak prompt text (from `--text`, `--file`, or piped stdin) through a
-              known, downloaded synthesis model named by `--tts-model <id>` and then, once playback
-              finishes, listen for a reply through a known, downloaded recognition model named by
-              `--stt-model <id>`, when invoked with `ask`, rejecting a missing `--tts-model` or
-              `--stt-model`, an unknown/wrong-role/not-downloaded model id for either model, a
-              conflicting/missing text source, or any of `--interim`/`--final-only`/`--no-tags`/
-              `--input`/`--output-audio` (none of which `ask` supports), with a clean, actionable,
-              non-zero-exit-code error rather than a stack trace.
+              downloaded synthesis model named by `--tts-model <id>` and then, once playback
+              finishes, listen for a reply through a downloaded recognition model named by
+              `--stt-model <id>`, and print the final recognized result, when invoked with `ask`.
             tags: [subsystem]
             justification: |
               An AI agent or operator scripting a voice conversation needs one command that
               speaks a prompt and listens for the reply without needing to sequence two separate
               CLI invocations or reason about which library types compose a synthesizer and a
-              recognizer. Both models must be validated the same way `speak`'s and `recognize`'s
-              own model resolution already validate a single model, with an actionable next step
-              (`list-models`, `list-models --role tts`/`--role stt`, or `download <modelId>`) so a
-              scripted invocation can react to the specific failure rather than a generic error.
-              Rejecting flags `ask` does not support (rather than silently ignoring them) avoids a
-              caller mistakenly believing an unsupported option took effect.
+              recognizer.
+            tests:
+              - AskCommand_ParseArguments_TextFlag_ParsesText
+              - AskCommand_Run_Success_SpeaksThenListensAndPrintsFinalResult
+
+          - id: SpeechCli-ConversationCommands-AskModelValidation
+            title: >-
+              The tool shall reject `ask` invoked without `--tts-model` or `--stt-model`, or with
+              an unknown, wrong-role, or not-downloaded model id for either model, with a clean,
+              actionable, non-zero-exit-code error rather than a stack trace.
+            tags: [subsystem]
+            justification: |
+              Both models must be validated the same way `speak`'s and `recognize`'s own model
+              resolution validates a single model, with an actionable next step (`list-models`,
+              `list-models --role tts`/`--role stt`, or `download <modelId>`) so a scripted
+              invocation can react to the specific failure rather than a generic error.
             tests:
               - AskCommand_ParseArguments_MissingTtsModel_ThrowsArgumentException
               - AskCommand_ParseArguments_MissingSttModel_ThrowsArgumentException
-              - AskCommand_ParseArguments_TextFlag_ParsesText
+              - AskCommand_Run_UnknownTtsModelId_ThrowsArgumentException
+              - AskCommand_Run_UnknownSttModelId_ThrowsArgumentException
+              - AskCommand_Run_WrongRoleTtsModel_ThrowsArgumentException
+              - AskCommand_Run_WrongRoleSttModel_ThrowsArgumentException
+              - AskCommand_Run_NotDownloadedTtsModel_ThrowsArgumentExceptionWithDownloadHint
+              - AskCommand_Run_NotDownloadedSttModel_ThrowsArgumentExceptionWithDownloadHint
+
+          - id: SpeechCli-ConversationCommands-AskTextSource
+            title: >-
+              The tool shall reject `ask` invoked with more than one of `--text`, `--file`, and
+              piped stdin, or with none of them, with a clean, actionable, non-zero-exit-code
+              error rather than a stack trace.
+            tags: [subsystem]
+            justification: |
+              An ambiguous or missing prompt must fail predictably, so a scripted invocation
+              never speaks the wrong text or waits on input that never arrives.
+            tests:
+              - AskCommand_Run_TextAndFileBothGiven_ThrowsArgumentException
+              - AskCommand_Run_NoTextSource_ThrowsArgumentException
+
+          - id: SpeechCli-ConversationCommands-AskUnsupportedOptions
+            title: >-
+              The tool shall reject `ask` invoked with `--interim`, `--final-only`, `--no-tags`,
+              `--input`, `--output-audio`, any other unsupported argument, or a flag missing its
+              value, with a clean, non-zero-exit-code error rather than a stack trace.
+            tags: [subsystem]
+            justification: |
+              Rejecting flags `ask` does not support (rather than silently ignoring them) avoids
+              a caller mistakenly believing an unsupported option took effect.
+            tests:
               - AskCommand_ParseArguments_Interim_ThrowsArgumentException
               - AskCommand_ParseArguments_FinalOnly_ThrowsArgumentException
               - AskCommand_ParseArguments_NoTags_ThrowsArgumentException
@@ -48,30 +82,20 @@ sections:
               - AskCommand_ParseArguments_OutputAudio_ThrowsArgumentException
               - AskCommand_ParseArguments_UnsupportedArgument_ThrowsArgumentException
               - AskCommand_ParseArguments_FlagMissingValue_ThrowsArgumentException
-              - AskCommand_Run_TextAndFileBothGiven_ThrowsArgumentException
-              - AskCommand_Run_UnknownTtsModelId_ThrowsArgumentException
-              - AskCommand_Run_UnknownSttModelId_ThrowsArgumentException
-              - AskCommand_Run_WrongRoleTtsModel_ThrowsArgumentException
-              - AskCommand_Run_WrongRoleSttModel_ThrowsArgumentException
-              - AskCommand_Run_NotDownloadedTtsModel_ThrowsArgumentExceptionWithDownloadHint
-              - AskCommand_Run_NotDownloadedSttModel_ThrowsArgumentExceptionWithDownloadHint
-              - AskCommand_Run_Success_SpeaksThenListensAndPrintsFinalResult
-              - Program_Run_WithAskCommandAndNoModel_ThrowsArgumentException
-              - SpeechCli_HelpFlag_Provided_ListsAllSubcommands
 
           - id: SpeechCli-ConversationCommands-ParamValidation
             title: >-
-              The tool shall parse repeatable `--tts-param key=value` and `--stt-param key=value`
-              flags and validate each value against the respective resolved model's own declared
-              parameter set, reusing the shared `ParameterBagParser` from the
-              SynthesisCommandSubsystem, forwarding each fully-resolved parameter bag to its own
-              `CreateSynthesizerEngineAsync`/`CreateRecognizerEngineAsync` call.
+              The tool shall accept repeatable `--tts-param key=value` and `--stt-param
+              key=value` flags and apply each to the model it names, and shall reject a
+              malformed token, a value outside the range or options that model declares, or a
+              key that model does not declare, with a clean, non-zero-exit-code error rather
+              than a stack trace.
             tags: [subsystem]
             justification: |
-              Both synthesis and recognition models declare tunable parameters; reusing the
-              existing, already-verified `ParameterBagParser` rather than duplicating its
-              validation logic keeps a single source of truth for `--tts-param`/`--stt-param`
-              semantics across `speak`, `recognize`, and `ask`.
+              Both synthesis and recognition models declare tunable parameters; validating each
+              value against the respective model's declared parameters before any audio is
+              produced catches an operator typo immediately, with the same `--tts-param`/
+              `--stt-param` semantics `speak`, `recognize`, and `ask` all share.
             tests:
               - AskCommand_ParseArguments_RepeatedParamFlags_AccumulateInOrderIndependently
               - AskCommand_Run_ValidParams_ForwardToRespectiveCreateCalls

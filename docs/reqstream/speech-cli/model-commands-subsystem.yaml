@@ -6,10 +6,12 @@
 # voices), decomposing the system-level dispatch requirements in docs/reqstream/speech-cli.yaml.
 #
 # Unit-level content is consolidated here rather than split per command: all seven commands
-# share one seam (ICliModelCatalog/SpeechModelCatalogAdapter) over the library's
-# SpeechModelCatalog/SpeechModelStore, and each command's own logic is a small, single-purpose
-# argument parser plus a thin call through that seam, so per-command requirement files would
-# mostly restate this shared context.
+# share one model-catalog dependency over the library's SpeechModelCatalog/SpeechModelStore,
+# and each command's own logic is a small, single-purpose argument parser plus a thin call into
+# that dependency, so per-command requirement files would mostly restate this shared context.
+#
+# Each requirement states one observable behavior. The `--voices-dir` option is a global option
+# and is therefore specified at system level (SpeechCli-Cli-VoicesDir).
 
 sections:
   - title: SpeechCli Requirements
@@ -65,28 +67,60 @@ sections:
           - id: SpeechCli-ModelCommands-Download
             title: >-
               The tool shall download, verify, and install one or more models given by id when
-              invoked with `download <modelId> [<modelId>...]`, reporting live progress for the
-              in-progress model, attempting every requested model even when an earlier one
-              fails, exiting non-zero if any requested model's download fails, and, when given
-              `--force`, uninstalling an already-downloaded model before downloading it again.
+              invoked with `download <modelId> [<modelId>...]`, in the order given, reporting
+              live progress for the in-progress model.
+            tags: [subsystem]
+            justification: |
+              An operator cannot use any speech capability without a model on disk, and a large
+              download needs visible progress so the operator can tell it is working.
+            tests:
+              - DownloadCommand_RunAsync_SingleModel_Succeeds_ReportsInstalled
+              - DownloadCommand_RunAsync_MultipleModels_DownloadsEachSequentially
+              - DownloadCommand_RunAsync_ReportsProgress_WritesPercentLine
+              - DownloadProgressReporter_Create_KnownTotal_PrintsOneLinePerWholePercent
+              - DownloadProgressReporter_Create_UnknownTotal_ReportsKilobytes
+
+          - id: SpeechCli-ModelCommands-DownloadContinueOnFailure
+            title: >-
+              The tool shall attempt every model requested by `download` even when an earlier
+              one fails, and shall exit non-zero if any requested model's download fails.
             tags: [subsystem]
             justification: |
               A single failed model (checksum mismatch, network fault, unknown id) in a
               multi-model request must not silently abandon the remaining requested models, so a
               script requesting several models learns the true outcome of every one of them
-              rather than stopping at the first failure. `--force` gives an operator a way to
-              recover from a suspected-corrupt local copy without manually deleting files.
+              rather than stopping at the first failure.
             tests:
-              - DownloadCommand_RunAsync_SingleModel_Succeeds_ReportsInstalled
-              - DownloadCommand_RunAsync_MultipleModels_DownloadsEachSequentially
               - DownloadCommand_RunAsync_ChecksumMismatch_ReportsErrorAndContinues
               - DownloadCommand_RunAsync_UnknownModelId_ReportsErrorAndContinues
+              - SpeechCli_DownloadCommandWithUnknownId_Invoked_ReturnsNonZeroExitCode
+
+          - id: SpeechCli-ModelCommands-DownloadForce
+            title: >-
+              The tool shall uninstall an already-downloaded model before downloading it again
+              when `download` is given `--force`, and shall not uninstall a model that is not
+              downloaded.
+            tags: [subsystem]
+            justification: |
+              `--force` gives an operator a way to recover from a suspected-corrupt local copy
+              without manually deleting files, and must never remove anything when there is
+              nothing to replace.
+            tests:
               - DownloadCommand_RunAsync_ForceOnDownloadedModel_UninstallsFirst
               - DownloadCommand_RunAsync_ForceOnMissingModel_DoesNotUninstall
-              - DownloadCommand_RunAsync_ReportsProgress_WritesPercentLine
+
+          - id: SpeechCli-ModelCommands-DownloadArgumentValidation
+            title: >-
+              The tool shall reject a `download` invocation that names no model id, or that
+              carries an unsupported flag, with a clear, non-zero-exit-code error rather than a
+              stack trace.
+            tags: [subsystem]
+            justification: |
+              A mistyped or incomplete download command must fail predictably so a script can
+              detect it, instead of silently downloading nothing.
+            tests:
               - DownloadCommand_RunAsync_NoModelIds_ThrowsArgumentException
               - DownloadCommand_RunAsync_UnsupportedFlag_ThrowsArgumentException
-              - SpeechCli_DownloadCommandWithUnknownId_Invoked_ReturnsNonZeroExitCode
               - SpeechCli_DownloadCommandWithMissingArgument_Invoked_ReturnsCleanError
 
           - id: SpeechCli-ModelCommands-DownloadCancellation
@@ -105,8 +139,6 @@ sections:
               - DownloadCommand_RunAsync_Canceled_ReportsErrorAndStopsBatch
               - ConsoleCancellation_Register_Raise_CancelsSourceRunsCallbackAndSuppressesTermination
               - ConsoleCancellation_Observe_Raise_RunsCallbackWithoutSuppressingTermination
-              - DownloadProgressReporter_Create_KnownTotal_PrintsOneLinePerWholePercent
-              - DownloadProgressReporter_Create_UnknownTotal_ReportsKilobytes
 
           - id: SpeechCli-ModelCommands-Uninstall
             title: >-
@@ -185,16 +217,15 @@ sections:
 
           - id: SpeechCli-ModelCommands-SynthesisSeamExtension
             title: >-
-              The tool shall load the synthesis engine and determine the preferred audio format
-              of a resolved synthesis model for `speak`, and shall report a model of any other
-              role with a clean, specific error rather than an unhandled cast exception.
+              The tool shall let `speak` load the synthesis engine of a resolved synthesis model
+              and size its WAV output from that model's preferred audio format, and shall reject
+              a model of any other role with a clear error naming the model rather than an
+              unhandled exception.
             tags: [subsystem]
             justification: |
-              `speak` must load a real synthesis engine and know its preferred audio format,
-              both of which depend on the resolved model being a synthesis model. A wrong-role
-              model must produce an actionable message, not a crash. The catalog seam that
-              provides these operations is described in the ModelCommandsSubsystem design
-              document.
+              `speak` must run a real synthesis engine and write audio in the format that model
+              produces, both of which only make sense for a synthesis model. A wrong-role model
+              must produce an actionable message, not a crash.
             tests:
               - SpeechModelCatalogAdapter_GetPreferredAudioFormat_RecognitionRoleModel_ThrowsArgumentException
               - SpeechModelCatalogAdapter_GetPreferredAudioFormat_NullDescriptor_ThrowsArgumentNullException
@@ -205,15 +236,14 @@ sections:
 
           - id: SpeechCli-ModelCommands-RecognitionSeamExtension
             title: >-
-              The tool shall load the recognition engine of a resolved recognition model for
-              `recognize`, and shall report a model of any other role with a clean, specific
-              error rather than an unhandled cast exception.
+              The tool shall let `recognize` load the recognition engine of a resolved
+              recognition model, and shall reject a model of any other role with a clear error
+              naming the model rather than an unhandled exception.
             tags: [subsystem]
             justification: |
-              `recognize` must load a real recognition engine, which depends on the resolved
-              model being a recognition model. A wrong-role model must produce an actionable
-              message, not a crash. The catalog seam that provides this operation is described
-              in the ModelCommandsSubsystem design document.
+              `recognize` must run a real recognition engine, which only makes sense for a
+              recognition model. A wrong-role model must produce an actionable message, not a
+              crash.
             tests:
               - SpeechModelCatalogAdapter_CreateRecognizerEngineAsync_SynthesisRoleModel_ThrowsArgumentException
               - SpeechModelCatalogAdapter_CreateRecognizerEngineAsync_NullDescriptor_ThrowsArgumentNullException
@@ -221,16 +251,17 @@ sections:
 
           - id: SpeechCli-ModelCommands-ChatterboxComposition
             title: >-
-              The ModelCommandsSubsystem shall compose the ChatterboxTurbo synthesis model into
-              every catalog it builds (after the Sherpa, Kokoro, and Nemotron models), sharing one
-              reference-voice library with the voice commands, and shall pass the `--voices-dir`
-              folder to that model as an extra reference-voice directory.
+              The tool shall offer the Chatterbox Turbo synthesis model alongside the other known
+              models, with the reference voices that the voice commands list and install (an
+              installed pack, the per-user folder, or the `--voices-dir` folder) as the voices it
+              can speak with, and shall keep listing and model use working when a file in the
+              `--voices-dir` folder cannot be decoded.
             tags: [subsystem]
             justification: |
               Chatterbox Turbo is a voice-cloning model: it can speak only with a reference
-              voice, so the command line must be able to supply voices (an installed pack, the
-              per-user folder, or `--voices-dir`) and the model must see exactly the voices the
-              voice commands list and install.
+              voice, so the command line must be able to supply voices and the model must see
+              exactly the voices the voice commands list and install. One undecodable file in a
+              user's folder must not take the whole voice list down.
             tests:
               - SpeechModelCatalogAdapter_Enumerate_ReturnsCompiledInKnownModels
               - CliModelCatalogFactory_Create_WithModelsDir_UsesGivenRoot
@@ -242,85 +273,187 @@ sections:
             title: >-
               The tool shall list every available reference voice (id, source, display name)
               when invoked with `list-voices`, as an aligned table (default) or a JSON array
-              (`--format json`), shall tell the operator how to obtain voices when there are none,
-              shall show how to choose a voice (`speak --tts-param voice=<id>`), and shall print
-              the consent note that only voices the operator has permission to use may be cloned.
+              (`--format json`).
             tags: [subsystem]
             justification: |
               Voice ids are the values of the Chatterbox `voice` parameter and there can be well
-              over a hundred of them, so an operator needs a discoverable list. Cloning a voice
-              reproduces a person's vocal identity, so the consent note is shown where voices are
-              chosen.
+              over a hundred of them, so an operator needs a discoverable list, in a form a
+              script can also parse.
+            tests:
+              - ListVoicesCommand_Run_Table_ListsVoicesAndConsentNote
+              - ListVoicesCommand_Run_Json_WritesParseableArray
+              - SpeechCli_ListVoicesCommand_Invoked_PrintsConsentNote
+              - SpeechCli_ListVoicesCommandWithJsonFormat_Invoked_EmitsJsonArray
+
+          - id: SpeechCli-ModelCommands-ListVoicesUsageHints
+            title: >-
+              The tool shall tell the operator how to obtain voices when `list-voices` finds
+              none, and shall show how to choose a listed voice (`speak --tts-param
+              voice=<id>`) when it finds some.
+            tags: [subsystem]
+            justification: |
+              An empty list is a dead end unless it says how to add voices, and a list of ids is
+              only useful if it says where the id goes.
             tests:
               - ListVoicesCommand_Run_Table_ListsVoicesAndConsentNote
               - ListVoicesCommand_Run_NoVoices_ExplainsHowToAddVoices
-              - ListVoicesCommand_Run_Json_WritesParseableArray
+
+          - id: SpeechCli-ModelCommands-ListVoicesConsentNote
+            title: >-
+              The tool shall print the consent note, that only voices the operator has permission
+              to use may be cloned, whenever `list-voices` prints its output.
+            tags: [subsystem]
+            justification: |
+              Cloning a voice reproduces a person's vocal identity, so the consent note is shown
+              where voices are chosen.
+            tests:
+              - ListVoicesCommand_Run_Table_ListsVoicesAndConsentNote
+              - ListVoicesCommand_Run_NoVoices_ExplainsHowToAddVoices
+              - SpeechCli_ListVoicesCommand_Invoked_PrintsConsentNote
+
+          - id: SpeechCli-ModelCommands-ListVoicesArgumentValidation
+            title: >-
+              The tool shall reject a `list-voices` invocation with an unknown `--format` value or
+              an unsupported argument with a clear, non-zero-exit-code error rather than a stack
+              trace.
+            tags: [subsystem]
+            justification: |
+              A mistyped option must fail predictably so a script can detect it instead of
+              receiving output in an unexpected form.
+            tests:
               - ListVoicesCommand_Run_BadArguments_ThrowsArgumentException
               - ListVoicesCommand_Run_UnknownFormat_ThrowsArgumentException
               - ListVoicesCommand_Run_NullArguments_Throw
-              - CommandDispatch_Find_VoiceCommands_AreRegistered
 
           - id: SpeechCli-ModelCommands-VoicePacks
             title: >-
               The tool shall list the installable reference-voice packs with their install state
-              (`voices packs`), download, verify, and install a pack with live progress through
-              the configured `--models-dir` and `--mirror-*` options (`voices install <packId>`),
-              remove an installed pack, treating a pack with nothing installed as a safe no-op
-              (`voices uninstall <packId>`), reject an unknown pack id, a missing or extra
-              argument, or an unknown sub-action with a clean error, exit non-zero when an
-              install fails or is canceled, and print the consent note after a successful
-              install.
+              when invoked with `voices packs`.
+            tags: [subsystem]
+            justification: |
+              An operator needs to see which voice packs exist and which are already installed
+              before choosing to download one.
+            tests:
+              - VoicesCommand_RunAsync_Packs_ListsPackStateAndConsentNote
+              - SpeechCli_VoicesPacksCommand_Invoked_ListsPacksAndConsentNote
+
+          - id: SpeechCli-ModelCommands-VoicePackInstall
+            title: >-
+              The tool shall download, verify, and install a reference-voice pack with live
+              progress, through the configured `--models-dir` and `--mirror-*` options, when
+              invoked with `voices install <packId>`.
             tags: [subsystem]
             justification: |
               The reference-voice pack is a large optional download, so installing it must follow
-              the same conventions as model downloads (mirror, progress, cancellation, clean
-              errors, idempotent removal). The consent note is repeated at install time because
-              that is when a pack of real people's voices arrives on the machine.
+              the same conventions as model downloads (store location, mirror, progress).
             tests:
-              - VoicesCommand_RunAsync_Packs_ListsPackStateAndConsentNote
               - VoicesCommand_RunAsync_Install_ReportsProgressAndConsentNote
+              - DownloadProgressReporter_Create_KnownTotal_PrintsOneLinePerWholePercent
+              - DownloadProgressReporter_Create_UnknownTotal_ReportsKilobytes
+
+          - id: SpeechCli-ModelCommands-VoicePackInstallFailure
+            title: >-
+              The tool shall exit non-zero and report the reason when `voices install` fails or
+              is canceled.
+            tags: [subsystem]
+            justification: |
+              A script installing the voice pack must be able to detect that it did not
+              complete, including when the operator interrupted it.
+            tests:
               - VoicesCommand_RunAsync_InstallFails_ReportsErrorExitCode
               - VoicesCommand_RunAsync_InstallCanceled_ReportsErrorExitCode
+              - ConsoleCancellation_Register_Raise_CancelsSourceRunsCallbackAndSuppressesTermination
+
+          - id: SpeechCli-ModelCommands-VoicePackConsentNote
+            title: >-
+              The tool shall print the consent note, that only voices the operator has permission
+              to use may be cloned, after a successful `voices install` and when listing packs.
+            tags: [subsystem]
+            justification: |
+              The consent note is repeated at install time because that is when a pack of real
+              people's voices arrives on the machine.
+            tests:
+              - VoicesCommand_RunAsync_Install_ReportsProgressAndConsentNote
+              - VoicesCommand_RunAsync_Packs_ListsPackStateAndConsentNote
+
+          - id: SpeechCli-ModelCommands-VoicePackUninstall
+            title: >-
+              The tool shall remove an installed reference-voice pack when invoked with
+              `voices uninstall <packId>`, treating a pack with nothing installed as a safe,
+              successful no-op.
+            tags: [subsystem]
+            justification: |
+              Freeing disk space is the sole purpose of this command; a defensive "uninstall it
+              if present" script must not exit non-zero for a pack that is already absent.
+            tests:
               - VoicesCommand_RunAsync_Uninstall_ForwardsAndReports
               - VoicesCommand_RunAsync_UninstallStoreThrows_ThrowsInvalidOperationException
+
+          - id: SpeechCli-ModelCommands-VoicePackArgumentValidation
+            title: >-
+              The tool shall reject an unknown pack id, a missing or extra argument, or an
+              unknown sub-action of `voices` with a clear, non-zero-exit-code error rather than a
+              stack trace.
+            tags: [subsystem]
+            justification: |
+              A mistyped voices command must fail predictably and name the problem so a script
+              can detect it.
+            tests:
               - VoicesCommand_RunAsync_InstallUnknownPack_ThrowsArgumentException
               - VoicesCommand_RunAsync_BadArguments_ThrowsArgumentException
               - VoicesCommand_RunAsync_NullArguments_Throw
               - SpeechModelCatalogAdapter_VoicePackUninstallAndInstall_UnknownOrMissingPack_BehaveCleanly
 
-          - id: SpeechCli-ModelCommands-VoicesDir
-            title: >-
-              The tool shall accept a global `--voices-dir <path>` option naming an extra folder
-              of `.wav`/`.flac` reference voices, shall reject a path that is not an existing
-              directory (or an option without a value) with a clear error before running any
-              command, and shall document the option, the voice commands, voice selection with
-              `--tts-param voice=<id>`, and the consent note in `--help`.
-            tags: [subsystem]
-            justification: |
-              A mistyped voices folder would otherwise silently yield no voices; failing fast
-              names the problem. Help is the primary place an operator learns the option and the
-              consent expectation.
-            tests:
-              - Context_Create_WithExistingVoicesDir_ParsesOntoContext
-              - Context_Create_WithBadVoicesDir_ThrowsArgumentException
-              - Program_Run_Help_DocumentsVoicesOptionsAndConsentNote
-
           - id: SpeechCli-ModelCommands-VoiceEmotions
             title: >-
-              The tool shall install a reference-voice pack with its emotion variants by default and
-              install only the base voices when `voices install` is given `--no-emotions`, shall show
-              the download size and the installed size without and with emotions and the installed
-              variant in `voices packs`, announce when an install replaces a voices-only install to add
-              emotions, and show how many emotion variants (moods) each voice has in `list-voices`
-              (a Moods column, and a `moods` array in JSON).
+              The tool shall install a reference-voice pack with its emotion variants by default
+              when invoked with `voices install`.
             tags: [subsystem]
             justification: |
-              The emotion clips make the pack roughly thirteen times larger (about 570 MiB against about
-              44 MiB), so an operator must be able to opt out, see the sizes before choosing, and
-              discover which voices carry moods.
+              Emotion variants make the cloned voices expressive, so an operator who does not
+              ask otherwise gets the full pack.
             tests:
               - VoicesCommand_RunAsync_Install_DefaultIncludesEmotions
+
+          - id: SpeechCli-ModelCommands-VoiceEmotionsOptOut
+            title: >-
+              The tool shall install only the base voices when `voices install` is given
+              `--no-emotions`.
+            tags: [subsystem]
+            justification: |
+              The emotion clips make the pack roughly thirteen times larger (about 570 MiB
+              against about 44 MiB), so an operator must be able to opt out.
+            tests:
               - VoicesCommand_RunAsync_InstallNoEmotions_InstallsBaseVoicesOnly
-              - VoicesCommand_RunAsync_InstallOverVoicesOnly_AnnouncesUpgrade
+
+          - id: SpeechCli-ModelCommands-VoiceEmotionsSizes
+            title: >-
+              The tool shall show, in `voices packs`, the download size, the installed size
+              without and with emotions, and the installed variant of each pack.
+            tags: [subsystem]
+            justification: |
+              An operator must be able to see the sizes before choosing whether to include
+              emotions.
+            tests:
               - VoicesCommand_RunAsync_Packs_ShowsDownloadAndInstalledSizes
+
+          - id: SpeechCli-ModelCommands-VoiceEmotionsUpgradeNotice
+            title: >-
+              The tool shall announce that the pack is removed and downloaded again when
+              `voices install` replaces a voices-only install to add emotions.
+            tags: [subsystem]
+            justification: |
+              Replacing an existing install triggers a large download, so the operator must be
+              told why.
+            tests:
+              - VoicesCommand_RunAsync_InstallOverVoicesOnly_AnnouncesUpgrade
+
+          - id: SpeechCli-ModelCommands-VoiceEmotionsListing
+            title: >-
+              The tool shall show how many emotion variants (moods) each voice has when invoked
+              with `list-voices`, as a Moods column in the table and a `moods` array in JSON.
+            tags: [subsystem]
+            justification: |
+              An operator must be able to discover which voices carry moods before choosing one.
+            tests:
               - ListVoicesCommand_Run_MoodClips_ShowsMoodsColumnAndJson

@@ -50,20 +50,33 @@ sections:
 
           - id: SpeechCli-RecognitionCommands-ParamValidation
             title: >-
-              The tool shall parse repeatable `--stt-param key=value` flags and validate each value
-              against the resolved recognition model's own declared parameter set, reusing the
-              shared `ParameterBagParser` from the SynthesisCommandSubsystem, forwarding the
-              fully-resolved parameter bag to `CreateRecognizerEngineAsync`.
+              The tool shall accept repeatable `--stt-param key=value` flags and apply each to
+              the recognition model, and shall reject a malformed token, a value outside the
+              range or options that model declares, or a key that model does not declare, with a
+              clean, non-zero-exit-code error rather than a stack trace.
             tags: [subsystem]
             justification: |
-              Recognition models declare tunable parameters exactly as synthesis models do (e.g.
-              decoding beam width); reusing the existing, already-verified `ParameterBagParser`
-              rather than duplicating its validation logic keeps a single source of truth for
-              `--stt-param` semantics across both `speak` and `recognize`.
+              Recognition models declare tunable parameters exactly as synthesis models do (for
+              example decoding beam width); validating each value against the model's declared
+              parameters before recognition starts catches an operator typo immediately, with
+              the same `--stt-param` semantics `speak`, `recognize`, and `ask` all share.
             tests:
               - RecognizeCommand_ParseArguments_RepeatedParamFlags_AccumulatesInOrder
               - RecognizeCommand_Run_ValidParam_ForwardsToCreateRecognizerEngine
               - RecognizeCommand_Run_InvalidParam_ThrowsArgumentException
+
+          - id: SpeechCli-RecognitionCommands-InputFileValidation
+            title: >-
+              The tool shall reject an `--input` file that is not a valid WAV file, or is not
+              mono 16-bit PCM, with a clear, non-zero-exit-code error naming the problem rather
+              than a stack trace.
+            tags: [subsystem]
+            justification: |
+              Recognition models require mono audio; an unsupported or corrupt input file must
+              produce an actionable message instead of garbage results or a crash.
+            tests:
+              - RecognizeCommand_Run_InputFileIsNotWav_ThrowsInvalidOperationExceptionNamingFile
+              - RecognizeCommand_Run_InputFileIsStereoWav_ThrowsInvalidOperationExceptionAboutMono
 
           - id: SpeechCli-RecognitionCommands-FileInputEofDrivenStop
             title: >-
@@ -139,28 +152,57 @@ sections:
 
           - id: SpeechCli-RecognitionCommands-VerbosityAndOutput
             title: >-
-              The tool shall, by default, print both interim and final recognition results (an
-              interim result overwritten in place, a final result settled on its own line); shall,
-              given `--interim`, print only interim results; shall, given `--final-only`, print
-              only final results; shall reject supplying both `--interim` and `--final-only`
-              together; and shall, given `--output-text <text-path>`, write only final results to the
+              The tool shall, by default, print both interim and final recognition results, an
+              interim result overwritten in place and a final result settled on its own line.
+            tags: [subsystem]
+            justification: |
+              A live console benefits from seeing an evolving interim hypothesis as well as the
+              settled transcript.
+            tests:
+              - RecognizeCommand_ParseArguments_InterimAndFinalOnlyFlags_ParseTrue
+              - RecognizeCommand_Run_DefaultVerbosity_PrintsBothInterimAndFinal
+              - RecognizeCommand_Run_ShrinkingInterimSequence_DoesNotLeaveStaleCharacters
+
+          - id: SpeechCli-RecognitionCommands-InterimOnly
+            title: >-
+              The tool shall print only interim recognition results when `--interim` is given.
+            tags: [subsystem]
+            justification: |
+              An operator watching live feedback may not want settled lines interleaved with it.
+            tests:
+              - RecognizeCommand_Run_Interim_SuppressesFinalSettleConsoleOutput
+
+          - id: SpeechCli-RecognitionCommands-FinalOnly
+            title: >-
+              The tool shall print only final recognition results when `--final-only` is given.
+            tags: [subsystem]
+            justification: |
+              A scripted consumer of the console output needs the settled transcript without
+              never-finalized partial guesses.
+            tests:
+              - RecognizeCommand_Run_FinalOnly_SuppressesInterimConsoleOutput
+
+          - id: SpeechCli-RecognitionCommands-VerbosityConflict
+            title: >-
+              The tool shall reject `recognize` invoked with both `--interim` and `--final-only`
+              with a clear, non-zero-exit-code error rather than a stack trace.
+            tags: [subsystem]
+            justification: |
+              The two flags select contradictory output; failing fast avoids silently picking one.
+            tests:
+              - RecognizeCommand_Run_InterimAndFinalOnlyBothGiven_ThrowsArgumentException
+
+          - id: SpeechCli-RecognitionCommands-OutputText
+            title: >-
+              The tool shall, given `--output-text <text-path>`, write only final results to the
               file, one per line, overwriting any prior file content, regardless of the console
               verbosity flags' effect on console output.
             tags: [subsystem]
             justification: |
-              A live console benefits from seeing an evolving interim hypothesis, but a scripted
-              consumer of `--output-text` needs a stable, append-free record of only the settled,
-              final transcript - conflating the two would either clutter a script's output file
-              with never-finalized partial guesses or deny an interactive operator useful
-              real-time feedback.
+              A scripted consumer of `--output-text` needs a stable, append-free record of only
+              the settled, final transcript, independent of how verbose the console output is.
             tests:
-              - RecognizeCommand_ParseArguments_InterimAndFinalOnlyFlags_ParseTrue
               - RecognizeCommand_ParseArguments_OutputFlag_ParsesOutputPath
-              - RecognizeCommand_Run_InterimAndFinalOnlyBothGiven_ThrowsArgumentException
-              - RecognizeCommand_Run_DefaultVerbosity_PrintsBothInterimAndFinal
-              - RecognizeCommand_Run_ShrinkingInterimSequence_DoesNotLeaveStaleCharacters
-              - RecognizeCommand_Run_FinalOnly_SuppressesInterimConsoleOutput
-              - RecognizeCommand_Run_Interim_SuppressesFinalSettleConsoleOutput
               - RecognizeCommand_Run_Output_WritesOnlyFinalResultsOverwritingPriorContent
 
           - id: SpeechCli-RecognitionCommands-DeviceDispatch
