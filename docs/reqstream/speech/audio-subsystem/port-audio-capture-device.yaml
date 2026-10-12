@@ -131,7 +131,7 @@ sections:
                 tests:
                   - PortAudioCaptureDevice_Start_RegistersActiveStreamWithEnvironment_RefreshThrowsWhileStarted
 
-              - id: Speech-Audio-PortAudioCaptureDevice-ActiveStreamUnregistration
+              - id: Speech-Audio-PortAudioCaptureDevice-ActiveStreamDeregistration
                 title: >-
                   The PortAudioCaptureDevice class shall unregister itself from the environment's
                   active-stream tracking once Stop completes (or Start's open attempt fails), so a

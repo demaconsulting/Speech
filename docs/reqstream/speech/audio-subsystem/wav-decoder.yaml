@@ -56,7 +56,7 @@ sections:
                 title: >-
                   The WavDecoder class shall drop a trailing partial frame.
                 justification: |
-                  A ragged final frame cannot be interpreted and must not misalign or fail the decode.
+                  A ragged final frame cannot be interpreted and must not shift later frames or fail the decode.
                 tests:
                   - WavDecoder_Decode_OverstatedDataSize_IsClamped
 

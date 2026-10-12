@@ -174,7 +174,7 @@ sections:
                 tests:
                   - PortAudioPlaybackDevice_Start_RegistersActiveStreamWithEnvironment_RefreshThrowsWhileStarted
 
-              - id: Speech-Audio-PortAudioPlaybackDevice-ActiveStreamUnregistration
+              - id: Speech-Audio-PortAudioPlaybackDevice-ActiveStreamDeregistration
                 title: >-
                   The PortAudioPlaybackDevice class shall unregister itself from the environment's
                   active-stream tracking once Stop completes (or Start's open attempt fails), so a

@@ -117,7 +117,7 @@ sections:
                   The ReferenceVoicePackInstaller shall record the extracted variants and emotion
                   clip count in pack.json.
                 justification: |
-                  The library reports installed variants from pack.json without rescanning the disk.
+                  The library reports installed variants from pack.json without scanning the disk again.
                 tests:
                   - ReferenceVoicePackInstaller_Install_WithEmotions_ExtractsMoodClipsAndRecordsVariant
 

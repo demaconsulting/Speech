@@ -118,7 +118,7 @@ sections:
               - id: Speech-Models-SpeechModelStore-Uninstall
                 title: >-
                   The SpeechModelStore class shall remove an installed model's current/ content
-                  and install manifest when explicitly uninstalled, synchronously or awaitably.
+                  and install manifest when explicitly uninstalled, synchronously or asynchronously.
                 justification: |
                   Uninstall is an explicit, user-invoked operation; it must actually remove the
                   installed content. An awaitable UninstallAsync lets callers that must not block

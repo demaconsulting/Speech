@@ -354,8 +354,8 @@ sections:
               - Speech-Audio-AudioDeviceRefresh-RefusesWhileInUse
               - Speech-Audio-PortAudioCaptureDevice-ActiveStreamRegistration
               - Speech-Audio-PortAudioPlaybackDevice-ActiveStreamRegistration
-              - Speech-Audio-PortAudioCaptureDevice-ActiveStreamUnregistration
-              - Speech-Audio-PortAudioPlaybackDevice-ActiveStreamUnregistration
+              - Speech-Audio-PortAudioCaptureDevice-ActiveStreamDeregistration
+              - Speech-Audio-PortAudioPlaybackDevice-ActiveStreamDeregistration
               - Speech-Audio-AudioDeviceFactory-RefreshPropagatesInUse
               - Speech-Audio-AudioDeviceInUseException-Constructors
             tests:
