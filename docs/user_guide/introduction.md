@@ -411,7 +411,8 @@ emotion clips are kept: about
 44 MiB for the 154 base voices, plus about 528 MiB for the emotion variants (13 moods per voice: anger,
 calm, confused, enthused, excited, frustrated, happy, neutral, sad, shout, surprised, tired, worried).
 Pass `includeEmotions: false` to skip them; installing again with emotions over a voices-only install
-removes the pack and downloads it again (a failed re-download leaves it uninstalled). Each pack voice's
+downloads the pack again, keeping the previous install aside until the new one is in place (a failed or
+canceled re-download restores it). Concurrent installs of the same pack run one after another. Each pack voice's
 `ReferenceVoiceInfo.MoodClips` maps the lower-case mood name to that speaker's emotion clip (or is
 `null`); the moods are variants of the voice, not extra voices. Voices are stored under
 `<models root>\reference-voices\`: the pack in
@@ -604,7 +605,7 @@ as timed silence, per the pause-handling rule above.
 | `[very fast]` | same | `+30%` of declared range |
 | `[slow]` | same | `-15%` of declared range |
 | `[very slow]` | same | `-30%` of declared range |
-| `[loud]`/`[shouting]`/`[screams]` | volume parameter (id: `volume`, `loudness`, `gain`) | `+20%` of declared range |
+| `[loud]`/`[shouting]`/`[screams]`/`[shout]` | volume (id: `volume`, `loudness`, `gain`) | `+20%` of declared range |
 | `[soft]` | same | `-20%` of declared range |
 | `[whispers]`/`[whispering]` | same | `-35%` of declared range |
 
@@ -976,8 +977,9 @@ speech-cli list-voices
 speech-cli speak --tts-model chatterbox-turbo-onnx-en --tts-param voice=<id> --text "Hello"
 ```
 
-Newly installed voices appear on the next invocation. An undecodable file in `--voices-dir` makes
-every command fail until it is removed, because that folder is read when the catalog is built.
+Newly installed voices appear on the next invocation. Voice files in `--voices-dir` are decoded
+only when a voice is used, so an undecodable file does not break other commands: `list-voices` still
+runs and lists it, and synthesizing with that voice fails with an error naming the file.
 
 > **Consent:** only clone voices you have permission to use. `list-voices`, `voices packs`,
 > `voices install`, and `--help` all repeat this note.

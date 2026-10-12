@@ -185,9 +185,9 @@ emotion clips are kept: about
 44 MiB for the 154 base voices, plus about 528 MiB for the emotion variants (13 moods per voice: anger,
 calm, confused, enthused, excited, frustrated, happy, neutral, sad, shout, surprised, tired, worried).
 Pass `includeEmotions: false` to skip them; installing again with emotions over a voices-only install
-removes the pack and downloads it again (a failed re-download leaves it uninstalled). Each pack voice's
-`ReferenceVoiceInfo.MoodClips` maps the lower-case mood name to that speaker's emotion clip (or is
-`null`); the moods are variants of the voice, not extra voices. Voices are stored under
+downloads the pack again while keeping the previous install aside (a failed or canceled re-download
+restores it). Each pack voice's `ReferenceVoiceInfo.MoodClips` maps the lower-case mood name to that
+speaker's emotion clip (or is `null`); the moods are variants of the voice, not extra voices. Voices are stored under
 `<models root>\reference-voices\`: the pack in
 `voice-zero-1.0\current\voices\` and your own clips in `user\`. The voice list merges explicit
 `ReferenceVoices`, then `ReferenceVoiceDirectory`, then `user\`, then the pack, and the first voice
