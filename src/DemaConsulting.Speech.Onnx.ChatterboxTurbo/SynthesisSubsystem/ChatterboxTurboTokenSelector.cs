@@ -9,7 +9,8 @@ namespace DemaConsulting.Speech.Onnx.ChatterboxTurbo.SynthesisSubsystem;
 ///     always lowers the id's score; the highest score wins and ties resolve to the lowest id. Greedy
 ///     selection (no sampling) keeps generation deterministic. An optional blocked token is excluded from the
 ///     arg-max for one call (the run-length cap), but the stop token is never blocked so generation can always
-///     end. Stateless and thread-safe.
+///     end. NaN logits are treated as negative infinity, so all-NaN or all-negative-infinity input resolves to
+///     the lowest unblocked id. Stateless and thread-safe.
 /// </remarks>
 internal static class ChatterboxTurboTokenSelector
 {
@@ -26,7 +27,7 @@ internal static class ChatterboxTurboTokenSelector
     /// <param name="generated">The distinct ids generated so far, including the start token; ids outside the vocabulary are ignored.</param>
     /// <param name="blockedToken">
     ///     A token id excluded from selection for this call, or -1 for none. The stop token is never blocked, and if
-    ///     every id would be excluded the unblocked arg-max is returned.
+    ///     the only id of the vocabulary is blocked that id is returned.
     /// </param>
     /// <returns>The chosen token id.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="generated"/> is null.</exception>
@@ -42,7 +43,9 @@ internal static class ChatterboxTurboTokenSelector
         // The stop token can never be blocked, so generation can always end
         var blocked = blockedToken == StopSpeechToken ? -1 : blockedToken;
 
-        // Scan once, penalizing generated ids on the fly; strict '>' keeps the lowest id on ties
+        // Scan once over the unblocked ids, penalizing generated ids on the fly. The first unblocked id seeds the
+        // result so all-NaN or all -Infinity logits still resolve deterministically to the lowest unblocked id;
+        // strict '>' keeps the lowest id on ties.
         var best = -1;
         var bestScore = float.NegativeInfinity;
         for (var id = 0; id < logits.Length; id++)
@@ -53,19 +56,24 @@ internal static class ChatterboxTurboTokenSelector
             }
 
             var score = logits[id];
-            if (generated.Contains(id))
+            if (float.IsNaN(score))
+            {
+                // NaN never wins against a real score
+                score = float.NegativeInfinity;
+            }
+            else if (generated.Contains(id))
             {
                 score = score < 0 ? score * RepetitionPenalty : score / RepetitionPenalty;
             }
 
-            if (score > bestScore)
+            if (best < 0 || score > bestScore)
             {
                 bestScore = score;
                 best = id;
             }
         }
 
-        // Only reachable when the single id of the vocabulary is blocked: fall back to the unblocked choice
-        return best >= 0 ? best : Select(logits, generated);
+        // Only reachable when the single id of the vocabulary is blocked: return that id as the unblocked choice
+        return best >= 0 ? best : 0;
     }
 }

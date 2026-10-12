@@ -19,20 +19,29 @@ sections:
                   The ChatterboxTurboTokenSelector class shall choose the highest-scoring token
                   after applying a repetition penalty to previously generated tokens (dividing
                   positive logits and multiplying negative ones), resolve ties to the lowest id,
-                  and handle empty or invalid input safely.
+                  treat NaN logits as negative infinity so non-finite input still yields a valid
+                  token, and reject empty logits and a null history with an ArgumentException and
+                  an ArgumentNullException respectively.
                 justification: |
-                  Without the penalty greedy decoding loops on one token.
+                  Without the penalty greedy decoding loops on one token, and a numerically broken
+                  model output must not crash or hang generation.
                 tests:
                   - ChatterboxTurboTokenSelector_Select_NoHistory_ReturnsArgmax
                   - ChatterboxTurboTokenSelector_Select_RepeatedPositive_IsPenalized
                   - ChatterboxTurboTokenSelector_Select_RepeatedNegative_IsPushedDown
-                  - ChatterboxTurboTokenSelector_Select_TiesAndInvalidInput_AreHandled
+                  - ChatterboxTurboTokenSelector_Select_Ties_ResolveToLowestId
+                  - ChatterboxTurboTokenSelector_Select_PenalizedTiesAndOutOfRangeHistory_ResolveToUnpenalizedId
+                  - ChatterboxTurboTokenSelector_Select_EmptyLogits_ThrowsArgumentException
+                  - ChatterboxTurboTokenSelector_Select_NullHistory_ThrowsArgumentNullException
+                  - ChatterboxTurboTokenSelector_Select_AllNaN_ReturnsLowestId
+                  - ChatterboxTurboTokenSelector_Select_AllNegativeInfinity_ReturnsLowestUnblockedId
+                  - ChatterboxTurboTokenSelector_Select_NaNAmongRealScores_IsNeverChosen
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-BlockedToken
                 title: >-
                   The ChatterboxTurboTokenSelector class shall exclude an optional blocked token
-                  from selection for one call, never block the stop token, and fall back to the
-                  unblocked choice when every id would be excluded.
+                  from selection for one call, never block the stop token, and return the only id
+                  of a single-id vocabulary even when it is blocked.
                 justification: |
                   The run-length cap needs to break a token loop without ever preventing the
                   model from ending speech.
@@ -40,3 +49,4 @@ sections:
                   - ChatterboxTurboTokenSelector_Select_BlockedToken_IsSkipped
                   - ChatterboxTurboTokenSelector_Select_BlockedStopToken_IsIgnored
                   - ChatterboxTurboTokenSelector_Select_AllBlocked_FallsBackToArgmax
+                  - ChatterboxTurboTokenSelector_Select_BlockedTokenInHistory_IsSkipped

@@ -77,14 +77,88 @@ public sealed class ChatterboxTurboTokenSelectorTests
         Assert.Equal(1, token);
     }
 
-    /// <summary>Proves ties resolve to the lowest id and invalid arguments are rejected.</summary>
+    /// <summary>Proves ties resolve to the lowest id.</summary>
     [Fact]
-    public void ChatterboxTurboTokenSelector_Select_TiesAndInvalidInput_AreHandled()
+    public void ChatterboxTurboTokenSelector_Select_Ties_ResolveToLowestId()
     {
+        // Act
+        var token = ChatterboxTurboTokenSelector.Select([1f, 1f, 1f], new HashSet<long>());
+
         // Assert
-        Assert.Equal(0, ChatterboxTurboTokenSelector.Select([1f, 1f, 1f], new HashSet<long>()));
-        Assert.Equal(2, ChatterboxTurboTokenSelector.Select([1f, 1f, 1f], new HashSet<long> { 0, 1, 99 }));
+        Assert.Equal(0, token);
+    }
+
+    /// <summary>Proves penalized ties still resolve to the lowest id and out-of-vocabulary history ids are ignored.</summary>
+    [Fact]
+    public void ChatterboxTurboTokenSelector_Select_PenalizedTiesAndOutOfRangeHistory_ResolveToUnpenalizedId()
+    {
+        // Act
+        var token = ChatterboxTurboTokenSelector.Select([1f, 1f, 1f], new HashSet<long> { 0, 1, 99 });
+
+        // Assert
+        Assert.Equal(2, token);
+    }
+
+    /// <summary>Proves empty logits are rejected.</summary>
+    [Fact]
+    public void ChatterboxTurboTokenSelector_Select_EmptyLogits_ThrowsArgumentException()
+    {
+        // Act and Assert
         Assert.Throws<ArgumentException>(() => ChatterboxTurboTokenSelector.Select([], new HashSet<long>()));
+    }
+
+    /// <summary>Proves a null history is rejected.</summary>
+    [Fact]
+    public void ChatterboxTurboTokenSelector_Select_NullHistory_ThrowsArgumentNullException()
+    {
+        // Act and Assert
         Assert.Throws<ArgumentNullException>(() => ChatterboxTurboTokenSelector.Select([1f], null!));
+    }
+
+    /// <summary>Proves all-NaN logits terminate and resolve to the lowest id.</summary>
+    [Fact]
+    public void ChatterboxTurboTokenSelector_Select_AllNaN_ReturnsLowestId()
+    {
+        // Act
+        var token = ChatterboxTurboTokenSelector.Select([float.NaN, float.NaN, float.NaN], new HashSet<long>());
+
+        // Assert
+        Assert.Equal(0, token);
+    }
+
+    /// <summary>Proves all-negative-infinity logits terminate and resolve to the lowest unblocked id.</summary>
+    [Fact]
+    public void ChatterboxTurboTokenSelector_Select_AllNegativeInfinity_ReturnsLowestUnblockedId()
+    {
+        // Arrange
+        float[] logits = [float.NegativeInfinity, float.NegativeInfinity, float.NegativeInfinity];
+
+        // Act
+        var token = ChatterboxTurboTokenSelector.Select(logits, new HashSet<long>(), 0);
+
+        // Assert
+        Assert.Equal(1, token);
+    }
+
+    /// <summary>Proves a NaN logit never beats a real score.</summary>
+    [Fact]
+    public void ChatterboxTurboTokenSelector_Select_NaNAmongRealScores_IsNeverChosen()
+    {
+        // Act
+        var token = ChatterboxTurboTokenSelector.Select([float.NaN, -5f, float.NaN], new HashSet<long>());
+
+        // Assert
+        Assert.Equal(1, token);
+    }
+
+    /// <summary>Proves a blocked id that is also in the history is still skipped.</summary>
+    [Fact]
+    public void ChatterboxTurboTokenSelector_Select_BlockedTokenInHistory_IsSkipped()
+    {
+        // Act
+        var token = ChatterboxTurboTokenSelector.Select([5f, 1f, 0.5f], new HashSet<long> { 0 }, 0);
+
+        // Assert
+        Assert.Equal(1, token);
     }
 }

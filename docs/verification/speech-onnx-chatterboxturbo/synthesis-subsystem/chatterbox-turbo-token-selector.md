@@ -12,8 +12,9 @@ Verified by `ChatterboxTurboTokenSelectorTests.cs` with hand-computed logits.
 #### Acceptance Criteria
 
 Without history the argmax wins; repeated positive logits are divided and repeated negative logits
-multiplied; ties resolve to the lowest id; invalid input is handled safely; a blocked token is
-skipped, the stop token is never blocked, and an all-blocked input falls back to the argmax.
+multiplied; ties resolve to the lowest id; empty logits and a null history are rejected with exceptions; NaN and
+negative-infinity logits yield a valid token without recursion; a blocked token is skipped (even when it
+is in the history), the stop token is never blocked, and a single blocked id is returned.
 
 #### Test Scenarios
 
@@ -29,18 +30,31 @@ skipped, the stop token is never blocked, and an all-blocked input falls back to
 
 **Test**: `ChatterboxTurboTokenSelector_Select_RepeatedNegative_IsPushedDown`
 
-##### Ties and invalid input are handled
+##### Ties resolve to the lowest id
 
-**Test**: `ChatterboxTurboTokenSelector_Select_TiesAndInvalidInput_AreHandled`
+**Test**: `ChatterboxTurboTokenSelector_Select_Ties_ResolveToLowestId`; a tie among penalized ids resolves to the
+unpenalized id and out-of-range history ids are ignored (`..._PenalizedTiesAndOutOfRangeHistory_ResolveToUnpenalizedId`).
+
+##### Invalid input is rejected
+
+**Tests**: `ChatterboxTurboTokenSelector_Select_EmptyLogits_ThrowsArgumentException` and
+`ChatterboxTurboTokenSelector_Select_NullHistory_ThrowsArgumentNullException`.
+
+##### Non-finite logits terminate
+
+**Tests**: `ChatterboxTurboTokenSelector_Select_AllNaN_ReturnsLowestId` (expects id 0),
+`..._AllNegativeInfinity_ReturnsLowestUnblockedId` (id 0 blocked, expects 1) and
+`..._NaNAmongRealScores_IsNeverChosen` (expects the only real score).
 
 ##### A blocked token is skipped
 
-**Test**: `ChatterboxTurboTokenSelector_Select_BlockedToken_IsSkipped`
+**Tests**: `ChatterboxTurboTokenSelector_Select_BlockedToken_IsSkipped` and
+`ChatterboxTurboTokenSelector_Select_BlockedTokenInHistory_IsSkipped`.
 
 ##### The stop token is never blocked
 
 **Test**: `ChatterboxTurboTokenSelector_Select_BlockedStopToken_IsIgnored`
 
-##### An all-blocked input falls back
+##### A single blocked id is returned
 
 **Test**: `ChatterboxTurboTokenSelector_Select_AllBlocked_FallsBackToArgmax`

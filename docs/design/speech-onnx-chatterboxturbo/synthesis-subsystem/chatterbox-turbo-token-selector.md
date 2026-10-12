@@ -6,16 +6,19 @@
 
 **Key Methods**:
 
-- **Select(logits, history)**: copies the logits, applies the repetition penalty to every token in
-  the history (positive logits are divided, negative logits multiplied), and returns the argmax with
-  ties resolved to the lowest id
-- **Select(logits, history, blockedToken)**: as above, but the optional `blockedToken` (-1 for none)
-  is skipped for this call; a blocked stop token (6562) is ignored so speech can always end, and if
-  nothing remains the unblocked choice is returned
+- **Select(ReadOnlySpan&lt;float&gt; logits, IReadOnlySet&lt;long&gt; generated, int blockedToken = -1)**: returns the
+  chosen token id. `logits` are the vocabulary-sized logits of the last position and `generated` holds the
+  distinct ids generated so far, including the start token (ids outside the vocabulary are ignored). A single
+  pass over the unblocked ids divides a generated id's positive logit by the penalty and multiplies its
+  negative logit by it, then keeps the highest score; ties resolve to the lowest id. A NaN logit is treated as
+  negative infinity, and the first unblocked id seeds the result, so all-NaN or all-negative-infinity input
+  returns the lowest unblocked id. The optional `blockedToken` (-1 for none) is skipped for this call; a
+  blocked stop token (6562) is ignored so speech can always end. If the only id of the vocabulary is blocked,
+  that id is returned. The method is deterministic, stateless and thread-safe.
 
-**Error Handling**: empty or null input is handled without throwing (see the tests for the exact
-result); no other exceptions are expected.
+**Error Handling**: empty `logits` throw `ArgumentException` and a null `generated` throws
+`ArgumentNullException`. Non-finite logits never throw and never recurse.
 
-**Dependencies**: none.
+**Dependencies**: `OnnxChatterboxTurboSynthesisEngine.StopSpeechToken` (the id that is never blocked).
 
 **Callers**: `OnnxChatterboxTurboSynthesisEngine.Generate`.
