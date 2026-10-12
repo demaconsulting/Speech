@@ -21,7 +21,8 @@ graphs, and `chatterbox-turbo-onnx-en-lm-<variant>-aux-<variant>` for any other 
   checksums and relative install paths under `onnx/` (eight files by default)
 - **Parameters**: a `voice` choice listing the available voices (first is default); its description
   appends the core `ReferenceVoiceLibrary.ConsentNotice`
-- **Voice resolution** (constructor): voices are merged in this order: explicit `ReferenceVoices`
+- **Voice resolution** (constructor): `ChatterboxTurboModelOptions.ReferenceVoices` rejects a null list with
+  `ArgumentNullException`. Voices are merged in this order: explicit `ReferenceVoices`
   (eager), then `ReferenceVoiceDirectory` files (lazy via `FromFileLazy`, sorted, so a damaged file fails
   only at first use of that voice, naming the file, and never breaks catalog composition; a missing
   directory throws `DirectoryNotFoundException`), then - unless `IncludeStoreVoices` is `false` - the voices

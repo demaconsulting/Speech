@@ -4,7 +4,8 @@
 
 The SpeechOnnxChatterboxTurbo ModelManagementSubsystem is verified by automated unit tests in
 `test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/ModelManagementSubsystem/`: the model,
-options and registration extension in `OnnxChatterboxTurboEnglishSynthesisModelTests.cs`, the
+options in `OnnxChatterboxTurboEnglishSynthesisModelTests.cs`, the registration extension in
+`SpeechModelCatalogChatterboxTurboExtensionsTests.cs`, the
 tokenizer in `ByteLevelBpeTokenizerTests.cs` and the reference voice in
 `ChatterboxTurboReferenceVoiceTests.cs`. Backend construction is verified against synthetic ONNX
 graphs, so no real model is required. `ChatterboxTurboModelOptions` and the registration extension are
@@ -17,6 +18,13 @@ registration extension at subsystem level (see "Registration Extension" below).
 - **Execution**: `dotnet test` invoked by `build.ps1` and the CI pipeline
 - **Project**: `test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests`
 - **Dependencies**: no network, no audio hardware, no real model files
+
+### Acceptance Criteria
+
+The subsystem is accepted when both registration tests pass and every unit suite passes: the model
+metadata, descriptor, variants, voices (explicit, directory, user folder and pack, with duplicate and label
+handling) and backend creation behave as documented, the tokenizer reproduces the reference ids, and
+reference voices (with lazy and mood clips) are normalized and validated.
 
 ### Test Scenarios
 
@@ -36,10 +44,3 @@ catalog instance.
 
 Verifies that with no library in the options the model lists the voices of the catalog's store and the
 caller's options are not modified.
-
-### Acceptance Criteria
-
-The subsystem is accepted when both registration tests pass and every unit suite passes: the model
-metadata, descriptor, variants, voices (explicit, directory, user folder and pack, with duplicate and label
-handling) and backend creation behave as documented, the tokenizer reproduces the reference ids, and
-reference voices (with lazy and mood clips) are normalized and validated.

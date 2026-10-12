@@ -30,7 +30,10 @@ by tests to observe sessions.
   `sequenceLength`
 - **Decode(speechTokens, conditioning)**: runs the conditional decoder and returns the waveform
 - **ReadFloats(value)**: copies a float32 or float16 tensor into a float array
-- **Dispose()**: disposes all sessions and the run options
+- **Dispose()**: disposes all sessions and the run options; it is idempotent. `Encode`, `Embed`, `Decode` and
+  `BeginGeneration` throw `ObjectDisposedException` after dispose, because a call on a disposed ONNX Runtime
+  session faults the process instead of throwing. Float16 outputs of any graph are converted to floats by
+  one shared half-to-float helper.
 
 **Error Handling**: `FileNotFoundException` for a missing graph (checked before a session is created);
 `ArgumentOutOfRangeException` for a non-positive thread count or an attention length shorter than the

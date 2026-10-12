@@ -4,8 +4,9 @@
 
 Verified by `OnnxChatterboxTurboNetworksTests.cs` against synthetic ONNX graphs written by the test
 project's `OnnxModelWriter` and `ChatterboxTurboGraphFixture`. A static session hook lets tests
-observe sessions for thread configuration and disposal checks; these tests run in a non-parallel
-collection.
+observe the sessions created, for the disposal checks. The disposed state of an ONNX Runtime session has no
+public accessor and a call on a disposed session is unsafe, so the tests read its private disposed flag.
+These tests run in a non-parallel collection.
 
 #### Test Environment
 
@@ -14,9 +15,13 @@ collection.
 
 #### Acceptance Criteria
 
-Each of the four graph calls returns the documented data, including half-precision embeddings and logits;
-invalid step arguments are rejected; the intra-op thread count is applied and validated; a missing graph
-throws `FileNotFoundException`; sessions are disposed on dispose and on construction failure.
+Each of the four graph calls returns the documented data, including half-precision encoder, embedder,
+decoder and language-model values; invalid step arguments are rejected; the intra-op thread count is
+validated and exposed; a missing graph throws `FileNotFoundException`; sessions are disposed on dispose and
+on construction failure, and use after dispose is rejected with `ObjectDisposedException`.
+
+The thread count applied inside ONNX Runtime cannot be observed from outside, so the test checks the unit's
+own `IntraOpThreads` property and the rejection of a non-positive count only.
 
 #### Test Scenarios
 
@@ -49,6 +54,16 @@ throws `FileNotFoundException`; sessions are disposed on dispose and on construc
 **Tests**: `OnnxChatterboxTurboNetworks_Step_WrongEmbeddingLength_ThrowsArgumentException` and
 `OnnxChatterboxTurboNetworks_Step_AttentionShorterThanSequence_ThrowsArgumentOutOfRangeException`
 
+##### Half-precision encoder, embedder and decoder outputs are converted
+
+**Test**: `OnnxChatterboxTurboNetworks_HalfAuxiliaryOutputs_AreConvertedToFloats`
+
+Graphs that emit float16 values (via Cast) yield the same float values as the float32 graphs, within half precision.
+
+##### Null arguments are rejected
+
+**Test**: `OnnxChatterboxTurboNetworks_NullArguments_Throw`
+
 ##### Decode returns the waveform
 
 **Test**: `OnnxChatterboxTurboNetworks_Decode_SpeechTokens_ReturnsWaveform`
@@ -73,3 +88,9 @@ throws `FileNotFoundException`; sessions are disposed on dispose and on construc
 ##### Dispose disposes all sessions
 
 **Test**: `OnnxChatterboxTurboNetworks_Dispose_DisposesAllSessions`
+
+##### Use after dispose is rejected
+
+**Test**: `OnnxChatterboxTurboNetworks_AfterDispose_RejectsUse`
+
+Encode, embed, decode and begin-generation throw `ObjectDisposedException` after dispose; a second dispose is harmless.

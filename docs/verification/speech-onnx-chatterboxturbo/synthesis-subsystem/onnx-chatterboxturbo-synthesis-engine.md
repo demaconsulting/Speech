@@ -13,10 +13,12 @@ that records calls and replays scripted logits, so the algorithm is checked with
 #### Acceptance Criteria
 
 The prompt and decoder input are assembled as designed; generation is bounded and flagged; empty
-text makes no network calls; voices are encoded once with fallback; mood markers select the mood clip
-and never reach the tokenizer; a very large ratio is clamped; dispose and argument validation
-behave as documented; a stuck token is capped at the configured run length, a cap of zero disables
-the guard, and the stop token is never blocked.
+text makes no network calls; voices are encoded once, each with its own clip, and an unknown speaker uses
+the first voice; mood markers select the mood clip and never reach the tokenizer; a very large ratio is
+clamped; the speed argument is ignored; dispose and argument validation behave as documented, including a
+dispose during generation that stops the generation and waits for it; a stuck token is capped at the
+configured run length, a cap of zero disables the guard, and a capped run still ends at the stop token
+without being flagged truncated.
 
 #### Test Scenarios
 
@@ -48,9 +50,13 @@ the guard, and the stop token is never blocked.
 
 **Test**: `OnnxChatterboxTurboSynthesisEngine_Generate_CapZero_AllowsUnboundedRepeats`
 
-##### The stop token is never blocked
+##### A run that reaches the cap still ends at the stop token
 
-**Test**: `OnnxChatterboxTurboSynthesisEngine_Generate_StopToken_IsNeverBlocked`
+**Test**: `OnnxChatterboxTurboSynthesisEngine_Generate_StopAfterCappedRun_EndsWithoutTruncation`
+
+Scripted tokens: two identical tokens then the stop token, with a cap of two. Generation ends at the stop
+token and is not flagged truncated. That the selector never blocks the stop token is verified at unit level in
+`chatterbox-turbo-token-selector.md`.
 
 ##### Empty text returns empty audio without network calls
 
@@ -58,7 +64,9 @@ the guard, and the stop token is never blocked.
 
 ##### Voices are encoded once and fall back
 
-**Test**: `OnnxChatterboxTurboSynthesisEngine_Generate_Voices_AreEncodedOnceAndFallBack`
+**Tests**: `OnnxChatterboxTurboSynthesisEngine_Generate_Voices_AreEncodedOnceAndFallBack` (voices with
+distinct clips are encoded once each, in first-use order) and
+`OnnxChatterboxTurboSynthesisEngine_Generate_UnknownSpeaker_UsesFirstVoiceClip`
 
 ##### Mood markers select the mood clip and never reach the tokenizer
 
@@ -68,9 +76,20 @@ the guard, and the stop token is never blocked.
 `OnnxChatterboxTurboSynthesisEngine_Generate_MarkedSegments_GuardsApplyPerSegment`,
 `OnnxChatterboxTurboSynthesisEngine_Generate_RenderedPlan_OrderedClipsAndNoMarkerInTokens`
 
+##### The speed argument is ignored
+
+**Test**: `OnnxChatterboxTurboSynthesisEngine_Generate_Speed_IsIgnored`
+
+Two calls with different speeds return audio of identical length and sample rate.
+
 ##### Dispose disposes networks and rejects generation
 
-**Test**: `OnnxChatterboxTurboSynthesisEngine_Dispose_DisposesNetworksAndRejectsGenerate`
+**Tests**: `OnnxChatterboxTurboSynthesisEngine_Dispose_DisposesNetworksAndRejectsGenerate` and
+`OnnxChatterboxTurboSynthesisEngine_Dispose_DuringGeneration_StopsGenerationAndWaitsForIt`
+
+The second test blocks the first language-model step, disposes from another thread, and checks that the
+disposal waits for the generation, the generation stops at its next step with `ObjectDisposedException` and
+the networks are disposed exactly once.
 
 ##### Invalid constructor arguments throw
 

@@ -36,6 +36,12 @@ Synthetic ONNX graphs (an encoder, an embedder, a language model with a key/valu
 decoder) are generated at test time by a small in-test ONNX writer. The generation loop is
 additionally tested against a fake `IChatterboxTurboNetworks`.
 
+## Acceptance Criteria
+
+A system-level run passes when every scenario above passes and every subsystem suite passes with
+no network access. The automated boundary is honest: real-model intelligibility is a manual
+pre-release check.
+
 ## Test Scenarios
 
 ### AddChatterboxTurboModels registers the model and returns the catalog
@@ -78,9 +84,3 @@ additionally tested against a fake `IChatterboxTurboNetworks`.
 ### Runaway generation is bounded
 
 **Test**: `OnnxChatterboxTurboSynthesisEngine_Generate_NeverStops_IsBoundedAndFlagged`
-
-## Acceptance Criteria
-
-A system-level run passes when every scenario above passes and every subsystem suite passes with
-no network access. The automated boundary is honest: real-model intelligibility is a manual
-pre-release check.
