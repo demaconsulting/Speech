@@ -46,10 +46,13 @@ sections:
           device is an ordinary machine state, not a programming error.
         children:
           - Speech-Audio-Factory
+          - Speech-Audio-FactoryNeverThrows
           - Speech-Audio-FormatValue
+          - Speech-Audio-PreferredFormat
           - Speech-Audio-NameOnlyIdentity
           - Speech-Audio-SelectionFallback
           - Speech-Audio-DeviceRefresh
+          - Speech-Audio-DeviceRefreshRefusal
           - Speech-Audio-MockableContracts
           - Speech-Audio-PreferredHostApiEnumeration
           - Speech-Audio-RealCaptureDevice
@@ -98,6 +101,7 @@ sections:
           code removes any native decoder dependency and works on every supported platform.
         children:
           - Speech-Audio-AudioFileReading
+          - Speech-Audio-ClipConversion
         tests:
           - Speech_SystemIntegration_ManagedAudioFileDecoding_FlacAndWavReadIdenticallyByContent
 
@@ -125,6 +129,7 @@ sections:
           operational member anyway has made a programming error that must surface immediately.
         children:
           - Speech-Audio-UnavailableFallbacks
+          - Speech-Audio-UnavailableFallbackOperationsThrow
         tests:
           - Speech_SystemValidation_NoResolvableCaptureDevice_StartThrowsAudioDeviceUnavailableException
 
@@ -140,6 +145,8 @@ sections:
           descriptors, and the mockable HTTP seam.
         children:
           - Speech-Models-DownloadOrchestration
+          - Speech-Models-PerModelDownloadSerialization
+          - Speech-Models-CrossModelDownloadConcurrency
           - Speech-Models-DownloadDescriptors
           - Speech-Models-MockableHttpSeam
         tests:
@@ -170,6 +177,7 @@ sections:
           an HTTP error response, and a local disk failure.
         children:
           - Speech-Models-HonestFailureStates
+          - Speech-Models-PriorInstallProtected
           - Speech-Models-RicherFailureClassification
         tests:
           - SpeechModelDownloader_DownloadAsync_ChecksumMismatch_ReportsChecksumMismatchAndInstallsNothing
@@ -256,6 +264,15 @@ sections:
           something every host must source itself.
         children:
           - Speech-Models-ReferenceVoicePack
+          - Speech-Models-ReferenceVoicePackDescriptor
+          - Speech-Models-ReferenceVoicePackInstall
+          - Speech-Models-ReferenceVoicePackUninstall
+          - Speech-Models-ReferenceVoiceEmotionInstall
+          - Speech-Models-ReferenceVoiceEmotionUpgrade
+          - Speech-Models-ReferenceVoiceMoodClips
+          - Speech-Models-ReferenceVoiceUserFolder
+          - Speech-Models-ReferenceVoiceListing
+          - Speech-Models-ReferenceVoiceConsentNotice
         tests:
           - ReferenceVoiceLibrary_InstallPack_Success_InstallsVoicesAndUpdatesState
           - ReferenceVoiceLibrary_EnumerateVoices_MergesInPrecedenceOrderFirstIdWins
@@ -310,9 +327,12 @@ sections:
           model.
         children:
           - Speech-Recognition-MockableContract
+          - Speech-Recognition-BackendIsolation
           - Speech-Recognition-EngineExclusivity
           - Speech-Recognition-StreamingPipeline
+          - Speech-Recognition-StreamingResultDelivery
           - Speech-Recognition-FaultContainment
+          - Speech-Recognition-FaultedSessionSurfacing
           - Speech-Audio-CaptureFormatDisclosure
         tests:
           - Speech_SystemIntegration_StreamingRecognition_CapturedAudioProducesRecognitionResults
@@ -328,7 +348,10 @@ sections:
           composition must degrade honestly rather than failing application start-up.
         children:
           - Speech-Recognition-Composition
+          - Speech-Recognition-UnrecognizedParameterIgnored
+          - Speech-Recognition-InvalidParameterValueRejected
           - Speech-Recognition-UnavailableFallback
+          - Speech-Recognition-UnavailableOperationsThrow
         tests:
           - SpeechRecognizerFactory_LoadAsync_ModelNotInstalled_ReturnsUnavailableEngine
           - UnavailableSpeechRecognizerEngine_IsAvailable_Read_ReturnsFalse
@@ -361,6 +384,8 @@ sections:
           parser.
         children:
           - Speech-Synthesis-Layer1Parsing
+          - Speech-Synthesis-Layer1AliasResolution
+          - Speech-Synthesis-Layer1LiteralPassthrough
         tests:
           - Speech_SystemIntegration_AudioTagVocabulary_KnownTagParsedAndUnknownBracketPassesThrough
           - AudioTagParser_Parse_UnclosedOpeningBracket_PassesThroughAsLiteralText
@@ -379,10 +404,19 @@ sections:
           end-to-end behavior is proven against a test model per the fakeable engine seam.
         children:
           - Speech-Synthesis-MockableContract
+          - Speech-Synthesis-MockableSynthesisPlaybackContract
+          - Speech-Synthesis-MockableCancellationContract
           - Speech-Synthesis-EngineExclusivity
+          - Speech-Synthesis-EngineDisposalOrdering
           - Speech-Synthesis-VoiceSelection
+          - Speech-Synthesis-SpeakerIdResolution
+          - Speech-Synthesis-VoiceSelectionIndependentOfTagOverrides
           - Speech-Synthesis-SessionOverlapAndLifecycle
+          - Speech-Synthesis-SessionStateMachine
+          - Speech-Synthesis-FaultedSessionTerminal
           - Speech-Synthesis-FaultContainment
+          - Speech-Synthesis-DeterministicCancellation
+          - Speech-Synthesis-NonCooperativeCallAbandonment
           - Speech-Audio-PlaybackFormatDisclosure
         tests:
           - Speech_SystemIntegration_StreamingSynthesis_TextProducesPlayedAudio
@@ -397,6 +431,8 @@ sections:
           declared capability profile, never worse than plain narration.
         children:
           - Speech-Synthesis-Layer2Rendering
+          - Speech-Synthesis-Layer2RenderingApproximation
+          - Speech-Synthesis-Layer2RenderingStrip
           - Speech-Models-SpeechModelContract-SynthesisEngineConfigDeclaration
           - Speech-Models-SpeechModelContract-SynthesisCapabilityProfileDeclaration
         tests:
@@ -412,6 +448,8 @@ sections:
           chunks are still being synthesized.
         children:
           - Speech-Synthesis-ChunkedPipeline
+          - Speech-Synthesis-SequentialSynthesis
+          - Speech-Synthesis-StreamedPlayback
         tests:
           - SynthesisSession_SynthesizeAsync_LongMultiSentenceInput_ProducesOrderedSegmentsSequentially
 
@@ -426,6 +464,9 @@ sections:
           composition must degrade honestly rather than failing application start-up.
         children:
           - Speech-Synthesis-Composition
+          - Speech-Synthesis-CompositionIgnoresUnrecognizedParameter
+          - Speech-Synthesis-CompositionRejectsInvalidParameterValue
           - Speech-Synthesis-UnavailableFallback
+          - Speech-Synthesis-UnavailableFallbackOperationsThrow
         tests:
           - SpeechSynthesizerFactory_LoadAsync_ModelNotInstalled_ReturnsUnavailableEngine
