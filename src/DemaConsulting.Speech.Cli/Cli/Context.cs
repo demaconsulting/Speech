@@ -32,7 +32,7 @@ namespace DemaConsulting.Speech.Cli.Cli;
 ///     <see cref="Command"/> is resolved from the first argument that is not one of the global
 ///     options below, and every argument that follows it (other than further global options) is
 ///     collected, unparsed, into <see cref="CommandArgs"/> for the subcommand's own handler to
-///     interpret in a later implementation pass. Global options (<see cref="ModelsDir"/>,
+///     interpret. Global options (<see cref="ModelsDir"/>,
 ///     <see cref="Diagnostics"/>, <see cref="Silent"/>, log file, version, help) are recognized
 ///     regardless of where they appear relative to the subcommand name.
 /// </remarks>
@@ -187,7 +187,7 @@ internal sealed class Context : IDisposable
     /// <summary>
     ///     Gets the raw, unparsed arguments that followed <see cref="Command"/> on the command
     ///     line (excluding any recognized global option and its value). Each subcommand's own
-    ///     handler is responsible for parsing these in the pass that implements it.
+    ///     handler is responsible for parsing these.
     /// </summary>
     public IReadOnlyList<string> CommandArgs { get; private init; } = [];
 

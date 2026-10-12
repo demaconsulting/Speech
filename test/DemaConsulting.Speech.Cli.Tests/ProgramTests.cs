@@ -283,7 +283,7 @@ public class ProgramTests
     /// <summary>
     ///     Test that dispatching to <c>recognize</c> with no arguments runs the real
     ///     implementation (never throwing <see cref="NotImplementedException"/>), proving the
-    ///     dispatch table wiring for this pass's <c>recognize</c> command - the last of all 10
+    ///     dispatch table wiring for the <c>recognize</c> command - the last of all 10
     ///     subcommands to be implemented. Full <c>recognize</c> coverage lives in
     ///     <c>RecognizeCommandTests</c>.
     /// </summary>
@@ -309,7 +309,7 @@ public class ProgramTests
     /// <summary>
     ///     Test that dispatching to <c>list-models</c> with no arguments runs the real
     ///     implementation (never throwing <see cref="NotImplementedException"/>), proving the
-    ///     dispatch table wiring for this pass's five model-management commands.
+    ///     dispatch table wiring for the five model-management commands.
     /// </summary>
     [Fact]
     public void Program_Run_WithListModelsCommand_DoesNotThrowNotImplemented()
@@ -341,7 +341,7 @@ public class ProgramTests
     /// <summary>
     ///     Test that dispatching to <c>list-devices</c> with no arguments runs the real
     ///     implementation (never throwing <see cref="NotImplementedException"/>), proving the
-    ///     dispatch table wiring for this pass's device-related commands.
+    ///     dispatch table wiring for the device-related commands.
     /// </summary>
     [Fact]
     public void Program_Run_WithListDevicesCommand_DoesNotThrowNotImplemented()
@@ -396,7 +396,7 @@ public class ProgramTests
     ///     Test that dispatching to <c>speak</c> without <c>--model</c> reports a clean,
     ///     missing-model <see cref="ArgumentException"/> rather than
     ///     <see cref="NotImplementedException"/>, proving the dispatch table wiring for this
-    ///     pass's <c>speak</c> command. Full <c>speak</c> coverage lives in
+    ///     <c>speak</c> command. Full <c>speak</c> coverage lives in
     ///     <c>SpeakCommandTests</c>.
     /// </summary>
     [Fact]

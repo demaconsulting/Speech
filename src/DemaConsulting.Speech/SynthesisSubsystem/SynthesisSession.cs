@@ -242,11 +242,11 @@ internal sealed class SynthesisSession : ISynthesisSession
     ///     Requests cancellation of any in-flight operation and awaits the tracked operation's own
     ///     completion, including its raw native-call completion (see
     ///     <see cref="_pendingNativeCompletion"/>) so an abandoned <see cref="DedicatedWorker"/>
-    ///     native call cannot still be running once this returns (finding 27), before returning,
+    ///     native call cannot still be running once this returns, before returning,
     ///     matching the documented <see cref="ISynthesisSession.StopAsync"/> contract that the
     ///     returned task completes once the in-flight operation has genuinely stopped.
     ///     <paramref name="cancellationToken"/> bounds only this caller's own wait for that
-    ///     teardown (finding 28), mirroring the recognition session's <c>StopAsync</c>: it never
+    ///     teardown, mirroring the recognition session's <c>StopAsync</c>: it never
     ///     aborts the underlying cancel-and-await work itself, which every other concurrent caller
     ///     (and <see cref="DisposeAsync"/>) still needs to complete regardless of whether this
     ///     particular caller stopped waiting for it.
@@ -313,7 +313,7 @@ internal sealed class SynthesisSession : ISynthesisSession
     ///     stopped while an abandoned native call is still demonstrably running.
     ///     <para>
     ///     This re-read, and the subsequent await, must happen even when
-    ///     <paramref name="operationTask"/> is itself <see langword="null"/> (finding 30):
+    ///     <paramref name="operationTask"/> is itself <see langword="null"/>:
     ///     <see cref="RunOperationAsync"/>'s abandon-fault handler clears <c>_operationTask</c>
     ///     (and <c>_operationCancellation</c>) as part of transitioning to
     ///     <see cref="SynthesisSessionState.Faulted"/>, while deliberately leaving
@@ -354,7 +354,7 @@ internal sealed class SynthesisSession : ISynthesisSession
         // unconditionally (not only when operationTask was non-null) is what actually proves the
         // abandoned native call has genuinely returned before this method lets the caller
         // (StopAsync/DisposeCoreAsync) release the engine lease or consider the backend reusable
-        // (finding 30).
+        // reusable.
         Task? pendingNativeCompletion;
         lock (_syncRoot)
         {
@@ -386,7 +386,7 @@ internal sealed class SynthesisSession : ISynthesisSession
     ///     on success or genuine, promptly-honored cancellation, or to
     ///     <see cref="SynthesisSessionState.Faulted"/> on any other failure - including a
     ///     cancellation request the native <c>Generate</c> call did not honor within
-    ///     <see cref="DedicatedWorker"/>'s abandon timeout (finding 26), since that leaves the
+    ///     <see cref="DedicatedWorker"/>'s abandon timeout, since that leaves the
     ///     shared backend not safely reusable until the abandoned call genuinely returns.
     /// </summary>
     /// <param name="text">The text to synthesize.</param>
@@ -422,7 +422,7 @@ internal sealed class SynthesisSession : ISynthesisSession
             // linked source) is even a candidate for normal cancellation. An
             // OperationCanceledException the backend throws on its own initiative, with no
             // cancellation actually requested, falls through to the general fault handler below
-            // instead (finding 9), since silently treating it as a clean stop would let a
+            // instead, since silently treating it as a clean stop would let a
             // genuinely broken backend be reused.
             Task? pendingNativeCompletion;
             lock (_syncRoot)
@@ -433,7 +433,7 @@ internal sealed class SynthesisSession : ISynthesisSession
             if (pendingNativeCompletion is not null && !pendingNativeCompletion.IsCompleted)
             {
                 // The native Generate call did not honor this request within DedicatedWorker's
-                // abandon timeout and is still running in the background (finding 26): the shared
+                // abandon timeout and is still running in the background: the shared
                 // backend is not safely reusable until that raw completion genuinely finishes, so
                 // - unlike a native call that stopped promptly - this is not a clean cancellation
                 // this session can return to Stopped from. Fault instead, which both reports the
