@@ -27,7 +27,8 @@ section below.
 Rather than a general-purpose argument-parsing library (e.g. `System.CommandLine`), SpeechCli
 extends the hand-rolled, single-purpose parser pattern the reference `TemplateDotNetTool` uses for
 its own flag set. `Context.Create(args)` resolves a fixed set of global options - `--models-dir`,
-`--voices-dir <path>` (an existing folder of extra `.wav`/`.flac` reference voices; missing folder is rejected with `ArgumentException` in `Context.Create`),
+`--voices-dir <path>` (an existing folder of extra `.wav`/`.flac` reference voices; a missing
+folder is rejected with `ArgumentException` in `Context.Create`),
 `--verbose`/`--diagnostics`, `--silent`, `--log <file>`, `--results <file>`, `--depth <#>`,
 `-v`/`--version`, `-h`/`-?`/`--help`, `--validate` - regardless of where they appear on the
 command line relative to the subcommand name, because every subcommand needs the same

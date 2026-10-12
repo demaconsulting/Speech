@@ -68,4 +68,6 @@ sections:
               end-of-speech token would never terminate.
             children:
               - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-Bounds
+              - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-RunLengthCap
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-Selection
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-BlockedToken

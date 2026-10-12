@@ -176,6 +176,22 @@ sections:
           - SpeechCli_ListModelsCommand_Invoked_ListsKnownModelsAsTable
           - DownloadCommand_RunAsync_MultipleModels_DownloadsEachSequentially
 
+      - id: SpeechCli-ReferenceVoices
+        title: >-
+          The tool shall let an operator discover, install, remove, and supply reference voices
+          for voice-cloning models, through the `list-voices` and `voices` subcommands and the
+          `--voices-dir` option, with the Chatterbox Turbo model composed into the catalog.
+        tags: [system]
+        justification: |
+          A voice-cloning model can speak only with a reference voice, so an operator needs a
+          command-line way to see which voices exist, install a voice pack, and point the tool at
+          their own voices.
+        children:
+          - SpeechCli-ModelCommands-ChatterboxComposition
+          - SpeechCli-ModelCommands-ListVoices
+          - SpeechCli-ModelCommands-VoicePacks
+          - SpeechCli-ModelCommands-VoicesDir
+
       - id: SpeechCli-DeviceInspection
         title: >-
           The tool shall let an operator list available audio devices, test a device with a
