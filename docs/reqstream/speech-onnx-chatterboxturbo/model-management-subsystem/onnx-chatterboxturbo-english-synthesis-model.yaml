@@ -86,6 +86,7 @@ sections:
                   at assignment rather than during synthesis.
                 tests:
                   - ChatterboxTurboModelOptions_Properties_HaveSafeDefaultsAndValidate
+                  - OnnxChatterboxTurboEnglishSynthesisModel_CapabilityProfile_UsesMoodJoinSilenceOption
 
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoices
                 title: >-

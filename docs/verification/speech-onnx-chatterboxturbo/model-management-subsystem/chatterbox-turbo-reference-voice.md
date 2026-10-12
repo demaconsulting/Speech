@@ -62,3 +62,8 @@ exceptions.
 
 **Test**: `ChatterboxTurboReferenceVoice_FromFileLazy_CorruptFile_FailsOnFirstUseNamingFile`
 **Test**: `ChatterboxTurboReferenceVoice_FromFileLazy_ValidFile_LoadsOnceOnFirstUse`
+
+##### Mood clips load lazily and a missing mood is reported
+
+**Tests**: `ChatterboxTurboReferenceVoice_WithMoodFiles_LoadsMoodClipsLazilyAndReportsMissingMoods`,
+`ChatterboxTurboReferenceVoice_WithMoodFiles_TooShortClip_FailsOnFirstUse`

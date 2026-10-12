@@ -424,12 +424,25 @@ The first voice is the default and the `voice` choice parameter selects another.
 download is the fp16 language model with q4 helper graphs (eight files, roughly 1.1 GB);
 `LanguageModelVariant` and `AuxiliaryModelVariant` choose other precisions, each with its own model
 id. It runs on the CPU only. It renders `[laugh]`, `[clear throat]` and `[gasp]` natively, renders
-sighs and pauses as silence and omits every other tag; `EndOfSentenceTagPolicy` controls whether a
+sighs and pauses as silence and omits every other tag except the mood tags below;
+`EndOfSentenceTagPolicy` controls whether a
 native tag that would end a sentence is moved before the final word (default), suffixed, or
 stripped. Generation is bounded (`MaxNewTokens`, `MaxAudioTokensPerTextToken`), so a failure to stop
 produces truncated audio rather than a hang, and `MaxConsecutiveSpeechTokenRepeats` (default 12, 0
 disables) stops the model from locking onto one speech token and producing a sustained tone. You are
 responsible for having the right to clone any voice you use.
+
+**Mood tags.** For a voice with emotion clips (`MoodClips`), the mood tags `[excited]`, `[enthused]`,
+`[happy]`, `[sad]`, `[angry]`, `[loud]`/`[shout]`, `[calm]`, `[surprised]`, `[bored]`/`[tired]`,
+`[worried]`/`[panicked]`, `[confused]`, `[frustrated]` and `[neutral]`/`[serious]` switch to that
+mood's reference clip for the text that follows, until the next mood tag. A voice without that mood
+(including every user-folder voice) speaks with its base clip, so the tag is harmless. `[whispers]`,
+`[sarcastic]`, `[soft]` and `[breathy]` are still omitted. `MoodJoinSilenceMilliseconds` (default 150,
+0 to 1000) inserts a short silence where the mood changes. Honest limits: each mood segment is
+synthesized separately and pays its own prefill cost, prosody resets at every join, and the tags work
+best at sentence boundaries. Mood clips are not loudness-normalized, so levels can differ between
+moods. Models that declare no tag support (Kokoro, Sherpa) now strip these tags and speak the plain
+words; previously an unrecognized `[angry]` was spoken as literal text.
 
 ### Reading WAV and FLAC files
 
@@ -454,10 +467,12 @@ without SSML:
 | --- | --- |
 | Emotion | `[excited]`/`[excitedly]`, `[serious]`, `[sarcastic]` |
 | Emotion | `[panicked]`/`[shocked]`, `[bored]`/`[tired]`, `[sad]`/`[crying]` |
+| Mood | `[angry]`/`[anger]`, `[calm]`, `[happy]`, `[enthused]`/`[enthusiastic]` |
+| Mood | `[surprised]`, `[worried]`/`[anxious]`, `[confused]`, `[frustrated]`, `[neutral]` |
 | Pace | `[slow]`, `[very slow]`, `[fast]`, `[very fast]` |
 | Pause | `[short pause]`, `[long pause]` |
 | Emphasis | `[emphasis]` |
-| Delivery/Volume | `[whispers]`/`[whispering]`, `[soft]`, `[loud]`/`[shouting]`/`[screams]`, `[breathy]` |
+| Delivery/Volume | `[whispers]`/`[whispering]`, `[soft]`, `[loud]`/`[shouting]`/`[shout]`/`[screams]`, `[breathy]` |
 | Non-verbal | `[laughs]`/`[laughing]`/`[giggles]`, `[sighs]`/`[sigh]` |
 | Non-verbal | `[gasp]`/`[inhale]`, `[clears throat]`/`[cough]`, `[snorts]` |
 
@@ -579,7 +594,7 @@ shipped model currently opts into either.
 
 For a host implementing its own `ISynthesisModel` that declares `ParameterMapped`, only seven
 tags have a built-in conservative mapping - every other non-pause tag (all emotion and non-verbal
-tags, `[emphasis]`, and `[breathy]`) has no built-in convention and is always silently stripped
+tags, the mood tags, `[emphasis]`, and `[breathy]`) has no built-in convention and is always silently stripped
 even under `ParameterMapped`; pause tags are never affected by this stripping and always render
 as timed silence, per the pause-handling rule above.
 

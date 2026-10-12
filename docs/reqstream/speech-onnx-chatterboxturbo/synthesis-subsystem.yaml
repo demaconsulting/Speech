@@ -42,6 +42,7 @@ sections:
               latency low, and a safe fallback keeps a bad id from failing synthesis.
             children:
               - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-Voices
+              - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-MoodConditioning
 
           - id: SpeechOnnxChatterboxTurbo-Synthesis-TagProfile
             title: >-
@@ -57,6 +58,7 @@ sections:
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-Unsupported
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-TrailingTag
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-Segmentation
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-Moods
 
           - id: SpeechOnnxChatterboxTurbo-Synthesis-GenerationGuards
             title: >-

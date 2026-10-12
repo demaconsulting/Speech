@@ -85,3 +85,4 @@ sections:
             children:
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoices
               - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-LazyFileLoading
+              - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-MoodClips

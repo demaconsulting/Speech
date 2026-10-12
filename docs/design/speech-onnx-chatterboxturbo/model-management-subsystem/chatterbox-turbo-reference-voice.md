@@ -17,7 +17,12 @@ mono, 24 kHz, bounded in length. Chatterbox Turbo has no built-in voices, so thi
 - **FromFileLazy(id, path, displayName)** (internal): a file-backed voice whose samples are decoded and
   normalized on first use only (thread-safe; a failed load is not cached). A decoding failure is
   rethrown as an `InvalidDataException` naming the file, so one damaged clip among a hundred fails only
-  when chosen. Used for voices that come from the reference-voice library.
+  when chosen. Used for voices that come from the reference-voice library. It also accepts the
+  library voice's `MoodClips` (mood name to file path).
+- **WithMoodFiles(moods)**: returns a copy with lazily decoded mood clips (names lower-cased and
+  trimmed; blank names or paths throw). `Moods` lists the mood names; an internal lookup reports an
+  absent mood as missing so the engine falls back to the base clip. A short or damaged mood clip
+  fails on first use with the same validation as the base clip.
 
 **Error Handling**: `ArgumentException`/`ArgumentNullException`/`ArgumentOutOfRangeException` for
 invalid arguments; `FileNotFoundException` for a missing file; `InvalidDataException` for malformed

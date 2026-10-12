@@ -120,7 +120,9 @@ when its native tag support needs something the default cannot express.
 `SpeechParameterConventions`, a small internal helper, is where the one, deliberately narrow
 mapping from tag to numeric parameter lives: only `Fast`/`VeryFast`/`Slow`/`VerySlow` map to a
 speed override (a fraction of the parameter's declared range) and only `Loud`/`Soft`/`Whispers`
-map to a volume override; every other tag (every Emotion, every Non-verbal cue, `Breathy`,
+map to a volume override; every other tag (every Emotion, including the nine mood tags `Angry`,
+`Calm`, `Happy`, `Enthused`, `Surprised`,
+`Worried`, `Confused`, `Frustrated` and `Neutral`, every Non-verbal cue, `Breathy`,
 `Emphasis`) has no built-in numeric meaning and silently strips under parameter-mapped support.
 Pause tags (`ShortPause`/`LongPause`) always render as real silence regardless of a model's
 declared support, per this library's explicit "pauses require no model cooperation" decision.

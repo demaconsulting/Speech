@@ -62,6 +62,23 @@ sections:
                 tests:
                   - OnnxChatterboxTurboSynthesisEngine_Generate_Voices_AreEncodedOnceAndFallBack
 
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-MoodConditioning
+                title: >-
+                  The OnnxChatterboxTurboSynthesisEngine class shall read and remove the internal
+                  mood marker before tokenizing, condition the segment on the selected voice's
+                  clip for that mood (encoded once per voice and mood), fall back to the voice's
+                  base clip when the mood is missing, and apply the generation guards to each
+                  segment separately.
+                justification: |
+                  The marker must never reach the tokenizer or be spoken, a missing mood must
+                  never fail synthesis, and per-mood encoding is expensive and deterministic.
+                tests:
+                  - OnnxChatterboxTurboSynthesisEngine_Generate_MoodMarker_UsesMoodClipOnceAndHidesMarker
+                  - OnnxChatterboxTurboSynthesisEngine_Generate_MoodMissing_FallsBackToBaseClip
+                  - OnnxChatterboxTurboSynthesisEngine_Generate_MarkerOnlyText_ReturnsEmptyAudio
+                  - OnnxChatterboxTurboSynthesisEngine_Generate_MarkedSegments_GuardsApplyPerSegment
+                  - OnnxChatterboxTurboSynthesisEngine_Generate_RenderedPlan_OrderedClipsAndNoMarkerInTokens
+
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-Lifecycle
                 title: >-
                   The OnnxChatterboxTurboSynthesisEngine class shall validate its constructor

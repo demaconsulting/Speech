@@ -28,6 +28,7 @@ sections:
                 tests:
                   - AudioTagCatalog_Tags_Always_CoversEveryCanonicalTagWithAtLeastOneAlias
                   - AudioTagCatalog_TryResolve_EveryDocumentedAlias_ResolvesToItsOwnTag
+                  - AudioTagCatalog_TryResolve_MoodTagsAndShoutAlias_ResolveToExpectedTag
 
               - id: Speech-Synthesis-AudioTagParser-NoAliasAmbiguity
                 title: >-

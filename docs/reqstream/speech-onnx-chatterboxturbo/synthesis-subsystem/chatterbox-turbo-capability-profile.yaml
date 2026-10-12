@@ -66,3 +66,27 @@ sections:
                   - ChatterboxTurboCapabilityProfile_Render_Sentences_AreSplitWithEllipsisPause
                   - ChatterboxTurboCapabilityProfile_Render_LongSentence_IsSplit
                   - ChatterboxTurboCapabilityProfile_Render_EmptyOrInvalid_BehavesSafely
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-Moods
+                title: >-
+                  The ChatterboxTurboCapabilityProfile class shall map the mood tags (and the
+                  shout, tired, worried and neutral aliases) to a mood that applies until the next
+                  mood tag, prefix each spoken segment's text with an internal private-use mood
+                  marker, add the configured join silence only where the mood changes, keep the
+                  end-of-sentence policy per segment, keep whispers, sarcastic, soft and breathy
+                  stripped, and strip marker characters from user text.
+                justification: |
+                  The model has no emotion tokens, so moods are realized by switching the
+                  reference clip per segment; the marker carries that choice to the engine
+                  without changing the public plan types, and must never be spoken or forged.
+                tests:
+                  - ChatterboxTurboCapabilityProfile_Render_MoodTag_MarksFollowingTextWithMood
+                  - ChatterboxTurboCapabilityProfile_Render_NonMoodStyleTags_StayStripped
+                  - ChatterboxTurboCapabilityProfile_Render_MoodRuns_AppliesUntilNextMoodTagInOrder
+                  - ChatterboxTurboCapabilityProfile_Render_ConsecutiveMoodTags_LastWins
+                  - ChatterboxTurboCapabilityProfile_Render_MoodChange_AddsJoinSilenceOnlyAtChanges
+                  - ChatterboxTurboCapabilityProfile_Render_JoinSilence_ZeroDisablesAndLongerEllipsisPauseWins
+                  - ChatterboxTurboCapabilityProfile_Render_PauseBetweenMoods_IsUnmarkedAndNotDoubled
+                  - ChatterboxTurboCapabilityProfile_Render_NativeTagInMoodSpan_KeepsPolicyPerSegment
+                  - ChatterboxTurboCapabilityProfile_Render_MarkerCharactersInUserText_AreStripped
+                  - ChatterboxTurboCapabilityProfile_MoodMarker_RoundTripsAndJoinIsValidated

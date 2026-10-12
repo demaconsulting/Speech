@@ -122,7 +122,11 @@ A SynthesisSubsystem test run passes when:
 
 **Tests**: `AudioTagCatalog_Tags_Always_CoversEveryCanonicalTagWithAtLeastOneAlias`,
 `AudioTagCatalog_Tags_Always_NoAliasIsSharedByTwoDifferentTags`,
-`AudioTagCatalog_TryResolve_EveryDocumentedAlias_ResolvesToItsOwnTag`
+`AudioTagCatalog_TryResolve_EveryDocumentedAlias_ResolvesToItsOwnTag`,
+`AudioTagCatalog_TryResolve_MoodTagsAndShoutAlias_ResolveToExpectedTag`
+
+The catalog includes nine mood tags (`angry`, `calm`, `happy`, `enthused`, `surprised`, `worried`,
+`confused`, `frustrated`, `neutral`), all of kind Emotion, plus the `shout` alias of `Loud`.
 
 Verifies that every declared `NaturalLanguageAudioTag` value is reachable through at least one
 alias, that no alias is ambiguous between two tags, and that every documented alias resolves
@@ -184,6 +188,8 @@ ordered tag and literal spans rather than merging or losing either.
 `DefaultModelCapabilityProfile_Render_ParameterMappedSupport_FastTag_MapsToSpeedParameter`,
 `DefaultModelCapabilityProfile_Render_ParameterMappedSupport_EmotionTag_StripsWithNoOverride`,
 `DefaultModelCapabilityProfile_Render_NoneSupport_StripsAllTags`,
+`DefaultModelCapabilityProfile_Render_NoneSupport_MoodTag_StripsAndSpeaksWords`,
+`DefaultModelCapabilityProfile_Render_NativeSupport_MoodTag_PassesCanonicalText`,
 `DefaultModelCapabilityProfile_Render_PlainTextOnly_RendersChunkedSegments`,
 `DefaultModelCapabilityProfile_Render_NullArguments_ThrowsArgumentNullException`,
 `DefaultModelCapabilityProfile_Render_ChunkEndingInEllipsis_SetsLongerPostSilenceThanOrdinarySentenceEnd`,

@@ -19,7 +19,14 @@ times to the decoder input) and embedding size 1024.
   token is passed to the selector as blocked for the next step only. The stop token is never blocked.
   Hitting the bound sets `HitTokenLimit`; it never throws. An out-of-range speaker id falls back to
   the first voice. The `speed` argument is not
-  used by the model.
+  used by the model. Segment text may begin with the internal mood marker written by
+  `ChatterboxTurboCapabilityProfile`: the engine reads it, strips every marker character, returns
+  empty audio if no speech remains and tokenizes only the stripped text, so the marker never
+  reaches the tokenizer or the speech. Conditioning is cached per (voice, mood) and computed on
+  first use; the mood clip is used when the voice has it, otherwise (no mood, a voice without
+  moods, or an unknown mood) the voice's base clip is used and shares the base cache entry. Each
+  segment is a separate `Generate` call, so the stop bound and repeat cap apply per segment and
+  each segment pays its own prefill cost.
 - **Dispose()**: disposes the networks; later `Generate` throws `ObjectDisposedException`
 
 **Error Handling**: null and invalid constructor arguments throw argument exceptions; runtime

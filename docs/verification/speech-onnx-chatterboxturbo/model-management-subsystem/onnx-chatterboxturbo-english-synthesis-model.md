@@ -80,6 +80,10 @@ file or with an invalid graph; options have safe defaults and validate.
 
 **Test**: `OnnxChatterboxTurboEnglishSynthesisModel_Constructor_IncludeStoreVoicesFalse_IgnoresLibrary`
 
+##### The mood join silence option reaches the capability profile
+
+**Test**: `OnnxChatterboxTurboEnglishSynthesisModel_CapabilityProfile_UsesMoodJoinSilenceOption`
+
 ##### The catalog extension defaults to the catalog store's library
 
 **Test**: `SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_DefaultsToCatalogStoreVoices`

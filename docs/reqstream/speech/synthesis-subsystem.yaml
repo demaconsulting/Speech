@@ -87,6 +87,8 @@ sections:
               - DefaultModelCapabilityProfile_Render_NativeSupport_PassesThroughCanonicalBracketText
               - DefaultModelCapabilityProfile_Render_ParameterMappedSupport_FastTag_MapsToSpeedParameter
               - DefaultModelCapabilityProfile_Render_NoneSupport_StripsAllTags
+              - DefaultModelCapabilityProfile_Render_NoneSupport_MoodTag_StripsAndSpeaksWords
+              - DefaultModelCapabilityProfile_Render_NativeSupport_MoodTag_PassesCanonicalText
 
           - id: Speech-Synthesis-MockableContract
             title: >-

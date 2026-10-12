@@ -198,7 +198,13 @@ By default the package downloads the fp16 language model with q4-quantized helpe
 files, roughly 1.1 GB); `LanguageModelVariant` and `AuxiliaryModelVariant` select other precisions,
 each installed under its own model id. The model runs on the CPU only. It renders the `[laugh]`,
 `[clear throat]` and `[gasp]` audio tags with its own native tokens, renders sighs and pauses as
-silence, and omits every other tag. Because the model misbehaves when a native tag is the last thing
+silence, and omits every other tag except the mood tags. Mood tags (`[happy]`, `[angry]`, `[calm]`,
+`[sad]`, `[excited]`, `[enthused]`, `[surprised]`, `[worried]`, `[confused]`, `[frustrated]`,
+`[neutral]`, `[loud]`/`[shout]`, `[bored]`/`[tired]`) switch to the voice's matching emotion clip
+until the next mood tag, falling back to the base clip when the voice has none;
+`MoodJoinSilenceMilliseconds` (default 150) separates segments of different moods. Each segment pays
+its own prefill cost, prosody resets at joins, and tags work best at sentence boundaries.
+Because the model misbehaves when a native tag is the last thing
 in a sentence, `EndOfSentenceTagPolicy` controls whether such a tag is moved before the final word
 (the default), suffixed, or stripped. Generation is bounded by `MaxNewTokens` and
 `MaxAudioTokensPerTextToken`, so a failure to stop yields truncated audio rather than a hang.

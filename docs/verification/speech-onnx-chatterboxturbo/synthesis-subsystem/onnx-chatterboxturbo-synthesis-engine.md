@@ -55,6 +55,14 @@ the guard, and the stop token is never blocked.
 
 **Test**: `OnnxChatterboxTurboSynthesisEngine_Generate_Voices_AreEncodedOnceAndFallBack`
 
+##### Mood markers select the mood clip and never reach the tokenizer
+
+**Tests**: `OnnxChatterboxTurboSynthesisEngine_Generate_MoodMarker_UsesMoodClipOnceAndHidesMarker`,
+`OnnxChatterboxTurboSynthesisEngine_Generate_MoodMissing_FallsBackToBaseClip`,
+`OnnxChatterboxTurboSynthesisEngine_Generate_MarkerOnlyText_ReturnsEmptyAudio`,
+`OnnxChatterboxTurboSynthesisEngine_Generate_MarkedSegments_GuardsApplyPerSegment`,
+`OnnxChatterboxTurboSynthesisEngine_Generate_RenderedPlan_OrderedClipsAndNoMarkerInTokens`
+
 ##### Dispose disposes networks and rejects generation
 
 **Test**: `OnnxChatterboxTurboSynthesisEngine_Dispose_DisposesNetworksAndRejectsGenerate`

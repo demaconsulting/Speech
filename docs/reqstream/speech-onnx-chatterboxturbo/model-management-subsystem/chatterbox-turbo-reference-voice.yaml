@@ -63,3 +63,15 @@ sections:
                 tests:
                   - ChatterboxTurboReferenceVoice_FromFileLazy_CorruptFile_FailsOnFirstUseNamingFile
                   - ChatterboxTurboReferenceVoice_FromFileLazy_ValidFile_LoadsOnceOnFirstUse
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-MoodClips
+                title: >-
+                  The ChatterboxTurboReferenceVoice class shall accept optional per-mood clip
+                  files, report the mood names, decode a mood clip lazily on first use with the
+                  same validation as the base clip, and report an absent mood as missing.
+                justification: |
+                  Emotion variants of a voice must list instantly and fail only when used, and the
+                  engine needs a clean missing-mood answer to fall back to the base clip.
+                tests:
+                  - ChatterboxTurboReferenceVoice_WithMoodFiles_LoadsMoodClipsLazilyAndReportsMissingMoods
+                  - ChatterboxTurboReferenceVoice_WithMoodFiles_TooShortClip_FailsOnFirstUse

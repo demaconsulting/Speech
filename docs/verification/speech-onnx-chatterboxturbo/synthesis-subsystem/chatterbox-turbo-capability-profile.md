@@ -69,3 +69,21 @@ long sentences are split; empty or invalid input is safe.
 ##### Treatments cover every tag without emotion tokens
 
 **Test**: `ChatterboxTurboCapabilityProfile_Treatments_CoverEveryTagWithoutEmotionTokens`
+
+##### Mood tags mark text, stay in order and join with silence
+
+**Tests**: `ChatterboxTurboCapabilityProfile_Render_MoodTag_MarksFollowingTextWithMood`,
+`ChatterboxTurboCapabilityProfile_Render_NonMoodStyleTags_StayStripped`,
+`ChatterboxTurboCapabilityProfile_Render_MoodRuns_AppliesUntilNextMoodTagInOrder`,
+`ChatterboxTurboCapabilityProfile_Render_ConsecutiveMoodTags_LastWins`,
+`ChatterboxTurboCapabilityProfile_Render_MoodChange_AddsJoinSilenceOnlyAtChanges`,
+`ChatterboxTurboCapabilityProfile_Render_JoinSilence_ZeroDisablesAndLongerEllipsisPauseWins`,
+`ChatterboxTurboCapabilityProfile_Render_PauseBetweenMoods_IsUnmarkedAndNotDoubled`,
+`ChatterboxTurboCapabilityProfile_Render_NativeTagInMoodSpan_KeepsPolicyPerSegment`,
+`ChatterboxTurboCapabilityProfile_Render_MarkerCharactersInUserText_AreStripped`,
+`ChatterboxTurboCapabilityProfile_MoodMarker_RoundTripsAndJoinIsValidated`
+
+Verifies the tag-to-mood mapping, that a mood applies until the next mood tag, that adjacent
+segments with different moods get the join silence (and none otherwise), that pauses stay
+unmarked, that the end-of-sentence policy is applied per segment, and that marker characters in
+user text are removed.
