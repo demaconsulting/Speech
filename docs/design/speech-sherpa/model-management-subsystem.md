@@ -137,7 +137,8 @@ resolving gracefully to the default speaker `0` for a missing, non-numeric, or o
 selection.
 
 `SherpaOnnxKokoroEnglishSynthesisModel` is the subsystem's second concrete `ISynthesisModel`
-implementation, and exercises model-owned speaker selection through a named voice set. It declares its identity/`Id`/`DisplayName` (visibly naming
+implementation, and exercises model-owned speaker selection through a named voice set. It declares
+its identity/`Id`/`DisplayName` (visibly naming
 Apache-2.0), a `SpeechModelDownloadDescriptor` pointing at the model's own official upstream
 GitHub release URL (`k2-fsa/sherpa-onnx`'s `tts-models` tag) with a real,
 independently-computed SHA-256 checksum, a `Parameters` list containing one `voice`
