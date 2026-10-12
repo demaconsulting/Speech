@@ -15,7 +15,11 @@ observing what was reported rather than by asserting an absence of exceptions al
 
 Threading is verified without timing assumptions. `StopAsync` completes its internal queue and
 awaits its pump task, so a test raises a frame, calls `StopAsync`, and then asserts on the fully
-drained result - no sleeps, polls, or timeouts appear anywhere for ordinary behavior. The
+drained result - no sleeps, polls, or timeouts appear anywhere for ordinary behavior. Waiting for
+the pump to be inside a blocked backend call uses a signal on the fake engine
+(`AcceptSamplesEntered`), waiting for state transitions uses `StateChanged`, and "must not have
+happened yet" assertions (lease not released, backend not reset, device not stopped) are made
+against a backend gated by the test, with the lease-release ordering captured by a witness. The
 cooperative-cancel-then-abandon policy is the one place a bounded wait is genuinely under test,
 and it is verified deterministically with an injectable abandon-timeout override rather than the
 real multi-second default.

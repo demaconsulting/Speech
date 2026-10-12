@@ -99,6 +99,15 @@ internal sealed class FakeRecognitionEngine : IRecognitionBackend
     /// <summary>Gets the number of <see cref="AcceptSamples"/> calls this engine has received.</summary>
     public int AcceptSamplesCallCount { get; private set; }
 
+    /// <summary>
+    ///     Gets a task that completes once the first <see cref="AcceptSamples"/> call has been
+    ///     entered (i.e., after the samples were recorded and before any blocking), letting tests
+    ///     wait deterministically for the pump to be inside the backend call.
+    /// </summary>
+    public Task AcceptSamplesEntered => _acceptSamplesEntered.Task;
+
+    private readonly TaskCompletionSource _acceptSamplesEntered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
     /// <summary>Gets the number of <see cref="Reset"/> calls this engine has received.</summary>
     public int ResetCallCount { get; private set; }
 
@@ -113,6 +122,7 @@ internal sealed class FakeRecognitionEngine : IRecognitionBackend
     {
         AcceptSamplesCallCount++;
         _acceptedSamples.AddRange(monoSamples.ToArray());
+        _acceptSamplesEntered.TrySetResult();
 
         // Deliberately blocks after recording the samples and before observing any fault, mirroring
         // a genuinely stuck native call that ignores cancellation entirely.

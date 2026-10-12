@@ -951,12 +951,18 @@ public class RecognitionPanelViewModelTests
             Catalog(descriptor), deviceService, DeviceSelection(), SessionFactory(engine));
         await viewModel.StartCommand.ExecuteAsync(null);
 
-        // Act: the result stream faults, then wait (bounded) for the background pump to report it
-        session.Fault(new RecognitionSessionFaultedException("The result stream faulted."));
-        for (var attempt = 0; attempt < 200 && viewModel.StatusMessage is null; attempt++)
+        // Act: the result stream faults; wait for the background pump to report it by observing
+        // the view model's own StatusMessage change notification (no polling)
+        var reported = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        viewModel.PropertyChanged += (_, args) =>
         {
-            await Task.Delay(10, TestContext.Current.CancellationToken);
-        }
+            if (args.PropertyName == nameof(RecognitionPanelViewModel.StatusMessage) && viewModel.StatusMessage is not null)
+            {
+                reported.TrySetResult();
+            }
+        };
+        session.Fault(new RecognitionSessionFaultedException("The result stream faulted."));
+        await reported.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
 
         // Assert: the fault's explanation is reported
         Assert.Equal("The result stream faulted.", viewModel.StatusMessage);

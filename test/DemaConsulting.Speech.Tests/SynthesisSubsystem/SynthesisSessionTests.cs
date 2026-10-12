@@ -316,11 +316,19 @@ public class SynthesisSessionTests
         await generateStarted.WaitAsync(TestContext.Current.CancellationToken);
         var stopTask = session.StopAsync(TestContext.Current.CancellationToken);
 
+        // Ordering witness (no timing window): records, at the instant StopAsync's task
+        // completes, whether the native call had genuinely returned. A regression that completed
+        // StopAsync early would record false here no matter when it happened.
+        var generateReturnedWhenStopCompleted = false;
+        var stopObserved = stopTask.ContinueWith(
+            _ => generateReturnedWhenStopCompleted = backend.GenerateReturned,
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+
         // Assert: StopAsync's own task must not be reported complete while the backend's
-        // Generate call is still in flight - this is exactly the window in which a caller
-        // previously could (and, per the bug report this design supersedes, did) wrongly believe
-        // the device/backend was quiescent and dispose the engine out from under it.
-        await Task.Delay(TimeSpan.FromMilliseconds(50), TestContext.Current.CancellationToken);
+        // Generate call is still in flight - the backend is gated by the test, so this state is
+        // stable until the test releases it.
         Assert.False(stopTask.IsCompleted);
         Assert.False(speakTask.IsCompleted);
 
@@ -331,6 +339,8 @@ public class SynthesisSessionTests
         // Assert: StopAsync itself completes only once the operation has truly stopped, and the
         // operation ends via cancellation rather than hanging or faulting some other way
         await stopTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        await stopObserved;
+        Assert.True(generateReturnedWhenStopCompleted);
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => speakTask);
         Assert.True(backend.GenerateReturned);
         Assert.Equal(SynthesisSessionState.Stopped, session.State);
@@ -461,7 +471,14 @@ public class SynthesisSessionTests
         using var generateRelease = new SemaphoreSlim(0, 1);
         var backend = new BlockingSynthesisEngine(generateStarted, generateRelease, TestContext.Current.CancellationToken);
         var device = CreateAvailablePlaybackDevice();
-        var session = CreateSession(backend, device);
+        var generateReturnedAtLeaseRelease = false;
+        var session = new SynthesisSession(
+            backend,
+            device,
+            new FakeSynthesisModel(),
+            null,
+            NullSpeechDiagnostics.Instance,
+            () => generateReturnedAtLeaseRelease = backend.GenerateReturned);
         var firstCall = session.SpeakAsync("Hello world.", TestContext.Current.CancellationToken);
         await generateStarted.WaitAsync(TestContext.Current.CancellationToken);
 
@@ -474,7 +491,7 @@ public class SynthesisSessionTests
 
         // Assert: DisposeAsync does not complete while the original call is still blocked -
         // proving it is awaiting the original operation, not the rejected call's faulted task
-        await Task.Delay(50, TestContext.Current.CancellationToken);
+        // (the backend is gated by the test, so this state is stable until it is released)
         Assert.False(disposeTask.IsCompleted);
         Assert.False(backend.GenerateReturned);
 
@@ -483,7 +500,9 @@ public class SynthesisSessionTests
         await Record.ExceptionAsync(() => firstCall);
         await disposeTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
 
+        // Ordering witness: the lease was released only after the native call genuinely returned
         Assert.True(backend.GenerateReturned);
+        Assert.True(generateReturnedAtLeaseRelease);
     }
 
     /// <summary>
@@ -720,8 +739,18 @@ public class SynthesisSessionTests
         var backend = new BlockingSynthesisEngine(generateStarted, generateRelease, TestContext.Current.CancellationToken);
         var device = CreateAvailablePlaybackDevice();
         var releaseCount = 0;
+        var generateReturnedAtLeaseRelease = false;
         var session = new SynthesisSession(
-            backend, device, new FakeSynthesisModel(), null, NullSpeechDiagnostics.Instance, () => releaseCount++);
+            backend,
+            device,
+            new FakeSynthesisModel(),
+            null,
+            NullSpeechDiagnostics.Instance,
+            () =>
+            {
+                generateReturnedAtLeaseRelease = backend.GenerateReturned;
+                releaseCount++;
+            });
 
         // Act: start speaking, wait until the backend call has begun, then begin disposing
         // directly (DisposeAsync requests its own cancellation and must wait
@@ -733,7 +762,7 @@ public class SynthesisSessionTests
 
         // Assert: the lease must not be released while the abandoned worker is still stuck inside
         // the backend's blocking Generate call
-        await Task.Delay(TimeSpan.FromMilliseconds(100), TestContext.Current.CancellationToken);
+        // (the backend is gated by the test, so this state is stable until it is released)
         Assert.Equal(0, releaseCount);
         Assert.False(disposeTask.IsCompleted);
 
@@ -741,9 +770,11 @@ public class SynthesisSessionTests
         generateRelease.Release();
         await disposeTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
 
-        // Assert: only once the worker genuinely exited was the lease released
+        // Assert: only once the worker genuinely exited was the lease released; the ordering
+        // witness captured at the instant of release proves it independent of timing
         Assert.True(backend.GenerateReturned);
         Assert.Equal(1, releaseCount);
+        Assert.True(generateReturnedAtLeaseRelease);
 
         // Observe the task's outcome so it is never reported as an unobserved exception
         await Record.ExceptionAsync(() => speakTask);
@@ -845,8 +876,18 @@ public class SynthesisSessionTests
         var backend = new BlockingSynthesisEngine(generateStarted, generateRelease, TestContext.Current.CancellationToken);
         var device = CreateAvailablePlaybackDevice();
         var releaseCount = 0;
+        var generateReturnedAtLeaseRelease = false;
         var session = new SynthesisSession(
-            backend, device, new FakeSynthesisModel(), null, NullSpeechDiagnostics.Instance, () => releaseCount++);
+            backend,
+            device,
+            new FakeSynthesisModel(),
+            null,
+            NullSpeechDiagnostics.Instance,
+            () =>
+            {
+                generateReturnedAtLeaseRelease = backend.GenerateReturned;
+                releaseCount++;
+            });
 
         // Act: start speaking, wait until the backend call has begun, then stop - the real
         // backend never honors cancellation, so the dedicated worker abandons it after its
@@ -862,7 +903,7 @@ public class SynthesisSessionTests
 
         // Assert: the lease must not be released while the abandoned native call is still
         // genuinely running, even though there is no tracked operation task left to await
-        await Task.Delay(TimeSpan.FromMilliseconds(100), TestContext.Current.CancellationToken);
+        // (the backend is gated by the test, so this state is stable until it is released)
         Assert.Equal(0, releaseCount);
         Assert.False(disposeTask.IsCompleted);
 
@@ -870,9 +911,11 @@ public class SynthesisSessionTests
         generateRelease.Release();
         await disposeTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
 
-        // Assert: only once the native call genuinely returned was the lease released
+        // Assert: only once the native call genuinely returned was the lease released; the
+        // ordering witness captured at the instant of release proves it independent of timing
         Assert.True(backend.GenerateReturned);
         Assert.Equal(1, releaseCount);
+        Assert.True(generateReturnedAtLeaseRelease);
 
         await Record.ExceptionAsync(() => speakTask);
     }

@@ -16,8 +16,10 @@ exclusivity leasing, the session state machine, the overlap rule, cancellation, 
 containment, and honest degradation fully testable without a downloaded speech model or physical
 audio hardware. Determinism is structural wherever practical: a deterministic fake backend plus
 `SemaphoreSlim`-based test doubles let a test assert ordering, in-flight state, and fault
-transitions without polling. A few tests (for example the drain-wait and abandonment tests) use
-short bounded delays to let a background wait begin or an abandon timeout elapse.
+transitions without polling. No test relies on a bounded sleep: the drain-wait test awaits a
+semaphore signalled by the stubbed device, abandonment is awaited through `StateChanged` reaching
+`Faulted`, and "not yet complete" assertions are made against backends gated by the test, with
+ordering witnesses captured at lease release.
 
 The lease/exclusivity behavior is verified by driving `SpeechSynthesizerEngine`'s real
 `CreateSessionAsync`/`DisposeAsync` logic against a fake backend, asserting that a second

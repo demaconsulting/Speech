@@ -23,8 +23,15 @@ asserted to be isolated: the exception is caught and reported through diagnostic
 propagated or allowed to destabilize the session. A handler that blocks while another thread reads
 `State` proves handlers are never invoked under the session lock
 (`SynthesisSession_StateChanged_HandlerBlocksOnOtherThreadReadingState_DoesNotDeadlock`). A few
-tests still use short `Task.Delay` windows to assert that something has not yet happened; these are
-accepted absence-waits (they can only pass late, never fail spuriously). The overlap rule is verified deterministically
+tests (`SynthesisSession_StateChanged_HandlerBlocksOnOtherThreadReadingState_DoesNotDeadlock`).
+No test uses a `Task.Delay` window to assert that something has not yet happened. "Not yet
+complete" assertions (for example that `StopAsync`, `DisposeAsync` or the lease release has not
+happened while the native call is blocked) are made against a backend gated by a `SemaphoreSlim`,
+so the asserted state is stable until the test releases the gate, and the "only after the native
+call returned" ordering is additionally captured by a witness recorded at the instant the lease is
+released or `StopAsync` completes (the backend's `GenerateReturned` flag at that moment) and
+asserted afterwards, independent of scheduling. Abandonment is awaited through
+`StateChanged` reaching `Faulted`, never a sleep. The overlap rule is verified deterministically
 with a `BlockingSynthesisEngine`-style test double that holds the first call's `Generate` open on
 a `SemaphoreSlim` until the test releases it, letting a test assert that a second
 `SpeakAsync`/`SynthesizeAsync` call made while the first is still in flight throws
