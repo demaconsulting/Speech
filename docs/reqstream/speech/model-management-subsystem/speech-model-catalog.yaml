@@ -27,16 +27,23 @@ sections:
                 title: >-
                   The SpeechModelCatalog class shall expose a public AddModels(params
                   ISpeechModel[]) method that appends the supplied models to its known-model
-                  list, so they appear in subsequent enumeration, and returns the same catalog
-                  instance so registration calls can be chained.
+                  list, so they appear in subsequent enumeration.
                 justification: |
                   Removing the compiled-in KnownModels registry, so that the core library carries
                   no sherpa-onnx dependency, requires a public registration seam through which a
                   host or a model package's own registration extension (such as SpeechSherpa's
-                  AddSherpaModels) can populate the catalog. Returning the same instance lets a
-                  host compose a catalog fluently from several model packages in one expression.
+                  AddSherpaModels) can populate the catalog.
                 tests:
                   - SpeechModelCatalog_AddModels_Called_AppearsInEnumerate
+
+              - id: Speech-Models-SpeechModelCatalog-AddModelsChaining
+                title: >-
+                  The SpeechModelCatalog class shall return the same catalog instance from
+                  AddModels so registration calls can be chained.
+                justification: |
+                  Returning the same instance lets a host compose a catalog fluently from several
+                  model packages in one expression.
+                tests:
                   - SpeechModelCatalog_AddModels_ChainedCall_ReturnsSameInstance
 
               - id: Speech-Models-SpeechModelCatalog-StateResolution
@@ -57,18 +64,31 @@ sections:
               - id: Speech-Models-SpeechModelCatalog-DownloadOrchestration
                 title: >-
                   The SpeechModelCatalog class shall download a known model by its declared
-                  download descriptor, correctly reflecting Downloaded on success and
-                  FailedOrCorrupt on a checksum mismatch, and shall throw when asked to download
-                  a model id absent from its known-model list.
+                  download descriptor, correctly reflecting Downloaded on success.
                 justification: |
                   A host driving a model-settings page calls DownloadAsync by model id alone;
                   the catalog must translate that into the model's own declared descriptor and
-                  honestly reflect the real outcome, while an unknown model id is a caller
-                  programming error that must surface immediately as an explicit, user-invoked
-                  action (not composition or enumeration).
+                  honestly reflect the real outcome.
                 tests:
                   - SpeechModelCatalog_DownloadAsync_ValidModel_ReportsDownloadedAfterCompletion
+
+              - id: Speech-Models-SpeechModelCatalog-DownloadFailureState
+                title: >-
+                  The SpeechModelCatalog class shall reflect FailedOrCorrupt for a model whose
+                  download fails its checksum verification.
+                justification: |
+                  A failed download must be reported honestly, never as Downloaded.
+                tests:
                   - SpeechModelCatalog_DownloadAsync_ChecksumMismatch_ReportsFailedOrCorrupt
+
+              - id: Speech-Models-SpeechModelCatalog-UnknownModelDownloadThrows
+                title: >-
+                  The SpeechModelCatalog class shall throw ArgumentException when asked to
+                  download a model id absent from its known-model list.
+                justification: |
+                  An unknown model id is a caller programming error that must surface immediately
+                  as an explicit, user-invoked action (not composition or enumeration).
+                tests:
                   - SpeechModelCatalog_DownloadAsync_UnknownModelId_ThrowsArgumentException
 
               - id: Speech-Models-SpeechModelCatalog-StoreExposure

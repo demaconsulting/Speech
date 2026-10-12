@@ -32,6 +32,7 @@ sections:
               directory-rename swap completes, rather than being partially overwritten.
             children:
               - Speech-Models-SpeechModelStore-AtomicSwap
+              - Speech-Models-SpeechModelStore-AtomicSwapReplacesExisting
               - Speech-Models-SpeechModelStore-NeverTouchesCurrentDuringStaging
               - Speech-Models-SpeechModelStore-InstallRollback
             tests:
@@ -65,6 +66,7 @@ sections:
             children:
               - Speech-Models-SpeechModelStoreOptions-RootOverride
               - Speech-Models-SpeechModelStore-DefaultRootResolution
+              - Speech-Models-SpeechModelStore-RootPathOverrideVerbatim
               - Speech-Models-SpeechModelStore-ModelIdValidation
             tests:
               - SpeechModelStore_Constructor_NoOptions_ResolvesUnderLocalApplicationData
@@ -83,8 +85,12 @@ sections:
               file handle into the model's content.
             children:
               - Speech-Models-SpeechModelStore-Uninstall
+              - Speech-Models-SpeechModelStore-UninstallNotInstalledNoOp
+              - Speech-Models-SpeechModelStore-UninstallAsyncRejection
+              - Speech-Models-SpeechModelStore-UninstallStagingHandling
               - Speech-Models-SpeechModelStore-CleanUpLeftovers
               - Speech-Models-SpeechModelStore-EmptyTempCleanup
+              - Speech-Models-SpeechModelStore-StagingRootKeptWhileInUse
               - Speech-Models-SpeechModelStore-UninstallFailureReporting
               - Speech-Models-SpeechModelStoreException-UninstallFailureSignal
               - Speech-Models-SpeechModelStoreException-StandardConstructors
@@ -99,58 +105,85 @@ sections:
           - id: Speech-Models-DownloadOrchestration
             title: >-
               The ModelManagementSubsystem shall orchestrate one model's download as a SHA-256
-              verify, optional model-owned install-hook, then atomic-install sequence, serializing
-              only two concurrent download requests for the same model id while allowing downloads
-              of different model ids to run fully concurrently, with no pool limit.
+              verify, optional model-owned install-hook, then atomic-install sequence.
             justification: |
-              This library's "download integrity and progress" decision allows unlimited
-              cross-model concurrency, since each model is staged and installed under its own
-              isolated subtree with no shared mutable state, while a per-model-id guard prevents
-              two concurrent callers from racing the store's atomic-swap install for the same
-              model id. This library's per-model "own archive unpacking" responsibility
-              additionally requires the orchestration to invoke that hook on the verified staged
-              files before the atomic swap, so any model whose payload is an archive can actually
-              be installed.
+              This library's per-model "own archive unpacking" responsibility requires the
+              orchestration to invoke the model's hook on the verified staged files before the
+              atomic swap, so any model whose payload is an archive can actually be installed.
             children:
-              - Speech-Models-SpeechModelDownloader-PerModelSerialization
-              - Speech-Models-SpeechModelDownloader-ConcurrentDownloadsAcrossModels
               - Speech-Models-SpeechModelDownloader-FetchVerifyInstall
               - Speech-Models-SpeechModelDownloader-InvokesModelInstallHook
               - Speech-Models-SpeechModelDownloader-InstallHookOverload
+              - Speech-Models-SpeechModelDownloader-DisposedThrows
             tests:
               - SpeechModelDownloader_DownloadAsync_ValidPayload_InstallsModelAndReportsProgress
-              - SpeechModelDownloader_DownloadAsync_TwoConcurrentRequestsForSameModelId_AreSerialized
-              - SpeechModelDownloader_DownloadAsync_TwoConcurrentRequestsForDifferentModels_RunConcurrently
               - SpeechModelDownloader_DownloadAsync_WithModel_InvokesInstallAsyncBeforeCompleteInstall
               - SpeechModelDownloader_DownloadAsync_WithZipArchiveModel_CurrentContainsExtractedFilesNotTheArchive
               - SpeechModelCatalog_DownloadAsync_ZipArchiveModel_InstallsExtractedContentAndReportsDownloaded
+
+          - id: Speech-Models-PerModelDownloadSerialization
+            title: >-
+              The ModelManagementSubsystem shall serialize two concurrent download requests for
+              the same model id.
+            justification: |
+              A per-model-id guard prevents two concurrent callers from racing the store's
+              atomic-swap install for the same model id.
+            children:
+              - Speech-Models-SpeechModelDownloader-PerModelSerialization
+              - Speech-Models-SpeechModelDownloader-QueuedCancellation
+            tests:
+              - SpeechModelDownloader_DownloadAsync_TwoConcurrentRequestsForSameModelId_AreSerialized
+
+          - id: Speech-Models-CrossModelDownloadConcurrency
+            title: >-
+              The ModelManagementSubsystem shall allow downloads of different model ids to run
+              fully concurrently, with no pool limit.
+            justification: |
+              This library's "download integrity and progress" decision allows unlimited
+              cross-model concurrency, since each model is staged and installed under its own
+              isolated subtree with no shared mutable state.
+            children:
+              - Speech-Models-SpeechModelDownloader-ConcurrentDownloadsAcrossModels
+            tests:
+              - SpeechModelDownloader_DownloadAsync_TwoConcurrentRequestsForDifferentModels_RunConcurrently
 
           - id: Speech-Models-HonestFailureStates
             title: >-
               The ModelManagementSubsystem shall never mark a corrupted, partial,
               checksum-mismatched, or install-hook-failed download as installed, with Error always
-              populated for any non-Installed outcome, and a second DownloadAsync call for an
-              already-installed model id shall never regress that model's prior successful
-              install regardless of what the second call supplies.
+              populated for any non-Installed outcome.
             justification: |
               A host must be able to trust that "installed" means "verified" (and, when
               applicable, successfully unpacked), and that any non-Installed
               SpeechModelDownloadResult carries a diagnosable Error rather than leaving a host to
-              special-case which outcomes populate it; a second call against an already-installed
-              model must be a safe no-op from the model's perspective, not a risk of leaving it
-              half-updated or removed.
+              special-case which outcomes populate it.
             children:
               - Speech-Models-SpeechModelDownloader-ChecksumMismatch
               - Speech-Models-SpeechModelDownloader-CancellationDiscardsStaging
-              - Speech-Models-SpeechModelDownloader-AlreadyInstalledNoOp
-              - Speech-Models-SpeechModelDownloader-PriorInstallUntouchedOnFailedRepair
               - Speech-Models-SpeechModelDownloader-InstallHookFailureIsHandledLikeDownloadFailure
+              - Speech-Models-SpeechModelDownloader-InstallHookDelegateFailure
+              - Speech-Models-SpeechModelDownloader-InstallHookDelegateCancellation
             tests:
               - SpeechModelDownloader_DownloadAsync_ChecksumMismatch_ReportsChecksumMismatchAndInstallsNothing
               - SpeechModelDownloader_DownloadAsync_CanceledMidDownload_ThrowsAndInstallsNothing
+              - SpeechModelDownloader_DownloadAsync_WithModel_InstallAsyncThrowsUnlistedExceptionType_ReportsFailed
+
+          - id: Speech-Models-PriorInstallProtected
+            title: >-
+              The ModelManagementSubsystem shall never regress a model's prior successful
+              install when a second DownloadAsync call is made for the same model id, regardless
+              of what the second call supplies.
+            justification: |
+              A second call against an already-installed model must be a safe no-op from the
+              model's perspective, not a risk of leaving it half-updated or removed.
+            children:
+              - Speech-Models-SpeechModelDownloader-AlreadyInstalledNoOp
+              - Speech-Models-SpeechModelDownloader-AlreadyInstalledLeftoverCleanup
+              - Speech-Models-SpeechModelDownloader-PriorInstallUntouchedOnFailedRepair
+              - Speech-Models-SpeechModelDownloader-InstallHookSkippedWhenAlreadyInstalled
+            tests:
               - SpeechModelDownloader_DownloadAsync_AlreadyInstalled_ReturnsInstalledWithoutFetchingOrStaging
               - SpeechModelDownloader_DownloadAsync_SecondCallAfterPriorSuccess_TakesFastPathAndLeavesPriorInstallIntact
-              - SpeechModelDownloader_DownloadAsync_WithModel_InstallAsyncThrowsUnlistedExceptionType_ReportsFailed
               - SpeechModelDownloader_DownloadAsync_WithModel_SecondCallAfterPriorSuccess_TakesFastPathAndNeverInvokesInstallHook
 
           - id: Speech-Models-DownloadDescriptors
@@ -169,6 +202,8 @@ sections:
               - Speech-Models-SpeechModelDownloadFile-NullArgumentValidation
               - Speech-Models-SpeechModelDownloadFile-ResolveStagedPath
               - Speech-Models-SpeechModelDownloadDescriptor-Validation
+              - Speech-Models-SpeechModelDownloadDescriptor-FileListRejection
+              - Speech-Models-SpeechModelDownloadDescriptor-DuplicatePathRejection
             tests:
               - SpeechModelDownloadFile_Constructor_HttpUri_ThrowsArgumentException
               - SpeechModelDownloadFile_Constructor_InvalidChecksum_ThrowsArgumentException
@@ -183,6 +218,9 @@ sections:
               their own UI without the library dictating any particular UI technology.
             children:
               - Speech-Models-SpeechModelDownloadProgress-FractionComplete
+              - Speech-Models-SpeechModelDownloadProgress-UnknownTotal
+              - Speech-Models-SpeechModelDownloadProgress-ZeroTotal
+              - Speech-Models-SpeechModelDownloader-ProgressReporting
             tests:
               - SpeechModelDownloadProgress_FractionComplete_KnownTotal_ComputesFraction
               - SpeechModelDownloadProgress_FractionComplete_UnknownTotal_ReturnsNull
@@ -230,9 +268,14 @@ sections:
               - Speech-Models-SpeechModelDownloaderOptions-MirrorDefaultsNull
               - Speech-Models-SpeechModelDownloaderOptions-MirrorRedirectsDownloads
               - Speech-Models-SpeechModelDownloader-MirrorUriResolution
+              - Speech-Models-SpeechModelDownloader-MirrorUriComposition
+              - Speech-Models-SpeechModelDownloader-MirrorUriEscaping
               - Speech-Models-IModelDownloadClient-NoPerCallMirrorAuth
               - Speech-Models-IModelDownloadClient-EffectiveUriOnly
               - Speech-Models-HttpModelDownloadClient-MirrorAuthApplication
+              - Speech-Models-HttpModelDownloadClient-BasicAuthApplication
+              - Speech-Models-HttpModelDownloadClient-NoAuthorizationWithoutMirror
+              - Speech-Models-HttpModelDownloadClient-NoAuthorizationOutsideMirror
               - Speech-Models-HttpModelDownloadClient-RedirectAuthorizationStripping
             tests:
               - DownloadMirror_Constructor_BothCredentialsAndBearerToken_ThrowsArgumentException
@@ -260,6 +303,10 @@ sections:
               risk a genuine caller cancellation being misreported as a failure outcome.
             children:
               - Speech-Models-SpeechModelDownloader-RicherFailureClassification
+              - Speech-Models-SpeechModelDownloader-NetworkBlockedClassification
+              - Speech-Models-SpeechModelDownloader-IoFailureClassification
+              - Speech-Models-SpeechModelDownloader-GenericFailureFallback
+              - Speech-Models-SpeechModelDownloader-CallerCancellationPropagates
             tests:
               - SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWithStatusCode_ReportsHttpError
               - SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWrappingAuthenticationException_ReportsNetworkBlocked
@@ -299,6 +346,7 @@ sections:
               - Speech-Models-SpeechModelContract-NormalizeTextHook
               - Speech-Models-SpeechModelContract-RecognitionNormalizeTextHook
               - Speech-Models-SpeechModelContract-RecognitionEngineDeclaration
+              - Speech-Models-SpeechModelContract-RecognitionBackendCreation
               - Speech-Models-SpeechModelContract-SynthesisPreferredAudioFormat
               - Speech-Models-SpeechModelContract-SynthesisEngineConfigDeclaration
               - Speech-Models-SpeechModelContract-SynthesisCapabilityProfileDeclaration
@@ -332,6 +380,10 @@ sections:
               silently accepted and discovered only when a host tries to render it.
             children:
               - Speech-Models-SpeechModelParameters-NumericValidation
+              - Speech-Models-SpeechModelParameters-NumericValuesExposed
+              - Speech-Models-SpeechModelParameters-NumericCommonFieldValidation
+              - Speech-Models-SpeechModelParameters-NumericIntegerFlag
+              - Speech-Models-SpeechModelParameters-NumericIntegerValidation
               - Speech-Models-SpeechModelParameters-ChoiceValidation
               - Speech-Models-SpeechModelParameters-BooleanValidation
             tests:
@@ -384,8 +436,11 @@ sections:
             children:
               - Speech-Models-SpeechModelCatalog-ModelRegistration
               - Speech-Models-SpeechModelCatalog-AddModels
+              - Speech-Models-SpeechModelCatalog-AddModelsChaining
               - Speech-Models-SpeechModelCatalog-StateResolution
               - Speech-Models-SpeechModelCatalog-DownloadOrchestration
+              - Speech-Models-SpeechModelCatalog-DownloadFailureState
+              - Speech-Models-SpeechModelCatalog-UnknownModelDownloadThrows
               - Speech-Models-SpeechModelDescriptor-Snapshot
             tests:
               - SpeechModelCatalog_Enumerate_EmptyKnownModels_ReturnsEmptyList
@@ -419,31 +474,141 @@ sections:
           - id: Speech-Models-ReferenceVoicePack
             title: >-
               The ModelManagementSubsystem shall provide a model-agnostic reference-voice library
-              that downloads a verified, licensed voice pack through the model downloader, installs
-              only its voice clips and license files, keeps a user voice folder beside it, and
-              lists all available voices merged and de-duplicated.
+              that downloads a verified, licensed voice pack through the model downloader.
             justification: |
               Voice-cloning synthesis models need reference clips, and a hundred-plus permissively
               licensed clips are far more useful as an optional, verified download than as
               something every host must source itself. Placing the library in the core, rather
               than in one synthesis engine, lets any current or future cloning model share it.
             children:
-              - Speech-Models-ReferenceVoicePack-PublishedMetadata
-              - Speech-Models-ReferenceVoicePack-ArgumentValidation
-              - Speech-Models-ReferenceVoicePack-SizeMetadata
-              - Speech-Models-ReferenceVoicePack-MoodClipLookup
-              - Speech-Models-ReferenceVoicePackInstaller-SelectiveExtraction
-              - Speech-Models-ReferenceVoicePackInstaller-ArchiveSafety
-              - Speech-Models-ReferenceVoicePackInstaller-EmotionVariants
-              - Speech-Models-ReferenceVoicePackInstaller-SizeCaps
-              - Speech-Models-ReferenceVoiceLibrary-StoreLayout
               - Speech-Models-ReferenceVoiceLibrary-ArgumentValidation
               - Speech-Models-ReferenceVoiceLibrary-PackInstall
-              - Speech-Models-ReferenceVoiceLibrary-PackUninstall
-              - Speech-Models-ReferenceVoiceLibrary-Disposal
-              - Speech-Models-ReferenceVoiceLibrary-EmotionVariants
-              - Speech-Models-ReferenceVoiceLibrary-EmotionUpgrade
+              - Speech-Models-ReferenceVoiceLibrary-MirrorRequest
+              - Speech-Models-ReferenceVoiceLibrary-RepeatInstallNoOp
+              - Speech-Models-ReferenceVoiceLibrary-FailedInstallReporting
               - Speech-Models-ReferenceVoiceLibrary-InstallSerialization
+              - Speech-Models-ReferenceVoiceLibrary-Disposal
+              - Speech-Models-ReferenceVoiceLibrary-InstallAfterDisposeThrows
+
+          - id: Speech-Models-ReferenceVoicePackDescriptor
+            title: >-
+              The ModelManagementSubsystem shall describe each downloadable reference-voice pack
+              with its published, validated archive and size metadata.
+            justification: |
+              The pack is downloaded whole and verified against a fixed checksum, so a host needs
+              exact published values, measured sizes to show before a large download, and a
+              descriptor that cannot describe an insecure transfer.
+            children:
+              - Speech-Models-ReferenceVoicePack-PublishedMetadata
+              - Speech-Models-ReferenceVoicePack-KnownPacksListing
+              - Speech-Models-ReferenceVoicePack-ArgumentValidation
+              - Speech-Models-ReferenceVoicePack-SizeMetadata
+              - Speech-Models-ReferenceVoicePack-InstalledSizeValidation
+
+          - id: Speech-Models-ReferenceVoicePackInstall
+            title: >-
+              The ModelManagementSubsystem shall install only a verified reference-voice pack
+              archive's voice clips and license files, safely and within size caps.
+            justification: |
+              The upstream archive holds far more content than the voice list needs, and even a
+              checksum-verified archive is untrusted input to the extractor, so extraction must be
+              selective, path-safe and bounded.
+            children:
+              - Speech-Models-ReferenceVoicePackInstaller-SelectiveExtraction
+              - Speech-Models-ReferenceVoicePackInstaller-PackMetadata
+              - Speech-Models-ReferenceVoicePackInstaller-ArchiveDeletion
+              - Speech-Models-ReferenceVoicePackInstaller-ArchiveSafety
+              - Speech-Models-ReferenceVoicePackInstaller-MalformedArchiveRejection
+              - Speech-Models-ReferenceVoicePackInstaller-Cancellation
+              - Speech-Models-ReferenceVoicePackInstaller-SizeCaps
+              - Speech-Models-ReferenceVoicePackInstaller-AcceptsContentAtCaps
+
+          - id: Speech-Models-ReferenceVoicePackUninstall
+            title: >-
+              The ModelManagementSubsystem shall uninstall a reference-voice pack without
+              touching the user voice folder and without racing an in-flight install.
+            justification: |
+              The user folder holds the user's own files and must survive any pack operation, and
+              an uninstall must not delete files an install is writing.
+            children:
+              - Speech-Models-ReferenceVoiceLibrary-PackUninstall
+              - Speech-Models-ReferenceVoiceLibrary-UninstallDiscardsUpgradeBackup
+              - Speech-Models-ReferenceVoiceLibrary-UninstallWaitsForInstall
+
+          - id: Speech-Models-ReferenceVoiceEmotionInstall
+            title: >-
+              The ModelManagementSubsystem shall install a reference-voice pack's emotion
+              variants only when they are requested, installing them by default.
+            justification: |
+              The emotion clips are the larger part of the pack (about 528 MiB against about
+              44 MiB for the base voices), so hosts can opt out, and a later voices-only request
+              must not discard them.
+            children:
+              - Speech-Models-ReferenceVoicePackInstaller-EmotionVariants
+              - Speech-Models-ReferenceVoicePackInstaller-EmotionVariantRecording
+              - Speech-Models-ReferenceVoicePackInstaller-NoEmotionsUnlessRequested
+              - Speech-Models-ReferenceVoicePackInstaller-MisshapenEmotionEntriesIgnored
+              - Speech-Models-ReferenceVoicePackInstaller-UnsafeEmotionEntryRejection
+              - Speech-Models-ReferenceVoicePackInstaller-OnlyEmotionClipsRejected
+              - Speech-Models-ReferenceVoiceLibrary-EmotionVariants
+              - Speech-Models-ReferenceVoiceLibrary-BaseVoicesOnRequest
+              - Speech-Models-ReferenceVoiceLibrary-NeverDowngradeEmotions
+
+          - id: Speech-Models-ReferenceVoiceEmotionUpgrade
+            title: >-
+              The ModelManagementSubsystem shall upgrade a voices-only reference-voice install to
+              include emotions without ever losing the existing voices.
+            justification: |
+              The downloader treats an installed pack as complete, so adding emotions needs a
+              second download; keeping the old install aside until the new one is in place means
+              a failed, canceled or crashed upgrade never loses voices.
+            children:
+              - Speech-Models-ReferenceVoiceLibrary-EmotionUpgrade
+              - Speech-Models-ReferenceVoiceLibrary-UpgradeRestoresOnFailure
+              - Speech-Models-ReferenceVoiceLibrary-AbandonedBackupRestored
               - Speech-Models-ReferenceVoiceLibrary-VariantReporting
+
+          - id: Speech-Models-ReferenceVoiceMoodClips
+            title: >-
+              The ModelManagementSubsystem shall expose each reference voice's installed emotion
+              clips as mood clips that resolve by mood name.
+            justification: |
+              Emotion clips let a synthesis model match a voice to the mood of the text; they are
+              variants of an existing voice, so voice ids and ordering stay unchanged, and mood
+              names reach consumers in varying case and spacing.
+            children:
+              - Speech-Models-ReferenceVoiceLibrary-MoodClipExposure
+              - Speech-Models-ReferenceVoicePack-MoodClipLookup
+
+          - id: Speech-Models-ReferenceVoiceUserFolder
+            title: >-
+              The ModelManagementSubsystem shall keep a user voice folder beside the downloaded
+              reference-voice packs, creating no folder until asked to.
+            justification: |
+              Keeping reference voices beside the models they serve lets one store location cover
+              everything, while lazy creation keeps merely constructing a library free of side
+              effects.
+            children:
+              - Speech-Models-ReferenceVoiceLibrary-StoreLayout
+              - Speech-Models-ReferenceVoiceLibrary-LazyFolderCreation
+
+          - id: Speech-Models-ReferenceVoiceListing
+            title: >-
+              The ModelManagementSubsystem shall list all available reference voices merged and
+              de-duplicated across caller-named directories, the user folder and installed packs.
+            justification: |
+              A voice a user deliberately supplies must override a bundled one of the same name,
+              and a first run before any download must simply offer no voices.
+            children:
               - Speech-Models-ReferenceVoiceLibrary-VoiceMerge
+              - Speech-Models-ReferenceVoiceLibrary-EmptyListWhenNothingPresent
+              - Speech-Models-ReferenceVoiceLibrary-VoiceNameFormatting
+
+          - id: Speech-Models-ReferenceVoiceConsentNotice
+            title: >-
+              The ModelManagementSubsystem shall expose a shared consent notice stating that
+              cloning a real person's voice requires that person's consent.
+            justification: |
+              Hosts listing or choosing voices need one shared, consistent warning wording.
+            children:
               - Speech-Models-ReferenceVoiceLibrary-ConsentNotice

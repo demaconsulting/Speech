@@ -14,15 +14,23 @@ sections:
               - id: Speech-Models-SpeechModelStore-AtomicSwap
                 title: >-
                   The SpeechModelStore class shall atomically swap a verified staging directory
-                  into place as a model's new current/ content via a directory rename, renaming
-                  any existing current/ content aside first and writing the install manifest only
-                  after the rename succeeds.
+                  into place as a model's new current/ content via a directory rename, writing the
+                  install manifest only after the rename succeeds.
                 justification: |
                   A same-volume directory rename is atomic and effectively instantaneous on
                   NTFS/POSIX; writing the manifest last means a crash between the two steps is
                   indistinguishable from "not installed", which is the safe direction to fail.
                 tests:
                   - SpeechModelStore_CompleteInstall_FirstInstall_CreatesCurrentAndManifest
+
+              - id: Speech-Models-SpeechModelStore-AtomicSwapReplacesExisting
+                title: >-
+                  The SpeechModelStore class shall, when a model already has current/ content,
+                  rename that content aside first and remove it after the new content is in place.
+                justification: |
+                  A re-install must replace an installed model without ever leaving it half
+                  replaced.
+                tests:
                   - SpeechModelStore_CompleteInstall_ExistingCurrent_ReplacesContentAndCleansUpOldDirectory
 
               - id: Speech-Models-SpeechModelStore-NeverTouchesCurrentDuringStaging
@@ -91,31 +99,60 @@ sections:
               - id: Speech-Models-SpeechModelStore-DefaultRootResolution
                 title: >-
                   The SpeechModelStore class shall resolve its root directory under
-                  Environment.SpecialFolder.LocalApplicationData by default, and use a
-                  host-supplied SpeechModelStoreOptions.RootPathOverride verbatim when supplied.
+                  Environment.SpecialFolder.LocalApplicationData by default.
                 justification: |
                   Per-user storage under LocalApplicationData is the conventional default for
-                  downloaded application data on all supported desktop platforms, while an
-                  override lets a host redirect storage without any library code change.
+                  downloaded application data on all supported desktop platforms.
                 tests:
                   - SpeechModelStore_Constructor_NoOptions_ResolvesUnderLocalApplicationData
+
+              - id: Speech-Models-SpeechModelStore-RootPathOverrideVerbatim
+                title: >-
+                  The SpeechModelStore class shall use a host-supplied
+                  SpeechModelStoreOptions.RootPathOverride verbatim as its root directory.
+                justification: |
+                  An override lets a host redirect storage without any library code change.
+                tests:
                   - SpeechModelStore_Constructor_RootPathOverride_UsesOverrideVerbatim
 
               - id: Speech-Models-SpeechModelStore-Uninstall
                 title: >-
                   The SpeechModelStore class shall remove an installed model's current/ content
-                  and install manifest when explicitly uninstalled, and shall not throw when the
-                  model was never installed.
+                  and install manifest when explicitly uninstalled, synchronously or awaitably.
                 justification: |
                   Uninstall is an explicit, user-invoked operation; it must actually remove the
-                  installed content while remaining a safe no-op for a model that was never
-                  installed. An awaitable UninstallAsync lets callers that must not block (a UI)
-                  remove a model off their thread.
+                  installed content. An awaitable UninstallAsync lets callers that must not block
+                  (a UI) remove a model off their thread.
                 tests:
                   - SpeechModelStore_Uninstall_InstalledModel_RemovesCurrentAndManifest
                   - SpeechModelStore_UninstallAsync_InstalledModel_RemovesCurrentAndManifest
-                  - SpeechModelStore_UninstallAsync_InvalidIdAndCanceledToken_AreRejected
+
+              - id: Speech-Models-SpeechModelStore-UninstallNotInstalledNoOp
+                title: >-
+                  The SpeechModelStore class shall not throw when asked to uninstall a model that
+                  was never installed.
+                justification: |
+                  Uninstalling a model that is not there is a safe no-op.
+                tests:
                   - SpeechModelStore_Uninstall_NotInstalled_DoesNotThrow
+
+              - id: Speech-Models-SpeechModelStore-UninstallAsyncRejection
+                title: >-
+                  The SpeechModelStore class shall reject an invalid model id or an already
+                  canceled token passed to UninstallAsync.
+                justification: |
+                  Invalid input and a canceled caller must be refused before any file is touched.
+                tests:
+                  - SpeechModelStore_UninstallAsync_InvalidIdAndCanceledToken_AreRejected
+
+              - id: Speech-Models-SpeechModelStore-UninstallStagingHandling
+                title: >-
+                  The SpeechModelStore class shall, on uninstall, leave a live staging directory
+                  alone and remove replaced directories.
+                justification: |
+                  An in-flight install of the same model must not be disturbed, while leftover
+                  replaced content must not accumulate.
+                tests:
                   - SpeechModelStore_Uninstall_LeavesLiveStagingAndRemovesReplacedDirectories
 
               - id: Speech-Models-SpeechModelStore-CleanUpLeftovers
@@ -133,11 +170,18 @@ sections:
               - id: Speech-Models-SpeechModelStore-EmptyTempCleanup
                 title: >-
                   The SpeechModelStore class shall remove a model's empty .tmp staging root after a
-                  successful install, and keep it while another operation's staging directory is
-                  still present.
+                  successful install.
                 justification: |
                   An install leaves an empty .tmp folder beside the content; removing it keeps the
-                  model directory tidy, but a concurrent operation's staging must never be disturbed.
+                  model directory tidy.
                 tests:
                   - SpeechModelStore_CompleteInstall_RemovesEmptyStagingRoot
+
+              - id: Speech-Models-SpeechModelStore-StagingRootKeptWhileInUse
+                title: >-
+                  The SpeechModelStore class shall keep a model's .tmp staging root after an
+                  install while another operation's staging directory is still present.
+                justification: |
+                  A concurrent operation's staging must never be disturbed.
+                tests:
                   - SpeechModelStore_CompleteInstall_OtherOperationStaging_KeepsStagingRoot

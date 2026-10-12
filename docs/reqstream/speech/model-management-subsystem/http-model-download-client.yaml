@@ -36,29 +36,51 @@ sections:
 
               - id: Speech-Models-HttpModelDownloadClient-MirrorAuthApplication
                 title: >-
-                  The HttpModelDownloadClient class shall accept a DownloadMirror once, at
-                  construction, and apply its BearerToken (if any) as a preemptive
-                  Authorization: Bearer request header, or its Credentials (if any) as a
-                  preemptive Authorization: Basic request header, to every request whose URI
-                  falls within the configured DownloadMirror's BaseUri, always sent through the
-                  single HttpClient instance this client was constructed with - whether
-                  caller-supplied or internally owned - never a second, separately configured
-                  client. With no mirror supplied, or for a request URI outside that mirror's
-                  BaseUri, no Authorization header is sent at all.
+                  The HttpModelDownloadClient class shall apply a configured DownloadMirror's
+                  BearerToken as a preemptive
+                  Authorization: Bearer request header to every request whose URI
+                  falls within the configured DownloadMirror's BaseUri.
                 justification: |
                   A credentialed internal mirror needs its authentication applied to every
-                  request this instance issues, without ever disturbing the one HttpClient's
-                  documented caller-supplied-vs-internally-owned ownership contract, its own
-                  proxy, timeout, certificate-validation, or handler-pipeline configuration. A
-                  true NTLM challenge/response handshake is explicitly not supported, since
-                  negotiating one would require a dedicated HttpClientHandler that bypasses
-                  whatever HttpClient a host has already configured; preemptive Basic (sent on
-                  the first request, with no round trip) covers the HTTPS-mirror scenario this
-                  library targets without that trade-off.
+                  request this instance issues, through the single HttpClient instance this
+                  client was constructed with (caller-supplied or internally owned), so the
+                  HttpClient's ownership contract and its own proxy, timeout,
+                  certificate-validation and handler-pipeline configuration are never disturbed.
+                tests:
+                  - HttpModelDownloadClient_DownloadAsync_BearerTokenMirror_SendsBearerAuthorizationHeader
+                  - HttpModelDownloadClient_DownloadAsync_MirrorBaseUriTrailingSlashMismatch_SendsAuthorizationHeader
+
+              - id: Speech-Models-HttpModelDownloadClient-BasicAuthApplication
+                title: >-
+                  The HttpModelDownloadClient class shall apply a configured DownloadMirror's
+                  Credentials as a preemptive Basic Authorization request header to every request
+                  whose URI falls within the DownloadMirror's BaseUri.
+                justification: |
+                  Preemptive Basic (sent on the first request, with no round trip) covers the
+                  HTTPS-mirror scenario this library targets; a true NTLM challenge/response
+                  handshake is explicitly not supported, since negotiating one would require a
+                  dedicated HttpClientHandler that bypasses whatever HttpClient a host has already
+                  configured.
+                tests:
+                  - HttpModelDownloadClient_DownloadAsync_CredentialsMirror_SendsBasicAuthorizationHeader
+
+              - id: Speech-Models-HttpModelDownloadClient-NoAuthorizationWithoutMirror
+                title: >-
+                  The HttpModelDownloadClient class shall send no Authorization header when no
+                  mirror authentication is configured.
+                justification: |
+                  Requests that need no mirror authentication must not leak or invent credentials.
                 tests:
                   - HttpModelDownloadClient_DownloadAsync_NoMirrorAuth_SendsNoAuthorizationHeader
-                  - HttpModelDownloadClient_DownloadAsync_BearerTokenMirror_SendsBearerAuthorizationHeader
-                  - HttpModelDownloadClient_DownloadAsync_CredentialsMirror_SendsBasicAuthorizationHeader
+
+              - id: Speech-Models-HttpModelDownloadClient-NoAuthorizationOutsideMirror
+                title: >-
+                  The HttpModelDownloadClient class shall send no Authorization header on a request
+                  whose URI falls outside the configured DownloadMirror's BaseUri.
+                justification: |
+                  Mirror credentials must never be sent to a host other than the mirror.
+                tests:
+                  - HttpModelDownloadClient_DownloadAsync_NonMirrorUriWithMirrorConfigured_SendsNoAuthorizationHeader
 
               - id: Speech-Models-HttpModelDownloadClient-RedirectAuthorizationStripping
                 title: >-

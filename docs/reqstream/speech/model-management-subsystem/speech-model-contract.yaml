@@ -102,17 +102,24 @@ sections:
               - id: Speech-Models-SpeechModelContract-RecognitionEngineDeclaration
                 title: >-
                   A recognition model shall declare the mono AudioFormat its recognition engine
-                  requires, and shall build that engine's configuration from the directory its
-                  verified files were installed into.
+                  requires.
+                justification: |
+                  Declaring the required input format as a model-owned fact is what lets the
+                  library either request a matching capture device up front or resample audio
+                  captured at any device rate into the one rate that specific model can actually
+                  use.
+                tests:
+                  - IRecognitionModel_AudioFormat_DeclaredByModel_IsExposed
+
+              - id: Speech-Models-SpeechModelContract-RecognitionBackendCreation
+                title: >-
+                  A recognition model shall build its engine's configuration from the directory
+                  its verified files were installed into, and reject an empty directory.
                 justification: |
                   The design makes each model's backing class responsible for the engine
                   configuration for its own model architecture, so that adding a model is a
-                  self-contained, reviewable unit of work. Declaring the required input format as
-                  a model-owned fact is what lets the library either request a matching capture
-                  device up front or resample audio captured at any device rate into the one
-                  rate that specific model can actually use.
+                  self-contained, reviewable unit of work.
                 tests:
-                  - IRecognitionModel_AudioFormat_DeclaredByModel_IsExposed
                   - IRecognitionModel_CreateBackend_InstalledDirectory_ReturnsRecognitionBackend
                   - IRecognitionModel_CreateBackend_EmptyDirectory_ThrowsArgumentException
 

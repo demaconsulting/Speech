@@ -17,13 +17,22 @@ sections:
                 title: >-
                   The ReferenceVoicePack class shall expose a built-in voice-zero 1.0 descriptor
                   carrying the published archive URL, size, SHA-256 checksum, CC0 license and
-                  attribution, and shall list it in its set of known packs.
+                  attribution.
                 justification: |
                   The pack is downloaded whole and verified against a fixed checksum, so the
-                  published values must be exact and discoverable by a host without hard-coding.
+                  published values must be exact.
                 tests:
                   - ReferenceVoicePack_VoiceZero10_HasPublishedMetadata
                   - ReferenceVoicePack_Constructor_ValidArguments_ExposesValues
+
+              - id: Speech-Models-ReferenceVoicePack-KnownPacksListing
+                title: >-
+                  The ReferenceVoicePack class shall list the built-in voice-zero 1.0 descriptor in
+                  its set of known packs.
+                justification: |
+                  A host discovers available packs without hard-coding them.
+                tests:
+                  - ReferenceVoicePack_VoiceZero10_HasPublishedMetadata
 
               - id: Speech-Models-ReferenceVoicePack-ArgumentValidation
                 title: >-
@@ -48,13 +57,22 @@ sections:
                 title: >-
                   The ReferenceVoicePack class shall expose the measured installed size of its base
                   voices and of its emotion variants, and the combined installed size for a chosen
-                  variant selection, rejecting negative sizes.
+                  variant selection.
                 justification: |
                   Hosts show the download and installed sizes before the user commits to a large
                   download, so the sizes must be the real measured values (voice-zero 1.0:
                   45,632,432 bytes of voices and 553,873,246 bytes of emotion clips).
                 tests:
                   - ReferenceVoicePack_VoiceZero10_InstalledSizes_AreMeasuredValues
+
+              - id: Speech-Models-ReferenceVoicePack-InstalledSizeValidation
+                title: >-
+                  The ReferenceVoicePack class shall report a zero installed size when none is
+                  given and reject negative installed sizes.
+                justification: |
+                  An unknown size must read as zero rather than a bogus value, and a negative size
+                  is never meaningful.
+                tests:
                   - ReferenceVoicePack_Constructor_InstalledSizes_DefaultZeroAndRejectNegative
 
               - id: Speech-Models-ReferenceVoicePack-MoodClipLookup

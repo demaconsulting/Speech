@@ -18,27 +18,55 @@ sections:
                 title: >-
                   The NumericParameter class shall validate at construction that minimum does not
                   exceed maximum, that step is strictly positive, and that the default value
-                  falls within [minimum, maximum], rejecting a non-finite bound outright; when
-                  isInteger is true, it shall additionally validate that minimum, maximum, step,
-                  and default are all whole numbers.
+                  falls within [minimum, maximum], rejecting a non-finite bound outright.
                 justification: |
                   A range that could never be honored by a slider control, or a default a host
                   could never actually supply back to the model, must be caught the moment a
                   model's backing class declares it - not discovered later when a host tries to
-                  render it. An inherently whole-number parameter (for example a discrete speaker
-                  index) has no fractional meaning, so a fractional bound declared alongside
-                  isInteger: true must be rejected for the same reason, since it could never be
-                  honored by a whole-number-only control.
+                  render it.
                 tests:
-                  - NumericParameter_Constructor_ValidRange_ExposesValues
-                  - NumericParameter_Constructor_NoUnit_UnitIsNull
                   - NumericParameter_Constructor_MinimumGreaterThanMaximum_ThrowsArgumentException
                   - NumericParameter_Constructor_NonPositiveStep_ThrowsArgumentException
                   - NumericParameter_Constructor_DefaultOutsideRange_ThrowsArgumentException
                   - NumericParameter_Constructor_NonFiniteMinimum_ThrowsArgumentException
+
+              - id: Speech-Models-SpeechModelParameters-NumericValuesExposed
+                title: >-
+                  The NumericParameter class shall expose the declared range, step, default and
+                  unit of a valid parameter, with a null unit when none is declared.
+                justification: |
+                  A host renders a slider from the declared values.
+                tests:
+                  - NumericParameter_Constructor_ValidRange_ExposesValues
+                  - NumericParameter_Constructor_NoUnit_UnitIsNull
+
+              - id: Speech-Models-SpeechModelParameters-NumericCommonFieldValidation
+                title: >-
+                  The NumericParameter class shall reject a null id at construction.
+                justification: |
+                  The common descriptor fields must be present for the parameter to be addressable.
+                tests:
                   - NumericParameter_Constructor_NullId_ThrowsArgumentNullException
+
+              - id: Speech-Models-SpeechModelParameters-NumericIntegerFlag
+                title: >-
+                  The NumericParameter class shall expose IsInteger as declared, defaulting to
+                  false when omitted.
+                justification: |
+                  A host picks a whole-number-only control from the flag.
+                tests:
                   - NumericParameter_Constructor_IsIntegerWithWholeNumberBounds_ExposesIsIntegerTrue
                   - NumericParameter_Constructor_IsIntegerOmitted_DefaultsToFalse
+
+              - id: Speech-Models-SpeechModelParameters-NumericIntegerValidation
+                title: >-
+                  The NumericParameter class shall, when isInteger is true, reject a minimum,
+                  maximum, step or default that is not a whole number.
+                justification: |
+                  An inherently whole-number parameter (for example a discrete speaker index) has
+                  no fractional meaning, so a fractional bound declared alongside isInteger: true
+                  could never be honored by a whole-number-only control.
+                tests:
                   - NumericParameter_Constructor_IsIntegerWithFractionalMinimum_ThrowsArgumentException
                   - NumericParameter_Constructor_IsIntegerWithFractionalMaximum_ThrowsArgumentException
                   - NumericParameter_Constructor_IsIntegerWithFractionalStep_ThrowsArgumentException

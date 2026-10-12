@@ -17,14 +17,22 @@ sections:
                 title: >-
                   The ReferenceVoiceLibrary class shall keep packs and a user voice folder under a
                   reference-voices folder inside the model store root, laying each pack out as
-                  reference-voices/{packId}/current, and shall not create any folder until asked to.
+                  reference-voices/{packId}/current.
                 justification: |
                   Keeping reference voices beside the models they serve lets one store location
-                  (and one configurable root) cover everything, while lazy creation keeps merely
-                  constructing a library free of side effects.
+                  (and one configurable root) cover everything.
                 tests:
                   - ReferenceVoiceLibrary_Paths_FollowDocumentedLayout
                   - ReferenceVoiceLibrary_EnsureUserDirectory_CreatesFolderAndListsUserVoices
+
+              - id: Speech-Models-ReferenceVoiceLibrary-LazyFolderCreation
+                title: >-
+                  The ReferenceVoiceLibrary class shall not create any reference-voice folder until
+                  it is asked to.
+                justification: |
+                  Lazy creation keeps merely constructing or listing a library free of side
+                  effects on the file system.
+                tests:
                   - ReferenceVoiceLibrary_EnumerateVoices_NothingPresent_ReturnsEmptyWithoutCreatingFolders
 
               - id: Speech-Models-ReferenceVoiceLibrary-ArgumentValidation
@@ -40,61 +48,119 @@ sections:
               - id: Speech-Models-ReferenceVoiceLibrary-PackInstall
                 title: >-
                   The ReferenceVoiceLibrary class shall download a pack's whole archive through the
-                  hash-verifying, mirror-aware model downloader, install only a verified archive,
-                  treat a repeat install as a no-op, and report honest pack states.
+                  hash-verifying model downloader and install its voices from the verified archive.
                 justification: |
-                  Reusing the existing downloader gives the pack the same integrity, atomic-swap
-                  and mirror behavior as models, and a failed install must never be reported as
-                  installed.
+                  Reusing the existing downloader gives the pack the same integrity and
+                  atomic-swap behavior as models.
                 tests:
                   - ReferenceVoiceLibrary_InstallPack_Success_InstallsVoicesAndUpdatesState
+
+              - id: Speech-Models-ReferenceVoiceLibrary-MirrorRequest
+                title: >-
+                  The ReferenceVoiceLibrary class shall request the mirror-resolved archive address
+                  when a download mirror is configured.
+                justification: |
+                  Hosts behind a restricted network fetch the pack from their mirror, as they do
+                  for models.
+                tests:
                   - ReferenceVoiceLibrary_InstallPack_WithMirror_RequestsMirrorUri
+
+              - id: Speech-Models-ReferenceVoiceLibrary-RepeatInstallNoOp
+                title: >-
+                  The ReferenceVoiceLibrary class shall treat an install of an already installed
+                  pack as a no-op that downloads nothing.
+                justification: |
+                  A repeat install must not re-download a large archive.
+                tests:
                   - ReferenceVoiceLibrary_InstallPack_SecondCall_IsNoOp
+
+              - id: Speech-Models-ReferenceVoiceLibrary-FailedInstallReporting
+                title: >-
+                  The ReferenceVoiceLibrary class shall install nothing and report a failed pack
+                  state when the archive fails its checksum or contains no voices.
+                justification: |
+                  A failed install must never be reported as installed.
+                tests:
                   - ReferenceVoiceLibrary_InstallPack_ChecksumMismatch_InstallsNothingAndReportsFailedState
                   - ReferenceVoiceLibrary_InstallPack_ArchiveWithoutVoices_FailsWithoutInstalling
 
               - id: Speech-Models-ReferenceVoiceLibrary-PackUninstall
                 title: >-
                   The ReferenceVoiceLibrary class shall uninstall a pack without touching the user
-                  folder and discard any upgrade backup of that pack, and shall, when the pack's
-                  install is in flight, wait for it (honoring cancellation) and then uninstall
-                  instead of throwing or racing it.
+                  folder.
                 justification: |
-                  The user folder holds the user's own files and must survive any pack operation; a
-                  leftover upgrade backup must not resurrect a removed pack; and an uninstall
-                  must serialize with an install on the same per-pack lock (awaited, never blocking
-                  a thread) so it cannot delete files the install is writing.
+                  The user folder holds the user's own files and must survive any pack operation.
                 tests:
                   - ReferenceVoiceLibrary_UninstallPackAsync_RemovesPackKeepsUserFolder
+
+              - id: Speech-Models-ReferenceVoiceLibrary-UninstallDiscardsUpgradeBackup
+                title: >-
+                  The ReferenceVoiceLibrary class shall discard any upgrade backup of a pack when
+                  that pack is uninstalled.
+                justification: |
+                  A leftover upgrade backup must not resurrect a removed pack.
+                tests:
+                  - ReferenceVoiceLibrary_UninstallPackAsync_DiscardsUpgradeBackup
+
+              - id: Speech-Models-ReferenceVoiceLibrary-UninstallWaitsForInstall
+                title: >-
+                  The ReferenceVoiceLibrary class shall, when a pack's install is in flight, wait
+                  for it (honoring cancellation) and then uninstall instead of throwing or racing it.
+                justification: |
+                  An uninstall must serialize with an install on the same per-pack lock (awaited,
+                  never blocking a thread) so it cannot delete files the install is writing.
+                tests:
                   - ReferenceVoiceLibrary_UninstallPackAsync_WhileInstalling_WaitsThenRemoves
                   - ReferenceVoiceLibrary_UninstallPackAsync_CanceledWhileWaiting_LeavesInstallIntact
                   - ReferenceVoiceLibrary_UninstallPackAsync_AlreadyCanceled_DoesNothingAndReleasesLock
-                  - ReferenceVoiceLibrary_UninstallPackAsync_DiscardsUpgradeBackup
 
               - id: Speech-Models-ReferenceVoiceLibrary-Disposal
                 title: >-
-                  The ReferenceVoiceLibrary class shall tolerate repeated disposal and shall throw
-                  ObjectDisposedException when asked to install a pack after it was disposed.
+                  The ReferenceVoiceLibrary class shall tolerate repeated disposal.
                 justification: |
-                  The library owns a lazily created downloader; disposal must be idempotent, and an
-                  install on a disposed instance must fail visibly rather than use released resources.
+                  The library owns a lazily created downloader; disposal must be idempotent.
                 tests:
                   - ReferenceVoiceLibrary_Dispose_Twice_DoesNotThrow
+
+              - id: Speech-Models-ReferenceVoiceLibrary-InstallAfterDisposeThrows
+                title: >-
+                  The ReferenceVoiceLibrary class shall throw ObjectDisposedException when asked to
+                  install a pack after it was disposed.
+                justification: |
+                  An install on a disposed instance must fail visibly rather than use released
+                  resources.
+                tests:
                   - ReferenceVoiceLibrary_InstallPack_AfterDispose_Throws
 
               - id: Speech-Models-ReferenceVoiceLibrary-VoiceMerge
                 title: >-
                   The ReferenceVoiceLibrary class shall list voices from caller-named directories,
                   then the user folder, then installed packs, de-duplicating by voice id with the
-                  first occurrence winning, and shall return an empty list rather than throwing
-                  when nothing is present.
+                  first occurrence winning.
                 justification: |
                   A voice a user deliberately supplies must override a bundled one of the same
-                  name, and a first run before any download must simply offer no voices.
+                  name.
                 tests:
                   - ReferenceVoiceLibrary_EnumerateVoices_MergesInPrecedenceOrderFirstIdWins
                   - ReferenceVoiceLibrary_EnumerateVoices_DuplicateId_ReportsInfoDiagnostic
+
+              - id: Speech-Models-ReferenceVoiceLibrary-EmptyListWhenNothingPresent
+                title: >-
+                  The ReferenceVoiceLibrary class shall return an empty voice list rather than
+                  throwing when no voice is present.
+                justification: |
+                  A first run before any download must simply offer no voices.
+                tests:
                   - ReferenceVoiceLibrary_EnumerateVoices_NothingPresent_ReturnsEmptyWithoutCreatingFolders
+
+              - id: Speech-Models-ReferenceVoiceLibrary-VoiceNameFormatting
+                title: >-
+                  The ReferenceVoiceLibrary class shall derive a readable display name from a voice
+                  id.
+                justification: |
+                  Hosts show voices in a list and need a presentable name without per-voice
+                  metadata.
+                tests:
                   - ReferenceVoiceLibrary_Humanize_FormatsName
 
               - id: Speech-Models-ReferenceVoiceLibrary-ConsentNotice
@@ -109,31 +175,70 @@ sections:
               - id: Speech-Models-ReferenceVoiceLibrary-EmotionVariants
                 title: >-
                   The ReferenceVoiceLibrary class shall install a pack with its emotion variants by
-                  default, install base voices only on request, never downgrade an install that has
-                  emotions, and expose each pack voice's installed emotion clips as MoodClips
-                  (lower-case mood to file path) without adding voice ids.
+                  default.
                 justification: |
-                  Emotion clips let a synthesis model match a voice to the mood of the text. They
-                  are variants of an existing voice, so voice ids and ordering stay unchanged.
+                  Emotion clips let a synthesis model match a voice to the mood of the text.
                 tests:
                   - ReferenceVoiceLibrary_InstallPack_Default_AttachesMoodClipsWithoutExtraVoices
-                  - ReferenceVoiceLibrary_InstallPack_NoEmotions_LeavesVoicesOnly
                   - ReferenceVoiceLibrary_InstallPack_ProgressOverload_IncludesEmotions
+
+              - id: Speech-Models-ReferenceVoiceLibrary-BaseVoicesOnRequest
+                title: >-
+                  The ReferenceVoiceLibrary class shall install base voices only, without emotion
+                  clips, when the caller asks for no emotions.
+                justification: |
+                  The emotion clips are the larger part of the pack, so hosts can opt out of them.
+                tests:
+                  - ReferenceVoiceLibrary_InstallPack_NoEmotions_LeavesVoicesOnly
+
+              - id: Speech-Models-ReferenceVoiceLibrary-NeverDowngradeEmotions
+                title: >-
+                  The ReferenceVoiceLibrary class shall never downgrade an install that has
+                  emotions when base voices only are requested.
+                justification: |
+                  A later voices-only request must not discard downloaded emotion clips or trigger
+                  another download.
+                tests:
+                  - ReferenceVoiceLibrary_InstallPack_UpgradeFromVoicesOnly_AddsEmotions
+
+              - id: Speech-Models-ReferenceVoiceLibrary-MoodClipExposure
+                title: >-
+                  The ReferenceVoiceLibrary class shall expose each pack voice's installed emotion
+                  clips as MoodClips (lower-case mood to file path) without adding voice ids.
+                justification: |
+                  Emotion clips are variants of an existing voice, so voice ids and ordering stay
+                  unchanged.
+                tests:
+                  - ReferenceVoiceLibrary_InstallPack_Default_AttachesMoodClipsWithoutExtraVoices
 
               - id: Speech-Models-ReferenceVoiceLibrary-EmotionUpgrade
                 title: >-
                   The ReferenceVoiceLibrary class shall upgrade a voices-only install by installing
-                  again while keeping the old install aside, restoring it on failure or
-                  cancellation and when a previous run abandoned it.
+                  again with emotions.
                 justification: |
                   The downloader treats an installed pack as complete, so adding emotions to a
-                  voices-only install needs a second download; keeping the old install aside until
-                  the new one is in place means a failed, canceled or crashed upgrade never loses
-                  voices.
+                  voices-only install needs a second download.
                 tests:
                   - ReferenceVoiceLibrary_InstallPack_UpgradeFromVoicesOnly_AddsEmotions
+
+              - id: Speech-Models-ReferenceVoiceLibrary-UpgradeRestoresOnFailure
+                title: >-
+                  The ReferenceVoiceLibrary class shall keep the previous install when an upgrade
+                  fails or is canceled.
+                justification: |
+                  Keeping the old install aside until the new one is in place means a failed or
+                  canceled upgrade never loses voices.
+                tests:
                   - ReferenceVoiceLibrary_InstallPack_FailedUpgrade_KeepsPreviousInstall
                   - ReferenceVoiceLibrary_InstallPack_CanceledUpgrade_KeepsPreviousInstall
+
+              - id: Speech-Models-ReferenceVoiceLibrary-AbandonedBackupRestored
+                title: >-
+                  The ReferenceVoiceLibrary class shall restore an upgrade backup that a previous
+                  run abandoned.
+                justification: |
+                  A crashed upgrade must not lose the voices that were kept aside.
+                tests:
                   - ReferenceVoiceLibrary_InstallPack_AbandonedBackup_IsRestored
 
               - id: Speech-Models-ReferenceVoiceLibrary-InstallSerialization
