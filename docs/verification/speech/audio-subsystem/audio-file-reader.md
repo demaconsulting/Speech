@@ -60,6 +60,14 @@ the file path.
 `InvalidDataException` from the length alone (file: message contains "limit" and the path; seekable
 stream: from its length; non-seekable stream: once the bounded read passes the cap).
 
+##### Byte cap is clamped to the largest array length
+
+**Test**: `AudioFileReader_Read_UnboundedMaxSamples_ClampsByteCapToArrayMaxLength`
+
+**Expected**: With `MaxSamples = long.MaxValue`, a seekable stream that only reports a length of
+`Array.MaxLength + 1` bytes throws `InvalidDataException` naming the `Array.MaxLength`-byte limit,
+without reading any data or allocating.
+
 ##### Non-seekable stream within the cap decodes
 
 **Test**: `AudioFileReader_Read_NonSeekableStream_Decodes`

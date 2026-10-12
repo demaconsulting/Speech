@@ -55,6 +55,7 @@ sections:
                   - AudioFileReader_Read_SeekableStreamLargerThanByteCap_Throws
                   - AudioFileReader_Read_NonSeekableStreamLargerThanByteCap_Throws
                   - AudioFileReader_Read_NonSeekableStream_Decodes
+                  - AudioFileReader_Read_UnboundedMaxSamples_ClampsByteCapToArrayMaxLength
 
               - id: Speech-Audio-AudioFileReader-ReadMono
                 title: >-

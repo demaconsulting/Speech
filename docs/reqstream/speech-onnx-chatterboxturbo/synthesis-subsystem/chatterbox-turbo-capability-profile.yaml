@@ -82,7 +82,7 @@ sections:
                   is not a sentence boundary.
                 tests:
                   - ChatterboxTurboCapabilityProfile_Render_Sentences_AreSplitWithEllipsisPause
-                  - ChatterboxTurboCapabilityProfile_DigitFlankedStop_IsNotASentenceBoundary
+                  - ChatterboxTurboCapabilityProfile_Render_DigitFlankedStop_IsNotASentenceBoundary
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-LongSentences
                 title: >-
@@ -92,7 +92,7 @@ sections:
                   The model degrades on long inputs, and splitting must never lose speech.
                 tests:
                   - ChatterboxTurboCapabilityProfile_Render_LongSentence_IsSplit
-                  - ChatterboxTurboCapabilityProfile_OverLongClause_SplitsOnWordBudgetKeepingEveryWord
+                  - ChatterboxTurboCapabilityProfile_Render_OverLongClause_SplitsOnWordBudgetKeepingEveryWord
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-InvalidInput
                 title: >-

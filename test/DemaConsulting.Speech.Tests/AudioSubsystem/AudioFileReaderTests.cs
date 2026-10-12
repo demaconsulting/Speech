@@ -236,6 +236,72 @@ public sealed class AudioFileReaderTests
         Assert.Equal(44100, clip.SampleRate);
     }
 
+    /// <summary>
+    ///     Proves the byte cap is clamped to the largest array length even when MaxSamples is unbounded: a stream that
+    ///     only reports a length above <see cref="Array.MaxLength"/> is rejected from its length, without allocating.
+    /// </summary>
+    [Fact]
+    public void AudioFileReader_Read_UnboundedMaxSamples_ClampsByteCapToArrayMaxLength()
+    {
+        // Arrange - the stream claims one byte more than the largest array but holds no data
+        using var stream = new LengthOnlyStream((long)Array.MaxLength + 1);
+
+        // Act
+        var ex = Assert.Throws<InvalidDataException>(() =>
+            AudioFileReader.Read(stream, new AudioFileReadOptions { MaxSamples = long.MaxValue }));
+
+        // Assert - the reported limit is the array clamp rather than the unbounded sample-derived value
+        Assert.Contains($"{Array.MaxLength}-byte limit", ex.Message, StringComparison.Ordinal);
+        Assert.Equal(0, stream.BytesRead);
+    }
+
+    /// <summary>A seekable stream that reports a length but holds no data, to test size limits without allocating.</summary>
+    private sealed class LengthOnlyStream(long length) : Stream
+    {
+        /// <summary>Gets the number of bytes read from the stream.</summary>
+        public int BytesRead { get; private set; }
+
+        /// <inheritdoc/>
+        public override bool CanRead => true;
+
+        /// <inheritdoc/>
+        public override bool CanSeek => true;
+
+        /// <inheritdoc/>
+        public override bool CanWrite => false;
+
+        /// <inheritdoc/>
+        public override long Length => length;
+
+        /// <inheritdoc/>
+        public override long Position
+        {
+            get => 0;
+            set => throw new NotSupportedException();
+        }
+
+        /// <inheritdoc/>
+        public override void Flush()
+        {
+        }
+
+        /// <inheritdoc/>
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            BytesRead += count;
+            return 0;
+        }
+
+        /// <inheritdoc/>
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        /// <inheritdoc/>
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        /// <inheritdoc/>
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
+
     /// <summary>A read-only stream that reports it cannot seek.</summary>
     private sealed class NonSeekableStream(byte[] data) : MemoryStream(data, writable: false)
     {
