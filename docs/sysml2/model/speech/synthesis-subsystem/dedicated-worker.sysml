@@ -3,7 +3,7 @@ package Speech {
         doc /* Internal utility that runs a delegate on a dedicated, long-running background
              * thread, applying a cooperative-cancel-then-abandon policy for native calls that do
              * not honor cancellation promptly: on cancellation the worker gets a bounded grace
-             * period to stop cooperatively, after which the awaited task completes as cancelled,
+             * period to stop cooperatively, after which the awaited task completes as canceled,
              * a Warning diagnostic is reported, and the worker thread is detached. This is the
              * synthesis subsystem's own copy, duplicated rather than shared with
              * RecognitionSubsystem's identically-shaped internal utility per this library's

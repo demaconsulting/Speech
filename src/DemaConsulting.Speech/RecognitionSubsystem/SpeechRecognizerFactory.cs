@@ -92,7 +92,7 @@ public static class SpeechRecognizerFactory
     /// </exception>
     /// <exception cref="OperationCanceledException">
     ///     Thrown (faulting the returned task) when <paramref name="cancellationToken"/> is
-    ///     cancelled before loading completes.
+    ///     canceled before loading completes.
     /// </exception>
     public static Task<ISpeechRecognizerEngine> LoadAsync(
         IRecognitionModel model,
@@ -149,7 +149,7 @@ public static class SpeechRecognizerFactory
     /// </exception>
     /// <exception cref="OperationCanceledException">
     ///     Thrown (faulting the returned task) when <paramref name="cancellationToken"/> is
-    ///     cancelled before loading completes.
+    ///     canceled before loading completes.
     /// </exception>
     public static Task<ISpeechRecognizerEngine> LoadAsync(
         IRecognitionModel model,
@@ -203,7 +203,7 @@ public static class SpeechRecognizerFactory
     /// </exception>
     /// <exception cref="OperationCanceledException">
     ///     Thrown (faulting the returned task) when <paramref name="cancellationToken"/> is
-    ///     cancelled before loading completes.
+    ///     canceled before loading completes.
     /// </exception>
     public static Task<ISpeechRecognizerEngine> LoadAsync(
         IRecognitionModel model,
@@ -340,7 +340,7 @@ public static class SpeechRecognizerFactory
     /// </exception>
     /// <exception cref="OperationCanceledException">
     ///     Thrown (faulting the returned task) when <paramref name="cancellationToken"/> is
-    ///     cancelled before loading completes.
+    ///     canceled before loading completes.
     /// </exception>
     internal static async Task<ISpeechRecognizerEngine> LoadAsync(
         IRecognitionModel model,

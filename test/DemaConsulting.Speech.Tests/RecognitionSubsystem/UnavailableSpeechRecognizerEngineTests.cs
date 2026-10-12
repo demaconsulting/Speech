@@ -60,14 +60,14 @@ public class UnavailableSpeechRecognizerEngineTests
 
     /// <summary>
     ///     Proves that <see cref="UnavailableSpeechRecognizerEngine.CreateSessionAsync"/> still
-    ///     honors an already-cancelled token, since that is a genuine caller error rather than
+    ///     honors an already-canceled token, since that is a genuine caller error rather than
     ///     an ordinary unavailable state - matching the <see cref="ISpeechRecognizerEngine.CreateSessionAsync"/>
     ///     contract every implementation must honor.
     /// </summary>
     [Fact]
-    public async Task UnavailableSpeechRecognizerEngine_CreateSessionAsync_CancelledToken_ThrowsOperationCanceledException()
+    public async Task UnavailableSpeechRecognizerEngine_CreateSessionAsync_CanceledToken_ThrowsOperationCanceledException()
     {
-        // Arrange: the shared unavailable engine, an arbitrary device, and an already-cancelled token
+        // Arrange: the shared unavailable engine, an arbitrary device, and an already-canceled token
         var engine = UnavailableSpeechRecognizerEngine.Instance;
         var device = Substitute.For<IAudioCaptureDevice>();
         using var cts = new CancellationTokenSource();

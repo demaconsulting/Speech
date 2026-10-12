@@ -53,7 +53,7 @@ public interface ISpeechSynthesizerEngine : IAsyncDisposable
     /// <exception cref="SynthesisEngineBusyException">
     ///     Thrown when this engine's exclusivity lease is already held by another session.
     /// </exception>
-    /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is cancelled.</exception>
+    /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is canceled.</exception>
     Task<ISynthesisSession> CreateSessionAsync(
         IAudioPlaybackDevice device,
         CancellationToken cancellationToken = default);

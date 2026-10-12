@@ -199,12 +199,12 @@ internal static class RecognizeCommand
     /// <summary>
     ///     Runs the <c>recognize</c> subcommand's full async implementation: resolves the model
     ///     and capture device, loads a recognition engine, binds a session to the device, and
-    ///     pumps results until the session ends (file-drained, idle-timed-out, or cancelled).
+    ///     pumps results until the session ends (file-drained, idle-timed-out, or canceled).
     /// </summary>
     /// <param name="context">The invocation context. Must not be null.</param>
     /// <param name="catalog">The catalog seam to resolve the model through. Must not be null.</param>
     /// <param name="factory">The audio device factory to resolve a real capture device through. Must not be null.</param>
-    /// <param name="cancellationToken">A token that, when cancelled, stops the session cooperatively.</param>
+    /// <param name="cancellationToken">A token that, when canceled, stops the session cooperatively.</param>
     /// <exception cref="ArgumentNullException">
     ///     Thrown when <paramref name="context"/>, <paramref name="catalog"/>, or
     ///     <paramref name="factory"/> is <see langword="null"/>.
@@ -287,7 +287,7 @@ internal static class RecognizeCommand
             }
             catch (OperationCanceledException)
             {
-                // Ctrl+C (or an already-cancelled token) landed before/while starting; ensure the
+                // Ctrl+C (or an already-canceled token) landed before/while starting; ensure the
                 // session still reaches a terminal state so the pump below is guaranteed to end.
                 await session.StopAsync(CancellationToken.None).ConfigureAwait(false);
             }
@@ -316,7 +316,7 @@ internal static class RecognizeCommand
     /// <summary>
     ///     Consumes <paramref name="results"/> via <c>await foreach</c>, calling
     ///     <see cref="HandleResult"/> for each one, until the sequence ends or
-    ///     <paramref name="cancellationToken"/> is cancelled.
+    ///     <paramref name="cancellationToken"/> is canceled.
     /// </summary>
     /// <remarks>
     ///     A cancellation that ends the enumeration is expected and graceful here - the same

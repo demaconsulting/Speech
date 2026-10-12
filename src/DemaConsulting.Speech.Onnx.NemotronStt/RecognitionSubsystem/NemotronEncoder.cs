@@ -52,7 +52,7 @@ internal sealed class NemotronEncoder : INemotronEncoder
     /// <summary>The language id fed on every call.</summary>
     private readonly long[] _languageId;
 
-    /// <summary>The per-call options (never cancelled; kept to avoid per-call allocation).</summary>
+    /// <summary>The per-call options (never canceled; kept to avoid per-call allocation).</summary>
     private readonly RunOptions _runOptions = new();
 
     /// <summary>The managed feature array backing the audio input tensor.</summary>

@@ -58,7 +58,7 @@ allocated for an engine that could never run.
 plus a structural diagnostic, never as an exception, per this library's "nothing throws at
 composition" decision. A backend load failure is caught and degraded identically to a missing
 model. Only a null `model`/`store`/`catalog`/backend factory throws `ArgumentNullException`, an
-invalid `parameterValues` entry throws `ArgumentException`, and a cancelled `cancellationToken`
+invalid `parameterValues` entry throws `ArgumentException`, and a canceled `cancellationToken`
 throws `OperationCanceledException`, since those are programming errors or an explicit caller
 request rather than a machine state. `parameterValues` is validated against `model.Parameters`
 before any other work runs, using the same shared `SpeechModelParameterDiagnostics.ValidateAndReport`

@@ -868,7 +868,7 @@ public class ModelCatalogViewModelTests
     }
 
     /// <summary>
-    ///     Proves that a failed, cancelled or faulted pack install is reported in the row.
+    ///     Proves that a failed, canceled or faulted pack install is reported in the row.
     /// </summary>
     [Fact]
     public async Task ModelCatalogViewModel_InstallVoicePackAsync_FailureModes_ReportedInRow()

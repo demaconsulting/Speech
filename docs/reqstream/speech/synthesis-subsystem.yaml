@@ -237,13 +237,13 @@ sections:
               - Speech-Synthesis-SpeechSynthesizerFactory-HonestFallbacks
               - Speech-Synthesis-SpeechSynthesizerFactory-EngineLoadFailureFallback
               - Speech-Synthesis-SpeechSynthesizerFactory-ArgumentValidationAndCancellation
-              - Speech-Synthesis-SpeechSynthesizerFactory-CancelledTokenThrows
+              - Speech-Synthesis-SpeechSynthesizerFactory-CanceledTokenThrows
               - Speech-Synthesis-SynthesisBackend-MockableSeam
               - Speech-Synthesis-SynthesisBackend-ModelOwnedConfiguration
             tests:
               - SpeechSynthesizerFactory_LoadAsync_ModelInstalled_ReturnsRealEngine
               - SpeechSynthesizerFactory_LoadAsync_ModelNotInstalled_ReturnsUnavailableEngine
-              - SpeechSynthesizerFactory_LoadAsync_CancelledToken_ThrowsOperationCanceledException
+              - SpeechSynthesizerFactory_LoadAsync_CanceledToken_ThrowsOperationCanceledException
 
           - id: Speech-Synthesis-CompositionIgnoresUnrecognizedParameter
             title: >-

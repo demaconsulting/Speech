@@ -203,12 +203,12 @@ is private. `IsAvailable` always returns `false`.
   unavailable machine state; returns a completed task holding
   `UnavailableRecognitionSession.Instance` regardless of the supplied device's own availability.
   Still throws `ArgumentNullException` synchronously for a null device, and
-  `OperationCanceledException` synchronously for an already-cancelled token, since those are
+  `OperationCanceledException` synchronously for an already-canceled token, since those are
   caller errors rather than machine states.
 
 **Error Handling**: Never throws for an ordinary unavailable machine state; unavailability is
 represented entirely by the returned session's own behavior. A null device or an
-already-cancelled token is still a caller error and throws synchronously, same as the real engine.
+already-canceled token is still a caller error and throws synchronously, same as the real engine.
 
 **Dependencies**: `UnavailableRecognitionSession`; implements `ISpeechRecognizerEngine`.
 

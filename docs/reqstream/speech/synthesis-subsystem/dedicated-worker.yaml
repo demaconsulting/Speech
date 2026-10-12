@@ -32,7 +32,7 @@ sections:
                 title: >-
                   The DedicatedWorker class shall abandon a non-cooperative delegate - one that
                   ignores its supplied cancellation token - once a configurable abandon timeout
-                  elapses, and shall still return control to its caller as cancelled rather than
+                  elapses, and shall still return control to its caller as canceled rather than
                   hanging indefinitely.
                 justification: |
                   A native call is not guaranteed to honor .NET cancellation tokens at all; the

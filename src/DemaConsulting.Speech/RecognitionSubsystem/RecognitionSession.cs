@@ -105,7 +105,7 @@ internal sealed class RecognitionSession : IRecognitionSession
     ///     <see cref="StartAsync"/> ever releases the lock, so <see cref="RunTeardownAsync"/> can
     ///     await this - the device's own <see cref="IAudioCaptureDevice.Start"/> call genuinely
     ///     returning, even if <see cref="StartAsync"/>'s own abandon-aware task completed early as
-    ///     cancelled - before it ever stops the device: this is what still prevents a concurrent
+    ///     canceled - before it ever stops the device: this is what still prevents a concurrent
     ///     <see cref="StopAsync"/>/<see cref="DisposeAsync"/> from converging this session to
     ///     <see cref="RecognitionSessionState.Stopped"/> and returning while the device is still
     ///     genuinely starting, now that <see cref="StartAsync"/> no longer blocks the caller for
@@ -300,7 +300,7 @@ internal sealed class RecognitionSession : IRecognitionSession
 
             // Run the native, potentially slow device.Start() call through the same dedicated
             // worker the pump loop uses, rather than inline on this caller's thread (see this
-            // method's remarks). Given this call's own cancellationToken so a cancelled start is
+            // method's remarks). Given this call's own cancellationToken so a canceled start is
             // genuinely abandoned (not silently ignored) rather than always running to completion
             // regardless of the caller's request. The raw completion is published to
             // _deviceStartRawCompletion before the lock is released so RunTeardownAsync can still
@@ -566,7 +566,7 @@ internal sealed class RecognitionSession : IRecognitionSession
             // control returning to it immediately so it never blocks on this method's own
             // potentially-slow/native work (backend reset, device stop). Awaiting an
             // already-completed task does not yield - it continues synchronously on the calling
-            // thread - so without this unconditional yield, a null/already-cancelled pumpCts or an
+            // thread - so without this unconditional yield, a null/already-canceled pumpCts or an
             // already-completed pumpTask would let the whole method, including the blocking
             // device.Stop() call below, run inline on whichever thread happened to call
             // StopAsync/DisposeAsync/FaultSession, defeating their documented
@@ -578,8 +578,8 @@ internal sealed class RecognitionSession : IRecognitionSession
             // never under _syncRoot - see its remarks), and device.Stop() below must never run
             // concurrently with that still-in-progress device.Start() call. Awaiting the raw
             // completion here (not StartAsync's own abandon-aware task) is deliberate: if a
-            // caller cancelled StartAsync while the device was still starting and the abandon
-            // timeout has already elapsed, StartAsync's own task completes early as cancelled/
+            // caller canceled StartAsync while the device was still starting and the abandon
+            // timeout has already elapsed, StartAsync's own task completes early as canceled/
             // faulted while the device-start worker thread may still genuinely be inside
             // IAudioCaptureDevice.Start() - this raw completion only resolves once that thread has
             // truly exited, exactly mirroring _pumpRawCompletion's role for the pump thread. This
@@ -607,7 +607,7 @@ internal sealed class RecognitionSession : IRecognitionSession
             // only matters if the pump thread is genuinely stuck inside a blocking backend call that
             // never returns, in which case the worker is abandoned after its timeout rather than
             // hanging this call forever.
-            // A finite file source is never cancelled here: the abandon deadline would cut off a
+            // A finite file source is never canceled here: the abandon deadline would cut off a
             // slow backend (for example a large CPU model) still decoding the file's queued audio,
             // losing the tail of a transcript the user expects in totality.
             if (pumpCts is not null && _device is not WavFileAudioCaptureDevice)
@@ -995,7 +995,7 @@ internal sealed class RecognitionSession : IRecognitionSession
     /// </summary>
     /// <remarks>
     ///     Deliberately does not observe the <see cref="DedicatedWorker"/> cancellation token
-    ///     passed to <see cref="DedicatedWorker.RunAsync(Action{CancellationToken}, CancellationToken)"/>: that token is cancelled by
+    ///     passed to <see cref="DedicatedWorker.RunAsync(Action{CancellationToken}, CancellationToken)"/>: that token is canceled by
     ///     <see cref="StopAsync"/> purely as the outer abandon-timeout deadline, and
     ///     reading it here as well would risk silently dropping buffered-but-undecoded frames in
     ///     a race with that cancellation, breaking the guarantee that every block accepted before

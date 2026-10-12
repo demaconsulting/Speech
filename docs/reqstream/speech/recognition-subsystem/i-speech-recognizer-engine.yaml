@@ -53,13 +53,13 @@ sections:
               - id: Speech-Recognition-ISpeechRecognizerEngine-CreateSessionCancellation
                 title: >-
                   The ISpeechRecognizerEngine interface's CreateSessionAsync shall honor caller
-                  cancellation by throwing OperationCanceledException for an already-cancelled
+                  cancellation by throwing OperationCanceledException for an already-canceled
                   token.
                 justification: |
                   Caller cancellation is a caller decision and must be honored uniformly by every
                   engine implementation, including the unavailable fallback.
                 tests:
-                  - UnavailableSpeechRecognizerEngine_CreateSessionAsync_CancelledToken_ThrowsOperationCanceledException
+                  - UnavailableSpeechRecognizerEngine_CreateSessionAsync_CanceledToken_ThrowsOperationCanceledException
 
               - id: Speech-Recognition-ISpeechRecognizerEngine-Disposal
                 title: >-

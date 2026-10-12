@@ -271,13 +271,13 @@ shared unavailable engine without throwing.
 #### Composition: Null Arguments and Cancellation Are Programming Errors
 
 **Tests**: `SpeechSynthesizerFactory_LoadAsync_NullModel_ThrowsArgumentNullException`,
-`SpeechSynthesizerFactory_LoadAsync_CancelledToken_ThrowsOperationCanceledException`,
+`SpeechSynthesizerFactory_LoadAsync_CanceledToken_ThrowsOperationCanceledException`,
 `SpeechSynthesizerFactory_LoadAsync_WithStoreNullModel_ThrowsArgumentNullException`,
 `SpeechSynthesizerFactory_LoadAsync_WithStoreNullStore_ThrowsArgumentNullException`,
 `SpeechSynthesizerFactory_LoadAsync_WithCatalogNullModel_ThrowsArgumentNullException`,
 `SpeechSynthesizerFactory_LoadAsync_WithCatalogNullCatalog_ThrowsArgumentNullException`
 
-Verifies that a null model, store, or catalog throws, and that a cancelled `cancellationToken`
+Verifies that a null model, store, or catalog throws, and that a canceled `cancellationToken`
 throws `OperationCanceledException`, distinguishing a programming error/explicit cancellation
 request from an ordinary machine state. Unlike the former synchronous factory, no
 `NullPlaybackDevice` variant exists for any overload: `LoadAsync` no longer takes a playback
@@ -406,7 +406,7 @@ device still results in a stop attempt during teardown.
 #### Session: Genuine Playback Drain Before Stopping
 
 **Tests**: `SynthesisSession_SpeakAsync_PlaybackDeviceReportsPendingSamples_WaitsForDrainBeforeStopping`,
-`SynthesisSession_SpeakAsync_CancelledDuringDrainWait_ExitsWaitPromptly`
+`SynthesisSession_SpeakAsync_CanceledDuringDrainWait_ExitsWaitPromptly`
 
 Verifies that `SpeakAsync` genuinely waits for the playback device to report a drained queue
 before stopping it, rather than stopping as soon as every segment has been written, and that
@@ -433,7 +433,7 @@ across repeated `DisposeAsync` calls; and that operating on a disposed session t
 #### Session: Abandoned Native Calls Fault the Session
 
 **Tests**: `SynthesisSession_AbandonedGenerate_FaultsSessionAndRejectsReuseImmediately`,
-`SynthesisSession_SpeakAsync_AbandonedGenerate_ReturnsCancelledOperationWhileNativeCallStillRunning`,
+`SynthesisSession_SpeakAsync_AbandonedGenerate_ReturnsCanceledOperationWhileNativeCallStillRunning`,
 `SynthesisSession_AbandonedGenerate_ReportsFaultThroughDiagnostics`,
 `SynthesisSession_StopAsync_AbandonedGenerate_DoesNotCompleteUntilNativeCallGenuinelyReturns`,
 `SynthesisSession_DisposeAsync_CalledAfterAbandonmentFault_DoesNotReleaseLeaseUntilNativeCallGenuinelyReturns`,
@@ -448,7 +448,7 @@ across repeated `DisposeAsync` calls; and that operating on a disposed session t
 `SynthesisSession_StopAsync_RacingOperationCompletion_NeverThrowsObjectDisposedException`
 
 Verifies that a cancellation request the native `Generate` call does not honor within the abandon
-timeout returns the cancelled operation to the caller promptly (while the native call is still
+timeout returns the canceled operation to the caller promptly (while the native call is still
 running), reports the fault through diagnostics, moves the session to `Faulted`, and rejects
 reuse; that `StopAsync` and `DisposeAsync` do not complete (and the engine lease is not released)
 until the abandoned native call, or an abandoned playback-device start, has genuinely returned;
@@ -497,7 +497,7 @@ call, proving the two mechanisms coexist without either regressing the other.
 Verifies that a delegate honoring cancellation promptly lets `Run` complete promptly rather than
 waiting out its full abandon timeout; that a delegate which never observes cancellation is
 abandoned once the (injectable, test-shortened) abandon timeout elapses, with a `Warning`
-diagnostic reported and the awaited call still returning control to its caller as cancelled; and
+diagnostic reported and the awaited call still returning control to its caller as canceled; and
 that the delegate always runs on a `TaskCreationOptions.LongRunning` task.
 
 #### Playback Format Conversion: Resampling, Anti-Aliasing, and Upmix

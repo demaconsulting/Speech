@@ -84,13 +84,13 @@ sections:
               - id: Speech-Recognition-SpeechRecognizerFactory-CancellationFault
                 title: >-
                   The SpeechRecognizerFactory class shall fault LoadAsync's returned task with
-                  OperationCanceledException when its cancellation token is cancelled.
+                  OperationCanceledException when its cancellation token is canceled.
                 justification: |
                   Caller cancellation is a caller decision and must fail the returned task rather
                   than being silently treated as unavailable.
                 tests:
-                  - SpeechRecognizerFactory_LoadAsync_CancelledToken_FaultsWithOperationCanceledException
-                  - SpeechRecognizerFactory_LoadAsync_CancelledDuringGraceWindowCreateSucceeds_ThrowsAndDisposesBackend
+                  - SpeechRecognizerFactory_LoadAsync_CanceledToken_FaultsWithOperationCanceledException
+                  - SpeechRecognizerFactory_LoadAsync_CanceledDuringGraceWindowCreateSucceeds_ThrowsAndDisposesBackend
 
               - id: Speech-Recognition-SpeechRecognizerFactory-ParameterValuesForwarding
                 title: >-

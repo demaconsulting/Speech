@@ -7,7 +7,7 @@ non-cooperative-abandonment test does not wait out the two-second default. A coo
 (one that honors its cancellation token) lets `Run` complete promptly on cancellation; a
 non-cooperative delegate (one that ignores it) is abandoned once the shortened timeout elapses,
 reporting a `Warning` through an NSubstitute diagnostics sink while still returning control to the
-caller as cancelled. A third test inspects the running thread from inside the delegate to prove it
+caller as canceled. A third test inspects the running thread from inside the delegate to prove it
 runs on a `TaskCreationOptions.LongRunning` task. `Start`'s additional raw-completion task is
 exercised indirectly through the `SynthesisSession` abandonment tests that await it.
 
@@ -21,7 +21,7 @@ exercised indirectly through the `SynthesisSession` abandonment tests that await
 #### Acceptance Criteria
 
 The unit is considered verified when `Run` completes promptly on cooperative cancellation,
-abandons a non-cooperative delegate after the timeout with a `Warning` diagnostic and a cancelled
+abandons a non-cooperative delegate after the timeout with a `Warning` diagnostic and a canceled
 result, and always executes its delegate on a long-running task.
 
 #### Test Scenarios
@@ -30,9 +30,9 @@ All tests are in `test/DemaConsulting.Speech.Tests/SynthesisSubsystem/DedicatedW
 
 ##### Cooperative Cancellation
 
-**Stimulus**: A delegate that observes its token is cancelled mid-run.
+**Stimulus**: A delegate that observes its token is canceled mid-run.
 
-**Expected**: `Run` completes promptly as cancelled; no abandonment diagnostic.
+**Expected**: `Run` completes promptly as canceled; no abandonment diagnostic.
 
 **Test**: `DedicatedWorker_Run_CooperativeCancellation_CompletesPromptly`
 
@@ -40,7 +40,7 @@ All tests are in `test/DemaConsulting.Speech.Tests/SynthesisSubsystem/DedicatedW
 
 **Stimulus**: A delegate that ignores cancellation, with a short abandon timeout.
 
-**Expected**: After the timeout `Run` returns cancelled to its caller and a `Warning` diagnostic
+**Expected**: After the timeout `Run` returns canceled to its caller and a `Warning` diagnostic
 is reported.
 
 **Test**: `DedicatedWorker_Run_NonCooperativeDelegate_AbandonsAfterTimeoutAndReportsDiagnostics`

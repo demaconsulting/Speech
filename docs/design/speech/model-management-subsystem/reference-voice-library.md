@@ -39,7 +39,7 @@ Disk layout (the unit's contract with the CLI, demo and documentation):
   `current` to a sibling `current.upgrade-backup-{guid}` folder (the downloader treats an installed id
   as complete and would otherwise skip the download) and installs again. A `finally` deletes the backup
   on an `Installed` outcome and renames it back on any other outcome or exception, so a failed or
-  cancelled re-download keeps the previous install; a leftover backup from a crash is restored (or
+  canceled re-download keeps the previous install; a leftover backup from a crash is restored (or
   deleted when `current` exists) at the start of the next install. A rename that fails because files are
   in use throws `SpeechModelStoreException`. **Concurrency**: whole `InstallPackAsync` calls for one pack
   are serialized by a per-pack `SemaphoreSlim` (taken before the upgrade check), and the in-progress

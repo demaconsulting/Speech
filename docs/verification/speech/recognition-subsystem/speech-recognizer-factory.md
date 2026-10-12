@@ -29,7 +29,7 @@ task faults with, rather than a synchronous throw.
 Composition is considered verified when a real engine is returned only for the fully available
 case, every unavailable state returns the shared fallback without faulting the returned task, no
 backend is loaded once an earlier check has failed, a backend load failure is caught and
-reported, null arguments and a pre-cancelled token fault the returned task with the documented
+reported, null arguments and a pre-canceled token fault the returned task with the documented
 exception type, an optional `parameterValues` bag supplied by the caller reaches the recognition
 model's own engine-configuration logic unchanged, an unrecognized `parameterValues` key composes
 successfully with only an `Info` diagnostic reported, and an invalid value for a parameter the

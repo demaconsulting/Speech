@@ -102,7 +102,7 @@ public interface IRecognitionSession : IAsyncDisposable
     ///     runs.
     /// </summary>
     /// <param name="cancellationToken">
-    ///     A token that ends only this enumeration when cancelled - the session itself keeps
+    ///     A token that ends only this enumeration when canceled - the session itself keeps
     ///     running.
     /// </param>
     /// <returns>An asynchronous sequence of recognition events.</returns>

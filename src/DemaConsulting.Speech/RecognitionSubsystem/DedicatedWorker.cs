@@ -9,10 +9,10 @@ namespace DemaConsulting.Speech.RecognitionSubsystem;
 /// <remarks>
 ///     An async signature does not make a blocking native call interruptible, so this utility
 ///     does not pretend otherwise: when <see cref="RunAsync(Action{CancellationToken}, CancellationToken)"/>'s <c>cancellationToken</c> is
-///     cancelled, the delegate - which is expected to observe that same token cooperatively at
+///     canceled, the delegate - which is expected to observe that same token cooperatively at
 ///     its own natural boundaries - is given <see cref="AbandonTimeout"/> to finish. If it does,
 ///     the returned task completes normally (or with whatever the delegate itself produced). If
-///     it does not, the returned task completes as cancelled, the delegate's thread is detached
+///     it does not, the returned task completes as canceled, the delegate's thread is detached
 ///     to finish in the background with its eventual result discarded, and the condition is
 ///     reported through the supplied <see cref="ISpeechDiagnostics"/> sink at
 ///     <see cref="SpeechDiagnosticLevel.Warning"/>. Callers that abandon as part of their
@@ -60,7 +60,7 @@ internal sealed class DedicatedWorker
     }
 
     /// <summary>
-    ///     Gets the duration this worker waits for a cancelled delegate to finish before
+    ///     Gets the duration this worker waits for a canceled delegate to finish before
     ///     abandoning it.
     /// </summary>
     internal TimeSpan AbandonTimeout { get; }
@@ -78,7 +78,7 @@ internal sealed class DedicatedWorker
     /// </param>
     /// <returns>
     ///     A task that completes once the delegate finishes, or - if the delegate does not honor
-    ///     a cancellation request within <see cref="AbandonTimeout"/> - completes as cancelled
+    ///     a cancellation request within <see cref="AbandonTimeout"/> - completes as canceled
     ///     while the delegate is abandoned to finish in the background.
     /// </returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="action"/> is null.</exception>
@@ -107,7 +107,7 @@ internal sealed class DedicatedWorker
     /// </param>
     /// <returns>
     ///     A task that completes once the delegate finishes, or - if the delegate does not honor
-    ///     a cancellation request within <see cref="AbandonTimeout"/> - completes as cancelled
+    ///     a cancellation request within <see cref="AbandonTimeout"/> - completes as canceled
     ///     while the delegate is abandoned to finish in the background.
     /// </returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="action"/> is null.</exception>
@@ -127,7 +127,7 @@ internal sealed class DedicatedWorker
 
     /// <summary>
     ///     Awaits <paramref name="worker"/>, applying the cooperative-cancel-then-abandon policy
-    ///     once <paramref name="cancellationToken"/> is cancelled.
+    ///     once <paramref name="cancellationToken"/> is canceled.
     /// </summary>
     private async Task AwaitWithAbandonAsync(Task worker, CancellationToken cancellationToken)
     {

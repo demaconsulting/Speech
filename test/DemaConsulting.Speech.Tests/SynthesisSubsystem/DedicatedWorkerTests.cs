@@ -38,14 +38,14 @@ public sealed class DedicatedWorkerTests
             TimeSpan.FromSeconds(10));
         await cts.CancelAsync();
 
-        // Assert: the call completes (cancelled) well before the 10-second abandon timeout
+        // Assert: the call completes (canceled) well before the 10-second abandon timeout
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => task);
     }
 
     /// <summary>
     ///     Proves that a delegate which never observes cancellation is abandoned once the
     ///     (short, injected) abandon timeout elapses, that the returned task completes as
-    ///     cancelled, and that a warning is reported through diagnostics.
+    ///     canceled, and that a warning is reported through diagnostics.
     /// </summary>
     [Fact]
     public async Task DedicatedWorker_Run_NonCooperativeDelegate_AbandonsAfterTimeoutAndReportsDiagnostics()
@@ -68,7 +68,7 @@ public sealed class DedicatedWorkerTests
             TimeSpan.FromMilliseconds(50));
         await cts.CancelAsync();
 
-        // Assert: the call is abandoned and reported as cancelled, rather than hanging
+        // Assert: the call is abandoned and reported as canceled, rather than hanging
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => task);
         diagnostics.Received().Report(
             SpeechDiagnosticLevel.Warning,

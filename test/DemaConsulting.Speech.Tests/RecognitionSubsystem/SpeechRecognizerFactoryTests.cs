@@ -297,13 +297,13 @@ public sealed class SpeechRecognizerFactoryTests : IDisposable
     }
 
     /// <summary>
-    ///     Proves that a cancelled token faults the returned task with
+    ///     Proves that a canceled token faults the returned task with
     ///     <see cref="OperationCanceledException"/> rather than letting composition proceed.
     /// </summary>
     [Fact]
-    public async Task SpeechRecognizerFactory_LoadAsync_CancelledToken_FaultsWithOperationCanceledException()
+    public async Task SpeechRecognizerFactory_LoadAsync_CanceledToken_FaultsWithOperationCanceledException()
     {
-        // Arrange: a token already cancelled before the call
+        // Arrange: a token already canceled before the call
         using var cts = new CancellationTokenSource();
         await cts.CancelAsync();
 
@@ -512,7 +512,7 @@ public sealed class SpeechRecognizerFactoryTests : IDisposable
     ///     engine, and disposes the backend that was created so it does not leak.
     /// </summary>
     [Fact(Timeout = 10000)]
-    public async Task SpeechRecognizerFactory_LoadAsync_CancelledDuringGraceWindowCreateSucceeds_ThrowsAndDisposesBackend()
+    public async Task SpeechRecognizerFactory_LoadAsync_CanceledDuringGraceWindowCreateSucceeds_ThrowsAndDisposesBackend()
     {
         // Arrange: a backend factory whose Create blocks until released, then succeeds, ignoring
         // cancellation entirely - exactly like the real native binding, which has no in-flight

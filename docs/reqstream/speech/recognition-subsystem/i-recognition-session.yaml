@@ -131,12 +131,12 @@ sections:
                 title: >-
                   The IRecognitionSession interface's GetResultsAsync shall end an individual
                   enumeration, without stopping the session, when its own cancellation token is
-                  cancelled.
+                  canceled.
                 justification: |
                   A consumer that stops listening is not a decision to stop recognizing; the
                   session's lifetime is controlled only by StopAsync and disposal.
                 tests:
-                  - RecognitionSession_GetResultsAsync_CancelledToken_EndsEnumerationWithoutStoppingSession
+                  - RecognitionSession_GetResultsAsync_CanceledToken_EndsEnumerationWithoutStoppingSession
 
               - id: Speech-Recognition-IRecognitionSession-FaultedEnumeration
                 title: >-

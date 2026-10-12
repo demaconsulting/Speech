@@ -110,10 +110,10 @@ an earlier check already failed.
 `SpeechRecognizerFactory_LoadAsync_WithStoreNullStore_FaultsWithArgumentNullException`,
 `SpeechRecognizerFactory_LoadAsync_WithCatalogNullModel_FaultsWithArgumentNullException`,
 `SpeechRecognizerFactory_LoadAsync_WithCatalogNullCatalog_FaultsWithArgumentNullException`,
-`SpeechRecognizerFactory_LoadAsync_CancelledToken_FaultsWithOperationCanceledException`
+`SpeechRecognizerFactory_LoadAsync_CanceledToken_FaultsWithOperationCanceledException`
 
 Verifies that a null model, store, or catalog faults the returned task with
-`ArgumentNullException`, and that a cancellation token already cancelled before loading completes
+`ArgumentNullException`, and that a cancellation token already canceled before loading completes
 faults it with `OperationCanceledException`, distinguishing both from an ordinary machine state.
 
 #### Composition: Parameter Value Bag Forwarding
@@ -193,7 +193,7 @@ samples, and that a final result's text has passed through the owning model's
 #### Session Pipeline: Result Delivery and Backpressure
 
 **Tests**: `RecognitionSession_GetResultsAsync_CalledConcurrently_ThrowsInvalidOperationException`,
-`RecognitionSession_GetResultsAsync_CancelledToken_EndsEnumerationWithoutStoppingSession`,
+`RecognitionSession_GetResultsAsync_CanceledToken_EndsEnumerationWithoutStoppingSession`,
 `RecognitionSession_GetResultsAsync_SessionFaulted_ThrowsRecognitionSessionFaultedException`,
 `RecognitionSession_GetResultsAsync_SlowConsumer_CoalescesProvisionalResults`,
 `RecognitionSession_GetResultsAsync_SlowConsumer_NeverDropsFinalResultsUnderByteCap`

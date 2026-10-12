@@ -67,7 +67,7 @@ thread can change.
   fault), so the returned task completes only once every native call the operation started has
   genuinely returned; a safe no-op when idle. The `cancellationToken` bounds only the caller's own
   wait: a canceled token makes the returned task throw, but the underlying cancel-and-await work
-  still runs to completion for other callers and for `DisposeAsync`. A cancelled operation whose
+  still runs to completion for other callers and for `DisposeAsync`. A canceled operation whose
   native call stopped promptly unwinds through `Stopping` → `Stopped`; one whose native call
   was abandoned leaves the session `Faulted` (see Error Handling).
 - **GenerateAndOptionallyPlayAsync(text, playAfterSynthesis, cancellationToken)**: Normalizes the
@@ -82,7 +82,7 @@ thread can change.
   once every segment has been written, awaits `WaitForPlaybackDrainAsync` before a `finally` block
   stops the device - reporting (but not rethrowing) a failure to stop, so the device is never left
   running regardless of whether the loop, the drain wait, or neither completed, faulted, or was
-  cancelled. When the device-start call was abandoned and is still running, the device stop is
+  canceled. When the device-start call was abandoned and is still running, the device stop is
   deferred to a background continuation that awaits the start call's genuine completion first
   (never running `Start` and `Stop` concurrently); that continuation becomes the pending native
   completion.

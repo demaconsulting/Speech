@@ -18,7 +18,7 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     thread pool. On cancellation, the worker is given a
 ///     bounded grace period (the abandon timeout, injectable for testability,
 ///     defaulting to <see cref="DefaultAbandonTimeout"/>) to stop cooperatively; if it has not
-///     finished by then, the returned task completes as cancelled, a
+///     finished by then, the returned task completes as canceled, a
 ///     <see cref="SpeechDiagnosticLevel.Warning"/> is reported, and the worker thread is detached
 ///     (left to finish in the background; its eventual result or exception is discarded). An
 ///     async signature alone cannot make a blocking P/Invoke call interruptible, so this is a
@@ -53,7 +53,7 @@ internal static class DedicatedWorker
     /// <returns>The result of <paramref name="work"/>.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="work"/> is <see langword="null"/>.</exception>
     /// <exception cref="OperationCanceledException">
-    ///     Thrown when <paramref name="cancellationToken"/> is cancelled and <paramref name="work"/>
+    ///     Thrown when <paramref name="cancellationToken"/> is canceled and <paramref name="work"/>
     ///     either observes it and stops, or does not stop within <paramref name="abandonTimeout"/>
     ///     and is abandoned.
     /// </exception>

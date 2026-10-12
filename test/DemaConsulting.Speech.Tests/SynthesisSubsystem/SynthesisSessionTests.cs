@@ -122,7 +122,7 @@ public class SynthesisSessionTests
     {
         // Arrange: a backend whose Generate throws OperationCanceledException on its own,
         // independent of any cancellation token this session ever observes
-        var backend = new FakeSynthesisEngine(generateException: new OperationCanceledException("backend cancelled unexpectedly"));
+        var backend = new FakeSynthesisEngine(generateException: new OperationCanceledException("backend canceled unexpectedly"));
         var device = CreateAvailablePlaybackDevice();
         await using var session = CreateSession(backend, device);
 
@@ -1309,7 +1309,7 @@ public class SynthesisSessionTests
     ///     can end the operation.
     /// </summary>
     [Fact(Timeout = 10000)]
-    public async Task SynthesisSession_SpeakAsync_CancelledDuringDrainWait_ExitsWaitPromptly()
+    public async Task SynthesisSession_SpeakAsync_CanceledDuringDrainWait_ExitsWaitPromptly()
     {
         // Arrange: a device that never drains, signalling a semaphore on every poll
         var backend = new FakeSynthesisEngine();
@@ -1383,11 +1383,11 @@ public class SynthesisSessionTests
 
     /// <summary>
     ///     Proves that when a native <c>Generate</c> call does not honor cancellation within the
-    ///     dedicated worker's abandon timeout, the cancelled operation is returned to its caller
+    ///     dedicated worker's abandon timeout, the canceled operation is returned to its caller
     ///     promptly - while the native call is still genuinely running.
     /// </summary>
     [Fact(Timeout = 10000)]
-    public async Task SynthesisSession_SpeakAsync_AbandonedGenerate_ReturnsCancelledOperationWhileNativeCallStillRunning()
+    public async Task SynthesisSession_SpeakAsync_AbandonedGenerate_ReturnsCanceledOperationWhileNativeCallStillRunning()
     {
         // Arrange: a backend whose Generate blocks well past the default 2s abandon timeout
         using var generateStarted = new SemaphoreSlim(0, 1);
@@ -1401,7 +1401,7 @@ public class SynthesisSessionTests
         await generateStarted.WaitAsync(TestContext.Current.CancellationToken);
         var stopTask = session.StopAsync(TestContext.Current.CancellationToken);
 
-        // Assert: the caller's task completes as cancelled, bounded by the abandon timeout plus
+        // Assert: the caller's task completes as canceled, bounded by the abandon timeout plus
         // margin, although the native call has not returned
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
             () => speakTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
@@ -1516,9 +1516,9 @@ public class SynthesisSessionTests
     ///     Test-only <see cref="ISynthesisBackend"/> whose <see cref="Generate"/> signals a
     ///     semaphore once called, then blocks until the test explicitly releases a second
     ///     semaphore - simulating a native call that keeps running for a while after the
-    ///     session's cancellation token is cancelled, exactly like the real sherpa-onnx binding,
+    ///     session's cancellation token is canceled, exactly like the real sherpa-onnx binding,
     ///     which has no in-flight cancellation primitive of its own and so cannot be interrupted
-    ///     by <see cref="ISynthesisSession.StopAsync"/> or an externally cancelled token.
+    ///     by <see cref="ISynthesisSession.StopAsync"/> or an externally canceled token.
     /// </summary>
     /// <remarks>
     ///     Deliberately does <em>not</em> unblock <see cref="Generate"/> from <see cref="Dispose"/>:

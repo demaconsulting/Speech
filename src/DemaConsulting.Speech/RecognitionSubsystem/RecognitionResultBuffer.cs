@@ -146,7 +146,7 @@ internal sealed class RecognitionResultBuffer
     ///     Streams every buffered result in order, waiting for new data as needed, until the
     ///     buffer is completed or faulted.
     /// </summary>
-    /// <param name="cancellationToken">A token that ends only this enumeration when cancelled.</param>
+    /// <param name="cancellationToken">A token that ends only this enumeration when canceled.</param>
     internal async IAsyncEnumerable<SpeechRecognitionEvent> ReadAllAsync(
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {

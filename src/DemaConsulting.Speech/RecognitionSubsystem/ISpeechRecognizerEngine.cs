@@ -50,7 +50,7 @@ public interface ISpeechRecognizerEngine : IAsyncDisposable
     ///     that release; it fails fast instead.
     /// </exception>
     /// <exception cref="OperationCanceledException">
-    ///     Thrown when <paramref name="cancellationToken"/> is cancelled before the call
+    ///     Thrown when <paramref name="cancellationToken"/> is canceled before the call
     ///     completes.
     /// </exception>
     /// <remarks>

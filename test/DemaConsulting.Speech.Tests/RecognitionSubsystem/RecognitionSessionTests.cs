@@ -190,7 +190,7 @@ public class RecognitionSessionTests
             await session.StartAsync(TestContext.Current.CancellationToken);
 
             // Act: once the pump is genuinely blocked inside the slow backend call, stop. The
-            // worker's abandon timeout is a mere 1 ms, so were a finite source ever cancelled
+            // worker's abandon timeout is a mere 1 ms, so were a finite source ever canceled
             // (and thus abandoned) by StopAsync, that would be reported immediately.
             await engine.AcceptSamplesEntered.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
             var stop = session.StopAsync(TestContext.Current.CancellationToken);
@@ -315,7 +315,7 @@ public class RecognitionSessionTests
     ///     ends only that enumeration - the session itself keeps running and is not stopped.
     /// </summary>
     [Fact]
-    public async Task RecognitionSession_GetResultsAsync_CancelledToken_EndsEnumerationWithoutStoppingSession()
+    public async Task RecognitionSession_GetResultsAsync_CanceledToken_EndsEnumerationWithoutStoppingSession()
     {
         // Arrange: a running session with an active enumeration
         await using var session = CreateSession(new FakeRecognitionEngine(), CreateCaptureDevice());
@@ -472,7 +472,7 @@ public class RecognitionSessionTests
     ///     dedicated-worker call in this session already uses.
     /// </summary>
     [Fact]
-    public async Task RecognitionSession_StartAsync_CancelledWhileDeviceStarting_AbandonsWithinTimeout()
+    public async Task RecognitionSession_StartAsync_CanceledWhileDeviceStarting_AbandonsWithinTimeout()
     {
         // Arrange: a device whose Start() blocks forever (standing in for a stuck native call,
         // consistent with IAudioCaptureDevice.Start() having no cancellation token of its own),
@@ -875,7 +875,7 @@ public class RecognitionSessionTests
         Assert.IsType<OperationCanceledException>(stopException, exactMatch: false);
 
         // Assert: the shared teardown itself was not aborted by that cancellation - a second,
-        // uncancelled StopAsync call still observes the same in-flight teardown, which only
+        // uncanceled StopAsync call still observes the same in-flight teardown, which only
         // converges once the backend genuinely unblocks
         var secondStopTask = session.StopAsync(TestContext.Current.CancellationToken);
         // (the backend is gated by the test, so this state is stable until it is released)

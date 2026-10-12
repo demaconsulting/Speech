@@ -332,7 +332,7 @@ device from the factory is currently active.
 `SpeakAsync` recognizes Natural Language Audio Tags (such as `[whispers]`, `[short pause]`, or
 `[excited]`), renders each one per the model's own declared capability, chunks narration into
 sentence-sized pieces, and pipelines synthesis with playback - an earlier chunk plays while a
-later chunk is still synthesizing. Passing a cancelled `CancellationToken` to `SpeakAsync` cancels
+later chunk is still synthesizing. Passing a canceled `CancellationToken` to `SpeakAsync` cancels
 an in-flight call deterministically.
 
 For a model that declares tunable parameters - such as Kokoro's `voice` choice or VITS/Piper's

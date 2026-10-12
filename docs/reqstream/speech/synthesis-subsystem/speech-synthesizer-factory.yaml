@@ -72,16 +72,16 @@ sections:
                   - SpeechSynthesizerFactory_LoadAsync_WithCatalogNullModel_ThrowsArgumentNullException
                   - SpeechSynthesizerFactory_LoadAsync_WithCatalogNullCatalog_ThrowsArgumentNullException
 
-              - id: Speech-Synthesis-SpeechSynthesizerFactory-CancelledTokenThrows
+              - id: Speech-Synthesis-SpeechSynthesizerFactory-CanceledTokenThrows
                 title: >-
                   The SpeechSynthesizerFactory class shall throw OperationCanceledException when
-                  the supplied cancellation token is already cancelled.
+                  the supplied cancellation token is already canceled.
                 justification: |
-                  An already cancelled token means the caller no longer wants the result, so
+                  An already canceled token means the caller no longer wants the result, so
                   LoadAsync must honor it rather than performing the (potentially slow) load
                   anyway.
                 tests:
-                  - SpeechSynthesizerFactory_LoadAsync_CancelledToken_ThrowsOperationCanceledException
+                  - SpeechSynthesizerFactory_LoadAsync_CanceledToken_ThrowsOperationCanceledException
 
               - id: Speech-Synthesis-SpeechSynthesizerFactory-ParameterValuesForwarding
                 title: >-

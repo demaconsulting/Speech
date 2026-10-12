@@ -179,11 +179,11 @@ public sealed class SpeechSynthesizerFactoryTests : IDisposable
     }
 
     /// <summary>
-    ///     Proves that an already-cancelled token throws <see cref="OperationCanceledException"/>
+    ///     Proves that an already-canceled token throws <see cref="OperationCanceledException"/>
     ///     synchronously from composition, rather than composing anyway.
     /// </summary>
     [Fact]
-    public async Task SpeechSynthesizerFactory_LoadAsync_CancelledToken_ThrowsOperationCanceledException()
+    public async Task SpeechSynthesizerFactory_LoadAsync_CanceledToken_ThrowsOperationCanceledException()
     {
         // Arrange
         var backendFactory = new FakeSynthesisEngineFactory();
@@ -485,7 +485,7 @@ public sealed class SpeechSynthesizerFactoryTests : IDisposable
     ///     the backend that was created so it does not leak.
     /// </summary>
     [Fact(Timeout = 10000)]
-    public async Task SpeechSynthesizerFactory_LoadAsync_CancelledDuringGraceWindowCreateSucceeds_ThrowsAndDisposesBackend()
+    public async Task SpeechSynthesizerFactory_LoadAsync_CanceledDuringGraceWindowCreateSucceeds_ThrowsAndDisposesBackend()
     {
         // Arrange: a backend factory whose Create blocks until released, then succeeds, ignoring
         // cancellation entirely - exactly like the real native binding, which has no in-flight

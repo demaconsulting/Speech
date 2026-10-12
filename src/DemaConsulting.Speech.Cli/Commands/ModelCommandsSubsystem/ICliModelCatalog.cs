@@ -123,7 +123,7 @@ internal interface ICliModelCatalog
     ///     when <paramref name="parameterValues"/> contains an invalid value for a parameter the
     ///     model declares.
     /// </exception>
-    /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is cancelled before loading completes.</exception>
+    /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is canceled before loading completes.</exception>
     Task<ISpeechSynthesizerEngine> CreateSynthesizerEngineAsync(
         SpeechModelDescriptor descriptor,
         IReadOnlyDictionary<string, object>? parameterValues,
@@ -159,7 +159,7 @@ internal interface ICliModelCatalog
     ///     when <paramref name="parameterValues"/> contains an invalid value for a parameter the
     ///     model declares.
     /// </exception>
-    /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is cancelled before loading completes.</exception>
+    /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is canceled before loading completes.</exception>
     Task<ISpeechRecognizerEngine> CreateRecognizerEngineAsync(
         SpeechModelDescriptor descriptor,
         IReadOnlyDictionary<string, object>? parameterValues,

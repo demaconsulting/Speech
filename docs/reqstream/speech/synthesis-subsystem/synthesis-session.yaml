@@ -97,13 +97,13 @@ sections:
               - id: Speech-Synthesis-SynthesisSession-DrainWaitCancellation
                 title: >-
                   The SynthesisSession class shall exit the playback drain wait promptly when the
-                  operation is cancelled, rather than waiting out the full drain.
+                  operation is canceled, rather than waiting out the full drain.
                 justification: |
                   A host interrupting speech (for example barge-in) must not be held up by
                   audio still queued in the playback device, so cancellation must take effect
                   immediately even while the drain wait is in progress.
                 tests:
-                  - SynthesisSession_SpeakAsync_CancelledDuringDrainWait_ExitsWaitPromptly
+                  - SynthesisSession_SpeakAsync_CanceledDuringDrainWait_ExitsWaitPromptly
 
               - id: Speech-Synthesis-SynthesisSession-OverlapNotAllowed
                 title: >-
@@ -246,7 +246,7 @@ sections:
               - id: Speech-Synthesis-SynthesisSession-StopCancelsOperation
                 title: >-
                   The SynthesisSession class shall cancel an in-flight SpeakAsync/SynthesizeAsync
-                  operation when StopAsync is called, with the cancelled operation unwinding to
+                  operation when StopAsync is called, with the canceled operation unwinding to
                   Stopped rather than Faulted when the native call honors the cancellation.
                 justification: |
                   A host must be able to interrupt speech immediately in response to a user
@@ -353,7 +353,7 @@ sections:
                 title: >-
                   The cancellation token passed to SynthesisSession.StopAsync shall bound only that
                   caller's own wait, never the teardown itself: a canceled token shall make the
-                  returned task throw while the operation is still cancelled and awaited to
+                  returned task throw while the operation is still canceled and awaited to
                   completion.
                 justification: |
                   A caller that gives up waiting must not leave the operation running or abandon
@@ -365,14 +365,14 @@ sections:
                 title: >-
                   When a cancellation request is not honored by a native backend call within the
                   dedicated worker's abandon timeout, the SynthesisSession class shall return the
-                  cancelled operation to its caller promptly, while the native call may still be
+                  canceled operation to its caller promptly, while the native call may still be
                   running.
                 justification: |
                   A native call may never honor cancellation; a caller that cancels must be
                   released within a bounded time rather than waiting for a call it cannot
                   interrupt, and a slow native device start must not block the caller's thread.
                 tests:
-                  - SynthesisSession_SpeakAsync_AbandonedGenerate_ReturnsCancelledOperationWhileNativeCallStillRunning
+                  - SynthesisSession_SpeakAsync_AbandonedGenerate_ReturnsCanceledOperationWhileNativeCallStillRunning
                   - SynthesisSession_SpeakAsync_SlowPlaybackDeviceStart_DoesNotBlockCaller
 
               - id: Speech-Synthesis-SynthesisSession-AbandonedNativeCallFaultTransition

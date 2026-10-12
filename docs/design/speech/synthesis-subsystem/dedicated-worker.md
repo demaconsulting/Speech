@@ -11,7 +11,7 @@ state; `abandonTimeout` defaults to `DefaultAbandonTimeout` (2 seconds) when omi
 is injectable for deterministic test coverage of the abandon path. `DedicatedWorkerRun<T>` is the
 small result type returned by `Start`: an abandon-aware `Task` (the same task `Run` returns) plus
 a `Completion` task that completes only when the dedicated thread's delegate has genuinely
-returned, even if the abandon-aware task was already completed as cancelled.
+returned, even if the abandon-aware task was already completed as canceled.
 
 **Key Methods**:
 
@@ -29,7 +29,7 @@ returned, even if the abandon-aware task was already completed as cancelled.
   until the delegate has really finished. It applies the same policy as `Run` but returns a
   `DedicatedWorkerRun<T>`, so the session can await `Completion` (the raw completion) in
   `StopAsync`/`DisposeAsync` before reporting the operation stopped or releasing the engine's
-  exclusivity lease, even when the abandon-aware `Task` has already been completed as cancelled.
+  exclusivity lease, even when the abandon-aware `Task` has already been completed as canceled.
   `Run` and `Start` share one private abandon-handling implementation.
 
 **Error Handling**: A genuine (non-cancellation) fault from `delegate` propagates normally from

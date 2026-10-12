@@ -239,7 +239,7 @@ internal sealed class CaptureDebugRecorder : IDisposable
     ///     be indefinite. In that one pathological case, this method still returns promptly
     ///     (never waiting longer than <see cref="DrainTimeout"/> plus that short attempt) but the
     ///     header is left never finalized, the same fundamentally unavoidable trade-off as leaving a
-    ///     synchronous file API call unable to be cancelled. The queue itself is intentionally
+    ///     synchronous file API call unable to be canceled. The queue itself is intentionally
     ///     left undisposed whenever the writer thread has not confirmed it is done, since it may
     ///     still be between <see cref="BlockingCollection{T}.GetConsumingEnumerable()"/>
     ///     iterations, and is instead left to the garbage collector.

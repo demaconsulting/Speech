@@ -28,7 +28,7 @@ involved in composition at all - this type no longer takes one.
 Composition is considered verified when a real engine is returned only for the fully available
 case, every unavailable state returns the shared fallback without throwing, no backend is loaded
 once an earlier check has failed, a backend load failure is caught and reported, a null model
-throws, a cancelled token throws `OperationCanceledException`, an optional `parameterValues` bag
+throws, a canceled token throws `OperationCanceledException`, an optional `parameterValues` bag
 supplied by the caller is forwarded unchanged to the constructed engine, an unrecognized
 `parameterValues` key composes successfully with only an `Info` diagnostic reported, and an
 invalid value for a parameter the model does declare throws `ArgumentException` synchronously

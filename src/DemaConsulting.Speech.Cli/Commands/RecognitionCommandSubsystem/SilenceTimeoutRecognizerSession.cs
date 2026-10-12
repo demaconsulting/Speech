@@ -153,7 +153,7 @@ internal sealed class SilenceTimeoutRecognizerSession
     ///     first time the configured idle window elapses with no result yielded.
     /// </summary>
     /// <param name="cancellationToken">
-    ///     A token that ends only this enumeration when cancelled - the wrapped session itself
+    ///     A token that ends only this enumeration when canceled - the wrapped session itself
     ///     keeps running, mirroring <see cref="IRecognitionSession.GetResultsAsync"/>'s own
     ///     contract.
     /// </param>
@@ -171,7 +171,7 @@ internal sealed class SilenceTimeoutRecognizerSession
             var delayTask = Task.Delay(timeout, _timeProvider, cancellationToken);
             var winner = await Task.WhenAny(moveNextTask, delayTask).ConfigureAwait(false);
 
-            // A delayTask that "wins" because cancellationToken was cancelled (rather than
+            // A delayTask that "wins" because cancellationToken was canceled (rather than
             // because the idle window genuinely elapsed) is not a timeout: it is
             // IsCompletedSuccessfully only when the idle window itself ran to completion, while a
             // cancellation instead leaves it Canceled. Treating a cancellation-triggered delayTask
