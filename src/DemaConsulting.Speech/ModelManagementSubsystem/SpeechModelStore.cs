@@ -111,7 +111,23 @@ public sealed class SpeechModelStore
     {
         var operationId = Guid.NewGuid().ToString("N");
         var stagingDirectory = Path.Join(GetModelDirectory(modelId), StagingRootName, operationId);
-        Directory.CreateDirectory(stagingDirectory);
+
+        // Another installer finishing may delete the empty .tmp parent between its creation and ours
+        // (TryDeleteEmptyDirectory), so retry the creation a few times
+        var attempt = 0;
+        while (true)
+        {
+            try
+            {
+                Directory.CreateDirectory(stagingDirectory);
+                break;
+            }
+            catch (Exception ex) when (++attempt < 5 && ex is IOException or UnauthorizedAccessException)
+            {
+                Thread.Sleep(10 * attempt);
+            }
+        }
+
         return (operationId, stagingDirectory);
     }
 

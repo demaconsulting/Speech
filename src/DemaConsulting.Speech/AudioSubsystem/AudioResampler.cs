@@ -112,7 +112,14 @@ public static class AudioResampler
             weightSum += weight;
         }
 
-        // Normalizing by the weight sum keeps unity DC gain, including at the clip edges
-        return weightSum > 1e-9 ? (float)(sum / weightSum) : 0f;
+        // Normalizing by the weight sum keeps unity DC gain, including at the clip edges. When the truncated
+        // kernel has almost no weight (it should not happen: a full kernel sums to about one), dividing would
+        // amplify noise, so fall back to the nearest input sample instead.
+        if (weightSum > 0.05)
+        {
+            return (float)(sum / weightSum);
+        }
+
+        return input[Math.Clamp((int)Math.Round(center), 0, input.Length - 1)];
     }
 }

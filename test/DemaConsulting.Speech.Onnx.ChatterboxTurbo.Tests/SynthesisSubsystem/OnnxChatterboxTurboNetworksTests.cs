@@ -230,6 +230,21 @@ public sealed class OnnxChatterboxTurboNetworksTests : IDisposable
         }
     }
 
+    /// <summary>Proves float16 and float32 output tensors are both read back as floats.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboNetworks_ReadFloats_HandlesFloat32AndFloat16()
+    {
+        // Arrange
+        float[] single = [1.5f, -2f, 0.25f];
+        using var halfValue = OnnxChatterboxTurboNetworks.CreateFloat16Tensor(single, [1, 3]);
+
+        using var singleValue = OrtValue.CreateTensorValueFromMemory(single, [1, 3]);
+
+        // Act / Assert
+        Assert.Equal(single, OnnxChatterboxTurboNetworks.ReadFloats(halfValue));
+        Assert.Equal(single, OnnxChatterboxTurboNetworks.ReadFloats(singleValue));
+    }
+
     /// <summary>Creates networks over the fixture paths.</summary>
     private static OnnxChatterboxTurboNetworks Create(
         (string Encoder, string Embedder, string LanguageModel, string Decoder) paths,

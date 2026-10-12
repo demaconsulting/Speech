@@ -29,6 +29,7 @@ sections:
                 tests:
                   - AudioResampler_Resample_ChangesRateKeepingTone
                   - AudioResampler_Resample_SameRateOrEmpty_AreTrivial
+                  - AudioResampler_Resample_ConstantSignalExtremeDownsample_KeepsUnityGainAtEdges
 
               - id: Speech-Audio-AudioResampler-ToMonoResampled
                 title: >-

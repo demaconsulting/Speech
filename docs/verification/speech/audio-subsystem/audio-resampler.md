@@ -29,6 +29,8 @@ rates copy, and invalid arguments throw.
 
 **Test**: `AudioResampler_Resample_SameRateOrEmpty_AreTrivial`
 
+**Test**: `AudioResampler_Resample_ConstantSignalExtremeDownsample_KeepsUnityGainAtEdges`
+
 ##### Stereo clip to mono at the target rate
 
 **Test**: `AudioResampler_ToMonoResampled_StereoClip_ProducesMonoAtTargetRate`

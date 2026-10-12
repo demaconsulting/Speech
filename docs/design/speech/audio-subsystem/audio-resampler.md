@@ -4,7 +4,9 @@
 
 **Data Model**: A static class with no state. The resampler is a Hann-windowed sinc interpolator
 with 16 lobes each side. When downsampling the kernel cutoff is scaled to the output Nyquist
-frequency to prevent aliasing.
+frequency to prevent aliasing. The kernel is normalized by its weight sum so DC keeps unity gain at the
+clip edges; when a truncated edge kernel has almost no weight (sum of 0.05 or less, which does not
+happen in practice) the nearest input sample is used rather than dividing by a tiny sum.
 
 **Key Methods**:
 

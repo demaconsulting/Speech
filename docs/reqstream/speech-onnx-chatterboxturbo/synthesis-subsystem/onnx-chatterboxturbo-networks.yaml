@@ -25,6 +25,7 @@ sections:
                   - OnnxChatterboxTurboNetworks_Encode_NamedOutputs_ReturnsConditioning
                   - OnnxChatterboxTurboNetworks_Encode_UnnamedFourOutputs_BindsPositionally
                   - OnnxChatterboxTurboNetworks_Embed_TokenIds_ReturnsTableRows
+                  - OnnxChatterboxTurboNetworks_ReadFloats_HandlesFloat32AndFloat16
                   - OnnxChatterboxTurboNetworks_Step_TwoSteps_ReusesCacheAndReturnsLastLogits
                   - OnnxChatterboxTurboNetworks_Decode_SpeechTokens_ReturnsWaveform
 

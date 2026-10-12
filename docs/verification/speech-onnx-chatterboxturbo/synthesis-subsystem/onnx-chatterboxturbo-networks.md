@@ -31,6 +31,8 @@ validated; sessions are disposed on dispose and on construction failure.
 
 **Test**: `OnnxChatterboxTurboNetworks_Embed_TokenIds_ReturnsTableRows`
 
+**Test**: `OnnxChatterboxTurboNetworks_ReadFloats_HandlesFloat32AndFloat16`
+
 ##### Step reuses the cache and returns the last logits
 
 **Test**: `OnnxChatterboxTurboNetworks_Step_TwoSteps_ReusesCacheAndReturnsLastLogits`

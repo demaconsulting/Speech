@@ -79,6 +79,24 @@ public sealed class AudioResamplerTests
         Assert.Throws<ArgumentNullException>(() => AudioResampler.ToMonoResampled(null!, 24000));
     }
 
+    /// <summary>Proves extreme down-sampling of a constant signal keeps unity gain at every output sample, edges included.</summary>
+    [Theory]
+    [InlineData(48000, 100)]
+    [InlineData(48000, 1000)]
+    [InlineData(44100, 8000)]
+    public void AudioResampler_Resample_ConstantSignalExtremeDownsample_KeepsUnityGainAtEdges(int inputRate, int outputRate)
+    {
+        // Arrange
+        var input = Enumerable.Repeat(1f, inputRate / 2).ToArray();
+
+        // Act
+        var output = AudioResampler.Resample(input, inputRate, outputRate);
+
+        // Assert
+        Assert.NotEmpty(output);
+        Assert.All(output, sample => Assert.InRange(sample, 0.99f, 1.01f));
+    }
+
     /// <summary>Generates a sine tone.</summary>
     private static float[] Tone(int rate, double seconds, double frequency) =>
         [.. Enumerable.Range(0, (int)(rate * seconds)).Select(i => (float)(0.5 * Math.Sin(2 * Math.PI * frequency * i / rate)))];
