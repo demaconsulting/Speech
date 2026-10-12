@@ -12,7 +12,7 @@ and uses only its public API. It is a sibling system to Speech rather than a sub
 because it is a separately built, separately run software item with its own externally visible
 behavior and its own users, and because the library must never depend on it.
 
-In this phase the application consists of six subsystems:
+The application consists of six subsystems and four units that sit directly under the system:
 
 - **ShellSubsystem**: the manual composition root and the window shell — it constructs the
   library entry points and the demo's service adapters, injects them into the panel view
@@ -28,7 +28,7 @@ In this phase the application consists of six subsystems:
   _SpeechDemo ModelCatalogSubsystem Design_
 - **ModelSettingsSubsystem**: the generic per-model tunable-parameter settings panel — presenters
   for the library's numeric, choice, and boolean parameter kinds chosen by concrete type alone,
-  embedded within the synthesis and recognition panels for whichever model is selected there —
+  embedded within the synthesis panel for whichever model is selected there —
   see _SpeechDemo ModelSettingsSubsystem Design_
 - **SynthesisPanelSubsystem**: the text-to-speech panel — a demo-owned synthesizer composition
   seam over the library's `SpeechSynthesizerFactory`, a text input with example Natural Language
@@ -38,10 +38,18 @@ In this phase the application consists of six subsystems:
   seam over the library's `SpeechRecognizerFactory`, and the Start/Stop streaming lifecycle with
   progressive partial-then-final transcript rendering and honest unavailable-state reporting —
   see _SpeechDemo RecognitionPanelSubsystem Design_
+- **App**: the Avalonia application object and the manual composition root; it also sequences
+  the deferred asynchronous shutdown — see _SpeechDemo App Design_
+- **AppLaunchOptions**: the parser and holder of the demo's launch-time command-line options —
+  see _SpeechDemo AppLaunchOptions Design_
+- **MirrorOptionsFactory**: the shared validator that builds a `DownloadMirror` from raw strings
+  for both launch-time and in-app mirror configuration — see _SpeechDemo MirrorOptionsFactory
+  Design_
+- **Program**: the process entry point, which fails fast on invalid launch options and
+  configures the Avalonia application builder — see _SpeechDemo Program Design_
 
-This phase completes the three capabilities in the demo application's design:
-text-to-speech, speech-to-text, and per-model settings all now have working panels
-alongside the device and model-catalog panels from the previous phase.
+Together the panels cover text-to-speech, speech-to-text, per-model settings, device selection
+and the model catalog.
 
 ## External Interfaces
 
@@ -70,18 +78,20 @@ external interfaces are its user interface and the interfaces it consumes.
 
 ## Dependencies
 
-SpeechDemo has five project dependencies — the Speech library; the SpeechSherpa library whose
-`AddSherpaModels()` extension method registers the shipped sherpa-onnx models with the catalog
-the demo composes (see _SpeechSherpa Design_); and the `DemaConsulting.Speech.Onnx.Kokoro`
-library whose `AddKokoroModels()` extension method registers the shipped Kokoro ONNX
-text-to-speech model alongside the SpeechSherpa models in that same catalog (see
-_SpeechOnnxKokoro Design_); and the `DemaConsulting.Speech.Onnx.NemotronStt` library whose
-`AddNemotronSttModels()` extension method registers the shipped Nemotron ONNX speech-recognition
-model in that same catalog (see _SpeechOnnxNemotronStt Design_); and the
-`DemaConsulting.Speech.Onnx.ChatterboxTurbo` library whose `AddChatterboxTurboModels()` extension
-method registers the Chatterbox Turbo voice-cloning synthesis model and whose shared
-`ReferenceVoiceLibrary` provides the optional reference voice pack (see _SpeechOnnxChatterboxTurbo
-Design_) — and the following NuGet dependencies:
+SpeechDemo has the following project dependencies:
+
+- **Speech**: the core library (see _Speech Design_)
+- **SpeechSherpa**: `AddSherpaModels()` registers the shipped sherpa-onnx models with the
+  catalog the demo composes (see _SpeechSherpa Design_)
+- **SpeechOnnxKokoro**: `AddKokoroModels()` registers the shipped Kokoro ONNX text-to-speech
+  model (see _SpeechOnnxKokoro Design_)
+- **SpeechOnnxNemotronStt**: `AddNemotronSttModels()` registers the shipped Nemotron ONNX
+  speech-recognition model (see _SpeechOnnxNemotronStt Design_)
+- **SpeechOnnxChatterboxTurbo**: `AddChatterboxTurboModels()` registers the Chatterbox Turbo
+  voice-cloning synthesis model, and its shared `ReferenceVoiceLibrary` provides the optional
+  reference voice pack (see _SpeechOnnxChatterboxTurbo Design_)
+
+SpeechDemo also depends on the following NuGet packages:
 
 - **Avalonia** (with `Avalonia.Desktop`, `Avalonia.Themes.Fluent`, and `Avalonia.Fonts.Inter`)
   supplies the cross-platform desktop application host, styling, and view layer;
@@ -116,8 +126,9 @@ N/A - SpeechDemo provides no safety-critical functionality requiring risk contro
    shared `ReferenceVoiceLibrary` (see _Launch Options and
    Mirror Configuration_ and _Reference Voices_), wraps each in its demo-owned service
    adapter, and injects those adapters into the panel view models and the window view model
-3. **Output**: The main window opens on its first panel; the catalog is disposed when the
-   desktop lifetime signals shutdown
+3. **Output**: The main window opens on its first panel. On shutdown the `App` unit defers the
+   shutdown, disposes the synthesis panel, the recognition panel and then the catalog service in
+   that order (a teardown fault is swallowed), and finally resumes the shutdown
 
 **Device enumeration path:**
 
@@ -142,7 +153,7 @@ N/A - SpeechDemo provides no safety-critical functionality requiring risk contro
 
 **Model settings path:**
 
-1. **Input**: The synthesis or recognition panel assigns a newly selected model to the embedded
+1. **Input**: The synthesis panel assigns a newly selected model to the embedded
    settings panel's `Model` property
 2. **Presentation**: One presenter is built per declared parameter, chosen by the parameter's
    concrete type alone
@@ -247,8 +258,8 @@ Turbo is selected.
   produce a working window, matching the library's own composition guarantee
 - **Honest empty states**: An empty device list, an empty catalog, no installed synthesis or
   recognition model, and no selected model in the settings panel are all explained in their
-  panel. The library ships no downloadable model in this phase, so every "no installed model"
-  state is expected, not a defect
+  panel. A "no installed model" state is expected until the user downloads a model from the
+  catalog, so it is reported, not treated as a defect
 - **No UI automation tests**: Verification is at the view-model level. Driving a real window on
   a CI runner with no display would add fragility without adding evidence
 

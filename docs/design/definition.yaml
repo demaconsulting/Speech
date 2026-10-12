@@ -64,11 +64,21 @@ input-files:
   - docs/design/speech/synthesis-subsystem/unavailable-synthesis-session.md
   - docs/design/speech/synthesis-subsystem/audio-tag-parser.md
   - docs/design/speech-demo.md
+  - docs/design/speech-demo/app.md
+  - docs/design/speech-demo/app-launch-options.md
+  - docs/design/speech-demo/mirror-options-factory.md
+  - docs/design/speech-demo/program.md
   - docs/design/speech-demo/shell-subsystem.md
   - docs/design/speech-demo/device-selection-subsystem.md
   - docs/design/speech-demo/model-catalog-subsystem.md
+  - docs/design/speech-demo/model-catalog-subsystem/model-catalog-service.md
+  - docs/design/speech-demo/model-catalog-subsystem/model-catalog-view-model.md
+  - docs/design/speech-demo/model-catalog-subsystem/model-list-item-view-model.md
+  - docs/design/speech-demo/model-catalog-subsystem/reference-voice-pack-list-item-view-model.md
   - docs/design/speech-demo/model-settings-subsystem.md
   - docs/design/speech-demo/synthesis-panel-subsystem.md
+  - docs/design/speech-demo/synthesis-panel-subsystem/synthesis-panel-view-model.md
+  - docs/design/speech-demo/synthesis-panel-subsystem/synthesizer-session-factory.md
   - docs/design/speech-demo/recognition-panel-subsystem.md
   - docs/design/speech-sherpa.md
   - docs/design/speech-sherpa/model-management-subsystem.md

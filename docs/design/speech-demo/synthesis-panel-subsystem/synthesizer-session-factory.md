@@ -26,7 +26,7 @@ reloading the model on every Play.
 
 | Member | Returns | Behavior |
 | --- | --- | --- |
-| `LoadAsync(model, parameterValues, cancellationToken)` | `Task<ISpeechSynthesizerEngine>` | Never throws |
+| `LoadAsync(model, parameterValues, cancellationToken)` | `Task<ISpeechSynthesizerEngine>` | Throws for null model |
 
 **Key Methods**:
 

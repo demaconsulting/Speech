@@ -61,15 +61,18 @@ every interface consumer - `ModelCatalogViewModel`, the panel view models that o
   may have moved the old install aside or restored it), uninstall and `ApplyMirror` call a private
   recompose step that builds a new pair through the factory, publishes it, disposes the old catalog and
   library, and raises `ReferenceVoicesChanged`. Services built with the older constructors have no library:
-  `ReferenceVoicePacks` is empty, the state is `NotDownloaded`, and install/uninstall throw `InvalidOperationException`.
+    `ReferenceVoicePacks` is empty and `UserVoicesDirectory` is `null`, and `GetReferenceVoicePackState`,
+    `ReferenceVoicePackHasEmotions`, install and uninstall all reject the call through the private `RequireVoiceLibrary`
+    helper by throwing `InvalidOperationException` (the state is not reported as `NotDownloaded`).
 
-**Error Handling**: `Enumerate()` never throws; it never invents placeholder models when the
-library's registry is empty - presenting an honest empty catalog is a presentation concern, not
-a reason to fabricate data. `DownloadAsync` propagates the library's own `ArgumentException` for
-an unknown model id. `ApplyMirror` propagates `ArgumentException` from an invalid mirror
-configuration (surfaced by the shared `MirrorOptionsFactory` helper its caller uses to build the
-`DownloadMirror`) and throws `InvalidOperationException` when this service cannot be
-reconfigured.
+  **Error Handling**: `Enumerate()` never throws; it never invents placeholder models when the
+  library's registry is empty - presenting an honest empty catalog is a presentation concern, not
+  a reason to fabricate data. `DownloadAsync` propagates the library's own `ArgumentException` for
+  an unknown model id. `ApplyMirror` propagates `ArgumentException` from an invalid mirror
+  configuration (surfaced by the shared `MirrorOptionsFactory` helper its caller uses to build the
+  `DownloadMirror`) and throws `InvalidOperationException` when this service cannot be
+  reconfigured. The reference-voice members (state, emotion query, install, uninstall) throw
+  `InvalidOperationException` when the service was constructed without a voice library.
 
 **Thread Safety**: `ApplyMirror` and `Dispose` are not safe to call concurrently with each other
 or with themselves - both read and then replace the same current-catalog field with no

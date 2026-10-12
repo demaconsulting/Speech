@@ -137,12 +137,10 @@ sections:
               parameter into a key-value bag keyed by each parameter's declared identifier.
             justification: |
               The design describes an untyped key-value bag as the interface between a
-              host's settings UI and per-model synthesis/recognition parameter handling. This bag
-              is built and exercised now so a future library revision exposing a per-call
-              parameter surface has an already-proven consumer ready to use it; the current
-              public synthesis/recognition contracts accept no such bag on any per-call member,
-              so the bag has no real synthesis or recognition consumer yet, which is stated
-              plainly rather than silently implied.
+              host's settings UI and per-model synthesis parameter handling. The synthesis
+              panel forwards this bag to the synthesizer-engine load so a chosen voice changes
+              what is synthesized. The recognition panel does not consume it because the
+              recognition session contract accepts no per-call parameter bag.
             tests:
               - ModelSettingsViewModel_BuildValueBag_AllThreeParameterKinds_RoundTripsCurrentValues
               - ModelSettingsViewModel_BuildValueBag_NoModel_ReturnsEmptyBag

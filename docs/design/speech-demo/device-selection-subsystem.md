@@ -11,6 +11,21 @@ contains the following units:
   implementation over the library's `AudioDeviceFactory` probes
 - **DeviceSelectionViewModel**: the presentation state for both pickers
 
+### Interfaces
+
+The subsystem exposes `DeviceSelectionViewModel` (bound by the device panel view and shared by
+the synthesis and recognition panels, which read its `CaptureSelection`/`PlaybackSelection` and
+register pre-refresh hooks) and `IAudioDeviceService` (consumed by the panels to create
+capture and playback devices). It consumes the library's `AudioDeviceFactory`,
+`AudioDeviceDescription` and `AudioDeviceSelection`.
+
+### Design
+
+The subsystem is a seam plus a view model. The demo-owned `IAudioDeviceService` wraps the
+library's sealed factory so the view model can be verified without audio hardware, and
+`DeviceSelectionViewModel` keeps both device lists, the name-keyed selection and the
+pre-refresh hook list described below.
+
 ### Why a Demo-Owned Seam
 
 The library exposes device enumeration through a sealed `AudioDeviceFactory` and its

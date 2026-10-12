@@ -81,6 +81,10 @@ includes:
   - docs/reqstream/speech/synthesis-subsystem/unavailable-speech-synthesizer-engine.yaml
   - docs/reqstream/speech/synthesis-subsystem/unavailable-synthesis-session.yaml
   - docs/reqstream/speech-demo.yaml
+  - docs/reqstream/speech-demo/app.yaml
+  - docs/reqstream/speech-demo/app-launch-options.yaml
+  - docs/reqstream/speech-demo/mirror-options-factory.yaml
+  - docs/reqstream/speech-demo/program.yaml
   - docs/reqstream/speech-demo/shell-subsystem.yaml
   - docs/reqstream/speech-demo/device-selection-subsystem.yaml
   - docs/reqstream/speech-demo/model-catalog-subsystem.yaml

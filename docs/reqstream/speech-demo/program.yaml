@@ -1,0 +1,23 @@
+---
+# Software Unit Requirements for the SpeechDemo Program
+#
+# These requirements describe the design-level behavior of the Program unit - the process entry
+# point - decomposing the system-level library composition requirement in
+# docs/reqstream/speech-demo.yaml. Fail-fast handling and --help inside Main have no direct
+# automated test because Main starts a desktop lifetime; the verification document records that
+# as an accepted gap.
+
+sections:
+  - title: SpeechDemo Requirements
+    sections:
+      - title: Program Requirements
+        requirements:
+          - id: SpeechDemo-Program-AvaloniaApp
+            title: >-
+              The Program unit shall configure the Avalonia application builder for the demo
+              application through a method callable without running the process entry point.
+            justification: |
+              Avalonia's design-time tooling invokes the builder without running Main, so the
+              builder must hold all application configuration and no application logic.
+            tests:
+              - Avalonia_BuildAvaloniaApp_Invoked_ReturnsConfiguredApplicationBuilder

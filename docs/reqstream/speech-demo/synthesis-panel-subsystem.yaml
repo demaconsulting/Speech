@@ -8,10 +8,39 @@
 # synthesis-panel-subsystem/ - one per independently testable unit:
 # synthesizer-session-factory.yaml (ISynthesizerSessionFactory/SynthesizerSessionFactory, treated
 # as one unit because the interface has no independently observable behavior of its own) and
-# synthesis-panel-view-model.yaml (SynthesisPanelViewModel). This subsystem decomposes no
-# requirements of its own beyond those unit-level requirements.
+# synthesis-panel-view-model.yaml (SynthesisPanelViewModel). The requirements below are the
+# subsystem's own behavior, verified through the panel view model working with its seams.
 
 sections:
   - title: SpeechDemo Requirements
     sections:
       - title: SynthesisPanelSubsystem Requirements
+        requirements:
+          - id: SpeechDemo-SynthesisPanel-PlaybackThroughSeams
+            title: >-
+              The SynthesisPanelSubsystem shall speak the entered text through the selected
+              installed model and playback device using only the demo-owned session seam and the
+              library's engine and session contracts, reporting each lifecycle transition.
+            justification: |
+              Routing every library call through the seam is what lets the whole Play and Stop
+              lifecycle be verified with no downloaded model, native runtime or speakers, while
+              still demonstrating the library's synthesis contract.
+            tests:
+              - SynthesisPanelViewModel_Play_SuccessfulSession_TransitionsThroughLifecycleToIdle
+              - SynthesisPanelViewModel_Stop_DuringPlayback_CancelsSessionAndReportsStopped
+              - SynthesisPanelViewModel_Play_NoPlaybackDevice_ReportsErrorState
+
+          - id: SpeechDemo-SynthesisPanel-ExternalChangeHandling
+            title: >-
+              The SynthesisPanelSubsystem shall stay consistent when the catalog, the reference
+              voices or the shared device refresh change underneath it, by refreshing its
+              models while keeping the chosen settings and by stopping playback before a device
+              refresh.
+            justification: |
+              The panel shares the device list with the recognition panel and shares the catalog
+              with the model catalog panel. Without handling their changes a user would see a
+              stale model or voice list or hit a device that is still in use.
+            tests:
+              - SynthesisPanelViewModel_ModelInstalled_MatchingRole_TriggersRefresh
+              - SynthesisPanelViewModel_ReferenceVoicesChanged_RefreshesAndKeepsChosenVoice
+              - SynthesisPanelViewModel_PreRefreshHook_WhilePlaying_StopsAndAwaitsExecutionTaskBeforeDeviceRefreshSucceeds

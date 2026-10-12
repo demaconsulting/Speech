@@ -233,5 +233,5 @@ than a rendered-control assertion. Consistent with that precedent, the `IsIntege
 confirmed structurally (the compiled XAML's `IsVisible="{Binding IsInteger}"`/
 `IsVisible="{Binding !IsInteger}"` bindings and the `NumericUpDown`'s
 `Value`/`Minimum`/`Maximum`/`Increment`/`FormatString` bindings were read and checked by hand
-against `NumericParameterViewModel`'s members) rather than through a new UI testing mechanism
-invented for this pass.
+against NumericParameterViewModel's members) rather than through a UI testing mechanism that has no
+precedent in this project.

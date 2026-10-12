@@ -40,11 +40,10 @@ sections:
           - id: SpeechDemo-Shell-PanelTitles
             title: >-
               The ShellSubsystem shall give every panel a non-blank title and shall name the
-              capabilities the application currently implements.
+              panels the application presents in its window title.
             justification: |
-              A navigation entry with no title is unusable, and an honest window title tells a
-              user which capabilities this build actually demonstrates rather than implying
-              capabilities that arrive in a later phase.
+              A navigation entry with no title is unusable, and a window title that names the
+              panels tells a user what the application offers.
             tests:
               - DemoPanelViewModel_Constructor_ValidArguments_CarriesTitleAndContent
               - DemoPanelViewModel_Constructor_BlankTitle_ThrowsArgumentException
@@ -66,7 +65,7 @@ sections:
               - MainWindowViewModel_Constructor_NullSynthesis_ThrowsArgumentNullException
               - MainWindowViewModel_Constructor_NullRecognition_ThrowsArgumentNullException
 
-          - id: SpeechDemo-Shell-PanelRefreshNeverThrows
+          - id: SpeechDemo-Shell-EmptyEnvironmentComposition
             title: >-
               The ShellSubsystem shall compose successfully on a machine that reports no audio
               devices and no known models, with each panel reporting its own empty state.

@@ -5,7 +5,7 @@
 ### Overview
 
 The ModelSettingsSubsystem provides the demo's generic per-model tunable-parameter settings
-panel, embedded within the synthesis and recognition panels for whichever model is currently
+panel, embedded within the synthesis panel for whichever model is currently
 selected there. It contains the following units:
 
 - **ParameterViewModelBase**: the presentation state shared by every parameter kind — the
@@ -15,9 +15,21 @@ selected there. It contains the following units:
 - **ModelSettingsViewModel**: the panel's presentation state — the rendered presenters, the
   selected model, and the honest empty-state message
 
+### Interfaces
+
+The subsystem exposes `ModelSettingsViewModel` and the three presenter types to the
+SynthesisPanelSubsystem, which embeds the panel and consumes `BuildValueBag()` and
+`RestoreValues()`. It consumes only the library's `ISpeechModel` and `ISpeechModelParameter`
+descriptors (`NumericParameter`, `ChoiceParameter`, `BooleanParameter`).
+
+### Design
+
+The subsystem is a generic presenter set: `ModelSettingsViewModel` type-checks each declared
+parameter and builds one presenter per recognized kind. The sections below describe each unit.
+
 ### Why a Generic Presenter Set
 
-this library's typed, self-describing parameter design lets a host render an appropriate
+This library's typed, self-describing parameter design lets a host render an appropriate
 control for a parameter using only a type check against the three concrete
 `ISpeechModelParameter` implementations. `ModelSettingsViewModel` performs exactly that type
 check and nothing more, which is what proves a new model with its own declared parameter set
@@ -33,8 +45,12 @@ parameter set.
 | `Description` | `string` | The longer explanation shown as a tooltip or help text |
 | `BoxedValue` | `abstract object` | The parameter's current value, boxed for the value bag |
 
-Each concrete presenter's constructor rejects a null library descriptor, because a presenter
-built with no descriptor has nothing to display.
+`NumericParameterViewModel` adds `Value`, `Minimum`, `Maximum`, `Step`, `Unit` and `IsInteger`;
+`ChoiceParameterViewModel` adds `Options` and `SelectedOption`; `BooleanParameterViewModel` adds
+`Value`. Each concrete presenter's constructor rejects a null library descriptor
+(`ArgumentNullException`), because a presenter built with no descriptor has nothing to display.
+`ChoiceParameterViewModel` assumes the descriptor declares at least one option and selects the
+option matching the default (falling back to the first option).
 
 ### Concrete Presenters
 
@@ -82,15 +98,15 @@ unexplained blank panel would read to a user as a broken application rather than
 
 **Value bag.** `BuildValueBag()` assembles every presented parameter's current `BoxedValue` into
 a dictionary keyed by `Id`. The design describes this untyped key-value bag as the interface
-between a host's settings UI and per-model synthesis/recognition parameter handling. As of this
-pass, `SynthesisPanelViewModel.PlayAsync` forwards this bag as the `parameterValues` argument to
+between a host's settings UI and per-model synthesis parameter handling.
+`SynthesisPanelViewModel.PlayAsync` forwards this bag as the `parameterValues` argument to
 `ISynthesizerSessionFactory.LoadAsync`, which threads it through to the library's
-`SpeechSynthesizerFactory.LoadAsync` and, from there, to `ISynthesisModel.ResolveSpeakerId` — so
-selecting a voice in the TTS panel now genuinely changes synthesized output. The recognition
-panel does not yet consume this bag: `IRecognitionSession`'s contract accepts no per-call
-parameter bag on any member, so for recognition it remains built and fully exercised by unit
-tests, ready for a future library revision exposing a per-call recognition parameter surface.
-This is stated plainly here rather than silently implied.
+`SpeechSynthesizerFactory.LoadAsync` and, from there, to `ISynthesisModel.ResolveSpeakerId`, so
+selecting a voice in the TTS panel changes synthesized output. The recognition
+panel does not consume this bag and does not embed the settings panel: `IRecognitionSession`'s
+contract accepts no per-call parameter bag on any member. The bag is justified by its synthesis
+consumer; a future library revision exposing a per-call recognition parameter surface could
+reuse it.
 
 **Restoring values.** `RestoreValues(values)` applies a previously captured bag onto the current
 presenters: choices by option value, numerics as `double`, booleans as `bool`. Unknown keys,
@@ -100,8 +116,8 @@ removal) and restores it afterwards so the user keeps their chosen voice and oth
 
 ### Interactions with Other Units
 
-`ModelSettingsViewModel` is embedded directly by `SynthesisPanelViewModel` and
-`RecognitionPanelViewModel`, which assign their own `SelectedModel` to its `Model` property
+`ModelSettingsViewModel` is embedded directly by `SynthesisPanelViewModel`, which assigns its
+own `SelectedModel` to the `Model` property
 whenever the selection changes. It depends only on the library's `ISpeechModel` and
 `ISpeechModelParameter` value types, never on `ISynthesisModel`, `IRecognitionModel`, or any
 audio/session seam, which is what allows every presenter kind — including the model-switch and

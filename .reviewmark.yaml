@@ -1290,6 +1290,60 @@ reviews:
       - "test/DemaConsulting.Speech.Demo.Tests/AppLaunchOptionsTests.cs"    # launch-option parsing tests
       - "test/DemaConsulting.Speech.Demo.Tests/Fakes/**/*.cs"               # shared test doubles
 
+  # SpeechDemo-App Review (one per unit)
+  - id: SpeechDemo-App
+    title: Review that SpeechDemo App Implementation is Correct
+    context:
+      - "docs/design/speech-demo.md"
+      - "docs/reqstream/speech-demo.yaml"
+    paths:
+      - "docs/reqstream/speech-demo/app.yaml"
+      - "docs/design/speech-demo/app.md"
+      - "docs/verification/speech-demo/app.md"
+      - "src/DemaConsulting.Speech.Demo/App.axaml.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/SpeechDemoTests.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/Ots/AvaloniaTests.cs"
+
+  # SpeechDemo-AppLaunchOptions Review (one per unit)
+  - id: SpeechDemo-AppLaunchOptions
+    title: Review that SpeechDemo AppLaunchOptions Implementation is Correct
+    context:
+      - "docs/design/speech-demo.md"
+      - "docs/reqstream/speech-demo.yaml"
+    paths:
+      - "docs/reqstream/speech-demo/app-launch-options.yaml"
+      - "docs/design/speech-demo/app-launch-options.md"
+      - "docs/verification/speech-demo/app-launch-options.md"
+      - "src/DemaConsulting.Speech.Demo/AppLaunchOptions.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/AppLaunchOptionsTests.cs"
+
+  # SpeechDemo-MirrorOptionsFactory Review (one per unit)
+  - id: SpeechDemo-MirrorOptionsFactory
+    title: Review that SpeechDemo MirrorOptionsFactory Implementation is Correct
+    context:
+      - "docs/design/speech-demo.md"
+      - "docs/reqstream/speech-demo.yaml"
+    paths:
+      - "docs/reqstream/speech-demo/mirror-options-factory.yaml"
+      - "docs/design/speech-demo/mirror-options-factory.md"
+      - "docs/verification/speech-demo/mirror-options-factory.md"
+      - "src/DemaConsulting.Speech.Demo/MirrorOptionsFactory.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/AppLaunchOptionsTests.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/ModelCatalogSubsystem/ModelCatalogViewModelTests.cs"
+
+  # SpeechDemo-Program Review (one per unit)
+  - id: SpeechDemo-Program
+    title: Review that SpeechDemo Program Implementation is Correct
+    context:
+      - "docs/design/speech-demo.md"
+      - "docs/reqstream/speech-demo.yaml"
+    paths:
+      - "docs/reqstream/speech-demo/program.yaml"
+      - "docs/design/speech-demo/program.md"
+      - "docs/verification/speech-demo/program.md"
+      - "src/DemaConsulting.Speech.Demo/Program.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/Ots/AvaloniaTests.cs"
+
   # SpeechDemo-Design Review (one per system)
   - id: SpeechDemo-Design
     title: Review that SpeechDemo Design is Consistent and Complete
@@ -1386,6 +1440,7 @@ reviews:
     paths:
       - "docs/reqstream/speech-demo/model-catalog-subsystem/reference-voice-pack-list-item-view-model.yaml"
       - "docs/design/speech-demo/model-catalog-subsystem/reference-voice-pack-list-item-view-model.md"
+      - "docs/verification/speech-demo/model-catalog-subsystem/reference-voice-pack-list-item-view-model.md"
       - "docs/verification/speech-demo/model-catalog-subsystem.md"
       - "src/DemaConsulting.Speech.Demo/ModelCatalogSubsystem/ReferenceVoicePackListItemViewModel.cs"
       - "test/DemaConsulting.Speech.Demo.Tests/ModelCatalogSubsystem/ReferenceVoicePackListItemViewModelTests.cs"
@@ -1403,6 +1458,7 @@ reviews:
     paths:
       - "docs/reqstream/speech-demo/model-catalog-subsystem/model-catalog-view-model.yaml"
       - "docs/design/speech-demo/model-catalog-subsystem/model-catalog-view-model.md"
+      - "docs/verification/speech-demo/model-catalog-subsystem/model-catalog-view-model.md"
       - "docs/verification/speech-demo/model-catalog-subsystem.md"
       - "src/DemaConsulting.Speech.Demo/ModelCatalogSubsystem/ModelCatalogViewModel.cs"
       - "src/DemaConsulting.Speech.Demo/ModelCatalogSubsystem/ModelCatalogView.axaml.cs"
@@ -1480,6 +1536,7 @@ reviews:
     paths:
       - "docs/reqstream/speech-demo/synthesis-panel-subsystem/synthesis-panel-view-model.yaml"
       - "docs/design/speech-demo/synthesis-panel-subsystem/synthesis-panel-view-model.md"
+      - "docs/verification/speech-demo/synthesis-panel-subsystem/synthesis-panel-view-model.md"
       - "docs/verification/speech-demo/synthesis-panel-subsystem.md"
       - "src/DemaConsulting.Speech.Demo/SynthesisPanelSubsystem/SynthesisPanelViewModel.cs"
       - "src/DemaConsulting.Speech.Demo/SynthesisPanelSubsystem/SynthesisPlaybackState.cs"

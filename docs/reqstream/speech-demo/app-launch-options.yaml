@@ -1,0 +1,71 @@
+---
+# Software Unit Requirements for the SpeechDemo AppLaunchOptions
+#
+# These requirements describe the design-level behavior of the AppLaunchOptions unit - the
+# parser and holder of the demo's launch-time command-line options - decomposing the
+# system-level launch and mirror requirements in docs/reqstream/speech-demo.yaml.
+
+sections:
+  - title: SpeechDemo Requirements
+    sections:
+      - title: AppLaunchOptions Requirements
+        requirements:
+          - id: SpeechDemo-LaunchOptions-Parsing
+            title: >-
+              The AppLaunchOptions unit shall parse the demo's launch-time arguments onto
+              typed properties, report a help request, and reject an unrecognized argument, an
+              option missing its value, or a null argument list.
+            justification: |
+              A mistyped option must fail fast with an explained error rather than being
+              ignored, otherwise a user would believe a mirror or folder setting was in effect
+              when it was not.
+            tests:
+              - Parse_NoArguments_ReturnsAllDefaults
+              - Parse_HelpFlag_SetsHelp
+              - Parse_AllOptions_ParsesOntoProperties
+              - Parse_UnrecognizedArgument_ThrowsArgumentException
+              - Parse_OptionMissingValue_ThrowsArgumentException
+              - Parse_NullArguments_ThrowsArgumentNullException
+
+          - id: SpeechDemo-LaunchOptions-StoreFolder
+            title: >-
+              The AppLaunchOptions unit shall translate a supplied models directory into a
+              model store root override and shall report no override when none was supplied.
+            justification: |
+              Letting a user relocate the model store matches the speech-cli --models-dir option
+              and lets the demo run against a pre-populated or read-only location.
+            tests:
+              - CreateStoreOptions_NoModelsDir_ReturnsNull
+              - CreateStoreOptions_WithModelsDir_ReturnsMatchingRootPathOverride
+
+          - id: SpeechDemo-LaunchOptions-MirrorConfiguration
+            title: >-
+              The AppLaunchOptions unit shall translate the supplied mirror options into
+              downloader options carrying the configured mirror, report no downloader options
+              when no mirror was supplied, and reject an invalid mirror configuration.
+            justification: |
+              Launch-time mirror arguments let a user behind a network policy redirect model
+              downloads from a script. Invalid combinations must be rejected before any window
+              opens so the user gets a clear console message.
+            tests:
+              - CreateDownloaderOptions_NoMirrorUrl_ReturnsNull
+              - CreateDownloaderOptions_ValidCredentialedMirror_ReturnsConfiguredMirror
+              - CreateDownloaderOptions_BearerTokenMirror_ReturnsConfiguredMirror
+              - CreateDownloaderOptions_InvalidMirrorUrl_ThrowsArgumentException
+              - CreateDownloaderOptions_MirrorUserWithoutPassword_ThrowsArgumentException
+
+          - id: SpeechDemo-Voices-LaunchOption
+            title: >-
+              The AppLaunchOptions unit shall accept a --voices-dir launch option naming an
+              existing folder of the user's own reference voices, shall list it in the
+              help text, and shall reject a missing value or a folder that does not exist.
+            justification: |
+              Chatterbox Turbo needs reference recordings to clone. A launch option lets a
+              user bring their own voices, matching the speech-cli --voices-dir option; validating
+              the folder up front turns a typo into an immediate explained error instead of
+              a silently empty voice list.
+            tests:
+              - Parse_VoicesDir_ExistingDirectory_SetsVoicesDir
+              - Parse_VoicesDir_MissingDirectory_ThrowsArgumentException
+              - Parse_VoicesDir_NoValue_ThrowsArgumentException
+              - PrintHelp_ListsVoicesDirOption

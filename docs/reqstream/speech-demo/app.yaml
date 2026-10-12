@@ -1,0 +1,27 @@
+---
+# Software Unit Requirements for the SpeechDemo App
+#
+# These requirements describe the design-level behavior of the App unit - the Avalonia
+# application object and the demo's manual composition root - decomposing the system-level
+# library composition requirement in docs/reqstream/speech-demo.yaml. Deferred shutdown
+# sequencing has no automated test because it requires a running desktop lifetime; the
+# verification document records that as an accepted gap.
+
+sections:
+  - title: SpeechDemo Requirements
+    sections:
+      - title: App Requirements
+        requirements:
+          - id: SpeechDemo-App-ShellComposition
+            title: >-
+              The App unit shall compose the demo's object graph by hand over the library's
+              real public entry points, with every panel wired to the shared device selection
+              and model catalog, and shall remain a valid Avalonia application.
+            justification: |
+              The demo exists to show how a host application wires itself to the library. A
+              single explicit composition root keeps that wiring readable, and composing over
+              the real entry points is the evidence that the library is consumable.
+            tests:
+              - SpeechDemo_SystemIntegration_RealLibraryEntryPoints_ComposesWorkingShell
+              - SpeechDemo_SystemIntegration_RealModelCatalog_ReportsKnownModels
+              - Avalonia_DemoApplication_Inspected_DerivesFromAvaloniaApplication

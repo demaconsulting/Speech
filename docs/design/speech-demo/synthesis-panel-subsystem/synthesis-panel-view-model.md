@@ -3,25 +3,29 @@
 **Purpose**: Present the text-to-speech panel's installed synthesis models, the embedded
 `ModelSettingsViewModel`, the text input, the audio-tag hints, and the async Play/Stop lifecycle,
 caching and reusing an `ISpeechSynthesizerEngine` and an `ISynthesisSession` across many Play
-calls instead of recomposing them on every call (the bug this redesign fixes).
+calls instead of recomposing them on every call.
 
 **Data Model**:
 
 | Member | Type | Purpose |
 | --- | --- | --- |
-| `NoModelsMessage` etc. | `const string` | Explanation per honest outcome (no models, no selection, no device, error) |
+| `NoModelsMessage` and the other `*Message` constants | `const string` | One explanation per honest outcome |
 | `ExampleTagHints` | `static IReadOnlyList<string>` | Example tags drawn from `AudioTagCatalog` |
 | `AvailableModels` | `ObservableCollection<ISpeechModel>` | The installed synthesis models |
 | `SelectedModel` | `ISpeechModel?` | The chosen model |
 | `Text` | `string` | The text to synthesize, which may contain inline Natural Language Audio Tags |
 | `State` | `SynthesisPlaybackState` | The current lifecycle state: `Idle`, `Synthesizing`, `Playing`, `Error` |
 | `StatusMessage` | `string?` | The current or most recently failed attempt's explanation |
+| `HasStatusMessage` | `bool` | `true` when `StatusMessage` has content to show |
+| `VoiceNotice` | `string?` | Consent note and pack attributions for the Chatterbox Turbo model, else `null` |
+| `HasVoiceNotice` | `bool` | `true` when `VoiceNotice` is not `null` |
 | `Settings` | `ModelSettingsViewModel` | The embedded settings panel for the selected model |
 | `HasModels` / `CanPlay` | `bool` | Derived enablement values |
 | `CanChangeModel` | `bool` | `true` only when `State` is `Idle` or `Error` |
 | `RefreshCommand` | generated command | Re-reads the catalog |
 | `PlayCommand` | generated async command | Synthesizes and speaks `Text` |
 | `StopCommand` | generated async command | Stops an in-flight Play |
+| `DisposeAsync()` | `ValueTask` | Releases subscriptions, the pre-refresh hook, the session and the engine |
 
 **Key Methods**:
 
@@ -45,8 +49,8 @@ calls instead of recomposing them on every call (the bug this redesign fixes).
      session was created for: releases the stale session, then creates a fresh one through
      `engine.CreateSessionAsync`; on `SynthesisEngineBusyException` or an unavailable session,
      reports the appropriate message and enters `Error`; otherwise subscribes `StateChanged`
-  6. Otherwise reuses the cached session unchanged — this is the central reuse path that fixes
-     the "recreate on every Play" bug
+  6. Otherwise reuses the cached session unchanged — the central reuse path that avoids
+     recreating the session on every Play
   7. Clears the status message and awaits `session.SpeakAsync(Text, cancellationToken)`
   8. On success, `StateChanged` has already driven `State` back to `Idle`; on
      `OperationCanceledException` (from `StopCommand`), reports `StoppedMessage`; on
@@ -70,20 +74,19 @@ back to calling `Refresh()` synchronously when none was captured), mirroring
 `RecognitionPanelViewModel`'s identical pattern - since the event's raising thread is not
 otherwise guaranteed.
 
-**Engine/session reuse (the bugfix).** Per `ISpeechSynthesizerEngine`'s and
+**Engine/session reuse.** Per `ISpeechSynthesizerEngine`'s and
 `ISynthesisSession`'s own reuse guidance, this ViewModel loads an engine at most once per selected
 model/parameter-value combination, and creates a session at most once per engine/playback-device
 combination, reusing both across many Play calls instead of reloading the model and recreating
-the session on every click - the defect a prior design had, where every `PlayAsync` call composed
-a brand-new synthesizer (and therefore reloaded the model) even when nothing about the selection
-had changed. `PlayAsync` detects a reason to reload lazily, on its next call, rather than
+the session on every click, because loading a model is the expensive step. PlayAsync detects a reason
+to reload lazily, on its next call, rather than
 proactively on a property change: the cached engine is reloaded only when the selected model or
 `Settings.BuildValueBag()`'s built parameter values (compared by key/value, since a freshly built
 dictionary is never the same instance twice) differ from the ones it was last loaded with; the
 cached session is independently recreated whenever the engine was just reloaded or the selected
 playback device differs from the one it was last bound to. `ISynthesisSession.StateChanged`
-drives `State` (via `MapSessionState`, below) rather than the explicit `State = ...` assignments
-a prior design made around the `await SpeakAsync` call.
+drives `State` (via `MapSessionState`, below) rather than explicit `State = ...` assignments
+around the `await SpeakAsync` call.
 
 **Reference voice refresh and notice.** The constructor also subscribes to
 `IModelCatalogService.ReferenceVoicesChanged` (unsubscribed in `DisposeAsync`). The handler posts to
@@ -143,22 +146,31 @@ so the wrapping `Border` correctly disables the settings view. This prevents a u
 switching the selected model or its voice/speaker parameters while synthesis is in flight or
 audio is playing.
 
-**Error Handling**: Never lets a seam fault, a device fault, or an unavailable-engine/session
-state escape as an unhandled exception; every path resolves to `State`/`StatusMessage`.
-Cancellation is distinguished from a genuine failure via `OperationCanceledException`, and a
-terminal session fault releases the session (keeping the engine) rather than leaving a known-dead
-session cached for the next Play.
+**Error Handling**: The expected failure modes resolve to `State`/`StatusMessage` rather than
+escaping: no model selected, no playback device, an unavailable engine or session, a busy engine
+reported by `SynthesisEngineBusyException` while creating the session, a
+`SpeechSynthesizerUnavailableException` or `SynthesisSessionFaultedException` raised while
+speaking, and a session reporting `Faulted` through `StateChanged` (which sets `StatusMessage` to
+`SessionFaultedMessage`). Cancellation is distinguished from a genuine failure via
+`OperationCanceledException`, and a terminal session fault releases the session (keeping the
+engine) rather than leaving a known-dead session cached for the next Play. Any other exception
+raised by a seam call (for example a non-cancellation fault from `LoadAsync`) is not caught here
+and surfaces through the asynchronous command, because the seam contract reports engine
+unavailability by returning an unavailable engine rather than by throwing.
 
-**Dependencies**: `IModelCatalogService`, `IAudioDeviceService`, the shared
-`DeviceSelectionViewModel`, `ISynthesizerSessionFactory`, and the embedded
-`ModelSettingsViewModel` — never the library's synthesis concretes directly. This is what allows
-the whole Play/Stop lifecycle, including state derivation from `ISynthesisSession.StateChanged`,
-every unavailable-state path, the engine/session reuse behavior, and the
-auto-refresh-on-install behavior, to be verified with no downloaded model, no native runtime, and
-no real speakers.
+**Dependencies**: `IModelCatalogService` (installed-model list, `ModelInstalled`,
+`ReferenceVoicesChanged`, reference voice packs and their state), `IAudioDeviceService`, the
+shared `DeviceSelectionViewModel`, `ISynthesizerSessionFactory`, and the embedded
+`ModelSettingsViewModel`. The library synthesis and model types are reached directly only for
+presentation purposes: `AudioTagCatalog` (the tag hints), and `OnnxChatterboxTurboEnglishSynthesisModel`
+with `ReferenceVoiceLibrary.ConsentNotice` (to decide whether to show `VoiceNotice`). Everything
+that composes or runs a synthesizer goes through `ISynthesizerSessionFactory` and the
+`ISpeechSynthesizerEngine`/`ISynthesisSession` contracts. This is what allows the whole Play/Stop
+lifecycle, including state derivation from `ISynthesisSession.StateChanged`, every
+unavailable-state path, the engine/session reuse behavior, and the auto-refresh-on-install
+behavior, to be verified with no downloaded model, no native runtime, and no real speakers.
 
 **Callers**: `SynthesisPanelView.axaml` (binds Play/Stop and the model/settings controls to this
 presentation state). `RefreshCommand` is not bound to a visible button - it exists solely for the
-auto-refresh-on-install path above, since a manually clickable refresh beside Play/Stop/the model
-dropdown proved to be a redundant, confusingly placed control once auto-refresh-on-install
-existed.
+auto-refresh-on-install path above, because installs refresh the panel automatically and a
+manual refresh beside Play/Stop/the model dropdown would be redundant.

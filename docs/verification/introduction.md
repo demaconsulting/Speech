@@ -65,6 +65,14 @@ The following software items of the SpeechDemo system are also covered:
   demo-owned enumeration seam over the library's device probes
 - **ModelCatalogSubsystem (Subsystem)** — The model catalog and download panel and the
   demo-owned catalog seam over the library's model catalog
+- **ModelSettingsSubsystem (Subsystem)** — The generic per-model parameter settings panel
+- **SynthesisPanelSubsystem (Subsystem)** — The text-to-speech panel and its demo-owned
+  synthesizer-session seam
+- **RecognitionPanelSubsystem (Subsystem)** — The speech-to-text panel and its demo-owned
+  recognizer-session seam
+- **App, AppLaunchOptions, MirrorOptionsFactory, Program (Units)** — The units that belong
+  directly to the SpeechDemo system: the composition root, the command-line options, the shared
+  mirror-option validation, and the process entry point
 
 The following OTS items are also covered:
 

@@ -95,22 +95,6 @@ sections:
                   - ModelCatalogService_Dispose_WithFactory_DisposesCurrentCatalog
                   - ModelCatalogService_Dispose_WithoutFactory_DoesNotDisposeCatalog
 
-              - id: SpeechDemo-Voices-LaunchOption
-                title: >-
-                  The demo application shall accept a --voices-dir launch option naming an
-                  existing folder of the user's own reference voices, shall list it in the
-                  help text, and shall reject a missing value or a folder that does not exist.
-                justification: |
-                  Chatterbox Turbo needs reference recordings to clone. A launch option lets a
-                  user bring their own voices, matching the speech-cli --voices-dir option; validating
-                  the folder up front turns a typo into an immediate explained error instead of
-                  a silently empty voice list.
-                tests:
-                  - Parse_VoicesDir_ExistingDirectory_SetsVoicesDir
-                  - Parse_VoicesDir_MissingDirectory_ThrowsArgumentException
-                  - Parse_VoicesDir_NoValue_ThrowsArgumentException
-                  - PrintHelp_ListsVoicesDirOption
-
               - id: SpeechDemo-Voices-PackService
                 title: >-
                   A ModelCatalogSubsystem seam constructed over a catalog and reference voice

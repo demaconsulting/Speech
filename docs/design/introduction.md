@@ -61,6 +61,9 @@ The following software items of the SpeechDemo system are also covered:
   library from the position of an ordinary consumer, using only its public API. It is a sibling
   system to Speech, not a subsystem of it: it is separately built and separately run, has its
   own users and its own externally visible behavior, and the library must never depend on it
+- **App, AppLaunchOptions, MirrorOptionsFactory, Program (Units)** — The units that belong
+  directly to the SpeechDemo system: the composition root application class, the command-line
+  options, the shared mirror-option validation, and the process entry point
 - **ShellSubsystem (Subsystem)** — The application's manual composition root and window shell,
   presenting one titled, selectable panel per demonstrated capability
 - **DeviceSelectionSubsystem (Subsystem)** — The capture and playback device pickers: a
@@ -365,6 +368,8 @@ The SpeechDemo application's folder structure likewise mirrors its software stru
 src/DemaConsulting.Speech.Demo/
 ├── Program.cs                                 — Process entry point and Avalonia host builder
 ├── App.axaml / App.axaml.cs                   — Theme and manual composition root
+├── AppLaunchOptions.cs                        — Command-line option parsing
+├── MirrorOptionsFactory.cs                    — Shared mirror-option validation
 ├── ShellSubsystem/
 │   ├── MainWindow.axaml / .axaml.cs           — Navigation window shell
 │   ├── MainWindowViewModel.cs                 — Panel list and selected-panel state
@@ -377,8 +382,10 @@ src/DemaConsulting.Speech.Demo/
 ├── ModelCatalogSubsystem/
 │   ├── IModelCatalogService.cs                — Demo-owned model catalog seam
 │   ├── ModelCatalogService.cs                 — Real seam over the library's model catalog
+│   ├── ModelCatalogComposition.cs             — Catalog and reference voice library pair
 │   ├── ModelCatalogViewModel.cs               — Catalog panel presentation state
 │   ├── ModelListItemViewModel.cs              — One catalog row's presentation state
+│   ├── ReferenceVoicePackListItemViewModel.cs — One reference voice pack row's presentation state
 │   └── ModelCatalogView.axaml / .axaml.cs     — Catalog panel view
 ├── ModelSettingsSubsystem/
 │   ├── ParameterViewModelBase.cs              — Shared base for one parameter's presentation state
@@ -401,10 +408,10 @@ src/DemaConsulting.Speech.Demo/
     └── SynthesisPanelView.axaml / .axaml.cs   — Text-to-speech panel view
 ```
 
-`Program.cs` and `App.axaml`/`App.axaml.cs` sit at the application root rather than inside a
-subsystem folder because Avalonia requires the process entry point and the application class at
-the application's root namespace. Both belong to the ShellSubsystem for review and traceability
-purposes.
+`Program.cs`, `App.axaml`/`App.axaml.cs`, `AppLaunchOptions.cs` and `MirrorOptionsFactory.cs` sit at
+the application root rather than inside a subsystem folder because Avalonia requires the process
+entry point and the application class at the application's root namespace. They are units of the
+SpeechDemo system itself.
 
 The SpeechCli tool's folder structure likewise mirrors its software structure:
 

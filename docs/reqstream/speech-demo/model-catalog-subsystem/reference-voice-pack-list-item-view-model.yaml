@@ -27,6 +27,9 @@ sections:
                   - ReferenceVoicePackListItemViewModel_Constructor_ProjectsPackDetails
                   - ReferenceVoicePackListItemViewModel_State_DrivesFlagsAndStatusText
                   - ReferenceVoicePackListItemViewModel_FailureMessage_UpdatesHasFailureMessage
+                  - ReferenceVoicePackListItemViewModel_State_Changed_RaisesDependentPropertyChanged
+                  - ReferenceVoicePackListItemViewModel_FailureMessage_Changed_RaisesHasFailureMessageChanged
+                  - ReferenceVoicePackListItemViewModel_UnknownState_StatusTextFallsBackToStateName
 
               - id: SpeechDemo-Voices-PackEmotionOption
                 title: >-
@@ -34,7 +37,6 @@ sections:
                   emotion variants (default on), show the download size and the installed size for the chosen
                   option, offer "Add emotions" on a voices-only install, and pass the choice to the service
                   when installing.
-                tags: [subsystem]
                 justification: |
                   The emotion clips are most of the pack's size (about 570 MiB download against about 44 MiB
                   for the base voices), so the user must see what each choice costs and be able to add the
@@ -43,4 +45,7 @@ sections:
                   - ReferenceVoicePackListItemViewModel_Constructor_ProjectsPackDetails
                   - ReferenceVoicePackListItemViewModel_InstalledSizeText_FollowsOptionAndInstall
                   - ReferenceVoicePackListItemViewModel_AddEmotions_OnlyForVoicesOnlyInstall
+                  - ReferenceVoicePackListItemViewModel_HasEmotions_Changed_RaisesDependentPropertyChanged
+                  - ReferenceVoicePackListItemViewModel_IncludeEmotions_Changed_RaisesInstalledSizeTextChanged
+                  - ReferenceVoicePackListItemViewModel_PackWithoutEmotionsOrSize_HidesEmotionOptionAndSize
                   - ModelCatalogViewModel_InstallVoicePackAsync_PassesEmotionChoice

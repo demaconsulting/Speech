@@ -20,10 +20,9 @@ Automated coverage **does not** extend to driving the user interface, to real au
 a real, multi-hundred-megabyte model download. The demo's catalog is populated through
 SpeechSherpa's `AddSherpaModels()`, SpeechOnnxKokoro's `AddKokoroModels()`,
 the SpeechOnnxNemotronStt `AddNemotronSttModels()`, and the SpeechOnnxChatterboxTurbo
-`AddChatterboxTurboModels()` with seven real,
-production models (three recognition, four synthesis) covering both the recognition and synthesis
-roles, but the full download/install lifecycle is still verified at the subsystem level against
-controlled catalog data, never a real network fetch.
+`AddChatterboxTurboModels()` with real, production models covering both the recognition and
+synthesis roles, but the full download/install lifecycle is still verified at the subsystem level
+against controlled catalog data, never a real network fetch.
 
 System tests reside in `SpeechDemoTests.cs` within the `DemaConsulting.Speech.Demo.Tests`
 project, with the model-download outcome scenario additionally proven by
@@ -46,6 +45,13 @@ public honest-unavailable probes (`UnavailableAudioCaptureDeviceProbe`,
 `UnavailableAudioPlaybackDeviceProbe`), which is exactly what the library's audio factory itself
 falls back to when the PortAudio runtime cannot initialize.
 
+## Acceptance Criteria
+
+A SpeechDemo system-level test run passes when all scenarios below pass without unexpected
+exceptions and when the automated verification boundary remains honest: composition and panel
+state over the real library are claimed as automated coverage, while user-interface interaction,
+physical audio I/O, and real model downloads are explicitly left to manual/local verification.
+
 ## System-Level Test Scenarios
 
 ### Integration: Real Library Entry Points Compose a Working Shell
@@ -53,7 +59,7 @@ falls back to when the PortAudio runtime cannot initialize.
 **Test**: `SpeechDemo_SystemIntegration_RealLibraryEntryPoints_ComposesWorkingShell`
 
 Verifies that composing the whole demo object graph over the real library produces a shell
-offering this phase's four panels (Devices, Model Catalog, Text-to-Speech, Speech-to-Text),
+offering the four panels (Devices, Model Catalog, Text-to-Speech, Speech-to-Text),
 opened on the first, and hosting the injected panel instances.
 
 ### Integration: Real Audio Backend Device Enumeration Never Throws
@@ -78,10 +84,9 @@ picker a user would read as a bug.
 Verifies that the catalog panel composed over the real library catalog, populated through
 SpeechSherpa's `AddSherpaModels()`, SpeechOnnxKokoro's `AddKokoroModels()`,
 the SpeechOnnxNemotronStt `AddNemotronSttModels()`, and the SpeechOnnxChatterboxTurbo
-`AddChatterboxTurboModels()`, lists exactly the
-seven real, production models those extension methods register - spanning both the
-recognition and synthesis roles - rather than reporting an empty catalog or only the four Sherpa
-models.
+`AddChatterboxTurboModels()`, lists exactly the real, production models those extension methods
+register - spanning both the recognition and synthesis roles - rather than reporting an empty
+catalog or only the Sherpa models.
 
 The `SpeechDemo-Voices-ReferenceVoicePacks` system requirement is verified by the same scenario
 (the Chatterbox Turbo model is part of the real catalog) together with the `--voices-dir` launch
@@ -114,10 +119,3 @@ download, consistent with SpeechDemo-Models-RealCatalogReporting's real-catalog 
 
 Verifies that invoking every panel's refresh command on a fully composed demo — which is what a
 user clicking the refresh buttons actually exercises — completes without faulting.
-
-## Acceptance Criteria
-
-A SpeechDemo system-level test run passes when all scenarios above pass without unexpected
-exceptions and when the automated verification boundary remains honest: composition and panel
-state over the real library are claimed as automated coverage, while user-interface interaction,
-physical audio I/O, and real model downloads are explicitly left to manual/local verification.

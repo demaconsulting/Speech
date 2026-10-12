@@ -38,9 +38,27 @@ sections:
           so the demo must survive every ordinary machine state.
         children:
           - SpeechDemo-Shell-CompositionRoot
-          - SpeechDemo-Shell-PanelRefreshNeverThrows
+          - SpeechDemo-Shell-EmptyEnvironmentComposition
+          - SpeechDemo-App-ShellComposition
+          - SpeechDemo-Program-AvaloniaApp
         tests:
           - SpeechDemo_SystemIntegration_RefreshAllPanels_NeverThrows
+
+      - id: SpeechDemo-Shell-LaunchOptions
+        title: >-
+          The demo application shall accept launch-time options that relocate the model store
+          and add a folder of the user's own reference voices, and shall reject an unrecognized
+          or incomplete option with an explained error.
+        tags: [system]
+        justification: |
+          A developer starting the demo from a shell or script needs a discoverable, scriptable
+          way to configure it, matching the options speech-cli already offers. Failing fast on
+          a mistyped option prevents a user believing a setting is in effect when it is not.
+        children:
+          - SpeechDemo-LaunchOptions-Parsing
+          - SpeechDemo-LaunchOptions-StoreFolder
+        tests:
+          - Parse_AllOptions_ParsesOntoProperties
 
       - id: SpeechDemo-Devices-Selection
         title: >-
@@ -90,6 +108,7 @@ sections:
           - SpeechDemo-Models-StatePresentation
           - SpeechDemo-Models-Refresh
           - SpeechDemo-Models-LibraryCatalogDelegation
+          - SpeechDemo-ModelCatalog-PanelOperation
         tests:
           - SpeechDemo_SystemIntegration_RefreshAllPanels_NeverThrows
 
@@ -120,24 +139,16 @@ sections:
       - id: SpeechDemo-Models-RealCatalogReporting
         title: >-
           The demo application shall report exactly what the library's host-populated model
-          catalog contains, whether that is the seven real models (three recognition, four
-          synthesis) registered via DemaConsulting.Speech.Sherpa's AddSherpaModels(),
-          DemaConsulting.Speech.Onnx.Kokoro's AddKokoroModels(),
-          the NemotronStt package's AddNemotronSttModels(), and the ChatterboxTurbo
-          package's AddChatterboxTurboModels() extensions, or an empty registry
-          for a caller-supplied catalog with none.
+          catalog contains - the real recognition and synthesis models registered through the
+          Sherpa, Kokoro, NemotronStt and ChatterboxTurbo packages' registration extensions -
+          or an empty registry for a caller-supplied catalog with none.
         tags: [system]
         justification: |
-          The demo's composition root registers the sibling DemaConsulting.Speech.Sherpa,
-          DemaConsulting.Speech.Onnx.Kokoro, DemaConsulting.Speech.Onnx.NemotronStt, and
-          DemaConsulting.Speech.Onnx.ChatterboxTurbo packages'
-          production models into its
-          SpeechModelCatalog via AddSherpaModels(), AddKokoroModels(), AddNemotronSttModels(), and
-          AddChatterboxTurboModels() - core
-          DemaConsulting.Speech ships zero built-in models - so the demo's catalog panel must
-          surface those real models rather than continuing to assert emptiness as the expected
-          state. The underlying "explain an empty catalog plainly" capability remains a real,
-          separately-tested feature for any caller-supplied catalog that genuinely has none (see
+          The demo's composition root registers the sibling packages' production models into
+          its SpeechModelCatalog - core DemaConsulting.Speech ships zero built-in models - so
+          the demo's catalog panel must surface those real models. The underlying "explain an
+          empty catalog plainly" capability remains a real, separately-tested feature for any
+          caller-supplied catalog that genuinely has none (see
           SpeechDemo-Models-EmptyCatalogExplanation).
         children:
           - SpeechDemo-Models-EmptyCatalogExplanation
@@ -164,6 +175,8 @@ sections:
           - SpeechDemo-Models-MirrorCatalogOwnership
           - SpeechDemo-Models-MirrorSettingsUi
           - SpeechDemo-Models-MirrorBlockedDuringDownload
+          - SpeechDemo-LaunchOptions-MirrorConfiguration
+          - SpeechDemo-MirrorOptions-Validation
         tests:
           - ModelCatalogService_ApplyMirror_WithFactory_RebuildsCatalogThroughFactory
           - ModelCatalogViewModel_ApplyMirror_ValidMirror_ForwardsConfiguredMirrorAndReportsSuccess
@@ -192,10 +205,12 @@ sections:
           - SpeechDemo-Voices-PackEmotionOption
           - SpeechDemo-Voices-SynthesisRefresh
           - SpeechDemo-Voices-ConsentAndAttribution
+          - SpeechDemo-ModelCatalog-VoicePackChangeNotification
           - SpeechDemo-Settings-RestoreValues
         tests:
           - Parse_VoicesDir_ExistingDirectory_SetsVoicesDir
           - SpeechDemo_SystemIntegration_RealModelCatalog_ReportsKnownModels
+
       - id: SpeechDemo-Settings-PerModelParameters
         title: >-
           The demo application shall let a user view and adjust a selected installed model's
@@ -252,6 +267,8 @@ sections:
           - SpeechDemo-Synthesis-AutoRefreshOnInstall
           - SpeechDemo-Synthesis-ResourceLifetime
           - SpeechDemo-Synthesis-ModelSwitchGuard
+          - SpeechDemo-SynthesisPanel-PlaybackThroughSeams
+          - SpeechDemo-SynthesisPanel-ExternalChangeHandling
         tests:
           - SpeechDemo_SystemIntegration_RealCatalog_TtsAndSttPanelsReportEmptyStateHonestly
 

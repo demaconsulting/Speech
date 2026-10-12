@@ -10,10 +10,41 @@
 # model-catalog-service.yaml (IModelCatalogService/ModelCatalogService, treated as one unit
 # because the interface has no independently observable behavior of its own),
 # model-catalog-view-model.yaml (ModelCatalogViewModel), and
-# model-list-item-view-model.yaml (ModelListItemViewModel). This subsystem decomposes no
-# requirements of its own beyond those unit-level requirements.
+# model-list-item-view-model.yaml (ModelListItemViewModel), and
+# reference-voice-pack-list-item-view-model.yaml (ReferenceVoicePackListItemViewModel). The
+# requirements below are the subsystem's own behavior, verified through the panel view model
+# and the catalog service working together.
 
 sections:
   - title: SpeechDemo Requirements
     sections:
       - title: ModelCatalogSubsystem Requirements
+        requirements:
+          - id: SpeechDemo-ModelCatalog-PanelOperation
+            title: >-
+              The ModelCatalogSubsystem shall present model browsing, download and
+              mirror-redirection controls from one panel view model driven entirely through the
+              demo-owned catalog service seam.
+            justification: |
+              The demo's evidence value is that a host can build a complete model-management
+              page against the library's catalog contract alone. Driving the panel only through
+              the seam is what keeps it deterministic to verify with no network access.
+            tests:
+              - ModelCatalogViewModel_DownloadAsync_Installed_MarksModelDownloaded
+              - ModelCatalogViewModel_Refresh_StateChanged_RebuildsRowsAndKeepsSelection
+              - ModelCatalogViewModel_ApplyMirror_ValidMirror_ForwardsConfiguredMirrorAndReportsSuccess
+
+          - id: SpeechDemo-ModelCatalog-VoicePackChangeNotification
+            title: >-
+              The ModelCatalogSubsystem shall rebuild its catalog and reference voice library
+              and raise a voices-changed notification after a voice pack is installed or
+              removed or the mirror is changed, so that other panels can refresh.
+            justification: |
+              The Chatterbox voice list is fixed when the model is constructed, so a stale
+              catalog would keep offering the old voices. The notification is how the synthesis
+              panel learns that its voice choices changed.
+            tests:
+              - ModelCatalogService_UninstallReferenceVoicePack_RebuildsCatalogAndRaisesEvent
+              - ModelCatalogService_ApplyMirror_Composed_RebuildsPairAndRaisesEvent
+              - ModelCatalogService_InstallReferenceVoicePackAsync_Failure_StillRebuildsAndRaises
+              - ModelCatalogViewModel_InstallVoicePackAsync_Installed_RefreshesRows

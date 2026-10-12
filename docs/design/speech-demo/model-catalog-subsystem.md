@@ -19,12 +19,15 @@ following units, each documented in its own file:
 
 ### Interfaces
 
-The subsystem exposes `IModelCatalogService`, `ModelCatalogService`, `ModelCatalogViewModel`, and
-`ModelListItemViewModel`, and `ReferenceVoicePackListItemViewModel` to the shell composition root and to the other panels
+The subsystem exposes `IModelCatalogService`, `ModelCatalogService`, `ModelCatalogComposition`,
+`ModelCatalogViewModel`, `ModelCatalogView`, `ModelListItemViewModel`, and
+`ReferenceVoicePackListItemViewModel` to the shell composition root and to the other panels
 (`SynthesisPanelSubsystem`, `RecognitionPanelSubsystem`) that subscribe to
-`IModelCatalogService.ModelInstalled` for auto-refresh-on-install. It consumes the library's
-`SpeechModelCatalog` (via the seam, never directly by the view models) for enumeration and
-download.
+`IModelCatalogService.ModelInstalled` for auto-refresh-on-install; the synthesis panel also
+consumes `ReferenceVoicePacks`, `GetReferenceVoicePackState` and `ReferenceVoicesChanged`. It
+consumes the library's `SpeechModelCatalog` and `ReferenceVoiceLibrary` (via the seam, never
+directly by the view models) for enumeration, download and voice packs, and receives its
+launch-time mirror values from `AppLaunchOptions` through the composition root.
 
 ### Design
 
@@ -33,7 +36,7 @@ download.
 state, progress, and result value types — they never touch `SpeechModelCatalog`, the file
 system, the network, or Avalonia directly. This is what allows the whole download lifecycle —
 progress, success, checksum mismatch, transport failure, seam fault, and cancellation — to be
-verified deterministically with no network access and no downloadable model in existence. See
+verified deterministically with no network access and no downloadable model. See
 each unit's own design document for its data model, algorithms, and error handling.
 
 ### Mirror Reconfiguration

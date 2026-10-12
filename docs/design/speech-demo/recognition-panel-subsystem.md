@@ -48,10 +48,13 @@ Only the engine is composed through this seam; a capture device is bound later, 
 
 ### Design
 
-`RecognizerSessionFactory` resolves the model's installed-files directory from the shared
-`SpeechModelStore`, narrows the model to `IRecognitionModel`, and forwards to
-`SpeechRecognizerFactory.LoadAsync`, inheriting that factory's "nothing throws at composition"
-contract. A model that declares a role other than recognition — and is therefore not an
+`RecognizerSessionFactory` holds the shared `SpeechModelStore`, narrows the model to
+`IRecognitionModel`, and forwards both to `SpeechRecognizerFactory.LoadAsync`, which resolves the
+model's installed-files directory itself and so inherits that factory's "nothing throws at
+composition" contract. The recognition panel does not embed the `ModelSettingsSubsystem` panel:
+`IRecognitionSession`'s contract accepts no per-call parameter bag, so there is nothing for a
+settings panel to feed (see _SpeechDemo ModelSettingsSubsystem Design_). A model that declares a role
+other than recognition - and is therefore not an
 `IRecognitionModel` — returns the library's own `UnavailableSpeechRecognizerEngine.Instance`,
 exactly like a model that is not installed, rather than throwing: a host that lets a user choose
 an installed model with the wrong role must still get a working, if unavailable, engine back.
@@ -106,7 +109,7 @@ forces a device refresh - a session, not an engine, is bound to a capture device
 Both `OnSelectedModelChanged` and `OnDeviceSelectionChanged` call `StopAsync()` first when
 `CanStop` is `true`, before invalidating - defensively, not merely for tidiness: `SelectedModel`
 and the shared `DeviceSelectionViewModel.SelectedCaptureDevice`/`CaptureSelection` both have
-public setters and are only *disabled in the view* while listening (`CanChangeModel` for the
+public setters and are only _disabled in the view_ while listening (`CanChangeModel` for the
 model picker; the capture picker is never disabled at all), so either change can genuinely arrive
 while a session is active - not just programmatically, but from the capture picker, which has no
 `Listening` guard. Disposing a session without stopping it first would leave `State` stuck at
@@ -116,11 +119,10 @@ while a session is active - not just programmatically, but from the capture pick
 pre-refresh hook (`StopBeforeDeviceRefreshAsync`) with the shared `DeviceSelectionViewModel` via
 `RegisterPreRefreshHook`, mirroring the `ModelInstalled` subscription precedent above. The hook
 delegates to the same stop-then-invalidate-session path used for a capture-device change, so an
-actively listening session is stopped and released before the shared device table is re-scanned
-
-- its bound capture device would otherwise become stale the instant the refresh completes. This
-is what lets the `DeviceSelectionViewModel.Refresh()` clicked from the "Refresh devices" button
-stop an actively listening session deterministically, rather than relying on the
+actively listening session is stopped and released before the shared device table is re-scanned,
+because its bound capture device would otherwise become stale the instant the refresh completes.
+This is what lets the `DeviceSelectionViewModel.Refresh()` clicked from the "Refresh devices"
+button stop an actively listening session deterministically, rather than relying on the
 `AudioDeviceInUseException` fallback. `DisposeAsync()` unregisters this hook.
 
 **State derivation.** `RecognitionStreamingState` is never assigned ad hoc at each call site;
@@ -173,9 +175,9 @@ expected invalidation, while `RecognitionSessionFaultedException`/
 call completes without racing to double-dispose) is a safe no-op when nothing is cached.
 Otherwise it calls `session.StopAsync()`, awaits the pump task to fully drain, finalizes any
 diagnostic capture recording, clears the captured UI context, and - if not already in `Error` -
-reports `StoppedMessage`; the session itself remains cached (released only by the next
-invalidation), so a subsequent Start reuses it only implicitly through the still-cached engine
-(a fresh session is always created on the next Start, since a session is single-use).
+reports `StoppedMessage`. The stopped session stays cached only until the next invalidation: a
+session is single-use, so the next Start always releases it and creates a fresh session from the
+still-cached engine.
 
 **Model-switch guard.** `CanChangeModel` is `true` only when `State != RecognitionStreamingState.Listening`,
 computed via `[NotifyPropertyChangedFor(nameof(CanChangeModel))]` on the generated `State`
@@ -214,6 +216,5 @@ transcript sequencing, state derivation from `IRecognitionSession.StateChanged`,
 unavailable-state path, and the auto-refresh-on-install behavior to be verified with no
 downloaded model, no native runtime, and no real microphone. `RefreshCommand` is not bound to a
 visible button in `RecognitionPanelView.axaml` - it exists solely for the auto-refresh-on-install
-path above and is not a user-facing control, since a manually clickable refresh beside
-Start/Stop/the model dropdown proved to be a redundant, confusingly placed control once
-auto-refresh-on-install existed.
+path above and is not a user-facing control, since installs refresh the panel automatically and a
+manual refresh beside Start/Stop/the model dropdown would be redundant.

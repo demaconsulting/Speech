@@ -1,0 +1,31 @@
+---
+# Software Unit Requirements for the SpeechDemo MirrorOptionsFactory
+#
+# These requirements describe the design-level behavior of the MirrorOptionsFactory unit - the
+# shared builder of a download mirror from raw strings - decomposing the system-level mirror
+# redirection requirement in docs/reqstream/speech-demo.yaml. The factory has no test class of
+# its own; it is verified through its two callers, AppLaunchOptions and ModelCatalogViewModel.
+
+sections:
+  - title: SpeechDemo Requirements
+    sections:
+      - title: MirrorOptionsFactory Requirements
+        requirements:
+          - id: SpeechDemo-MirrorOptions-Validation
+            title: >-
+              The MirrorOptionsFactory unit shall build a download mirror from raw URL,
+              credential and token strings, return no mirror for a blank URL, and reject a
+              credential or token without a URL, a half-supplied username and password pair, and
+              a URL that is not a valid absolute URL.
+            justification: |
+              Launch-time arguments and the in-app mirror settings must validate identically.
+              A credential with nowhere to apply almost always means a missing or misspelled
+              URL, so it is rejected rather than silently ignored.
+            tests:
+              - CreateDownloaderOptions_ValidCredentialedMirror_ReturnsConfiguredMirror
+              - CreateDownloaderOptions_InvalidMirrorUrl_ThrowsArgumentException
+              - CreateDownloaderOptions_MirrorUserWithoutPassword_ThrowsArgumentException
+              - CreateDownloaderOptions_MirrorCredentialsWithoutUrl_ThrowsArgumentException
+              - CreateDownloaderOptions_MirrorBearerTokenWithoutUrl_ThrowsArgumentException
+              - ModelCatalogViewModel_ApplyMirror_InvalidUrl_ReportsErrorWithoutCallingService
+              - ModelCatalogViewModel_ApplyMirror_CredentialsWithoutUrl_ReportsErrorWithoutCallingService
