@@ -93,9 +93,9 @@ consistent with `AudioDeviceFactory` consulting its probe before constructing a 
 Verifies the full public streaming-recognition surface end to end: composing a recognizer for an
 installed model and an available capture device, streaming one captured block through audio-format
 conversion into the recognition engine, and surfacing the resulting provisional and final text
-through the session's IRecognitionSession.GetResultsAsync stream. The recognition engine is a deterministic test double,
-so
-this scenario proves the composed pipeline rather than speech-recognition accuracy.
+through the session's IRecognitionSession.GetResultsAsync stream. The recognition engine is a
+deterministic test double, so this scenario proves the composed pipeline rather than
+speech-recognition accuracy.
 
 ### Integration: Model Download Verifies and Atomically Installs the Model
 

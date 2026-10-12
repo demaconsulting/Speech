@@ -65,8 +65,10 @@ The system exposes the following public API to external consumers:
 - **IAudioCaptureDevice** / **IAudioPlaybackDevice**: the capture and playback device contracts
 - **IAudioCaptureDeviceProbe** / **IAudioPlaybackDeviceProbe**: contracts for enumerating
   available devices
-- **AudioDeviceDescription** / **AudioDeviceSelection**: immutable device description and
-  persistable device preference records
+- **AudioDeviceDescription** / **AudioDeviceDirection** / **AudioDeviceSelection**: immutable
+  device description (with its capture/playback direction enum) and persistable device preference
+  records
+- **AudioCaptureFrameEventArgs**: the event payload carrying one block of captured samples
 - **AudioDeviceFactory**: the composition entry point for obtaining capture/playback devices and
   probes
 - **AudioDeviceUnavailableException**: thrown when an operational member of an unavailable device
@@ -76,7 +78,7 @@ The system exposes the following public API to external consumers:
   device contracts
 - **AudioFileReader** / **AudioFileReadOptions** / **AudioClip** / **AudioResampler**: managed
   WAV and FLAC decoding by content sniffing, optional downmix/resample, and the decoded clip
-  value type
+  value type (validated on construction: positive sample rate and channel count, non-null samples)
 - **AudioFormat** / **AudioDeviceInUseException**: the audio format description and the
   exception reporting a device already held elsewhere
 - **DownloadMirror** / **SpeechModelDownloaderOptions**: optional mirror redirect (with
@@ -86,7 +88,9 @@ The system exposes the following public API to external consumers:
   installed-pack voices (installer and diagnostics helpers stay internal to the subsystem)
 - **SpeechModelStore** / **SpeechModelStoreOptions** / **SpeechModelStoreException**: per-user
   model storage with atomic install/repair/uninstall and a host-configurable root override
-- **SpeechModelDownloader**: queued fetch-verify-install download orchestration
+- **SpeechModelDownloader** / **SpeechModelDownloadResult** / **SpeechModelDownloadOutcome**:
+  queued fetch-verify-install download orchestration and its result/outcome (installed,
+  checksum mismatch, network blocked, HTTP error, I/O failure, or generic failure)
 - **IModelDownloadClient** / **HttpModelDownloadClient**: the mockable HTTP download seam and its
   real implementation
 - **SpeechModelDownloadFile** / **SpeechModelDownloadDescriptor**: HTTPS URL(s) and SHA-256
@@ -122,6 +126,8 @@ The system exposes the following public API to external consumers:
 - **NaturalLanguageAudioTag** / **NaturalLanguageAudioTagKind** / **AudioTagDescriptor** /
   **AudioTagCatalog** / **TaggedTextSpanKind** / **TaggedTextSpan** / **AudioTagParser**: the
   closed, fixed inline audio-tag vocabulary and the model-independent parser that recognizes it
+- **ISynthesisBackend** / **EngineAudio**: the engine-neutral synthesis backend seam that model
+  extensions implement and the plain-data audio result its `Generate` call returns
 - **ISpeechSynthesizerEngine** / **ISynthesisSession** / **SynthesizedSpeech**: the loaded-model
   engine and per-device session halves of the streaming synthesis-and-playback contract, their
   state enums (`SynthesisSessionState`, `SessionStateChangedEventArgs`), and the immutable value
@@ -144,7 +150,7 @@ The system exposes the following public API to external consumers:
 | `AudioDeviceFactory.CreateCaptureDevice(...)` | Inbound/Outbound | Method call/return | Never throws |
 | `AudioDeviceFactory.CreatePlaybackDevice(...)` | Inbound/Outbound | Method call/return | Never throws |
 | `IAudioCaptureDevice.Start()`/`.Stop()` | Inbound | Method call | Throws only on unavailable or first-use faults |
-| `IAudioPlaybackDevice.Start()/Stop()/Write(...)` | Inbound | Method call | Unavailable/first-use faults only |
+| `IAudioPlaybackDevice.Start()`/`.Stop()`/`.Write(...)` | Inbound | Method call | Unavailable/first-use faults only |
 | `IAudioCaptureDeviceProbe.Enumerate()` | Outbound | Method call/return | Never throws; preferred host API only |
 | `IAudioPlaybackDeviceProbe.Enumerate()` | Outbound | Method call/return | Never throws; preferred host API only |
 | `AudioDeviceSelection.Resolve(...)` | Inbound/Outbound | Method call/return | Throws for a null list |
@@ -152,6 +158,7 @@ The system exposes the following public API to external consumers:
 | `WavFileAudioCaptureDevice`/`WavFileAudioPlaybackDevice` | Inbound/Outbound | Device | File-backed; no hardware |
 | `ReferenceVoiceLibrary.EnumerateVoices(...)` | Outbound | Method call/return | User-folder and pack voices |
 | `ReferenceVoiceLibrary.InstallPackAsync(...)` | Inbound/Outbound | Call/return | Verified install; failure result |
+| `ReferenceVoiceLibrary.UninstallPack(...)` | Inbound | Method call | Never blocks; throws while that pack installs |
 | `SpeechModelStore.IsInstalled(...)` | Outbound | Method call/return | Never throws |
 | `SpeechModelStore.CompleteInstall(...)` | Inbound | Method call | Atomic; never touches `current/` early |
 | `SpeechModelStore.Uninstall(...)` | Inbound | Method call | Throws `SpeechModelStoreException` if blocked |

@@ -66,9 +66,10 @@ No `win-arm64` PortAudio runtime package is available through this dependency ch
 if PortAudio fails to initialize on a machine, the library
 still composes safely but reports audio devices as unavailable.
 
-### Combining the raw ONNX packages (Kokoro, Nemotron STT) with sherpa-onnx
+### Combining the raw ONNX packages (Kokoro, Nemotron STT, Chatterbox Turbo) with sherpa-onnx
 
-`DemaConsulting.Speech.Onnx.Kokoro` and `DemaConsulting.Speech.Onnx.NemotronStt` both use
+`DemaConsulting.Speech.Onnx.Kokoro`, `DemaConsulting.Speech.Onnx.NemotronStt` and
+`DemaConsulting.Speech.Onnx.ChatterboxTurbo` all use
 Microsoft's `Microsoft.ML.OnnxRuntime` (pinned to 1.28.0),
 and the sherpa-onnx native runtime packages ship their own native ONNX Runtime library
 with the same file name (1.28.2 for sherpa-onnx 1.13.8). An application that references either
@@ -81,8 +82,8 @@ reference so only sherpa's native runtime is used (the managed APIs run against 
 <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.28.0" ExcludeAssets="native" />
 ```
 
-Keep that version in step with the sherpa-onnx native runtime. An application using Kokoro or
-Nemotron STT without sherpa-onnx needs no override and gets Microsoft's native runtime
+Keep that version in step with the sherpa-onnx native runtime. An application using Kokoro,
+Nemotron STT or Chatterbox Turbo without sherpa-onnx needs no override and gets Microsoft's native runtime
 transitively. To use an
 accelerated provider (for example DirectML or CUDA), reference the matching
 `Microsoft.ML.OnnxRuntime.*` package in a host that does not also ship sherpa-onnx's runtime. The
@@ -199,8 +200,9 @@ files, roughly 1.1 GB); `LanguageModelVariant` and `AuxiliaryModelVariant` selec
 each installed under its own model id. The model runs on the CPU only. It renders the `[laugh]`,
 `[clear throat]` and `[gasp]` audio tags with its own native tokens, renders sighs and pauses as
 silence, and omits every other tag except the mood tags. Mood tags (`[happy]`, `[angry]`, `[calm]`,
-`[sad]`, `[excited]`, `[enthused]`, `[surprised]`, `[worried]`, `[confused]`, `[frustrated]`,
-`[neutral]`, `[loud]`/`[shout]`, `[bored]`/`[tired]`) switch to the voice's matching emotion clip
+`[sad]`, `[excited]`, `[enthused]`, `[surprised]`, `[worried]`/`[panicked]`, `[confused]`,
+`[frustrated]`, `[neutral]`/`[serious]`, `[loud]`/`[shout]`, `[bored]`/`[tired]`) switch to the voice's
+matching emotion clip
 until the next mood tag, falling back to the base clip when the voice has none;
 `MoodJoinSilenceMilliseconds` (default 150) separates segments of different moods. Each segment pays
 its own prefill cost, prosody resets at joins, and tags work best at sentence boundaries.
@@ -384,7 +386,7 @@ playing, so you can't switch models mid-session.
 The demo accepts the same `--models-dir <path>` and `--mirror-url <url>`/`--mirror-user
 <user>`/`--mirror-password <pass>`/`--mirror-bearer-token <token>` launch options as
 `speech-cli` (see `speech-cli`'s own
-[Downloading from an internal mirror](src/DemaConsulting.Speech.Cli/README.md#downloading-from-an-internal-mirror)
+[Downloading from an internal mirror](https://github.com/demaconsulting/Speech/blob/main/src/DemaConsulting.Speech.Cli/README.md#downloading-from-an-internal-mirror)
 section for their validation rules), read once at start-up before the main window opens; run
 `dotnet run --project src/DemaConsulting.Speech.Demo -- --help` for the full list. The Model
 Catalog panel's mirror-settings fields also let you change the mirror from the running
@@ -397,7 +399,8 @@ The demo also hosts the Chatterbox Turbo voice-cloning model. Its Model Catalog 
 CC0 1.0 Universal, attribution: voice-zero by OwenTyme) and shows the
 folder for your own `.wav`/`.flac` voices; `--voices-dir <path>` (an existing folder) adds your
 own voices at launch. Installing or removing a pack refreshes the Text-to-Speech voice dropdown
-immediately, keeping your other settings, and the Text-to-Speech tab shows the consent note
+immediately, keeping your other settings (the pack row itself also refreshes after every install
+outcome, including failures and cancellations), and the Text-to-Speech tab shows the consent note
 (only clone voices you have permission to use) and the pack's attribution under the voice
 dropdown.
 

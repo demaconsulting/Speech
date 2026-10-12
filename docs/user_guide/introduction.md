@@ -452,7 +452,9 @@ emotion clips are kept: about
 calm, confused, enthused, excited, frustrated, happy, neutral, sad, shout, surprised, tired, worried).
 Pass `includeEmotions: false` to skip them; installing again with emotions over a voices-only install
 downloads the pack again, keeping the previous install aside until the new one is in place (a failed or
-canceled re-download restores it). Concurrent installs of the same pack run one after another. Each pack voice's
+canceled re-download restores it). Concurrent installs of the same pack run one after another.
+`ReferenceVoiceLibrary.UninstallPack` never waits: if that pack is being installed it throws
+`SpeechModelStoreException` immediately, so retry after the install finishes. Each pack voice's
 `ReferenceVoiceInfo.MoodClips` maps the lower-case mood name to that speaker's emotion clip (or is
 `null`); the moods are variants of the voice, not extra voices. Voices are stored under
 `<models root>\reference-voices\`: the pack in
@@ -478,7 +480,7 @@ responsible for having the right to clone any voice you use.
 `[worried]`/`[panicked]`, `[confused]`, `[frustrated]` and `[neutral]`/`[serious]` switch to that
 mood's reference clip for the text that follows, until the next mood tag. A voice without that mood
 (including every user-folder voice) speaks with its base clip, so the tag is harmless. `[whispers]`,
-`[sarcastic]`, `[soft]` and `[breathy]` are still omitted. `MoodJoinSilenceMilliseconds` (default 150,
+`[sarcastic]`, `[soft]` and `[breathy]` are omitted. `MoodJoinSilenceMilliseconds` (default 150,
 0 to 1000) inserts a short silence where the mood changes. Honest limits: each mood segment is
 synthesized separately and pays its own prefill cost, prosody resets at every join, and the tags work
 best at sentence boundaries. Mood clips are not loudness-normalized, so levels can differ between
@@ -492,8 +494,11 @@ The core package decodes audio files with managed code only. `AudioFileReader.Re
 `AudioClip` holding interleaved float samples in [-1, 1] with its `SampleRate`, `ChannelCount` and
 `BitsPerSample`. `AudioFileReader.ReadMono(path)` returns down-mixed samples and the native rate,
 and `AudioResampler.ToMonoResampled(clip, 16000)` prepares a clip for a model. A missing file throws
-`FileNotFoundException`, a malformed file `InvalidDataException` and an unsupported WAV encoding
-`NotSupportedException`. `AudioFileReadOptions` lets you disable FLAC checksum verification or lower
+`FileNotFoundException`, a malformed file `InvalidDataException` (including a FLAC file with a frame
+that runs past the total sample count declared in its header) and an unsupported WAV encoding
+`NotSupportedException`. `new AudioClip(...)` rejects null samples, and a sample rate or channel
+count that is not positive, with an `ArgumentException`-derived exception. `AudioFileReadOptions` lets you
+disable FLAC checksum verification or lower
 the `MaxSamples` guard against oversized files.
 
 ## Natural Language Audio Tags
