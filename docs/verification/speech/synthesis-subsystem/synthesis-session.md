@@ -40,8 +40,8 @@ semaphore to know the drain-wait loop has genuinely started polling - no sleep, 
 between the test and the implementation - before asserting the awaited `SpeakAsync` task is not
 yet complete and `Stop()` has not yet been called.
 
-Cancellation is verified with semaphore-held test doubles rather than timing assumptions where possible: a `BlockingSynthesisEngine` test
-double uses `SemaphoreSlim`s to hold the backend call open mid-segment until the test explicitly
+Cancellation is verified with semaphore-held test doubles rather than timing assumptions where
+possible: a `BlockingSynthesisEngine` test double uses `SemaphoreSlim`s to hold the backend call open mid-segment until the test explicitly
 releases it, letting a test assert that `StopAsync` cancels the in-flight operation only after the
 in-flight `Generate` call (routed through `DedicatedWorker`) has genuinely returned - proving the
 native call is never orphaned - and then, once released, that the operation unwound via

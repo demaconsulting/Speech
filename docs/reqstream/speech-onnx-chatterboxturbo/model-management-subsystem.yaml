@@ -59,6 +59,7 @@ sections:
               - SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-Encoding
               - SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-SpecialTokens
               - SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-Errors
+              - SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-MergeRanks
 
           - id: SpeechOnnxChatterboxTurbo-Models-ReferenceVoices
             title: >-

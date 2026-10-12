@@ -73,7 +73,9 @@ thread can change.
   `_model.CapabilityProfile.Render(spans, _model)` into a `SpeechPlan`, then synthesizes each
   `SpeechSegment` in turn via `GenerateSegmentAsync`. When `playAfterSynthesis` is `false`
   (`SynthesizeAsync`), simply collects every segment's `SynthesizedSpeech` into the returned list.
-  When `true` (`SpeakAsync`), starts the playback device through `DedicatedWorker.Start` (so a stuck device-open call is bounded by the same cancel-then-abandon policy, and its raw completion is published as `_pendingNativeCompletion`), builds one `PlaybackAudioResampler` for
+  When `true` (`SpeakAsync`), starts the playback device through `DedicatedWorker.Start` (so a
+  stuck device-open call is bounded by the same cancel-then-abandon policy, and its raw
+  completion is published as `_pendingNativeCompletion`), builds one `PlaybackAudioResampler` for
   the call, writes each segment's pre-silence/resampled audio/post-silence as it is produced, and
   once every segment has been written, awaits `WaitForPlaybackDrainAsync` before a `finally` block
   stops the device - reporting (but not rethrowing) a failure to stop, so the device is never left
@@ -165,9 +167,10 @@ from exactly one `DedicatedWorker` call at a time. Load failures surface as exce
 
 #### DefaultSynthesisBackendFactory
 
-**Purpose**: Provide the one real `ISynthesisBackendFactory` implementation. It holds no engine-specific knowledge at all: the design makes
-each model's backing class responsible for constructing its own backend, so adding a synthesis
-model, or an entire model-supplying extension package, never requires changing this factory.
+**Purpose**: Provide the one real `ISynthesisBackendFactory` implementation. It holds no
+engine-specific knowledge at all: the design makes each model's backing class responsible for
+constructing its own backend, so adding a synthesis model, or an entire model-supplying extension
+package, never requires changing this factory.
 
 **Data Model**: Stateless; no fields.
 

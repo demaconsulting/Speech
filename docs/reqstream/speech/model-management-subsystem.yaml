@@ -33,6 +33,7 @@ sections:
             children:
               - Speech-Models-SpeechModelStore-AtomicSwap
               - Speech-Models-SpeechModelStore-NeverTouchesCurrentDuringStaging
+              - Speech-Models-SpeechModelStore-InstallRollback
             tests:
               - SpeechModelStore_CompleteInstall_FirstInstall_CreatesCurrentAndManifest
               - SpeechModelStore_CompleteInstall_ExistingCurrent_ReplacesContentAndCleansUpOldDirectory
@@ -64,6 +65,7 @@ sections:
             children:
               - Speech-Models-SpeechModelStoreOptions-RootOverride
               - Speech-Models-SpeechModelStore-DefaultRootResolution
+              - Speech-Models-SpeechModelStore-ModelIdValidation
             tests:
               - SpeechModelStore_Constructor_NoOptions_ResolvesUnderLocalApplicationData
               - SpeechModelStore_Constructor_RootPathOverride_UsesOverrideVerbatim
@@ -83,6 +85,7 @@ sections:
               - Speech-Models-SpeechModelStore-Uninstall
               - Speech-Models-SpeechModelStore-CleanUpLeftovers
               - Speech-Models-SpeechModelStore-EmptyTempCleanup
+              - Speech-Models-SpeechModelStore-UninstallFailureReporting
               - Speech-Models-SpeechModelStoreException-UninstallFailureSignal
               - Speech-Models-SpeechModelStoreException-StandardConstructors
             tests:
