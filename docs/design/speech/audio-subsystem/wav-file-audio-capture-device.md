@@ -37,7 +37,9 @@ caller-configuration error to surface clearly, not a backend-availability failur
 `IsAvailable` always reports `true` for this device rather than modeling file-format problems as
 "no backend resolved".
 
-**Dependencies**: The Base Class Library's `FileStream`/`BinaryReader` only; implements
+**Dependencies**: The Base Class Library's `FileStream`/`BinaryReader` and the OTS
+System.Numerics.Tensors package's `TensorPrimitives` for sample conversion (see _System.Numerics.Tensors
+Design_); implements
 `IAudioCaptureDevice`.
 
 **Callers**: Any host composing `IAudioCaptureDevice`-consuming code (for example, the shipped

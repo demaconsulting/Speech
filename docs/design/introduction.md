@@ -354,7 +354,7 @@ src/DemaConsulting.Speech/
     ├── FlacCrc.cs                             — FLAC CRC-8/CRC-16 checks
     ├── AudioResampler.cs                      — Rate conversion for decoded clips
     ├── WindowedSincLowpassFilter.cs           — Windowed-sinc anti-alias filter
-    ├── WavFileAudioCaptureDevice.cs           — File-backed capture device (reads a WAV/FLAC)
+    ├── WavFileAudioCaptureDevice.cs           — File-backed capture device (reads a mono 16-bit PCM WAV)
     ├── WavFileAudioPlaybackDevice.cs          — File-backed playback device (writes a WAV)
     └── PortAudio/
         ├── IPortAudioApi.cs                   — Mockable PortAudio runtime seam

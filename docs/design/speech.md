@@ -71,7 +71,7 @@ The system exposes the following public API to external consumers:
   probes
 - **AudioDeviceUnavailableException**: thrown when an operational member of an unavailable device
   is invoked
-- **WavFileAudioCaptureDevice** / **WavFileAudioPlaybackDevice**: file-backed capture (WAV/FLAC
+- **WavFileAudioCaptureDevice** / **WavFileAudioPlaybackDevice**: file-backed capture (mono 16-bit PCM WAV
   source, optional end-of-file event) and playback (WAV sink) devices implementing the same
   device contracts
 - **AudioFileReader** / **AudioFileReadOptions** / **AudioClip** / **AudioResampler**: managed
@@ -243,7 +243,7 @@ direct safety impact is introduced.
 
 **File-backed device and audio-file decoding path:**
 
-1. **Input**: A caller constructs a `WavFileAudioCaptureDevice` over a WAV or FLAC path, or calls
+1. **Input**: A caller constructs a `WavFileAudioCaptureDevice` over a mono 16-bit PCM WAV path, or calls
    `AudioFileReader.Read(...)`/`ReadMono(...)` with a path or stream
 2. **Decode**: `AudioFileReader` sniffs the container from the content (not the extension) and
    routes to `WavDecoder` or `FlacDecoder`; malformed input throws

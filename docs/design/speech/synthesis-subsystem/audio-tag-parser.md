@@ -6,12 +6,12 @@ recognized-tag spans for a later Layer 2 rendering stage to consume.
 
 **Data Model**:
 
-- `NaturalLanguageAudioTag` — one canonical value per tag (32 values), collapsing every
+- `NaturalLanguageAudioTag` — one canonical value per tag (31 values), collapsing every
   documented synonym onto a single value (for example `[excited]`/`[excitedly]` both resolve to
   `Excited`). The 22 base tags cover emotion (`Excited`, `Serious`, `Sarcastic`, `Panicked`,
   `Bored`, `Sad`), pace (`Slow`, `VerySlow`, `Fast`, `VeryFast`), pause (`ShortPause`,
   `LongPause`), emphasis, delivery volume (`Whispers`, `Soft`, `Loud`, `Breathy`), and non-verbal
-  sounds (`Laughs`, `Sighs`, `Gasp`, `ClearsThroat`, `Snorts`). Ten mood tags extend the `Emotion`
+  sounds (`Laughs`, `Sighs`, `Gasp`, `ClearsThroat`, `Snorts`). Nine mood tags extend the `Emotion`
   kind: `Angry` (`[angry]`, `[anger]`), `Calm`, `Happy`, `Enthused` (`[enthused]`,
   `[enthusiastic]`), `Surprised`, `Worried` (`[worried]`, `[anxious]`), `Confused`, `Frustrated`,
   and `Neutral`. Other notable aliases include `[shout]`/`[shouting]`/`[screams]` for `Loud`,

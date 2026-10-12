@@ -8,7 +8,7 @@ attempted) via the atomic staging-then-rename swap described below.
 **Data Model**: `RootPath` (the resolved storage root). For each model id: `current/` (stable
 installed content), `install-manifest.json` (a sidecar record of `TotalSizeBytes` and
 `InstalledAtUtc`, written only after a successful swap), and `.tmp/{operationId}/` (scratch
-staging space, never read as installed content). A private nested `InstallManifest` record
+staging space, never read as installed content). A nested `internal` `InstallManifest` record
 (`TotalSizeBytes`, `InstalledAtUtc`) is the manifest's serialized shape.
 
 **Key Methods**:
@@ -16,6 +16,10 @@ staging space, never read as installed content). A private nested `InstallManife
 - **SpeechModelStore(SpeechModelStoreOptions?)**: Resolves `RootPath` under
   `Environment.SpecialFolder.LocalApplicationData` by default, or from
   `SpeechModelStoreOptions.RootPathOverride` verbatim when supplied. Never throws.
+- **GetModelDirectory(modelId)**: Returns `{RootPath}/{modelId}`, the directory holding every
+  artifact for one model. Throws `ArgumentException` for a null, empty or invalid-name model id.
+- **GetCurrentDirectory(modelId)**: Returns the model's `current/` directory path (which may not
+  yet exist). Throws `ArgumentException` for an invalid model id.
 - **IsInstalled(modelId)**: Returns `true` only when `current/` exists and a valid manifest
   accompanies it; a missing or unreadable manifest is treated as "not installed", never as an
   error.
