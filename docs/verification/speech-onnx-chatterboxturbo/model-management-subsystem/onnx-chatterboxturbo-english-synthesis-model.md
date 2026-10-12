@@ -48,6 +48,8 @@ file or with an invalid graph; options have safe defaults and validate.
 
 **Test**: `OnnxChatterboxTurboEnglishSynthesisModel_Constructor_VoiceDirectory_LoadsWavAndFlacFiles`
 
+**Test**: `OnnxChatterboxTurboEnglishSynthesisModel_Constructor_DamagedVoiceFile_DoesNotFailConstruction`
+
 ##### Backend creation synthesizes from a synthetic install
 
 **Test**: `OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_SyntheticInstall_SynthesizesAudio`

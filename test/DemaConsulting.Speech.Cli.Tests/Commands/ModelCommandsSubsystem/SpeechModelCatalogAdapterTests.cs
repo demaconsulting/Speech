@@ -204,6 +204,31 @@ public sealed class SpeechModelCatalogAdapterTests : IDisposable
         Assert.Contains(adapter.EnumerateVoices(), v => v.Id == "kim");
     }
 
+    /// <summary>
+    ///     Test that a damaged file in <c>--voices-dir</c> does not break composing the adapter, and that
+    ///     enumeration still lists it by name.
+    /// </summary>
+    [Fact]
+    public void SpeechModelCatalogAdapter_DamagedVoicesDirFile_DoesNotBreakAdapterOrListing()
+    {
+        // Arrange
+        var voicesDir = Path.Join(_testRoot, "damaged-voices");
+        Directory.CreateDirectory(voicesDir);
+        File.WriteAllBytes(Path.Join(voicesDir, "broken.wav"), [1, 2, 3, 4]);
+        WriteTinyWav(Path.Join(voicesDir, "fine.wav"));
+
+        // Act
+        using var adapter = new SpeechModelCatalogAdapter(
+            new SpeechModelStoreOptions { RootPathOverride = _testRoot },
+            voicesDir: voicesDir);
+
+        // Assert
+        var voices = adapter.EnumerateVoices();
+        Assert.Contains(voices, v => v.Id == "broken");
+        Assert.Contains(voices, v => v.Id == "fine");
+        Assert.NotEmpty(adapter.Enumerate());
+    }
+
     /// <summary>Writes a tiny, valid 16-bit mono 24 kHz silent 1.5 s WAV file (a decodable reference voice).</summary>
     private static void WriteTinyWav(string path)
     {

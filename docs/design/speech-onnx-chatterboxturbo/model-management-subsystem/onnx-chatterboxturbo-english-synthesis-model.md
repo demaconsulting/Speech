@@ -23,9 +23,10 @@ graphs, and `chatterbox-turbo-onnx-en-lm-<variant>-aux-<variant>` for any other 
   appends the core `ReferenceVoiceLibrary.ConsentNotice`
 - **Voice resolution** (constructor): voices are merged in this order, with the first id (ordinal) winning
   and later duplicates skipped with an `Info` diagnostic: explicit `ReferenceVoices` (eager), then
-  `ReferenceVoiceDirectory` files (eager, sorted; a missing directory throws, and duplicates within these
-  two sources still throw as before), then - unless `IncludeStoreVoices` is `false` - the voices of the
-  core `ReferenceVoiceLibrary` (user folder, then installed pack), created lazily with
+  `ReferenceVoiceDirectory` files (lazy via `FromFileLazy`, sorted, so a damaged file fails only at first
+  use of that voice, naming the file, and never breaks catalog composition; a missing directory throws,
+  and duplicates within these two sources still throw as before), then - unless `IncludeStoreVoices` is
+  `false` - the voices of the core `ReferenceVoiceLibrary` (user folder, then installed pack), created lazily with
   `ChatterboxTurboReferenceVoice.FromFileLazy` so listing a hundred clips decodes none. A library voice
   whose display name clashes with an earlier one gets a `(user)` or `(pack)` suffix. The library is
   `ChatterboxTurboModelOptions.ReferenceVoiceLibrary` when set; the catalog extension

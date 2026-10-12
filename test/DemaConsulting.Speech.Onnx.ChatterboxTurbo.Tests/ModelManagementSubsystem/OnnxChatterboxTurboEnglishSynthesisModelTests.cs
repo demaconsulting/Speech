@@ -151,6 +151,26 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModelTests : IDisposable
             new ChatterboxTurboModelOptions { ReferenceVoiceDirectory = Path.Combine(_root, "nope") }));
     }
 
+    /// <summary>Proves a damaged file in the voice directory never fails construction (it fails at first use of that voice).</summary>
+    [Fact]
+    public void OnnxChatterboxTurboEnglishSynthesisModel_Constructor_DamagedVoiceFile_DoesNotFailConstruction()
+    {
+        // Arrange
+        var directory = Path.Combine(_root, "damaged-voices");
+        Directory.CreateDirectory(directory);
+        WriteWav(Path.Combine(directory, "good.wav"));
+        var bad = Path.Combine(directory, "bad.wav");
+        File.WriteAllBytes(bad, [1, 2, 3, 4]);
+
+        // Act
+        var model = new OnnxChatterboxTurboEnglishSynthesisModel(
+            new ChatterboxTurboModelOptions { ReferenceVoiceDirectory = directory, IncludeStoreVoices = false });
+
+        // Assert
+        var choice = Assert.IsType<ChoiceParameter>(Assert.Single(model.Parameters));
+        Assert.Equal(["bad", "good"], choice.Options.Select(option => option.Value));
+    }
+
     /// <summary>Proves option defaults and validation.</summary>
     [Fact]
     public void ChatterboxTurboModelOptions_Properties_HaveSafeDefaultsAndValidate()

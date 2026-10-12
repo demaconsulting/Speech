@@ -243,6 +243,7 @@ sections:
               - CliModelCatalogFactory_Create_WithModelsDir_UsesGivenRoot
               - CliModelCatalogFactory_Create_WithVoicesDir_EnumeratesThatFolder
               - SpeechModelCatalogAdapter_Voices_ListsUserAndVoicesDirVoices
+              - SpeechModelCatalogAdapter_DamagedVoicesDirFile_DoesNotBreakAdapterOrListing
 
           - id: SpeechCli-ModelCommands-ListVoices
             title: >-

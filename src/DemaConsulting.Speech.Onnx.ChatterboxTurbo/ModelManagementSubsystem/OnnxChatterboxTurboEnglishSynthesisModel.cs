@@ -106,7 +106,11 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModel : ISynthesisModel
     /// <param name="options">The configuration, or <see langword="null"/> for defaults (which supply no voices).</param>
     /// <exception cref="ArgumentException">Thrown when voice ids are duplicated or a variant is not a defined value.</exception>
     /// <exception cref="DirectoryNotFoundException">Thrown when <see cref="ChatterboxTurboModelOptions.ReferenceVoiceDirectory"/> does not exist.</exception>
-    /// <exception cref="InvalidDataException">Thrown when a voice file in the directory is not a valid WAV or FLAC file.</exception>
+    /// <remarks>
+    ///     Files in <see cref="ChatterboxTurboModelOptions.ReferenceVoiceDirectory"/> are decoded lazily, so a damaged
+    ///     file never fails construction: it fails at first use of that voice with an <see cref="InvalidDataException"/>
+    ///     naming the file.
+    /// </remarks>
     public OnnxChatterboxTurboEnglishSynthesisModel(ChatterboxTurboModelOptions? options = null)
         : this(options, defaultLibrary: null)
     {
@@ -321,7 +325,8 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModel : ISynthesisModel
                 .Where(file => AudioFileReader.SupportedExtensions.Contains(Path.GetExtension(file), StringComparer.OrdinalIgnoreCase))
                 .ToArray();
             Array.Sort(files, StringComparer.Ordinal);
-            voices.AddRange(files.Select(file => ChatterboxTurboReferenceVoice.FromFile(Path.GetFileNameWithoutExtension(file), file)));
+            // Lazy so a damaged file never fails catalog composition: the error surfaces at first use of that voice and names the file
+            voices.AddRange(files.Select(file => ChatterboxTurboReferenceVoice.FromFileLazy(Path.GetFileNameWithoutExtension(file), file)));
         }
 
         if (options.IncludeStoreVoices)

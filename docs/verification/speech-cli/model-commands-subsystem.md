@@ -207,6 +207,7 @@ column and a `moods` JSON array. Tests use the fake catalog, so nothing is downl
 #### Chatterbox Composition and `--voices-dir`
 
 **Tests**: `SpeechModelCatalogAdapter_Voices_ListsUserAndVoicesDirVoices`,
+`SpeechModelCatalogAdapter_DamagedVoicesDirFile_DoesNotBreakAdapterOrListing`,
 `CliModelCatalogFactory_Create_WithVoicesDir_EnumeratesThatFolder`,
 `Context_Create_WithExistingVoicesDir_ParsesOntoContext`,
 `Context_Create_WithBadVoicesDir_ThrowsArgumentException`,

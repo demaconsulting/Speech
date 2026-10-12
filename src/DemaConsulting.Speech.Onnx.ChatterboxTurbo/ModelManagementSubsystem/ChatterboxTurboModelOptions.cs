@@ -142,6 +142,11 @@ public sealed class ChatterboxTurboModelOptions
     ///     Gets or sets a directory whose <c>.wav</c> and <c>.flac</c> files each become a voice (id = file name without
     ///     extension, ordinal order, after <see cref="ReferenceVoices"/>); <see langword="null"/> for none.
     /// </summary>
+    /// <remarks>
+    ///     The files are decoded lazily, on first use of each voice, so one damaged file does not fail model creation;
+    ///     the failure names the file. Voices passed in <see cref="ReferenceVoices"/> are whatever the caller built
+    ///     (<see cref="ChatterboxTurboReferenceVoice.FromFile"/> validates eagerly and throws at that call).
+    /// </remarks>
     public string? ReferenceVoiceDirectory { get; set; }
 
     /// <summary>
