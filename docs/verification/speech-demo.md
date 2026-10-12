@@ -100,50 +100,117 @@ factory and an isolated model catalog with a fresh, empty install store, both ho
 having no *installed* model to choose from - known models are registered in the catalog, but
 none are downloaded in a fresh store - rather than crashing or silently rendering blank.
 
-### Integration: Downloading a Listed Model Reports Progress and Installed Outcome
+### Integration: Downloading a Listed Model Shows the Installed Outcome
 
-**Test**: `SpeechDemo_SystemIntegration_DownloadListedModel_ReportsProgressAndInstalledOutcome`
+**Test**: `SpeechDemo_SystemIntegration_DownloadListedModel_ShowsInstalledOutcome`
 
 Verifies that, in a composed shell over a controlled catalog service, downloading a listed model
-reports progress and ends with the row marked `Downloaded`, with no failure message. A controlled
-service is used because automated tests must not depend on network access.
+ends with the row marked `Downloaded`, with no failure message. A controlled service is used
+because automated tests must not depend on network access.
 
-### Integration: A Failed Download Is Reported and Retryable
+### Integration: Downloading a Listed Model Reports Progress
 
-**Test**: `SpeechDemo_SystemIntegration_DownloadListedModel_FailureIsReportedAndRetryable`
+**Test**: `SpeechDemo_SystemIntegration_DownloadListedModel_ReportsProgress`
 
-Verifies that a failed download is shown as a failure message on the row without crashing, and
-that the user can retry the download to success.
+Verifies that progress reported by the catalog service during a download reaches the row.
 
-### Integration: Mirror Redirection at Launch and While Running
+### Integration: A Failed Download Is Reported
 
-**Test**: `SpeechDemo_SystemIntegration_MirrorRedirection_AppliesAtLaunchAndWhileRunning`
+**Test**: `SpeechDemo_SystemIntegration_DownloadListedModel_FailureIsReported`
 
-Verifies that a mirror given at launch reaches the catalog service, and that changing or clearing
-the mirror in the catalog panel while the application runs redirects subsequent downloads.
+Verifies that a failed download is shown as a failure message on the row without crashing.
 
-### Integration: Launch Options Configure the Store and Voices and Reject Bad Options
+### Integration: A Failed Download Is Retryable
 
-**Test**: `SpeechDemo_SystemIntegration_LaunchOptions_ConfigureStoreAndVoicesAndRejectBadOptions`
+**Test**: `SpeechDemo_SystemIntegration_DownloadListedModel_FailedDownloadIsRetryable`
 
-Verifies that the model store folder and user voices folder options take effect in the resulting
-store and voice settings, and that an unrecognized or incomplete option is rejected with an
+Verifies that the user can retry a failed download to success and that the earlier failure
+message is cleared.
+
+### Integration: An Empty Catalog Is Explained
+
+**Test**: `SpeechDemo_SystemIntegration_EmptyCatalog_ModelPanelExplainsEmptiness`
+
+Verifies that a caller-supplied catalog with no models shows the empty-catalog explanation.
+
+### Integration: Mirror Redirection at Launch
+
+**Test**: `SpeechDemo_SystemIntegration_MirrorRedirection_AppliesAtLaunch`
+
+Verifies that a mirror given at launch reaches the downloader options and pre-populates the
+catalog panel's mirror field.
+
+### Integration: Mirror Redirection While Running
+
+**Test**: `SpeechDemo_SystemIntegration_MirrorRedirection_AppliesWhileRunning`
+
+Verifies that changing the mirror in the catalog panel while the application runs redirects
+subsequent downloads and confirms success.
+
+### Integration: Clearing the Mirror Reverts to Public URIs
+
+**Test**: `SpeechDemo_SystemIntegration_MirrorRedirection_ClearingMirrorRevertsToPublicUris`
+
+Verifies that clearing the mirror in the catalog panel applies no mirror to the service.
+
+### Integration: Launch Options Relocate the Model Store
+
+**Test**: `SpeechDemo_SystemIntegration_LaunchOptions_RelocateModelStore`
+
+Verifies that the model store folder option takes effect in the resulting store options.
+
+### Integration: Launch Options Record the Voices Folder
+
+**Test**: `SpeechDemo_SystemIntegration_LaunchOptions_VoicesDirOptionRecordsVoicesFolder`
+
+Verifies that the user voices folder option is recorded in the launch options.
+
+### Integration: Launch Options Reject Bad Options With an Explanation
+
+**Test**: `SpeechDemo_SystemIntegration_LaunchOptions_RejectBadOptionsWithExplanation`
+
+Verifies that an unrecognized option, and an option missing its value, are rejected with an
 explained error. Rejection is verified at the option parser because the entry point starts the
 graphical application.
 
-### Integration: Reference Voice Pack Install, Remove and Voice Choice
+### Integration: Reference Voice Pack Install and Remove
 
-**Test**: `SpeechDemo_SystemIntegration_ReferenceVoicePack_InstallRemoveAndChooseVoice`
+**Test**: `SpeechDemo_SystemIntegration_ReferenceVoicePack_InstallAndRemoveFromCatalogPanel`
 
-Verifies that a user can install and remove the reference voice pack from the catalog panel, that
-the synthesis voice choice refreshes immediately, and that a voice can be chosen.
+Verifies that a user can install and remove the reference voice pack from the catalog panel.
 
-### Integration: Chatterbox Selection Shows Consent and Attribution
+### Integration: Installed Voices Are Offered and the Choice Is Kept
 
-**Test**: `SpeechDemo_SystemIntegration_ChatterboxSelected_ShowsConsentAndAttribution`
+**Test**: `SpeechDemo_SystemIntegration_ReferenceVoicePack_InstalledVoicesOfferedAndChoiceKept`
 
-Verifies that selecting the Chatterbox Turbo model shows the voice consent note and the pack
+Verifies that the synthesis voice choice offers the newly installed voices immediately and that a
+chosen voice is kept across a refresh.
+
+### Integration: Catalog Panel Shows the Consent Note
+
+**Test**: `SpeechDemo_SystemIntegration_ReferenceVoicePack_CatalogPanelShowsConsentNote`
+
+Verifies that the catalog panel shows the voice consent note beside the pack list.
+
+### Integration: Chatterbox Selection Shows the Consent Note
+
+**Test**: `SpeechDemo_SystemIntegration_ChatterboxSelected_ShowsConsentNote`
+
+Verifies that selecting the Chatterbox Turbo model shows the voice consent note in the synthesis
+panel.
+
+### Integration: Chatterbox Selection Shows the Pack Attribution
+
+**Test**: `SpeechDemo_SystemIntegration_ChatterboxSelected_ShowsPackAttribution`
+
+Verifies that selecting the Chatterbox Turbo model with the pack installed shows the pack
 attribution in the synthesis panel.
+
+### Integration: A Model Without Parameters Is Explained
+
+**Test**: `SpeechDemo_SystemIntegration_ModelWithoutParameters_SettingsPanelExplainsNoParameters`
+
+Verifies that the settings panel explains a selected model that declares no tunable parameters.
 
 ### Integration: Model Parameters Are Rendered and Forwarded to Synthesis
 
@@ -152,19 +219,77 @@ attribution in the synthesis panel.
 Verifies that a selected installed model's declared parameters render with controls appropriate to
 their kind and that adjusted values reach the model when synthesis loads.
 
-### Integration: Text-to-Speech Speaks and Stops
+### Integration: Text-to-Speech Speaks Entered Text
 
-**Test**: `SpeechDemo_SystemIntegration_TextToSpeech_SpeaksAndStops`
+**Test**: `SpeechDemo_SystemIntegration_TextToSpeech_SpeaksEnteredText`
 
-Verifies that entered text is spoken through the selected model, playback status is reported, and
-the stop control ends playback.
+Verifies that entered text, including an inline audio tag, reaches the synthesis session unchanged.
 
-### Integration: Speech-to-Text Streams Partial and Final Transcript Then Stops
+### Integration: Text-to-Speech Reports Lifecycle Status
 
-**Test**: `SpeechDemo_SystemIntegration_SpeechToText_StreamsPartialAndFinalThenStops`
+**Test**: `SpeechDemo_SystemIntegration_TextToSpeech_ReportsLifecycleStatus`
 
-Verifies that a started recognition session shows the partial then committed final transcript and
-that the user can stop it.
+Verifies that playback status passes through synthesizing and playing to idle.
+
+### Integration: Text-to-Speech Stop Ends the Utterance
+
+**Test**: `SpeechDemo_SystemIntegration_TextToSpeech_StopEndsUtteranceWithExplanation`
+
+Verifies that the stop control ends an in-flight utterance and the panel says it was stopped.
+
+### Integration: Text-to-Speech Shows Example Audio Tags
+
+**Test**: `SpeechDemo_SystemIntegration_TextToSpeech_ShowsExampleAudioTags`
+
+Verifies that example audio tags are offered beside the text input.
+
+### Integration: Text-to-Speech Explains a Missing Playback Device
+
+**Test**: `SpeechDemo_SystemIntegration_TextToSpeech_NoPlaybackDeviceIsExplained`
+
+Verifies that speaking with no playback device shows the explanation and speaks nothing.
+
+### Integration: Text-to-Speech Explains an Unavailable Engine
+
+**Test**: `SpeechDemo_SystemIntegration_TextToSpeech_UnavailableEngineIsExplained`
+
+Verifies that speaking with an unavailable engine shows the explanation and speaks nothing.
+
+### Integration: Speech-to-Text Starts Streaming
+
+**Test**: `SpeechDemo_SystemIntegration_SpeechToText_StartsStreaming`
+
+Verifies that starting listening begins streaming.
+
+### Integration: Speech-to-Text Shows the Partial Result
+
+**Test**: `SpeechDemo_SystemIntegration_SpeechToText_ShowsPartialResult`
+
+Verifies that a provisional result is shown as the partial transcript and not committed.
+
+### Integration: Speech-to-Text Commits the Final Result
+
+**Test**: `SpeechDemo_SystemIntegration_SpeechToText_CommitsFinalResult`
+
+Verifies that a final result is committed as a finished line and clears the partial.
+
+### Integration: Speech-to-Text Stop Ends the Session
+
+**Test**: `SpeechDemo_SystemIntegration_SpeechToText_StopEndsSession`
+
+Verifies that stopping listening stops the session and returns the panel to idle.
+
+### Integration: Speech-to-Text Explains a Missing Capture Device
+
+**Test**: `SpeechDemo_SystemIntegration_SpeechToText_NoCaptureDeviceIsExplained`
+
+Verifies that starting with no capture device shows the explanation.
+
+### Integration: Speech-to-Text Explains an Unavailable Engine
+
+**Test**: `SpeechDemo_SystemIntegration_SpeechToText_UnavailableEngineIsExplained`
+
+Verifies that starting with an unavailable engine shows the explanation.
 
 ### Integration: Refreshing Every Panel Never Throws
 
