@@ -154,8 +154,8 @@ public sealed class ModelCatalogService : IModelCatalogService, IDisposable
         RequireVoiceLibrary().GetPackState(packId);
 
     /// <inheritdoc/>
-    public bool ReferenceVoicePackHasEmotions(string packId) =>
-        RequireVoiceLibrary().PackHasEmotions(packId);
+    public Task<bool> ReferenceVoicePackHasEmotionsAsync(string packId, CancellationToken cancellationToken) =>
+        RequireVoiceLibrary().PackHasEmotionsAsync(packId, cancellationToken);
 
     /// <inheritdoc/>
     /// <remarks>
@@ -185,9 +185,9 @@ public sealed class ModelCatalogService : IModelCatalogService, IDisposable
     }
 
     /// <inheritdoc/>
-    public void UninstallReferenceVoicePack(string packId)
+    public async Task UninstallReferenceVoicePackAsync(string packId, CancellationToken cancellationToken)
     {
-        RequireVoiceLibrary().UninstallPack(packId);
+        await RequireVoiceLibrary().UninstallPackAsync(packId, cancellationToken).ConfigureAwait(true);
         RebuildAndNotifyVoicesChanged();
     }
 

@@ -14,7 +14,7 @@
 #   - Voice pack section (Voices-PackPanel, -PackSectionHidden, -PackInstalledEmotionsShown,
 #     -PackInstall, -PackEmotionChoiceForwarded, -PackInstallFailureReported,
 #     -PackInstallRollbackKeepsPack, -PackInstallStateReadFallback, -PackRemove,
-#     -PackRemoveFaultReported, -PackRemoveRefusedWhileInstalling, -PackBlockedDuringDownload)
+#     -PackRemoveFaultReported, -PackRemoveStoreErrorReported, -PackBlockedDuringDownload)
 # Every test below is a ModelCatalogViewModelTests test.
 
 sections:
@@ -298,16 +298,16 @@ sections:
                 tests:
                   - ModelCatalogViewModel_RemoveVoicePack_UninstallsRefreshesAndReportsFaults
 
-              - id: SpeechDemo-Voices-PackRemoveRefusedWhileInstalling
+              - id: SpeechDemo-Voices-PackRemoveStoreErrorReported
                 title: >-
                   The ModelCatalogSubsystem shall show the catalog service's explanation on the
-                  pack's row, and keep the pack installed, when the service refuses to remove a
-                  voice pack because an install of it is in progress.
+                  pack's row, and keep the pack installed, when removing a voice pack fails
+                  with a store error or is canceled.
                 justification: |
-                  Removing a pack mid-install would corrupt it; the refusal must reach the user
-                  as an explanation, not a crash.
+                  A removal fault must reach the user as an explanation, not a crash.
                 tests:
-                  - ModelCatalogViewModel_RemoveVoicePack_InstallInFlight_ShowsMessageAndKeepsPack
+                  - ModelCatalogViewModel_RemoveVoicePack_StoreException_ShowsMessageAndKeepsPack
+                  - ModelCatalogViewModel_RemoveVoicePack_Canceled_ShowsCanceledMessage
 
               - id: SpeechDemo-Voices-PackBlockedDuringDownload
                 title: >-

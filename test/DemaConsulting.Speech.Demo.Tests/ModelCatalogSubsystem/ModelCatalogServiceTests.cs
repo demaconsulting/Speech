@@ -57,7 +57,7 @@ public class ModelCatalogServiceTests
     ///     operations.
     /// </summary>
     [Fact]
-    public void ModelCatalogService_ReferenceVoices_NoLibrary_ReportsNoPacksAndRefusesOperations()
+    public async Task ModelCatalogService_ReferenceVoices_NoLibrary_ReportsNoPacksAndRefusesOperations()
     {
         // Arrange
         using var catalog = new SpeechModelCatalog(IsolatedOptions());
@@ -67,8 +67,8 @@ public class ModelCatalogServiceTests
         Assert.Empty(service.ReferenceVoicePacks);
         Assert.Null(service.UserVoicesDirectory);
         Assert.Throws<InvalidOperationException>(() => service.GetReferenceVoicePackState("voice-zero-1.0"));
-        Assert.Throws<InvalidOperationException>(() => service.ReferenceVoicePackHasEmotions("voice-zero-1.0"));
-        Assert.Throws<InvalidOperationException>(() => service.UninstallReferenceVoicePack("voice-zero-1.0"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.ReferenceVoicePackHasEmotionsAsync("voice-zero-1.0", TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.UninstallReferenceVoicePackAsync("voice-zero-1.0", TestContext.Current.CancellationToken));
     }
 
     /// <summary>
@@ -94,7 +94,7 @@ public class ModelCatalogServiceTests
     ///     <see cref="IModelCatalogService.ReferenceVoicesChanged"/> exactly once.
     /// </summary>
     [Fact]
-    public void ModelCatalogService_UninstallReferenceVoicePack_RebuildsCatalogAndRaisesEvent()
+    public async Task ModelCatalogService_UninstallReferenceVoicePack_RebuildsCatalogAndRaisesEvent()
     {
         // Arrange
         var root = IsolatedOptions().RootPathOverride!;
@@ -111,13 +111,13 @@ public class ModelCatalogServiceTests
         service.ReferenceVoicesChanged += (_, _) => raised++;
 
         // Act
-        service.UninstallReferenceVoicePack("voice-zero-1.0");
+        await service.UninstallReferenceVoicePackAsync("voice-zero-1.0", TestContext.Current.CancellationToken);
 
         // Assert: one rebuild, one notification, and the service still works afterwards
         Assert.Equal(1, builds);
         Assert.Equal(1, raised);
         Assert.Equal(SpeechModelState.NotDownloaded, service.GetReferenceVoicePackState("voice-zero-1.0"));
-        Assert.Throws<ArgumentException>(() => service.UninstallReferenceVoicePack("missing-pack"));
+        await Assert.ThrowsAsync<ArgumentException>(() => service.UninstallReferenceVoicePackAsync("missing-pack", TestContext.Current.CancellationToken));
     }
 
     /// <summary>
@@ -218,11 +218,11 @@ public class ModelCatalogServiceTests
     }
 
     /// <summary>
-    ///     Proves that uninstalling a pack while its install is in flight surfaces the library's
-    ///     <see cref="SpeechModelStoreException"/> without blocking, rebuilding the catalog, or raising the changed event.
+    ///     Proves that uninstalling a pack while its install is in flight waits for the install (nothing is rebuilt or
+    ///     announced while it runs) and then removes the pack, rebuilding and announcing once more.
     /// </summary>
     [Fact]
-    public async Task ModelCatalogService_UninstallReferenceVoicePack_InstallInFlight_ThrowsStoreExceptionWithoutRebuild()
+    public async Task ModelCatalogService_UninstallReferenceVoicePackAsync_InstallInFlight_WaitsThenUninstalls()
     {
         // Arrange: a loopback "mirror" that accepts the connection but never answers, holding the install open
         var root = IsolatedOptions().RootPathOverride!;
@@ -239,26 +239,29 @@ public class ModelCatalogServiceTests
             mirrorOptions,
             o =>
             {
-                builds++;
+                Interlocked.Increment(ref builds);
                 return Compose(root, o);
             });
         var raised = 0;
-        service.ReferenceVoicesChanged += (_, _) => raised++;
+        service.ReferenceVoicesChanged += (_, _) => Interlocked.Increment(ref raised);
         using var cts = new CancellationTokenSource();
         var install = service.InstallReferenceVoicePackAsync("voice-zero-1.0", true, null, cts.Token);
         using var connection = await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken);
 
         // Act
-        var exception = Assert.Throws<SpeechModelStoreException>(() => service.UninstallReferenceVoicePack("voice-zero-1.0"));
+        var uninstall = service.UninstallReferenceVoicePackAsync("voice-zero-1.0", TestContext.Current.CancellationToken);
 
-        // Assert: refused immediately, nothing rebuilt or announced while the install is still running
-        Assert.Contains("voice-zero-1.0", exception.Message, StringComparison.Ordinal);
-        Assert.Equal(0, builds);
-        Assert.Equal(0, raised);
+        // Assert: the uninstall is waiting, and nothing was rebuilt or announced while the install is still running
+        Assert.False(uninstall.IsCompleted);
+        Assert.Equal(0, Volatile.Read(ref builds));
+        Assert.Equal(0, Volatile.Read(ref raised));
 
-        // Cleanup: end the install
+        // Cleanup: end the install; the waiting uninstall then runs and completes
         await cts.CancelAsync();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => install);
+        await uninstall;
+        Assert.Equal(2, Volatile.Read(ref builds));
+        Assert.Equal(2, Volatile.Read(ref raised));
     }
 
     /// <summary>

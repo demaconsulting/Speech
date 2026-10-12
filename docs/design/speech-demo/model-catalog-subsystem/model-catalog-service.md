@@ -26,13 +26,13 @@ every interface consumer - `ModelCatalogViewModel`, the panel view models that o
 | `ApplyMirror(mirror)` | `void` | Rebuilds the catalog against a new mirror, or `null` to revert to public URIs |
 | `ReferenceVoicePacks` / `UserVoicesDirectory` | list / `string?` | Packs (empty without a library), user folder |
 | `GetReferenceVoicePackState(packId)` | `SpeechModelState` | The pack's install state |
-| `ReferenceVoicePackHasEmotions(packId)` | `bool` | Whether the installed pack has emotion variants |
+| `ReferenceVoicePackHasEmotionsAsync(packId, ct)` | `Task<bool>` | Whether the installed pack has emotion variants |
 | `InstallReferenceVoicePackAsync(packId, includeEmotions, ...)` | `Task<...Result>` | Installs a pack; rebuilds |
-| `UninstallReferenceVoicePack(packId)` | `void` | Removes a pack, rebuilds the pair; throws mid-install (see note) |
+| `UninstallReferenceVoicePackAsync(packId, ct)` | `Task` | Removes a pack, rebuilds the pair; waits for an in-flight install (see note) |
 | `ReferenceVoicesChanged` | `event EventHandler?` | Raised after a rebuild caused by a voice or mirror change |
 
-`Enumerate()` retries once if the catalog was just replaced. `UninstallReferenceVoicePack` throws
-`SpeechModelStoreException` while an install of that pack is in flight.
+`Enumerate()` retries once if the catalog was just replaced. `UninstallReferenceVoicePackAsync` waits
+for an in-flight install of that pack to finish (honoring cancellation) and then removes it.
 
 **Key Methods**:
 
@@ -66,13 +66,13 @@ every interface consumer - `ModelCatalogViewModel`, the panel view models that o
   catalog with the one shared `ReferenceVoiceLibrary`. Install (whatever the outcome, in a `finally`, because an upgrade
   may have moved the old install aside or restored it), uninstall and `ApplyMirror` call a private
   recompose step that builds a new pair through the factory, publishes it, disposes the old catalog and
-  library, and raises `ReferenceVoicesChanged`. `UninstallReferenceVoicePack` first calls the
-  library's uninstall; when the library refuses because an install of that pack is in flight it
-  throws `SpeechModelStoreException` (non-blocking), which propagates unchanged and skips the
-  recompose step and the notification, because nothing changed. Services built with the
+  library, and raises `ReferenceVoicesChanged`. `UninstallReferenceVoicePackAsync` first awaits the
+  library's asynchronous uninstall, which serializes with an in-flight install of that pack
+  (waiting for it, honoring cancellation); if the uninstall throws or is canceled the exception
+  propagates unchanged and the recompose step and notification are skipped, because nothing changed. Services built with the
   single-catalog or catalog-factory constructors have no library:
   `ReferenceVoicePacks` is empty and `UserVoicesDirectory` is `null`, and `GetReferenceVoicePackState`,
-  `ReferenceVoicePackHasEmotions`, install and uninstall all reject the call through the private `RequireVoiceLibrary`
+  `ReferenceVoicePackHasEmotionsAsync`, install and uninstall all reject the call through the private `RequireVoiceLibrary`
   helper by throwing `InvalidOperationException` (the state is not reported as `NotDownloaded`).
 
 **Error Handling**: `Enumerate()` never invents placeholder models when the library's registry is
@@ -85,8 +85,8 @@ already-published replacement catalog; a second `ObjectDisposedException` propag
 shared `MirrorOptionsFactory` helper its caller uses to build the `DownloadMirror`) and throws
 `InvalidOperationException` when this service cannot be reconfigured. The reference-voice members
 (state, emotion query, install, uninstall) throw `InvalidOperationException` when the service was
-constructed without a voice library, and `UninstallReferenceVoicePack` throws
-`SpeechModelStoreException` while an install of that pack is in flight.
+constructed without a voice library, and `UninstallReferenceVoicePackAsync` waits
+for an in-flight install of that pack to finish (honoring cancellation) and then removes it.
 
 **Thread Safety**: `ApplyMirror` and `Dispose` are not safe to call concurrently with each other
 or with themselves - both read and then replace the same current-catalog field with no

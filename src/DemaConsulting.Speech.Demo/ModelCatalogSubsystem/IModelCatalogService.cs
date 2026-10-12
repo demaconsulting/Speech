@@ -131,9 +131,12 @@ public interface IModelCatalogService
     ///     Determines whether an installed reference-voice pack was extracted with its emotion (mood) clips.
     /// </summary>
     /// <param name="packId">The identifier of a pack listed in <see cref="ReferenceVoicePacks"/>.</param>
-    /// <returns><see langword="true"/> when the pack is installed with emotion clips; otherwise <see langword="false"/>.</returns>
+    /// <param name="cancellationToken">A token that aborts the read.</param>
+    /// <returns>A task whose result is <see langword="true"/> when the pack is installed with emotion clips; otherwise <see langword="false"/>.</returns>
     /// <exception cref="ArgumentException">Thrown when <paramref name="packId"/> matches no known pack.</exception>
-    bool ReferenceVoicePackHasEmotions(string packId);
+    /// <exception cref="InvalidOperationException">Thrown when the service has no reference-voice library.</exception>
+    /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is canceled.</exception>
+    Task<bool> ReferenceVoicePackHasEmotionsAsync(string packId, CancellationToken cancellationToken);
 
     /// <summary>
     ///     Downloads and installs one reference-voice pack, then rebuilds the catalog and raises
@@ -162,13 +165,23 @@ public interface IModelCatalogService
     ///     <see cref="ReferenceVoicesChanged"/>.
     /// </summary>
     /// <param name="packId">The identifier of a pack listed in <see cref="ReferenceVoicePacks"/>.</param>
+    /// <param name="cancellationToken">A token that aborts the wait for an in-flight install of the same pack.</param>
+    /// <returns>A task that completes when the pack is removed and the catalog rebuilt.</returns>
     /// <exception cref="ArgumentException">Thrown when <paramref name="packId"/> matches no known pack.</exception>
     /// <exception cref="InvalidOperationException">Thrown when the service has no reference-voice library.</exception>
-    /// <exception cref="SpeechModelStoreException">
-    ///     Thrown when an install of the pack is in flight (the library refuses to uninstall under it, without
-    ///     blocking). Nothing is removed and the catalog is not rebuilt; the caller should report the message.
+    /// <exception cref="OperationCanceledException">
+    ///     Thrown when <paramref name="cancellationToken"/> is canceled while waiting for an in-flight install of the
+    ///     pack; nothing is removed and the catalog is not rebuilt.
     /// </exception>
-    void UninstallReferenceVoicePack(string packId);
+    /// <exception cref="SpeechModelStoreException">
+    ///     Thrown when the pack's files are in use and cannot be removed. Nothing is rebuilt; the caller should
+    ///     report the message.
+    /// </exception>
+    /// <remarks>
+    ///     An uninstall that arrives while an install of the same pack is in flight waits for it to finish and
+    ///     then removes the pack; it never blocks the calling thread.
+    /// </remarks>
+    Task UninstallReferenceVoicePackAsync(string packId, CancellationToken cancellationToken);
 }
 
 /// <summary>

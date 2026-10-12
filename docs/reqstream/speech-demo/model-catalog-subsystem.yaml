@@ -85,15 +85,16 @@ sections:
             tests:
               - ModelCatalogViewModel_InstallVoicePackAsync_UpgradeFailsAndRollsBack_KeepsPackInstalledWithMessage
 
-          - id: SpeechDemo-ModelCatalog-VoicePackRemovalRefusedWhileInstalling
+          - id: SpeechDemo-ModelCatalog-VoicePackRemovalWaitsForInstall
             title: >-
-              The ModelCatalogSubsystem shall explain, without failing, that a voice pack cannot
-              be removed while an install of that pack is in progress, and shall leave the pack
-              installed.
+              The ModelCatalogSubsystem shall remove a voice pack without blocking the UI, waiting for
+              an install of that pack that is in progress, and shall explain on the pack's row,
+              without failing, a removal that cannot complete or was canceled.
             justification: |
-              Removing a pack that is being (re)installed would corrupt the install. Refusing
-              with an explanation on the pack's row keeps the user informed and the
-              application running.
+              Removing a pack that is being (re)installed would corrupt the install, so the
+              removal serializes with it. Reporting a failure on the row keeps the user
+              informed and the application running.
             tests:
-              - ModelCatalogViewModel_RemoveVoicePack_InstallInFlight_ShowsMessageAndKeepsPack
-              - ModelCatalogService_UninstallReferenceVoicePack_InstallInFlight_ThrowsStoreExceptionWithoutRebuild
+              - ModelCatalogViewModel_RemoveVoicePack_StoreException_ShowsMessageAndKeepsPack
+              - ModelCatalogViewModel_RemoveVoicePack_Canceled_ShowsCanceledMessage
+              - ModelCatalogService_UninstallReferenceVoicePackAsync_InstallInFlight_WaitsThenUninstalls

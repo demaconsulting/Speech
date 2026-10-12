@@ -170,9 +170,9 @@ have changed the pack's installed state.
 
 **Expected**: The pair is still rebuilt and `ReferenceVoicesChanged` raised.
 
-##### ModelCatalogService_UninstallReferenceVoicePack_InstallInFlight_ThrowsStoreExceptionWithoutRebuild
+##### ModelCatalogService_UninstallReferenceVoicePackAsync_InstallInFlight_WaitsThenUninstalls
 
-**Scenario**: A pack is uninstalled while an install of that pack is in flight, so the library refuses.
+**Scenario**: A pack is uninstalled while an install of that pack is in flight.
 
-**Expected**: The library's store exception propagates without blocking, the pair is not rebuilt and
-`ReferenceVoicesChanged` is not raised, because nothing changed.
+**Expected**: The uninstall waits for the install (no rebuild and no `ReferenceVoicesChanged` while it
+runs), then removes the pack and rebuilds and raises the event once more.

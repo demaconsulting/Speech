@@ -240,7 +240,7 @@ sections:
           - SpeechDemo-Voices-PackUninstallRebuild
           - SpeechDemo-Voices-PackInstallRebuild
           - SpeechDemo-Voices-PackMirrorRebuild
-          - SpeechDemo-Voices-PackUninstallRefusedWhileInstalling
+          - SpeechDemo-Voices-PackUninstallWaitsForInstall
           - SpeechDemo-Voices-PackSectionHidden
           - SpeechDemo-Voices-PackInstalledEmotionsShown
           - SpeechDemo-Voices-PackInstall
@@ -250,13 +250,13 @@ sections:
           - SpeechDemo-Voices-PackInstallStateReadFallback
           - SpeechDemo-Voices-PackRemove
           - SpeechDemo-Voices-PackRemoveFaultReported
-          - SpeechDemo-Voices-PackRemoveRefusedWhileInstalling
+          - SpeechDemo-Voices-PackRemoveStoreErrorReported
           - SpeechDemo-Voices-PackRowStatus
           - SpeechDemo-Voices-PackRowChangeAnnouncement
           - SpeechDemo-Voices-PackEmotionSizeDisplay
           - SpeechDemo-Voices-PackAddEmotions
           - SpeechDemo-ModelCatalog-VoicePackRollbackStaysRemovable
-          - SpeechDemo-ModelCatalog-VoicePackRemovalRefusedWhileInstalling
+          - SpeechDemo-ModelCatalog-VoicePackRemovalWaitsForInstall
           - SpeechDemo-Voices-SynthesisRefreshAfterDispose
         tests:
           - SpeechDemo_SystemIntegration_ReferenceVoicePack_InstallRemoveAndChooseVoice

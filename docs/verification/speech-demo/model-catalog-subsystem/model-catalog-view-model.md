@@ -245,13 +245,18 @@ refreshed.
 **Expected**: The row's emotion flag matches the seam's report, and "Add emotions" is offered only
 for the voices-only install.
 
-##### ModelCatalogViewModel_RemoveVoicePack_InstallInFlight_ShowsMessageAndKeepsPack
+##### ModelCatalogViewModel_RemoveVoicePack_StoreException_ShowsMessageAndKeepsPack
 
-**Scenario**: The seam throws its store exception because an install of the pack is in flight when
-the pack is removed.
+**Scenario**: The seam throws a store exception when the pack is removed.
 
 **Expected**: The exception's message is shown on the pack's row, the pack stays installed and
 removable, and nothing escapes.
+
+##### ModelCatalogViewModel_RemoveVoicePack_Canceled_ShowsCanceledMessage
+
+**Scenario**: The seam's uninstall is canceled.
+
+**Expected**: The row shows "Removal canceled." and the pack stays installed.
 
 ##### ModelCatalogViewModel_RemoveVoicePack_UninstallsRefreshesAndReportsFaults
 

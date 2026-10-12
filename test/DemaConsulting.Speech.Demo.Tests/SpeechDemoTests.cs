@@ -466,10 +466,10 @@ public class SpeechDemoTests
         voice.SelectedOption = voice.Options[3];
         descriptors = [new SpeechModelDescriptor(NewModel(1), SpeechModelState.Downloaded)];
         service.GetReferenceVoicePackState(ReferenceVoicePack.VoiceZero10.Id).Returns(SpeechModelState.NotDownloaded);
-        shell.ModelCatalog.RemoveVoicePack(shell.ModelCatalog.VoicePacks[0]);
+        await shell.ModelCatalog.RemoveVoicePack(shell.ModelCatalog.VoicePacks[0], TestContext.Current.CancellationToken);
 
         // Assert: the service was asked to uninstall and the pack can be installed again
-        service.Received(1).UninstallReferenceVoicePack(ReferenceVoicePack.VoiceZero10.Id);
+        await service.Received(1).UninstallReferenceVoicePackAsync(ReferenceVoicePack.VoiceZero10.Id, Arg.Any<CancellationToken>());
         Assert.True(shell.ModelCatalog.VoicePacks[0].CanInstall);
     }
 

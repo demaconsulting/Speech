@@ -76,7 +76,7 @@ install state and the user voices folder, and installs or uninstalls a pack. Bec
 Chatterbox voice list is fixed when the model is constructed, an uninstall, a mirror change and
 every install attempt however it ends (installed, failed, canceled or thrown) each rebuild the
 catalog and library together through the factory, dispose the old pair, and raise
-`ReferenceVoicesChanged`; an uninstall refused because an install of that pack is in flight
+`ReferenceVoicesChanged`; an uninstall waits for an in-flight install of that pack, and one that fails or is canceled
 changes nothing, so it neither rebuilds nor raises. The panel (`ModelCatalogViewModel`) lists
 packs as `ReferenceVoicePackListItemViewModel` rows in a "Reference voices" section with the
 consent note and the user folder, and refuses pack operations while a model downloads (and model

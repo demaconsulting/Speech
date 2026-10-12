@@ -17,7 +17,7 @@
 #     -ExternalCatalogNotDisposed)
 #   - Reference voice packs (Voices-PackService, -PackServiceCompositionRequired,
 #     -PackServiceNoLibrary, -PackUninstallRebuild, -PackInstallRebuild, -PackMirrorRebuild,
-#     -PackUninstallRefusedWhileInstalling)
+#     -PackUninstallWaitsForInstall)
 # Every test below is a ModelCatalogServiceTests test.
 
 sections:
@@ -212,14 +212,14 @@ sections:
                 tests:
                   - ModelCatalogService_ApplyMirror_Composed_RebuildsPairAndRaisesEvent
 
-              - id: SpeechDemo-Voices-PackUninstallRefusedWhileInstalling
+              - id: SpeechDemo-Voices-PackUninstallWaitsForInstall
                 title: >-
-                  The ModelCatalogSubsystem shall refuse to uninstall a voice pack while an
-                  install of that pack is in progress, reporting the library's store error
-                  without rebuilding the catalog or announcing a change.
+                  The ModelCatalogSubsystem shall wait, without blocking the caller, for an
+                  in-progress install of a voice pack to finish before uninstalling that pack,
+                  and shall not rebuild the catalog or announce a change until the removal runs.
                 justification: |
-                  Removing a pack mid-install would corrupt it. Because nothing changed, no
-                  rebuild or notification may occur, which also avoids aborting unrelated
-                  downloads.
+                  Removing a pack mid-install would corrupt it, and refusing would force the
+                  caller to retry. Serializing with the install keeps the pack consistent, and
+                  nothing is rebuilt or announced until something actually changed.
                 tests:
-                  - ModelCatalogService_UninstallReferenceVoicePack_InstallInFlight_ThrowsStoreExceptionWithoutRebuild
+                  - ModelCatalogService_UninstallReferenceVoicePackAsync_InstallInFlight_WaitsThenUninstalls

@@ -93,16 +93,22 @@ library rolled the upgrade back.
 **Expected**: The row stays installed with removal enabled and "Add emotions" still offered, and the
 failure message is shown on the row.
 
-#### ModelCatalogViewModel_RemoveVoicePack_InstallInFlight_ShowsMessageAndKeepsPack
+#### ModelCatalogViewModel_RemoveVoicePack_StoreException_ShowsMessageAndKeepsPack
 
-**Scenario**: The service refuses to uninstall a pack because an install of that pack is in flight.
+**Scenario**: The service rejects the uninstall of a pack with a store exception.
 
-**Expected**: The refusal's message is shown on the pack's row, the pack stays installed, and nothing
+**Expected**: The exception's message is shown on the pack's row, the pack stays installed, and nothing
 is thrown at the user.
 
-#### ModelCatalogService_UninstallReferenceVoicePack_InstallInFlight_ThrowsStoreExceptionWithoutRebuild
+#### ModelCatalogViewModel_RemoveVoicePack_Canceled_ShowsCanceledMessage
+
+**Scenario**: The seam's uninstall is canceled.
+
+**Expected**: The row shows "Removal canceled." and the pack stays installed.
+
+#### ModelCatalogService_UninstallReferenceVoicePackAsync_InstallInFlight_WaitsThenUninstalls
 
 **Scenario**: A pack is uninstalled through a composed service while an install of that pack is in flight.
 
-**Expected**: The library's store exception propagates, the catalog and library pair is not rebuilt, and
-`ReferenceVoicesChanged` is not raised.
+**Expected**: The uninstall waits (the pair is not rebuilt and `ReferenceVoicesChanged` is not raised while
+the install runs), then removes the pack once the install ends, rebuilding and raising the event.
