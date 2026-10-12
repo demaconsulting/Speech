@@ -6,7 +6,9 @@
 outcome. The "correct role composes a working engine" path delegates to the library's own
 `SpeechSynthesizerFactory`, which requires an `ISynthesisModel` - an interface only the library's
 own assemblies can implement. That path is therefore outside this test project's reach and remains
-covered by the library's own synthesis tests; it is an accepted gap here.
+covered by the library's own synthesis tests; it is an accepted gap here. The library's
+`ArgumentException` for an invalid parameter value comes from the same unreachable path and is
+likewise covered there.
 
 #### Test Environment
 

@@ -20,16 +20,20 @@ produced on demand with no downloaded model, no native runtime and no real speak
 
 #### Acceptance Criteria
 
-The unit passes when: only installed synthesis models are offered and the selection survives a
-refresh; the embedded settings panel reflects the selected model and its value bag reaches the
-session factory; a successful Play passes through every lifecycle state and releases its session;
-Stop interrupts an in-flight Play; repeated Play with an unchanged selection reuses the cached
-engine and session, while a changed parameter reloads the engine and a changed device recreates
-only the session; every unavailable state is reported honestly; matching-role installs and
-reference voice changes refresh the panel while keeping the chosen voice; the voice notice shows
-for Chatterbox only; `DisposeAsync` is safe, idempotent and unsubscribes from catalog events; and
-the pre-refresh hook stops an in-flight Play and awaits its completion before a shared device
-refresh.
+The unit passes when: a missing collaborator is rejected; only installed synthesis models are
+offered and the selection survives a refresh; the embedded settings panel reflects the selected
+model and its value bag reaches the session factory; a successful Play speaks the entered text
+through the selected device and passes through every lifecycle state, with session states mapped
+to playback states; a second Play is refused while one is in flight; Stop interrupts an in-flight
+Play; repeated Play with an unchanged selection reuses the cached engine and session, while a
+changed parameter reloads the engine and a changed device recreates only the session; every
+unavailable, busy and faulted state is reported honestly and a faulted session is replaced on the
+next Play; the model-switch guard is false while synthesizing or playing and true while idle or in
+error; matching-role installs and reference voice changes refresh the panel while keeping the
+chosen voice, and non-matching installs do not; the voice notice shows for Chatterbox only;
+`DisposeAsync` stops an in-flight Play, releases the session and engine once, is idempotent and
+unsubscribes from catalog events; and the pre-refresh hook stops an in-flight Play and awaits its
+completion before a shared device refresh.
 
 #### Test Scenarios
 
@@ -58,6 +62,71 @@ model and an installed recognition model.
 **Scenario**: `SelectedModel` is assigned.
 
 **Expected**: The embedded `Settings.Model` is updated to the same model.
+
+##### SynthesisPanelViewModel_Refresh_SelectedModelStillInstalled_PreservesSelection
+
+**Scenario**: Two installed synthesis models are offered, the second is selected and the panel is
+refreshed.
+
+**Expected**: The second model is still selected.
+
+##### SynthesisPanelViewModel_Play_EnteredText_SpeaksTextThroughSelectedPlaybackDevice
+
+**Scenario**: Text is entered and Play is invoked.
+
+**Expected**: The created session is bound to the device the device service resolved and speaks
+exactly the entered text.
+
+##### SynthesisPanelViewModel_Play_WhilePlaying_IsRefused
+
+**Scenario**: Play is in flight with a session that only ends when stopped.
+
+**Expected**: `State` is `Playing`, and `CanPlay` and `PlayCommand.CanExecute` are false.
+
+##### SynthesisPanelViewModel_Play_UnavailableSession_ReportsErrorStateAndDisposesSession
+
+**Scenario**: The engine creates a session that reports itself unavailable.
+
+**Expected**: `SynthesizerUnavailableMessage` and `Error` state; the session is disposed and never
+asked to speak.
+
+##### SynthesisPanelViewModel_Play_EngineBusy_ReportsErrorStateWithEngineMessage
+
+**Scenario**: The engine throws `SynthesisEngineBusyException` while creating the session.
+
+**Expected**: `Error` state with the exception's message, and no exception escapes.
+
+##### SynthesisPanelViewModel_Play_SessionFaulted_ReportsErrorReleasesSessionAndNextPlayRecovers
+
+**Scenario**: The first session faults while speaking; a second Play follows.
+
+**Expected**: `Error` state with the fault message and the faulted session disposed; the second Play
+creates a fresh session from the same engine and settles on `Idle`.
+
+##### SynthesisPanelViewModel_Play_SpeakThrowsSynthesizerUnavailable_ReportsErrorStateWithMessage
+
+**Scenario**: `SpeakAsync` throws `SpeechSynthesizerUnavailableException`.
+
+**Expected**: `Error` state carrying the exception's message.
+
+##### SynthesisPanelViewModel_SessionStateChanged_StoppingCreatedFaulted_MapsToPlayingIdleError
+
+**Scenario**: The session raises `Stopping`, `Created` and `Faulted` while speaking.
+
+**Expected**: `State` becomes `Playing`, `Idle` and `Error` respectively, and `Faulted` sets
+`SessionFaultedMessage`.
+
+##### SynthesisPanelViewModel_DisposeAsync_WhilePlaying_StopsPlayAndReleasesSessionAndEngine
+
+**Scenario**: The panel is disposed while a Play is in flight.
+
+**Expected**: The session is stopped once, and the session and engine are each disposed once.
+
+##### SynthesisPanelViewModel_DisposeAsync_AfterPlay_ReleasesSessionAndEngineOnce
+
+**Scenario**: The panel is disposed twice after a completed Play.
+
+**Expected**: The session and the engine are each disposed exactly once.
 
 ##### SynthesisPanelViewModel_Play_NoModelSelected_ReportsErrorState
 

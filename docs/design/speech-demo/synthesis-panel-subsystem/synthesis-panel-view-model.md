@@ -146,27 +146,51 @@ so the wrapping `Border` correctly disables the settings view. This prevents a u
 switching the selected model or its voice/speaker parameters while synthesis is in flight or
 audio is playing.
 
+**Threading**: Not thread-safe; the panel is used from the UI thread. Catalog events and session
+state changes that may be raised on another thread are marshaled onto the UI context captured at
+construction (or session creation) before they touch presentation state.
+
 **Error Handling**: The expected failure modes resolve to `State`/`StatusMessage` rather than
 escaping: no model selected, no playback device, an unavailable engine or session, a busy engine
 reported by `SynthesisEngineBusyException` while creating the session, a
 `SpeechSynthesizerUnavailableException` or `SynthesisSessionFaultedException` raised while
 speaking, and a session reporting `Faulted` through `StateChanged` (which sets `StatusMessage` to
-`SessionFaultedMessage`). Cancellation is distinguished from a genuine failure via
+`SessionFaultedMessage`). Cancellation of `SpeakAsync` is distinguished from a genuine failure via
 `OperationCanceledException`, and a terminal session fault releases the session (keeping the
-engine) rather than leaving a known-dead session cached for the next Play. Any other exception
-raised by a seam call (for example a non-cancellation fault from `LoadAsync`) is not caught here
-and surfaces through the asynchronous command, because the seam contract reports engine
-unavailability by returning an unavailable engine rather than by throwing.
+engine) rather than leaving a known-dead session cached for the next Play.
+
+_Known limitations_ (the current behavior; not yet handled by the panel):
+
+- Any other exception from a seam call is not caught and surfaces through the asynchronous
+  command rather than through `State`/`StatusMessage`. This includes the `ArgumentException` the
+  library's engine composition throws from `LoadAsync` for an invalid recognized parameter value,
+  any exception other than `SynthesisEngineBusyException` from `CreateSessionAsync`, and any
+  exception other than the two named above from `SpeakAsync`. `State` is left at whatever the
+  last transition set.
+- `OperationCanceledException` is caught only around `SpeakAsync`. A cancellation that surfaces
+  from `LoadAsync` or `CreateSessionAsync` is not caught, leaves `StatusMessage` unchanged and
+  does not report `StoppedMessage`.
+- Stop requested while the engine is still loading (before any session exists) has no session
+  to stop; it only cancels the command's token. The load observes that token only if the seam
+  honors it, and a Stop that arrives before `SpeakAsync` starts takes effect when `SpeakAsync`
+  observes the already-canceled token.
+- `SynthesisSessionFaultedException` and `SpeechSynthesizerUnavailableException` differ in
+  handling: a fault releases the session, while an unavailable-synthesizer exception sets
+  `Error` but keeps the session cached.
 
 **Dependencies**: `IModelCatalogService` (installed-model list, `ModelInstalled`,
 `ReferenceVoicesChanged`, reference voice packs and their state), `IAudioDeviceService`, the
 shared `DeviceSelectionViewModel`, `ISynthesizerSessionFactory`, and the embedded
-`ModelSettingsViewModel`. The library synthesis and model types are reached directly only for
-presentation purposes: `AudioTagCatalog` (the tag hints), and `OnnxChatterboxTurboEnglishSynthesisModel`
-with `ReferenceVoiceLibrary.ConsentNotice` (to decide whether to show `VoiceNotice`). Everything
-that composes or runs a synthesizer goes through `ISynthesizerSessionFactory` and the
-`ISpeechSynthesizerEngine`/`ISynthesisSession` contracts. This is what allows the whole Play/Stop
-lifecycle, including state derivation from `ISynthesisSession.StateChanged`, every
+`ModelSettingsViewModel`. The library synthesis and model types are reached directly for two
+reasons. For presentation: `AudioTagCatalog` (the tag hints), and
+`OnnxChatterboxTurboEnglishSynthesisModel` with `ReferenceVoiceLibrary.ConsentNotice` (to decide
+whether to show `VoiceNotice`, where the installed packs and their state come from
+`IModelCatalogService`). For the lifecycle contracts: `ISpeechSynthesizerEngine`,
+`ISynthesisSession`, `SynthesisSessionState`, and the `SynthesisEngineBusyException`,
+`SynthesisSessionFaultedException` and `SpeechSynthesizerUnavailableException` types it handles.
+The panel therefore does reference library concretes for presentation, but nothing that composes
+a synthesizer: that goes through `ISynthesizerSessionFactory`. This is what allows the whole
+Play/Stop lifecycle, including state derivation from `ISynthesisSession.StateChanged`, every
 unavailable-state path, the engine/session reuse behavior, and the auto-refresh-on-install
 behavior, to be verified with no downloaded model, no native runtime, and no real speakers.
 

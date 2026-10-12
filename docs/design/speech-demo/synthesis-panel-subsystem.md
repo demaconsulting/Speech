@@ -25,9 +25,11 @@ the ModelCatalogSubsystem (for the installed-model list, auto-refresh-on-install
 its pre-refresh hook registration), and `ModelSettingsViewModel` from the ModelSettingsSubsystem
 for the embedded parameter panel. It consumes the library's `SpeechModelStore`,
 `SpeechSynthesizerFactory`, `ISpeechModel`, and `ISynthesisModel` only through
-`SynthesizerSessionFactory`; `SynthesisPanelViewModel` itself touches only presentation-level
-library types (`AudioTagCatalog`, and the Chatterbox Turbo model type and `ReferenceVoiceLibrary`
-consent note for the voice notice). `SynthesisPanelViewModel` implements `IAsyncDisposable` so
+`SynthesizerSessionFactory`; `SynthesisPanelViewModel` itself touches only the library's
+presentation-level types (`AudioTagCatalog`, and the Chatterbox Turbo model type and
+`ReferenceVoiceLibrary` consent note for the voice notice) and the engine, session and exception
+contracts it drives and handles (`ISpeechSynthesizerEngine`, `ISynthesisSession`,
+`SynthesisSessionState` and the synthesis exception types). It implements `IAsyncDisposable` so
 the composition root can release its subscriptions, cached session and cached engine at shutdown.
 
 ### Design

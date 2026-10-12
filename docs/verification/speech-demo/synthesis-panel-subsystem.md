@@ -24,10 +24,10 @@ real seam without a downloaded model.
 ### Acceptance Criteria
 
 A SynthesisPanelSubsystem test run passes when: Play speaks the entered text through the selected
-installed model and device using only the seams and reports each lifecycle transition; Stop
-interrupts an in-flight Play; and the panel stays consistent when the catalog, the reference voices
-or the shared device refresh change underneath it, by refreshing its models while keeping the
-chosen settings and by stopping playback before a device refresh.
+installed model and device; Stop interrupts an in-flight Play and reports it; an unavailable
+playback device produces an error state; the panel refreshes its models while keeping the chosen
+settings when the catalog or the reference voices change; and playback is stopped and awaited
+before a shared device refresh.
 
 ### Test Scenarios
 
@@ -59,7 +59,7 @@ chosen settings and by stopping playback before a device refresh.
 
 **Scenario**: The catalog raises `ReferenceVoicesChanged` with a rebuilt model.
 
-**Expected**: The panel refreshes and keeps the previously chosen voice.
+**Expected**: The panel refreshes and keeps the voice the user had chosen.
 
 #### SynthesisPanelViewModel_PreRefreshHook_WhilePlaying_StopsAndAwaitsExecutionTaskBeforeDeviceRefreshSucceeds
 
