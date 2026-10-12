@@ -36,9 +36,9 @@ namespace DemaConsulting.Speech.Cli.Cli;
 ///     A one-line summary of the subcommand's expected flags, shown by <c>--help</c>.
 /// </param>
 /// <param name="Handler">
-///     The action that runs when this subcommand is dispatched.
+///     The asynchronous function that runs when this subcommand is dispatched.
 /// </param>
-internal sealed record CommandDescriptor(string Name, string UsageSummary, Action<Context> Handler);
+internal sealed record CommandDescriptor(string Name, string UsageSummary, Func<Context, Task> Handler);
 
 /// <summary>
 ///     Defines the fixed set of subcommands the CLI recognizes and dispatches to.
@@ -57,56 +57,68 @@ internal static class CommandDispatch
         new CommandDescriptor(
             "list-models",
             "list-models [--role tts|stt] [--state downloaded|missing] [--format table|json]",
-            ListModelsCommand.Run),
+            Sync(ListModelsCommand.Run)),
         new CommandDescriptor(
             "model-info",
             "model-info <modelId>",
-            ModelInfoCommand.Run),
+            Sync(ModelInfoCommand.Run)),
         new CommandDescriptor(
             "download",
             "download <modelId> [<modelId>...] [--force]",
-            DownloadCommand.Run),
+            DownloadCommand.RunAsync),
         new CommandDescriptor(
             "uninstall",
             "uninstall <modelId>",
-            UninstallCommand.Run),
+            UninstallCommand.RunAsync),
         new CommandDescriptor(
             "clean",
             "clean <modelId>",
-            CleanCommand.Run),
+            CleanCommand.RunAsync),
         new CommandDescriptor(
             "list-voices",
             "list-voices [--format table|json]",
-            ListVoicesCommand.Run),
+            Sync(ListVoicesCommand.Run)),
         new CommandDescriptor(
             "voices",
             "voices (packs | install <packId> | uninstall <packId>)",
-            VoicesCommand.Run),
+            VoicesCommand.RunAsync),
         new CommandDescriptor(
             "list-devices",
             "list-devices [--direction input|output]",
-            ListDevicesCommand.Run),
+            Sync(ListDevicesCommand.Run)),
         new CommandDescriptor(
             "devices",
             "devices test [--device <name>] [--direction input|output]",
-            DevicesTestCommand.Run),
+            Sync(DevicesTestCommand.Run)),
         new CommandDescriptor(
             "doctor",
             "doctor",
-            DoctorCommand.Run),
+            Sync(DoctorCommand.Run)),
         new CommandDescriptor(
             "speak",
             "speak --tts-model <id> (--text <string> | --file <path> | stdin) [--output-audio <wav-path>] [--playback-device <name>] [--tts-param key=value...] [--no-tags]",
-            SpeakCommand.Run),
+            SpeakCommand.RunAsync),
         new CommandDescriptor(
             "recognize",
             "recognize --stt-model <id> (--input <wav-path> | --mic) [--capture-device <name>] [--silence-timeout <seconds>] [--start-timeout <seconds>] [--stt-param key=value...] [--interim | --final-only] [--output-text <text-path>]",
-            RecognizeCommand.Run),
+            RecognizeCommand.RunAsync),
         new CommandDescriptor(
             "ask",
             "ask --tts-model <id> --stt-model <id> (--text <string> | --file <path> | stdin) [--playback-device <name>] [--capture-device <name>] [--tts-param key=value...] [--stt-param key=value...] [--silence-timeout <seconds>] [--start-timeout <seconds>] [--output-text <text-path>]",
-            AskCommand.Run)
+            AskCommand.RunAsync)
     ];
+
+    /// <summary>
+    ///     Adapts a synchronous command handler to the asynchronous handler signature.
+    /// </summary>
+    /// <param name="handler">The synchronous handler to adapt.</param>
+    /// <returns>A handler that runs <paramref name="handler"/> and returns a completed task.</returns>
+    private static Func<Context, Task> Sync(Action<Context> handler) =>
+        context =>
+        {
+            handler(context);
+            return Task.CompletedTask;
+        };
 
     /// <summary>
     ///     Looks up the command descriptor for the given subcommand name.

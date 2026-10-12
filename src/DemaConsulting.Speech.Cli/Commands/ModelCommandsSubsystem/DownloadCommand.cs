@@ -38,7 +38,7 @@ internal static class DownloadCommand
     /// <param name="context">The invocation context. Must not be null.</param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="context"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">Thrown when no <c>&lt;modelId&gt;</c> argument is given, or an unsupported flag is given.</exception>
-    public static void Run(Context context)
+    public static async Task RunAsync(Context context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
@@ -49,7 +49,7 @@ internal static class DownloadCommand
         // kill the process outright, so a partially-staged download is cleaned up honestly by
         // the store's own staging/abandon logic instead of leaving orphaned scratch files.
         using var cancelRegistration = ConsoleCancellation.Register(cancellationSource);
-        RunAsync(context, catalog, cancellationSource.Token).GetAwaiter().GetResult();
+        await RunAsync(context, catalog, cancellationSource.Token).ConfigureAwait(false);
     }
 
     /// <summary>

@@ -33,7 +33,7 @@ public class ProgramTests
     ///     Test that Run with version flag displays version only.
     /// </summary>
     [Fact]
-    public void Program_Run_WithVersionFlag_DisplaysVersionOnly()
+    public async Task Program_Run_WithVersionFlag_DisplaysVersionOnly()
     {
         // Arrange: setup test conditions
         var originalOut = Console.Out;
@@ -44,7 +44,7 @@ public class ProgramTests
             using var context = Context.Create(["--version"]);
 
             // Act: execute the operation being tested
-            Program.Run(context);
+            await Program.RunAsync(context);
 
             // Assert: verify expected behavior
             var output = outWriter.ToString();
@@ -63,7 +63,7 @@ public class ProgramTests
     ///     Test that Run with help flag displays usage information listing every subcommand.
     /// </summary>
     [Fact]
-    public void Program_Run_WithHelpFlag_DisplaysUsageInformation()
+    public async Task Program_Run_WithHelpFlag_DisplaysUsageInformation()
     {
         // Arrange: setup test conditions
         var originalOut = Console.Out;
@@ -74,7 +74,7 @@ public class ProgramTests
             using var context = Context.Create(["--help"]);
 
             // Act: execute the operation being tested
-            Program.Run(context);
+            await Program.RunAsync(context);
 
             // Assert: verify expected behavior
             var output = outWriter.ToString();
@@ -100,7 +100,7 @@ public class ProgramTests
     ///     Test that Run with validate flag runs validation.
     /// </summary>
     [Fact]
-    public void Program_Run_WithValidateFlag_RunsValidation()
+    public async Task Program_Run_WithValidateFlag_RunsValidation()
     {
         // Arrange: setup test conditions
         var originalOut = Console.Out;
@@ -111,7 +111,7 @@ public class ProgramTests
             using var context = Context.Create(["--validate"]);
 
             // Act: execute the operation being tested
-            Program.Run(context);
+            await Program.RunAsync(context);
 
             // Assert: verify expected behavior
             var output = outWriter.ToString();
@@ -129,7 +129,7 @@ public class ProgramTests
     ///     <c>--help</c>, since no subcommand was given.
     /// </summary>
     [Fact]
-    public void Program_Run_NoArguments_DisplaysBannerAndUsage()
+    public async Task Program_Run_NoArguments_DisplaysBannerAndUsage()
     {
         // Arrange: setup test conditions
         var originalOut = Console.Out;
@@ -140,7 +140,7 @@ public class ProgramTests
             using var context = Context.Create([]);
 
             // Act: execute the operation being tested
-            Program.Run(context);
+            await Program.RunAsync(context);
 
             // Assert: verify expected behavior
             var output = outWriter.ToString();
@@ -173,7 +173,7 @@ public class ProgramTests
     ///     Test that Main with invalid arguments returns non-zero exit code.
     /// </summary>
     [Fact]
-    public void Program_Main_WithInvalidArgs_ReturnsNonZeroExitCode()
+    public async Task Program_Main_WithInvalidArgs_ReturnsNonZeroExitCode()
     {
         // Arrange: redirect stderr to suppress error output during test
         var originalError = Console.Error;
@@ -183,7 +183,7 @@ public class ProgramTests
             Console.SetError(errWriter);
 
             // Act: invoke Main with an unrecognized argument (not a known subcommand or option)
-            var result = Program.Main(["--invalid-argument"]);
+            var result = await Program.Main(["--invalid-argument"]);
 
             // Assert: invalid arguments produce a non-zero exit code
             Assert.Equal(1, result);
@@ -199,7 +199,7 @@ public class ProgramTests
     ///     code and reports the argument in the error output.
     /// </summary>
     [Fact]
-    public void Program_Main_WithUnknownCommand_ReturnsNonZeroExitCodeAndReportsCommand()
+    public async Task Program_Main_WithUnknownCommand_ReturnsNonZeroExitCodeAndReportsCommand()
     {
         // Arrange: redirect stderr to capture error output
         var originalError = Console.Error;
@@ -209,7 +209,7 @@ public class ProgramTests
             Console.SetError(errWriter);
 
             // Act: invoke Main with a command name that is not in the dispatch table
-            var result = Program.Main(["not-a-real-command"]);
+            var result = await Program.Main(["not-a-real-command"]);
 
             // Assert: unknown command produces a clean, non-zero exit with a naming error message
             Assert.Equal(1, result);
@@ -230,7 +230,7 @@ public class ProgramTests
     ///     <see cref="Cli.Context.Silent"/> flag.
     /// </summary>
     [Fact]
-    public void Program_Main_WithInvalidArgsAndSilentFlag_SuppressesErrorOutput()
+    public async Task Program_Main_WithInvalidArgsAndSilentFlag_SuppressesErrorOutput()
     {
         // Arrange: redirect stderr to capture (expected empty) error output
         var originalError = Console.Error;
@@ -240,7 +240,7 @@ public class ProgramTests
             Console.SetError(errWriter);
 
             // Act: invoke Main with an unrecognized argument plus --silent
-            var result = Program.Main(["--invalid-argument", "--silent"]);
+            var result = await Program.Main(["--invalid-argument", "--silent"]);
 
             // Assert: non-zero exit code still reported, but nothing written to stderr
             Assert.Equal(1, result);
@@ -258,7 +258,7 @@ public class ProgramTests
     ///     unrecognized command.
     /// </summary>
     [Fact]
-    public void Program_Main_WithUnknownCommandAndSilentFlag_SuppressesErrorOutput()
+    public async Task Program_Main_WithUnknownCommandAndSilentFlag_SuppressesErrorOutput()
     {
         // Arrange: redirect stderr to capture (expected empty) error output
         var originalError = Console.Error;
@@ -268,7 +268,7 @@ public class ProgramTests
             Console.SetError(errWriter);
 
             // Act: invoke Main with an unknown command name plus --silent
-            var result = Program.Main(["not-a-real-command", "--silent"]);
+            var result = await Program.Main(["not-a-real-command", "--silent"]);
 
             // Assert: non-zero exit code still reported, but nothing written to stderr
             Assert.Equal(1, result);
@@ -288,7 +288,7 @@ public class ProgramTests
     ///     <c>RecognizeCommandTests</c>.
     /// </summary>
     [Fact]
-    public void Program_Run_WithRecognizeCommandAndNoModel_ThrowsArgumentException()
+    public async Task Program_Run_WithRecognizeCommandAndNoModel_ThrowsArgumentException()
     {
         var originalError = Console.Error;
         try
@@ -297,7 +297,7 @@ public class ProgramTests
             Console.SetError(errWriter);
             using var context = Context.Create(["recognize"]);
 
-            Assert.ThrowsAny<ArgumentException>(() => Program.Run(context));
+            await Assert.ThrowsAnyAsync<ArgumentException>(() => Program.RunAsync(context));
         }
         finally
         {
@@ -311,7 +311,7 @@ public class ProgramTests
     ///     the dispatch table wiring for the model-management commands.
     /// </summary>
     [Fact]
-    public void Program_Run_WithListModelsCommand_ListsModelsAndSucceeds()
+    public async Task Program_Run_WithListModelsCommand_ListsModelsAndSucceeds()
     {
         // Arrange: an isolated, empty models directory so no real network access occurs
         var modelsDir = Path.Join(Path.GetTempPath(), "DemaConsulting.Speech.Cli.Tests", Guid.NewGuid().ToString("N"));
@@ -324,7 +324,7 @@ public class ProgramTests
             using var context = Context.Create(["--models-dir", modelsDir, "list-models"]);
 
             // Act
-            Program.Run(context);
+            await Program.RunAsync(context);
 
             // Assert
             Assert.Equal(0, context.ExitCode);
@@ -346,7 +346,7 @@ public class ProgramTests
     ///     wiring for the device-related commands.
     /// </summary>
     [Fact]
-    public void Program_Run_WithListDevicesCommand_CompletesWithSuccessExitCode()
+    public async Task Program_Run_WithListDevicesCommand_CompletesWithSuccessExitCode()
     {
         var originalOut = Console.Out;
         try
@@ -355,7 +355,7 @@ public class ProgramTests
             Console.SetOut(outWriter);
             using var context = Context.Create(["list-devices"]);
 
-            Program.Run(context);
+            await Program.RunAsync(context);
 
             Assert.Equal(0, context.ExitCode);
         }
@@ -371,7 +371,7 @@ public class ProgramTests
     ///     models directory so no real network access or per-user store is touched.
     /// </summary>
     [Fact]
-    public void Program_Run_WithDoctorCommand_ProducesReportWithoutThrowing()
+    public async Task Program_Run_WithDoctorCommand_ProducesReportWithoutThrowing()
     {
         var modelsDir = Path.Join(Path.GetTempPath(), "DemaConsulting.Speech.Cli.Tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(modelsDir);
@@ -382,7 +382,7 @@ public class ProgramTests
             Console.SetOut(outWriter);
             using var context = Context.Create(["--models-dir", modelsDir, "doctor"]);
 
-            var exception = Record.Exception(() => Program.Run(context));
+            var exception = await Record.ExceptionAsync(() => Program.RunAsync(context));
 
             Assert.Null(exception);
             Assert.NotEqual(string.Empty, outWriter.ToString());
@@ -404,7 +404,7 @@ public class ProgramTests
     ///     <c>speak</c> command. Full <c>speak</c> coverage lives in <c>SpeakCommandTests</c>.
     /// </summary>
     [Fact]
-    public void Program_Run_WithSpeakCommandAndNoModel_ThrowsArgumentException()
+    public async Task Program_Run_WithSpeakCommandAndNoModel_ThrowsArgumentException()
     {
         var originalError = Console.Error;
         try
@@ -413,7 +413,7 @@ public class ProgramTests
             Console.SetError(errWriter);
             using var context = Context.Create(["speak"]);
 
-            Assert.ThrowsAny<ArgumentException>(() => Program.Run(context));
+            await Assert.ThrowsAnyAsync<ArgumentException>(() => Program.RunAsync(context));
         }
         finally
         {
@@ -428,7 +428,7 @@ public class ProgramTests
     ///     <c>ask</c> command. Full <c>ask</c> coverage lives in <c>AskCommandTests</c>.
     /// </summary>
     [Fact]
-    public void Program_Run_WithAskCommandAndNoModel_ThrowsArgumentException()
+    public async Task Program_Run_WithAskCommandAndNoModel_ThrowsArgumentException()
     {
         var originalError = Console.Error;
         try
@@ -437,7 +437,7 @@ public class ProgramTests
             Console.SetError(errWriter);
             using var context = Context.Create(["ask"]);
 
-            Assert.ThrowsAny<ArgumentException>(() => Program.Run(context));
+            await Assert.ThrowsAnyAsync<ArgumentException>(() => Program.RunAsync(context));
         }
         finally
         {
@@ -449,7 +449,7 @@ public class ProgramTests
     ///     Test that Run with short version flag -v displays version.
     /// </summary>
     [Fact]
-    public void Program_Run_WithShortVersionFlag_DisplaysVersion()
+    public async Task Program_Run_WithShortVersionFlag_DisplaysVersion()
     {
         // Arrange: setup test conditions
         var originalOut = Console.Out;
@@ -460,7 +460,7 @@ public class ProgramTests
             using var context = Context.Create(["-v"]);
 
             // Act: execute the operation being tested
-            Program.Run(context);
+            await Program.RunAsync(context);
 
             // Assert: verify expected behavior
             var output = outWriter.ToString();
@@ -477,7 +477,7 @@ public class ProgramTests
     ///     Test that Run with short help flag -h displays usage.
     /// </summary>
     [Fact]
-    public void Program_Run_WithShortHelpFlag_DisplaysUsage()
+    public async Task Program_Run_WithShortHelpFlag_DisplaysUsage()
     {
         // Arrange: setup test conditions
         var originalOut = Console.Out;
@@ -488,7 +488,7 @@ public class ProgramTests
             using var context = Context.Create(["-h"]);
 
             // Act: execute the operation being tested
-            Program.Run(context);
+            await Program.RunAsync(context);
 
             // Assert: verify expected behavior
             var output = outWriter.ToString();
@@ -506,7 +506,7 @@ public class ProgramTests
     ///     Test that Run with short help flag -? displays usage.
     /// </summary>
     [Fact]
-    public void Program_Run_WithQuestionMarkFlag_DisplaysUsage()
+    public async Task Program_Run_WithQuestionMarkFlag_DisplaysUsage()
     {
         // Arrange: setup test conditions
         var originalOut = Console.Out;
@@ -517,7 +517,7 @@ public class ProgramTests
             using var context = Context.Create(["-?"]);
 
             // Act: execute the operation being tested
-            Program.Run(context);
+            await Program.RunAsync(context);
 
             // Assert: verify expected behavior
             var output = outWriter.ToString();
@@ -589,7 +589,7 @@ public class ProgramTests
     ///     Test that help documents <c>--voices-dir</c>, the voice commands, voice selection, and the consent note.
     /// </summary>
     [Fact]
-    public void Program_Run_Help_DocumentsVoicesOptionsAndConsentNote()
+    public async Task Program_Run_Help_DocumentsVoicesOptionsAndConsentNote()
     {
         var originalOut = Console.Out;
         try
@@ -598,7 +598,7 @@ public class ProgramTests
             Console.SetOut(writer);
             using var context = Context.Create(["--help"]);
 
-            Program.Run(context);
+            await Program.RunAsync(context);
 
             var output = writer.ToString();
             Assert.Contains("--voices-dir", output);
@@ -624,13 +624,68 @@ public class ProgramTests
     }
 
     /// <summary>
-    ///     Test that Run passes through to Main's ArgumentException handling with a null-safe
-    ///     path when <see cref="Program.Run"/> itself is given a null context.
+    ///     Test that <see cref="Program.RunAsync"/> given a null context faults with
+    ///     <see cref="ArgumentNullException"/> (surfaced through the returned task, since the
+    ///     method is asynchronous).
     /// </summary>
     [Fact]
-    public void Program_Run_WithNullContext_ThrowsArgumentNullException()
+    public async Task Program_Run_WithNullContext_ThrowsArgumentNullException()
     {
-        Assert.Throws<ArgumentNullException>(() => Program.Run(null!));
+        await Assert.ThrowsAsync<ArgumentNullException>(() => Program.RunAsync(null!));
+    }
+
+    /// <summary>
+    ///     Test that every registered command descriptor exposes a handler that returns a
+    ///     non-null <see cref="Task"/>, so the dispatcher can always await it.
+    /// </summary>
+    [Fact]
+    public async Task CommandDispatch_Handlers_ReturnNonNullTasks()
+    {
+        // Arrange: an isolated models directory and the argument-less forms of every command;
+        // handlers that reject the missing arguments do so by faulting the returned task.
+        var modelsDir = Path.Join(Path.GetTempPath(), "DemaConsulting.Speech.Cli.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(modelsDir);
+        var originalOut = Console.Out;
+        var originalError = Console.Error;
+        try
+        {
+            using var outWriter = new StringWriter();
+            using var errWriter = new StringWriter();
+            Console.SetOut(outWriter);
+            Console.SetError(errWriter);
+
+            foreach (var command in CommandDispatch.Commands)
+            {
+                Assert.NotNull(command.Handler);
+                using var context = Context.Create(["--models-dir", modelsDir, command.Name]);
+
+                // Act: invoke the handler. Argument problems may surface either as a synchronous
+                // throw (commands that are still synchronous) or as a faulted Task (async commands);
+                // what must never happen is a handler returning null.
+                Task? task;
+                try
+                {
+                    task = command.Handler(context);
+                }
+                catch (ArgumentException)
+                {
+                    continue;
+                }
+
+                // Assert: non-null task; outcome (success or fault) is irrelevant here
+                Assert.NotNull(task);
+                await Record.ExceptionAsync(() => task);
+            }
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+            Console.SetError(originalError);
+            if (Directory.Exists(modelsDir))
+            {
+                Directory.Delete(modelsDir, recursive: true);
+            }
+        }
     }
 
     /// <summary>
@@ -972,7 +1027,7 @@ public class ProgramTests
     ///     reports the error and makes <c>Main</c> return a non-zero exit code.
     /// </summary>
     [Fact]
-    public void Program_Main_ValidateWithUnsupportedResultsExtension_ReturnsNonZeroExitCode()
+    public async Task Program_Main_ValidateWithUnsupportedResultsExtension_ReturnsNonZeroExitCode()
     {
         // Arrange
         var resultsFile = Path.Join(Path.GetTempPath(), $"speech_cli_results_{Guid.NewGuid():N}.txt");
@@ -986,7 +1041,7 @@ public class ProgramTests
             Console.SetOut(outWriter);
 
             // Act
-            var result = Program.Main(["--validate", "--results", resultsFile]);
+            var result = await Program.Main(["--validate", "--results", resultsFile]);
 
             // Assert
             Assert.Equal(1, result);
@@ -1006,7 +1061,7 @@ public class ProgramTests
     ///     the error and makes <c>Main</c> return a non-zero exit code.
     /// </summary>
     [Fact]
-    public void Program_Main_ValidateWithUnwritableResultsPath_ReturnsNonZeroExitCode()
+    public async Task Program_Main_ValidateWithUnwritableResultsPath_ReturnsNonZeroExitCode()
     {
         // Arrange: the parent directory does not exist, so the write fails
         var resultsFile = Path.Join(Path.GetTempPath(), Guid.NewGuid().ToString("N"), "results.trx");
@@ -1020,7 +1075,7 @@ public class ProgramTests
             Console.SetOut(outWriter);
 
             // Act
-            var result = Program.Main(["--validate", "--results", resultsFile]);
+            var result = await Program.Main(["--validate", "--results", resultsFile]);
 
             // Assert
             Assert.Equal(1, result);
@@ -1037,7 +1092,7 @@ public class ProgramTests
     ///     Test that <c>--validate</c> with a <c>.xml</c> results file writes a JUnit report and exits successfully.
     /// </summary>
     [Fact]
-    public void Program_Main_ValidateWithXmlResults_WritesJUnitFile()
+    public async Task Program_Main_ValidateWithXmlResults_WritesJUnitFile()
     {
         // Arrange
         var resultsFile = Path.Join(Path.GetTempPath(), $"speech_cli_results_{Guid.NewGuid():N}.xml");
@@ -1048,12 +1103,12 @@ public class ProgramTests
             Console.SetOut(outWriter);
 
             // Act
-            var result = Program.Main(["--validate", "--results", resultsFile]);
+            var result = await Program.Main(["--validate", "--results", resultsFile]);
 
             // Assert
             Assert.Equal(0, result);
             Assert.True(File.Exists(resultsFile), "Results file was not created");
-            Assert.Contains("<testsuite", File.ReadAllText(resultsFile));
+            Assert.Contains("<testsuite", await File.ReadAllTextAsync(resultsFile, TestContext.Current.CancellationToken));
         }
         finally
         {

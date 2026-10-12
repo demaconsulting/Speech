@@ -23,7 +23,7 @@ existing catalog seam with two further members:
 
 ### Interfaces
 
-**Exposed**: `RecognizeCommand.Run(Context)` (the `CommandDispatch` entry point) and the
+**Exposed**: `RecognizeCommand.RunAsync(Context)` (the `CommandDispatch` entry point) and the
 `SilenceTimeoutRecognizerSession` decorator, which `AskCommand` also reuses. Operator mistakes are
 reported as `ArgumentException` or `InvalidOperationException`.
 

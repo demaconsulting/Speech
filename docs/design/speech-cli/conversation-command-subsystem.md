@@ -29,7 +29,7 @@ turn as one CLI invocation, built entirely on the async Engine/Session API.
 
 ### Interfaces
 
-**Exposed**: `AskCommand.Run(Context)` (the `CommandDispatch` entry point), and the
+**Exposed**: `AskCommand.RunAsync(Context)` (the `CommandDispatch` entry point), and the
 `ICliCaptureDeviceSource` seam with its production `AudioDeviceFactoryCaptureDeviceSource`.
 Operator mistakes are reported as `ArgumentException` or `InvalidOperationException`.
 
@@ -197,7 +197,7 @@ stdout by default, or written to the file named by `--output-text` instead - mir
 so no carriage-return-overwrite console logic from `recognize` is reused here.
 
 **Cancellation and disposal.** `Ctrl+C` is wired to cooperative cancellation via
-`Console.CancelKeyPress` in `AskCommand.Run(Context)`, for the whole call rather than per-phase: a
+`Console.CancelKeyPress` in `AskCommand.RunAsync(Context)`, for the whole call rather than per-phase: a
 single handler cancels a shared `CancellationTokenSource`, calls `StopAsync(CancellationToken.None)`
 (fire-and-forget) on the live session once Phase 2 has created one (tracked under a lock since the
 handler runs on a separate thread), and signals the same `ManualResetEventSlim` Phase 2 blocks on -

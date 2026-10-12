@@ -109,7 +109,7 @@ public sealed class AskCommandTests
     /// <summary>
     ///     Polls <paramref name="condition"/> until it returns <see langword="true"/> or
     ///     <paramref name="timeout"/> elapses, for use asserting on state that
-    ///     <see cref="AskCommand.RunAsync"/> now updates from a fire-and-forget background
+    ///     <c>AskCommand.RunAsync</c> now updates from a fire-and-forget background
     ///     continuation (recognizer disposal after a canceled/failed Phase 1) rather than
     ///     synchronously before returning.
     /// </summary>
@@ -267,14 +267,14 @@ public sealed class AskCommandTests
 
     /// <summary>Test that supplying both --text and --file throws.</summary>
     [Fact]
-    public void AskCommand_Run_TextAndFileBothGiven_ThrowsArgumentException()
+    public async Task AskCommand_Run_TextAndFileBothGiven_ThrowsArgumentException()
     {
         var catalog = CreateCatalogWithModels();
         using var context = Context.Create(
             ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi", "--file", "in.txt"]);
 
-        Assert.Throws<ArgumentException>(
-            () => AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureSource()));
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => AskCommand.RunAsync(context, catalog, CreatePlaybackSource(), CreateCaptureSource()));
     }
 
     /// <summary>
@@ -282,7 +282,7 @@ public sealed class AskCommandTests
     ///     throws, naming the three accepted sources.
     /// </summary>
     [Fact]
-    public void AskCommand_Run_NoTextSource_ThrowsArgumentException()
+    public async Task AskCommand_Run_NoTextSource_ThrowsArgumentException()
     {
         // Skip when stdin actually is redirected (e.g. under some CI/test-runner harnesses),
         // since this test specifically covers the "no source available" branch.
@@ -294,8 +294,8 @@ public sealed class AskCommandTests
         var catalog = CreateCatalogWithModels();
         using var context = Context.Create(["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1"]);
 
-        var exception = Assert.Throws<ArgumentException>(
-            () => AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureSource()));
+        var exception = await Assert.ThrowsAsync<ArgumentException>(
+            () => AskCommand.RunAsync(context, catalog, CreatePlaybackSource(), CreateCaptureSource()));
         Assert.Contains("--text", exception.Message);
         Assert.Contains("--file", exception.Message);
     }
@@ -304,79 +304,79 @@ public sealed class AskCommandTests
 
     /// <summary>Test that an unknown --tts-model id throws before any --stt-model resolution.</summary>
     [Fact]
-    public void AskCommand_Run_UnknownTtsModelId_ThrowsArgumentException()
+    public async Task AskCommand_Run_UnknownTtsModelId_ThrowsArgumentException()
     {
         var catalog = CreateCatalogWithModels();
         using var context = Context.Create(
             ["ask", "--tts-model", "does-not-exist", "--stt-model", "stt-model-1", "--text", "hi"]);
 
-        var exception = Assert.Throws<ArgumentException>(
-            () => AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureSource()));
+        var exception = await Assert.ThrowsAsync<ArgumentException>(
+            () => AskCommand.RunAsync(context, catalog, CreatePlaybackSource(), CreateCaptureSource()));
         Assert.Contains("does-not-exist", exception.Message);
     }
 
     /// <summary>Test that an unknown --stt-model id throws.</summary>
     [Fact]
-    public void AskCommand_Run_UnknownSttModelId_ThrowsArgumentException()
+    public async Task AskCommand_Run_UnknownSttModelId_ThrowsArgumentException()
     {
         var catalog = CreateCatalogWithModels();
         using var context = Context.Create(
             ["ask", "--tts-model", "tts-model-1", "--stt-model", "does-not-exist", "--text", "hi"]);
 
-        var exception = Assert.Throws<ArgumentException>(
-            () => AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureSource()));
+        var exception = await Assert.ThrowsAsync<ArgumentException>(
+            () => AskCommand.RunAsync(context, catalog, CreatePlaybackSource(), CreateCaptureSource()));
         Assert.Contains("does-not-exist", exception.Message);
     }
 
     /// <summary>Test that a wrong-role --tts-model (a recognition model) throws.</summary>
     [Fact]
-    public void AskCommand_Run_WrongRoleTtsModel_ThrowsArgumentException()
+    public async Task AskCommand_Run_WrongRoleTtsModel_ThrowsArgumentException()
     {
         var catalog = CreateCatalogWithModels(ttsRole: SpeechModelRole.Recognition);
         using var context = Context.Create(
             ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi"]);
 
-        var exception = Assert.Throws<ArgumentException>(
-            () => AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureSource()));
+        var exception = await Assert.ThrowsAsync<ArgumentException>(
+            () => AskCommand.RunAsync(context, catalog, CreatePlaybackSource(), CreateCaptureSource()));
         Assert.Contains("synthesis model", exception.Message);
     }
 
     /// <summary>Test that a wrong-role --stt-model (a synthesis model) throws.</summary>
     [Fact]
-    public void AskCommand_Run_WrongRoleSttModel_ThrowsArgumentException()
+    public async Task AskCommand_Run_WrongRoleSttModel_ThrowsArgumentException()
     {
         var catalog = CreateCatalogWithModels(sttRole: SpeechModelRole.Synthesis);
         using var context = Context.Create(
             ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi"]);
 
-        var exception = Assert.Throws<ArgumentException>(
-            () => AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureSource()));
+        var exception = await Assert.ThrowsAsync<ArgumentException>(
+            () => AskCommand.RunAsync(context, catalog, CreatePlaybackSource(), CreateCaptureSource()));
         Assert.Contains("recognition model", exception.Message);
     }
 
     /// <summary>Test that a not-downloaded --tts-model throws with a download hint.</summary>
     [Fact]
-    public void AskCommand_Run_NotDownloadedTtsModel_ThrowsArgumentExceptionWithDownloadHint()
+    public async Task AskCommand_Run_NotDownloadedTtsModel_ThrowsArgumentExceptionWithDownloadHint()
     {
         var catalog = CreateCatalogWithModels(ttsState: SpeechModelState.NotDownloaded);
         using var context = Context.Create(
             ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi"]);
 
-        var exception = Assert.Throws<ArgumentException>(
-            () => AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureSource()));
+        var exception = await Assert.ThrowsAsync<ArgumentException>(
+            () => AskCommand.RunAsync(context, catalog, CreatePlaybackSource(), CreateCaptureSource()));
         Assert.Contains("download tts-model-1", exception.Message);
     }
 
     /// <summary>Test that a not-downloaded --stt-model throws with a download hint.</summary>
     [Fact]
-    public void AskCommand_Run_NotDownloadedSttModel_ThrowsArgumentExceptionWithDownloadHint()
+    public async Task AskCommand_Run_NotDownloadedSttModel_ThrowsArgumentExceptionWithDownloadHint()
     {
         var catalog = CreateCatalogWithModels(sttState: SpeechModelState.NotDownloaded);
         using var context = Context.Create(
             ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi"]);
 
-        var exception = Assert.Throws<ArgumentException>(
-            () => AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureSource()));
+        var exception = await Assert.ThrowsAsync<ArgumentException>(
+            () => AskCommand.RunAsync(context, catalog, CreatePlaybackSource(), CreateCaptureSource()));
         Assert.Contains("download stt-model-1", exception.Message);
     }
 
@@ -384,7 +384,7 @@ public sealed class AskCommandTests
 
     /// <summary>Test that an unknown --playback-device throws before any synthesizer is created.</summary>
     [Fact]
-    public void AskCommand_Run_UnknownPlaybackDevice_ThrowsArgumentException()
+    public async Task AskCommand_Run_UnknownPlaybackDevice_ThrowsArgumentException()
     {
         var catalog = CreateCatalogWithModels();
         using var context = Context.Create(
@@ -393,8 +393,8 @@ public sealed class AskCommandTests
                 "--playback-device", "does-not-exist"
             ]);
 
-        var exception = Assert.Throws<ArgumentException>(
-            () => AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureSource()));
+        var exception = await Assert.ThrowsAsync<ArgumentException>(
+            () => AskCommand.RunAsync(context, catalog, CreatePlaybackSource(), CreateCaptureSource()));
         Assert.Contains("does-not-exist", exception.Message);
     }
 
@@ -419,8 +419,8 @@ public sealed class AskCommandTests
         using var context = Context.Create(
             ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi"]);
 
-        Assert.Throws<InvalidOperationException>(
-            () => AskCommand.Run(context, catalog, deviceSource, CreateCaptureSource()));
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => AskCommand.RunAsync(context, catalog, deviceSource, CreateCaptureSource()));
 
         // The concurrently pre-warmed engine/session must eventually be disposed by the
         // background continuation, even though the exception that ended the call was thrown from
@@ -434,7 +434,7 @@ public sealed class AskCommandTests
 
     /// <summary>Test that an unknown --capture-device throws before any recognizer is created.</summary>
     [Fact]
-    public void AskCommand_Run_UnknownCaptureDevice_ThrowsArgumentException()
+    public async Task AskCommand_Run_UnknownCaptureDevice_ThrowsArgumentException()
     {
         var catalog = CreateCatalogWithModels();
         WireSynthesizer(catalog);
@@ -445,8 +445,8 @@ public sealed class AskCommandTests
                 "--capture-device", "does-not-exist"
             ]);
 
-        var exception = Assert.Throws<ArgumentException>(
-            () => AskCommand.Run(context, catalog, CreatePlaybackSource(), captureSource));
+        var exception = await Assert.ThrowsAsync<ArgumentException>(
+            () => AskCommand.RunAsync(context, catalog, CreatePlaybackSource(), captureSource));
         Assert.Contains("does-not-exist", exception.Message);
     }
 
@@ -456,7 +456,7 @@ public sealed class AskCommandTests
     ///     the concurrent pre-warm never skips or reorders Phase 1 even when Phase 2 setup fails.
     /// </summary>
     [Fact]
-    public void AskCommand_Run_NoCaptureDeviceAvailable_ThrowsInvalidOperationException()
+    public async Task AskCommand_Run_NoCaptureDeviceAvailable_ThrowsInvalidOperationException()
     {
         var catalog = CreateCatalogWithModels();
         var (synthSession, _) = WireSynthesizer(catalog);
@@ -464,8 +464,8 @@ public sealed class AskCommandTests
         using var context = Context.Create(
             ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi"]);
 
-        Assert.Throws<InvalidOperationException>(
-            () => AskCommand.Run(context, catalog, CreatePlaybackSource(), captureSource));
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => AskCommand.RunAsync(context, catalog, CreatePlaybackSource(), captureSource));
 
         Assert.Equal(["hi"], synthSession.SpeakAsyncCalls);
     }
@@ -481,7 +481,7 @@ public sealed class AskCommandTests
     ///     the ordinary success path.
     /// </summary>
     [Fact]
-    public void AskCommand_Run_Success_SpeaksThenListensAndPrintsFinalResult()
+    public async Task AskCommand_Run_Success_SpeaksThenListensAndPrintsFinalResult()
     {
         var catalog = CreateCatalogWithModels();
         var (synthSession, synthEngine) = WireSynthesizer(catalog);
@@ -499,7 +499,7 @@ public sealed class AskCommandTests
             using var context = Context.Create(
                 ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "How are you?"]);
 
-            AskCommand.Run(context, catalog, playbackSource, CreateCaptureSource());
+            await AskCommand.RunAsync(context, catalog, playbackSource, CreateCaptureSource());
         }
         finally
         {
@@ -530,7 +530,7 @@ public sealed class AskCommandTests
     ///     silently passing (or the process deadlocking indefinitely).
     /// </summary>
     [Fact]
-    public void AskCommand_Run_PrewarmsRecognizerConcurrentlyWithPlayback_CreatesRecognizerBeforePlaybackCompletes()
+    public async Task AskCommand_Run_PrewarmsRecognizerConcurrentlyWithPlayback_CreatesRecognizerBeforePlaybackCompletes()
     {
         using var recognizerCreatedSignal = new ManualResetEventSlim(initialState: false);
 
@@ -567,7 +567,7 @@ public sealed class AskCommandTests
             using var context = Context.Create(
                 ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi"]);
 
-            AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureSource());
+            await AskCommand.RunAsync(context, catalog, CreatePlaybackSource(), CreateCaptureSource());
 
             Assert.Equal(0, context.ExitCode);
         }
@@ -584,7 +584,7 @@ public sealed class AskCommandTests
 
     /// <summary>Test that --output-text writes the recognized text to a file instead of stdout.</summary>
     [Fact]
-    public void AskCommand_Run_OutputText_WritesRecognizedTextToFile()
+    public async Task AskCommand_Run_OutputText_WritesRecognizedTextToFile()
     {
         var catalog = CreateCatalogWithModels();
         WireSynthesizer(catalog);
@@ -600,10 +600,10 @@ public sealed class AskCommandTests
                     "--output-text", outputPath
                 ]);
 
-            AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureSource());
+            await AskCommand.RunAsync(context, catalog, CreatePlaybackSource(), CreateCaptureSource());
 
             Assert.True(File.Exists(outputPath));
-            Assert.Equal("the reply", File.ReadAllText(outputPath).TrimEnd());
+            Assert.Equal("the reply", (await File.ReadAllTextAsync(outputPath, TestContext.Current.CancellationToken)).TrimEnd());
         }
         finally
         {
@@ -616,7 +616,7 @@ public sealed class AskCommandTests
 
     /// <summary>Test that --tts-param and --stt-param each forward to their own model's CreateSynthesizerEngine/CreateRecognizerEngine call.</summary>
     [Fact]
-    public void AskCommand_Run_ValidParams_ForwardToRespectiveCreateCalls()
+    public async Task AskCommand_Run_ValidParams_ForwardToRespectiveCreateCalls()
     {
         var rateParameter = new NumericParameter(
             "rate", "Rate", "Speaking rate", new NumericParameterBounds(0.5, 2.0, 0.1, 1.0));
@@ -633,7 +633,7 @@ public sealed class AskCommandTests
                 "--tts-param", "rate=2.0", "--stt-param", "beam=4"
             ]);
 
-        AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureSource());
+        await AskCommand.RunAsync(context, catalog, CreatePlaybackSource(), CreateCaptureSource());
 
         var ttsParameterValues = Assert.Single(catalog.CreateSynthesizerParameterValueCalls);
         Assert.NotNull(ttsParameterValues);
@@ -646,7 +646,7 @@ public sealed class AskCommandTests
 
     /// <summary>Test that an invalid --tts-param value throws before any recognizer is touched.</summary>
     [Fact]
-    public void AskCommand_Run_InvalidTtsParam_ThrowsArgumentException()
+    public async Task AskCommand_Run_InvalidTtsParam_ThrowsArgumentException()
     {
         var rateParameter = new NumericParameter(
             "rate", "Rate", "Speaking rate", new NumericParameterBounds(0.5, 2.0, 0.1, 1.0));
@@ -657,8 +657,8 @@ public sealed class AskCommandTests
                 "--tts-param", "rate=100"
             ]);
 
-        Assert.Throws<ArgumentException>(
-            () => AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureSource()));
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => AskCommand.RunAsync(context, catalog, CreatePlaybackSource(), CreateCaptureSource()));
     }
 
     /// <summary>
@@ -669,7 +669,7 @@ public sealed class AskCommandTests
     ///     never finishes.
     /// </summary>
     [Fact]
-    public void AskCommand_Run_SilenceTimeoutWithNoFinalResult_EndsTurnWithEmptyText()
+    public async Task AskCommand_Run_SilenceTimeoutWithNoFinalResult_EndsTurnWithEmptyText()
     {
         var catalog = CreateCatalogWithModels();
         WireSynthesizer(catalog);
@@ -689,14 +689,14 @@ public sealed class AskCommandTests
                     "--silence-timeout", "0.05", "--output-text", outputPath
                 ]);
 
-            AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureSource());
+            await AskCommand.RunAsync(context, catalog, CreatePlaybackSource(), CreateCaptureSource());
 
             // Two idempotent StopAsync() calls: one from the session's own timeout handler, one
             // from Listen's unified post-wait call (which always runs from the calling thread,
             // not from the result callback, to avoid a reentrant deadlock).
             Assert.Equal(2, recognitionSession.StopCallCount);
             Assert.True(File.Exists(outputPath));
-            Assert.Equal(string.Empty, File.ReadAllText(outputPath));
+            Assert.Equal(string.Empty, await File.ReadAllTextAsync(outputPath, TestContext.Current.CancellationToken));
         }
         finally
         {
@@ -715,7 +715,7 @@ public sealed class AskCommandTests
     ///     the exact default-resolution regression this test guards against.
     /// </summary>
     [Fact]
-    public void AskCommand_Run_NoTimeoutFlagsGiven_StillEndsTurnViaDefaultSilenceTimeout()
+    public async Task AskCommand_Run_NoTimeoutFlagsGiven_StillEndsTurnViaDefaultSilenceTimeout()
     {
         var catalog = CreateCatalogWithModels();
         WireSynthesizer(catalog);
@@ -729,7 +729,7 @@ public sealed class AskCommandTests
         using var context = Context.Create(
             ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi"]);
 
-        AskCommand.Run(context, catalog, CreatePlaybackSource(), CreateCaptureSource());
+        await AskCommand.RunAsync(context, catalog, CreatePlaybackSource(), CreateCaptureSource());
 
         // Two idempotent StopAsync() calls: one from the session's own default-timeout handler,
         // one from Listen's unified post-wait call (which always runs from the calling thread,
@@ -763,7 +763,7 @@ public sealed class AskCommandTests
         using var context = Context.Create(
             ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi"]);
 
-        AskCommand.Run(context, catalog, playbackSource, CreateCaptureSource());
+        await AskCommand.RunAsync(context, catalog, playbackSource, CreateCaptureSource());
 
         Assert.Equal(1, context.ExitCode);
         Assert.Equal(1, synthSession.DisposeCallCount);
@@ -801,8 +801,8 @@ public sealed class AskCommandTests
         using var context = Context.Create(
             ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi"]);
 
-        Assert.Throws<InvalidOperationException>(
-            () => AskCommand.Run(context, catalog, playbackSource, CreateCaptureSource()));
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => AskCommand.RunAsync(context, catalog, playbackSource, CreateCaptureSource()));
 
         Assert.Equal(1, synthSession.DisposeCallCount);
         Assert.Equal(1, synthEngine.DisposeCallCount);
@@ -898,7 +898,7 @@ public sealed class AskCommandTests
     ///     the real <see cref="Console.CancelKeyPress"/> handler uses, from within the fake
     ///     recognition session's <c>StartAsync</c> callback) is reported as a cancellation - via
     ///     <see cref="Context.WriteError"/> and a non-zero exit code - rather than silently
-    ///     printed as an empty, successful result. Drives <see cref="AskCommand.RunAsync"/>
+    ///     printed as an empty, successful result. Drives <c>AskCommand.RunAsync</c>
     ///     directly (rather than the public <c>Run</c> entry point) because there is no
     ///     supported way to raise a real <see cref="Console.CancelKeyPress"/> event from a test.
     /// </summary>
@@ -1200,10 +1200,10 @@ public sealed class AskCommandTests
 
     /// <summary>Test that a null context is rejected.</summary>
     [Fact]
-    public void AskCommand_Run_NullContext_ThrowsArgumentNullException()
+    public async Task AskCommand_Run_NullContext_ThrowsArgumentNullException()
     {
-        Assert.Throws<ArgumentNullException>(
-            () => AskCommand.Run(null!, new FakeCliModelCatalog(), CreatePlaybackSource(), CreateCaptureSource()));
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => AskCommand.RunAsync(null!, new FakeCliModelCatalog(), CreatePlaybackSource(), CreateCaptureSource()));
     }
 
     /// <summary>Test that ParseArguments rejects a null args list.</summary>
@@ -1215,29 +1215,29 @@ public sealed class AskCommandTests
 
     /// <summary>Test that a null catalog is rejected.</summary>
     [Fact]
-    public void AskCommand_Run_NullCatalog_ThrowsArgumentNullException()
+    public async Task AskCommand_Run_NullCatalog_ThrowsArgumentNullException()
     {
         using var context = Context.Create(["ask", "--tts-model", "tts-1", "--stt-model", "stt-1", "--text", "hi"]);
-        Assert.Throws<ArgumentNullException>(
-            () => AskCommand.Run(context, null!, CreatePlaybackSource(), CreateCaptureSource()));
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => AskCommand.RunAsync(context, null!, CreatePlaybackSource(), CreateCaptureSource()));
     }
 
     /// <summary>Test that a null device source is rejected.</summary>
     [Fact]
-    public void AskCommand_Run_NullDeviceSource_ThrowsArgumentNullException()
+    public async Task AskCommand_Run_NullDeviceSource_ThrowsArgumentNullException()
     {
         using var context = Context.Create(["ask", "--tts-model", "tts-1", "--stt-model", "stt-1", "--text", "hi"]);
-        Assert.Throws<ArgumentNullException>(
-            () => AskCommand.Run(context, new FakeCliModelCatalog(), null!, CreateCaptureSource()));
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => AskCommand.RunAsync(context, new FakeCliModelCatalog(), null!, CreateCaptureSource()));
     }
 
     /// <summary>Test that a null capture-device source is rejected.</summary>
     [Fact]
-    public void AskCommand_Run_NullCaptureSource_ThrowsArgumentNullException()
+    public async Task AskCommand_Run_NullCaptureSource_ThrowsArgumentNullException()
     {
         using var context = Context.Create(["ask", "--tts-model", "tts-1", "--stt-model", "stt-1", "--text", "hi"]);
-        Assert.Throws<ArgumentNullException>(
-            () => AskCommand.Run(context, new FakeCliModelCatalog(), CreatePlaybackSource(), null!));
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => AskCommand.RunAsync(context, new FakeCliModelCatalog(), CreatePlaybackSource(), null!));
     }
 
     // --- RunAsync null argument guards ---

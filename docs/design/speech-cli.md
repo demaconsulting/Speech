@@ -180,7 +180,7 @@ N/A - SpeechCli provides no safety-critical functionality requiring risk control
 1. **Input**: The process is started with zero or more command-line arguments
 2. **Parsing**: `Context.Create(args)` resolves every global option and, if present, the
    subcommand name and its raw trailing arguments
-3. **Priority dispatch**: `Program.Run` checks, in order, `--version`, then prints the banner,
+3. **Priority dispatch**: `Program.RunAsync` checks, in order, `--version`, then prints the banner,
    then checks `--help`, then `--validate`, then falls through to subcommand dispatch; only the
    highest-priority matching action executes
 4. **Output**: Version text, usage text, a self-validation report, or a subcommand's own output is
@@ -244,7 +244,7 @@ keeping the packed tool a manageable size instead of bundling every platform's n
 ### Integration Patterns
 
 - **Context object**: A single `Context` instance carries every parsed command-line option and
-  the resolved subcommand name/arguments through to `Program.Run` and to each
+  the resolved subcommand name/arguments through to `Program.RunAsync` and to each
   subcommand handler, mirroring the reference template's own `Context` pattern
 - **Fixed dispatch table**: `CommandDispatch.Commands` is the single source of truth for which
   subcommand names exist, their `--help` usage summaries, and their handlers, so `--help` output

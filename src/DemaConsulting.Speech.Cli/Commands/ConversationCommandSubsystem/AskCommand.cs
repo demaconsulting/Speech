@@ -151,14 +151,39 @@ internal static class AskCommand
     private const double DefaultSilenceTimeoutSeconds = 5.0;
 
     /// <summary>
+    ///     Bundles the invocation-scoped dependencies shared by both Phase 1 (speak) and Phase 2
+    ///     (listen), so <see cref="SpeakPromptAsync"/> and <see cref="Listen"/> stay under this
+    ///     repository's parameter-count guideline without changing any public API surface.
+    /// </summary>
+    /// <param name="Context">The invocation context.</param>
+    /// <param name="Catalog">The catalog seam to resolve models through.</param>
+    /// <param name="Options">The parsed <c>ask</c> command-line options.</param>
+    /// <param name="CancellationToken">The cooperative-cancellation token spanning both phases.</param>
+    private readonly record struct AskInvocation(
+        Context Context,
+        ICliModelCatalog Catalog,
+        AskOptions Options,
+        CancellationToken CancellationToken);
+
+    /// <summary>
+    ///     Bundles a pre-warmed Phase 2 recognizer engine and the session created from it, so
+    ///     <see cref="PrewarmRecognizerAsync"/>/<see cref="DisposePrewarmedRecognizerAsync"/> can
+    ///     hand both back as one unit without an intermediate tuple at every call site.
+    /// </summary>
+    /// <param name="Engine">The loaded recognition engine. Owned by <c>RunAsync</c> once adopted.</param>
+    /// <param name="Session">The session created from <paramref name="Engine"/>, bound to the resolved capture device.</param>
+    private readonly record struct PrewarmedRecognizer(ISpeechRecognizerEngine Engine, IRecognitionSession Session);
+
+    /// <summary>
     ///     Runs the <c>ask</c> subcommand against a real, composed
     ///     <see cref="SpeechModelCatalogAdapter"/>, <see cref="AudioDeviceFactoryPlaybackDeviceSource"/>,
     ///     and <see cref="AudioDeviceFactoryCaptureDeviceSource"/>, wiring <c>Ctrl+C</c> to
     ///     cooperative cancellation for the duration of the call.
     /// </summary>
     /// <param name="context">The invocation context. Must not be null.</param>
+    /// <returns>A task that completes once the <c>ask</c> subcommand has finished.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="context"/> is <see langword="null"/>.</exception>
-    public static void Run(Context context)
+    public static async Task RunAsync(Context context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
@@ -166,7 +191,7 @@ internal static class AskCommand
         var factory = new AudioDeviceFactory();
         var deviceSource = new AudioDeviceFactoryPlaybackDeviceSource(factory);
         var captureSource = new AudioDeviceFactoryCaptureDeviceSource(factory);
-        Run(context, catalog, deviceSource, captureSource);
+        await RunAsync(context, catalog, deviceSource, captureSource).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -178,6 +203,7 @@ internal static class AskCommand
     /// <param name="catalog">The catalog seam to resolve both models through. Must not be null.</param>
     /// <param name="deviceSource">The playback-device seam to resolve a real playback device through. Must not be null.</param>
     /// <param name="captureSource">The capture-device seam to resolve a real capture device through. Must not be null.</param>
+    /// <returns>A task that completes once the <c>ask</c> subcommand has finished.</returns>
     /// <exception cref="ArgumentNullException">
     ///     Thrown when <paramref name="context"/>, <paramref name="catalog"/>,
     ///     <paramref name="deviceSource"/>, or <paramref name="captureSource"/> is <see langword="null"/>.
@@ -190,7 +216,7 @@ internal static class AskCommand
     /// <exception cref="InvalidOperationException">
     ///     Thrown when no real playback device or no real capture device is available.
     /// </exception>
-    internal static void Run(
+    internal static async Task RunAsync(
         Context context,
         ICliModelCatalog catalog,
         ICliPlaybackDeviceSource deviceSource,
@@ -239,7 +265,7 @@ internal static class AskCommand
             stopSignal.Set();
         });
 
-        RunAsync(
+        await RunAsync(
             context,
             catalog,
             deviceSource,
@@ -252,32 +278,8 @@ internal static class AskCommand
                     session = s;
                 }
             },
-            cancellationSource.Token).GetAwaiter().GetResult();
+            cancellationSource.Token).ConfigureAwait(false);
     }
-
-    /// <summary>
-    ///     Bundles the invocation-scoped dependencies shared by both Phase 1 (speak) and Phase 2
-    ///     (listen), so <see cref="SpeakPromptAsync"/> and <see cref="Listen"/> stay under this
-    ///     repository's parameter-count guideline without changing any public API surface.
-    /// </summary>
-    /// <param name="Context">The invocation context.</param>
-    /// <param name="Catalog">The catalog seam to resolve models through.</param>
-    /// <param name="Options">The parsed <c>ask</c> command-line options.</param>
-    /// <param name="CancellationToken">The cooperative-cancellation token spanning both phases.</param>
-    private readonly record struct AskInvocation(
-        Context Context,
-        ICliModelCatalog Catalog,
-        AskOptions Options,
-        CancellationToken CancellationToken);
-
-    /// <summary>
-    ///     Bundles a pre-warmed Phase 2 recognizer engine and the session created from it, so
-    ///     <see cref="PrewarmRecognizerAsync"/>/<see cref="DisposePrewarmedRecognizerAsync"/> can
-    ///     hand both back as one unit without an intermediate tuple at every call site.
-    /// </summary>
-    /// <param name="Engine">The loaded recognition engine. Owned by <c>RunAsync</c> once adopted.</param>
-    /// <param name="Session">The session created from <paramref name="Engine"/>, bound to the resolved capture device.</param>
-    private readonly record struct PrewarmedRecognizer(ISpeechRecognizerEngine Engine, IRecognitionSession Session);
 
     /// <summary>
     ///     Runs the <c>ask</c> subcommand's full text-source resolution, model resolution,

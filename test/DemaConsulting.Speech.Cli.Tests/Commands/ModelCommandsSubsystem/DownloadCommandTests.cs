@@ -249,7 +249,7 @@ public sealed class DownloadCommandTests
     /// <remarks>
     ///     The token is deliberately canceled from inside <see cref="FakeCliModelCatalog.OnDownload"/>
     ///     - after <c>model-1</c>'s download has genuinely started and reported progress - rather
-    ///     than before <see cref="DownloadCommand.RunAsync"/> is even called, so this test proves
+    ///     than before <c>DownloadCommand.RunAsync</c> is even called, so this test proves
     ///     the documented "stops the whole batch" behavior for a real in-flight cancellation, not
     ///     just the trivial pre-start check.
     /// </remarks>

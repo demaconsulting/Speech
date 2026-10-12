@@ -57,14 +57,15 @@ internal static class SpeakCommand
     ///     <c>Ctrl+C</c> to cooperative cancellation for the duration of the call.
     /// </summary>
     /// <param name="context">The invocation context. Must not be null.</param>
+    /// <returns>A task that completes once the <c>speak</c> subcommand has finished.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="context"/> is <see langword="null"/>.</exception>
-    public static void Run(Context context)
+    public static async Task RunAsync(Context context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
         using var catalog = CliModelCatalogFactory.Create(context);
         var deviceSource = new AudioDeviceFactoryPlaybackDeviceSource(new AudioDeviceFactory());
-        Run(context, catalog, deviceSource);
+        await RunAsync(context, catalog, deviceSource).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -75,11 +76,12 @@ internal static class SpeakCommand
     /// <param name="context">The invocation context. Must not be null.</param>
     /// <param name="catalog">The catalog seam to resolve the model through. Must not be null.</param>
     /// <param name="deviceSource">The playback-device seam to resolve a real playback device through. Must not be null.</param>
+    /// <returns>A task that completes once the <c>speak</c> subcommand has finished.</returns>
     /// <exception cref="ArgumentNullException">
     ///     Thrown when <paramref name="context"/>, <paramref name="catalog"/>, or
     ///     <paramref name="deviceSource"/> is <see langword="null"/>.
     /// </exception>
-    internal static void Run(Context context, ICliModelCatalog catalog, ICliPlaybackDeviceSource deviceSource)
+    internal static async Task RunAsync(Context context, ICliModelCatalog catalog, ICliPlaybackDeviceSource deviceSource)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(catalog);
@@ -91,7 +93,7 @@ internal static class SpeakCommand
         // kill the process outright, so partially-played audio and any open output file are
         // still disposed cleanly.
         using var cancelRegistration = ConsoleCancellation.Register(cancellationSource);
-        RunAsync(context, catalog, deviceSource, cancellationSource.Token).GetAwaiter().GetResult();
+        await RunAsync(context, catalog, deviceSource, cancellationSource.Token).ConfigureAwait(false);
     }
 
     /// <summary>

@@ -48,7 +48,8 @@ internal static class Validation
     ///     extension is unsupported, <c>context.WriteError</c> is also called, resulting in a
     ///     non-zero exit code.
     /// </remarks>
-    public static void Run(Context context)
+    /// <returns>A task that completes once every self-test has run and results have been reported.</returns>
+    public static async Task RunAsync(Context context)
     {
         // Validate input
         ArgumentNullException.ThrowIfNull(context);
@@ -63,8 +64,8 @@ internal static class Validation
         };
 
         // Run core functionality tests
-        RunVersionTest(context, testResults);
-        RunHelpTest(context, testResults);
+        await RunVersionTestAsync(context, testResults).ConfigureAwait(false);
+        await RunHelpTestAsync(context, testResults).ConfigureAwait(false);
         RunDispatchTableTest(context, testResults);
         RunAudioBackendProbeTest(context, testResults);
         RunModelStoreWritableTest(context, testResults);
@@ -118,7 +119,7 @@ internal static class Validation
     /// </summary>
     /// <param name="context">The context for output.</param>
     /// <param name="testResults">The test results collection.</param>
-    private static void RunVersionTest(Context context, DemaConsulting.TestResults.TestResults testResults)
+    private static async Task RunVersionTestAsync(Context context, DemaConsulting.TestResults.TestResults testResults)
     {
         var startTime = DateTime.UtcNow;
         var test = CreateTestResult("SpeechCli_VersionDisplay");
@@ -140,7 +141,7 @@ internal static class Validation
             int exitCode;
             using (var testContext = Context.Create([.. args]))
             {
-                Program.Run(testContext);
+                await Program.RunAsync(testContext).ConfigureAwait(false);
                 exitCode = testContext.ExitCode;
             }
 
@@ -148,7 +149,7 @@ internal static class Validation
             if (exitCode == 0)
             {
                 // Read log content
-                var logContent = File.ReadAllText(logFile);
+                var logContent = await File.ReadAllTextAsync(logFile).ConfigureAwait(false);
 
                 // Verify version string is in log (version contains dots like 0.0.0)
                 var versionPattern = new System.Text.RegularExpressions.Regex(
@@ -191,7 +192,7 @@ internal static class Validation
     /// </summary>
     /// <param name="context">The context for output.</param>
     /// <param name="testResults">The test results collection.</param>
-    private static void RunHelpTest(Context context, DemaConsulting.TestResults.TestResults testResults)
+    private static async Task RunHelpTestAsync(Context context, DemaConsulting.TestResults.TestResults testResults)
     {
         var startTime = DateTime.UtcNow;
         var test = CreateTestResult("SpeechCli_HelpDisplay");
@@ -213,7 +214,7 @@ internal static class Validation
             int exitCode;
             using (var testContext = Context.Create([.. args]))
             {
-                Program.Run(testContext);
+                await Program.RunAsync(testContext).ConfigureAwait(false);
                 exitCode = testContext.ExitCode;
             }
 
@@ -221,7 +222,7 @@ internal static class Validation
             if (exitCode == 0)
             {
                 // Read log content
-                var logContent = File.ReadAllText(logFile);
+                var logContent = await File.ReadAllTextAsync(logFile).ConfigureAwait(false);
 
                 // Verify help text and every subcommand name is in the log
                 var missingCommands = CommandDispatch.Commands

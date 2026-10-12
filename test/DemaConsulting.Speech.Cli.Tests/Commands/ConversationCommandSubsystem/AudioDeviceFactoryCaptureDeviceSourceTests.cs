@@ -26,7 +26,7 @@ namespace DemaConsulting.Speech.Cli.Tests.Commands.ConversationCommandSubsystem;
 /// <summary>
 ///     Unit tests for <see cref="AudioDeviceFactoryCaptureDeviceSource"/>, proving it forwards
 ///     every call to a real, composed <see cref="AudioDeviceFactory"/> unchanged - including its
-///     hardware-detection behavior - so <c>AskCommand.Run(Context)</c>'s real capture-device
+///     hardware-detection behavior - so <c>AskCommand.RunAsync(Context)</c>'s real capture-device
 ///     resolution is provably unaffected by the <see cref="ICliCaptureDeviceSource"/> seam
 ///     introduced for <c>AskCommandTests</c>' own deterministic, hardware-independent tests.
 /// </summary>

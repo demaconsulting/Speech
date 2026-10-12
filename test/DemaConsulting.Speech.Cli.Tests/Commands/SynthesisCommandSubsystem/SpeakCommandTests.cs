@@ -387,12 +387,16 @@ public sealed class SpeakCommandTests
             () => SpeakCommand.RunAsync(context, new FakeCliModelCatalog(), null!, CancellationToken.None));
     }
 
-    /// <summary>Test that Run(Context, ICliModelCatalog, ICliPlaybackDeviceSource) rejects a null context.</summary>
+    /// <summary>Test that RunAsync(Context, ICliModelCatalog, ICliPlaybackDeviceSource) rejects a null context.</summary>
     [Fact]
-    public void SpeakCommand_Run_NullContext_ThrowsArgumentNullException()
+    public async Task SpeakCommand_RunAsync_NullContextWithDeviceSource_ThrowsArgumentNullException()
     {
-        Assert.Throws<ArgumentNullException>(
-            () => SpeakCommand.Run(null!, new FakeCliModelCatalog(), new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe())));
+        // xUnit1051 is suppressed: this deliberately targets the three-argument seam that owns the
+        // Ctrl+C cancellation wiring rather than the CancellationToken overload.
+#pragma warning disable xUnit1051
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => SpeakCommand.RunAsync(null!, new FakeCliModelCatalog(), new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe())));
+#pragma warning restore xUnit1051
     }
 
     /// <summary>

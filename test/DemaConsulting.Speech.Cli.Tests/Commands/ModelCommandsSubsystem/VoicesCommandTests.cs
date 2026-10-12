@@ -282,7 +282,7 @@ public sealed class VoicesCommandTests
             () => VoicesCommand.RunAsync(null!, new FakeCliModelCatalog(), CancellationToken.None));
         await Assert.ThrowsAsync<ArgumentNullException>(
             () => VoicesCommand.RunAsync(context, null!, CancellationToken.None));
-        Assert.Throws<ArgumentNullException>(() => VoicesCommand.Run(null!));
+        await Assert.ThrowsAsync<ArgumentNullException>(() => VoicesCommand.RunAsync(null!));
     }
 
     /// <summary>Runs the command capturing console output and the exit code.</summary>

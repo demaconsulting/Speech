@@ -45,7 +45,7 @@ internal static class VoicesCommand
     /// <param name="context">The invocation context. Must not be null.</param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="context"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">Thrown when the sub-action or its argument is missing or unsupported.</exception>
-    public static void Run(Context context)
+    public static async Task RunAsync(Context context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
@@ -53,7 +53,7 @@ internal static class VoicesCommand
         using var cancellationSource = new CancellationTokenSource();
 
         using var cancelRegistration = ConsoleCancellation.Register(cancellationSource);
-        RunAsync(context, catalog, cancellationSource.Token).GetAwaiter().GetResult();
+        await RunAsync(context, catalog, cancellationSource.Token).ConfigureAwait(false);
     }
 
     /// <summary>

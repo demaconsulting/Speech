@@ -198,8 +198,13 @@ the same `ArgumentException`/`InvalidOperationException` handling convention the
 
 **Test**: `Program_Run_WithNullContext_ThrowsArgumentNullException`
 
-Verifies `Program.Run` rejects a `null` context argument immediately, since it is never a valid
+Verifies `Program.RunAsync` rejects a `null` context argument immediately (as a faulted task), since it is never a valid
 runtime state for the process's own entry point to reach.
+
+**Test**: `CommandDispatch_Handlers_ReturnNonNullTasks`
+
+Verifies every `CommandDispatch` handler (a `Func<Context, Task>`) is non-null and yields a non-null
+`Task` when invoked, confirming the asynchronous dispatch pipeline has no unwired entry.
 
 ## Manual / Build-Time Verification
 

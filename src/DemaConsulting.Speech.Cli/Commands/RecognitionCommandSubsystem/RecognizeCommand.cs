@@ -147,14 +147,15 @@ internal static class RecognizeCommand
     ///     <see cref="SpeechModelCatalogAdapter"/> and <see cref="AudioDeviceFactory"/>.
     /// </summary>
     /// <param name="context">The invocation context. Must not be null.</param>
+    /// <returns>A task that completes once the <c>recognize</c> subcommand has finished.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="context"/> is <see langword="null"/>.</exception>
-    public static void Run(Context context)
+    public static async Task RunAsync(Context context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
         using var catalog = CliModelCatalogFactory.Create(context);
         var factory = new AudioDeviceFactory();
-        Run(context, catalog, factory);
+        await RunAsync(context, catalog, factory).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -163,17 +164,16 @@ internal static class RecognizeCommand
     ///     hardware.
     /// </summary>
     /// <remarks>
-    ///     This overload stays synchronous at its boundary, mirroring <c>SpeakCommand</c>'s own
-    ///     established "sync entry wraps async inner via <c>GetAwaiter().GetResult()</c> once"
-    ///     convention: it owns a <see cref="CancellationTokenSource"/> and
-    ///     <see cref="Console.CancelKeyPress"/> subscription for the whole call, then blocks on
-    ///     <see cref="RunAsync"/> exactly once. <c>CommandDispatch</c>'s own handler signature
-    ///     (<c>Action&lt;Context&gt;</c>) is unchanged by this redesign, so this remains the one
-    ///     place a blocking wait is unavoidable.
+    ///     This overload owns a <see cref="CancellationTokenSource"/> and
+    ///     <see cref="Console.CancelKeyPress"/> subscription for the whole call and awaits
+    ///     <see cref="RunAsync(Context, ICliModelCatalog, AudioDeviceFactory, CancellationToken)"/>.
+    ///     <c>CommandDispatch</c>'s handler signature (<c>Func&lt;Context, Task&gt;</c>) is
+    ///     asynchronous, so no blocking wait is needed anywhere in the pipeline.
     /// </remarks>
     /// <param name="context">The invocation context. Must not be null.</param>
     /// <param name="catalog">The catalog seam to resolve the model through. Must not be null.</param>
     /// <param name="factory">The audio device factory to resolve a real capture device through. Must not be null.</param>
+    /// <returns>A task that completes once the <c>recognize</c> subcommand has finished.</returns>
     /// <exception cref="ArgumentNullException">
     ///     Thrown when <paramref name="context"/>, <paramref name="catalog"/>, or
     ///     <paramref name="factory"/> is <see langword="null"/>.
@@ -184,7 +184,7 @@ internal static class RecognizeCommand
     ///     malformed/invalid <c>--stt-param</c> value, or unknown <c>--capture-device</c>.
     /// </exception>
     /// <exception cref="InvalidOperationException">Thrown when no real capture device is available in mic mode.</exception>
-    internal static void Run(Context context, ICliModelCatalog catalog, AudioDeviceFactory factory)
+    internal static async Task RunAsync(Context context, ICliModelCatalog catalog, AudioDeviceFactory factory)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(catalog);
@@ -192,7 +192,7 @@ internal static class RecognizeCommand
 
         using var cancellationSource = new CancellationTokenSource();
         using var cancelRegistration = ConsoleCancellation.Register(cancellationSource);
-        RunAsync(context, catalog, factory, cancellationSource.Token).GetAwaiter().GetResult();
+        await RunAsync(context, catalog, factory, cancellationSource.Token).ConfigureAwait(false);
     }
 
     /// <summary>

@@ -19,8 +19,10 @@ subcommand, plus one shared catalog seam used by all of them:
 
 ### Interfaces
 
-**Exposed**: each command exposes a static `Run(Context)` entry point (`DownloadCommand` and
-`VoicesCommand` run their asynchronous work to completion inside it). `ICliModelCatalog` is the
+**Exposed**: each command exposes a static entry point invoked from the `CommandDispatch` table:
+`Run(Context)` for the synchronous commands (`list-models`, `model-info`, `list-voices`) and
+`RunAsync(Context)` for `DownloadCommand`, `UninstallCommand`, `CleanCommand` and `VoicesCommand`, which await
+their asynchronous work. `ICliModelCatalog` is the
 subsystem's public-to-the-CLI seam, and `CliModelCatalogFactory.Create(context)` composes the real
 implementation. Errors for operator mistakes are `ArgumentException` or
 `InvalidOperationException`, which `Program.Main` reports as a one-line message and exit code `1`.
@@ -145,9 +147,11 @@ throttling implementation instead of two copies.
 
 The seam's uninstall, cleanup and pack-query members are asynchronous (`Task`, with a `CancellationToken`);
 `UninstallCommand`, `CleanCommand`, `DownloadCommand` (the `--force` uninstall) and `VoicesCommand` await them in
-their internal `RunAsync` bodies. The public `Run(Context)` entry of each command wires `Ctrl+C` to a
-`CancellationTokenSource` and bridges once to `RunAsync` at the process entry point, because `Program.Main` and the
-command dispatch table (`Action<Context>`) are synchronous; no other sync-over-async exists in the commands.
+their internal `RunAsync` bodies. The public `RunAsync(Context)` entry of each of these commands wires `Ctrl+C` to a
+`CancellationTokenSource` and awaits the internal `RunAsync` body. The whole pipeline is asynchronous end to end:
+`Program.Main` returns `Task<int>`, `Program.RunAsync` awaits the command, and the dispatch table's handler is a
+`Func<Context, Task>` (the synchronous commands are adapted with a completed task), so no sync-over-async
+(`GetAwaiter().GetResult()`) exists in the commands.
 
 ### UninstallCommand
 

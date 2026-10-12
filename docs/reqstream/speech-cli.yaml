@@ -36,6 +36,7 @@ sections:
         tests:
           - Program_Main_WithUnknownCommand_ReturnsNonZeroExitCodeAndReportsCommand
           - SpeechCli_UnknownCommand_Provided_ReturnsCleanError
+          - CommandDispatch_Handlers_ReturnNonNullTasks
 
       - id: SpeechCli-Cli-GlobalOptions
         title: >-

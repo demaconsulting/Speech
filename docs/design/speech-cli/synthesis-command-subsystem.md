@@ -24,8 +24,8 @@ small seam over real playback-device resolution:
 
 ### Interfaces
 
-**Exposed**: `SpeakCommand.Run(Context)` (the `CommandDispatch` entry point, which runs the
-asynchronous work to completion), `ParameterBagParser.Resolve`, and the CLI-owned
+**Exposed**: `SpeakCommand.RunAsync(Context)` (the `CommandDispatch` entry point, which awaits the
+asynchronous work), `ParameterBagParser.Resolve`, and the CLI-owned
 `ICliPlaybackDeviceSource` seam. Operator mistakes are reported as `ArgumentException` or
 `InvalidOperationException`.
 
@@ -116,7 +116,7 @@ device-dispatch logic is composed over a second, CLI-owned seam:
 | `ICliPlaybackDeviceSource.CreatePlaybackDevice(selection)` | `IAudioPlaybackDevice` | Resolves a device |
 
 `AudioDeviceFactoryPlaybackDeviceSource` is the sole production implementation: it forwards both
-members to a composed, real `AudioDeviceFactory` completely unchanged, so `SpeakCommand.Run(Context)`'s
+members to a composed, real `AudioDeviceFactory` completely unchanged, so `SpeakCommand.RunAsync(Context)`'s
 actual runtime device-resolution behavior (including its dependence on real PortAudio hardware
 being present) is exactly what it was before this seam was introduced -
 `AudioDeviceFactoryPlaybackDeviceSourceTests` proves this by comparing the adapter's result to the

@@ -46,7 +46,7 @@ internal static class UninstallCommand
     ///     Thrown when the model's installed directory or manifest could not be removed, most
     ///     likely because another process still has an open file handle into it.
     /// </exception>
-    public static void Run(Context context)
+    public static async Task RunAsync(Context context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
@@ -54,7 +54,7 @@ internal static class UninstallCommand
         using var cancellationSource = new CancellationTokenSource();
 
         using var cancelRegistration = ConsoleCancellation.Register(cancellationSource);
-        RunAsync(context, catalog, cancellationSource.Token).GetAwaiter().GetResult();
+        await RunAsync(context, catalog, cancellationSource.Token).ConfigureAwait(false);
     }
 
     /// <summary>

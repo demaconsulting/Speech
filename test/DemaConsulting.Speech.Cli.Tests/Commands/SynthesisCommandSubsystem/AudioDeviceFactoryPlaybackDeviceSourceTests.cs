@@ -26,7 +26,7 @@ namespace DemaConsulting.Speech.Cli.Tests.Commands.SynthesisCommandSubsystem;
 /// <summary>
 ///     Unit tests for <see cref="AudioDeviceFactoryPlaybackDeviceSource"/>, proving it forwards
 ///     every call to a real, composed <see cref="AudioDeviceFactory"/> unchanged - including its
-///     hardware-detection behavior - so <c>SpeakCommand.Run(Context)</c>'s real playback-device
+///     hardware-detection behavior - so <c>SpeakCommand.RunAsync(Context)</c>'s real playback-device
 ///     resolution is provably unaffected by the <see cref="ICliPlaybackDeviceSource"/> seam
 ///     introduced for <c>SpeakCommandTests</c>' own deterministic, hardware-independent tests.
 /// </summary>
