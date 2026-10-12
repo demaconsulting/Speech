@@ -112,165 +112,23 @@ application driving `RefreshDevices()` from a UI or background thread should ser
 calls (for example, by routing every refresh through one thread or its own lock) rather than
 relying on the factory to do so.
 
-#### WindowedSincLowpassFilter
+#### Unit Design Documents
 
-**Purpose**: Provide the shared, direction-agnostic windowed-sinc Hamming lowpass FIR primitive
-that both `RecognitionSubsystem.AudioFrameResampler` (capture direction) and
-`SynthesisSubsystem.PlaybackAudioResampler` (playback direction) need immediately before their
-own decimation step, so the anti-aliasing DSP math is written and tested once instead of
-duplicated byte-for-byte in two direction-specific resamplers.
+Each of the following units is documented in its own design document under
+`docs/design/speech/audio-subsystem/`:
 
-**Data Model**: Stateless static class; no instance fields. Operates purely on `float` sample
-arrays and kernel coefficients, with no knowledge of channels, capture, or playback.
-
-**Key Methods**:
-
-- **BuildLowpassKernel(double cutoffRatio, int tapCount)**: Builds a normalized Hamming-windowed
-  sinc kernel whose coefficients sum to `1.0`, for a given cutoff ratio (a fraction of the source
-  signal's Nyquist frequency) and an odd tap count.
-- **ApplyLowpassFilter(ReadOnlySpan&lt;float&gt;, float[])**: Applies a symmetric FIR kernel to a
-  mono signal, replicating the nearest endpoint sample at the edges so the output length always
-  matches the input length exactly.
-- **DownsamplingFilterTapCount**: The odd-numbered FIR tap count (`33`) both resamplers use for
-  their anti-aliasing filter.
-
-**Error Handling**: `BuildLowpassKernel` throws `ArgumentOutOfRangeException` when the cutoff
-ratio lies outside `(0, 1]` or the tap count is non-positive, and `ArgumentException` when the
-tap count is even, because the kernel is only well-defined when symmetric around one exact center
-sample. `ApplyLowpassFilter` throws `ArgumentNullException` for a null kernel.
-
-**Dependencies**: None beyond the Base Class Library.
-
-**Callers**: `RecognitionSubsystem.AudioFrameResampler`, `SynthesisSubsystem.PlaybackAudioResampler`.
-
-#### UnavailableAudioCaptureDevice
-
-**Purpose**: Provide a safe, always-obtainable `IAudioCaptureDevice` fallback for use when no
-real capture backend is available.
-
-**Data Model**: No instance fields. Exposes a single static `Instance` singleton; the
-constructor is private. `IsAvailable` always returns `false`, and `ChannelCount`/`SampleRate`
-always return `0` - reporting a plausible-looking format would mislead a consumer into preparing
-a conversion for audio that will never arrive.
-
-**Key Methods**:
-
-- **Start()** / **Stop()**: Always throw `AudioDeviceUnavailableException`.
-
-**Error Handling**: Signals misuse of a known-unavailable device with
-`AudioDeviceUnavailableException`.
-
-**Dependencies**: `AudioDeviceUnavailableException`; implements `IAudioCaptureDevice`.
-
-**Callers**: `AudioDeviceFactory.CreateCaptureDevice()` when PortAudio cannot initialize.
-
-#### UnavailableAudioPlaybackDevice
-
-**Purpose**: Provide a safe, always-obtainable `IAudioPlaybackDevice` fallback for use when no
-real playback backend is available.
-
-**Data Model**: No instance fields. Exposes a single static `Instance` singleton; the
-constructor is private. `IsAvailable` always returns `false`, and `ChannelCount`/`SampleRate`,
-mirroring `UnavailableAudioCaptureDevice`,
-always return `0` - reporting a plausible-looking format would mislead a consumer into preparing
-a conversion for audio that will never be played.
-
-**Key Methods**:
-
-- **Start()** / **Stop()** / **Write(IReadOnlyList&lt;float&gt;)**: Always throw
-  `AudioDeviceUnavailableException`.
-
-**Error Handling**: Same rationale as `UnavailableAudioCaptureDevice`.
-
-**Dependencies**: `AudioDeviceUnavailableException`; implements `IAudioPlaybackDevice`.
-
-**Callers**: `AudioDeviceFactory.CreatePlaybackDevice()` when PortAudio cannot initialize.
-
-#### UnavailableAudioCaptureDeviceProbe
-
-**Purpose**: Provide a safe `IAudioCaptureDeviceProbe` fallback that reports no devices rather
-than throwing.
-
-**Data Model**: No instance fields. Exposes a single static `Instance` singleton.
-
-**Key Methods**:
-
-- **Enumerate()**: Always returns an empty list.
-
-**Error Handling**: N/A - absence is represented as an empty list.
-
-**Dependencies**: `AudioDeviceDescription`; implements `IAudioCaptureDeviceProbe`.
-
-**Callers**: `AudioDeviceFactory` when PortAudio cannot initialize.
-
-#### UnavailableAudioPlaybackDeviceProbe
-
-**Purpose**: Provide a safe `IAudioPlaybackDeviceProbe` fallback that reports no devices rather
-than throwing.
-
-**Data Model**: No instance fields. Exposes a single static `Instance` singleton.
-
-**Key Methods**:
-
-- **Enumerate()**: Always returns an empty list.
-
-**Error Handling**: N/A - absence is represented as an empty list.
-
-**Dependencies**: `AudioDeviceDescription`; implements `IAudioPlaybackDeviceProbe`.
-
-**Callers**: `AudioDeviceFactory` when PortAudio cannot initialize.
-
-#### AudioDeviceUnavailableException
-
-**Purpose**: Signal that an operational member of an unavailable audio device was invoked.
-
-**Data Model**: No additional fields beyond the standard `Exception` base members.
-
-**Key Methods**: Standard three-constructor exception pattern.
-
-**Error Handling**: This type is itself the error-handling mechanism.
-
-**Dependencies**: `Exception`.
-
-**Callers**: The unavailable fallback devices and real PortAudio devices when first-use native
-failures occur.
-
-#### AudioDeviceInUseException
-
-**Purpose**: Refuse a PortAudio device-table refresh while any capture/playback device created
-from the environment currently has an active (open/started) stream.
-
-**Data Model**: No additional fields beyond the standard `Exception` base members.
-
-**Key Methods**: Standard three-constructor exception pattern (default, message, message with
-inner exception), mirroring `AudioDeviceUnavailableException`.
-
-**Error Handling**: This type is itself the error-handling mechanism, and is the one deliberate
-exception to this library's "never throws at composition" policy. Refreshing PortAudio's device
-table requires tearing down and reinitializing the native runtime, which would invalidate any
-stream currently open against it; rather than silently tearing down a live stream, the refresh is
-refused outright. Unlike `AudioDeviceUnavailableException`, this is caller-driven, recoverable
-misuse - the caller can stop the active capture/playback session(s) via `IAudioCaptureDevice.Stop()`/
-`IAudioPlaybackDevice.Stop()` and retry `RefreshDevices()` - not an honest composition-time
-unavailability. It exposes no structured device list; any identifying detail is only ever present
-as free-form text in the exception's message.
-
-**Dependencies**: `Exception`.
-
-**Callers**: `PortAudioEnvironment.Refresh()`, `AudioDeviceFactory.RefreshDevices()`.
-
-#### WavFileAudioPlaybackDevice
-
-See `docs/design/speech/audio-subsystem/wav-file-audio-playback-device.md` for full detail.
-Writes synthesized speech to a `.wav` file as 16-bit PCM instead of rendering it to real playback
-hardware, so any host application can capture synthesized audio deterministically. Implements
-`IAudioPlaybackDevice`; always reports `IsAvailable = true` since file writes never depend on
-real audio hardware.
-
-#### WavFileAudioCaptureDevice
-
-See `docs/design/speech/audio-subsystem/wav-file-audio-capture-device.md` for full detail. Reads
-a mono, 16-bit PCM `.wav` file and delivers it as normalized capture frames instead of capturing
-from real microphone hardware, so any host application can drive speech recognition from a
-pre-recorded file deterministically. Implements `IAudioCaptureDevice` plus one additional public
-member, `EndOfFileReached`, raised once the file has been fully consumed.
+- **WindowedSincLowpassFilter** (`windowed-sinc-lowpass-filter.md`): shared anti-aliasing FIR
+  primitive for both direction-specific resamplers.
+- **UnavailableAudioCaptureDevice** (`unavailable-audio-capture-device.md`) and
+  **UnavailableAudioPlaybackDevice** (`unavailable-audio-playback-device.md`): honest unavailable
+  device fallbacks.
+- **UnavailableAudioCaptureDeviceProbe** (`unavailable-audio-capture-device-probe.md`) and
+  **UnavailableAudioPlaybackDeviceProbe** (`unavailable-audio-playback-device-probe.md`): honest
+  unavailable probe fallbacks that enumerate no devices.
+- **AudioDeviceUnavailableException** (`audio-device-unavailable-exception.md`): signals misuse of
+  an unavailable device.
+- **AudioDeviceInUseException** (`audio-device-in-use-exception.md`): refuses a device-table
+  refresh while a stream is active.
+- **WavFileAudioPlaybackDevice** (`wav-file-audio-playback-device.md`) and
+  **WavFileAudioCaptureDevice** (`wav-file-audio-capture-device.md`): file-backed playback and
+  capture devices.

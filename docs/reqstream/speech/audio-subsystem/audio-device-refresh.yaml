@@ -1,9 +1,10 @@
 ---
-# Software Unit Requirements for the Device Refresh Seam
+# Software Requirements for the Device Refresh Seam
 #
 # Groups requirements for on-demand PortAudio device-table refresh - spanning
-# PortAudioEnvironment.Refresh(), AudioDeviceFactory.RefreshDevices(), and the new
-# AudioDeviceInUseException - into a single file. This is a deliberate, narrower exception to
+# PortAudioEnvironment.Refresh() and AudioDeviceFactory.RefreshDevices() - into a single file.
+# AudioDeviceInUseException has its own unit requirements file
+# (audio-device-in-use-exception.yaml). This is a deliberate, narrower exception to
 # per-unit requirement ownership, not a literal application of sysml2-modeling.md's "Units
 # without a dedicated companion doc" allowance (that allowance is scoped to small data-model
 # types documented inline, not cross-cutting behavior): PortAudioEnvironment and
@@ -92,18 +93,3 @@ sections:
                   - PortAudioCaptureDevice_Start_ConstructedAfterRefresh_StartsNormally
                   - PortAudioPlaybackDevice_Start_EnvironmentRefreshedAfterConstruction_ThrowsAudioDeviceUnavailableException
                   - PortAudioPlaybackDevice_Start_ConstructedAfterRefresh_StartsNormally
-
-          - title: AudioDeviceInUseException Requirements
-            requirements:
-              - id: Speech-Audio-AudioDeviceInUseException-Constructors
-                title: >-
-                  The AudioDeviceInUseException class shall provide standard exception
-                  constructors (default, message, message with inner exception).
-                justification: |
-                  Standard exception conformance lets callers construct, catch, and inspect this
-                  exception like any other .NET exception type, mirroring
-                  AudioDeviceUnavailableException's identical constructor pattern.
-                tests:
-                  - AudioDeviceInUseException_Constructor_WithMessage_ExposesMessage
-                  - AudioDeviceInUseException_Constructor_WithInnerException_ExposesBoth
-                  - AudioDeviceInUseException_Constructor_Default_HasNonEmptyMessage

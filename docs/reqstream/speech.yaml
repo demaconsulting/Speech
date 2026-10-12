@@ -189,7 +189,6 @@ sections:
           - Speech-Recognition-StreamingPipeline
           - Speech-Recognition-FaultContainment
           - Speech-Recognition-UnavailableFallback
-          - Speech-Models-SpeechModelContract-RecognitionEngineDeclaration
           - Speech-Audio-CaptureFormatDisclosure
         tests:
           - Speech_SystemIntegration_StreamingRecognition_CapturedAudioProducesRecognitionResults

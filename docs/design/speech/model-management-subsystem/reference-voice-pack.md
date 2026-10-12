@@ -2,8 +2,8 @@
 
 **Purpose**: Describe a downloadable pack of reference-voice clips - where its single archive lives,
 how to verify it, and what license and attribution apply - so a model-agnostic library can install it
-through the normal verified download path. Also hosts the two small value types that travel with it,
-`ReferenceVoiceSource` and `ReferenceVoiceInfo`.
+through the normal verified download path. The unit also defines the two small value types that travel
+with it, `ReferenceVoiceSource` and `ReferenceVoiceInfo`; the library populates them.
 
 **Data Model**:
 
@@ -20,10 +20,13 @@ through the normal verified download path. Also hosts the two small value types 
   bytes of emotion clips (599,505,678
   installed in total, about 572 MiB; the download is about 570 MiB). `ReferenceVoicePack.All` lists it.
 - `ReferenceVoiceSource` (enum): `Directory` (a caller-named directory), `User` (the user folder),
-  `Pack` (an installed pack).
+  `Pack` (an installed pack). Assigned by `ReferenceVoiceLibrary.EnumerateVoices`; see the
+  `ReferenceVoiceLibrary` design for the precedence rules that decide which source a voice has.
 - `ReferenceVoiceInfo` (sealed record): `Id`, `DisplayName`, `FilePath`, `Source`, `PackId`, `Speaker`,
   `Mood`, `LicenseName`, `Attribution`, `MoodClips`; the engine-neutral description of one clip on
-  disk. `MoodClips` is an optional read-only map of lower-case mood name to the absolute path of that
+  disk, populated by `ReferenceVoiceLibrary.EnumerateVoices` (which owns how each field is filled, see
+  the `ReferenceVoiceLibrary` design). `MoodClips` is an optional read-only map of lower-case mood name to the
+  absolute path of that
   speaker's emotion clip, or `null` when the voice has none (user and directory voices, and packs
   installed without emotions). `ReferenceVoiceInfo.KnownMoods` lists the 13 moods the pack provides:
   anger, calm, confused, enthused, excited, frustrated, happy, neutral, sad, shout, surprised, tired,

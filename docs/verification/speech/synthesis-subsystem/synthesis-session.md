@@ -2,11 +2,11 @@
 
 #### Verification Approach
 
-The real session, the Layer 2 rendering strategy, the sentence chunker, the synthesis-backend
-seam, the dedicated-worker cancellation policy, and the playback-format converter are verified
-together, since the session's whole purpose is to move text through rendering and chunking, into
-the backend (via a dedicated worker), and the resulting audio through resampling onto the bound
-playback device.
+The real session is verified; the seam, rendering, chunking, dedicated-worker, and
+playback-format-conversion units it coordinates are verified in their own documents (see below).
+The session's whole purpose is to move text through rendering and chunking, into the backend
+(via a dedicated worker), and the resulting audio onto the bound playback device, so its tests
+exercise those units together through fakes.
 
 The backend seam is replaced by a deterministic fake that records every `Generate` call and
 returns a fixed, predictable amount of audio, so no downloaded model and no platform-specific
@@ -63,20 +63,11 @@ asserting that the resolved speaker id and the tag-driven speed override both ap
 independently in the same call, proving the two mechanisms coexist without either regressing the
 other.
 
-`DedicatedWorker` is verified directly and in isolation, with an injectable abandon timeout so
-the non-cooperative-abandonment test does not need to wait out the real two-second default: a
-cooperative delegate (one that observes and honors its cancellation token promptly) lets `Run`
-complete promptly on cancellation, while a non-cooperative delegate (one that ignores
-cancellation) is abandoned once the shortened timeout elapses, reporting a `Warning` diagnostic
-through an NSubstitute sink while still returning control to its caller as cancelled; a separate
-test asserts the delegate always runs on a `TaskCreationOptions.LongRunning` task by inspecting
-the running thread's characteristics from inside the delegate.
-
-`DefaultModelCapabilityProfile`, `SentenceChunker`, and `PlaybackAudioResampler` are each verified
-separately as pure functions over plain inputs (a `StubSpeechModel` test double for the
-capability-profile tests, plain strings for the chunker, and plain float arrays with a
-tolerance-based comparer for the resampler), so their behavior can be asserted directly rather
-than only observed indirectly through the session.
+`DedicatedWorker`, `DefaultModelCapabilityProfile`, `SentenceChunker`, `PlaybackAudioResampler`
+and the synthesis-backend seam are verified directly in their own unit verification documents
+(_dedicated-worker.md_, _layer2-rendering.md_, _sentence-chunker.md_,
+_playback-audio-resampler.md_, _synthesis-backend.md_); this document covers the session's use of
+them, including the semaphore-held cancellation tests through `DedicatedWorker` described above.
 
 The real, native-backed `ISynthesisBackend` implementation, `SherpaOnnxSynthesisEngine`, is not
 part of the Speech library: it ships in the sibling SpeechSherpa library, and its verification
@@ -98,7 +89,7 @@ entirely - it contains only the interop calls, with all policy above it fully co
 
 #### Acceptance Criteria
 
-The units are considered verified when text is chunked, rendered, and synthesized into ordered
+The units are considered verified when text is rendered and synthesized into ordered
 audio segments; a pause tag yields silence without a backend call; `SpeakAsync` plays segments in
 order with correct pre/post silence; `SpeakAsync` genuinely waits for the playback device to
 report a drained queue before stopping it; `StopAsync` cancels an in-flight operation
@@ -113,13 +104,9 @@ unavailable playback device fail the caller's task honestly rather than hanging;
 failure still stops the device; a session's `parameterValues` bag resolves to the correct speaker
 id via `ISynthesisModel.ResolveSpeakerId` once per segment, coexisting correctly with an
 independent per-segment Natural Language Audio Tag speed override in the same call;
-`DedicatedWorker` completes promptly on cooperative cancellation and abandons a non-cooperative
-delegate after its timeout while always using a long-running task; an abandoned native call
-faults the session, and `StopAsync`/`DisposeAsync` wait for its genuine return before completing
-or releasing the lease; volume overrides scale and clamp amplitude; the default backend factory
-delegates to the model; and `PlaybackAudioResampler`
-produces the documented output for identity, up/down conversion, upmix, and boundary inputs while
-rejecting a non-positive channel count.
+or releasing the lease; volume overrides scale and clamp amplitude. The default backend factory,
+`DedicatedWorker`, Layer 2 rendering, `SentenceChunker`, and `PlaybackAudioResampler` acceptance
+criteria are in their own unit verification documents.
 
 #### Test Scenarios
 

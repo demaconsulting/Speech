@@ -246,6 +246,8 @@ sections:
                 children:
                   - SpeechDemo-Recognition-StopsBeforeDeviceRefresh
                   - SpeechDemo-Synthesis-StopsBeforeDeviceRefresh
+                  - SpeechDemo-Devices-PreRefreshHookRemoval
+                  - SpeechDemo-Devices-PreRefreshHookRequired
                 tests:
                   - DeviceSelectionViewModel_Refresh_RegisteredHook_InvokedAndAwaitedBeforeRefreshDevices
                   - DeviceSelectionViewModel_Refresh_MultipleHooks_InvokedInRegistrationOrder

@@ -111,7 +111,7 @@ never returns to `Starting` or `Running`. A fault surfaces to a consumer of `Get
 #### Engine exclusivity and lease behavior
 
 `ISpeechRecognizerEngine.CreateSessionAsync` leases the engine's single `IRecognitionBackend` to
-exactly one live session (Decision #2 of the async redesign). The real engine implements this
+exactly one live session. The real engine implements this
 with a `SemaphoreSlim(1, 1)` acquired with a zero timeout: a second `CreateSessionAsync` call
 while a session is still live fails fast with `RecognitionEngineBusyException` rather than
 queueing or blocking the caller, since a recognition backend genuinely cannot usefully decode two
@@ -126,7 +126,7 @@ Both the pump thread inside `RecognitionSession` and the model-load step inside
 `SpeechRecognizerFactory` run on a `DedicatedWorker`: a dedicated, long-running
 (`TaskCreationOptions.LongRunning`) thread rather than a pooled thread, because both can block
 inside native interop for an unbounded time. `DedicatedWorker` applies a **cooperative-cancel-
-then-abandon** policy (Decision #4): on cancellation it signals the delegate's own
+then-abandon** policy: on cancellation it signals the delegate's own
 `CancellationToken` first, then waits up to a bounded timeout (`DefaultAbandonTimeout`, 2 seconds)
 for the delegate to observe it and return; if the delegate has not returned by then, the worker
 _abandons_ it - the returned `Task` completes (faulted with `OperationCanceledException`) without
@@ -138,7 +138,7 @@ abandoned native thread to finish on its own; it never blocks indefinitely on a 
 #### Backpressure policy
 
 `RecognitionSession` isolates a possibly-slow `GetResultsAsync` consumer from the pump
-thread with two independent, bounded buffers (Decision #5):
+thread with two independent, bounded buffers:
 
 - Captured-but-not-yet-converted audio queues in a bounded, drop-oldest `Channel<float[]>`
   (`PendingFrameCapacity`, 64 blocks): recognition that has fallen behind live audio cannot be

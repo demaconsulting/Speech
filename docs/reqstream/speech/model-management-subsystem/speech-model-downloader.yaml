@@ -51,6 +51,7 @@ sections:
                 tests:
                   - SpeechModelDownloader_DownloadAsync_ValidPayload_InstallsModelAndReportsProgress
                   - SpeechModelDownloader_DownloadAsync_MultipleFiles_ReportsFileIndexAndFileCount
+                  - SpeechModelDownloader_DownloadAsync_RelativeInstallPathWithForeignSeparator_StagesUnderNestedSubdirectory
 
               - id: Speech-Models-SpeechModelDownloader-ChecksumMismatch
                 title: >-
@@ -178,6 +179,18 @@ sections:
                   - SpeechModelDownloader_DownloadAsync_NoMirrorConfigured_ForwardsOriginalUriUnchanged
                   - SpeechModelDownloader_DownloadAsync_MirrorConfigured_ForwardsEffectiveUri
 
+              - id: Speech-Models-SpeechModelDownloader-CredentialedMirrorRequiresOwnClient
+                title: >-
+                  The SpeechModelDownloader class shall throw ArgumentException from its constructor
+                  when a credentialed DownloadMirror is combined with a caller-supplied
+                  IModelDownloadClient.
+                justification: |
+                  Mirror credentials are applied by the HttpModelDownloadClient the downloader creates
+                  itself; silently pairing them with a caller's client would send requests without the
+                  authentication the host configured, so the combination must fail fast.
+                tests:
+                  - SpeechModelDownloader_Constructor_CredentialedMirrorWithCallerSuppliedClient_ThrowsArgumentException
+
               - id: Speech-Models-SpeechModelDownloader-RicherFailureClassification
                 title: >-
                   The SpeechModelDownloader class shall classify a download/install failure, via
@@ -209,6 +222,7 @@ sections:
                   - SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWrappingSocketException_ReportsNetworkBlocked
                   - SpeechModelDownloader_DownloadAsync_TaskCanceledExceptionFromInjectedClient_ReportsFailed
                   - SpeechModelDownloader_DownloadAsync_HttpModelDownloadClientInternalTimeout_ReportsNetworkBlocked
+                  - SpeechModelDownloader_DownloadAsync_HttpModelDownloadClientNonTimeoutCancellation_ReportsFailed
                   - SpeechModelDownloader_DownloadAsync_IoException_ReportsIoFailure
                   - SpeechModelDownloader_DownloadAsync_UnauthorizedAccessException_ReportsIoFailure
                   - SpeechModelDownloader_DownloadAsync_UnmatchedExceptionType_ReportsFailed

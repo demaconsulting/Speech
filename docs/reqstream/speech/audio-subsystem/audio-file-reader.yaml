@@ -13,13 +13,21 @@ sections:
               - id: Speech-Audio-AudioFileReader-DetectsContainer
                 title: >-
                   The AudioFileReader class shall decode a WAV or FLAC file or stream into an AudioClip,
-                  choosing the decoder from the file content rather than the file extension, and shall list
-                  the supported extensions.
+                  choosing the decoder from the file content rather than the file extension.
                 justification: |
                   Files are often renamed or extension-less; the content is the reliable signal.
                 tests:
-                  - AudioFileReader_SupportedExtensions_ListsWavAndFlac
                   - AudioFileReader_Read_DetectsContainerByContent
+                  - AudioFileReader_Read_WavUnderUnrelatedExtension_DetectsWavByContent
+
+              - id: Speech-Audio-AudioFileReader-ListsSupportedExtensions
+                title: >-
+                  The AudioFileReader class shall list the supported file extensions (.wav and .flac).
+                justification: |
+                  Hosts and file pickers need a single authoritative list of the extensions the reader
+                  supports.
+                tests:
+                  - AudioFileReader_SupportedExtensions_ListsWavAndFlac
 
               - id: Speech-Audio-AudioFileReader-ReportsErrors
                 title: >-
@@ -32,6 +40,17 @@ sections:
                 tests:
                   - AudioFileReader_Read_Errors_AreReported
                   - AudioFileReader_Read_UnsupportedWav_ThrowsNotSupportedWithPath
+
+              - id: Speech-Audio-AudioFileReader-ByteCap
+                title: >-
+                  The AudioFileReader class shall reject an input larger than the byte cap derived from
+                  the configured maximum sample count with InvalidDataException before decoding it - from
+                  the file length, from a seekable stream's length, or from a bounded read of a
+                  non-seekable stream - while still decoding a non-seekable stream within the cap.
+                justification: |
+                  Hostile or accidental oversized inputs must fail with a bounded memory and time cost
+                  rather than exhausting the host.
+                tests:
                   - AudioFileReader_Read_FileLargerThanByteCap_ThrowsBeforeDecoding
                   - AudioFileReader_Read_SeekableStreamLargerThanByteCap_Throws
                   - AudioFileReader_Read_NonSeekableStreamLargerThanByteCap_Throws

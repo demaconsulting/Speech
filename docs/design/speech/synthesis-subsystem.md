@@ -212,7 +212,7 @@ stop is an ordinary, successful outcome rather than a fault.
 
 `SynthesisSession`'s per-operation pipeline normalizes the input text, tag-parses it,
 Layer 2 renders it into a `SpeechPlan`, then synthesizes each `SpeechSegment` in turn. Synthesis
-is not pipelined ahead of playback: each segment is synthesized, then (for `SpeakAsync`)
+is never run ahead of playback: each segment is synthesized, then (for `SpeakAsync`)
 immediately written to the bound playback device, before the next segment's synthesis begins.
 This keeps the per-call state machine simple (exactly one backend call in flight at a time);
 playback of an early segment begins after only that segment has been synthesized, so the caller
@@ -444,6 +444,8 @@ engine's exclusivity lease is already held by another, still-undisposed session.
 
 **Key Methods**: Standard constructor pattern.
 
+**Error Handling**: N/A - this type is itself an error signal and has no failure modes of its own.
+
 **Dependencies**: `Exception`.
 
 **Callers**: `SpeechSynthesizerEngine.CreateSessionAsync`.
@@ -456,6 +458,8 @@ already transitioned to `SynthesisSessionState.Faulted`.
 **Data Model**: Carries the original fault as its `InnerException`.
 
 **Key Methods**: Standard constructor pattern taking a message and the original fault.
+
+**Error Handling**: N/A - this type is itself an error signal and has no failure modes of its own.
 
 **Dependencies**: `Exception`.
 

@@ -233,6 +233,7 @@ sections:
               - Speech-Audio-IAudioCaptureDevice-CaptureFormat
               - Speech-Audio-PortAudioCaptureDevice-CaptureFormat
               - Speech-Audio-UnavailableAudioCaptureDevice-ZeroCaptureFormat
+              - Speech-Audio-WindowedSincLowpassFilter-AntiAliasing
             tests:
               - PortAudioCaptureDevice_CaptureFormat_ResolvedDevice_ReflectsResolvedDeviceFormat
               - UnavailableAudioCaptureDevice_CaptureFormat_Read_ReturnsZeroRateAndChannelCount
@@ -317,15 +318,22 @@ sections:
               and keeps the library trim- and AOT-friendly.
             children:
               - Speech-Audio-AudioFileReader-DetectsContainer
+              - Speech-Audio-AudioFileReader-ListsSupportedExtensions
               - Speech-Audio-AudioFileReader-ReportsErrors
+              - Speech-Audio-AudioFileReader-ByteCap
               - Speech-Audio-AudioFileReader-ReadMono
               - Speech-Audio-AudioFileReader-FlacFixtures
               - Speech-Audio-AudioClip-DerivedMembers
+              - Speech-Audio-AudioClip-ValidatesInput
               - Speech-Audio-AudioResampler-DownMix
               - Speech-Audio-AudioResampler-Resample
               - Speech-Audio-AudioResampler-ToMonoResampled
               - Speech-Audio-WavDecoder-Encodings
-              - Speech-Audio-WavDecoder-Rejections
+              - Speech-Audio-WavDecoder-HeaderTolerance
+              - Speech-Audio-WavDecoder-MultichannelOrder
+              - Speech-Audio-WavDecoder-UnsupportedEncodingRejection
+              - Speech-Audio-WavDecoder-MalformedImageRejection
+              - Speech-Audio-WavDecoder-SampleCap
               - Speech-Audio-FlacDecoder-Prediction
               - Speech-Audio-FlacDecoder-StreamShapes
               - Speech-Audio-FlacDecoder-Integrity

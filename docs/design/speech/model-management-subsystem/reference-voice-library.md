@@ -6,14 +6,15 @@ de-duplicated list. Any voice-cloning model can consume it; `ChatterboxTurbo` is
 
 **Data Model**: A public sealed `IDisposable` constructed from a `SpeechModelStore` (typically
 `catalog.Store`), optional `SpeechModelDownloaderOptions` (mirror) and optional `ISpeechDiagnostics`.
-It owns a second `SpeechModelStore` rooted at `{store root}\reference-voices` and creates its
+It owns a second `SpeechModelStore` rooted at `{store root}\{RootDirectoryName}` (the public constant
+`RootDirectoryName`, `reference-voices`; `UserDirectoryName` is `user`) and creates its
 `SpeechModelDownloader` lazily. In-memory sets track pack ids installing or failed since process start.
 
 Disk layout (the unit's contract with the CLI, demo and documentation):
 
 ```text
 {models root}\reference-voices\
-    user\                                  <- the user's own .wav/.flac clips (never touched by pack operations)
+    user\                                  <- the user's own clips (see EnumerateVoices; never touched by packs)
     voice-zero-1.0\
         install-manifest.json              <- written by SpeechModelStore
         current\
@@ -52,14 +53,18 @@ Disk layout (the unit's contract with the CLI, demo and documentation):
 - `UninstallPack` removes the pack only; the user folder is never touched. It takes the same
   per-pack lock as `InstallPackAsync` without waiting; if an install of that pack is in flight it
   throws `SpeechModelStoreException` and changes nothing, so callers retry after the install ends.
+  After the store uninstall it also deletes every `current.upgrade-backup-*` folder left in the pack
+  directory so a leftover backup cannot resurrect the pack, and clears the pack's failed flag.
 - `EnumerateVoices` returns, in order, voices from the caller-named directories (in the order given),
   then the user folder, then each installed pack. Within a directory files are sorted by name
-  (ordinal); `.wav` and `.flac` (any case) are accepted. The first voice with a given id (ordinal)
+  (ordinal); the extensions in `AudioFileReader.SupportedExtensions` (`.wav` and `.flac`, any case) are
+  accepted. The first voice with a given id (ordinal)
   wins and later duplicates are skipped with an `Info` diagnostic. The id is the file name without
   extension; the display name is a humanized form (`alan_davis_drake2` becomes `Alan Davis Drake 2`).
   Pack voices carry the pack's license and attribution. For a pack installed with emotions, each pack
   voice's `MoodClips` maps the lower-case mood (file stem) to the absolute path of
-  `voices-emotion\{voiceId}\{mood}.flac`, ordinally sorted, or is `null` when there are none. Moods
+  `voices-emotion\{voiceId}\{mood}.{ext}` (the shipped pack uses `.flac`; any supported extension is
+  found), ordinally sorted, or is `null` when there are none. Moods
   add no voice ids and do not change voice ordering.
 
 **Error Handling**: Unknown pack ids throw `ArgumentException`; a disposed library throws
@@ -72,7 +77,8 @@ uninstall that cannot complete because files are in use throws `SpeechModelStore
 or choosing voices: cloning a real person's voice requires that person's consent.
 
 **Dependencies**: `SpeechModelStore`, `SpeechModelDownloader`, `ReferenceVoicePack`,
-`ReferenceVoicePackInstaller`, `ISpeechDiagnostics`.
+`ReferenceVoicePackInstaller`, `AudioFileReader.SupportedExtensions` (accepted clip extensions),
+`ISpeechDiagnostics`.
 
 **Callers**: The `ChatterboxTurbo` model and catalog extension, and hosts (the CLI and demo) that
 install, remove or list voices.

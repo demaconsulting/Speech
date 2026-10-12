@@ -85,11 +85,11 @@ sections:
                   does not supply one, so a model with real per-voice knowledge can later resolve
                   a genuine speaker id from it once a session is created.
                 justification: |
-                  Prior to this requirement, no seam existed to carry a session-level selected
-                  voice from a host's ISpeechModel.Parameters selection through to
-                  SynthesisSession; adding this argument as optional with a null default
-                  keeps every existing call site source-compatible while unblocking real voice
-                  selection end-to-end for models such as SherpaOnnxKokoroEnglishSynthesisModel.
+                  The seam that carries a session-level selected voice from a host's
+                  ISpeechModel.Parameters selection through to SynthesisSession is an optional
+                  argument with a null default, which keeps every call site source-compatible
+                  while enabling real voice selection end-to-end for models such as
+                  SherpaOnnxKokoroEnglishSynthesisModel.
                 tests:
                   - SpeechSynthesizerFactory_LoadAsync_ParameterValuesSupplied_ForwardedToEngine
 

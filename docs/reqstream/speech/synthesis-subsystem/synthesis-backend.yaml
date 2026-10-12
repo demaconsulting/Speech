@@ -1,0 +1,42 @@
+---
+# Software Unit Requirements for the synthesis-backend seam
+#
+# Covers ISynthesisBackend, ISynthesisBackendFactory and DefaultSynthesisBackendFactory.
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: SynthesisSubsystem Requirements
+        sections:
+          - title: SynthesisBackend Requirements
+            requirements:
+              - id: Speech-Synthesis-SynthesisBackend-MockableSeam
+                title: >-
+                  The ISynthesisBackend/ISynthesisBackendFactory seam shall isolate all
+                  speech-inference interop so the synthesis pipeline's chunking, Layer 2
+                  rendering, session lifecycle, and playback can be verified without a downloaded
+                  model or an installed speech-engine native runtime.
+                justification: |
+                  CI runners cannot be assumed to have a multi-hundred-megabyte speech model or a
+                  platform-specific native inference binary available, so the synthesis logic must
+                  be verifiable entirely in pure managed tests.
+                tests:
+                  - SpeechSynthesizerFactory_LoadAsync_ModelInstalled_ReturnsRealEngine
+                  - SynthesisSession_SynthesizeAsync_PlainText_YieldsAudioSegment
+
+              - id: Speech-Synthesis-SynthesisBackend-ModelOwnedConfiguration
+                title: >-
+                  The ISynthesisBackend seam shall load a backend using only the configuration the
+                  selected model itself declares, by delegating construction to the model's own
+                  CreateBackend method through DefaultSynthesisBackendFactory, so that adding a
+                  synthesis model never requires changing the synthesis subsystem or adding a
+                  native dependency to it.
+                justification: |
+                  The design makes each model's backing class responsible for its own backend
+                  configuration, so that adding a new synthesis model is a self-contained,
+                  reviewable unit of work that never requires changing the synthesis subsystem or
+                  its native package reference.
+                tests:
+                  - ISynthesisModel_CreateBackend_InstalledDirectory_ReturnsSynthesisBackend
+                  - SpeechSynthesizerFactory_LoadAsync_ModelInstalled_ReturnsRealEngine
+                  - DefaultSynthesisBackendFactory_Create_ValidArguments_ReturnsModelCreatedBackend
+                  - DefaultSynthesisBackendFactory_Create_InvalidArguments_Throws

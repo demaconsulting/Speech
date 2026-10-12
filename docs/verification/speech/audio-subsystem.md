@@ -204,30 +204,15 @@ Verifies that a started capture or playback device registers itself with the env
 active-stream tracking (causing a concurrent `Refresh()` to throw `AudioDeviceInUseException`),
 and that `Stop()` unregisters it so a subsequent `Refresh()` succeeds.
 
-#### AudioDeviceInUseException: Standard Exception Conformance
+#### Unit-Level Coverage of Supporting Types
 
-**Tests**: `AudioDeviceInUseException_Constructor_WithMessage_ExposesMessage`,
-`AudioDeviceInUseException_Constructor_WithInnerException_ExposesBoth`,
-`AudioDeviceInUseException_Constructor_Default_HasNonEmptyMessage`
-
-Verifies the standard three-constructor exception pattern (default, message, message with inner
-exception), mirroring `AudioDeviceUnavailableException`'s identical test shape.
-
-#### Unavailable Fallbacks: Honest Degradation
-
-**Tests**: `UnavailableAudioCaptureDevice_IsAvailable_Read_ReturnsFalse`,
-`UnavailableAudioPlaybackDevice_IsAvailable_Read_ReturnsFalse`,
-`UnavailableAudioCaptureDeviceProbe_Enumerate_Always_ReturnsEmptyList`,
-`UnavailableAudioPlaybackDeviceProbe_Enumerate_Always_ReturnsEmptyList`,
-`UnavailableAudioCaptureDevice_Start_Always_ThrowsAudioDeviceUnavailableException`,
-`UnavailableAudioCaptureDevice_Stop_Always_ThrowsAudioDeviceUnavailableException`,
-`UnavailableAudioPlaybackDevice_Start_Always_ThrowsAudioDeviceUnavailableException`,
-`UnavailableAudioPlaybackDevice_Stop_Always_ThrowsAudioDeviceUnavailableException`,
-`UnavailableAudioPlaybackDevice_Write_Always_ThrowsAudioDeviceUnavailableException`
-
-Verifies the shared unavailable fallbacks remain honest and usable as the last-resort
-composition path: availability and enumeration never throw, while invoking an operational member
-(`Start`, `Stop`, `Write`) throws `AudioDeviceUnavailableException`.
+The `UnavailableAudioCaptureDevice`, `UnavailableAudioPlaybackDevice`,
+`UnavailableAudioCaptureDeviceProbe`, `UnavailableAudioPlaybackDeviceProbe`,
+`AudioDeviceUnavailableException`, `AudioDeviceInUseException`, and `WindowedSincLowpassFilter`
+units are verified by their own unit verification documents under this subsystem; this document
+does not duplicate their scenarios. The subsystem-level behaviors that involve them (initialization
+fallback, reported formats, pending sample count, and refresh refusal) remain covered by the
+scenarios above.
 
 #### File Readers and Resampler: Unit-Level Coverage
 

@@ -338,7 +338,7 @@ sinc FIR lowpass filter immediately before decimation, closing the most harmful 
 without turning this unit into a full polyphase DSP subsystem. Each captured block is still
 converted independently, so interpolation restarts at every block boundary, but the new filter
 removes much of the above-target-Nyquist energy that would otherwise fold into the speech band.
-A later phase should revisit the design only if a real model's measured recognition accuracy on
+The design should be revisited only if a real model's measured recognition accuracy on
 non-native-rate hardware is shown to require something stronger.
 
 **Recognition results are never reported through diagnostics.** Every diagnostic this subsystem

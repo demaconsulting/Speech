@@ -17,16 +17,22 @@ sections:
               - id: Speech-Synthesis-AudioTagParser-VocabularyCompleteness
                 title: >-
                   Every canonical Natural Language Audio Tag shall have at least one alias in
-                  AudioTagCatalog, and every documented alias shall resolve back to its own
-                  canonical tag and kind.
+                  AudioTagCatalog.
                 justification: |
-                  A canonical tag with no reachable alias would be an unusable dead value, and a
-                  stale or incorrect alias mapping would silently misclassify a host's intended
-                  tag. Proving completeness against the enum itself, not a hand-copied list,
-                  keeps the catalog from drifting out of sync with the vocabulary as it grows in
-                  a future release.
+                  A canonical tag with no reachable alias would be an unusable dead value. Proving
+                  completeness against the enum itself, not a hand-copied list, keeps the catalog
+                  from drifting out of sync with the vocabulary as it grows in a future release.
                 tests:
                   - AudioTagCatalog_Tags_Always_CoversEveryCanonicalTagWithAtLeastOneAlias
+
+              - id: Speech-Synthesis-AudioTagParser-AliasRoundTrip
+                title: >-
+                  Every documented alias shall resolve back to its own canonical tag and kind,
+                  including the mood tags and the shout alias.
+                justification: |
+                  A stale or incorrect alias mapping would silently misclassify a host's intended
+                  tag.
+                tests:
                   - AudioTagCatalog_TryResolve_EveryDocumentedAlias_ResolvesToItsOwnTag
                   - AudioTagCatalog_TryResolve_MoodTagsAndShoutAlias_ResolveToExpectedTag
 
@@ -79,8 +85,8 @@ sections:
                 title: >-
                   AudioTagParser.Parse shall return the input's literal text and recognized tags
                   as an ordered sequence of spans that reconstructs the input's structure,
-                  including plain text alone, a tag alone, adjacent tags, and a tag at the start
-                  or end of the input, with no spurious empty spans.
+                  including plain text alone, empty input and mixed text and tags, with no
+                  spurious empty spans.
                 justification: |
                   A later Layer 2 rendering stage must be able to walk the parser's output in
                   order to build a SpeechPlan; any gap, duplication, or incorrect ordering would
@@ -89,27 +95,54 @@ sections:
                   - AudioTagParser_Parse_PlainTextWithNoTags_ReturnsSinglePlainTextSpan
                   - AudioTagParser_Parse_EmptyInput_ReturnsEmptySpanList
                   - AudioTagParser_Parse_MixedPlainTextAndTag_ReturnsOrderedSpans
+
+              - id: Speech-Synthesis-AudioTagParser-TagPlacementSpans
+                title: >-
+                  AudioTagParser.Parse shall return adjacent tags, and a tag at the very start or
+                  end of the input, as separate tag spans in order without spurious empty text spans.
+                justification: |
+                  Tags are often placed at the edges of a sentence or back to back; boundary
+                  handling errors would drop or duplicate a tag.
+                tests:
                   - AudioTagParser_Parse_AdjacentTags_ReturnsTwoSeparateTagSpans
                   - AudioTagParser_Parse_TagAtStartOfText_ReturnsTagSpanFirst
                   - AudioTagParser_Parse_TagAtEndOfText_ReturnsTagSpanLast
 
               - id: Speech-Synthesis-AudioTagParser-MalformedPassthrough
                 title: >-
-                  AudioTagParser.Parse shall pass unrecognized bracket content, empty brackets,
-                  unclosed brackets, and stray closing brackets through as literal text, exactly
-                  as they appeared, rather than throwing or discarding them.
+                  AudioTagParser.Parse shall pass empty brackets, unclosed brackets, and stray
+                  closing brackets through as literal text, exactly as they appeared, rather than
+                  throwing or discarding them, and shall still resolve a valid tag that follows a
+                  nested opening bracket.
                 justification: |
-                  This library's "never worse than plain narration" guarantee requires that a
-                  typo, an unsupported bracket phrase, or an unbalanced bracket in host- or
-                  user-supplied text degrades to ordinary narration rather than failing synthesis
-                  or silently losing content.
+                  This library's "never worse than plain narration" guarantee requires that an
+                  unbalanced bracket in host- or user-supplied text degrades to ordinary
+                  narration rather than failing synthesis or silently losing content.
+                tests:
+                  - AudioTagParser_Parse_UnclosedOpeningBracket_PassesThroughAsLiteralText
+                  - AudioTagParser_Parse_EmptyBrackets_PassesThroughAsLiteralText
+                  - AudioTagParser_Parse_StrayClosingBracket_PassesThroughAsLiteralText
+                  - AudioTagParser_Parse_NestedOpeningBracketBeforeValidTag_ResolvesTag
+
+              - id: Speech-Synthesis-AudioTagParser-UnknownBracketPassthrough
+                title: >-
+                  AudioTagParser.Parse shall pass unrecognized bracket content through as literal
+                  text, exactly as it appeared, and AudioTagCatalog shall report unknown, empty or
+                  whitespace-only content as unresolved.
+                justification: |
+                  A typo or an unsupported bracket phrase must degrade to ordinary narration rather
+                  than failing synthesis or silently losing content.
                 tests:
                   - AudioTagCatalog_TryResolve_UnknownWord_ReturnsFalse
                   - AudioTagCatalog_TryResolve_EmptyOrWhitespace_ReturnsFalse
                   - AudioTagParser_Parse_UnknownBracketedWord_PassesThroughAsLiteralText
-                  - AudioTagParser_Parse_UnclosedOpeningBracket_PassesThroughAsLiteralText
-                  - AudioTagParser_Parse_EmptyBrackets_PassesThroughAsLiteralText
-                  - AudioTagParser_Parse_StrayClosingBracket_PassesThroughAsLiteralText
                   - AudioTagParser_Parse_RecognizedTagFollowedByUnknownBracket_ReturnsTagThenLiteralSpans
-                  - AudioTagParser_Parse_NestedOpeningBracketBeforeValidTag_ResolvesTag
+
+              - id: Speech-Synthesis-AudioTagParser-NullContentRejection
+                title: >-
+                  AudioTagCatalog shall throw ArgumentNullException when asked to normalize or
+                  resolve null content.
+                justification: |
+                  Null is a caller error, not text; failing fast avoids a later null dereference.
+                tests:
                   - AudioTagCatalog_NormalizeAndTryResolve_NullContent_ThrowsArgumentNullException

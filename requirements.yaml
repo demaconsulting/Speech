@@ -34,7 +34,13 @@ includes:
   - docs/reqstream/speech/audio-subsystem/port-audio/port-audio-environment.yaml
   - docs/reqstream/speech/audio-subsystem/port-audio/port-audio-api.yaml
   - docs/reqstream/speech/audio-subsystem/port-audio/port-audio-supporting-types.yaml
-  - docs/reqstream/speech/audio-subsystem/unavailable-fallbacks.yaml
+  - docs/reqstream/speech/audio-subsystem/unavailable-audio-capture-device.yaml
+  - docs/reqstream/speech/audio-subsystem/unavailable-audio-playback-device.yaml
+  - docs/reqstream/speech/audio-subsystem/unavailable-audio-capture-device-probe.yaml
+  - docs/reqstream/speech/audio-subsystem/unavailable-audio-playback-device-probe.yaml
+  - docs/reqstream/speech/audio-subsystem/audio-device-unavailable-exception.yaml
+  - docs/reqstream/speech/audio-subsystem/audio-device-in-use-exception.yaml
+  - docs/reqstream/speech/audio-subsystem/windowed-sinc-lowpass-filter.yaml
   - docs/reqstream/speech/audio-subsystem/audio-device-refresh.yaml
   - docs/reqstream/speech/audio-subsystem/audio-file-reader.yaml
   - docs/reqstream/speech/audio-subsystem/audio-clip.yaml
@@ -77,6 +83,10 @@ includes:
   - docs/reqstream/speech/synthesis-subsystem/speech-synthesizer-factory.yaml
   - docs/reqstream/speech/synthesis-subsystem/synthesis-session-lease.yaml
   - docs/reqstream/speech/synthesis-subsystem/synthesis-session.yaml
+  - docs/reqstream/speech/synthesis-subsystem/synthesis-backend.yaml
+  - docs/reqstream/speech/synthesis-subsystem/layer2-rendering.yaml
+  - docs/reqstream/speech/synthesis-subsystem/sentence-chunker.yaml
+  - docs/reqstream/speech/synthesis-subsystem/playback-audio-resampler.yaml
   - docs/reqstream/speech/synthesis-subsystem/dedicated-worker.yaml
   - docs/reqstream/speech/synthesis-subsystem/unavailable-speech-synthesizer-engine.yaml
   - docs/reqstream/speech/synthesis-subsystem/unavailable-synthesis-session.yaml

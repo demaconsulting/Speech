@@ -15,8 +15,9 @@ residual coding, stereo mode, header code and error path that the fixtures do no
 #### Acceptance Criteria
 
 All fixtures decode bit-exactly; every predictor, residual, stereo, depth, rate, block-size and
-container variant round-trips; CRC failures, truncation, invalid fields, oversized blocks and the
-sample cap are rejected with `InvalidDataException`.
+container variant round-trips; CRC failures, truncation, invalid fields, oversized blocks, a frame
+larger than the declared total, a non-syncsafe ID3v2 size and the sample cap are rejected with
+`InvalidDataException`.
 
 #### Test Scenarios
 

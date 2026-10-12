@@ -33,8 +33,11 @@ sections:
 
               - id: Speech-Audio-AudioResampler-ToMonoResampled
                 title: >-
-                  The AudioResampler class shall combine down-mixing and resampling of an AudioClip.
+                  The AudioResampler class shall combine down-mixing and resampling of an AudioClip
+                  into a mono array at a target rate, and shall reject a null clip with
+                  ArgumentNullException and a non-positive target rate with ArgumentOutOfRangeException.
                 justification: |
-                  The common model-input preparation is one call.
+                  The common model-input preparation is one call, and invalid input must fail at the
+                  call site.
                 tests:
                   - AudioResampler_ToMonoResampled_StereoClip_ProducesMonoAtTargetRate

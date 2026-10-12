@@ -155,6 +155,14 @@ reclassified as `NetworkBlocked`.
 
 **Test**: `SpeechModelDownloader_DownloadAsync_MultipleFiles_ReportsFileIndexAndFileCount`
 
+##### Download: Foreign Path Separator in RelativeInstallPath Stages Under a Nested Subdirectory
+
+**Arrange**: A descriptor whose `RelativeInstallPath` uses the other platform's directory separator.
+
+**Expected**: The file is staged under the corresponding nested subdirectory and installs normally.
+
+**Test**: `SpeechModelDownloader_DownloadAsync_RelativeInstallPathWithForeignSeparator_StagesUnderNestedSubdirectory`
+
 ##### Security: Mirror Bearer Token Is Redacted in ToString
 
 **Test**: `DownloadMirror_ToString_WithBearerToken_RedactsTokenValue` (in `DownloadMirrorTests`)

@@ -221,6 +221,7 @@ sections:
               - Speech-Models-DownloadMirror-NullArgumentValidation
               - Speech-Models-DownloadMirror-QueryFragmentValidation
               - Speech-Models-DownloadMirror-CredentialedHttpRejection
+              - Speech-Models-SpeechModelDownloader-CredentialedMirrorRequiresOwnClient
               - Speech-Models-DownloadMirror-CredentialedLoopbackHttpExemption
               - Speech-Models-DownloadMirror-BearerTokenWhitespaceValidation
               - Speech-Models-SpeechModelDownloaderOptions-MirrorDefaultsNull
@@ -431,6 +432,13 @@ sections:
               - Speech-Models-ReferenceVoicePackInstaller-ArchiveSafety
               - Speech-Models-ReferenceVoicePackInstaller-EmotionVariants
               - Speech-Models-ReferenceVoiceLibrary-StoreLayout
+              - Speech-Models-ReferenceVoiceLibrary-ArgumentValidation
               - Speech-Models-ReferenceVoiceLibrary-PackInstall
+              - Speech-Models-ReferenceVoiceLibrary-PackUninstall
+              - Speech-Models-ReferenceVoiceLibrary-Disposal
               - Speech-Models-ReferenceVoiceLibrary-EmotionVariants
+              - Speech-Models-ReferenceVoiceLibrary-EmotionUpgrade
+              - Speech-Models-ReferenceVoiceLibrary-InstallSerialization
+              - Speech-Models-ReferenceVoiceLibrary-VariantReporting
               - Speech-Models-ReferenceVoiceLibrary-VoiceMerge
+              - Speech-Models-ReferenceVoiceLibrary-ConsentNotice

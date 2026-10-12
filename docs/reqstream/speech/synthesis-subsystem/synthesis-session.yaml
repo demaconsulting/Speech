@@ -1,13 +1,10 @@
 ---
 # Software Unit Requirements for the real synthesis session implementation
 #
-# Groups requirements for SynthesisSession together with the synthesis-backend seam
-# (ISynthesisBackend/ISynthesisBackendFactory/DefaultSynthesisBackendFactory),
-# SynthesisSessionFaultedException, the Layer 2 rendering pipeline
-# (IModelCapabilityProfile/DefaultModelCapabilityProfile, SpeechSegment/SpeechPlan), the
-# SentenceChunker, and the PlaybackAudioResampler, as one cohesive implementation unit. Each
-# unit's requirement subset is called out in its own subsection below so every unit still has
-# requirements tracing to it individually.
+# Covers SynthesisSession and SynthesisSessionFaultedException. The units the session
+# coordinates have their own requirement files in this folder: synthesis-backend.yaml,
+# layer2-rendering.yaml, sentence-chunker.yaml, playback-audio-resampler.yaml and
+# dedicated-worker.yaml.
 sections:
   - title: Speech Requirements
     sections:
@@ -51,7 +48,7 @@ sections:
                 tests:
                   - SynthesisSession_SynthesizeAsync_ReturnsFullFidelitySegmentListIncludingSilence
 
-              - id: Speech-Synthesis-SynthesisSession-PipelinedPlayback
+              - id: Speech-Synthesis-SynthesisSession-ContinuousPlayback
                 title: >-
                   The SynthesisSession class shall start the playback device once, play
                   each segment's pre-silence, resampled audio, and post-silence in order, and stop
@@ -105,12 +102,14 @@ sections:
                   The SynthesisSession class shall raise StateChanged with the
                   documented SynthesisSessionState transition sequence for a successful operation
                   (Created, Starting, Running, Stopping, Stopped) and for a faulting operation
-                  (ending in Faulted), isolating a subscriber's handler exception rather than
-                  propagating it or destabilizing the session.
+                  (ending in Faulted), raising StateChanged outside the session's internal lock
+                  and isolating a subscriber's handler exception rather than propagating it or
+                  destabilizing the session.
                 justification: |
                   A host rendering UI state needs an authoritative, observable state machine, and
                   a misbehaving subscriber must never be able to break the session it is merely
-                  observing.
+                  observing. Handlers run outside the lock so a handler that blocks on, or reads,
+                  the session from another thread can never deadlock it.
                 tests:
                   - SynthesisSession_StateChanged_OneSuccessfulOperation_RaisesExpectedTransitionsInOrder
                   - SynthesisSession_StateChanged_HandlerThrows_IsIsolatedAndDoesNotPropagate
@@ -165,15 +164,15 @@ sections:
                 title: >-
                   The SynthesisSession class shall resolve the speaker id passed to
                   Generate by calling ISynthesisModel.ResolveSpeakerId against the
-                  constructor-supplied parameterValues bag once per synthesized segment, rather
-                  than a hard-coded speakerId: 0, and this resolution shall coexist correctly
+                  constructor-supplied parameterValues bag once per synthesized segment, and this
+                  resolution shall coexist correctly
                   with the independent, per-segment ParameterOverrides speed/volume mechanism
                   (Natural Language Audio Tags) without either mechanism regressing the other.
                 justification: |
-                  Prior to this requirement, segment generation hard-coded speakerId: 0 for every
-                  synthesis model, so a model's declared voice-selection parameter (for example
-                  SherpaOnnxKokoroEnglishSynthesisModel's 11-voice ChoiceParameter) had no real
-                  effect on synthesized output even when a host selected a non-default voice.
+                  A model's declared voice-selection parameter (for example
+                  SherpaOnnxKokoroEnglishSynthesisModel's 11-voice ChoiceParameter) must have a real
+                  effect on synthesized output when a host selects a non-default voice, so the
+                  speaker id is resolved from the selection for every synthesis model.
                   Session-level voice selection and per-segment Natural Language Audio Tag
                   overrides are two independent mechanisms - a selected voice applies to the
                   whole session while a [fast]/[loud] tag applies only to the segment it
@@ -183,51 +182,99 @@ sections:
                   - SynthesisSession_SynthesizeAsync_ParameterValuesSupplied_ResolvesSpeakerIdFromBag
                   - SynthesisSession_SynthesizeAsync_ParameterValuesSuppliedAlongsideSpeedTag_BothMechanismsApplyIndependently
 
-              - id: Speech-Synthesis-SynthesisSession-CancellationAndLifecycle
+              - id: Speech-Synthesis-SynthesisSession-StopCancelsOperation
                 title: >-
                   The SynthesisSession class shall cancel an in-flight SpeakAsync/SynthesizeAsync
                   operation when StopAsync is called, with the cancelled operation unwinding to
-                  Stopped rather than Faulted when the native call honors the cancellation, shall
-                  treat StopAsync as a safe no-op when idle, and shall release its lease exactly
-                  once across repeated DisposeAsync calls.
+                  Stopped rather than Faulted when the native call honors the cancellation.
                 justification: |
                   A host must be able to interrupt speech immediately in response to a user
-                  action (e.g. barge-in), without the cancellation racing or hanging, and must not
-                  leak the engine's exclusivity lease across repeated speak/stop cycles.
+                  action (e.g. barge-in), without the cancellation racing or hanging.
                 tests:
                   - SynthesisSession_StopAsync_WhileSpeaking_DoesNotCompleteUntilInFlightGenerateReturns
-                  - SynthesisSession_StopAsync_NoOperationInFlight_IsNoOp
                   - SynthesisSession_StopAsync_RacingOperationCompletion_NeverThrowsObjectDisposedException
+
+              - id: Speech-Synthesis-SynthesisSession-StopWhenIdle
+                title: >-
+                  The SynthesisSession class shall treat StopAsync as a safe no-op when no
+                  operation is in flight.
+                justification: |
+                  A host calling Stop defensively (for example on every UI state change) must not
+                  need to track whether speech is active, and must not see an error from an idle
+                  session.
+                tests:
+                  - SynthesisSession_StopAsync_NoOperationInFlight_IsNoOp
+
+              - id: Speech-Synthesis-SynthesisSession-DisposeReleasesLeaseOnce
+                title: >-
+                  The SynthesisSession class shall release its engine's exclusivity lease exactly
+                  once across repeated or concurrent DisposeAsync calls.
+                justification: |
+                  Releasing the lease more than once would let a second session bind the engine
+                  while the first still held it, and never releasing it would leak the engine's
+                  exclusivity across repeated speak/stop cycles.
+                tests:
                   - SynthesisSession_DisposeAsync_CalledTwice_ReleasesLeaseOnce
                   - SynthesisSession_DisposeAsync_CalledConcurrentlyTwice_BothCompleteAfterSingleTeardown
+
+              - id: Speech-Synthesis-SynthesisSession-DisposedStateReporting
+                title: >-
+                  The SynthesisSession class shall throw ObjectDisposedException from an
+                  operational member called after disposal and shall report IsAvailable as false
+                  once disposed.
+                justification: |
+                  A disposed session has released its backend lease, so any further synthesis would
+                  touch released state; a host must be told unambiguously that the session is no
+                  longer usable.
+                tests:
                   - SynthesisSession_SynthesizeAsync_AfterDispose_ThrowsObjectDisposedException
                   - SynthesisSession_IsAvailable_BeforeAndAfterDispose_ReflectsLifecycle
 
-              - id: Speech-Synthesis-SynthesisSession-NativeCompletionBeforeRelease
+              - id: Speech-Synthesis-SynthesisSession-DisposeWaitsForNativeCompletion
                 title: >-
-                  The SynthesisSession class shall not complete StopAsync or DisposeAsync, and
-                  shall not release the engine's exclusivity lease, until every native backend
-                  call and playback-device start call the operation began has genuinely returned,
-                  even when that call was abandoned by the dedicated worker. The caller token
-                  passed to StopAsync shall bound only that caller's own wait, never the
-                  teardown itself.
+                  The SynthesisSession class shall not complete DisposeAsync, and shall not release
+                  the engine's exclusivity lease, until every native backend call and
+                  playback-device start call the operation began has genuinely returned, even when
+                  that call was abandoned by the dedicated worker.
                 justification: |
                   A confirmed AccessViolationException crash occurred in an earlier design
                   because cancellation let control return to the caller while a native Generate
                   call was still executing on a background thread; the caller then disposed the
                   owning engine, and the still-running call touched freed native memory. The
                   session therefore tracks each native call's raw completion separately from the
-                  abandon-aware task and awaits it before reporting the operation stopped or
-                  releasing the lease. A playback-device Stop that follows an abandoned device
-                  Start is deferred until that Start genuinely returns.
+                  abandon-aware task and awaits it before releasing the lease.
                 tests:
                   - SynthesisSession_DisposeAsync_WhileSpeaking_DoesNotReleaseLeaseBeforeOperationSettles
                   - SynthesisSession_DisposeAsync_RacingSpeakAsync_NeverDisposesBackendWhileOperationInFlight
                   - SynthesisSession_DisposeAsync_AfterRejectedOverlappingCall_StillAwaitsOriginalOperation
                   - SynthesisSession_DisposeAsync_AbandonedWorker_DoesNotReleaseLeaseUntilWorkerExits
-                  - SynthesisSession_StopAsync_AbandonedGenerate_DoesNotCompleteUntilNativeCallGenuinelyReturns
                   - SynthesisSession_DisposeAsync_CalledAfterAbandonmentFault_DoesNotReleaseLeaseUntilNativeCallGenuinelyReturns
+
+              - id: Speech-Synthesis-SynthesisSession-StopWaitsForNativeCompletion
+                title: >-
+                  The SynthesisSession class shall not complete StopAsync until every native
+                  backend call and playback-device start call the operation began has genuinely
+                  returned, even when that call was abandoned by the dedicated worker, and shall
+                  defer a playback-device Stop that follows an abandoned device Start until that
+                  Start genuinely returns.
+                justification: |
+                  Reporting the operation stopped while a native call is still running would let
+                  the caller dispose or reuse the shared backend under it. A device Stop issued
+                  concurrently with an abandoned device Start would race the same native device.
+                tests:
+                  - SynthesisSession_StopAsync_AbandonedGenerate_DoesNotCompleteUntilNativeCallGenuinelyReturns
                   - SynthesisSession_StopAsync_AbandonedDeviceStart_DoesNotCallDeviceStopUntilStartGenuinelyReturns
+
+              - id: Speech-Synthesis-SynthesisSession-StopCallerTokenBoundsWaitOnly
+                title: >-
+                  The cancellation token passed to SynthesisSession.StopAsync shall bound only that
+                  caller's own wait, never the teardown itself: a canceled token shall make the
+                  returned task throw while the operation is still cancelled and awaited to
+                  completion.
+                justification: |
+                  A caller that gives up waiting must not leave the operation running or abandon
+                  the cancel-and-await work other callers (and DisposeAsync) depend on.
+                tests:
                   - SynthesisSession_StopAsync_CallerTokenPreCanceled_ThrowsButOperationStillStops
 
               - id: Speech-Synthesis-SynthesisSession-AbandonedNativeCallFaults
@@ -243,7 +290,7 @@ sections:
                   operation that would start a second concurrent native call. Faulting keeps the
                   caller's cancellation prompt while preventing backend reuse; DisposeAsync still
                   waits for the abandoned call as described by
-                  Speech-Synthesis-SynthesisSession-NativeCompletionBeforeRelease.
+                  Speech-Synthesis-SynthesisSession-DisposeWaitsForNativeCompletion.
                 tests:
                   - SynthesisSession_AbandonedGenerate_FaultsSessionAndRejectsReuseImmediately
                   - SynthesisSession_SpeakAsync_SlowPlaybackDeviceStart_DoesNotBlockCaller
@@ -275,296 +322,3 @@ sections:
                 tests:
                   - SynthesisSession_SynthesizeAsync_AfterFault_ThrowsSynthesisSessionFaultedException
                   - SynthesisSessionFaultedException_Constructors_PreserveMessageAndInnerException
-
-          - title: SynthesisBackend Requirements
-            requirements:
-              - id: Speech-Synthesis-SynthesisBackend-MockableSeam
-                title: >-
-                  The ISynthesisBackend/ISynthesisBackendFactory seam shall isolate all
-                  speech-inference interop so the synthesis pipeline's chunking, Layer 2
-                  rendering, session lifecycle, and playback can be verified without a downloaded
-                  model or an installed speech-engine native runtime.
-                justification: |
-                  CI runners cannot be assumed to have a multi-hundred-megabyte speech model or a
-                  platform-specific native inference binary available, so the synthesis logic must
-                  be verifiable entirely in pure managed tests.
-                tests:
-                  - SpeechSynthesizerFactory_LoadAsync_ModelInstalled_ReturnsRealEngine
-                  - SynthesisSession_SynthesizeAsync_PlainText_YieldsAudioSegment
-
-              - id: Speech-Synthesis-SynthesisBackend-ModelOwnedConfiguration
-                title: >-
-                  The ISynthesisBackend seam shall load a backend using only the configuration the
-                  selected model itself declares, by delegating construction to the model's own
-                  CreateBackend method through DefaultSynthesisBackendFactory, so that adding a
-                  synthesis model never requires changing the synthesis subsystem or adding a
-                  native dependency to it.
-                justification: |
-                  The design makes each model's backing class responsible for its own backend
-                  configuration, so that adding a new synthesis model is a self-contained,
-                  reviewable unit of work that never requires changing the synthesis subsystem or
-                  its native package reference.
-                tests:
-                  - ISynthesisModel_CreateBackend_InstalledDirectory_ReturnsSynthesisBackend
-                  - SpeechSynthesizerFactory_LoadAsync_ModelInstalled_ReturnsRealEngine
-                  - DefaultSynthesisBackendFactory_Create_ValidArguments_ReturnsModelCreatedBackend
-                  - DefaultSynthesisBackendFactory_Create_InvalidArguments_Throws
-
-          - title: Layer2Rendering Requirements
-            requirements:
-              - id: Speech-Synthesis-Layer2Rendering-PauseAlwaysSilence
-                title: >-
-                  The default Layer 2 rendering strategy shall always render a pause tag as a
-                  real timed silence segment, regardless of a model's declared audio-tag support,
-                  with a long pause rendering strictly longer than a short pause.
-                justification: |
-                  The design states that pauses require no model cooperation, so every
-                  installed model - however limited its audio-tag support - can honor a pause
-                  tag identically and correctly.
-                tests:
-                  - DefaultModelCapabilityProfile_Render_ShortPause_AlwaysRendersAsSilenceSegment
-                  - DefaultModelCapabilityProfile_Render_LongPause_RendersLongerSilenceThanShortPause
-
-              - id: Speech-Synthesis-Layer2Rendering-NativePassthrough
-                title: >-
-                  The default Layer 2 rendering strategy shall pass a tag through as its
-                  canonical bracket text, unchanged, for a model that declares native audio-tag
-                  support.
-                justification: |
-                  A model with native audio-tag support already understands the canonical bracket
-                  syntax as a control token during its own inference, so the library must not
-                  alter or strip it before the model sees it.
-                tests:
-                  - DefaultModelCapabilityProfile_Render_NativeSupport_PassesThroughCanonicalBracketText
-
-              - id: Speech-Synthesis-Layer2Rendering-ParameterMappedApproximation
-                title: >-
-                  The default Layer 2 rendering strategy shall approximate a pace or
-                  delivery/volume tag as a numeric parameter override on the surrounding segment
-                  for a model declaring parameter-mapped audio-tag support, and shall silently
-                  strip a tag with no built-in convention rather than failing.
-                justification: |
-                  This library's conservative risk mitigation for unsupported tags requires that
-                  a model without native tag support still gets a reasonable, non-crashing
-                  approximation of pace/volume intent, while intentionally conservative scope
-                  means only the tags with a clear numeric convention are mapped; every other tag
-                  safely degrades to plain narration instead of causing an error.
-                tests:
-                  - DefaultModelCapabilityProfile_Render_ParameterMappedSupport_FastTag_MapsToSpeedParameter
-                  - DefaultModelCapabilityProfile_Render_ParameterMappedSupport_EmotionTag_StripsWithNoOverride
-
-              - id: Speech-Synthesis-Layer2Rendering-NoneStripsAll
-                title: >-
-                  The default Layer 2 rendering strategy shall strip every tag to plain narration
-                  text, except pauses, for a model declaring no audio-tag support.
-                justification: |
-                  This library's "never worse than plain narration" guarantee requires that a
-                  model incapable of any tag rendering still narrates the underlying text
-                  correctly rather than speaking literal bracket syntax aloud.
-                tests:
-                  - DefaultModelCapabilityProfile_Render_NoneSupport_StripsAllTags
-
-              - id: Speech-Synthesis-Layer2Rendering-PlainTextChunking
-                title: >-
-                  The default Layer 2 rendering strategy shall split ordinary narration text into
-                  sentence/clause-sized chunks using the SentenceChunker, producing one rendered
-                  segment per chunk.
-                justification: |
-                  Chunked synthesis requires a Layer 2 boundary that lines up with natural speech
-                  units so that pipelined synthesize-while-playing-previous behavior sounds
-                  natural rather than cutting mid-word or mid-phrase.
-                tests:
-                  - DefaultModelCapabilityProfile_Render_PlainTextOnly_RendersChunkedSegments
-                  - DefaultModelCapabilityProfile_Render_NullArguments_ThrowsArgumentNullException
-
-              - id: Speech-Synthesis-Layer2Rendering-EllipsisPause
-                title: >-
-                  The default Layer 2 rendering strategy shall render a longer,
-                  chunk-boundary-triggered pause after a chunk whose text ends in a genuine
-                  ellipsis, distinct from the tag-triggered short/long pause durations, while
-                  every other chunk boundary continues to add zero silence.
-                justification: |
-                  A genuine ellipsis (three or more consecutive '.' characters, with or without
-                  interspersed whitespace) models a speaker naturally trailing off, which reads
-                  unnaturally abrupt if followed immediately by the next chunk with no added
-                  silence; this pause is driven purely by the shape of the already-chunked text,
-                  not by an explicit [pause]/[long-pause] tag, so it is a separate mechanism from
-                  - and does not reuse - the tag-triggered pause durations.
-                tests:
-                  - DefaultModelCapabilityProfile_Render_ChunkEndingInEllipsis_SetsLongerPostSilenceThanOrdinarySentenceEnd
-                  - DefaultModelCapabilityProfile_Render_ChunkEndingInSpacedEllipsis_AlsoSetsEllipsisPostSilence
-
-          - title: SentenceChunker Requirements
-            requirements:
-              - id: Speech-Synthesis-SentenceChunker-BoundarySplitting
-                title: >-
-                  The SentenceChunker class shall split text on primary sentence boundaries first,
-                  then unconditionally split every resulting sentence-level piece further on
-                  secondary clause boundaries regardless of length, falling back to a whitespace
-                  budget only when a piece still exceeds the configured maximum chunk length.
-                justification: |
-                  Gating clause-level splitting behind the length budget let a long, multi-clause
-                  sentence remain a single chunk until pipelined playback caught up to it, causing
-                  an audible playback delay at the sentence boundary; splitting every clause
-                  unconditionally keeps the audible gap at a clause boundary short and predictable
-                  regardless of overall sentence length, while the whitespace-budget fallback still
-                  guarantees no chunk exceeds the length a model or pipeline stage can handle in one
-                  synthesis call.
-                tests:
-                  - SentenceChunker_Chunk_ShortSingleSentence_ReturnsOneChunk
-                  - SentenceChunker_Chunk_MultipleSentences_SplitsOnPrimaryBoundaries
-                  - SentenceChunker_Chunk_LongSentenceWithClauses_SplitsOnSecondaryBoundaries
-                  - SentenceChunker_Chunk_LongClauseWithNoPunctuation_SplitsOnWhitespaceBudget
-                  - SentenceChunker_Chunk_ShortSentenceWithComma_SplitsOnCommaEvenUnderBudget
-                  - SentenceChunker_Chunk_ShortSentenceWithSemicolonOrColon_SplitsEvenUnderBudget
-
-              - id: Speech-Synthesis-SentenceChunker-BoundaryHandling
-                title: >-
-                  The SentenceChunker class shall return a single word unsplit when the word
-                  alone exceeds the configured maximum chunk length, and shall reject a
-                  non-positive maximum chunk length or null text.
-                justification: |
-                  Splitting inside a single word would produce unintelligible synthesized audio,
-                  so an over-length word must still be synthesized whole; a non-positive maximum
-                  length or null text describes no meaningful chunking request and must be
-                  rejected rather than silently producing corrupt output.
-                tests:
-                  - SentenceChunker_Chunk_SingleWordExceedsBudget_ReturnsWholeWord
-                  - SentenceChunker_Chunk_NonPositiveMaxLength_ThrowsArgumentOutOfRangeException
-                  - SentenceChunker_Chunk_NullText_ThrowsArgumentNullException
-
-              - id: Speech-Synthesis-SentenceChunker-NumeralPunctuationRetention
-                title: >-
-                  The SentenceChunker class shall never treat primary or secondary boundary
-                  punctuation embedded in a numeral as a clause/sentence boundary: a punctuation
-                  character flanked by a digit on both sides (e.g. the ':' in "12:30", the ',' in
-                  "1,000", or the '.' in "0.5"), and a decimal point followed immediately by a
-                  digit with no digit and no letter before it (e.g. the leading '.' in ".5" or
-                  "$.99"), must both stay attached to their numeral rather than splitting.
-                justification: |
-                  Splitting a time, thousands separator, or decimal point mid-numeral produces
-                  meaningless fragments ("12:" / "30", "1," / "000", or "0" / "5") when the pieces
-                  are later synthesized as separate chunks. This is especially harmful for a
-                  bare-fraction decimal with no leading digit: before this exception, its leading
-                  "." was indistinguishable from a sentence-ending period and was dropped as a
-                  degenerate, word-less chunk by the DegeneratePunctuationMerging requirement
-                  above, silencing the "point" when the number was spoken (".5" read as "five"
-                  instead of "point five"). Excluding a letter-preceded period from this exception
-                  (e.g. "Wait.5 more.") keeps a genuine sentence-ending period, immediately
-                  followed by a digit with no space, splitting normally.
-                tests:
-                  - SentenceChunker_Chunk_ClausePunctuationEmbeddedInNumeral_StaysAttached
-                  - SentenceChunker_Chunk_ShortSentenceWithSemicolonOrColon_SplitsEvenUnderBudget
-
-              - id: Speech-Synthesis-SentenceChunker-ConsecutiveBoundaryMerging
-                title: >-
-                  The SentenceChunker class shall treat a maximal run of consecutive primary
-                  sentence-ending characters (any combination of '.', '!', '?', such as an
-                  ellipsis or a mixed terminator like "?!" or "!!") as a single boundary, splitting
-                  only once after the last character of the run and keeping the whole run attached
-                  to the sentence that precedes it, both mid-text and at the end of the text.
-                justification: |
-                  Splitting after every individual character in a run of terminal punctuation
-                  produces degenerate chunks that are just a single punctuation character with no
-                  other content; synthesizing such a near-empty chunk produces audible glitches and
-                  artifacts regardless of which model performs the synthesis. Merging the run into
-                  one boundary also matches how a human naturally pauses once at an ellipsis rather
-                  than stopping once per character.
-                tests:
-                  - SentenceChunker_Chunk_MidSentenceEllipsis_StaysAttachedAsSingleChunk
-                  - SentenceChunker_Chunk_MixedConsecutiveTerminators_StaysAttachedAsSingleChunk
-                  - SentenceChunker_Chunk_RepeatedExclamations_StaysAttachedAsSingleChunk
-                  - SentenceChunker_Chunk_SingleTerminators_NoRegression
-                  - SentenceChunker_Chunk_TrailingEllipsis_NoDegenerateTrailingChunk
-
-              - id: Speech-Synthesis-SentenceChunker-DegeneratePunctuationMerging
-                title: >-
-                  The SentenceChunker class shall never emit a chunk whose trimmed text contains
-                  no letter or digit character at all, instead merging such a piece's text onto
-                  the immediately preceding non-empty chunk, or dropping it if there is no
-                  preceding chunk, uniformly for both primary and secondary boundary punctuation.
-                justification: |
-                  A piece that is nothing but punctuation and/or whitespace - for example a lone
-                  comma or a whitespace-spaced run of dots such as ". . . . ." - is not a
-                  meaningful unit of speech on its own; synthesizing it as its own chunk produces
-                  audible glitches/artifacts and unnecessary chunk-boundary gaps. Merging its
-                  punctuation onto the preceding chunk (or dropping it when nothing precedes it)
-                  preserves the punctuation's cue while eliminating the degenerate chunk.
-                tests:
-                  - SentenceChunker_Chunk_SpacedPunctuationRun_MergesIntoPrecedingChunk
-                  - SentenceChunker_Chunk_LoneSecondaryBoundaryWithNoWordContent_MergesIntoPrecedingChunk
-                  - SentenceChunker_Chunk_LeadingDegenerateRun_IsDropped
-
-              - id: Speech-Synthesis-SentenceChunker-EllipsisMetadata
-                title: >-
-                  The SentenceChunker class shall expose, per chunk via ChunkWithMetadata, whether
-                  the chunk's final text ends in a genuine ellipsis (three or more consecutive '.'
-                  characters, with or without interspersed whitespace), while Chunk continues to
-                  return only chunk text with an unchanged signature for every existing caller.
-                justification: |
-                  A genuine ellipsis warrants a longer rendered pause than an ordinary
-                  sentence-ending terminator to sound natural; exposing this as per-chunk metadata
-                  lets a Layer 2 rendering strategy render that longer pause without SentenceChunker
-                  itself taking on any audio-rendering responsibility, and keeping Chunk a pure
-                  projection of ChunkWithMetadata's text guarantees no existing caller's output
-                  changes.
-                tests:
-                  - SentenceChunker_ChunkWithMetadata_TrailingAdjacentEllipsis_EndsWithEllipsisIsTrue
-                  - SentenceChunker_ChunkWithMetadata_TrailingSpacedEllipsis_EndsWithEllipsisIsTrue
-                  - SentenceChunker_ChunkWithMetadata_FewerThanThreeDots_EndsWithEllipsisIsFalse
-                  - SentenceChunker_Chunk_AndChunkWithMetadata_ProduceSameChunkText
-
-          - title: PlaybackAudioResampler Requirements
-            requirements:
-              - id: Speech-Synthesis-PlaybackAudioResampler-RateConversion
-                title: >-
-                  The PlaybackAudioResampler class shall convert single-channel synthesized audio
-                  from the engine's sample rate to the playback device's sample rate, producing a
-                  proportional number of output samples, returning the input unchanged when the
-                  two rates are equal, and applying anti-aliasing lowpass filtering before
-                  decimation whenever it downsamples.
-                justification: |
-                  A synthesis engine produces audio at one fixed rate while a playback device
-                  resolves whatever rate its hardware defaults to; without this conversion,
-                  synthesized speech would only play correctly on a device that happened to match
-                  the model's rate, mirroring the recognition-direction requirement that
-                  resampling audio already matching would introduce avoidable error and cost. A
-                  downsampling path that omits anti-aliasing folds above-target-Nyquist energy
-                  back into the audible band and audibly degrades playback.
-                tests:
-                  - PlaybackAudioResampler_Resample_EqualRates_CopiesUnchanged
-                  - PlaybackAudioResampler_Resample_Upsample_ProducesInterpolatedSamples
-                  - PlaybackAudioResampler_Resample_Downsample_ReducesSampleCount
-                  - PlaybackAudioResampler_Resample_AboveTargetNyquistTone_IsAttenuated
-                  - PlaybackAudioResampler_Resample_ShortInputDuringDownsampling_DoesNotThrow
-                  - PlaybackAudioResampler_Resample_EmptyInput_ReturnsEmpty
-
-              - id: Speech-Synthesis-PlaybackAudioResampler-Upmix
-                title: >-
-                  The PlaybackAudioResampler class shall replicate single-channel audio across
-                  every channel the playback device requires, leaving already single-channel
-                  output unchanged when the device requires one channel, and shall reject a
-                  non-positive channel count.
-                justification: |
-                  A playback device commonly requires stereo or multi-channel output while a
-                  synthesis engine produces mono audio; replicating the single channel across every
-                  output channel is the simplest correct upmix, and a non-positive channel count
-                  describes no meaningful playback format and must be rejected.
-                tests:
-                  - PlaybackAudioResampler_UpmixToChannels_SingleChannel_CopiesUnchanged
-                  - PlaybackAudioResampler_UpmixToChannels_MultipleChannels_ReplicatesEachFrame
-                  - PlaybackAudioResampler_UpmixToChannels_EmptyInput_ReturnsEmpty
-                  - PlaybackAudioResampler_UpmixToChannels_NonPositiveChannelCount_ThrowsArgumentOutOfRangeException
-
-              - id: Speech-Synthesis-PlaybackAudioResampler-Composition
-                title: >-
-                  The PlaybackAudioResampler class shall expose a single Convert operation that
-                  resamples and then upmixes engine-rate mono audio directly to the playback
-                  device's rate and channel count.
-                justification: |
-                  The synthesis pipeline always needs both conversions applied together for every
-                  segment it plays, so a single composed entry point avoids every caller having to
-                  correctly sequence resample-then-upmix itself.
-                tests:
-                  - PlaybackAudioResampler_Convert_DifferentRateAndChannels_ResamplesThenUpmixes
-                  - PlaybackAudioResampler_Convert_SingleChannelTarget_ReturnsResampledWithoutUpmix

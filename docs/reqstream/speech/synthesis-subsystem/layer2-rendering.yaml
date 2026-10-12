@@ -1,0 +1,102 @@
+---
+# Software Unit Requirements for the Layer 2 rendering strategy
+#
+# Covers IModelCapabilityProfile, DefaultModelCapabilityProfile, SpeechSegment and SpeechPlan.
+sections:
+  - title: Speech Requirements
+    sections:
+      - title: SynthesisSubsystem Requirements
+        sections:
+          - title: Layer2Rendering Requirements
+            requirements:
+              - id: Speech-Synthesis-Layer2Rendering-PauseAlwaysSilence
+                title: >-
+                  The default Layer 2 rendering strategy shall always render a pause tag as a
+                  real timed silence segment, regardless of a model's declared audio-tag support,
+                  with a long pause rendering strictly longer than a short pause.
+                justification: |
+                  The design states that pauses require no model cooperation, so every
+                  installed model - however limited its audio-tag support - can honor a pause
+                  tag identically and correctly.
+                tests:
+                  - DefaultModelCapabilityProfile_Render_ShortPause_AlwaysRendersAsSilenceSegment
+                  - DefaultModelCapabilityProfile_Render_LongPause_RendersLongerSilenceThanShortPause
+
+              - id: Speech-Synthesis-Layer2Rendering-NativePassthrough
+                title: >-
+                  The default Layer 2 rendering strategy shall pass a tag through as its
+                  canonical bracket text, unchanged, for a model that declares native audio-tag
+                  support.
+                justification: |
+                  A model with native audio-tag support already understands the canonical bracket
+                  syntax as a control token during its own inference, so the library must not
+                  alter or strip it before the model sees it.
+                tests:
+                  - DefaultModelCapabilityProfile_Render_NativeSupport_PassesThroughCanonicalBracketText
+
+              - id: Speech-Synthesis-Layer2Rendering-ParameterMappedApproximation
+                title: >-
+                  The default Layer 2 rendering strategy shall approximate a pace or
+                  delivery/volume tag as a numeric parameter override on the surrounding segment
+                  for a model declaring parameter-mapped audio-tag support, and shall silently
+                  strip a tag with no built-in convention rather than failing.
+                justification: |
+                  This library's conservative risk mitigation for unsupported tags requires that
+                  a model without native tag support still gets a reasonable, non-crashing
+                  approximation of pace/volume intent, while intentionally conservative scope
+                  means only the tags with a clear numeric convention are mapped; every other tag
+                  safely degrades to plain narration instead of causing an error.
+                tests:
+                  - DefaultModelCapabilityProfile_Render_ParameterMappedSupport_FastTag_MapsToSpeedParameter
+                  - DefaultModelCapabilityProfile_Render_ParameterMappedSupport_EmotionTag_StripsWithNoOverride
+
+              - id: Speech-Synthesis-Layer2Rendering-NoneStripsAll
+                title: >-
+                  The default Layer 2 rendering strategy shall strip every tag to plain narration
+                  text, except pauses, for a model declaring no audio-tag support.
+                justification: |
+                  This library's "never worse than plain narration" guarantee requires that a
+                  model incapable of any tag rendering still narrates the underlying text
+                  correctly rather than speaking literal bracket syntax aloud.
+                tests:
+                  - DefaultModelCapabilityProfile_Render_NoneSupport_StripsAllTags
+
+              - id: Speech-Synthesis-Layer2Rendering-PlainTextChunking
+                title: >-
+                  The default Layer 2 rendering strategy shall split ordinary narration text into
+                  sentence/clause-sized chunks using the SentenceChunker, producing one rendered
+                  segment per chunk.
+                justification: |
+                  Chunked synthesis requires a Layer 2 boundary that lines up with natural speech
+                  units so that synthesizing one chunk at a time and playing each as soon as it is
+                  ready sounds natural rather than cutting mid-word or mid-phrase.
+                tests:
+                  - DefaultModelCapabilityProfile_Render_PlainTextOnly_RendersChunkedSegments
+
+              - id: Speech-Synthesis-Layer2Rendering-NullArgumentRejection
+                title: >-
+                  The default Layer 2 rendering strategy shall reject a null span list or a null
+                  model with ArgumentNullException.
+                justification: |
+                  A null span list or model describes no meaningful rendering request; rejecting
+                  it eagerly surfaces a caller bug at the call site rather than as an obscure
+                  failure deeper in the synthesis pipeline.
+                tests:
+                  - DefaultModelCapabilityProfile_Render_NullArguments_ThrowsArgumentNullException
+
+              - id: Speech-Synthesis-Layer2Rendering-EllipsisPause
+                title: >-
+                  The default Layer 2 rendering strategy shall render a longer,
+                  chunk-boundary-triggered pause after a chunk whose text ends in a genuine
+                  ellipsis, distinct from the tag-triggered short/long pause durations, while
+                  every other chunk boundary continues to add zero silence.
+                justification: |
+                  A genuine ellipsis (three or more consecutive '.' characters, with or without
+                  interspersed whitespace) models a speaker naturally trailing off, which reads
+                  unnaturally abrupt if followed immediately by the next chunk with no added
+                  silence; this pause is driven purely by the shape of the already-chunked text,
+                  not by an explicit [pause]/[long-pause] tag, so it is a separate mechanism from
+                  - and does not reuse - the tag-triggered pause durations.
+                tests:
+                  - DefaultModelCapabilityProfile_Render_ChunkEndingInEllipsis_SetsLongerPostSilenceThanOrdinarySentenceEnd
+                  - DefaultModelCapabilityProfile_Render_ChunkEndingInSpacedEllipsis_AlsoSetsEllipsisPostSilence

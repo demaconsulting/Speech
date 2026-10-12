@@ -77,4 +77,4 @@ shared singleton; the constructor is private.
 **Dependencies**: `ISpeechDiagnostics` (implements it).
 
 **Callers**: `AudioDeviceFactory` (AudioSubsystem) when no diagnostics sink is supplied; any
-other factory that needs a safe default in a later phase.
+other factory that needs a safe default when diagnostics are not supplied.

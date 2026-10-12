@@ -27,20 +27,24 @@ sections:
                   - ReferenceVoicePackInstaller_Install_TypicalArchive_WritesPackMetadata
                   - ReferenceVoicePackInstaller_Install_TypicalArchive_DeletesArchive
                   - ReferenceVoicePackInstaller_Install_EntriesOutsideRoot_AreIgnored
+                  - ReferenceVoicePackInstaller_Install_StagingDirectoryWithTrailingSeparator_Extracts
 
               - id: Speech-Models-ReferenceVoicePackInstaller-ArchiveSafety
                 title: >-
                   The ReferenceVoicePackInstaller shall reject archives containing path-traversal,
-                  rooted, drive-qualified or backslash entry names, archives with no voice clips,
-                  and files that are not zip archives, and shall honor cancellation.
+                  rooted, drive-qualified or backslash entry names, entry names with a segment that is
+                  not valid on every platform, two entries that map to the same destination, archives
+                  with no voice clips, and files that are not zip archives, and shall honor cancellation.
                 justification: |
                   Even a checksum-verified archive is untrusted input to the extractor (the
                   checksum guards integrity, not safety), so a zip-slip entry must never write
-                  outside the staging directory and a malformed pack must fail the install rather
-                  than produce an empty voice library.
+                  outside the staging directory, a name that is invalid on some platform must not
+                  yield a pack that installs on one platform only, and a malformed pack must fail
+                  the install rather than produce an empty voice library.
                 tests:
                   - ReferenceVoicePackInstaller_Install_UnsafeEntryName_ThrowsAndWritesNothingOutside
                   - ReferenceVoicePackInstaller_Install_PlatformInvalidEntryName_ThrowsInvalidData
+                  - ReferenceVoicePackInstaller_Install_DuplicateEntry_Throws
                   - ReferenceVoicePackInstaller_Install_NoVoices_Throws
                   - ReferenceVoicePackInstaller_Install_NotAZip_Throws
                   - ReferenceVoicePackInstaller_Install_CanceledToken_Throws

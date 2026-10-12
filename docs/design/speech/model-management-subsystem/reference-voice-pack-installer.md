@@ -19,11 +19,10 @@ and `MaximumTotalBytes` (2 GiB).
    `README.md` and optionally `voices-emotion\{speaker}\{mood}.flac`.
 3. Applies the zip-slip guard to every extracted entry name (below) and streams each entry to disk,
    counting the bytes actually read against the per-entry and total caps.
-4. Fails when no voice clip was extracted.
+4. Fails when no voice clip was extracted. Emotion clips alone never satisfy this step.
 5. Deletes the archive and writes `pack.json` (id, name, license, license URL, attribution, source URL,
    archive URL and SHA-256, voice count, emotion clip count, variants: `["voices"]` or
-   `["voices","voices-emotion"]`). Emotion clips
-alone never satisfy step 4.
+   `["voices","voices-emotion"]`).
 
 **Error Handling**: All problems are `InvalidDataException` (which the downloader classifies as
 `Failed`, installing nothing): a file that is not a zip archive, an entry name containing a backslash,

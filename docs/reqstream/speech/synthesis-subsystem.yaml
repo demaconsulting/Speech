@@ -31,6 +31,7 @@ sections:
               library release rather than being host- or model-configurable.
             children:
               - Speech-Synthesis-AudioTagParser-VocabularyCompleteness
+              - Speech-Synthesis-AudioTagParser-AliasRoundTrip
               - Speech-Synthesis-AudioTagParser-NoAliasAmbiguity
               - Speech-Synthesis-AudioTagParser-KindGrouping
             tests:
@@ -55,7 +56,10 @@ sections:
               - Speech-Synthesis-AudioTagParser-CaseInsensitiveResolution
               - Speech-Synthesis-AudioTagParser-ExtraWhitespaceTolerance
               - Speech-Synthesis-AudioTagParser-OrderedSpanSequence
+              - Speech-Synthesis-AudioTagParser-TagPlacementSpans
               - Speech-Synthesis-AudioTagParser-MalformedPassthrough
+              - Speech-Synthesis-AudioTagParser-UnknownBracketPassthrough
+              - Speech-Synthesis-AudioTagParser-NullContentRejection
             tests:
               - AudioTagParser_Parse_MixedPlainTextAndTag_ReturnsOrderedSpans
               - AudioTagParser_Parse_UnclosedOpeningBracket_PassesThroughAsLiteralText
@@ -80,6 +84,7 @@ sections:
               - Speech-Synthesis-Layer2Rendering-ParameterMappedApproximation
               - Speech-Synthesis-Layer2Rendering-NoneStripsAll
               - Speech-Synthesis-Layer2Rendering-PlainTextChunking
+              - Speech-Synthesis-Layer2Rendering-NullArgumentRejection
               - Speech-Synthesis-Layer2Rendering-EllipsisPause
             tests:
               - DefaultModelCapabilityProfile_Render_ShortPause_AlwaysRendersAsSilenceSegment
@@ -179,13 +184,13 @@ sections:
               The SynthesisSubsystem shall thread an optional, session-level parameterValues bag
               from SpeechSynthesizerFactory.LoadAsync through to SynthesisSession, which
               shall resolve a real speaker id from it via ISynthesisModel.ResolveSpeakerId once
-              per synthesized segment, replacing a previously hard-coded speakerId: 0, without
+              per synthesized segment, without
               regressing the independent, per-segment Natural Language Audio Tag speed/volume
               override mechanism.
             justification: |
               A model-declared voice parameter (for example a multi-voice ChoiceParameter) must
               actually change synthesized output rather than every segment using a fixed
-              speakerId: 0. This requirement covers any model that
+              speaker id. This requirement covers any model that
               owns real per-voice knowledge, while keeping voice selection and the existing
               per-segment speed/volume convention correctly independent of each other.
             children:
@@ -217,7 +222,7 @@ sections:
               - Speech-Synthesis-SentenceChunker-EllipsisMetadata
               - Speech-Synthesis-SynthesisSession-ChunkedPipeline
               - Speech-Synthesis-SynthesisSession-FullFidelitySegmentList
-              - Speech-Synthesis-SynthesisSession-PipelinedPlayback
+              - Speech-Synthesis-SynthesisSession-ContinuousPlayback
               - Speech-Synthesis-SynthesisSession-SilenceAndVolume
               - Speech-Synthesis-SynthesisSession-GenuinePlaybackDrainWait
               - Speech-Synthesis-PlaybackAudioResampler-RateConversion
@@ -270,8 +275,13 @@ sections:
               worker must bound how long a caller can be blocked by one.
             children:
               - Speech-Synthesis-SynthesisSession-FaultContainment
-              - Speech-Synthesis-SynthesisSession-CancellationAndLifecycle
-              - Speech-Synthesis-SynthesisSession-NativeCompletionBeforeRelease
+              - Speech-Synthesis-SynthesisSession-StopCancelsOperation
+              - Speech-Synthesis-SynthesisSession-StopWhenIdle
+              - Speech-Synthesis-SynthesisSession-DisposeReleasesLeaseOnce
+              - Speech-Synthesis-SynthesisSession-DisposedStateReporting
+              - Speech-Synthesis-SynthesisSession-DisposeWaitsForNativeCompletion
+              - Speech-Synthesis-SynthesisSession-StopWaitsForNativeCompletion
+              - Speech-Synthesis-SynthesisSession-StopCallerTokenBoundsWaitOnly
               - Speech-Synthesis-SynthesisSession-AbandonedNativeCallFaults
               - Speech-Synthesis-DedicatedWorker-CooperativeCancellation
               - Speech-Synthesis-DedicatedWorker-NonCooperativeAbandonment

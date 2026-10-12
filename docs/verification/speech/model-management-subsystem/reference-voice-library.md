@@ -13,76 +13,97 @@ constructor to substitute the synthetic pack for the built-in one. No network ac
 
 #### Acceptance Criteria
 
-Tests pass when the documented layout is produced, install/repeat/failure/uninstall behave and report
-state as specified (including a mirror URL and a checksum mismatch installing nothing), the user folder
-survives uninstall, and the merged voice list follows the documented order with the first id winning.
+Tests pass when the documented layout is produced and no folder is created until asked; install, repeat,
+failure and state reporting behave as specified (including a mirror URL and a checksum mismatch
+installing nothing); uninstall keeps the user folder, discards an upgrade backup and, without blocking,
+throws `SpeechModelStoreException` while an install of the pack is in flight; disposal is idempotent
+and a disposed library refuses installs; emotion variants install by default, are optional, attach as
+`MoodClips` without adding voice ids, upgrade a voices-only install safely (a failed, canceled or
+abandoned upgrade keeps the previous install), serialize concurrent installs and report variants
+without throwing; and the merged voice list follows the documented order with the first id winning.
 
 #### Test Scenarios
 
+All scenarios are in `test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/ReferenceVoiceLibraryTests.cs`.
+
 ##### Store Layout
 
-**Test**: `ReferenceVoiceLibrary_Paths_FollowDocumentedLayout`
+**Purpose**: Paths follow the documented layout, and constructing or enumerating creates nothing.
+
+**Tests**: `ReferenceVoiceLibrary_Paths_FollowDocumentedLayout`,
+`ReferenceVoiceLibrary_EnsureUserDirectory_CreatesFolderAndListsUserVoices`,
+`ReferenceVoiceLibrary_EnumerateVoices_NothingPresent_ReturnsEmptyWithoutCreatingFolders`
+
+##### Argument Validation
+
+**Purpose**: Null arguments and unknown pack ids throw.
 
 **Test**: `ReferenceVoiceLibrary_InvalidArguments_Throw`
 
-**Test**: `ReferenceVoiceLibrary_EnsureUserDirectory_CreatesFolderAndListsUserVoices`
-
 ##### Pack Install
 
-**Test**: `ReferenceVoiceLibrary_InstallPack_Success_InstallsVoicesAndUpdatesState`
+**Purpose**: A verified archive installs once through the downloader (mirror-aware), a repeat is a
+no-op, and failures leave nothing installed and report a failed state.
 
-**Test**: `ReferenceVoiceLibrary_InstallPack_WithMirror_RequestsMirrorUri`
+**Tests**: `ReferenceVoiceLibrary_InstallPack_Success_InstallsVoicesAndUpdatesState`,
+`ReferenceVoiceLibrary_InstallPack_WithMirror_RequestsMirrorUri`,
+`ReferenceVoiceLibrary_InstallPack_SecondCall_IsNoOp`,
+`ReferenceVoiceLibrary_InstallPack_ChecksumMismatch_InstallsNothingAndReportsFailedState`,
+`ReferenceVoiceLibrary_InstallPack_ArchiveWithoutVoices_FailsWithoutInstalling`
 
-**Test**: `ReferenceVoiceLibrary_InstallPack_SecondCall_IsNoOp`
+##### Pack Uninstall
 
-**Test**: `ReferenceVoiceLibrary_InstallPack_ChecksumMismatch_InstallsNothingAndReportsFailedState`
+**Purpose**: Uninstall removes the pack only, throws instead of blocking while an install is in
+flight (then succeeds afterwards), and discards any upgrade backup.
 
-**Test**: `ReferenceVoiceLibrary_InstallPack_ArchiveWithoutVoices_FailsWithoutInstalling`
+**Tests**: `ReferenceVoiceLibrary_UninstallPack_RemovesPackKeepsUserFolder`,
+`ReferenceVoiceLibrary_UninstallPack_WhileInstalling_ThrowsThenSucceedsAfterwards`,
+`ReferenceVoiceLibrary_UninstallPack_DiscardsUpgradeBackup`
 
-**Test**: `ReferenceVoiceLibrary_UninstallPack_RemovesPackKeepsUserFolder`
+##### Disposal
 
-##### Uninstall while an install is in flight throws, then succeeds
+**Purpose**: Disposing twice is harmless and an install after disposal throws.
 
-**Test**: `ReferenceVoiceLibrary_UninstallPack_WhileInstalling_ThrowsThenSucceedsAfterwards`
-
-##### Uninstall discards an upgrade backup
-
-**Test**: `ReferenceVoiceLibrary_UninstallPack_DiscardsUpgradeBackup`
-
-##### Abandoned upgrade backup is restored
-
-**Test**: `ReferenceVoiceLibrary_InstallPack_AbandonedBackup_IsRestored`
-
-##### Dispose is idempotent
-
-**Test**: `ReferenceVoiceLibrary_Dispose_Twice_DoesNotThrow`
-
-**Test**: `ReferenceVoiceLibrary_InstallPack_AfterDispose_Throws`
+**Tests**: `ReferenceVoiceLibrary_Dispose_Twice_DoesNotThrow`,
+`ReferenceVoiceLibrary_InstallPack_AfterDispose_Throws`
 
 ##### Voice Merge
 
-**Test**: `ReferenceVoiceLibrary_EnumerateVoices_MergesInPrecedenceOrderFirstIdWins`
-**Test**: `ReferenceVoiceLibrary_EnumerateVoices_DuplicateId_ReportsInfoDiagnostic`
-**Test**: `ReferenceVoiceLibrary_ConsentNotice_MentionsPermissionToClone`
+**Purpose**: Voices merge in precedence order with the first id winning, duplicates are reported, ids
+are humanized, and the consent notice is exposed.
 
-**Test**: `ReferenceVoiceLibrary_EnumerateVoices_NothingPresent_ReturnsEmptyWithoutCreatingFolders`
-
-**Test**: `ReferenceVoiceLibrary_Humanize_FormatsName`
+**Tests**: `ReferenceVoiceLibrary_EnumerateVoices_MergesInPrecedenceOrderFirstIdWins`,
+`ReferenceVoiceLibrary_EnumerateVoices_DuplicateId_ReportsInfoDiagnostic`,
+`ReferenceVoiceLibrary_Humanize_FormatsName`,
+`ReferenceVoiceLibrary_ConsentNotice_MentionsPermissionToClone`
 
 ##### Emotion Variants
 
-**Test**: `ReferenceVoiceLibrary_InstallPack_Default_AttachesMoodClipsWithoutExtraVoices`
+**Purpose**: The default install includes emotions as `MoodClips` (no extra voice ids), `false` gives
+voices only, and the progress overload includes emotions.
 
-**Test**: `ReferenceVoiceLibrary_InstallPack_NoEmotions_LeavesVoicesOnly`
+**Tests**: `ReferenceVoiceLibrary_InstallPack_Default_AttachesMoodClipsWithoutExtraVoices`,
+`ReferenceVoiceLibrary_InstallPack_NoEmotions_LeavesVoicesOnly`,
+`ReferenceVoiceLibrary_InstallPack_ProgressOverload_IncludesEmotions`
 
-**Test**: `ReferenceVoiceLibrary_InstallPack_UpgradeFromVoicesOnly_AddsEmotions`
+##### Emotion Upgrade
 
-**Test**: `ReferenceVoiceLibrary_InstallPack_FailedUpgrade_KeepsPreviousInstall`
+**Purpose**: Upgrading a voices-only install adds emotions; a failed or canceled upgrade, and an
+abandoned backup, keep or restore the previous install.
 
-**Test**: `ReferenceVoiceLibrary_InstallPack_CanceledUpgrade_KeepsPreviousInstall`
+**Tests**: `ReferenceVoiceLibrary_InstallPack_UpgradeFromVoicesOnly_AddsEmotions`,
+`ReferenceVoiceLibrary_InstallPack_FailedUpgrade_KeepsPreviousInstall`,
+`ReferenceVoiceLibrary_InstallPack_CanceledUpgrade_KeepsPreviousInstall`,
+`ReferenceVoiceLibrary_InstallPack_AbandonedBackup_IsRestored`
+
+##### Install Serialization
+
+**Purpose**: Concurrent installs of one pack run one at a time.
 
 **Test**: `ReferenceVoiceLibrary_InstallPack_ConcurrentCalls_AreSerialized`
 
-**Test**: `ReferenceVoiceLibrary_InstallPack_ProgressOverload_IncludesEmotions`
+##### Variant Reporting
+
+**Purpose**: Missing or corrupt `pack.json` yields no variants and never throws.
 
 **Test**: `ReferenceVoiceLibrary_PackVariants_MissingOrCorruptMetadata_AreEmptyAndNeverThrow`
