@@ -46,7 +46,15 @@ public interface ISynthesizerSessionFactory
     ///     the library's synthesis role; otherwise an honest <c>IsAvailable == false</c> engine.
     /// </returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="model"/> is <see langword="null"/>.</exception>
-    /// <remarks>Never throws for an ordinary unavailable state; every such state is reported through <c>IsAvailable</c>.</remarks>
+    /// <exception cref="ArgumentException">
+    ///     Thrown by the library's engine composition when <paramref name="parameterValues"/> holds an
+    ///     invalid value (wrong type, out of range, or not one of the offered choices) for a parameter
+    ///     the model declares. Unrecognized keys are ignored.
+    /// </exception>
+    /// <remarks>
+    ///     Never throws for an ordinary unavailable state (not installed, wrong role, missing runtime); every such
+    ///     state is reported through <c>IsAvailable</c>. The only exceptions are the argument errors above.
+    /// </remarks>
     Task<ISpeechSynthesizerEngine> LoadAsync(
         ISpeechModel model,
         IReadOnlyDictionary<string, object>? parameterValues,

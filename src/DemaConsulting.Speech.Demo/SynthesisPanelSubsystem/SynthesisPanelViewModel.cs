@@ -205,7 +205,7 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IAsyncDi
     /// <remarks>
     ///     Mirrors <see cref="CanPlay"/>'s own state test: <see langword="false"/> while
     ///     <see cref="SynthesisPlaybackState.Synthesizing"/> or <see cref="SynthesisPlaybackState.Playing"/>
-    ///     (both are treated as one "busy" band, since <c>Synthesizing</c> is the ramp-up phase of
+    ///     (both are treated as one "busy" band, since <c>Synthesizing</c> is the ramp-up stage of
     ///     the same active session), so a user cannot switch the selected voice/model or its
     ///     tunable parameters mid-playback; <see langword="true"/> at
     ///     <see cref="SynthesisPlaybackState.Idle"/> and <see cref="SynthesisPlaybackState.Error"/>.

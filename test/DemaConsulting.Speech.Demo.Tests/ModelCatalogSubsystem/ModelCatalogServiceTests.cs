@@ -217,6 +217,50 @@ public class ModelCatalogServiceTests
     }
 
     /// <summary>
+    ///     Proves that uninstalling a pack while its install is in flight surfaces the library's
+    ///     <see cref="SpeechModelStoreException"/> without blocking, rebuilding the catalog, or raising the changed event.
+    /// </summary>
+    [Fact]
+    public async Task ModelCatalogService_UninstallReferenceVoicePack_InstallInFlight_ThrowsStoreExceptionWithoutRebuild()
+    {
+        // Arrange: a loopback "mirror" that accepts the connection but never answers, holding the install open
+        var root = IsolatedOptions().RootPathOverride!;
+        var builds = 0;
+        using var listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+        listener.Start();
+        var port = ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
+        var mirrorOptions = new SpeechModelDownloaderOptions
+        {
+            Mirror = new DownloadMirror(new Uri($"http://127.0.0.1:{port}/")),
+        };
+        using var service = new ModelCatalogService(
+            Compose(root, mirrorOptions),
+            mirrorOptions,
+            o =>
+            {
+                builds++;
+                return Compose(root, o);
+            });
+        var raised = 0;
+        service.ReferenceVoicesChanged += (_, _) => raised++;
+        using var cts = new CancellationTokenSource();
+        var install = service.InstallReferenceVoicePackAsync("voice-zero-1.0", true, null, cts.Token);
+        using var connection = await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken);
+
+        // Act
+        var exception = Assert.Throws<SpeechModelStoreException>(() => service.UninstallReferenceVoicePack("voice-zero-1.0"));
+
+        // Assert: refused immediately, nothing rebuilt or announced while the install is still running
+        Assert.Contains("voice-zero-1.0", exception.Message, StringComparison.Ordinal);
+        Assert.Equal(0, builds);
+        Assert.Equal(0, raised);
+
+        // Cleanup: end the install
+        await cts.CancelAsync();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => install);
+    }
+
+    /// <summary>
     ///     Proves that the adapter rejects a missing catalog rather than deferring the failure to
     ///     the first enumeration.
     /// </summary>
@@ -413,14 +457,14 @@ public class ModelCatalogServiceTests
 
     /// <summary>
     ///     Proves that the adapter reports exactly what the library's catalog reports - the
-    ///     four real models this phase registers (two recognition, two synthesis) - rather than
+    ///     four real models the Sherpa package registers (two recognition, two synthesis) - rather than
     ///     inventing placeholder models to fill the panel.
     /// </summary>
     [Fact]
     public void ModelCatalogService_Enumerate_LibraryKnowsRealModels_ReturnsThem()
     {
         // Arrange: the real library catalog, whose compiled-in known-model registry now
-        // contains this phase's four real models
+        // contains the four real Sherpa models
         using var catalog = new SpeechModelCatalog(IsolatedOptions()).AddSherpaModels();
         var service = new ModelCatalogService(catalog);
 

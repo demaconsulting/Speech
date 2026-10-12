@@ -622,7 +622,7 @@ public class SynthesisPanelViewModelTests
 
     /// <summary>
     ///     Proves that the example tag hints are drawn from the library's closed Natural Language
-    ///     Audio Tag vocabulary and include the tags this phase's task explicitly calls out.
+    ///     Audio Tag vocabulary and include the commonly used tags.
     /// </summary>
     [Fact]
     public void SynthesisPanelViewModel_ExampleTagHints_ContainsExpectedTags()

@@ -23,7 +23,7 @@
         <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto">
           <TextBlock Grid.Row="0" Grid.Column="0" Text="Mirror URL" VerticalAlignment="Center" Margin="0,0,8,4" />
           <TextBox Grid.Row="0" Grid.Column="1" Margin="0,0,0,4"
-                    Watermark="https://mirror.example.com" Text="{Binding MirrorUrl}" />
+                    PlaceholderText="https://mirror.example.com" Text="{Binding MirrorUrl}" />
 
           <TextBlock Grid.Row="1" Grid.Column="0" Text="User" VerticalAlignment="Center" Margin="0,0,8,4" />
           <TextBox Grid.Row="1" Grid.Column="1" Margin="0,0,0,4" Text="{Binding MirrorUser}" />

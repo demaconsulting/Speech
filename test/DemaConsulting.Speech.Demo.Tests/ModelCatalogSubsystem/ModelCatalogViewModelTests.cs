@@ -815,4 +815,104 @@ public class ModelCatalogViewModelTests
         faultyViewModel.RemoveVoicePack(faultyViewModel.VoicePacks[0]);
         Assert.Equal("locked", faultyViewModel.VoicePacks[0].FailureMessage);
     }
+
+    /// <summary>
+    ///     Proves that after a failed, canceled or faulted "Add emotions" upgrade the row is refreshed from the service:
+    ///     the library rolls back to the previous voices-only install, so the pack stays installed and removable while
+    ///     the failure message is preserved.
+    /// </summary>
+    [Theory]
+    [InlineData("failed")]
+    [InlineData("mismatch")]
+    [InlineData("canceled")]
+    [InlineData("fault")]
+    public async Task ModelCatalogViewModel_InstallVoicePackAsync_UpgradeFailsAndRollsBack_KeepsPackInstalledWithMessage(string mode)
+    {
+        // Arrange: voices-only install; the upgrade attempt fails but the service still reports it Downloaded
+        var service = VoiceService(SpeechModelState.Downloaded);
+        service.ReferenceVoicePackHasEmotions("voice-zero-1.0").Returns(false);
+        service.InstallReferenceVoicePackAsync(
+                "voice-zero-1.0", Arg.Any<bool>(), Arg.Any<IProgress<SpeechModelDownloadProgress>?>(), Arg.Any<CancellationToken>())
+            .Returns(_ => mode switch
+            {
+                "failed" => Task.FromResult(new SpeechModelDownloadResult(SpeechModelDownloadOutcome.Failed, new IOException("disk full"))),
+                "mismatch" => Task.FromResult(new SpeechModelDownloadResult(SpeechModelDownloadOutcome.ChecksumMismatch)),
+                "canceled" => Task.FromException<SpeechModelDownloadResult>(new OperationCanceledException()),
+                _ => Task.FromException<SpeechModelDownloadResult>(new InvalidOperationException("boom")),
+            });
+        var viewModel = new ModelCatalogViewModel(service);
+        var row = viewModel.VoicePacks[0];
+        Assert.True(row.CanUpgradeToEmotions);
+
+        // Act
+        await viewModel.InstallVoicePackAsync(row, TestContext.Current.CancellationToken);
+
+        // Assert: still installed (voices only), removable, upgradable again, and the message is kept
+        Assert.Equal(SpeechModelState.Downloaded, row.State);
+        Assert.False(row.HasEmotions);
+        Assert.True(row.CanRemove);
+        Assert.True(row.CanUpgradeToEmotions);
+        Assert.True(row.HasFailureMessage);
+        Assert.Null(row.ProgressFraction);
+        var expected = mode switch
+        {
+            "failed" => "disk full",
+            "canceled" => "Install canceled.",
+            "fault" => "boom",
+            _ => "The downloaded files did not match their expected checksums and were discarded.",
+        };
+        Assert.Equal(expected, row.FailureMessage);
+    }
+
+    /// <summary>
+    ///     Proves that when the service cannot report the pack's state after a failed install, the row falls back
+    ///     to the attempt's own outcome and still shows the message.
+    /// </summary>
+    [Fact]
+    public async Task ModelCatalogViewModel_InstallVoicePackAsync_StateReadFails_FallsBackToOutcome()
+    {
+        // Arrange
+        var service = VoiceService(SpeechModelState.NotDownloaded);
+        service.InstallReferenceVoicePackAsync(
+                "voice-zero-1.0", Arg.Any<bool>(), Arg.Any<IProgress<SpeechModelDownloadProgress>?>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                service.GetReferenceVoicePackState("voice-zero-1.0").Returns(_ => throw new InvalidOperationException("gone"));
+                return Task.FromException<SpeechModelDownloadResult>(new IOException("boom"));
+            });
+        var viewModel = new ModelCatalogViewModel(service);
+        var row = viewModel.VoicePacks[0];
+
+        // Act
+        await viewModel.InstallVoicePackAsync(row, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(SpeechModelState.FailedOrCorrupt, row.State);
+        Assert.Equal("boom", row.FailureMessage);
+    }
+
+    /// <summary>
+    ///     Proves that removing a pack whose install is in flight (the library throws a store exception, without
+    ///     blocking) shows the message in the row and leaves the pack installed instead of crashing the panel.
+    /// </summary>
+    [Fact]
+    public void ModelCatalogViewModel_RemoveVoicePack_InstallInFlight_ShowsMessageAndKeepsPack()
+    {
+        // Arrange
+        var service = VoiceService(SpeechModelState.Downloaded);
+        const string message = "Cannot uninstall reference voice pack 'voice-zero-1.0' while it is being installed.";
+        service.When(s => s.UninstallReferenceVoicePack("voice-zero-1.0"))
+            .Do(_ => throw new SpeechModelStoreException(message));
+        var viewModel = new ModelCatalogViewModel(service);
+        var row = viewModel.VoicePacks[0];
+
+        // Act
+        viewModel.RemoveVoicePack(row);
+
+        // Assert
+        Assert.Same(row, viewModel.VoicePacks[0]);
+        Assert.Equal(message, row.FailureMessage);
+        Assert.Equal(SpeechModelState.Downloaded, row.State);
+        Assert.True(row.CanRemove);
+    }
 }

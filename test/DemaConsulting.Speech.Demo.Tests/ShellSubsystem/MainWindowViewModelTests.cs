@@ -133,7 +133,7 @@ public class MainWindowViewModelTests
     }
 
     /// <summary>
-    ///     Proves that this phase's shell offers exactly the four implemented panels, in the
+    ///     Proves that the shell offers exactly the four implemented panels, in the
     ///     order a user would work through them.
     /// </summary>
     [Fact]

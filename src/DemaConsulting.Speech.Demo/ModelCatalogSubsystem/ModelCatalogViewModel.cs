@@ -353,7 +353,7 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
 
     /// <summary>
     ///     Downloads and installs one reference-voice pack, reflecting progress and the final outcome
-    ///     in that pack\'s row, then refreshes the panel so the new voices are offered.
+    ///     in that pack's row, then refreshes the panel so the new voices are offered.
     /// </summary>
     /// <param name="pack">The row to install, or <see langword="null"/> (ignored).</param>
     /// <param name="cancellationToken">A token supplied by the command infrastructure that cancels the install.</param>
@@ -399,25 +399,61 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
             }
             else
             {
-                pack.State = SpeechModelState.FailedOrCorrupt;
-                pack.ProgressFraction = null;
-                pack.FailureMessage = DescribeFailure(result);
+                ApplyPackOutcome(pack, SpeechModelState.FailedOrCorrupt, DescribeFailure(result));
             }
         }
         catch (OperationCanceledException)
         {
-            pack.State = SpeechModelState.NotDownloaded;
-            pack.ProgressFraction = null;
-            pack.FailureMessage = "Install canceled.";
+            ApplyPackOutcome(pack, SpeechModelState.NotDownloaded, "Install canceled.");
         }
 #pragma warning disable CA1031 // Presentation layer must not crash the application on any seam fault.
         catch (Exception exception)
 #pragma warning restore CA1031
         {
-            pack.State = SpeechModelState.FailedOrCorrupt;
-            pack.ProgressFraction = null;
-            pack.FailureMessage = exception.Message;
+            ApplyPackOutcome(pack, SpeechModelState.FailedOrCorrupt, exception.Message);
         }
+    }
+
+    /// <summary>
+    ///     Re-reads one pack's state from the catalog service after an install or upgrade that did not
+    ///     succeed, and shows it together with the failure message.
+    /// </summary>
+    /// <param name="pack">The row whose attempt just ended.</param>
+    /// <param name="outcomeState">
+    ///     The state to show when the service reports the pack is not installed (a failed or canceled
+    ///     fresh install).
+    /// </param>
+    /// <param name="message">The failure or cancellation explanation to keep on the row.</param>
+    /// <remarks>
+    ///     A failed "Add emotions" upgrade is rolled back by the library to the previous voices-only
+    ///     install, so the pack is still <see cref="SpeechModelState.Downloaded"/> and must stay
+    ///     removable. Trusting the service's report, rather than assuming the failure left the pack
+    ///     broken, keeps the row honest; the failure message is preserved either way.
+    /// </remarks>
+    private void ApplyPackOutcome(ReferenceVoicePackListItemViewModel pack, SpeechModelState outcomeState, string message)
+    {
+        var state = outcomeState;
+        var hasEmotions = false;
+
+        try
+        {
+            if (_catalogService.GetReferenceVoicePackState(pack.Id) == SpeechModelState.Downloaded)
+            {
+                state = SpeechModelState.Downloaded;
+                hasEmotions = _catalogService.ReferenceVoicePackHasEmotions(pack.Id);
+            }
+        }
+#pragma warning disable CA1031 // Presentation layer must not crash the application on any seam fault.
+        catch (Exception)
+#pragma warning restore CA1031
+        {
+            // The service cannot report the pack's state; fall back to the attempt's own outcome.
+        }
+
+        pack.ProgressFraction = null;
+        pack.HasEmotions = hasEmotions;
+        pack.State = state;
+        pack.FailureMessage = message;
     }
 
     /// <summary>

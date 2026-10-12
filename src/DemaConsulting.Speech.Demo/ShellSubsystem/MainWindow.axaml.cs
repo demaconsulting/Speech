@@ -8,8 +8,8 @@ namespace DemaConsulting.Speech.Demo.ShellSubsystem;
 /// </summary>
 /// <remarks>
 ///     Contains no logic beyond loading its XAML. Which panels exist, and which one is shown, are
-///     decided entirely by <c>MainWindowViewModel</c>, so a later phase can add panels without
-///     touching this window.
+///     decided entirely by <c>MainWindowViewModel</c>, so panels can be added without touching
+///     this window.
 /// </remarks>
 public sealed partial class MainWindow : Window
 {

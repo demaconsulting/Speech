@@ -67,7 +67,7 @@ public class SpeechDemoTests
             new RecognitionPanelViewModel(
                 catalogService, deviceService, deviceSelection, new RecognizerSessionFactory(store)));
 
-        // Assert: the shell offers this phase's four panels and opens on the first
+        // Assert: the shell offers its four panels and opens on the first
         Assert.Equal(4, viewModel.Panels.Count);
         Assert.Same(viewModel.Panels[0], viewModel.SelectedPanel);
         Assert.Same(viewModel.DeviceSelection, viewModel.Panels[0].Content);
@@ -121,11 +121,11 @@ public class SpeechDemoTests
 
     /// <summary>
     ///     Proves that the demo's model catalog panel, composed over the real library catalog,
-    ///     lists the recognition and synthesis models this phase registers rather than reporting
+    ///     lists the recognition and synthesis models the application registers rather than reporting
     ///     them as an empty catalog.
     /// </summary>
     /// <remarks>
-    ///     Earlier phases documented an empty <c>SpeechModelCatalog.KnownModels</c> as the
+    ///     Earlier versions documented an empty <c>SpeechModelCatalog.KnownModels</c> as the
     ///     expected shipped state; core <c>DemaConsulting.Speech</c> still ships zero built-in
     ///     models, but the sibling <c>DemaConsulting.Speech.Sherpa</c> package's
     ///     <c>AddSherpaModels()</c> registers four real models (two recognition, two synthesis)
@@ -163,7 +163,7 @@ public class SpeechDemoTests
     /// <summary>
     ///     Proves that the demo's synthesis and recognition panels, composed over the real
     ///     library catalog, honestly report that no models are installed yet - the expected
-    ///     shipped state of this phase - rather than a silently empty or crashing panel.
+    ///     expected state of a fresh install - rather than a silently empty or crashing panel.
     /// </summary>
     [Fact]
     public void SpeechDemo_SystemIntegration_RealCatalog_TtsAndSttPanelsReportEmptyStateHonestly()

@@ -14,7 +14,8 @@ namespace DemaConsulting.Speech.Demo.Tests.SynthesisPanelSubsystem;
 ///     an interface only the library's own assemblies can implement (see the type's remarks).
 ///     That path is therefore outside this test project's reach and remains covered by the
 ///     library's own synthesis-subsystem tests; these tests cover every path this project can
-///     reach: argument validation and the honest "wrong role" outcome.
+///     reach: argument validation and the honest "wrong role" outcome. The library's invalid-parameter
+///     <see cref="ArgumentException"/> likewise comes from that unreachable path.
 /// </remarks>
 public class SynthesizerSessionFactoryTests
 {
@@ -62,7 +63,7 @@ public class SynthesizerSessionFactoryTests
     {
         // Arrange: a fake model that only ever implements the public ISpeechModel contract
         var factory = new SynthesizerSessionFactory(IsolatedStore());
-        var model = new FakeSpeechModel(role: SpeechModelRole.Synthesis);
+        var model = new FakeSpeechModel(role: SpeechModelRole.Recognition);
 
         // Act
         var engine = await factory.LoadAsync(model, null, TestContext.Current.CancellationToken);
@@ -82,7 +83,7 @@ public class SynthesizerSessionFactoryTests
     {
         // Arrange
         var factory = new SynthesizerSessionFactory(IsolatedStore());
-        var model = new FakeSpeechModel(role: SpeechModelRole.Synthesis);
+        var model = new FakeSpeechModel(role: SpeechModelRole.Recognition);
         IReadOnlyDictionary<string, object> parameterValues = new Dictionary<string, object> { ["voice"] = "af" };
 
         // Act

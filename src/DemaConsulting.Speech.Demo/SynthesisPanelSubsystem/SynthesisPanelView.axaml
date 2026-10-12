@@ -28,7 +28,7 @@
     <TextBox Grid.Row="3"
              Margin="0,8,0,0"
              Text="{Binding Text}"
-             Watermark="Type text to speak. Try an inline tag, e.g. [whispers] or [short pause]."
+             PlaceholderText="Type text to speak. Try an inline tag, e.g. [whispers] or [short pause]."
              AcceptsReturn="True"
              TextWrapping="Wrap"
              MinHeight="120" />

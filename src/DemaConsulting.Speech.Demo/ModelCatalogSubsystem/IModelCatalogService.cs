@@ -137,7 +137,8 @@ public interface IModelCatalogService
 
     /// <summary>
     ///     Downloads and installs one reference-voice pack, then rebuilds the catalog and raises
-    ///     <see cref="ReferenceVoicesChanged"/> when it was installed.
+    ///     <see cref="ReferenceVoicesChanged"/> whether or not it was installed (an upgrade that fails is rolled
+    ///     back, which can still change the installed state).
     /// </summary>
     /// <param name="packId">The identifier of a pack listed in <see cref="ReferenceVoicePacks"/>.</param>
     /// <param name="includeEmotions"><see langword="true"/> to also extract the pack's emotion (mood) clips (an installed voices-only pack is upgraded); <see langword="false"/> for the base voices only.</param>
@@ -162,6 +163,11 @@ public interface IModelCatalogService
     /// </summary>
     /// <param name="packId">The identifier of a pack listed in <see cref="ReferenceVoicePacks"/>.</param>
     /// <exception cref="ArgumentException">Thrown when <paramref name="packId"/> matches no known pack.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when the service has no reference-voice library.</exception>
+    /// <exception cref="SpeechModelStoreException">
+    ///     Thrown when an install of the pack is in flight (the library refuses to uninstall under it, without
+    ///     blocking). Nothing is removed and the catalog is not rebuilt; the caller should report the message.
+    /// </exception>
     void UninstallReferenceVoicePack(string packId);
 }
 
