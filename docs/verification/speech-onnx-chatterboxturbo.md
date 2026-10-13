@@ -31,6 +31,13 @@ the model files installed locally.
 System tests reside in `test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/SpeechOnnxChatterboxTurboTests.cs`
 and unit tests in the subsystem folders of the same project.
 
+The only simulated external interface is ONNX Runtime's model content: synthetic ONNX graphs (an encoder, an
+embedder, a language model with a key/value cache and a decoder) are generated at test time by a small
+in-test ONNX writer, and the system tests replace the encoder with one whose prompt depends on the reference
+clip, as described above. The generation loop is additionally unit tested against a fake
+`IChatterboxTurboNetworks`. Reference clips are generated in memory or written as WAV files in a scratch
+directory. The system tests share the non-parallel collection used by the other ONNX-session tests.
+
 ## Test Environment
 
 - **Framework**: xUnit v3 under the .NET SDK
@@ -39,20 +46,12 @@ and unit tests in the subsystem folders of the same project.
 - **Isolation**: tests that create backends use fresh scratch directories; tests that observe ONNX
   sessions share a non-parallel collection because the observation hook is process-wide
 
-## External Interface Simulation
-
-Synthetic ONNX graphs (an encoder, an embedder, a language model with a key/value cache and a
-decoder) are generated at test time by a small in-test ONNX writer; the system tests replace the encoder
-with one whose prompt depends on the reference clip, as described above. The generation loop is
-additionally unit tested against a fake `IChatterboxTurboNetworks`. Reference clips are generated in
-memory or written as WAV files in a scratch directory. The system tests share the non-parallel collection
-used by the other ONNX-session tests.
-
 ## Acceptance Criteria
 
-A system-level run passes when every scenario above passes and every subsystem suite passes with
+A system-level run passes when every scenario below passes and every subsystem suite passes with
 no network access. The automated boundary is honest: real-model intelligibility is a manual
-pre-release check.
+pre-release check. The registration extension's `AddChatterboxTurboModels_DefaultsToCatalogStoreVoices`
+is owned by the extension unit's verification document, not by a system scenario.
 
 ## Test Scenarios
 
@@ -125,13 +124,27 @@ and a voice without a sad clip uses its base clip (250).
 Text consisting only of caller-supplied marker characters yields no audio, a marker before text produces
 the same audio as the text alone, and a mood tag adds no speech of its own.
 
-### Tag rendering
+### Tag rendering: silence, inline sound or omission
 
 **Test**: `SpeechOnnxChatterboxTurbo_SystemIntegration_NativeTagRendering_SilenceInlineOrOmitted`
 
 A sigh becomes a silent segment between two spoken segments, a native laugh stays inside one spoken
 segment, and a tag with no usable sound is omitted without splitting the sentence. The exact tokens
 rendered are verified at unit level.
+
+### A trailing tag is kept with speech
+
+**Test**: `SpeechOnnxChatterboxTurbo_SystemIntegration_TagPlacement_TrailingTagIsKeptWithSpeech`
+
+Text that ends with a native tag (`That was really funny [laughs]`) yields a single spoken segment, so the tag
+is not left as a segment of its own with no speech after it.
+
+### Long text is split and every sentence is spoken
+
+**Test**: `SpeechOnnxChatterboxTurbo_SystemIntegration_LongTextSegmentation_SplitsAndSpeaksEverySentence`
+
+Ten sentences, well over the 200-character budget in total, yield several segments, each of the full synthetic
+length, so no sentence is dropped.
 
 ### Runaway generation is bounded
 

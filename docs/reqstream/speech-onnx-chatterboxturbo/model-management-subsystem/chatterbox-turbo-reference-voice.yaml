@@ -85,13 +85,15 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-InvalidArguments
                 title: >-
-                  The ChatterboxTurboReferenceVoice class shall reject null, blank and otherwise
-                  invalid arguments with an argument exception.
+                  The ChatterboxTurboReferenceVoice class shall throw an ArgumentException for a
+                  null, blank or otherwise invalid id, sample, channel or rate argument, and for
+                  a blank mood name or mood path, and shall ignore a null mood map.
                 justification: |
                   Programming errors must surface with a clear exception.
                 tests:
                   - ChatterboxTurboReferenceVoice_FromSamples_InvalidArguments_Throw
                   - ChatterboxTurboReferenceVoice_FromFile_TooShortOrBlankArguments_Throw
+                  - ChatterboxTurboReferenceVoice_WithMoodFiles_BlankEntriesAndNullMap_RejectedOrIgnored
 
               - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-LazyFileLoading
                 title: >-
@@ -148,6 +150,7 @@ sections:
                 tests:
                   - ChatterboxTurboReferenceVoice_WithMoodFiles_LoadsMoodClipsLazilyAndReportsMissingMoods
                   - ChatterboxTurboReferenceVoice_WithMoodFiles_TooShortClip_FailsOnFirstUse
+                  - ChatterboxTurboReferenceVoice_WithMoodFiles_SameNameAgain_ReplacesEarlierClip
 
               - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-MoodNames
                 title: >-
@@ -157,6 +160,7 @@ sections:
                   Mood lookup is by lower-case name, so supplied names must be normalized once.
                 tests:
                   - ChatterboxTurboReferenceVoice_WithMoodFiles_NamesAreTrimmedAndLowerCased
+                  - ChatterboxTurboReferenceVoice_WithMoodSamples_NormalizesClipAndTrimsName
 
               - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-MoodLookup
                 title: >-

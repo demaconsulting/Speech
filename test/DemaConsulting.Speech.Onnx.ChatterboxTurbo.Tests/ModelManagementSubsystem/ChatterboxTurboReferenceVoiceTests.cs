@@ -344,7 +344,7 @@ public sealed class ChatterboxTurboReferenceVoiceTests : IDisposable
         Assert.Empty(voice.Moods);
     }
 
-    /// <summary>Proves mood names are trimmed and lower-cased, and a later clip of the same name replaces an earlier one.</summary>
+    /// <summary>Proves mood names are trimmed and lower-cased.</summary>
     [Fact]
     public void ChatterboxTurboReferenceVoice_WithMoodFiles_NamesAreTrimmedAndLowerCased()
     {

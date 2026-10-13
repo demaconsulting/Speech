@@ -33,8 +33,8 @@ The library consists of two subsystems:
   `ByteLevelBpeTokenizer`, and the `ChatterboxTurboReferenceVoice` type - see _SpeechOnnxChatterboxTurbo
   ModelManagementSubsystem Design_
 - **SynthesisSubsystem**: `OnnxChatterboxTurboSynthesisEngine`, `OnnxChatterboxTurboNetworks`,
-  `ChatterboxTurboTokenSelector` and `ChatterboxTurboCapabilityProfile` - see _SpeechOnnxChatterboxTurbo
-  SynthesisSubsystem Design_
+  `ChatterboxTurboTokenSelector`, `ChatterboxTurboConditioning` and `ChatterboxTurboCapabilityProfile` - see
+  _SpeechOnnxChatterboxTurbo SynthesisSubsystem Design_
 
 ## External Interfaces
 
@@ -74,7 +74,8 @@ the one model instance and returns the same catalog. The model lists explicit, d
 (user and pack) voices, decoded lazily.
 
 **Model install path:** Speech's downloader fetches and checksum-verifies the files of the selected
-precision variants (eight by default) directly into the install directory; no extraction step is
+precision variants (the file list is defined by the model's download descriptor) directly into the install
+directory; no extraction step is
 needed.
 
 **Backend construction path:** `CreateBackend` verifies the files exist, opens the four ONNX

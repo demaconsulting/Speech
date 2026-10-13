@@ -16,8 +16,10 @@ generated from the real Hugging Face tokenizer by the committed script
 #### Acceptance Criteria
 
 Every golden case matches exactly; empty text yields only the trailing ids; tags are atomic; zero
-trailing ids appends no end-of-text id; a duplicate merge keeps its first rank; invalid or malformed
-documents, a missing end-of-text token and non-gzip input throw `InvalidDataException`; a negative
+trailing ids appends no end-of-text id; a custom end-of-text token present in the vocabulary is appended; an
+added token that prefixes another never shadows it (longest wins); a duplicate merge keeps its first rank;
+invalid or malformed documents, an empty vocabulary, null added-token content, a missing end-of-text token and
+non-gzip input throw `InvalidDataException`; a negative
 trailing count throws `ArgumentOutOfRangeException`; a piece without a vocabulary entry throws
 `InvalidOperationException`; null arguments throw.
 
@@ -75,6 +77,23 @@ trailing count throws `ArgumentOutOfRangeException`; a piece without a vocabular
 
 **Test**: `ByteLevelBpeTokenizer_FromGzipStream_NotGzip_ThrowsInvalidData`
 
+##### An empty vocabulary throws
+
+**Test**: `ByteLevelBpeTokenizer_Constructor_EmptyVocabulary_ThrowsInvalidData`
+
+##### Null added-token content throws
+
+**Test**: `ByteLevelBpeTokenizer_Constructor_NullAddedTokenContent_ThrowsInvalidData`
+
+##### A custom end-of-text token found in the vocabulary is appended
+
+**Test**: `ByteLevelBpeTokenizer_Constructor_CustomEndOfTextInVocabulary_IsAppended`
+
+##### The longest added token wins over a prefix
+
+**Test**: `ByteLevelBpeTokenizer_Encode_AddedTokenPrefixingAnother_LongestWins`
+
 ##### Null arguments throw
 
-**Test**: `ByteLevelBpeTokenizer_NullArguments_Throw`
+**Test**: `ByteLevelBpeTokenizer_NullArguments_Throw` covers a null stream, a null end-of-text token and a null
+text for `Encode`.

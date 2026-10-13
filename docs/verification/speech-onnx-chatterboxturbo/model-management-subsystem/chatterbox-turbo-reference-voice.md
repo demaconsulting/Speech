@@ -14,7 +14,8 @@ to a scratch directory and a small FLAC fixture (`TestData/voice-mono-16-16000.f
 
 Mono 24 kHz samples are kept; other layouts are down-mixed and resampled preserving tone; long clips
 are trimmed and short clips rejected; WAV and FLAC files load; lazy voices and mood clips decode on first
-use with failures naming the file; mood names are trimmed and lower-cased; bad files and arguments throw the
+use with failures naming the file; mood names are trimmed and lower-cased, blank mood entries are rejected and a
+null mood map is ignored; bad files and arguments throw the
 documented exceptions.
 
 #### Test Scenarios
@@ -62,14 +63,29 @@ documented exceptions.
 
 ##### Lazy file voices defer decoding
 
-**Tests**: `ChatterboxTurboReferenceVoice_FromFileLazy_CorruptFile_FailsOnFirstUseNamingFile` and
-`ChatterboxTurboReferenceVoice_FromFileLazy_ValidFile_LoadsOnceOnFirstUse`
+**Tests**: `ChatterboxTurboReferenceVoice_FromFileLazy_CorruptFile_FailsOnFirstUseNamingFile`,
+`ChatterboxTurboReferenceVoice_FromFileLazy_ValidFile_LoadsOnceOnFirstUse` and
+`ChatterboxTurboReferenceVoice_FromFileLazy_ConcurrentFirstUse_ReturnsOneSharedClip`
 
 ##### Mood clips load lazily and a missing mood is reported
 
 **Tests**: `ChatterboxTurboReferenceVoice_WithMoodFiles_LoadsMoodClipsLazilyAndReportsMissingMoods`,
-`ChatterboxTurboReferenceVoice_WithMoodFiles_TooShortClip_FailsOnFirstUse`,
-`ChatterboxTurboReferenceVoice_WithMoodFiles_NamesAreTrimmedAndLowerCased`
+`ChatterboxTurboReferenceVoice_WithMoodFiles_TooShortClip_FailsOnFirstUse`
+
+##### Mood names are trimmed and lower-cased
+
+**Tests**: `ChatterboxTurboReferenceVoice_WithMoodFiles_NamesAreTrimmedAndLowerCased` and
+`ChatterboxTurboReferenceVoice_WithMoodSamples_NormalizesClipAndTrimsName`
+
+##### Blank mood entries are rejected and a null map is a no-op
+
+**Test**: `ChatterboxTurboReferenceVoice_WithMoodFiles_BlankEntriesAndNullMap_RejectedOrIgnored`
+
+Blank mood names or paths throw an `ArgumentException`; a null mood map returns a voice with no mood clips.
+
+##### A later clip of the same mood name replaces the earlier one
+
+**Test**: `ChatterboxTurboReferenceVoice_WithMoodFiles_SameNameAgain_ReplacesEarlierClip`
 
 ##### Mood lookup is case-insensitive and trimmed
 
