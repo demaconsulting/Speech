@@ -604,6 +604,38 @@ public sealed class AskCommandTests
         }
     }
 
+    /// <summary>Test that --output-text replaces any previous content of the file rather than appending.</summary>
+    [Fact]
+    public async Task AskCommand_Run_OutputTextExistingFile_OverwritesPriorContent()
+    {
+        var catalog = CreateCatalogWithModels();
+        WireSynthesizer(catalog);
+        var (recognitionSession, _) = WireRecognizer(catalog);
+        recognitionSession.OnStart = self => self.RaiseResult("the reply", isFinal: true);
+
+        var outputPath = Path.Join(Path.GetTempPath(), $"ask-test-{Guid.NewGuid():N}.txt");
+        try
+        {
+            await File.WriteAllTextAsync(outputPath, "previous content that is longer than the reply", TestContext.Current.CancellationToken);
+            using var context = Context.Create(
+                [
+                    "ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi",
+                    "--output-text", outputPath
+                ]);
+
+            await AskCommand.RunAsync(context, catalog, CreatePlaybackSource(), CreateCaptureSource());
+
+            Assert.Equal("the reply", (await File.ReadAllTextAsync(outputPath, TestContext.Current.CancellationToken)).TrimEnd());
+        }
+        finally
+        {
+            if (File.Exists(outputPath))
+            {
+                File.Delete(outputPath);
+            }
+        }
+    }
+
     /// <summary>Test that --tts-param and --stt-param each forward to their own model's CreateSynthesizerEngine/CreateRecognizerEngine call.</summary>
     [Fact]
     public async Task AskCommand_Run_ValidParams_ForwardToRespectiveCreateCalls()

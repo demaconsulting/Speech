@@ -343,6 +343,7 @@ sections:
           - SpeechCli-ModelCommands-DownloadContinueOnFailure
           - SpeechCli-ModelCommands-DownloadFailureExitCode
           - SpeechCli-ModelCommands-DownloadForce
+          - SpeechCli-ModelCommands-DownloadForceNotDownloaded
           - SpeechCli-ModelCommands-DownloadArgumentValidation
           - SpeechCli-ModelCommands-DownloadCancellation
           - SpeechCli-ModelCommands-DownloadMirrorComposition
@@ -386,6 +387,7 @@ sections:
           command-line way to see which voices exist.
         children:
           - SpeechCli-ModelCommands-ListVoices
+          - SpeechCli-ModelCommands-ListVoicesJsonFormat
           - SpeechCli-ModelCommands-ListVoicesUsageHints
           - SpeechCli-ModelCommands-ListVoicesEmptyHint
           - SpeechCli-ModelCommands-ListVoicesConsentNote
@@ -404,6 +406,7 @@ sections:
         children:
           - SpeechCli-ModelCommands-VoicePacks
           - SpeechCli-ModelCommands-VoicePackConsentNote
+          - SpeechCli-ModelCommands-VoicePacksConsentNote
           - SpeechCli-ModelCommands-VoicePackArgumentValidation
         tests:
           - SpeechCli_VoicesPacksCommand_Invoked_ListsPacksAndConsentNote
@@ -539,12 +542,18 @@ sections:
         children:
           - SpeechCli-SynthesisCommands-Speak
           - SpeechCli-SynthesisCommands-ModelValidation
+          - SpeechCli-SynthesisCommands-ModelUnknown
+          - SpeechCli-SynthesisCommands-ModelWrongRole
+          - SpeechCli-SynthesisCommands-ModelNotDownloaded
           - SpeechCli-SynthesisCommands-TextSourceValidation
+          - SpeechCli-SynthesisCommands-TextSourceMissing
           - SpeechCli-SynthesisCommands-ArgumentValidation
           - SpeechCli-SynthesisCommands-ParamValidation
           - SpeechCli-SynthesisCommands-ParamRejection
           - SpeechCli-SynthesisCommands-NoTags
           - SpeechCli-SynthesisCommands-PlaybackDeviceDispatch
+          - SpeechCli-SynthesisCommands-PlaybackDeviceUnavailable
+          - SpeechCli-SynthesisCommands-PlaybackDeviceSelection
           - SpeechCli-SynthesisCommands-CancellationAndDisposal
           - SpeechCli-SynthesisCommands-Disposal
         tests:
@@ -574,7 +583,11 @@ sections:
         children:
           - SpeechCli-RecognitionCommands-Recognize
           - SpeechCli-RecognitionCommands-ModelValidation
+          - SpeechCli-RecognitionCommands-ModelUnknown
+          - SpeechCli-RecognitionCommands-ModelWrongRole
+          - SpeechCli-RecognitionCommands-ModelNotDownloaded
           - SpeechCli-RecognitionCommands-InputSourceValidation
+          - SpeechCli-RecognitionCommands-InputSourceMissing
           - SpeechCli-RecognitionCommands-ArgumentValidation
           - SpeechCli-RecognitionCommands-ParamValidation
           - SpeechCli-RecognitionCommands-ParamRejection
@@ -607,6 +620,8 @@ sections:
           - SpeechCli-RecognitionCommands-TimeoutsIgnoredForFileInput
           - SpeechCli-RecognitionCommands-StartTimeoutValidation
           - SpeechCli-RecognitionCommands-DeviceDispatch
+          - SpeechCli-RecognitionCommands-DeviceUnavailable
+          - SpeechCli-RecognitionCommands-RecognizeMicrophone
         tests:
           - RecognizeCommand_Run_SilenceTimeoutOmitted_ResolvesToFixedFiveSecondDefault
           - RecognizeCommand_Run_UnknownDevice_ThrowsArgumentException
@@ -625,17 +640,27 @@ sections:
           `recognize` invocations.
         children:
           - SpeechCli-ConversationCommands-Ask
+          - SpeechCli-ConversationCommands-AskListenAfterPrompt
           - SpeechCli-ConversationCommands-AskModelValidation
+          - SpeechCli-ConversationCommands-AskModelUnknown
+          - SpeechCli-ConversationCommands-AskModelWrongRole
+          - SpeechCli-ConversationCommands-AskModelNotDownloaded
           - SpeechCli-ConversationCommands-AskTextSource
+          - SpeechCli-ConversationCommands-AskTextSourceMissing
           - SpeechCli-ConversationCommands-AskUnsupportedOptions
           - SpeechCli-ConversationCommands-ParamValidation
           - SpeechCli-ConversationCommands-ParamRejection
           - SpeechCli-ConversationCommands-ListenTermination
           - SpeechCli-ConversationCommands-ListenTimeouts
+          - SpeechCli-ConversationCommands-ListenTimeoutDefaults
+          - SpeechCli-ConversationCommands-ListenTimeoutValidation
           - SpeechCli-ConversationCommands-OutputDispatch
           - SpeechCli-ConversationCommands-DeviceDispatch
+          - SpeechCli-ConversationCommands-DeviceUnavailable
           - SpeechCli-ConversationCommands-CaptureDeviceDispatch
-          - SpeechCli-ConversationCommands-CancellationAndDisposal
+          - SpeechCli-ConversationCommands-CaptureDeviceUnavailable
+          - SpeechCli-ConversationCommands-SpeakCancellation
+          - SpeechCli-ConversationCommands-ListenCancellation
           - SpeechCli-ConversationCommands-Disposal
           - SpeechCli-ConversationCommands-PrewarmRecognizer
           - SpeechCli-ConversationCommands-PrewarmFailureReporting
@@ -655,6 +680,8 @@ sections:
           A scripted caller needs a stable file path from which to read the reply.
         children:
           - SpeechCli-ConversationCommands-OutputText
+          - SpeechCli-ConversationCommands-OutputTextOverwrite
+          - SpeechCli-ConversationCommands-OutputTextEmpty
         tests:
           - AskCommand_Run_OutputText_WritesRecognizedTextToFile
 

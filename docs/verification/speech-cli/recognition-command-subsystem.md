@@ -82,7 +82,7 @@ error path is proven both in-process and, cleanly and non-zero-exit, against the
 real, downloaded recognition model recognizing a real WAV fixture produces non-empty text;
 `recognize` no longer throws `NotImplementedException` when dispatched.
 
-**Requirement coverage**: `SpeechCli-RecognitionCommands-Recognize`.
+**Requirement coverage**: `SpeechCli-RecognitionCommands-Recognize`, `-RecognizeMicrophone`.
 
 #### `--stt-param` Validation Reuse
 
@@ -203,7 +203,7 @@ of the console verbosity flags in effect.
 `ArgumentException` before any device is created; an unavailable resolved real capture device
 throws `InvalidOperationException` suggesting `--input` as an alternative.
 
-**Requirement coverage**: `SpeechCli-RecognitionCommands-DeviceDispatch`.
+**Requirement coverage**: `SpeechCli-RecognitionCommands-DeviceDispatch`, `-DeviceUnavailable`.
 
 #### ICliModelCatalog Seam Extension (Real Catalog)
 
@@ -237,9 +237,10 @@ requirement is defined for them.
 
 ### Requirements Coverage
 
-- **`SpeechCli-RecognitionCommands-Recognize`**, **`-ModelValidation`**,
-  **`-InputSourceValidation`**, **`-ArgumentValidation`**: see _RecognizeCommand — Input Source,
-  Model Resolution, and Argument Parsing_ above
+- **`SpeechCli-RecognitionCommands-Recognize`**, **`-RecognizeMicrophone`**, **`-ModelValidation`**,
+  **`-ModelUnknown`**, **`-ModelWrongRole`**, **`-ModelNotDownloaded`**,
+  **`-InputSourceValidation`**, **`-InputSourceMissing`**, **`-ArgumentValidation`**: see
+  _RecognizeCommand — Input Source, Model Resolution, and Argument Parsing_ above
 - **`SpeechCli-RecognitionCommands-ParamValidation`**, **`-ParamRejection`**: see _`--stt-param`
   Validation Reuse_ above
 - **`SpeechCli-RecognitionCommands-FileInputEofDrivenStop`**: see _File-Input Explicit-Drain
@@ -258,7 +259,8 @@ requirement is defined for them.
 - **`SpeechCli-RecognitionCommands-InputFileValidation`**: verified by
   `RecognizeCommand_Run_InputFileIsNotWav_ThrowsInvalidOperationExceptionNamingFile` and
   `RecognizeCommand_Run_InputFileIsStereoWav_ThrowsInvalidOperationExceptionAboutMono`
-- **`SpeechCli-RecognitionCommands-DeviceDispatch`**: see _Capture Device Dispatch_ above
+- **`SpeechCli-RecognitionCommands-DeviceDispatch`**, **`-DeviceUnavailable`**: see _Capture
+  Device Dispatch_ above
 
 ### Acceptance Criteria
 

@@ -15,53 +15,101 @@ sections:
           - id: SpeechCli-RecognitionCommands-Recognize
             title: >-
               The tool shall stream speech-to-text results from a pre-recorded mono WAV file
-              (`--input <wav-path>`) or a real microphone (`--mic`), through a known, downloaded
-              recognition model named by `--stt-model <id>`, when invoked with `recognize`.
+              given by `--input <wav-path>`, through a known, downloaded recognition model named
+              by `--stt-model <id>`, when invoked with `recognize`.
             tags: [subsystem]
             justification: |
-              An operator or script needs one command that turns either a WAV file or a live
-              microphone into recognized text without needing to know which library types compose
-              a recognizer.
+              An operator or script needs one command that turns a WAV file into recognized text
+              without needing to know which library types compose a recognizer.
             tests:
               - RecognizeCommand_ParseArguments_InputFlag_ParsesInputPath
-              - RecognizeCommand_ParseArguments_MicFlag_ParsesTrue
               - RecognizeCommand_Run_Success_DisposesEngineAndSessionOnce
               - SpeechCli_RecognizeCommandWithRealSttModel_Invoked_ProducesNonEmptyRecognizedText
 
-          - id: SpeechCli-RecognitionCommands-ModelValidation
+          - id: SpeechCli-RecognitionCommands-RecognizeMicrophone
             title: >-
-              The tool shall reject `recognize` invoked without `--stt-model`, or with an
-              unknown, wrong-role, or not-downloaded model id, with a clean, actionable,
-              non-zero-exit-code error rather than a stack trace.
+              The tool shall stream speech-to-text results from a real microphone, through a
+              known, downloaded recognition model named by `--stt-model <id>`, when `recognize`
+              is invoked with `--mic`.
             tags: [subsystem]
             justification: |
-              Model validation must fail predictably and with an actionable next step
-              (`list-models`, `list-models --role stt`, or `download <modelId>`) so a scripted
-              invocation can react to the specific failure rather than a generic error.
+              An operator dictating into a microphone needs the same command that handles WAV
+              files, without writing any code.
+            tests:
+              - RecognizeCommand_ParseArguments_MicFlag_ParsesTrue
+
+          - id: SpeechCli-RecognitionCommands-ModelValidation
+            title: >-
+              The tool shall reject `recognize` invoked without `--stt-model` with a clean,
+              non-zero-exit-code error naming the missing option rather than a stack trace.
+            tags: [subsystem]
+            justification: |
+              A missing model option must fail predictably so a scripted invocation can react to
+              the specific failure rather than a generic error.
             tests:
               - RecognizeCommand_ParseArguments_MissingModel_ThrowsArgumentException
-              - RecognizeCommand_Run_UnknownModelId_ThrowsArgumentException
-              - RecognizeCommand_Run_WrongRoleModel_ThrowsArgumentException
-              - RecognizeCommand_Run_NotDownloadedModel_ThrowsArgumentExceptionWithDownloadHint
               - SpeechCli_RecognizeCommandWithoutModel_Invoked_ReturnsCleanError
-              - SpeechCli_RecognizeCommandWithUnknownModel_Invoked_ReturnsCleanError
-              - SpeechCli_RecognizeCommandWithWrongRoleModel_Invoked_ReturnsCleanError
-              - SpeechCli_RecognizeCommandWithNotDownloadedModel_Invoked_ReturnsCleanErrorWithDownloadHint
               - Program_Run_WithRecognizeCommandAndNoModel_ThrowsArgumentException
+
+          - id: SpeechCli-RecognitionCommands-ModelUnknown
+            title: >-
+              The tool shall reject `recognize` invoked with an unknown `--stt-model` id with a
+              clean, non-zero-exit-code error suggesting `list-models` rather than a stack trace.
+            tags: [subsystem]
+            justification: |
+              An id typo must fail with an actionable next step.
+            tests:
+              - RecognizeCommand_Run_UnknownModelId_ThrowsArgumentException
+              - SpeechCli_RecognizeCommandWithUnknownModel_Invoked_ReturnsCleanError
+
+          - id: SpeechCli-RecognitionCommands-ModelWrongRole
+            title: >-
+              The tool shall reject `recognize` invoked with an `--stt-model` that is not a
+              recognition model with a clean, non-zero-exit-code error suggesting
+              `list-models --role stt` rather than a stack trace.
+            tags: [subsystem]
+            justification: |
+              Naming a synthesis model by mistake must fail with an actionable next step
+              instead of loading the wrong engine.
+            tests:
+              - RecognizeCommand_Run_WrongRoleModel_ThrowsArgumentException
+              - SpeechCli_RecognizeCommandWithWrongRoleModel_Invoked_ReturnsCleanError
+
+          - id: SpeechCli-RecognitionCommands-ModelNotDownloaded
+            title: >-
+              The tool shall reject `recognize` invoked with an `--stt-model` that is known but
+              not downloaded with a clean, non-zero-exit-code error suggesting
+              `download <modelId>` rather than a stack trace.
+            tags: [subsystem]
+            justification: |
+              A model that is known but absent from disk needs a different remedy than an
+              unknown one, so the error must name the download step.
+            tests:
+              - RecognizeCommand_Run_NotDownloadedModel_ThrowsArgumentExceptionWithDownloadHint
+              - SpeechCli_RecognizeCommandWithNotDownloadedModel_Invoked_ReturnsCleanErrorWithDownloadHint
 
           - id: SpeechCli-RecognitionCommands-InputSourceValidation
             title: >-
-              The tool shall reject `recognize` invoked with both `--input` and `--mic`, or with
-              neither, with a clean, actionable, non-zero-exit-code error rather than a stack
-              trace.
+              The tool shall reject `recognize` invoked with both `--input` and `--mic` with a
+              clean, non-zero-exit-code error rather than a stack trace.
             tags: [subsystem]
             justification: |
-              An ambiguous or missing input source must fail predictably so a scripted
-              invocation never listens to the wrong source or waits on input that never arrives.
+              An ambiguous input source must fail predictably so a scripted invocation never
+              listens to the wrong source.
             tests:
               - RecognizeCommand_Run_InputAndMicBothGiven_ThrowsArgumentException
-              - RecognizeCommand_Run_NoInputSource_ThrowsArgumentException
               - SpeechCli_RecognizeCommandWithConflictingInputSources_Invoked_ReturnsCleanError
+
+          - id: SpeechCli-RecognitionCommands-InputSourceMissing
+            title: >-
+              The tool shall reject `recognize` invoked with neither `--input` nor `--mic` with
+              a clean, non-zero-exit-code error rather than a stack trace.
+            tags: [subsystem]
+            justification: |
+              A missing input source must fail predictably so a scripted invocation never waits
+              on input that never arrives.
+            tests:
+              - RecognizeCommand_Run_NoInputSource_ThrowsArgumentException
 
           - id: SpeechCli-RecognitionCommands-ArgumentValidation
             title: >-
@@ -300,15 +348,25 @@ sections:
 
           - id: SpeechCli-RecognitionCommands-DeviceDispatch
             title: >-
-              The tool shall, in `--mic` mode, resolve and validate a real capture device
-              (honoring `--capture-device` when given), rejecting an unknown device name or an
-              unavailable resolved device with a clean, non-zero-exit-code error rather than a
-              stack trace.
+              The tool shall, in `--mic` mode, reject a `--capture-device` name that matches no
+              capture device with a clean, non-zero-exit-code error rather than a stack trace,
+              before any recognition is attempted.
             tags: [subsystem]
             justification: |
-              Validating an unknown/unavailable real capture device before any recognition is
-              attempted avoids a partially-run, undeliverable session, mirroring `devices test`'s
-              and `speak`'s own validate-before-create pattern.
+              Validating an unknown real capture device before any recognition is attempted
+              avoids a partially-run, undeliverable session, mirroring `devices test`'s and
+              `speak`'s own validate-before-create pattern.
             tests:
               - RecognizeCommand_Run_UnknownDevice_ThrowsArgumentException
+
+          - id: SpeechCli-RecognitionCommands-DeviceUnavailable
+            title: >-
+              The tool shall, in `--mic` mode, reject `recognize` with a clean,
+              non-zero-exit-code error rather than a stack trace when no capture device is
+              available.
+            tags: [subsystem]
+            justification: |
+              A machine with no capture device cannot hear the speaker, so the session must fail
+              with an actionable message.
+            tests:
               - RecognizeCommand_Run_NoCaptureDeviceAvailable_ThrowsInvalidOperationException

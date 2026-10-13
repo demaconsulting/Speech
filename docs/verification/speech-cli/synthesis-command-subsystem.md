@@ -150,7 +150,8 @@ an alternative. Every scenario here is exercised against `FakePlaybackDeviceSour
 `AudioDeviceFactory`, so results do not depend on whether real playback hardware happens to be
 present on the machine running the test.
 
-**Requirement coverage**: `SpeechCli-SynthesisCommands-OutputDispatch`.
+**Requirement coverage**: `SpeechCli-SynthesisCommands-OutputDispatch`,
+`-PlaybackDeviceDispatch`, `-PlaybackDeviceUnavailable`.
 
 #### AudioDeviceFactoryPlaybackDeviceSource (Real AudioDeviceFactory Forwarding)
 
@@ -166,7 +167,7 @@ that does not alter `AudioDeviceFactory`'s own hardware-detection behavior in an
 asserting on whether real playback hardware happens to be present on the machine running the
 test; a `null` factory is rejected with `ArgumentNullException`.
 
-**Requirement coverage**: `SpeechCli-SynthesisCommands-OutputDispatch`.
+**Requirement coverage**: `SpeechCli-SynthesisCommands-PlaybackDeviceSelection`.
 
 #### Cancellation and Disposal Ordering
 
@@ -218,14 +219,17 @@ requirement is defined for them.
 
 ### Requirements Coverage
 
-- **`SpeechCli-SynthesisCommands-Speak`**, **`-ModelValidation`**, **`-TextSourceValidation`**,
-  **`-ArgumentValidation`**: see _SpeakCommand — Text Source, Model Resolution, and Argument
-  Parsing_ above
+- **`SpeechCli-SynthesisCommands-Speak`**, **`-ModelValidation`**, **`-ModelUnknown`**,
+  **`-ModelWrongRole`**, **`-ModelNotDownloaded`**, **`-TextSourceValidation`**,
+  **`-TextSourceMissing`**, **`-ArgumentValidation`**: see _SpeakCommand — Text Source, Model
+  Resolution, and Argument Parsing_ above
 - **`SpeechCli-SynthesisCommands-ParamValidation`**, **`-ParamRejection`**: see
   _ParameterBagParser and `--tts-param` Validation_ above
 - **`SpeechCli-SynthesisCommands-NoTags`**: see _`--no-tags` Stripping_ above
-- **`SpeechCli-SynthesisCommands-OutputDispatch`**, **`-PlaybackDeviceDispatch`**: see
-  _`--output-audio` Versus Real Device Dispatch_ above
+- **`SpeechCli-SynthesisCommands-OutputDispatch`**, **`-PlaybackDeviceDispatch`**,
+  **`-PlaybackDeviceUnavailable`**, **`-PlaybackDeviceSelection`**: see
+  _`--output-audio` Versus Real Device Dispatch_ and
+  _AudioDeviceFactoryPlaybackDeviceSource_ above
 - **`SpeechCli-SynthesisCommands-CancellationAndDisposal`**, **`-Disposal`**: see
   _Cancellation and Disposal Ordering_ above
 

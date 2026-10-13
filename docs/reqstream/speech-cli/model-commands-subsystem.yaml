@@ -148,15 +148,22 @@ sections:
           - id: SpeechCli-ModelCommands-DownloadForce
             title: >-
               The tool shall uninstall an already-downloaded model before downloading it again
-              when `download` is given `--force`, and shall not uninstall a model that is not
-              downloaded.
+              when `download` is given `--force`.
             tags: [subsystem]
             justification: |
               `--force` gives an operator a way to recover from a suspected-corrupt local copy
-              without manually deleting files, and must never remove anything when there is
-              nothing to replace.
+              without manually deleting files.
             tests:
               - DownloadCommand_RunAsync_ForceOnDownloadedModel_UninstallsFirst
+
+          - id: SpeechCli-ModelCommands-DownloadForceNotDownloaded
+            title: >-
+              The tool shall not uninstall anything for a model that is not downloaded when
+              `download` is given `--force`.
+            tags: [subsystem]
+            justification: |
+              `--force` must never remove anything when there is nothing to replace.
+            tests:
               - DownloadCommand_RunAsync_ForceOnMissingModel_DoesNotUninstall
 
           - id: SpeechCli-ModelCommands-DownloadArgumentValidation
@@ -363,17 +370,25 @@ sections:
           - id: SpeechCli-ModelCommands-ListVoices
             title: >-
               The tool shall list every available reference voice (id, source, display name)
-              when invoked with `list-voices`, as an aligned table (default) or a JSON array
-              (`--format json`).
+              as an aligned table when invoked with `list-voices`.
             tags: [subsystem]
             justification: |
               Voice ids are the values of the Chatterbox `voice` parameter and there can be well
-              over a hundred of them, so an operator needs a discoverable list, in a form a
-              script can also parse.
+              over a hundred of them, so an operator needs a discoverable list.
             tests:
               - ListVoicesCommand_Run_Table_ListsVoicesAndConsentNote
-              - ListVoicesCommand_Run_Json_WritesParseableArray
               - SpeechCli_ListVoicesCommand_Invoked_PrintsConsentNote
+
+          - id: SpeechCli-ModelCommands-ListVoicesJsonFormat
+            title: >-
+              The tool shall print the `list-voices` result as a JSON array when invoked with
+              `--format json`.
+            tags: [subsystem]
+            justification: |
+              A machine-parseable form lets a script choose a voice without scraping table
+              formatting.
+            tests:
+              - ListVoicesCommand_Run_Json_WritesParseableArray
               - SpeechCli_ListVoicesCommandWithJsonFormat_Invoked_EmitsJsonArray
 
           - id: SpeechCli-ModelCommands-ListVoicesUsageHints
@@ -476,13 +491,23 @@ sections:
           - id: SpeechCli-ModelCommands-VoicePackConsentNote
             title: >-
               The tool shall print the consent note, that only voices the operator has permission
-              to use may be cloned, after a successful `voices install` and when listing packs.
+              to use may be cloned, after a successful `voices install`.
             tags: [subsystem]
             justification: |
               The consent note is repeated at install time because that is when a pack of real
               people's voices arrives on the machine.
             tests:
               - VoicesCommand_RunAsync_Install_ReportsProgressAndConsentNote
+
+          - id: SpeechCli-ModelCommands-VoicePacksConsentNote
+            title: >-
+              The tool shall print the consent note, that only voices the operator has permission
+              to use may be cloned, when `voices packs` lists the packs.
+            tags: [subsystem]
+            justification: |
+              The consent note is shown where an operator chooses a pack of real people's
+              voices.
+            tests:
               - VoicesCommand_RunAsync_Packs_ListsPackStateAndConsentNote
 
           - id: SpeechCli-ModelCommands-VoicePackUninstall

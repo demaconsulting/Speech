@@ -93,7 +93,9 @@ successful run awaits `CreateSynthesizerEngineAsync`/`CreateSessionAsync`/`Speak
 resolved TTS model, then `CreateRecognizerEngineAsync`/`CreateSessionAsync`/`StartAsync`/
 `GetResultsAsync` through the resolved STT model, then prints the final recognized text.
 
-**Requirement coverage**: `SpeechCli-ConversationCommands-Ask`.
+**Requirement coverage**: `SpeechCli-ConversationCommands-Ask`, `-AskListenAfterPrompt`,
+`-AskModelValidation`, `-AskModelUnknown`, `-AskModelWrongRole`, `-AskModelNotDownloaded`,
+`-AskTextSource`, `-AskTextSourceMissing`, `-AskUnsupportedOptions`.
 
 #### `--tts-param`/`--stt-param` Validation Reuse
 
@@ -125,7 +127,8 @@ result ever arrives, a `--silence-timeout` firing (via the reused, unmodified
 blocking forever; omitting both `--start-timeout` and `--silence-timeout` still ends the turn via
 the built-in default silence timeout rather than listening indefinitely.
 
-**Requirement coverage**: `SpeechCli-ConversationCommands-ListenTermination`.
+**Requirement coverage**: `SpeechCli-ConversationCommands-ListenTermination`, `-ListenTimeouts`,
+`-ListenTimeoutDefaults`, `-ListenTimeoutValidation`.
 
 #### Output Dispatch
 
@@ -136,7 +139,10 @@ the built-in default silence timeout rather than listening indefinitely.
 recognized text to the named file (overwriting any prior content) instead of printing it to
 stdout.
 
-**Requirement coverage**: `SpeechCli-ConversationCommands-OutputDispatch`.
+**Requirement coverage**: `SpeechCli-ConversationCommands-OutputDispatch`, `-OutputText`,
+`-OutputTextOverwrite` (`AskCommand_Run_OutputTextExistingFile_OverwritesPriorContent` replaces a
+longer pre-existing file with the shorter reply), `-OutputTextEmpty` (the silence-timeout test
+above leaves a completely empty file).
 
 #### Playback and Capture Device Dispatch
 
@@ -149,7 +155,8 @@ stdout.
 throws `ArgumentException` before any engine is loaded; an unavailable resolved real playback or
 capture device throws `InvalidOperationException`.
 
-**Requirement coverage**: `SpeechCli-ConversationCommands-DeviceDispatch`.
+**Requirement coverage**: `SpeechCli-ConversationCommands-DeviceDispatch`, `-DeviceUnavailable`,
+`-CaptureDeviceDispatch`, `-CaptureDeviceUnavailable`.
 
 #### Cancellation and Disposal
 
@@ -190,7 +197,8 @@ thrown from Phase 1's `SpeakAsync`
 `FakeAudioPlaybackDevice.DisposeCallCount` - proving playback-device disposal is not only correct
 on the ordinary path but also never skipped when playback is canceled or faults.
 
-**Requirement coverage**: `SpeechCli-ConversationCommands-CancellationAndDisposal`.
+**Requirement coverage**: `SpeechCli-ConversationCommands-SpeakCancellation`,
+`-ListenCancellation`, `-Disposal`.
 
 #### Recognizer Pre-Warming
 
@@ -244,19 +252,22 @@ requirement is defined for them.
 
 ### Requirements Coverage
 
-- **`SpeechCli-ConversationCommands-Ask`**, **`-AskModelValidation`**, **`-AskTextSource`**,
-  **`-AskUnsupportedOptions`**: see *AskCommand — Argument Parsing, Text Source, and
-  Model Resolution* above
+- **`SpeechCli-ConversationCommands-Ask`**, **`-AskListenAfterPrompt`**, **`-AskModelValidation`**,
+  **`-AskModelUnknown`**, **`-AskModelWrongRole`**, **`-AskModelNotDownloaded`**,
+  **`-AskTextSource`**, **`-AskTextSourceMissing`**, **`-AskUnsupportedOptions`**: see
+  *AskCommand — Argument Parsing, Text Source, and Model Resolution* above
 - **`SpeechCli-ConversationCommands-ParamValidation`**, **`-ParamRejection`**: see
   *`--tts-param`/`--stt-param` Validation Reuse* above
-- **`SpeechCli-ConversationCommands-ListenTermination`**, **`-ListenTimeouts`**: see
-  *Listen-Phase Termination* above
-- **`SpeechCli-ConversationCommands-OutputDispatch`**, **`-OutputText`**: see *Output Dispatch*
+- **`SpeechCli-ConversationCommands-ListenTermination`**, **`-ListenTimeouts`**,
+  **`-ListenTimeoutDefaults`**, **`-ListenTimeoutValidation`**: see *Listen-Phase Termination*
   above
-- **`SpeechCli-ConversationCommands-DeviceDispatch`**, **`-CaptureDeviceDispatch`**: see
+- **`SpeechCli-ConversationCommands-OutputDispatch`**, **`-OutputText`**, **`-OutputTextOverwrite`**,
+  **`-OutputTextEmpty`**: see *Output Dispatch* above
+- **`SpeechCli-ConversationCommands-DeviceDispatch`**, **`-DeviceUnavailable`**,
+  **`-CaptureDeviceDispatch`**, **`-CaptureDeviceUnavailable`**: see
   *Playback and Capture Device Dispatch* above
-- **`SpeechCli-ConversationCommands-CancellationAndDisposal`**, **`-Disposal`**: see
-  *Cancellation and Disposal* above
+- **`SpeechCli-ConversationCommands-SpeakCancellation`**, **`-ListenCancellation`**,
+  **`-Disposal`**: see *Cancellation and Disposal* above
 - **`SpeechCli-ConversationCommands-PrewarmRecognizer`**, **`-PrewarmFailureReporting`**,
   **`-PrewarmCancellationRelease`**: see *Recognizer Pre-Warming* above
 

@@ -28,38 +28,76 @@ sections:
 
           - id: SpeechCli-SynthesisCommands-ModelValidation
             title: >-
-              The tool shall reject `speak` invoked without `--tts-model`, or with an unknown,
-              wrong-role, or not-downloaded model id, with a clean, actionable,
-              non-zero-exit-code error rather than a stack trace.
+              The tool shall reject `speak` invoked without `--tts-model` with a clean,
+              non-zero-exit-code error naming the missing option rather than a stack trace.
             tags: [subsystem]
             justification: |
-              Model validation must fail predictably and with an actionable next step
-              (`list-models`, `list-models --role tts`, or `download <modelId>`) so a scripted
-              invocation can react to the specific failure rather than a generic error.
+              A missing model option must fail predictably so a scripted invocation can react to
+              the specific failure rather than a generic error.
             tests:
               - SpeakCommand_ParseArguments_MissingModel_ThrowsArgumentException
-              - SpeakCommand_RunAsync_UnknownModelId_ThrowsArgumentException
-              - SpeakCommand_RunAsync_WrongRoleModel_ThrowsArgumentException
-              - SpeakCommand_RunAsync_NotDownloadedModel_ThrowsArgumentExceptionWithDownloadHint
               - SpeechCli_SpeakCommandWithoutModel_Invoked_ReturnsCleanError
-              - SpeechCli_SpeakCommandWithUnknownModel_Invoked_ReturnsCleanError
-              - SpeechCli_SpeakCommandWithWrongRoleModel_Invoked_ReturnsCleanError
-              - SpeechCli_SpeakCommandWithNotDownloadedModel_Invoked_ReturnsCleanErrorWithDownloadHint
               - Program_Run_WithSpeakCommandAndNoModel_ThrowsArgumentException
+
+          - id: SpeechCli-SynthesisCommands-ModelUnknown
+            title: >-
+              The tool shall reject `speak` invoked with an unknown `--tts-model` id with a
+              clean, non-zero-exit-code error suggesting `list-models` rather than a stack trace.
+            tags: [subsystem]
+            justification: |
+              An id typo must fail with an actionable next step.
+            tests:
+              - SpeakCommand_RunAsync_UnknownModelId_ThrowsArgumentException
+              - SpeechCli_SpeakCommandWithUnknownModel_Invoked_ReturnsCleanError
+
+          - id: SpeechCli-SynthesisCommands-ModelWrongRole
+            title: >-
+              The tool shall reject `speak` invoked with a `--tts-model` that is not a synthesis
+              model with a clean, non-zero-exit-code error suggesting `list-models --role tts`
+              rather than a stack trace.
+            tags: [subsystem]
+            justification: |
+              Naming a recognition model by mistake must fail with an actionable next step
+              instead of loading the wrong engine.
+            tests:
+              - SpeakCommand_RunAsync_WrongRoleModel_ThrowsArgumentException
+              - SpeechCli_SpeakCommandWithWrongRoleModel_Invoked_ReturnsCleanError
+
+          - id: SpeechCli-SynthesisCommands-ModelNotDownloaded
+            title: >-
+              The tool shall reject `speak` invoked with a `--tts-model` that is known but not
+              downloaded with a clean, non-zero-exit-code error suggesting `download <modelId>`
+              rather than a stack trace.
+            tags: [subsystem]
+            justification: |
+              A model that is known but absent from disk needs a different remedy than an
+              unknown one, so the error must name the download step.
+            tests:
+              - SpeakCommand_RunAsync_NotDownloadedModel_ThrowsArgumentExceptionWithDownloadHint
+              - SpeechCli_SpeakCommandWithNotDownloadedModel_Invoked_ReturnsCleanErrorWithDownloadHint
 
           - id: SpeechCli-SynthesisCommands-TextSourceValidation
             title: >-
               The tool shall reject `speak` invoked with more than one of `--text`, `--file`, and
-              piped stdin, or with none of them, with a clean, actionable, non-zero-exit-code
-              error rather than a stack trace.
+              piped stdin with a clean, non-zero-exit-code error rather than a stack trace.
             tags: [subsystem]
             justification: |
-              An ambiguous or missing text source must fail predictably so a scripted invocation
-              never speaks the wrong text or waits on input that never arrives.
+              An ambiguous text source must fail predictably so a scripted invocation never
+              speaks the wrong text.
             tests:
               - SpeakCommand_RunAsync_TextAndFileBothGiven_ThrowsArgumentException
-              - SpeakCommand_RunAsync_NoTextSourceAndStdinNotRedirected_ThrowsArgumentException
               - SpeechCli_SpeakCommandWithConflictingTextSources_Invoked_ReturnsCleanError
+
+          - id: SpeechCli-SynthesisCommands-TextSourceMissing
+            title: >-
+              The tool shall reject `speak` invoked with none of `--text`, `--file`, and piped
+              stdin with a clean, non-zero-exit-code error rather than a stack trace.
+            tags: [subsystem]
+            justification: |
+              A missing text source must fail predictably so a scripted invocation never waits
+              on input that never arrives.
+            tests:
+              - SpeakCommand_RunAsync_NoTextSourceAndStdinNotRedirected_ThrowsArgumentException
 
           - id: SpeechCli-SynthesisCommands-ArgumentValidation
             title: >-
@@ -151,17 +189,39 @@ sections:
 
           - id: SpeechCli-SynthesisCommands-PlaybackDeviceDispatch
             title: >-
-              The tool shall, when `--output-audio` is not given, resolve and validate a real
-              playback device (honoring `--playback-device` when given), rejecting an unknown
-              device name or an unavailable resolved device with a clean, non-zero-exit-code
-              error rather than a stack trace.
+              The tool shall, when `--output-audio` is not given, reject `speak` invoked with a
+              `--playback-device` name that matches no playback device with a clean,
+              non-zero-exit-code error rather than a stack trace, before any synthesis is
+              attempted.
             tags: [subsystem]
             justification: |
-              Validating an unknown/unavailable real device before any synthesis is attempted
-              avoids a partially-synthesized, undeliverable session.
+              Validating an unknown real device before any synthesis is attempted avoids a
+              partially-synthesized, undeliverable session.
             tests:
               - SpeakCommand_RunAsync_UnknownDevice_ThrowsArgumentException
+
+          - id: SpeechCli-SynthesisCommands-PlaybackDeviceUnavailable
+            title: >-
+              The tool shall, when `--output-audio` is not given, reject `speak` with a clean,
+              non-zero-exit-code error rather than a stack trace when no playback device is
+              available, before any synthesis is attempted.
+            tags: [subsystem]
+            justification: |
+              A machine with no playback device cannot deliver the speech, so the session must
+              fail before it starts.
+            tests:
               - SpeakCommand_RunAsync_NoPlaybackDeviceAvailable_ThrowsInvalidOperationException
+
+          - id: SpeechCli-SynthesisCommands-PlaybackDeviceSelection
+            title: >-
+              The tool shall play the synthesized speech on the real playback device that the
+              audio device factory resolves for the `--playback-device` name (or the default
+              device when none is given).
+            tags: [subsystem]
+            justification: |
+              An operator choosing an output device expects the speech on that device, and the
+              command must use the same device resolution as the rest of the tool.
+            tests:
               - AudioDeviceFactoryPlaybackDeviceSource_PlaybackProbe_ForwardsToFactory
               - AudioDeviceFactoryPlaybackDeviceSource_CreatePlaybackDevice_ForwardsToFactory
               - AudioDeviceFactoryPlaybackDeviceSource_NullFactory_ThrowsArgumentNullException
