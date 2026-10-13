@@ -223,6 +223,7 @@ reviews:
       - "docs/design/speech/audio-subsystem/audio-device-description.md"
       - "docs/verification/speech/audio-subsystem/audio-device-description.md"
       - "src/DemaConsulting.Speech/AudioSubsystem/AudioDeviceDescription.cs"
+      - "test/DemaConsulting.Speech.Tests/AudioSubsystem/AudioDeviceDescriptionTests.cs"
 
   # Speech-AudioSubsystem-AudioDeviceSelection Review (one per unit)
   - id: Speech-AudioSubsystem-AudioDeviceSelection

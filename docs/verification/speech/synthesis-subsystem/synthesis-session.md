@@ -31,7 +31,8 @@ call returned" ordering is additionally captured by a witness recorded at the in
 released or `StopAsync` completes (the backend's `GenerateReturned` flag at that moment) and
 asserted afterwards, independent of scheduling. Abandonment is awaited through
 `StateChanged` reaching `Faulted`, never a sleep. The overlap rule is verified deterministically
-with a `BlockingSynthesisEngine` (a private nested test double in `SynthesisSessionTests.cs`) that holds the first call's `Generate` open on
+with a `BlockingSynthesisEngine` (a private nested test double in `SynthesisSessionTests.cs`)
+that holds the first call's `Generate` open on
 a `SemaphoreSlim` until the test releases it, letting a test assert that a second
 `SpeakAsync`/`SynthesizeAsync` call made while the first is still in flight throws
 `InvalidOperationException` immediately. Hot reuse across calls is verified by calling
