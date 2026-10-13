@@ -45,7 +45,7 @@ internal sealed class ByteLevelBpeTokenizer
     /// <summary>Token text to id.</summary>
     private readonly Dictionary<string, int> _vocabulary;
 
-    /// <summary>Merge pair (left + <c>' '</c> + right) to merge rank (lower merges first).</summary>
+    /// <summary>Merge pair (left, right) to merge rank (lower merges first).</summary>
     private readonly Dictionary<(string Left, string Right), int> _mergeRanks;
 
     /// <summary>Added (special) token text to id.</summary>

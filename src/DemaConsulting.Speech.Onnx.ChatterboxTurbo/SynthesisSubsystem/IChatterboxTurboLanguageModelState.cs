@@ -13,5 +13,11 @@ internal interface IChatterboxTurboLanguageModelState : IDisposable
     /// <param name="attentionLength">The attention-mask length: all positions so far including the new ones.</param>
     /// <param name="firstPosition">The position id of the first new position (later positions increment by one).</param>
     /// <returns>The logits of the last new position (vocabulary-sized).</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="inputEmbeddings"/> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    ///     Thrown when <paramref name="sequenceLength"/> is not positive or <paramref name="attentionLength"/> is smaller than it.
+    /// </exception>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="inputEmbeddings"/> has the wrong length.</exception>
+    /// <exception cref="ObjectDisposedException">Thrown after this state or its owner was disposed.</exception>
     float[] Step(float[] inputEmbeddings, int sequenceLength, int attentionLength, int firstPosition);
 }

@@ -47,7 +47,11 @@ internal sealed class ChatterboxTurboCapabilityProfile : IModelCapabilityProfile
     /// <summary>The silence standing in for a sigh.</summary>
     private const int SighMilliseconds = 300;
 
-    /// <summary>The longest synthesis unit before it is split at secondary boundaries or word budget.</summary>
+    /// <summary>
+    ///     The longest synthesis unit before it is split at secondary boundaries or word budget. It is a soft
+    ///     budget on the placeholder text, where each native tag counts as one character; the tag expands to its
+    ///     bracketed token afterwards, so a unit may exceed it by at most the expansion of its tags.
+    /// </summary>
     private const int MaxUnitLength = 200;
 
     /// <summary>The first private-use code point used as a tag placeholder.</summary>

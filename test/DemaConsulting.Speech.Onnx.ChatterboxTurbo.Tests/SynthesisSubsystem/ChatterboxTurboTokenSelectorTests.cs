@@ -33,15 +33,26 @@ public sealed class ChatterboxTurboTokenSelectorTests
         Assert.Equal(OnnxChatterboxTurboSynthesisEngine.StopSpeechToken, token);
     }
 
-    /// <summary>Proves a blocked only id falls back to the unblocked choice.</summary>
+    /// <summary>Proves a blocked only id is returned, since selection must always yield a token.</summary>
     [Fact]
-    public void ChatterboxTurboTokenSelector_Select_AllBlocked_FallsBackToArgmax()
+    public void ChatterboxTurboTokenSelector_Select_SingleIdBlocked_ReturnsOnlyId()
     {
         // Act
         var token = ChatterboxTurboTokenSelector.Select([3f], new HashSet<long>(), 0);
 
         // Assert
         Assert.Equal(0, token);
+    }
+
+    /// <summary>Proves a blocked id outside the vocabulary is ignored.</summary>
+    [Fact]
+    public void ChatterboxTurboTokenSelector_Select_BlockedIdOutOfRange_IsIgnored()
+    {
+        // Act
+        var token = ChatterboxTurboTokenSelector.Select([0.1f, 2f, 1f], new HashSet<long>(), 99);
+
+        // Assert
+        Assert.Equal(1, token);
     }
 
     /// <summary>Proves the highest logit wins when nothing was generated.</summary>

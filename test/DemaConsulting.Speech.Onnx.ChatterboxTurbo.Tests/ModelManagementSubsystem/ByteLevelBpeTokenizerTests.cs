@@ -214,6 +214,50 @@ public sealed class ByteLevelBpeTokenizerTests
         Assert.Throws<ArgumentNullException>(() => new ByteLevelBpeTokenizer(null!));
         Assert.Throws<ArgumentNullException>(() => ByteLevelBpeTokenizer.FromGzipStream(null!));
         Assert.Throws<ArgumentNullException>(() => _tokenizer.Encode(null!));
+        Assert.Throws<ArgumentNullException>(() => new ByteLevelBpeTokenizer(new MemoryStream(), endOfTextToken: null!));
+    }
+
+    /// <summary>Proves an added token with null content is reported as <see cref="InvalidDataException"/>.</summary>
+    [Fact]
+    public void ByteLevelBpeTokenizer_Constructor_NullAddedTokenContent_ThrowsInvalidData()
+    {
+        // Arrange
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(
+            "{\"model\":{\"vocab\":{\"a\":0},\"merges\":[]},\"added_tokens\":[{\"id\":1,\"content\":null}]}"));
+
+        // Act & Assert
+        Assert.Throws<InvalidDataException>(() => new ByteLevelBpeTokenizer(stream, trailingEndOfTextCount: 0));
+    }
+
+    /// <summary>Proves a custom end-of-text token found in the vocabulary is the one appended.</summary>
+    [Fact]
+    public void ByteLevelBpeTokenizer_Constructor_CustomEndOfTextInVocabulary_IsAppended()
+    {
+        // Arrange
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes("{\"model\":{\"vocab\":{\"a\":0,\"<eot>\":7},\"merges\":[]}}"));
+        var tokenizer = new ByteLevelBpeTokenizer(stream, endOfTextToken: "<eot>", trailingEndOfTextCount: 1);
+
+        // Act
+        var ids = tokenizer.Encode("a");
+
+        // Assert
+        Assert.Equal([0L, 7L], ids);
+    }
+
+    /// <summary>Proves an added token that prefixes a longer one cannot shadow it.</summary>
+    [Fact]
+    public void ByteLevelBpeTokenizer_Encode_AddedTokenPrefixingAnother_LongestWins()
+    {
+        // Arrange: the shorter token is listed first
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(
+            "{\"model\":{\"vocab\":{\"a\":0},\"merges\":[]},\"added_tokens\":[{\"id\":5,\"content\":\"<t>\"},{\"id\":6,\"content\":\"<t>x\"}]}"));
+        var tokenizer = new ByteLevelBpeTokenizer(stream, trailingEndOfTextCount: 0);
+
+        // Act
+        var ids = tokenizer.Encode("<t>x<t>");
+
+        // Assert
+        Assert.Equal([6L, 5L], ids);
     }
 
     /// <summary>Builds a tokenizer without trailing ids from a vocabulary and merges JSON fragment.</summary>

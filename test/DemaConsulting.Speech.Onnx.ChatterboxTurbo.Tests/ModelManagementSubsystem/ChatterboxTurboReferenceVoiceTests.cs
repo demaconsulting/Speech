@@ -277,12 +277,71 @@ public sealed class ChatterboxTurboReferenceVoiceTests : IDisposable
         var exception = Assert.Throws<InvalidDataException>(() => voice.TryGetMoodSamples("calm", out _));
         Assert.Contains("v/calm", exception.Message, StringComparison.Ordinal);
         Assert.Contains("short.wav", exception.Message, StringComparison.Ordinal);
-        Assert.Throws<ArgumentException>(() => voice.WithMoodFiles(new Dictionary<string, string> { [" "] = shortPath }));
-        Assert.Throws<ArgumentException>(() => voice.WithMoodFiles(new Dictionary<string, string> { ["calm"] = " " }));
+    }
+
+    /// <summary>Proves blank mood names or paths are rejected and a null mood map adds nothing.</summary>
+    [Fact]
+    public void ChatterboxTurboReferenceVoice_WithMoodFiles_BlankEntriesAndNullMap_RejectedOrIgnored()
+    {
+        // Arrange
+        var basePath = Path.Combine(_root, "base.wav");
+        var moodPath = Path.Combine(_root, "mood.wav");
+        File.WriteAllBytes(basePath, Wav(Tone(24000, 24000, 300), 24000, 1, format: 1, bits: 16));
+        File.WriteAllBytes(moodPath, Wav(Tone(24000, 24000, 300), 24000, 1, format: 1, bits: 16));
+        var voice = ChatterboxTurboReferenceVoice.FromFileLazy("v", basePath).WithMoodFiles(new Dictionary<string, string> { ["calm"] = moodPath });
+
+        // Act
         var unchanged = voice.WithMoodFiles(null);
+
+        // Assert
+        Assert.Throws<ArgumentException>(() => voice.WithMoodFiles(new Dictionary<string, string> { [" "] = moodPath }));
+        Assert.Throws<ArgumentException>(() => voice.WithMoodFiles(new Dictionary<string, string> { ["calm"] = " " }));
         Assert.Equal(["calm"], unchanged.Moods);
         Assert.Equal(voice.Id, unchanged.Id);
         Assert.Equal(voice.DisplayName, unchanged.DisplayName);
+    }
+
+    /// <summary>Proves a later clip of the same mood name replaces an earlier one.</summary>
+    [Fact]
+    public void ChatterboxTurboReferenceVoice_WithMoodFiles_SameNameAgain_ReplacesEarlierClip()
+    {
+        // Arrange
+        var basePath = Path.Combine(_root, "base.wav");
+        var firstPath = Path.Combine(_root, "first.wav");
+        var secondPath = Path.Combine(_root, "second.wav");
+        File.WriteAllBytes(basePath, Wav(Tone(24000, 24000, 300), 24000, 1, format: 1, bits: 16));
+        File.WriteAllBytes(firstPath, Wav(Tone(30000, 24000, 200), 24000, 1, format: 1, bits: 16));
+        File.WriteAllBytes(secondPath, Wav(Tone(40000, 24000, 200), 24000, 1, format: 1, bits: 16));
+        var voice = ChatterboxTurboReferenceVoice.FromFileLazy("v", basePath)
+            .WithMoodFiles(new Dictionary<string, string> { ["sad"] = firstPath });
+
+        // Act
+        var replaced = voice.WithMoodFiles(new Dictionary<string, string> { ["SAD"] = secondPath });
+
+        // Assert
+        Assert.Equal(["sad"], replaced.Moods);
+        Assert.True(replaced.TryGetMoodSamples("sad", out var samples));
+        Assert.Equal(40000, samples.Length);
+        Assert.True(voice.TryGetMoodSamples("sad", out var original));
+        Assert.Equal(30000, original.Length);
+    }
+
+    /// <summary>Proves an already-decoded mood clip is normalized to mono 24 kHz and named case-insensitively.</summary>
+    [Fact]
+    public void ChatterboxTurboReferenceVoice_WithMoodSamples_NormalizesClipAndTrimsName()
+    {
+        // Arrange
+        var voice = ChatterboxTurboReferenceVoice.FromSamples("v", Tone(24000, 24000, 300), 24000);
+
+        // Act: two seconds of 48 kHz mono become 48000 samples at 24 kHz
+        var withMood = voice.WithMoodSamples(" Angry ", Tone(96000, 48000, 200), 48000);
+
+        // Assert
+        Assert.Equal(["angry"], withMood.Moods);
+        Assert.True(withMood.TryGetMoodSamples("ANGRY", out var samples));
+        Assert.InRange(samples.Length, 47990, 48010);
+        Assert.Equal(24000, withMood.Samples.Length);
+        Assert.Empty(voice.Moods);
     }
 
     /// <summary>Proves mood names are trimmed and lower-cased, and a later clip of the same name replaces an earlier one.</summary>

@@ -190,6 +190,60 @@ public sealed class OnnxChatterboxTurboNetworksTests : IDisposable
         Assert.Throws<ArgumentOutOfRangeException>(() => state.Step(new float[2 * ChatterboxTurboGraphFixture.EmbeddingSize], 2, 1, 0));
     }
 
+    /// <summary>Proves a zero sequence length is rejected before any native call.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboNetworks_Step_ZeroSequenceLength_ThrowsArgumentOutOfRangeException()
+    {
+        // Arrange
+        var paths = ChatterboxTurboGraphFixture.Write(_root);
+        using var networks = Create(paths);
+        using var state = networks.BeginGeneration();
+
+        // Act and Assert
+        Assert.Throws<ArgumentOutOfRangeException>(() => state.Step([], 0, 0, 0));
+    }
+
+    /// <summary>Proves a null embeddings array is rejected by <c>Step</c>.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboNetworks_Step_NullEmbeddings_ThrowsArgumentNullException()
+    {
+        // Arrange
+        var paths = ChatterboxTurboGraphFixture.Write(_root);
+        using var networks = Create(paths);
+        using var state = networks.BeginGeneration();
+
+        // Act and Assert
+        Assert.Throws<ArgumentNullException>(() => state.Step(null!, 1, 1, 0));
+    }
+
+    /// <summary>Proves a disposed generation state rejects <c>Step</c> instead of restarting with an empty cache.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboNetworks_Step_AfterStateDispose_ThrowsObjectDisposedException()
+    {
+        // Arrange
+        var paths = ChatterboxTurboGraphFixture.Write(_root);
+        using var networks = Create(paths);
+        var state = networks.BeginGeneration();
+        state.Dispose();
+
+        // Act and Assert
+        Assert.Throws<ObjectDisposedException>(() => state.Step(new float[ChatterboxTurboGraphFixture.EmbeddingSize], 1, 1, 0));
+    }
+
+    /// <summary>Proves a generation state rejects <c>Step</c> once the owning networks were disposed.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboNetworks_Step_AfterNetworksDispose_ThrowsObjectDisposedException()
+    {
+        // Arrange
+        var paths = ChatterboxTurboGraphFixture.Write(_root);
+        var networks = Create(paths);
+        using var state = networks.BeginGeneration();
+        networks.Dispose();
+
+        // Act and Assert
+        Assert.Throws<ObjectDisposedException>(() => state.Step(new float[ChatterboxTurboGraphFixture.EmbeddingSize], 1, 1, 0));
+    }
+
     /// <summary>Proves an encoder graph without the expected outputs is rejected.</summary>
     [Fact]
     public void OnnxChatterboxTurboNetworks_Constructor_UnrecognizedEncoderOutputs_ThrowsInvalidOperationException()

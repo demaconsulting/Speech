@@ -193,6 +193,10 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModelTests : IDisposable
         Assert.InRange(options.IntraOpThreads, 1, 6);
         Assert.Equal(ChatterboxTurboEndOfSentenceTagPolicy.MoveBeforeFinalWord, options.EndOfSentenceTagPolicy);
         Assert.Empty(options.ReferenceVoices);
+        Assert.True(options.IncludeStoreVoices);
+        Assert.Null(options.ReferenceVoiceDirectory);
+        Assert.Null(options.ReferenceVoiceLibrary);
+        Assert.Null(options.Diagnostics);
         Assert.Equal(150, options.MoodJoinSilenceMilliseconds);
         Assert.Throws<ArgumentOutOfRangeException>(() => options.MoodJoinSilenceMilliseconds = -1);
         Assert.Throws<ArgumentOutOfRangeException>(() => options.MoodJoinSilenceMilliseconds = 1001);
@@ -244,9 +248,18 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModelTests : IDisposable
     {
         // Arrange
         var model = new OnnxChatterboxTurboEnglishSynthesisModel(new ChatterboxTurboModelOptions { ReferenceVoices = [Voice("a")] });
-
-        // Act & Assert
-        Assert.Throws<FileNotFoundException>(() => model.CreateBackend(_root));
+        var created = new List<InferenceSession>();
+        OnnxChatterboxTurboEnglishSynthesisModel.OnSessionCreated = created.Add;
+        try
+        {
+            // Act & Assert
+            Assert.Throws<FileNotFoundException>(() => model.CreateBackend(_root));
+            Assert.Empty(created);
+        }
+        finally
+        {
+            OnnxChatterboxTurboEnglishSynthesisModel.OnSessionCreated = null;
+        }
     }
 
     /// <summary>Proves a full synthetic installation yields a backend that synthesizes end to end.</summary>
@@ -508,6 +521,35 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModelTests : IDisposable
 
         // Assert
         Assert.Empty(model.Parameters);
+    }
+
+    /// <summary>Proves the fallback library is used when the options name none, and an explicit library takes precedence.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboEnglishSynthesisModel_Constructor_DefaultLibrary_UsedOnlyWhenOptionsNameNone()
+    {
+        // Arrange
+        using var fallback = new ReferenceVoiceLibrary(
+            new SpeechModelStore(new SpeechModelStoreOptions { RootPathOverride = Path.Combine(_root, "fallback") }));
+        using var explicitLibrary = new ReferenceVoiceLibrary(
+            new SpeechModelStore(new SpeechModelStoreOptions { RootPathOverride = Path.Combine(_root, "explicit") }));
+        WriteWav(Path.Combine(fallback.EnsureUserDirectory(), "from_default.wav"));
+        WriteWav(Path.Combine(explicitLibrary.EnsureUserDirectory(), "from_options.wav"));
+
+        // Act
+        var withDefault = new OnnxChatterboxTurboEnglishSynthesisModel(new ChatterboxTurboModelOptions(), fallback);
+        var withExplicit = new OnnxChatterboxTurboEnglishSynthesisModel(
+            new ChatterboxTurboModelOptions { ReferenceVoiceLibrary = explicitLibrary },
+            fallback);
+        var disabled = new OnnxChatterboxTurboEnglishSynthesisModel(
+            new ChatterboxTurboModelOptions { IncludeStoreVoices = false },
+            fallback);
+
+        // Assert
+        var defaultChoice = Assert.IsType<ChoiceParameter>(Assert.Single(withDefault.Parameters));
+        Assert.Equal(["from_default"], defaultChoice.Options.Select(option => option.Value));
+        var explicitChoice = Assert.IsType<ChoiceParameter>(Assert.Single(withExplicit.Parameters));
+        Assert.Equal(["from_options"], explicitChoice.Options.Select(option => option.Value));
+        Assert.Empty(disabled.Parameters);
     }
 
     /// <summary>Creates a one-second voice.</summary>

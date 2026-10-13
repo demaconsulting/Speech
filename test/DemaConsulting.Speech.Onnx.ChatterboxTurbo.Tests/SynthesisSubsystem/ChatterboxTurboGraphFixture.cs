@@ -57,6 +57,9 @@ internal static class ChatterboxTurboGraphFixture
     }
 
     /// <summary>Builds the speech encoder: constants for the four outputs.</summary>
+    /// <param name="namedOutputs">True to name the outputs as the real graph does; false for generic names.</param>
+    /// <param name="half">True to emit float16 outputs.</param>
+    /// <returns>The serialized graph.</returns>
     public static byte[] Encoder(bool namedOutputs, bool half = false)
     {
         var names = namedOutputs
@@ -90,6 +93,8 @@ internal static class ChatterboxTurboGraphFixture
     }
 
     /// <summary>Builds the embedding graph: ids wrap modulo the table size; row <c>i</c> holds <c>i / 1000</c> in every column.</summary>
+    /// <param name="half">True to emit float16 output.</param>
+    /// <returns>The serialized graph.</returns>
     public static byte[] Embedder(bool half = false)
     {
         var table = new float[TableRows * EmbeddingSize];
@@ -126,6 +131,7 @@ internal static class ChatterboxTurboGraphFixture
     /// <param name="withPastInputs">False to omit the cache inputs (an invalid graph).</param>
     /// <param name="halfEmbeddings">True to declare a float16 <c>inputs_embeds</c> input (cast to float32 inside the graph).</param>
     /// <param name="halfLogits">True to emit float16 logits (cast from float32 inside the graph).</param>
+    /// <returns>The serialized graph.</returns>
     public static byte[] LanguageModel(bool halfCache, bool withPastInputs, bool halfEmbeddings = false, bool halfLogits = false)
     {
         var projection = new float[EmbeddingSize * Vocabulary];
@@ -192,6 +198,8 @@ internal static class ChatterboxTurboGraphFixture
     }
 
     /// <summary>Builds the decoder: the waveform is the speech tokens cast to float.</summary>
+    /// <param name="half">True to emit a float16 waveform.</param>
+    /// <returns>The serialized graph.</returns>
     public static byte[] Decoder(bool half = false) =>
         new OnnxModelWriter("decoder")
             .Input("speech_tokens", OnnxModelWriter.Int64, "1", "n")

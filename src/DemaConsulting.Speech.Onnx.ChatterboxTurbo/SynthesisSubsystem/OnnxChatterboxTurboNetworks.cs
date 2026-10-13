@@ -14,7 +14,7 @@ namespace DemaConsulting.Speech.Onnx.ChatterboxTurbo.SynthesisSubsystem;
 ///     from session metadata, so the fp16 and fp32 graph variants share one implementation. The speech
 ///     encoder's outputs are bound by name (<c>audio_features</c>, <c>audio_tokens</c>,
 ///     <c>speaker_embeddings</c>, <c>speaker_features</c>), falling back to the documented positional order only
-///     when a graph exposes exactly four unnamed-compatible outputs.
+///     when a graph exposes exactly four outputs under different names.
 ///     <para>
 ///     <b>Threads</b>: every session uses the configured intra-op thread count, one inter-op thread and
 ///     sequential execution; intra-op threads beyond about six do not help this workload. <b>Ownership</b>:
@@ -218,6 +218,9 @@ internal sealed class OnnxChatterboxTurboNetworks : IChatterboxTurboNetworks
     }
 
     /// <summary>Creates a float16 tensor from float values (ORT rejects <see cref="Half"/> arrays).</summary>
+    /// <param name="values">The values to store, converted to half precision.</param>
+    /// <param name="shape">The tensor shape; its element count must equal the number of values.</param>
+    /// <returns>A new tensor owned by the caller.</returns>
     internal static OrtValue CreateFloat16Tensor(float[] values, long[] shape)
     {
         var tensor = OrtValue.CreateAllocatedTensorValue(OrtAllocator.DefaultInstance, TensorElementType.Float16, shape);
@@ -323,6 +326,9 @@ internal sealed class OnnxChatterboxTurboNetworks : IChatterboxTurboNetworks
         /// <summary>The previous step's outputs (logits then present tensors); null before the first step.</summary>
         private IDisposableReadOnlyCollection<OrtValue>? _previous;
 
+        /// <summary>True once <see cref="Dispose"/> has run on this state.</summary>
+        private bool _disposed;
+
         /// <summary>Initializes a new instance of the <see cref="LanguageModelState"/> class.</summary>
         public LanguageModelState(OnnxChatterboxTurboNetworks owner)
         {
@@ -330,10 +336,12 @@ internal sealed class OnnxChatterboxTurboNetworks : IChatterboxTurboNetworks
         }
 
         /// <inheritdoc/>
+        /// <exception cref="ObjectDisposedException">Thrown when this state or the owning networks were disposed.</exception>
         public float[] Step(float[] inputEmbeddings, int sequenceLength, int attentionLength, int firstPosition)
         {
             ArgumentNullException.ThrowIfNull(inputEmbeddings);
-            ArgumentOutOfRangeException.ThrowIfNegative(sequenceLength);
+            ObjectDisposedException.ThrowIf(_disposed || _owner._disposed, this);
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sequenceLength);
             if (inputEmbeddings.Length != (long)sequenceLength * OnnxChatterboxTurboSynthesisEngine.EmbeddingSize)
             {
                 throw new ArgumentException(
@@ -407,6 +415,7 @@ internal sealed class OnnxChatterboxTurboNetworks : IChatterboxTurboNetworks
         /// <inheritdoc/>
         public void Dispose()
         {
+            _disposed = true;
             _previous?.Dispose();
             _previous = null;
         }

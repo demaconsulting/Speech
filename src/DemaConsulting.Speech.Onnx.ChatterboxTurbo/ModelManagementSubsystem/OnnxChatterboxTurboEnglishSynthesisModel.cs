@@ -329,7 +329,7 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModel : ISynthesisModel
         {
             if (!ids.Add(voice.Id))
             {
-                throw new ArgumentException($"The reference voice id '{voice.Id}' ({source}) is duplicated.");
+                throw new ArgumentException($"The reference voice id '{voice.Id}' is duplicated ({source}).");
             }
 
             voices.Add(voice);
@@ -337,7 +337,7 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModel : ISynthesisModel
 
         foreach (var voice in options.ReferenceVoices)
         {
-            AddUnique(voice, "explicit voices");
+            AddUnique(voice, "ChatterboxTurboModelOptions.ReferenceVoices");
         }
 
         if (options.ReferenceVoiceDirectory is not null)
@@ -357,7 +357,7 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModel : ISynthesisModel
             // Lazy so a damaged file never fails catalog composition: the error surfaces at first use of that voice and names the file
             foreach (var file in files)
             {
-                AddUnique(ChatterboxTurboReferenceVoice.FromFileLazy(Path.GetFileNameWithoutExtension(file), file), "voice directory");
+                AddUnique(ChatterboxTurboReferenceVoice.FromFileLazy(Path.GetFileNameWithoutExtension(file), file), "ChatterboxTurboModelOptions.ReferenceVoiceDirectory");
             }
         }
 

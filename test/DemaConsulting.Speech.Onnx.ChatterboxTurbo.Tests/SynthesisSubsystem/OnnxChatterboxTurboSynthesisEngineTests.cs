@@ -214,8 +214,8 @@ public sealed class OnnxChatterboxTurboSynthesisEngineTests
         var slow = engine.Generate("Hello there.", 0.5f, 0);
         var fast = engine.Generate("Hello there.", 2.0f, 0);
 
-        // Assert
-        Assert.Equal(slow.Samples.Length, fast.Samples.Length);
+        // Assert: the decoder echoes the tokens, so identical audio proves speed had no influence
+        Assert.Equal(slow.Samples.ToArray(), fast.Samples.ToArray());
         Assert.Equal(slow.SampleRate, fast.SampleRate);
     }
 
