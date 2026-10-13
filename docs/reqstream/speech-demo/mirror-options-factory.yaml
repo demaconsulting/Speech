@@ -34,6 +34,7 @@ sections:
             tests:
               - MirrorOptionsFactory_Create_BlankUrlNoCredentials_ReturnsNull
               - MirrorOptionsFactory_Create_BlankUrlWithEmptyCredentials_ReturnsNull
+              - MirrorOptionsFactory_Create_AllWhitespace_ReturnsNull
 
           - id: SpeechDemo-MirrorOptions-EmptyCredentialIsUnset
             title: >-
@@ -46,6 +47,18 @@ sections:
               - MirrorOptionsFactory_Create_UrlWithEmptyCredentials_ReturnsUnauthenticatedMirror
               - MirrorOptionsFactory_Create_EmptyUserWithPassword_ThrowsArgumentException
 
+          - id: SpeechDemo-MirrorOptions-WhitespaceCredentialIsUnset
+            title: >-
+              The MirrorOptionsFactory unit shall treat a whitespace-only username, password or
+              token as not supplied.
+            justification: |
+              A text box holding only spaces is visually empty; it must not select an
+              authentication scheme or be sent to a mirror as a credential.
+            tests:
+              - MirrorOptionsFactory_Create_UrlWithWhitespaceCredentials_ReturnsUnauthenticatedMirror
+              - MirrorOptionsFactory_Create_WhitespaceUserWithPassword_ThrowsArgumentException
+              - MirrorOptionsFactory_Create_WhitespaceTokenWithBasicCredentials_ReturnsBasicMirror
+
           - id: SpeechDemo-MirrorOptions-CredentialWithoutUrl
             title: >-
               The MirrorOptionsFactory unit shall reject a credential or token supplied
@@ -55,6 +68,7 @@ sections:
               URL, so it is rejected rather than silently ignored.
             tests:
               - MirrorOptionsFactory_Create_CredentialWithoutUrl_ThrowsWithoutEchoingSecret
+              - MirrorOptionsFactory_Create_WhitespaceUrlWithCredential_ThrowsCredentialWithoutUrl
               - ModelCatalogViewModel_ApplyMirrorAsync_CredentialsWithoutUrl_ReportsErrorWithoutCallingService
 
           - id: SpeechDemo-MirrorOptions-HalfCredentialPair

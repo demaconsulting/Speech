@@ -52,17 +52,42 @@ start action is not called.
 **Expected**: An error message goes to the error writer without echoing the value, 1 is returned and
 the start action is not called.
 
-#### Program_Run_ValidOptions_StartsWithParsedOptions
+#### Program_Run_ValidOptions_StartsWithAllParsedOptions
 
-**Scenario**: `Run` receives valid options.
+**Scenario**: `Run` receives the models folder, an existing voices folder, a mirror URL and Basic
+credentials.
 
-**Expected**: 0 is returned and the start action is called once with the parsed options.
+**Expected**: 0 is returned, nothing is written to either writer, and the start action is called
+once with every one of those values.
+
+#### Program_Run_BearerTokenMirror_StartsWithParsedToken
+
+**Scenario**: `Run` receives a mirror URL and a bearer token.
+
+**Expected**: 0 is returned and the start action receives the URL and token with no Basic
+credentials.
+
+#### Program_Run_OptionFollowedByOption_ReportsErrorAndDoesNotStart
+
+**Scenario**: `Run` receives `--mirror-url` immediately followed by `--help` (error scenario for a
+missing option value).
+
+**Expected**: 1 is returned, the error output states that `--mirror-url` requires a value, nothing
+goes to the output writer, and the start action is not called.
 
 #### Program_Run_UnrecognizedSecretArgument_ErrorDoesNotEchoArgument
 
-**Scenario**: `Run` receives a stray argument that looks like a secret.
+**Scenario**: `Run` receives a mistyped secret-bearing argument (`--mirror-password=<secret>`, a form
+the parser does not accept).
 
-**Expected**: The error output reports the argument position but not its text, and 1 is returned.
+**Expected**: 1 is returned, an error is reported, and neither writer contains the secret.
+
+#### Program_Run_PasswordWithoutMirrorUrl_ReportsErrorWithoutEchoingSecret
+
+**Scenario**: `Run` receives `--mirror-password <secret>` with no mirror URL.
+
+**Expected**: 1 is returned, an error is reported, the application is not started, and neither
+writer contains the secret.
 
 #### Program_Run_HelpWithInvalidMirror_PrintsUsageAndReturnsZero
 

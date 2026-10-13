@@ -10,12 +10,12 @@ when no mirror is requested.
 
 **Key Methods**: `Create(url, user, password, bearerToken)`:
 
-- An empty user, password or token is treated as not supplied (null), so a form field or expanded
-  variable that is empty never selects an authentication scheme.
-- A null or empty URL with no credential or token returns `null`, meaning each model uses its own
-  public download address. A whitespace-only URL counts as supplied and is rejected as invalid.
-- A blank URL with any credential or token is rejected, so a stray credential is never silently
-  discarded.
+- A blank (empty or whitespace-only) user, password or token is treated as not supplied (null), so
+  a form field or expanded variable that is blank never selects an authentication scheme.
+- A blank (null, empty or whitespace-only) URL with no credential or token returns `null`, meaning
+  each model uses its own public download address.
+- A blank URL with any non-blank credential or token is rejected, so a stray credential is never
+  silently discarded.
 - A URL that is not a valid absolute URI, or whose scheme is not `http` or `https`, is rejected
   before the mirror is constructed (a pasted `user:token@host` string parses with the user as its
   scheme and would otherwise leak).

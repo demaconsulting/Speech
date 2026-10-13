@@ -17,7 +17,8 @@ supporting evidence for the URL and credential rejection requirements.
 ### Acceptance Criteria
 
 The unit passes when: a URL with Basic credentials, a bearer token, or no credentials builds the
-matching mirror; a blank URL with no credentials returns `null`; a credential without a URL, a user
+matching mirror; a blank (null, empty, or whitespace-only) URL with no credentials returns `null`;
+whitespace-only credential fields count as not supplied; a credential without a URL, a user
 without a password, a password without a user, an invalid URL, and a credential for a plain-HTTP
 remote host are each rejected with `ArgumentException`; and the messages do not echo a secret or an
 invalid URL value.
@@ -44,13 +45,44 @@ invalid URL value.
 
 #### MirrorOptionsFactory_Create_BlankUrlNoCredentials_ReturnsNull
 
-**Scenario**: A blank URL and no credentials.
+**Scenario**: A null, empty, or whitespace-only URL and no credentials (boundary).
 
 **Expected**: `null`.
 
+#### MirrorOptionsFactory_Create_AllWhitespace_ReturnsNull
+
+**Scenario**: The URL and every credential field are whitespace-only (boundary).
+
+**Expected**: `null`.
+
+#### MirrorOptionsFactory_Create_UrlWithWhitespaceCredentials_ReturnsUnauthenticatedMirror
+
+**Scenario**: A valid URL with whitespace-only user, password, and token (regression for whitespace
+being treated as a supplied credential).
+
+**Expected**: An unauthenticated mirror: no credentials and no bearer token.
+
+#### MirrorOptionsFactory_Create_WhitespaceUserWithPassword_ThrowsArgumentException
+
+**Scenario**: A whitespace-only user and a real password.
+
+**Expected**: `ArgumentException`: the pair is incomplete.
+
+#### MirrorOptionsFactory_Create_WhitespaceTokenWithBasicCredentials_ReturnsBasicMirror
+
+**Scenario**: Basic credentials and a whitespace-only bearer token.
+
+**Expected**: A mirror carrying only the Basic credentials.
+
+#### MirrorOptionsFactory_Create_WhitespaceUrlWithCredential_ThrowsCredentialWithoutUrl
+
+**Scenario**: A whitespace-only URL with a bearer token.
+
+**Expected**: `ArgumentException` stating a mirror URL is required, without the token.
+
 #### MirrorOptionsFactory_Create_CredentialWithoutUrl_ThrowsWithoutEchoingSecret
 
-**Scenario**: A credential or token with a blank URL.
+**Scenario**: A credential or token with a null URL.
 
 **Expected**: `ArgumentException` whose message does not contain the secret.
 

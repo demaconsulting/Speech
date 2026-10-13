@@ -16,7 +16,12 @@ launch as in the model catalog panel.
 **Key Methods**:
 
 - `Parse(string[])` reads the arguments left to right, each option taking the next argument as its
-  value. `Parse(string[], Func<string, string?>)` additionally reads the `DEMASPEECH_MIRROR_URL`,
+  value. A value-taking option whose next argument is missing, or is itself a recognized option
+  token (`-h`, `-?`, `--help`, `--models-dir`, `--voices-dir`, `--mirror-url`, `--mirror-user`,
+  `--mirror-password`, `--mirror-bearer-token`, or one of the long options followed by `=`), is
+  rejected so that an option is never silently consumed as a value. Any other token, including one
+  that merely starts with `-`, is accepted as the value.
+  `Parse(string[], Func<string, string?>)` additionally reads the `DEMASPEECH_MIRROR_URL`,
   `DEMASPEECH_MIRROR_USER`, `DEMASPEECH_MIRROR_PASSWORD` and `DEMASPEECH_MIRROR_BEARER_TOKEN`
   environment variables through an injectable reader (the one-argument overload passes
   `Environment.GetEnvironmentVariable`), so tests never mutate the process environment. A
@@ -39,7 +44,7 @@ launch as in the model catalog panel.
 
 **Error Handling**: `Parse` throws `ArgumentNullException` for null arguments or a null
 environment reader, and `ArgumentException` for an unrecognized argument, an option missing its
-value, or a `--voices-dir` folder that does not exist. An unrecognized argument is reported by its
+value, an option followed by another recognized option instead of a value, or a `--voices-dir` folder that does not exist. An unrecognized argument is reported by its
 1-based position only, never by its text, because a mistyped option may be a secret.
 `CreateDownloaderOptions` surfaces the
 factory's `ArgumentException`.

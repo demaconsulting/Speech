@@ -12,11 +12,13 @@ sections:
         requirements:
           - id: SpeechDemo-LaunchOptions-Parsing
             title: >-
-              The AppLaunchOptions unit shall parse the demo's launch-time arguments onto
-              typed properties, leaving every property unset when no argument is supplied.
+              The AppLaunchOptions unit shall make each supplied launch argument value available
+              as the setting its option names, and shall report every setting as unset when no
+              argument is supplied.
             justification: |
-              The demo's windows and composition root read launch settings from typed
-              properties, so arguments must land on the property that names them.
+              The demo's windows and composition root need each launch setting by name, so
+              arguments must land on the setting that names them and an absent option must be
+              distinguishable from a supplied one.
             tests:
               - Parse_NoArguments_ReturnsAllDefaults
               - Parse_AllOptions_ParsesOntoProperties
@@ -53,7 +55,7 @@ sections:
           - id: SpeechDemo-LaunchOptions-RejectUnrecognized
             title: >-
               The AppLaunchOptions unit shall reject an unrecognized argument with an
-              ArgumentException.
+              explanatory error.
             justification: |
               A mistyped option must fail fast with an explained error rather than being
               ignored, otherwise a user would believe a mirror or folder setting was in effect
@@ -74,17 +76,39 @@ sections:
           - id: SpeechDemo-LaunchOptions-RejectMissingValue
             title: >-
               The AppLaunchOptions unit shall reject a value-taking option supplied without
-              its value with an ArgumentException.
+              its value with an explanatory error naming the option.
             justification: |
               An option left without its value is almost always a truncated command line;
               failing fast tells the user instead of silently running with a default.
             tests:
               - Parse_OptionMissingValue_ThrowsArgumentException
 
+          - id: SpeechDemo-LaunchOptions-RejectOptionAsValue
+            title: >-
+              The AppLaunchOptions unit shall reject a value-taking option whose next argument is
+              another recognized launch option, with an explanatory error naming the first
+              option, instead of using that option as the value.
+            justification: |
+              A command line such as "--mirror-url --help" is a missing value, not a mirror URL
+              called "--help"; consuming the option would silently discard what the user asked
+              for.
+            tests:
+              - Parse_ValueOptionFollowedByRecognizedOption_ThrowsArgumentException
+              - Parse_ValueOptionFollowedByLongFormOption_ThrowsArgumentException
+
+          - id: SpeechDemo-LaunchOptions-HyphenValueAccepted
+            title: >-
+              The AppLaunchOptions unit shall accept a value that begins with a hyphen but is not
+              a recognized launch option.
+            justification: |
+              Paths and secrets can legitimately begin with a hyphen; only a recognized option
+              indicates a missing value.
+            tests:
+              - Parse_ValueOptionFollowedByNonOptionHyphenValue_AcceptsValue
+
           - id: SpeechDemo-LaunchOptions-RejectNullArguments
             title: >-
-              The AppLaunchOptions unit shall reject a null argument list with an
-              ArgumentNullException.
+              The AppLaunchOptions unit shall reject a null argument list as a caller error.
             justification: |
               A missing argument list is a programming error in the caller and must surface at
               the call rather than as a later null reference.
@@ -93,8 +117,8 @@ sections:
 
           - id: SpeechDemo-LaunchOptions-RejectNullEnvironmentReader
             title: >-
-              The AppLaunchOptions unit shall reject a null environment reader with an
-              ArgumentNullException.
+              The AppLaunchOptions unit shall reject a null environment reader as a caller
+              error.
             justification: |
               A missing environment reader is a programming error in the caller and must surface
               at the call rather than as a later null reference while reading a mirror variable.
@@ -112,8 +136,7 @@ sections:
 
           - id: SpeechDemo-LaunchOptions-HelpTextNullWriter
             title: >-
-              The AppLaunchOptions unit shall reject a null help writer with an
-              ArgumentNullException.
+              The AppLaunchOptions unit shall reject a null help writer as a caller error.
             justification: |
               A testable writer keeps the usage text verifiable without capturing the console,
               and a null writer is a caller programming error.
@@ -162,8 +185,8 @@ sections:
 
           - id: SpeechDemo-LaunchOptions-MirrorRejection
             title: >-
-              The AppLaunchOptions unit shall reject an invalid mirror URL with an
-              ArgumentException.
+              The AppLaunchOptions unit shall reject an invalid mirror URL with an explanatory
+              error.
             justification: |
               An invalid URL must be rejected before any window opens so the user gets a clear
               console message.
@@ -172,19 +195,28 @@ sections:
 
           - id: SpeechDemo-LaunchOptions-MirrorHalfCredentialRejection
             title: >-
-              The AppLaunchOptions unit shall reject a mirror user without a password, or a
-              password without a user, with an ArgumentException.
+              The AppLaunchOptions unit shall reject a mirror user supplied without a mirror
+              password with an explanatory error.
             justification: |
               Half of a Basic-authentication pair can never authenticate.
             tests:
               - CreateDownloaderOptions_MirrorUserWithoutPassword_ThrowsArgumentException
-              - CreateDownloaderOptions_MirrorPasswordWithoutUser_ThrowsArgumentException
               - CreateDownloaderOptions_EnvironmentUserWithoutPassword_ThrowsWithoutEchoingUser
+
+          - id: SpeechDemo-LaunchOptions-MirrorPasswordWithoutUserRejection
+            title: >-
+              The AppLaunchOptions unit shall reject a mirror password supplied without a mirror
+              user with an explanatory error.
+            justification: |
+              A password with no user name can never authenticate and would otherwise be
+              silently dropped.
+            tests:
+              - CreateDownloaderOptions_MirrorPasswordWithoutUser_ThrowsArgumentException
 
           - id: SpeechDemo-LaunchOptions-MirrorCredentialWithoutUrlRejection
             title: >-
               The AppLaunchOptions unit shall reject mirror credentials or a bearer token
-              supplied without a mirror URL with an ArgumentException.
+              supplied without a mirror URL with an explanatory error.
             justification: |
               A credential with no mirror to apply to would otherwise be silently dropped.
             tests:
@@ -230,6 +262,7 @@ sections:
             tests:
               - Parse_EmptyMirrorUrlOption_FallsBackToEnvironment
               - Parse_EmptyCredentialOption_DoesNotDisableEnvironmentCredentials
+
           - id: SpeechDemo-LaunchOptions-MirrorUrlEnvironment
             title: >-
               The AppLaunchOptions unit shall take the mirror URL from the DEMASPEECH_MIRROR_URL
@@ -289,7 +322,7 @@ sections:
           - id: SpeechDemo-LaunchOptions-MirrorEnvironmentCredentialRequiresUrl
             title: >-
               The AppLaunchOptions unit shall reject a mirror credential environment variable
-              supplied without a mirror URL with an ArgumentException.
+              supplied without a mirror URL with an explanatory error.
             justification: |
               A credential with no mirror to apply to would otherwise be silently dropped.
             tests:

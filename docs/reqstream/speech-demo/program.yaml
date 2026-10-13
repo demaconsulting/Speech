@@ -49,6 +49,7 @@ sections:
               A misplaced secret must not be copied into console logs.
             tests:
               - Program_Run_UnrecognizedSecretArgument_ErrorDoesNotEchoArgument
+              - Program_Run_PasswordWithoutMirrorUrl_ReportsErrorWithoutEchoingSecret
               - Program_Run_InvalidMirrorUrl_ReportsErrorAndDoesNotStart
 
           - id: SpeechDemo-Program-HelpRequest
@@ -78,10 +79,21 @@ sections:
               - Program_Run_HelpWithInvalidMirror_PrintsUsageAndReturnsZero
           - id: SpeechDemo-Program-StartsApplication
             title: >-
-              The Program unit shall start the application with the parsed launch options when
-              the arguments are valid.
+              The Program unit shall start the application with every accepted launch option
+              when the arguments are valid.
             justification: |
               The parsed options are the only channel by which launch arguments reach the
-              composition root.
+              composition root, so none may be dropped on the way.
             tests:
-              - Program_Run_ValidOptions_StartsWithParsedOptions
+              - Program_Run_ValidOptions_StartsWithAllParsedOptions
+              - Program_Run_BearerTokenMirror_StartsWithParsedToken
+
+          - id: SpeechDemo-Program-OptionValueRequired
+            title: >-
+              The Program unit shall report an error and not start the application when a
+              value-taking launch option is followed by another launch option instead of a value.
+            justification: |
+              Starting with a silently swallowed option would run with a configuration the user
+              did not ask for.
+            tests:
+              - Program_Run_OptionFollowedByOption_ReportsErrorAndDoesNotStart

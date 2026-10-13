@@ -62,7 +62,8 @@ public sealed class AppLaunchOptions
     /// <returns>The parsed options.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="args"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">
-    ///     Thrown when an option requiring a value is the last argument, an unrecognized
+    ///     Thrown when an option requiring a value is the last argument or is followed by another
+    ///     recognized option, an unrecognized
     ///     argument is supplied, or <c>--voices-dir</c> names a directory that does not exist.
     /// </exception>
     public static AppLaunchOptions Parse(string[] args) => Parse(args, Environment.GetEnvironmentVariable);
@@ -90,7 +91,8 @@ public sealed class AppLaunchOptions
     ///     <see langword="null"/>.
     /// </exception>
     /// <exception cref="ArgumentException">
-    ///     Thrown when an option requiring a value is the last argument, an unrecognized
+    ///     Thrown when an option requiring a value is the last argument or is followed by another
+    ///     recognized option, an unrecognized
     ///     argument is supplied, or <c>--voices-dir</c> names a directory that does not exist.
     /// </exception>
     public static AppLaunchOptions Parse(string[] args, Func<string, string?> getEnvironmentVariable)
@@ -191,16 +193,48 @@ public sealed class AppLaunchOptions
     /// <param name="args">The full argument list.</param>
     /// <param name="index">The index of the next unread argument; advanced past the consumed value.</param>
     /// <returns>The option's value.</returns>
-    /// <exception cref="ArgumentException">Thrown when no value follows <paramref name="option"/>.</exception>
+    /// <exception cref="ArgumentException">
+    ///     Thrown when no value follows <paramref name="option"/>, or the next argument is itself a
+    ///     recognized option.
+    /// </exception>
     private static string RequireValue(string option, string[] args, ref int index)
     {
-        if (index >= args.Length)
+        // A following recognized option (for example "--mirror-url --help") means the value was
+        // left out; swallowing it would silently discard that option. Any other token, including
+        // one that merely starts with '-' (a path such as "-models"), is a legitimate value.
+        if (index >= args.Length || IsRecognizedOption(args[index]))
         {
             throw new ArgumentException($"{option} requires a value.", nameof(args));
         }
 
         return args[index++];
     }
+
+    /// <summary>
+    ///     Determines whether <paramref name="token"/> is one of this parser's option tokens,
+    ///     either bare or in the <c>--option=value</c> form.
+    /// </summary>
+    /// <param name="token">The command-line token to test.</param>
+    /// <returns><see langword="true"/> when the token names a recognized option.</returns>
+    private static bool IsRecognizedOption(string token)
+    {
+        foreach (var option in RecognizedOptions)
+        {
+            if (token == option || (option.StartsWith("--", StringComparison.Ordinal) && token.StartsWith(option + "=", StringComparison.Ordinal)))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>The option tokens this parser recognizes, used to detect a missing option value.</summary>
+    private static readonly string[] RecognizedOptions =
+    [
+        "-h", "-?", "--help", "--models-dir", "--voices-dir", "--mirror-url",
+        "--mirror-user", "--mirror-password", "--mirror-bearer-token",
+    ];
 
     /// <summary>Reads an environment variable, treating an empty value as unset.</summary>
     private static string? ReadEnvironment(Func<string, string?> getEnvironmentVariable, string name) =>

@@ -15,14 +15,14 @@ internal static class MirrorOptionsFactory
     /// <summary>
     ///     Builds a <see cref="DownloadMirror"/> from the given raw values.
     /// </summary>
-    /// <param name="url">The mirror's base URL, or <see langword="null"/>/empty for no mirror.</param>
-    /// <param name="user">The HTTP Basic username, or <see langword="null"/>/empty for none.</param>
-    /// <param name="password">The HTTP Basic password, or <see langword="null"/>/empty for none.</param>
-    /// <param name="bearerToken">The bearer token, or <see langword="null"/>/empty for none.</param>
+    /// <param name="url">The mirror's base URL, or <see langword="null"/>/empty/whitespace for no mirror.</param>
+    /// <param name="user">The HTTP Basic username, or <see langword="null"/>/empty/whitespace for none.</param>
+    /// <param name="password">The HTTP Basic password, or <see langword="null"/>/empty/whitespace for none.</param>
+    /// <param name="bearerToken">The bearer token, or <see langword="null"/>/empty/whitespace for none.</param>
     /// <returns>
-    ///     A new <see cref="DownloadMirror"/> when <paramref name="url"/> is non-empty (a
-    ///     whitespace-only value counts as supplied and is rejected as an invalid URL); otherwise
-    ///     <see langword="null"/> (every model downloads from its own declared public URI).
+    ///     A new <see cref="DownloadMirror"/> when <paramref name="url"/> is not blank (null, empty,
+    ///     or whitespace-only); otherwise <see langword="null"/> (every model downloads from its
+    ///     own declared public URI).
     /// </returns>
     /// <exception cref="ArgumentException">
     ///     Thrown when <paramref name="user"/>, <paramref name="password"/>, or
@@ -36,12 +36,13 @@ internal static class MirrorOptionsFactory
     /// </exception>
     public static DownloadMirror? Create(string? url, string? user, string? password, string? bearerToken)
     {
-        // An empty credential field (for example a cleared text box) is the same as no credential.
-        user = string.IsNullOrEmpty(user) ? null : user;
-        password = string.IsNullOrEmpty(password) ? null : password;
-        bearerToken = string.IsNullOrEmpty(bearerToken) ? null : bearerToken;
+        // A blank field (empty or whitespace-only, for example a cleared text box) is the same as
+        // no value for every field.
+        user = string.IsNullOrWhiteSpace(user) ? null : user;
+        password = string.IsNullOrWhiteSpace(password) ? null : password;
+        bearerToken = string.IsNullOrWhiteSpace(bearerToken) ? null : bearerToken;
 
-        if (string.IsNullOrEmpty(url))
+        if (string.IsNullOrWhiteSpace(url))
         {
             if (user is not null || password is not null || bearerToken is not null)
             {

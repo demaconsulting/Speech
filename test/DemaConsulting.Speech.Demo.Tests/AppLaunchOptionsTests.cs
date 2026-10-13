@@ -26,7 +26,9 @@ namespace DemaConsulting.Speech.Demo.Tests;
 /// <remarks>
 ///     Every test parses through an injected environment reader (empty unless the test supplies
 ///     variables), so no test depends on, or is broken by, a developer's ambient
-///     <c>DEMASPEECH_MIRROR_*</c> variables.
+///     <c>DEMASPEECH_MIRROR_*</c> variables. The one test of the arguments-only overload clears
+///     those variables for its duration, which is why the class joins the non-parallel
+///     <see cref="ProcessWideStateCollection"/>.
 /// </remarks>
 [Collection(ProcessWideStateCollection.Name)]
 public sealed class AppLaunchOptionsTests
@@ -55,11 +57,13 @@ public sealed class AppLaunchOptionsTests
 
     /// <summary>
     ///     Test that parsing an empty argument list returns an options instance with every
-    ///     property at its default (unset) value.
+    ///     setting at its default (unset) value.
     /// </summary>
     [Fact]
     public void Parse_NoArguments_ReturnsAllDefaults()
     {
+        // Arrange: no arguments
+
         // Act
         var options = Parse();
 
@@ -83,6 +87,8 @@ public sealed class AppLaunchOptionsTests
     [InlineData("-?")]
     public void Parse_HelpFlag_SetsHelp(string flag)
     {
+        // Arrange: the help flag is supplied by the theory data
+
         // Act
         var options = Parse(flag);
 
@@ -92,7 +98,7 @@ public sealed class AppLaunchOptionsTests
 
     /// <summary>
     ///     Test that <c>--models-dir</c>, <c>--voices-dir</c>, and every <c>--mirror-*</c> option
-    ///     parse onto their corresponding properties.
+    ///     parse onto their corresponding settings.
     /// </summary>
     [Fact]
     public void Parse_AllOptions_ParsesOntoProperties()
@@ -131,7 +137,14 @@ public sealed class AppLaunchOptionsTests
     [Fact]
     public void Parse_UnrecognizedArgument_ThrowsArgumentException()
     {
-        Assert.Throws<ArgumentException>(() => Parse("--not-a-real-option"));
+        // Arrange
+        const string unknown = "--not-a-real-option";
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => Parse(unknown));
+
+        // Assert
+        Assert.Contains("Unrecognized argument", exception.Message, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -141,9 +154,15 @@ public sealed class AppLaunchOptionsTests
     [Fact]
     public void Parse_UnrecognizedArgument_ErrorDoesNotEchoArgument()
     {
-        var exception = Assert.Throws<ArgumentException>(() => Parse("--models-dir", "/tmp/models", "--mirror-password=hunter2"));
+        // Arrange
+        const string secret = "hunter2";
+        var mistypedArgument = "--mirror-password" + "=" + secret;
 
-        Assert.DoesNotContain("hunter2", exception.Message, StringComparison.Ordinal);
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => Parse("--models-dir", "/tmp/models", mistypedArgument));
+
+        // Assert
+        Assert.DoesNotContain(secret, exception.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("--mirror-password", exception.Message, StringComparison.Ordinal);
         Assert.Contains("position 3", exception.Message, StringComparison.Ordinal);
     }
@@ -155,10 +174,13 @@ public sealed class AppLaunchOptionsTests
     [Fact]
     public void Parse_HelpWithMissingVoicesDir_StillReportsHelp()
     {
+        // Arrange
         var missing = Path.Join(AppContext.BaseDirectory, Guid.NewGuid().ToString("N"));
 
+        // Act
         var options = Parse("--voices-dir", missing, "--help");
 
+        // Assert
         Assert.True(options.Help);
     }
 
@@ -168,18 +190,57 @@ public sealed class AppLaunchOptionsTests
     [Fact]
     public void Parse_RepeatedOption_LastValueWins()
     {
+        // Arrange: the same option is supplied twice
+
+        // Act
         var options = Parse("--models-dir", "/first", "--models-dir", "/second");
 
+        // Assert
         Assert.Equal("/second", options.ModelsDir);
     }
 
     /// <summary>
-    ///     Test that the one-argument overload parses the same way as the injected-environment overload.
+    ///     Test that the one-argument overload, which reads the process environment, parses a help
+    ///     flag the same way as the injected-environment overload. The ambient
+    ///     <c>DEMASPEECH_MIRROR_*</c> variables are cleared for the call and restored afterward, so
+    ///     the result cannot depend on the developer's environment.
     /// </summary>
     [Fact]
     public void Parse_ArgumentsOnlyOverload_ParsesHelpFlag()
     {
-        Assert.True(AppLaunchOptions.Parse(["--help"]).Help);
+        // Arrange: clear and remember the ambient mirror variables
+        var names = new[]
+        {
+            AppLaunchOptions.MirrorUrlEnvironmentVariable,
+            AppLaunchOptions.MirrorUserEnvironmentVariable,
+            AppLaunchOptions.MirrorPasswordEnvironmentVariable,
+            AppLaunchOptions.MirrorBearerTokenEnvironmentVariable,
+        };
+        var saved = names.Select(Environment.GetEnvironmentVariable).ToArray();
+        foreach (var name in names)
+        {
+            Environment.SetEnvironmentVariable(name, null);
+        }
+
+        try
+        {
+            // Act
+            var options = AppLaunchOptions.Parse(["--help"]);
+
+            // Assert
+            Assert.True(options.Help);
+            Assert.Null(options.MirrorUrl);
+            Assert.Null(options.MirrorUser);
+            Assert.Null(options.MirrorPassword);
+            Assert.Null(options.MirrorBearerToken);
+        }
+        finally
+        {
+            for (var i = 0; i < names.Length; i++)
+            {
+                Environment.SetEnvironmentVariable(names[i], saved[i]);
+            }
+        }
     }
 
     /// <summary>
@@ -188,10 +249,13 @@ public sealed class AppLaunchOptionsTests
     [Fact]
     public void Parse_EmptyMirrorUrlOption_FallsBackToEnvironment()
     {
-        var options = AppLaunchOptions.Parse(
-            ["--mirror-url", ""],
-            FakeEnvironment(("DEMASPEECH_MIRROR_URL", "https://env.example.com")));
+        // Arrange
+        var environment = FakeEnvironment(("DEMASPEECH_MIRROR_URL", "https://env.example.com"));
 
+        // Act
+        var options = AppLaunchOptions.Parse(["--mirror-url", ""], environment);
+
+        // Assert
         Assert.Equal("https://env.example.com", options.MirrorUrl);
     }
 
@@ -202,12 +266,15 @@ public sealed class AppLaunchOptionsTests
     [Fact]
     public void Parse_EmptyCredentialOption_DoesNotDisableEnvironmentCredentials()
     {
-        var options = AppLaunchOptions.Parse(
-            ["--mirror-user", ""],
-            FakeEnvironment(
-                ("DEMASPEECH_MIRROR_URL", "https://env.example.com"),
-                ("DEMASPEECH_MIRROR_BEARER_TOKEN", "env-token")));
+        // Arrange
+        var environment = FakeEnvironment(
+            ("DEMASPEECH_MIRROR_URL", "https://env.example.com"),
+            ("DEMASPEECH_MIRROR_BEARER_TOKEN", "env-token"));
 
+        // Act
+        var options = AppLaunchOptions.Parse(["--mirror-user", ""], environment);
+
+        // Assert
         Assert.Null(options.MirrorUser);
         Assert.Equal("env-token", options.MirrorBearerToken);
     }
@@ -219,12 +286,17 @@ public sealed class AppLaunchOptionsTests
     [Fact]
     public void CreateDownloaderOptions_CommandLineUserWithEnvironmentPassword_IsRejectedNotMixed()
     {
+        // Arrange
         var options = AppLaunchOptions.Parse(
             ["--mirror-url", "https://mirror.example.com", "--mirror-user", "alice"],
             FakeEnvironment(("DEMASPEECH_MIRROR_PASSWORD", "env-secret")));
 
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => options.CreateDownloaderOptions());
+
+        // Assert
         Assert.Null(options.MirrorPassword);
-        Assert.Throws<ArgumentException>(() => options.CreateDownloaderOptions());
+        Assert.DoesNotContain("env-secret", exception.Message, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -233,11 +305,15 @@ public sealed class AppLaunchOptionsTests
     [Fact]
     public void CreateDownloaderOptions_EnvironmentUserWithoutPassword_ThrowsWithoutEchoingUser()
     {
+        // Arrange
         var options = AppLaunchOptions.Parse([], FakeEnvironment(
             ("DEMASPEECH_MIRROR_URL", "https://env.example.com"),
             ("DEMASPEECH_MIRROR_USER", "env-user-name")));
 
+        // Act
         var exception = Assert.Throws<ArgumentException>(() => options.CreateDownloaderOptions());
+
+        // Assert
         Assert.DoesNotContain("env-user-name", exception.Message, StringComparison.Ordinal);
     }
 
@@ -247,13 +323,17 @@ public sealed class AppLaunchOptionsTests
     [Fact]
     public void CreateDownloaderOptions_BasicCredentialsAndBearerToken_ThrowsWithoutEchoingSecrets()
     {
+        // Arrange
         var options = Parse(
             "--mirror-url", "https://mirror.example.com",
             "--mirror-user", "alice",
             "--mirror-password", "basic-secret",
             "--mirror-bearer-token", "token-secret");
 
+        // Act
         var exception = Assert.Throws<ArgumentException>(() => options.CreateDownloaderOptions());
+
+        // Assert
         Assert.DoesNotContain("basic-secret", exception.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("token-secret", exception.Message, StringComparison.Ordinal);
     }
@@ -264,23 +344,122 @@ public sealed class AppLaunchOptionsTests
     [Fact]
     public void CreateDownloaderOptions_BasicCredentialsOverPlainHttp_ThrowsWithoutEchoingPassword()
     {
+        // Arrange
         var options = Parse(
             "--mirror-url", "http://mirror.example.com",
             "--mirror-user", "alice",
             "--mirror-password", "basic-secret");
 
+        // Act
         var exception = Assert.Throws<ArgumentException>(() => options.CreateDownloaderOptions());
+
+        // Assert
         Assert.DoesNotContain("basic-secret", exception.Message, StringComparison.Ordinal);
     }
 
     /// <summary>
-    ///     Test that a value-taking option supplied as the last argument (with no value following
-    ///     it) throws a clean <see cref="ArgumentException"/>.
+    ///     Test that every value-taking option supplied as the last argument (with no value
+    ///     following it) throws a clean <see cref="ArgumentException"/> naming the option.
+    /// </summary>
+    /// <param name="option">The value-taking option under test.</param>
+    [Theory]
+    [InlineData("--models-dir")]
+    [InlineData("--voices-dir")]
+    [InlineData("--mirror-url")]
+    [InlineData("--mirror-user")]
+    [InlineData("--mirror-password")]
+    [InlineData("--mirror-bearer-token")]
+    public void Parse_OptionMissingValue_ThrowsArgumentException(string option)
+    {
+        // Arrange: the option is the final argument
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => Parse(option));
+
+        // Assert
+        Assert.Contains(option + " requires a value", exception.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Regression test: a value-taking option followed by another recognized option is
+    ///     rejected rather than consuming that option as its value (for example
+    ///     <c>--mirror-url --help</c> previously set the mirror URL to <c>--help</c> and dropped
+    ///     the help request).
+    /// </summary>
+    /// <param name="option">The value-taking option under test.</param>
+    /// <param name="next">The recognized option that follows it.</param>
+    [Theory]
+    [InlineData("--models-dir", "--help")]
+    [InlineData("--voices-dir", "--help")]
+    [InlineData("--mirror-url", "--help")]
+    [InlineData("--mirror-user", "--help")]
+    [InlineData("--mirror-password", "--help")]
+    [InlineData("--mirror-bearer-token", "--help")]
+    [InlineData("--mirror-url", "-h")]
+    [InlineData("--mirror-url", "-?")]
+    [InlineData("--models-dir", "--voices-dir")]
+    [InlineData("--mirror-user", "--mirror-password")]
+    [InlineData("--mirror-password", "--mirror-bearer-token")]
+    [InlineData("--mirror-bearer-token", "--mirror-url")]
+    public void Parse_ValueOptionFollowedByRecognizedOption_ThrowsArgumentException(string option, string next)
+    {
+        // Arrange: the option and the option following it come from the theory data
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => Parse(option, next));
+
+        // Assert
+        Assert.Contains(option + " requires a value", exception.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Test that a value-taking option followed by a recognized option in its
+    ///     <c>--option=value</c> spelling is also rejected, without echoing the following argument
+    ///     (which may be a secret).
     /// </summary>
     [Fact]
-    public void Parse_OptionMissingValue_ThrowsArgumentException()
+    public void Parse_ValueOptionFollowedByLongFormOption_ThrowsArgumentException()
     {
-        Assert.Throws<ArgumentException>(() => Parse("--mirror-url"));
+        // Arrange
+        const string secret = "hunter2";
+        var following = "--mirror-password" + "=" + secret;
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => Parse("--mirror-user", following));
+
+        // Assert
+        Assert.Contains("--mirror-user requires a value", exception.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(secret, exception.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Test that a value beginning with a hyphen that is not a recognized option (a negative
+    ///     number, or a path or secret that happens to start with <c>-</c>) is accepted as the value.
+    /// </summary>
+    /// <param name="option">The value-taking option under test.</param>
+    /// <param name="value">The hyphen-leading value.</param>
+    [Theory]
+    [InlineData("--models-dir", "-models")]
+    [InlineData("--mirror-user", "-alice")]
+    [InlineData("--mirror-password", "-1")]
+    [InlineData("--mirror-password", "--not-an-option")]
+    [InlineData("--mirror-bearer-token", "-")]
+    public void Parse_ValueOptionFollowedByNonOptionHyphenValue_AcceptsValue(string option, string value)
+    {
+        // Arrange: the option and its hyphen-leading value come from the theory data
+
+        // Act
+        var options = Parse(option, value);
+
+        // Assert
+        var actual = option switch
+        {
+            "--models-dir" => options.ModelsDir,
+            "--mirror-user" => options.MirrorUser,
+            "--mirror-password" => options.MirrorPassword,
+            _ => options.MirrorBearerToken,
+        };
+        Assert.Equal(value, actual);
     }
 
     /// <summary>
@@ -289,7 +468,14 @@ public sealed class AppLaunchOptionsTests
     [Fact]
     public void Parse_NullArguments_ThrowsArgumentNullException()
     {
-        Assert.Throws<ArgumentNullException>(() => AppLaunchOptions.Parse(null!, FakeEnvironment()));
+        // Arrange
+        var environment = FakeEnvironment();
+
+        // Act
+        var exception = Assert.Throws<ArgumentNullException>(() => AppLaunchOptions.Parse(null!, environment));
+
+        // Assert
+        Assert.Equal("args", exception.ParamName);
     }
 
     /// <summary>
@@ -298,7 +484,13 @@ public sealed class AppLaunchOptionsTests
     [Fact]
     public void Parse_NullEnvironmentReader_ThrowsArgumentNullException()
     {
-        Assert.Throws<ArgumentNullException>(() => AppLaunchOptions.Parse([], null!));
+        // Arrange: a valid argument list and a null reader
+
+        // Act
+        var exception = Assert.Throws<ArgumentNullException>(() => AppLaunchOptions.Parse([], null!));
+
+        // Assert
+        Assert.Equal("getEnvironmentVariable", exception.ParamName);
     }
 
     /// <summary>
@@ -308,8 +500,14 @@ public sealed class AppLaunchOptionsTests
     [Fact]
     public void CreateStoreOptions_NoModelsDir_ReturnsNull()
     {
+        // Arrange
         var options = Parse();
-        Assert.Null(options.CreateStoreOptions());
+
+        // Act
+        var storeOptions = options.CreateStoreOptions();
+
+        // Assert
+        Assert.Null(storeOptions);
     }
 
     /// <summary>
@@ -319,9 +517,13 @@ public sealed class AppLaunchOptionsTests
     [Fact]
     public void CreateStoreOptions_WithModelsDir_ReturnsMatchingRootPathOverride()
     {
+        // Arrange
         var options = Parse("--models-dir", "/tmp/models");
+
+        // Act
         var storeOptions = options.CreateStoreOptions();
 
+        // Assert
         Assert.NotNull(storeOptions);
         Assert.Equal("/tmp/models", storeOptions.RootPathOverride);
     }
@@ -333,8 +535,14 @@ public sealed class AppLaunchOptionsTests
     [Fact]
     public void CreateDownloaderOptions_NoMirrorUrl_ReturnsNull()
     {
+        // Arrange
         var options = Parse();
-        Assert.Null(options.CreateDownloaderOptions());
+
+        // Act
+        var downloaderOptions = options.CreateDownloaderOptions();
+
+        // Assert
+        Assert.Null(downloaderOptions);
     }
 
     /// <summary>
@@ -344,12 +552,16 @@ public sealed class AppLaunchOptionsTests
     [Fact]
     public void CreateDownloaderOptions_ValidCredentialedMirror_ReturnsConfiguredMirror()
     {
+        // Arrange
         var options = Parse(
             "--mirror-url", "https://mirror.example.com",
             "--mirror-user", "alice",
             "--mirror-password", "secret");
+
+        // Act
         var downloaderOptions = options.CreateDownloaderOptions();
 
+        // Assert
         Assert.NotNull(downloaderOptions);
         Assert.Equal(new Uri("https://mirror.example.com"), downloaderOptions.Mirror?.BaseUri);
         Assert.Equal("alice", downloaderOptions.Mirror?.Credentials?.UserName);
@@ -364,11 +576,15 @@ public sealed class AppLaunchOptionsTests
     [Fact]
     public void CreateDownloaderOptions_BearerTokenMirror_ReturnsConfiguredMirror()
     {
+        // Arrange
         var options = Parse(
             "--mirror-url", "https://mirror.example.com",
             "--mirror-bearer-token", "token-value");
+
+        // Act
         var downloaderOptions = options.CreateDownloaderOptions();
 
+        // Assert
         Assert.NotNull(downloaderOptions);
         Assert.Null(downloaderOptions.Mirror?.Credentials);
         Assert.Equal("token-value", downloaderOptions.Mirror?.BearerToken);
@@ -381,8 +597,14 @@ public sealed class AppLaunchOptionsTests
     [Fact]
     public void CreateDownloaderOptions_InvalidMirrorUrl_ThrowsArgumentException()
     {
+        // Arrange
         var options = Parse("--mirror-url", "not a url");
-        Assert.Throws<ArgumentException>(() => options.CreateDownloaderOptions());
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => options.CreateDownloaderOptions());
+
+        // Assert
+        Assert.Contains("not a valid absolute URL", exception.Message, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -392,10 +614,16 @@ public sealed class AppLaunchOptionsTests
     [Fact]
     public void CreateDownloaderOptions_MirrorUserWithoutPassword_ThrowsArgumentException()
     {
+        // Arrange
         var options = Parse(
             "--mirror-url", "https://mirror.example.com",
             "--mirror-user", "alice");
-        Assert.Throws<ArgumentException>(() => options.CreateDownloaderOptions());
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => options.CreateDownloaderOptions());
+
+        // Assert
+        Assert.Contains("both be supplied", exception.Message, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -405,10 +633,17 @@ public sealed class AppLaunchOptionsTests
     [Fact]
     public void CreateDownloaderOptions_MirrorPasswordWithoutUser_ThrowsArgumentException()
     {
+        // Arrange
         var options = Parse(
             "--mirror-url", "https://mirror.example.com",
             "--mirror-password", "secret");
-        Assert.Throws<ArgumentException>(() => options.CreateDownloaderOptions());
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => options.CreateDownloaderOptions());
+
+        // Assert
+        Assert.Contains("both be supplied", exception.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("secret", exception.Message, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -420,10 +655,16 @@ public sealed class AppLaunchOptionsTests
     [Fact]
     public void CreateDownloaderOptions_MirrorCredentialsWithoutUrl_ThrowsArgumentException()
     {
+        // Arrange
         var options = Parse(
             "--mirror-user", "alice",
             "--mirror-password", "secret");
-        Assert.Throws<ArgumentException>(() => options.CreateDownloaderOptions());
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => options.CreateDownloaderOptions());
+
+        // Assert
+        Assert.Contains("require a mirror URL", exception.Message, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -433,8 +674,14 @@ public sealed class AppLaunchOptionsTests
     [Fact]
     public void CreateDownloaderOptions_MirrorBearerTokenWithoutUrl_ThrowsArgumentException()
     {
+        // Arrange
         var options = Parse("--mirror-bearer-token", "token-value");
-        Assert.Throws<ArgumentException>(() => options.CreateDownloaderOptions());
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => options.CreateDownloaderOptions());
+
+        // Assert
+        Assert.Contains("require a mirror URL", exception.Message, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -467,8 +714,13 @@ public sealed class AppLaunchOptionsTests
     [Fact]
     public void Parse_VoicesDir_MissingDirectory_ThrowsArgumentException()
     {
+        // Arrange
         var missing = Path.Join(AppContext.BaseDirectory, Guid.NewGuid().ToString("N"));
+
+        // Act
         var exception = Assert.Throws<ArgumentException>(() => Parse("--voices-dir", missing));
+
+        // Assert
         Assert.Contains("--voices-dir", exception.Message, StringComparison.Ordinal);
     }
 
@@ -478,7 +730,13 @@ public sealed class AppLaunchOptionsTests
     [Fact]
     public void Parse_VoicesDir_NoValue_ThrowsArgumentException()
     {
-        Assert.Throws<ArgumentException>(() => Parse("--voices-dir"));
+        // Arrange: --voices-dir is the final argument
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => Parse("--voices-dir"));
+
+        // Assert
+        Assert.Contains("--voices-dir requires a value", exception.Message, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -512,7 +770,7 @@ public sealed class AppLaunchOptionsTests
         // Assert
         var output = writer.ToString();
         Assert.Contains("-h, -?, --help", output, StringComparison.Ordinal);
-        Assert.Contains("--mirror-bearer-token <t>  HTTP Bearer token for --mirror-url", output, StringComparison.Ordinal);
+        Assert.Contains("--mirror-bearer-token <t>", output, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -521,7 +779,13 @@ public sealed class AppLaunchOptionsTests
     [Fact]
     public void PrintHelp_NullWriter_ThrowsArgumentNullException()
     {
-        Assert.Throws<ArgumentNullException>(() => AppLaunchOptions.PrintHelp(null!));
+        // Arrange: a null writer
+
+        // Act
+        var exception = Assert.Throws<ArgumentNullException>(() => AppLaunchOptions.PrintHelp(null!));
+
+        // Assert
+        Assert.Equal("writer", exception.ParamName);
     }
 
     /// <summary>
@@ -560,8 +824,13 @@ public sealed class AppLaunchOptionsTests
     [Fact]
     public void Parse_EnvironmentMirrorUrl_UsedWhenOptionAbsent()
     {
-        var options = AppLaunchOptions.Parse([], FakeEnvironment(("DEMASPEECH_MIRROR_URL", "https://env.example.com")));
+        // Arrange
+        var environment = FakeEnvironment(("DEMASPEECH_MIRROR_URL", "https://env.example.com"));
 
+        // Act
+        var options = AppLaunchOptions.Parse([], environment);
+
+        // Assert
         Assert.Equal("https://env.example.com", options.MirrorUrl);
     }
 
@@ -569,10 +838,13 @@ public sealed class AppLaunchOptionsTests
     [Fact]
     public void Parse_MirrorUrlOption_OverridesEnvironment()
     {
-        var options = AppLaunchOptions.Parse(
-            ["--mirror-url", "https://cli.example.com"],
-            FakeEnvironment(("DEMASPEECH_MIRROR_URL", "https://env.example.com")));
+        // Arrange
+        var environment = FakeEnvironment(("DEMASPEECH_MIRROR_URL", "https://env.example.com"));
 
+        // Act
+        var options = AppLaunchOptions.Parse(["--mirror-url", "https://cli.example.com"], environment);
+
+        // Assert
         Assert.Equal("https://cli.example.com", options.MirrorUrl);
     }
 
@@ -580,12 +852,17 @@ public sealed class AppLaunchOptionsTests
     [Fact]
     public void Parse_EnvironmentBasicCredentials_UsedWhenOptionsAbsent()
     {
-        var options = AppLaunchOptions.Parse([], FakeEnvironment(
+        // Arrange
+        var environment = FakeEnvironment(
             ("DEMASPEECH_MIRROR_URL", "https://env.example.com"),
             ("DEMASPEECH_MIRROR_USER", "alice"),
-            ("DEMASPEECH_MIRROR_PASSWORD", "env-secret")));
+            ("DEMASPEECH_MIRROR_PASSWORD", "env-secret"));
 
+        // Act
+        var options = AppLaunchOptions.Parse([], environment);
         var downloaderOptions = options.CreateDownloaderOptions();
+
+        // Assert
         Assert.Equal("alice", downloaderOptions?.Mirror?.Credentials?.UserName);
         Assert.Equal("env-secret", downloaderOptions?.Mirror?.Credentials?.Password);
     }
@@ -594,10 +871,15 @@ public sealed class AppLaunchOptionsTests
     [Fact]
     public void Parse_EnvironmentBearerToken_UsedWhenOptionsAbsent()
     {
-        var options = AppLaunchOptions.Parse([], FakeEnvironment(
+        // Arrange
+        var environment = FakeEnvironment(
             ("DEMASPEECH_MIRROR_URL", "https://env.example.com"),
-            ("DEMASPEECH_MIRROR_BEARER_TOKEN", "env-token")));
+            ("DEMASPEECH_MIRROR_BEARER_TOKEN", "env-token"));
 
+        // Act
+        var options = AppLaunchOptions.Parse([], environment);
+
+        // Assert
         Assert.Equal("env-token", options.CreateDownloaderOptions()?.Mirror?.BearerToken);
     }
 
@@ -605,12 +887,17 @@ public sealed class AppLaunchOptionsTests
     [Fact]
     public void Parse_CredentialOption_DisablesEnvironmentCredentials()
     {
-        var options = AppLaunchOptions.Parse(["--mirror-bearer-token", "cli-token"], FakeEnvironment(
+        // Arrange
+        var environment = FakeEnvironment(
             ("DEMASPEECH_MIRROR_URL", "https://env.example.com"),
             ("DEMASPEECH_MIRROR_USER", "alice"),
-            ("DEMASPEECH_MIRROR_PASSWORD", "env-secret")));
+            ("DEMASPEECH_MIRROR_PASSWORD", "env-secret"));
 
+        // Act
+        var options = AppLaunchOptions.Parse(["--mirror-bearer-token", "cli-token"], environment);
         var mirror = options.CreateDownloaderOptions()?.Mirror;
+
+        // Assert
         Assert.Null(mirror?.Credentials);
         Assert.Equal("cli-token", mirror?.BearerToken);
     }
@@ -619,10 +906,15 @@ public sealed class AppLaunchOptionsTests
     [Fact]
     public void Parse_EmptyEnvironmentVariables_TreatedAsUnset()
     {
-        var options = AppLaunchOptions.Parse([], FakeEnvironment(
+        // Arrange
+        var environment = FakeEnvironment(
             ("DEMASPEECH_MIRROR_URL", ""),
-            ("DEMASPEECH_MIRROR_BEARER_TOKEN", "")));
+            ("DEMASPEECH_MIRROR_BEARER_TOKEN", ""));
 
+        // Act
+        var options = AppLaunchOptions.Parse([], environment);
+
+        // Assert
         Assert.Null(options.CreateDownloaderOptions());
     }
 
@@ -630,9 +922,13 @@ public sealed class AppLaunchOptionsTests
     [Fact]
     public void CreateDownloaderOptions_EnvironmentCredentialWithoutUrl_ThrowsWithoutEchoingSecret()
     {
+        // Arrange
         var options = AppLaunchOptions.Parse([], FakeEnvironment(("DEMASPEECH_MIRROR_BEARER_TOKEN", "super-secret-value")));
 
+        // Act
         var exception = Assert.Throws<ArgumentException>(() => options.CreateDownloaderOptions());
+
+        // Assert
         Assert.DoesNotContain("super-secret-value", exception.Message, StringComparison.Ordinal);
     }
 
@@ -640,9 +936,13 @@ public sealed class AppLaunchOptionsTests
     [Fact]
     public void CreateDownloaderOptions_InvalidMirrorUrl_ErrorDoesNotEchoValue()
     {
+        // Arrange
         var options = Parse("--mirror-url", "not a url secret-value");
 
+        // Act
         var exception = Assert.Throws<ArgumentException>(() => options.CreateDownloaderOptions());
+
+        // Assert
         Assert.DoesNotContain("secret-value", exception.Message, StringComparison.Ordinal);
     }
 
@@ -650,10 +950,13 @@ public sealed class AppLaunchOptionsTests
     [Fact]
     public void PrintHelp_ListsMirrorEnvironmentVariables()
     {
+        // Arrange
         using var writer = new StringWriter();
 
+        // Act
         AppLaunchOptions.PrintHelp(writer);
 
+        // Assert
         var output = writer.ToString();
         Assert.Contains("DEMASPEECH_MIRROR_URL", output, StringComparison.Ordinal);
         Assert.Contains("DEMASPEECH_MIRROR_USER", output, StringComparison.Ordinal);

@@ -12,13 +12,18 @@ Folder-existence checks use scratch directories under the test output folder.
 - **Framework**: xUnit v3 running under the .NET SDK
 - **Execution**: `dotnet test` invoked by `build.ps1` and the CI pipeline
 - **Isolation**: Each test parses its own argument array; voices folder tests create and remove
-  their own scratch directory
+  their own scratch directory; the single test of the arguments-only overload clears and restores
+  the mirror environment variables and, like the console-redirecting test, runs in the non-parallel
+  process-wide-state collection
 
 ### Acceptance Criteria
 
-The unit passes when: defaults and every option parse onto the properties; bad arguments are
-rejected with `ArgumentException`; the store and mirror options reflect the parsed values; and
-`--voices-dir` is accepted only for an existing folder and is listed in the help text.
+The unit passes when: defaults and every option parse onto their settings; bad arguments are
+rejected with `ArgumentException`; every value-taking option followed by another recognized
+option, or by nothing, is rejected as missing its value while a hyphen-leading non-option value is
+accepted; the store and mirror options reflect the parsed values; a mirror user without a password
+and a mirror password without a user are each rejected; and `--voices-dir` is accepted only for an
+existing folder and is listed in the help text.
 
 ### Test Scenarios
 
@@ -38,7 +43,7 @@ rejected with `ArgumentException`; the store and mirror options reflect the pars
 
 **Scenario**: Every option, including `--voices-dir`, is supplied.
 
-**Expected**: Each value lands on its property.
+**Expected**: Each value lands on its setting.
 
 #### Parse_UnrecognizedArgument_ThrowsArgumentException
 
@@ -48,9 +53,31 @@ rejected with `ArgumentException`; the store and mirror options reflect the pars
 
 #### Parse_OptionMissingValue_ThrowsArgumentException
 
-**Scenario**: An option is the last argument with no value.
+**Scenario**: Each of the six value-taking options is the last argument with no value (error
+scenario).
 
-**Expected**: `ArgumentException`.
+**Expected**: `ArgumentException` stating that the option requires a value.
+
+#### Parse_ValueOptionFollowedByRecognizedOption_ThrowsArgumentException
+
+**Scenario**: Each value-taking option is followed by `--help`, and several are followed by `-h`,
+`-?`, or another value-taking option (regression for an option being swallowed as a value, such as
+`--mirror-url --help`).
+
+**Expected**: `ArgumentException` stating that the first option requires a value.
+
+#### Parse_ValueOptionFollowedByLongFormOption_ThrowsArgumentException
+
+**Scenario**: A value-taking option is followed by a recognized option in `--option=value` form.
+
+**Expected**: `ArgumentException` naming the first option and not containing the following value.
+
+#### Parse_ValueOptionFollowedByNonOptionHyphenValue_AcceptsValue
+
+**Scenario**: A value-taking option is followed by `-models`, `-alice`, `-1`, `--not-an-option`, or
+`-` (boundary: hyphen-leading values that are not recognized options).
+
+**Expected**: The value is accepted onto the setting.
 
 #### Parse_NullArguments_ThrowsArgumentNullException
 
@@ -234,9 +261,10 @@ rejected with `ArgumentException`; the store and mirror options reflect the pars
 
 #### Parse_ArgumentsOnlyOverload_ParsesHelpFlag
 
-**Scenario**: The arguments-only `Parse` overload receives `--help`.
+**Scenario**: The arguments-only `Parse` overload receives `--help` while the ambient
+`DEMASPEECH_MIRROR_*` variables are cleared (and restored afterward) by the test.
 
-**Expected**: Help is reported.
+**Expected**: Help is reported and no mirror setting is picked up from the environment.
 
 #### Parse_EmptyMirrorUrlOption_FallsBackToEnvironment
 
