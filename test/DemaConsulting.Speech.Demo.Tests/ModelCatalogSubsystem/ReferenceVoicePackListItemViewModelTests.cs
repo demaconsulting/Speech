@@ -25,6 +25,7 @@ public class ReferenceVoicePackListItemViewModelTests
     [Fact]
     public void ReferenceVoicePackListItemViewModel_Constructor_NullPack_ThrowsArgumentNullException()
     {
+        // Act & Assert
         Assert.Throws<ArgumentNullException>(
             () => new ReferenceVoicePackListItemViewModel(null!, SpeechModelState.NotDownloaded));
     }

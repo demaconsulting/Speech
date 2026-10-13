@@ -67,6 +67,16 @@ public sealed class ModelCatalogService : IModelCatalogService, IDisposable
     /// <summary>The downloader options the current catalog was built with (mirror), reused for pack-driven rebuilds.</summary>
     private SpeechModelDownloaderOptions? _downloaderOptions;
 
+    /// <summary>Whether <see cref="Dispose"/> has already run; later calls do nothing.</summary>
+    private bool _disposed;
+
+    /// <summary>
+    ///     Gets the action used to dispose a catalog this service owns. Defaults to the catalog's own
+    ///     <see cref="SpeechModelCatalog.Dispose"/>; tests replace it to simulate a failing disposal, which the
+    ///     library catalog cannot otherwise be made to do.
+    /// </summary>
+    internal Action<SpeechModelCatalog> CatalogDisposer { get; init; } = catalog => catalog.Dispose();
+
     /// <summary>
     ///     Initializes a new instance of the <see cref="ModelCatalogService"/> class that
     ///     forwards to a fixed catalog and does not support <see cref="ApplyMirror"/>.
@@ -256,7 +266,7 @@ public sealed class ModelCatalogService : IModelCatalogService, IDisposable
         // the previous catalog throws; that failure then propagates after both disposals were attempted.
         try
         {
-            previousCatalog.Dispose();
+            CatalogDisposer(previousCatalog);
         }
         finally
         {
@@ -323,7 +333,7 @@ public sealed class ModelCatalogService : IModelCatalogService, IDisposable
 
         var previousCatalog = _catalog;
         _catalog = _catalogFactory(downloaderOptions);
-        previousCatalog.Dispose();
+        CatalogDisposer(previousCatalog);
     }
 
     /// <summary>
@@ -333,16 +343,29 @@ public sealed class ModelCatalogService : IModelCatalogService, IDisposable
     ///     contract that a shared, externally owned catalog outlives this adapter.
     /// </summary>
     /// <remarks>
-    ///     Not safe to call concurrently with another <see cref="Dispose"/> or
+    ///     Idempotent. The voice library is disposed even when disposing the catalog throws (that exception
+    ///     then propagates). Not safe to call concurrently with another <see cref="Dispose"/> or
     ///     <see cref="ApplyMirror"/> call - see this type's remarks for this instance's
     ///     thread-safety contract.
     /// </remarks>
     public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
         if (_catalogFactory is not null)
         {
-            _catalog.Dispose();
-            _voiceLibrary?.Dispose();
+            try
+            {
+                CatalogDisposer(_catalog);
+            }
+            finally
+            {
+                _voiceLibrary?.Dispose();
+            }
         }
     }
 }

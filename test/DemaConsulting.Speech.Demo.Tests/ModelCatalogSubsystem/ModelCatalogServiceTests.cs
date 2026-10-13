@@ -508,6 +508,49 @@ public class ModelCatalogServiceTests
     }
 
     /// <summary>
+    ///     Regression test: when disposing the catalog throws, the shared voice library is still disposed and the
+    ///     catalog's exception propagates; a second dispose then does nothing.
+    /// </summary>
+    [Fact]
+    public async Task ModelCatalogService_Dispose_CatalogDisposalThrows_StillDisposesVoiceLibrary()
+    {
+        // Arrange
+        var root = IsolatedOptions().RootPathOverride!;
+        var initial = Compose(root, null);
+        var service = new ModelCatalogService(initial, null, o => Compose(root, o))
+        {
+            CatalogDisposer = _ => throw new InvalidOperationException("catalog disposal failed")
+        };
+
+        // Act
+        var exception = Assert.Throws<InvalidOperationException>(() => service.Dispose());
+        service.Dispose();
+
+        // Assert
+        Assert.Equal("catalog disposal failed", exception.Message);
+        await Assert.ThrowsAsync<ObjectDisposedException>(
+            () => initial.VoiceLibrary.InstallPackAsync("voice-zero-1.0", false, null, TestContext.Current.CancellationToken));
+        initial.Catalog.Dispose();
+    }
+
+    /// <summary>
+    ///     Proves that disposing a composed service twice is harmless.
+    /// </summary>
+    [Fact]
+    public void ModelCatalogService_Dispose_CalledTwice_DoesNotThrow()
+    {
+        // Arrange
+        var root = IsolatedOptions().RootPathOverride!;
+        var service = new ModelCatalogService(Compose(root, null), null, o => Compose(root, o));
+        service.Dispose();
+
+        // Act
+        var exception = Record.Exception(service.Dispose);
+
+        // Assert
+        Assert.Null(exception);
+    }
+    /// <summary>
     ///     Proves that a composition must have both a catalog and a voice library.
     /// </summary>
     [Fact]

@@ -359,6 +359,34 @@ public class ModelSettingsViewModelTests
     }
 
     /// <summary>
+    ///     Proves that when the reference-voice list changes, the new voices are offered and the
+    ///     user's earlier selection is retained after restoring.
+    /// </summary>
+    [Fact]
+    public void ModelSettingsViewModel_VoiceChoices_ReferenceVoicesChanged_NewVoicesAvailableAndSelectionRetained()
+    {
+        // Arrange
+        var original = new[] { new ChoiceParameterOption("a", "A"), new ChoiceParameterOption("b", "B") };
+        var extended = new[] { original[0], original[1], new ChoiceParameterOption("c", "C") };
+        var viewModel = new ModelSettingsViewModel(new FakeSpeechModel(
+            "m", "M", SpeechModelRole.Synthesis,
+            [new ChoiceParameter("voice", "Voice", "Reference voice.", original, "a")]));
+        ((ChoiceParameterViewModel)viewModel.Parameters[0]).SelectedOption = original[1];
+        var captured = viewModel.BuildValueBag();
+
+        // Act
+        viewModel.Model = new FakeSpeechModel(
+            "m", "M", SpeechModelRole.Synthesis,
+            [new ChoiceParameter("voice", "Voice", "Reference voice.", extended, "a")]);
+        viewModel.RestoreValues(captured);
+
+        // Assert
+        var choice = (ChoiceParameterViewModel)viewModel.Parameters[0];
+        Assert.Equal(3, choice.Options.Count);
+        Assert.Equal("b", viewModel.BuildValueBag()["voice"]);
+    }
+
+    /// <summary>
     ///     Proves that restoring a voice the rebuilt model no longer offers (or an unknown key)
     ///     leaves that control at its default instead of throwing.
     /// </summary>

@@ -42,10 +42,13 @@ public class ParameterViewModelsTests
     [Fact]
     public void ChoiceParameterViewModel_Constructor_NonFirstDefault_SelectsOptionMatchingDefaultByValue()
     {
-        // Act: build a presenter whose default is the second of three options
+        // Arrange
+        // (the shared parameter is declared above)
+
+        // Act
         var presenter = new ChoiceParameterViewModel(NonFirstDefaultParam);
 
-        // Assert: the default-matching option, not the first, is selected
+        // Assert
         Assert.Equal("tenor", presenter.SelectedOption.Value);
         Assert.Equal("tenor", presenter.BoxedValue);
         Assert.Equal(3, presenter.Options.Count);
@@ -58,10 +61,13 @@ public class ParameterViewModelsTests
     [Fact]
     public void ChoiceParameterViewModel_Constructor_Parameter_PresentsDeclaredOptionsInOrder()
     {
-        // Act: build a presenter for a parameter declaring three options
+        // Arrange
+        // (the shared parameter is declared above)
+
+        // Act
         var presenter = new ChoiceParameterViewModel(NonFirstDefaultParam);
 
-        // Assert: every declared option is presented, in the declared order
+        // Assert
         Assert.Equal(["alto", "tenor", "bass"], presenter.Options.Select(option => option.Value));
     }
 
@@ -71,13 +77,13 @@ public class ParameterViewModelsTests
     [Fact]
     public void NumericParameterViewModel_Value_SetFractionalOnContinuousParameter_KeepsFraction()
     {
-        // Arrange: a presenter over a parameter not declared as integer
+        // Arrange
         var presenter = new NumericParameterViewModel(ContinuousParam);
 
-        // Act: write a fractional value inside the declared range
+        // Act
         presenter.Value = 1.37;
 
-        // Assert: the value is kept exactly, with no whole-number rounding
+        // Assert
         Assert.Equal(1.37, presenter.Value);
         Assert.Equal(1.37, presenter.BoxedValue);
     }
@@ -90,10 +96,13 @@ public class ParameterViewModelsTests
     [Fact]
     public void BooleanParameterViewModel_Constructor_FalseDefault_StartsFalseAndCarriesIdentity()
     {
-        // Act: build a presenter over a parameter defaulting to false
+        // Arrange
+        // (the shared parameter is declared above)
+
+        // Act
         var presenter = new BooleanParameterViewModel(FalseDefaultParam);
 
-        // Assert: default and identity all come from the descriptor
+        // Assert
         Assert.False(presenter.Value);
         Assert.False((bool)presenter.BoxedValue);
         Assert.Equal("denoise", presenter.Id);
@@ -108,16 +117,77 @@ public class ParameterViewModelsTests
     [Fact]
     public void ChoiceParameterViewModel_SelectedOption_Changed_RaisesPropertyChanged()
     {
-        // Arrange: a presenter recording every property-changed notification
+        // Arrange
         var presenter = new ChoiceParameterViewModel(NonFirstDefaultParam);
         var raised = new List<string?>();
         presenter.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
 
-        // Act: select a different option
+        // Act
         presenter.SelectedOption = NonFirstDefaultParam.Options[2];
 
-        // Assert: the change was announced
+        // Assert
         Assert.Contains(nameof(ChoiceParameterViewModel.SelectedOption), raised);
         Assert.Equal("bass", presenter.BoxedValue);
+    }
+
+    /// <summary>
+    ///     Proves that assigning <see langword="null"/> to a choice presenter is ignored, so the previous
+    ///     selection is kept and <see cref="ParameterViewModelBase.BoxedValue"/> is never null.
+    /// </summary>
+    [Fact]
+    public void ChoiceParameterViewModel_SelectedOption_SetNull_KeepsPreviousSelection()
+    {
+        // Arrange
+        var presenter = new ChoiceParameterViewModel(NonFirstDefaultParam);
+
+        // Act
+        presenter.SelectedOption = null!;
+
+        // Assert
+        Assert.Equal("tenor", presenter.SelectedOption.Value);
+        Assert.Equal("tenor", presenter.BoxedValue);
+    }
+
+    /// <summary>
+    ///     Proves that assigning an option the parameter did not declare is ignored, keeping the previous
+    ///     selection, so the presenter never reports a value the model cannot honor.
+    /// </summary>
+    [Fact]
+    public void ChoiceParameterViewModel_SelectedOption_SetNonMember_KeepsPreviousSelection()
+    {
+        // Arrange
+        var presenter = new ChoiceParameterViewModel(NonFirstDefaultParam);
+        var raised = new List<string?>();
+        presenter.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+        // Act
+        presenter.SelectedOption = new ChoiceParameterOption("soprano", "Soprano");
+
+        // Assert
+        Assert.Equal("tenor", presenter.SelectedOption.Value);
+        Assert.Equal("tenor", presenter.BoxedValue);
+        Assert.Empty(raised);
+    }
+
+    /// <summary>
+    ///     Proves that a non-finite write to a numeric presenter is ignored and the previous value is kept.
+    /// </summary>
+    /// <param name="input">The non-finite value written.</param>
+    [Theory]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    [InlineData(double.NegativeInfinity)]
+    public void NumericParameterViewModel_Value_SetNonFinite_KeepsPreviousValue(double input)
+    {
+        // Arrange
+        var presenter = new NumericParameterViewModel(ContinuousParam);
+        presenter.Value = 1.25;
+
+        // Act
+        presenter.Value = input;
+
+        // Assert
+        Assert.Equal(1.25, presenter.Value);
+        Assert.Equal(1.25, presenter.BoxedValue);
     }
 }
