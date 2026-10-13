@@ -27,8 +27,8 @@ sections:
             requirements:
               - id: SpeechDemo-Devices-ServiceRequired
                 title: >-
-                  The DeviceSelectionViewModel shall reject construction without a device
-                  service.
+                  The device selection shall reject being created without a device service, with a
+                  caller error.
                 justification: |
                   Every device the panel shows comes from its device service, so a missing
                   service is a programming error that should fail at composition rather than
@@ -38,8 +38,8 @@ sections:
 
               - id: SpeechDemo-Devices-Enumeration
                 title: >-
-                  The DeviceSelectionViewModel shall list the capture devices and the playback
-                  devices its device service reports as soon as it is constructed.
+                  The device pickers shall list the capture and playback devices the system reports
+                  as soon as the panel is created.
                 justification: |
                   A user cannot choose a device they cannot see, and populating the lists at
                   construction means the window shows real device names the instant it opens.
@@ -48,8 +48,7 @@ sections:
 
               - id: SpeechDemo-Devices-EnumerationCount
                 title: >-
-                  The DeviceSelectionViewModel shall report in each direction's status text how
-                  many devices were found.
+                  Each picker's status text shall report how many devices were found.
                 justification: |
                   A visible count is the quickest way for a developer evaluating the library to
                   confirm the library's probes are seeing the same hardware the operating
@@ -59,8 +58,7 @@ sections:
 
               - id: SpeechDemo-Devices-DefaultSelection
                 title: >-
-                  The DeviceSelectionViewModel shall preselect the first reported device in
-                  each direction.
+                  The device pickers shall preselect the first reported device in each direction.
                 justification: |
                   A demo should be usable without configuration; requiring a user to pick a
                   device before anything works adds a step that proves nothing about the
@@ -70,8 +68,8 @@ sections:
 
               - id: SpeechDemo-Devices-ConstructionWithoutRefresh
                 title: >-
-                  The DeviceSelectionViewModel shall populate its lists at construction without
-                  asking the library to re-scan its device table.
+                  The device pickers shall be populated when the panel is created without forcing a
+                  re-scan of the system's devices.
                 justification: |
                   A re-scan is refused while any device created from the shared environment is
                   streaming. Reading the already-initialized table instead keeps a newly
@@ -81,8 +79,8 @@ sections:
 
               - id: SpeechDemo-Devices-EmptyStateExplanation
                 title: >-
-                  The DeviceSelectionViewModel shall report an explanatory message naming the
-                  possible cause when a direction reports no devices at start-up.
+                  When a direction has no devices at start-up, its picker status shall show an
+                  explanatory message naming the possible cause.
                 justification: |
                   "No devices" and "the audio backend failed to initialize" look identical to a
                   user. Naming the likely cause turns a silent empty list into actionable
@@ -92,8 +90,8 @@ sections:
 
               - id: SpeechDemo-Devices-EmptyStateAfterRefresh
                 title: >-
-                  The DeviceSelectionViewModel shall clear the chosen device when a refresh
-                  removes the last device in a direction.
+                  When a refresh finds the last device in a direction gone, that picker shall have no
+                  chosen device.
                 justification: |
                   A device unplugged while the demo runs must not leave a stale selection on
                   screen.
@@ -102,8 +100,8 @@ sections:
 
               - id: SpeechDemo-Devices-EmptyStateAfterRefreshExplained
                 title: >-
-                  The DeviceSelectionViewModel shall report the explanatory empty-state message
-                  when a refresh removes the last device in a direction.
+                  When a refresh finds the last device in a direction gone, that picker status shall
+                  show the explanatory empty-state message.
                 justification: |
                   The panel returns to the same explained empty state it shows at start-up.
                 tests:
@@ -111,8 +109,7 @@ sections:
 
               - id: SpeechDemo-Devices-NameBasedSelection
                 title: >-
-                  The DeviceSelectionViewModel shall express the chosen capture device as the
-                  library's name-based device selection value.
+                  The chosen capture device shall be identified to the library by its name alone.
                 justification: |
                   The library identifies devices by name alone so that a saved preference
                   survives reboots and hot-plug events. The demo must therefore hand the
@@ -122,18 +119,18 @@ sections:
 
               - id: SpeechDemo-Devices-SelectionNotification
                 title: >-
-                  The DeviceSelectionViewModel shall raise a change notification for the derived
-                  selection value whenever the chosen device in that direction changes.
+                  Whenever the chosen capture or playback device changes, the selection derived from
+                  it shall be announced as changed so bound consumers never see a stale selection.
                 justification: |
                   A bound consumer that reads the derived selection must never see a value that
                   is stale relative to the chosen device.
                 tests:
                   - DeviceSelectionViewModel_SelectedPlaybackDevice_Changed_NotifiesPlaybackSelection
+                  - DeviceSelectionViewModel_SelectedCaptureDevice_Changed_NotifiesCaptureSelection
 
               - id: SpeechDemo-Devices-EmptySelectionFallback
                 title: >-
-                  The DeviceSelectionViewModel shall report the library's system-default
-                  selection for a direction with no chosen device.
+                  A direction with no chosen device shall report the system-default selection.
                 justification: |
                   Handing the library a null or invented selection would force every caller to
                   special-case the no-device machine; the library already defines a
@@ -143,8 +140,8 @@ sections:
 
               - id: SpeechDemo-Devices-Refresh
                 title: >-
-                  The DeviceSelectionViewModel shall re-enumerate both device lists when its
-                  refresh command is executed.
+                  When the user refreshes, both pickers shall list the devices the system currently
+                  reports.
                 justification: |
                   Devices are hot-plugged while an application is running, so a user who
                   connects a headset after the window opened must be able to see it without
@@ -165,8 +162,8 @@ sections:
 
               - id: SpeechDemo-Devices-RefreshDelegation
                 title: >-
-                  The DeviceSelectionViewModel shall ask its device service to re-scan the
-                  library's device table before it re-enumerates either list on a refresh.
+                  A refresh shall make the system re-scan its devices before the pickers are
+                  rebuilt, so newly attached or removed devices show up.
                 justification: |
                   Re-enumerating without first asking the library to re-scan hardware would
                   never reveal a newly attached or removed device between refreshes, defeating
@@ -176,9 +173,8 @@ sections:
 
               - id: SpeechDemo-Devices-RefreshKeepsSelection
                 title: >-
-                  The DeviceSelectionViewModel shall keep the chosen device in each direction
-                  across a refresh when a device with the same name is still reported, even if
-                  its reported format changed.
+                  A refresh shall keep the chosen device in each direction when a device with the
+                  same name is still reported, even if its reported format changed.
                 justification: |
                   Discarding a still-valid selection on every refresh would be visibly wrong.
                   Name is the library's only stable device identity, so a device re-reported
@@ -189,8 +185,8 @@ sections:
 
               - id: SpeechDemo-Devices-RefreshSelectionFallback
                 title: >-
-                  The DeviceSelectionViewModel shall select the first remaining device in a
-                  direction when a refresh no longer reports the chosen device.
+                  When a refresh no longer reports the chosen device, that picker shall choose the
+                  first remaining device.
                 justification: |
                   Keeping a selection the machine no longer reports would hand the library a
                   stale device name, and leaving the picker blank while devices exist would
@@ -201,8 +197,8 @@ sections:
 
               - id: SpeechDemo-Devices-RefreshAvailabilityNotification
                 title: >-
-                  The DeviceSelectionViewModel shall raise change notifications for the
-                  capture and playback availability flags when a refresh changes the lists.
+                  When a refresh changes which devices exist, the pickers shall announce a change
+                  in capture and playback availability.
                 justification: |
                   The picker enables or disables itself from these flags, so a refresh that
                   gains or loses devices must announce them.
@@ -211,9 +207,8 @@ sections:
 
               - id: SpeechDemo-Devices-RefreshInUseHandling
                 title: >-
-                  The DeviceSelectionViewModel shall show the message of an
-                  AudioDeviceInUseException raised by a refresh as both status texts without
-                  raising an error.
+                  When a refresh is refused because a device is in use, both status messages shall
+                  show the reason, without an error reaching the user.
                 justification: |
                   A refresh refused because a device is actively streaming is an ordinary,
                   recoverable condition, not a crash; explaining why is the honest, crash-free
@@ -224,8 +219,8 @@ sections:
 
               - id: SpeechDemo-Devices-RefreshInUseKeepsState
                 title: >-
-                  The DeviceSelectionViewModel shall leave both device lists and both
-                  selections unchanged when a refresh raises an AudioDeviceInUseException.
+                  When a refresh is refused because a device is in use, both device lists and both
+                  chosen devices shall be left unchanged.
                 justification: |
                   Re-enumerating anyway could not have found anything new (the library refused
                   to re-scan), so leaving both lists and selections untouched is the honest
@@ -236,8 +231,8 @@ sections:
 
               - id: SpeechDemo-Devices-RefreshGeneralFaultHandling
                 title: >-
-                  The DeviceSelectionViewModel shall show the message of any other exception
-                  raised by a refresh as both status texts without raising an error.
+                  When a refresh fails for any other reason, both status messages shall show the
+                  reason, without an error reaching the user.
                 justification: |
                   The library's refresh can also propagate a general exception - for example, a
                   native Terminate() failure - that is not AudioDeviceInUseException (see the
@@ -250,8 +245,8 @@ sections:
 
               - id: SpeechDemo-Devices-RefreshGeneralFaultKeepsState
                 title: >-
-                  The DeviceSelectionViewModel shall leave both device lists and both
-                  selections unchanged when a refresh raises any other exception.
+                  When a refresh fails for any other reason, both device lists and both chosen
+                  devices shall be left unchanged.
                 justification: |
                   A faulted refresh found nothing trustworthy, so keeping the previous lists
                   and selections is safer than clearing them.
@@ -260,9 +255,8 @@ sections:
 
               - id: SpeechDemo-Devices-RefreshRecovery
                 title: >-
-                  The DeviceSelectionViewModel shall re-enumerate and replace a refusal message
-                  with the normal count status when a refresh succeeds after an earlier refresh
-                  failed.
+                  When a refresh succeeds after an earlier refresh failed, the pickers shall list the
+                  current devices and the failure message shall be replaced by the normal count.
                 justification: |
                   A refusal is transient: once the blocking stream stops, the next refresh must
                   restore the picker rather than leave the stale refusal message on screen.
@@ -271,9 +265,8 @@ sections:
 
               - id: SpeechDemo-Devices-RefreshPreHooks
                 title: >-
-                  The DeviceSelectionViewModel shall invoke and await every registered
-                  pre-refresh hook to completion before asking the device service to re-scan
-                  the library's device table.
+                  Before a refresh re-scans devices, the panel shall let every registered panel
+                  finish stopping its active use of audio devices.
                 justification: |
                   Both the recognition and synthesis panels share this device-selection state
                   over the same underlying device factory; clicking "Refresh devices" while
@@ -293,8 +286,8 @@ sections:
 
               - id: SpeechDemo-Devices-PreRefreshHookOrder
                 title: >-
-                  The DeviceSelectionViewModel shall invoke registered pre-refresh hooks one
-                  after another in registration order.
+                  Panels registered to stop audio use before a refresh shall be asked one after
+                  another in registration order.
                 justification: |
                   Hooks may depend on each other's effects, so a refresh must run them in a
                   predictable order rather than concurrently or in arbitrary order.
@@ -303,8 +296,8 @@ sections:
 
               - id: SpeechDemo-Devices-PreRefreshHookRemoval
                 title: >-
-                  The DeviceSelectionViewModel shall not invoke a pre-refresh hook that has been
-                  unregistered.
+                  A panel that has withdrawn its registration shall not be asked to stop audio use
+                  on a later refresh.
                 justification: |
                   A panel that is disposed or no longer streaming must be able to withdraw its
                   hook so a later refresh does not call into it.
@@ -313,8 +306,8 @@ sections:
 
               - id: SpeechDemo-Devices-PreRefreshHookUnregisterNeverRegistered
                 title: >-
-                  The DeviceSelectionViewModel shall treat unregistering a pre-refresh hook that
-                  was never registered as a harmless no-op.
+                  Withdrawing a registration that was never made shall have no effect and shall not
+                  break a later refresh.
                 justification: |
                   A tolerant unregister keeps teardown paths from having to track whether
                   registration happened.
@@ -323,8 +316,8 @@ sections:
 
               - id: SpeechDemo-Devices-PreRefreshHookRequired
                 title: >-
-                  The DeviceSelectionViewModel shall reject a missing hook when registering a
-                  pre-refresh hook.
+                  Registering a missing stop-before-refresh step shall be rejected with a caller
+                  error.
                 justification: |
                   A null hook would fault in the middle of a later refresh; rejecting it at
                   registration surfaces the programming error at its source.
@@ -333,8 +326,8 @@ sections:
 
               - id: SpeechDemo-Devices-PreRefreshHookUnregisterRequired
                 title: >-
-                  The DeviceSelectionViewModel shall reject a missing hook when unregistering a
-                  pre-refresh hook.
+                  Withdrawing a missing stop-before-refresh step shall be rejected with a caller
+                  error.
                 justification: |
                   A null argument to unregister is a programming error in the caller's teardown
                   path; rejecting it surfaces the error rather than silently doing nothing.

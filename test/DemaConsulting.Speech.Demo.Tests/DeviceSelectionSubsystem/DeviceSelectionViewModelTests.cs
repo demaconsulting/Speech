@@ -224,17 +224,17 @@ public class DeviceSelectionViewModelTests
     ///     as the method, so the button in the UI is genuinely wired to the behavior under test.
     /// </summary>
     [Fact]
-    public void DeviceSelectionViewModel_RefreshCommand_Executed_ReEnumeratesDevices()
+    public async Task DeviceSelectionViewModel_RefreshCommand_Executed_ReEnumeratesDevices()
     {
         // Arrange: a service reporting one device, then two
         var service = SequencedService([MicA], [MicA, MicB], [Speaker], [Speaker]);
         var viewModel = new DeviceSelectionViewModel(service);
 
-        // Act: invoke the command the view's button binds to
-        viewModel.RefreshCommand.Execute(null);
+        // Act: invoke the command the view's button binds to and wait for it to finish
+        await viewModel.RefreshCommand.ExecuteAsync(null);
 
-        // Assert: the panel re-enumerated through the seam
-        Assert.Equal(2, viewModel.CaptureDevices.Count);
+        // Assert: the panel lists the changed device set
+        Assert.Equal([MicA, MicB], viewModel.CaptureDevices);
     }
 
     /// <summary>
@@ -294,6 +294,25 @@ public class DeviceSelectionViewModelTests
 
         // Assert: the derived selection was announced as changed
         Assert.Contains(nameof(DeviceSelectionViewModel.PlaybackSelection), changed);
+    }
+
+    /// <summary>
+    ///     Proves that changing the chosen capture device raises a change notification for the
+    ///     derived library selection, so a bound view never shows a stale selection.
+    /// </summary>
+    [Fact]
+    public void DeviceSelectionViewModel_SelectedCaptureDevice_Changed_NotifiesCaptureSelection()
+    {
+        // Arrange: a panel with two capture devices and a recorded notification list
+        var viewModel = new DeviceSelectionViewModel(Service([MicA, MicB], [Speaker]));
+        var changed = new List<string?>();
+        viewModel.PropertyChanged += (_, args) => changed.Add(args.PropertyName);
+
+        // Act: choose the other capture device
+        viewModel.SelectedCaptureDevice = MicB;
+
+        // Assert: the derived selection was announced as changed
+        Assert.Contains(nameof(DeviceSelectionViewModel.CaptureSelection), changed);
     }
 
     /// <summary>

@@ -21,8 +21,8 @@ sections:
         requirements:
           - id: SpeechDemo-DeviceSelection-PanelListsLibraryDevices
             title: >-
-              The DeviceSelectionSubsystem shall list in its pickers exactly the capture and
-              playback devices the library's probes report.
+              The device pickers shall list exactly the capture and playback devices the system
+              reports.
             justification: |
               The demo exists to show the library's device enumeration working end to end. The
               property only holds when the view model and the adapter over the library factory
@@ -41,8 +41,7 @@ sections:
 
           - id: SpeechDemo-DeviceSelection-PanelPreselectsFirstDevice
             title: >-
-              The DeviceSelectionSubsystem shall preselect the first device the library's
-              probes report in each direction.
+              The device pickers shall preselect the first reported device in each direction.
             justification: |
               A usable demo needs no configuration step. The selection handed back to the
               library must name a device the library's own probes reported, which only holds
@@ -57,38 +56,47 @@ sections:
 
           - id: SpeechDemo-DeviceSelection-EmptyPanelExplained
             title: >-
-              The DeviceSelectionSubsystem shall show empty pickers with an explanatory message
-              and the library's system-default selections when the library's probes report no
-              devices.
+              When the system reports no audio devices, the device pickers shall be empty and
+              shall show an explanatory message.
             justification: |
-              A machine with no audio hardware is an ordinary state. The explanation and the
-              usable default selection must survive the full path from the library's probes to
-              the picker, not only the view model in isolation.
+              A machine with no audio hardware is an ordinary state. The explanation must
+              survive the full path from the library's probes to the picker, not only the view
+              model in isolation.
             children:
               - SpeechDemo-Devices-EmptyStateExplanation
               - SpeechDemo-Devices-EmptyStateAfterRefreshExplained
+            tests:
+              - DeviceSelectionSubsystem_Composed_ProbesReportNothing_PickersAreEmptyAndExplained
+
+          - id: SpeechDemo-DeviceSelection-EmptyPanelDefaultSelections
+            title: >-
+              When the system reports no audio devices, both device selections shall be the
+              system default.
+            justification: |
+              A caller must never have to special-case a machine with no devices; the default
+              selection remains usable.
+            children:
               - SpeechDemo-Devices-EmptySelectionFallback
             tests:
-              - DeviceSelectionSubsystem_Composed_ProbesReportNothing_PickersExplainAndDefault
+              - DeviceSelectionSubsystem_Composed_ProbesReportNothing_SelectionsFallBackToSystemDefault
 
           - id: SpeechDemo-DeviceSelection-RefreshReachesLibrary
             title: >-
-              The DeviceSelectionSubsystem shall make a refresh of the pickers force the
-              library to re-scan its device table.
+              After a refresh, the device pickers shall show the devices the system currently
+              reports, including devices plugged in or removed since the previous listing.
             justification: |
-              A refresh that only re-reads cached lists would never reveal a hot-plugged
-              device. Verifying it against the library's own environment proves the refresh
-              action reaches the library rather than stopping at the demo's seam.
+              A refresh that only re-read stale lists would never reveal a hot-plugged device.
             children:
               - SpeechDemo-Devices-ConstructionWithoutRefresh
               - SpeechDemo-Devices-ServiceRefreshDelegation
             tests:
+              - DeviceSelectionSubsystem_Composed_Refresh_DeviceSetChanged_PickersShowCurrentDevices
               - DeviceSelectionSubsystem_Composed_Refresh_ReScansLibrary
 
           - id: SpeechDemo-DeviceSelection-RefreshKeepsSelection
             title: >-
-              The DeviceSelectionSubsystem shall keep the chosen device across a refresh when
-              the library still reports it.
+              The device pickers shall keep the chosen device across a refresh when the system
+              still reports it.
             justification: |
               Discarding a still-valid choice on every refresh would be visibly wrong, and the
               property must hold against the library's own re-scan, not only a substitute
@@ -101,19 +109,25 @@ sections:
 
           - id: SpeechDemo-DeviceSelection-RefreshFailureKeepsState
             title: >-
-              The DeviceSelectionSubsystem shall, when the library cannot complete a refresh,
-              leave the device lists and selections untouched.
+              When a refresh cannot be completed, the device lists shall be left untouched.
             justification: |
               A refresh can be refused (for example while a device is in use) or fail in the
-              native layer; the panel must stay usable with its previous lists and choices,
-              not clear a working choice.
+              native layer; the panel must stay usable with its previous lists.
             tests:
-              - DeviceSelectionSubsystem_Composed_RefreshFails_KeepsListsAndSelections
+              - DeviceSelectionSubsystem_Composed_RefreshFails_KeepsLists
+
+          - id: SpeechDemo-DeviceSelection-RefreshFailureKeepsSelections
+            title: >-
+              When a refresh cannot be completed, the chosen devices shall be left untouched.
+            justification: |
+              A failed refresh must not clear a working choice.
+            tests:
+              - DeviceSelectionSubsystem_Composed_RefreshFails_KeepsSelections
 
           - id: SpeechDemo-DeviceSelection-RefreshFailureExplained
             title: >-
-              The DeviceSelectionSubsystem shall explain, in both status texts, why a refresh
-              the library could not complete changed nothing.
+              When a refresh cannot be completed, both picker status messages shall explain why
+              nothing changed.
             justification: |
               A silent failure would leave the user believing the refresh worked.
             tests:
@@ -121,8 +135,8 @@ sections:
 
           - id: SpeechDemo-Devices-HonestEmptyState-DeviceSelectionSubsystem
             title: >-
-              The DeviceSelectionSubsystem shall explain, rather than silently show nothing,
-              when the machine reports no audio devices.
+              When the machine reports no audio devices, the device panel shall explain this
+              rather than silently show nothing.
             justification: |
               Subsystem-level grouping of the DeviceSelectionSubsystem unit requirements that
               implement SpeechDemo-Devices-HonestEmptyState.

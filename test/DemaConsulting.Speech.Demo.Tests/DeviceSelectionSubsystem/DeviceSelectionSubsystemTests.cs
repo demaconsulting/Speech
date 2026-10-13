@@ -63,11 +63,10 @@ public class DeviceSelectionSubsystemTests
     }
 
     /// <summary>
-    ///     Proves that probes reporting nothing produce empty pickers with an explanation and the
-    ///     system-default selections.
+    ///     Proves that probes reporting nothing produce empty pickers with an explanation.
     /// </summary>
     [Fact]
-    public void DeviceSelectionSubsystem_Composed_ProbesReportNothing_PickersExplainAndDefault()
+    public void DeviceSelectionSubsystem_Composed_ProbesReportNothing_PickersAreEmptyAndExplained()
     {
         // Arrange: a factory whose probes report no devices
         var captureProbe = Substitute.For<IAudioCaptureDeviceProbe>();
@@ -79,11 +78,30 @@ public class DeviceSelectionSubsystemTests
         // Act: compose the panel over the real adapter
         var viewModel = new DeviceSelectionViewModel(service);
 
-        // Assert: both pickers are empty, explained, and fall back to the system default
+        // Assert: both pickers are empty and explained
         Assert.False(viewModel.HasCaptureDevices);
         Assert.False(viewModel.HasPlaybackDevices);
         Assert.Contains("audio backend may be unavailable", viewModel.CaptureStatus, StringComparison.Ordinal);
         Assert.Contains("audio backend may be unavailable", viewModel.PlaybackStatus, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Proves that probes reporting nothing leave both selections at the system default.
+    /// </summary>
+    [Fact]
+    public void DeviceSelectionSubsystem_Composed_ProbesReportNothing_SelectionsFallBackToSystemDefault()
+    {
+        // Arrange: a factory whose probes report no devices
+        var captureProbe = Substitute.For<IAudioCaptureDeviceProbe>();
+        captureProbe.Enumerate().Returns([]);
+        var playbackProbe = Substitute.For<IAudioPlaybackDeviceProbe>();
+        playbackProbe.Enumerate().Returns([]);
+        var service = new AudioDeviceService(new AudioDeviceFactory(captureProbe, playbackProbe, null));
+
+        // Act: compose the panel over the real adapter
+        var viewModel = new DeviceSelectionViewModel(service);
+
+        // Assert: both selections are the system default
         Assert.Equal(AudioDeviceSelection.SystemDefault, viewModel.CaptureSelection);
         Assert.Equal(AudioDeviceSelection.SystemDefault, viewModel.PlaybackSelection);
     }
@@ -118,23 +136,71 @@ public class DeviceSelectionSubsystemTests
     }
 
     /// <summary>
-    ///     Proves that a refresh the library cannot complete leaves the composed panel's lists and
-    ///     selections untouched.
+    ///     Proves that a refresh shows the current device set in the pickers: devices plugged in
+    ///     after the panel was built appear, and removed devices disappear.
     /// </summary>
     [Fact]
-    public async Task DeviceSelectionSubsystem_Composed_RefreshFails_KeepsListsAndSelections()
+    public async Task DeviceSelectionSubsystem_Composed_Refresh_DeviceSetChanged_PickersShowCurrentDevices()
+    {
+        // Arrange: probes that report one set of devices at start-up and a changed set afterward
+        var micA = new AudioDeviceDescription("Mic A", AudioDeviceDirection.Capture, 1, 16000);
+        var micB = new AudioDeviceDescription("Mic B", AudioDeviceDirection.Capture, 2, 48000);
+        var speaker = new AudioDeviceDescription("Speaker", AudioDeviceDirection.Playback, 2, 48000);
+        var headset = new AudioDeviceDescription("Headset", AudioDeviceDirection.Playback, 2, 48000);
+        var captureProbe = Substitute.For<IAudioCaptureDeviceProbe>();
+        IReadOnlyList<AudioDeviceDescription> captureBefore = [micA];
+        IReadOnlyList<AudioDeviceDescription> captureAfter = [micA, micB];
+        captureProbe.Enumerate().Returns(captureBefore, captureAfter);
+        var playbackProbe = Substitute.For<IAudioPlaybackDeviceProbe>();
+        IReadOnlyList<AudioDeviceDescription> playbackBefore = [speaker];
+        IReadOnlyList<AudioDeviceDescription> playbackAfter = [headset];
+        playbackProbe.Enumerate().Returns(playbackBefore, playbackAfter);
+        var environment = new PortAudioEnvironment(new FakePortAudioApi(), OSPlatform.Windows);
+        var service = new AudioDeviceService(new AudioDeviceFactory(captureProbe, playbackProbe, null, environment));
+        var viewModel = new DeviceSelectionViewModel(service);
+
+        // Act: refresh through the panel
+        await viewModel.RefreshAsync();
+
+        // Assert: the pickers show the changed device set
+        Assert.Equal([micA, micB], viewModel.CaptureDevices);
+        Assert.Equal([headset], viewModel.PlaybackDevices);
+    }
+
+    /// <summary>
+    ///     Proves that a refresh the library cannot complete leaves the composed panel's lists
+    ///     untouched.
+    /// </summary>
+    [Fact]
+    public async Task DeviceSelectionSubsystem_Composed_RefreshFails_KeepsLists()
     {
         // Arrange: a panel over an environment whose native teardown fails
         var (viewModel, micA, speaker) = ComposeWithFailingRefresh();
+
+        // Act: refresh through the panel
+        await viewModel.RefreshAsync();
+
+        // Assert: nothing was re-enumerated, in either direction
+        Assert.Equal([micA], viewModel.CaptureDevices);
+        Assert.Equal([speaker], viewModel.PlaybackDevices);
+    }
+
+    /// <summary>
+    ///     Proves that a refresh the library cannot complete leaves the composed panel's
+    ///     selections untouched.
+    /// </summary>
+    [Fact]
+    public async Task DeviceSelectionSubsystem_Composed_RefreshFails_KeepsSelections()
+    {
+        // Arrange: a panel over an environment whose native teardown fails
+        var (viewModel, _, _) = ComposeWithFailingRefresh();
         var captureSelectionBefore = viewModel.CaptureSelection;
         var playbackSelectionBefore = viewModel.PlaybackSelection;
 
         // Act: refresh through the panel
         await viewModel.RefreshAsync();
 
-        // Assert: nothing was re-enumerated or reselected, in either direction
-        Assert.Equal([micA], viewModel.CaptureDevices);
-        Assert.Equal([speaker], viewModel.PlaybackDevices);
+        // Assert: nothing was reselected, in either direction
         Assert.Equal(captureSelectionBefore, viewModel.CaptureSelection);
         Assert.Equal(playbackSelectionBefore, viewModel.PlaybackSelection);
     }

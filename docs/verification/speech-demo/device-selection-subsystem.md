@@ -27,10 +27,10 @@ verification activity on hardware-equipped machines.
 
 A DeviceSelectionSubsystem test run passes when: the pickers list exactly what the library's
 probes report and preselect the first device of each direction; probes that report nothing yield
-empty pickers with an explanatory message and the library's system-default selections; and a
-refresh through the panel makes the library re-scan its device table while a still-reported
-selection is kept, and a refresh the library cannot complete leaves the lists and selections
-untouched with the failure explained.
+empty pickers with an explanatory message and system-default selections; a refresh through the
+panel shows the changed device set (and makes the library re-scan its device table) while a
+still-reported selection is kept; and a refresh the library cannot complete leaves the lists and
+selections untouched with the failure explained.
 
 ### Test Scenarios
 
@@ -49,21 +49,34 @@ two capture devices and one playback device.
 **Expected**: The first device of each direction is preselected, and the derived selections are the
 library's name-based values for them.
 
-#### DeviceSelectionSubsystem_Composed_ProbesReportNothing_PickersExplainAndDefault
+#### DeviceSelectionSubsystem_Composed_ProbesReportNothing_PickersAreEmptyAndExplained
 
 **Scenario**: The view model is composed over the real adapter and a factory whose probes report
-nothing.
+nothing (boundary: zero devices).
 
-**Expected**: Both pickers are empty with an explanatory status and both selections are the
-library's system default.
+**Expected**: Both pickers are empty with an explanatory status.
+
+#### DeviceSelectionSubsystem_Composed_ProbesReportNothing_SelectionsFallBackToSystemDefault
+
+**Scenario**: The same composition with probes reporting nothing.
+
+**Expected**: Both selections are the system default.
+
+#### DeviceSelectionSubsystem_Composed_Refresh_DeviceSetChanged_PickersShowCurrentDevices
+
+**Scenario**: The composed panel is refreshed after the probes start reporting a changed device set
+(a capture device added, the playback device replaced).
+
+**Expected**: The pickers list the changed device set.
 
 #### DeviceSelectionSubsystem_Composed_Refresh_ReScansLibrary
 
 **Scenario**: The composed panel is refreshed over a factory built on a fake PortAudio
 environment.
 
-**Expected**: The environment is terminated once and initialized twice (the initial initialization
-plus the re-scan), and the capture and playback lists are unchanged.
+**Expected**: Supplementary to the changed-device-set scenario: the environment is terminated once and
+initialized twice (the initial initialization plus the re-scan), and the capture and playback lists
+are unchanged.
 
 #### DeviceSelectionSubsystem_Composed_Refresh_DeviceStillReported_KeepsSelection
 
@@ -72,12 +85,18 @@ capture devices, with the second capture device selected.
 
 **Expected**: The second capture device stays selected.
 
-#### DeviceSelectionSubsystem_Composed_RefreshFails_KeepsListsAndSelections
+#### DeviceSelectionSubsystem_Composed_RefreshFails_KeepsLists
 
 **Scenario**: The composed panel is refreshed over a fake PortAudio environment whose native
-teardown throws.
+teardown throws (error scenario).
 
-**Expected**: The capture and playback lists and selections are unchanged.
+**Expected**: The capture and playback lists are unchanged.
+
+#### DeviceSelectionSubsystem_Composed_RefreshFails_KeepsSelections
+
+**Scenario**: The same failing refresh.
+
+**Expected**: The capture and playback selections are unchanged.
 
 #### DeviceSelectionSubsystem_Composed_RefreshFails_ExplainsInStatus
 

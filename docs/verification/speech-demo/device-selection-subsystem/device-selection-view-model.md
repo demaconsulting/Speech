@@ -89,6 +89,13 @@ device.
 **Expected**: The derived playback selection is re-announced, so a bound consumer never reads a
 stale selection.
 
+##### DeviceSelectionViewModel_SelectedCaptureDevice_Changed_NotifiesCaptureSelection
+
+**Scenario**: The chosen capture device is changed while a listener records property
+notifications.
+
+**Expected**: A change of the derived capture selection is announced.
+
 ##### DeviceSelectionViewModel_Selections_NoDevices_ReturnSystemDefault
 
 **Scenario**: No devices exist in either direction.
@@ -98,9 +105,10 @@ has to special-case the no-device machine.
 
 ##### DeviceSelectionViewModel_RefreshCommand_Executed_ReEnumeratesDevices
 
-**Scenario**: The refresh command is executed the way a bound button does.
+**Scenario**: The refresh command is executed (and awaited to completion) the way a bound button
+does, over a service whose reported devices change.
 
-**Expected**: Both directions are re-enumerated through the service.
+**Expected**: The picker lists the changed device set.
 
 ##### DeviceSelectionViewModel_RefreshAsync_CallsRefreshDevicesBeforeEnumerating
 

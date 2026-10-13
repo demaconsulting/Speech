@@ -25,8 +25,8 @@ sections:
             requirements:
               - id: SpeechDemo-Devices-FactoryRequired
                 title: >-
-                  The AudioDeviceService shall reject construction without a library audio
-                  device factory.
+                  The AudioDeviceService shall reject being created without a library audio device
+                  factory, with a caller error.
                 justification: |
                   Every call is forwarded to the factory, so a missing factory is a programming
                   error that should surface at composition rather than at the first
@@ -36,8 +36,8 @@ sections:
 
               - id: SpeechDemo-Devices-LibraryProbeDelegation
                 title: >-
-                  The AudioDeviceService shall return exactly the capture devices the library's
-                  capture probe reports, without filtering, sorting or supplementing them.
+                  The AudioDeviceService shall list exactly the capture devices the system reports,
+                  in the order reported.
                 justification: |
                   The demo exists to show the library's device enumeration working, so it must
                   not maintain a device list of its own. Routing enumeration through a
@@ -48,8 +48,8 @@ sections:
 
               - id: SpeechDemo-Devices-LibraryPlaybackProbeDelegation
                 title: >-
-                  The AudioDeviceService shall return exactly the playback devices the library's
-                  playback probe reports, without filtering, sorting or supplementing them.
+                  The AudioDeviceService shall list exactly the playback devices the system
+                  reports, in the order reported.
                 justification: |
                   As for capture devices, the demo must not maintain a playback device list of
                   its own; the picker shows what the library's playback probe reports.
@@ -58,8 +58,8 @@ sections:
 
               - id: SpeechDemo-Devices-EmptyProbeResult
                 title: >-
-                  The AudioDeviceService shall return an empty list, not null and not an error,
-                  for a direction whose probe reports no devices.
+                  When the system reports no devices for a direction, the AudioDeviceService shall
+                  list no devices for that direction, without an error.
                 justification: |
                   A machine with no audio backend is an ordinary state. Returning an empty list
                   spares every caller a null check and an exception handler.
@@ -68,8 +68,8 @@ sections:
 
               - id: SpeechDemo-Devices-ProbeResultsNotCached
                 title: >-
-                  The AudioDeviceService shall report the probe's current answer on every
-                  enumeration rather than a remembered one.
+                  Each time devices are listed, the AudioDeviceService shall list the devices the
+                  system currently reports rather than a remembered list.
                 justification: |
                   Devices are hot-plugged while the application runs; a cached list would hide
                   a refresh's result from every later enumeration.
@@ -78,8 +78,8 @@ sections:
 
               - id: SpeechDemo-Devices-ServiceRefreshDelegation
                 title: >-
-                  The AudioDeviceService shall forward a refresh request to the library audio
-                  device factory so that the library re-scans its device table.
+                  When a refresh is requested, the AudioDeviceService shall make the system re-scan
+                  its devices so that later device lists reflect hardware changes.
                 justification: |
                   A manual refresh is only meaningful if the library re-scans hardware; the
                   adapter must therefore forward the request rather than absorb it.
@@ -88,9 +88,8 @@ sections:
 
               - id: SpeechDemo-Devices-CaptureDeviceCreation
                 title: >-
-                  The AudioDeviceService shall create capture devices through the library audio
-                  device factory, returning the factory's unavailable device when the factory
-                  knows no matching device.
+                  The AudioDeviceService shall provide a capture device for a selection, and shall
+                  provide an unavailable capture device when no matching device is known.
                 justification: |
                   The panels create the devices they stream from through this seam. Delegating
                   to the factory keeps device creation consistent with the same probe that
@@ -100,9 +99,8 @@ sections:
 
               - id: SpeechDemo-Devices-PlaybackDeviceCreation
                 title: >-
-                  The AudioDeviceService shall create playback devices through the library audio
-                  device factory, returning the factory's unavailable device when the factory
-                  knows no matching device.
+                  The AudioDeviceService shall provide a playback device for a selection, and shall
+                  provide an unavailable playback device when no matching device is known.
                 justification: |
                   The panels create the devices they stream to through this seam. Delegating to
                   the factory keeps device creation consistent with the same probe that
