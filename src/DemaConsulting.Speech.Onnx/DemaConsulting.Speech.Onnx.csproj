@@ -71,11 +71,6 @@
     <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.28.0" />
   </ItemGroup>
 
-  <!-- Project References -->
-  <ItemGroup>
-    <ProjectReference Include="..\DemaConsulting.Speech\DemaConsulting.Speech.csproj" />
-  </ItemGroup>
-
   <!-- Code Analysis Dependencies -->
   <ItemGroup>
     <!-- Analyzer packages use child-element form to configure both PrivateAssets and IncludeAssets:

@@ -14,8 +14,8 @@ separately packaged software item with its own dependencies, and the Speech libr
 depend on it. Unlike SpeechSherpa, this package's one shipped unit also does not depend on Speech
 at all: `OnnxExecutionProviderSelector` references only the `Microsoft.ML.OnnxRuntime` package and
 names no Speech type, since it is purely an ONNX Runtime helper with no knowledge of Speech's
-model/catalog contracts. (The project file carries a `ProjectReference` to the Speech library for
-the empty `SynthesisSubsystem` folder only - see the Scope note below.) SpeechOnnx declares zero
+model/catalog contracts. The project therefore carries no project reference to the Speech library.
+SpeechOnnx declares zero
 models itself; each concrete model family (the sibling `DemaConsulting.Speech.Onnx.Kokoro`,
 `DemaConsulting.Speech.Onnx.NemotronStt`, and `DemaConsulting.Speech.Onnx.ChatterboxTurbo`
 packages) references this package or the same ONNX Runtime package and adds its own
@@ -30,7 +30,8 @@ The library consists of one subsystem:
   execution provider names before falling back to the always-available CPU provider - see
   _SpeechOnnx OnnxRuntimeSubsystem Design_
 
-**Scope note**: the project also has an empty `SynthesisSubsystem` folder with no source files.
+**Scope note**: a local, empty `SynthesisSubsystem` folder with no source files may exist in the
+project directory (git does not track empty folders).
 It is out of scope for this design document - it has no implementation to describe - and is
 documented only once it ships a unit.
 
