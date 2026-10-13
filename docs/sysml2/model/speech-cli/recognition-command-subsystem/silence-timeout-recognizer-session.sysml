@@ -15,5 +15,8 @@ package SpeechCli {
 
         comment sourceRef /* Source: src/DemaConsulting.Speech.Cli/Commands/RecognitionCommandSubsystem/SilenceTimeoutRecognizerSession.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Cli.Tests/Commands/RecognitionCommandSubsystem/SilenceTimeoutRecognizerSessionTests.cs */
+        comment designRef /* Design: docs/design/speech-cli/recognition-command-subsystem.md (documented within the subsystem doc; no dedicated unit doc) */
+        comment verificationRef /* Verification: docs/verification/speech-cli/recognition-command-subsystem.md (verified within the subsystem doc; no dedicated unit doc) */
+        comment reqRef /* Requirements: docs/reqstream/speech-cli/recognition-command-subsystem.yaml (requirements held in the subsystem file; no dedicated unit file) */
     }
 }

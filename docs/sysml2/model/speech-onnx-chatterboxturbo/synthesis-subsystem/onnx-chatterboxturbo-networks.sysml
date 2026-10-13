@@ -4,7 +4,7 @@ package SpeechOnnxChatterboxTurbo {
              * model and conditional decoder, with thread configuration and deterministic
              * disposal. */
 
-        comment sourceRef /* Source: src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/SynthesisSubsystem/OnnxChatterboxTurboNetworks.cs */
+        comment sourceRef /* Source: src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/SynthesisSubsystem/OnnxChatterboxTurboNetworks.cs, src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/SynthesisSubsystem/IChatterboxTurboNetworks.cs, src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/SynthesisSubsystem/IChatterboxTurboLanguageModelState.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/SynthesisSubsystem/OnnxChatterboxTurboNetworksTests.cs */
         comment designRef /* Design: docs/design/speech-onnx-chatterboxturbo/synthesis-subsystem/onnx-chatterboxturbo-networks.md */
         comment verificationRef /* Verification: docs/verification/speech-onnx-chatterboxturbo/synthesis-subsystem/onnx-chatterboxturbo-networks.md */

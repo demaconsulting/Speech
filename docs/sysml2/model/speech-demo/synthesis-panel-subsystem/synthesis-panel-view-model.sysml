@@ -17,7 +17,7 @@ package SpeechDemo {
              * ReferenceVoicesChanged keeping the chosen settings, and shows the voice-cloning
              * consent note and installed pack attribution for Chatterbox Turbo. */
 
-        comment sourceRef /* Source: src/DemaConsulting.Speech.Demo/SynthesisPanelSubsystem/SynthesisPanelViewModel.cs */
+        comment sourceRef /* Source: src/DemaConsulting.Speech.Demo/SynthesisPanelSubsystem/SynthesisPanelViewModel.cs, src/DemaConsulting.Speech.Demo/SynthesisPanelSubsystem/SynthesisPlaybackState.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Demo.Tests/SynthesisPanelSubsystem/SynthesisPanelViewModelTests.cs */
         comment designRef /* Design: docs/design/speech-demo/synthesis-panel-subsystem/synthesis-panel-view-model.md */
         comment verificationRef /* Verification: docs/verification/speech-demo/synthesis-panel-subsystem/synthesis-panel-view-model.md */

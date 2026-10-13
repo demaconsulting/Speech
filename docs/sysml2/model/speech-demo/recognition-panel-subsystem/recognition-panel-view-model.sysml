@@ -16,7 +16,7 @@ package SpeechDemo {
              * or a shared device refresh replaces the underlying capture device. Implements
              * IAsyncDisposable to release an active session and engine deterministically. */
 
-        comment sourceRef /* Source: src/DemaConsulting.Speech.Demo/RecognitionPanelSubsystem/RecognitionPanelViewModel.cs */
+        comment sourceRef /* Source: src/DemaConsulting.Speech.Demo/RecognitionPanelSubsystem/RecognitionPanelViewModel.cs, src/DemaConsulting.Speech.Demo/RecognitionPanelSubsystem/RecognitionStreamingState.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Demo.Tests/RecognitionPanelSubsystem/RecognitionPanelViewModelTests.cs */
         comment designRef /* Design: docs/design/speech-demo/recognition-panel-subsystem/recognition-panel-view-model.md */
         comment verificationRef /* Verification: docs/verification/speech-demo/recognition-panel-subsystem/recognition-panel-view-model.md */

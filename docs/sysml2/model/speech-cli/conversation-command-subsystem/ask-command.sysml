@@ -31,5 +31,8 @@ package SpeechCli {
 
         comment sourceRef /* Source: src/DemaConsulting.Speech.Cli/Commands/ConversationCommandSubsystem/AskCommand.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Cli.Tests/Commands/ConversationCommandSubsystem/AskCommandTests.cs */
+        comment designRef /* Design: docs/design/speech-cli/conversation-command-subsystem.md (documented within the subsystem doc; no dedicated unit doc) */
+        comment verificationRef /* Verification: docs/verification/speech-cli/conversation-command-subsystem.md (verified within the subsystem doc; no dedicated unit doc) */
+        comment reqRef /* Requirements: docs/reqstream/speech-cli/conversation-command-subsystem.yaml (requirements held in the subsystem file; no dedicated unit file) */
     }
 }

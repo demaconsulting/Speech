@@ -26,6 +26,7 @@ package SpeechCli {
         part synthesisCommandSubsystem : SynthesisCommandSubsystem;
         part recognitionCommandSubsystem : RecognitionCommandSubsystem;
         part conversationCommandSubsystem : ConversationCommandSubsystem;
+        part program : Program;
         part commandDispatch : CommandDispatch;
         part context : Context;
         part consoleCancellation : ConsoleCancellation;

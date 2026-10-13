@@ -5,7 +5,7 @@ package SpeechOnnxChatterboxTurbo {
              * backend construction from an installed model directory. Includes its
              * ChatterboxTurboModelOptions and variant enums. */
 
-        comment sourceRef /* Source: src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/ModelManagementSubsystem/OnnxChatterboxTurboEnglishSynthesisModel.cs */
+        comment sourceRef /* Source: src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/ModelManagementSubsystem/OnnxChatterboxTurboEnglishSynthesisModel.cs, src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/ModelManagementSubsystem/ChatterboxTurboModelOptions.cs, src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/ModelManagementSubsystem/ChatterboxTurboAuxiliaryModelVariant.cs, src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/ModelManagementSubsystem/ChatterboxTurboLanguageModelVariant.cs, src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/ModelManagementSubsystem/ChatterboxTurboEndOfSentenceTagPolicy.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/ModelManagementSubsystem/OnnxChatterboxTurboEnglishSynthesisModelTests.cs */
         comment designRef /* Design: docs/design/speech-onnx-chatterboxturbo/model-management-subsystem/onnx-chatterboxturbo-english-synthesis-model.md */
         comment verificationRef /* Verification: docs/verification/speech-onnx-chatterboxturbo/model-management-subsystem/onnx-chatterboxturbo-english-synthesis-model.md */
