@@ -26,18 +26,26 @@ into ONNX Runtime internals required.
 - **Execution**: `dotnet test` invoked by `build.ps1` and the CI pipeline
 - **Project**: `test/DemaConsulting.Speech.Onnx.Tests`
 - **Isolation**: every test uses the same small, read-only `.onnx` fixture file checked into the
-  test project; no network access, no physical accelerator hardware, and no external services are
-  required
+  test project (the malformed-model test writes and deletes its own temporary file); no network
+  access, no physical accelerator hardware, and no external services are required. Because
+  `OnCandidateOptionsCreated` is process-wide static state, the whole test class runs in the xUnit
+  collection `OnnxSelectorHookCollection` (`DisableParallelization = true`), and tests install the
+  hook only through the disposable `SelectorHookScope`, which restores the previously installed
+  hook on `Dispose` (itself verified by `SelectorHookScope_Dispose_RestoresPreviousHook`)
 
 #### Acceptance Criteria
 
-A null or empty model path throws `ArgumentException` before any provider is attempted; calling
+A null or empty model path throws `ArgumentException` (`ArgumentNullException` for null) naming
+`modelPath` before any provider is attempted; calling
 `Create` with no preferred providers returns a working CPU-backed session that can run the
 fixture model; an unknown/unavailable provider name fails to construct and `Create` falls back to
 a working CPU session instead of throwing; a `validateSession` probe that throws
-`OnnxRuntimeException` for a candidate causes that candidate to be discarded and the CPU fallback
-used instead, with the CPU fallback itself never passed to the probe; a probe throwing any other
-exception type propagates to the caller instead of being treated as "try the next candidate"; and
+`OnnxRuntimeException` for a candidate causes that candidate to be discarded (its session
+disposed) and the CPU fallback used instead, with the CPU fallback itself never passed to the
+probe; a probe throwing `DllNotFoundException` is treated the same way; a probe throwing any other
+exception type propagates to the caller unchanged, after the candidate's session is disposed,
+instead of being treated as "try the next candidate"; a missing or malformed model file throws
+`OnnxRuntimeException` to the caller even when a preferred provider was supplied; and
 every candidate's `SessionOptions` instance - both a failed candidate's and the eventually
 winning candidate's - is disposed (`IsClosed == true`) by the time `Create` returns; candidates are
 tried in the supplied order and the first one accepted (a probe-passing session) is the one
@@ -65,9 +73,37 @@ returned; and that returned session is not disposed and remains usable for infer
 
 **Test**: `OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback`
 
-##### A validateSession probe throwing a non-ORT exception propagates to the caller
+##### A validateSession probe throwing a non-ORT exception propagates to the caller and the candidate is disposed
 
-**Test**: `OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOtherException_Rethrows`
+**Test**: `OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOtherException_RethrowsAndDisposesCandidateSession`
+
+Error scenario: the probe throws `InvalidOperationException` for the first of two candidates. The
+same exception instance reaches the caller, the second candidate is never tried, and the first
+candidate's session is unusable (disposed).
+
+##### A validateSession probe throwing DllNotFoundException is treated as an unavailable provider
+
+**Test**: `OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsDllNotFoundException_FallsBackToCpuSession`
+
+##### A missing model file propagates OnnxRuntimeException
+
+**Test**: `OnnxExecutionProviderSelector_Create_MissingModelFile_PropagatesOnnxRuntimeException`
+
+Error scenario: a path to a file that does not exist reports the ONNX Runtime error from the
+final CPU attempt.
+
+##### A malformed model file propagates OnnxRuntimeException even with a preferred provider
+
+**Test**: `OnnxExecutionProviderSelector_Create_MalformedModelFileWithPreferredProvider_PropagatesOnnxRuntimeException`
+
+Error/boundary scenario: the candidate's failure is only "provider unavailable"; the genuine model
+error is reported by the CPU attempt.
+
+##### The hook scope restores the previously installed hook
+
+**Test**: `SelectorHookScope_Dispose_RestoresPreviousHook`
+
+Test-infrastructure scenario proving the isolation helper described under Test Environment.
 
 ##### Every candidate's SessionOptions instance is disposed, win or lose
 

@@ -1,10 +1,11 @@
 ---
 # Software Subsystem Requirements for the SpeechOnnx OnnxRuntimeSubsystem
 #
-# These requirements describe the subsystem-level behavior of the SpeechOnnx
+# These requirements describe the observable subsystem-level behavior of the SpeechOnnx
 # OnnxRuntimeSubsystem, decomposing the system-level requirements in
-# docs/reqstream/speech-onnx.yaml. This subsystem contains a single unit,
-# OnnxExecutionProviderSelector, the library's only generic ONNX Runtime infrastructure.
+# docs/reqstream/speech-onnx.yaml. The subsystem contains a single unit,
+# OnnxExecutionProviderSelector, the library's only generic ONNX Runtime infrastructure; how it
+# is structured and which ONNX Runtime types it uses is documented in the subsystem design.
 #
 # Unit-level content lives in
 # docs/reqstream/speech-onnx/onnx-runtime-subsystem/onnx-execution-provider-selector.yaml. Covered
@@ -17,47 +18,116 @@ sections:
         requirements:
           - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ProviderFallback
             title: >-
-              The SpeechOnnx OnnxRuntimeSubsystem shall provide a single static helper,
-              OnnxExecutionProviderSelector, that constructs an ONNX Runtime InferenceSession by
-              trying each of an ordered list of preferred execution provider names in turn,
-              optionally probing each candidate with a caller-supplied representative inference,
-              before falling back to the CPU provider.
+              The SpeechOnnx OnnxRuntimeSubsystem shall return a session that uses the first
+              preferred execution provider, in the caller-supplied order, that is available.
             justification: |
               Every sibling model package that loads an ONNX model needs identical,
               once-reviewed provider-selection behavior; centralizing it here means no model
-              package re-implements its own fallback logic. A construction-only check is not
-              sufficient for every provider - some (notably DirectML) construct successfully yet
-              fail on the actual graph at Run() time - so an optional probe is part of this same
-              centralized contract rather than left for each model package to reinvent.
+              package re-implements its own fallback logic and a caller's own prioritization is
+              respected.
             children:
               - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-TriesCandidatesInOrder
+            tests:
+              - OnnxExecutionProviderSelector_Create_FirstCandidateFailsProbe_ReturnsSecondCandidateSession
+              - OnnxExecutionProviderSelector_Create_ValidateSessionProbeSucceeds_ReturnsProbedCandidateSession
+
+          - id: SpeechOnnx-OnnxRuntimeSubsystem-ProviderVerification
+            title: >-
+              The SpeechOnnx OnnxRuntimeSubsystem shall, when a verification inference is
+              supplied, not return a session for a preferred provider whose verification
+              inference fails.
+            justification: |
+              A construction-only check is not sufficient for every provider - some (notably
+              DirectML) construct successfully yet fail on the actual graph when it is run - so
+              an optional caller-supplied verification is part of the same centralized contract.
+            children:
               - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ProbesCandidates
+              - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ProbeAcceptedCandidateReturned
+            tests:
+              - OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback
+              - OnnxExecutionProviderSelector_Create_ValidateSessionProbeSucceeds_ReturnsProbedCandidateSession
+
+          - id: SpeechOnnx-OnnxRuntimeSubsystem-CpuFallback
+            title: >-
+              The SpeechOnnx OnnxRuntimeSubsystem shall return a session that runs on the CPU
+              when no preferred provider is supplied or none of them is available and accepted.
+            justification: |
+              A model package must still load and run correctly on a machine with no accelerated
+              execution provider installed, or where none can actually run the model.
+            children:
               - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-FallsBackToCpu
+              - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-UnavailableProviderFallsBack
+              - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-MissingProviderLibraryFallsBack
               - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-CpuFallbackNotProbed
-              - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ArgumentValidation
             tests:
               - OnnxExecutionProviderSelector_Create_NoPreferredProviders_CreatesWorkingCpuSession
               - OnnxExecutionProviderSelector_Create_UnknownProviderName_FallsBackToCpuSession
-              - OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback
+              - OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsDllNotFoundException_FallsBackToCpuSession
               - OnnxExecutionProviderSelector_Create_EmptyPreferredProviders_NeverInvokesProbe
-              - OnnxExecutionProviderSelector_Create_NullModelPath_ThrowsArgumentNullException
-              - OnnxExecutionProviderSelector_Create_EmptyModelPath_ThrowsArgumentException
 
           - id: SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ResourceDisposal
             title: >-
-              The SpeechOnnx OnnxRuntimeSubsystem's OnnxExecutionProviderSelector shall dispose
-              each candidate's SessionOptions and (when it does not win) InferenceSession after
-              its own construction/probe attempt, without disposing the returned
-              InferenceSession.
+              The SpeechOnnx OnnxRuntimeSubsystem shall release the native resources held by
+              every unsuccessful provider attempt before returning.
             justification: |
               Every sibling model package that loads an ONNX model needs identical,
-              once-reviewed resource-disposal behavior; centralizing it here means no model
+              once-reviewed resource-lifetime behavior; centralizing it here means no model
               package re-introduces a native resource leak in its own fallback logic.
             children:
               - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-DisposesEachCandidateOptions
-              - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ReturnedSessionNotDisposed
               - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-DisposesCandidateSessionOnAnyFailure
             tests:
               - OnnxExecutionProviderSelector_Create_MultipleCandidates_DisposesEveryCandidateOptionsInstance
+              - OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback
+              - OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOtherException_RethrowsAndDisposesCandidateSession
+
+          - id: SpeechOnnx-OnnxRuntimeSubsystem-SessionOwnership
+            title: >-
+              The SpeechOnnx OnnxRuntimeSubsystem shall return a session that remains usable for
+              inference and remains owned by the caller.
+            justification: |
+              The returned session remains the caller's own responsibility to release, since the
+              caller owns its lifetime.
+            children:
+              - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ReturnedSessionNotDisposed
+            tests:
               - OnnxExecutionProviderSelector_Create_Success_ReturnedSessionRemainsUsableForInference
-              - OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOtherException_Rethrows
+
+          - id: SpeechOnnx-OnnxRuntimeSubsystem-ArgumentValidation
+            title: >-
+              The SpeechOnnx OnnxRuntimeSubsystem shall report an argument error for a null or
+              empty model path before attempting any provider.
+            justification: |
+              A programming error should surface immediately with a clear exception rather than
+              an opaque native-layer failure.
+            children:
+              - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ArgumentValidation
+            tests:
+              - OnnxExecutionProviderSelector_Create_NullModelPath_ThrowsArgumentNullException
+              - OnnxExecutionProviderSelector_Create_EmptyModelPath_ThrowsArgumentException
+
+          - id: SpeechOnnx-OnnxRuntimeSubsystem-ModelErrorReporting
+            title: >-
+              The SpeechOnnx OnnxRuntimeSubsystem shall report the ONNX Runtime error to the
+              caller when the model file is missing, unreadable, or malformed.
+            justification: |
+              A genuine model-file problem is not a provider-availability problem and must not
+              be hidden by the CPU fallback.
+            children:
+              - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ModelErrorReported
+            tests:
+              - OnnxExecutionProviderSelector_Create_MissingModelFile_PropagatesOnnxRuntimeException
+              - OnnxExecutionProviderSelector_Create_MalformedModelFileWithPreferredProvider_PropagatesOnnxRuntimeException
+
+          - id: SpeechOnnx-OnnxRuntimeSubsystem-VerificationFailureReporting
+            title: >-
+              The SpeechOnnx OnnxRuntimeSubsystem shall report to the caller a verification
+              failure that does not indicate an unavailable or unsuitable provider, instead of
+              trying another provider.
+            justification: |
+              Only provider unavailability is a signal to move on to the next candidate; any
+              other failure is unexpected and the caller needs to see it.
+            children:
+              - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-UnexpectedVerificationFailurePropagates
+            tests:
+              - OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOtherException_RethrowsAndDisposesCandidateSession

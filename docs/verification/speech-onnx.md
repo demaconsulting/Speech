@@ -78,11 +78,27 @@ and the CPU fallback itself to never be passed to `validateSession`.
 
 ### A validateSession probe throwing a non-ORT exception propagates to the caller
 
-**Test**: `OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOtherException_Rethrows`
+**Test**: `OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOtherException_RethrowsAndDisposesCandidateSession`
 
 Verifies that a probe throwing any exception type other than
 `OnnxRuntimeException`/`DllNotFoundException` propagates to the caller instead of being treated
 as a "try the next candidate" signal, after that candidate's session is disposed.
+
+### A missing or malformed model is reported to the caller
+
+**Tests**: `OnnxExecutionProviderSelector_Create_MissingModelFile_PropagatesOnnxRuntimeException`,
+`OnnxExecutionProviderSelector_Create_MalformedModelFileWithPreferredProvider_PropagatesOnnxRuntimeException`
+
+Verifies that a genuine model-file error surfaces as `OnnxRuntimeException`, not as a silent
+fallback.
+
+### Invalid model paths are rejected before any provider is attempted
+
+**Tests**: `OnnxExecutionProviderSelector_Create_NullModelPath_ThrowsArgumentNullException`,
+`OnnxExecutionProviderSelector_Create_EmptyModelPath_ThrowsArgumentException`
+
+Verifies that a null or empty path is rejected with an argument error naming `modelPath` and that
+no candidate was attempted.
 
 ## Acceptance Criteria
 

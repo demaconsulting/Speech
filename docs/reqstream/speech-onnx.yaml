@@ -7,7 +7,10 @@
 # generic ONNX Runtime infrastructure - today, execution-provider probing and selection - reusable
 # by any ONNX-Runtime-backed model package (for example the sibling
 # DemaConsulting.Speech.Onnx.Kokoro and DemaConsulting.Speech.Onnx.NemotronStt packages), and declares zero
-# models itself.
+# models itself. The library is independent of the Speech library; it depends only on
+# Microsoft.ML.OnnxRuntime. Packaging constraints (such as not referencing any provider-specific
+# native runtime at compile time) are design constraints documented in docs/design/speech-onnx.md,
+# not requirements.
 #
 # Covered by test/DemaConsulting.Speech.Onnx.Tests - see
 # docs/reqstream/speech-onnx/onnx-runtime-subsystem/onnx-execution-provider-selector.yaml for the
@@ -18,22 +21,48 @@ sections:
     requirements:
       - id: SpeechOnnx-Runtime-ProviderFallback
         title: >-
-          The library shall let a model package build an ONNX Runtime InferenceSession that
-          opportunistically prefers an ordered list of accelerated execution providers, each
-          optionally verified with a caller-supplied representative-inference probe, before
-          falling back to the always-available CPU provider, without requiring the package to
-          reference any provider-specific native runtime at compile time.
+          When a model package requests a session for a model file and supplies an ordered list
+          of preferred accelerated execution providers, the library shall return a session that
+          uses the first preferred provider in that order that is available.
+        tags: [system]
+        justification: |
+          A raw ONNX model package should transparently benefit from an accelerated execution
+          provider when a consuming application supplies one, honoring the caller's own priority
+          order. Centralizing this selection in one shared, once-reviewed helper means every
+          model package built on this library gets identical provider-selection behavior rather
+          than duplicating it in its own code.
+        children:
+          - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ProviderFallback
+        tests:
+          - OnnxExecutionProviderSelector_Create_FirstCandidateFailsProbe_ReturnsSecondCandidateSession
+          - OnnxExecutionProviderSelector_Create_ValidateSessionProbeSucceeds_ReturnsProbedCandidateSession
+
+      - id: SpeechOnnx-Runtime-ProviderVerification
+        title: >-
+          When a model package supplies a verification inference, the library shall not return a
+          session for a preferred provider whose verification inference fails.
+        tags: [system]
+        justification: |
+          Some providers load and create a session successfully yet fail when the model's graph
+          is actually run (observed with DirectML), so a caller-supplied verification inference
+          is the only reliable way to avoid handing back a session that cannot run the model.
+        children:
+          - SpeechOnnx-OnnxRuntimeSubsystem-ProviderVerification
+        tests:
+          - OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback
+          - OnnxExecutionProviderSelector_Create_ValidateSessionProbeSucceeds_ReturnsProbedCandidateSession
+
+      - id: SpeechOnnx-Runtime-CpuFallback
+        title: >-
+          When no preferred provider is supplied, or none of them is available and accepted, the
+          library shall return a session that runs on the CPU.
         tags: [system]
         justification: |
           A raw ONNX model package must run correctly on a machine with no accelerated execution
-          provider installed, and should transparently benefit from one when a consuming
-          application supplies it - including degrading gracefully when a provider loads
-          successfully but cannot actually run the model's graph (observed with DirectML).
-          Centralizing this fallback and probing logic in one shared, once-reviewed helper means
-          every model package built on this library gets identical provider-selection behavior
-          rather than duplicating it in its own code.
+          provider installed, including when a provider loads but cannot actually run the
+          model's graph.
         children:
-          - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ProviderFallback
+          - SpeechOnnx-OnnxRuntimeSubsystem-CpuFallback
         tests:
           - OnnxExecutionProviderSelector_Create_NoPreferredProviders_CreatesWorkingCpuSession
           - OnnxExecutionProviderSelector_Create_UnknownProviderName_FallsBackToCpuSession
@@ -41,16 +70,70 @@ sections:
 
       - id: SpeechOnnx-Runtime-ResourceDisposal
         title: >-
-          The library shall not leak the native SessionOptions or InferenceSession resources used
-          to try each execution-provider candidate when a model package builds an ONNX Runtime
-          InferenceSession.
+          When a model package requests a session, the library shall release the native
+          resources held by every unsuccessful provider attempt before returning.
         tags: [system]
         justification: |
-          Centralizing resource disposal in one shared, once-reviewed helper means every model
+          Centralizing resource release in one shared, once-reviewed helper means every model
           package built on this library avoids re-introducing a native resource leak in its own
           provider-fallback code.
         children:
           - SpeechOnnx-Runtime-OnnxExecutionProviderSelector-ResourceDisposal
         tests:
           - OnnxExecutionProviderSelector_Create_MultipleCandidates_DisposesEveryCandidateOptionsInstance
-          - OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOtherException_Rethrows
+          - OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOtherException_RethrowsAndDisposesCandidateSession
+
+      - id: SpeechOnnx-Runtime-SessionOwnership
+        title: >-
+          The session the library returns shall remain usable for inference and remain owned by
+          the caller, who is responsible for releasing it.
+        tags: [system]
+        justification: |
+          The caller, not the library, controls the lifetime of the loaded model; a session that
+          the library released before returning would be unusable.
+        children:
+          - SpeechOnnx-OnnxRuntimeSubsystem-SessionOwnership
+        tests:
+          - OnnxExecutionProviderSelector_Create_Success_ReturnedSessionRemainsUsableForInference
+
+      - id: SpeechOnnx-Runtime-ArgumentValidation
+        title: >-
+          When a model package requests a session with a null or empty model path, the library
+          shall report an argument error before attempting any provider.
+        tags: [system]
+        justification: |
+          A programming error should surface immediately with a clear exception rather than an
+          opaque native-layer failure.
+        children:
+          - SpeechOnnx-OnnxRuntimeSubsystem-ArgumentValidation
+        tests:
+          - OnnxExecutionProviderSelector_Create_NullModelPath_ThrowsArgumentNullException
+          - OnnxExecutionProviderSelector_Create_EmptyModelPath_ThrowsArgumentException
+
+      - id: SpeechOnnx-Runtime-ModelErrorReporting
+        title: >-
+          When the requested model file is missing, unreadable, or malformed, the library shall
+          report the ONNX Runtime error to the caller instead of returning a session.
+        tags: [system]
+        justification: |
+          A genuine model-file problem is not a provider-availability problem; hiding it behind
+          the CPU fallback would leave the caller with no usable session and no explanation.
+        children:
+          - SpeechOnnx-OnnxRuntimeSubsystem-ModelErrorReporting
+        tests:
+          - OnnxExecutionProviderSelector_Create_MissingModelFile_PropagatesOnnxRuntimeException
+          - OnnxExecutionProviderSelector_Create_MalformedModelFileWithPreferredProvider_PropagatesOnnxRuntimeException
+
+      - id: SpeechOnnx-Runtime-VerificationFailureReporting
+        title: >-
+          When a caller-supplied verification inference fails for a reason other than the
+          provider being unavailable or unable to run the model, the library shall report that
+          failure to the caller instead of trying another provider.
+        tags: [system]
+        justification: |
+          Only provider unavailability is a signal to move on; any other failure indicates an
+          unexpected problem the caller needs to see rather than one the library should hide.
+        children:
+          - SpeechOnnx-OnnxRuntimeSubsystem-VerificationFailureReporting
+        tests:
+          - OnnxExecutionProviderSelector_Create_ValidateSessionProbeThrowsOtherException_RethrowsAndDisposesCandidateSession

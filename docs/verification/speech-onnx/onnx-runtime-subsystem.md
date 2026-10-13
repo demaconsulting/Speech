@@ -35,8 +35,12 @@ successfully (the `"CPUExecutionProvider"` stand-in) is used to construct the re
 unknown/unavailable provider name is abandoned in favor of the next candidate (or CPU) and its
 `SessionOptions` is confirmed disposed (`IsClosed == true`); a `validateSession` probe that throws
 `OnnxRuntimeException` for a candidate discards that candidate and falls back to CPU without
-probing the fallback; a probe throwing any other exception type propagates to the caller instead
-of being swallowed; the CPU fallback candidate always succeeds for the fixture model when no
+probing the fallback; a probe throwing `DllNotFoundException` is likewise treated as an unavailable
+provider; a probe throwing any other exception type propagates to the caller unchanged (after the
+candidate's session is disposed) instead of being swallowed; a missing or malformed model file
+throws `OnnxRuntimeException` to the caller, even with a preferred provider; the CPU fallback
+candidate always succeeds for the fixture model when no
 preferred provider is supplied or all preferred providers fail; and `Create` throws
-`ArgumentException`/`ArgumentNullException` for a null or empty model path before attempting any
-provider.
+`ArgumentException`/`ArgumentNullException` naming `modelPath` for a null or empty model path
+before attempting any provider. All hook-using tests run in the serialized xUnit collection
+`OnnxSelectorHookCollection` and restore the static hook through a disposable scope.
