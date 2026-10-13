@@ -20,60 +20,121 @@
 
 using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.Cli.Commands.ConversationCommandSubsystem;
+using DemaConsulting.Speech.Cli.Tests.Commands.DeviceCommandsSubsystem;
 
 namespace DemaConsulting.Speech.Cli.Tests.Commands.ConversationCommandSubsystem;
 
 /// <summary>
-///     Unit tests for <see cref="AudioDeviceFactoryCaptureDeviceSource"/>, proving it forwards
-///     every call to a real, composed <see cref="AudioDeviceFactory"/> unchanged - including its
-///     hardware-detection behavior - so <c>AskCommand.RunAsync(Context)</c>'s real capture-device
-///     resolution is provably unaffected by the <see cref="ICliCaptureDeviceSource"/> seam
-///     introduced for <c>AskCommandTests</c>' own deterministic, hardware-independent tests.
+///     Unit tests for <see cref="AudioDeviceFactoryCaptureDeviceSource"/>, proving that it exposes
+///     the probe it was composed with and resolves capture devices through the composed
+///     <see cref="AudioDeviceFactory"/> with deterministic, hardware-independent results.
 /// </summary>
 /// <remarks>
-///     These tests deliberately do not assert on whether real capture hardware is actually
-///     present (that varies by machine and is exactly the condition that must not affect these
-///     assertions): they only prove the adapter is a pure pass-through, by comparing its result to
-///     the real <see cref="AudioDeviceFactory"/>'s own result for the same call.
+///     Every test injects a fake probe into the factory. With an injected probe, a selection the
+///     probe does not know resolves to the honestly unavailable device whether or not PortAudio is
+///     initialized, so the assertions hold on any machine. The "known device resolves to a
+///     usable device" behavior needs real hardware and is covered through
+///     <see cref="FakeCaptureDeviceSource"/> in <see cref="ICliCaptureDeviceSource"/> contract tests.
 /// </remarks>
 public sealed class AudioDeviceFactoryCaptureDeviceSourceTests
 {
-    /// <summary>Test that CaptureProbe forwards to the composed factory's own CaptureProbe.</summary>
-    [Fact]
-    public void AudioDeviceFactoryCaptureDeviceSource_CaptureProbe_ForwardsToFactory()
-    {
-        var factory = new AudioDeviceFactory();
-        var source = new AudioDeviceFactoryCaptureDeviceSource(factory);
+    /// <summary>A capture device description the fake probes enumerate.</summary>
+    private static readonly AudioDeviceDescription Microphone =
+        new("Fake Microphone", AudioDeviceDirection.Capture, 1, 16000);
 
-        Assert.Same(factory.CaptureProbe, source.CaptureProbe);
+    /// <summary>Test that CaptureProbe exposes the probe the factory was composed with.</summary>
+    [Fact]
+    public void AudioDeviceFactoryCaptureDeviceSource_CaptureProbe_ExposesInjectedProbe()
+    {
+        // Arrange
+        var probe = new FakeAudioCaptureDeviceProbe([Microphone]);
+        var source = new AudioDeviceFactoryCaptureDeviceSource(new AudioDeviceFactory(probe));
+
+        // Act
+        var exposed = source.CaptureProbe;
+
+        // Assert
+        Assert.Same(probe, exposed);
+        Assert.Equal([Microphone], exposed.Enumerate());
     }
 
-    /// <summary>
-    ///     Test that CreateCaptureDevice forwards to the composed factory's own
-    ///     CreateCaptureDevice, for both the default selection and a named selection - proving
-    ///     the adapter never substitutes its own resolution logic, regardless of whether real
-    ///     capture hardware happens to be present on the machine running this test.
-    /// </summary>
-    [Theory]
-    [InlineData(null)]
-    [InlineData("some-device-name")]
-    public void AudioDeviceFactoryCaptureDeviceSource_CreateCaptureDevice_ForwardsToFactory(string? deviceName)
+    /// <summary>Test that a named device the probe does not know resolves to an unavailable device without throwing.</summary>
+    [Fact]
+    public void AudioDeviceFactoryCaptureDeviceSource_CreateCaptureDevice_UnknownName_ReturnsUnavailableDevice()
     {
-        var factory = new AudioDeviceFactory();
-        var source = new AudioDeviceFactoryCaptureDeviceSource(factory);
-        var selection = deviceName is null ? null : new AudioDeviceSelection(deviceName);
+        // Arrange
+        var source = new AudioDeviceFactoryCaptureDeviceSource(
+            new AudioDeviceFactory(new FakeAudioCaptureDeviceProbe([Microphone])));
 
-        var expected = factory.CreateCaptureDevice(selection);
-        var actual = source.CreateCaptureDevice(selection);
+        // Act
+        var device = source.CreateCaptureDevice(new AudioDeviceSelection("does-not-exist"));
 
-        Assert.Equal(expected.GetType(), actual.GetType());
-        Assert.Equal(expected.IsAvailable, actual.IsAvailable);
+        // Assert
+        Assert.NotNull(device);
+        Assert.False(device.IsAvailable);
+    }
+
+    /// <summary>Test that the default selection with no capture devices present resolves to an unavailable device without throwing.</summary>
+    [Fact]
+    public void AudioDeviceFactoryCaptureDeviceSource_CreateCaptureDevice_DefaultWithNoDevices_ReturnsUnavailableDevice()
+    {
+        // Arrange
+        var source = new AudioDeviceFactoryCaptureDeviceSource(
+            new AudioDeviceFactory(new FakeAudioCaptureDeviceProbe()));
+
+        // Act
+        var device = source.CreateCaptureDevice(null);
+
+        // Assert
+        Assert.NotNull(device);
+        Assert.False(device.IsAvailable);
     }
 
     /// <summary>Test that a null factory is rejected.</summary>
     [Fact]
     public void AudioDeviceFactoryCaptureDeviceSource_NullFactory_ThrowsArgumentNullException()
     {
-        Assert.Throws<ArgumentNullException>(() => new AudioDeviceFactoryCaptureDeviceSource(null!));
+        // Arrange
+        AudioDeviceFactory? factory = null;
+
+        // Act
+        void Act() => _ = new AudioDeviceFactoryCaptureDeviceSource(factory!);
+
+        // Assert
+        Assert.Throws<ArgumentNullException>(Act);
+    }
+
+    /// <summary>
+    ///     Test that the <see cref="ICliCaptureDeviceSource"/> contract, exercised through the fake
+    ///     source, resolves a known named device to a usable device and an unknown name to an
+    ///     unavailable device without throwing.
+    /// </summary>
+    [Fact]
+    public void ICliCaptureDeviceSource_CreateCaptureDevice_KnownAndUnknownNames_ResolveAsContractRequires()
+    {
+        // Arrange
+        ICliCaptureDeviceSource source = new FakeCaptureDeviceSource(new FakeAudioCaptureDeviceProbe([Microphone]));
+
+        // Act
+        var known = source.CreateCaptureDevice(new AudioDeviceSelection("Fake Microphone"));
+        var unknown = source.CreateCaptureDevice(new AudioDeviceSelection("does-not-exist"));
+
+        // Assert
+        Assert.True(known.IsAvailable);
+        Assert.False(unknown.IsAvailable);
+    }
+
+    /// <summary>Test that the fake capture source rejects a null probe.</summary>
+    [Fact]
+    public void FakeCaptureDeviceSource_NullProbe_ThrowsArgumentNullException()
+    {
+        // Arrange
+        IAudioCaptureDeviceProbe? probe = null;
+
+        // Act
+        void Act() => _ = new FakeCaptureDeviceSource(probe!);
+
+        // Assert
+        Assert.Throws<ArgumentNullException>(Act);
     }
 }

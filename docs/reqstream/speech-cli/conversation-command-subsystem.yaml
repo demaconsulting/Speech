@@ -10,9 +10,9 @@
 # i-cli-capture-device-source.yaml (ICliCaptureDeviceSource), and
 # audio-device-factory-capture-device-source.yaml (AudioDeviceFactoryCaptureDeviceSource).
 #
-# The requirement below is the subsystem's own behavior: a complete speak-then-listen turn, composed of the
-# command and its capture-device seam, running end to end with no audio hardware, and the production seam
-# resolving devices exactly as the real factory does.
+# The requirements below are the subsystem's own behavior: a complete speak-then-listen turn running end to end
+# with a caller-supplied capture device and no audio hardware, and an honest unavailable report when the default
+# capture device does not exist.
 
 sections:
   - title: SpeechCli Requirements
@@ -21,16 +21,22 @@ sections:
         requirements:
           - id: SpeechCli-ConversationCommands-CaptureDeviceSeam
             title: >-
-              The ConversationCommandSubsystem shall resolve the capture device for the reply through its
-              capture-device source, so a complete speak-then-listen turn runs end to end with a substituted
-              device, while the production source resolves devices exactly as the real audio device factory
-              does.
+              The ConversationCommandSubsystem shall use a caller-supplied capture device for the reply, so a
+              complete speak-then-listen turn runs end to end with no audio hardware.
             justification: |
-              The real audio device factory reports an unavailable capture device on any machine without audio
-              hardware, whatever the caller injects, so a turn that only worked through it could not be
-              verified on a build agent. Resolving through a substitutable source keeps the whole turn
-              verifiable everywhere, and the pass-through production source guarantees the operator's real
-              devices are resolved exactly as the factory resolves them.
+              Real capture hardware is absent on build agents, so a turn that only worked with a real device
+              could not be verified there. Accepting a caller-supplied device keeps the whole turn verifiable
+              everywhere.
             tests:
               - AskCommand_Run_Success_SpeaksThenListensAndPrintsFinalResult
-              - AudioDeviceFactoryCaptureDeviceSource_CreateCaptureDevice_ForwardsToFactory
+
+          - id: SpeechCli-ConversationCommands-DefaultCaptureDeviceUnavailable
+            title: >-
+              The ConversationCommandSubsystem shall report an unavailable capture device, without crashing,
+              when the default capture device is requested and the machine has no capture devices.
+            justification: |
+              Operators on a machine without a microphone must get a clear explanation rather than a crash or
+              a hang.
+            tests:
+              - AskCommand_Run_NoCaptureDeviceAvailable_ThrowsInvalidOperationException
+              - AudioDeviceFactoryCaptureDeviceSource_CreateCaptureDevice_DefaultWithNoDevices_ReturnsUnavailableDevice

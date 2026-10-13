@@ -3,8 +3,10 @@
 #
 # These requirements describe the contract of the ICliCaptureDeviceSource unit - the CLI-owned seam over
 # capture-device resolution - decomposing the parent ConversationCommandSubsystem requirements. The interface has no
-# executable behavior of its own, so each requirement is verified through its production implementation
-# (AudioDeviceFactoryCaptureDeviceSource) and through the in-memory test double that AskCommand's tests use.
+# executable behavior of its own, so each requirement is verified through the implementations that honor the
+# contract: the production AudioDeviceFactoryCaptureDeviceSource (with an injected probe, so the result does not
+# depend on hardware) and the in-memory test double that AskCommand's tests use. Resolving a known named device to
+# a usable device is verified through the test double, because it needs real hardware otherwise.
 
 sections:
   - title: SpeechCli Requirements
@@ -15,21 +17,39 @@ sections:
             requirements:
               - id: SpeechCli-ConversationCommands-ICliCaptureDeviceSource-ProbeExposed
                 title: >-
-                  The ICliCaptureDeviceSource shall expose the probe that lists the capture devices it can
-                  resolve.
+                  The ICliCaptureDeviceSource shall allow the capture devices it can resolve to be enumerated.
                 justification: |
                   A command must list the known capture devices to turn an operator-supplied name into a
                   selection, and to reject an unknown name with a clear error, before asking for a device.
                 tests:
-                  - AudioDeviceFactoryCaptureDeviceSource_CaptureProbe_ForwardsToFactory
+                  - AudioDeviceFactoryCaptureDeviceSource_CaptureProbe_ExposesInjectedProbe
 
               - id: SpeechCli-ConversationCommands-ICliCaptureDeviceSource-DeviceCreation
                 title: >-
-                  The ICliCaptureDeviceSource shall create a capture device for a given selection, or for the
-                  system default input device when the selection is null.
+                  The ICliCaptureDeviceSource shall resolve a known named capture device to a usable device.
                 justification: |
-                  A command that listens must obtain a device for the operator's chosen name, or for the
-                  default input when no name is given, through one call that does not depend on how the device
-                  is resolved.
+                  A command that listens must obtain a device for the operator's chosen name through one call
+                  that does not depend on how the device is resolved.
                 tests:
-                  - AudioDeviceFactoryCaptureDeviceSource_CreateCaptureDevice_ForwardsToFactory
+                  - ICliCaptureDeviceSource_CreateCaptureDevice_KnownAndUnknownNames_ResolveAsContractRequires
+
+              - id: SpeechCli-ConversationCommands-ICliCaptureDeviceSource-UnknownDeviceUnavailable
+                title: >-
+                  The ICliCaptureDeviceSource shall resolve a named capture device it does not know to an
+                  unavailable device rather than throwing.
+                justification: |
+                  Callers report an unavailable device with a clear message; an exception from an unknown name
+                  would bypass that handling.
+                tests:
+                  - ICliCaptureDeviceSource_CreateCaptureDevice_KnownAndUnknownNames_ResolveAsContractRequires
+                  - AudioDeviceFactoryCaptureDeviceSource_CreateCaptureDevice_UnknownName_ReturnsUnavailableDevice
+
+              - id: SpeechCli-ConversationCommands-ICliCaptureDeviceSource-DefaultDeviceUnavailable
+                title: >-
+                  The ICliCaptureDeviceSource shall resolve the default capture device to an unavailable device
+                  when no capture devices are present.
+                justification: |
+                  A machine without a microphone must give the caller an honest unavailable result for the
+                  default selection too.
+                tests:
+                  - AudioDeviceFactoryCaptureDeviceSource_CreateCaptureDevice_DefaultWithNoDevices_ReturnsUnavailableDevice

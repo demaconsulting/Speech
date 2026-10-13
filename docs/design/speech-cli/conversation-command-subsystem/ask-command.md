@@ -19,14 +19,15 @@ timeout and an 8-second start timeout.
   playback and capture device sources, the stop signal, and a recognizer-created callback so tests can drive the
   same flow.
 - `ParseArguments` reads the flags with a hand-rolled loop. It requires both model ids, requires a value after every
-  flag, requires a positive number for each timeout, and validates each `--tts-param`/`--stt-param` token shape.
+  flag (a value that is itself a recognized option token is rejected as a missing value, while other dash-prefixed
+  text is accepted), requires a positive finite number for each timeout, and validates each `--tts-param`/`--stt-param` token shape.
   Any other token, including `--interim`, `--final-only`, `--no-tags`, `--input`, and `--output-audio`, falls
   through to the same unsupported-argument rejection, so no separate rejection list exists.
 - Text-source resolution runs first, because it is a cheap check that needs no model: `--text` and `--file`
   together are rejected; `--text` supplies the text; `--file` reads the whole file; with neither flag, redirected
   stdin supplies the text, and a console with no redirected input is rejected. Piped stdin is read only when
-  neither flag is given. An unreadable or missing `--file` surfaces the file system exception unwrapped (not an
-  operator-error exception), so it is reported as an unexpected failure rather than a clean usage error. Empty
+  neither flag is given. An unreadable or missing `--file` is reported as an `InvalidOperationException` naming the file, as
+  `speak` does, so it is a clean error rather than an unexpected failure. Empty
   prompt text is not rejected; it is passed to the synthesis session as is.
 - Model resolution runs next: the synthesis model first, then the recognition model, each failing with an
   actionable message naming its own flag for an unknown id, a wrong role, or a model not yet downloaded.
@@ -70,9 +71,12 @@ device. Three exit paths govern the pre-warmed recognizer:
   playback-side ordering above. If session creation fails after the engine loaded, the engine is disposed before the
   failure is re-thrown.
 - When the prompt is canceled, or the first phase throws, the pre-warm task is handed to
-  `DisposePrewarmedRecognizerAsync` without being awaited. That helper later observes the task, disposes the session
-  and then the engine if they were produced, and swallows any pre-warm failure, which is no longer actionable. Not
+  `DisposePrewarmedRecognizerAsync` without being awaited. That helper later observes the task and disposes the session and the engine if they were produced; the engine is
+  disposed in a `finally` so a throwing session dispose cannot leak it, and the first exception is preserved. It
+  swallows any pre-warm failure, which is no longer actionable. Not
   awaiting keeps `Ctrl+C` and fast-failure paths from waiting for a slow model load.
+- The pre-warm task is released on every path: a flag marks when `RunAsync` has adopted the recognizer, and a
+  `finally` block disposes it otherwise, so no broad catch is needed.
 - The listen phase disposes the session in its own `finally` block, and `RunAsync` disposes the engine afterward.
 
 `SpeechModelCatalogAdapter`, the only production catalog implementation, wraps a read-mostly catalog with no
@@ -96,7 +100,8 @@ _Output._ The reply text, or an empty string when the turn ended by a timeout wi
 stdout by default or written to the `--output-text` file, replacing any previous content and leaving a completely
 empty file for an empty reply. `ask` never prints interim results.
 
-_Cancellation._ `Ctrl+C` cancels one shared token, stops the live listen session, and sets the shared stop signal,
+_Cancellation._ Cancellation during the setup steps (creating the synthesizer engine or session, or adopting the
+pre-warmed recognizer) is reported with the same clean message as cancellation during playback. `Ctrl+C` cancels one shared token, stops the live listen session, and sets the shared stop signal,
 so it works during playback or during listening. A canceled prompt skips the listen phase entirely and reports
 "Speech was canceled." A `Ctrl+C` during the listen phase is told apart from a timeout by the shared token, which
 only `Ctrl+C` cancels: it is reported the same way, and no text is printed and no file is written. The token is

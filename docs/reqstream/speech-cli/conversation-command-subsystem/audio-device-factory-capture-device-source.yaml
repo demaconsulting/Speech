@@ -1,15 +1,14 @@
 ---
 # Software Unit Requirements for the SpeechCli AudioDeviceFactoryCaptureDeviceSource
 #
-# These requirements describe the behavior of the AudioDeviceFactoryCaptureDeviceSource unit - the production
-# ICliCaptureDeviceSource that resolves capture devices through the real AudioDeviceFactory - decomposing the parent
-# ConversationCommandSubsystem requirements.
+# These requirements describe the observable behavior of the AudioDeviceFactoryCaptureDeviceSource unit - the
+# production ICliCaptureDeviceSource - decomposing the parent ConversationCommandSubsystem requirements.
+# Every test below is an AudioDeviceFactoryCaptureDeviceSourceTests test and runs deterministically on any
+# machine, because each injects a fake probe: a selection the probe does not know resolves to the honestly
+# unavailable device whether or not audio hardware is present.
 #
-# The requirements are grouped by concern, one criterion each:
-#   - Probe forwarding (ProbeForwarding)
-#   - Device creation forwarding (DeviceForwarding)
-#   - Construction (FactoryRequired)
-# Every test below is an AudioDeviceFactoryCaptureDeviceSourceTests test.
+# The requirement IDs ending in ProbeForwarding, DeviceForwarding and FactoryRequired are kept stable for
+# traceability; their titles state the observable behavior only.
 
 sections:
   - title: SpeechCli Requirements
@@ -20,25 +19,33 @@ sections:
             requirements:
               - id: SpeechCli-ConversationCommands-AudioDeviceFactoryCaptureDeviceSource-ProbeForwarding
                 title: >-
-                  The AudioDeviceFactoryCaptureDeviceSource shall expose the capture probe of the factory it was
-                  given.
+                  The AudioDeviceFactoryCaptureDeviceSource shall enumerate the same capture devices as the
+                  probe it was composed with.
                 justification: |
-                  The devices a command lists and validates names against must be the same devices the factory
-                  can create, or a name accepted by the list could fail at creation.
+                  The devices a command lists and validates names against must be the devices the source can
+                  resolve, or a name accepted by the list could fail when the device is requested.
                 tests:
-                  - AudioDeviceFactoryCaptureDeviceSource_CaptureProbe_ForwardsToFactory
+                  - AudioDeviceFactoryCaptureDeviceSource_CaptureProbe_ExposesInjectedProbe
 
               - id: SpeechCli-ConversationCommands-AudioDeviceFactoryCaptureDeviceSource-DeviceForwarding
                 title: >-
-                  The AudioDeviceFactoryCaptureDeviceSource shall return the same kind of device, with the same
-                  availability, that the factory it was given returns for the same selection, for both the
-                  default selection and a named selection.
+                  The AudioDeviceFactoryCaptureDeviceSource shall return an unavailable capture device, without
+                  throwing, when asked for a named device that is not among the enumerated capture devices.
                 justification: |
-                  The real capture hardware detection must behave as it does when the factory is used
-                  directly, so wrapping the factory never turns an available device into an unavailable one,
-                  or the reverse, on any machine.
+                  An unknown name must degrade to the honest unavailable device that callers already handle,
+                  never to an exception or to a different device than the one requested.
                 tests:
-                  - AudioDeviceFactoryCaptureDeviceSource_CreateCaptureDevice_ForwardsToFactory
+                  - AudioDeviceFactoryCaptureDeviceSource_CreateCaptureDevice_UnknownName_ReturnsUnavailableDevice
+
+              - id: SpeechCli-ConversationCommands-AudioDeviceFactoryCaptureDeviceSource-DefaultDeviceUnavailable
+                title: >-
+                  The AudioDeviceFactoryCaptureDeviceSource shall return an unavailable capture device, without
+                  throwing, when the default device is requested and no capture devices are present.
+                justification: |
+                  A machine without a microphone must produce a clear unavailable result that the caller can
+                  report, not a crash.
+                tests:
+                  - AudioDeviceFactoryCaptureDeviceSource_CreateCaptureDevice_DefaultWithNoDevices_ReturnsUnavailableDevice
 
               - id: SpeechCli-ConversationCommands-AudioDeviceFactoryCaptureDeviceSource-FactoryRequired
                 title: >-

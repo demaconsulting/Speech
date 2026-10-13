@@ -41,7 +41,7 @@ namespace DemaConsulting.Speech.Cli.Tests.Commands.ConversationCommandSubsystem;
 ///     network access, native engine, or PortAudio hardware. Both the playback-side and
 ///     capture-side device resolution reuse dedicated CLI-owned seams -
 ///     <see cref="FakePlaybackDeviceSource"/> (mirroring
-///     <see cref="SynthesisCommandSubsystem.SpeakCommandTests"/>'s own precedent) and
+///     the <c>speak</c> command tests' own precedent) and
 ///     <see cref="FakeCaptureDeviceSource"/> respectively - rather than a real
 ///     <see cref="AudioDeviceFactory"/>, so no test ever depends on
 ///     <c>PortAudioEnvironment.Shared.IsInitialized</c> being true (which it never is on headless
@@ -1446,5 +1446,348 @@ public sealed class AskCommandTests
                 stopSignal,
                 null!,
                 cancellationSource.Token));
+    }
+
+    // --- Value-taking flag rule ---
+
+    /// <summary>Test that the prompt is read from the file named by <c>--file</c> and spoken.</summary>
+    [Fact]
+    public async Task AskCommand_Run_FileFlag_SpeaksFileContents()
+    {
+        // Arrange
+        var catalog = CreateCatalogWithModels();
+        var (synthSession, _) = WireSynthesizer(catalog);
+        var (recognitionSession, _) = WireRecognizer(catalog);
+        recognitionSession.OnStart = self => self.RaiseResult("ok", isFinal: true);
+        var path = Path.Join(Path.GetTempPath(), $"ask-prompt-{Guid.NewGuid():N}.txt");
+        await File.WriteAllTextAsync(path, "Prompt from file", TestContext.Current.CancellationToken);
+        var originalOut = Console.Out;
+        using var writer = new StringWriter { NewLine = "\n" };
+        Console.SetOut(writer);
+
+        try
+        {
+            using var context = Context.Create(
+                ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--file", path]);
+
+            // Act
+            await AskCommand.RunAsync(context, catalog, CreatePlaybackSource(), CreateCaptureSource());
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+            File.Delete(path);
+        }
+
+        // Assert
+        Assert.Equal(["Prompt from file"], synthSession.SpeakAsyncCalls);
+    }
+
+    /// <summary>The value-taking flags <c>ask</c> recognizes.</summary>
+    public static TheoryData<string> ValueFlags =>
+    [
+        "--tts-model", "--stt-model", "--text", "--file", "--playback-device", "--capture-device",
+        "--tts-param", "--stt-param", "--silence-timeout", "--start-timeout", "--output-text"
+    ];
+
+    /// <summary>
+    ///     Test that every value-taking flag rejects a following recognized option token as its
+    ///     value, rather than silently swallowing it.
+    /// </summary>
+    /// <param name="flag">The value-taking flag under test.</param>
+    [Theory]
+    [MemberData(nameof(ValueFlags))]
+    public void AskCommand_ParseArguments_ValueFlagFollowedByRecognizedOption_ThrowsArgumentException(string flag)
+    {
+        // Arrange
+        var nextOption = flag == "--tts-model" ? "--stt-model" : "--tts-model";
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => AskCommand.ParseArguments([flag, nextOption, "x"]));
+
+        // Assert
+        Assert.Contains(flag, exception.Message);
+        Assert.Contains("requires a value", exception.Message);
+    }
+
+    /// <summary>Test that every value-taking flag rejects the end of the arguments as a missing value.</summary>
+    /// <param name="flag">The value-taking flag under test.</param>
+    [Theory]
+    [MemberData(nameof(ValueFlags))]
+    public void AskCommand_ParseArguments_ValueFlagAtEndOfArguments_ThrowsArgumentException(string flag)
+    {
+        // Arrange
+        string[] args = [flag];
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => AskCommand.ParseArguments(args));
+
+        // Assert
+        Assert.Contains(flag, exception.Message);
+        Assert.Contains("requires a value", exception.Message);
+    }
+
+    /// <summary>
+    ///     Test that a value that merely starts with a dash, but is not a recognized option token, is
+    ///     accepted as the flag's value (for example, prompt text).
+    /// </summary>
+    [Fact]
+    public void AskCommand_ParseArguments_DashPrefixedNonOptionValue_IsAcceptedAsValue()
+    {
+        // Arrange
+        string[] args = ["--tts-model", "tts-1", "--stt-model", "stt-1", "--text", "--not-an-option"];
+
+        // Act
+        var options = AskCommand.ParseArguments(args);
+
+        // Assert
+        Assert.Equal("--not-an-option", options.Text);
+    }
+
+    /// <summary>Test that a non-finite timeout is rejected exactly like a malformed number.</summary>
+    /// <param name="flag">The timeout flag under test.</param>
+    /// <param name="value">The non-finite value text.</param>
+    [Theory]
+    [InlineData("--silence-timeout", "NaN")]
+    [InlineData("--silence-timeout", "Infinity")]
+    [InlineData("--silence-timeout", "-Infinity")]
+    [InlineData("--start-timeout", "NaN")]
+    [InlineData("--start-timeout", "Infinity")]
+    [InlineData("--start-timeout", "-Infinity")]
+    public void AskCommand_ParseArguments_NonFiniteTimeout_ThrowsArgumentException(string flag, string value)
+    {
+        // Arrange
+        string[] args = ["--tts-model", "tts-1", "--stt-model", "stt-1", flag, value];
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => AskCommand.ParseArguments(args));
+
+        // Assert
+        Assert.Contains(flag, exception.Message);
+        Assert.Contains("positive number", exception.Message);
+    }
+
+    // --- Model guidance text ---
+
+    /// <summary>Test that unknown, wrong-role, and not-downloaded errors carry actionable guidance text.</summary>
+    [Fact]
+    public async Task AskCommand_Run_ModelErrors_NameActionableGuidance()
+    {
+        // Arrange
+        var unknownCatalog = CreateCatalogWithModels();
+        var wrongTtsCatalog = CreateCatalogWithModels(ttsRole: SpeechModelRole.Recognition);
+        var wrongSttCatalog = CreateCatalogWithModels(sttRole: SpeechModelRole.Synthesis);
+        using var unknownContext = Context.Create(
+            ["ask", "--tts-model", "nope", "--stt-model", "stt-model-1", "--text", "hi"]);
+        using var wrongTtsContext = Context.Create(
+            ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi"]);
+        using var wrongSttContext = Context.Create(
+            ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi"]);
+
+        // Act
+        var unknown = await Assert.ThrowsAsync<ArgumentException>(
+            () => AskCommand.RunAsync(unknownContext, unknownCatalog, CreatePlaybackSource(), CreateCaptureSource()));
+        var wrongTts = await Assert.ThrowsAsync<ArgumentException>(
+            () => AskCommand.RunAsync(wrongTtsContext, wrongTtsCatalog, CreatePlaybackSource(), CreateCaptureSource()));
+        var wrongStt = await Assert.ThrowsAsync<ArgumentException>(
+            () => AskCommand.RunAsync(wrongSttContext, wrongSttCatalog, CreatePlaybackSource(), CreateCaptureSource()));
+
+        // Assert
+        Assert.Contains("list-models", unknown.Message);
+        Assert.Contains("list-models --role tts", wrongTts.Message);
+        Assert.Contains("list-models --role stt", wrongStt.Message);
+    }
+
+    // --- Setup-time cancellation ---
+
+    /// <summary>
+    ///     Test that a cancellation raised while the synthesizer engine is being created is reported as
+    ///     the clean cancellation result (exit code 1, no exception), and the pre-warmed recognizer is
+    ///     still released.
+    /// </summary>
+    [Fact]
+    public async Task AskCommand_Run_CanceledDuringSynthesizerEngineSetup_ReportsCleanCancellation()
+    {
+        // Arrange
+        var catalog = CreateCatalogWithModels();
+        catalog.CreateSynthesizerEngineOverride = (_, _, _) => Task.FromCanceled<ISpeechSynthesizerEngine>(new CancellationToken(true));
+        var (recognizerSession, recognizerEngine) = WireRecognizer(catalog);
+        using var context = Context.Create(
+            ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi"]);
+        var originalError = Console.Error;
+        using var errorWriter = new StringWriter { NewLine = "\n" };
+        Console.SetError(errorWriter);
+
+        try
+        {
+            // Act
+            await AskCommand.RunAsync(context, catalog, CreatePlaybackSource(), CreateCaptureSource());
+        }
+        finally
+        {
+            Console.SetError(originalError);
+        }
+
+        // Assert
+        Assert.Equal(1, context.ExitCode);
+        Assert.Contains("Speech was canceled.", errorWriter.ToString());
+        Assert.Equal(0, recognizerSession.StartCallCount);
+        await AwaitRecognizerDisposedAsync(recognizerSession, recognizerEngine);
+    }
+
+    /// <summary>
+    ///     Test that a cancellation raised while the synthesis session is being created is reported as
+    ///     the clean cancellation result, and the synthesizer engine and playback device are disposed.
+    /// </summary>
+    [Fact]
+    public async Task AskCommand_Run_CanceledDuringSynthesisSessionSetup_ReportsCleanCancellation()
+    {
+        // Arrange
+        var catalog = CreateCatalogWithModels();
+        var (_, synthEngine) = WireSynthesizer(catalog);
+        synthEngine.CreateSessionException = new OperationCanceledException();
+        var (recognizerSession, recognizerEngine) = WireRecognizer(catalog);
+        var playbackDevice = new FakeAudioPlaybackDevice();
+        var playbackSource = new FakePlaybackDeviceSource(new FakeAudioPlaybackDeviceProbe([OutputDevice]), playbackDevice);
+        using var context = Context.Create(
+            ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi"]);
+
+        // Act
+        await AskCommand.RunAsync(context, catalog, playbackSource, CreateCaptureSource());
+
+        // Assert
+        Assert.Equal(1, context.ExitCode);
+        Assert.Equal(1, synthEngine.DisposeCallCount);
+        Assert.Equal(1, playbackDevice.DisposeCallCount);
+        await AwaitRecognizerDisposedAsync(recognizerSession, recognizerEngine);
+    }
+
+    /// <summary>
+    ///     Test that a cancellation observed while the pre-warmed recognizer is still being created
+    ///     (after the prompt was spoken) is reported as the clean cancellation result.
+    /// </summary>
+    [Fact]
+    public async Task AskCommand_RunAsync_CanceledDuringRecognizerSetup_ReportsCleanCancellation()
+    {
+        // Arrange
+        var catalog = CreateCatalogWithModels();
+        WireSynthesizer(catalog);
+        using var cancellationSource = new CancellationTokenSource();
+        using var stopSignal = new ManualResetEventSlim(initialState: false);
+        catalog.CreateRecognizerEngineOverride = (_, _, token) =>
+        {
+            cancellationSource.Cancel();
+            token.ThrowIfCancellationRequested();
+            return Task.FromResult<ISpeechRecognizerEngine>(new FakeSpeechRecognizerEngine(new FakeRecognitionSession()));
+        };
+        using var context = Context.Create(
+            ["ask", "--tts-model", "tts-model-1", "--stt-model", "stt-model-1", "--text", "hi"]);
+
+        // Act
+        await AskCommand.RunAsync(
+            context,
+            catalog,
+            CreatePlaybackSource(),
+            CreateCaptureSource(),
+            stopSignal,
+            _ => { },
+            cancellationSource.Token);
+
+        // Assert
+        Assert.Equal(1, context.ExitCode);
+    }
+
+    // --- Pre-warmed recognizer disposal ---
+
+    /// <summary>Test that disposing a pre-warmed recognizer releases both the session and the engine.</summary>
+    [Fact]
+    public async Task AskCommand_DisposePrewarmedRecognizer_Produced_DisposesSessionAndEngine()
+    {
+        // Arrange
+        var session = new FakeRecognitionSession();
+        var engine = new FakeSpeechRecognizerEngine(session);
+        var task = Task.FromResult(new AskCommand.PrewarmedRecognizer(engine, session));
+
+        // Act
+        await AskCommand.DisposePrewarmedRecognizerAsync(task);
+
+        // Assert
+        Assert.Equal(1, session.DisposeCallCount);
+        Assert.Equal(1, engine.DisposeCallCount);
+    }
+
+    /// <summary>
+    ///     Test that a session whose disposal throws does not prevent the engine from being disposed,
+    ///     and that the session's (first) exception is the one preserved.
+    /// </summary>
+    [Fact]
+    public async Task AskCommand_DisposePrewarmedRecognizer_SessionDisposeThrows_StillDisposesEngineAndPreservesFirstException()
+    {
+        // Arrange
+        var sessionFailure = new InvalidOperationException("session dispose failed");
+        var session = new ThrowingDisposeSession(sessionFailure);
+        var engine = new FakeSpeechRecognizerEngine(new FakeRecognitionSession());
+        var task = Task.FromResult(new AskCommand.PrewarmedRecognizer(engine, session));
+
+        // Act
+        var thrown = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => AskCommand.DisposePrewarmedRecognizerAsync(task));
+
+        // Assert
+        Assert.Same(sessionFailure, thrown);
+        Assert.Equal(1, session.DisposeCallCount);
+        Assert.Equal(1, engine.DisposeCallCount);
+    }
+
+    /// <summary>Test that a failed pre-warm task is observed and swallowed, with nothing to dispose.</summary>
+    [Fact]
+    public async Task AskCommand_DisposePrewarmedRecognizer_FaultedPrewarm_CompletesWithoutThrowing()
+    {
+        // Arrange
+        var task = Task.FromException<AskCommand.PrewarmedRecognizer>(new InvalidOperationException("load failed"));
+
+        // Act
+        var exception = await Record.ExceptionAsync(() => AskCommand.DisposePrewarmedRecognizerAsync(task));
+
+        // Assert
+        Assert.Null(exception);
+    }
+
+    /// <summary>A recognition session whose <see cref="DisposeAsync"/> always throws the configured exception.</summary>
+    /// <param name="failure">The exception <see cref="DisposeAsync"/> throws.</param>
+    private sealed class ThrowingDisposeSession(Exception failure) : IRecognitionSession
+    {
+        /// <summary>Gets the number of times <see cref="DisposeAsync"/> was called.</summary>
+        public int DisposeCallCount { get; private set; }
+
+        /// <inheritdoc/>
+        public bool IsAvailable => true;
+
+        /// <inheritdoc/>
+        public RecognitionSessionState State => RecognitionSessionState.Created;
+
+        /// <inheritdoc/>
+        public event EventHandler<DemaConsulting.Speech.RecognitionSubsystem.SessionStateChangedEventArgs>? StateChanged
+        {
+            add => throw new NotSupportedException();
+            remove => throw new NotSupportedException();
+        }
+
+        /// <inheritdoc/>
+        public Task StartAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        /// <inheritdoc/>
+        public Task StopAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        /// <inheritdoc/>
+        public IAsyncEnumerable<SpeechRecognitionEvent> GetResultsAsync(CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        /// <inheritdoc/>
+        public ValueTask DisposeAsync()
+        {
+            DisposeCallCount++;
+            throw failure;
+        }
     }
 }

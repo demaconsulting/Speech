@@ -36,11 +36,13 @@ sections:
                 tags: [unit]
                 justification: |
                   An AI agent or operator scripting a voice conversation needs one command that speaks a
-                  prompt without needing to reason about which library types compose a synthesizer. Only the
-                  `--text` source is verified; the `--file` and piped-stdin sources have no test.
+                  prompt without needing to reason about which library types compose a synthesizer. The `--text` and
+                  `--file` sources are verified; the piped-stdin source is not tested because test runners
+                  redirect standard input.
                 tests:
                   - AskCommand_ParseArguments_TextFlag_ParsesText
                   - AskCommand_Run_Success_SpeaksThenListensAndPrintsFinalResult
+                  - AskCommand_Run_FileFlag_SpeaksFileContents
 
               - id: SpeechCli-ConversationCommands-AskListenAfterPrompt
                 title: >-
@@ -75,6 +77,7 @@ sections:
                 tests:
                   - AskCommand_Run_UnknownTtsModelId_ThrowsArgumentException
                   - AskCommand_Run_UnknownSttModelId_ThrowsArgumentException
+                  - AskCommand_Run_ModelErrors_NameActionableGuidance
 
               - id: SpeechCli-ConversationCommands-AskModelWrongRole
                 title: >-
@@ -88,6 +91,7 @@ sections:
                 tests:
                   - AskCommand_Run_WrongRoleTtsModel_ThrowsArgumentException
                   - AskCommand_Run_WrongRoleSttModel_ThrowsArgumentException
+                  - AskCommand_Run_ModelErrors_NameActionableGuidance
 
               - id: SpeechCli-ConversationCommands-AskModelNotDownloaded
                 title: >-
@@ -192,14 +196,18 @@ sections:
 
               - id: SpeechCli-ConversationCommands-AskFlagMissingValue
                 title: >-
-                  The AskCommand shall reject `ask` invoked with a flag that is missing its value with a clean,
-                  non-zero-exit-code error rather than a stack trace.
+                  The AskCommand shall reject `ask` invoked with a value-taking flag that is followed by no value or by
+                  another `ask` option rather than a value with a clean, non-zero-exit-code error naming the flag,
+                  rather than a stack trace.
                 tags: [unit]
                 justification: |
                   A flag with no value is an incomplete invocation that must fail predictably rather than
-                  consume the next token or be ignored.
+                  silently consume the next option as its value, which would drop that option from the run.
                 tests:
                   - AskCommand_ParseArguments_FlagMissingValue_ThrowsArgumentException
+                  - AskCommand_ParseArguments_ValueFlagFollowedByRecognizedOption_ThrowsArgumentException
+                  - AskCommand_ParseArguments_ValueFlagAtEndOfArguments_ThrowsArgumentException
+                  - AskCommand_ParseArguments_DashPrefixedNonOptionValue_IsAcceptedAsValue
 
               - id: SpeechCli-ConversationCommands-ParamForwarding
                 title: >-
@@ -282,12 +290,15 @@ sections:
 
               - id: SpeechCli-ConversationCommands-ListenTimeoutValidation
                 title: >-
-                  The AskCommand shall reject a non-positive or non-numeric `--silence-timeout` or
-                  `--start-timeout` given to `ask` with a clean, non-zero-exit-code error.
+                  The AskCommand shall reject a non-positive, non-finite (NaN or infinite), or non-numeric
+                  `--silence-timeout` or `--start-timeout` given to `ask` with a clean, non-zero-exit-code
+                  error.
                 tags: [unit]
                 justification: |
-                  A zero or negative timeout would end the turn immediately, so it must fail predictably.
+                  A zero or negative timeout would end the turn immediately, and NaN or infinity would never end
+                  it or behave unpredictably, so each must fail predictably.
                 tests:
+                  - AskCommand_ParseArguments_NonFiniteTimeout_ThrowsArgumentException
                   - AskCommand_ParseArguments_NonPositiveSilenceTimeout_ThrowsArgumentException
                   - AskCommand_ParseArguments_NonPositiveStartTimeout_ThrowsArgumentException
 
@@ -393,14 +404,18 @@ sections:
 
               - id: SpeechCli-ConversationCommands-SpeakCancellation
                 title: >-
-                  The AskCommand shall skip the listen phase entirely, without a crash, when `Ctrl+C` is
-                  pressed during the prompt.
+                  The AskCommand shall skip the listen phase entirely, without a crash, and report a
+                  cancellation with a non-zero exit code, when `Ctrl+C` is pressed while the prompt is being set up
+                  or spoken, or while the reply recognizer is still being prepared.
                 tags: [unit]
                 justification: |
                   Listening for a reply to a prompt the operator interrupted would be surprising; no
                   recognizer may start after the prompt is canceled.
                 tests:
                   - AskCommand_Run_CanceledDuringSpeak_SkipsListenPhase
+                  - AskCommand_Run_CanceledDuringSynthesizerEngineSetup_ReportsCleanCancellation
+                  - AskCommand_Run_CanceledDuringSynthesisSessionSetup_ReportsCleanCancellation
+                  - AskCommand_RunAsync_CanceledDuringRecognizerSetup_ReportsCleanCancellation
 
               - id: SpeechCli-ConversationCommands-ListenCancellation
                 title: >-
@@ -449,8 +464,13 @@ sections:
                   success, failure, or cancellation.
                 tests:
                   - AskCommand_Run_CanceledDuringSpeak_SkipsListenPhase
+                  - AskCommand_Run_CanceledDuringSynthesizerEngineSetup_ReportsCleanCancellation
+                  - AskCommand_Run_CanceledDuringSynthesisSessionSetup_ReportsCleanCancellation
                   - AskCommand_Run_ExceptionDuringSpeak_DisposesPlaybackDeviceAndRethrows
                   - AskCommand_Run_Success_SpeaksThenListensAndPrintsFinalResult
+                  - AskCommand_DisposePrewarmedRecognizer_Produced_DisposesSessionAndEngine
+                  - AskCommand_DisposePrewarmedRecognizer_SessionDisposeThrows_StillDisposesEngineAndPreservesFirstException
+                  - AskCommand_DisposePrewarmedRecognizer_FaultedPrewarm_CompletesWithoutThrowing
 
               - id: SpeechCli-ConversationCommands-RecognizerReadyBeforeListening
                 title: >-
@@ -490,6 +510,8 @@ sections:
                   non-zero.
                 tests:
                   - AskCommand_Run_CanceledDuringSpeak_SkipsListenPhase
+                  - AskCommand_Run_CanceledDuringSynthesizerEngineSetup_ReportsCleanCancellation
+                  - AskCommand_Run_CanceledDuringSynthesisSessionSetup_ReportsCleanCancellation
 
               - id: SpeechCli-ConversationCommands-PromptCancellationNotDelayed
                 title: >-

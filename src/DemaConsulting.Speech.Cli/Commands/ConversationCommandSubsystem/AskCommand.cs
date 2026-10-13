@@ -151,6 +151,16 @@ internal static class AskCommand
     private const double DefaultSilenceTimeoutSeconds = 5.0;
 
     /// <summary>
+    ///     Every option token <c>ask</c> recognizes. A value-taking flag never accepts one of these as
+    ///     its value.
+    /// </summary>
+    private static readonly string[] RecognizedOptions =
+    [
+        "--tts-model", "--stt-model", "--text", "--file", "--playback-device", "--capture-device",
+        TtsParamFlag, SttParamFlag, "--silence-timeout", "--start-timeout", "--output-text"
+    ];
+
+    /// <summary>
     ///     Bundles the invocation-scoped dependencies shared by both Phase 1 (speak) and Phase 2
     ///     (listen), so <see cref="SpeakPromptAsync"/> and <see cref="Listen"/> stay under this
     ///     repository's parameter-count guideline without changing any public API surface.
@@ -172,7 +182,7 @@ internal static class AskCommand
     /// </summary>
     /// <param name="Engine">The loaded recognition engine. Owned by <c>RunAsync</c> once adopted.</param>
     /// <param name="Session">The session created from <paramref name="Engine"/>, bound to the resolved capture device.</param>
-    private readonly record struct PrewarmedRecognizer(ISpeechRecognizerEngine Engine, IRecognitionSession Session);
+    internal readonly record struct PrewarmedRecognizer(ISpeechRecognizerEngine Engine, IRecognitionSession Session);
 
     /// <summary>
     ///     Runs the <c>ask</c> subcommand against a real, composed
@@ -350,6 +360,7 @@ internal static class AskCommand
             CancellationToken.None);
 
         PrewarmedRecognizer prewarmed;
+        var prewarmAdopted = false;
         try
         {
             // Phase 1: speak the prompt through a real playback device and wait for it to finish.
@@ -358,14 +369,9 @@ internal static class AskCommand
 
             if (wasCanceled)
             {
-                // Phase 1 was canceled, so Phase 2 never runs: the concurrently pre-warmed
-                // engine/session (whether already constructed, still in flight, or never going
-                // to succeed) must still eventually be disposed, but RunAsync must not block its
-                // own return on the (possibly still-loading) model finishing - that would delay
-                // Ctrl+C responsiveness for exactly the scenario where instant feedback matters
-                // most. Hand it off fire-and-forget: DisposePrewarmedRecognizerAsync's own
-                // continuation disposes it once construction eventually completes.
-                _ = DisposePrewarmedRecognizerAsync(prewarmTask);
+                // Phase 1 was canceled, so Phase 2 never runs; the finally block below hands the
+                // concurrently pre-warmed engine/session off for background disposal without
+                // blocking this return on the (possibly still-loading) model.
                 return;
             }
 
@@ -375,26 +381,32 @@ internal static class AskCommand
             // etc. - at Phase 2's start, exactly as a synchronous call to the same logic would
             // have. Once assigned here, Listen's own finally block takes ownership of disposing
             // this session exactly once; the engine is disposed by RunAsync itself afterward.
-            prewarmed = await prewarmTask.ConfigureAwait(false);
+            try
+            {
+                prewarmed = await prewarmTask.ConfigureAwait(false);
+                prewarmAdopted = true;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                // Ctrl+C landed while the recognizer was still loading: report the same clean
+                // cancellation as every other cancellation exit point.
+                context.WriteError(SpeechCanceledMessage);
+                return;
+            }
         }
-        // Intentionally broad: this is the command-level fail-fast boundary around Phase 1 and
-        // recognizer pre-warm adoption, so any exception must preserve its original type/message
-        // while still handing off the concurrently created engine/session for asynchronous
-        // cleanup.
-        catch (Exception)
+        finally
         {
-            // SpeakPromptAsync (or any resolution logic reachable above, e.g. an unknown
-            // --playback-device, or PrewarmRecognizerAsync's own failure surfacing when its
-            // result is adopted) threw instead of returning a normal wasCanceled result: the
-            // pre-warmed engine/session - whether already constructed, still in flight, or never
-            // going to succeed - must still eventually be disposed and prewarmTask's
-            // result/exception must still eventually be observed, but RunAsync must not block
-            // this fast-failure exit on the (possibly still-loading) model finishing. Hand it off
-            // fire-and-forget, same as the Phase 1 cancellation path above; this is a no-op once
-            // it runs if prewarmTask never produces an engine/session. Rethrow immediately to
-            // preserve the original exception's type, message, and stack trace unchanged.
-            _ = DisposePrewarmedRecognizerAsync(prewarmTask);
-            throw;
+            if (!prewarmAdopted)
+            {
+                // Phase 1 was canceled or threw (or anything before adopting the pre-warm result
+                // failed): the pre-warmed engine/session - whether already constructed, still in
+                // flight, or never going to succeed - must still eventually be disposed and
+                // prewarmTask's result/exception must still eventually be observed, but RunAsync
+                // must not block this exit on the (possibly still-loading) model finishing. Hand
+                // it off fire-and-forget; a failed pre-warm is a no-op there. Any exception in
+                // flight propagates unchanged with its original type, message, and stack trace.
+                _ = DisposePrewarmedRecognizerAsync(prewarmTask);
+            }
         }
 
         await using var engineLease = prewarmed.Engine;
@@ -494,12 +506,17 @@ internal static class AskCommand
         }
 
         using var playbackDeviceLease = playbackDevice as IDisposable;
-        await using var engine = await catalog.CreateSynthesizerEngineAsync(ttsDescriptor, parameterValues, cancellationToken)
-            .ConfigureAwait(false);
-        await using var session = await engine.CreateSessionAsync(playbackDevice, cancellationToken).ConfigureAwait(false);
 
+        // Engine and session creation observe the same token as playback, so a Ctrl+C landing
+        // during synthesizer setup is reported as the same clean cancellation as one landing
+        // during playback. The nested await-using scopes dispose the session and engine before
+        // the handler below runs.
         try
         {
+            await using var engine = await catalog.CreateSynthesizerEngineAsync(ttsDescriptor, parameterValues, cancellationToken)
+                .ConfigureAwait(false);
+            await using var session = await engine.CreateSessionAsync(playbackDevice, cancellationToken).ConfigureAwait(false);
+
             await session.SpeakAsync(text, cancellationToken).ConfigureAwait(false);
             return false;
         }
@@ -575,22 +592,35 @@ internal static class AskCommand
     ///     produced and observing (via the <see langword="catch"/> below) any exception it
     ///     raised, so <paramref name="prewarmTask"/> is never left as an unobserved faulted
     ///     <see cref="Task"/> and a successfully constructed engine/session is never leaked - just
-    ///     disposed asynchronously in the background instead of before the caller returns.
+    ///     disposed asynchronously in the background instead of before the caller returns. The
+    ///     session and the engine are disposed independently: the engine is always disposed even
+    ///     when the session's disposal throws, and the first disposal exception is the one the
+    ///     returned task faults with (the fire-and-forget caller never observes it).
     /// </remarks>
-    private static async Task DisposePrewarmedRecognizerAsync(Task<PrewarmedRecognizer> prewarmTask)
+    /// <param name="prewarmTask">The pre-warm task whose result, if any, must be released.</param>
+    /// <returns>A task that completes once any produced session and engine have been disposed.</returns>
+    internal static async Task DisposePrewarmedRecognizerAsync(Task<PrewarmedRecognizer> prewarmTask)
     {
+        PrewarmedRecognizer prewarmed;
         try
         {
-            var prewarmed = await prewarmTask.ConfigureAwait(false);
-            await prewarmed.Session.DisposeAsync().ConfigureAwait(false);
-            await prewarmed.Engine.DisposeAsync().ConfigureAwait(false);
+            prewarmed = await prewarmTask.ConfigureAwait(false);
         }
         // Intentionally broad: this asynchronous cleanup boundary exists only to observe the
-        // pre-warm task and dispose any successful engine/session result after the command has
-        // already decided to exit, so a failed pre-warm is non-actionable noise here.
+        // pre-warm task after the command has already decided to exit, so a failed pre-warm is
+        // non-actionable noise here and there is nothing to dispose.
         catch (Exception)
         {
-            // No engine/session was produced, so there is nothing to dispose.
+            return;
+        }
+
+        try
+        {
+            await prewarmed.Session.DisposeAsync().ConfigureAwait(false);
+        }
+        finally
+        {
+            await prewarmed.Engine.DisposeAsync().ConfigureAwait(false);
         }
     }
 
@@ -945,15 +975,38 @@ internal static class AskCommand
     ///     Gets the value following a flag, throwing a clean <see cref="ArgumentException"/> when
     ///     none was supplied.
     /// </summary>
+    /// <remarks>
+    ///     A value that equals a recognized <c>ask</c> option token (or begins with one followed by
+    ///     <c>=</c>) is rejected as a missing value, so a forgotten value never silently swallows the next
+    ///     option. Values that merely start with <c>-</c> but are not recognized options (for example a
+    ///     negative number or a prompt text) are accepted.
+    /// </remarks>
+    /// <param name="args">The command arguments.</param>
+    /// <param name="index">The index of the value; advanced past it on success.</param>
+    /// <param name="flag">The flag whose value is being read, used in the error message.</param>
+    /// <returns>The flag's value.</returns>
+    /// <exception cref="ArgumentException">
+    ///     Thrown when no value follows the flag or the next argument is a recognized option token.
+    /// </exception>
     private static string RequireValue(IReadOnlyList<string> args, ref int index, string flag)
     {
-        if (index >= args.Count)
+        if (index >= args.Count || IsRecognizedOption(args[index]))
         {
             throw new ArgumentException($"{flag} requires a value.", nameof(args));
         }
 
         return args[index++];
     }
+
+    /// <summary>
+    ///     Determines whether a token is one of <c>ask</c>'s recognized option tokens.
+    /// </summary>
+    /// <param name="token">The token to test.</param>
+    /// <returns><see langword="true"/> when the token is a recognized option; otherwise <see langword="false"/>.</returns>
+    private static bool IsRecognizedOption(string token) =>
+        RecognizedOptions.Any(option =>
+            string.Equals(token, option, StringComparison.Ordinal) ||
+            token.StartsWith(option + "=", StringComparison.Ordinal));
 
     /// <summary>
     ///     Gets the value following a flag, parsed as a positive <see cref="double"/>, throwing a
@@ -963,6 +1016,7 @@ internal static class AskCommand
     {
         var value = RequireValue(args, ref index, flag);
         if (!double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var parsed) ||
+            !double.IsFinite(parsed) ||
             parsed <= 0.0)
         {
             throw new ArgumentException($"{flag} requires a positive number of seconds, not '{value}'.", nameof(args));

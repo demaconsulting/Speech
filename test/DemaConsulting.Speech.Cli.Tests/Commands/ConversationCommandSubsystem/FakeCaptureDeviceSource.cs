@@ -51,8 +51,11 @@ internal sealed class FakeCaptureDeviceSource : ICliCaptureDeviceSource
     ///     selection is known to <paramref name="captureProbe"/>, or <see langword="null"/> to
     ///     use a fake, available device.
     /// </param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="captureProbe"/> is <see langword="null"/>.</exception>
     public FakeCaptureDeviceSource(IAudioCaptureDeviceProbe captureProbe, IAudioCaptureDevice? device = null)
     {
+        ArgumentNullException.ThrowIfNull(captureProbe);
+
         CaptureProbe = captureProbe;
         _device = device ?? new FakeAudioCaptureDevice();
     }

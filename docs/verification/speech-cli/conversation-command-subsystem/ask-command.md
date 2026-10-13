@@ -21,7 +21,8 @@ signal them from inside a fake session callback to reproduce the interleaving th
 pre-warm scenarios hold the fake synthesis session in flight, or hold recognizer creation in progress, with bounded
 waits so a regression fails with a message instead of hanging.
 
-There is no test for a `--file` prompt that is missing or unreadable, for an empty prompt, for a prompt piped on
+A `--file` prompt is tested for both a readable file (its contents are spoken) and a missing one (a clean
+`InvalidOperationException`). There is no automated test for an empty prompt, for a prompt piped on
 stdin, or for an explicit `--playback-device`/`--capture-device` name that resolves successfully. Those behaviors
 are described in the design but are not verified by an automated test.
 
@@ -39,10 +40,10 @@ are described in the design but are not verified by an automated test.
 #### Acceptance Criteria
 
 The unit passes when `ask` enforces both model ids and the text-source rules, rejects every unsupported option,
-reports actionable model-resolution errors, and forwards typed parameters to the right engine; the first final
+reports actionable model-resolution errors (each naming what to do next), rejects a value-taking option that is followed by another recognized option or has no value at all while still accepting dash-prefixed text as a value, rejects non-finite timeouts, and forwards typed parameters to the right engine; the first final
 result ends the listen phase while a timeout with no final result ends it with an empty reply; the reply goes to
 stdout or the `--output-text` file; device failures are reported cleanly and in the right order relative to the
-prompt; the recognizer is created before the prompt finishes and released when the prompt is canceled; `Ctrl+C` is
+prompt; the recognizer is created before the prompt finishes and released when the prompt is canceled or setup is canceled; Ctrl+C or cancellation during model-engine setup is reported cleanly; `Ctrl+C` is
 reported as a cancellation with no text or file written, and a timeout is not; and every created object is disposed
 once.
 
@@ -107,6 +108,85 @@ once.
 **Scenario**: A flag that needs a value is the last argument.
 
 **Expected**: `ArgumentException` naming the flag.
+
+##### AskCommand_ParseArguments_ValueFlagFollowedByRecognizedOption_ThrowsArgumentException
+
+**Scenario**: Each of the 11 value-taking options is followed immediately by another recognized option token.
+
+**Expected**: `ArgumentException` saying the first option requires a value; the next option is not swallowed.
+
+##### AskCommand_ParseArguments_ValueFlagAtEndOfArguments_ThrowsArgumentException
+
+**Scenario**: Each value-taking option is the last argument.
+
+**Expected**: `ArgumentException` saying the option requires a value.
+
+##### AskCommand_ParseArguments_DashPrefixedNonOptionValue_IsAcceptedAsValue
+
+**Scenario**: `--text` is followed by dash-prefixed text that is not a recognized option.
+
+**Expected**: The text is accepted unchanged as the prompt.
+
+##### AskCommand_ParseArguments_NonFiniteTimeout_ThrowsArgumentException
+
+**Scenario**: A timeout of `NaN` or infinity is given.
+
+**Expected**: `ArgumentException` saying a positive number of seconds is required.
+
+##### AskCommand_Run_ModelErrors_NameActionableGuidance
+
+**Scenario**: Unknown, wrong-role and not-downloaded model ids.
+
+**Expected**: Each error names the id and the corrective action (list the models, pick a model of the right kind, or
+download it).
+
+##### AskCommand_Run_FileFlag_SpeaksFileContents
+
+**Scenario**: `--file` names a text file.
+
+**Expected**: The file's contents are what the synthesizer is asked to speak.
+
+##### AskCommand_Run_MissingTextFile_ThrowsInvalidOperationException
+
+**Scenario**: `--file` names a file that does not exist.
+
+**Expected**: `InvalidOperationException` saying the text file cannot be read.
+
+##### AskCommand_Run_CanceledDuringSynthesizerEngineSetup_ReportsCleanCancellation
+
+**Scenario**: Cancellation is signaled while the synthesizer engine is being created.
+
+**Expected**: Exit code 1 with "Speech was canceled." on stderr, and nothing leaked.
+
+##### AskCommand_Run_CanceledDuringSynthesisSessionSetup_ReportsCleanCancellation
+
+**Scenario**: Cancellation is signaled while the synthesis session is being created.
+
+**Expected**: The same clean cancellation, with the engine disposed.
+
+##### AskCommand_RunAsync_CanceledDuringRecognizerSetup_ReportsCleanCancellation
+
+**Scenario**: Cancellation is signaled while the pre-warmed recognizer is being adopted.
+
+**Expected**: The same clean cancellation, with the recognizer released.
+
+##### AskCommand_DisposePrewarmedRecognizer_Produced_DisposesSessionAndEngine
+
+**Scenario**: A pre-warmed recognizer was produced.
+
+**Expected**: Both its session and engine are disposed.
+
+##### AskCommand_DisposePrewarmedRecognizer_FaultedPrewarm_CompletesWithoutThrowing
+
+**Scenario**: The pre-warm task faulted.
+
+**Expected**: Disposal completes without throwing.
+
+##### AskCommand_DisposePrewarmedRecognizer_SessionDisposeThrows_StillDisposesEngineAndPreservesFirstException
+
+**Scenario**: The session's dispose throws.
+
+**Expected**: The engine is still disposed and the session's exception is the one surfaced.
 
 ##### AskCommand_Run_TextAndFileBothGiven_ThrowsArgumentException
 
