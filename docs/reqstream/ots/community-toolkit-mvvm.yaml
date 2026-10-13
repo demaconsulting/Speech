@@ -10,32 +10,49 @@ sections:
       - title: CommunityToolkit.Mvvm Requirements
         requirements:
           - id: SpeechDemo-OTS-CommunityToolkitMvvm-ChangeNotification
-            title: >-
-              CommunityToolkit.Mvvm shall generate the observable-property change notification,
-              including notification of dependent computed properties, used by the SpeechDemo
-              ViewModels.
+            title: CommunityToolkit.Mvvm shall generate observable-property change notification.
             justification: |
               Every demo panel is driven entirely from its ViewModel, which requires correct
-              change notification for each bound value, including derived display text that
-              must refresh when the value it depends on changes. Hand-writing that boilerplate
-              for every property would add untested code to a demo whose purpose is to exercise
-              the Speech library, so the generated implementation is used instead.
+              change notification for each bound value. Hand-writing that boilerplate for every
+              property would add untested code to a demo whose purpose is to exercise the Speech
+              library, so the generated implementation is used instead.
             tags: [ots]
             tests:
               - CommunityToolkitMvvm_ObservableProperty_Assigned_RaisesPropertyChanged
+
+          - id: SpeechDemo-OTS-CommunityToolkitMvvm-DependentChangeNotification
+            title: CommunityToolkit.Mvvm shall generate change notification for dependent computed properties.
+            justification: |
+              Derived display text must refresh when the value it depends on changes, without
+              hand-written notification calls in every setter.
+            tags: [ots]
+            tests:
               - CommunityToolkitMvvm_NotifyPropertyChangedFor_StateAssigned_RaisesDependentPropertyChanged
 
           - id: SpeechDemo-OTS-CommunityToolkitMvvm-Commands
-            title: >-
-              CommunityToolkit.Mvvm shall generate the bindable synchronous and cancellable
-              asynchronous commands used by the SpeechDemo ViewModels.
+            title: CommunityToolkit.Mvvm shall generate bindable synchronous commands.
             justification: |
-              The demo's refresh and download buttons must bind to commands rather than to
-              code-behind event handlers, and the download command must be awaitable and
-              cancellable so a long model download never blocks the UI thread.
+              The demo's refresh buttons must bind to commands rather than to code-behind event
+              handlers.
             tags: [ots]
             tests:
               - CommunityToolkitMvvm_RelayCommand_Executed_InvokesAnnotatedMethod
               - CommunityToolkitMvvm_RelayCommand_TestLocalPartialClass_GeneratesSynchronousCommand
+
+          - id: SpeechDemo-OTS-CommunityToolkitMvvm-AsyncCommands
+            title: CommunityToolkit.Mvvm shall generate bindable awaitable asynchronous commands.
+            justification: |
+              The demo's download command must be awaitable so a long model download never blocks
+              the UI thread.
+            tags: [ots]
+            tests:
               - CommunityToolkitMvvm_AsyncRelayCommand_Executed_AwaitsAnnotatedMethod
+
+          - id: SpeechDemo-OTS-CommunityToolkitMvvm-CommandCancellation
+            title: CommunityToolkit.Mvvm shall let a generated asynchronous command be canceled.
+            justification: |
+              A user must be able to abort a model download, so canceling the command has to
+              signal the cancellation token the annotated method received.
+            tags: [ots]
+            tests:
               - CommunityToolkitMvvm_AsyncRelayCommand_Canceled_SignalsTokenToAnnotatedMethod

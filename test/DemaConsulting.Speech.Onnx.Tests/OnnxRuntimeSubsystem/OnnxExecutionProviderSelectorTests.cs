@@ -65,6 +65,14 @@ public sealed class OnnxExecutionProviderSelectorTests
         Assert.NotNull(session);
         Assert.Contains("input", session.InputMetadata.Keys);
         Assert.Contains("output", session.OutputMetadata.Keys);
+
+        // Run the model's single Identity node to prove the session is genuinely usable
+        var inputs = new List<NamedOnnxValue>
+        {
+            NamedOnnxValue.CreateFromTensor("input", new DenseTensor<float>(new[] { 2.5f }, [1])),
+        };
+        using var results = session.Run(inputs);
+        Assert.Equal(new[] { 2.5f }, results.Single().AsTensor<float>().ToArray());
     }
 
     /// <summary>

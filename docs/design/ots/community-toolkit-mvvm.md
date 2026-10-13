@@ -28,10 +28,14 @@ unbound UI.
 
 Nothing in the Speech library references this package; it is confined to the demo application.
 
-The package is pinned to 8.4.2 in `DemaConsulting.Speech.Demo.csproj`. The `[ObservableProperty]`
+The package version is pinned in `DemaConsulting.Speech.Demo.csproj`. The `[ObservableProperty]`
 and `[RelayCommand]` generators ship in the package as Roslyn source generators and need no extra
 configuration, but they require that every annotated class is declared `partial` (and, for
 observable properties, derives from `ObservableObject`) and that the project's C# language version
 supports the generated code (the demo uses `LangVersion` latest). Annotated members must be
 instance methods or fields; a missing `partial` modifier or an unsupported language version is a
 build-time error or analyzer diagnostic, not a runtime failure.
+
+Because the generators are compiled into the demo assembly, upgrading the pinned package version
+changes the generated code; the OTS tests are re-run on every upgrade to re-verify the generated
+members.

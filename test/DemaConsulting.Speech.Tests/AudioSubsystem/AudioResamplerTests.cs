@@ -57,6 +57,26 @@ public sealed class AudioResamplerTests
         Assert.True(worst < 0.02, $"max error {worst}");
     }
 
+    /// <summary>
+    ///     Proves the downsampling convolution preserves the level of a constant signal, a direct
+    ///     numeric check of the kernel dot product (the kernel has unity gain at zero frequency).
+    /// </summary>
+    [Fact]
+    public void AudioResampler_Resample_ConstantSignalDownsampled_PreservesLevel()
+    {
+        // Arrange
+        var input = Enumerable.Repeat(0.5f, 16000).ToArray();
+
+        // Act
+        var result = AudioResampler.Resample(input, 16000, 8000);
+
+        // Assert: away from the edges every output sample equals the constant input level
+        for (var i = result.Length / 4; i < result.Length * 3 / 4; i++)
+        {
+            Assert.Equal(0.5f, result[i], 1e-3f);
+        }
+    }
+
     /// <summary>Proves equal rates return a distinct copy and empty input yields empty output.</summary>
     [Fact]
     public void AudioResampler_Resample_SameRateOrEmpty_AreTrivial()

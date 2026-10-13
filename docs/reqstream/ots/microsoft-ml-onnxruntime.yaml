@@ -21,18 +21,26 @@ sections:
               - Create_NoPreferredProviders_CreatesWorkingCpuSession
 
           - id: Speech-OTS-MicrosoftMlOnnxRuntime-ProviderFallback
-            title: >-
-              Microsoft.ML.OnnxRuntime shall report an unusable or unrecognized execution
-              provider through its documented OnnxRuntimeException so the selector can fall
-              back to the CPU provider.
+            title: Microsoft.ML.OnnxRuntime shall report an unrecognized execution provider through OnnxRuntimeException.
             justification: |
               Accelerated providers are optional and machine-dependent; the selector's layered
-              fallback relies on a failing provider (including an unrecognized provider name, or
-              a candidate session whose probe inference fails) surfacing as an
-              OnnxRuntimeException rather than as a crash or a silently broken session.
+              fallback relies on an unrecognized provider name surfacing as an
+              OnnxRuntimeException rather than as a crash or a silently broken session. The test
+              observes the resulting fallback to a working CPU session; the exception itself is
+              caught inside the selector and is therefore evidenced indirectly.
             tags: [ots]
             tests:
               - Create_UnknownProviderName_FallsBackToCpuSession
+
+          - id: Speech-OTS-MicrosoftMlOnnxRuntime-ProbeFailureFallback
+            title: Microsoft.ML.OnnxRuntime shall report a failed probe inference through OnnxRuntimeException.
+            justification: |
+              A candidate execution provider can construct a session that then fails at inference
+              time; the selector's fallback relies on that failure surfacing as an
+              OnnxRuntimeException. The test provokes a genuine OnnxRuntimeException with a
+              wrong-typed input, which stands in for an accelerated-provider probe failure.
+            tags: [ots]
+            tests:
               - Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback
 
           - id: Speech-OTS-MicrosoftMlOnnxRuntime-TensorBinding
@@ -47,3 +55,4 @@ sections:
               - OnnxChatterboxTurboNetworks_Encode_NamedOutputs_ReturnsConditioning
               - OnnxChatterboxTurboNetworks_Step_TwoSteps_ReusesCacheAndReturnsLastLogits
               - Encode_SecondChunk_UsesPreviousCaches
+              - OnnxChatterboxTurboNetworks_Encode_UnnamedFourOutputs_BindsPositionally

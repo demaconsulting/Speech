@@ -9,9 +9,7 @@ sections:
       - title: Avalonia Requirements
         requirements:
           - id: SpeechDemo-OTS-Avalonia-DesktopApplicationHost
-            title: >-
-              Avalonia shall provide the cross-platform desktop application host, configured
-              through its application builder, for the SpeechDemo application.
+            title: Avalonia shall provide the cross-platform desktop application host.
             justification: |
               The demo has to run on the same desktop platforms the library supports, so a
               Windows-only UI framework was not an option. Avalonia supplies one XAML-based
@@ -27,5 +25,14 @@ sections:
               visual inspection.
             tags: [ots]
             tests:
-              - Avalonia_BuildAvaloniaApp_Invoked_ReturnsConfiguredApplicationBuilder
               - Avalonia_DemoApplication_Inspected_DerivesFromAvaloniaApplication
+
+          - id: SpeechDemo-OTS-Avalonia-ApplicationBuilderConfiguration
+            title: Avalonia shall configure the application host through its application builder.
+            justification: |
+              The demo's process entry point starts the UI by configuring an Avalonia application
+              builder bound to the demo's application type; that configuration must succeed
+              against the referenced packages for the demo to start at all.
+            tags: [ots]
+            tests:
+              - Avalonia_BuildAvaloniaApp_Invoked_ReturnsConfiguredApplicationBuilder

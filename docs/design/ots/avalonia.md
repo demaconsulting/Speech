@@ -27,11 +27,14 @@ code-behind, so nothing the demo verifies depends on Avalonia being started.
 `Avalonia.Diagnostics` is conditioned on `'$(Configuration)' == 'Debug'` because the
 developer-tools overlay is a development aid that must never ship in a `Release` build.
 
-The Avalonia packages (`Avalonia`, `Avalonia.Desktop`, `Avalonia.Themes.Fluent`,
-`Avalonia.Fonts.Inter`) are pinned to 12.1.3. `Avalonia.Diagnostics` is intentionally pinned to
-11.3.22 because that is the last release of the package; the 12.x line replaced it with a
-separately distributed developer-tools offering. Since it is a Debug-only development aid that
-never ships, the version skew carries no runtime risk.
+The exact Avalonia package versions are pinned in `DemaConsulting.Speech.Demo.csproj` and recorded
+in the SBOM. `Avalonia.Diagnostics` is intentionally kept on its final standalone release, because
+the newer major line replaced it with a separately distributed developer-tools offering. Since it
+is a Debug-only development aid that never ships, the version skew carries no runtime risk.
+
+Only the application host is covered by an OTS requirement. The XAML views, Fluent theme, and Inter
+font are used too, but they are verified by compiled bindings at build time and by manual visual
+inspection rather than by automated OTS tests.
 
 The Speech library itself never references Avalonia. Its project file asserts this: the build
 fails if the library gains an `Avalonia*` package reference, which keeps the demo's UI framework

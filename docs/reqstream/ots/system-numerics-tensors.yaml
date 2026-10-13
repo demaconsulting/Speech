@@ -8,18 +8,50 @@ sections:
     sections:
       - title: System.Numerics.Tensors Requirements
         requirements:
-          - id: Speech-OTS-SystemNumericsTensors-VectorizedAudioMath
-            title: >-
-              System.Numerics.Tensors shall provide the vectorized float primitives (conversion,
-              division, multiplication, clamping, and dot product) that the Speech audio pipeline
-              uses for bulk sample math.
+          - id: Speech-OTS-SystemNumericsTensors-SampleConversion
+            title: System.Numerics.Tensors shall convert 16-bit PCM samples to floats in bulk.
             justification: |
-              WAV decoding, windowed-sinc resampling, and volume scaling process large sample
-              buffers; a maintained vectorized primitive library keeps those loops short and fast
-              without hand-written SIMD.
+              WAV decoding converts large PCM buffers to floats; a maintained vectorized primitive
+              keeps that loop short and fast without hand-written SIMD.
+            tags: [ots]
+            tests:
+              - WavFileAudioCaptureDevice_Start_KnownPcmSamples_DeliversNormalizedFloats
+
+          - id: Speech-OTS-SystemNumericsTensors-SampleDivision
+            title: System.Numerics.Tensors shall divide float sample buffers by a scalar in bulk.
+            justification: |
+              Normalizing converted PCM samples to the -1 to 1 range divides every sample by the
+              same scalar; the vectorized primitive performs this over whole buffers.
             tags: [ots]
             tests:
               - WavFileAudioCaptureDevice_Start_FixtureFile_DeliversExpectedTotalSampleCount
               - WavFileAudioCaptureDevice_Start_KnownPcmSamples_DeliversNormalizedFloats
-              - AudioResampler_Resample_ChangesRateKeepingTone
+
+          - id: Speech-OTS-SystemNumericsTensors-SampleMultiplication
+            title: System.Numerics.Tensors shall multiply float sample buffers by a scalar in bulk.
+            justification: |
+              Applying a volume override scales every synthesized sample by the same ratio; the
+              vectorized primitive performs this over whole buffers.
+            tags: [ots]
+            tests:
               - SynthesisSession_SynthesizeAsync_VolumeOverride_ScalesAndClampsSamples
+
+          - id: Speech-OTS-SystemNumericsTensors-SampleClamping
+            title: System.Numerics.Tensors shall clamp float sample buffers to a value range in bulk.
+            justification: |
+              A scaled volume override can exceed full scale; clamping bounds every sample to the
+              valid range so the output never clips beyond it.
+            tags: [ots]
+            tests:
+              - SynthesisSession_SynthesizeAsync_VolumeOverride_ScalesAndClampsSamples
+
+          - id: Speech-OTS-SystemNumericsTensors-DotProduct
+            title: System.Numerics.Tensors shall compute the float dot product of two sample spans.
+            justification: |
+              Windowed-sinc resampling applies its filter kernel as one dot product per output
+              sample; the vectorized primitive keeps that convolution fast without hand-written
+              SIMD.
+            tags: [ots]
+            tests:
+              - AudioResampler_Resample_ChangesRateKeepingTone
+              - AudioResampler_Resample_ConstantSignalDownsampled_PreservesLevel

@@ -12,8 +12,9 @@ and the typed tensor input/output binding the Chatterbox Turbo and Nemotron netw
 
 ### Verification Approach
 
-Automated verification uses tiny graphs built in memory by the test projects, so every scenario
-runs without model downloads, a GPU, or network access:
+Automated verification uses tiny graphs, either built in memory by the test projects or loaded from
+a checked-in tiny fixture (`TestData/tiny-identity-model.onnx`, generated offline), so every
+scenario runs without model downloads, a GPU, or network access:
 
 - The execution-provider selector creates a working CPU session when no provider is requested and
   when a requested provider is unknown or fails its validation probe
@@ -36,19 +37,29 @@ on.
 
 **Scenario**: `OnnxExecutionProviderSelector.Create` is called with no preferred providers.
 
-**Expected**: A usable CPU `InferenceSession` is returned.
+**Expected**: A usable CPU `InferenceSession` is returned, and running its single Identity node on a
+float tensor returns that tensor unchanged.
 
 #### Create_UnknownProviderName_FallsBackToCpuSession
 
 **Scenario**: A provider name ONNX Runtime does not recognize is requested.
 
-**Expected**: The selector falls back to a working CPU session.
+**Expected**: The selector falls back to a working CPU session. ONNX Runtime's exception is caught
+inside the selector, so the `OnnxRuntimeException` itself is evidenced indirectly by the fallback.
 
 #### Create_ValidateSessionProbeThrowsOnnxRuntimeException_DisposesCandidateAndFallsBackToCpuWithoutProbingFallback
 
 **Scenario**: The validation probe for a candidate provider throws `OnnxRuntimeException`.
 
-**Expected**: The candidate session is disposed and the selector falls back to CPU.
+**Expected**: The candidate session is disposed and the selector falls back to CPU. The exception is
+provoked with a wrong-typed input, standing in for a real accelerated-provider probe failure.
+
+#### OnnxChatterboxTurboNetworks_Encode_UnnamedFourOutputs_BindsPositionally
+
+**Scenario**: The Chatterbox Turbo network wrapper runs an in-memory graph whose four outputs are
+unnamed.
+
+**Expected**: The tensor outputs are bound by position into the conditioning result.
 
 #### OnnxChatterboxTurboNetworks_Encode_NamedOutputs_ReturnsConditioning
 

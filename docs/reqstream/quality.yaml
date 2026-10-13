@@ -218,6 +218,7 @@ sections:
         children:
           - Speech-OTS-MicrosoftMlOnnxRuntime-CpuInference
           - Speech-OTS-MicrosoftMlOnnxRuntime-ProviderFallback
+          - Speech-OTS-MicrosoftMlOnnxRuntime-ProbeFailureFallback
           - Speech-OTS-MicrosoftMlOnnxRuntime-TensorBinding
 
       - id: Quality-VectorizedAudioMath
@@ -230,7 +231,11 @@ sections:
           quality root so it participates in orphan detection without being falsely reported as
           disconnected from library functionality.
         children:
-          - Speech-OTS-SystemNumericsTensors-VectorizedAudioMath
+          - Speech-OTS-SystemNumericsTensors-SampleConversion
+          - Speech-OTS-SystemNumericsTensors-SampleDivision
+          - Speech-OTS-SystemNumericsTensors-SampleMultiplication
+          - Speech-OTS-SystemNumericsTensors-SampleClamping
+          - Speech-OTS-SystemNumericsTensors-DotProduct
 
       - id: Quality-SoftwareStructureModeling
         title: The repository shall rely on SysML2Tools to lint software-structure models.
@@ -265,6 +270,7 @@ sections:
           disconnected from library functionality.
         children:
           - SpeechDemo-OTS-Avalonia-DesktopApplicationHost
+          - SpeechDemo-OTS-Avalonia-ApplicationBuilderConfiguration
 
       - id: Quality-DemoMvvm
         title: >-
@@ -278,6 +284,7 @@ sections:
           disconnected from library functionality.
         children:
           - SpeechDemo-OTS-CommunityToolkitMvvm-ChangeNotification
+          - SpeechDemo-OTS-CommunityToolkitMvvm-DependentChangeNotification
 
       - id: Quality-DemoCommands
         title: >-
@@ -290,3 +297,5 @@ sections:
           library functionality.
         children:
           - SpeechDemo-OTS-CommunityToolkitMvvm-Commands
+          - SpeechDemo-OTS-CommunityToolkitMvvm-AsyncCommands
+          - SpeechDemo-OTS-CommunityToolkitMvvm-CommandCancellation

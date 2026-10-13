@@ -22,7 +22,8 @@ unbound user interface.
 
 #### CommunityToolkitMvvm_ObservableProperty_Assigned_RaisesPropertyChanged
 
-**Scenario**: A generated observable property is assigned on a demo view model.
+**Scenario**: A generated observable property with no dependent properties (a model row's
+`ProgressFraction`) is assigned on a demo view model.
 
 **Expected**: The value is stored and the corresponding change notification is raised.
 

@@ -14,9 +14,10 @@ namespace DemaConsulting.Speech.Demo.Tests.Ots;
 public class AvaloniaTests
 {
     /// <summary>
-    ///     Proves that the demo's Avalonia application host configures successfully against the
-    ///     referenced Avalonia packages, including the platform-detect backend and the bundled
-    ///     Inter font package.
+    ///     Proves that the demo's Avalonia application host can be configured through the
+    ///     application builder against the referenced Avalonia packages without throwing.
+    ///     Platform backend selection and font loading occur only when the builder is started,
+    ///     so they are not exercised here.
     /// </summary>
     [Fact]
     public void Avalonia_BuildAvaloniaApp_Invoked_ReturnsConfiguredApplicationBuilder()
@@ -30,8 +31,9 @@ public class AvaloniaTests
     }
 
     /// <summary>
-    ///     Proves that the demo's application type is a genuine Avalonia application, which is what
-    ///     lets Avalonia own the demo's styling, resources, and desktop lifetime.
+    ///     Smoke test that the demo's application type derives from the Avalonia application base
+    ///     class, which is what lets Avalonia own the demo's styling, resources, and desktop
+    ///     lifetime. It cannot distinguish a demo regression from an Avalonia one.
     /// </summary>
     [Fact]
     public void Avalonia_DemoApplication_Inspected_DerivesFromAvaloniaApplication()
