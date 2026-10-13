@@ -313,6 +313,31 @@ public sealed class SpeechOnnxChatterboxTurboTests : IDisposable
         Assert.Equal(250, Prompt(speech));
     }
 
+    /// <summary>Proves speaking with a damaged store clip fails only at that use, with an error naming the damaged file.</summary>
+    [Fact]
+    public async Task SpeechOnnxChatterboxTurbo_SystemIntegration_StoreVoicesResilience_DamagedClipFailsAtFirstUseNamingFile()
+    {
+        // Arrange
+        InstallSynthetic();
+        using var catalog = NewCatalog();
+        using (var library = new ReferenceVoiceLibrary(catalog.Store))
+        {
+            await File.WriteAllBytesAsync(Path.Join(library.EnsureUserDirectory(), "damaged.wav"), "not a wav file"u8.ToArray(), TestContext.Current.CancellationToken);
+        }
+
+        catalog.AddChatterboxTurboModels(new ChatterboxTurboModelOptions { ReferenceVoices = [Voice("a", 0.25f)], MaxNewTokens = MaxNewTokens });
+        var model = Assert.IsAssignableFrom<ISynthesisModel>(Assert.Single(catalog.Enumerate()).Model);
+        var (loaded, _) = await LoadAsync(model, Values(model, "damaged"));
+        await using var engine = loaded;
+
+        // Act
+        var failure = await Record.ExceptionAsync(async () => await engine.SynthesizeAsync("Hello there.", TestContext.Current.CancellationToken));
+
+        // Assert
+        Assert.NotNull(failure);
+        Assert.Contains("damaged.wav", failure.ToString(), StringComparison.Ordinal);
+    }
+
     /// <summary>Proves text after a mood tag is spoken with the voice's mood clip.</summary>
     [Fact]
     public async Task SpeechOnnxChatterboxTurbo_SystemIntegration_MoodVoices_UseMoodClip()

@@ -110,9 +110,9 @@ public sealed class ChatterboxTurboReferenceVoiceTests : IDisposable
         Assert.Equal(24000 * 30, voice.Samples.Length);
     }
 
-    /// <summary>Proves invalid arguments are rejected.</summary>
+    /// <summary>Proves a null or blank id, and a null file path, are rejected.</summary>
     [Fact]
-    public void ChatterboxTurboReferenceVoice_FromSamples_InvalidArguments_Throw()
+    public void ChatterboxTurboReferenceVoice_FromSamples_NullOrBlankArguments_Throw()
     {
         // Arrange
         var samples = new float[48000];
@@ -122,14 +122,26 @@ public sealed class ChatterboxTurboReferenceVoiceTests : IDisposable
         var nullFilePath = Record.Exception(() => ChatterboxTurboReferenceVoice.FromFile("x", null!));
         var nullFileId = Record.Exception(() => ChatterboxTurboReferenceVoice.FromFile(null!, "x.wav"));
         var blankId = Record.Exception(() => ChatterboxTurboReferenceVoice.FromSamples(" ", samples, 24000));
-        var zeroRate = Record.Exception(() => ChatterboxTurboReferenceVoice.FromSamples("x", samples, 0));
-        var zeroChannels = Record.Exception(() => ChatterboxTurboReferenceVoice.FromSamples("x", samples, 24000, 0));
 
         // Assert
         Assert.IsType<ArgumentNullException>(nullSamplesId);
         Assert.IsType<ArgumentNullException>(nullFilePath);
         Assert.IsType<ArgumentNullException>(nullFileId);
         Assert.IsType<ArgumentException>(blankId);
+    }
+
+    /// <summary>Proves a non-positive sample rate or channel count is rejected.</summary>
+    [Fact]
+    public void ChatterboxTurboReferenceVoice_FromSamples_NonPositiveRateOrChannels_Throw()
+    {
+        // Arrange
+        var samples = new float[48000];
+
+        // Act
+        var zeroRate = Record.Exception(() => ChatterboxTurboReferenceVoice.FromSamples("x", samples, 0));
+        var zeroChannels = Record.Exception(() => ChatterboxTurboReferenceVoice.FromSamples("x", samples, 24000, 0));
+
+        // Assert
         Assert.IsType<ArgumentOutOfRangeException>(zeroRate);
         Assert.IsType<ArgumentOutOfRangeException>(zeroChannels);
     }
@@ -195,24 +207,47 @@ public sealed class ChatterboxTurboReferenceVoiceTests : IDisposable
         Assert.Equal(28800, voice.Samples.Length);
     }
 
-    /// <summary>Proves a missing file, an unsupported encoding and a non-audio file are reported distinctly.</summary>
+    /// <summary>Proves a missing file is reported as a missing-file failure.</summary>
     [Fact]
-    public void ChatterboxTurboReferenceVoice_FromFile_BadFiles_ThrowDistinctExceptions()
+    public void ChatterboxTurboReferenceVoice_FromFile_MissingFile_ThrowsFileNotFound()
+    {
+        // Arrange
+        var path = Path.Combine(_root, "none.wav");
+
+        // Act
+        var missing = Record.Exception(() => ChatterboxTurboReferenceVoice.FromFile("m", path));
+
+        // Assert
+        Assert.IsType<FileNotFoundException>(missing);
+    }
+
+    /// <summary>Proves an unsupported encoding is reported as an unsupported-format failure.</summary>
+    [Fact]
+    public void ChatterboxTurboReferenceVoice_FromFile_UnsupportedEncoding_ThrowsNotSupported()
     {
         // Arrange: format tag 2 (ADPCM) is not supported
         var adpcm = Path.Combine(_root, "f.wav");
         File.WriteAllBytes(adpcm, Wav(Tone(24000, 24000, 300), 24000, 1, format: 2, bits: 16));
+
+        // Act
+        var unsupported = Record.Exception(() => ChatterboxTurboReferenceVoice.FromFile("f", adpcm));
+
+        // Assert
+        Assert.IsType<NotSupportedException>(unsupported);
+    }
+
+    /// <summary>Proves a non-audio file is reported as a malformed-data failure.</summary>
+    [Fact]
+    public void ChatterboxTurboReferenceVoice_FromFile_NonAudioFile_ThrowsInvalidData()
+    {
+        // Arrange
         var garbage = Path.Combine(_root, "g.wav");
         File.WriteAllBytes(garbage, Encoding.ASCII.GetBytes("this is not a wav file at all"));
 
         // Act
-        var missing = Record.Exception(() => ChatterboxTurboReferenceVoice.FromFile("m", Path.Combine(_root, "none.wav")));
-        var unsupported = Record.Exception(() => ChatterboxTurboReferenceVoice.FromFile("f", adpcm));
         var malformed = Record.Exception(() => ChatterboxTurboReferenceVoice.FromFile("g", garbage));
 
         // Assert
-        Assert.IsType<FileNotFoundException>(missing);
-        Assert.IsType<NotSupportedException>(unsupported);
         Assert.IsType<InvalidDataException>(malformed);
     }
 

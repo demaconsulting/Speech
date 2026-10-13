@@ -91,9 +91,25 @@ public sealed class SpeechModelCatalogChatterboxTurboExtensionsTests : IDisposab
         Assert.Null(options.ReferenceVoiceLibrary);
     }
 
-    /// <summary>Proves variants and voices compose through the catalog extension: the registered model carries the selected variant's id and file set and offers the supplied voices.</summary>
+    /// <summary>Proves registering leaves the caller's options object unchanged.</summary>
     [Fact]
-    public void SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_VariantsAndVoices_AreComposed()
+    public void SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_OptionsObject_IsNotMutated()
+    {
+        // Arrange
+        using var catalog = new SpeechModelCatalog(new SpeechModelStoreOptions { RootPathOverride = Path.Combine(_root, "store") });
+        var options = new ChatterboxTurboModelOptions();
+
+        // Act
+        catalog.AddChatterboxTurboModels(options);
+
+        // Assert
+        Assert.Null(options.ReferenceVoiceLibrary);
+        Assert.Empty(options.ReferenceVoices);
+    }
+
+    /// <summary>Proves the registered model carries the selected precision variants' id and file set.</summary>
+    [Fact]
+    public void SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_Variants_AreComposed()
     {
         // Arrange
         using var catalog = new SpeechModelCatalog(new SpeechModelStoreOptions { RootPathOverride = Path.Combine(_root, "store") });
@@ -101,7 +117,6 @@ public sealed class SpeechModelCatalogChatterboxTurboExtensionsTests : IDisposab
         {
             LanguageModelVariant = ChatterboxTurboLanguageModelVariant.Fp32,
             AuxiliaryModelVariant = ChatterboxTurboAuxiliaryModelVariant.Fp16,
-            ReferenceVoices = [Voice("a"), Voice("b")],
             IncludeStoreVoices = false,
         };
 
@@ -113,6 +128,26 @@ public sealed class SpeechModelCatalogChatterboxTurboExtensionsTests : IDisposab
         var model = Assert.IsType<OnnxChatterboxTurboEnglishSynthesisModel>(registered.Model);
         Assert.Equal("chatterbox-turbo-onnx-en-lm-fp32-aux-fp16", registered.Id);
         Assert.Equal(8, model.DownloadDescriptor.Files.Count);
+    }
+
+    /// <summary>Proves the registered model offers the explicitly supplied voices.</summary>
+    [Fact]
+    public void SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_ExplicitVoices_AreComposed()
+    {
+        // Arrange
+        using var catalog = new SpeechModelCatalog(new SpeechModelStoreOptions { RootPathOverride = Path.Combine(_root, "store") });
+        var options = new ChatterboxTurboModelOptions
+        {
+            ReferenceVoices = [Voice("a"), Voice("b")],
+            IncludeStoreVoices = false,
+        };
+
+        // Act
+        catalog.AddChatterboxTurboModels(options);
+        var registered = Assert.Single(catalog.Enumerate());
+
+        // Assert
+        var model = Assert.IsType<OnnxChatterboxTurboEnglishSynthesisModel>(registered.Model);
         var choice = Assert.IsType<ChoiceParameter>(Assert.Single(model.Parameters));
         Assert.Equal(["a", "b"], choice.Options.Select(option => option.Value));
     }
