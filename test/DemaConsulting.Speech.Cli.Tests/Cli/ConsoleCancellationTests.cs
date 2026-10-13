@@ -54,12 +54,87 @@ public sealed class ConsoleCancellationTests
     [Fact]
     public void ConsoleCancellation_Register_NoCallback_CancelsSource()
     {
+        // Arrange
         using var source = new CancellationTokenSource();
         using var registration = ConsoleCancellation.Register(source);
 
+        // Act
         registration.Raise();
 
+        // Assert
         Assert.True(source.IsCancellationRequested);
+    }
+
+    /// <summary>
+    ///     Test that the real subscribed handler of a Register registration marks the console event
+    ///     canceled (so the process is not terminated) and cancels the source.
+    /// </summary>
+    [Fact]
+    public void ConsoleCancellation_Register_Handler_SetsCancelAndCancelsSource()
+    {
+        // Arrange
+        using var source = new CancellationTokenSource();
+        using var registration = ConsoleCancellation.Register(source);
+        var args = CreateCancelEventArgs();
+
+        // Act
+        registration.Handler(null, args);
+
+        // Assert
+        Assert.True(args.Cancel);
+        Assert.True(source.IsCancellationRequested);
+    }
+
+    /// <summary>
+    ///     Test that the real subscribed handler of an Observe registration runs the callback but
+    ///     leaves the console event's Cancel flag untouched.
+    /// </summary>
+    [Fact]
+    public void ConsoleCancellation_Observe_Handler_RunsCallbackAndLeavesCancelUnset()
+    {
+        // Arrange
+        var calls = 0;
+        using var registration = ConsoleCancellation.Observe(() => calls++);
+        var args = CreateCancelEventArgs();
+
+        // Act
+        registration.Handler(null, args);
+
+        // Assert
+        Assert.False(args.Cancel);
+        Assert.Equal(1, calls);
+    }
+
+    /// <summary>Test that a registration is subscribed until it is disposed, and stays detached afterwards.</summary>
+    [Fact]
+    public void ConsoleCancellation_Dispose_DetachesHandler()
+    {
+        // Arrange
+        var registration = ConsoleCancellation.Observe(() => { });
+        var subscribedBeforeDispose = registration.IsSubscribed;
+
+        // Act
+        registration.Dispose();
+        registration.Dispose();
+
+        // Assert
+        Assert.True(subscribedBeforeDispose);
+        Assert.False(registration.IsSubscribed);
+    }
+
+    /// <summary>
+    ///     Creates console cancel event arguments. The type has no public constructor, so the
+    ///     internal one is invoked reflectively.
+    /// </summary>
+    /// <returns>A new <see cref="ConsoleCancelEventArgs"/> for <see cref="ConsoleSpecialKey.ControlC"/>.</returns>
+    private static ConsoleCancelEventArgs CreateCancelEventArgs()
+    {
+        return (ConsoleCancelEventArgs)Activator.CreateInstance(
+            typeof(ConsoleCancelEventArgs),
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic,
+            binder: null,
+            args: [ConsoleSpecialKey.ControlC],
+            culture: null)!;
     }
 
     /// <summary>Test that Observe runs the callback but leaves the termination decision alone.</summary>
@@ -82,14 +157,17 @@ public sealed class ConsoleCancellationTests
     [Fact]
     public void ConsoleCancellation_Dispose_CalledTwice_DoesNotThrow()
     {
+        // Arrange
         var registration = ConsoleCancellation.Observe(() => { });
 
+        // Act
         var exception = Record.Exception(() =>
         {
             registration.Dispose();
             registration.Dispose();
         });
 
+        // Assert
         Assert.Null(exception);
     }
 
@@ -97,13 +175,17 @@ public sealed class ConsoleCancellationTests
     [Fact]
     public void ConsoleCancellation_Register_NullSource_ThrowsArgumentNullException()
     {
-        Assert.Throws<ArgumentNullException>(() => ConsoleCancellation.Register(null!));
+        // Arrange / Act / Assert: the null source is rejected
+        var exception = Assert.Throws<ArgumentNullException>(() => ConsoleCancellation.Register(null!));
+        Assert.Equal("source", exception.ParamName);
     }
 
     /// <summary>Test that a null callback is rejected.</summary>
     [Fact]
     public void ConsoleCancellation_Observe_NullCallback_ThrowsArgumentNullException()
     {
-        Assert.Throws<ArgumentNullException>(() => ConsoleCancellation.Observe(null!));
+        // Arrange / Act / Assert: the null callback is rejected
+        var exception = Assert.Throws<ArgumentNullException>(() => ConsoleCancellation.Observe(null!));
+        Assert.Equal("onCancel", exception.ParamName);
     }
 }

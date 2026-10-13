@@ -13,6 +13,7 @@ subscription.
 | `Registration` private state | Whether the handler suppresses process termination, and the cancellation work to run |
 | `Registration.Handler` | The delegate subscribed to `Console.CancelKeyPress` |
 | `Registration.Raise()` | Test seam: runs the signal's work; returns whether termination is suppressed |
+| `Registration.IsSubscribed` | Test seam: whether the handler is still attached; false after `Dispose` |
 
 **Key Methods**:
 
@@ -29,9 +30,9 @@ subscription.
   more than once.
 - `Raise()` exists because `ConsoleCancelEventArgs` has no public constructor, so tests cannot raise
   `Console.CancelKeyPress` themselves. It runs the same cancellation work as the real handler and
-  reports whether the handler would suppress termination. The tests therefore prove the
-  cancellation work and the termination flag, not the `e.Cancel = true` assignment inside the event
-  handler.
+  reports whether the handler would suppress termination. The tests additionally invoke the real
+  `Handler` delegate with reflectively created event arguments, which proves the `e.Cancel = true`
+  assignment itself.
 
 **Threading**: The handler runs on the console's signal thread (not the thread that registered it),
 possibly while the command is blocked. `onCancel` therefore runs on that thread, must not block, and

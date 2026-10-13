@@ -2,13 +2,15 @@
 
 ### Verification Approach
 
-`ConsoleCancellation` is verified with unit tests that create registrations and drive the
-cancellation work through the registration's internal `Raise` seam, because the console's
-`ConsoleCancelEventArgs` has no public constructor and `Ctrl+C` cannot be raised from a test.
-`Raise` runs the same work as the signal handler and returns whether termination would be
-suppressed. The assignment of `Cancel` inside the real event handler and the actual unsubscription
-from `Console.CancelKeyPress` are therefore not asserted by these tests; they are small and
-exercised only when an operator presses `Ctrl+C` during a command.
+`ConsoleCancellation` is verified with unit tests that create registrations and exercise them two
+ways. The registration's internal `Raise` seam runs the cancellation work and reports whether
+termination would be suppressed. The registration's real subscribed `Handler` delegate is also
+invoked directly with a `ConsoleCancelEventArgs` created reflectively (the type has no public
+constructor), so the assignment of `Cancel` inside the real handler is asserted. An internal
+`IsSubscribed` state records whether the handler is still attached, so detachment on disposal is
+asserted. A real `Ctrl+C` signal cannot be raised portably in process, and the runtime's own
+unsubscription from `Console.CancelKeyPress` is trusted rather than inspected; the real-signal path
+is covered by design review and manual verification (press `Ctrl+C` during `download`).
 
 ### Test Environment
 
@@ -21,10 +23,30 @@ exercised only when an operator presses `Ctrl+C` during a command.
 ### Acceptance Criteria
 
 The unit passes when `Register` cancels its source, runs the optional callback after the
-cancellation and reports termination as suppressed; `Observe` runs its callback and reports
-termination as not suppressed; repeated disposal does not throw; and null arguments are rejected.
+cancellation and keeps the process alive (its real handler sets `Cancel`); `Observe` runs its
+callback and leaves `Cancel` unset; a disposed registration is detached and repeated disposal does
+not throw; and null arguments are rejected with the offending parameter name.
 
 ### Test Scenarios
+
+#### ConsoleCancellation_Register_Handler_SetsCancelAndCancelsSource
+
+**Scenario**: A `Register` registration's real handler is invoked with reflectively created
+`ConsoleCancelEventArgs`.
+
+**Expected**: `Cancel` is `true` and the source is canceled.
+
+#### ConsoleCancellation_Observe_Handler_RunsCallbackAndLeavesCancelUnset
+
+**Scenario**: An `Observe` registration's real handler is invoked with the same kind of arguments.
+
+**Expected**: The callback ran once and `Cancel` remains `false`.
+
+#### ConsoleCancellation_Dispose_DetachesHandler
+
+**Scenario**: A registration is checked, disposed twice, and checked again.
+
+**Expected**: It reports subscribed before disposal and not subscribed afterward.
 
 #### ConsoleCancellation_Register_Raise_CancelsSourceRunsCallbackAndSuppressesTermination
 
@@ -66,8 +88,8 @@ termination suppressed.
 
 ### Not Covered By A Dedicated Test
 
-- The event handler's own `e.Cancel` assignment, and the removal of the handler from
-  `Console.CancelKeyPress` on disposal (only idempotence is asserted).
+- The runtime's removal of the handler from `Console.CancelKeyPress` on disposal (the unit asserts
+  its own subscribed state and idempotence).
 - The propagation of exceptions from `source.Cancel()` or the callback.
 - Commands' end-to-end reaction to a real `Ctrl+C` is verified in the command subsystems' own tests
   where they exist; it is not verified here.

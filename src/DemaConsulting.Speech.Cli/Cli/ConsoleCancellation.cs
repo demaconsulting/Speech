@@ -70,10 +70,14 @@ internal static class ConsoleCancellation
     }
 
     /// <summary>Creates a registration and subscribes its handler to <see cref="Console.CancelKeyPress"/>.</summary>
+    /// <param name="suppressTermination">Whether the handler suppresses default process termination.</param>
+    /// <param name="action">The cancellation work the handler runs.</param>
+    /// <returns>The live registration; disposing it unsubscribes the handler.</returns>
     private static Registration Subscribe(bool suppressTermination, Action action)
     {
         var registration = new Registration(suppressTermination, action);
         Console.CancelKeyPress += registration.Handler;
+        registration.MarkSubscribed();
         return registration;
     }
 
@@ -85,6 +89,9 @@ internal static class ConsoleCancellation
 
         /// <summary>The cancellation work to run when <c>Ctrl+C</c> is pressed.</summary>
         private readonly Action _action;
+
+        /// <summary>Non-zero while the handler is subscribed to the console event.</summary>
+        private int _subscribed;
 
         /// <summary>Initializes a new instance of the <see cref="Registration"/> class.</summary>
         /// <param name="suppressTermination">Whether to suppress default process termination.</param>
@@ -110,13 +117,31 @@ internal static class ConsoleCancellation
             return _suppressTermination;
         }
 
+        /// <summary>
+        ///     Gets a value indicating whether the handler is currently subscribed to
+        ///     <see cref="Console.CancelKeyPress"/>; <see langword="false"/> once disposed.
+        /// </summary>
+        internal bool IsSubscribed => Volatile.Read(ref _subscribed) != 0;
+
+        /// <summary>Records that the handler has been subscribed to <see cref="Console.CancelKeyPress"/>.</summary>
+        internal void MarkSubscribed()
+        {
+            Volatile.Write(ref _subscribed, 1);
+        }
+
         /// <summary>Unsubscribes the handler; safe to call more than once.</summary>
         public void Dispose()
         {
             Console.CancelKeyPress -= Handler;
+            Volatile.Write(ref _subscribed, 0);
         }
 
-        /// <summary>The <see cref="Console.CancelKeyPress"/> handler.</summary>
+        /// <summary>
+        ///     The <see cref="Console.CancelKeyPress"/> handler: marks the event canceled when this
+        ///     registration suppresses termination, then runs the cancellation work.
+        /// </summary>
+        /// <param name="sender">The event sender (unused).</param>
+        /// <param name="e">The event arguments whose <see cref="ConsoleCancelEventArgs.Cancel"/> is set when termination is suppressed.</param>
         private void OnCancelKeyPress(object? sender, ConsoleCancelEventArgs e)
         {
             if (_suppressTermination)

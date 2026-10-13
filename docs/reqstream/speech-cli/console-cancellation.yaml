@@ -13,15 +13,25 @@ sections:
         requirements:
           - id: SpeechCli-ConsoleCancellation-RegisterCancels
             title: >-
-              The ConsoleCancellation unit shall, on Ctrl+C for a Register registration, cancel
-              the supplied source, run the optional callback after the cancellation, and suppress
-              process termination.
+              The ConsoleCancellation unit shall, on Ctrl+C during a Register registration, cancel
+              the supplied operation.
             justification: |
               A running command must be able to stop cleanly and release resources instead of
               being killed mid-operation.
             tests:
               - ConsoleCancellation_Register_Raise_CancelsSourceRunsCallbackAndSuppressesTermination
               - ConsoleCancellation_Register_NoCallback_CancelsSource
+              - ConsoleCancellation_Register_Handler_SetsCancelAndCancelsSource
+
+          - id: SpeechCli-ConsoleCancellation-RegisterCallbackAfterCancel
+            title: >-
+              The ConsoleCancellation unit shall run the optional callback of a Register
+              registration after the operation has been canceled.
+            justification: |
+              Command-specific clean-up (such as stopping a live session) must observe the
+              canceled state.
+            tests:
+              - ConsoleCancellation_Register_Raise_CancelsSourceRunsCallbackAndSuppressesTermination
 
           - id: SpeechCli-ConsoleCancellation-ObserveCallbackOnly
             title: >-
@@ -32,6 +42,7 @@ sections:
               still end when Ctrl+C is pressed.
             tests:
               - ConsoleCancellation_Observe_Raise_RunsCallbackWithoutSuppressingTermination
+              - ConsoleCancellation_Observe_Handler_RunsCallbackAndLeavesCancelUnset
 
           - id: SpeechCli-ConsoleCancellation-DisposeIdempotent
             title: >-
@@ -41,6 +52,25 @@ sections:
               Registrations are disposed from using blocks and error paths that can overlap.
             tests:
               - ConsoleCancellation_Dispose_CalledTwice_DoesNotThrow
+
+          - id: SpeechCli-ConsoleCancellation-DisposeDetaches
+            title: >-
+              The ConsoleCancellation unit shall stop reacting to Ctrl+C for a registration once
+              that registration has been disposed.
+            justification: |
+              A finished command must not cancel or notify after it has returned.
+            tests:
+              - ConsoleCancellation_Dispose_DetachesHandler
+
+          - id: SpeechCli-ConsoleCancellation-RegisterSuppressesTermination
+            title: >-
+              The ConsoleCancellation unit shall keep the process running on Ctrl+C for a
+              Register registration.
+            justification: |
+              Cancellation must let the command finish its clean-up rather than end the process.
+            tests:
+              - ConsoleCancellation_Register_Handler_SetsCancelAndCancelsSource
+              - ConsoleCancellation_Register_Raise_CancelsSourceRunsCallbackAndSuppressesTermination
 
           - id: SpeechCli-ConsoleCancellation-ArgumentValidation
             title: >-
