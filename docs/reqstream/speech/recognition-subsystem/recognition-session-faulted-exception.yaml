@@ -13,9 +13,8 @@ sections:
             requirements:
               - id: Speech-Recognition-RecognitionSessionFaultedException-Thrown
                 title: >-
-                  The RecognitionSessionFaultedException class shall be thrown from
-                  GetResultsAsync's enumerator, and only from it, when the session transitions to
-                  RecognitionSessionState.Faulted while being enumerated.
+                  A reader of a session's results shall receive a documented session-faulted
+                  exception when the session faults while the results are being read.
                 justification: |
                   A consumer enumerating results needs an unambiguous, typed signal that the
                   session itself has failed, distinct from an ordinary end of enumeration or a
@@ -23,3 +22,14 @@ sections:
                   rather than silently treating a faulted session as merely finished.
                 tests:
                   - RecognitionSession_GetResultsAsync_SessionFaulted_ThrowsRecognitionSessionFaultedException
+
+              - id: Speech-Recognition-RecognitionSessionFaultedException-OnlyFromResults
+                title: >-
+                  The session-faulted exception shall be raised only to a reader of a session's
+                  results, never from starting, stopping, or disposing a session.
+                justification: |
+                  Teardown paths must stay safe to call on a faulted session, so the fault is
+                  surfaced in one predictable place.
+                tests:
+                  - RecognitionSession_GetResultsAsync_SessionFaulted_ThrowsRecognitionSessionFaultedException
+                  - RecognitionSession_DeviceLostMidSession_DisposeAsyncStillTearsDownBackendAndDevice

@@ -25,4 +25,4 @@ sections:
                   a committed transcript line that must never be silently dropped.
                 tests:
                   - RecognitionSession_GetResultsAsync_SlowConsumer_CoalescesProvisionalResults
-                  - RecognitionSession_GetResultsAsync_SlowConsumer_NeverDropsFinalResultsUnderByteCap
+                  - RecognitionSession_GetResultsAsync_SlowConsumer_NeverDropsFinalResults

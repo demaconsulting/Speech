@@ -5,22 +5,22 @@
 ### Overview
 
 The RecognitionSubsystem turns audio captured by the AudioSubsystem into text using a model
-installed by the ModelManagementSubsystem. It exposes an async Engine/Session API across five
-conceptual layers rather than one synchronous recognizer contract: a Layer 3 engine owns one
-loaded model and leases exclusive use of it to a Layer 5 session bound to one capture device, so
-a host can load a model once and run many sequential or future concurrent-by-device sessions
-against it without reloading. It contains the following direct units:
+installed by the ModelManagementSubsystem. It exposes an async Engine/Session API rather than one
+synchronous recognizer contract: an engine owns one loaded model and leases exclusive use of it
+to a session bound to one capture device, so a host can load a model once and run many
+sequential sessions against it without reloading. An engine has at most one active session at a
+time; a host that needs two simultaneous sessions loads two engines. It contains the following direct units:
 
-- **ISpeechRecognizerEngine**: the public Layer 3 contract for one loaded, reusable recognition
+- **ISpeechRecognizerEngine**: the public engine contract for one loaded, reusable recognition
   engine - `IsAvailable` plus `CreateSessionAsync`, which leases the engine to a new session
-- **IRecognitionSession**: the public Layer 5 contract for one streaming recognition session
+- **IRecognitionSession**: the public session contract for one streaming recognition session
   bound to one capture device - a forward-only `RecognitionSessionState` machine with
   `StartAsync`/`StopAsync`/`GetResultsAsync`, together with the **RecognitionSessionState**,
   **SessionStateChangedEventArgs**, **SpeechRecognitionResult**, and **SpeechRecognitionEvent**
   value types it uses
 - **SpeechRecognizerFactory**: composition root whose `LoadAsync` overloads return a real engine
   or the honest unavailable fallback, and never throw for an ordinary machine state
-- **SpeechRecognizerEngine** and **RecognitionSession**: the real Layer 3/5
+- **SpeechRecognizerEngine** and **RecognitionSession**: the real engine and session
   implementations, together with the public **IRecognitionBackend** seam and its internal
   **IRecognitionBackendFactory** loading seam, its model-driven
   **DefaultRecognitionBackendFactory** implementation (which asks the model itself to construct
@@ -64,12 +64,12 @@ every concrete engine backend lives in a model-supplying extension such as the s
 The redesign separates "is a model loaded and usable?" from "is one device currently streaming
 through it?":
 
-- **Layer 3 - `ISpeechRecognizerEngine`**: owns one loaded `IRecognitionBackend` for one
+- **Engine - `ISpeechRecognizerEngine`**: owns one loaded `IRecognitionBackend` for one
   recognition model. `IsAvailable` reports whether the machine can recognize at all.
   `CreateSessionAsync(IAudioCaptureDevice, CancellationToken)` leases exclusive use of the engine
   to exactly one live session at a time and returns a new `IRecognitionSession` bound to the
   supplied device.
-- **Layer 5 - `IRecognitionSession`**: owns the per-device streaming pipeline - the capture
+- **Session - `IRecognitionSession`**: owns the per-device streaming pipeline - the capture
   subscription, the resampler, the pump thread, and the result buffer - for exactly one
   `StartAsync`/`StopAsync` cycle. A session is single-use: it cannot be restarted after
   `Stopped`.
@@ -145,14 +145,13 @@ thread with two independent, bounded buffers:
   caught up by queueing more of it, so the oldest unconverted block is dropped rather than
   growing the backlog without bound.
 - Converted results queue in a `RecognitionResultBuffer`: one overwritable "latest provisional"
-  slot (an unconsumed provisional is superseded by the next one, never queued) plus a byte-capped
-  (`MaxFinalResultBytes`, 64 KiB) FIFO of final results. A final result is only ever evicted when
-  the FIFO is full and no new final can otherwise be delivered, and that eviction is itself
-  reported through `ISpeechDiagnostics` at `Warning` level, since silently dropping a final result
-  without a trace would hide genuine data loss from a slow consumer.
+  slot (an unconsumed provisional is superseded by the next one, never queued) plus a FIFO of final
+  results. Provisional results may therefore be coalesced when the consumer is slow, but a final
+  result is never dropped: finals are small and arrive at utterance boundaries, so retaining all
+  of them is bounded by the length of the session.
 
-Both policies independently bound the subsystem's steady-state memory and latency instead of
-letting either grow without limit when a consumer or the native backend cannot keep up.
+The capture queue bounds latency and memory when the native backend cannot keep up, and the
+single provisional slot bounds memory when a consumer cannot keep up.
 
 #### Composition
 
@@ -173,7 +172,7 @@ handler does nothing but copy the block into the bounded, drop-oldest queue and 
 conversion, inference, and result buffering happens on the `DedicatedWorker` pump thread.
 `StopAsync` completes the queue and awaits that pump task (subject to the abandon policy above),
 so every result derived from audio captured before the stop request is either delivered or
-accounted for as an evicted-with-diagnostic final by the time the call returns.
+delivered by the time the call returns.
 
 `AudioFrameResampler` performs the format conversion, downmixing to mono and using simple linear
 interpolation for rate conversion except on the downsampling path, where a small windowed-sinc
@@ -207,7 +206,7 @@ companion verification.
 #### Unit Design Documents
 
 The session coordinates several units, each documented in its own file under
-`recognition-subsystem/`: _SpeechRecognizerEngine_ (the Layer 3 engine that leases the backend and
+`recognition-subsystem/`: _SpeechRecognizerEngine_ (the engine that leases the backend and
 creates sessions), _RecognitionBackend_ (`IRecognitionBackend`, `IRecognitionBackendFactory`,
 `DefaultRecognitionBackendFactory`), _RecognitionResultBuffer_, _DedicatedWorker_,
 _AudioFrameResampler_, _UnavailableSpeechRecognizerEngine_ and _UnavailableRecognitionSession_ (the

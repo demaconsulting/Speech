@@ -16,7 +16,7 @@ consumer. No sleeps are used for ordinary behavior; the consumer is gated by the
 #### Acceptance Criteria
 
 The unit is considered verified when a slow consumer receives coalesced provisional results
-while every final result is still delivered under the byte cap, and the unit's own tests confirm
+while every final result is still delivered, and the unit's own tests confirm
 that a final result supersedes the provisional one for the same utterance while results for
 different utterances are all delivered.
 
@@ -34,6 +34,7 @@ different utterances are all delivered.
 
 **Test**: `RecognitionSession_GetResultsAsync_SlowConsumer_CoalescesProvisionalResults`
 
-##### Final results are never dropped under the byte cap
+##### Final results are never dropped
 
-**Test**: `RecognitionSession_GetResultsAsync_SlowConsumer_NeverDropsFinalResultsUnderByteCap`
+**Tests**: `RecognitionSession_GetResultsAsync_SlowConsumer_NeverDropsFinalResults`,
+`RecognitionResultBuffer_AddResult_ManyLargeFinals_NeverDropsAnyFinal`

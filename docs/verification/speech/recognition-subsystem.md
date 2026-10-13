@@ -12,7 +12,7 @@ platform-specific native speech-inference runtime.
 
 Determinism is structural rather than timing-based: `StopAsync` completes its internal queue and
 awaits its pump task, so every result derived from a frame raised before the call has been
-delivered or accounted for by the time it returns; cancellation/abandon-timeout behavior is
+delivered by the time it returns; cancellation/abandon-timeout behavior is
 verified with an injectable abandon-timeout override rather than real multi-second waits.
 
 Automated coverage **does not** include recognizing real speech. Proving that real audio from a
@@ -61,11 +61,11 @@ A RecognitionSubsystem test run passes when:
   above-target-Nyquist energy attenuated before downsampling decimation
 - Every recognition result is delivered through `GetResultsAsync`, in order, with its
   provisional/final flag preserved, subject to the documented backpressure policy (coalesced
-  provisionals, byte-capped finals)
+  provisionals may be coalesced; finals are never dropped)
 - The session's `RecognitionSessionState` machine only ever makes forward-only, documented
   transitions, raising `StateChanged` for each one
-- `StartAsync`/`StopAsync`/`DisposeAsync` behave idempotently, drain queued audio, and release
-  backend/lease resources
+- `StartAsync` is single-use (a second start throws `InvalidOperationException`); `StopAsync` and
+  `DisposeAsync` are idempotent, drain queued audio, and release backend/lease resources
 - `StopAsync`/`DisposeAsync` flush trailing audio the backend had accepted but not yet decoded -
   the tail of an utterance released with no trailing silence - as one last final result before
   resetting the backend for the next session, so no accepted audio is silently lost
@@ -251,14 +251,14 @@ samples, and that a final result's text has passed through the owning model's
 `RecognitionSession_GetResultsAsync_CanceledToken_EndsEnumerationWithoutStoppingSession`,
 `RecognitionSession_GetResultsAsync_SessionFaulted_ThrowsRecognitionSessionFaultedException`,
 `RecognitionSession_GetResultsAsync_SlowConsumer_CoalescesProvisionalResults`,
-`RecognitionSession_GetResultsAsync_SlowConsumer_NeverDropsFinalResultsUnderByteCap`
+`RecognitionSession_GetResultsAsync_SlowConsumer_NeverDropsFinalResults`
 
 Verifies that `GetResultsAsync` is single-consumer (a concurrent second enumeration throws
 `InvalidOperationException`), that cancelling the consumer's token ends its enumeration without
 stopping the session itself, that a faulted session surfaces
 `RecognitionSessionFaultedException` from the active enumeration, that a slow consumer only ever
 sees the latest coalesced provisional rather than a queue of stale ones, and that final results
-are never dropped while the byte cap is not exceeded.
+are never dropped, however many are buffered.
 
 #### Cooperative-Cancel-Then-Abandon Policy
 
@@ -322,3 +322,35 @@ repeatedly, that `UnavailableSpeechRecognizerEngine.CreateSessionAsync` always r
 unavailable session rather than throwing, that operational misuse of the unavailable session
 throws the documented exception, and that the exception type conforms to the standard
 three-constructor pattern.
+
+#### Subsystem-Level Scenarios
+
+**Tests**: `RecognitionSubsystem_Contract_SubstitutedByHost_HostReceivesResults`,
+`RecognitionSubsystem_PublicApi_NamesNoConcreteInferenceEngine`,
+`RecognitionSubsystem_Pipeline_StereoAudioAtModelRate_DeliversFinalResult`,
+`RecognitionSubsystem_ResultDelivery_SlowConsumer_NeverLosesFinalResults`,
+`RecognitionSubsystem_EngineExclusivity_SecondSession_RejectedUntilFirstDisposed`,
+`RecognitionSubsystem_Composition_InstalledAndMissingModel_NeverFails`,
+`RecognitionSubsystem_UnavailableFallback_ThrowsOnlyWhenOperated`,
+`RecognitionSubsystem_FaultContainment_DeviceLost_ReaderReceivesFaultedException`
+
+These tests (in `RecognitionSubsystemTests.cs`) drive the subsystem only through its public
+engine and session surface over fakes: a host can substitute the contracts with test doubles;
+no public type or referenced assembly names a concrete inference engine; the pipeline converts
+audio and delivers results; a slow consumer never loses a final result; an engine permits one
+active session at a time and accepts a new one after disposal; composition never fails for an
+installed or missing model; the unavailable fallback throws only when operated; and a lost
+device is contained and surfaces to a reader as the faulted-session exception.
+
+#### Fallback Versus Fault Decision Table
+
+| Situation | Outcome |
+| --------- | ------- |
+| Model not installed, wrong role, or recognizer cannot load (no native runtime) | Unavailable engine; no exception |
+| Capture device reports itself unavailable when a session is requested | Unavailable session; Warning diagnostic |
+| Unrecognized parameter id supplied | Ignored; Info diagnostic; real engine composed |
+| Invalid parameter value, null model/store/catalog, null device | Argument error (caller error) |
+| Already-canceled token | Cancellation outcome |
+| Second session requested while one is active | Busy exception |
+| Start or read results on an unavailable session | Unavailable exception |
+| Capture device lost or recognizer fault mid-session | Session faulted; reader receives faulted-session exception |

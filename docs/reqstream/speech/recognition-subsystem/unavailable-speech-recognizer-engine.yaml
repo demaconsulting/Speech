@@ -14,19 +14,18 @@ sections:
             requirements:
               - id: Speech-Recognition-UnavailableSpeechRecognizerEngine-ReportsUnavailable
                 title: >-
-                  The UnavailableSpeechRecognizerEngine class shall report IsAvailable as false
-                  and never throw merely for being obtained or held.
+                  The unavailable engine shall report itself unavailable and never fail merely for
+                  being obtained or held.
                 justification: |
-                  A caller must always be able to safely obtain and hold a fallback engine, per
-                  this library's "nothing throws at composition" decision.
+                  A caller must always be able to safely obtain and hold a fallback engine, so
+                  composition never fails.
                 tests:
                   - UnavailableSpeechRecognizerEngine_IsAvailable_Read_ReturnsFalse
 
               - id: Speech-Recognition-UnavailableSpeechRecognizerEngine-CreateSessionReturnsFallback
                 title: >-
-                  The UnavailableSpeechRecognizerEngine class shall return
-                  UnavailableRecognitionSession.Instance from CreateSessionAsync, without
-                  faulting the returned task, for any non-null device with a non-canceled token.
+                  The unavailable engine shall return an unavailable session, without failing, for
+                  any non-null device when the caller has not canceled.
                 justification: |
                   A caller composing against this fallback engine must be able to reuse the same
                   create-session call unchanged regardless of availability.
@@ -35,33 +34,30 @@ sections:
 
               - id: Speech-Recognition-UnavailableSpeechRecognizerEngine-CreateSessionRejectsNullDevice
                 title: >-
-                  The UnavailableSpeechRecognizerEngine class's CreateSessionAsync shall reject a
-                  null device with ArgumentNullException.
+                  The unavailable engine shall reject session creation with a null device.
                 justification: |
-                  A null device argument is a programming error that must surface as a fault,
-                  matching the ISpeechRecognizerEngine.CreateSessionAsync contract every
-                  implementation - including this fallback - must honor.
+                  A null device is a programming error that must surface as an error, matching the
+                  contract every engine - including this fallback - must honor.
                 tests:
                   - UnavailableSpeechRecognizerEngine_CreateSessionAsync_NullDevice_ThrowsArgumentNullException
 
               - id: Speech-Recognition-UnavailableSpeechRecognizerEngine-CreateSessionHonorsCancellation
                 title: >-
-                  The UnavailableSpeechRecognizerEngine class's CreateSessionAsync shall reject an
-                  already-canceled token with OperationCanceledException.
+                  The unavailable engine shall honor caller cancellation of session creation when the
+                  supplied token is already canceled.
                 justification: |
-                  Caller cancellation must be honored uniformly, matching the
-                  ISpeechRecognizerEngine.CreateSessionAsync contract every implementation -
-                  including this fallback - must honor.
+                  Caller cancellation must be honored uniformly by every engine, including this
+                  fallback.
                 tests:
                   - UnavailableSpeechRecognizerEngine_CreateSessionAsync_CanceledToken_ThrowsOperationCanceledException
 
               - id: Speech-Recognition-UnavailableSpeechRecognizerEngine-DisposalIdempotent
                 title: >-
-                  The UnavailableSpeechRecognizerEngine class shall treat disposal as a safe,
-                  idempotent no-op that never throws and never invalidates the shared fallback.
+                  Disposing the unavailable engine shall be a harmless no-op, however many times it
+                  is repeated, and shall leave the shared fallback usable.
                 justification: |
                   A host that wraps every engine it obtains in a disposal scope must be able to
                   run that same code unchanged on a machine where recognition is unavailable,
-                  including disposing the shared singleton fallback more than once.
+                  including disposing the shared fallback more than once.
                 tests:
                   - UnavailableSpeechRecognizerEngine_DisposeAsync_CalledTwice_DoesNotThrow

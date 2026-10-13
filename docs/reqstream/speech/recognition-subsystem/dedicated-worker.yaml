@@ -13,23 +13,21 @@ sections:
             requirements:
               - id: Speech-Recognition-DedicatedWorker-LongRunningDedicatedThread
                 title: >-
-                  The DedicatedWorker class shall run each native call on a dedicated,
-                  long-running task rather than a thread-pool task, so a stuck native call can
-                  never starve the shared thread pool.
+                  A stuck recognizer call shall never starve the process's shared worker threads.
                 justification: |
-                  Every call into the sherpa-onnx native runtime (decode, reset, flush) is a
-                  potentially blocking, non-cooperative native call; running it on an ordinary
-                  pooled task risks the pool's limited thread budget being consumed by stuck
-                  native calls, starving unrelated work across the whole process.
+                  Every recognizer call (decode, reset, flush) is potentially blocking and
+                  non-cooperative; running it on the shared worker threads risks their limited
+                  budget being consumed by stuck calls, starving unrelated work across the whole
+                  process.
                 tests:
                   - DedicatedWorker_Run_UsesLongRunningTaskCreationOption
 
               - id: Speech-Recognition-DedicatedWorker-CooperativeCancellation
                 title: >-
-                  The DedicatedWorker class shall complete without waiting for the abandon timeout when
-                  a cooperative delegate observes and honors cancellation.
+                  A recognizer call that honors cancellation shall finish promptly, without waiting
+                  out the give-up timeout.
                 justification: |
-                  A delegate that checks its own cancellation token and returns in response to it
+                  A call that checks its own cancellation token and returns in response to it
                   is the common, well-behaved case, and must not pay the cost of the abandon
                   timeout merely because it was asked to cancel.
                 tests:
@@ -37,9 +35,9 @@ sections:
 
               - id: Speech-Recognition-DedicatedWorker-AbandonAfterTimeout
                 title: >-
-                  The DedicatedWorker class shall abandon a non-cooperative delegate that ignores
-                  cancellation after a configurable timeout, letting its caller's await complete
-                  while the native call itself keeps running orphaned in the background.
+                  After cancellation is requested, a recognizer call that ignores it shall be given
+                  up on once a timeout elapses, letting the caller continue while that call keeps
+                  running in the background.
                 justification: |
                   A native call can block indefinitely despite a cancellation request being
                   honored at the managed boundary; without a bounded abandon timeout, a single
@@ -52,8 +50,8 @@ sections:
 
               - id: Speech-Recognition-DedicatedWorker-AbandonDiagnostic
                 title: >-
-                  The DedicatedWorker class shall report a Warning diagnostic naming the
-                  abandonment when it abandons a non-cooperative delegate.
+                  A warning diagnostic naming the abandonment shall be reported when a recognizer
+                  call is given up on.
                 justification: |
                   The abandoned native call keeps running orphaned in the background, so the
                   abandonment must be surfaced as a diagnostic rather than silently swallowed.

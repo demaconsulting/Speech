@@ -1,6 +1,6 @@
 ### SpeechRecognizerEngine
 
-**Purpose**: Implement the Layer 3 `ISpeechRecognizerEngine` contract against a loaded
+**Purpose**: Implement the `ISpeechRecognizerEngine` contract against a loaded
 `IRecognitionBackend`, enforcing the subsystem's single-session-at-a-time exclusivity (see the
 subsystem-level design doc's "Engine exclusivity and lease behavior").
 
@@ -22,8 +22,9 @@ backend loaded successfully - every unavailable case is represented by
   configuration, diagnostics sink, pump worker, and a release-lease callback that calls
   `_lease.Release()`. On failure (the lease is already held), throws
   `RecognitionEngineBusyException` without blocking.
-- **Dispose()**: Disposes the owned backend and the lease semaphore. Only safe to call once no
-  session still holds the lease.
+- **DisposeAsync()**: First disposes any still-active session it created (reporting an Error diagnostic if that
+  disposal fails, without preventing the rest of teardown), then disposes the owned backend and the
+  lease semaphore.
 
 **Error Handling**: `RecognitionEngineBusyException` is the only condition this type represents as
 an exception; every other call either succeeds or is routed through the created session's own

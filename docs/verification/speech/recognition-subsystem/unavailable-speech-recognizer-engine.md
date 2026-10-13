@@ -14,7 +14,8 @@ dependencies to mock.
 
 The unit is considered verified when the shared instance reports `false` availability, always
 returns the shared `UnavailableRecognitionSession.Instance` from `CreateSessionAsync` regardless
-of the supplied device, rejects a null device with `ArgumentNullException`, and treats repeated
+of the supplied device, rejects a null device with `ArgumentNullException`, rejects an already-canceled token with
+`OperationCanceledException`, and treats repeated
 disposal as a safe no-op.
 
 #### Test Scenarios

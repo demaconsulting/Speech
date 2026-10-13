@@ -75,7 +75,8 @@ The unit is considered verified when captured audio reaches the backend downmixe
 resampled to the model's declared `AudioFormat`, with above-target-Nyquist energy attenuated
 before any downsampling decimation; every decoded result is delivered through `GetResultsAsync` in
 order with its provisional/final flag intact; `StartAsync`/`StopAsync`/`DisposeAsync` are
-idempotent and drain queued audio before returning; the session's state machine only ever makes
+single-use to start and idempotent to stop and dispose, draining queued audio before returning;
+the session's state machine only ever makes
 forward-only, documented transitions; backend and handler faults are reported without escaping
 uncontrolled and surface to an active `GetResultsAsync` consumer as
 `RecognitionSessionFaultedException`; a capture-start or mid-session device failure surfaces the
@@ -159,10 +160,10 @@ Blocks raised synchronously from inside the device start are all delivered.
 `RecognitionSession_GetResultsAsync_CanceledToken_EndsEnumerationWithoutStoppingSession`,
 `RecognitionSession_GetResultsAsync_SessionFaulted_ThrowsRecognitionSessionFaultedException`,
 `RecognitionSession_GetResultsAsync_SlowConsumer_CoalescesProvisionalResults`,
-`RecognitionSession_GetResultsAsync_SlowConsumer_NeverDropsFinalResultsUnderByteCap`
+`RecognitionSession_GetResultsAsync_SlowConsumer_NeverDropsFinalResults`
 
 Single consumer, cancellation ends only the enumeration, faults surface, provisionals coalesce,
-and finals are never dropped under the byte cap.
+and finals are never dropped.
 
 ##### Finite-Source Backpressure
 

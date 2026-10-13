@@ -1,6 +1,6 @@
 ### IRecognitionSession
 
-**Purpose**: Define the Layer 5 contract for one streaming recognition session bound to one
+**Purpose**: Define the session contract for one streaming recognition session bound to one
 capture device, so hosts and tests can depend on session lifecycle and result delivery without
 depending on a specific inference backend.
 

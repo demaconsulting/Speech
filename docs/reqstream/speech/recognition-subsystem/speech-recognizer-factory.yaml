@@ -13,7 +13,7 @@ sections:
             requirements:
               - id: Speech-Recognition-SpeechRecognizerFactory-RealEngine
                 title: >-
-                  The SpeechRecognizerFactory class shall return a working ISpeechRecognizerEngine
+                  The factory shall return a working engine
                   when the requested model is installed, declares the recognition role, and its
                   recognition backend loads.
                 justification: |
@@ -27,8 +27,7 @@ sections:
 
               - id: Speech-Recognition-SpeechRecognizerFactory-HonestFallbacks
                 title: >-
-                  The SpeechRecognizerFactory class shall return an honest unavailable engine,
-                  without faulting the returned task, when the requested model is not installed
+                  The factory shall return an unavailable engine, without failing, when the requested model is not installed
                   or the model does not declare the recognition role.
                 justification: |
                   Per this library's "nothing throws at composition" decision, a model that has
@@ -42,12 +41,11 @@ sections:
 
               - id: Speech-Recognition-SpeechRecognizerFactory-EngineLoadFailureFallback
                 title: >-
-                  The SpeechRecognizerFactory class shall return an honest unavailable engine
-                  when the recognition backend for an installed model cannot be loaded, without
-                  faulting the returned task.
+                  The factory shall return an unavailable engine, without failing, when the
+                  recognizer for an installed model cannot be loaded.
                 justification: |
                   The design requires that "a model whose native runtime is absent must degrade
-                  the same honest way as a missing model file, never crash". A backend that
+                  the same graceful way as a missing model file, never crash". A backend that
                   cannot load because of a missing native binary, an unsupported platform, or
                   corrupt model files must therefore not fail application start-up.
                 tests:
@@ -55,7 +53,7 @@ sections:
 
               - id: Speech-Recognition-SpeechRecognizerFactory-EngineLoadFailureReported
                 title: >-
-                  The SpeechRecognizerFactory class shall report an Error diagnostic describing
+                  The factory shall report an Error diagnostic describing
                   the reason when the recognition backend for an installed model cannot be
                   loaded.
                 justification: |
@@ -66,27 +64,36 @@ sections:
 
               - id: Speech-Recognition-SpeechRecognizerFactory-ArgumentValidation
                 title: >-
-                  The SpeechRecognizerFactory class shall fault LoadAsync's returned task with
-                  ArgumentNullException for a null model, a null SpeechModelStore, or a null
-                  SpeechModelCatalog.
+                  The factory shall reject a null model with an argument error.
                 justification: |
-                  A null model, store, or catalog is a programming error at the call site, not an
-                  ordinary "unavailable" machine state, and must fail the returned task
-                  immediately with a clear exception rather than being silently treated as
-                  unavailable.
+                  A null model is a programming error at the call site, not an ordinary
+                  "unavailable" machine state, and must fail immediately with a clear error
+                  rather than being silently treated as unavailable.
                 tests:
                   - SpeechRecognizerFactory_LoadAsync_NullModel_FaultsWithArgumentNullException
                   - SpeechRecognizerFactory_LoadAsync_WithStoreNullModel_FaultsWithArgumentNullException
-                  - SpeechRecognizerFactory_LoadAsync_WithStoreNullStore_FaultsWithArgumentNullException
                   - SpeechRecognizerFactory_LoadAsync_WithCatalogNullModel_FaultsWithArgumentNullException
+
+              - id: Speech-Recognition-SpeechRecognizerFactory-NullStoreRejected
+                title: The factory shall reject a null model store with an argument error.
+                justification: |
+                  A null store is a programming error at the call site and must fail immediately.
+                tests:
+                  - SpeechRecognizerFactory_LoadAsync_WithStoreNullStore_FaultsWithArgumentNullException
+
+              - id: Speech-Recognition-SpeechRecognizerFactory-NullCatalogRejected
+                title: The factory shall reject a null model catalog with an argument error.
+                justification: |
+                  A null catalog is a programming error at the call site and must fail immediately.
+                tests:
                   - SpeechRecognizerFactory_LoadAsync_WithCatalogNullCatalog_FaultsWithArgumentNullException
 
               - id: Speech-Recognition-SpeechRecognizerFactory-CancellationFault
                 title: >-
-                  The SpeechRecognizerFactory class shall fault LoadAsync's returned task with
-                  OperationCanceledException when its cancellation token is canceled.
+                  The factory shall honor caller cancellation by ending with a cancellation outcome
+                  when its cancellation token is canceled.
                 justification: |
-                  Caller cancellation is a caller decision and must fail the returned task rather
+                  Caller cancellation is a caller decision and must fail rather
                   than being silently treated as unavailable.
                 tests:
                   - SpeechRecognizerFactory_LoadAsync_CanceledToken_FaultsWithOperationCanceledException
@@ -94,40 +101,43 @@ sections:
 
               - id: Speech-Recognition-SpeechRecognizerFactory-ParameterValuesForwarding
                 title: >-
-                  The SpeechRecognizerFactory class shall forward an optional parameterValues
-                  bag to the recognition backend construction path, defaulting to null for a
-                  caller that does not supply one, so a model with real tunable-parameter
-                  knowledge can later interpret a genuine parameter value from it.
+                  The factory shall pass a caller-supplied set of parameter values through to the
+                  selected model when it configures the recognizer.
                 justification: |
-                  This seam carries a session-level tunable value (for example a selected
-                  recognition language) from a host's ISpeechModel.Parameters selection through to
-                  a recognition model's engine configuration, mirroring the equivalent
-                  SpeechSynthesizerFactory capability already added for voice selection.
+                  This carries a tunable value (for example a selected recognition language) from a
+                  host's selection through to the recognition model's configuration, mirroring
+                  the equivalent capability for voice selection in synthesis.
                 tests:
                   - SpeechRecognizerFactory_LoadAsync_ParameterValuesSupplied_ReachesModelCreateBackend
                   - SpeechRecognizerFactory_LoadAsync_WithStoreParameterValuesSupplied_ReachesModelCreateBackend
                   - SpeechRecognizerFactory_LoadAsync_WithCatalogParameterValuesSupplied_ReachesModelCreateBackend
 
+              - id: Speech-Recognition-SpeechRecognizerFactory-ParameterValuesDefault
+                title: The factory shall configure the recognizer without parameter values when the caller supplies none.
+                justification: |
+                  Most callers need no tunable values and must not have to construct an empty set.
+                tests:
+                  - SpeechRecognizerFactory_LoadAsync_ModelInstalled_ReturnsRealEngine
+
               - id: Speech-Recognition-SpeechRecognizerFactory-UnrecognizedParameterIdIgnored
                 title: >-
-                  The SpeechRecognizerFactory class shall silently ignore a supplied
-                  parameterValues key that names a parameter not declared by the requested model,
+                  The factory shall silently ignore a supplied
+                  parameter value that names a parameter not declared by the requested model,
                   still composing a real engine, while reporting an Info-level diagnostic naming
                   the ignored key.
                 justification: |
                   A host reusing one settings dictionary across different recognition models
                   must not break composition just because a given model does not declare a
                   parameter another model had; this is a deliberate, documented
-                  cross-model-compatibility contract, not a caller bug, so it must never fault the
-                  returned task - only be surfaced as an informational diagnostic for a host that
+                  cross-model-compatibility contract, not a caller bug, so it must never fail
+                  composition - only be surfaced as an informational diagnostic for a host that
                   wired up a sink.
                 tests:
                   - SpeechRecognizerFactory_LoadAsync_UnrecognizedParameterId_ComposesAndReportsInfo
 
               - id: Speech-Recognition-SpeechRecognizerFactory-InvalidRecognizedParameterValueThrows
                 title: >-
-                  The SpeechRecognizerFactory class shall fault LoadAsync's returned task with
-                  ArgumentException when a supplied numeric parameter value is invalid for the
+                  The factory shall reject composition with an argument error when a supplied numeric parameter value is invalid for the
                   declared NumericParameter.
                 justification: |
                   A host explicitly targeting a parameter it knows this model declares, with a
@@ -142,21 +152,19 @@ sections:
 
               - id: Speech-Recognition-SpeechRecognizerFactory-InvalidChoiceParameterValueThrows
                 title: >-
-                  The SpeechRecognizerFactory class shall fault LoadAsync's returned task with
-                  ArgumentException when a supplied choice parameter value is not a declared
+                  The factory shall reject composition with an argument error when a supplied choice parameter value is not a declared
                   option.
                 justification: |
                   A value outside the closed option set can never be honored and must be surfaced
-                  loudly through the returned task's fault.
+                  loudly as an error.
                 tests:
                   - SpeechRecognizerFactory_LoadAsync_RecognizedChoiceParameterInvalidOption_FaultsWithArgumentException
 
               - id: Speech-Recognition-SpeechRecognizerFactory-InvalidBooleanParameterValueThrows
                 title: >-
-                  The SpeechRecognizerFactory class shall fault LoadAsync's returned task with
-                  ArgumentException when a supplied boolean parameter value is not a bool.
+                  The factory shall reject composition with an argument error when a supplied boolean parameter value is not a bool.
                 justification: |
                   A non-bool value cannot be interpreted as a flag and must be surfaced loudly
-                  through the returned task's fault.
+                  as an error.
                 tests:
                   - SpeechRecognizerFactory_LoadAsync_RecognizedBooleanParameterWrongType_FaultsWithArgumentException
