@@ -138,6 +138,7 @@ public sealed class SpeechOnnxChatterboxTurboTests : IDisposable
         var segment = Assert.Single(speech);
         Assert.Equal(24000, segment.SampleRate);
         Assert.Equal(SegmentSamples, segment.Samples.Count);
+        Assert.All(segment.Samples, sample => Assert.True(float.IsFinite(sample)));
     }
 
     /// <summary>
@@ -396,6 +397,125 @@ public sealed class SpeechOnnxChatterboxTurboTests : IDisposable
 
         // Assert
         Assert.Equal(SegmentSamples, Assert.Single(laugh).Samples.Count);
+    }
+
+    /// <summary>Proves the throat-clear and gasp tags, like the laugh, stay inside the sentence they interrupt as the model's own sounds.</summary>
+    [Theory]
+    [InlineData("That was [clears throat] really funny today.")]
+    [InlineData("That was [gasp] really funny today.")]
+    public async Task SpeechOnnxChatterboxTurbo_SystemIntegration_NativeTagRendering_ThroatClearAndGaspStayInsideSentence(string text)
+    {
+        // Arrange
+        InstallSynthetic();
+        var options = new ChatterboxTurboModelOptions { ReferenceVoices = [Voice("a", 0.25f)], MaxNewTokens = MaxNewTokens };
+
+        // Act
+        var speech = await SynthesizeAsync(options, text);
+
+        // Assert
+        Assert.Equal(SegmentSamples, Assert.Single(speech).Samples.Count);
+    }
+
+    /// <summary>Proves the short and long pause tags render as real silent segments of their fixed durations.</summary>
+    [Theory]
+    [InlineData("Oh well. [short pause] Fine, then.", 300)]
+    [InlineData("Oh well. [long pause] Fine, then.", 900)]
+    public async Task SpeechOnnxChatterboxTurbo_SystemIntegration_SilenceTagRendering_PauseIsFixedSilence(string text, int expectedMilliseconds)
+    {
+        // Arrange
+        InstallSynthetic();
+        var options = new ChatterboxTurboModelOptions { ReferenceVoices = [Voice("a", 0.25f)], MaxNewTokens = MaxNewTokens };
+
+        // Act
+        var speech = await SynthesizeAsync(options, text);
+
+        // Assert
+        Assert.Equal(3, speech.Count);
+        Assert.NotEmpty(speech[0].Samples);
+        Assert.Empty(speech[1].Samples);
+        Assert.Equal(TimeSpan.FromMilliseconds(expectedMilliseconds), speech[1].PreSilence + speech[1].PostSilence);
+        Assert.NotEmpty(speech[2].Samples);
+    }
+
+    /// <summary>Proves every audio tag the model cannot reproduce is omitted and the text is spoken as one ordinary sentence.</summary>
+    [Theory]
+    [InlineData("[whispers]")]
+    [InlineData("[soft]")]
+    [InlineData("[breathy]")]
+    [InlineData("[sarcastic]")]
+    [InlineData("[snorts]")]
+    [InlineData("[emphasis]")]
+    [InlineData("[slow]")]
+    [InlineData("[very slow]")]
+    [InlineData("[fast]")]
+    [InlineData("[very fast]")]
+    public async Task SpeechOnnxChatterboxTurbo_SystemIntegration_OmittedTagRendering_EveryUnsupportedTagIsOmitted(string tag)
+    {
+        // Arrange
+        InstallSynthetic();
+        var options = new ChatterboxTurboModelOptions { ReferenceVoices = [Voice("a", 0.25f)], MaxNewTokens = MaxNewTokens };
+
+        // Act
+        var omitted = await SynthesizeAsync(options, $"Hello {tag} there my friend.");
+
+        // Assert
+        Assert.Equal(SegmentSamples, Assert.Single(omitted).Samples.Count);
+    }
+
+    /// <summary>Proves the append and drop policies render a trailing tag distinctly: appending lengthens the text, dropping matches untagged text.</summary>
+    [Fact]
+    public async Task SpeechOnnxChatterboxTurbo_SystemIntegration_TagPlacementPolicy_SuffixAndStripRenderDistinctly()
+    {
+        // Arrange: the generation bound scales with the text length, so the output length reveals how long the spoken text was
+        InstallSynthetic();
+        ChatterboxTurboModelOptions Options(ChatterboxTurboEndOfSentenceTagPolicy policy) => new()
+        {
+            ReferenceVoices = [Voice("a", 0.25f)],
+            MaxNewTokens = 200,
+            MaxAudioTokensPerTextToken = 1.0,
+            EndOfSentenceTagPolicy = policy,
+        };
+
+        // Act
+        var suffix = await SynthesizeAsync(Options(ChatterboxTurboEndOfSentenceTagPolicy.Suffix), "That was really funny [laughs]");
+        var strip = await SynthesizeAsync(Options(ChatterboxTurboEndOfSentenceTagPolicy.Strip), "That was really funny [laughs]");
+        var untagged = await SynthesizeAsync(Options(ChatterboxTurboEndOfSentenceTagPolicy.Strip), "That was really funny");
+
+        // Assert
+        Assert.True(Assert.Single(suffix).Samples.Count > Assert.Single(strip).Samples.Count);
+        Assert.Equal(Assert.Single(untagged).Samples.Count, Assert.Single(strip).Samples.Count);
+    }
+
+    /// <summary>Proves an undefined end-of-sentence tag policy is rejected by the options.</summary>
+    [Fact]
+    public void SpeechOnnxChatterboxTurbo_SystemIntegration_TagPlacementPolicy_UndefinedValue_IsRejected()
+    {
+        // Arrange
+        var options = new ChatterboxTurboModelOptions();
+
+        // Act
+        var exception = Record.Exception(() => options.EndOfSentenceTagPolicy = (ChatterboxTurboEndOfSentenceTagPolicy)99);
+
+        // Assert
+        Assert.IsType<ArgumentOutOfRangeException>(exception);
+        Assert.Equal(ChatterboxTurboEndOfSentenceTagPolicy.MoveBeforeFinalWord, options.EndOfSentenceTagPolicy);
+    }
+
+    /// <summary>Proves the configured generation bound, not the fixture's output length, sets how many speech tokens are generated.</summary>
+    [Fact]
+    public async Task SpeechOnnxChatterboxTurbo_SystemIntegration_RunawayProtection_ConfiguredBoundSetsGeneratedTokenCount()
+    {
+        // Arrange: the synthetic language model never stops and the decoder echoes one sample per token
+        InstallSynthetic();
+        ChatterboxTurboModelOptions Options(int bound) => new() { ReferenceVoices = [Voice("a", 0.25f)], MaxNewTokens = bound };
+
+        // Act
+        var four = await SynthesizeAsync(Options(4), "Hello there.");
+        var six = await SynthesizeAsync(Options(6), "Hello there.");
+
+        // Assert: two more allowed tokens yield exactly two more samples
+        Assert.Equal(PromptLength + 4 + SilenceLength, Assert.Single(four).Samples.Count);
+        Assert.Equal(PromptLength + 6 + SilenceLength, Assert.Single(six).Samples.Count);
     }
 
     /// <summary>Proves a tag with no usable sound is omitted: the text is spoken as one ordinary sentence.</summary>

@@ -18,7 +18,8 @@ public sealed class ByteLevelBpeTokenizerTests
     /// <summary>The embedded tokenizer, loaded once per test class instance.</summary>
     private readonly ByteLevelBpeTokenizer _tokenizer = OnnxChatterboxTurboEnglishSynthesisModel.LoadTokenizer();
 
-    /// <summary>Gets the golden cases as xunit theory data.</summary>
+    /// <summary>Gets the golden cases (text and reference ids) read from the golden JSON test data as xunit theory data.</summary>
+    /// <returns>The theory data, one row per golden text.</returns>
     public static TheoryData<string, long[]> GoldenCases()
     {
         var path = Path.Combine(AppContext.BaseDirectory, "TestData", "chatterbox-turbo-tokenizer-golden.json");
@@ -41,6 +42,8 @@ public sealed class ByteLevelBpeTokenizerTests
     [MemberData(nameof(GoldenCases))]
     public void ByteLevelBpeTokenizer_Encode_GoldenText_MatchesReferenceIds(string text, long[] expected)
     {
+        // Arrange: the tokenizer is built by the fixture
+
         // Act
         var ids = _tokenizer.Encode(text);
 
@@ -52,14 +55,22 @@ public sealed class ByteLevelBpeTokenizerTests
     [Fact]
     public void ByteLevelBpeTokenizer_GoldenCases_ContainManyCases()
     {
+        // Arrange
+        var cases = GoldenCases();
+
+        // Act
+        var count = cases.Count;
+
         // Assert
-        Assert.True(GoldenCases().Count >= 30);
+        Assert.True(count >= 30);
     }
 
     /// <summary>Proves the post-processor appends the end-of-text id twice, even for empty text.</summary>
     [Fact]
     public void ByteLevelBpeTokenizer_Encode_EmptyText_ReturnsOnlyTrailingPair()
     {
+        // Arrange: the tokenizer is built by the fixture
+
         // Act
         var ids = _tokenizer.Encode(string.Empty);
 
@@ -71,6 +82,8 @@ public sealed class ByteLevelBpeTokenizerTests
     [Fact]
     public void ByteLevelBpeTokenizer_Encode_Tag_IsAtomicAndSpaceIsSeparate()
     {
+        // Arrange: the tokenizer is built by the fixture
+
         // Act
         var ids = _tokenizer.Encode("so [laugh] funny");
 
