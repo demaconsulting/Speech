@@ -13,7 +13,7 @@ checksums keyed by file. The model id
 is `chatterbox-turbo-onnx-en` (`BaseModelId`) for the default fp16 language model with q4 auxiliary
 graphs, and `chatterbox-turbo-onnx-en-lm-<variant>-aux-<variant>` for any other combination.
 
-**Key Members**:
+**Key Methods**:
 
 - **Metadata**: id, display name, English language, license, 24 kHz mono `PreferredAudioFormat`,
   and the capability profile with native-tag support
@@ -37,11 +37,26 @@ graphs, and `chatterbox-turbo-onnx-en-lm-<variant>-aux-<variant>` for any other 
   mutating the caller's options). The list is fixed at construction, so it refreshes when the catalog is
   rebuilt after a pack is installed.
 - **Options** (`ChatterboxTurboModelOptions`): every property has a safe default and is validated when
-  assigned: variants must be defined enum values, `IntraOpThreads` and `MaxNewTokens` at least 1,
-  `MaxAudioTokensPerTextToken` positive, `MaxConsecutiveSpeechTokenRepeats` non-negative (0 disables the
-  cap), `MoodJoinSilenceMilliseconds` between 0 and 1000 (default 150); the default thread count is half the
-  logical processors, between 1 and 6. The end-of-sentence tag policy selects how a trailing tag is rendered.
-- **ResolveSpeakerId(parameters)**: maps the selected voice id to its index, defaulting to 0
+  assigned: the variants and `EndOfSentenceTagPolicy` must be defined enum values
+  (`ArgumentOutOfRangeException` otherwise, leaving the previous value), `IntraOpThreads` and
+  `MaxNewTokens` at least 1, `MaxAudioTokensPerTextToken` positive, `MaxConsecutiveSpeechTokenRepeats`
+  non-negative (0 disables the cap), `MoodJoinSilenceMilliseconds` between 0 and 1000 (default 150), and
+  `ReferenceVoices` non-null (`ArgumentNullException`). The default thread count is half the logical
+  processors, between 1 and 6; that is a default only, not a clamp, so an explicitly assigned value of 1 or
+  more is kept. The end-of-sentence tag policy selects how a trailing tag is rendered.
+- **Variant rationale**: only the fp16 and fp32 language models are offered. The q4 language model
+  destroys the inline audio tags the package exists to support, and the 8-bit (`quantized`) one is slower
+  than fp16 on CPU with no quality benefit (see the remarks on `ChatterboxTurboLanguageModelVariant`). The
+  auxiliary graphs (embeddings, speech encoder, conditional decoder) tolerate q4, fp16 or fp32.
+- **ResolveSpeakerId(parameters)**: maps the selected voice id to its index; an unknown or absent id
+  selects index 0
+- **LoadTokenizer / OpenTokenizerResource**: open the gzip-compressed tokenizer document embedded in this
+  assembly (the single resource whose name ends with the tokenizer suffix; a missing or ambiguous resource
+  fails with the `InvalidOperationException` of `Single`) and build the `ByteLevelBpeTokenizer` from it
+  with `FromGzipStream`.
+- **OnSessionCreated** (internal static): a test hook, forwarding to the networks unit's hook, that is
+  called for every ONNX session created. Tests use it to count sessions, to prove none is created for a
+  missing file, to prove sessions are disposed on failure, and to read which graph files a variant loads.
 - **CreateBackend(installDirectory)**: in order, validates the directory argument (null throws
   `ArgumentNullException`, empty throws `ArgumentException`), requires at least one voice
   (`InvalidOperationException`), checks every model file exists (`FileNotFoundException`, before any session is
@@ -51,8 +66,9 @@ graphs, and `chatterbox-turbo-onnx-en-lm-<variant>-aux-<variant>` for any other 
 
 **Error Handling**: `ArgumentException` for duplicate explicit or directory voice ids (the message names the
 id and whether it came from `ReferenceVoices` or `ReferenceVoiceDirectory`) or an empty install directory;
-an undefined variant is rejected by the option setters first, so the model's own undefined-variant
-`ArgumentException` is a defensive check that normal use never reaches; `ArgumentNullException` for a null
+`ArgumentOutOfRangeException` from the options setters for an out-of-range number or an undefined variant or
+policy (so the model's own undefined-variant `ArgumentException` is a defensive check that normal use never
+reaches); `ArgumentNullException` for a null voice list assigned to the options and for a null
 install directory; `DirectoryNotFoundException` for a missing voice directory; `InvalidOperationException` when no
 voice exists at backend creation or a graph is invalid; `FileNotFoundException` for missing files; other ONNX
 Runtime exceptions propagate after cleanup. With no voices at all, `Parameters` is empty (there is no voice

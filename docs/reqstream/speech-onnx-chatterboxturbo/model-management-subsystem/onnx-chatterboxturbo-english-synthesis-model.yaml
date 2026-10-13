@@ -99,6 +99,7 @@ sections:
                   files.
                 tests:
                   - OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_Fp32Variant_UsesFp32Graph
+                  - OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_AuxiliaryVariants_LoadMatchingGraphFiles
 
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-Voices
                 title: >-
@@ -112,14 +113,21 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-VoiceSelection
                 title: >-
-                  The OnnxChatterboxTurboEnglishSynthesisModel class shall map a voice id to the
-                  index of that voice, selecting the first voice by default.
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall map a selected voice id
+                  to the index of that voice.
                 justification: |
-                  The synthesis engine selects a voice by index, and an unspecified voice must
-                  still speak.
+                  The synthesis engine selects a voice by index.
                 tests:
-                  - OnnxChatterboxTurboEnglishSynthesisModel_Parameters_ReflectSuppliedVoices
                   - OnnxChatterboxTurboEnglishSynthesisModel_ResolveSpeakerId_MapsVoiceIdToIndex
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-VoiceDefault
+                title: >-
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall select the first voice
+                  when the selected voice id is unknown or absent.
+                justification: |
+                  An unspecified or stale voice choice must still speak.
+                tests:
+                  - OnnxChatterboxTurboEnglishSynthesisModel_ResolveSpeakerId_UnknownOrAbsentVoice_FallsBackToFirstVoice
 
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-VoiceDirectory
                 title: >-
@@ -129,6 +137,15 @@ sections:
                   A user can drop clips in a folder and have them offered as voices.
                 tests:
                   - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_VoiceDirectory_LoadsWavAndFlacFiles
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-VoiceDirectoryMissing
+                title: >-
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall throw a
+                  DirectoryNotFoundException when the supplied voice directory does not exist.
+                justification: |
+                  A misspelled path must be reported rather than silently offering no voices.
+                tests:
+                  - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_MissingVoiceDirectory_ThrowsDirectoryNotFound
 
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-VoiceDirectoryResilience
                 title: >-
@@ -178,6 +195,15 @@ sections:
                 tests:
                   - OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_EmptyDirectory_ThrowsArgumentException
 
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-CreateBackendNullPath
+                title: >-
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall fail backend creation
+                  with an ArgumentNullException for a null model directory.
+                justification: |
+                  A null path is a programming error that must be reported precisely.
+                tests:
+                  - OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_NullDirectory_ThrowsArgumentNullException
+
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-CreateBackendMissingFile
                 title: >-
                   The OnnxChatterboxTurboEnglishSynthesisModel class shall fail backend creation
@@ -207,42 +233,129 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-Options
                 title: >-
-                  The OnnxChatterboxTurboEnglishSynthesisModel unit shall provide, through its
-                  ChatterboxTurboModelOptions, these defaults: Fp16 language-model variant, Q4
-                  auxiliary variant, 1024 maximum new tokens, 25 speech tokens per text token, 12
-                  maximum consecutive repeats, 1 to 6 intra-op threads, the move-before-final-word
-                  end-of-sentence policy, no explicit voices, 150 ms mood join silence, store
-                  voices included, and no voice directory, voice library or diagnostics.
+                  The ChatterboxTurboModelOptions class shall default to the Fp16 language-model
+                  variant and the Q4 auxiliary-graph variant.
                 justification: |
-                  A host that supplies no options gets sensible behavior.
+                  A host that supplies no options gets the variants that preserve the inline
+                  audio tags at the smallest download.
                 tests:
-                  - ChatterboxTurboModelOptions_Properties_HaveSafeDefaultsAndValidate
+                  - ChatterboxTurboModelOptions_Defaults_LanguageModelVariantIsFp16AndAuxiliaryIsQ4
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-OptionsMaxNewTokens
+                title: >-
+                  The ChatterboxTurboModelOptions class shall default the maximum number of new
+                  speech tokens to 1024.
+                justification: |
+                  The default bounds generation length for a host that sets nothing.
+                tests:
+                  - ChatterboxTurboModelOptions_Defaults_MaxNewTokensIs1024
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-OptionsTokensPerTextToken
+                title: >-
+                  The ChatterboxTurboModelOptions class shall default the maximum number of speech
+                  tokens per text token to 25.
+                justification: |
+                  The default bounds runaway generation relative to the length of the text.
+                tests:
+                  - ChatterboxTurboModelOptions_Defaults_MaxAudioTokensPerTextTokenIs25
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-OptionsRepeats
+                title: >-
+                  The ChatterboxTurboModelOptions class shall default the maximum number of
+                  consecutive identical speech tokens to 12.
+                justification: |
+                  The default stops a degenerate repeating loop for a host that sets nothing.
+                tests:
+                  - ChatterboxTurboModelOptions_Defaults_MaxConsecutiveSpeechTokenRepeatsIs12
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-OptionsThreads
+                title: >-
+                  The ChatterboxTurboModelOptions class shall default the intra-op thread count to
+                  half the logical processors, at least 1 and at most 6; this is a default, not a
+                  limit on an explicitly assigned value.
+                justification: |
+                  The default balances speed against contention on typical hosts, while a host may
+                  still assign any count of at least 1.
+                tests:
+                  - ChatterboxTurboModelOptions_Defaults_IntraOpThreadsIsHalfTheProcessorsBetweenOneAndSix
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-OptionsEndOfSentencePolicy
+                title: >-
+                  The ChatterboxTurboModelOptions class shall default the end-of-sentence tag
+                  policy to moving a trailing tag before the final word.
+                justification: |
+                  A tag at the very end of the text is rendered poorly, so the default moves it.
+                tests:
+                  - ChatterboxTurboModelOptions_Defaults_EndOfSentenceTagPolicyIsMoveBeforeFinalWord
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-OptionsNoVoices
+                title: >-
+                  The ChatterboxTurboModelOptions class shall default to no explicit reference
+                  voices.
+                justification: |
+                  The model has no built-in voices, so a host supplies its own or uses the library.
+                tests:
+                  - ChatterboxTurboModelOptions_Defaults_NoExplicitVoices
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-OptionsJoinSilence
+                title: >-
+                  The ChatterboxTurboModelOptions class shall default the mood join silence to 150
+                  milliseconds.
+                justification: |
+                  A short pause makes the seam between mood clips natural.
+                tests:
+                  - ChatterboxTurboModelOptions_Defaults_MoodJoinSilenceIs150Milliseconds
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-OptionsStoreVoices
+                title: >-
+                  The ChatterboxTurboModelOptions class shall default to including the voices of
+                  the reference-voice library.
+                justification: |
+                  Hosts get the user folder and installed voice pack without any configuration.
+                tests:
+                  - ChatterboxTurboModelOptions_Defaults_StoreVoicesAreIncluded
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-OptionsNoSources
+                title: >-
+                  The ChatterboxTurboModelOptions class shall default to no voice directory, no
+                  voice library and no diagnostics sink.
+                justification: |
+                  Nothing outside the host's explicit choices is read or reported by default.
+                tests:
+                  - ChatterboxTurboModelOptions_Defaults_NoDirectoryLibraryOrDiagnostics
 
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-OptionsValidation
                 title: >-
-                  The OnnxChatterboxTurboEnglishSynthesisModel unit shall, through its
-                  ChatterboxTurboModelOptions, throw an ArgumentOutOfRangeException when a
-                  variant is assigned an undefined value.
+                  The ChatterboxTurboModelOptions class shall throw an ArgumentOutOfRangeException
+                  when a variant is assigned an undefined value.
                 justification: |
                   Invalid values fail at assignment rather than during synthesis.
                 tests:
                   - ChatterboxTurboModelOptions_VariantSetters_UndefinedValue_ThrowsArgumentOutOfRangeException
 
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-OptionsPolicyValidation
+                title: >-
+                  The ChatterboxTurboModelOptions class shall throw an ArgumentOutOfRangeException
+                  when the end-of-sentence tag policy is assigned an undefined value.
+                justification: |
+                  An undefined policy would silently fall through the tag handling, so it fails at
+                  assignment instead.
+                tests:
+                  - ChatterboxTurboModelOptions_EndOfSentenceTagPolicy_UndefinedValue_ThrowsArgumentOutOfRangeException
+
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-OptionsRangeValidation
                 title: >-
-                  The OnnxChatterboxTurboEnglishSynthesisModel unit shall, through its
-                  ChatterboxTurboModelOptions, throw an ArgumentOutOfRangeException when a numeric
-                  option is assigned an out-of-range value.
+                  The ChatterboxTurboModelOptions class shall throw an ArgumentOutOfRangeException
+                  when a numeric option is assigned an out-of-range value.
                 justification: |
                   Invalid values fail at assignment rather than during synthesis.
                 tests:
-                  - ChatterboxTurboModelOptions_Properties_HaveSafeDefaultsAndValidate
+                  - ChatterboxTurboModelOptions_Properties_OutOfRangeValues_ThrowArgumentOutOfRangeException
 
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-OptionsNullVoiceList
                 title: >-
-                  The OnnxChatterboxTurboEnglishSynthesisModel unit shall, through its
-                  ChatterboxTurboModelOptions, throw an ArgumentNullException when the
-                  reference-voice list is assigned null.
+                  The ChatterboxTurboModelOptions class shall throw an ArgumentNullException when
+                  the reference-voice list is assigned null.
                 justification: |
                   A null list fails at assignment rather than during synthesis.
                 tests:

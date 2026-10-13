@@ -40,6 +40,10 @@ public sealed class ChatterboxTurboModelOptions
     /// <summary>Backing field for <see cref="AuxiliaryModelVariant"/>.</summary>
     private ChatterboxTurboAuxiliaryModelVariant _auxiliaryModelVariant = ChatterboxTurboAuxiliaryModelVariant.Q4;
 
+    /// <summary>Backing field for <see cref="EndOfSentenceTagPolicy"/>.</summary>
+    private ChatterboxTurboEndOfSentenceTagPolicy _endOfSentenceTagPolicy =
+        ChatterboxTurboEndOfSentenceTagPolicy.MoveBeforeFinalWord;
+
     /// <summary>Backing field for <see cref="MoodJoinSilenceMilliseconds"/>.</summary>
     private int _moodJoinSilenceMilliseconds = DefaultMoodJoinSilenceMilliseconds;
 
@@ -152,8 +156,20 @@ public sealed class ChatterboxTurboModelOptions
     }
 
     /// <summary>Gets or sets how a sentence-final tag is rendered. Defaults to moving it before the final word.</summary>
-    public ChatterboxTurboEndOfSentenceTagPolicy EndOfSentenceTagPolicy { get; set; } =
-        ChatterboxTurboEndOfSentenceTagPolicy.MoveBeforeFinalWord;
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when set to a value that is not a defined policy.</exception>
+    public ChatterboxTurboEndOfSentenceTagPolicy EndOfSentenceTagPolicy
+    {
+        get => _endOfSentenceTagPolicy;
+        set
+        {
+            if (!Enum.IsDefined(value))
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), value, "The end-of-sentence tag policy is not defined.");
+            }
+
+            _endOfSentenceTagPolicy = value;
+        }
+    }
 
     /// <summary>
     ///     Gets or sets the silence, in milliseconds, inserted where the mood (reference clip) changes between two

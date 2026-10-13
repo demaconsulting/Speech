@@ -228,7 +228,8 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModel : ISynthesisModel
     /// </summary>
     /// <param name="installedModelDirectory">The directory the model files were installed into.</param>
     /// <returns>The backend.</returns>
-    /// <exception cref="ArgumentException">Thrown when the directory is null or empty.</exception>
+    /// <exception cref="ArgumentNullException">Thrown when the directory is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException">Thrown when the directory is empty.</exception>
     /// <exception cref="InvalidOperationException">Thrown when no reference voice was supplied.</exception>
     /// <exception cref="FileNotFoundException">Thrown when an expected graph file is missing.</exception>
     public ISynthesisBackend CreateBackend(string installedModelDirectory)
