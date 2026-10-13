@@ -86,16 +86,25 @@ public sealed class ChatterboxTurboReferenceVoiceTests : IDisposable
     [Fact]
     public void ChatterboxTurboReferenceVoice_FromSamples_TooShort_Throws()
     {
-        // Act & Assert
-        Assert.Throws<ArgumentException>(() => ChatterboxTurboReferenceVoice.FromSamples("x", new float[1000], 24000));
+        // Arrange
+        var samples = new float[1000];
+
+        // Act
+        var exception = Record.Exception(() => ChatterboxTurboReferenceVoice.FromSamples("x", samples, 24000));
+
+        // Assert
+        Assert.IsType<ArgumentException>(exception);
     }
 
     /// <summary>Proves a clip longer than the maximum is trimmed to it.</summary>
     [Fact]
     public void ChatterboxTurboReferenceVoice_FromSamples_TooLong_IsTrimmed()
     {
+        // Arrange
+        var samples = new float[24000 * 40];
+
         // Act
-        var voice = ChatterboxTurboReferenceVoice.FromSamples("long", new float[24000 * 40], 24000);
+        var voice = ChatterboxTurboReferenceVoice.FromSamples("long", samples, 24000);
 
         // Assert
         Assert.Equal(24000 * 30, voice.Samples.Length);
@@ -105,13 +114,24 @@ public sealed class ChatterboxTurboReferenceVoiceTests : IDisposable
     [Fact]
     public void ChatterboxTurboReferenceVoice_FromSamples_InvalidArguments_Throw()
     {
-        // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => ChatterboxTurboReferenceVoice.FromSamples(null!, new float[48000], 24000));
-        Assert.Throws<ArgumentNullException>(() => ChatterboxTurboReferenceVoice.FromFile("x", null!));
-        Assert.Throws<ArgumentNullException>(() => ChatterboxTurboReferenceVoice.FromFile(null!, "x.wav"));
-        Assert.Throws<ArgumentException>(() => ChatterboxTurboReferenceVoice.FromSamples(" ", new float[48000], 24000));
-        Assert.Throws<ArgumentOutOfRangeException>(() => ChatterboxTurboReferenceVoice.FromSamples("x", new float[48000], 0));
-        Assert.Throws<ArgumentOutOfRangeException>(() => ChatterboxTurboReferenceVoice.FromSamples("x", new float[48000], 24000, 0));
+        // Arrange
+        var samples = new float[48000];
+
+        // Act
+        var nullSamplesId = Record.Exception(() => ChatterboxTurboReferenceVoice.FromSamples(null!, samples, 24000));
+        var nullFilePath = Record.Exception(() => ChatterboxTurboReferenceVoice.FromFile("x", null!));
+        var nullFileId = Record.Exception(() => ChatterboxTurboReferenceVoice.FromFile(null!, "x.wav"));
+        var blankId = Record.Exception(() => ChatterboxTurboReferenceVoice.FromSamples(" ", samples, 24000));
+        var zeroRate = Record.Exception(() => ChatterboxTurboReferenceVoice.FromSamples("x", samples, 0));
+        var zeroChannels = Record.Exception(() => ChatterboxTurboReferenceVoice.FromSamples("x", samples, 24000, 0));
+
+        // Assert
+        Assert.IsType<ArgumentNullException>(nullSamplesId);
+        Assert.IsType<ArgumentNullException>(nullFilePath);
+        Assert.IsType<ArgumentNullException>(nullFileId);
+        Assert.IsType<ArgumentException>(blankId);
+        Assert.IsType<ArgumentOutOfRangeException>(zeroRate);
+        Assert.IsType<ArgumentOutOfRangeException>(zeroChannels);
     }
 
     /// <summary>Proves a 16-bit PCM WAV file is read.</summary>
@@ -185,10 +205,15 @@ public sealed class ChatterboxTurboReferenceVoiceTests : IDisposable
         var garbage = Path.Combine(_root, "g.wav");
         File.WriteAllBytes(garbage, Encoding.ASCII.GetBytes("this is not a wav file at all"));
 
+        // Act
+        var missing = Record.Exception(() => ChatterboxTurboReferenceVoice.FromFile("m", Path.Combine(_root, "none.wav")));
+        var unsupported = Record.Exception(() => ChatterboxTurboReferenceVoice.FromFile("f", adpcm));
+        var malformed = Record.Exception(() => ChatterboxTurboReferenceVoice.FromFile("g", garbage));
+
         // Assert
-        Assert.Throws<FileNotFoundException>(() => ChatterboxTurboReferenceVoice.FromFile("m", Path.Combine(_root, "none.wav")));
-        Assert.Throws<NotSupportedException>(() => ChatterboxTurboReferenceVoice.FromFile("f", adpcm));
-        Assert.Throws<InvalidDataException>(() => ChatterboxTurboReferenceVoice.FromFile("g", garbage));
+        Assert.IsType<FileNotFoundException>(missing);
+        Assert.IsType<NotSupportedException>(unsupported);
+        Assert.IsType<InvalidDataException>(malformed);
     }
 
     /// <summary>Proves a lazy file voice defers decoding: it is created for a corrupt file and fails, naming the file, on first use.</summary>
@@ -201,15 +226,20 @@ public sealed class ChatterboxTurboReferenceVoiceTests : IDisposable
 
         // Act
         var voice = ChatterboxTurboReferenceVoice.FromFileLazy("broken", path, "Broken");
+        var exception = Record.Exception(() => voice.Samples);
 
         // Assert
         Assert.Equal("broken", voice.Id);
         Assert.Equal("Broken", voice.DisplayName);
-        var exception = Assert.Throws<InvalidDataException>(() => voice.Samples);
-        Assert.Contains("broken.wav", exception.Message, StringComparison.Ordinal);
+        var invalid = Assert.IsType<InvalidDataException>(exception);
+        Assert.Contains("broken.wav", invalid.Message, StringComparison.Ordinal);
+        Assert.StartsWith("Reference voice 'broken' (", invalid.Message, StringComparison.Ordinal);
     }
 
-    /// <summary>Proves a lazy file voice decodes a valid file on first use and reuses the result.</summary>
+    /// <summary>
+    ///     Proves a lazy file voice decodes a valid file on first use and keeps the result: deleting the file after
+    ///     the first use leaves the later reads unchanged, so the file was not read again.
+    /// </summary>
     [Fact]
     public void ChatterboxTurboReferenceVoice_FromFileLazy_ValidFile_LoadsOnceOnFirstUse()
     {
@@ -220,10 +250,12 @@ public sealed class ChatterboxTurboReferenceVoiceTests : IDisposable
 
         // Act
         var first = voice.Samples;
+        File.Delete(path);
+        var second = voice.Samples;
 
         // Assert
         Assert.Equal(24000, first.Length);
-        Assert.True(first.Span == voice.Samples.Span);
+        Assert.True(first.Span == second.Span);
     }
 
     /// <summary>Proves a lazy voice does not decode until first use and then decodes exactly once.</summary>
@@ -257,9 +289,13 @@ public sealed class ChatterboxTurboReferenceVoiceTests : IDisposable
         var voice = ChatterboxTurboReferenceVoice.FromLoader("v", () =>
             Interlocked.Increment(ref attempts) == 1 ? throw new InvalidDataException("bad") : new float[24000]);
 
-        // Act & Assert
-        Assert.Throws<InvalidDataException>(() => voice.Samples);
-        Assert.Equal(24000, voice.Samples.Length);
+        // Act
+        var failure = Record.Exception(() => voice.Samples);
+        var retried = voice.Samples;
+
+        // Assert
+        Assert.IsType<InvalidDataException>(failure);
+        Assert.Equal(24000, retried.Length);
         Assert.Equal(2, attempts);
     }
 
@@ -270,14 +306,18 @@ public sealed class ChatterboxTurboReferenceVoiceTests : IDisposable
         // Arrange
         var voice = ChatterboxTurboReferenceVoice.FromSamples("v", new float[24000], 24000);
 
-        // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => voice.WithMoodSamples(null!, new float[24000], 24000));
-        Assert.Throws<ArgumentException>(() => voice.WithMoodSamples(" ", new float[24000], 24000));
+        // Act
+        var nullMood = Record.Exception(() => voice.WithMoodSamples(null!, new float[24000], 24000));
+        var blankMood = Record.Exception(() => voice.WithMoodSamples(" ", new float[24000], 24000));
+
+        // Assert
+        Assert.IsType<ArgumentNullException>(nullMood);
+        Assert.IsType<ArgumentException>(blankMood);
     }
 
-    /// <summary>Proves concurrent first use of a lazy file voice yields one shared, fully decoded clip for every caller.</summary>
+    /// <summary>Proves concurrent first use of a lazy voice decodes once and yields one shared, fully decoded clip for every caller.</summary>
     [Fact]
-    public void ChatterboxTurboReferenceVoice_FromFileLazy_ConcurrentFirstUse_ReturnsOneSharedClip()
+    public void ChatterboxTurboReferenceVoice_FromLoader_ConcurrentFirstUse_DecodesOnceAndSharesClip()
     {
         // Arrange
         var decodes = 0;
@@ -322,17 +362,20 @@ public sealed class ChatterboxTurboReferenceVoiceTests : IDisposable
             basePath,
             "Ok",
             new Dictionary<string, string> { ["SAD"] = sadPath, ["shout"] = Path.Combine(_root, "missing.wav") });
+        var foundSad = voice.TryGetMoodSamples("sad", out var sad);
+        var foundCalm = voice.TryGetMoodSamples("calm", out _);
+        var shoutFailure = Record.Exception(() => voice.TryGetMoodSamples("shout", out _));
 
         // Assert: creating the voice read nothing, so a missing file only fails when that mood is first used
         Assert.Empty(plain.Moods);
         Assert.Equal(["sad", "shout"], voice.Moods);
         Assert.True(voice.HasMood("sad"));
         Assert.False(voice.HasMood("calm"));
-        Assert.True(voice.TryGetMoodSamples("sad", out var sad));
+        Assert.True(foundSad);
         Assert.Equal(48000, sad.Length);
-        Assert.False(voice.TryGetMoodSamples("calm", out _));
+        Assert.False(foundCalm);
         Assert.Equal(24000, voice.Samples.Length);
-        Assert.Throws<InvalidDataException>(() => voice.TryGetMoodSamples("shout", out _));
+        Assert.IsType<InvalidDataException>(shoutFailure);
     }
 
     /// <summary>Proves a too-short mood clip fails on first use naming the voice and mood, not at creation.</summary>
@@ -347,11 +390,12 @@ public sealed class ChatterboxTurboReferenceVoiceTests : IDisposable
 
         // Act
         var voice = ChatterboxTurboReferenceVoice.FromFileLazy("v", basePath).WithMoodFiles(new Dictionary<string, string> { ["calm"] = shortPath });
+        var exception = Record.Exception(() => voice.TryGetMoodSamples("calm", out _));
 
         // Assert
-        var exception = Assert.Throws<InvalidDataException>(() => voice.TryGetMoodSamples("calm", out _));
-        Assert.Contains("v/calm", exception.Message, StringComparison.Ordinal);
-        Assert.Contains("short.wav", exception.Message, StringComparison.Ordinal);
+        var invalid = Assert.IsType<InvalidDataException>(exception);
+        Assert.StartsWith("Reference voice 'v/calm' ('", invalid.Message, StringComparison.Ordinal);
+        Assert.Contains(shortPath, invalid.Message, StringComparison.Ordinal);
     }
 
     /// <summary>Proves blank mood names or paths are rejected and a null mood map adds nothing.</summary>
@@ -367,10 +411,12 @@ public sealed class ChatterboxTurboReferenceVoiceTests : IDisposable
 
         // Act
         var unchanged = voice.WithMoodFiles(null);
+        var blankName = Record.Exception(() => voice.WithMoodFiles(new Dictionary<string, string> { [" "] = moodPath }));
+        var blankPath = Record.Exception(() => voice.WithMoodFiles(new Dictionary<string, string> { ["calm"] = " " }));
 
         // Assert
-        Assert.Throws<ArgumentException>(() => voice.WithMoodFiles(new Dictionary<string, string> { [" "] = moodPath }));
-        Assert.Throws<ArgumentException>(() => voice.WithMoodFiles(new Dictionary<string, string> { ["calm"] = " " }));
+        Assert.IsType<ArgumentException>(blankName);
+        Assert.IsType<ArgumentException>(blankPath);
         Assert.Equal(["calm"], unchanged.Moods);
         Assert.Equal(voice.Id, unchanged.Id);
         Assert.Equal(voice.DisplayName, unchanged.DisplayName);
@@ -440,6 +486,28 @@ public sealed class ChatterboxTurboReferenceVoiceTests : IDisposable
         Assert.True(voice.HasMood("Sad"));
     }
 
+    /// <summary>Proves the mood names are listed in ordinal ascending order regardless of the order they were supplied in.</summary>
+    [Fact]
+    public void ChatterboxTurboReferenceVoice_Moods_AreListedInOrdinalAscendingOrder()
+    {
+        // Arrange
+        var basePath = Path.Combine(_root, "base.wav");
+        var moodPath = Path.Combine(_root, "mood.wav");
+        File.WriteAllBytes(basePath, Wav(Tone(24000, 24000, 300), 24000, 1, format: 1, bits: 16));
+        File.WriteAllBytes(moodPath, Wav(Tone(24000, 24000, 200), 24000, 1, format: 1, bits: 16));
+
+        // Act
+        var voice = ChatterboxTurboReferenceVoice.FromFileLazy("v", basePath, moodClips: new Dictionary<string, string>
+        {
+            ["zeta"] = moodPath,
+            ["Alpha"] = moodPath,
+            ["mid"] = moodPath,
+        });
+
+        // Assert
+        Assert.Equal(["alpha", "mid", "zeta"], voice.Moods);
+    }
+
     /// <summary>Proves mood lookups match case-insensitively after trimming, and null or blank names never match.</summary>
     [Fact]
     public void ChatterboxTurboReferenceVoice_MoodLookup_IsCaseInsensitiveAndTrimmed()
@@ -452,19 +520,27 @@ public sealed class ChatterboxTurboReferenceVoiceTests : IDisposable
         var voice = ChatterboxTurboReferenceVoice.FromFileLazy("v", basePath)
             .WithMoodFiles(new Dictionary<string, string> { ["sad"] = moodPath });
 
-        // Act and Assert
-        foreach (var name in new[] { "sad", "SAD", "Sad", "  sAd\t", " sad" })
+        // Act
+        var results = new[] { "sad", "SAD", "Sad", "  sAd\t", " sad" }
+            .Select(name => (Name: name, Has: voice.HasMood(name), Found: voice.TryGetMoodSamples(name, out var samples), Samples: samples))
+            .ToArray();
+        var misses = new[] { null, "", " ", "\t", "calm", "sa d" }
+            .Select(name => (Name: name, Has: voice.HasMood(name), Found: voice.TryGetMoodSamples(name, out var samples), Samples: samples))
+            .ToArray();
+
+        // Assert
+        foreach (var hit in results)
         {
-            Assert.True(voice.HasMood(name), name);
-            Assert.True(voice.TryGetMoodSamples(name, out var samples), name);
-            Assert.Equal(36000, samples.Length);
+            Assert.True(hit.Has, hit.Name);
+            Assert.True(hit.Found, hit.Name);
+            Assert.Equal(36000, hit.Samples.Length);
         }
 
-        foreach (var name in new[] { null, "", " ", "\t", "calm", "sa d" })
+        foreach (var miss in misses)
         {
-            Assert.False(voice.HasMood(name), name);
-            Assert.False(voice.TryGetMoodSamples(name, out var missing), name);
-            Assert.True(missing.IsEmpty);
+            Assert.False(miss.Has, miss.Name);
+            Assert.False(miss.Found, miss.Name);
+            Assert.True(miss.Samples.IsEmpty);
         }
     }
 
@@ -476,12 +552,21 @@ public sealed class ChatterboxTurboReferenceVoiceTests : IDisposable
         var shortPath = Path.Combine(_root, "short.wav");
         File.WriteAllBytes(shortPath, Wav(Tone(1000, 24000, 300), 24000, 1, format: 1, bits: 16));
 
+        // Act
+        var tooShort = Record.Exception(() => ChatterboxTurboReferenceVoice.FromFile("s", shortPath));
+        var blankId = Record.Exception(() => ChatterboxTurboReferenceVoice.FromFile(" ", shortPath));
+        var blankPath = Record.Exception(() => ChatterboxTurboReferenceVoice.FromFile("s", " "));
+        var lazyBlankId = Record.Exception(() => ChatterboxTurboReferenceVoice.FromFileLazy(" ", shortPath));
+        var lazyBlankPath = Record.Exception(() => ChatterboxTurboReferenceVoice.FromFileLazy("s", " "));
+        var lazyNullPath = Record.Exception(() => ChatterboxTurboReferenceVoice.FromFileLazy("s", null!));
+
         // Assert
-        Assert.Throws<ArgumentException>(() => ChatterboxTurboReferenceVoice.FromFile("s", shortPath));
-        Assert.Throws<ArgumentException>(() => ChatterboxTurboReferenceVoice.FromFile(" ", shortPath));
-        Assert.Throws<ArgumentException>(() => ChatterboxTurboReferenceVoice.FromFile("s", " "));
-        Assert.Throws<ArgumentException>(() => ChatterboxTurboReferenceVoice.FromFileLazy(" ", shortPath));
-        Assert.Throws<ArgumentException>(() => ChatterboxTurboReferenceVoice.FromFileLazy("s", " "));
+        Assert.IsType<ArgumentException>(tooShort);
+        Assert.IsType<ArgumentException>(blankId);
+        Assert.IsType<ArgumentException>(blankPath);
+        Assert.IsType<ArgumentException>(lazyBlankId);
+        Assert.IsType<ArgumentException>(lazyBlankPath);
+        Assert.IsType<ArgumentNullException>(lazyNullPath);
     }
 
     /// <summary>Builds a sine tone.</summary>

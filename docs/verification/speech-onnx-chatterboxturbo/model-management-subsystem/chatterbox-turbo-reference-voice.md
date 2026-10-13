@@ -12,10 +12,13 @@ to a scratch directory and a small FLAC fixture (`TestData/voice-mono-16-16000.f
 
 #### Acceptance Criteria
 
-Mono 24 kHz samples are kept; other layouts are down-mixed and resampled preserving tone; long clips
+Mono 24 kHz samples are kept with their values; other layouts are down-mixed and resampled preserving the tone
+(frequency checked by zero crossings); long clips
 are trimmed and short clips rejected; WAV and FLAC files load; lazy voices and mood clips decode on first
-use with failures naming the file; mood names are trimmed and lower-cased, blank mood entries are rejected and a
-null mood map is ignored; bad files and arguments throw the
+use, exactly once even when first used concurrently by several threads (a deleted file does not affect later
+reads), with failures naming the file, not cached and retried; mood names are trimmed and lower-cased and listed
+in ordinal order, blank mood entries are rejected, a null mood map is ignored and a later clip of the same
+mood name replaces the earlier one; bad files and arguments throw the
 documented exceptions.
 
 #### Test Scenarios
@@ -64,8 +67,9 @@ documented exceptions.
 ##### Lazy file voices defer decoding
 
 **Tests**: `ChatterboxTurboReferenceVoice_FromFileLazy_CorruptFile_FailsOnFirstUseNamingFile`,
-`ChatterboxTurboReferenceVoice_FromFileLazy_ValidFile_LoadsOnceOnFirstUse` and
-`ChatterboxTurboReferenceVoice_FromFileLazy_ConcurrentFirstUse_ReturnsOneSharedClip` (eight threads released
+`ChatterboxTurboReferenceVoice_FromFileLazy_ValidFile_LoadsOnceOnFirstUse` (the file is deleted after the first
+use and the later read still returns the same clip) and
+`ChatterboxTurboReferenceVoice_FromLoader_ConcurrentFirstUse_DecodesOnceAndSharesClip` (eight threads released
 together by a barrier decode through a counting loader: exactly one decode, one shared clip),
 `ChatterboxTurboReferenceVoice_FromLoader_DecodesOnlyOnFirstUseAndOnlyOnce` and
 `ChatterboxTurboReferenceVoice_FromLoader_FailureIsNotCached` (a failed decode is retried on the next use)
@@ -82,13 +86,18 @@ together by a barrier decode through a counting loader: exactly one decode, one 
 
 ##### Blank mood entries are rejected and a null map is a no-op
 
-**Test**: `ChatterboxTurboReferenceVoice_WithMoodFiles_BlankEntriesAndNullMap_RejectedOrIgnored`
+**Test**: `ChatterboxTurboReferenceVoice_WithMoodFiles_BlankEntriesAndNullMap_RejectedOrIgnored`; the test-only
+helper's null and blank mood rejection is covered by `ChatterboxTurboReferenceVoice_WithMoodSamples_BlankMood_Throws`.
 
 Blank mood names or paths throw an `ArgumentException`; a null mood map returns a voice with no mood clips.
 
 ##### A later clip of the same mood name replaces the earlier one
 
 **Test**: `ChatterboxTurboReferenceVoice_WithMoodFiles_SameNameAgain_ReplacesEarlierClip`
+
+##### Mood names are listed in ordinal order
+
+**Test**: `ChatterboxTurboReferenceVoice_Moods_AreListedInOrdinalAscendingOrder`
 
 ##### Mood lookup is case-insensitive and trimmed
 

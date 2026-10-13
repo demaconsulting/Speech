@@ -17,18 +17,27 @@ mono, 24 kHz, bounded in length. Chatterbox Turbo has no built-in voices, so thi
 - **FromFile(id, path, displayName = null)**: decode a WAV or FLAC file of any channel count with the core
   `AudioFileReader`, then delegate to `FromSamples`
 - **FromFileLazy(id, path, displayName, moodClips)** (internal): a file-backed voice whose samples are decoded and
-  normalized on first use only (thread-safe: concurrent first users wait for one decode and share its clip,
-  so the file is decoded once; a failed load is not cached and the next use retries). A decoding failure is
-  rethrown as an `InvalidDataException` naming the file, so one damaged clip among a hundred fails only
-  when chosen. Used for voices that come from the reference-voice library. It also accepts the
+  normalized on first use only. Decode-once semantics: a private `LazyClip` serializes the first decode with a
+  lock, so concurrent first users wait for the single decode and share its clip (the file is decoded and
+  resampled exactly once); once a clip exists later reads never touch the file again. A failed load is not
+  cached, so the next use retries and a repaired or replaced file takes effect without a restart. A decoding
+  failure is rethrown as an `InvalidDataException` whose message has the form
+  `Reference voice '{id}' ('{path}') could not be loaded: {reason}`, so one damaged clip among a hundred fails
+  only when chosen. Used for voices that come from the reference-voice library. It also accepts the
   library voice's `MoodClips` (mood name to file path).
+- **FromLoader(id, load, displayName)** (internal): the same lazy semantics over a caller-supplied producer;
+  the seam tests use to count decodes.
+- **Moods**: the mood names this voice has clips for, lower case, in ordinal ascending order; empty for a
+  plain voice.
 - **WithMoodFiles(moods)**: returns a copy with lazily decoded mood clips (names lower-cased and
-  trimmed; blank names or paths throw; null or empty adds none). `Moods` lists the mood names; `TryGetMoodSamples`
-  and `HasMood` match the mood name case-insensitively after trimming (null or blank never matches) and report
-  an absent mood as missing so the engine falls back to the base clip. A short or
-  damaged mood clip fails on first use with an `InvalidDataException` naming the voice, mood and file.
+  trimmed; a blank name or path throws; null or empty adds none; a later entry of the same name replaces an
+  earlier one). `TryGetMoodSamples` and `HasMood` match the mood name case-insensitively after trimming
+  (null or blank never matches) and report an absent mood as missing so the engine falls back to the base clip.
+  A short or damaged mood clip fails on first use with an `InvalidDataException` in the same message format
+  with `{id}` replaced by `voice/mood` (for example `Reference voice 'v/calm' ('C:\clips\short.wav') could
+  not be loaded: ...`), naming the voice, the mood and the file.
 - **WithMoodSamples(mood, samples, sampleRate, channelCount)** (internal): the same with an already-decoded clip,
-  used by tests.
+  used by tests; a null or blank mood is rejected like `WithMoodFiles`.
 
 **Error Handling**: `ArgumentException`/`ArgumentOutOfRangeException` for
 invalid arguments; `FileNotFoundException` for a missing file; `InvalidDataException` for malformed

@@ -129,6 +129,7 @@ sections:
                   A library of over a hundred clips must list instantly.
                 tests:
                   - ChatterboxTurboReferenceVoice_FromFileLazy_ValidFile_LoadsOnceOnFirstUse
+                  - ChatterboxTurboReferenceVoice_FromLoader_DecodesOnlyOnFirstUseAndOnlyOnce
 
               - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-ConcurrentFirstUse
                 title: >-
@@ -138,7 +139,7 @@ sections:
                   Concurrent first use must not decode the same clip repeatedly or yield
                   different clips.
                 tests:
-                  - ChatterboxTurboReferenceVoice_FromFileLazy_ConcurrentFirstUse_ReturnsOneSharedClip
+                  - ChatterboxTurboReferenceVoice_FromLoader_ConcurrentFirstUse_DecodesOnceAndSharesClip
 
               - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-LazyFileErrors
                 title: >-
@@ -187,6 +188,15 @@ sections:
                 tests:
                   - ChatterboxTurboReferenceVoice_WithMoodFiles_NamesAreTrimmedAndLowerCased
                   - ChatterboxTurboReferenceVoice_WithMoodSamples_NormalizesClipAndTrimsName
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-MoodListing
+                title: >-
+                  The ChatterboxTurboReferenceVoice class shall list the mood names it has clips
+                  for in ordinal ascending order.
+                justification: |
+                  A stable order keeps listings and diagnostics deterministic.
+                tests:
+                  - ChatterboxTurboReferenceVoice_Moods_AreListedInOrdinalAscendingOrder
 
               - id: SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-MoodLookup
                 title: >-
