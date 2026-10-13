@@ -1,12 +1,5 @@
 ### SynthesisSession
 
-This chapter covers the real session implementation. The units it coordinates - the Layer 2
-rendering strategy, the sentence chunker, the synthesis-backend seam, the dedicated-worker
-cancellation policy, and the playback-format converter - each have their own design document,
-listed under "Unit Design Documents" below: the session's whole job is to move text through
-rendering and chunking, into the backend (via a dedicated worker), and the resulting audio
-through resampling onto its bound playback device.
-
 **Purpose**: Chunk, render, and synthesize text into speech through a synthesis backend, bound to
 exactly one playback device for the session's entire life, without ever performing synthesis or
 inference work on the caller's UI thread, and without synthesizing ahead of playback across an
@@ -136,16 +129,3 @@ subsystem.
 
 **Callers**: `SpeechSynthesizerEngine.CreateSessionAsync(device, cancellationToken)`.
 
-#### Unit Design Documents
-
-The units the session coordinates are documented in their own files:
-
-- _SynthesisBackend_ (`ISynthesisBackend`, `ISynthesisBackendFactory`, `DefaultSynthesisBackendFactory`):
-  [synthesis-backend.md](synthesis-backend.md)
-- _Layer2Rendering_ (`IModelCapabilityProfile`, `DefaultModelCapabilityProfile`):
-  [layer2-rendering.md](layer2-rendering.md)
-- _SentenceChunker_: [sentence-chunker.md](sentence-chunker.md)
-- _PlaybackAudioResampler_: [playback-audio-resampler.md](playback-audio-resampler.md)
-- _DedicatedWorker_: [dedicated-worker.md](dedicated-worker.md)
-- _SynthesisSessionFaultedException_, the fault type the session throws once it is `Faulted`:
-  [synthesis-session-faulted-exception.md](synthesis-session-faulted-exception.md)

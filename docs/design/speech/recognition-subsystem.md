@@ -189,6 +189,31 @@ containment, and result ordering are all exercised through pure managed fakes wi
 and no native inference binary present. It mirrors the `IPortAudioApi` seam used for audio
 interop and the `IModelDownloadClient` seam used for downloads.
 
+#### Design Constraints
+
+**Recognition results are never reported through diagnostics.** Every diagnostic this subsystem
+emits is a structural fact - composed, started, stopped, or a named fault - and never includes
+recognized text, honoring the `ISpeechDiagnostics` contract that makes it safe for a host to wire
+a diagnostics sink to a visible developer log.
+
+**Core ships zero built-in recognition models.** `SpeechModelCatalog` starts with an empty
+known-model list, and this subsystem names no concrete model or engine backend: a host populates
+the catalog through `SpeechModelCatalog.AddModels` (or an extension method such as the sibling
+`SpeechSherpa` system's `AddSherpaModels`). Within this repository the session is therefore proven
+end to end against fake models and fake backends; real-model, real-native-runtime recognition
+evidence lives with the concrete backend in _SpeechSherpa RecognitionSubsystem Design_ and its
+companion verification.
+
+#### Unit Design Documents
+
+The session coordinates several units, each documented in its own file under
+`recognition-subsystem/`: _SpeechRecognizerEngine_ (the Layer 3 engine that leases the backend and
+creates sessions), _RecognitionBackend_ (`IRecognitionBackend`, `IRecognitionBackendFactory`,
+`DefaultRecognitionBackendFactory`), _RecognitionResultBuffer_, _DedicatedWorker_,
+_AudioFrameResampler_, and _RecognitionSessionFaultedException_ (the fault type surfaced through
+`GetResultsAsync`). The session's whole job is to move audio from the converter into the backend
+on the right thread and buffer the results back out; see _RecognitionSession_.
+
 #### UnavailableSpeechRecognizerEngine
 
 **Purpose**: Provide a safe, always-obtainable `ISpeechRecognizerEngine` fallback for use when

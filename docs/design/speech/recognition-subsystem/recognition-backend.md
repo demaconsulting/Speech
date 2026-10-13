@@ -15,7 +15,7 @@ stateless; it has no fields.
 
 **Key Methods**:
 
-- **IRecognitionBackend.AcceptSamples(ReadOnlySpan&lt;float&gt;)**: Buffers one block of mono
+- **IRecognitionBackend.AcceptSamples(`ReadOnlySpan<float>`)**: Buffers one block of mono
   samples, already at the model's required rate, into the current utterance. Never blocks on
   decoding; an empty block is a no-op.
 - **IRecognitionBackend.TryDecode(out SpeechRecognitionResult?)**: Decodes as much buffered audio
@@ -30,10 +30,10 @@ stateless; it has no fields.
 - **IRecognitionBackend.Reset()**: Discards a partially decoded utterance.
 - **IRecognitionBackendFactory.Create(IRecognitionModel, string installedModelDirectory,
   parameterValues)**: Loads a backend for the model; the real implementation asks the model to
-  construct its own backend via the internal `IRecognitionModel.CreateBackend`.
+  construct its own backend via the public `IRecognitionModel.CreateBackend`.
 - **DefaultRecognitionBackendFactory.Create(IRecognitionModel, string installedModelDirectory,
-  IReadOnlyDictionary&lt;string, object&gt;? parameterValues)**: Validates its arguments and
-  forwards to the model's own internal
+  `IReadOnlyDictionary<string, object>?` parameterValues)**: Validates its arguments and
+  forwards to the model's own public
   `IRecognitionModel.CreateBackend(installedModelDirectory, parameterValues)`, returning the
   loaded backend unchanged. It replaced the former `SherpaOnnxRecognitionEngineFactory`.
 

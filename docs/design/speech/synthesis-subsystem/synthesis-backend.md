@@ -24,7 +24,7 @@ and has no fields.
 - **ISynthesisBackendFactory.Create(ISynthesisModel, string installedModelDirectory)**: Loads a
   backend for the model.
 - **DefaultSynthesisBackendFactory.Create(ISynthesisModel, string installedModelDirectory)**:
-  Validates its arguments and forwards to the model's own internal
+  Validates its arguments and forwards to the model's own public
   `ISynthesisModel.CreateBackend(installedModelDirectory)`, returning the loaded backend
   unchanged.
 

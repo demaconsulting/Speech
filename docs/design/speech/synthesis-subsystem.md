@@ -88,18 +88,17 @@ error handling, and rationale are in its own document under `synthesis-subsystem
 
 Text flows through four stages, each owned by one unit:
 
-1. **Layer 1 - parsing**: [AudioTagParser](synthesis-subsystem/audio-tag-parser.md) turns bracketed text
+1. **Layer 1 - parsing**: _AudioTagParser_ turns bracketed text
    into an ordered span list, via the `AudioTagCatalog` alias table. It never throws and never drops
    input: anything that is not a recognized tag stays plain text ("never worse than plain narration").
-2. **Layer 2 - rendering**: [Layer 2 rendering](synthesis-subsystem/layer2-rendering.md)
+2. **Layer 2 - rendering**: _Layer 2 rendering_
    (`IModelCapabilityProfile` / `DefaultModelCapabilityProfile`) turns the spans into a `SpeechPlan`
    according to the selected model's declared tag support; pause tags always render as real silence.
-   Narration between tags is split by [SentenceChunker](synthesis-subsystem/sentence-chunker.md).
-3. **Synthesis**: [SynthesisSession](synthesis-subsystem/synthesis-session.md) synthesizes each segment in
-   turn through the [ISynthesisBackend](synthesis-subsystem/synthesis-backend.md) seam, running each native
-   call on a [DedicatedWorker](synthesis-subsystem/dedicated-worker.md).
-4. **Playback**: for `SpeakAsync` only, each segment is converted by
-   [PlaybackAudioResampler](synthesis-subsystem/playback-audio-resampler.md) and written to the bound
+   Narration between tags is split by _SentenceChunker_.
+3. **Synthesis**: _SynthesisSession_ synthesizes each segment in
+   turn through the _ISynthesisBackend_ seam (see _SynthesisBackend_), running each native
+   call on a _DedicatedWorker_.
+4. **Playback**: for `SpeakAsync` only, each segment is converted by _PlaybackAudioResampler_ and written to the bound
    playback device before the next segment is synthesized, so synthesis and playback of different
    segments are never overlapped by separate threads.
 
@@ -110,8 +109,7 @@ for a program's whole life. `CreateSessionAsync(device, cancellationToken)` bind
 `IAudioPlaybackDevice` and returns an `ISynthesisSession` that is reusable across many calls, so a host
 holds one session per device rather than one short-lived synthesizer per utterance. At most one session
 may be leased from an engine at a time; a second `CreateSessionAsync` fails immediately with
-`SynthesisEngineBusyException` instead of queueing (see
-[SpeechSynthesizerEngine](synthesis-subsystem/speech-synthesizer-engine.md)).
+`SynthesisEngineBusyException` instead of queueing (see _SpeechSynthesizerEngine_).
 
 Each session exposes an explicit `SynthesisSessionState` lifecycle. `Starting`/`Running`/`Stopping` denote
 one discrete in-flight operation, not a continuous stream: a session returns to `Stopped` after each
@@ -142,21 +140,29 @@ stateDiagram-v2
 
 Operations on one session never overlap (a second call while an operation is in flight throws
 `InvalidOperationException`), and a non-cancellation failure makes the session terminally `Faulted`. The
-transition rules, the stop and dispose behavior, and the fault handling are specified in
-[SynthesisSession](synthesis-subsystem/synthesis-session.md).
+transition rules, the stop and dispose behavior, and the fault handling are specified in _SynthesisSession_.
 
 #### Units
 
+The session coordinates several units, each documented in its own file under
+`synthesis-subsystem/`: _SynthesisBackend_ (`ISynthesisBackend`, `ISynthesisBackendFactory`,
+`DefaultSynthesisBackendFactory`), _Layer2Rendering_ (`IModelCapabilityProfile`,
+`DefaultModelCapabilityProfile`), _SentenceChunker_, _PlaybackAudioResampler_,
+_DedicatedWorker_, and _SynthesisSessionFaultedException_. The session's whole job is to move
+text through rendering and chunking, into the backend (via a dedicated worker), and the resulting
+audio through resampling onto its bound playback device. The remaining units are listed with
+their design documents below.
+
 | Unit | Design document |
 | ---- | --------------- |
-| `ISpeechSynthesizerEngine` | [i-speech-synthesizer-engine.md](synthesis-subsystem/i-speech-synthesizer-engine.md) |
-| `ISynthesisSession` | [i-synthesis-session.md](synthesis-subsystem/i-synthesis-session.md) |
-| `SpeechSynthesizerFactory` | [speech-synthesizer-factory.md](synthesis-subsystem/speech-synthesizer-factory.md) |
-| `UnavailableSpeechSynthesizerEngine` | [unavailable-speech-synthesizer-engine.md](synthesis-subsystem/unavailable-speech-synthesizer-engine.md) |
-| `UnavailableSynthesisSession` | [unavailable-synthesis-session.md](synthesis-subsystem/unavailable-synthesis-session.md) |
-| `SpeechSynthesizerUnavailableException` | [speech-synthesizer-unavailable-exception.md](synthesis-subsystem/speech-synthesizer-unavailable-exception.md) |
-| `SynthesisEngineBusyException` | [synthesis-engine-busy-exception.md](synthesis-subsystem/synthesis-engine-busy-exception.md) |
-| `SynthesisSessionFaultedException` | [synthesis-session-faulted-exception.md](synthesis-subsystem/synthesis-session-faulted-exception.md) |
+| `ISpeechSynthesizerEngine` | `synthesis-subsystem/i-speech-synthesizer-engine.md` |
+| `ISynthesisSession` | `synthesis-subsystem/i-synthesis-session.md` |
+| `SpeechSynthesizerFactory` | `synthesis-subsystem/speech-synthesizer-factory.md` |
+| `UnavailableSpeechSynthesizerEngine` | `synthesis-subsystem/unavailable-speech-synthesizer-engine.md` |
+| `UnavailableSynthesisSession` | `synthesis-subsystem/unavailable-synthesis-session.md` |
+| `SpeechSynthesizerUnavailableException` | `synthesis-subsystem/speech-synthesizer-unavailable-exception.md` |
+| `SynthesisEngineBusyException` | `synthesis-subsystem/synthesis-engine-busy-exception.md` |
+| `SynthesisSessionFaultedException` | `synthesis-subsystem/synthesis-session-faulted-exception.md` |
 
 #### Design Constraints
 

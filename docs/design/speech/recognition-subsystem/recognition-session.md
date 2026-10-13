@@ -1,11 +1,5 @@
 ### RecognitionSession
 
-This chapter covers the streaming session only. The units it coordinates - the Layer 3 engine
-(`SpeechRecognizerEngine`), the recognition-backend seam, the result buffer, the dedicated
-pump-thread worker, and the audio-format converter - each have their own design document, listed
-under "Unit Design Documents" below: the session's whole job is to move audio from the converter
-into the backend on the right thread and buffer the results back out.
-
 **Purpose**: Stream a capture device's audio through format conversion into a recognition backend
 and deliver the resulting provisional and final results, without ever performing recognition work
 on the audio callback thread.
@@ -103,31 +97,3 @@ and `ISpeechDiagnostics` from the Diagnostics subsystem.
 
 **Callers**: `SpeechRecognizerEngine.CreateSessionAsync(...)`.
 
-#### Unit Design Documents
-
-The units the session coordinates are documented in their own files:
-
-- _SpeechRecognizerEngine_ (the Layer 3 engine that leases the backend and creates sessions):
-  [speech-recognizer-engine.md](speech-recognizer-engine.md)
-- _RecognitionBackend_ (`IRecognitionBackend`, `IRecognitionBackendFactory`,
-  `DefaultRecognitionBackendFactory`): [recognition-backend.md](recognition-backend.md)
-- _RecognitionResultBuffer_: [recognition-result-buffer.md](recognition-result-buffer.md)
-- _DedicatedWorker_: [dedicated-worker.md](dedicated-worker.md)
-- _AudioFrameResampler_: [audio-frame-resampler.md](audio-frame-resampler.md)
-- _RecognitionSessionFaultedException_, the fault type surfaced through `GetResultsAsync`:
-  [recognition-session-faulted-exception.md](recognition-session-faulted-exception.md)
-
-#### Design Constraints
-
-**Recognition results are never reported through diagnostics.** Every diagnostic this subsystem
-emits is a structural fact - composed, started, stopped, or a named fault - and never includes
-recognized text, honoring the `ISpeechDiagnostics` contract that makes it safe for a host to wire
-a diagnostics sink to a visible developer log.
-
-**Core ships zero built-in recognition models.** `SpeechModelCatalog` starts with an empty
-known-model list, and this subsystem names no concrete model or engine backend: a host populates
-the catalog through `SpeechModelCatalog.AddModels` (or an extension method such as the sibling
-`SpeechSherpa` system's `AddSherpaModels`). Within this repository the session is therefore proven
-end to end against fake models and fake backends; real-model, real-native-runtime recognition
-evidence lives with the concrete backend in _SpeechSherpa RecognitionSubsystem Design_ and its
-companion verification.
