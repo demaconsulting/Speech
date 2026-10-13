@@ -15,14 +15,33 @@ sections:
             requirements:
               - id: Speech-Models-ReferenceVoiceLibrary-StoreLayout
                 title: >-
-                  The ReferenceVoiceLibrary class shall keep packs and a user voice folder under a
-                  reference-voices folder inside the model store root, laying each pack out as
+                  The ReferenceVoiceLibrary class shall keep packs under a reference-voices folder
+                  inside the model store root, laying each pack out as
                   reference-voices/{packId}/current.
                 justification: |
                   Keeping reference voices beside the models they serve lets one store location
                   (and one configurable root) cover everything.
                 tests:
                   - ReferenceVoiceLibrary_Paths_FollowDocumentedLayout
+
+              - id: Speech-Models-ReferenceVoiceLibrary-UserFolder
+                title: >-
+                  The ReferenceVoiceLibrary class shall keep a user voice folder at
+                  reference-voices/user, create it on request, and list the voices placed in it.
+                justification: |
+                  Users need one well-known place to drop their own reference recordings.
+                tests:
+                  - ReferenceVoiceLibrary_Paths_FollowDocumentedLayout
+                  - ReferenceVoiceLibrary_EnsureUserDirectory_CreatesFolderAndListsUserVoices
+
+              - id: Speech-Models-ReferenceVoiceLibrary-AudioFileExtensions
+                title: >-
+                  The ReferenceVoiceLibrary class shall list only files with a supported audio
+                  extension (.wav or .flac, matched case-insensitively) as voices.
+                justification: |
+                  Other files in a voice folder (notes, readmes) are not voices and must not be
+                  offered to hosts.
+                tests:
                   - ReferenceVoiceLibrary_EnsureUserDirectory_CreatesFolderAndListsUserVoices
 
               - id: Speech-Models-ReferenceVoiceLibrary-LazyFolderCreation
@@ -37,21 +56,21 @@ sections:
 
               - id: Speech-Models-ReferenceVoiceLibrary-ArgumentValidation
                 title: >-
-                  The ReferenceVoiceLibrary class shall reject null arguments and unknown pack ids
-                  with an exception rather than operating on them.
+                  The ReferenceVoiceLibrary class shall reject a null store, and null, blank or unknown
+                  pack ids, with an exception rather than operating on them.
                 justification: |
                   Pack ids become folder names, so an unknown or null id must fail fast instead of
                   producing a path outside the pack area.
                 tests:
                   - ReferenceVoiceLibrary_InvalidArguments_Throw
+                  - ReferenceVoiceLibrary_BlankPackId_Throws
 
               - id: Speech-Models-ReferenceVoiceLibrary-PackInstall
                 title: >-
-                  The ReferenceVoiceLibrary class shall download a pack's whole archive through the
-                  hash-verifying model downloader and install its voices from the verified archive.
+                  The ReferenceVoiceLibrary class shall download a pack's whole archive, verify it
+                  against the pack's checksum, and install its voices from the verified archive.
                 justification: |
-                  Reusing the existing downloader gives the pack the same integrity and
-                  atomic-swap behavior as models.
+                  A pack gets the same integrity and atomic-install guarantees as a model.
                 tests:
                   - ReferenceVoiceLibrary_InstallPack_Success_InstallsVoicesAndUpdatesState
 
@@ -77,12 +96,32 @@ sections:
               - id: Speech-Models-ReferenceVoiceLibrary-FailedInstallReporting
                 title: >-
                   The ReferenceVoiceLibrary class shall install nothing and report a failed pack
-                  state when the archive fails its checksum or contains no voices.
+                  state when the archive fails its checksum.
                 justification: |
                   A failed install must never be reported as installed.
                 tests:
                   - ReferenceVoiceLibrary_InstallPack_ChecksumMismatch_InstallsNothingAndReportsFailedState
+
+              - id: Speech-Models-ReferenceVoiceLibrary-NoVoicesArchiveFails
+                title: >-
+                  The ReferenceVoiceLibrary class shall install nothing and report a failed pack
+                  state when the archive contains no voices.
+                justification: |
+                  An archive without voices is not a usable pack and must not read as installed.
+                tests:
                   - ReferenceVoiceLibrary_InstallPack_ArchiveWithoutVoices_FailsWithoutInstalling
+
+              - id: Speech-Models-ReferenceVoiceLibrary-PackStateReporting
+                title: >-
+                  The ReferenceVoiceLibrary class shall report a pack as not downloaded before an
+                  install, downloaded once installed, and failed after a failed install, and as
+                  not downloaded again after an uninstall.
+                justification: |
+                  Hosts drive their pack UI from this state.
+                tests:
+                  - ReferenceVoiceLibrary_InstallPack_Success_InstallsVoicesAndUpdatesState
+                  - ReferenceVoiceLibrary_InstallPack_ChecksumMismatch_InstallsNothingAndReportsFailedState
+                  - ReferenceVoiceLibrary_UninstallPackAsync_AfterDispose_StillRemoves
 
               - id: Speech-Models-ReferenceVoiceLibrary-PackUninstall
                 title: >-
@@ -118,9 +157,28 @@ sections:
                 title: >-
                   The ReferenceVoiceLibrary class shall tolerate repeated disposal.
                 justification: |
-                  The library owns a lazily created downloader; disposal must be idempotent.
+                  Disposal must be idempotent so hosts can dispose defensively.
                 tests:
                   - ReferenceVoiceLibrary_Dispose_Twice_DoesNotThrow
+
+              - id: Speech-Models-ReferenceVoiceLibrary-DisposeDuringInstall
+                title: >-
+                  The ReferenceVoiceLibrary class shall let an install that is already running
+                  finish when the library is disposed, releasing its resources afterwards.
+                justification: |
+                  Disposing must not tear resources down under a running install.
+                tests:
+                  - ReferenceVoiceLibrary_Dispose_WhileInstalling_LetsInstallFinish
+
+              - id: Speech-Models-ReferenceVoiceLibrary-UninstallAfterDispose
+                title: >-
+                  The ReferenceVoiceLibrary class shall still uninstall a pack after the library was
+                  disposed.
+                justification: |
+                  Removing a pack needs no download resources, so cleanup after disposal stays
+                  possible.
+                tests:
+                  - ReferenceVoiceLibrary_UninstallPackAsync_AfterDispose_StillRemoves
 
               - id: Speech-Models-ReferenceVoiceLibrary-InstallAfterDisposeThrows
                 title: >-
@@ -135,14 +193,33 @@ sections:
               - id: Speech-Models-ReferenceVoiceLibrary-VoiceMerge
                 title: >-
                   The ReferenceVoiceLibrary class shall list voices from caller-named directories,
-                  then the user folder, then installed packs, de-duplicating by voice id with the
+                  then the user folder, then installed packs, and de-duplicate by voice id with the
                   first occurrence winning.
                 justification: |
                   A voice a user deliberately supplies must override a bundled one of the same
                   name.
                 tests:
                   - ReferenceVoiceLibrary_EnumerateVoices_MergesInPrecedenceOrderFirstIdWins
+
+              - id: Speech-Models-ReferenceVoiceLibrary-DuplicateVoiceDiagnostic
+                title: >-
+                  The ReferenceVoiceLibrary class shall report a voice hidden by an earlier voice
+                  with the same id as an Info diagnostic naming the id.
+                justification: |
+                  Users wondering why a voice is missing can find the reason in the diagnostics.
+                tests:
                   - ReferenceVoiceLibrary_EnumerateVoices_DuplicateId_ReportsInfoDiagnostic
+
+              - id: Speech-Models-ReferenceVoiceLibrary-UnreadableFolderWarning
+                title: >-
+                  The ReferenceVoiceLibrary class shall skip a voice folder that is not a valid
+                  path or cannot be read, report a Warning diagnostic, and keep listing the other
+                  folders.
+                justification: |
+                  One bad folder must not hide every other voice, and the skip must not be silent.
+                tests:
+                  - ReferenceVoiceLibrary_EnumerateVoices_MalformedExtraPath_WarnsAndContinues
+                  - windows@ReferenceVoiceLibrary_EnumerateVoices_UnreadableFolder_WarnsAndContinues
 
               - id: Speech-Models-ReferenceVoiceLibrary-EmptyListWhenNothingPresent
                 title: >-
@@ -156,8 +233,9 @@ sections:
 
               - id: Speech-Models-ReferenceVoiceLibrary-VoiceNameFormatting
                 title: >-
-                  The ReferenceVoiceLibrary class shall derive a readable display name from a voice
-                  id.
+                  The ReferenceVoiceLibrary class shall derive a display name from a voice id by
+                  splitting it at underscores, hyphens and spaces, capitalizing each word, and
+                  separating a trailing number from its word.
                 justification: |
                   Hosts show voices in a list and need a presentable name without per-voice
                   metadata.
@@ -166,8 +244,8 @@ sections:
 
               - id: Speech-Models-ReferenceVoiceLibrary-ConsentNotice
                 title: >-
-                  The ReferenceVoiceLibrary class shall expose a shared consent notice stating that
-                  cloning a real person's voice requires that person's consent.
+                  The ReferenceVoiceLibrary class shall expose a shared non-blank notice telling
+                  users to clone only voices they have permission to use.
                 justification: |
                   Hosts listing or choosing voices need one shared, consistent warning wording.
                 tests:
@@ -205,12 +283,22 @@ sections:
               - id: Speech-Models-ReferenceVoiceLibrary-MoodClipExposure
                 title: >-
                   The ReferenceVoiceLibrary class shall expose each pack voice's installed emotion
-                  clips as MoodClips (lower-case mood to file path) without adding voice ids.
+                  clips as a mood-to-file-path map on the voice without adding voice ids.
                 justification: |
                   Emotion clips are variants of an existing voice, so voice ids and ordering stay
                   unchanged.
                 tests:
                   - ReferenceVoiceLibrary_InstallPack_Default_AttachesMoodClipsWithoutExtraVoices
+
+              - id: Speech-Models-ReferenceVoiceLibrary-MoodStemNormalization
+                title: >-
+                  The ReferenceVoiceLibrary class shall name each mood clip by its trimmed,
+                  lower-case file stem, keeping the first file when several stems collapse to one
+                  mood, and resolve mood lookups case-insensitively and trimmed.
+                justification: |
+                  Hosts look moods up by name regardless of how the files were capitalized.
+                tests:
+                  - ReferenceVoiceLibrary_EnumerateVoices_MoodStemsDifferingByCase_AreDeduplicated
 
               - id: Speech-Models-ReferenceVoiceLibrary-EmotionUpgrade
                 title: >-
@@ -233,6 +321,16 @@ sections:
                   - ReferenceVoiceLibrary_InstallPack_FailedUpgrade_KeepsPreviousInstall
                   - ReferenceVoiceLibrary_InstallPack_CanceledUpgrade_KeepsPreviousInstall
 
+              - id: Speech-Models-ReferenceVoiceLibrary-UpgradeLockedInstall
+                title: >-
+                  The ReferenceVoiceLibrary class shall throw a SpeechModelStoreException and keep
+                  the previous install when an upgrade cannot move the installed folder aside
+                  because its files are in use.
+                justification: |
+                  A locked install must fail visibly without losing the installed voices.
+                tests:
+                  - windows@ReferenceVoiceLibrary_InstallPack_UpgradeWithLockedCurrent_ThrowsAndKeepsInstall
+
               - id: Speech-Models-ReferenceVoiceLibrary-AbandonedBackupRestored
                 title: >-
                   The ReferenceVoiceLibrary class shall restore an upgrade backup that a previous
@@ -254,7 +352,8 @@ sections:
               - id: Speech-Models-ReferenceVoiceLibrary-VariantReporting
                 title: >-
                   The ReferenceVoiceLibrary class shall report a pack's installed variants without
-                  throwing, returning none for missing or corrupt metadata.
+                  throwing, returning none for missing or corrupt metadata (so a later install
+                  with emotions downloads the pack again).
                 justification: |
                   Hosts query variants to decide whether to offer an upgrade; a damaged pack.json
                   must not break that query.

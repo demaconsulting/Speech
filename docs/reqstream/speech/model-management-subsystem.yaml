@@ -585,7 +585,11 @@ sections:
               - Speech-Models-ReferenceVoicePackInstaller-ArchiveSafety
               - Speech-Models-ReferenceVoicePackInstaller-PortableNames
               - Speech-Models-ReferenceVoicePackInstaller-UniqueDestinations
-              - Speech-Models-ReferenceVoicePackInstaller-MalformedArchiveRejection
+              - Speech-Models-ReferenceVoicePackInstaller-NoVoicesRejection
+              - Speech-Models-ReferenceVoicePackInstaller-NotAZipRejection
+              - Speech-Models-ReferenceVoicePackInstaller-FailureKeepsArchive
+              - Speech-Models-ReferenceVoicePackInstaller-MissingArchive
+              - Speech-Models-ReferenceVoicePackInstaller-ArgumentValidation
               - Speech-Models-ReferenceVoicePackInstaller-Cancellation
               - Speech-Models-ReferenceVoicePackInstaller-SizeCaps
               - Speech-Models-ReferenceVoicePackInstaller-TotalSizeCap
@@ -677,6 +681,16 @@ sections:
               effects.
             children:
               - Speech-Models-ReferenceVoiceLibrary-StoreLayout
+              - Speech-Models-ReferenceVoiceLibrary-UserFolder
+              - Speech-Models-ReferenceVoiceLibrary-AudioFileExtensions
+              - Speech-Models-ReferenceVoiceLibrary-NoVoicesArchiveFails
+              - Speech-Models-ReferenceVoiceLibrary-PackStateReporting
+              - Speech-Models-ReferenceVoiceLibrary-DisposeDuringInstall
+              - Speech-Models-ReferenceVoiceLibrary-UninstallAfterDispose
+              - Speech-Models-ReferenceVoiceLibrary-DuplicateVoiceDiagnostic
+              - Speech-Models-ReferenceVoiceLibrary-UnreadableFolderWarning
+              - Speech-Models-ReferenceVoiceLibrary-MoodStemNormalization
+              - Speech-Models-ReferenceVoiceLibrary-UpgradeLockedInstall
               - Speech-Models-ReferenceVoiceLibrary-LazyFolderCreation
             tests:
               - ReferenceVoiceLibrary_Paths_FollowDocumentedLayout

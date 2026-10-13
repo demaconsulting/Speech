@@ -24,7 +24,7 @@ public sealed class ReferenceVoiceLibraryTests : IDisposable
                 Directory.Delete(_root, recursive: true);
             }
         }
-        catch (IOException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             // Best-effort cleanup only.
         }
@@ -74,7 +74,7 @@ public sealed class ReferenceVoiceLibraryTests : IDisposable
     [Fact]
     public async Task ReferenceVoiceLibrary_InvalidArguments_Throw()
     {
-        // Act / Assert
+        // Act & Assert
         Assert.Throws<ArgumentNullException>(() => new ReferenceVoiceLibrary(null!));
         using var library = new ReferenceVoiceLibrary(NewStore());
         Assert.Throws<ArgumentException>(() => library.GetPackState("nope"));
@@ -697,8 +697,13 @@ public sealed class ReferenceVoiceLibraryTests : IDisposable
     ///     Proves that the consent notice is non-blank and tells hosts to obtain permission before cloning a voice.
     /// </summary>
     [Fact]
-    public void ReferenceVoiceLibrary_ConsentNotice_MentionsPermissionToClone() =>
+    public void ReferenceVoiceLibrary_ConsentNotice_MentionsPermissionToClone()
+    {
+        // Act & Assert
+        Assert.False(string.IsNullOrWhiteSpace(ReferenceVoiceLibrary.ConsentNotice));
         Assert.Contains("permission", ReferenceVoiceLibrary.ConsentNotice, StringComparison.Ordinal);
+        Assert.Contains("clone", ReferenceVoiceLibrary.ConsentNotice, StringComparison.OrdinalIgnoreCase);
+    }
 
     /// <summary>
     ///     Proves that voice-name humanizing handles separators, case and trailing numbers.
@@ -721,10 +726,197 @@ public sealed class ReferenceVoiceLibraryTests : IDisposable
         var library = NewLibrary(ReferenceVoiceTestPacks.BuildTypicalZip(), out _);
         library.Dispose();
 
-        // Act / Assert
+        // Act & Assert
         await Assert.ThrowsAsync<ObjectDisposedException>(() => library.InstallPackAsync("voice-zero-1.0", cancellationToken: TestContext.Current.CancellationToken));
     }
 
+    /// <summary>
+    ///     Proves that null or blank pack ids are rejected as invalid arguments by every pack-addressed member.
+    /// </summary>
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task ReferenceVoiceLibrary_BlankPackId_Throws(string? packId)
+    {
+        // Arrange
+        using var library = new ReferenceVoiceLibrary(NewStore());
+
+        // Act & Assert
+        Assert.ThrowsAny<ArgumentException>(() => library.GetPackState(packId!));
+        Assert.ThrowsAny<ArgumentException>(() => library.GetPackDirectory(packId!));
+        await Assert.ThrowsAnyAsync<ArgumentException>(() => library.InstallPackAsync(packId!, cancellationToken: TestContext.Current.CancellationToken));
+        await Assert.ThrowsAnyAsync<ArgumentException>(() => library.UninstallPackAsync(packId!, TestContext.Current.CancellationToken));
+    }
+
+    /// <summary>
+    ///     Proves that mood clips whose file stems differ only by case collapse to one lower-case mood (the first
+    ///     file in ordinal order wins) and that the mood lookup through the library is case-insensitive and trims.
+    /// </summary>
+    [Fact]
+    public async Task ReferenceVoiceLibrary_EnumerateVoices_MoodStemsDifferingByCase_AreDeduplicated()
+    {
+        // Arrange
+        using var library = NewLibrary(ReferenceVoiceTestPacks.BuildTypicalZip(), out _);
+        await library.InstallPackAsync("voice-zero-1.0", cancellationToken: TestContext.Current.CancellationToken);
+        var speakerDirectory = Path.Join(library.GetPackDirectory("voice-zero-1.0"), "voices-emotion", "alana_jordan");
+        await File.WriteAllTextAsync(Path.Join(speakerDirectory, "SAD.wav"), "other", TestContext.Current.CancellationToken);
+
+        // Act
+        var voice = library.EnumerateVoices().Single(candidate => candidate.Id == "alana_jordan");
+
+        // Assert
+        Assert.NotNull(voice.MoodClips);
+        Assert.Equal(["happy", "sad"], voice.MoodClips.Keys.ToArray());
+        Assert.EndsWith("SAD.wav", voice.MoodClips["sad"], StringComparison.Ordinal);
+        Assert.True(voice.TryGetMoodClip("  Happy ", out var happy));
+        Assert.EndsWith("happy.flac", happy, StringComparison.Ordinal);
+        Assert.False(voice.TryGetMoodClip("missing", out _));
+    }
+
+    /// <summary>
+    ///     Proves that a malformed extra directory is skipped with a Warning diagnostic and does not stop the
+    ///     remaining voices from being listed.
+    /// </summary>
+    [Fact]
+    public async Task ReferenceVoiceLibrary_EnumerateVoices_MalformedExtraPath_WarnsAndContinues()
+    {
+        // Arrange
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        using var library = new ReferenceVoiceLibrary(NewStore(), null, diagnostics);
+        await File.WriteAllTextAsync(Path.Join(library.EnsureUserDirectory(), "mine.wav"), "a", TestContext.Current.CancellationToken);
+
+        // Act
+        var voices = library.EnumerateVoices(["bad\0path"]);
+
+        // Assert
+        Assert.Equal("mine", Assert.Single(voices).Id);
+        diagnostics.Received(1).Report(
+            SpeechDiagnosticLevel.Warning,
+            "ModelManagementSubsystem",
+            Arg.Is<string>(message => message.Contains("not a valid path")));
+    }
+
+    /// <summary>
+    ///     Proves that a folder that cannot be read is skipped with a Warning diagnostic naming it, while other
+    ///     folders are still listed.
+    /// </summary>
+    /// <remarks>Denying list access through an ACL deny rule is only reliably reproducible on Windows.</remarks>
+    [Fact]
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+    public async Task ReferenceVoiceLibrary_EnumerateVoices_UnreadableFolder_WarnsAndContinues()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Skip("ACL-based list-access denial is only reliably reproducible on Windows.");
+        }
+
+        // Arrange
+        var diagnostics = Substitute.For<ISpeechDiagnostics>();
+        using var library = new ReferenceVoiceLibrary(NewStore(), null, diagnostics);
+        await File.WriteAllTextAsync(Path.Join(library.EnsureUserDirectory(), "mine.wav"), "a", TestContext.Current.CancellationToken);
+        var locked = Path.Join(_root, "locked");
+        Directory.CreateDirectory(locked);
+        var directoryInfo = new DirectoryInfo(locked);
+        var acl = directoryInfo.GetAccessControl();
+        var user = System.Security.Principal.WindowsIdentity.GetCurrent().Name;
+        var denyRule = new System.Security.AccessControl.FileSystemAccessRule(
+            user, System.Security.AccessControl.FileSystemRights.ListDirectory, System.Security.AccessControl.AccessControlType.Deny);
+        acl.AddAccessRule(denyRule);
+        directoryInfo.SetAccessControl(acl);
+        try
+        {
+            // Act
+            var voices = library.EnumerateVoices([locked]);
+
+            // Assert
+            Assert.Equal("mine", Assert.Single(voices).Id);
+            diagnostics.Received(1).Report(
+                SpeechDiagnosticLevel.Warning,
+                "ModelManagementSubsystem",
+                Arg.Is<string>(message => message.Contains("could not be read") && message.Contains("locked")));
+        }
+        finally
+        {
+            var restoreAcl = directoryInfo.GetAccessControl();
+            restoreAcl.RemoveAccessRule(denyRule);
+            directoryInfo.SetAccessControl(restoreAcl);
+        }
+    }
+
+    /// <summary>
+    ///     Proves that disposing the library while an install is in flight does not break that install; the
+    ///     downloader is released afterwards and later installs are refused.
+    /// </summary>
+    [Fact]
+    public async Task ReferenceVoiceLibrary_Dispose_WhileInstalling_LetsInstallFinish()
+    {
+        // Arrange
+        var library = NewLibrary(ReferenceVoiceTestPacks.BuildTypicalZip(), out var client);
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        client.OnDownload = async (_, _) =>
+        {
+            entered.SetResult();
+            await release.Task;
+        };
+        var install = library.InstallPackAsync("voice-zero-1.0", cancellationToken: TestContext.Current.CancellationToken);
+        await entered.Task;
+
+        // Act
+        library.Dispose();
+        release.SetResult();
+        var result = await install;
+
+        // Assert
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, result.Outcome);
+        Assert.Equal(SpeechModelState.Downloaded, library.GetPackState("voice-zero-1.0"));
+        await Assert.ThrowsAsync<ObjectDisposedException>(() => library.InstallPackAsync("voice-zero-1.0", cancellationToken: TestContext.Current.CancellationToken));
+    }
+
+    /// <summary>
+    ///     Proves that uninstalling still works after the library was disposed (it needs no downloader).
+    /// </summary>
+    [Fact]
+    public async Task ReferenceVoiceLibrary_UninstallPackAsync_AfterDispose_StillRemoves()
+    {
+        // Arrange
+        var library = NewLibrary(ReferenceVoiceTestPacks.BuildTypicalZip(), out _);
+        await library.InstallPackAsync("voice-zero-1.0", cancellationToken: TestContext.Current.CancellationToken);
+        library.Dispose();
+
+        // Act
+        await library.UninstallPackAsync("voice-zero-1.0", TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(SpeechModelState.NotDownloaded, library.GetPackState("voice-zero-1.0"));
+    }
+
+    /// <summary>
+    ///     Proves that an upgrade whose installed folder cannot be moved aside fails with a store exception and
+    ///     leaves the voices-only install intact and listed.
+    /// </summary>
+    /// <remarks>An open file handle blocks a directory rename reliably only on Windows.</remarks>
+    [Fact]
+    public async Task ReferenceVoiceLibrary_InstallPack_UpgradeWithLockedCurrent_ThrowsAndKeepsInstall()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Skip("Open-handle directory-rename blocking is only reliably reproducible on Windows.");
+        }
+
+        // Arrange
+        using var library = NewLibrary(ReferenceVoiceTestPacks.BuildTypicalZip(), out var client);
+        await library.InstallPackAsync("voice-zero-1.0", includeEmotions: false, cancellationToken: TestContext.Current.CancellationToken);
+        var lockedFile = Directory.EnumerateFiles(Path.Join(library.GetPackDirectory("voice-zero-1.0"), "voices")).First();
+        using var handle = new FileStream(lockedFile, FileMode.Open, FileAccess.Read, FileShare.Read);
+
+        // Act & Assert
+        await Assert.ThrowsAsync<SpeechModelStoreException>(() => library.InstallPackAsync("voice-zero-1.0", cancellationToken: TestContext.Current.CancellationToken));
+        Assert.Equal(SpeechModelState.Downloaded, library.GetPackState("voice-zero-1.0"));
+        Assert.NotEmpty(library.EnumerateVoices());
+        Assert.Single(client.Requests);
+    }
     /// <summary>A download client that serves fixed bytes and records requested URIs.</summary>
     internal sealed class FakeClient(byte[] payload) : IModelDownloadClient
     {
@@ -735,7 +927,19 @@ public sealed class ReferenceVoiceLibraryTests : IDisposable
         public Func<int, CancellationToken, Task>? OnDownload { get; set; }
 
         /// <summary>Gets the URIs requested so far.</summary>
-        public List<Uri> Requests { get; } = [];
+        public IReadOnlyList<Uri> Requests
+        {
+            get
+            {
+                lock (_requests)
+                {
+                    return [.. _requests];
+                }
+            }
+        }
+
+        /// <summary>The recorded requests; guarded by itself.</summary>
+        private readonly List<Uri> _requests = [];
 
         /// <inheritdoc/>
         public async Task DownloadAsync(
@@ -744,10 +948,16 @@ public sealed class ReferenceVoiceLibraryTests : IDisposable
             IProgress<SpeechModelDownloadProgress>? progress,
             CancellationToken cancellationToken)
         {
-            Requests.Add(sourceUri);
+            int count;
+            lock (_requests)
+            {
+                _requests.Add(sourceUri);
+                count = _requests.Count;
+            }
+
             if (OnDownload is not null)
             {
-                await OnDownload(Requests.Count, cancellationToken);
+                await OnDownload(count, cancellationToken);
             }
 
             await destination.WriteAsync(Payload, cancellationToken);

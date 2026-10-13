@@ -82,6 +82,9 @@ public sealed class ReferenceVoiceLibrary : IDisposable
     /// <summary>The lazily created downloader.</summary>
     private SpeechModelDownloader? _downloader;
 
+    /// <summary>The number of installs currently using <see cref="_downloader"/>; guarded by <see cref="_gate"/>.</summary>
+    private int _downloaderUsers;
+
     /// <summary>Whether this instance has been disposed.</summary>
     private bool _disposed;
 
@@ -208,42 +211,48 @@ public sealed class ReferenceVoiceLibrary : IDisposable
         CancellationToken cancellationToken = default)
     {
         var pack = FindPack(packId);
-        var downloader = GetDownloader();
-
-        lock (_installingGate)
-        {
-            _installing[pack.Id] = _installing.GetValueOrDefault(pack.Id) + 1;
-        }
-
-        var gate = _installLocks.GetOrAdd(pack.Id, _ => new SemaphoreSlim(1, 1));
-        var acquired = false;
+        var downloader = AcquireDownloader();
         try
         {
-            // Serialize the whole call (upgrade check included) so concurrent callers cannot interleave
-            await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
-            acquired = true;
-            return await InstallSerializedAsync(pack, downloader, includeEmotions, progress, cancellationToken).ConfigureAwait(false);
+            lock (_installingGate)
+            {
+                _installing[pack.Id] = _installing.GetValueOrDefault(pack.Id) + 1;
+            }
+
+            var gate = _installLocks.GetOrAdd(pack.Id, _ => new SemaphoreSlim(1, 1));
+            var acquired = false;
+            try
+            {
+                // Serialize the whole call (upgrade check included) so concurrent callers cannot interleave
+                await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+                acquired = true;
+                return await InstallSerializedAsync(pack, downloader, includeEmotions, progress, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                if (acquired)
+                {
+                    gate.Release();
+                }
+
+                // Only the last concurrent caller clears the in-progress state
+                lock (_installingGate)
+                {
+                    var remaining = _installing.GetValueOrDefault(pack.Id) - 1;
+                    if (remaining <= 0)
+                    {
+                        _installing.Remove(pack.Id);
+                    }
+                    else
+                    {
+                        _installing[pack.Id] = remaining;
+                    }
+                }
+            }
         }
         finally
         {
-            if (acquired)
-            {
-                gate.Release();
-            }
-
-            // Only the last concurrent caller clears the in-progress state
-            lock (_installingGate)
-            {
-                var remaining = _installing.GetValueOrDefault(pack.Id) - 1;
-                if (remaining <= 0)
-                {
-                    _installing.Remove(pack.Id);
-                }
-                else
-                {
-                    _installing[pack.Id] = remaining;
-                }
-            }
+            ReleaseDownloader();
         }
     }
 
@@ -557,15 +566,21 @@ public sealed class ReferenceVoiceLibrary : IDisposable
     }
 
     /// <summary>
-    ///     Disposes the internal downloader if it was created.
+    ///     Disposes the internal downloader if it was created. The call does not wait for in-flight installs: when
+    ///     installs are running, the downloader is disposed by the last of them to finish, so a dispose never tears
+    ///     the downloader down under a running install. Installs started afterwards throw
+    ///     <see cref="ObjectDisposedException"/>; <see cref="UninstallPackAsync"/> and the read-only members keep working.
     /// </summary>
     public void Dispose()
     {
         lock (_gate)
         {
             _disposed = true;
-            _downloader?.Dispose();
-            _downloader = null;
+            if (_downloaderUsers == 0)
+            {
+                _downloader?.Dispose();
+                _downloader = null;
+            }
         }
     }
 
@@ -606,12 +621,27 @@ public sealed class ReferenceVoiceLibrary : IDisposable
     }
 
     /// <summary>Returns the downloader, creating it on first use.</summary>
-    private SpeechModelDownloader GetDownloader()
+    private SpeechModelDownloader AcquireDownloader()
     {
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
+            _downloaderUsers++;
             return _downloader ??= new SpeechModelDownloader(_packStore, _client, _diagnostics, _downloaderOptions);
+        }
+    }
+
+    /// <summary>Ends one install's use of the downloader, disposing it when the library was disposed meanwhile and no install remains.</summary>
+    private void ReleaseDownloader()
+    {
+        lock (_gate)
+        {
+            _downloaderUsers--;
+            if (_disposed && _downloaderUsers == 0)
+            {
+                _downloader?.Dispose();
+                _downloader = null;
+            }
         }
     }
 

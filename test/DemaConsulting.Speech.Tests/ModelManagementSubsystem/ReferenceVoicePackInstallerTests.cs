@@ -242,6 +242,9 @@ public sealed class ReferenceVoicePackInstallerTests : IDisposable
     [InlineData("/voice-zero/voices/evil.flac")]
     [InlineData("C:/evil.flac")]
     [InlineData("voice-zero/../evil.flac")]
+    [InlineData("voice-zero/./evil.flac")]
+    [InlineData("voice-zero/voices/./evil.flac")]
+    [InlineData("voice-zero/voices/ev\0il.flac")]
     public async Task ReferenceVoicePackInstaller_Install_UnsafeEntryName_ThrowsAndWritesNothingOutside(string entryName)
     {
         // Arrange
@@ -251,7 +254,7 @@ public sealed class ReferenceVoicePackInstallerTests : IDisposable
             (entryName, "evil"u8.ToArray()),
         ]);
 
-        // Act / Assert
+        // Act & Assert
         await Assert.ThrowsAsync<InvalidDataException>(() => InstallAsync(zip));
         Assert.False(File.Exists(Path.Join(_root, "evil.flac")));
         Assert.False(File.Exists(Path.Join(_root, "staging", "evil.flac")));
@@ -270,7 +273,7 @@ public sealed class ReferenceVoicePackInstallerTests : IDisposable
             ("voice-zero/voices/notes.txt", "x"u8.ToArray()),
         ]);
 
-        // Act / Assert
+        // Act & Assert
         var exception = await Assert.ThrowsAsync<InvalidDataException>(() => InstallAsync(zip));
         Assert.Contains("voice-zero/voices/*.flac", exception.Message, StringComparison.Ordinal);
         Assert.Contains("voice clips", exception.Message, StringComparison.Ordinal);
@@ -400,7 +403,7 @@ public sealed class ReferenceVoicePackInstallerTests : IDisposable
         // Arrange
         var bytes = "this is not a zip file"u8.ToArray();
 
-        // Act / Assert
+        // Act & Assert
         await Assert.ThrowsAsync<InvalidDataException>(() => InstallAsync(bytes));
     }
 
@@ -437,8 +440,88 @@ public sealed class ReferenceVoicePackInstallerTests : IDisposable
         using var source = new CancellationTokenSource();
         await source.CancelAsync();
 
-        // Act / Assert
+        // Act & Assert
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
             () => ReferenceVoicePackInstaller.InstallAsync(pack, includeEmotions: false, staging, source.Token));
+    }
+
+    /// <summary>
+    ///     Proves that an entry whose central-directory header understates its uncompressed size can never leave more
+    ///     than the per-entry cap on disk: the install either fails or extracts at most the cap.
+    /// </summary>
+    [Fact]
+    public async Task ReferenceVoicePackInstaller_Install_ForgedHeaderSize_NeverExtractsMoreThanCap()
+    {
+        // Arrange
+        var zip = ReferenceVoiceTestPacks.BuildZip([("voice-zero/voices/a.flac", new byte[5000])]);
+        const uint centralDirectorySignature = 0x02014B50;
+        for (var offset = 0; offset <= zip.Length - 28; offset++)
+        {
+            if (BitConverter.ToUInt32(zip, offset) == centralDirectorySignature)
+            {
+                // Uncompressed size field of the central-directory header
+                BitConverter.GetBytes(1u).CopyTo(zip, offset + 24);
+            }
+        }
+
+        var pack = ReferenceVoiceTestPacks.PackFor(zip);
+        var staging = Path.Join(_root, "staging");
+        ReferenceVoiceTestPacks.WriteArchive(staging, pack, zip);
+
+        // Act
+        var exception = await Record.ExceptionAsync(() => ReferenceVoicePackInstaller.InstallAsync(
+            pack, false, staging, maximumEntryBytes: 100, maximumTotalBytes: 10_000, TestContext.Current.CancellationToken));
+
+        // Assert
+        Assert.True(exception is null or InvalidDataException);
+        Assert.All(
+            Directory.GetFiles(staging, "*.flac", SearchOption.AllDirectories),
+            file => Assert.True(new FileInfo(file).Length <= 100));
+    }
+
+    /// <summary>
+    ///     Proves that a failed install leaves the staged archive in place (only a successful install deletes it).
+    /// </summary>
+    [Fact]
+    public async Task ReferenceVoicePackInstaller_Install_NoVoices_KeepsArchive()
+    {
+        // Arrange
+        var zip = ReferenceVoiceTestPacks.BuildZip([("voice-zero/LICENSE.md", "license"u8.ToArray())]);
+        var pack = ReferenceVoiceTestPacks.PackFor(zip);
+        var staging = Path.Join(_root, "staging");
+        var archivePath = ReferenceVoiceTestPacks.WriteArchive(staging, pack, zip);
+
+        // Act & Assert
+        await Assert.ThrowsAsync<InvalidDataException>(() => ReferenceVoicePackInstaller.InstallAsync(pack, false, staging, TestContext.Current.CancellationToken));
+        Assert.True(File.Exists(archivePath));
+    }
+
+    /// <summary>
+    ///     Proves that a staged archive that is missing surfaces as an <see cref="IOException"/> (not a data error).
+    /// </summary>
+    [Fact]
+    public async Task ReferenceVoicePackInstaller_Install_MissingArchive_ThrowsIOException()
+    {
+        // Arrange
+        var pack = ReferenceVoiceTestPacks.PackFor(ReferenceVoiceTestPacks.BuildTypicalZip());
+        var staging = Path.Join(_root, "staging");
+        Directory.CreateDirectory(staging);
+
+        // Act & Assert
+        await Assert.ThrowsAnyAsync<IOException>(() => ReferenceVoicePackInstaller.InstallAsync(pack, false, staging, TestContext.Current.CancellationToken));
+    }
+
+    /// <summary>
+    ///     Proves that a null pack or an empty staging directory is rejected up front.
+    /// </summary>
+    [Fact]
+    public async Task ReferenceVoicePackInstaller_Install_NullPackOrEmptyStaging_Throws()
+    {
+        // Arrange
+        var pack = ReferenceVoiceTestPacks.PackFor(ReferenceVoiceTestPacks.BuildTypicalZip());
+
+        // Act & Assert
+        await Assert.ThrowsAsync<ArgumentNullException>(() => ReferenceVoicePackInstaller.InstallAsync(null!, false, _root, TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<ArgumentException>(() => ReferenceVoicePackInstaller.InstallAsync(pack, false, string.Empty, TestContext.Current.CancellationToken));
     }
 }

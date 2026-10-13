@@ -47,8 +47,9 @@ Disk layout (the unit's contract with the CLI, demo and documentation):
   finishes. An install that already has emotions is never downgraded by `includeEmotions: false`,
   and a voices-only request over a voices-only install is the usual no-op.
 - `GetPackInstalledVariantsAsync` reads `pack.json` (with `File.ReadAllTextAsync`) and returns its `variants` (empty
-  for a missing, unreadable
-  or malformed file; it never throws); `PackHasEmotionsAsync` is true when `voices-emotion` is among them.
+  for a missing, unreadable or malformed file; it never throws); `PackHasEmotionsAsync` is true when
+  `voices-emotion` is among them. A missing or corrupt `pack.json` therefore reads as "no emotions", so a later
+  install with emotions upgrades (downloads) the pack again.
 - `GetPackState` reports `Downloading`, `Downloaded`, `FailedOrCorrupt` (a failed attempt in this
   process) or `NotDownloaded`, and never throws for a known id.
 - `UninstallPackAsync` removes the pack only; the user folder is never touched. It awaits (honoring its
@@ -60,8 +61,7 @@ Disk layout (the unit's contract with the CLI, demo and documentation):
   (there is no asynchronous directory-delete API). After the store uninstall it also deletes every
   `current.upgrade-backup-*` folder left in the pack
   directory so a leftover backup cannot resurrect the pack, and clears the pack's failed flag.
-- **Asynchronous policy**: the synchronous `UninstallPack`, `PackHasEmotions` and `GetPackInstalledVariants` were
-  introduced with this library (never shipped), so they were replaced rather than wrapped. `EnumerateVoices`,
+- **Asynchronous policy**: the pack operations are asynchronous; `EnumerateVoices`,
   `EnsureUserDirectory` and `GetPackState` stay synchronous: they are directory-metadata scans or in-memory
   reads, and `EnumerateVoices` is needed synchronously by public engine-constructor wiring. The upgrade
   backup move, restore and delete steps run on the thread pool so a large pack never blocks the caller.
@@ -79,15 +79,26 @@ Disk layout (the unit's contract with the CLI, demo and documentation):
   case-insensitively after trimming. Moods
   add no voice ids and do not change voice ordering.
 
-**Error Handling**: Unknown pack ids throw `ArgumentException`; a disposed library throws
-`ObjectDisposedException` from `InstallPackAsync`; cancellation propagates. Install failures are
-returned as a classified `SpeechModelDownloadResult`, not thrown. Enumeration never creates folders
-and never throws for a missing, unreadable or malformed directory (a malformed path is treated as
-absent), and returns an empty list when nothing is present. An
-uninstall that cannot complete because files are in use throws `SpeechModelStoreException`.
+**Error Handling**: Null, blank or unknown pack ids throw `ArgumentException` (a null store throws
+`ArgumentNullException`); a disposed library throws `ObjectDisposedException` from `InstallPackAsync`;
+cancellation propagates. Install failures are returned as a classified `SpeechModelDownloadResult`, not
+thrown. Enumeration never creates folders and never throws: a missing folder is skipped silently, while a
+caller-named folder that is not a valid path, or a folder that cannot be read (I/O or access failure), is
+skipped with a `Warning` diagnostic naming it (and a mood folder that cannot be read yields no mood clips,
+also with a `Warning`). It returns an empty list when nothing is present. An uninstall, or an emotion
+upgrade whose installed folder cannot be moved aside, that fails because files are in use throws
+`SpeechModelStoreException`; the previous install is kept.
+
+**Disposal**: `Dispose` is idempotent and does not wait for in-flight installs. Each install registers as a
+user of the downloader under the library lock before it starts, so the downloader is disposed by `Dispose`
+when no install is running, or by the last running install when the library was disposed meanwhile; an install
+never finds its downloader disposed under it. Installs started after disposal throw
+`ObjectDisposedException`; `UninstallPackAsync`, `EnumerateVoices` and the state and path members need no
+downloader and keep working. Pack operations assume a single process owns the store; two processes installing
+the same pack concurrently are not coordinated.
 
 **Consent notice**: The public constant `ConsentNotice` is the shared wording hosts show when listing
-or choosing voices: cloning a real person's voice requires that person's consent.
+or choosing voices: only clone voices you have permission to use.
 
 **Dependencies**: `SpeechModelStore`, `SpeechModelDownloader`, `IModelDownloadClient` (injected by tests),
 `SpeechModelDownloadResult` (returned from installs), `ReferenceVoicePack`,

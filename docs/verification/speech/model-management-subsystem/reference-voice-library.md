@@ -38,9 +38,9 @@ All scenarios are in `test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/
 
 ##### Argument Validation
 
-**Purpose**: Null arguments and unknown pack ids throw.
+**Purpose**: A null store, and null, blank or unknown pack ids, throw.
 
-**Test**: `ReferenceVoiceLibrary_InvalidArguments_Throw`
+**Tests**: `ReferenceVoiceLibrary_InvalidArguments_Throw`, `ReferenceVoiceLibrary_BlankPackId_Throws`
 
 ##### Pack Install
 
@@ -66,10 +66,13 @@ removes it (a token canceled while waiting cancels only the uninstall), and disc
 
 ##### Disposal
 
-**Purpose**: Disposing twice is harmless and an install after disposal throws.
+**Purpose**: Disposing twice is harmless, an install after disposal throws, disposing during an install
+lets it finish, and an uninstall after disposal still works.
 
 **Tests**: `ReferenceVoiceLibrary_Dispose_Twice_DoesNotThrow`,
-`ReferenceVoiceLibrary_InstallPack_AfterDispose_Throws`
+`ReferenceVoiceLibrary_InstallPack_AfterDispose_Throws`,
+`ReferenceVoiceLibrary_Dispose_WhileInstalling_LetsInstallFinish`,
+`ReferenceVoiceLibrary_UninstallPackAsync_AfterDispose_StillRemoves`
 
 ##### Voice Merge
 
@@ -79,6 +82,9 @@ are humanized, and the consent notice is exposed.
 **Tests**: `ReferenceVoiceLibrary_EnumerateVoices_MergesInPrecedenceOrderFirstIdWins`,
 `ReferenceVoiceLibrary_EnumerateVoices_DuplicateId_ReportsInfoDiagnostic`,
 `ReferenceVoiceLibrary_EnumerateVoices_MalformedDirectory_IsSkippedWithoutThrowing`,
+`ReferenceVoiceLibrary_EnumerateVoices_MalformedExtraPath_WarnsAndContinues`,
+`ReferenceVoiceLibrary_EnumerateVoices_UnreadableFolder_WarnsAndContinues` (Windows only; ACL deny),
+`ReferenceVoiceLibrary_EnumerateVoices_MoodStemsDifferingByCase_AreDeduplicated`,
 `ReferenceVoiceLibrary_Humanize_FormatsName`,
 `ReferenceVoiceLibrary_ConsentNotice_MentionsPermissionToClone`
 
@@ -100,7 +106,9 @@ abandoned backup, keep or restore the previous install.
 `ReferenceVoiceLibrary_InstallPack_VoicesOnlyOverEmotionInstall_NeverDowngrades`,
 `ReferenceVoiceLibrary_InstallPack_FailedUpgrade_KeepsPreviousInstall`,
 `ReferenceVoiceLibrary_InstallPack_CanceledUpgrade_KeepsPreviousInstall`,
-`ReferenceVoiceLibrary_InstallPack_AbandonedBackup_IsRestored`
+`ReferenceVoiceLibrary_InstallPack_AbandonedBackup_IsRestored`,
+`ReferenceVoiceLibrary_InstallPack_UpgradeWithLockedCurrent_ThrowsAndKeepsInstall` (Windows only; an open
+handle blocks the rename)
 
 ##### Install Serialization
 

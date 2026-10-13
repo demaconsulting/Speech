@@ -48,7 +48,7 @@ sections:
               - id: Speech-Models-ReferenceVoicePackInstaller-ArchiveSafety
                 title: >-
                   The ReferenceVoicePackInstaller shall reject archives containing path-traversal,
-                  rooted, drive-qualified or backslash entry names.
+                  rooted, drive-qualified, backslash, "." segment or NUL entry names.
                 justification: |
                   Even a checksum-verified archive is untrusted input to the extractor (the
                   checksum guards integrity, not safety), so a zip-slip entry must never write
@@ -78,15 +78,49 @@ sections:
                 tests:
                   - ReferenceVoicePackInstaller_Install_DuplicateEntry_Throws
 
-              - id: Speech-Models-ReferenceVoicePackInstaller-MalformedArchiveRejection
+              - id: Speech-Models-ReferenceVoicePackInstaller-NoVoicesRejection
                 title: >-
-                  The ReferenceVoicePackInstaller shall reject archives with no voice clips and
-                  files that are not zip archives.
+                  The ReferenceVoicePackInstaller shall reject an archive that holds no voice clips.
                 justification: |
-                  A malformed pack must fail the install rather than produce an empty voice library.
+                  A pack without voices must fail the install rather than produce an empty voice
+                  library.
                 tests:
                   - ReferenceVoicePackInstaller_Install_NoVoices_Throws
+
+              - id: Speech-Models-ReferenceVoicePackInstaller-NotAZipRejection
+                title: >-
+                  The ReferenceVoicePackInstaller shall reject a file that is not a zip archive.
+                justification: |
+                  A corrupt or mislabeled download must fail the install with a data error.
+                tests:
                   - ReferenceVoicePackInstaller_Install_NotAZip_Throws
+
+              - id: Speech-Models-ReferenceVoicePackInstaller-FailureKeepsArchive
+                title: >-
+                  The ReferenceVoicePackInstaller shall leave the staged archive in place when the
+                  install fails.
+                justification: |
+                  Only a successful extraction makes the archive redundant.
+                tests:
+                  - ReferenceVoicePackInstaller_Install_NoVoices_KeepsArchive
+
+              - id: Speech-Models-ReferenceVoicePackInstaller-MissingArchive
+                title: >-
+                  The ReferenceVoicePackInstaller shall report a missing staged archive as an
+                  IOException.
+                justification: |
+                  A missing file is an environment fault, not malformed archive data.
+                tests:
+                  - ReferenceVoicePackInstaller_Install_MissingArchive_ThrowsIOException
+
+              - id: Speech-Models-ReferenceVoicePackInstaller-ArgumentValidation
+                title: >-
+                  The ReferenceVoicePackInstaller shall reject a null pack and an empty staging
+                  directory.
+                justification: |
+                  Both are mandatory inputs; failing fast identifies the caller bug.
+                tests:
+                  - ReferenceVoicePackInstaller_Install_NullPackOrEmptyStaging_Throws
 
               - id: Speech-Models-ReferenceVoicePackInstaller-Cancellation
                 title: >-
@@ -100,20 +134,17 @@ sections:
               - id: Speech-Models-ReferenceVoicePackInstaller-SizeCaps
                 title: >-
                   The ReferenceVoicePackInstaller shall fail the install with an InvalidDataException when
-                  the bytes actually read for one entry exceed 128 MiB, regardless of what the archive
-                  headers claim.
+                  the bytes actually read for one entry exceed 128 MiB.
                 justification: |
-                  Zip headers can understate the uncompressed size, so only the bytes actually read can
-                  bound disk use against a decompression bomb. The caps are internal parameters (defaults
-                  unchanged) so tests exercise them with small limits instead of gigabytes of data.
+                  Bounding the bytes read per entry limits disk use against a decompression bomb.
                 tests:
                   - ReferenceVoicePackInstaller_Install_EntryExceedsEntryCap_Throws
+                  - ReferenceVoicePackInstaller_Install_ForgedHeaderSize_NeverExtractsMoreThanCap
 
               - id: Speech-Models-ReferenceVoicePackInstaller-TotalSizeCap
                 title: >-
                   The ReferenceVoicePackInstaller shall fail the install with an InvalidDataException when
-                  the running total of bytes actually read exceeds 2 GiB, regardless of what the archive
-                  headers claim.
+                  the running total of bytes actually read exceeds 2 GiB.
                 justification: |
                   Many small entries can still exhaust the disk, so the total is bounded as well as each
                   entry.

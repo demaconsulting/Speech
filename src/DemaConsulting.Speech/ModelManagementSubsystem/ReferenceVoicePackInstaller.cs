@@ -20,7 +20,7 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     (invalid or control characters, reserved device names, a trailing dot or space) fails it too, two entries that
 ///     map to one destination fail it, each extracted path is re-checked to
 ///     lie inside the staging directory, and the number of bytes actually read per entry and in total is capped
-///     regardless of what the archive's headers claim.
+///     (the caps are enforced on the bytes read from the entry stream, not on the sizes the archive headers declare).
 /// </remarks>
 internal static class ReferenceVoicePackInstaller
 {
@@ -68,6 +68,7 @@ internal static class ReferenceVoicePackInstaller
     /// <param name="cancellationToken">A token that aborts the extraction.</param>
     /// <returns>A task that completes when extraction, archive deletion and the metadata write are done.</returns>
     /// <exception cref="InvalidDataException">Thrown when the archive is not a valid zip, has an unsafe entry, exceeds a size cap or contains no voices.</exception>
+    /// <exception cref="IOException">Thrown when the staged archive is missing or cannot be read or an extracted file cannot be written.</exception>
     internal static Task InstallAsync(ReferenceVoicePack pack, bool includeEmotions, string stagingDirectory, CancellationToken cancellationToken) =>
         InstallAsync(pack, includeEmotions, stagingDirectory, MaximumEntryBytes, MaximumTotalBytes, cancellationToken);
 
@@ -149,7 +150,13 @@ internal static class ReferenceVoicePackInstaller
         await WriteMetadataAsync(pack, stagingRoot, voiceCount, includeEmotions, emotionCount, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>Opens the staged archive, converting an unreadable file into an <see cref="InvalidDataException"/>.</summary>
+    /// <summary>
+    ///     Opens the staged archive, converting a file that is not a readable zip (<see cref="InvalidDataException"/>,
+    ///     <see cref="NotSupportedException"/> or <see cref="ArgumentException"/> from the zip reader) into an
+    ///     <see cref="InvalidDataException"/>. A missing or inaccessible archive is not converted and surfaces as the
+    ///     <see cref="IOException"/> (for example <see cref="FileNotFoundException"/>) or
+    ///     <see cref="UnauthorizedAccessException"/> the file system reports.
+    /// </summary>
     private static ZipArchive OpenArchive(string archivePath)
     {
         try

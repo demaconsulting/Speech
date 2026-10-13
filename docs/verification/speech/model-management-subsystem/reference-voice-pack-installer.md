@@ -51,11 +51,24 @@ trailing dot or space and a control character in an emotion speaker folder)
 
 **Test**: `ReferenceVoicePackInstaller_Install_CanceledToken_Throws`
 
+**Test**: `ReferenceVoicePackInstaller_Install_NoVoices_KeepsArchive`
+
+**Test**: `ReferenceVoicePackInstaller_Install_MissingArchive_ThrowsIOException`
+
+**Test**: `ReferenceVoicePackInstaller_Install_NullPackOrEmptyStaging_Throws`
+
+The unsafe-name theory also covers a `.` segment and a NUL in the entry name.
+
 ##### Size Caps
 
 **Test**: `ReferenceVoicePackInstaller_Install_EntryExceedsEntryCap_Throws`
 
 **Test**: `ReferenceVoicePackInstaller_Install_TotalExceedsTotalCap_Throws`
+
+**Test**: `ReferenceVoicePackInstaller_Install_ForgedHeaderSize_NeverExtractsMoreThanCap`
+
+Patches the central-directory header of a 5,000-byte entry to declare 1 byte and asserts the install either
+fails or leaves no clip larger than the cap.
 
 **Test**: `ReferenceVoicePackInstaller_Install_AtCaps_Succeeds`
 
