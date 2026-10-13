@@ -178,7 +178,7 @@ public sealed class AudioFileReaderTests
         var error = Assert.Throws<ArgumentOutOfRangeException>(() => AudioFileReader.Read(new MemoryStream([1]), negative));
 
         // Assert: the existence check comes first for path-based reads
-        Assert.Equal("options", error.ParamName);
+        Assert.Equal("options.MaxSamples", error.ParamName);
         Assert.Throws<FileNotFoundException>(() => AudioFileReader.Read(missing, negative));
         Assert.Throws<ArgumentOutOfRangeException>(() => AudioFileReader.Read(Path.Combine(FlacDirectory, "mono-16-44100.flac"), negative));
     }

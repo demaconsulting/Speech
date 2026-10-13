@@ -25,7 +25,7 @@ only, so hosts and models can accept either format without a native decoder depe
 that is neither WAV nor FLAC or that is malformed; `NotSupportedException` for a WAV encoding that
 is not supported; `ArgumentNullException`/`ArgumentException` for a null stream or an empty path;
 `ArgumentOutOfRangeException` for a negative `MaxSamples`. The negative `MaxSamples` exception
-reports `options` as its parameter name (the validation reads the options object), and a
+reports `options.MaxSamples` as its parameter name (the faulty value), and a
 path-based read checks that the file exists first, so a negative `MaxSamples` with a missing path
 reports `FileNotFoundException`. Path-based reads prefix the path to the message of decoder
 failures and of byte-cap failures; stream reads have no path and so add no prefix.

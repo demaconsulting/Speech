@@ -110,7 +110,7 @@ public static class AudioFileReader
     {
         if (options.MaxSamples < 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(options), "MaxSamples must not be negative.");
+            throw new ArgumentOutOfRangeException($"{nameof(options)}.{nameof(AudioFileReadOptions.MaxSamples)}", "MaxSamples must not be negative.");
         }
 
         const long slack = 1L << 20;
