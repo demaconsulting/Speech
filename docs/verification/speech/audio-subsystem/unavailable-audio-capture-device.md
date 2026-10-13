@@ -31,3 +31,9 @@ and sample rate, and throws `AudioDeviceUnavailableException` from both `Start` 
 ##### Stop Always Throws
 
 **Test**: `UnavailableAudioCaptureDevice_Stop_Always_ThrowsAudioDeviceUnavailableException`
+
+##### Frame Event Subscription Is Safe
+
+**Test**: `UnavailableAudioCaptureDevice_FrameCapturedSubscription_Always_DoesNotThrow`
+
+Subscribing and unsubscribing a `FrameCaptured` handler is a no-op that never throws.

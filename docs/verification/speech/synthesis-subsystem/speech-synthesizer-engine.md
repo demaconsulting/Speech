@@ -32,5 +32,23 @@ overloads are verified to create and dispose a fresh session per call.
 
 #### Test Scenarios
 
-See the SynthesisSubsystem-level scenarios "Engine: Session Exclusivity and Lease Lifecycle" and
-"Engine: One-Shot Convenience Overloads".
+##### Engine: Session Exclusivity and Lease Lifecycle
+
+**Tests**: `SpeechSynthesizerEngine_IsAvailable_Always_ReturnsTrue`,
+`SpeechSynthesizerEngine_CreateSessionAsync_NoLeaseHeld_ReturnsRealSession`,
+`SpeechSynthesizerEngine_CreateSessionAsync_LeaseAlreadyHeld_ThrowsSynthesisEngineBusyException`,
+`SpeechSynthesizerEngine_CreateSessionAsync_AfterPriorSessionDisposed_SucceedsAgain`,
+`SpeechSynthesizerEngine_CreateSessionAsync_NullDevice_ThrowsArgumentNullException`,
+`SpeechSynthesizerEngine_DisposeAsync_CalledTwice_DisposesBackendOnce`,
+`SpeechSynthesizerEngine_DisposeAsync_WithActiveLeasedSession_DisposesSessionFirst`,
+`SpeechSynthesizerEngine_CreateSessionAsync_RacingDisposeAsync_NeverObservesTornState`
+
+One lease at a time, fail-fast busy exception, reuse after disposal, and ordered, idempotent
+disposal.
+
+##### Engine: One-Shot Convenience Overloads
+
+**Tests**: `SpeechSynthesizerEngine_SpeakAsync_CalledTwice_CreatesAndDisposesASessionEachTime`,
+`SpeechSynthesizerEngine_SynthesizeAsync_NoDeviceSupplied_ReturnsSegments`
+
+Each one-shot call creates and disposes its own session.

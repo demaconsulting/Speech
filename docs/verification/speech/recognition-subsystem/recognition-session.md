@@ -14,9 +14,13 @@ speech-inference binary is ever needed. The capture device is an NSubstitute
 real audio callback. Diagnostics are an NSubstitute sink, so fault containment is verified by
 observing what was reported rather than by asserting an absence of exceptions alone.
 
-Threading is verified without timing assumptions. `StopAsync` completes its internal queue and
-awaits its pump task, so a test raises a frame, calls `StopAsync`, and then asserts on the fully
-drained result - no sleeps, polls, or timeouts appear anywhere for ordinary behavior. Waiting for
+Threading is verified without timing-dependent assertions. `StopAsync` completes its internal queue
+and awaits its pump task, so a test raises a frame, calls `StopAsync`, and then asserts on the
+fully drained result - no test asserts on elapsed time or relies on a sleep or delay for ordinary
+behavior. Bounded waits (`WaitAsync` with a multi-second limit, and one `SpinWait.SpinUntil` with a
+5-second limit that waits for the backend to have received an expected number of blocks) appear
+only as watchdogs that fail a hung test instead of hanging the run; they never decide a result.
+Waiting for
 the pump to be inside a blocked backend call uses a signal on the fake engine
 (`AcceptSamplesEntered`), waiting for state transitions uses `StateChanged`, and "must not have
 happened yet" assertions (lease not released, backend not reset, device not stopped) are made
@@ -89,9 +93,94 @@ _SpeechSherpa RecognitionSubsystem Verification_.
 
 #### Test Scenarios
 
-See the RecognitionSubsystem-level scenarios "Session
-Lifecycle: State Machine Transitions", "Session Lifecycle: Stop, Dispose, and Draining", "Session
-Pipeline: Capture Format Conversion and Text Normalization", "Session Pipeline: Result Delivery
-and Backpressure", and "Cooperative-Cancel-Then-Abandon Policy", plus the trailing-flush pipeline tests
-`RecognitionSession_StopAsync_FlushesTrailingResultsBeforeCompleting` and
-`RecognitionSession_StopAsync_BackendResetFails_CompletesAndReportsFault` described above.
+##### Session Lifecycle: State Machine Transitions
+
+**Tests**: `RecognitionSession_StartAsync_FromCreated_TransitionsToRunning`,
+`RecognitionSession_StartAsync_FromStopped_ThrowsInvalidOperationException`,
+`RecognitionSession_StateChanged_EmitsEveryTransitionInOrder`,
+`RecognitionSession_StateChanged_StoppingAlwaysPrecedesStoppedAcrossManyIterations`,
+`RecognitionSession_DeviceLostMidSession_TransitionsToFaulted`
+
+Transitions are forward-only and raised in order; a stopped session cannot restart.
+
+##### Session Lifecycle: Stop, Dispose, and Draining
+
+**Tests**: `RecognitionSession_StopAsync_FlushesTrailingResultsBeforeCompleting`,
+`RecognitionSession_StopAsync_CalledConcurrentlyTwice_BothCompleteOnceStopped`,
+`RecognitionSession_StopAsync_BackendResetFails_CompletesAndReportsFault`
+
+Trailing audio is flushed before completion, concurrent stops converge, and a reset fault is
+reported without escaping.
+
+##### Session Lifecycle: Concurrent Start/Stop/Dispose Convergence
+
+**Tests**: `RecognitionSession_StartAsync_SlowDeviceStart_DoesNotBlockCaller`,
+`RecognitionSession_StopAsync_ConcurrentWithStartAsync_DeviceEndsGenuinelyStopped`,
+`RecognitionSession_DisposeAsync_CalledConcurrentlyTwice_BothCompleteAfterSingleTeardown`,
+`RecognitionSession_StateChangedHandlerBlocksOnStopAsync_DoesNotDeadlock`
+
+Slow device start does not block the caller; racing start/stop and concurrent dispose converge on
+a single teardown; a blocking `StateChanged` handler cannot deadlock the session.
+
+##### Session Lifecycle: Stop Before Start and Canceled Callers
+
+**Tests**: `RecognitionSession_StopAsync_BeforeStartAsync_CompletesResultBuffer`,
+`RecognitionSession_StopAsync_CallerTokenCanceled_ReturnsEarlyWithoutAbortingSharedTeardown`,
+`RecognitionSession_StopAsync_PreCanceledToken_ThrowsButTeardownStillConverges`
+
+Stopping before starting completes the result buffer; a canceled caller token never aborts the
+shared teardown.
+
+##### Session Lifecycle: Fault Containment and Device Loss
+
+**Tests**: `RecognitionSession_BackendThrowsFromAcceptSamples_FaultsSessionAndCompletesResultBuffer`,
+`RecognitionSession_DeviceLostMidSession_DisposeAsyncStillTearsDownBackendAndDevice`
+
+A backend fault faults the session and completes the result buffer; disposal after device loss
+still tears down the backend and device.
+
+##### Session Pipeline: Capture Format Conversion and Text Normalization
+
+**Tests**: `RecognitionSession_FrameCaptured_StereoAtModelRate_FeedsDownmixedMonoToBackend`,
+`RecognitionSession_FrameCaptured_MonoAtHigherRate_FeedsResampledMonoToBackend`,
+`RecognitionSession_FrameCaptured_FinalResult_AppliesModelNormalizeTextWithIsFinalTrue`
+
+Captured audio is downmixed and resampled to the model format, and final text is normalized.
+
+##### Session Pipeline: Synchronous Burst Not Dropped
+
+**Test**: `RecognitionSession_StartAsync_DeviceEmitsManyBlocksSynchronouslyFromStart_NoneAreDropped`
+
+Blocks raised synchronously from inside the device start are all delivered.
+
+##### Session Pipeline: Result Delivery and Backpressure
+
+**Tests**: `RecognitionSession_GetResultsAsync_CalledConcurrently_ThrowsInvalidOperationException`,
+`RecognitionSession_GetResultsAsync_CanceledToken_EndsEnumerationWithoutStoppingSession`,
+`RecognitionSession_GetResultsAsync_SessionFaulted_ThrowsRecognitionSessionFaultedException`,
+`RecognitionSession_GetResultsAsync_SlowConsumer_CoalescesProvisionalResults`,
+`RecognitionSession_GetResultsAsync_SlowConsumer_NeverDropsFinalResultsUnderByteCap`
+
+Single consumer, cancellation ends only the enumeration, faults surface, provisionals coalesce,
+and finals are never dropped under the byte cap.
+
+##### Finite-Source Backpressure
+
+**Tests**: `RecognitionSession_WavFileSource_SlowBackend_DeliversEverySample`,
+`RecognitionSession_WavFileSource_StopAsync_SlowDrain_DeliversFlushedResult`,
+`RecognitionSession_WavFileSource_BackendFaults_StartAsyncStillCompletes`
+
+A finite file source is never dropped or timed out by a slow backend, and a backend fault still
+lets `StartAsync` complete.
+
+##### Cooperative-Cancel-Then-Abandon: Lease and Reset Ordering
+
+**Tests**: `RecognitionSession_NativeCallExceedsAbandonTimeout_TaskCompletesAndDiagnosticsReportsWarning`,
+`RecognitionSession_StartAsync_CanceledWhileDeviceStarting_AbandonsWithinTimeout`,
+`RecognitionSession_DisposeAsync_AbandonedPumpWorker_DoesNotReleaseLeaseUntilWorkerExits`,
+`RecognitionSession_AbandonedPumpWorker_DoesNotResetBackendUntilWorkerExits`
+
+A non-cooperative call is abandoned after the timeout with a `Warning`; the lease is not
+released and the backend is not reset until the abandoned worker exits.
+
+See also the RecognitionSubsystem-level scenarios of the same names for the fuller descriptions.

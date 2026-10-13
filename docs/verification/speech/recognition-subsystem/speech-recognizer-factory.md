@@ -37,10 +37,57 @@ model does declare faults the returned task with `ArgumentException`.
 
 #### Test Scenarios
 
-See the RecognitionSubsystem-level scenarios "Composition: Real Engine for an Installed Model",
-"Composition: Honest Fallback for Every Unavailable State", "Composition: Null Arguments and
-Cancellation Are Programming/Caller Errors", "Composition: Parameter Value Bag Forwarding", and
-"Composition: Parameter Value Validation".
+##### Composition: Real Engine for an Installed Model
+
+**Tests**: `SpeechRecognizerFactory_LoadAsync_ModelInstalled_ReturnsRealEngine`,
+`SpeechRecognizerFactory_LoadAsync_WithStoreModelInstalled_ReturnsRealEngine`,
+`SpeechRecognizerFactory_LoadAsync_WithCatalogModelInstalled_ReturnsRealEngine`
+
+An installed recognition model composes a real engine from a directory, store, or catalog.
+
+##### Composition: Honest Fallback for Every Unavailable State
+
+**Tests**: `SpeechRecognizerFactory_LoadAsync_ModelNotInstalled_ReturnsUnavailableEngine`,
+`SpeechRecognizerFactory_LoadAsync_ModelRoleIsNotRecognition_ReturnsUnavailableEngine`,
+`SpeechRecognizerFactory_LoadAsync_EngineLoadFails_ReturnsUnavailableEngineAndDoesNotFaultTask`,
+`SpeechRecognizerFactory_LoadAsync_WithStoreModelNotInstalled_ReturnsUnavailableEngine`,
+`SpeechRecognizerFactory_LoadAsync_WithCatalogModelNotInstalled_ReturnsUnavailableEngine`
+
+Every unavailable state returns the shared unavailable engine without faulting the task.
+
+##### Composition: Null Arguments and Cancellation Are Programming/Caller Errors
+
+**Tests**: `SpeechRecognizerFactory_LoadAsync_NullModel_FaultsWithArgumentNullException`,
+`SpeechRecognizerFactory_LoadAsync_WithStoreNullModel_FaultsWithArgumentNullException`,
+`SpeechRecognizerFactory_LoadAsync_WithStoreNullStore_FaultsWithArgumentNullException`,
+`SpeechRecognizerFactory_LoadAsync_WithCatalogNullModel_FaultsWithArgumentNullException`,
+`SpeechRecognizerFactory_LoadAsync_WithCatalogNullCatalog_FaultsWithArgumentNullException`,
+`SpeechRecognizerFactory_LoadAsync_CanceledToken_FaultsWithOperationCanceledException`,
+`SpeechRecognizerFactory_LoadAsync_CanceledDuringGraceWindowCreateSucceeds_ThrowsAndDisposesBackend`
+
+Null arguments and cancellation fault the task; a cancellation arriving after the backend was
+created disposes that backend instead of leaking it.
+
+##### Composition: Parameter Value Bag Forwarding
+
+**Tests**: `SpeechRecognizerFactory_LoadAsync_ParameterValuesSupplied_ReachesModelCreateBackend`,
+`SpeechRecognizerFactory_LoadAsync_WithStoreParameterValuesSupplied_ReachesModelCreateBackend`,
+`SpeechRecognizerFactory_LoadAsync_WithCatalogParameterValuesSupplied_ReachesModelCreateBackend`
+
+Caller-supplied values reach the model's own `CreateBackend` override.
+
+##### Composition: Parameter Value Validation
+
+**Tests**: `SpeechRecognizerFactory_LoadAsync_UnrecognizedParameterId_ComposesAndReportsInfo`,
+`SpeechRecognizerFactory_LoadAsync_RecognizedNumericParameterOutOfRange_FaultsWithArgumentException`,
+`SpeechRecognizerFactory_LoadAsync_RecognizedNumericParameterWrongType_FaultsWithArgumentException`,
+`SpeechRecognizerFactory_LoadAsync_RecognizedChoiceParameterInvalidOption_FaultsWithArgumentException`,
+`SpeechRecognizerFactory_LoadAsync_RecognizedBooleanParameterWrongType_FaultsWithArgumentException`
+
+An unrecognized key only reports `Info`; an invalid value for a declared parameter faults the task
+with `ArgumentException`.
+
+See also the RecognitionSubsystem-level scenarios of the same names for the fuller descriptions.
 
 #### Reuse and Concurrent Pre-Warming
 

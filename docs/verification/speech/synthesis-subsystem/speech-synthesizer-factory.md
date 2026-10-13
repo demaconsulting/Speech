@@ -36,7 +36,47 @@ from `LoadAsync()`.
 
 #### Test Scenarios
 
-See the SynthesisSubsystem-level scenarios "Composition: Real Engine for an Installed Model",
-"Composition: Honest Fallback for Every Unavailable State", "Composition: Null Arguments and
-Cancellation Are Programming Errors", and "Composition: Parameter Value Forwarding and
-Validation".
+##### Composition: Real Engine for an Installed Model
+
+**Tests**: `SpeechSynthesizerFactory_LoadAsync_ModelInstalled_ReturnsRealEngine`,
+`SpeechSynthesizerFactory_LoadAsync_WithStoreModelInstalled_ReturnsRealEngine`,
+`SpeechSynthesizerFactory_LoadAsync_WithCatalogModelInstalled_ReturnsRealEngine`
+
+An installed synthesis model composes a real engine, resolved from a directory, a store, or a
+catalog.
+
+##### Composition: Honest Fallback for Every Unavailable State
+
+**Tests**: `SpeechSynthesizerFactory_LoadAsync_ModelNotInstalled_ReturnsUnavailableEngine`,
+`SpeechSynthesizerFactory_LoadAsync_ModelRoleIsNotSynthesis_ReturnsUnavailableEngine`,
+`SpeechSynthesizerFactory_LoadAsync_EngineLoadFails_ReturnsUnavailableEngineAndDoesNotThrow`,
+`SpeechSynthesizerFactory_LoadAsync_WithStoreModelNotInstalled_ReturnsUnavailableEngine`,
+`SpeechSynthesizerFactory_LoadAsync_WithCatalogModelNotInstalled_ReturnsUnavailableEngine`
+
+A missing model, wrong-role model, or failed backend load returns the shared unavailable engine.
+
+##### Composition: Null Arguments and Cancellation Are Programming Errors
+
+**Tests**: `SpeechSynthesizerFactory_LoadAsync_NullModel_ThrowsArgumentNullException`,
+`SpeechSynthesizerFactory_LoadAsync_WithStoreNullModel_ThrowsArgumentNullException`,
+`SpeechSynthesizerFactory_LoadAsync_WithStoreNullStore_ThrowsArgumentNullException`,
+`SpeechSynthesizerFactory_LoadAsync_WithCatalogNullModel_ThrowsArgumentNullException`,
+`SpeechSynthesizerFactory_LoadAsync_WithCatalogNullCatalog_ThrowsArgumentNullException`,
+`SpeechSynthesizerFactory_LoadAsync_CanceledToken_ThrowsOperationCanceledException`,
+`SpeechSynthesizerFactory_LoadAsync_CanceledDuringGraceWindowCreateSucceeds_ThrowsAndDisposesBackend`
+
+Null arguments throw `ArgumentNullException`; a canceled token throws
+`OperationCanceledException`, including cancellation during the grace window, where the
+already-created backend is disposed.
+
+##### Composition: Parameter Value Forwarding and Validation
+
+**Tests**: `SpeechSynthesizerFactory_LoadAsync_ParameterValuesSupplied_ForwardedToEngine`,
+`SpeechSynthesizerFactory_LoadAsync_UnrecognizedParameterId_ComposesAndReportsInfo`,
+`SpeechSynthesizerFactory_LoadAsync_RecognizedNumericParameterOutOfRange_Throws`,
+`SpeechSynthesizerFactory_LoadAsync_RecognizedNumericParameterWrongType_Throws`,
+`SpeechSynthesizerFactory_LoadAsync_RecognizedIntegerParameterFractionalValue_Throws`,
+`SpeechSynthesizerFactory_LoadAsync_RecognizedChoiceParameterInvalidOption_Throws`
+
+Supplied values are forwarded unchanged, an unrecognized key only reports `Info`, and an invalid
+value for a declared parameter throws `ArgumentException`.

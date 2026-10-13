@@ -24,4 +24,19 @@ disposal as a no-op.
 
 #### Test Scenarios
 
-See the SynthesisSubsystem-level scenario "Unavailable Fallback: Honest Degradation".
+##### Unavailable Fallback: Availability and Session Creation
+
+**Tests**: `UnavailableSpeechSynthesizerEngine_IsAvailable_Read_ReturnsFalse`,
+`UnavailableSpeechSynthesizerEngine_CreateSessionAsync_Always_ReturnsUnavailableSession`,
+`UnavailableSpeechSynthesizerEngine_CreateSessionAsync_NullDevice_ThrowsArgumentNullException`
+
+The engine reports unavailable, always returns the shared unavailable session, and rejects only
+a null device.
+
+##### Unavailable Fallback: Operations Throw and Disposal Is Safe
+
+**Tests**: `UnavailableSpeechSynthesizerEngine_SpeakAsync_Always_ThrowsSpeechSynthesizerUnavailableException`,
+`UnavailableSpeechSynthesizerEngine_SynthesizeAsync_Always_ThrowsSpeechSynthesizerUnavailableException`,
+`UnavailableSpeechSynthesizerEngine_DisposeAsync_CalledTwice_DoesNotThrow`
+
+One-shot operations throw the documented exception; repeated disposal is a no-op.

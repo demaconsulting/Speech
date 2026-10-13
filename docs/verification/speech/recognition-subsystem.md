@@ -115,6 +115,10 @@ an earlier check already failed.
 Verifies that a null model, store, or catalog faults the returned task with
 `ArgumentNullException`, and that a cancellation token already canceled before loading completes
 faults it with `OperationCanceledException`, distinguishing both from an ordinary machine state.
+The test `SpeechRecognizerFactory_LoadAsync_CanceledDuringGraceWindowCreateSucceeds_ThrowsAndDisposesBackend`
+additionally verifies that a cancellation arriving after the backend was created, but within the
+abandon grace window, still faults the task with `OperationCanceledException` and disposes the
+created backend rather than leaking it.
 
 #### Composition: Parameter Value Bag Forwarding
 
@@ -178,6 +182,57 @@ Verifies that `StopAsync` flushes trailing audio the backend had accepted but no
 one last final result before completing, that two concurrent `StopAsync` callers both complete
 only once the session has actually stopped, and that a backend reset failure during `StopAsync` is
 reported rather than thrown while teardown still completes.
+
+#### Session Lifecycle: Concurrent Start/Stop/Dispose Convergence
+
+**Tests**: `RecognitionSession_StartAsync_SlowDeviceStart_DoesNotBlockCaller`,
+`RecognitionSession_StateChanged_StoppingAlwaysPrecedesStoppedAcrossManyIterations`,
+`RecognitionSession_StopAsync_ConcurrentWithStartAsync_DeviceEndsGenuinelyStopped`,
+`RecognitionSession_DisposeAsync_CalledConcurrentlyTwice_BothCompleteAfterSingleTeardown`,
+`RecognitionSession_StateChangedHandlerBlocksOnStopAsync_DoesNotDeadlock`
+
+Verifies that a slow capture-device start does not block the `StartAsync` caller, that `Stopping`
+always precedes `Stopped` across many repeated iterations, that a `StopAsync` racing a
+`StartAsync` leaves the device genuinely stopped, that two concurrent `DisposeAsync` callers both
+complete after a single teardown, and that a `StateChanged` handler which blocks on `StopAsync`
+does not deadlock the session.
+
+#### Session Lifecycle: Stop Before Start and Pre-Canceled or Canceled Callers
+
+**Tests**: `RecognitionSession_StopAsync_BeforeStartAsync_CompletesResultBuffer`,
+`RecognitionSession_StopAsync_CallerTokenCanceled_ReturnsEarlyWithoutAbortingSharedTeardown`,
+`RecognitionSession_StopAsync_PreCanceledToken_ThrowsButTeardownStillConverges`
+
+Verifies that `StopAsync` before `StartAsync` completes the result buffer so a consumer is not left
+waiting, that a caller whose token is canceled mid-stop returns early without aborting the
+teardown shared with other callers, and that a pre-canceled token throws while teardown still
+converges.
+
+#### Session Lifecycle: Fault Containment and Device Loss
+
+**Tests**: `RecognitionSession_BackendThrowsFromAcceptSamples_FaultsSessionAndCompletesResultBuffer`,
+`RecognitionSession_DeviceLostMidSession_DisposeAsyncStillTearsDownBackendAndDevice`
+
+Verifies that a backend exception from `AcceptSamples` faults the session and completes the
+result buffer, and that after a mid-session device loss `DisposeAsync` still tears down the
+backend and the device.
+
+#### Session Pipeline: Synchronous Burst Not Dropped
+
+**Test**: `RecognitionSession_StartAsync_DeviceEmitsManyBlocksSynchronouslyFromStart_NoneAreDropped`
+
+Verifies that a device which raises many blocks synchronously from inside `Start` has every block
+delivered to the backend, none dropped.
+
+#### Cooperative-Cancel-Then-Abandon: Lease and Reset Ordering
+
+**Tests**: `RecognitionSession_StartAsync_CanceledWhileDeviceStarting_AbandonsWithinTimeout`,
+`RecognitionSession_DisposeAsync_AbandonedPumpWorker_DoesNotReleaseLeaseUntilWorkerExits`,
+`RecognitionSession_AbandonedPumpWorker_DoesNotResetBackendUntilWorkerExits`
+
+Verifies that cancellation during a device start is abandoned within the configured timeout, and
+that when the pump worker is abandoned the engine lease is not released, and the backend is not
+reset, until the worker has actually exited.
 
 #### Session Pipeline: Capture Format Conversion and Text Normalization
 
@@ -251,6 +306,7 @@ intermediate downmix, and rejection of non-positive rates and channel counts.
 **Tests**: `UnavailableSpeechRecognizerEngine_IsAvailable_Read_ReturnsFalse`,
 `UnavailableSpeechRecognizerEngine_CreateSessionAsync_Always_ReturnsUnavailableSession`,
 `UnavailableSpeechRecognizerEngine_CreateSessionAsync_NullDevice_ThrowsArgumentNullException`,
+`UnavailableSpeechRecognizerEngine_CreateSessionAsync_CanceledToken_ThrowsOperationCanceledException`,
 `UnavailableSpeechRecognizerEngine_DisposeAsync_CalledTwice_DoesNotThrow`,
 `UnavailableRecognitionSession_IsAvailable_Read_ReturnsFalse`,
 `UnavailableRecognitionSession_StartAsync_Always_ThrowsSpeechRecognizerUnavailableException`,

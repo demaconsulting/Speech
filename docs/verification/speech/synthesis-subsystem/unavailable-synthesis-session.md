@@ -22,4 +22,22 @@ as a safe no-op and repeated `DisposeAsync` calls as a no-op, and subscribing/un
 
 #### Test Scenarios
 
-See the SynthesisSubsystem-level scenario "Unavailable Fallback: Honest Degradation".
+##### Unavailable Fallback: Honest State Reporting
+
+**Tests**: `UnavailableSynthesisSession_IsAvailable_Read_ReturnsFalse`,
+`UnavailableSynthesisSession_State_Read_ReturnsCreated`,
+`UnavailableSynthesisSession_StateChanged_SubscribeAndUnsubscribe_DoesNotThrow`
+
+The session reports unavailable in the `Created` state, and event subscription is safe.
+
+##### Unavailable Fallback: Operations Throw or No-Op
+
+**Tests**: `UnavailableSynthesisSession_SpeakAsync_Always_ThrowsSpeechSynthesizerUnavailableException`,
+`UnavailableSynthesisSession_SpeakAsync_NullText_ThrowsArgumentNullException`,
+`UnavailableSynthesisSession_SynthesizeAsync_Always_ThrowsSpeechSynthesizerUnavailableException`,
+`UnavailableSynthesisSession_SynthesizeAsync_NullText_ThrowsArgumentNullException`,
+`UnavailableSynthesisSession_StopAsync_NoSessionInFlight_IsNoOp`,
+`UnavailableSynthesisSession_DisposeAsync_CalledTwice_DoesNotThrow`
+
+Speak and synthesize throw the documented exception (null text throws
+`ArgumentNullException`); stop and repeated dispose are safe no-ops.
