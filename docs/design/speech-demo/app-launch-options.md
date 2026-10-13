@@ -40,7 +40,8 @@ launch as in the model catalog panel.
 **Error Handling**: `Parse` throws `ArgumentNullException` for null arguments or a null
 environment reader, and `ArgumentException` for an unrecognized argument, an option missing its
 value, or a `--voices-dir` folder that does not exist. An unrecognized argument is reported by its
-1-based position only, never by its text, because a mistyped option may be a secret. `CreateDownloaderOptions` surfaces the
+1-based position only, never by its text, because a mistyped option may be a secret.
+`CreateDownloaderOptions` surfaces the
 factory's `ArgumentException`.
 
 **Dependencies**: `MirrorOptionsFactory` and the library's `SpeechModelStoreOptions` and

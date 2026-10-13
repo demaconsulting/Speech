@@ -52,7 +52,7 @@ sections:
           - SpeechDemo-App-ShutdownContainment
           - SpeechDemo-App-CatalogRegistration
           - SpeechDemo-App-ShutdownDeferral
-          - SpeechDemo-App-ShutdownReentrancy
+          - SpeechDemo-App-ShutdownRepeatedRequest
           - SpeechDemo-App-MirrorPrePopulation
           - SpeechDemo-Program-AvaloniaApp
           - SpeechDemo-Program-StartsApplication

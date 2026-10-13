@@ -67,7 +67,7 @@ sections:
               - App_HandleShutdownRequested_FirstRequest_DefersThenResumesShutdownOnce
               - App_ShutdownTask_BeforeAnyRequest_IsNull
 
-          - id: SpeechDemo-App-ShutdownReentrancy
+          - id: SpeechDemo-App-ShutdownRepeatedRequest
             title: >-
               The App unit shall keep cancelling repeated shutdown requests while cleanup is
               pending and start no second cleanup.
