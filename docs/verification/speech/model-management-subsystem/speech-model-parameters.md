@@ -15,7 +15,15 @@ a `NumericParameter`, a `ChoiceParameter`, and a `BooleanParameter`, proving bot
 diagnostic-only path for an unrecognized parameter id and the throwing path for every documented
 invalid-value shape for a recognized parameter (wrong CLR type, out-of-range, non-integral,
 invalid choice), plus that a mix of one invalid recognized value and one unrecognized id throws
-for the recognized value without ever reaching the unrecognized-id diagnostic report.
+for the recognized value without ever reaching the unrecognized-id diagnostic report. The tests
+further cover a `null` value for each descriptor type (an `ArgumentException`, never a
+`NullReferenceException`), a descriptor subtype the helper does not know (an `ArgumentException`
+using a minimal in-test `ISpeechModelParameter` implementation), non-finite (NaN/infinite) values
+reported as non-finite, `int`/`float` and inclusive-boundary values accepted, declared-order
+determinism with several invalid values, the `ParamName` of `"parameterValues"`, null mandatory
+arguments, and descriptor construction edge cases (non-finite maximum/step/default, boundary
+default, null option element, defensive copy of the option list, and `bounds` as the reported
+parameter name for an integer declaration with a fractional bound).
 
 #### Test Environment
 
@@ -33,7 +41,11 @@ supplied for a declared parameter; and throws `ArgumentException` naming the par
 model id, and the specific reason for a wrong-type, out-of-range, non-integral, or invalid-choice
 value supplied for a declared parameter - including when an unrecognized id is also present in
 the same call, in which case the recognized-value failure takes precedence and no diagnostic for
-the unrecognized id is ever reported.
+the unrecognized id is ever reported. A `null` supplied value, a non-finite numeric value, and a
+value for an unsupported descriptor subtype each throw `ArgumentException`; every such exception
+reports `ParamName` `"parameterValues"`. A mandatory `null` argument throws `ArgumentNullException`.
+A `ChoiceParameter` neither accepts a `null` option element nor is affected by later mutation of
+the list it was constructed from.
 
 #### Test Scenarios
 
@@ -61,9 +73,25 @@ the unrecognized id is ever reported.
 
 **Test**: `NumericParameter_Constructor_NonFiniteMinimum_ThrowsArgumentException`
 
-##### NumericParameter rejects a null/empty Id
+##### NumericParameter rejects a null Id
 
 **Test**: `NumericParameter_Constructor_NullId_ThrowsArgumentNullException`
+
+##### NumericParameter rejects an empty/whitespace Id and a null DisplayName or Description
+
+**Test**: `NumericParameter_Constructor_InvalidCommonFields_Throw`
+
+##### NumericParameter rejects a non-finite Maximum, Step or Default naming bounds
+
+**Test**: `NumericParameter_Constructor_NonFiniteMaximumStepOrDefault_ThrowsArgumentException`
+
+##### NumericParameter accepts a Default exactly at Minimum or Maximum
+
+**Test**: `NumericParameter_Constructor_DefaultAtBoundary_Succeeds`
+
+##### NumericParameter reports bounds as the offending parameter for an integer declaration with a fractional bound
+
+**Test**: `NumericParameter_Constructor_IsIntegerWithFractionalBound_ParamNameIsBounds`
 
 ##### NumericParameter exposes IsInteger true for a valid whole-number declaration
 
@@ -108,6 +136,22 @@ the unrecognized id is ever reported.
 ##### ChoiceParameterOption rejects an empty value
 
 **Test**: `ChoiceParameterOption_Constructor_EmptyValue_ThrowsArgumentException`
+
+##### ChoiceParameter rejects a null option element
+
+**Test**: `ChoiceParameter_Constructor_NullOptionElement_ThrowsArgumentException`
+
+##### ChoiceParameter rejects a null option list or null default
+
+**Test**: `ChoiceParameter_Constructor_NullOptionsOrDefault_ThrowsArgumentNullException`
+
+##### ChoiceParameter rejects an invalid Id, null DisplayName or null Description
+
+**Test**: `ChoiceParameter_Constructor_InvalidCommonFields_Throw`
+
+##### ChoiceParameter keeps its options when the caller's list is mutated afterwards
+
+**Test**: `ChoiceParameter_Constructor_CallerListMutatedAfterwards_OptionsUnchanged`
 
 ##### BooleanParameter exposes its constructed default for both true and false
 
@@ -176,3 +220,43 @@ the unrecognized id is ever reported.
 ##### ValidateAndReport throws for the invalid recognized value even when an unrecognized id is also supplied
 
 **Test**: `ValidateAndReport_InvalidRecognizedValueAndUnrecognizedId_ThrowsForRecognizedValue`
+
+##### ValidateAndReport throws ArgumentException for a null numeric value
+
+**Test**: `ValidateAndReport_NumericParameterNullValue_ThrowsArgumentException`
+
+##### ValidateAndReport throws ArgumentException for a null choice value
+
+**Test**: `ValidateAndReport_ChoiceParameterNullValue_ThrowsArgumentException`
+
+##### ValidateAndReport throws ArgumentException for a null boolean value
+
+**Test**: `ValidateAndReport_BooleanParameterNullValue_ThrowsArgumentException`
+
+##### ValidateAndReport throws for an unsupported descriptor subtype
+
+**Test**: `ValidateAndReport_UnsupportedParameterDescriptorType_Throws`
+
+##### ValidateAndReport reports a non-finite numeric value as non-finite
+
+**Test**: `ValidateAndReport_NumericParameterNonFiniteValue_ThrowsFiniteMessage`
+
+##### ValidateAndReport accepts int and float numeric values
+
+**Test**: `ValidateAndReport_NumericParameterIntAndFloatValues_DoNotThrow`
+
+##### ValidateAndReport accepts values exactly at Minimum and Maximum
+
+**Test**: `ValidateAndReport_NumericParameterBoundaryValue_DoesNotThrow`
+
+##### ValidateAndReport throws for the first invalid value in declared-parameter order
+
+**Test**: `ValidateAndReport_MultipleInvalidValues_ThrowsForFirstDeclaredParameter`
+
+##### ValidateAndReport names the received type for a wrong-type choice value
+
+**Test**: `ValidateAndReport_ChoiceParameterWrongType_MessageNamesReceivedType`
+
+##### ValidateAndReport throws ArgumentNullException for a null mandatory argument
+
+**Test**: `ValidateAndReport_NullArguments_ThrowArgumentNullException`

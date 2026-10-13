@@ -8,7 +8,7 @@ package Speech {
              * SpeechSynthesizerFactory to validate caller-supplied parameter values at
              * composition time. */
 
-        comment sourceRef /* Source: src/DemaConsulting.Speech/ModelManagementSubsystem/ISpeechModelParameter.cs, NumericParameter.cs, ChoiceParameter.cs, BooleanParameter.cs, SpeechModelParameterDiagnostics.cs */
+        comment sourceRef /* Source: src/DemaConsulting.Speech/ModelManagementSubsystem/ISpeechModelParameter.cs, NumericParameter.cs, NumericParameterBounds.cs, ChoiceParameter.cs, BooleanParameter.cs, SpeechModelParameterDiagnostics.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Tests/ModelManagementSubsystem/NumericParameterTests.cs, ChoiceParameterTests.cs, BooleanParameterTests.cs, SpeechModelParameterDiagnosticsTests.cs */
         comment designRef /* Design: docs/design/speech/model-management-subsystem/speech-model-parameters.md */
         comment verificationRef /* Verification: docs/verification/speech/model-management-subsystem/speech-model-parameters.md */
