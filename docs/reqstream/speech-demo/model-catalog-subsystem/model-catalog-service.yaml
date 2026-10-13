@@ -205,12 +205,32 @@ sections:
               - id: SpeechDemo-Voices-PackServiceNoLibraryRefusal
                 title: >-
                   A ModelCatalogSubsystem catalog service without a reference voice library shall
-                  refuse pack state, emotion and uninstall requests.
+                  refuse a request for a voice pack's state.
                 justification: |
                   An explicit pack request against a service with no voice library is a
                   programming error that should be reported rather than silently ignored.
                 tests:
-                  - ModelCatalogService_ReferenceVoices_NoLibrary_RefusesPackOperations
+                  - ModelCatalogService_ReferenceVoices_NoLibrary_RefusesPackStateRequest
+
+              - id: SpeechDemo-Voices-PackServiceNoLibraryEmotionsRefusal
+                title: >-
+                  A ModelCatalogSubsystem catalog service without a reference voice library shall
+                  refuse a request for whether a voice pack has emotion variants.
+                justification: |
+                  An explicit pack request against a service with no voice library is a
+                  programming error that should be reported rather than silently ignored.
+                tests:
+                  - ModelCatalogService_ReferenceVoices_NoLibrary_RefusesEmotionsRequest
+
+              - id: SpeechDemo-Voices-PackServiceNoLibraryUninstallRefusal
+                title: >-
+                  A ModelCatalogSubsystem catalog service without a reference voice library shall
+                  refuse a request to uninstall a voice pack.
+                justification: |
+                  An explicit pack request against a service with no voice library is a
+                  programming error that should be reported rather than silently ignored.
+                tests:
+                  - ModelCatalogService_ReferenceVoices_NoLibrary_RefusesUninstallRequest
 
               - id: SpeechDemo-Voices-PackUninstallRebuild
                 title: >-

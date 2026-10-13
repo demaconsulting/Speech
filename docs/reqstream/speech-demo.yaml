@@ -350,6 +350,8 @@ sections:
           - SpeechDemo-Voices-PackServiceCompositionRequired
           - SpeechDemo-Voices-PackServiceNoLibrary
           - SpeechDemo-Voices-PackServiceNoLibraryRefusal
+          - SpeechDemo-Voices-PackServiceNoLibraryEmotionsRefusal
+          - SpeechDemo-Voices-PackServiceNoLibraryUninstallRefusal
           - SpeechDemo-Voices-PackUninstallRebuild
           - SpeechDemo-Voices-PackUninstallAnnounce
           - SpeechDemo-Voices-PackInstallRebuild
@@ -549,6 +551,7 @@ sections:
           - SpeechDemo-Synthesis-IdleDeviceRefreshInert
           - SpeechDemo-Synthesis-SessionSeamModelValidation
           - SpeechDemo-SynthesisPanel-PlaybackThroughSeams
+          - SpeechDemo-SynthesisPanel-LifecycleThroughSeams
           - SpeechDemo-SynthesisPanel-ExternalChangeHandling
           - SpeechDemo-SynthesisPanel-DeviceRefreshCoordination
           - SpeechDemo-Synthesis-DependencyValidation

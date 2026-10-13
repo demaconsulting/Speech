@@ -68,11 +68,10 @@ public class ModelCatalogServiceTests
     }
 
     /// <summary>
-    ///     Proves that a service built without a voice library refuses pack state, emotion and uninstall
-    ///     requests.
+    ///     Proves that a service built without a voice library refuses a pack state request.
     /// </summary>
     [Fact]
-    public async Task ModelCatalogService_ReferenceVoices_NoLibrary_RefusesPackOperations()
+    public void ModelCatalogService_ReferenceVoices_NoLibrary_RefusesPackStateRequest()
     {
         // Arrange
         using var catalog = new SpeechModelCatalog(IsolatedOptions());
@@ -80,7 +79,33 @@ public class ModelCatalogServiceTests
 
         // Act & Assert
         Assert.Throws<InvalidOperationException>(() => service.GetReferenceVoicePackState("voice-zero-1.0"));
+    }
+
+    /// <summary>
+    ///     Proves that a service built without a voice library refuses an emotion-variant request.
+    /// </summary>
+    [Fact]
+    public async Task ModelCatalogService_ReferenceVoices_NoLibrary_RefusesEmotionsRequest()
+    {
+        // Arrange
+        using var catalog = new SpeechModelCatalog(IsolatedOptions());
+        var service = new ModelCatalogService(catalog);
+
+        // Act & Assert
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.ReferenceVoicePackHasEmotionsAsync("voice-zero-1.0", TestContext.Current.CancellationToken));
+    }
+
+    /// <summary>
+    ///     Proves that a service built without a voice library refuses a pack uninstall request.
+    /// </summary>
+    [Fact]
+    public async Task ModelCatalogService_ReferenceVoices_NoLibrary_RefusesUninstallRequest()
+    {
+        // Arrange
+        using var catalog = new SpeechModelCatalog(IsolatedOptions());
+        var service = new ModelCatalogService(catalog);
+
+        // Act & Assert
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.UninstallReferenceVoicePackAsync("voice-zero-1.0", TestContext.Current.CancellationToken));
     }
 

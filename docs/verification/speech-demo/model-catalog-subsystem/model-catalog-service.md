@@ -144,12 +144,23 @@ attempt against it surfacing `ObjectDisposedException`.
 
 **Expected**: No packs and no user voices folder are reported.
 
-##### ModelCatalogService_ReferenceVoices_NoLibrary_RefusesPackOperations
+##### ModelCatalogService_ReferenceVoices_NoLibrary_RefusesPackStateRequest
 
-**Scenario**: A service built without a voice library is asked for a pack's state, for whether a
-pack has emotion variants, and to uninstall a pack.
+**Scenario**: A service built without a voice library is asked for a pack's state.
 
-**Expected**: The state query, emotion query and uninstall members throw `InvalidOperationException`.
+**Expected**: `InvalidOperationException`.
+
+##### ModelCatalogService_ReferenceVoices_NoLibrary_RefusesEmotionsRequest
+
+**Scenario**: A service built without a voice library is asked whether a pack has emotion variants.
+
+**Expected**: `InvalidOperationException`.
+
+##### ModelCatalogService_ReferenceVoices_NoLibrary_RefusesUninstallRequest
+
+**Scenario**: A service built without a voice library is asked to uninstall a pack.
+
+**Expected**: `InvalidOperationException`.
 
 ##### ModelCatalogService_ReferenceVoices_Composed_ListsPack
 

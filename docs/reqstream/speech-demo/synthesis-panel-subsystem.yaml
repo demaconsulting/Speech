@@ -18,12 +18,23 @@ sections:
         requirements:
           - id: SpeechDemo-SynthesisPanel-PlaybackThroughSeams
             title: >-
-              The SynthesisPanelSubsystem shall speak the entered text through the selected
-              installed model and playback device.
+              The SynthesisPanelSubsystem shall speak the entered text, unchanged, through the
+              selected installed model and playback device.
             justification: |
               Speaking the entered text with the user's chosen voice and speaker is the panel's
               core purpose, and it must work end to end with no downloaded model, native runtime
-              or speakers so the whole Play lifecycle stays demonstrable and verifiable.
+              or speakers so it stays demonstrable and verifiable.
+            tests:
+              - SynthesisPanelViewModel_Play_SuccessfulSession_TransitionsThroughLifecycleToIdle
+
+          - id: SpeechDemo-SynthesisPanel-LifecycleThroughSeams
+            title: >-
+              The SynthesisPanelSubsystem shall report synthesizing, then playing, then idle,
+              with no status message, as a successful Play through its seams progresses.
+            justification: |
+              A user needs to see a Play advance and settle without leaving a stale message, and
+              the whole lifecycle must stay verifiable with no downloaded model, native runtime
+              or speakers.
             tests:
               - SynthesisPanelViewModel_Play_SuccessfulSession_TransitionsThroughLifecycleToIdle
 

@@ -35,7 +35,8 @@ before a shared device refresh.
 
 **Scenario**: A full Play with a working engine and session.
 
-**Expected**: `State` passes through `Synthesizing` then `Playing` before settling on `Idle`.
+**Expected**: `State` passes through `Synthesizing` then `Playing` before settling on `Idle`, no
+status message is left, and the exact entered text reaches the session.
 
 #### SynthesisPanelViewModel_Stop_DuringPlayback_CancelsSessionAndReportsStopped
 
