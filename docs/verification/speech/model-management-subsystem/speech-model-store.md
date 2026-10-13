@@ -3,7 +3,7 @@
 #### Verification Approach
 
 Verified through direct unit tests in `SpeechModelStoreTests.cs` using a unique scratch
-directory per test. These tests prove root resolution, the atomic `current/` swap on both first
+directory per test. These tests prove root resolution, the two-step replace with rollback of `current/` on both first
 install and repair/re-download (including rollback when the swap fails), install-state honesty
 (including manifest-missing, malformed, field-less, and unreadable manifests), leftover cleanup,
 uninstall success/no-op/failure paths, and model-id validation. Nothing is mocked: every test
@@ -21,8 +21,10 @@ requirements with the `windows@` source filter.
 #### Acceptance Criteria
 
 Tests pass when root resolution honors both the default and the override, `IsInstalled` never
-throws and is honest about manifest/`current/` state (including after a failed uninstall), the atomic
-swap rename replaces prior content without leaving stale content readable and rolls back on failure, the
+throws and is honest about manifest/`current/` state (including after a failed uninstall), the two-step
+replacement renames replace prior content without ever exposing partially replaced or stale content (a momentary
+not-installed state between the renames is permitted and is not observable by the single-threaded tests) and roll back
+to the prior install on failure, the
 operation id and staging directory are validated, leftover `.tmp/*` directories are cleaned up, model
 ids are validated before the file system is touched, and uninstall removes an installed model while being a
 no-op for one that was never installed. Windows-only scenarios are skipped, not passed, on other platforms.
@@ -45,11 +47,11 @@ no-op for one that was never installed. Windows-only scenarios are skipped, not 
 
 **Test**: `SpeechModelStore_IsInstalled_CurrentWithoutManifest_ReturnsFalse`
 
-##### Atomic Swap: First Install Creates Current and Manifest
+##### Install: First Install Creates Current and Manifest
 
 **Test**: `SpeechModelStore_CompleteInstall_FirstInstall_CreatesCurrentAndManifest`
 
-##### Atomic Swap: Existing Current is Replaced and Cleaned Up
+##### Replacement: Existing Current is Replaced and Cleaned Up
 
 **Test**: `SpeechModelStore_CompleteInstall_ExistingCurrent_ReplacesContentAndCleansUpOldDirectory`
 
@@ -131,9 +133,15 @@ the content in `current/` is intact.
 This scenario denies the current user read access to a valid manifest through an ACL rule and
 asserts `IsInstalled` returns `false` without throwing; it is skipped on non-Windows platforms.
 
-##### Atomic Swap: Failed Swap Rolls Back the Previous Install
+##### Replacement: Failed Replacement Rolls Back and Preserves the Previous Install
 
 **Test**: `SpeechModelStore_CompleteInstall_SecondMoveFails_RollsBackPreviousInstall`
+
+A staging directory that does not exist makes the second rename fail after the existing `current/` was renamed
+aside. The test asserts the exception propagates, the model still reads as installed, the original payload is
+back in `current/`, and no `current.replaced-*` directory is left behind. Boundary note: the contract permits a
+momentary not-installed state between the two renames; that window is not asserted because it cannot be
+observed deterministically, only the end states (success, or rollback after failure) are.
 
 ##### Repair: Failed Swap Restores the Previous Manifest
 
@@ -156,14 +164,14 @@ asserts `IsInstalled` returns `false` without throwing; it is skipped on non-Win
 A model id containing a NUL character is rejected by `GetModelDirectory`, `BeginStaging` and `Uninstall`,
 and the scratch root stays empty.
 
-##### Atomic Swap: Manifest Is Written Only After the Rename
+##### Install: Manifest Is Written Only After the Rename
 
 **Test**: `SpeechModelStore_CompleteInstall_ManifestWriteFails_ThrowsAndReadsAsNotInstalled`
 
 A directory occupying the manifest path makes the manifest write fail after the rename; the install throws,
 `current/` exists, and `IsInstalled` is `false`.
 
-##### Atomic Swap: Unsafe Operation Id or Foreign Staging Directory Is Rejected
+##### Install: Unsafe Operation Id or Foreign Staging Directory Is Rejected
 
 **Test**: `SpeechModelStore_CompleteInstall_UnsafeOperationIdOrForeignStaging_ThrowsArgumentException`
 
@@ -182,9 +190,13 @@ racing empty-`.tmp` cleanup is exercised by this contention but cannot be forced
 
 **Test**: `SpeechModelStore_CleanUpLeftovers_LockedLeftoverDirectory_DoesNotThrow`
 
-##### Construction: Whitespace Root Override Uses the Default
+##### Construction: Whitespace, Null, or Empty Root Override Uses the Default
 
 **Test**: `SpeechModelStore_Constructor_WhitespaceRootPathOverride_UsesDefaultRoot`
+
+**Test**: `SpeechModelStore_Constructor_NullOrEmptyRootPathOverride_UsesDefaultRoot`
+
+**Test**: `SpeechModelStore_Constructor_PaddedRootPathOverride_UsesOverrideVerbatim` (boundary: not whitespace-only)
 
 ##### Empty .tmp Cleanup After Install
 

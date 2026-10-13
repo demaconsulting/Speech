@@ -78,12 +78,23 @@ rules for what counts as a valid supplied value.
 **Error Handling**: Every parameter-descriptor constructor validates eagerly and throws
 `ArgumentException`/`ArgumentNullException` for an invalid or internally inconsistent descriptor
 at construction time - never silently accepted and discovered later when a host tries to render
-it. `SpeechModelParameterDiagnostics.ValidateAndReport` throws `ArgumentException` for an invalid
-value supplied for a parameter this model *does* declare (a caller bug - the host explicitly
+it. The reported `ParamName` is the constructor argument that was invalid (`id`, `displayName`,
+`description`, `options`, `default`, `value`, `label`), except that every numeric range,
+finiteness, step, default or whole-number failure reports `"bounds"`, the argument that carries
+the offending values. `SpeechModelParameterDiagnostics.ValidateAndReport` throws
+`ArgumentException` for an invalid value supplied for a parameter this model *does* declare (a
+caller bug - the host explicitly
 targeted this parameter on this model), but never throws for a supplied key naming a parameter
 this model does not declare (a legitimate cross-model compatibility gap, only reported as an
 `Info` diagnostic). A `null` `modelId`, `declaredParameters`, `diagnostics` or `category` throws
-`ArgumentNullException`.
+`ArgumentNullException`; a `null` element in `declaredParameters` throws `ArgumentException`
+with `ParamName` `"declaredParameters"`.
+
+**Host Control Guidance** (informative; the requirements state only the observable declaration
+rules): a host may render a `NumericParameter` as a slider (or a numeric up-down when
+`IsInteger` is `true`), a `ChoiceParameter` as a dropdown, and a `BooleanParameter` as a
+checkbox. The eager validation guarantees every such declaration is displayable (a non-empty,
+finite, ordered range; a non-empty option list with unique values and a matching default).
 
 **Dependencies**: `ISpeechModelParameter`/`NumericParameter`/`ChoiceParameter`/`BooleanParameter`
 depend on none beyond each other (`ChoiceParameter` depends on `ChoiceParameterOption`).

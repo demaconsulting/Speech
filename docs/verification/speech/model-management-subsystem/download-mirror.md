@@ -3,7 +3,19 @@
 #### Verification Approach
 
 Verified through direct unit tests in `DownloadMirrorTests.cs` proving the constructor's eager
-validation of scheme, absoluteness, and Credentials/BearerToken mutual exclusivity.
+validation and the record's disclosure behavior:
+
+- base-URI scheme (`http`/`https` only), absoluteness, and null rejection;
+- rejection of a query string, fragment, or embedded user-info component in the base URI;
+- Credentials/BearerToken mutual exclusivity and exposure of each valid configuration unchanged;
+- rejection of an empty or whitespace-only bearer token;
+- rejection of credentialed plain-`http` mirrors, and the loopback-host exemption from that rule
+  (`localhost`, `127.0.0.1`, `::1`);
+- `ToString` redaction of the bearer-token value.
+
+Every unit requirement (`Speech-Models-DownloadMirror-*`) is linked to the tests named below in
+`download-mirror.yaml`. Preemptive-Basic application of `Credentials` is verified at the
+`HttpModelDownloadClient` unit, not here.
 
 #### Test Environment
 
@@ -92,3 +104,18 @@ secrets can only be supplied through the dedicated auth properties.
 
 Verifies that the textual representation never discloses the token value and prints null when no
 token is configured.
+
+#### Requirement Coverage
+
+| Requirement | Tests |
+| :---------- | :---- |
+| `SchemeValidation` | Http/Https scheme accepted; relative base URI; non-http scheme |
+| `ValidConfigurationAccepted` | Base URI only; Credentials only; BearerToken only |
+| `MutualExclusivity` | Both Credentials and BearerToken |
+| `NullArgumentValidation` | Null base URI |
+| `QueryFragmentValidation` | Query or fragment in base URI |
+| `UserInfoRejection` | User info in base URI |
+| `CredentialedHttpRejection` | Credentials / BearerToken with non-loopback `http` base URI |
+| `CredentialedLoopbackHttpExemption` | Credentials / BearerToken with loopback `http` base URI |
+| `BearerTokenWhitespaceValidation` | Empty or whitespace-only BearerToken |
+| `BearerTokenRedaction` | `ToString` with and without a bearer token |

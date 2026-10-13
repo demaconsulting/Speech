@@ -1,8 +1,10 @@
 ---
 # Software Unit Requirements for SpeechModelDescriptor
 #
-# These requirements describe the design-level behavior of the SpeechModelDescriptor unit,
-# decomposing the parent ModelManagementSubsystem requirements.
+# These requirements describe the observable behavior of the SpeechModelDescriptor unit,
+# decomposing the parent ModelManagementSubsystem requirements. Equality is defined as follows:
+# two descriptors are equal when they describe the same model instance (identity, not merely an
+# equal-looking model) and carry the same install state.
 
 sections:
   - title: Speech Requirements
@@ -13,20 +15,52 @@ sections:
             requirements:
               - id: Speech-Models-SpeechModelDescriptor-Snapshot
                 title: >-
-                  The SpeechModelDescriptor record shall pair one model with its install state as
-                  an immutable snapshot that compares equal when both are the same.
+                  The SpeechModelDescriptor class shall pair one model with the install state that
+                  was supplied when the descriptor was built.
                 justification: |
-                  SpeechModelCatalog.Enumerate() must return a value a host can safely bind to a
-                  UI list without holding a live reference back to the catalog; an immutable
-                  snapshot pairing a model with the state observed at build time achieves this.
+                  SpeechModelCatalog.Enumerate() must return a value a host can bind to a UI list
+                  that shows each model together with the state observed at build time, without
+                  holding a live reference back to the catalog.
                 tests:
                   - SpeechModelDescriptor_Constructor_ValidModel_ExposesModelAndPassthroughProperties
-                  - SpeechModelDescriptor_StateTransition_DifferentState_ProducesUnequalDescriptor
+
+              - id: Speech-Models-SpeechModelDescriptor-Immutability
+                title: >-
+                  The SpeechModelDescriptor class shall keep the model reference and install state
+                  it was built with unchanged for its lifetime; it offers no way to change either.
+                justification: |
+                  A snapshot a host has bound to a UI must not change underneath it; a host
+                  wanting a newer state obtains a new descriptor from the catalog. The guarantee is
+                  shallow: the referenced model itself is not copied.
+                tests:
+                  - SpeechModelDescriptor_Snapshot_PublicProperties_HaveNoSetters
+                  - SpeechModelDescriptor_Snapshot_ModelChangesLater_StateRemainsObservedValue
+
+              - id: Speech-Models-SpeechModelDescriptor-Equality
+                title: >-
+                  The SpeechModelDescriptor class shall treat two descriptors as equal when they
+                  describe the same model instance and carry the same install state, and as not
+                  equal when they describe different model instances.
+                justification: |
+                  Hosts compare descriptors from successive enumerations to detect changes; equality
+                  is defined on model identity and state so an unchanged model compares equal.
+                tests:
                   - SpeechModelDescriptor_SameModelAndState_AreEqual
+                  - SpeechModelDescriptor_DifferentModelInstance_SameState_AreNotEqual
+
+              - id: Speech-Models-SpeechModelDescriptor-StateInequality
+                title: >-
+                  The SpeechModelDescriptor class shall treat two descriptors for the same model
+                  that carry different install states as not equal.
+                justification: |
+                  A state transition between two enumerations must be detectable by comparing the
+                  descriptors.
+                tests:
+                  - SpeechModelDescriptor_StateTransition_DifferentState_ProducesUnequalDescriptor
 
               - id: Speech-Models-SpeechModelDescriptor-NullModelRejection
                 title: >-
-                  The SpeechModelDescriptor record shall reject a null model at construction.
+                  The SpeechModelDescriptor class shall reject a null model when it is built.
                 justification: |
                   A descriptor with no underlying model would have nothing to describe.
                 tests:
@@ -34,12 +68,13 @@ sections:
 
               - id: Speech-Models-SpeechModelDescriptor-PassthroughProperties
                 title: >-
-                  The SpeechModelDescriptor record shall expose convenience passthrough properties
-                  for the model's identity, role, and declared license (name and optional URL).
+                  The SpeechModelDescriptor class shall expose the model's identity, role, and
+                  declared license (name and optional URL) directly, always reflecting the model's
+                  current values.
                 justification: |
-                  The passthrough properties save a host from unwrapping Model for the common
+                  The passthrough values save a host from unwrapping the model for the common
                   fields it needs to display, including license information for a host that
-                  wants to surface it without parsing DisplayName.
+                  wants to surface it without parsing the display name.
                 tests:
                   - SpeechModelDescriptor_Constructor_ValidModel_ExposesModelAndPassthroughProperties
                   - SpeechModelDescriptor_Passthrough_NonDefaultLicense_MirrorsModel

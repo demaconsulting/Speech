@@ -2,8 +2,11 @@
 
 #### Verification Approach
 
-Verified through direct unit tests in `SpeechModelDownloadFileTests.cs` proving the constructor's
-eager validation of URI scheme, checksum format, and relative install path.
+Verified through direct unit tests in `SpeechModelDownloadFileTests.cs` proving two behaviors: (1) the
+constructor's eager validation of URI scheme, checksum format, relative install path, and null
+arguments; and (2) staged-path resolution - that `ResolveStagedPath` combines a staging directory with the
+file's install path using the current platform's directory separator regardless of which separator the path was
+declared with, and rejects a null directory.
 
 #### Test Environment
 
@@ -48,6 +51,21 @@ directory separator regardless of which separator the install path was declared 
 
 **Test**: `SpeechModelDownloadFile_ResolveStagedPath_AnySeparator_MatchesDownloaderStaging`
 
+Staged-path resolution scenario: files declared with forward-slash and with backslash separators each resolve,
+for a given staging directory, to the platform's `Path.Combine` form with the platform separator (the same
+form the downloader uses to stage the file, as both call this method).
+
 ##### ResolveStagedPath: Null Argument Throws ArgumentNullException
 
 **Test**: `SpeechModelDownloadFile_ResolveStagedPath_NullArgument_ThrowsArgumentNullException`
+
+##### Requirement Coverage
+
+| Requirement | Tests |
+| :--- | :--- |
+| `...DownloadFile-UriValidation` | `..._ValidValues_ExposesValues`, `..._HttpUri_ThrowsArgumentException` |
+| `...DownloadFile-ChecksumValidation` | `..._Constructor_InvalidChecksum_ThrowsArgumentException` |
+| `...DownloadFile-InstallPathValidation` | `..._InvalidInstallPath_Throws...`, `..._RootedInstallPath_Throws...` |
+| `...DownloadFile-NullArgumentValidation` | `..._Constructor_NullArguments_ThrowsArgumentNullException` |
+| `...DownloadFile-ResolveStagedPath` | `..._ResolveStagedPath_AnySeparator_MatchesDownloaderStaging` |
+| `...DownloadFile-ResolveStagedPathNullArgument` | `..._ResolveStagedPath_NullArgument_ThrowsArgumentNullException` |

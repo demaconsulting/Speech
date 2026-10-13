@@ -45,6 +45,24 @@ download, without constructing a second store.
   network activity - a host may call it unconditionally on every launch without first checking
   `GetState`.
 
+**Design Rationale (mechanisms behind the unit requirements)**: The unit requirements state only observable
+behavior; the mechanisms are decided here.
+
+- **Registration (`AddModels`)**: A public `AddModels(params ISpeechModel[])` method on the catalog is the
+  registration seam. It replaces the former compiled-in `KnownModels` registry so the core library carries no
+  sherpa-onnx dependency; a host, or a model package's registration extension (such as SpeechSherpa's
+  `AddSherpaModels`), populates the host-registered list through it. Returning the same catalog instance is how
+  chaining is achieved.
+- **Store exposure (`Store`)**: `SpeechRecognizerFactory` and `SpeechSynthesizerFactory` accept a
+  `SpeechModelStore`; a second, independent store could silently diverge from the catalog's own (for example, a
+  custom `SpeechModelStoreOptions` root passed to one but not the other). The catalog therefore exposes its own
+  store through the get-only `Store` property, which the catalog-accepting `LoadAsync` overloads use internally.
+- **Mirror composition**: The public constructor accepts `SpeechModelDownloaderOptions` (for example a
+  `DownloadMirror`) and forwards them to the `SpeechModelDownloader` it composes, so catalog downloads go
+  through the mirror while keeping the catalog's install-hook orchestration.
+- **State tracking**: state is resolved by combining `SpeechModelStore.IsInstalled` with the two in-memory
+  `ConcurrentDictionary` sets (in-flight, most-recently-failed) described under Data Model.
+
 **Error Handling**: `AddModels` throws `ArgumentNullException` for a null array, a programming
 error. `Enumerate()` and `GetState(modelId)` never throw for an honest state query
 (only `ArgumentException` for an invalid `modelId` string, matching `SpeechModelStore`'s own

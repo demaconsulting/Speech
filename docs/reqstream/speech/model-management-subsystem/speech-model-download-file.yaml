@@ -1,8 +1,10 @@
 ---
 # Software Unit Requirements for SpeechModelDownloadFile
 #
-# These requirements describe the design-level behavior of the SpeechModelDownloadFile unit,
-# decomposing the parent ModelManagementSubsystem requirements.
+# These requirements describe the observable behavior of the SpeechModelDownloadFile unit,
+# decomposing the parent ModelManagementSubsystem requirements. The value-type shape, the
+# construction mechanism, and the instance-bound path-resolution method are design decisions
+# documented in docs/design/speech/model-management-subsystem/speech-model-download-file.md.
 
 sections:
   - title: Speech Requirements
@@ -13,79 +15,73 @@ sections:
             requirements:
               - id: Speech-Models-SpeechModelDownloadFile-UriValidation
                 title: >-
-                  The SpeechModelDownloadFile record shall reject, at construction, any URI
-                  whose scheme is not HTTPS.
+                  The SpeechModelDownloadFile class shall reject, when a download file is
+                  described, any source location that is not an absolute HTTPS location.
                 justification: |
-                  Validating eagerly at construction, rather than deep into the download
-                  pipeline, catches a malformed or tampered model catalog entry as early as
-                  possible.
+                  Validating a file's description as soon as it is created, rather than deep into
+                  the download pipeline, catches a malformed or tampered model catalog entry as
+                  early as possible.
                 tests:
                   - SpeechModelDownloadFile_Constructor_ValidValues_ExposesValues
                   - SpeechModelDownloadFile_Constructor_HttpUri_ThrowsArgumentException
 
               - id: Speech-Models-SpeechModelDownloadFile-ChecksumValidation
                 title: >-
-                  The SpeechModelDownloadFile record shall reject, at construction, any checksum
-                  that is not a 64-character hexadecimal SHA-256 digest.
+                  The SpeechModelDownloadFile class shall reject, when a download file is
+                  described, any checksum that is not a 64-character hexadecimal SHA-256 digest.
                 justification: |
-                  Validating eagerly at construction, rather than deep into the download
-                  pipeline, catches a malformed or tampered model catalog entry as early as
-                  possible.
+                  Validating a file's description as soon as it is created, rather than deep into
+                  the download pipeline, catches a malformed or tampered model catalog entry as
+                  early as possible.
                 tests:
                   - SpeechModelDownloadFile_Constructor_InvalidChecksum_ThrowsArgumentException
 
               - id: Speech-Models-SpeechModelDownloadFile-InstallPathValidation
                 title: >-
-                  The SpeechModelDownloadFile record shall reject, at construction, any relative
-                  install path that is null/whitespace, rooted, contains a parent-directory (..)
-                  or current-directory (.) segment, or normalizes to no named segment at all.
+                  The SpeechModelDownloadFile class shall reject, when a download file is
+                  described, any relative install path that is empty or whitespace-only, rooted,
+                  contains a parent-directory ("..") or current-directory (".") segment, or has no
+                  named segment at all.
                 justification: |
-                  Validating eagerly at construction, rather than deep into the download
-                  pipeline, prevents a relative install path from escaping the staging directory
-                  via a ".." segment, prevents a "." segment from silently collapsing away under
-                  Path.Combine/Uri canonicalization and causing two declared paths that look
-                  distinct to collide at the same staged file, and prevents a path made up
-                  entirely of separators (which normalizes to zero segments) from resolving to
-                  the staging directory itself.
+                  Validating the path as soon as the file is described prevents an install path
+                  from escaping the model's directory via a ".." segment, prevents a "." segment
+                  from silently collapsing away so that two declared paths that look distinct
+                  collide at the same staged file, and prevents a path made up entirely of
+                  separators from resolving to the model's directory itself.
                 tests:
                   - SpeechModelDownloadFile_Constructor_InvalidInstallPath_ThrowsArgumentException
                   - SpeechModelDownloadFile_Constructor_RootedInstallPath_ThrowsArgumentException
 
               - id: Speech-Models-SpeechModelDownloadFile-NullArgumentValidation
                 title: >-
-                  The SpeechModelDownloadFile record shall throw ArgumentNullException at
-                  construction for any null constructor argument.
+                  The SpeechModelDownloadFile class shall reject, when a download file is
+                  described, a missing (null) source location, checksum, or install path.
                 justification: |
-                  A programming error (a null constructor argument) should surface immediately
-                  with a clear, cheap-to-diagnose exception rather than an opaque failure deeper
-                  in the download pipeline.
+                  A programming error (a missing value) should surface immediately with a clear,
+                  cheap-to-diagnose failure rather than an opaque failure deeper in the download
+                  pipeline.
                 tests:
                   - SpeechModelDownloadFile_Constructor_NullArguments_ThrowsArgumentNullException
 
               - id: Speech-Models-SpeechModelDownloadFile-ResolveStagedPath
                 title: >-
-                  The SpeechModelDownloadFile type shall expose a public instance ResolveStagedPath
-                  method that combines a staging directory with the file's install path using the
-                  current platform's own directory separator.
+                  The SpeechModelDownloadFile class shall let a caller determine the location a
+                  file occupies within a given directory, using the current platform's directory
+                  separator regardless of which separator the install path was declared with.
                 justification: |
-                  The result is independent of which separator the install path was declared with.
-                  SpeechModelDownloader uses this same method to compute each file's staging
-                  destination; without a shared, public way to resolve a declared install path the
-                  same way, an ISpeechModel.InstallAsync override that needs to locate its own
-                  declared file within the staging directory would have to reimplement the same
-                  separator-normalization logic, risking it drifting out of step with how the
-                  downloader actually staged the file. Binding this method to an already-validated
-                  instance (rather than accepting an arbitrary caller-supplied path string)
-                  guarantees it can never be used to bypass the constructor's single
-                  install-path-validation chokepoint.
+                  A model's own install step that needs to find one of its declared files within
+                  the staging directory must agree exactly with where the downloader put the
+                  file (the downloader uses this same resolution); sharing one resolution rule
+                  prevents the two drifting apart and keeps the declared install path validated
+                  in a single place.
                 tests:
                   - SpeechModelDownloadFile_ResolveStagedPath_AnySeparator_MatchesDownloaderStaging
 
               - id: Speech-Models-SpeechModelDownloadFile-ResolveStagedPathNullArgument
                 title: >-
-                  The SpeechModelDownloadFile ResolveStagedPath method shall throw
-                  ArgumentNullException for a null staging-directory argument.
+                  The SpeechModelDownloadFile class shall reject a missing (null) directory when
+                  asked to determine a file's location within a directory.
                 justification: |
-                  A missing staging directory is a caller bug that must be reported at the call.
+                  A missing directory is a caller bug that must be reported at the call.
                 tests:
                   - SpeechModelDownloadFile_ResolveStagedPath_NullArgument_ThrowsArgumentNullException

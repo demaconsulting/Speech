@@ -13,7 +13,7 @@ sections:
             requirements:
               - id: Speech-Models-SpeechModelDownloadDescriptor-Validation
                 title: >-
-                  The SpeechModelDownloadDescriptor record shall preserve the declared order of
+                  The SpeechModelDownloadDescriptor type shall preserve the declared order of
                   its files.
                 justification: |
                   Declaration order determines download and progress-reporting order.
@@ -22,17 +22,35 @@ sections:
 
               - id: Speech-Models-SpeechModelDownloadDescriptor-FileListRejection
                 title: >-
-                  The SpeechModelDownloadDescriptor record shall reject, at construction, a null
-                  or empty file list.
+                  The SpeechModelDownloadDescriptor type shall reject, at creation, a null file
+                  list.
+                justification: |
+                  A descriptor without a file list describes nothing to download.
+                tests:
+                  - SpeechModelDownloadDescriptor_Constructor_NullFileList_ThrowsArgumentNullException
+
+              - id: Speech-Models-SpeechModelDownloadDescriptor-EmptyFileListRejection
+                title: >-
+                  The SpeechModelDownloadDescriptor type shall reject, at creation, an empty file
+                  list.
                 justification: |
                   A descriptor with no files describes nothing to download.
                 tests:
                   - SpeechModelDownloadDescriptor_Constructor_EmptyFileList_ThrowsArgumentException
-                  - SpeechModelDownloadDescriptor_Constructor_NullFileList_ThrowsArgumentNullException
+
+              - id: Speech-Models-SpeechModelDownloadDescriptor-NullElementRejection
+                title: >-
+                  The SpeechModelDownloadDescriptor type shall reject, at creation, a file list
+                  that contains a missing (null) file entry.
+                justification: |
+                  A missing entry describes nothing to download and must be reported where the
+                  mistake was made rather than failing later.
+                tests:
+                  - SpeechModelDownloadDescriptor_Constructor_NullElementInFileList_ThrowsArgumentException
 
               - id: Speech-Models-SpeechModelDownloadDescriptor-DuplicatePathRejection
                 title: >-
-                  The SpeechModelDownloadDescriptor record shall reject, at construction, a file
+                  The SpeechModelDownloadDescriptor type shall reject, at creation, a file
                   list containing duplicate relative install paths (including paths that are
                   identical once normalized to a common path separator).
                 justification: |
@@ -42,3 +60,13 @@ sections:
                 tests:
                   - SpeechModelDownloadDescriptor_Constructor_DuplicateInstallPaths_ThrowsArgumentException
                   - SpeechModelDownloadDescriptor_Constructor_DuplicateInstallPathsWithDifferingSeparators_ThrowsArgumentException
+
+              - id: Speech-Models-SpeechModelDownloadDescriptor-ListSnapshot
+                title: >-
+                  The SpeechModelDownloadDescriptor type shall keep the files it was created with
+                  unchanged when the caller later changes the list it supplied.
+                justification: |
+                  A later change by the caller must not invalidate the checks made at creation or
+                  alter what is downloaded.
+                tests:
+                  - SpeechModelDownloadDescriptor_Constructor_MutatingCallerList_DoesNotAffectDescriptor

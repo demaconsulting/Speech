@@ -40,10 +40,14 @@ rejected on every platform, not only where the platform's invalid-character set 
 
 **Test**: `ReferenceVoicePack_Constructor_NonPositiveSize_Throws` (zero and negative sizes)
 
-**Test**: `ReferenceVoicePack_Constructor_NullOrBlankArguments_Throw`
+**Test**: `ReferenceVoicePack_Constructor_NullArguments_ThrowArgumentNull`
 
-Verifies a null URI or checksum, an empty checksum and a blank id, display name, archive file name, root folder,
-license name or attribution are rejected with the documented exception types.
+Verifies a null URI, checksum, license URL, source URL or id is rejected with `ArgumentNullException`.
+
+**Test**: `ReferenceVoicePack_Constructor_BlankArguments_ThrowArgument`
+
+Verifies an empty checksum and a blank display name, archive file name, root folder, license name or attribution
+are rejected with `ArgumentException`. (An empty checksum is also a case of `ReferenceVoicePack_Constructor_BadChecksum_Throws`.)
 
 The unsafe-name theories also cover a trailing dot, leading or trailing whitespace, Windows reserved device names
 and NUL for the id and the archive file name.
@@ -55,6 +59,9 @@ and NUL for the id and the archive file name.
 **Test**: `ReferenceVoicePack_Constructor_InstalledSizes_DefaultZeroAndRejectNegative`
 
 ##### Descriptor and Presentation Fields
+
+The download information (address, checksum, file name) is verified through the internal one-file download
+descriptor; that shape is a design detail, so the requirement states only what the information must carry.
 
 **Tests**: `ReferenceVoicePack_DownloadDescriptor_DescribesTheArchive`,
 `ReferenceVoicePack_VoiceZero10_HasPublishedPresentationFields`,
@@ -76,7 +83,10 @@ Also asserts the exact ordinal list of the 13 mood names.
 
 ##### Mood Clips Immutability
 
-**Test**: `ReferenceVoiceInfo_MoodClips_AreAnImmutableOrderedCopy`
+**Tests**: `ReferenceVoiceInfo_MoodClips_CallerChangesAfterCreation_DoNotAlterClips` (a later change to the
+supplied dictionary does not show through; keys are in ordinal mood order),
+`ReferenceVoiceInfo_MoodClips_ConsumerModification_IsRejected` (casting the exposed clips to a mutable
+dictionary and writing throws)
 
 ##### Voice Sources
 

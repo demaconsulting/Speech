@@ -42,7 +42,10 @@ underlying exception, populated for every non-`Installed` outcome.
   supplied) so every request it issues carries that mirror's authentication. A mirror that
   carries credentials combined with a caller-supplied `IModelDownloadClient` is rejected with an
   `ArgumentException` by the constructor, because the downloader cannot attach credentials to a
-  client it does not own.
+  client it does not own; the supported credentialed-mirror form therefore keeps the internally owned
+  `HttpModelDownloadClient` (verified end to end against a loopback server, where the owned client
+  sends the mirror's `Authorization` header to the mirror URI). An auth-free mirror may be combined
+  with a caller-supplied client.
 - **ResolveEffectiveUri(originalUri, mirror, modelId, relativeInstallPath)** *(internal, directly unit-testable)*: Computes
   the actual request URI passed to `IModelDownloadClient.DownloadAsync` for one declared file.
   With no mirror configured, returns `originalUri` completely unchanged - byte-for-byte identical to
@@ -116,7 +119,10 @@ underlying exception, populated for every non-`Installed` outcome.
   `ObjectDisposedException` (`ReleaseQuietly`), so the in-flight download is not turned into a failure by
   the disposal itself. A caller still waiting for the lock fails with `ObjectDisposedException`, and an
   in-flight transfer can fail when the owned client is disposed under it, so hosts should cancel and
-  await outstanding downloads before disposing.
+  await outstanding downloads before disposing. The "disposal does not fail an in-flight download"
+  guarantee therefore applies to a downloader using a caller-supplied client (whose lifetime the
+  caller owns); with a downloader-owned client, disposal releases that client and an in-flight transfer
+  may fail, which is a documented limitation rather than a defect.
 - **Helpers**: `ComputeDirectorySizeBytes(directory)` sums the file sizes of the staging tree after the
   install hook (used for the manifest's `TotalSizeBytes`), and `VerifyChecksumAsync(path, expected)` hashes
   the staged file with SHA-256 and compares it to the declared checksum case-insensitively (the hash is
@@ -179,3 +185,14 @@ normal (non-crashed) failure path always cleans up.
 
 **Callers**: Hosts that need to download and install a model; `SpeechModelCatalog` (via the
 `ISpeechModel`-aware overload).
+
+**Requirement mapping**: the unit requirements state the observable behavior only (validation,
+serialization, verification and all-or-nothing install, mirror addressing and credentials, outcome
+classification, install-step handling, disposal); the two constructor overloads, the three
+`DownloadAsync` overloads, the internal `ResolveEffectiveUri`/`RelayProgress`/`ClassifyFailure`
+helpers, the SHA-256 algorithm choice, the `HttpFetchTimeoutException` wrapper, and the
+`SpeechModelStore` staging/`CompleteInstall` collaboration are design detail documented above.
+`SpeechModelDownloaderOptions` (a record with a single optional `Mirror`, default `null`) and
+`SpeechModelDownloadProgress` (a record of `FileIndex`, `FileCount`, `BytesTransferred`, `TotalBytes`
+with a computed `FractionComplete`) are declared alongside this unit and described in their own
+design documents.

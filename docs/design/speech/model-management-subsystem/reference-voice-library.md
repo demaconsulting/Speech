@@ -10,7 +10,9 @@ It owns a second `SpeechModelStore` rooted at `{store root}\{RootDirectoryName}`
 `RootDirectoryName`, `reference-voices`; `UserDirectoryName` is `user`) and creates its
 `SpeechModelDownloader` lazily. In-memory sets track pack ids installing or failed since process start.
 
-Disk layout (the unit's contract with the CLI, demo and documentation):
+Disk layout (the unit's contract with the CLI, demo and documentation; the requirements state only that packs
+and the user folder live in a dedicated area inside the store root, so this hierarchy, the `current` folder
+and the mood-to-path representation of `MoodClips` are design decisions recorded here):
 
 ```text
 {models root}\reference-voices\
@@ -33,7 +35,7 @@ Disk layout (the unit's contract with the CLI, demo and documentation):
   and `ReferenceVoicePackInstaller.InstallAsync` as the hook, so the whole archive is fetched through
   the hash-verified, mirror-aware path (with a mirror the URL is
   `{mirror}/voice-zero-1.0/voice-zero-1.0.zip`), only a verified archive is extracted, and the result is
-  swapped in atomically. A second call for an installed pack is a no-op returning `Installed`.
+  replaced through the store's rollback-protected install. A second call for an installed pack is a no-op returning `Installed`.
 - `includeEmotions` (default `true`) also extracts the emotion clips (see `ReferenceVoicePackInstaller`).
   **Upgrade**: when emotions are requested and the installed pack lacks them, the library renames
   `current` to a sibling `current.upgrade-backup-{guid}` folder (the downloader treats an installed id

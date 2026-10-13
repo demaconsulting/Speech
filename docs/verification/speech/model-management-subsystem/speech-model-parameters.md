@@ -8,7 +8,10 @@ every documented eager-validation failure at construction (invalid range, non-po
 default outside range, empty/duplicate choice options, default not among the choices, missing
 common fields, and - for `NumericParameter`'s `isInteger` flag - a valid whole-number
 declaration, the `false` default when `isInteger` is omitted, and a fractional minimum/maximum/
-step/default rejected when `isInteger` is `true`). `SpeechModelParameterDiagnostics.ValidateAndReport`
+step/default rejected when `isInteger` is `true`). Each invalid-input scenario is its own test
+with a distinct Arrange / Act / Assert, asserting the reported `ParamName` where the design
+documents one, so a failure identifies exactly one rejected input.
+`SpeechModelParameterDiagnostics.ValidateAndReport`
 is verified by deterministic unit tests in `SpeechModelParameterDiagnosticsTests.cs` against a
 `Substitute.For<ISpeechDiagnostics>()` diagnostics sink and small in-test descriptor sets covering
 a `NumericParameter`, a `ChoiceParameter`, and a `BooleanParameter`, proving both the silent,
@@ -20,10 +23,15 @@ further cover a `null` value for each descriptor type (an `ArgumentException`, n
 `NullReferenceException`), a descriptor subtype the helper does not know (an `ArgumentException`
 using a minimal in-test `ISpeechModelParameter` implementation), non-finite (NaN/infinite) values
 reported as non-finite, `int`/`float` and inclusive-boundary values accepted, declared-order
-determinism with several invalid values, the `ParamName` of `"parameterValues"`, null mandatory
-arguments, and descriptor construction edge cases (non-finite maximum/step/default, boundary
-default, null option element, defensive copy of the option list, and `bounds` as the reported
-parameter name for an integer declaration with a fractional bound).
+determinism with several invalid values, the `ParamName` of `"parameterValues"`, each mandatory
+argument (`modelId`, `declaredParameters`, `diagnostics`, `category`) being null as its own test,
+and descriptor construction edge cases (non-finite maximum/step/default, boundary default, null
+option element, defensive copy of the option list, and `bounds` as the reported parameter name
+for an integer declaration with a fractional bound).
+
+Every diagnostics test name carries the `SpeechModelParameterDiagnostics_` unit prefix
+(`{ClassName}_{Method}_{Scenario}_{Expected}`), and the descriptor-type tests carry their own
+type prefix, so each test identifies its unit.
 
 #### Test Environment
 
@@ -43,9 +51,33 @@ value supplied for a declared parameter - including when an unrecognized id is a
 the same call, in which case the recognized-value failure takes precedence and no diagnostic for
 the unrecognized id is ever reported. A `null` supplied value, a non-finite numeric value, and a
 value for an unsupported descriptor subtype each throw `ArgumentException`; every such exception
-reports `ParamName` `"parameterValues"`. A mandatory `null` argument throws `ArgumentNullException`.
-A `ChoiceParameter` neither accepts a `null` option element nor is affected by later mutation of
-the list it was constructed from.
+reports `ParamName` `"parameterValues"`. A mandatory `null` argument throws `ArgumentNullException`
+naming that argument. A `ChoiceParameter` neither accepts a `null` option element nor is affected
+by later mutation of the list it was constructed from.
+
+#### Requirement Coverage
+
+| Requirement | Tests |
+| :---------- | :---- |
+| `Speech-Models-SpeechModelParameters-NumericValidation` | minimum greater than maximum; non-positive step |
+| `Speech-Models-SpeechModelParameters-NumericDefaultValidation` | default outside range; default at boundary |
+| `...Parameters-NumericFiniteValidation` | non-finite minimum; non-finite maximum, step or default |
+| `Speech-Models-SpeechModelParameters-NumericValuesExposed` | valid range exposes values; no unit is null |
+| `Speech-Models-SpeechModelParameters-NumericCommonFieldValidation` | null id; empty or whitespace id |
+| `Speech-Models-SpeechModelParameters-NumericDisplayMetadataValidation` | null display name; null description |
+| `...Parameters-NumericIntegerFlag` | whole-number bounds expose true; omitted defaults to false |
+| `...Parameters-NumericIntegerValidation` | fractional minimum, maximum, step, default; `bounds` name |
+| `Speech-Models-SpeechModelParameters-ChoiceValidation` | empty options; null option element |
+| `Speech-Models-SpeechModelParameters-ChoiceValuesExposed` | valid options expose values |
+| `Speech-Models-SpeechModelParameters-ChoiceDuplicateValidation` | duplicate option values |
+| `Speech-Models-SpeechModelParameters-ChoiceDefaultValidation` | default not an option |
+| `Speech-Models-SpeechModelParameters-ChoiceOptionValueValidation` | empty value; null value; null label |
+| `Speech-Models-SpeechModelParameters-ChoiceOptionsAndDefaultRequired` | null options; null default |
+| `Speech-Models-SpeechModelParameters-ChoiceCommonFieldValidation` | whitespace id |
+| `Speech-Models-SpeechModelParameters-ChoiceDisplayMetadataValidation` | null display name; null description |
+| `Speech-Models-SpeechModelParameters-ChoiceOptionsDefensiveCopy` | caller list mutated afterwards |
+| `...Parameters-BooleanValidation` | valid values; whitespace id; null id, display name, description |
+| `...ParameterDiagnostics-*` | every scenario below, each linked from its own requirement |
 
 #### Test Scenarios
 
@@ -77,9 +109,17 @@ the list it was constructed from.
 
 **Test**: `NumericParameter_Constructor_NullId_ThrowsArgumentNullException`
 
-##### NumericParameter rejects an empty/whitespace Id and a null DisplayName or Description
+##### NumericParameter rejects an empty or whitespace Id
 
-**Test**: `NumericParameter_Constructor_InvalidCommonFields_Throw`
+**Test**: `NumericParameter_Constructor_EmptyOrWhitespaceId_ThrowsArgumentException`
+
+##### NumericParameter rejects a null DisplayName
+
+**Test**: `NumericParameter_Constructor_NullDisplayName_ThrowsArgumentNullException`
+
+##### NumericParameter rejects a null Description
+
+**Test**: `NumericParameter_Constructor_NullDescription_ThrowsArgumentNullException`
 
 ##### NumericParameter rejects a non-finite Maximum, Step or Default naming bounds
 
@@ -141,17 +181,37 @@ the list it was constructed from.
 
 **Test**: `ChoiceParameter_Constructor_NullOptionElement_ThrowsArgumentException`
 
-##### ChoiceParameter rejects a null option list or null default
+##### ChoiceParameter rejects a null option list
 
-**Test**: `ChoiceParameter_Constructor_NullOptionsOrDefault_ThrowsArgumentNullException`
+**Test**: `ChoiceParameter_Constructor_NullOptions_ThrowsArgumentNullException`
 
-##### ChoiceParameter rejects an invalid Id, null DisplayName or null Description
+##### ChoiceParameter rejects a null default
 
-**Test**: `ChoiceParameter_Constructor_InvalidCommonFields_Throw`
+**Test**: `ChoiceParameter_Constructor_NullDefault_ThrowsArgumentNullException`
+
+##### ChoiceParameter rejects a whitespace Id
+
+**Test**: `ChoiceParameter_Constructor_WhitespaceId_ThrowsArgumentException`
+
+##### ChoiceParameter rejects a null DisplayName
+
+**Test**: `ChoiceParameter_Constructor_NullDisplayName_ThrowsArgumentNullException`
+
+##### ChoiceParameter rejects a null Description
+
+**Test**: `ChoiceParameter_Constructor_NullDescription_ThrowsArgumentNullException`
 
 ##### ChoiceParameter keeps its options when the caller's list is mutated afterwards
 
 **Test**: `ChoiceParameter_Constructor_CallerListMutatedAfterwards_OptionsUnchanged`
+
+##### ChoiceParameterOption rejects a null value
+
+**Test**: `ChoiceParameterOption_Constructor_NullValue_ThrowsArgumentNullException`
+
+##### ChoiceParameterOption rejects a null label
+
+**Test**: `ChoiceParameterOption_Constructor_NullLabel_ThrowsArgumentNullException`
 
 ##### BooleanParameter exposes its constructed default for both true and false
 
@@ -165,118 +225,130 @@ the list it was constructed from.
 
 **Test**: `BooleanParameter_Constructor_NullDisplayName_ThrowsArgumentNullException`
 
+##### BooleanParameter rejects a null Id
+
+**Test**: `BooleanParameter_Constructor_NullId_ThrowsArgumentNullException`
+
+##### BooleanParameter rejects a null Description
+
+**Test**: `BooleanParameter_Constructor_NullDescription_ThrowsArgumentNullException`
+
 ##### ValidateAndReport is a no-op for a null supplied-values bag
 
-**Test**: `ValidateAndReport_NullSuppliedValues_DoesNothing`
+**Test**: `SpeechModelParameterDiagnostics_ValidateAndReport_NullSuppliedValues_DoesNothing`
 
 ##### ValidateAndReport is a no-op for an empty supplied-values bag
 
-**Test**: `ValidateAndReport_EmptySuppliedValues_DoesNothing`
+**Test**: `SpeechModelParameterDiagnostics_ValidateAndReport_EmptySuppliedValues_DoesNothing`
 
 ##### ValidateAndReport reports Info and does not throw for an unrecognized parameter id
 
-**Test**: `ValidateAndReport_UnrecognizedParameterId_ReportsInfoAndDoesNotThrow`
+**Test**: `SpeechModelParameterDiagnostics_ValidateAndReport_UnrecognizedParameterId_ReportsInfoAndDoesNotThrow`
 
 ##### ValidateAndReport does nothing for a valid recognized numeric value
 
-**Test**: `ValidateAndReport_ValidRecognizedNumericValue_DoesNothing`
+**Test**: `SpeechModelParameterDiagnostics_ValidateAndReport_ValidRecognizedNumericValue_DoesNothing`
 
 ##### ValidateAndReport throws for a wrong-CLR-type numeric value
 
-**Test**: `ValidateAndReport_NumericParameterWrongType_Throws`
+**Test**: `SpeechModelParameterDiagnostics_ValidateAndReport_NumericParameterWrongType_Throws`
 
 ##### ValidateAndReport throws for a numeric value outside [Minimum, Maximum]
 
-**Test**: `ValidateAndReport_NumericParameterOutOfRange_Throws`
+**Test**: `SpeechModelParameterDiagnostics_ValidateAndReport_NumericParameterOutOfRange_Throws`
 
 ##### ValidateAndReport throws for a fractional value against an IsInteger parameter
 
-**Test**: `ValidateAndReport_IntegerParameterFractionalValue_Throws`
+**Test**: `SpeechModelParameterDiagnostics_ValidateAndReport_IntegerParameterFractionalValue_Throws`
 
 ##### ValidateAndReport does not throw for a whole-number value against an IsInteger parameter
 
-**Test**: `ValidateAndReport_IntegerParameterWholeNumberValue_DoesNotThrow`
+**Test**: `SpeechModelParameterDiagnostics_ValidateAndReport_IntegerParameterWholeNumberValue_DoesNotThrow`
 
 ##### ValidateAndReport throws for a choice value matching no declared option
 
-**Test**: `ValidateAndReport_ChoiceParameterInvalidOption_Throws`
+**Test**: `SpeechModelParameterDiagnostics_ValidateAndReport_ChoiceParameterInvalidOption_Throws`
 
 ##### ValidateAndReport throws for a wrong-CLR-type choice value
 
-**Test**: `ValidateAndReport_ChoiceParameterWrongType_Throws`
+**Test**: `SpeechModelParameterDiagnostics_ValidateAndReport_ChoiceParameterWrongType_Throws`
 
 ##### ValidateAndReport does not throw for a valid choice value
 
-**Test**: `ValidateAndReport_ChoiceParameterValidOption_DoesNotThrow`
+**Test**: `SpeechModelParameterDiagnostics_ValidateAndReport_ChoiceParameterValidOption_DoesNotThrow`
 
 ##### ValidateAndReport throws for a wrong-CLR-type boolean value
 
-**Test**: `ValidateAndReport_BooleanParameterWrongType_Throws`
+**Test**: `SpeechModelParameterDiagnostics_ValidateAndReport_BooleanParameterWrongType_Throws`
 
 ##### ValidateAndReport does not throw for a valid boolean value
 
-**Test**: `ValidateAndReport_BooleanParameterValidValue_DoesNotThrow`
+**Test**: `SpeechModelParameterDiagnostics_ValidateAndReport_BooleanParameterValidValue_DoesNotThrow`
 
 ##### ValidateAndReport throws for the invalid recognized value even when an unrecognized id is also supplied
 
-**Test**: `ValidateAndReport_InvalidRecognizedValueAndUnrecognizedId_ThrowsForRecognizedValue`
+**Test**: `SpeechModelParameterDiagnostics_ValidateAndReport_InvalidRecognizedValueAndUnrecognizedId_ThrowsForRecognizedValue`
 
 ##### ValidateAndReport throws ArgumentException for a null numeric value
 
-**Test**: `ValidateAndReport_NumericParameterNullValue_ThrowsArgumentException`
+**Test**: `SpeechModelParameterDiagnostics_ValidateAndReport_NumericParameterNullValue_ThrowsArgumentException`
 
 ##### ValidateAndReport throws ArgumentException for a null choice value
 
-**Test**: `ValidateAndReport_ChoiceParameterNullValue_ThrowsArgumentException`
+**Test**: `SpeechModelParameterDiagnostics_ValidateAndReport_ChoiceParameterNullValue_ThrowsArgumentException`
 
 ##### ValidateAndReport throws ArgumentException for a null boolean value
 
-**Test**: `ValidateAndReport_BooleanParameterNullValue_ThrowsArgumentException`
+**Test**: `SpeechModelParameterDiagnostics_ValidateAndReport_BooleanParameterNullValue_ThrowsArgumentException`
 
 ##### ValidateAndReport throws for an unsupported descriptor subtype
 
-**Test**: `ValidateAndReport_UnsupportedParameterDescriptorType_Throws`
+**Test**: `SpeechModelParameterDiagnostics_ValidateAndReport_UnsupportedParameterDescriptorType_Throws`
 
 ##### ValidateAndReport reports a non-finite numeric value as non-finite
 
-**Test**: `ValidateAndReport_NumericParameterNonFiniteValue_ThrowsFiniteMessage`
+**Test**: `SpeechModelParameterDiagnostics_ValidateAndReport_NumericParameterNonFiniteValue_ThrowsFiniteMessage`
 
 ##### ValidateAndReport accepts int and float numeric values
 
-**Test**: `ValidateAndReport_NumericParameterIntAndFloatValues_DoNotThrow`
+**Test**: `SpeechModelParameterDiagnostics_ValidateAndReport_NumericParameterIntAndFloatValues_DoNotThrow`
 
 ##### ValidateAndReport accepts values exactly at Minimum and Maximum
 
-**Test**: `ValidateAndReport_NumericParameterBoundaryValue_DoesNotThrow`
+**Test**: `SpeechModelParameterDiagnostics_ValidateAndReport_NumericParameterBoundaryValue_DoesNotThrow`
 
 ##### ValidateAndReport throws for the first invalid value in declared-parameter order
 
-**Test**: `ValidateAndReport_MultipleInvalidValues_ThrowsForFirstDeclaredParameter`
+**Test**: `SpeechModelParameterDiagnostics_ValidateAndReport_MultipleInvalidValues_ThrowsForFirstDeclaredParameter`
 
 ##### ValidateAndReport names the received type for a wrong-type choice value
 
-**Test**: `ValidateAndReport_ChoiceParameterWrongType_MessageNamesReceivedType`
+**Test**: `SpeechModelParameterDiagnostics_ValidateAndReport_ChoiceParameterWrongType_MessageNamesReceivedType`
 
-##### ValidateAndReport throws ArgumentNullException for a null mandatory argument
+##### ValidateAndReport throws ArgumentNullException for a null model id
 
-**Test**: `ValidateAndReport_NullArguments_ThrowArgumentNullException`
+**Test**: `SpeechModelParameterDiagnostics_ValidateAndReport_NullModelId_ThrowsArgumentNullException`
 
-##### ChoiceParameterOption rejects a null value or label
+##### ValidateAndReport throws ArgumentNullException for null declared parameters
 
-**Test**: `ChoiceParameterOption_Constructor_NullValueOrLabel_ThrowsArgumentNullException`
+**Test**: `SpeechModelParameterDiagnostics_ValidateAndReport_NullDeclaredParameters_ThrowsArgumentNullException`
 
-##### BooleanParameter rejects a null Id or Description
+##### ValidateAndReport throws ArgumentNullException for a null diagnostics sink
 
-**Test**: `BooleanParameter_Constructor_NullIdOrDescription_Throws`
+**Test**: `SpeechModelParameterDiagnostics_ValidateAndReport_NullDiagnostics_ThrowsArgumentNullException`
+
+##### ValidateAndReport throws ArgumentNullException for a null category
+
+**Test**: `SpeechModelParameterDiagnostics_ValidateAndReport_NullCategory_ThrowsArgumentNullException`
 
 ##### ValidateAndReport throws for a numeric value below the Minimum
 
-**Test**: `ValidateAndReport_NumericParameterBelowMinimum_Throws`
+**Test**: `SpeechModelParameterDiagnostics_ValidateAndReport_NumericParameterBelowMinimum_Throws`
 
 ##### ValidateAndReport reports each unrecognized id
 
-**Test**: `ValidateAndReport_MultipleUnrecognizedParameterIds_ReportsInfoForEach`
+**Test**: `SpeechModelParameterDiagnostics_ValidateAndReport_MultipleUnrecognizedParameterIds_ReportsInfoForEach`
 
 ##### ValidateAndReport rejects a null declared-parameter element
 
-**Test**: `ValidateAndReport_NullDeclaredParameterElement_ThrowsArgumentException`
+**Test**: `SpeechModelParameterDiagnostics_ValidateAndReport_NullDeclaredParameterElement_ThrowsArgumentException`

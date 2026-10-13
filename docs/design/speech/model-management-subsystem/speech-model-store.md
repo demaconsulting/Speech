@@ -1,15 +1,24 @@
 ### SpeechModelStore
 
-**Purpose**: Own the on-disk layout, atomic install/replace, and uninstall of downloaded models
+**Purpose**: Own the on-disk layout, staged install/replace-with-rollback, and uninstall of downloaded models
 under a single per-user root directory, resolving the download-while-in-use residual risk (an
 in-progress synthesis/playback cycle reading `current/` while a redownload of the same model is
-attempted) via the atomic staging-then-rename swap described below.
+attempted) via the staging-then-rename promotion described below.
+
+**Replacement contract**: Windows cannot atomically swap two non-empty directories, so replacing an installed
+model is a **two-step replace with rollback**: the existing `current/` is renamed aside, then the verified
+staging directory is renamed into `current/`. The guaranteed contract is: an installed model is never observed
+partially replaced or incomplete; a failed or interrupted replacement leaves the prior install usable (rolled
+back) or reported not installed (recoverable by repeating the install); and a momentary not-installed state
+(no `current/`) between the two renames is permitted. The requirement IDs `...AtomicSwap` and
+`...AtomicSwapReplacesExisting` are kept for traceability stability and carry this weaker contract.
 
 **Data Model**: `RootPath` (the resolved storage root). For each model id: `current/` (stable
 installed content), `install-manifest.json` (a sidecar record of `TotalSizeBytes` and
 `InstalledAtUtc`, written only after a successful swap), and `.tmp/{operationId}/` (scratch
 staging space, never read as installed content). A nested `internal` `InstallManifest` record
-(`TotalSizeBytes`, `InstalledAtUtc`) is the manifest's serialized shape.
+(`TotalSizeBytes`, `InstalledAtUtc`) is the manifest's serialized shape. A superseded `current/` is renamed
+to `current.replaced-{operationId}` and best-effort deleted after the replacement.
 
 **Key Methods**:
 
@@ -32,8 +41,9 @@ staging space, never read as installed content). A nested `internal` `InstallMan
   (5 attempts with a short back-off) on an I/O or access failure before the failure propagates.
   Called only by `SpeechModelDownloader`.
 - **CompleteInstall(modelId, operationId, stagingDirectory, totalSizeBytes)** _(internal)_:
-  Atomically swaps a verified staging directory into place as the new `current/` via a directory
-  rename (renaming any existing `current/` aside first), then writes the manifest. On a repair the
+  Promotes a verified staging directory into place as the new `current/` via directory
+  renames (a two-step replace with rollback: any existing `current/` is renamed aside first, then the staging
+  directory is renamed into `current/`), then writes the manifest. On a repair the
   old manifest is removed before the swap and restored (best-effort) if the swap fails, so a stale
   manifest never describes different content. Best-effort deletes the superseded directory
   afterward. The staging directory this promotes may already have been modified in place by the
@@ -74,7 +84,9 @@ new manifest fails after the swap succeeded, the exception propagates and the su
 
 **Concurrency**: The store holds no locks and assumes a single writer (install or uninstall) per model id at a
 time. `SpeechModelDownloader` serializes installs per model id; a host calling `Uninstall` must not run it
-concurrently with an install of the same model. Concurrent `BeginStaging` calls are supported.
+concurrently with an install of the same model. Concurrent `BeginStaging` calls are supported. A reader that
+queries `IsInstalled` during a replacement may momentarily see "not installed" (between the two renames) but
+never a partially replaced model.
 
 **Root Path**: `RootPath` is documented as an absolute path; an override is used verbatim and is
 not validated or normalized, so a host is responsible for supplying an absolute path.

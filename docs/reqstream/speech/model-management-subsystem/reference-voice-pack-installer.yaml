@@ -29,8 +29,8 @@ sections:
 
               - id: Speech-Models-ReferenceVoicePackInstaller-PackMetadata
                 title: >-
-                  The ReferenceVoicePackInstaller shall write a pack.json describing the installed
-                  pack.
+                  The ReferenceVoicePackInstaller shall record a description of the installed pack
+                  (identity, license, attribution, source and voice count).
                 justification: |
                   Hosts and the library read the installed pack's description and variants from it.
                 tests:
@@ -59,13 +59,16 @@ sections:
 
               - id: Speech-Models-ReferenceVoicePackInstaller-PortableNames
                 title: >-
-                  The ReferenceVoicePackInstaller shall reject archives with an entry name that has a
-                  segment that is not valid on every platform.
+                  The ReferenceVoicePackInstaller shall reject an archive containing any entry, whether
+                  or not it would be extracted, whose name has a segment that is not valid on every
+                  platform.
                 justification: |
                   A name that is invalid on some platform must not yield a pack that installs on one
-                  platform only.
+                  platform only, and the check cannot depend on which entries the installer happens to
+                  extract.
                 tests:
                   - ReferenceVoicePackInstaller_Install_PlatformInvalidEntryName_ThrowsInvalidData
+                  - ReferenceVoicePackInstaller_Install_IgnoredEntryWithInvalidSegment_ThrowsInvalidData
                   - ReferenceVoicePackInstaller_Install_WithEmotions_UnsafeEmotionEntry_Throws
 
               - id: Speech-Models-ReferenceVoicePackInstaller-UniqueDestinations
@@ -125,11 +128,15 @@ sections:
               - id: Speech-Models-ReferenceVoicePackInstaller-Cancellation
                 title: >-
                   The ReferenceVoicePackInstaller shall stop with an OperationCanceledException
-                  when its cancellation token is canceled.
+                  when its cancellation token is canceled, including when the token is already
+                  canceled before the staged archive is opened or the archive has no entries.
                 justification: |
-                  Extraction of a large archive must be cancelable.
+                  Extraction of a large archive must be cancelable, and a canceled call must report
+                  the cancellation rather than an unrelated file or archive error.
                 tests:
                   - ReferenceVoicePackInstaller_Install_CanceledToken_Throws
+                  - ReferenceVoicePackInstaller_Install_CanceledTokenAndMissingArchive_ThrowsOperationCanceled
+                  - ReferenceVoicePackInstaller_Install_CanceledTokenAndEmptyArchive_ThrowsOperationCanceled
 
               - id: Speech-Models-ReferenceVoicePackInstaller-SizeCaps
                 title: >-
@@ -174,9 +181,9 @@ sections:
               - id: Speech-Models-ReferenceVoicePackInstaller-EmotionVariantRecording
                 title: >-
                   The ReferenceVoicePackInstaller shall record the extracted variants and emotion
-                  clip count in pack.json.
+                  clip count in the installed pack's description.
                 justification: |
-                  The library reports installed variants from pack.json without scanning the disk again.
+                  The library reports installed variants from the description without scanning the disk again.
                 tests:
                   - ReferenceVoicePackInstaller_Install_WithEmotions_ExtractsMoodClipsAndRecordsVariant
 

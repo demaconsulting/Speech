@@ -14,7 +14,8 @@ with it, `ReferenceVoiceSource` and `ReferenceVoiceInfo`; the library populates 
   installed sizes of the base voices (with the license and readme files) and of the emotion clips, and
   `InstalledSizeBytes(bool includeEmotions)` sums the chosen variants. An internal `DownloadDescriptor`
   projects it onto a one-file `SpeechModelDownloadDescriptor` whose relative install path is the archive
-  file name.
+  file name. This internal shape is the design's mechanism for the requirement
+  `Speech-Models-ReferenceVoicePack-DownloadDescriptor`, which states only the information the download needs.
 - `ReferenceVoicePack.VoiceZero10`: the built-in voice-zero 1.0 pack by OwenTyme (CC0 1.0 Universal).
   Its archive URL, size, SHA-256, root folder and measured installed sizes are pinned only in
   `ReferenceVoicePack.cs` and verified by the unit tests (see the requirement
@@ -30,7 +31,10 @@ with it, `ReferenceVoiceSource` and `ReferenceVoiceInfo`; the library populates 
   the absolute path of that speaker's emotion clip, or `null` when the voice has none (user and directory
   voices, and packs installed without emotions). `MoodClips` is
   copied at construction into a read-only dictionary enumerated in ordinal mood order, so later changes
-  to the supplied dictionary never show through. `ReferenceVoiceInfo.KnownMoods` lists the 13 moods the pack
+  to the supplied dictionary never show through (the requirements `...MoodClipsImmutable` and `...MoodClipsReadOnly`
+  state only the observable outcome; the record, copy and ordering are this design's choice).
+  `ReferenceVoiceInfo.KnownMoods` lists the 13 moods the
+   pack
   provides:
   anger, calm, confused, enthused, excited, frustrated, happy, neutral, sad, shout, surprised, tired,
   worried. Moods are variants of a voice, not separate voices; `Mood` stays `null` for pack voices.

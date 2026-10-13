@@ -44,6 +44,25 @@ to every request this instance issues.
   functional, not a security gap: a legitimate in-scope mirror redirect loses its authentication
   and will most likely fail with `401`/`403` rather than complete, so a mirror expected to
   redirect should be configured at its final, non-redirecting URI instead.
+- **IsWithinMirror(requestUri, mirrorBaseUri)** *(private)*: The mirror-scope check used by
+  `ApplyMirrorAuthentication`. A request is in scope only when its scheme, host and port equal the
+  mirror's and its path equals, or is nested beneath, the mirror's base path on a *segment boundary*
+  (deliberately not `Uri.IsBaseOf`, which is an ordinal string-prefix test under which a mirror at
+  `https://mirror/models` would wrongly be the base of `https://mirror/modelsEvil/file.bin`). Exactly
+  one trailing slash is trimmed from both paths before comparing, so `https://mirror/models/` and
+  `https://mirror/models` denote the same base. A request outside the scope carries no
+  `Authorization` header, because a caller can hold this public type directly (bypassing
+  `SpeechModelDownloader`'s URI rewriting) and ask it to fetch an unrelated address.
+- **Dispose()**: Disposes the internally created `HttpClient` only when this instance created it; a
+  caller-supplied `HttpClient` remains the caller's to dispose.
+
+**Requirement mapping**: the unit requirements describe only the observable wire behavior (exact
+bytes and progress, failure on non-2xx, which requests carry which `Authorization` header, nothing on
+redirected requests); the single shared `HttpClient`, `ApplyMirrorAuthentication`, the segment-boundary
+scope rule and the reliance on `SocketsHttpHandler` redirect handling are design detail documented
+above. `HttpClient`-originated timeouts surface as a `TaskCanceledException` whose `InnerException` is
+a `TimeoutException`; this client does not translate them - `SpeechModelDownloader` recognizes that
+shape (see its design) when the concrete client is in use.
 
 **Error Handling**: Throws `HttpRequestException` (via `EnsureSuccessStatusCode()`) for a
 non-success response, so a non-2xx response never results in an error page's body being silently

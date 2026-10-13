@@ -5,7 +5,7 @@
 Verified through direct unit tests in `SpeechModelDownloaderTests.cs` against a fake
 `IModelDownloadClient` (`FakeModelDownloadClient`, `BarrierModelDownloadClient`,
 `OrderTrackingModelDownloadClient`, and `ThrowingModelDownloadClient`), so every scenario -
-concurrency, checksum verification, atomic swap, the already-installed fast path, mirror URI
+concurrency, checksum verification, installation, the already-installed fast path, mirror URI
 resolution/forwarding, and honest failure classification - runs deterministically with no real
 network access. `ThrowingModelDownloadClient` throws an exact, caller-chosen exception shape
 (including a wrapped `AuthenticationException`/`SocketException`, a bare `TaskCanceledException`,
@@ -59,7 +59,11 @@ client, reporting an `Info` diagnostic, regardless of what descriptor or model i
 (including one whose checksum would mismatch, or whose `InstallAsync` hook would throw), leaving
 the prior successful install completely untouched; cancellation mid-download throws
 `OperationCanceledException` and installs nothing (leaving no staging files behind); disposing the
-downloader while a download is in flight does not fail that download; two concurrent download requests for different
+downloader while a download using a caller-supplied client is in flight does not fail that download
+(a downloader-owned client is released by dispose and gives no such guarantee; hosts cancel and await
+outstanding downloads first); a credentialed mirror combined with a caller-supplied client is rejected at
+construction, while a credentialed loopback mirror with the downloader's own client sends the mirror's
+`Authorization` header and installs the model; two concurrent download requests for different
 model ids both complete successfully having genuinely run concurrently; two concurrent download
 requests for the same, not-yet-installed model id serialize (the second never reaches the client
 until the first completes), with the second then observing the already-installed fast path once
@@ -162,8 +166,9 @@ the model is not installed, and no staging files remain under the store root.
 
 **Test**: `SpeechModelDownloader_DownloadAsync_DisposedWhileInFlight_StillCompletes`
 
-**Scenario**: The downloader is disposed while a download is held open in the client; once released, the
-download still reports `Installed` (the lock release swallows the `ObjectDisposedException`).
+**Scenario**: The downloader (using a caller-supplied client) is disposed while a download is held open in the
+client; once released, the download still reports `Installed` (the lock release swallows the
+`ObjectDisposedException`).
 
 ##### Download: Null Descriptor or Model Throws ArgumentNullException
 
@@ -264,6 +269,15 @@ installed, and the content it leaves behind is what gets installed.
 ##### Constructor: Credentialed Mirror With Caller-Supplied Client Throws ArgumentException
 
 **Test**: `SpeechModelDownloader_Constructor_CredentialedMirrorWithCallerSuppliedClient_ThrowsArgumentException`
+
+##### Download: Credentialed Loopback Mirror With Owned Client Sends Authorization and Installs
+
+**Test**: `SpeechModelDownloader_DownloadAsync_CredentialedLoopbackMirrorWithOwnedClient_SendsAuthorizationAndInstalls`
+
+**Scenario**: A bearer-token mirror whose base location is a loopback WireMock.Net server is configured with no
+caller-supplied client, so the downloader creates and owns its HTTP client. The server serves the payload at the
+mirror-relative path; the model installs and the single recorded request carries the bearer `Authorization`
+header. This is the end-to-end evidence that the supported credentialed-mirror form actually authenticates.
 
 ##### Download: HttpRequestException With Status Code Reports HttpError
 

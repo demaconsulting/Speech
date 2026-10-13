@@ -1,8 +1,9 @@
 ---
 # Software Unit Requirements for IModelDownloadClient
 #
-# These requirements describe the design-level behavior of the IModelDownloadClient unit,
-# decomposing the parent ModelManagementSubsystem requirements.
+# These requirements describe the observable contract of the IModelDownloadClient unit (what a
+# conforming download client does for a caller), decomposing the parent ModelManagementSubsystem
+# requirements. The interface's member shape is documented in the unit design, not here.
 
 sections:
   - title: Speech Requirements
@@ -13,15 +14,14 @@ sections:
             requirements:
               - id: Speech-Models-IModelDownloadClient-Seam
                 title: >-
-                  The IModelDownloadClient interface shall define a single mockable
-                  DownloadAsync(Uri, Stream, IProgress, CancellationToken) member that isolates
-                  SpeechModelDownloader from any concrete HTTP implementation.
+                  The model download client contract shall let the model downloader's
+                  fetch/verify/install behavior run against a substitute implementation with no
+                  real network access, while the production path uses a real HTTP implementation.
                 justification: |
                   This library's "own interfaces over direct OTS types" decision requires a
-                  library-owned abstraction so that SpeechModelDownloader's
-                  fetch/verify/install orchestration can be unit tested with a fake
-                  implementation and no real network access, while the production path still uses
-                  a real HTTP implementation.
+                  library-owned abstraction so that the downloader's orchestration can be unit
+                  tested deterministically with a fake implementation, while the production path
+                  still fetches over real HTTP(S).
                 tests:
                   - SpeechModelDownloader_DownloadAsync_ValidPayload_InstallsModelAndReportsProgress
                   - SpeechModelDownloader_DownloadAsync_TwoConcurrentRequestsForSameModelId_AreSerialized
@@ -29,26 +29,50 @@ sections:
 
               - id: Speech-Models-IModelDownloadClient-NoPerCallMirrorAuth
                 title: >-
-                  The IModelDownloadClient interface's DownloadAsync member shall accept no
-                  per-call mirror-authentication parameter, so that any mirror authentication
-                  an implementation applies is configured once, at construction, instead.
+                  A download request made through the model download client contract shall carry
+                  no per-request mirror-authentication input; any mirror authentication a client
+                  applies shall be determined solely by that client's own configuration, and a
+                  client with no mirror configured shall send no authorization.
                 justification: |
-                  This member's signature is part of this library's public API surface, so it
-                  stays a fixed 4-parameter signature: a host's own implementation remains
-                  source-compatible across releases (enforced implicitly, because every fake and
-                  implementation must implement exactly this member). Adding a
-                  per-call mirrorAuth parameter would break every existing host implementation of
-                  this interface on upgrade; configuring mirror authentication once at
-                  construction (see HttpModelDownloadClient's constructor) achieves the same
-                  behavior without widening this seam's signature.
+                  A host's own implementation of the contract must stay compatible across
+                  releases, so mirror authentication is configured once on the client rather than
+                  passed with every request. The observable consequence is that a configured
+                  client authenticates every in-scope request the same way and an unconfigured
+                  client never authenticates.
                 tests:
                   - HttpModelDownloadClient_DownloadAsync_NoMirrorAuth_SendsNoAuthorizationHeader
                   - HttpModelDownloadClient_DownloadAsync_BearerTokenMirror_SendsBearerAuthorizationHeader
 
+              - id: Speech-Models-IModelDownloadClient-SuccessDeliversBytes
+                title: >-
+                  A successful download through the model download client contract shall write
+                  exactly the fetched bytes to the caller-supplied destination and shall leave
+                  that destination open for the caller.
+                justification: |
+                  The caller verifies and installs the destination's content and owns its
+                  lifetime; a client that truncated, altered, or closed the destination would
+                  break checksum verification and the caller's cleanup.
+                tests:
+                  - HttpModelDownloadClient_DownloadAsync_StubbedServer_DownloadsExactBytesWithProgress
+                  - HttpModelDownloadClient_DownloadAsync_Success_LeavesDestinationOpen
+
+              - id: Speech-Models-IModelDownloadClient-ProgressReporting
+                title: >-
+                  A download through the model download client contract shall report progress as
+                  the bytes arrive, describing a single-file transfer and ending at the total
+                  number of bytes fetched.
+                justification: |
+                  Callers drive progress displays from these reports, and a multi-file caller
+                  rewrites the file position itself, so each client reports only the one file it
+                  was asked to fetch.
+                tests:
+                  - HttpModelDownloadClient_DownloadAsync_StubbedServer_DownloadsExactBytesWithProgress
+
               - id: Speech-Models-IModelDownloadClient-ThrowsOnFailure
                 title: >-
-                  The IModelDownloadClient interface's DownloadAsync member shall throw, rather
-                  than silently truncate, on a non-success response or transport failure.
+                  A download through the model download client contract shall fail with an
+                  exception, rather than silently truncate, on a non-success response or a
+                  transport failure.
                 justification: |
                   A caller can only tell a complete download from a partial one if every failure
                   surfaces as an exception.
@@ -57,10 +81,11 @@ sections:
 
               - id: Speech-Models-IModelDownloadClient-CancellationSurfaces
                 title: >-
-                  The IModelDownloadClient interface's DownloadAsync member shall surface
-                  cancellation of its token as an OperationCanceledException.
+                  A download through the model download client contract shall surface
+                  cancellation of the caller's token as an operation-canceled failure.
                 justification: |
                   The downloader relies on cancellation propagating so it can discard the staging
                   directory and install nothing.
                 tests:
+                  - HttpModelDownloadClient_DownloadAsync_CanceledToken_ThrowsOperationCanceledException
                   - SpeechModelDownloader_DownloadAsync_CanceledMidDownload_ThrowsAndInstallsNothing

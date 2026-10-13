@@ -38,13 +38,30 @@ the follow-up (redirected) request carries no authorization header at all, confi
 `HttpClient`'s own redirect handling - not this class - is what prevents the mirror's secret from
 ever reaching a redirect target. A request to a URI outside the mirror's base, and a mirror whose
 base URI differs from the request only by a trailing slash, are likewise classified correctly: the
-former carries no authorization header, the latter does.
+former carries no authorization header, the latter does. Also verified: a successful download leaves
+the caller-owned destination stream open, and an already-canceled token surfaces as an
+operation-canceled failure with nothing written to the destination.
 
 #### Test Scenarios
 
 ##### Download: Stubbed Server Downloads Exact Bytes With Progress
 
 **Test**: `HttpModelDownloadClient_DownloadAsync_StubbedServer_DownloadsExactBytesWithProgress`
+
+Also asserts every progress report describes a single-file transfer (file index 0 of 1).
+
+##### Download: Successful Download Leaves Destination Open
+
+**Test**: `HttpModelDownloadClient_DownloadAsync_Success_LeavesDestinationOpen`
+
+Verifies the caller-owned destination stream is still usable after a successful download.
+
+##### Download: Already-Canceled Token Throws OperationCanceledException
+
+**Test**: `HttpModelDownloadClient_DownloadAsync_CanceledToken_ThrowsOperationCanceledException`
+
+Verifies cancellation surfaces as an operation-canceled failure and nothing is written to the
+destination.
 
 ##### Download: Non-Success Response Throws HttpRequestException
 

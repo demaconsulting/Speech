@@ -17,7 +17,8 @@ Tests pass when exactly the allow-listed entries are extracted with the root fol
 requested, the emotion clips), `pack.json` is written with the variants and clip counts, the archive is
 deleted, every unsafe, non-portable, duplicate or malformed archive fails with `InvalidDataException` without
 writing outside the staging directory, content over the per-entry or total size cap fails while content
-exactly at the (inclusive) caps succeeds, and cancellation is honored.
+exactly at the (inclusive) caps succeeds, and cancellation is honored (including before the archive is opened
+and for an archive with no entries). Every entry, extracted or ignored, is checked for platform-portable names.
 
 #### Test Scenarios
 
@@ -39,6 +40,10 @@ exactly at the (inclusive) caps succeeds, and cancellation is honored.
 
 **Test**: `ReferenceVoicePackInstaller_Install_PlatformInvalidEntryName_ThrowsInvalidData`
 
+**Test**: `ReferenceVoicePackInstaller_Install_IgnoredEntryWithInvalidSegment_ThrowsInvalidData` (an entry
+outside the root, a non-allow-listed entry inside it, and an emotion entry when emotions are not requested,
+each with a platform-invalid segment, still fail the install)
+
 **Test**: `ReferenceVoicePackInstaller_Install_WithEmotions_UnsafeEmotionEntry_Throws` (also covers a colon, a
 trailing dot or space and a control character in an emotion speaker folder)
 
@@ -50,6 +55,12 @@ trailing dot or space and a control character in an emotion speaker folder)
 **Test**: `ReferenceVoicePackInstaller_Install_NotAZip_Throws`
 
 **Test**: `ReferenceVoicePackInstaller_Install_CanceledToken_Throws`
+
+**Test**: `ReferenceVoicePackInstaller_Install_CanceledTokenAndMissingArchive_ThrowsOperationCanceled`
+(cancellation wins over a missing archive)
+
+**Test**: `ReferenceVoicePackInstaller_Install_CanceledTokenAndEmptyArchive_ThrowsOperationCanceled`
+(cancellation wins over the no-voices failure of an archive with no entries)
 
 **Test**: `ReferenceVoicePackInstaller_Install_NoVoices_KeepsArchive`
 

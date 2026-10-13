@@ -1,8 +1,8 @@
 ---
 # Software Unit Requirements for SpeechModelDownloadProgress
 #
-# These requirements describe the design-level behavior of the SpeechModelDownloadProgress unit,
-# decomposing the parent ModelManagementSubsystem requirements.
+# These requirements describe the observable behavior of download progress reporting, decomposing
+# the parent ModelManagementSubsystem requirements. Type and property names are in the design document.
 
 sections:
   - title: Speech Requirements
@@ -13,8 +13,8 @@ sections:
             requirements:
               - id: Speech-Models-SpeechModelDownloadProgress-FractionComplete
                 title: >-
-                  The SpeechModelDownloadProgress record shall compute FractionComplete as
-                  BytesTransferred divided by TotalBytes when the total is known and positive.
+                  A progress report shall expose the completed fraction of a file transfer as the
+                  bytes transferred divided by the total, when the total is known and positive.
                 justification: |
                   A host progress UI needs a single, unambiguous fraction.
                 tests:
@@ -22,18 +22,18 @@ sections:
 
               - id: Speech-Models-SpeechModelDownloadProgress-UnknownTotal
                 title: >-
-                  The SpeechModelDownloadProgress record shall return a null FractionComplete when
-                  the total is unknown.
+                  A progress report shall expose no completed fraction when the total size of the
+                  transfer is unknown.
                 justification: |
-                  An unknown total (chunked transfer with no Content-Length) must not be
+                  An unknown total (chunked transfer with no declared length) must not be
                   misreported as zero progress.
                 tests:
                   - SpeechModelDownloadProgress_FractionComplete_UnknownTotal_ReturnsNull
 
               - id: Speech-Models-SpeechModelDownloadProgress-ZeroTotal
                 title: >-
-                  The SpeechModelDownloadProgress record shall return a FractionComplete of 1 when
-                  the total is exactly zero.
+                  A progress report shall expose a completed fraction of one when the total size
+                  of the transfer is exactly zero.
                 justification: |
                   A genuinely empty file must report as complete rather than dividing by zero.
                 tests:

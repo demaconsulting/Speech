@@ -27,6 +27,32 @@ declared download descriptors.
   literal such as `127.0.0.1` or `::1`), since that traffic never leaves the local machine and
   both are sent preemptively (no challenge/response handshake) by `HttpModelDownloadClient`.
 
+`Credentials` is applied by `HttpModelDownloadClient` strictly as a preemptive HTTP Basic
+`Authorization` header; a true NTLM (or other challenge/response) negotiation is deliberately not
+supported, because it would require a dedicated `HttpClientHandler` that bypasses the host's own
+`HttpClient` configuration (proxy, timeouts, certificate validation). `BearerToken` is applied as a
+single `Authorization: Bearer` header. Mutual exclusivity is enforced by the constructor rather than
+resolved with a silent precedence, so a host never wonders why one credential is ignored.
+
+The compiler-generated `ToString` of the record is customized through a private `PrintMembers`
+override: `BaseUri` and `Credentials` print as the record printer would (a `NetworkCredential` prints
+only its type name, never the password), while `BearerToken` prints as `null` when unset and as the
+fixed placeholder `***` when set, so the secret can never leak through logging, exception messages,
+or debugger display of the mirror or of a containing `SpeechModelDownloaderOptions`. Rejecting a
+user-info component in `BaseUri` closes the only other path by which a secret could reach `ToString`.
+
+The query string/fragment rule exists because `SpeechModelDownloader.ResolveEffectiveUri` appends
+path segments directly onto `BaseUri`'s string form: a query or fragment delimiter would end up
+before the appended model path (for example `https://mirror/models?x=1` becoming
+`.../models?x=1/model-a/model.bin`), whose real request path never reaches the intended file. The
+`http`/`https`-only rule exists because `HttpModelDownloadClient` has no implementation path for a
+`file://`/UNC mirror, and the absolute-URI rule because a relative base cannot combine with a model's
+relative install path.
+
+**Requirement mapping**: the unit requirements state only the observable behavior (what mirror
+configurations are accepted or rejected, and that bearer-token secrets are not disclosed); the
+record shape, member names and enforcement order described above are design detail.
+
 **Error Handling**: Throws `ArgumentNullException` when `BaseUri` is null, and `ArgumentException`
 when `BaseUri` is not absolute, its scheme is neither `http` nor `https`, it carries a query
 string, fragment, or user-info component, both `Credentials` and `BearerToken` are supplied,

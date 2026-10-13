@@ -14,13 +14,15 @@ constructor to substitute the synthetic pack for the built-in one. No network ac
 
 #### Acceptance Criteria
 
-Tests pass when the documented layout is produced and no folder is created until asked; install, repeat,
+Tests pass when packs and the user folder are kept inside the store root (the documented hierarchy, a design
+choice rather than a requirement) and no folder is created until asked; install, repeat,
 failure and state reporting behave as specified (including a mirror URL and a checksum mismatch
 installing nothing); uninstall keeps the user folder, discards an upgrade backup and waits for an
 in-flight install of the pack before removing it (a token canceled while waiting cancels only the uninstall
 and leaves the install intact); disposal is idempotent
 and a disposed library refuses installs; emotion variants install by default, are optional, attach as
-`MoodClips` without adding voice ids, upgrade a voices-only install safely (a failed, canceled or
+`MoodClips` (addressable by mood name) without adding voice ids, upgrade a voices-only install safely (a failed,
+canceled or
 abandoned upgrade keeps the previous install), serialize concurrent installs and report variants
 without throwing; and the merged voice list follows the documented order with the first id winning.
 

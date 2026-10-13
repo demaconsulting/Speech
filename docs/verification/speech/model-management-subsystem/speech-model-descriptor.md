@@ -20,7 +20,8 @@ is rejected, and that two descriptors for the same model in different states are
 likewise `LicenseName` and `LicenseUrl` always mirror the wrapped `Model`'s declared license
 name and URL (including a model that declares a non-default license); a null `model` throws
 `ArgumentNullException`; two descriptors for the same model and state are equal; two descriptors differing only in
-`State` are not equal.
+`State` are not equal; two descriptors for different model instances are not equal even with the same state;
+the descriptor's public properties have no setters and its state is unaffected by later changes to the model.
 
 #### Test Scenarios
 
@@ -43,6 +44,20 @@ name and URL (including a model that declares a non-default license); a null `mo
 ##### The same model and state are equal
 
 **Test**: `SpeechModelDescriptor_SameModelAndState_AreEqual`
+
+##### Different model instances with the same state are not equal
+
+**Test**: `SpeechModelDescriptor_DifferentModelInstance_SameState_AreNotEqual`
+
+Two distinct but identically named fake models are wrapped with the same state; equality is by model instance.
+
+##### Immutability: no public setters
+
+**Test**: `SpeechModelDescriptor_Snapshot_PublicProperties_HaveNoSetters`
+
+##### Immutability: state stays the observed value when the model changes later
+
+**Test**: `SpeechModelDescriptor_Snapshot_ModelChangesLater_StateRemainsObservedValue`
 
 ##### A null model throws ArgumentNullException
 

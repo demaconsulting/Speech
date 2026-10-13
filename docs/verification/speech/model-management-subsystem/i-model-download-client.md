@@ -3,11 +3,13 @@
 #### Verification Approach
 
 Verified indirectly through `SpeechModelDownloaderTests.cs`, which substitutes hand-written fake
-implementations (`FakeModelDownloadClient`, `ConcurrencyTrackingModelDownloadClient`) to prove
-`SpeechModelDownloader`'s orchestration logic against this seam, and directly through
+implementations (`FakeModelDownloadClient`, `OrderTrackingModelDownloadClient`,
+`BarrierModelDownloadClient`, `ThrowingModelDownloadClient`) to prove `SpeechModelDownloader`'s
+orchestration logic against this seam, and directly through
 `HttpModelDownloadClientTests.cs`, which proves the one real implementation
 (`HttpModelDownloadClient`) genuinely satisfies the contract against a WireMock.Net-stubbed HTTP
-server.
+server. The seam's `DownloadAsync` has four parameters; mirror authentication is a construction-time
+setting of `HttpModelDownloadClient` and never a per-call input.
 
 #### Test Environment
 
@@ -21,7 +23,8 @@ server.
 
 Tests pass when a fake implementation of this seam lets `SpeechModelDownloader`'s
 fetch/verify/install logic be exercised deterministically with no real network
-access, and when the real implementation applies mirror authentication only from its construction-time
+access, and when the real implementation delivers exactly the served bytes with the destination
+left open, reports single-file progress ending at the total, applies mirror authentication only from its construction-time
 configuration (no per-call parameter exists), throws on a non-success response, and surfaces
 cancellation. How `SpeechModelDownloader` resolves the request URI is verified with that unit.
 
@@ -47,9 +50,18 @@ cancellation. How `SpeechModelDownloader` resolves the request URI is verified w
 
 **Scenario**: The real client downloads from a WireMock-stubbed server.
 
-**Expected**: The destination receives exactly the served bytes and progress is reported.
+**Expected**: The destination receives exactly the served bytes, and progress is reported as
+single-file (index 0 of 1) with a monotonically increasing byte count ending at the total.
 
 **Test**: `HttpModelDownloadClient_DownloadAsync_StubbedServer_DownloadsExactBytesWithProgress`
+
+##### Download: Destination Stream Is Left Open (real implementation)
+
+**Scenario**: The real client downloads a small file into a caller-owned stream.
+
+**Expected**: The stream is still writable after the call, because the caller owns its lifetime.
+
+**Test**: `HttpModelDownloadClient_DownloadAsync_Success_LeavesDestinationOpen`
 
 ##### Mirror Authentication Is Fixed at Construction (real implementation)
 
@@ -69,6 +81,14 @@ downloads from the stubbed server.
 the interface contract requires.
 
 **Test**: `HttpModelDownloadClient_DownloadAsync_NonSuccessResponse_ThrowsHttpRequestException`
+
+##### Error path: Cancellation Is Observed (real implementation)
+
+**Scenario**: The real client is called with an already-canceled token.
+
+**Expected**: An operation-canceled exception is thrown.
+
+**Test**: `HttpModelDownloadClient_DownloadAsync_CanceledToken_ThrowsOperationCanceledException`
 
 ##### Error path: Cancellation Is Observed (via fake seam)
 

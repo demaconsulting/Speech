@@ -15,19 +15,20 @@ sections:
             requirements:
               - id: Speech-Models-ReferenceVoiceLibrary-StoreLayout
                 title: >-
-                  The ReferenceVoiceLibrary class shall keep packs under a reference-voices folder
-                  inside the model store root, laying each pack out as
-                  reference-voices/{packId}/current.
+                  The ReferenceVoiceLibrary class shall keep each installed pack inside the model
+                  store root, in an area of its own that is separate from the models, so that a pack
+                  is found again from the same store root and one pack does not disturb another.
                 justification: |
                   Keeping reference voices beside the models they serve lets one store location
-                  (and one configurable root) cover everything.
+                  (and one configurable root) cover everything. The exact folder hierarchy is a
+                  design decision recorded in the unit design.
                 tests:
                   - ReferenceVoiceLibrary_Paths_FollowDocumentedLayout
 
               - id: Speech-Models-ReferenceVoiceLibrary-UserFolder
                 title: >-
-                  The ReferenceVoiceLibrary class shall keep a user voice folder at
-                  reference-voices/user, create it on request, and list the voices placed in it.
+                  The ReferenceVoiceLibrary class shall keep a user voice folder in the reference-voice
+                  area of the model store root, create it on request, and list the voices placed in it.
                 justification: |
                   Users need one well-known place to drop their own reference recordings.
                 tests:
@@ -146,8 +147,9 @@ sections:
                   The ReferenceVoiceLibrary class shall, when a pack's install is in flight, wait
                   for it (honoring cancellation) and then uninstall instead of throwing or racing it.
                 justification: |
-                  An uninstall must serialize with an install on the same per-pack lock (awaited,
-                  never blocking a thread) so it cannot delete files the install is writing.
+                  An uninstall must not run at the same time as an install of the same pack, or it
+                  could delete files the install is writing, and waiting must not block the caller's
+                  thread.
                 tests:
                   - ReferenceVoiceLibrary_UninstallPackAsync_WhileInstalling_WaitsThenRemoves
                   - ReferenceVoiceLibrary_UninstallPackAsync_CanceledWhileWaiting_LeavesInstallIntact
@@ -282,11 +284,12 @@ sections:
 
               - id: Speech-Models-ReferenceVoiceLibrary-MoodClipExposure
                 title: >-
-                  The ReferenceVoiceLibrary class shall expose each pack voice's installed emotion
-                  clips as a mood-to-file-path map on the voice without adding voice ids.
+                  The ReferenceVoiceLibrary class shall make each pack voice's installed emotion
+                  clips available by mood name on that voice, each mood returning its usable clip,
+                  without adding voice ids.
                 justification: |
                   Emotion clips are variants of an existing voice, so voice ids and ordering stay
-                  unchanged.
+                  unchanged. How the moods are represented is a design decision.
                 tests:
                   - ReferenceVoiceLibrary_InstallPack_Default_AttachesMoodClipsWithoutExtraVoices
 
@@ -305,8 +308,7 @@ sections:
                   The ReferenceVoiceLibrary class shall upgrade a voices-only install by installing
                   again with emotions.
                 justification: |
-                  The downloader treats an installed pack as complete, so adding emotions to a
-                  voices-only install needs a second download.
+                  A host that installed voices only must be able to add the emotion clips later.
                 tests:
                   - ReferenceVoiceLibrary_InstallPack_UpgradeFromVoicesOnly_AddsEmotions
 
@@ -315,8 +317,7 @@ sections:
                   The ReferenceVoiceLibrary class shall keep the previous install when an upgrade
                   fails or is canceled.
                 justification: |
-                  Keeping the old install aside until the new one is in place means a failed or
-                  canceled upgrade never loses voices.
+                  A failed or canceled upgrade must never lose voices the user already has.
                 tests:
                   - ReferenceVoiceLibrary_InstallPack_FailedUpgrade_KeepsPreviousInstall
                   - ReferenceVoiceLibrary_InstallPack_CanceledUpgrade_KeepsPreviousInstall
@@ -344,8 +345,8 @@ sections:
                 title: >-
                   The ReferenceVoiceLibrary class shall serialize concurrent installs of one pack.
                 justification: |
-                  Serializing calls stops concurrent callers interleaving the upgrade check and the
-                  download.
+                  Concurrent callers must not interleave the upgrade decision and the download for
+                  the same pack.
                 tests:
                   - ReferenceVoiceLibrary_InstallPack_ConcurrentCalls_AreSerialized
 
@@ -355,7 +356,7 @@ sections:
                   throwing, returning none for missing or corrupt metadata (so a later install
                   with emotions downloads the pack again).
                 justification: |
-                  Hosts query variants to decide whether to offer an upgrade; a damaged pack.json
-                  must not break that query.
+                  Hosts query variants to decide whether to offer an upgrade; damaged install
+                  metadata must not break that query.
                 tests:
                   - ReferenceVoiceLibrary_PackVariants_MissingOrCorruptMetadata_AreEmptyAndNeverThrow

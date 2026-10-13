@@ -23,12 +23,12 @@ instance of the sherpa-onnx-backed models this repository ships.
 - **ISpeechModel.DownloadDescriptor**: the `SpeechModelDownloadDescriptor` describing the file(s)
   to download to install this model.
 - **ISpeechModel.InstallAsync(stagedFilesDirectory, cancellationToken)**: unpacks this model's
-  verified, downloaded file(s) in place before `SpeechModelStore` atomically promotes the staging
+  verified, downloaded file(s) in place before `SpeechModelStore` promotes the staging
   directory to `current/`. Defaults to a no-op (`Task.CompletedTask`), matching the common case of
   a model whose single downloaded file needs no unpacking; a model whose declared payload is an
   archive (zip/tar) overrides this to expand it and remove the original archive file. Invoked by
   `SpeechModelDownloader`'s `ISpeechModel`-aware `DownloadAsync` overload after checksum
-  verification and before the atomic swap. An override that needs to locate one of its own
+  verification and before the staged files are moved into place. An override that needs to locate one of its own
   declared files within `stagedFilesDirectory` must resolve it via
   `SpeechModelDownloadFile.ResolveStagedPath`, the same method `SpeechModelDownloader` itself uses
   to compute each file's staging destination, rather than a raw `Path.Join`/string concatenation

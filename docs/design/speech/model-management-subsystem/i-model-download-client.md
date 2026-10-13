@@ -12,8 +12,11 @@ access.
 - **DownloadAsync(sourceUri, destination, progress, cancellationToken)**: Downloads the bytes at
   `sourceUri`, writing them to `destination` as they arrive, reporting `FileIndex = 0` /
   `FileCount = 1` progress (the caller rewrites these for multi-file context), and observing
-  `cancellationToken` between chunks. This signature is part of this library's public API surface
-  and is intentionally never widened with a per-call mirror-authentication parameter, so a host's
+  `cancellationToken` between chunks. The caller owns `destination`'s lifetime: an implementation
+  writes to it but never disposes it, and on success it holds exactly the fetched bytes. This
+  signature has exactly four parameters, is part of this library's public API surface, and is
+  intentionally never widened with a per-call mirror-authentication parameter (an earlier
+  five-parameter form carrying `mirrorAuth` no longer exists), so a host's
   own `IModelDownloadClient` implementation stays source-compatible across releases; any mirror
   authentication an implementation applies is configured once, at construction (see
   `HttpModelDownloadClient`'s constructor), never per call. `SpeechModelDownloader`'s own
@@ -29,6 +32,11 @@ one without inspecting `destination`'s length itself.
 
 **Dependencies**: `SpeechModelDownloadProgress` (carried by the `IProgress<SpeechModelDownloadProgress>`
 parameter), plus the BCL types `Uri`, `Stream`, `IProgress<T>` and `CancellationToken`.
+
+**Requirement mapping**: the unit requirements state the observable contract only (substitutable
+without network, construction-time-only authentication, exact byte delivery with the destination left
+open, single-file progress, exception on failure, cancellation surfacing); the member signature, the
+four-parameter shape and the source-compatibility rationale above are design detail.
 
 **Callers**: `SpeechModelDownloader` (via its injected implementation); `HttpModelDownloadClient`
 (implements it).
