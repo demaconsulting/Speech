@@ -68,13 +68,21 @@ sections:
 
               - id: Speech-Synthesis-PlaybackAudioResampler-Composition
                 title: >-
-                  The PlaybackAudioResampler class shall expose a single Convert operation that
-                  resamples and then upmixes engine-rate mono audio directly to the playback
-                  device's rate and channel count.
+                  The PlaybackAudioResampler class shall convert engine-rate mono audio to the
+                  playback device's sample rate and replicate it across the device's channel
+                  count in one step, so that the result has both the device's rate and its
+                  channel count.
                 justification: |
-                  The synthesis pipeline always needs both conversions applied together for every
-                  segment it plays, so a single composed entry point avoids every caller having to
-                  correctly sequence resample-then-upmix itself.
+                  The synthesis pipeline always needs both conversions for every segment it
+                  plays, so callers must receive audio in exactly the device's format.
                 tests:
                   - PlaybackAudioResampler_Convert_DifferentRateAndChannels_ResamplesThenUpmixes
+
+              - id: Speech-Synthesis-PlaybackAudioResampler-CompositionSingleChannelTarget
+                title: >-
+                  The PlaybackAudioResampler class shall return only rate-converted audio, with no
+                  channel replication, when the playback device requires a single channel.
+                justification: |
+                  A mono device needs no upmix, and replicating channels would corrupt its audio.
+                tests:
                   - PlaybackAudioResampler_Convert_SingleChannelTarget_ReturnsResampledWithoutUpmix

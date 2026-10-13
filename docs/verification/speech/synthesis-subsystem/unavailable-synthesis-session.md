@@ -37,7 +37,9 @@ The session reports unavailable in the `Created` state, and event subscription i
 `UnavailableSynthesisSession_SynthesizeAsync_Always_ThrowsSpeechSynthesizerUnavailableException`,
 `UnavailableSynthesisSession_SynthesizeAsync_NullText_ThrowsArgumentNullException`,
 `UnavailableSynthesisSession_StopAsync_NoSessionInFlight_IsNoOp`,
-`UnavailableSynthesisSession_DisposeAsync_CalledTwice_DoesNotThrow`
+`UnavailableSynthesisSession_DisposeAsync_CalledTwice_DoesNotThrow`,
+`UnavailableSynthesisSession_DisposeAsync_ThenRead_SharedFallbackRemainsValid`
 
 Speak and synthesize throw the documented exception (null text throws
-`ArgumentNullException`); stop and repeated dispose are safe no-ops.
+`ArgumentNullException`); stop and repeated dispose are safe no-ops, and disposal leaves the
+shared fallback session valid for other holders.

@@ -235,7 +235,33 @@ public class DefaultModelCapabilityProfileTests
         var ordinarySegment = plan.Segments.Single(segment => segment.Text.EndsWith("happened.", StringComparison.Ordinal));
         Assert.True(ellipsisSegment.PostSilenceMs > 0);
         Assert.Equal(0, ordinarySegment.PostSilenceMs);
-        Assert.True(ellipsisSegment.PostSilenceMs > ordinarySegment.PostSilenceMs);
+    }
+
+    /// <summary>
+    ///     Proves that the ellipsis-triggered pause duration is distinct from both the short-pause
+    ///     and long-pause tag durations.
+    /// </summary>
+    [Fact]
+    public void DefaultModelCapabilityProfile_Render_ChunkEndingInEllipsis_PauseDiffersFromShortAndLongTagPauses()
+    {
+        // Arrange
+        var model = new StubSpeechModel(SpeechModelAudioTagSupport.None);
+
+        // Act
+        var ellipsisPlan = DefaultModelCapabilityProfile.Instance.Render(
+            AudioTagParser.Parse("Wait for it... Then it happened."), model);
+        var shortPlan = DefaultModelCapabilityProfile.Instance.Render(
+            AudioTagParser.Parse("a [short pause] b"), model);
+        var longPlan = DefaultModelCapabilityProfile.Instance.Render(
+            AudioTagParser.Parse("a [long pause] b"), model);
+
+        // Assert
+        var ellipsisSilence = ellipsisPlan.Segments
+            .Single(segment => segment.Text.EndsWith("...", StringComparison.Ordinal)).PostSilenceMs;
+        var shortSilence = shortPlan.Segments.Single(segment => segment.Text.Length == 0).PostSilenceMs;
+        var longSilence = longPlan.Segments.Single(segment => segment.Text.Length == 0).PostSilenceMs;
+        Assert.NotEqual(shortSilence, ellipsisSilence);
+        Assert.NotEqual(longSilence, ellipsisSilence);
     }
 
     /// <summary>

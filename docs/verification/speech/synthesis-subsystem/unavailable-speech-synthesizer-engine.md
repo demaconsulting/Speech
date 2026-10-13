@@ -28,10 +28,11 @@ disposal as a no-op.
 
 **Tests**: `UnavailableSpeechSynthesizerEngine_IsAvailable_Read_ReturnsFalse`,
 `UnavailableSpeechSynthesizerEngine_CreateSessionAsync_Always_ReturnsUnavailableSession`,
-`UnavailableSpeechSynthesizerEngine_CreateSessionAsync_NullDevice_ThrowsArgumentNullException`
+`UnavailableSpeechSynthesizerEngine_CreateSessionAsync_NullDevice_ThrowsArgumentNullException`,
+`UnavailableSpeechSynthesizerEngine_Instance_ObtainedRepeatedly_DoesNotThrowAndIsShared`
 
-The engine reports unavailable, always returns the shared unavailable session, and rejects only
-a null device.
+The engine reports unavailable, never throws merely for being obtained or held, always returns
+the shared unavailable session, and rejects only a null device.
 
 ##### Unavailable Fallback: Operations Throw and Disposal Is Safe
 

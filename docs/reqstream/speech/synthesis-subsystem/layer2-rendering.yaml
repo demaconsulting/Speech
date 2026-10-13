@@ -95,17 +95,44 @@ sections:
 
               - id: Speech-Synthesis-Layer2Rendering-EllipsisPause
                 title: >-
-                  The default Layer 2 rendering strategy shall render a longer,
-                  chunk-boundary-triggered pause after a chunk whose text ends in a genuine
-                  ellipsis, distinct from the tag-triggered short/long pause durations, while
-                  every other chunk boundary continues to add zero silence.
+                  The default Layer 2 rendering strategy shall render a pause after a chunk whose
+                  text ends in a genuine ellipsis (three or more consecutive '.' characters, with
+                  or without interspersed whitespace).
                 justification: |
-                  A genuine ellipsis (three or more consecutive '.' characters, with or without
-                  interspersed whitespace) models a speaker naturally trailing off, which reads
+                  A genuine ellipsis models a speaker naturally trailing off, which reads
                   unnaturally abrupt if followed immediately by the next chunk with no added
-                  silence; this pause is driven purely by the shape of the already-chunked text,
-                  not by an explicit [pause]/[long-pause] tag, so it is a separate mechanism from
-                  - and does not reuse - the tag-triggered pause durations.
+                  silence.
                 tests:
                   - DefaultModelCapabilityProfile_Render_ChunkEndingInEllipsis_SetsLongerPostSilenceThanOrdinarySentenceEnd
                   - DefaultModelCapabilityProfile_Render_ChunkEndingInSpacedEllipsis_AlsoSetsEllipsisPostSilence
+
+              - id: Speech-Synthesis-Layer2Rendering-EllipsisPauseDuration
+                title: >-
+                  The default Layer 2 rendering strategy shall make the pause after an ellipsis
+                  longer than the zero silence of an ordinary sentence end.
+                justification: |
+                  The pause must be audible to sound like trailing off.
+                tests:
+                  - DefaultModelCapabilityProfile_Render_ChunkEndingInEllipsis_SetsLongerPostSilenceThanOrdinarySentenceEnd
+
+              - id: Speech-Synthesis-Layer2Rendering-EllipsisPauseDistinctFromTagPause
+                title: >-
+                  The default Layer 2 rendering strategy shall use an ellipsis pause duration
+                  distinct from the short-pause and long-pause tag durations.
+                justification: |
+                  The ellipsis pause is driven purely by the shape of the chunked text, not by an
+                  explicit pause tag, so it is a separate mechanism that must not reuse the
+                  tag-triggered durations.
+                tests:
+                  - DefaultModelCapabilityProfile_Render_ChunkEndingInEllipsis_PauseDiffersFromShortAndLongTagPauses
+
+              - id: Speech-Synthesis-Layer2Rendering-NoPauseAtOrdinaryBoundary
+                title: >-
+                  The default Layer 2 rendering strategy shall add zero silence at every chunk
+                  boundary that does not follow a genuine ellipsis.
+                justification: |
+                  Ordinary sentence and clause boundaries already carry natural prosody; extra
+                  silence there would slow the narration.
+                tests:
+                  - DefaultModelCapabilityProfile_Render_ChunkEndingInSpacedEllipsis_AlsoSetsEllipsisPostSilence
+                  - DefaultModelCapabilityProfile_Render_ChunkEndingInEllipsis_SetsLongerPostSilenceThanOrdinarySentenceEnd

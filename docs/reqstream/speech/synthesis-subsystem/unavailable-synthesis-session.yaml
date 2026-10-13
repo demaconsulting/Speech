@@ -69,9 +69,19 @@ sections:
               - id: Speech-Synthesis-UnavailableSynthesisSession-SafeDispose
                 title: >-
                   The UnavailableSynthesisSession class shall treat disposal as a safe no-op that
-                  never throws and never invalidates the shared fallback.
+                  never throws, however many times it is requested.
                 justification: |
                   A host that wraps its session in a disposal scope must be able to run that same
                   code unchanged on a machine where synthesis is unavailable.
                 tests:
                   - UnavailableSynthesisSession_DisposeAsync_CalledTwice_DoesNotThrow
+
+              - id: Speech-Synthesis-UnavailableSynthesisSession-DisposalPreservesFallback
+                title: >-
+                  The UnavailableSynthesisSession class shall remain a valid, unchanged
+                  unavailable session for every other holder after one holder disposes it.
+                justification: |
+                  The fallback session is shared; one holder's disposal must not invalidate it for
+                  any other holder.
+                tests:
+                  - UnavailableSynthesisSession_DisposeAsync_ThenRead_SharedFallbackRemainsValid

@@ -57,7 +57,10 @@ a speed override and strips an emotion tag without an override; `None` strips ev
 
 **Tests**: `DefaultModelCapabilityProfile_Render_PlainTextOnly_RendersChunkedSegments`,
 `DefaultModelCapabilityProfile_Render_ChunkEndingInEllipsis_SetsLongerPostSilenceThanOrdinarySentenceEnd`,
-`DefaultModelCapabilityProfile_Render_ChunkEndingInSpacedEllipsis_AlsoSetsEllipsisPostSilence`
+`DefaultModelCapabilityProfile_Render_ChunkEndingInSpacedEllipsis_AlsoSetsEllipsisPostSilence`,
+`DefaultModelCapabilityProfile_Render_ChunkEndingInEllipsis_PauseDiffersFromShortAndLongTagPauses`
+
+The ellipsis pause is distinct from both tag-pause durations.
 
 ##### Null Argument Rejection
 

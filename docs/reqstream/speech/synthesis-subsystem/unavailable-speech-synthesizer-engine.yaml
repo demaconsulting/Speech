@@ -15,13 +15,21 @@ sections:
             requirements:
               - id: Speech-Synthesis-UnavailableSpeechSynthesizerEngine-ReportsUnavailable
                 title: >-
-                  The UnavailableSpeechSynthesizerEngine class shall report IsAvailable as false
-                  and never throw merely for being obtained or held.
+                  The UnavailableSpeechSynthesizerEngine class shall report IsAvailable as false.
+                justification: |
+                  A caller must be able to detect that synthesis is not possible on this machine.
+                tests:
+                  - UnavailableSpeechSynthesizerEngine_IsAvailable_Read_ReturnsFalse
+
+              - id: Speech-Synthesis-UnavailableSpeechSynthesizerEngine-NeverThrowsWhenObtainedOrHeld
+                title: >-
+                  The UnavailableSpeechSynthesizerEngine class shall never throw merely for being
+                  obtained or held.
                 justification: |
                   A caller must always be able to safely obtain and hold a fallback engine, per
                   this library's "nothing throws at composition" decision.
                 tests:
-                  - UnavailableSpeechSynthesizerEngine_IsAvailable_Read_ReturnsFalse
+                  - UnavailableSpeechSynthesizerEngine_Instance_ObtainedRepeatedly_DoesNotThrowAndIsShared
 
               - id: Speech-Synthesis-UnavailableSpeechSynthesizerEngine-CreateSessionSucceeds
                 title: >-

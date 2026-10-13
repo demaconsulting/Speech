@@ -55,12 +55,11 @@ sections:
 
               - id: Speech-Synthesis-DedicatedWorker-LongRunningExecution
                 title: >-
-                  The DedicatedWorker class shall always execute its delegate on a
-                  TaskCreationOptions.LongRunning task, never on a pooled thread-pool thread.
+                  The DedicatedWorker class shall run its delegate without occupying a pooled
+                  thread-pool thread.
                 justification: |
                   A native synthesis call can legitimately run for a long time (an entire
                   utterance's inference); running it on a pooled thread risks starving the
-                  thread pool for every other unrelated piece of work sharing it, so the worker
-                  must always request a dedicated, long-running thread instead.
+                  thread pool for every other unrelated piece of work sharing it.
                 tests:
                   - DedicatedWorker_Run_UsesLongRunningTaskCreationOption

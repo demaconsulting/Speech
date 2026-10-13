@@ -191,6 +191,16 @@ is resolved by the model from the session's selected parameter values, deliberat
 the transient, tag-scoped per-segment overrides. The exact resolution mechanics are specified in
 _SynthesisSession_.
 
+**Mechanisms behind the subsystem's observable behavior.** The requirements state only what a
+host observes; the mechanisms live here and in the unit documents. The optional parameter-value
+bag passed to `SpeechSynthesizerFactory` is forwarded to the session, which asks the model to
+resolve the speaker once per synthesized segment (_SpeechSynthesizerFactory_, _SynthesisSession_).
+Every native call runs on a dedicated long-running thread under a cooperative-cancel-then-abandon
+policy: cancellation is requested first, and a call that does not return within the abandon
+timeout is detached so the caller is never hung, leaving the session `Faulted` (_DedicatedWorker_,
+_SynthesisSession_). `StopAsync` cancels the in-flight operation and completes only when that
+operation has unwound, and does nothing when none is in flight (_SynthesisSession_).
+
 **Synthesized text is never reported through diagnostics.** Every diagnostic this subsystem emits
 is a structural fact - composed, started, stopped, faulted, or lease-related - and never includes
 synthesized text, honoring the same `ISpeechDiagnostics` contract the recognition direction
