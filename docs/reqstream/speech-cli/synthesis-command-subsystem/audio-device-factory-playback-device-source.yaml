@@ -1,0 +1,36 @@
+---
+# Software Unit Requirements for the SpeechCli AudioDeviceFactoryPlaybackDeviceSource
+#
+# These requirements describe the behavior of the AudioDeviceFactoryPlaybackDeviceSource unit - the
+# production ICliPlaybackDeviceSource backed by the library's AudioDeviceFactory - decomposing the
+# parent SynthesisCommandSubsystem requirements.
+#
+# Every test below is an AudioDeviceFactoryPlaybackDeviceSourceTests test.
+
+sections:
+  - title: SpeechCli Requirements
+    sections:
+      - title: SynthesisCommandSubsystem Requirements
+        sections:
+          - title: AudioDeviceFactoryPlaybackDeviceSource Requirements
+            requirements:
+              - id: SpeechCli-SynthesisCommands-PlaybackDeviceSelection
+                title: >-
+                  The AudioDeviceFactoryPlaybackDeviceSource shall list playback devices and
+                  create the playback device for a selection exactly as the library's
+                  AudioDeviceFactory does.
+                justification: |
+                  An operator choosing an output device expects `speak` to resolve devices exactly
+                  as the rest of the tool and the library do, with no behavior of its own on top.
+                tests:
+                  - AudioDeviceFactoryPlaybackDeviceSource_PlaybackProbe_ForwardsToFactory
+                  - AudioDeviceFactoryPlaybackDeviceSource_CreatePlaybackDevice_ForwardsToFactory
+
+              - id: SpeechCli-SynthesisCommands-PlaybackDeviceSourceFactoryRequired
+                title: >-
+                  The AudioDeviceFactoryPlaybackDeviceSource shall reject a missing factory.
+                justification: |
+                  A source with no factory could never resolve a device, so the mistake is a
+                  programming error to surface at creation.
+                tests:
+                  - AudioDeviceFactoryPlaybackDeviceSource_NullFactory_ThrowsArgumentNullException

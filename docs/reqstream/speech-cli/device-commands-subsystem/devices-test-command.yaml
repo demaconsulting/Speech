@@ -1,0 +1,212 @@
+---
+# Software Unit Requirements for the SpeechCli DevicesTestCommand
+#
+# These requirements describe the behavior of the DevicesTestCommand unit (`devices test`),
+# decomposing the system-level requirement SpeechCli-DeviceTest in docs/reqstream/speech-cli.yaml.
+#
+# The requirements are grouped by concern, one criterion each:
+#   - Selection and direction (DeviceCommands-DevicesTest, -DevicesTestOutput, -DevicesTestInput)
+#   - Output tone (DeviceCommands-ToneGeneration, -ToneNoModelRequired, -ToneSampleRateValidation,
+#     -ToneAmplitudeRange, -ToneChannelIdentity, -DevicesTestOutputDrainTimeout)
+#   - Input recording (DeviceCommands-DevicesTestInputNoSamples,
+#     -DevicesTestInvariantFormatting)
+#   - Validation (DeviceCommands-DevicesTestDeviceValidation, -DevicesTestDeviceUnavailable,
+#     -DevicesTestArgumentValidation)
+# The DevicesTestCommand_ tests are in DevicesTestCommandTests; SpeechCli_ tests are in
+# IntegrationTests.
+
+sections:
+  - title: SpeechCli Requirements
+    sections:
+      - title: DeviceCommandsSubsystem Requirements
+        sections:
+          - title: DevicesTestCommand Requirements
+            requirements:
+              - id: SpeechCli-DeviceCommands-DevicesTest
+                title: >-
+                  The DevicesTestCommand shall test the device named by `--device <name>`, or
+                  the platform default device when `--device` is omitted.
+                tags: [unit]
+                justification: |
+                  An operator needs to prove a specific audio device works before relying on it
+                  for real speech I/O, and a bare invocation must still test something useful.
+                  What the test then does is specified by the output and input requirements.
+                tests:
+                  - DevicesTestCommand_ParseArguments_DeviceFlag_ParsesDeviceName
+                  - DevicesTestCommand_ResolveDeviceSelectionOrThrow_NullDeviceName_ReturnsNull
+                  - DevicesTestCommand_ResolveDeviceSelectionOrThrow_KnownDeviceName_ReturnsSelection
+
+              - id: SpeechCli-DeviceCommands-DevicesTestOutput
+                title: >-
+                  The DevicesTestCommand shall play a short synthesized test tone on the
+                  selected playback device when invoked for the output direction, which is the
+                  default when `--direction` is omitted.
+                tags: [unit]
+                justification: |
+                  Defaulting to the output direction avoids implicitly recording real audio
+                  input as a side effect of a bare invocation, since recording is inherently
+                  more privacy-sensitive than playing a tone.
+                tests:
+                  - DevicesTestCommand_ParseArguments_NoFlags_DefaultsToOutputDirection
+                  - DevicesTestCommand_ParseArguments_DirectionOutput_ParsesToPlaybackDirection
+                  - DevicesTestCommand_PlayTestTone_AvailableDevice_WritesToneAndReportsIt
+
+              - id: SpeechCli-DeviceCommands-DevicesTestInput
+                title: >-
+                  The DevicesTestCommand shall record a short clip from the selected capture
+                  device and report the sample count and peak amplitude when invoked with
+                  `--direction input`.
+                tags: [unit]
+                justification: |
+                  An operator needs to confirm that a microphone actually delivers audio
+                  without needing a downloaded recognition model.
+                tests:
+                  - DevicesTestCommand_ParseArguments_DirectionInput_ParsesToCaptureDirection
+                  - DevicesTestCommand_RecordTestClip_DeviceDeliversFrames_ReportsSampleCountAndPeak
+
+              - id: SpeechCli-DeviceCommands-DevicesTestInputNoSamples
+                title: >-
+                  The DevicesTestCommand shall fail with a non-zero exit code and a clear
+                  message when the capture device delivers no samples during a
+                  `devices test --direction input` recording.
+                tags: [unit]
+                justification: |
+                  A capture test that recorded nothing has not proven that the microphone works,
+                  so reporting success with a zero peak would hide exactly the fault the command
+                  exists to detect.
+                tests:
+                  - DevicesTestCommand_RecordTestClip_DeviceDeliversNoFrames_ThrowsInvalidOperationException
+
+              - id: SpeechCli-DeviceCommands-DevicesTestDeviceValidation
+                title: >-
+                  The DevicesTestCommand shall reject a `--device` name that no enumerated
+                  device of the tested direction carries, with a clean, non-zero-exit-code error
+                  that names the device, rather than a stack trace.
+                tags: [unit]
+                justification: |
+                  Validating the device name before any tone or recording is attempted makes a
+                  mistyped device name fail predictably.
+                tests:
+                  - DevicesTestCommand_ResolveDeviceSelectionOrThrow_UnknownDeviceName_ThrowsArgumentException
+                  - DevicesTestCommand_Run_UnknownPlaybackDevice_ThrowsArgumentException
+                  - DevicesTestCommand_Run_UnknownCaptureDevice_ThrowsArgumentException
+                  - SpeechCli_DevicesTestCommandWithUnknownDevice_Invoked_ReturnsCleanError
+
+              - id: SpeechCli-DeviceCommands-DevicesTestDeviceUnavailable
+                title: >-
+                  The DevicesTestCommand shall reject a resolved playback or capture device that
+                  is not available with a clean, non-zero-exit-code error rather than a stack
+                  trace.
+                tags: [unit]
+                justification: |
+                  On a machine without a working audio backend the test cannot prove anything,
+                  and saying so plainly is the honest result. The availability check is tested
+                  directly with fake devices; the wiring from real device creation into that
+                  check is verified manually.
+                tests:
+                  - DevicesTestCommand_RequireAvailable_UnavailablePlaybackDevice_ThrowsInvalidOperationException
+                  - DevicesTestCommand_RequireAvailable_UnavailableCaptureDevice_ThrowsInvalidOperationException
+
+              - id: SpeechCli-DeviceCommands-DevicesTestArgumentValidation
+                title: >-
+                  The DevicesTestCommand shall reject a `devices` invocation with a missing or
+                  unknown sub-action, an invalid or valueless `--direction` or `--device`, or an
+                  unsupported flag, with a clean, non-zero-exit-code error rather than a stack
+                  trace.
+                tags: [unit]
+                justification: |
+                  A mistyped devices command must fail predictably so a script can detect it.
+                tests:
+                  - DevicesTestCommand_ParseArguments_MissingSubAction_ThrowsArgumentException
+                  - DevicesTestCommand_ParseArguments_UnknownSubAction_ThrowsArgumentException
+                  - DevicesTestCommand_ParseArguments_InvalidDirectionValue_ThrowsArgumentException
+                  - DevicesTestCommand_ParseArguments_UnsupportedFlag_ThrowsArgumentException
+                  - DevicesTestCommand_ParseArguments_DeviceFlagMissingValue_ThrowsArgumentException
+                  - SpeechCli_DevicesCommandWithoutSubAction_Invoked_ReturnsCleanError
+
+              - id: SpeechCli-DeviceCommands-DevicesTestOutputDrainTimeout
+                title: >-
+                  The DevicesTestCommand shall fail the output test with a non-zero exit code
+                  and a clear message, rather than hanging, when the playback device has not
+                  finished playing the test tone within 7 seconds in total (the 2-second tone
+                  duration plus a fixed 5-second margin).
+                tags: [unit]
+                justification: |
+                  A stalled or disconnected output device must not leave a diagnostic command
+                  blocked forever, since the command exists to detect exactly that kind of
+                  fault. The test injects a 1 ms limit so the failure path is instant; the
+                  7-second default is a constant that no automated test asserts.
+                tests:
+                  - DevicesTestCommand_PlayTestTone_DeviceNeverDrains_ThrowsInvalidOperationException
+
+              - id: SpeechCli-DeviceCommands-DevicesTestInvariantFormatting
+                title: >-
+                  The DevicesTestCommand shall report durations with a period as the decimal
+                  separator regardless of the operator's culture.
+                tags: [unit]
+                justification: |
+                  A script parsing the report must see the same text on every machine.
+                tests:
+                  - DevicesTestCommand_RecordTestClip_CommaDecimalCulture_ReportsInvariantDuration
+
+              - id: SpeechCli-DeviceCommands-ToneGeneration
+                title: >-
+                  The DevicesTestCommand shall play the output test tone for its full
+                  two-second duration at the playback device's own sample rate and channel
+                  count.
+                tags: [unit]
+                justification: |
+                  A tone shorter or longer than advertised, or at the wrong rate or channel
+                  layout, would make the sanity check misleading. The exact sample count is
+                  proven with pure math and by the playback test, with no real hardware.
+                tests:
+                  - DevicesTestCommand_GenerateToneSamples_ReturnsExpectedSampleCount
+                  - DevicesTestCommand_PlayTestTone_AvailableDevice_WritesToneAndReportsIt
+
+              - id: SpeechCli-DeviceCommands-ToneNoModelRequired
+                title: >-
+                  The DevicesTestCommand shall play the output test tone without any downloaded
+                  speech model.
+                tags: [unit]
+                justification: |
+                  Sanity-checking playback hardware must not depend on a downloaded synthesis
+                  model being available; a simple, deterministic tone is sufficient to prove
+                  audio actually reaches the device. The playback test runs with no model or
+                  catalog of any kind.
+                tests:
+                  - DevicesTestCommand_PlayTestTone_AvailableDevice_WritesToneAndReportsIt
+
+              - id: SpeechCli-DeviceCommands-ToneSampleRateValidation
+                title: >-
+                  The DevicesTestCommand shall reject a non-positive sample rate when generating
+                  the output test tone.
+                tags: [unit]
+                justification: |
+                  A zero or negative sample rate cannot describe a tone and must fail
+                  predictably rather than produce an empty or corrupt signal.
+                tests:
+                  - DevicesTestCommand_GenerateToneSamples_NonPositiveSampleRate_ThrowsArgumentOutOfRangeException
+
+              - id: SpeechCli-DeviceCommands-ToneAmplitudeRange
+                title: >-
+                  The DevicesTestCommand shall play the output test tone at a level that never
+                  exceeds the device's full scale, so the tone is not clipped or distorted.
+                tags: [unit]
+                justification: |
+                  A clipped or distorted tone would defeat the sanity check, and an uncomfortably
+                  loud one would be unsafe for the operator. The tone is generated at a fixed
+                  fraction of full scale, and the test proves every sample stays within the
+                  full-scale range.
+                tests:
+                  - DevicesTestCommand_GenerateToneSamples_AllSamplesWithinNormalizedRange
+
+              - id: SpeechCli-DeviceCommands-ToneChannelIdentity
+                title: >-
+                  The DevicesTestCommand shall play the same output test tone on every channel
+                  of a multi-channel playback device.
+                tags: [unit]
+                justification: |
+                  An operator confirms every speaker of a multi-channel output device works by
+                  hearing the same tone from each of them.
+                tests:
+                  - DevicesTestCommand_GenerateToneSamples_IdenticalAcrossChannels

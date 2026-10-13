@@ -1,0 +1,505 @@
+---
+# Software Unit Requirements for the SpeechCli AskCommand
+#
+# These requirements describe the behavior of the AskCommand unit - the `ask` subcommand that speaks a prompt and
+# listens for the reply - decomposing the parent ConversationCommandSubsystem requirements and the system-level
+# requirements in docs/reqstream/speech-cli.yaml.
+#
+# The requirements are grouped by concern, one criterion each:
+#   - Invocation and models (Ask, AskListenAfterPrompt, AskModelValidation, AskModelUnknown, AskModelWrongRole,
+#     AskModelNotDownloaded)
+#   - Text source and argument validation (AskTextSource, AskTextSourceMissing, AskUnsupportedOptions,
+#     AskInterimRejected, AskFinalOnlyRejected, AskNoTagsRejected, AskInputRejected, AskOutputAudioRejected,
+#     AskFlagMissingValue)
+#   - Model parameters (ParamForwarding, ParamRejection)
+#   - Listen termination and timeouts (ListenTermination, ListenStartTimeout, ListenSilenceTimeout,
+#     ListenTimeoutDefaults, ListenTimeoutValidation, ListenTimeoutIsNotCancellation)
+#   - Output (OutputStdout, OutputText, OutputTextOverwrite, OutputTextEmpty)
+#   - Devices (PlaybackDeviceUnknown, DeviceUnavailable, CaptureDeviceDispatch, CaptureDeviceUnavailable)
+#   - Cancellation and disposal (SpeakCancellation, ListenCancellation, ListenCancellationNoText,
+#     ListenCancellationNoFile, Disposal)
+#   - Recognizer readiness (RecognizerReadyBeforeListening, RecognizerFailureReportedAfterPrompt,
+#     RecognizerReleasedOnPromptCancellation, PromptCancellationNotDelayed)
+# Every test below is an AskCommandTests test.
+
+sections:
+  - title: SpeechCli Requirements
+    sections:
+      - title: ConversationCommandSubsystem Requirements
+        sections:
+          - title: AskCommand Requirements
+            requirements:
+              - id: SpeechCli-ConversationCommands-Ask
+                title: >-
+                  The AskCommand shall speak the prompt text given with `--text` through a downloaded synthesis
+                  model named by `--tts-model <id>` when invoked with `ask`.
+                tags: [unit]
+                justification: |
+                  An AI agent or operator scripting a voice conversation needs one command that speaks a
+                  prompt without needing to reason about which library types compose a synthesizer. Only the
+                  `--text` source is verified; the `--file` and piped-stdin sources have no test.
+                tests:
+                  - AskCommand_ParseArguments_TextFlag_ParsesText
+                  - AskCommand_Run_Success_SpeaksThenListensAndPrintsFinalResult
+
+              - id: SpeechCli-ConversationCommands-AskListenAfterPrompt
+                title: >-
+                  The AskCommand shall, once the prompt's playback finishes, listen for a reply through a
+                  downloaded recognition model named by `--stt-model <id>` when invoked with `ask`.
+                tags: [unit]
+                justification: |
+                  An AI agent or operator needs the reply captured in the same command that spoke the prompt,
+                  without sequencing two separate CLI invocations.
+                tests:
+                  - AskCommand_Run_Success_SpeaksThenListensAndPrintsFinalResult
+
+              - id: SpeechCli-ConversationCommands-AskModelValidation
+                title: >-
+                  The AskCommand shall reject `ask` invoked without `--tts-model` or without `--stt-model` with a
+                  clean, non-zero-exit-code error naming the missing option rather than a stack trace.
+                tags: [unit]
+                justification: |
+                  A missing model option must fail predictably so a scripted invocation can react to the
+                  specific failure rather than a generic error.
+                tests:
+                  - AskCommand_ParseArguments_MissingTtsModel_ThrowsArgumentException
+                  - AskCommand_ParseArguments_MissingSttModel_ThrowsArgumentException
+
+              - id: SpeechCli-ConversationCommands-AskModelUnknown
+                title: >-
+                  The AskCommand shall reject `ask` invoked with an unknown `--tts-model` or `--stt-model` id
+                  with a clean, non-zero-exit-code error suggesting `list-models` rather than a stack trace.
+                tags: [unit]
+                justification: |
+                  An id typo must fail with an actionable next step, as it does for `speak` and `recognize`.
+                tests:
+                  - AskCommand_Run_UnknownTtsModelId_ThrowsArgumentException
+                  - AskCommand_Run_UnknownSttModelId_ThrowsArgumentException
+
+              - id: SpeechCli-ConversationCommands-AskModelWrongRole
+                title: >-
+                  The AskCommand shall reject `ask` invoked with a `--tts-model` that is not a synthesis model,
+                  or a `--stt-model` that is not a recognition model, with a clean, non-zero-exit-code error
+                  suggesting `list-models --role tts` or `--role stt` rather than a stack trace.
+                tags: [unit]
+                justification: |
+                  Swapping the two model ids is an easy mistake that must fail with an actionable next step
+                  instead of loading the wrong engine.
+                tests:
+                  - AskCommand_Run_WrongRoleTtsModel_ThrowsArgumentException
+                  - AskCommand_Run_WrongRoleSttModel_ThrowsArgumentException
+
+              - id: SpeechCli-ConversationCommands-AskModelNotDownloaded
+                title: >-
+                  The AskCommand shall reject `ask` invoked with a `--tts-model` or `--stt-model` that is known
+                  but not downloaded with a clean, non-zero-exit-code error suggesting `download <modelId>`
+                  rather than a stack trace.
+                tags: [unit]
+                justification: |
+                  A model that is known but absent from disk needs a different remedy than an unknown one, so
+                  the error must name the download step.
+                tests:
+                  - AskCommand_Run_NotDownloadedTtsModel_ThrowsArgumentExceptionWithDownloadHint
+                  - AskCommand_Run_NotDownloadedSttModel_ThrowsArgumentExceptionWithDownloadHint
+
+              - id: SpeechCli-ConversationCommands-AskTextSource
+                title: >-
+                  The AskCommand shall reject `ask` invoked with both `--text` and `--file` with a clean,
+                  non-zero-exit-code error rather than a stack trace.
+                tags: [unit]
+                justification: |
+                  An ambiguous prompt must fail predictably, so a scripted invocation never speaks the wrong
+                  text. Piped stdin is read only when neither flag is given, so it never conflicts with them.
+                tests:
+                  - AskCommand_Run_TextAndFileBothGiven_ThrowsArgumentException
+
+              - id: SpeechCli-ConversationCommands-AskTextSourceMissing
+                title: >-
+                  The AskCommand shall reject `ask` invoked with none of `--text`, `--file`, and piped stdin
+                  with a clean, non-zero-exit-code error rather than a stack trace.
+                tags: [unit]
+                justification: |
+                  A missing prompt must fail predictably, so a scripted invocation never waits on input that
+                  never arrives.
+                tests:
+                  - AskCommand_Run_NoTextSource_ThrowsArgumentException
+
+              - id: SpeechCli-ConversationCommands-AskUnsupportedOptions
+                title: >-
+                  The AskCommand shall reject `ask` invoked with an argument it does not recognize with a clean,
+                  non-zero-exit-code error naming the argument rather than a stack trace.
+                tags: [unit]
+                justification: |
+                  Rejecting an unknown argument, rather than silently ignoring it, avoids a caller mistakenly
+                  believing a misspelled or unsupported option took effect.
+                tests:
+                  - AskCommand_ParseArguments_UnsupportedArgument_ThrowsArgumentException
+
+              - id: SpeechCli-ConversationCommands-AskInterimRejected
+                title: >-
+                  The AskCommand shall reject `ask` invoked with `--interim` with a clean, non-zero-exit-code
+                  error rather than a stack trace.
+                tags: [unit]
+                justification: |
+                  `ask` delivers only the final reply, so a caller asking for interim results must be told the
+                  option is unsupported instead of believing it took effect.
+                tests:
+                  - AskCommand_ParseArguments_Interim_ThrowsArgumentException
+
+              - id: SpeechCli-ConversationCommands-AskFinalOnlyRejected
+                title: >-
+                  The AskCommand shall reject `ask` invoked with `--final-only` with a clean,
+                  non-zero-exit-code error rather than a stack trace.
+                tags: [unit]
+                justification: |
+                  `ask` always delivers only the final reply, so the `recognize` option that selects that
+                  behavior is meaningless here and must not be silently ignored.
+                tests:
+                  - AskCommand_ParseArguments_FinalOnly_ThrowsArgumentException
+
+              - id: SpeechCli-ConversationCommands-AskNoTagsRejected
+                title: >-
+                  The AskCommand shall reject `ask` invoked with `--no-tags` with a clean, non-zero-exit-code
+                  error rather than a stack trace.
+                tags: [unit]
+                justification: |
+                  Tag stripping is a `speak` option that `ask` does not offer, so a caller expecting it must
+                  be told it has no effect rather than discovering that the prompt was spoken with the tags.
+                tests:
+                  - AskCommand_ParseArguments_NoTags_ThrowsArgumentException
+
+              - id: SpeechCli-ConversationCommands-AskInputRejected
+                title: >-
+                  The AskCommand shall reject `ask` invoked with `--input` with a clean, non-zero-exit-code
+                  error rather than a stack trace.
+                tags: [unit]
+                justification: |
+                  `ask` always listens through a capture device, so an audio-file input is not a valid source
+                  and a caller supplying one must be told so rather than having it ignored.
+                tests:
+                  - AskCommand_ParseArguments_Input_ThrowsArgumentException
+
+              - id: SpeechCli-ConversationCommands-AskOutputAudioRejected
+                title: >-
+                  The AskCommand shall reject `ask` invoked with `--output-audio` with a clean,
+                  non-zero-exit-code error rather than a stack trace.
+                tags: [unit]
+                justification: |
+                  `ask` always plays the prompt through a playback device, so a caller expecting an audio file
+                  must be told none is produced rather than looking for one that was never written.
+                tests:
+                  - AskCommand_ParseArguments_OutputAudio_ThrowsArgumentException
+
+              - id: SpeechCli-ConversationCommands-AskFlagMissingValue
+                title: >-
+                  The AskCommand shall reject `ask` invoked with a flag that is missing its value with a clean,
+                  non-zero-exit-code error rather than a stack trace.
+                tags: [unit]
+                justification: |
+                  A flag with no value is an incomplete invocation that must fail predictably rather than
+                  consume the next token or be ignored.
+                tests:
+                  - AskCommand_ParseArguments_FlagMissingValue_ThrowsArgumentException
+
+              - id: SpeechCli-ConversationCommands-ParamForwarding
+                title: >-
+                  The AskCommand shall accept repeatable `--tts-param key=value` and `--stt-param key=value`
+                  flags and apply each to the model it names, resolving each value to the type its declared
+                  parameter has.
+                tags: [unit]
+                justification: |
+                  Both synthesis and recognition models declare tunable parameters, with the same
+                  `--tts-param`/`--stt-param` semantics `speak`, `recognize`, and `ask` all share, so each
+                  value must reach the right model in its declared type.
+                tests:
+                  - AskCommand_ParseArguments_RepeatedParamFlags_AccumulateInOrderIndependently
+                  - AskCommand_Run_ValidParams_ForwardToRespectiveCreateCalls
+
+              - id: SpeechCli-ConversationCommands-ParamRejection
+                title: >-
+                  The AskCommand shall reject an `ask` `--tts-param` or `--stt-param` with a malformed token, a
+                  value outside the range or options that model declares, or a key that model does not declare,
+                  with a clean, non-zero-exit-code error rather than a stack trace.
+                tags: [unit]
+                justification: |
+                  Validating each value against the respective model's declared parameters before any audio is
+                  produced catches an operator typo immediately.
+                tests:
+                  - AskCommand_Run_InvalidTtsParam_ThrowsArgumentException
+                  - AskCommand_Run_InvalidSttParam_ThrowsArgumentException
+                  - AskCommand_Run_UnknownParamKey_ThrowsArgumentException
+                  - AskCommand_ParseArguments_MalformedParamToken_ThrowsArgumentException
+
+              - id: SpeechCli-ConversationCommands-ListenTermination
+                title: >-
+                  The AskCommand shall end the listen phase as soon as the first final recognition result
+                  arrives, delivering that result's text as the reply regardless of any timeout still pending.
+                tags: [unit]
+                justification: |
+                  `ask` models one bounded question and answer, not open-ended transcription, so exactly one
+                  final result is always enough to end the turn; a caller must never wait for a timeout after
+                  the reply has been recognized.
+                tests:
+                  - AskCommand_Run_Success_SpeaksThenListensAndPrintsFinalResult
+
+              - id: SpeechCli-ConversationCommands-ListenStartTimeout
+                title: >-
+                  The AskCommand shall end the listen phase with an empty reply when no recognition result of
+                  any kind, interim or final, arrives within the optional `--start-timeout <seconds>`.
+                tags: [unit]
+                justification: |
+                  A caller that opts into a start timeout needs `ask` to give up on a reply that never starts,
+                  consistently with `recognize --mic`. Only the flag's parsing is verified; the timeout firing
+                  before any result has no test.
+                tests:
+                  - AskCommand_ParseArguments_TimeoutFlags_ParseAsPositiveDoubles
+
+              - id: SpeechCli-ConversationCommands-ListenSilenceTimeout
+                title: >-
+                  The AskCommand shall end the listen phase with an empty reply when no further result arrives
+                  within the optional `--silence-timeout <seconds>` after an interim result and no final result
+                  has arrived.
+                tags: [unit]
+                justification: |
+                  A caller that opts into a silence timeout needs `ask` to give up on a reply that starts but
+                  never finishes, consistently with `recognize --mic`. Interim text is not delivered as the
+                  reply, so a caller never mistakes an unfinished utterance for a complete one.
+                tests:
+                  - AskCommand_ParseArguments_TimeoutFlags_ParseAsPositiveDoubles
+                  - AskCommand_Run_SilenceTimeoutWithNoFinalResult_EndsTurnWithEmptyText
+
+              - id: SpeechCli-ConversationCommands-ListenTimeoutDefaults
+                title: >-
+                  The AskCommand shall end the listen phase on its own, using a built-in default silence
+                  timeout, when `ask` is given neither `--start-timeout` nor `--silence-timeout`.
+                tags: [unit]
+                justification: |
+                  A turn must still end on its own when the operator chooses no timeouts, so `Ctrl+C` is never
+                  the only way to end a reply that does not finish. The built-in 8-second start timeout has no
+                  test of its own.
+                tests:
+                  - AskCommand_Run_NoTimeoutFlagsGiven_StillEndsTurnViaDefaultSilenceTimeout
+
+              - id: SpeechCli-ConversationCommands-ListenTimeoutValidation
+                title: >-
+                  The AskCommand shall reject a non-positive or non-numeric `--silence-timeout` or
+                  `--start-timeout` given to `ask` with a clean, non-zero-exit-code error.
+                tags: [unit]
+                justification: |
+                  A zero or negative timeout would end the turn immediately, so it must fail predictably.
+                tests:
+                  - AskCommand_ParseArguments_NonPositiveSilenceTimeout_ThrowsArgumentException
+                  - AskCommand_ParseArguments_NonPositiveStartTimeout_ThrowsArgumentException
+
+              - id: SpeechCli-ConversationCommands-ListenTimeoutIsNotCancellation
+                title: >-
+                  The AskCommand shall end the `ask` turn with a zero exit code and no cancellation report when
+                  a timeout ends the listen phase.
+                tags: [unit]
+                justification: |
+                  A timeout is a normal way for a turn to end and must not be reported as an interruption, so a
+                  script can tell an unanswered prompt from an operator abort.
+                tests:
+                  - AskCommand_RunAsync_SilenceTimeoutWithNoCtrlC_ReportsSuccessNotCanceled
+
+              - id: SpeechCli-ConversationCommands-OutputStdout
+                title: >-
+                  The AskCommand shall print the final recognized reply text to stdout by default.
+                tags: [unit]
+                justification: |
+                  A scripted caller of `ask` can read the reply from the command's own output. Only a reply
+                  after a `--text` prompt is verified; the `--file` and piped-stdin prompts have no test.
+                tests:
+                  - AskCommand_Run_Success_SpeaksThenListensAndPrintsFinalResult
+
+              - id: SpeechCli-ConversationCommands-OutputText
+                title: >-
+                  The AskCommand shall write the final recognized reply text to the file named by
+                  `--output-text <text-path>` instead of stdout.
+                tags: [unit]
+                justification: |
+                  A scripted caller of `ask` needs the same stable file destination that `recognize` already
+                  offers, so an agent can read the reply from a known file path.
+                tests:
+                  - AskCommand_ParseArguments_OutputTextFlag_ParsesPath
+                  - AskCommand_Run_OutputText_WritesRecognizedTextToFile
+
+              - id: SpeechCli-ConversationCommands-OutputTextOverwrite
+                title: >-
+                  The AskCommand shall replace any previous content of the `--output-text` file rather than
+                  appending to it.
+                tags: [unit]
+                justification: |
+                  A caller reading the file must see only the latest reply, never a mixture of turns.
+                tests:
+                  - AskCommand_Run_OutputTextExistingFile_OverwritesPriorContent
+
+              - id: SpeechCli-ConversationCommands-OutputTextEmpty
+                title: >-
+                  The AskCommand shall write a completely empty `--output-text` file when no recognized text
+                  was produced.
+                tags: [unit]
+                justification: |
+                  A caller reading the file can tell that the turn ended without a reply, rather than finding a
+                  stale file or none at all.
+                tests:
+                  - AskCommand_Run_SilenceTimeoutWithNoFinalResult_EndsTurnWithEmptyText
+
+              - id: SpeechCli-ConversationCommands-PlaybackDeviceUnknown
+                title: >-
+                  The AskCommand shall reject `ask` invoked with a `--playback-device` name that matches no
+                  playback device with a clean, non-zero-exit-code error rather than a stack trace, before the
+                  prompt is spoken.
+                tags: [unit]
+                justification: |
+                  Rejecting an unknown playback device before any synthesis starts avoids a partially run,
+                  undeliverable turn.
+                tests:
+                  - AskCommand_Run_UnknownPlaybackDevice_ThrowsArgumentException
+
+              - id: SpeechCli-ConversationCommands-DeviceUnavailable
+                title: >-
+                  The AskCommand shall report a clean, non-zero-exit-code error rather than a stack trace when
+                  no playback device is available, before the prompt is spoken.
+                tags: [unit]
+                justification: |
+                  A machine with no playback device cannot deliver the prompt, so the turn must fail before
+                  any synthesis starts and before the operator waits for audio that will never play.
+                tests:
+                  - AskCommand_Run_NoPlaybackDeviceAvailable_ThrowsInvalidOperationException
+
+              - id: SpeechCli-ConversationCommands-CaptureDeviceDispatch
+                title: >-
+                  The AskCommand shall reject `ask` invoked with a `--capture-device` name that matches no
+                  capture device with a clean, non-zero-exit-code error rather than a stack trace.
+                tags: [unit]
+                justification: |
+                  Rejecting an unknown capture device, naming it in the error, lets the operator correct the
+                  name instead of a turn that can never hear the reply.
+                tests:
+                  - AskCommand_Run_UnknownCaptureDevice_ThrowsArgumentException
+
+              - id: SpeechCli-ConversationCommands-CaptureDeviceUnavailable
+                title: >-
+                  The AskCommand shall report a clean, non-zero-exit-code error rather than a stack trace when
+                  no capture device is available, after the prompt has been spoken.
+                tags: [unit]
+                justification: |
+                  A machine with no capture device cannot hear the reply, so the turn must fail with an
+                  actionable message. The failure is reported after the prompt because the recognizer, and so
+                  its capture device, is prepared while the prompt plays.
+                tests:
+                  - AskCommand_Run_NoCaptureDeviceAvailable_ThrowsInvalidOperationException
+
+              - id: SpeechCli-ConversationCommands-SpeakCancellation
+                title: >-
+                  The AskCommand shall skip the listen phase entirely, without a crash, when `Ctrl+C` is
+                  pressed during the prompt.
+                tags: [unit]
+                justification: |
+                  Listening for a reply to a prompt the operator interrupted would be surprising; no
+                  recognizer may start after the prompt is canceled.
+                tests:
+                  - AskCommand_Run_CanceledDuringSpeak_SkipsListenPhase
+
+              - id: SpeechCli-ConversationCommands-ListenCancellation
+                title: >-
+                  The AskCommand shall report a cancellation with a non-zero exit code when `Ctrl+C` is pressed
+                  at any point from the start of the listen phase until the reply has been delivered.
+                tags: [unit]
+                justification: |
+                  An interrupted turn must be distinguishable from a successful one, so a script does not take
+                  an aborted listen for an unanswered prompt.
+                tests:
+                  - AskCommand_RunAsync_CtrlCDuringListen_ReportsCanceledAndDoesNotPrintText
+                  - AskCommand_RunAsync_CtrlCBeforeListenStarts_ReportsCanceledAndDoesNotPrintText
+                  - AskCommand_RunAsync_CtrlCImmediatelyAfterListenReturns_ReportsCanceledAndDoesNotPrintText
+                  - AskCommand_RunAsync_CtrlCImmediatelyBeforeFileWrite_ReportsCanceledAndDoesNotWriteFile
+
+              - id: SpeechCli-ConversationCommands-ListenCancellationNoText
+                title: >-
+                  The AskCommand shall print no recognized text to stdout when `Ctrl+C` is pressed at any point
+                  from the start of the listen phase until the reply has been delivered.
+                tags: [unit]
+                justification: |
+                  A half-finished reply must never be delivered on stdout as if it were complete.
+                tests:
+                  - AskCommand_RunAsync_CtrlCDuringListen_ReportsCanceledAndDoesNotPrintText
+                  - AskCommand_RunAsync_CtrlCBeforeListenStarts_ReportsCanceledAndDoesNotPrintText
+                  - AskCommand_RunAsync_CtrlCImmediatelyAfterListenReturns_ReportsCanceledAndDoesNotPrintText
+
+              - id: SpeechCli-ConversationCommands-ListenCancellationNoFile
+                title: >-
+                  The AskCommand shall write no `--output-text` file and report no successful write when
+                  `Ctrl+C` is pressed after the listen phase has returned and before the file is written.
+                tags: [unit]
+                justification: |
+                  A caller reading the output file must never find a reply from a turn the operator aborted,
+                  nor be told a write succeeded that did not happen.
+                tests:
+                  - AskCommand_RunAsync_CtrlCImmediatelyBeforeFileWrite_ReportsCanceledAndDoesNotWriteFile
+
+              - id: SpeechCli-ConversationCommands-Disposal
+                title: >-
+                  The AskCommand shall dispose the synthesizer, playback device, recognizer, and
+                  silence-timeout session (when present) exactly once on every exit path of `ask`.
+                tags: [unit]
+                justification: |
+                  A two-phase command must not leave an orphaned recognizer or a leaked audio device behind on
+                  success, failure, or cancellation.
+                tests:
+                  - AskCommand_Run_CanceledDuringSpeak_SkipsListenPhase
+                  - AskCommand_Run_ExceptionDuringSpeak_DisposesPlaybackDeviceAndRethrows
+                  - AskCommand_Run_Success_SpeaksThenListensAndPrintsFinalResult
+
+              - id: SpeechCli-ConversationCommands-RecognizerReadyBeforeListening
+                title: >-
+                  The AskCommand shall have the recognizer created before the prompt finishes playing, so
+                  listening begins as soon as the prompt ends.
+                tags: [unit, performance]
+                justification: |
+                  Loading a recognition model takes noticeable time. If it started only after the prompt
+                  ended, the operator's reply, spoken right after the prompt, could begin before the
+                  recognizer is ready and its first words would be missed. Acceptance: the recognizer is
+                  created while the prompt is still playing, and listening starts once, after the prompt has
+                  been spoken.
+                tests:
+                  - AskCommand_Run_PrewarmsRecognizerConcurrentlyWithPlayback_CreatesRecognizerBeforePlaybackCompletes
+
+              - id: SpeechCli-ConversationCommands-RecognizerFailureReportedAfterPrompt
+                title: >-
+                  The AskCommand shall speak the whole prompt before reporting a failure to create the
+                  recognizer, and shall report that failure as a clean error.
+                tags: [unit]
+                justification: |
+                  Creating the recognizer while the prompt plays must not skip the prompt or lose the failure:
+                  the operator hears the prompt and then sees why no reply could be heard. Acceptance: with no
+                  capture device, the prompt text is spoken exactly once and the run then fails with an error.
+                tests:
+                  - AskCommand_Run_NoCaptureDeviceAvailable_ThrowsInvalidOperationException
+
+              - id: SpeechCli-ConversationCommands-RecognizerReleasedOnPromptCancellation
+                title: >-
+                  The AskCommand shall release the recognizer it created, exactly once, and report the
+                  cancellation when `Ctrl+C` cancels the prompt.
+                tags: [unit]
+                justification: |
+                  A recognizer created ahead of the reply holds a loaded model and a capture device, so
+                  canceling the prompt must not leak it. Acceptance: after a canceled prompt the recognizer's
+                  engine and session are each disposed once, no recognizer is started, and the exit code is
+                  non-zero.
+                tests:
+                  - AskCommand_Run_CanceledDuringSpeak_SkipsListenPhase
+
+              - id: SpeechCli-ConversationCommands-PromptCancellationNotDelayed
+                title: >-
+                  The AskCommand shall finish reporting a canceled prompt without waiting for a recognizer that
+                  is still being created.
+                tags: [unit]
+                justification: |
+                  An operator who presses `Ctrl+C` expects the command to stop at once, even when the
+                  recognition model is still loading. Acceptance: with recognizer creation held in progress,
+                  the command still returns and reports the cancellation, and the recognizer is released once
+                  its creation completes.
+                tests:
+                  - AskCommand_RunAsync_CanceledDuringSpeak_ReturnsPromptlyWithoutAwaitingInFlightPrewarm

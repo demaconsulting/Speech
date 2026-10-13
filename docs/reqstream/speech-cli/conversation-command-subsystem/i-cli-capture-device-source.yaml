@@ -1,0 +1,35 @@
+---
+# Software Unit Requirements for the SpeechCli ICliCaptureDeviceSource
+#
+# These requirements describe the contract of the ICliCaptureDeviceSource unit - the CLI-owned seam over
+# capture-device resolution - decomposing the parent ConversationCommandSubsystem requirements. The interface has no
+# executable behavior of its own, so each requirement is verified through its production implementation
+# (AudioDeviceFactoryCaptureDeviceSource) and through the in-memory test double that AskCommand's tests use.
+
+sections:
+  - title: SpeechCli Requirements
+    sections:
+      - title: ConversationCommandSubsystem Requirements
+        sections:
+          - title: ICliCaptureDeviceSource Requirements
+            requirements:
+              - id: SpeechCli-ConversationCommands-ICliCaptureDeviceSource-ProbeExposed
+                title: >-
+                  The ICliCaptureDeviceSource shall expose the probe that lists the capture devices it can
+                  resolve.
+                justification: |
+                  A command must list the known capture devices to turn an operator-supplied name into a
+                  selection, and to reject an unknown name with a clear error, before asking for a device.
+                tests:
+                  - AudioDeviceFactoryCaptureDeviceSource_CaptureProbe_ForwardsToFactory
+
+              - id: SpeechCli-ConversationCommands-ICliCaptureDeviceSource-DeviceCreation
+                title: >-
+                  The ICliCaptureDeviceSource shall create a capture device for a given selection, or for the
+                  system default input device when the selection is null.
+                justification: |
+                  A command that listens must obtain a device for the operator's chosen name, or for the
+                  default input when no name is given, through one call that does not depend on how the device
+                  is resolved.
+                tests:
+                  - AudioDeviceFactoryCaptureDeviceSource_CreateCaptureDevice_ForwardsToFactory

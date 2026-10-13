@@ -1,0 +1,60 @@
+---
+# Software Unit Requirements for the SpeechCli SpeechModelCatalogAdapter
+#
+# These requirements describe the composition behavior of the production model catalog: which
+# models it offers, which reference voices the voice-cloning model can use, and its tolerance of
+# damaged or missing voice content. They decompose the system-level SpeechCli-ChatterboxModelCatalog
+# and SpeechCli-ReferenceVoicePackUninstall requirements.
+# Every test below is a SpeechModelCatalogAdapterTests test (the factory-created adapters use
+# CliModelCatalogFactory).
+
+sections:
+  - title: SpeechCli Requirements
+    sections:
+      - title: ModelCommandsSubsystem Requirements
+        sections:
+          - title: SpeechModelCatalogAdapter Requirements
+            requirements:
+              - id: SpeechCli-ModelCommands-VoiceCloningModelListed
+                title: >-
+                  The tool shall offer the Chatterbox Turbo voice-cloning synthesis model
+                  alongside the other known models.
+                justification: |
+                  Chatterbox Turbo is a voice-cloning model that a command-line user must be able
+                  to find and use like any other model. The test asserts the Chatterbox model
+                  ids specifically, together with the other model families.
+                tests:
+                  - SpeechModelCatalogAdapter_Enumerate_ReturnsCompiledInKnownModels
+
+              - id: SpeechCli-ModelCommands-VoiceCloningModelVoiceSupply
+                title: >-
+                  The tool shall give the voice-cloning model exactly the reference voices that
+                  the voice commands list (an installed pack, the per-user folder, or the
+                  `--voices-dir` folder) as the voices it can speak with.
+                justification: |
+                  A voice-cloning model can speak only with a reference voice, so the model must
+                  see exactly the voices the voice commands list.
+                tests:
+                  - CliModelCatalogFactory_Create_WithVoicesDir_EnumeratesThatFolder
+                  - SpeechModelCatalogAdapter_Voices_ListsUserAndVoicesDirVoices
+
+              - id: SpeechCli-ModelCommands-DamagedVoiceFileTolerated
+                title: >-
+                  The tool shall keep voice listing and model use working when a file in the
+                  `--voices-dir` folder cannot be decoded.
+                justification: |
+                  One undecodable file in a user's folder must not take the whole voice list
+                  down.
+                tests:
+                  - SpeechModelCatalogAdapter_DamagedVoicesDirFile_DoesNotBreakAdapterOrListing
+
+              - id: SpeechCli-ModelCommands-VoicePackUninstallNeverInstalled
+                title: >-
+                  The model catalog shall treat uninstalling a reference-voice pack that has
+                  nothing installed as a safe, successful no-op.
+                justification: |
+                  A defensive "uninstall it if present" script must not exit non-zero for a pack
+                  that is already absent. The adapter test is the only one that exercises a real
+                  store with a never-installed pack; the command-level tests use a fake catalog.
+                tests:
+                  - SpeechModelCatalogAdapter_VoicePackUninstallAndInstall_UnknownOrMissingPack_BehaveCleanly

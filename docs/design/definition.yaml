@@ -120,11 +120,40 @@ input-files:
   - docs/design/speech-demo/recognition-panel-subsystem/recognition-panel-view-model.md
   - docs/design/speech-demo/recognition-panel-subsystem/recognizer-session-factory.md
   - docs/design/speech-cli.md
+  - docs/design/speech-cli/program.md
+  - docs/design/speech-cli/context.md
+  - docs/design/speech-cli/command-dispatch.md
+  - docs/design/speech-cli/console-cancellation.md
+  - docs/design/speech-cli/validation.md
+  - docs/design/speech-cli/path-helpers.md
   - docs/design/speech-cli/conversation-command-subsystem.md
+  - docs/design/speech-cli/conversation-command-subsystem/ask-command.md
+  - docs/design/speech-cli/conversation-command-subsystem/audio-device-factory-capture-device-source.md
+  - docs/design/speech-cli/conversation-command-subsystem/i-cli-capture-device-source.md
   - docs/design/speech-cli/device-commands-subsystem.md
+  - docs/design/speech-cli/device-commands-subsystem/devices-test-command.md
+  - docs/design/speech-cli/device-commands-subsystem/doctor-command.md
+  - docs/design/speech-cli/device-commands-subsystem/list-devices-command.md
   - docs/design/speech-cli/model-commands-subsystem.md
+  - docs/design/speech-cli/model-commands-subsystem/clean-command.md
+  - docs/design/speech-cli/model-commands-subsystem/cli-model-catalog-factory.md
+  - docs/design/speech-cli/model-commands-subsystem/download-command.md
+  - docs/design/speech-cli/model-commands-subsystem/download-progress-reporter.md
+  - docs/design/speech-cli/model-commands-subsystem/i-cli-model-catalog.md
+  - docs/design/speech-cli/model-commands-subsystem/list-models-command.md
+  - docs/design/speech-cli/model-commands-subsystem/list-voices-command.md
+  - docs/design/speech-cli/model-commands-subsystem/model-info-command.md
+  - docs/design/speech-cli/model-commands-subsystem/speech-model-catalog-adapter.md
+  - docs/design/speech-cli/model-commands-subsystem/uninstall-command.md
+  - docs/design/speech-cli/model-commands-subsystem/voices-command.md
   - docs/design/speech-cli/recognition-command-subsystem.md
+  - docs/design/speech-cli/recognition-command-subsystem/recognize-command.md
+  - docs/design/speech-cli/recognition-command-subsystem/silence-timeout-recognizer-session.md
   - docs/design/speech-cli/synthesis-command-subsystem.md
+  - docs/design/speech-cli/synthesis-command-subsystem/audio-device-factory-playback-device-source.md
+  - docs/design/speech-cli/synthesis-command-subsystem/i-cli-playback-device-source.md
+  - docs/design/speech-cli/synthesis-command-subsystem/parameter-bag-parser.md
+  - docs/design/speech-cli/synthesis-command-subsystem/speak-command.md
   - docs/design/speech-onnx.md
   - docs/design/speech-onnx/onnx-runtime-subsystem.md
   - docs/design/speech-onnx/onnx-runtime-subsystem/onnx-execution-provider-selector.md

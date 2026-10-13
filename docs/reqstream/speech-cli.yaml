@@ -31,6 +31,10 @@ sections:
         justification: |
           A CLI with multiple subcommands must run the subcommand the operator names, both for
           interactive use and for scripting.
+        children:
+          - SpeechCli-Program-SubcommandDispatch
+          - SpeechCli-CommandDispatch-VoiceCommandsRegistered
+          - SpeechCli-CommandDispatch-HandlersReturnTasks
         tests:
           - Program_Run_WithListModelsCommand_ListsModelsAndSucceeds
           - CommandDispatch_Handlers_ReturnNonNullTasks
@@ -44,6 +48,11 @@ sections:
           A CLI must fail predictably and legibly on operator typos or unsupported commands,
           both for interactive use and for scripting, where a non-zero exit code is how a
           calling script detects failure.
+        children:
+          - SpeechCli-CommandDispatch-UnknownNameNotResolved
+          - SpeechCli-Context-UnsupportedArgument
+          - SpeechCli-Program-UnknownSubcommandReported
+          - SpeechCli-Program-InvalidArgumentReported
         tests:
           - Program_Main_WithUnknownCommand_ReturnsNonZeroExitCodeAndReportsCommand
           - SpeechCli_UnknownCommand_Provided_ReturnsCleanError
@@ -60,6 +69,14 @@ sections:
           which mirror to use). Requiring a fixed option order relative to the subcommand name
           would be a usability trap; recognizing global options anywhere keeps every
           subcommand's own invocation syntax uncluttered by an artificial ordering rule.
+        children:
+          - SpeechCli-Context-HeadingDepth
+          - SpeechCli-Context-MirrorOptions
+          - SpeechCli-Context-OptionValueRequired
+          - SpeechCli-Validation-HeadingDepth
+          - SpeechCli-Context-GlobalOptionPlacement
+          - SpeechCli-Context-ModelsDir
+          - SpeechCli-Context-HeadingDepthValidation
         tests:
           - Context_Create_ModelsDirAfterCommand_IsRecognizedAsGlobalOption
           - Context_Create_WithExistingVoicesDir_ParsesOntoContext
@@ -77,6 +94,8 @@ sections:
         tags: [system]
         justification: |
           Operators need the same diagnostics switch wherever they type it.
+        children:
+          - SpeechCli-Context-DiagnosticsOption
         tests:
           - Context_Create_VerboseOrDiagnosticsFlag_SetsDiagnostics
           - Context_Create_VerboseAfterCommand_IsRecognizedAsGlobalOption
@@ -88,6 +107,9 @@ sections:
         tags: [system]
         justification: |
           Scripts that only inspect the exit code need quiet runs.
+        children:
+          - SpeechCli-Context-SilentOutput
+          - SpeechCli-Program-SilentErrors
         tests:
           - SpeechCli_SilentFlag_Provided_SuppressesOutput
 
@@ -98,6 +120,8 @@ sections:
         tags: [system]
         justification: |
           Operators need a persistent record of a run without redirecting the console.
+        children:
+          - SpeechCli-Context-LogOutput
         tests:
           - SpeechCli_LogFlag_Provided_WritesOutputToFile
 
@@ -108,6 +132,8 @@ sections:
         tags: [system]
         justification: |
           An operator needs to point the tool at their own reference voices.
+        children:
+          - SpeechCli-Context-VoicesDir
         tests:
           - Context_Create_WithExistingVoicesDir_ParsesOntoContext
 
@@ -119,6 +145,8 @@ sections:
         justification: |
           A mistyped voices folder would otherwise silently yield no voices; failing fast names
           the problem.
+        children:
+          - SpeechCli-Context-VoicesDirValidation
         tests:
           - Context_Create_WithBadVoicesDir_ThrowsArgumentException
 
@@ -130,6 +158,8 @@ sections:
         tags: [system]
         justification: |
           Help is the primary place an operator learns the option and the consent expectation.
+        children:
+          - SpeechCli-Program-HelpVoicesDocumentation
         tests:
           - Program_Run_Help_DocumentsVoicesOptionsAndConsentNote
 
@@ -154,6 +184,8 @@ sections:
         tags: [system]
         justification: |
           Without a mirror configured, the tool must behave exactly as it does by default.
+        children:
+          - SpeechCli-Context-MirrorDefault
         tests:
           - Context_CreateMirror_NoMirrorUrl_ReturnsNull
 
@@ -166,6 +198,8 @@ sections:
         justification: |
           Validating the mirror configuration eagerly, with a clean error, avoids a confusing
           failure deep inside the download transport.
+        children:
+          - SpeechCli-Context-MirrorUrlValidation
         tests:
           - Context_CreateMirror_InvalidMirrorUrl_ThrowsArgumentException
           - Context_CreateMirror_UnsupportedMirrorUrlShape_ThrowsArgumentException
@@ -177,6 +211,8 @@ sections:
         tags: [system]
         justification: |
           A mirror inside a network commonly requires authentication.
+        children:
+          - SpeechCli-Context-MirrorCredentials
         tests:
           - Context_CreateMirror_ValidCredentialedMirror_ReturnsConfiguredMirror
 
@@ -188,6 +224,8 @@ sections:
         justification: |
           A mirror inside a network may require token authentication instead of a user name and
           password.
+        children:
+          - SpeechCli-Context-MirrorCredentials
         tests:
           - Context_CreateMirror_BearerTokenMirror_ReturnsConfiguredMirror
 
@@ -198,6 +236,8 @@ sections:
         tags: [system]
         justification: |
           An incomplete credential pair must fail eagerly rather than send a half-formed request.
+        children:
+          - SpeechCli-Context-MirrorCredentialValidation
         tests:
           - Context_CreateMirror_MirrorUserWithoutPassword_ThrowsArgumentException
 
@@ -209,6 +249,8 @@ sections:
         justification: |
           An ambiguous credential combination must fail eagerly rather than send a request whose
           authentication scheme is a guess.
+        children:
+          - SpeechCli-Context-MirrorCredentialConflict
         tests:
           - Context_CreateMirror_BasicCredentialsAndBearerTokenTogether_ThrowsArgumentException
 
@@ -219,6 +261,8 @@ sections:
         tags: [system]
         justification: |
           A blank token would send an unauthenticated request while appearing to be configured.
+        children:
+          - SpeechCli-Context-MirrorBearerTokenValidation
         tests:
           - Context_CreateMirror_WhitespaceBearerToken_ThrowsArgumentException
 
@@ -231,6 +275,8 @@ sections:
           Rejecting a credential supplied without `--mirror-url` catches a likely typo (a
           missing or misspelled `--mirror-url`) rather than silently discarding the credential
           and downloading from each model's public URI unauthenticated.
+        children:
+          - SpeechCli-Context-MirrorCredentialRequiresUrl
         tests:
           - Context_CreateMirror_CredentialsWithoutMirrorUrl_ThrowsArgumentException
           - Context_CreateMirror_BearerTokenWithoutMirrorUrl_ThrowsArgumentException
@@ -245,6 +291,8 @@ sections:
         justification: |
           Both credential forms are sent preemptively, so a fat-fingered scheme would otherwise
           silently transmit a secret in cleartext.
+        children:
+          - SpeechCli-Context-MirrorCleartextProtection
         tests:
           - Context_CreateMirror_CredentialOverPlainHttp_RejectedUnlessLoopback
 
@@ -256,6 +304,8 @@ sections:
         justification: |
           Scripts and CI jobs configure the mirror once in the environment instead of repeating
           it on every command line.
+        children:
+          - SpeechCli-Context-MirrorUrlEnvironment
         tests:
           - Context_Create_EnvironmentMirrorUrl_UsedWhenOptionAbsent
 
@@ -267,6 +317,8 @@ sections:
         justification: |
           An explicit command-line option is the most specific statement of intent and must
           override ambient configuration.
+        children:
+          - SpeechCli-Context-MirrorUrlEnvironment
         tests:
           - Context_Create_MirrorUrlOption_OverridesEnvironment
 
@@ -279,6 +331,8 @@ sections:
         justification: |
           Environment variables keep a secret out of the process command line, where other local
           users and shell history can read it.
+        children:
+          - SpeechCli-Context-MirrorCredentialEnvironment
         tests:
           - Context_Create_EnvironmentBasicCredentials_UsedWhenOptionsAbsent
 
@@ -291,6 +345,8 @@ sections:
         justification: |
           Environment variables keep a token out of the process command line, where other local
           users and shell history can read it.
+        children:
+          - SpeechCli-Context-MirrorCredentialEnvironment
         tests:
           - Context_Create_EnvironmentBearerToken_UsedWhenOptionsAbsent
 
@@ -302,6 +358,8 @@ sections:
         justification: |
           Taking credentials from one source only prevents an explicit option from being silently
           combined with an ambient credential of the other kind.
+        children:
+          - SpeechCli-Context-MirrorCredentialEnvironment
         tests:
           - Context_Create_CredentialOption_DisablesEnvironmentCredentials
 
@@ -312,6 +370,8 @@ sections:
         justification: |
           Shells and CI systems commonly export empty variables, which must not enable a mirror
           or a credential.
+        children:
+          - SpeechCli-Context-MirrorEnvironmentEmptyIgnored
         tests:
           - Context_Create_EmptyEnvironmentVariables_TreatedAsUnset
 
@@ -322,6 +382,8 @@ sections:
         tags: [system]
         justification: |
           A credential with no mirror to apply to would otherwise be silently dropped.
+        children:
+          - SpeechCli-Context-MirrorEnvironmentCredentialRequiresUrl
         tests:
           - Context_Create_EnvironmentCredentialWithoutUrl_ThrowsWithoutEchoingSecret
 
@@ -333,6 +395,8 @@ sections:
         justification: |
           Error text is routinely copied into logs and tickets; a pasted secret must not leak
           through it.
+        children:
+          - SpeechCli-Context-MirrorSecretsNotInErrors
         tests:
           - Context_Create_EnvironmentCredentialWithoutUrl_ThrowsWithoutEchoingSecret
           - Context_Create_InvalidMirrorUrl_ErrorDoesNotEchoValue
@@ -343,6 +407,8 @@ sections:
         tags: [system]
         justification: |
           Help output is routinely pasted into logs and tickets.
+        children:
+          - SpeechCli-Program-HelpNoSecrets
         tests:
           - Program_Run_Help_DoesNotPrintEnvironmentSecretValues
 
@@ -353,6 +419,8 @@ sections:
         tags: [system]
         justification: |
           Users discover the environment alternative from `--help`.
+        children:
+          - SpeechCli-Program-HelpMirrorEnvironment
         tests:
           - Program_Run_Help_DocumentsMirrorEnvironmentVariables
 
@@ -365,6 +433,9 @@ sections:
           Operators and support scripts need a machine-parseable way to confirm which build of
           the tool is installed; printing the banner or other output alongside the version would
           make that output harder to parse reliably.
+        children:
+          - SpeechCli-Program-VersionString
+          - SpeechCli-Program-VersionOutput
         tests:
           - Program_Run_WithVersionFlag_DisplaysVersionOnly
           - Program_Run_WithShortVersionFlag_DisplaysVersion
@@ -379,6 +450,8 @@ sections:
         justification: |
           A deterministic precedence keeps scripted invocations predictable when flags are
           combined.
+        children:
+          - SpeechCli-Program-ActionPriority
         tests:
           - Program_Run_VersionHelpValidateTogether_HonorsPriorityOrder
 
@@ -394,6 +467,10 @@ sections:
           same as `--help` (rather than as an error) is friendlier for a CLI whose main purpose
           is a menu of subcommands, since a bare invocation is a natural way to ask "what can this
           tool do?"
+        children:
+          - SpeechCli-Program-HelpOutput
+          - SpeechCli-CommandDispatch-HelpUsageSummaries
+          - SpeechCli-Program-NoSubcommandUsage
         tests:
           - Program_Run_WithHelpFlag_DisplaysUsageInformation
           - Program_Run_WithShortHelpFlag_DisplaysUsage
@@ -412,6 +489,9 @@ sections:
           A CI-safe self-test lets an operator or CI pipeline confirm the tool is installed and
           functioning correctly on a target machine before relying on it, consistent with the
           reference `TemplateDotNetTool`'s self-validation precedent.
+        children:
+          - SpeechCli-Validation-Checks
+          - SpeechCli-Program-ValidateDispatch
         tests:
           - Program_Run_WithValidateFlag_RunsValidation
 
@@ -424,6 +504,8 @@ sections:
           Every check must remain CI-safe: none may depend on a real, multi-hundred-megabyte
           model download or physical audio hardware, since both are unavailable in an ordinary
           CI runner.
+        children:
+          - SpeechCli-Validation-HardwareIndependence
         tests:
           - SpeechCli_ValidateFlag_Provided_RunsValidation
 
@@ -435,6 +517,9 @@ sections:
         justification: |
           A CI pipeline consumes the self-validation outcome as a test-result file; silently
           skipping the file would let a pipeline pass without any recorded evidence.
+        children:
+          - SpeechCli-Validation-ResultsFile
+          - SpeechCli-Context-ResultsOption
         tests:
           - SpeechCli_ValidateWithTrxResults_Requested_GeneratesTrxFile
           - SpeechCli_ValidateWithDepth_DepthThree_OutputsCorrectHeadingLevel
@@ -448,6 +533,8 @@ sections:
         justification: |
           Exiting zero when the result file could not be written would let a pipeline pass
           without any recorded evidence.
+        children:
+          - SpeechCli-Validation-ResultsErrors
         tests:
           - Context_Create_ResultsOption_ParsesPathAndRejectsMissingValue
           - Program_Main_ValidateWithUnsupportedResultsExtension_ReturnsNonZeroExitCode
@@ -465,13 +552,17 @@ sections:
           - SpeechCli-ModelCommands-ListModels
           - SpeechCli-ModelCommands-ListModelsFilters
           - SpeechCli-ModelCommands-ListModelsJsonFormat
-          - SpeechCli-ModelCommands-ListModelsArgumentValidation
           - SpeechCli-ModelCommands-LibraryDelegation
-          - SpeechCli-ModelCommands-SynthesisSeamExtension
-          - SpeechCli-ModelCommands-SynthesisSeamAudioFormat
-          - SpeechCli-ModelCommands-SynthesisSeamRoleValidation
-          - SpeechCli-ModelCommands-RecognitionSeamExtension
-          - SpeechCli-ModelCommands-RecognitionSeamRoleValidation
+          - SpeechCli-ModelCommands-SynthesisModelEngine
+          - SpeechCli-ModelCommands-SynthesisModelAudioFormat
+          - SpeechCli-ModelCommands-SynthesisModelRoleRefusal
+          - SpeechCli-ModelCommands-RecognitionModelEngine
+          - SpeechCli-ModelCommands-RecognitionModelRoleRefusal
+          - SpeechCli-ModelCommands-ListModelsRoleValidation
+          - SpeechCli-ModelCommands-ListModelsStateValidation
+          - SpeechCli-ModelCommands-ListModelsStateConflict
+          - SpeechCli-ModelCommands-ListModelsFormatValidation
+          - SpeechCli-ModelCommands-ListModelsUnsupportedFlag
         tests:
           - SpeechCli_ListModelsCommand_Invoked_ListsKnownModelsAsTable
           - SpeechCli_ListModelsCommandWithJsonFormat_Invoked_EmitsJsonArray
@@ -489,6 +580,8 @@ sections:
           - SpeechCli-ModelCommands-ModelInfoParameters
           - SpeechCli-ModelCommands-ModelInfoInvariantFormatting
           - SpeechCli-ModelCommands-ModelInfoUnknownId
+          - SpeechCli-ModelCommands-ModelInfoMissingId
+          - SpeechCli-ModelCommands-ModelInfoExtraArgument
         tests:
           - SpeechCli_ModelInfoCommandWithUnknownId_Invoked_ReturnsCleanError
           - SpeechCli_ModelInfoCommandWithMissingArgument_Invoked_ReturnsCleanError
@@ -510,6 +603,8 @@ sections:
           - SpeechCli-ModelCommands-DownloadArgumentValidation
           - SpeechCli-ModelCommands-DownloadCancellation
           - SpeechCli-ModelCommands-DownloadMirrorComposition
+          - SpeechCli-ModelCommands-ProgressWholePercentLines
+          - SpeechCli-ModelCommands-ProgressKilobyteLines
         tests:
           - SpeechCli_DownloadCommandWithUnknownId_Invoked_ReturnsNonZeroExitCode
           - SpeechCli_DownloadCommandWithMissingArgument_Invoked_ReturnsCleanError
@@ -524,6 +619,8 @@ sections:
         children:
           - SpeechCli-ModelCommands-Uninstall
           - SpeechCli-ModelCommands-UninstallNeverInstalled
+          - SpeechCli-ModelCommands-UninstallArgumentValidation
+          - SpeechCli-ModelCommands-UninstallCancellation
         tests:
           - SpeechCli_UninstallCommand_Invoked_NeverInstalledModel_ExitsCleanly
 
@@ -537,10 +634,8 @@ sections:
         children:
           - SpeechCli-ModelCommands-Clean
           - SpeechCli-ModelCommands-CleanNothingToClean
-          - SpeechCli-ModelCommands-IdArgumentValidation
-          - SpeechCli-ModelCommands-UninstallCancellation
           - SpeechCli-ModelCommands-CleanCancellation
-          - SpeechCli-ModelCommands-VoicePackUninstallCancellation
+          - SpeechCli-ModelCommands-CleanArgumentValidation
         tests:
           - SpeechCli_CleanCommand_Invoked_NothingToCleanUp_ExitsCleanly
 
@@ -574,7 +669,12 @@ sections:
           - SpeechCli-ModelCommands-VoicePacks
           - SpeechCli-ModelCommands-VoicePackConsentNote
           - SpeechCli-ModelCommands-VoicePacksConsentNote
-          - SpeechCli-ModelCommands-VoicePackArgumentValidation
+          - SpeechCli-ModelCommands-VoicePackUnknownId
+          - SpeechCli-ModelCommands-VoicePackMissingId
+          - SpeechCli-ModelCommands-VoicesExtraArgument
+          - SpeechCli-ModelCommands-VoicesMissingSubAction
+          - SpeechCli-ModelCommands-VoicesUnknownSubAction
+          - SpeechCli-ModelCommands-VoicePacksCancellation
         tests:
           - SpeechCli_VoicesPacksCommand_Invoked_ListsPacksAndConsentNote
           - CommandDispatch_Find_VoiceCommands_AreRegistered
@@ -591,6 +691,8 @@ sections:
           - SpeechCli-ModelCommands-VoicePackInstall
           - SpeechCli-ModelCommands-VoicePackInstallProgress
           - SpeechCli-ModelCommands-VoicePackInstallFailure
+          - SpeechCli-ModelCommands-VoicePackInstallMirror
+          - SpeechCli-ModelCommands-VoicePackInstallPreCheckCancellation
         tests:
           - VoicesCommand_RunAsync_Install_ReportsProgressAndConsentNote
 
@@ -604,6 +706,7 @@ sections:
         children:
           - SpeechCli-ModelCommands-VoicePackUninstall
           - SpeechCli-ModelCommands-VoicePackUninstallNeverInstalled
+          - SpeechCli-ModelCommands-VoicePackUninstallCancellation
         tests:
           - VoicesCommand_RunAsync_Uninstall_ForwardsAndReports
 
@@ -632,9 +735,9 @@ sections:
           The Chatterbox Turbo model must be discoverable and downloadable through the same
           model commands as every other model.
         children:
-          - SpeechCli-ModelCommands-ChatterboxComposition
-          - SpeechCli-ModelCommands-ChatterboxVoiceSupply
-          - SpeechCli-ModelCommands-ChatterboxDamagedVoiceFile
+          - SpeechCli-ModelCommands-VoiceCloningModelListed
+          - SpeechCli-ModelCommands-VoiceCloningModelVoiceSupply
+          - SpeechCli-ModelCommands-DamagedVoiceFileTolerated
         tests:
           - SpeechModelCatalogAdapter_Enumerate_ReturnsCompiledInKnownModels
 
@@ -652,6 +755,7 @@ sections:
           - SpeechCli-DeviceCommands-ListDevicesNoDevices
           - SpeechCli-DeviceCommands-ListDevicesArgumentValidation
           - SpeechCli-DeviceCommands-LibraryDelegation
+          - SpeechCli-DeviceCommands-HeadlessMachine
         tests:
           - SpeechCli_ListDevicesCommand_Invoked_ExitsCleanly
           - SpeechCli_ListDevicesCommandWithInvalidDirection_Invoked_ReturnsCleanError
@@ -677,6 +781,8 @@ sections:
           - SpeechCli-DeviceCommands-ToneSampleRateValidation
           - SpeechCli-DeviceCommands-ToneAmplitudeRange
           - SpeechCli-DeviceCommands-ToneChannelIdentity
+          - SpeechCli-DeviceCommands-DevicesTestDeviceUnavailable
+          - SpeechCli-DeviceCommands-ToneNoModelRequired
         tests:
           - SpeechCli_DevicesTestCommandWithUnknownDevice_Invoked_ReturnsCleanError
           - SpeechCli_DevicesCommandWithoutSubAction_Invoked_ReturnsCleanError
@@ -728,6 +834,16 @@ sections:
           - SpeechCli-SynthesisCommands-PlaybackDeviceSelection
           - SpeechCli-SynthesisCommands-CancellationAndDisposal
           - SpeechCli-SynthesisCommands-Disposal
+          - SpeechCli-SynthesisCommands-ParamApplication
+          - SpeechCli-SynthesisCommands-ParamBooleanRejection
+          - SpeechCli-SynthesisCommands-ParamChoiceRejection
+          - SpeechCli-SynthesisCommands-ParamEmptyKeyRejection
+          - SpeechCli-SynthesisCommands-ParamFlagNameReported
+          - SpeechCli-SynthesisCommands-ParamIntegerRejection
+          - SpeechCli-SynthesisCommands-ParamInvalidRejection
+          - SpeechCli-SynthesisCommands-ParamNumberFormatRejection
+          - SpeechCli-SynthesisCommands-PlaybackDeviceSourceContract
+          - SpeechCli-SynthesisCommands-PlaybackDeviceSourceFactoryRequired
         tests:
           - SpeechCli_SpeakCommandWithUnknownModel_Invoked_ReturnsCleanError
           - SpeechCli_SpeakCommandWithNotDownloadedModel_Invoked_ReturnsCleanErrorWithDownloadHint
@@ -772,6 +888,9 @@ sections:
           - SpeechCli-RecognitionCommands-VerbosityConflict
           - SpeechCli-RecognitionCommands-OutputText
           - SpeechCli-RecognitionCommands-OutputTextOverwrite
+          - SpeechCli-RecognitionCommands-OutputTextFinalOnly
+          - SpeechCli-RecognitionCommands-OutputTextOneLinePerResult
+          - SpeechCli-RecognitionCommands-FileInputSource
         tests:
           - SpeechCli_RecognizeCommandWithUnknownModel_Invoked_ReturnsCleanError
           - SpeechCli_RecognizeCommandWithNotDownloadedModel_Invoked_ReturnsCleanErrorWithDownloadHint
@@ -795,6 +914,13 @@ sections:
           - SpeechCli-RecognitionCommands-DeviceDispatch
           - SpeechCli-RecognitionCommands-DeviceUnavailable
           - SpeechCli-RecognitionCommands-RecognizeMicrophone
+          - SpeechCli-RecognitionCommands-SilenceTimeoutOption
+          - SpeechCli-RecognitionCommands-StartTimeoutOption
+          - SpeechCli-RecognitionCommands-SessionCancellation
+          - SpeechCli-RecognitionCommands-SessionDefaultClock
+          - SpeechCli-RecognitionCommands-SessionRequiresWrappedSession
+          - SpeechCli-RecognitionCommands-SessionStartWindowFallback
+          - SpeechCli-RecognitionCommands-SessionTimeoutValidation
         tests:
           - RecognizeCommand_Run_SilenceTimeoutOmitted_ResolvesToFixedFiveSecondDefault
           - RecognizeCommand_Run_UnknownDevice_ThrowsArgumentException
@@ -838,9 +964,23 @@ sections:
           - SpeechCli-ConversationCommands-ListenCancellation
           - SpeechCli-ConversationCommands-ListenTimeoutIsNotCancellation
           - SpeechCli-ConversationCommands-Disposal
-          - SpeechCli-ConversationCommands-PrewarmRecognizer
-          - SpeechCli-ConversationCommands-PrewarmFailureReporting
-          - SpeechCli-ConversationCommands-PrewarmCancellationRelease
+          - SpeechCli-ConversationCommands-RecognizerReadyBeforeListening
+          - SpeechCli-ConversationCommands-RecognizerFailureReportedAfterPrompt
+          - SpeechCli-ConversationCommands-RecognizerReleasedOnPromptCancellation
+          - SpeechCli-ConversationCommands-AskFinalOnlyRejected
+          - SpeechCli-ConversationCommands-AskInputRejected
+          - SpeechCli-ConversationCommands-AskInterimRejected
+          - SpeechCli-ConversationCommands-AskNoTagsRejected
+          - SpeechCli-ConversationCommands-AskOutputAudioRejected
+          - SpeechCli-ConversationCommands-AudioDeviceFactoryCaptureDeviceSource-DeviceForwarding
+          - SpeechCli-ConversationCommands-AudioDeviceFactoryCaptureDeviceSource-FactoryRequired
+          - SpeechCli-ConversationCommands-AudioDeviceFactoryCaptureDeviceSource-ProbeForwarding
+          - SpeechCli-ConversationCommands-CaptureDeviceSeam
+          - SpeechCli-ConversationCommands-ICliCaptureDeviceSource-DeviceCreation
+          - SpeechCli-ConversationCommands-ICliCaptureDeviceSource-ProbeExposed
+          - SpeechCli-ConversationCommands-ListenCancellationNoFile
+          - SpeechCli-ConversationCommands-ListenCancellationNoText
+          - SpeechCli-ConversationCommands-PromptCancellationNotDelayed
         tests:
           - Program_Run_WithAskCommandAndNoModel_ThrowsArgumentException
           - SpeechCli_AskCommandWithoutModels_Invoked_ReturnsCleanError
@@ -871,6 +1011,41 @@ sections:
           Packaging as a .NET global tool is how an operator installs and invokes this CLI in
           practice; the `ToolCommandName` and `PackageId` are the tool's externally visible
           installation and invocation identity, distinct from its internal assembly name.
+        children:
+          - SpeechCli-Program-HelpOutput
+          - SpeechCli-Program-VersionOutput
         tests:
           - SpeechCli_VersionFlag_Provided_OutputsVersion
           - SpeechCli_HelpFlag_Provided_ListsAllSubcommands
+
+      - id: SpeechCli-Cli-CtrlCCancellation
+        title: >-
+          The tool shall let an operator interrupt a long-running subcommand with Ctrl+C,
+          cancelling its work and ending the command cleanly.
+        tags: [system]
+        justification: |
+          Downloads, playback and listening can run for a long time; an operator must be able
+          to stop them without killing the terminal or leaving a stack trace.
+        children:
+          - SpeechCli-ConsoleCancellation-RegisterCancels
+          - SpeechCli-ConsoleCancellation-ArgumentValidation
+          - SpeechCli-ConsoleCancellation-ObserveCallbackOnly
+          - SpeechCli-ConsoleCancellation-DisposeIdempotent
+        tests:
+          - ConsoleCancellation_Register_Raise_CancelsSourceRunsCallbackAndSuppressesTermination
+
+      - id: SpeechCli-Cli-PathContainment
+        title: >-
+          The tool shall reject any file path it builds from a component that resolves outside
+          its intended base folder.
+        tags: [system]
+        justification: |
+          Paths built from identifiers and file names must never be steered outside the folder
+          the tool intends to write to.
+        children:
+          - SpeechCli-PathHelpers-NullRejected
+          - SpeechCli-PathHelpers-EscapeRejected
+          - SpeechCli-PathHelpers-RootedRejected
+          - SpeechCli-PathHelpers-AbsoluteResult
+        tests:
+          - PathHelpers_SafePathCombine_EscapingRelativePath_ThrowsArgumentException

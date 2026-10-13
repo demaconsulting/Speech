@@ -1,0 +1,250 @@
+---
+# Software Unit Requirements for the SpeechCli Context
+#
+# These requirements describe the design-level behavior of the Context unit - argument parsing,
+# global options, mirror configuration and the output channels - decomposing system-level
+# requirements in docs/reqstream/speech-cli.yaml. Tests are ContextTests tests, plus two
+# IntegrationTests tests for the silent and log outputs.
+
+sections:
+  - title: SpeechCli Requirements
+    sections:
+      - title: Context Requirements
+        requirements:
+          - id: SpeechCli-Context-GlobalOptionPlacement
+            title: >-
+              The Context unit shall recognize --models-dir, --verbose and --no-emotions as
+              global options wherever they appear on the command line, including after the
+              subcommand.
+            justification: |
+              Users place global options before or after the subcommand interchangeably.
+            tests:
+              - Context_Create_ModelsDirAfterCommand_IsRecognizedAsGlobalOption
+              - Context_Create_VerboseAfterCommand_IsRecognizedAsGlobalOption
+              - Context_Create_NoEmotionsOnNonVoicesCommand_IsRecognizedAsGlobalOption
+
+          - id: SpeechCli-Context-ModelsDir
+            title: >-
+              The Context unit shall record the value of --models-dir as the model store root.
+            justification: |
+              The store root override must reach every command that reads or writes models.
+            tests:
+              - Context_Create_ModelsDirAfterCommand_IsRecognizedAsGlobalOption
+
+          - id: SpeechCli-Context-VoicesDir
+            title: >-
+              The Context unit shall record the value of --voices-dir as the reference voices
+              folder.
+            justification: |
+              Reference-voice commands read voices from the folder the user names.
+            tests:
+              - Context_Create_WithExistingVoicesDir_ParsesOntoContext
+
+          - id: SpeechCli-Context-VoicesDirValidation
+            title: >-
+              The Context unit shall reject a --voices-dir value that is not an existing folder
+              with an ArgumentException.
+            justification: |
+              A mistyped folder must be reported at launch rather than as an empty voice list.
+            tests:
+              - Context_Create_WithBadVoicesDir_ThrowsArgumentException
+
+          - id: SpeechCli-Context-MirrorOptions
+            title: >-
+              The Context unit shall record the mirror URL, credential and bearer token options.
+            justification: |
+              The download mirror is configured only through these options and the environment.
+            tests:
+              - Context_Create_WithMirrorOptions_ParsesOntoContext
+
+          - id: SpeechCli-Context-MirrorDefault
+            title: >-
+              The Context unit shall create no mirror when no mirror URL is configured.
+            justification: |
+              Without a mirror, downloads use the default sources.
+            tests:
+              - Context_CreateMirror_NoMirrorUrl_ReturnsNull
+
+          - id: SpeechCli-Context-MirrorCredentials
+            title: >-
+              The Context unit shall create a mirror configured with basic credentials, or with
+              a bearer token, when one is supplied with a mirror URL.
+            justification: |
+              Private mirrors require authentication.
+            tests:
+              - Context_CreateMirror_ValidCredentialedMirror_ReturnsConfiguredMirror
+              - Context_CreateMirror_BearerTokenMirror_ReturnsConfiguredMirror
+
+          - id: SpeechCli-Context-MirrorUrlValidation
+            title: >-
+              The Context unit shall reject a mirror URL that is invalid or of an unsupported
+              shape with an ArgumentException.
+            justification: |
+              A malformed mirror must fail at launch instead of during a download.
+            tests:
+              - Context_CreateMirror_InvalidMirrorUrl_ThrowsArgumentException
+              - Context_CreateMirror_UnsupportedMirrorUrlShape_ThrowsArgumentException
+
+          - id: SpeechCli-Context-MirrorCredentialValidation
+            title: >-
+              The Context unit shall reject a mirror user supplied without a password.
+            justification: |
+              Half a credential cannot authenticate.
+            tests:
+              - Context_CreateMirror_MirrorUserWithoutPassword_ThrowsArgumentException
+
+          - id: SpeechCli-Context-MirrorCredentialConflict
+            title: >-
+              The Context unit shall reject basic credentials supplied together with a bearer
+              token.
+            justification: |
+              Two authentication schemes for one mirror are ambiguous.
+            tests:
+              - Context_CreateMirror_BasicCredentialsAndBearerTokenTogether_ThrowsArgumentException
+
+          - id: SpeechCli-Context-MirrorBearerTokenValidation
+            title: >-
+              The Context unit shall reject a bearer token that is empty or whitespace.
+            justification: |
+              A blank token would send a meaningless header.
+            tests:
+              - Context_CreateMirror_WhitespaceBearerToken_ThrowsArgumentException
+
+          - id: SpeechCli-Context-MirrorCredentialRequiresUrl
+            title: >-
+              The Context unit shall reject mirror credentials or a bearer token supplied
+              without a mirror URL.
+            justification: |
+              Credentials with no mirror would be silently ignored, or leaked to a default source.
+            tests:
+              - Context_CreateMirror_CredentialsWithoutMirrorUrl_ThrowsArgumentException
+              - Context_CreateMirror_BearerTokenWithoutMirrorUrl_ThrowsArgumentException
+              - Context_Create_MirrorCredentialWithoutUrlAndHelp_ThrowsArgumentException
+
+          - id: SpeechCli-Context-MirrorCleartextProtection
+            title: >-
+              The Context unit shall reject credentials sent to a mirror over plain HTTP unless
+              the mirror is a loopback address.
+            justification: |
+              Credentials must not cross a network unencrypted.
+            tests:
+              - Context_CreateMirror_CredentialOverPlainHttp_RejectedUnlessLoopback
+
+          - id: SpeechCli-Context-MirrorUrlEnvironment
+            title: >-
+              The Context unit shall use the mirror URL environment variable when the mirror URL
+              option is absent, and the option when both are present.
+            justification: |
+              Environment configuration supports unattended use and the option overrides it.
+            tests:
+              - Context_Create_EnvironmentMirrorUrl_UsedWhenOptionAbsent
+              - Context_Create_MirrorUrlOption_OverridesEnvironment
+
+          - id: SpeechCli-Context-MirrorCredentialEnvironment
+            title: >-
+              The Context unit shall use the basic-credential or bearer-token environment
+              variables when the corresponding options are absent, and any credential option
+              shall disable the credential environment variables.
+            justification: |
+              Credentials can be kept out of the command line, and an explicit option wins.
+            tests:
+              - Context_Create_EnvironmentBasicCredentials_UsedWhenOptionsAbsent
+              - Context_Create_EnvironmentBearerToken_UsedWhenOptionsAbsent
+              - Context_Create_CredentialOption_DisablesEnvironmentCredentials
+
+          - id: SpeechCli-Context-MirrorEnvironmentEmptyIgnored
+            title: >-
+              The Context unit shall treat an empty mirror environment variable as unset.
+            justification: |
+              An empty variable is a common way to disable a setting.
+            tests:
+              - Context_Create_EmptyEnvironmentVariables_TreatedAsUnset
+
+          - id: SpeechCli-Context-MirrorEnvironmentCredentialRequiresUrl
+            title: >-
+              The Context unit shall reject environment credentials supplied without a mirror
+              URL, without echoing the secret.
+            justification: |
+              The same rule as for options applies to the environment.
+            tests:
+              - Context_Create_EnvironmentCredentialWithoutUrl_ThrowsWithoutEchoingSecret
+
+          - id: SpeechCli-Context-MirrorSecretsNotInErrors
+            title: >-
+              The Context unit shall not include a mirror URL value in the error for an invalid
+              mirror URL.
+            justification: |
+              A URL can carry embedded credentials and errors reach logs.
+            tests:
+              - Context_Create_InvalidMirrorUrl_ErrorDoesNotEchoValue
+              - Context_Create_EnvironmentCredentialWithoutUrl_ThrowsWithoutEchoingSecret
+
+          - id: SpeechCli-Context-HeadingDepth
+            title: >-
+              The Context unit shall record the --depth value when it is within range.
+            justification: |
+              The validation report is rendered at the requested heading level.
+            tests:
+              - Context_Create_DepthWithinRange_ParsesOntoContext
+
+          - id: SpeechCli-Context-HeadingDepthValidation
+            title: >-
+              The Context unit shall reject a --depth value that is missing, non-numeric or out
+              of range with an ArgumentException.
+            justification: |
+              An invalid depth would produce an invalid heading level.
+            tests:
+              - Context_Create_DepthOutOfRangeOrNonNumeric_ThrowsArgumentException
+              - Context_Create_DepthWithoutValue_ThrowsArgumentException
+
+          - id: SpeechCli-Context-ResultsOption
+            title: >-
+              The Context unit shall record the --results path, and reject --results without a
+              value.
+            justification: |
+              Self-validation evidence is written to the path the user names.
+            tests:
+              - Context_Create_ResultsOption_ParsesPathAndRejectsMissingValue
+
+          - id: SpeechCli-Context-DiagnosticsOption
+            title: >-
+              The Context unit shall enable diagnostics output when --verbose or --diagnostics is
+              supplied.
+            justification: |
+              Users need extra detail when troubleshooting.
+            tests:
+              - Context_Create_VerboseOrDiagnosticsFlag_SetsDiagnostics
+
+          - id: SpeechCli-Context-UnsupportedArgument
+            title: >-
+              The Context unit shall reject an unsupported argument with an ArgumentException
+              whose message names the argument and carries no parameter-name suffix.
+            justification: |
+              The message is printed to the user as the whole error.
+            tests:
+              - Context_Create_UnsupportedArgument_MessageHasNoParameterSuffix
+
+          - id: SpeechCli-Context-OptionValueRequired
+            title: >-
+              The Context unit shall reject an option that requires a value but has none, with
+              an ArgumentException whose message carries no parameter-name suffix.
+            justification: |
+              The message is printed to the user as the whole error.
+            tests:
+              - Context_Create_OptionMissingValue_MessageHasNoParameterSuffix
+
+          - id: SpeechCli-Context-SilentOutput
+            title: >-
+              The Context unit shall write no console output when --silent is supplied.
+            justification: |
+              Scripts need a quiet mode.
+            tests:
+              - SpeechCli_SilentFlag_Provided_SuppressesOutput
+
+          - id: SpeechCli-Context-LogOutput
+            title: >-
+              The Context unit shall write its output to the file named by --log.
+            justification: |
+              Users keep a record of a run.
+            tests:
+              - SpeechCli_LogFlag_Provided_WritesOutputToFile

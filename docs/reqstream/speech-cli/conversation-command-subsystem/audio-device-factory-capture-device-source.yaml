@@ -1,0 +1,51 @@
+---
+# Software Unit Requirements for the SpeechCli AudioDeviceFactoryCaptureDeviceSource
+#
+# These requirements describe the behavior of the AudioDeviceFactoryCaptureDeviceSource unit - the production
+# ICliCaptureDeviceSource that resolves capture devices through the real AudioDeviceFactory - decomposing the parent
+# ConversationCommandSubsystem requirements.
+#
+# The requirements are grouped by concern, one criterion each:
+#   - Probe forwarding (ProbeForwarding)
+#   - Device creation forwarding (DeviceForwarding)
+#   - Construction (FactoryRequired)
+# Every test below is an AudioDeviceFactoryCaptureDeviceSourceTests test.
+
+sections:
+  - title: SpeechCli Requirements
+    sections:
+      - title: ConversationCommandSubsystem Requirements
+        sections:
+          - title: AudioDeviceFactoryCaptureDeviceSource Requirements
+            requirements:
+              - id: SpeechCli-ConversationCommands-AudioDeviceFactoryCaptureDeviceSource-ProbeForwarding
+                title: >-
+                  The AudioDeviceFactoryCaptureDeviceSource shall expose the capture probe of the factory it was
+                  given.
+                justification: |
+                  The devices a command lists and validates names against must be the same devices the factory
+                  can create, or a name accepted by the list could fail at creation.
+                tests:
+                  - AudioDeviceFactoryCaptureDeviceSource_CaptureProbe_ForwardsToFactory
+
+              - id: SpeechCli-ConversationCommands-AudioDeviceFactoryCaptureDeviceSource-DeviceForwarding
+                title: >-
+                  The AudioDeviceFactoryCaptureDeviceSource shall return the same kind of device, with the same
+                  availability, that the factory it was given returns for the same selection, for both the
+                  default selection and a named selection.
+                justification: |
+                  The real capture hardware detection must behave as it does when the factory is used
+                  directly, so wrapping the factory never turns an available device into an unavailable one,
+                  or the reverse, on any machine.
+                tests:
+                  - AudioDeviceFactoryCaptureDeviceSource_CreateCaptureDevice_ForwardsToFactory
+
+              - id: SpeechCli-ConversationCommands-AudioDeviceFactoryCaptureDeviceSource-FactoryRequired
+                title: >-
+                  The AudioDeviceFactoryCaptureDeviceSource shall reject construction without a factory with an
+                  ArgumentNullException.
+                justification: |
+                  A source with no factory could only fail later, far from the cause, so a missing factory
+                  must be reported where it is passed.
+                tests:
+                  - AudioDeviceFactoryCaptureDeviceSource_NullFactory_ThrowsArgumentNullException

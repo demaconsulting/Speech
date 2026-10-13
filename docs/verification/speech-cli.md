@@ -52,8 +52,10 @@ those types.
 The SpeechCli system is accepted when all of the following hold (IEC 62304 §5.7.2):
 
 - Every test linked to a SpeechCli system requirement in `docs/reqstream/speech-cli.yaml`, and
-  every test linked to a requirement of the five command subsystems, passes with no skipped or
-  failing result in the CI test run on every supported platform
+  every test linked to a requirement of the five command subsystems or of a unit, passes in the CI test run on
+  every supported platform with no failing result. The only permitted skip is the real speech-to-text
+  integration test, which skips dynamically when no speech-to-text model is downloaded in the per-user model
+  store; it is then reported as skipped and verified manually against a downloaded model before release
 - `speech-cli --validate` reports `Failed: 0`, with every self-test check passing
 - `--version` and `--help` exit `0`, and `--help` lists all thirteen subcommands and every global
   option
@@ -133,7 +135,8 @@ scenarios.
 
 Verifies that a global option appearing after the subcommand name is still recognized as a global
 option (not absorbed into the subcommand's raw argument list), and that `--silent`/`--log`
-actually suppress console output/write a log file respectively.
+actually suppress console output/write a log file respectively (SpeechCli-Cli-SilentOption,
+SpeechCli-Cli-LogOption, and SpeechCli-Cli-VerboseOption for `--verbose`).
 `--voices-dir` is parsed onto the context when it names an existing folder and rejected with `ArgumentException` otherwise.
 `--depth` accepts 1 through 6 and rejects 0, 7, negative, non-numeric, and missing values;
 `--verbose` and its `--diagnostics` alias set the diagnostics flag before or after the subcommand;
@@ -152,7 +155,7 @@ the results file path.
 `Context_CreateMirror_CredentialsWithoutMirrorUrl_ThrowsArgumentException`,
 `Context_CreateMirror_BearerTokenWithoutMirrorUrl_ThrowsArgumentException`,
 `Context_CreateMirror_UnsupportedMirrorUrlShape_ThrowsArgumentException`,
-`Context_CreateMirror_WhitespaceBearerToken_ThrowsArgumentException`,
+`Context_CreateMirror_WhitespaceBearerToken_ThrowsArgumentException` (SpeechCli-Cli-DownloadMirrorBearerTokenValidation),
 `Context_CreateMirror_CredentialOverPlainHttp_RejectedUnlessLoopback`
 Verifies `Context.CreateMirror()` returns `null` when `--mirror-url` is not supplied, builds a
 `DownloadMirror` carrying the configured base URI plus either HTTP Basic credentials or a bearer
@@ -160,7 +163,8 @@ token when they are, and rejects an invalid `--mirror-url` or an incomplete `--m
 `--mirror-password` pairing with a clean `ArgumentException` rather than letting the invalid
 configuration surface later from inside the download transport. The mutually-exclusive-token test
 confirms that supplying both a complete Basic credential pair and a bearer token together is
-rejected rather than silently preferring one over the other - `Context.CreateMirror` forwards
+rejected rather than silently preferring one over the other (SpeechCli-Cli-DownloadMirrorCredentialConflict) -
+`Context.CreateMirror` forwards
 both to `DownloadMirror`'s constructor, which enforces this exclusivity (along with the mirror
 URL's scheme/query/fragment/user-info shape, the non-empty-bearer-token rule, and the
 non-loopback-`http`-with-credentials rule) - see _Speech ModelManagementSubsystem Design_ for

@@ -1,0 +1,95 @@
+---
+# Software Unit Requirements for the SpeechCli ListVoicesCommand
+#
+# These requirements describe the `list-voices` command, decomposing the system-level
+# SpeechCli-ReferenceVoices and SpeechCli-ReferenceVoiceEmotions requirements. They are
+# grouped by concern, one criterion each:
+#   - Output (ListVoices, ListVoicesJsonFormat, VoiceEmotionsListing)
+#   - Guidance (ListVoicesUsageHints, ListVoicesEmptyHint, ListVoicesConsentNote)
+#   - Argument validation (ListVoicesArgumentValidation)
+# Null-argument guards are verified in the verification document and are not requirements.
+# Tests named ListVoicesCommand_* are ListVoicesCommandTests; SpeechCli_* tests are out-of-process
+# tests in IntegrationTests.cs.
+
+sections:
+  - title: SpeechCli Requirements
+    sections:
+      - title: ModelCommandsSubsystem Requirements
+        sections:
+          - title: ListVoicesCommand Requirements
+            requirements:
+              - id: SpeechCli-ModelCommands-ListVoices
+                title: >-
+                  The tool shall list every available reference voice (id, source, display name)
+                  as an aligned table when invoked with `list-voices`.
+                justification: |
+                  Voice ids are the values of the voice-cloning model's `voice` parameter and
+                  there can be well over a hundred of them, so an operator needs a discoverable
+                  list.
+                tests:
+                  - ListVoicesCommand_Run_Table_ListsVoicesAndConsentNote
+                  - SpeechCli_ListVoicesCommand_Invoked_PrintsConsentNote
+
+              - id: SpeechCli-ModelCommands-ListVoicesJsonFormat
+                title: >-
+                  The tool shall print the `list-voices` result as a JSON array when invoked with
+                  `--format json`.
+                justification: |
+                  A machine-parseable form lets a script choose a voice without scraping table
+                  formatting.
+                tests:
+                  - ListVoicesCommand_Run_Json_WritesParseableArray
+                  - SpeechCli_ListVoicesCommandWithJsonFormat_Invoked_EmitsJsonArray
+
+              - id: SpeechCli-ModelCommands-VoiceEmotionsListing
+                title: >-
+                  The tool shall show how many emotion variants (moods) each voice has when
+                  invoked with `list-voices`, as a Moods column in the table and a `Moods` array
+                  in JSON.
+                justification: |
+                  An operator must be able to discover which voices carry moods before choosing
+                  one.
+                tests:
+                  - ListVoicesCommand_Run_MoodClips_ShowsMoodsColumnAndJson
+
+              - id: SpeechCli-ModelCommands-ListVoicesUsageHints
+                title: >-
+                  The tool shall tell the operator how to choose a listed voice (`speak
+                  --tts-param voice=<id>`) when `list-voices` finds some.
+                justification: |
+                  A list of ids is only useful if it says where the id goes.
+                tests:
+                  - ListVoicesCommand_Run_Table_ListsVoicesAndConsentNote
+
+              - id: SpeechCli-ModelCommands-ListVoicesEmptyHint
+                title: >-
+                  The tool shall tell the operator how to obtain voices when `list-voices` finds
+                  none.
+                justification: |
+                  An empty list is a dead end unless it says how to add voices.
+                tests:
+                  - ListVoicesCommand_Run_NoVoices_ExplainsHowToAddVoices
+
+              - id: SpeechCli-ModelCommands-ListVoicesConsentNote
+                title: >-
+                  The tool shall print the consent note, that only voices the operator has
+                  permission to use may be cloned, whenever `list-voices` prints its table output.
+                justification: |
+                  Cloning a voice reproduces a person's vocal identity, so the consent note is
+                  shown where voices are chosen.
+                tests:
+                  - ListVoicesCommand_Run_Table_ListsVoicesAndConsentNote
+                  - ListVoicesCommand_Run_NoVoices_ExplainsHowToAddVoices
+                  - SpeechCli_ListVoicesCommand_Invoked_PrintsConsentNote
+
+              - id: SpeechCli-ModelCommands-ListVoicesArgumentValidation
+                title: >-
+                  The tool shall reject a `list-voices` invocation with an unknown `--format`
+                  value or an unsupported argument with a clear, non-zero-exit-code error rather
+                  than a stack trace.
+                justification: |
+                  A mistyped option must fail predictably so a script can detect it instead of
+                  receiving output in an unexpected form.
+                tests:
+                  - ListVoicesCommand_Run_BadArguments_ThrowsArgumentException
+                  - ListVoicesCommand_Run_UnknownFormat_ThrowsArgumentException

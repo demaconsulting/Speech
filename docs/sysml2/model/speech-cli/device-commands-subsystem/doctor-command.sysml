@@ -7,8 +7,8 @@ package SpeechCli {
 
         comment sourceRef /* Source: src/DemaConsulting.Speech.Cli/Commands/DeviceCommandsSubsystem/DoctorCommand.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Cli.Tests/Commands/DeviceCommandsSubsystem/DoctorCommandTests.cs */
-        comment designRef /* Design: docs/design/speech-cli/device-commands-subsystem.md (documented within the subsystem doc; no dedicated unit doc) */
-        comment verificationRef /* Verification: docs/verification/speech-cli/device-commands-subsystem.md (verified within the subsystem doc; no dedicated unit doc) */
-        comment reqRef /* Requirements: docs/reqstream/speech-cli/device-commands-subsystem.yaml (requirements held in the subsystem file; no dedicated unit file) */
+        comment designRef /* Design: docs/design/speech-cli/device-commands-subsystem/doctor-command.md */
+        comment verificationRef /* Verification: docs/verification/speech-cli/device-commands-subsystem/doctor-command.md */
+        comment reqRef /* Requirements: docs/reqstream/speech-cli/device-commands-subsystem/doctor-command.yaml */
     }
 }

@@ -42,6 +42,17 @@ Supplying a token that resolves to neither a global option nor a known subcomman
 `ArgumentException`, which `Program.Main` reports as a clean, non-zero-exit-code error - the same
 convention the template already uses for its own unsupported-argument case.
 
+The `--verbose` (alias `--diagnostics`), `--silent`, and `--log <file>` options are the cross-cutting output
+controls (requirements SpeechCli-Cli-VerboseOption, SpeechCli-Cli-SilentOption, and SpeechCli-Cli-LogOption):
+`--verbose` enables diagnostic output, `--silent` suppresses console output including error text, and `--log`
+mirrors all output to the given file.
+
+Each class and interface of the system is a software unit with its own design, verification, and requirements
+file under `docs/design/speech-cli/`, `docs/verification/speech-cli/`, and `docs/reqstream/speech-cli/`. The
+root-level units are Program, Context, CommandDispatch, ConsoleCancellation, Validation, and PathHelpers, and
+each subsystem folder holds its own units. ConsoleCancellation realizes SpeechCli-Cli-CtrlCCancellation and
+PathHelpers realizes SpeechCli-Cli-PathContainment.
+
 ### Download Mirror Options
 
 `Context.Create(args)` also resolves four further global options, recognized at the same
@@ -62,8 +73,10 @@ with nowhere to apply almost always indicates a missing or misspelled `--mirror-
 an intentional no-op; `--mirror-url` must parse as an absolute URI; and `--mirror-user`/
 `--mirror-password` must be supplied together. Every other validation rule - the mirror's scheme
 must be `http` or `https` with no query string, fragment, or user-info component;
-`--mirror-user`/`--mirror-bearer-token` are mutually exclusive; a supplied bearer token must not
-be empty or whitespace-only; and a credentialed mirror must use `https` unless its host is a
+`--mirror-user`/`--mirror-bearer-token` are mutually exclusive (SpeechCli-Cli-DownloadMirrorCredentialConflict); a
+supplied bearer token must not
+be empty or whitespace-only (SpeechCli-Cli-DownloadMirrorBearerTokenValidation); and a credentialed mirror
+must use `https` unless its host is a
 loopback address - is enforced once, centrally, by `DownloadMirror`'s own constructor (see
 _Speech ModelManagementSubsystem Design_), so the CLI never duplicates that logic. Any rejection
 surfaces as an `ArgumentException`, which `Program.Main` reports as a clean, non-zero-exit-code

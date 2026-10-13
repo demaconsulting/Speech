@@ -1,0 +1,27 @@
+---
+# Software Unit Requirements for the SpeechCli ICliPlaybackDeviceSource
+#
+# These requirements describe the contract of the ICliPlaybackDeviceSource interface - the
+# CLI-owned seam over real-playback-device resolution - decomposing the parent
+# SynthesisCommandSubsystem requirements. The interface has no executable behavior of its own, so
+# its requirement is verified through the behavior of `speak` over the in-memory implementation
+# used in tests.
+
+sections:
+  - title: SpeechCli Requirements
+    sections:
+      - title: SynthesisCommandSubsystem Requirements
+        sections:
+          - title: ICliPlaybackDeviceSource Requirements
+            requirements:
+              - id: SpeechCli-SynthesisCommands-PlaybackDeviceSourceContract
+                title: >-
+                  The ICliPlaybackDeviceSource shall report an unavailable playback device through
+                  the device it creates, so that `speak` can reject a machine with no playback
+                  device with a clean error rather than failing during synthesis.
+                justification: |
+                  The command must learn that no device exists before it starts synthesis, and
+                  must be able to learn it from any source of devices, real or substituted in a
+                  test, without relying on hardware being present.
+                tests:
+                  - SpeakCommand_RunAsync_NoPlaybackDeviceAvailable_ThrowsInvalidOperationException

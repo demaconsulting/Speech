@@ -1,0 +1,143 @@
+---
+# Software Unit Requirements for the SpeechCli Program
+#
+# These requirements describe the design-level behavior of the Program unit - the process entry
+# point, top-level action priority, usage text and error reporting - decomposing system-level
+# requirements in docs/reqstream/speech-cli.yaml. Tests are ProgramTests tests (in-process, through
+# Run and Main) and IntegrationTests tests (the built tool as a child process).
+
+sections:
+  - title: SpeechCli Requirements
+    sections:
+      - title: Program Requirements
+        requirements:
+          - id: SpeechCli-Program-VersionOutput
+            title: >-
+              The Program unit shall print only the version, without the banner, when --version
+              or -v is supplied.
+            justification: |
+              Scripts parse the version output, so it must contain nothing else.
+            tests:
+              - Program_Run_WithVersionFlag_DisplaysVersionOnly
+              - Program_Run_WithShortVersionFlag_DisplaysVersion
+              - SpeechCli_VersionFlag_Provided_OutputsVersion
+
+          - id: SpeechCli-Program-VersionString
+            title: >-
+              The Program unit shall expose a non-empty version string.
+            justification: |
+              The version output and the banner would otherwise be blank.
+            tests:
+              - Program_Version_ReturnsNonEmptyString
+
+          - id: SpeechCli-Program-HelpOutput
+            title: >-
+              The Program unit shall print the usage text when --help, -h or -? is supplied.
+            justification: |
+              Users discover the subcommands and options from the usage text.
+            tests:
+              - Program_Run_WithHelpFlag_DisplaysUsageInformation
+              - Program_Run_WithShortHelpFlag_DisplaysUsage
+              - Program_Run_WithQuestionMarkFlag_DisplaysUsage
+              - SpeechCli_HelpFlag_Provided_ListsAllSubcommands
+
+          - id: SpeechCli-Program-NoSubcommandUsage
+            title: >-
+              The Program unit shall print the banner and the usage text when no subcommand is
+              supplied.
+            justification: |
+              Running the tool bare is a request for orientation, not an error.
+            tests:
+              - Program_Run_NoArguments_DisplaysBannerAndUsage
+              - SpeechCli_NoArguments_Invoked_DisplaysBannerAndUsage
+
+          - id: SpeechCli-Program-HelpVoicesDocumentation
+            title: >-
+              The Program unit shall document the voices options and the reference-voice consent
+              note in the usage text.
+            justification: |
+              Users must learn the consent expectations before using reference voices.
+            tests:
+              - Program_Run_Help_DocumentsVoicesOptionsAndConsentNote
+
+          - id: SpeechCli-Program-HelpMirrorEnvironment
+            title: >-
+              The Program unit shall document the mirror environment variables in the usage text.
+            justification: |
+              Users need to discover the environment configuration without reading the source.
+            tests:
+              - Program_Run_Help_DocumentsMirrorEnvironmentVariables
+
+          - id: SpeechCli-Program-HelpNoSecrets
+            title: >-
+              The Program unit shall not print the values of the mirror environment variables
+              in the usage text.
+            justification: |
+              Help output is commonly pasted into logs and issues.
+            tests:
+              - Program_Run_Help_DoesNotPrintEnvironmentSecretValues
+
+          - id: SpeechCli-Program-ActionPriority
+            title: >-
+              The Program unit shall give --version priority over --help, and --help priority
+              over --validate, when more than one is supplied.
+            justification: |
+              Combined top-level actions need a deterministic outcome.
+            tests:
+              - Program_Run_VersionHelpValidateTogether_HonorsPriorityOrder
+
+          - id: SpeechCli-Program-SubcommandDispatch
+            title: >-
+              The Program unit shall run the named subcommand through the dispatch table when no
+              higher-priority action is requested.
+            justification: |
+              The subcommand is the tool's main function. The subcommand also runs when it
+              follows the banner, which is printed unless --silent is given.
+            tests:
+              - Program_Run_WithListModelsCommand_ListsModelsAndSucceeds
+              - Program_Run_WithListDevicesCommand_CompletesWithSuccessExitCode
+              - Program_Run_WithDoctorCommand_ProducesReportWithoutThrowing
+              - Program_Run_WithSpeakCommandAndNoModel_ThrowsArgumentException
+              - Program_Run_WithRecognizeCommandAndNoModel_ThrowsArgumentException
+              - Program_Run_WithAskCommandAndNoModel_ThrowsArgumentException
+
+          - id: SpeechCli-Program-ValidateDispatch
+            title: >-
+              The Program unit shall run the self-validation when --validate is supplied and no
+              higher-priority action is requested.
+            justification: |
+              Self-validation is reached only through the entry point.
+            tests:
+              - Program_Run_WithValidateFlag_RunsValidation
+              - SpeechCli_ValidateFlag_Provided_RunsValidation
+
+          - id: SpeechCli-Program-UnknownSubcommandReported
+            title: >-
+              The Program unit shall report an unknown subcommand name on the error stream and
+              return exit code 1.
+            justification: |
+              A mistyped command must be explained and detectable from a script.
+            tests:
+              - Program_Main_WithUnknownCommand_ReturnsNonZeroExitCodeAndReportsCommand
+              - SpeechCli_UnknownCommand_Provided_ReturnsCleanError
+
+          - id: SpeechCli-Program-InvalidArgumentReported
+            title: >-
+              The Program unit shall report an invalid argument as a one-line error without a
+              stack trace and return exit code 1.
+            justification: |
+              Usage mistakes must read as messages, not crashes.
+            tests:
+              - Program_Main_WithInvalidArgs_ReturnsNonZeroExitCode
+              - SpeechCli_UnknownOption_Provided_ReturnsCleanError
+
+          - id: SpeechCli-Program-SilentErrors
+            title: >-
+              The Program unit shall write nothing for an argument error when --silent is
+              supplied, while still returning a non-zero exit code.
+            justification: |
+              Silent mode must apply to the error path, including a failure to parse the very
+              arguments that carry the silent flag.
+            tests:
+              - Program_Main_WithInvalidArgsAndSilentFlag_SuppressesErrorOutput
+              - Program_Main_WithUnknownCommandAndSilentFlag_SuppressesErrorOutput

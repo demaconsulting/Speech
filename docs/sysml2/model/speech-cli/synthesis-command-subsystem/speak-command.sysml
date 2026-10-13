@@ -12,8 +12,8 @@ package SpeechCli {
 
         comment sourceRef /* Source: src/DemaConsulting.Speech.Cli/Commands/SynthesisCommandSubsystem/SpeakCommand.cs */
         comment testRef /* Test: test/DemaConsulting.Speech.Cli.Tests/Commands/SynthesisCommandSubsystem/SpeakCommandTests.cs */
-        comment designRef /* Design: docs/design/speech-cli/synthesis-command-subsystem.md (documented within the subsystem doc; no dedicated unit doc) */
-        comment verificationRef /* Verification: docs/verification/speech-cli/synthesis-command-subsystem.md (verified within the subsystem doc; no dedicated unit doc) */
-        comment reqRef /* Requirements: docs/reqstream/speech-cli/synthesis-command-subsystem.yaml (requirements held in the subsystem file; no dedicated unit file) */
+        comment designRef /* Design: docs/design/speech-cli/synthesis-command-subsystem/speak-command.md */
+        comment verificationRef /* Verification: docs/verification/speech-cli/synthesis-command-subsystem/speak-command.md */
+        comment reqRef /* Requirements: docs/reqstream/speech-cli/synthesis-command-subsystem/speak-command.yaml */
     }
 }

@@ -4,18 +4,30 @@
 
 The ModelCommandsSubsystem is verified through deterministic unit tests against a fake
 `ICliModelCatalog` (`FakeCliModelCatalog`, backed by an in-memory dictionary of
-`SpeechModelDescriptor`s built from `FakeSpeechModel`), which lets every catalog outcome —
-a known or unknown model id, an already-downloaded or missing model, a successful or failed
-download, a progress report, a store exception — be produced on demand with no real
-`SpeechModelCatalog`, network access, or downloaded model. A second, smaller layer of tests
-exercises `SpeechModelCatalogAdapter`/`CliModelCatalogFactory` themselves against a real
-`SpeechModelCatalog` rooted at an isolated temporary directory, proving the seam really does
-forward to the library correctly, still without any network access (every model in this
-repository's known-model list starts `NotDownloaded`, and no test triggers an actual download).
-Out-of-process integration tests in `IntegrationTests.cs` invoke the built tool as a child
-process for the argument-parsing and clean-error paths that matter most from an operator's
-perspective (an unknown model id, a missing required argument), each against an isolated, empty
-`--models-dir` so no test ever touches the real per-user model store.
+`SpeechModelDescriptor`s built from `FakeSpeechModel`), which lets every catalog outcome (a known or
+unknown model id, an already-downloaded or missing model, a successful or failed download, a
+progress report, a store exception) be produced on demand with no real `SpeechModelCatalog`, network
+access, or downloaded model. A second, smaller layer of tests exercises `SpeechModelCatalogAdapter`
+and `CliModelCatalogFactory` against a real `SpeechModelCatalog` rooted at an isolated temporary
+directory, proving the seam really does forward to the library correctly, still without any network
+access (every model in this repository's known-model list starts `NotDownloaded`, and no test
+triggers an actual download).
+
+The scenarios of each unit are documented in the unit's own verification document in the
+`model-commands-subsystem/` folder:
+
+- `ICliModelCatalog`, `SpeechModelCatalogAdapter`, `CliModelCatalogFactory`
+- `DownloadProgressReporter`
+- `ListModelsCommand`, `ModelInfoCommand`, `DownloadCommand`, `UninstallCommand`, `CleanCommand`
+- `ListVoicesCommand`, `VoicesCommand`
+
+**Out-of-process evidence**: the out-of-process tests that invoke the built tool as a child process
+(unknown model id, missing required argument, never-installed uninstall, nothing-to-clean-up, JSON
+and table listings, voice and pack listings) live in
+`test/DemaConsulting.Speech.Cli.Tests/IntegrationTests.cs`. That file is a single cross-cutting
+file for the whole tool and is outside this subsystem's review set; the unit verification documents
+name the specific `SpeechCli_*` tests they rely on. Each runs against an isolated, empty
+`--models-dir`, so no test touches the real per-user model store.
 
 Automated tests do **not** perform a real model download; that remains a manual verification
 activity (see _Manual / Build-Time Verification_ below and in the system-level verification
@@ -31,275 +43,17 @@ document).
 - **Test doubles**: `FakeCliModelCatalog` (hand-written fake implementing `ICliModelCatalog`,
   tracking `Uninstall`/`CleanUpLeftovers`/`Download` calls for assertion) and `FakeSpeechModel`
   (hand-written fake implementing `ISpeechModel`, used for descriptor-level scenarios; the
-  role-specific `IRecognitionModel`/`ISynthesisModel` interfaces are public, so seam tests may
+  role-specific `IRecognitionModel`/`ISynthesisModel` interfaces are public, so adapter tests may
   also implement them)
-
-### Test Scenarios
-
-#### ListModelsCommand
-
-**Tests**: `ListModelsCommand_Run_NoFilters_ListsEveryModelAsTable`,
-`ListModelsCommand_Run_RoleFilterTts_ListsOnlySynthesisModels`,
-`ListModelsCommand_Run_StateFilterDownloaded_ListsOnlyDownloadedModels`,
-`ListModelsCommand_Run_StateFilterMissing_ListsOnlyMissingModels`,
-`ListModelsCommand_Run_FormatJson_EmitsJsonArray`,
-`ListModelsCommand_Run_EmptyCatalog_PrintsNoModelsMessage`,
-`ListModelsCommand_Run_InvalidRoleValue_ThrowsArgumentException`,
-`ListModelsCommand_Run_InvalidFormatValue_ThrowsArgumentException`,
-`ListModelsCommand_Run_UnsupportedFlag_ThrowsArgumentException`,
-`ListModelsCommand_Run_RoleFlagMissingValue_ThrowsArgumentException`,
-`ListModelsCommand_Run_InvalidStateValue_ThrowsArgumentException`,
-`ListModelsCommand_Run_ConflictingStateValues_ThrowsArgumentException`,
-`SpeechCli_ListModelsCommand_Invoked_ListsKnownModelsAsTable`,
-`SpeechCli_ListModelsCommandWithJsonFormat_Invoked_EmitsJsonArray`
-
-**Scenario/Expected**: No filter lists every catalog model as an aligned table with the Id,
-Display Name, Role, State, and License columns; `--role tts`/`--state downloaded`/`missing` each
-filter to exactly the matching subset; `--format json` emits a JSON array whose objects contain
-the same fields; an empty result (empty catalog or an over-restrictive filter) prints an
-explanatory message instead of a header-only table; an unrecognized `--role`/`--state`/`--format`
-value, contradictory `--state downloaded` and `--state missing` flags (in either order), an
-unsupported flag, or a flag missing its value are all rejected with `ArgumentException` rather
-than a crash or silent misbehavior; both the table and JSON out-of-process forms are also proven
-against the built tool.
-
-#### ModelInfoCommand
-
-**Tests**: `ModelInfoCommand_Run_KnownModel_PrintsIdentityAndState`,
-`ModelInfoCommand_Run_NumericParameter_PrintsBounds`,
-`ModelInfoCommand_Run_ChoiceParameter_PrintsOptions`,
-`ModelInfoCommand_Run_NumericParameter_CommaDecimalCulture_PrintsInvariantFormat`,
-`ModelInfoCommand_Run_BooleanParameter_PrintsDefault`,
-`ModelInfoCommand_Run_UnknownModelId_ThrowsArgumentException`,
-`ModelInfoCommand_Run_MissingModelIdArgument_ThrowsArgumentException`,
-`ModelInfoCommand_Run_ExtraArgument_ThrowsArgumentException`,
-`SpeechCli_ModelInfoCommandWithUnknownId_Invoked_ReturnsCleanError`,
-`SpeechCli_ModelInfoCommandWithMissingArgument_Invoked_ReturnsCleanError`
-
-**Scenario/Expected**: A known model id prints its identity, state, license name/URL, and audio-
-tag support; a `NumericParameter` prints its min/max/step/default using the invariant culture (a period
-decimal separator even under a comma-decimal current culture); a `ChoiceParameter` prints its
-option list and default; a `BooleanParameter` prints its default; an unknown model id throws
-`ArgumentException` whose message names the id and suggests `list-models`, both in-process and
-(as a clean, non-zero-exit-code error rather than a stack trace) out-of-process; a missing or
-extra positional argument is likewise rejected with `ArgumentException`.
-
-#### DownloadCommand
-
-**Tests**: `DownloadCommand_RunAsync_SingleModel_Succeeds_ReportsInstalled`,
-`DownloadCommand_RunAsync_MultipleModels_DownloadsEachSequentially`,
-`DownloadCommand_RunAsync_ChecksumMismatch_ReportsErrorAndContinues`,
-`DownloadCommand_RunAsync_UnknownModelId_ReportsErrorAndContinues`,
-`DownloadCommand_RunAsync_ForceOnDownloadedModel_UninstallsFirst`,
-`DownloadCommand_RunAsync_ForceOnMissingModel_DoesNotUninstall`,
-`DownloadCommand_RunAsync_ReportsProgress_WritesPercentLine`,
-`DownloadCommand_RunAsync_NoModelIds_ThrowsArgumentException`,
-`DownloadCommand_RunAsync_UnsupportedFlag_ThrowsArgumentException`,
-`SpeechCli_DownloadCommandWithUnknownId_Invoked_ReturnsNonZeroExitCode`,
-`SpeechCli_DownloadCommandWithMissingArgument_Invoked_ReturnsCleanError`
-
-**Scenario/Expected**: A single requested model downloads and reports installed; multiple
-requested models download strictly in the order given, never interleaved; a checksum-mismatch
-outcome or an unknown model id is reported as a failure for that model only, and the remaining
-requested models are still attempted; `--force` against an already-`Downloaded` model uninstalls
-it first, then downloads; `--force` against a not-yet-downloaded model never calls uninstall; a
-progress report is forwarded to a visible percent-complete line; no `<modelId>` argument or an
-unsupported flag is rejected with `ArgumentException`; both the unknown-id failure path and the
-missing-argument path are also proven, cleanly and non-zero-exit, against the built tool.
-
-#### DownloadCommand Cancellation
-
-**Tests**: `DownloadCommand_RunAsync_CanceledBeforeStart_ReportsErrorAndStopsBatch`,
-`DownloadCommand_RunAsync_Canceled_ReportsErrorAndStopsBatch`
-
-**Scenario/Expected**: A token already canceled before the batch starts is reported and no model
-is attempted; separately, the cancellation token is canceled only after the first requested
-model's download has genuinely started and reported progress, proving the in-progress model's
-cancellation is reported and no further requested model is attempted - cancellation stops the
-whole batch rather than being treated as an ordinary per-model failure, whether it lands before
-or during a model's download.
-
-#### DownloadProgressReporter and ConsoleCancellation
-
-**Tests**: `DownloadProgressReporter_Create_KnownTotal_PrintsOneLinePerWholePercent`,
-`DownloadProgressReporter_Create_UnknownTotal_ReportsKilobytes`,
-`DownloadProgressReporter_Create_NullArguments_ThrowArgumentNullException`,
-`ConsoleCancellation_Register_Raise_CancelsSourceRunsCallbackAndSuppressesTermination`,
-`ConsoleCancellation_Observe_Raise_RunsCallbackWithoutSuppressingTermination`
-
-**Scenario/Expected**: The shared progress reporter prints one line per whole percent (or per
-whole kilobyte when the total is unknown) and suppresses repeats; `ConsoleCancellation.Register`
-cancels its source, runs the callback afterward, and suppresses default termination, while
-`Observe` only runs its callback. The console signal cannot be raised from a test, so the
-registration's internal `Raise` seam stands in for it.
-
-#### UninstallCommand
-
-**Tests**: `UninstallCommand_Run_InstalledModel_UninstallsAndReportsSuccess`,
-`UninstallCommand_Run_NeverInstalledModel_IsSafeNoOp`,
-`UninstallCommand_Run_StoreThrows_ThrowsInvalidOperationException`,
-`UninstallCommand_Run_MissingModelIdArgument_ThrowsArgumentException`,
-`UninstallCommand_Run_ExtraArgument_ThrowsArgumentException`,
-`UninstallCommand_Run_Canceled_ReportsErrorExitCode`,
-`SpeechCli_UninstallCommand_Invoked_NeverInstalledModel_ExitsCleanly`
-
-**Scenario/Expected**: An installed model is uninstalled and reported successful; a never-
-installed model is treated the same way (safe, successful no-op), never as an error; a
-`SpeechModelStoreException` thrown by the store is caught and re-thrown as
-`InvalidOperationException` so the CLI's clean-error convention applies; a missing or extra
-positional argument is rejected with `ArgumentException`; a canceled token (Ctrl+C) is reported
-as an error with exit code 1 rather than escaping as an unhandled exception; the never-installed-model path exits
-`0` against the built tool.
-
-#### CleanCommand
-
-**Tests**: `CleanCommand_Run_KnownModel_CleansUpAndReportsSuccess`,
-`CleanCommand_Run_MissingModelIdArgument_ThrowsArgumentException`,
-`CleanCommand_Run_ExtraArgument_ThrowsArgumentException`,
-`CleanCommand_Run_Canceled_ReportsErrorExitCode`,
-`SpeechCli_CleanCommand_Invoked_NothingToCleanUp_ExitsCleanly`
-
-**Scenario/Expected**: A model with nothing (or something) to clean up is reported successful
-either way, since `CleanUpLeftoversAsync` never throws on its own; a missing or extra positional
-argument is rejected with `ArgumentException`; a canceled token is reported as an error with
-exit code 1; the nothing-to-clean-up path exits `0` against the built tool.
-
-#### ListVoicesCommand
-
-**Tests**: `ListVoicesCommand_Run_Table_ListsVoicesAndConsentNote`,
-`ListVoicesCommand_Run_NoVoices_ExplainsHowToAddVoices`,
-`ListVoicesCommand_Run_Json_WritesParseableArray`,
-`ListVoicesCommand_Run_BadArguments_ThrowsArgumentException`,
-`ListVoicesCommand_Run_UnknownFormat_ThrowsArgumentException`,
-`ListVoicesCommand_Run_NullArguments_Throw`
-
-**Scenario/Expected**: The table lists every voice with its source and shows the consent note and
-how to choose a voice; an empty list explains how to add voices; JSON is a parseable array; an
-unknown format or extra argument is rejected with `ArgumentException`; null arguments are rejected.
-(Registration of the voice commands in the dispatch table is verified by
-`CommandDispatch_Find_VoiceCommands_AreRegistered` in the CLI-level CommandDispatchTests, outside this
-subsystem's scope.)
-
-#### VoicesCommand
-
-**Tests**: `VoicesCommand_RunAsync_Packs_ListsPackStateAndConsentNote`,
-`VoicesCommand_RunAsync_Install_ReportsProgressAndConsentNote`,
-`VoicesCommand_RunAsync_InstallFails_ReportsErrorExitCode`,
-`VoicesCommand_RunAsync_InstallCanceled_ReportsErrorExitCode`,
-`VoicesCommand_RunAsync_Uninstall_ForwardsAndReports`,
-`VoicesCommand_RunAsync_UninstallStoreThrows_ThrowsInvalidOperationException`,
-`VoicesCommand_RunAsync_UninstallCanceled_ReportsErrorExitCode`,
-`VoicesCommand_RunAsync_InstallUnknownPack_ThrowsArgumentException`,
-`VoicesCommand_RunAsync_BadArguments_ThrowsArgumentException`,
-`VoicesCommand_RunAsync_NullArguments_Throw`,
-`SpeechModelCatalogAdapter_VoicePackUninstallAndInstall_UnknownOrMissingPack_BehaveCleanly`
-
-**Scenario/Expected**: `packs` shows each pack's state and the consent note; `install` forwards to
-the catalog, prints progress and the consent note, and exits non-zero on failure or cancellation;
-`uninstall` forwards and reports (a store failure becomes `InvalidOperationException`; cancellation
-is reported with exit code 1); unknown
-pack ids, bad arguments, and null arguments are rejected cleanly. Tests use the fake catalog, so
-no pack is downloaded.
-
-#### Voice Emotion Variants
-
-**Tests**: `VoicesCommand_RunAsync_Install_DefaultIncludesEmotions`,
-`VoicesCommand_RunAsync_InstallNoEmotions_InstallsBaseVoicesOnly`,
-`VoicesCommand_RunAsync_InstallOverVoicesOnly_AnnouncesUpgrade`,
-`VoicesCommand_RunAsync_Packs_ShowsDownloadAndInstalledSizes`,
-`ListVoicesCommand_Run_MoodClips_ShowsMoodsColumnAndJson`
-
-**Scenario/Expected**: `install` requests emotions by default and the base voices only with
-`--no-emotions`; installing over a voices-only install announces the remove-and-download-again
-upgrade; `packs` shows the download size, installed sizes and variant; `list-voices` shows a Moods
-column and a `moods` JSON array. Tests use the fake catalog, so nothing is downloaded.
-
-#### Voice Pack Cancellation, Adapter Mirror and Composition Failure
-
-**Tests**: `VoicesCommand_RunAsync_InstallCanceledDuringPreCheck_ReportsErrorExitCode`,
-`VoicesCommand_RunAsync_PacksCanceled_ReportsErrorExitCode`,
-`VoicesCommand_RunAsync_InstallCanceledWithoutToken_Propagates`,
-`CliModelCatalogFactory_Create_WithMirrorUrl_AppliesMirrorToVoicePackInstall`,
-`SpeechModelCatalogAdapter_CompositionFails_PropagatesAndReleasesPartialCatalog`
-
-**Scenario/Expected**: A cancellation raised while listing packs or during the emotions pre-check of `install` is
-reported as "canceled" with a non-zero exit code; an `OperationCanceledException` that was not caused by the Ctrl+C
-token still propagates. The real adapter passes `--mirror-url` to voice-pack installs. A composition failure
-propagates (the constructor releases anything it had already created); this test asserts the failure path and that the
-store root remains usable, but cannot directly observe disposal of the internal partial catalog.
-
-#### Chatterbox Composition and Voices Folder Enumeration
-
-**Tests**: `SpeechModelCatalogAdapter_Voices_ListsUserAndVoicesDirVoices`,
-`SpeechModelCatalogAdapter_DamagedVoicesDirFile_DoesNotBreakAdapterOrListing`,
-`CliModelCatalogFactory_Create_WithVoicesDir_EnumeratesThatFolder`
-
-**Scenario/Expected**: A real catalog over a temporary store lists Chatterbox among its models, enumerates user-folder
-and `--voices-dir` voices, and an undecodable `--voices-dir` file does not break the adapter or the
-listing. The `--voices-dir` option parsing and `--help` text are verified at system level
-(`SpeechCli-Cli-VoicesDir`, `SpeechCli-Cli-VoicesHelp`).
-
-#### Seam Delegation and Null Guards
-
-**Tests**: `ListModelsCommand_Run_NullContext_ThrowsArgumentNullException`,
-`ListModelsCommand_Run_NullCatalog_ThrowsArgumentNullException`,
-`ModelInfoCommand_Run_NullContext_ThrowsArgumentNullException`,
-`ModelInfoCommand_Run_NullCatalog_ThrowsArgumentNullException`,
-`DownloadCommand_RunAsync_NullContext_ThrowsArgumentNullException`,
-`DownloadCommand_RunAsync_NullCatalog_ThrowsArgumentNullException`,
-`UninstallCommand_Run_NullContext_ThrowsArgumentNullException`,
-`UninstallCommand_Run_NullCatalog_ThrowsArgumentNullException`,
-`CleanCommand_Run_NullContext_ThrowsArgumentNullException`,
-`CleanCommand_Run_NullCatalog_ThrowsArgumentNullException`,
-`SpeechModelCatalogAdapter_Enumerate_ReturnsCompiledInKnownModels`,
-`SpeechModelCatalogAdapter_UninstallAndCleanUpLeftovers_NeverInstalledModel_DoNotThrow`,
-`SpeechModelCatalogAdapter_DownloadAsync_UnknownModelId_ThrowsArgumentException`,
-`CliModelCatalogFactory_Create_WithModelsDir_UsesGivenRoot`,
-`CliModelCatalogFactory_Create_NullContext_ThrowsArgumentNullException`
-
-**Scenario/Expected**: Every command rejects a `null` context or catalog immediately with
-`ArgumentNullException`; `SpeechModelCatalogAdapter.Enumerate()` returns the library's real,
-compiled-in known-model list; `Uninstall`/`CleanUpLeftovers` against a real, empty store never
-throw; `DownloadAsync` against a real catalog throws `ArgumentException` for an id absent from
-the known-model list; `CliModelCatalogFactory.Create` honors `--models-dir` and rejects a `null`
-context.
-
-#### Seam Extension for Synthesis and Recognition
-
-**Tests**: `SpeechModelCatalogAdapter_GetPreferredAudioFormat_RecognitionRoleModel_ThrowsArgumentException`,
-`SpeechModelCatalogAdapter_GetPreferredAudioFormat_NullDescriptor_ThrowsArgumentNullException`,
-`SpeechModelCatalogAdapter_CreateSynthesizerEngineAsync_RecognitionRoleModel_ThrowsArgumentException`,
-`SpeechModelCatalogAdapter_CreateSynthesizerEngineAsync_NullDescriptor_ThrowsArgumentNullException`,
-`SpeechModelCatalogAdapter_CreateRecognizerEngineAsync_SynthesisRoleModel_ThrowsArgumentException`,
-`SpeechModelCatalogAdapter_CreateRecognizerEngineAsync_NullDescriptor_ThrowsArgumentNullException`,
-`SpeechModelCatalogAdapter_GetPreferredAudioFormat_WithSynthesisModel_ReturnsFormat`,
-`SpeechModelCatalogAdapter_CreateSynthesizerEngineAsync_WithSynthesisModel_ReturnsEngine`,
-`SpeechModelCatalogAdapter_CreateRecognizerEngineAsync_WithRecognitionModel_ReturnsEngine`
-
-**Scenario/Expected**: Each of the three seam members (`GetPreferredAudioFormat`,
-`CreateSynthesizerEngineAsync`, `CreateRecognizerEngineAsync`) rejects a `null`
-descriptor with `ArgumentNullException` and a model of the wrong role with an `ArgumentException`
-naming the model. The positive-path tests use a fake synthesis or recognition model, which is
-possible because `ISynthesisModel` and `IRecognitionModel` are public interfaces, to prove that a
-model of the right role yields its preferred audio format and a loaded engine with no device bound.
-
-#### Download Mirror Composition
-
-**Tests**: `CliModelCatalogFactory_Create_WithMirrorUrl_AppliesMirrorToDownloads`
-
-**Scenario/Expected**: `CliModelCatalogFactory.Create` is given a context configured with
-`--mirror-url` pointing at a loopback port with nothing listening on it; the composed adapter's
-subsequent `DownloadAsync` call for a real, known model id fails, and the captured failure's
-exception text names that same loopback host/port, proving the configured mirror was genuinely
-threaded through the composed catalog/downloader rather than merely parsed and discarded.
 
 ### Acceptance Criteria
 
-A ModelCommandsSubsystem test run passes when every test above passes and:
+A ModelCommandsSubsystem test run passes when every test in the unit verification documents passes
+and:
 
 - `list-models` lists and filters the catalog correctly in both table and JSON form
 - `model-info` prints a known model's full identity and parameter surface and cleanly rejects an
-  unknown id
+  unknown id, a missing id and an extra argument
 - `download` installs every requested model it can, isolates and reports any single model's failure
   without abandoning the rest of the batch, honors `--force`'s uninstall-then-redownload semantics,
   and stops the whole batch on a genuine cancellation
@@ -307,18 +61,18 @@ A ModelCommandsSubsystem test run passes when every test above passes and:
 - `list-voices` lists voices (table and JSON) with the consent note, and `voices` lists, installs,
   and uninstalls voice packs, reporting failure or cancellation with a non-zero exit code
 - Voice-pack installs include emotion variants by default and omit them with `--no-emotions`
-- The real catalog composes Chatterbox with the voice library, enumerates `--voices-dir` voices,
-  and does not fail when a `--voices-dir` file is undecodable
-- A configured download mirror is threaded through to downloads
-- The seam members for audio format and engine creation accept a model of the right role and reject
-  a `null` descriptor or a model of the wrong role with a clean exception
+- The real catalog composes the voice-cloning model with the voice library, enumerates
+  `--voices-dir` voices, and does not fail when a `--voices-dir` file is undecodable
+- A configured download mirror is threaded through to model downloads and voice-pack installs
+- The catalog yields an engine and audio format for a model of the right role and refuses a model of
+  the wrong role with an error that identifies the model
 - Every command rejects a `null` context or catalog and forwards correctly to a real, isolated
   `SpeechModelCatalog`/`SpeechModelStore` with no network access
 
 ### Manual / Build-Time Verification
 
-The following are verified manually, rather than by an automated test, because a
-real model download requires network access unavailable in CI:
+The following are verified manually, rather than by an automated test, because a real model
+download requires network access unavailable in CI:
 
 - `dotnet run --project src/DemaConsulting.Speech.Cli -- list-models` against an isolated
   `--models-dir` lists the real compiled-in known models with sane column output

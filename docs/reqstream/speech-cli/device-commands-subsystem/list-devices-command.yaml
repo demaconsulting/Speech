@@ -1,0 +1,85 @@
+---
+# Software Unit Requirements for the SpeechCli ListDevicesCommand
+#
+# These requirements describe the behavior of the ListDevicesCommand unit (`list-devices`),
+# decomposing the system-level requirement SpeechCli-DeviceInspection in
+# docs/reqstream/speech-cli.yaml.
+#
+# The requirements are grouped by concern, one criterion each:
+#   - Listing (DeviceCommands-ListDevices, -LibraryDelegation)
+#   - Direction filter (DeviceCommands-ListDevicesDirectionFilter)
+#   - No devices (DeviceCommands-ListDevicesNoDevices)
+#   - Argument validation (DeviceCommands-ListDevicesArgumentValidation)
+# The ListDevicesCommand_ tests are in ListDevicesCommandTests; SpeechCli_ tests are in
+# IntegrationTests.
+
+sections:
+  - title: SpeechCli Requirements
+    sections:
+      - title: DeviceCommandsSubsystem Requirements
+        sections:
+          - title: ListDevicesCommand Requirements
+            requirements:
+              - id: SpeechCli-DeviceCommands-ListDevices
+                title: >-
+                  The ListDevicesCommand shall list every currently detected audio capture
+                  (input) and playback (output) device when invoked with `list-devices`, giving
+                  each device's name, direction, channel count, and sample rate.
+                tags: [unit]
+                justification: |
+                  An operator or script needs to discover which audio devices this machine
+                  offers, and by what name, before selecting one for `devices test`, `speak`,
+                  `recognize`, or `ask`.
+                tests:
+                  - ListDevicesCommand_Run_NoFilter_ListsBothDirections
+                  - SpeechCli_ListDevicesCommand_Invoked_ExitsCleanly
+
+              - id: SpeechCli-DeviceCommands-LibraryDelegation
+                title: >-
+                  The ListDevicesCommand shall report each device under exactly the name the
+                  speech library enumerates for it.
+                tags: [unit]
+                justification: |
+                  Operators pass these names back as `--device` values, and the speech library
+                  accepts only its own enumerated names, so a reshaped name would be unusable.
+                tests:
+                  - ListDevicesCommand_Run_NoFilter_ListsBothDirections
+
+              - id: SpeechCli-DeviceCommands-ListDevicesDirectionFilter
+                title: >-
+                  The ListDevicesCommand shall restrict its output to one direction when
+                  `--direction input` or `--direction output` is given.
+                tags: [unit]
+                justification: |
+                  An operator selecting a microphone or a speaker only needs the devices of that
+                  direction.
+                tests:
+                  - ListDevicesCommand_Run_DirectionInput_ListsOnlyCaptureDevices
+                  - ListDevicesCommand_Run_DirectionOutput_ListsOnlyPlaybackDevices
+
+              - id: SpeechCli-DeviceCommands-ListDevicesNoDevices
+                title: >-
+                  The ListDevicesCommand shall print a plain "No devices found." message, rather
+                  than an error, when no devices are found.
+                tags: [unit]
+                justification: |
+                  Treating "no devices" as a plain informational message mirrors this library's
+                  graceful-degradation convention for optional audio hardware, since a
+                  headless or CI machine with no audio hardware is a normal condition.
+                tests:
+                  - ListDevicesCommand_Run_NoDevices_PrintsNoDevicesMessage
+
+              - id: SpeechCli-DeviceCommands-ListDevicesArgumentValidation
+                title: >-
+                  The ListDevicesCommand shall reject an invalid or valueless `--direction`, or
+                  an unsupported flag, with a clear, non-zero-exit-code error rather than a
+                  stack trace.
+                tags: [unit]
+                justification: |
+                  A mistyped option must fail predictably so a script can detect it instead of
+                  receiving output in an unexpected form.
+                tests:
+                  - ListDevicesCommand_Run_InvalidDirectionValue_ThrowsArgumentException
+                  - ListDevicesCommand_Run_DirectionFlagMissingValue_ThrowsArgumentException
+                  - ListDevicesCommand_Run_UnsupportedFlag_ThrowsArgumentException
+                  - SpeechCli_ListDevicesCommandWithInvalidDirection_Invoked_ReturnsCleanError

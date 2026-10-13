@@ -114,36 +114,33 @@ The following software items of the SpeechCli system are also covered:
 - **ModelCommandsSubsystem (Subsystem)** — The model-management and reference-voice subcommands (`list-models`,
   `model-info`, `download`, `uninstall`, `clean`, `list-voices`, `voices`) and the CLI-owned catalog seam
   (`ICliModelCatalog`/`SpeechModelCatalogAdapter`/`CliModelCatalogFactory`) they share over the
-  library's `SpeechModelCatalog`/`SpeechModelStore`
+  library's `SpeechModelCatalog`/`SpeechModelStore`; units `ICliModelCatalog`,
+  `SpeechModelCatalogAdapter`, `CliModelCatalogFactory`, `DownloadProgressReporter`, `ListModelsCommand`,
+  `ModelInfoCommand`, `DownloadCommand`, `UninstallCommand`, `CleanCommand`, `ListVoicesCommand` and
+  `VoicesCommand`
 - **DeviceCommandsSubsystem (Subsystem)** — The three device-related subcommands
   (`list-devices`, `devices test`, `doctor`), consuming the library's already-public
   `IAudioCaptureDeviceProbe`/`IAudioPlaybackDeviceProbe`/`AudioDeviceFactory` directly, with no
-  CLI-owned seam wrapper
+  CLI-owned seam wrapper; units `ListDevicesCommand`, `DevicesTestCommand` and `DoctorCommand`
 - **SynthesisCommandSubsystem (Subsystem)** — The one text-to-speech subcommand (`speak`),
   extending `ModelCommandsSubsystem`'s `ICliModelCatalog` seam with synthesis-side members
   rather than introducing a second, competing seam, and adding one CLI-owned playback-device
-  seam (`ICliPlaybackDeviceSource`)
+  seam (`ICliPlaybackDeviceSource`); units `SpeakCommand`, `ParameterBagParser`,
+  `ICliPlaybackDeviceSource` and `AudioDeviceFactoryPlaybackDeviceSource`
 - **RecognitionCommandSubsystem (Subsystem)** — The one speech-to-text subcommand
   (`recognize`) plus the `SilenceTimeoutRecognizerSession` idle-timeout utility, extending
   `ModelCommandsSubsystem`'s `ICliModelCatalog` seam with recognition-side members symmetric to
-  the synthesis pair
+  the synthesis pair; units `RecognizeCommand` and `SilenceTimeoutRecognizerSession`
 - **ConversationCommandSubsystem (Subsystem)** — The one voice-conversation subcommand (`ask`),
   running a speak-then-listen turn as one invocation by reusing `SynthesisCommandSubsystem`'s
   and `RecognitionCommandSubsystem`'s existing `ICliModelCatalog` seam members (no new catalog
-  member) and adding one CLI-owned capture-device seam (`ICliCaptureDeviceSource`)
+  member) and adding one CLI-owned capture-device seam (`ICliCaptureDeviceSource`); units `AskCommand`,
+  `ICliCaptureDeviceSource` and `AudioDeviceFactoryCaptureDeviceSource`
 - **Program, CommandDispatch, Context, ConsoleCancellation, Validation, PathHelpers (Units)** — The
   units that belong directly to SpeechCli rather than to a command subsystem: the process entry
   point (`Program`, including `--version`/`--help`/`--validate` priority handling), the fixed
   subcommand dispatch table, global-option parsing and per-invocation state, Ctrl+C handling, the
   CI-safe `--validate` self-check, and shared path helpers
-- **Documentation granularity (SpeechCli)** — The SpeechCli units above and the individual command classes,
-  seams and helpers inside each command subsystem (for example `ListModelsCommand`, `ICliModelCatalog`,
-  `ParameterBagParser`, `DownloadProgressReporter`, `SilenceTimeoutRecognizerSession`) are deliberately
-  documented, required and verified within their parent system or subsystem design, requirements and
-  verification documents rather than in per-unit files. They are small, tightly coupled glue classes with no
-  behavior that is meaningful outside their parent, and each parent document has one section per class and one
-  review-set covering all of them. The SysML model records this on each unit with an explicit "no dedicated unit
-  doc" reference.
 
 The following software items of the SpeechSherpa system are also covered:
 

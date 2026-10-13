@@ -1,0 +1,83 @@
+---
+# Software Unit Requirements for the SpeechCli ModelInfoCommand
+#
+# These requirements describe the `model-info` command, decomposing the system-level
+# SpeechCli-ModelInspection requirement. They are grouped by concern, one criterion each:
+#   - Output (ModelInfo, ModelInfoParameters, ModelInfoInvariantFormatting)
+#   - Argument validation (ModelInfoUnknownId, ModelInfoMissingId, ModelInfoExtraArgument)
+# Tests named ModelInfoCommand_* are ModelInfoCommandTests; SpeechCli_* tests are out-of-process
+# tests in IntegrationTests.cs.
+
+sections:
+  - title: SpeechCli Requirements
+    sections:
+      - title: ModelCommandsSubsystem Requirements
+        sections:
+          - title: ModelInfoCommand Requirements
+            requirements:
+              - id: SpeechCli-ModelCommands-ModelInfo
+                title: >-
+                  The tool shall print a model's full identity (id, display name, role, install
+                  state, license name and URL, audio-tag support) when invoked with
+                  `model-info <modelId>`.
+                justification: |
+                  An operator deciding whether a model is suitable (for example its license)
+                  needs its full identity, not just its name.
+                tests:
+                  - ModelInfoCommand_Run_KnownModel_PrintsIdentityAndState
+
+              - id: SpeechCli-ModelCommands-ModelInfoParameters
+                title: >-
+                  The tool shall print every one of a model's parameters when invoked with
+                  `model-info <modelId>`, with min/max/step/default for a numeric parameter,
+                  options/default for a choice parameter, or default for a boolean parameter.
+                justification: |
+                  An operator deciding whether a model is suitable (for example its voice
+                  choices) needs its full parameter surface to know what
+                  `--tts-param`/`--stt-param` accept.
+                tests:
+                  - ModelInfoCommand_Run_NumericParameter_PrintsBounds
+                  - ModelInfoCommand_Run_ChoiceParameter_PrintsOptions
+                  - ModelInfoCommand_Run_BooleanParameter_PrintsDefault
+
+              - id: SpeechCli-ModelCommands-ModelInfoInvariantFormatting
+                title: >-
+                  The tool shall print a numeric parameter's values in `model-info` with a period
+                  as the decimal separator regardless of the operator's culture.
+                justification: |
+                  A script or operator copying a value into `--tts-param` must see the same text
+                  on every machine.
+                tests:
+                  - ModelInfoCommand_Run_NumericParameter_CommaDecimalCulture_PrintsInvariantFormat
+
+              - id: SpeechCli-ModelCommands-ModelInfoUnknownId
+                title: >-
+                  The tool shall reject `model-info` invoked with an unrecognized model id with a
+                  clear, non-zero-exit-code error naming the id and suggesting `list-models`,
+                  rather than a stack trace.
+                justification: |
+                  An id typo is a certainty in interactive use, so it must fail predictably rather
+                  than crash.
+                tests:
+                  - ModelInfoCommand_Run_UnknownModelId_ThrowsArgumentException
+                  - SpeechCli_ModelInfoCommandWithUnknownId_Invoked_ReturnsCleanError
+
+              - id: SpeechCli-ModelCommands-ModelInfoMissingId
+                title: >-
+                  The tool shall reject `model-info` invoked without a model id with a clear,
+                  non-zero-exit-code error rather than a stack trace.
+                justification: |
+                  A forgotten id must fail predictably so a script can detect it.
+                tests:
+                  - ModelInfoCommand_Run_MissingModelIdArgument_ThrowsArgumentException
+                  - SpeechCli_ModelInfoCommandWithMissingArgument_Invoked_ReturnsCleanError
+
+              - id: SpeechCli-ModelCommands-ModelInfoExtraArgument
+                title: >-
+                  The tool shall reject `model-info` invoked with more than one argument with a
+                  clear, non-zero-exit-code error rather than a stack trace.
+                justification: |
+                  An extra argument usually means a mistyped command; it must fail rather than
+                  silently describe only the first model.
+                tests:
+                  - ModelInfoCommand_Run_ExtraArgument_ThrowsArgumentException

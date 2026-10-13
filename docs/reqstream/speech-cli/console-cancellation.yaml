@@ -1,0 +1,53 @@
+---
+# Software Unit Requirements for the SpeechCli ConsoleCancellation
+#
+# These requirements describe the design-level behavior of the ConsoleCancellation unit - the Ctrl+C
+# registration used by long-running commands - decomposing the proposed system requirement
+# SpeechCli-Cli-CtrlCCancellation. Every test below is a ConsoleCancellationTests test. The tests
+# drive the registration through its Raise seam, which runs the work of the real signal handler.
+
+sections:
+  - title: SpeechCli Requirements
+    sections:
+      - title: ConsoleCancellation Requirements
+        requirements:
+          - id: SpeechCli-ConsoleCancellation-RegisterCancels
+            title: >-
+              The ConsoleCancellation unit shall, on Ctrl+C for a Register registration, cancel
+              the supplied source, run the optional callback after the cancellation, and suppress
+              process termination.
+            justification: |
+              A running command must be able to stop cleanly and release resources instead of
+              being killed mid-operation.
+            tests:
+              - ConsoleCancellation_Register_Raise_CancelsSourceRunsCallbackAndSuppressesTermination
+              - ConsoleCancellation_Register_NoCallback_CancelsSource
+
+          - id: SpeechCli-ConsoleCancellation-ObserveCallbackOnly
+            title: >-
+              The ConsoleCancellation unit shall, on Ctrl+C for an Observe registration, run the
+              callback without suppressing process termination.
+            justification: |
+              A command that has no cancellable work still needs to notify the user, and must
+              still end when Ctrl+C is pressed.
+            tests:
+              - ConsoleCancellation_Observe_Raise_RunsCallbackWithoutSuppressingTermination
+
+          - id: SpeechCli-ConsoleCancellation-DisposeIdempotent
+            title: >-
+              The ConsoleCancellation unit shall tolerate a registration being disposed more than
+              once.
+            justification: |
+              Registrations are disposed from using blocks and error paths that can overlap.
+            tests:
+              - ConsoleCancellation_Dispose_CalledTwice_DoesNotThrow
+
+          - id: SpeechCli-ConsoleCancellation-ArgumentValidation
+            title: >-
+              The ConsoleCancellation unit shall reject a null source for Register and a null
+              callback for Observe with an ArgumentNullException.
+            justification: |
+              A registration without its required argument would fail later, at signal time.
+            tests:
+              - ConsoleCancellation_Register_NullSource_ThrowsArgumentNullException
+              - ConsoleCancellation_Observe_NullCallback_ThrowsArgumentNullException

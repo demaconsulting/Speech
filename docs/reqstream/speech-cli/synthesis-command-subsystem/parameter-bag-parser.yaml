@@ -1,0 +1,122 @@
+---
+# Software Unit Requirements for the SpeechCli ParameterBagParser
+#
+# These requirements describe the behavior of the ParameterBagParser unit - the parser and
+# validator for repeatable `key=value` model-parameter flags - decomposing the parent
+# SynthesisCommandSubsystem requirements.
+#
+# The requirements are grouped by concern, one criterion each:
+#   - Resolution (ParamValidation)
+#   - Malformed tokens (ParamRejection, ParamEmptyKeyRejection)
+#   - Invalid values (ParamValueRejection, ParamNumberFormatRejection, ParamIntegerRejection,
+#     ParamChoiceRejection, ParamBooleanRejection)
+#   - Undeclared keys (ParamUnknownKey)
+# Every test below is a ParameterBagParserTests test.
+
+sections:
+  - title: SpeechCli Requirements
+    sections:
+      - title: SynthesisCommandSubsystem Requirements
+        sections:
+          - title: ParameterBagParser Requirements
+            requirements:
+              - id: SpeechCli-SynthesisCommands-ParamValidation
+                title: >-
+                  The tool shall accept repeatable `--tts-param key=value` flags and apply each to
+                  the synthesis model, resolving a numeric value to a number, a choice value to
+                  one of the model's options, and a `true`/`false` value to a boolean.
+                justification: |
+                  Every synthesis model declares its own tunable parameters with its own valid
+                  ranges and options; resolving each flag against that declared set before
+                  synthesis starts gives the model correctly typed values.
+                tests:
+                  - ParameterBagParser_ParseToken_WellFormedToken_SplitsKeyAndValue
+                  - ParameterBagParser_ParseToken_EmptyValueHalf_ReturnsEmptyValue
+                  - ParameterBagParser_Resolve_NumericInRange_ResolvesBoxedDouble
+                  - ParameterBagParser_Resolve_IntegerParameterWholeValue_ResolvesBoxedDouble
+                  - ParameterBagParser_Resolve_ValidChoiceValue_ResolvesBoxedString
+                  - ParameterBagParser_Resolve_ValidBooleanValue_ResolvesBoxedBool
+                  - ParameterBagParser_Resolve_NoRawValues_ReturnsEmptyBag
+
+              - id: SpeechCli-SynthesisCommands-ParamRejection
+                title: >-
+                  The tool shall reject a `--tts-param` token that has no `=` separator with a
+                  clean, non-zero-exit-code error rather than a stack trace.
+                justification: |
+                  A token that is not `key=value` is an operator typo that must fail immediately.
+                tests:
+                  - ParameterBagParser_ParseToken_NoSeparator_ThrowsArgumentException
+
+              - id: SpeechCli-SynthesisCommands-ParamEmptyKeyRejection
+                title: >-
+                  The tool shall reject a `--tts-param` token whose key is empty with a clean,
+                  non-zero-exit-code error rather than a stack trace.
+                justification: |
+                  A value with no key cannot be applied to any parameter, so it is an operator
+                  typo that must fail immediately.
+                tests:
+                  - ParameterBagParser_ParseToken_EmptyKey_ThrowsArgumentException
+
+              - id: SpeechCli-SynthesisCommands-ParamValueRejection
+                title: >-
+                  The tool shall reject a numeric `--tts-param` value outside the parameter's
+                  declared range with a clean, non-zero-exit-code error rather than a stack
+                  trace.
+                justification: |
+                  Catching an out-of-range value immediately avoids having it silently ignored or
+                  fail deep inside synthesis minutes into a run.
+                tests:
+                  - ParameterBagParser_Resolve_NumericOutOfRange_ThrowsArgumentException
+
+              - id: SpeechCli-SynthesisCommands-ParamNumberFormatRejection
+                title: >-
+                  The tool shall reject a numeric `--tts-param` value that is not a number with a
+                  clean, non-zero-exit-code error rather than a stack trace.
+                justification: |
+                  Text where a number is required is an operator typo that must fail immediately.
+                tests:
+                  - ParameterBagParser_Resolve_NumericMalformed_ThrowsArgumentException
+
+              - id: SpeechCli-SynthesisCommands-ParamIntegerRejection
+                title: >-
+                  The tool shall reject a fractional `--tts-param` value for a parameter that
+                  accepts only whole numbers with a clean, non-zero-exit-code error rather than a
+                  stack trace.
+                justification: |
+                  A model that accepts only whole numbers would otherwise receive a value it
+                  cannot honor.
+                tests:
+                  - ParameterBagParser_Resolve_IntegerParameterFractionalValue_ThrowsArgumentException
+
+              - id: SpeechCli-SynthesisCommands-ParamChoiceRejection
+                title: >-
+                  The tool shall reject a `--tts-param` value that is not one of the options the
+                  model declares for a choice parameter with a clean, non-zero-exit-code error
+                  rather than a stack trace.
+                justification: |
+                  A value the model does not offer cannot be applied, so it must fail
+                  immediately.
+                tests:
+                  - ParameterBagParser_Resolve_InvalidChoiceValue_ThrowsArgumentException
+
+              - id: SpeechCli-SynthesisCommands-ParamBooleanRejection
+                title: >-
+                  The tool shall reject a `--tts-param` value other than `true` or `false` for a
+                  boolean parameter with a clean, non-zero-exit-code error rather than a stack
+                  trace.
+                justification: |
+                  A boolean parameter has exactly two values, so anything else is an operator
+                  typo that must fail immediately.
+                tests:
+                  - ParameterBagParser_Resolve_InvalidBooleanValue_ThrowsArgumentException
+
+              - id: SpeechCli-SynthesisCommands-ParamUnknownKey
+                title: >-
+                  The tool shall reject a `--tts-param` whose key the model does not declare with
+                  a clean, non-zero-exit-code error rather than a stack trace.
+                justification: |
+                  An unrecognized key is deliberately rejected even though the library itself
+                  ignores one, since an unrecognized command-line value is almost always an
+                  operator mistake that should fail loudly.
+                tests:
+                  - ParameterBagParser_Resolve_UnrecognizedKey_ThrowsArgumentException

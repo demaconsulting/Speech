@@ -1,0 +1,58 @@
+---
+# Software Unit Requirements for the SpeechCli Validation
+#
+# These requirements describe the design-level behavior of the Validation unit - the hardware- and
+# network-independent --validate self-test - decomposing system-level requirements in
+# docs/reqstream/speech-cli.yaml. There is no dedicated test class; the tests are ProgramTests tests
+# and IntegrationTests tests that run the real --validate path.
+
+sections:
+  - title: SpeechCli Requirements
+    sections:
+      - title: Validation Requirements
+        requirements:
+          - id: SpeechCli-Validation-Checks
+            title: >-
+              The Validation unit shall run the version, help, dispatch-table, audio-backend and
+              model-store-writability checks and print a summary of the totals.
+            justification: |
+              These checks confirm that the installed tool is functional.
+            tests:
+              - Program_Run_WithValidateFlag_RunsValidation
+
+          - id: SpeechCli-Validation-HardwareIndependence
+            title: >-
+              The Validation unit shall pass on a host with no installed model, no network access
+              and no audio hardware.
+            justification: |
+              Qualification must be repeatable on any build agent.
+            tests:
+              - SpeechCli_ValidateFlag_Provided_RunsValidation
+
+          - id: SpeechCli-Validation-ResultsFile
+            title: >-
+              The Validation unit shall write a TRX file for a .trx results path and a JUnit file
+              for a .xml results path.
+            justification: |
+              Qualification evidence is consumed by test-result tooling in both formats.
+            tests:
+              - SpeechCli_ValidateWithTrxResults_Requested_GeneratesTrxFile
+              - Program_Main_ValidateWithXmlResults_WritesJUnitFile
+
+          - id: SpeechCli-Validation-HeadingDepth
+            title: >-
+              The Validation unit shall honor the heading depth when printing the report.
+            justification: |
+              The report is embedded in larger documents at varying heading levels.
+            tests:
+              - SpeechCli_ValidateWithDepth_DepthThree_OutputsCorrectHeadingLevel
+
+          - id: SpeechCli-Validation-ResultsErrors
+            title: >-
+              The Validation unit shall report an unsupported results file extension or an
+              unwritable results path as an error and return exit code 1.
+            justification: |
+              Qualification evidence that was requested but not produced must fail the run.
+            tests:
+              - Program_Main_ValidateWithUnsupportedResultsExtension_ReturnsNonZeroExitCode
+              - Program_Main_ValidateWithUnwritableResultsPath_ReturnsNonZeroExitCode

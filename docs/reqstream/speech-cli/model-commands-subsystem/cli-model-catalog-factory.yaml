@@ -1,0 +1,43 @@
+---
+# Software Unit Requirements for the SpeechCli CliModelCatalogFactory
+#
+# These requirements describe how the factory composes the model catalog from the global options:
+# the download mirror, for both model downloads and voice-pack installs. They decompose the
+# system-level SpeechCli-Cli-DownloadMirror and SpeechCli-ReferenceVoicePackInstall requirements.
+# The `--models-dir` root is verified through CliModelCatalogFactory_Create_WithModelsDir_UsesGivenRoot
+# (as evidence for SpeechCli-ModelCommands-LibraryDelegation at subsystem level); that test asserts
+# only the user-voices folder and a non-empty catalog, not the store root itself, so it is partial
+# evidence and is not claimed here.
+# Every test below is a SpeechModelCatalogAdapterTests test.
+
+sections:
+  - title: SpeechCli Requirements
+    sections:
+      - title: ModelCommandsSubsystem Requirements
+        sections:
+          - title: CliModelCatalogFactory Requirements
+            requirements:
+              - id: SpeechCli-ModelCommands-DownloadMirrorComposition
+                title: >-
+                  The tool shall apply the download mirror configured through the global
+                  `--mirror-*` options (see `SpeechCli-Cli-DownloadMirror`) to every model
+                  download performed by any model-management command, rather than accepting and
+                  ignoring it.
+                justification: |
+                  A configured mirror is needed when the default download host is unreachable or
+                  prohibited; decomposing the system-level `SpeechCli-Cli-DownloadMirror`
+                  requirement to this unit makes the mirror's actual effect on a real download
+                  independently verifiable.
+                tests:
+                  - CliModelCatalogFactory_Create_WithMirrorUrl_AppliesMirrorToDownloads
+
+              - id: SpeechCli-ModelCommands-VoicePackInstallMirror
+                title: >-
+                  The tool shall apply the download mirror configured through the global
+                  `--mirror-*` options to the download of a reference-voice pack installed with
+                  `voices install`.
+                justification: |
+                  A reference-voice pack is a large download from the same host as the models, so
+                  an operator behind a mirror needs it to be honored there as well.
+                tests:
+                  - CliModelCatalogFactory_Create_WithMirrorUrl_AppliesMirrorToVoicePackInstall

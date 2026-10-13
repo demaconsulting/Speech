@@ -2,14 +2,13 @@ package SpeechCli {
     part def ConversationCommandSubsystem {
         doc /* The one voice-conversation subcommand (ask) - combining speak's
              * synthesis-then-play flow and recognize --mic's mic-listen flow into a
-             * single invocation. Introduces no new ICliModelCatalog seam member: it
-             * reuses SynthesisCommandSubsystem's CreateSynthesizerEngineAsync and
-             * RecognitionCommandSubsystem's CreateRecognizerEngineAsync members exactly
-             * as speak and recognize already do individually. Introduces its own small
-             * ICliCaptureDeviceSource seam over real capture-device resolution,
-             * mirroring SynthesisCommandSubsystem's ICliPlaybackDeviceSource, letting
-             * ask's mic-mode happy-path tests run deterministically without depending
-             * on real PortAudio hardware. */
+             * single invocation. It uses the ICliModelCatalog members that
+             * SynthesisCommandSubsystem (CreateSynthesizerEngineAsync) and
+             * RecognitionCommandSubsystem (CreateRecognizerEngineAsync) use, and owns
+             * a small ICliCaptureDeviceSource seam over real capture-device
+             * resolution, mirroring SynthesisCommandSubsystem's
+             * ICliPlaybackDeviceSource, so the listen phase runs deterministically in
+             * tests without real PortAudio hardware. */
 
         comment designRef /* Design: docs/design/speech-cli/conversation-command-subsystem.md */
         comment verificationRef /* Verification: docs/verification/speech-cli/conversation-command-subsystem.md */

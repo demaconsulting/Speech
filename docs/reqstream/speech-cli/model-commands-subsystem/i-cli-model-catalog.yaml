@@ -1,0 +1,72 @@
+---
+# Software Unit Requirements for the SpeechCli ICliModelCatalog
+#
+# These requirements describe the observable behavior of the ICliModelCatalog seam when used for
+# engine loading: which engine a model yields, which audio format it reports, and which models
+# the catalog refuses. They decompose the system-level SpeechCli-ModelManagement requirement.
+#
+# The user-facing wrong-role message (naming the model and suggesting `list-models --role tts|stt`)
+# is owned by the command-level requirements of the Synthesis and Recognition command subsystems
+# (SpeechCli-SynthesisCommands-ModelWrongRole and its recognition counterpart); the requirements
+# here cover only the catalog's refusal. Null-descriptor guards are verified in the verification
+# document and are not requirements.
+# Every test below is a SpeechModelCatalogAdapterTests test, the production implementation of the
+# seam.
+
+sections:
+  - title: SpeechCli Requirements
+    sections:
+      - title: ModelCommandsSubsystem Requirements
+        sections:
+          - title: ICliModelCatalog Requirements
+            requirements:
+              - id: SpeechCli-ModelCommands-SynthesisModelEngine
+                title: >-
+                  The model catalog shall provide the synthesis engine that belongs to a
+                  synthesis-role model.
+                justification: |
+                  `speak` must produce speech with the engine of the model the operator chose,
+                  which is only meaningful for a synthesis model.
+                tests:
+                  - SpeechModelCatalogAdapter_CreateSynthesizerEngineAsync_WithSynthesisModel_ReturnsEngine
+
+              - id: SpeechCli-ModelCommands-SynthesisModelAudioFormat
+                title: >-
+                  The model catalog shall report the audio format a synthesis-role model produces.
+                justification: |
+                  Audio written or played in a different format than the model produces would
+                  play back at the wrong speed or pitch.
+                tests:
+                  - SpeechModelCatalogAdapter_GetPreferredAudioFormat_WithSynthesisModel_ReturnsFormat
+
+              - id: SpeechCli-ModelCommands-SynthesisModelRoleRefusal
+                title: >-
+                  The model catalog shall refuse to create a synthesis engine, or report an audio
+                  format, for a model that is not a synthesis model, with an error that identifies
+                  the model by id.
+                justification: |
+                  A wrong-role model must never yield an engine; identifying the model lets the
+                  calling command build its own actionable message instead of crashing.
+                tests:
+                  - SpeechModelCatalogAdapter_GetPreferredAudioFormat_RecognitionRoleModel_ThrowsArgumentException
+                  - SpeechModelCatalogAdapter_CreateSynthesizerEngineAsync_RecognitionRoleModel_ThrowsArgumentException
+
+              - id: SpeechCli-ModelCommands-RecognitionModelEngine
+                title: >-
+                  The model catalog shall provide the recognition engine that belongs to a
+                  recognition-role model.
+                justification: |
+                  `recognize` must transcribe with the engine of the model the operator chose,
+                  which is only meaningful for a recognition model.
+                tests:
+                  - SpeechModelCatalogAdapter_CreateRecognizerEngineAsync_WithRecognitionModel_ReturnsEngine
+
+              - id: SpeechCli-ModelCommands-RecognitionModelRoleRefusal
+                title: >-
+                  The model catalog shall refuse to create a recognition engine for a model that is
+                  not a recognition model, with an error that identifies the model by id.
+                justification: |
+                  A wrong-role model must never yield an engine; identifying the model lets the
+                  calling command build its own actionable message instead of crashing.
+                tests:
+                  - SpeechModelCatalogAdapter_CreateRecognizerEngineAsync_SynthesisRoleModel_ThrowsArgumentException

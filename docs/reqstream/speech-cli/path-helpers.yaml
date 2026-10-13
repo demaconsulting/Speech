@@ -1,0 +1,47 @@
+---
+# Software Unit Requirements for the SpeechCli PathHelpers
+#
+# These requirements describe the design-level behavior of the PathHelpers unit - containment-checked
+# path combination - decomposing the proposed system requirement SpeechCli-Cli-PathContainment.
+# Every test below is a PathHelpersTests test.
+
+sections:
+  - title: SpeechCli Requirements
+    sections:
+      - title: PathHelpers Requirements
+        requirements:
+          - id: SpeechCli-PathHelpers-AbsoluteResult
+            title: >-
+              The PathHelpers unit shall return the fully qualified combined path for a component
+              that stays inside the base path, for both relative and absolute base paths.
+            justification: |
+              Callers use the returned path directly, so it must be the one that was checked.
+            tests:
+              - PathHelpers_SafePathCombine_RelativeBasePath_ReturnsAbsolutePath
+              - PathHelpers_SafePathCombine_AbsoluteBasePath_ReturnsAbsolutePath
+
+          - id: SpeechCli-PathHelpers-EscapeRejected
+            title: >-
+              The PathHelpers unit shall reject, with an ArgumentException, a component that
+              resolves outside the base path.
+            justification: |
+              A parent-directory component must not reach files outside the intended folder.
+            tests:
+              - PathHelpers_SafePathCombine_EscapingRelativePath_ThrowsArgumentException
+
+          - id: SpeechCli-PathHelpers-RootedRejected
+            title: >-
+              The PathHelpers unit shall reject, with an ArgumentException, a rooted component.
+            justification: |
+              A rooted component replaces the base path when combined, defeating the check.
+            tests:
+              - PathHelpers_SafePathCombine_RootedRelativePath_ThrowsArgumentException
+
+          - id: SpeechCli-PathHelpers-NullRejected
+            title: >-
+              The PathHelpers unit shall reject a null base or component with an
+              ArgumentNullException.
+            justification: |
+              A null argument is a programming error that must not become a path.
+            tests:
+              - PathHelpers_SafePathCombine_NullArguments_ThrowArgumentNullException

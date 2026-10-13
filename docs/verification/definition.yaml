@@ -118,11 +118,40 @@ input-files:
   - docs/verification/speech-demo/recognition-panel-subsystem/recognition-panel-view-model.md
   - docs/verification/speech-demo/recognition-panel-subsystem/recognizer-session-factory.md
   - docs/verification/speech-cli.md
+  - docs/verification/speech-cli/program.md
+  - docs/verification/speech-cli/context.md
+  - docs/verification/speech-cli/command-dispatch.md
+  - docs/verification/speech-cli/console-cancellation.md
+  - docs/verification/speech-cli/validation.md
+  - docs/verification/speech-cli/path-helpers.md
   - docs/verification/speech-cli/conversation-command-subsystem.md
+  - docs/verification/speech-cli/conversation-command-subsystem/ask-command.md
+  - docs/verification/speech-cli/conversation-command-subsystem/audio-device-factory-capture-device-source.md
+  - docs/verification/speech-cli/conversation-command-subsystem/i-cli-capture-device-source.md
   - docs/verification/speech-cli/device-commands-subsystem.md
+  - docs/verification/speech-cli/device-commands-subsystem/devices-test-command.md
+  - docs/verification/speech-cli/device-commands-subsystem/doctor-command.md
+  - docs/verification/speech-cli/device-commands-subsystem/list-devices-command.md
   - docs/verification/speech-cli/model-commands-subsystem.md
+  - docs/verification/speech-cli/model-commands-subsystem/clean-command.md
+  - docs/verification/speech-cli/model-commands-subsystem/cli-model-catalog-factory.md
+  - docs/verification/speech-cli/model-commands-subsystem/download-command.md
+  - docs/verification/speech-cli/model-commands-subsystem/download-progress-reporter.md
+  - docs/verification/speech-cli/model-commands-subsystem/i-cli-model-catalog.md
+  - docs/verification/speech-cli/model-commands-subsystem/list-models-command.md
+  - docs/verification/speech-cli/model-commands-subsystem/list-voices-command.md
+  - docs/verification/speech-cli/model-commands-subsystem/model-info-command.md
+  - docs/verification/speech-cli/model-commands-subsystem/speech-model-catalog-adapter.md
+  - docs/verification/speech-cli/model-commands-subsystem/uninstall-command.md
+  - docs/verification/speech-cli/model-commands-subsystem/voices-command.md
   - docs/verification/speech-cli/recognition-command-subsystem.md
+  - docs/verification/speech-cli/recognition-command-subsystem/recognize-command.md
+  - docs/verification/speech-cli/recognition-command-subsystem/silence-timeout-recognizer-session.md
   - docs/verification/speech-cli/synthesis-command-subsystem.md
+  - docs/verification/speech-cli/synthesis-command-subsystem/audio-device-factory-playback-device-source.md
+  - docs/verification/speech-cli/synthesis-command-subsystem/i-cli-playback-device-source.md
+  - docs/verification/speech-cli/synthesis-command-subsystem/parameter-bag-parser.md
+  - docs/verification/speech-cli/synthesis-command-subsystem/speak-command.md
   - docs/verification/speech-onnx.md
   - docs/verification/speech-onnx/onnx-runtime-subsystem.md
   - docs/verification/speech-onnx/onnx-runtime-subsystem/onnx-execution-provider-selector.md
