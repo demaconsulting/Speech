@@ -83,6 +83,7 @@ teardown throws.
 
 **Scenario**: The same failing refresh.
 
-**Expected**: Both status texts carry the failure's message. The in-use refusal (`AudioDeviceInUseException`) takes the same
-path in the view model but needs an open stream, which cannot be created without hardware, so
-it is verified at unit level in the DeviceSelectionViewModel verification document.
+**Expected**: Both status texts carry the failure's message. The in-use refusal
+(`AudioDeviceInUseException`) takes the same path in the view model but needs an open stream,
+which cannot be created without hardware, so it is verified at unit level in the
+DeviceSelectionViewModel verification document.
