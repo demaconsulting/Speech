@@ -158,6 +158,26 @@ non-loopback-`http`-with-credentials rule) - see _Speech ModelManagementSubsyste
 supplied with no `--mirror-url`, rather than being silently ignored - a credential with nowhere to
 apply almost always indicates a missing or misspelled `--mirror-url`.
 
+### Mirror Environment Variables
+
+**Tests**: `Context_Create_EnvironmentMirrorUrl_UsedWhenOptionAbsent`,
+`Context_Create_MirrorUrlOption_OverridesEnvironment`,
+`Context_Create_EnvironmentBasicCredentials_UsedWhenOptionsAbsent`,
+`Context_Create_EnvironmentBearerToken_UsedWhenOptionsAbsent`,
+`Context_Create_CredentialOption_DisablesEnvironmentCredentials`,
+`Context_Create_EmptyEnvironmentVariables_TreatedAsUnset`,
+`Context_Create_EnvironmentCredentialWithoutUrl_ThrowsWithoutEchoingSecret`,
+`Context_Create_InvalidMirrorUrl_ErrorDoesNotEchoValue`,
+`Program_Run_Help_DocumentsMirrorEnvironmentVariables`,
+`Program_Run_Help_DoesNotPrintEnvironmentSecretValues`
+
+Each test drives `Context.Create(args, getEnvironmentVariable)` with a fake environment reader, never
+the process environment. They verify that each `DEMASPEECH_MIRROR_*` variable is used when its option is
+absent; that `--mirror-url` overrides the URL variable; that any credential option disables all credential
+variables; that empty variables are treated as unset; that a credential variable without a URL is rejected
+with an error that does not contain the secret; that an invalid URL is not echoed; and that help names the
+variables but never prints their values.
+
 ### Self-Validation
 
 **Tests**: `Program_Run_WithValidateFlag_RunsValidation`,

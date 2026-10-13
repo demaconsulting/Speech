@@ -125,7 +125,7 @@ internal static class Program
     ///     Determines whether console error output should be suppressed for <c>--silent</c>.
     /// </summary>
     /// <param name="context">
-    ///     The constructed context, or <see langword="null"/> when <see cref="Context.Create"/>
+    ///     The constructed context, or <see langword="null"/> when <see cref="Context.Create(string[])"/>
     ///     itself threw before a context could be built (for example, an unrecognized
     ///     subcommand name).
     /// </param>
@@ -225,6 +225,10 @@ internal static class Program
         context.WriteLine("  --mirror-bearer-token <t>  HTTP Bearer token for --mirror-url (mutually exclusive with --mirror-user/--mirror-password)");
         context.WriteLine("  --verbose, --diagnostics   Enable verbose diagnostics output");
         context.WriteLine("");
+        context.WriteLine("Environment (used only when the matching --mirror-* option is not given; values are never printed):");
+        context.WriteLine("  DEMASPEECH_MIRROR_URL, DEMASPEECH_MIRROR_USER, DEMASPEECH_MIRROR_PASSWORD, DEMASPEECH_MIRROR_BEARER_TOKEN");
+        context.WriteLine("  A --mirror-user/--mirror-password/--mirror-bearer-token option disables all environment credentials.");
+        context.WriteLine("");
         context.WriteLine("Commands:");
         foreach (var command in CommandDispatch.Commands)
         {
@@ -245,7 +249,7 @@ internal static class Program
     /// <param name="context">The context containing command line arguments and program state.</param>
     /// <remarks>
     ///     When no subcommand was given, prints the same usage information as <c>--help</c>
-    ///     rather than treating the absence of a subcommand as an error. <see cref="Context.Create"/>
+    ///     rather than treating the absence of a subcommand as an error. <see cref="Context.Create(string[])"/>
     ///     already rejects an unrecognized subcommand name as an <see cref="ArgumentException"/>
     ///     before <see cref="RunAsync"/> is ever reached, so every <see cref="Context.Command"/> value
     ///     that reaches this method is guaranteed to resolve via <see cref="CommandDispatch.Find"/>.

@@ -122,3 +122,57 @@ rejected with `ArgumentException`; the store and mirror options reflect the pars
 **Scenario**: The help text is printed.
 
 **Expected**: It lists the `--voices-dir` option.
+
+#### Parse_EnvironmentMirrorUrl_UsedWhenOptionAbsent
+
+**Scenario**: `DEMASPEECH_MIRROR_URL` is set (fake reader) and `--mirror-url` is absent.
+
+**Expected**: `MirrorUrl` is the variable's value.
+
+#### Parse_MirrorUrlOption_OverridesEnvironment
+
+**Scenario**: Both `--mirror-url` and `DEMASPEECH_MIRROR_URL` are given.
+
+**Expected**: `MirrorUrl` is the option's value.
+
+#### Parse_EnvironmentBasicCredentials_UsedWhenOptionsAbsent
+
+**Scenario**: The user and password variables are set and no credential option is given.
+
+**Expected**: The configured mirror carries the Basic credentials.
+
+#### Parse_EnvironmentBearerToken_UsedWhenOptionsAbsent
+
+**Scenario**: The bearer token variable is set and no credential option is given.
+
+**Expected**: The configured mirror carries the bearer token.
+
+#### Parse_CredentialOption_DisablesEnvironmentCredentials
+
+**Scenario**: `--mirror-bearer-token` is given while the user and password variables are set.
+
+**Expected**: Only the option's bearer token is used; no Basic credential is applied.
+
+#### Parse_EmptyEnvironmentVariables_TreatedAsUnset
+
+**Scenario**: The mirror variables are set to empty strings.
+
+**Expected**: No downloader options are produced.
+
+#### CreateDownloaderOptions_EnvironmentCredentialWithoutUrl_ThrowsWithoutEchoingSecret
+
+**Scenario**: Only a credential variable is set.
+
+**Expected**: `ArgumentException` whose message does not contain the secret value.
+
+#### CreateDownloaderOptions_InvalidMirrorUrl_ErrorDoesNotEchoValue
+
+**Scenario**: `--mirror-url` is not a valid URL.
+
+**Expected**: `ArgumentException` whose message does not contain the rejected value.
+
+#### PrintHelp_ListsMirrorEnvironmentVariables
+
+**Scenario**: The help text is printed.
+
+**Expected**: It names the four `DEMASPEECH_MIRROR_*` variables.

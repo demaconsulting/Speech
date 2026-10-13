@@ -271,6 +271,15 @@ sections:
           - SpeechDemo-LaunchOptions-MirrorConfiguration
           - SpeechDemo-LaunchOptions-NoMirror
           - SpeechDemo-LaunchOptions-MirrorRejection
+          - SpeechDemo-LaunchOptions-MirrorUrlEnvironment
+          - SpeechDemo-LaunchOptions-MirrorUrlOptionPrecedence
+          - SpeechDemo-LaunchOptions-MirrorBasicCredentialsEnvironment
+          - SpeechDemo-LaunchOptions-MirrorBearerTokenEnvironment
+          - SpeechDemo-LaunchOptions-MirrorCredentialOptionPrecedence
+          - SpeechDemo-LaunchOptions-MirrorEnvironmentEmptyIgnored
+          - SpeechDemo-LaunchOptions-MirrorEnvironmentCredentialRequiresUrl
+          - SpeechDemo-LaunchOptions-MirrorSecretsNotInErrors
+          - SpeechDemo-LaunchOptions-MirrorEnvironmentHelp
           - SpeechDemo-MirrorOptions-Validation
           - SpeechDemo-MirrorOptions-BlankUrlNoMirror
           - SpeechDemo-MirrorOptions-CredentialWithoutUrl

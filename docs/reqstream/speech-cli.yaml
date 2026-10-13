@@ -207,6 +207,114 @@ sections:
         tests:
           - Context_CreateMirror_CredentialOverPlainHttp_RejectedUnlessLoopback
 
+      - id: SpeechCli-Cli-MirrorUrlEnvironment
+        title: >-
+          The tool shall take the mirror base URL from the `DEMASPEECH_MIRROR_URL` environment
+          variable when `--mirror-url` is not supplied.
+        tags: [system]
+        justification: |
+          Scripts and CI jobs configure the mirror once in the environment instead of repeating
+          it on every command line.
+        tests:
+          - Context_Create_EnvironmentMirrorUrl_UsedWhenOptionAbsent
+
+      - id: SpeechCli-Cli-MirrorUrlOptionPrecedence
+        title: >-
+          The tool shall prefer an explicit `--mirror-url` option over the
+          `DEMASPEECH_MIRROR_URL` environment variable.
+        tags: [system]
+        justification: |
+          An explicit command-line option is the most specific statement of intent and must
+          override ambient configuration.
+        tests:
+          - Context_Create_MirrorUrlOption_OverridesEnvironment
+
+      - id: SpeechCli-Cli-MirrorBasicCredentialsEnvironment
+        title: >-
+          The tool shall authenticate to the mirror with HTTP Basic credentials taken from the
+          `DEMASPEECH_MIRROR_USER` and `DEMASPEECH_MIRROR_PASSWORD` environment variables when no
+          mirror credential option is supplied.
+        tags: [system]
+        justification: |
+          Environment variables keep a secret out of the process command line, where other local
+          users and shell history can read it.
+        tests:
+          - Context_Create_EnvironmentBasicCredentials_UsedWhenOptionsAbsent
+
+      - id: SpeechCli-Cli-MirrorBearerTokenEnvironment
+        title: >-
+          The tool shall authenticate to the mirror with the bearer token in the
+          `DEMASPEECH_MIRROR_BEARER_TOKEN` environment variable when no mirror credential option
+          is supplied.
+        tags: [system]
+        justification: |
+          Environment variables keep a token out of the process command line, where other local
+          users and shell history can read it.
+        tests:
+          - Context_Create_EnvironmentBearerToken_UsedWhenOptionsAbsent
+
+      - id: SpeechCli-Cli-MirrorCredentialOptionPrecedence
+        title: >-
+          The tool shall ignore every mirror credential environment variable when any mirror
+          credential option is supplied.
+        tags: [system]
+        justification: |
+          Taking credentials from one source only prevents an explicit option from being silently
+          combined with an ambient credential of the other kind.
+        tests:
+          - Context_Create_CredentialOption_DisablesEnvironmentCredentials
+
+      - id: SpeechCli-Cli-MirrorEnvironmentEmptyIgnored
+        title: >-
+          The tool shall treat an empty mirror environment variable as unset.
+        tags: [system]
+        justification: |
+          Shells and CI systems commonly export empty variables, which must not enable a mirror
+          or a credential.
+        tests:
+          - Context_Create_EmptyEnvironmentVariables_TreatedAsUnset
+
+      - id: SpeechCli-Cli-MirrorEnvironmentCredentialRequiresUrl
+        title: >-
+          The tool shall reject a mirror credential environment variable supplied without a
+          mirror URL with a clear error message and a non-zero exit code.
+        tags: [system]
+        justification: |
+          A credential with no mirror to apply to would otherwise be silently dropped.
+        tests:
+          - Context_Create_EnvironmentCredentialWithoutUrl_ThrowsWithoutEchoingSecret
+
+      - id: SpeechCli-Cli-MirrorSecretsNotInErrors
+        title: >-
+          The tool shall not include a mirror credential or an invalid mirror URL value in any
+          configuration error message.
+        tags: [system]
+        justification: |
+          Error text is routinely copied into logs and tickets; a pasted secret must not leak
+          through it.
+        tests:
+          - Context_Create_EnvironmentCredentialWithoutUrl_ThrowsWithoutEchoingSecret
+          - Context_Create_InvalidMirrorUrl_ErrorDoesNotEchoValue
+
+      - id: SpeechCli-Cli-MirrorSecretsNotInHelp
+        title: >-
+          The tool shall not print any mirror environment variable value in its help output.
+        tags: [system]
+        justification: |
+          Help output is routinely pasted into logs and tickets.
+        tests:
+          - Program_Run_Help_DoesNotPrintEnvironmentSecretValues
+
+      - id: SpeechCli-Cli-MirrorEnvironmentHelp
+        title: >-
+          The tool shall name the four `DEMASPEECH_MIRROR_*` environment variables in its help
+          output.
+        tags: [system]
+        justification: |
+          Users discover the environment alternative from `--help`.
+        tests:
+          - Program_Run_Help_DocumentsMirrorEnvironmentVariables
+
       - id: SpeechCli-Cli-VersionDisplay
         title: >-
           The tool shall display its version string, and nothing else, when invoked with `-v` or

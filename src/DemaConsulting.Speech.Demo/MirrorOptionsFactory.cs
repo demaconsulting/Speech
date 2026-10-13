@@ -40,8 +40,9 @@ internal static class MirrorOptionsFactory
             if (user is not null || password is not null || bearerToken is not null)
             {
                 throw new ArgumentException(
-                    "Mirror user, mirror password, and mirror bearer token require a mirror " +
-                    "URL; none of them has any effect without a mirror URL to apply them to.");
+                    "Mirror user, mirror password, and mirror bearer token (and their " +
+                    "DEMASPEECH_MIRROR_* environment variables) require a mirror URL; none of " +
+                    "them has any effect without a mirror URL to apply them to.");
             }
 
             return null;
@@ -49,7 +50,8 @@ internal static class MirrorOptionsFactory
 
         if (!Uri.TryCreate(url, UriKind.Absolute, out var baseUri))
         {
-            throw new ArgumentException($"Mirror URL '{url}' is not a valid absolute URL.");
+            // The rejected value is deliberately not echoed: a mistyped URL can still carry a pasted credential.
+            throw new ArgumentException("The mirror URL is not a valid absolute URL.");
         }
 
         if (user is null != password is null)

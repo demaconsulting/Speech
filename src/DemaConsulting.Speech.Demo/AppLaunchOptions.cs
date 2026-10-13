@@ -43,6 +43,18 @@ public sealed class AppLaunchOptions
     /// <summary>Gets a value indicating whether <c>--help</c> or <c>-h</c> was supplied.</summary>
     public bool Help { get; private init; }
 
+    /// <summary>Name of the environment variable that supplies the mirror URL when <c>--mirror-url</c> is absent.</summary>
+    public const string MirrorUrlEnvironmentVariable = "DEMASPEECH_MIRROR_URL";
+
+    /// <summary>Name of the environment variable that supplies the mirror HTTP Basic username.</summary>
+    public const string MirrorUserEnvironmentVariable = "DEMASPEECH_MIRROR_USER";
+
+    /// <summary>Name of the environment variable that supplies the mirror HTTP Basic password.</summary>
+    public const string MirrorPasswordEnvironmentVariable = "DEMASPEECH_MIRROR_PASSWORD";
+
+    /// <summary>Name of the environment variable that supplies the mirror bearer token.</summary>
+    public const string MirrorBearerTokenEnvironmentVariable = "DEMASPEECH_MIRROR_BEARER_TOKEN";
+
     /// <summary>
     ///     Parses <paramref name="args"/> into a new <see cref="AppLaunchOptions"/>.
     /// </summary>
@@ -52,9 +64,30 @@ public sealed class AppLaunchOptions
     ///     Thrown when an option requiring a value is the last argument, or an unrecognized
     ///     argument is supplied.
     /// </exception>
-    public static AppLaunchOptions Parse(string[] args)
+    public static AppLaunchOptions Parse(string[] args) => Parse(args, Environment.GetEnvironmentVariable);
+
+    /// <summary>
+    ///     Parses <paramref name="args"/> into a new <see cref="AppLaunchOptions"/>, reading the
+    ///     mirror environment-variable fallbacks through <paramref name="getEnvironmentVariable"/>.
+    /// </summary>
+    /// <remarks>
+    ///     A <c>--mirror-*</c> option on the command line always takes precedence:
+    ///     <see cref="MirrorUrlEnvironmentVariable"/> applies only when <c>--mirror-url</c> is absent, and
+    ///     the credential variables apply only when none of <c>--mirror-user</c>,
+    ///     <c>--mirror-password</c>, or <c>--mirror-bearer-token</c> was given. An empty variable is
+    ///     treated as unset. Variable values are never written to any output or error message.
+    /// </remarks>
+    /// <param name="args">The process's command-line arguments. Must not be <see langword="null"/>.</param>
+    /// <param name="getEnvironmentVariable">Reads an environment variable by name; <see langword="null"/> when unset.</param>
+    /// <returns>The parsed options.</returns>
+    /// <exception cref="ArgumentException">
+    ///     Thrown when an option requiring a value is the last argument, or an unrecognized
+    ///     argument is supplied.
+    /// </exception>
+    public static AppLaunchOptions Parse(string[] args, Func<string, string?> getEnvironmentVariable)
     {
         ArgumentNullException.ThrowIfNull(args);
+        ArgumentNullException.ThrowIfNull(getEnvironmentVariable);
 
         string? modelsDir = null;
         string? voicesDir = null;
@@ -111,6 +144,16 @@ public sealed class AppLaunchOptions
             throw new ArgumentException($"--voices-dir '{voicesDir}' is not an existing directory.", nameof(args));
         }
 
+        // Explicit command-line options win; credentials come from one source only, never a mixture.
+        var credentialsOnCommandLine = mirrorUser is not null || mirrorPassword is not null || mirrorBearerToken is not null;
+        mirrorUrl ??= ReadEnvironment(getEnvironmentVariable, MirrorUrlEnvironmentVariable);
+        if (!credentialsOnCommandLine)
+        {
+            mirrorUser = ReadEnvironment(getEnvironmentVariable, MirrorUserEnvironmentVariable);
+            mirrorPassword = ReadEnvironment(getEnvironmentVariable, MirrorPasswordEnvironmentVariable);
+            mirrorBearerToken = ReadEnvironment(getEnvironmentVariable, MirrorBearerTokenEnvironmentVariable);
+        }
+
         return new AppLaunchOptions
         {
             ModelsDir = modelsDir,
@@ -139,6 +182,13 @@ public sealed class AppLaunchOptions
         }
 
         return args[index++];
+    }
+
+    /// <summary>Reads an environment variable, treating an empty value as unset.</summary>
+    private static string? ReadEnvironment(Func<string, string?> getEnvironmentVariable, string name)
+    {
+        var value = getEnvironmentVariable(name);
+        return string.IsNullOrEmpty(value) ? null : value;
     }
 
     /// <summary>
@@ -190,5 +240,9 @@ public sealed class AppLaunchOptions
         Console.WriteLine("  --mirror-user <user>       HTTP Basic username for --mirror-url (requires --mirror-password)");
         Console.WriteLine("  --mirror-password <pass>   HTTP Basic password for --mirror-url (requires --mirror-user)");
         Console.WriteLine("  --mirror-bearer-token <t>  HTTP Bearer token for --mirror-url (mutually exclusive with --mirror-user/--mirror-password)");
+        Console.WriteLine();
+        Console.WriteLine("Environment (used only when the matching --mirror-* option is not given; values are never printed):");
+        Console.WriteLine("  DEMASPEECH_MIRROR_URL, DEMASPEECH_MIRROR_USER, DEMASPEECH_MIRROR_PASSWORD, DEMASPEECH_MIRROR_BEARER_TOKEN");
+        Console.WriteLine("  A --mirror-user/--mirror-password/--mirror-bearer-token option disables all environment credentials.");
     }
 }

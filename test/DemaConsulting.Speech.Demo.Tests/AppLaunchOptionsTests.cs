@@ -298,4 +298,121 @@ public sealed class AppLaunchOptionsTests
         // Assert
         Assert.Contains("--voices-dir <path>", writer.ToString(), StringComparison.Ordinal);
     }
+
+    private static Func<string, string?> FakeEnvironment(params (string Name, string Value)[] variables) =>
+        name => variables.Where(v => v.Name == name).Select(v => v.Value).FirstOrDefault();
+
+    /// <summary>Test that the mirror URL environment variable applies when <c>--mirror-url</c> is absent.</summary>
+    [Fact]
+    public void Parse_EnvironmentMirrorUrl_UsedWhenOptionAbsent()
+    {
+        var options = AppLaunchOptions.Parse([], FakeEnvironment(("DEMASPEECH_MIRROR_URL", "https://env.example.com")));
+
+        Assert.Equal("https://env.example.com", options.MirrorUrl);
+    }
+
+    /// <summary>Test that <c>--mirror-url</c> overrides the environment variable.</summary>
+    [Fact]
+    public void Parse_MirrorUrlOption_OverridesEnvironment()
+    {
+        var options = AppLaunchOptions.Parse(
+            ["--mirror-url", "https://cli.example.com"],
+            FakeEnvironment(("DEMASPEECH_MIRROR_URL", "https://env.example.com")));
+
+        Assert.Equal("https://cli.example.com", options.MirrorUrl);
+    }
+
+    /// <summary>Test that the user and password variables supply the Basic credential.</summary>
+    [Fact]
+    public void Parse_EnvironmentBasicCredentials_UsedWhenOptionsAbsent()
+    {
+        var options = AppLaunchOptions.Parse([], FakeEnvironment(
+            ("DEMASPEECH_MIRROR_URL", "https://env.example.com"),
+            ("DEMASPEECH_MIRROR_USER", "alice"),
+            ("DEMASPEECH_MIRROR_PASSWORD", "env-secret")));
+
+        var downloaderOptions = options.CreateDownloaderOptions();
+        Assert.Equal("alice", downloaderOptions?.Mirror?.Credentials?.UserName);
+        Assert.Equal("env-secret", downloaderOptions?.Mirror?.Credentials?.Password);
+    }
+
+    /// <summary>Test that the bearer token variable supplies the bearer token.</summary>
+    [Fact]
+    public void Parse_EnvironmentBearerToken_UsedWhenOptionsAbsent()
+    {
+        var options = AppLaunchOptions.Parse([], FakeEnvironment(
+            ("DEMASPEECH_MIRROR_URL", "https://env.example.com"),
+            ("DEMASPEECH_MIRROR_BEARER_TOKEN", "env-token")));
+
+        Assert.Equal("env-token", options.CreateDownloaderOptions()?.Mirror?.BearerToken);
+    }
+
+    /// <summary>Test that any credential option disables every environment credential.</summary>
+    [Fact]
+    public void Parse_CredentialOption_DisablesEnvironmentCredentials()
+    {
+        var options = AppLaunchOptions.Parse(["--mirror-bearer-token", "cli-token"], FakeEnvironment(
+            ("DEMASPEECH_MIRROR_URL", "https://env.example.com"),
+            ("DEMASPEECH_MIRROR_USER", "alice"),
+            ("DEMASPEECH_MIRROR_PASSWORD", "env-secret")));
+
+        var mirror = options.CreateDownloaderOptions()?.Mirror;
+        Assert.Null(mirror?.Credentials);
+        Assert.Equal("cli-token", mirror?.BearerToken);
+    }
+
+    /// <summary>Test that an empty environment variable is treated as unset.</summary>
+    [Fact]
+    public void Parse_EmptyEnvironmentVariables_TreatedAsUnset()
+    {
+        var options = AppLaunchOptions.Parse([], FakeEnvironment(
+            ("DEMASPEECH_MIRROR_URL", ""),
+            ("DEMASPEECH_MIRROR_BEARER_TOKEN", "")));
+
+        Assert.Null(options.CreateDownloaderOptions());
+    }
+
+    /// <summary>Test that environment credentials without a URL are rejected without echoing the secret.</summary>
+    [Fact]
+    public void CreateDownloaderOptions_EnvironmentCredentialWithoutUrl_ThrowsWithoutEchoingSecret()
+    {
+        var options = AppLaunchOptions.Parse([], FakeEnvironment(("DEMASPEECH_MIRROR_BEARER_TOKEN", "super-secret-value")));
+
+        var exception = Assert.Throws<ArgumentException>(() => options.CreateDownloaderOptions());
+        Assert.DoesNotContain("super-secret-value", exception.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Test that an invalid mirror URL error does not echo the rejected value.</summary>
+    [Fact]
+    public void CreateDownloaderOptions_InvalidMirrorUrl_ErrorDoesNotEchoValue()
+    {
+        var options = AppLaunchOptions.Parse(["--mirror-url", "not a url secret-value"], FakeEnvironment());
+
+        var exception = Assert.Throws<ArgumentException>(() => options.CreateDownloaderOptions());
+        Assert.DoesNotContain("secret-value", exception.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Test that the help text names the mirror environment variables.</summary>
+    [Fact]
+    public void PrintHelp_ListsMirrorEnvironmentVariables()
+    {
+        var original = Console.Out;
+        using var writer = new StringWriter();
+        Console.SetOut(writer);
+
+        try
+        {
+            AppLaunchOptions.PrintHelp();
+        }
+        finally
+        {
+            Console.SetOut(original);
+        }
+
+        var output = writer.ToString();
+        Assert.Contains("DEMASPEECH_MIRROR_URL", output, StringComparison.Ordinal);
+        Assert.Contains("DEMASPEECH_MIRROR_USER", output, StringComparison.Ordinal);
+        Assert.Contains("DEMASPEECH_MIRROR_PASSWORD", output, StringComparison.Ordinal);
+        Assert.Contains("DEMASPEECH_MIRROR_BEARER_TOKEN", output, StringComparison.Ordinal);
+    }
 }

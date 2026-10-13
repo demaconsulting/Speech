@@ -941,7 +941,11 @@ The demo accepts `--models-dir <path>`, `--mirror-url <url>` (with `--mirror-use
 `speech-cli`; run `dotnet run --project src/DemaConsulting.Speech.Demo -- --help` for the list.
 `--voices-dir` names an existing folder of your own `.wav`/`.flac` reference voices that is
 offered to Chatterbox Turbo alongside the installed pack and the user folder under the models
-root; a missing folder is rejected at start-up with an explanatory message.
+Credentials may also be supplied through the `DEMASPEECH_MIRROR_URL`, `DEMASPEECH_MIRROR_USER`,
+`DEMASPEECH_MIRROR_PASSWORD` and `DEMASPEECH_MIRROR_BEARER_TOKEN` environment variables, which keep secrets
+off the command line. An explicit command-line option takes precedence, and any credential option makes
+the demo ignore all credential environment variables. Secret values are never printed in help or error text.
+For a scripted launch, set these variables rather than passing the secret as an option.
 
 ### Diagnostics: Raw Capture Recording
 

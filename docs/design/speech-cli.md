@@ -67,11 +67,19 @@ _Speech ModelManagementSubsystem Design_), so the CLI never duplicates that logi
 surfaces as an `ArgumentException`, which `Program.Main` reports as a clean, non-zero-exit-code
 error identically to every other command-line configuration mistake - never a stack trace.
 
-Credentials are accepted only as command-line options; no environment-variable alternative is provided,
-because the mirror options are an operator convenience and a second configuration channel would add a
-surface to validate and document without a requirement that needs it. Command-line values can be visible to
-other local users in process listings and shell history, so a short-lived `--mirror-bearer-token` is
-preferred over a long-lived user and password.
+Credentials are accepted both as command-line options and, to keep secrets out of process listings and shell
+history, through the `DEMASPEECH_MIRROR_URL`, `DEMASPEECH_MIRROR_USER`, `DEMASPEECH_MIRROR_PASSWORD`, and
+`DEMASPEECH_MIRROR_BEARER_TOKEN` environment variables. `Context.Create(args, getEnvironmentVariable)` takes
+the environment reader as an injectable `Func<string, string?>` (`Context.Create(args)` passes
+`Environment.GetEnvironmentVariable`), so tests never mutate the process environment. Precedence: an explicit
+`--mirror-url` overrides `DEMASPEECH_MIRROR_URL`; any of `--mirror-user`, `--mirror-password`, or
+`--mirror-bearer-token` on the command line disables all three credential variables, so the two sources are
+never mixed (a mixture could silently create a Basic-plus-bearer conflict, or send an ambient credential that
+the user did not intend alongside an explicit one). An empty variable counts as unset. Environment values flow
+through the same `CreateMirror` validation as option values, including the credential-requires-URL rule. No
+secret value (and no rejected `--mirror-url` value, which might carry a pasted credential) is ever written to
+help or error text; help names only the variable names. A short-lived bearer token is still preferred over a
+long-lived user and password.
 
 ### ModelCommandsSubsystem
 

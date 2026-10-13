@@ -86,9 +86,15 @@ credentialed mirror must use `https://`, unless its host is loopback (`localhost
 literal). Any of `--mirror-user`, `--mirror-password`, or `--mirror-bearer-token` supplied without
 `--mirror-url` is rejected as a configuration error rather than silently ignored.
 
-Mirror credentials are accepted only as command-line options (there is no environment-variable alternative).
-Command-line values can be visible to other local users in process listings and shell history, so prefer a
-short-lived `--mirror-bearer-token` over a long-lived user and password.
+The mirror can also be configured through the environment variables `DEMASPEECH_MIRROR_URL`,
+`DEMASPEECH_MIRROR_USER`, `DEMASPEECH_MIRROR_PASSWORD` and `DEMASPEECH_MIRROR_BEARER_TOKEN`, which keeps
+secrets off the command line (where other local users can see them in process listings and shell
+history). An explicit option always takes precedence: `--mirror-url` overrides `DEMASPEECH_MIRROR_URL`, and
+supplying any of `--mirror-user`, `--mirror-password` or `--mirror-bearer-token` makes the tool ignore all
+credential environment variables, so the two sources are never mixed. Empty variables are treated as unset,
+and an environment credential without a mirror URL is rejected like its option counterpart. Secret values and
+rejected URL values are never printed in help or error messages. Still prefer a short-lived bearer token over
+a long-lived user and password.
 
 ### `speak` flags
 

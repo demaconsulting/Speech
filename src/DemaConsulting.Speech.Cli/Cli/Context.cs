@@ -39,6 +39,35 @@ namespace DemaConsulting.Speech.Cli.Cli;
 internal sealed class Context : IDisposable
 {
     /// <summary>
+    ///     Name of the environment variable that supplies the mirror base URL when <c>--mirror-url</c> is absent.
+    /// </summary>
+    public const string MirrorUrlEnvironmentVariable = "DEMASPEECH_MIRROR_URL";
+
+    /// <summary>
+    ///     Name of the environment variable that supplies the mirror HTTP Basic username.
+    /// </summary>
+    public const string MirrorUserEnvironmentVariable = "DEMASPEECH_MIRROR_USER";
+
+    /// <summary>
+    ///     Name of the environment variable that supplies the mirror HTTP Basic password.
+    /// </summary>
+    public const string MirrorPasswordEnvironmentVariable = "DEMASPEECH_MIRROR_PASSWORD";
+
+    /// <summary>
+    ///     Name of the environment variable that supplies the mirror bearer token.
+    /// </summary>
+    public const string MirrorBearerTokenEnvironmentVariable = "DEMASPEECH_MIRROR_BEARER_TOKEN";
+
+    /// <summary>
+    ///     Reads an environment variable, treating an empty value as unset.
+    /// </summary>
+    private static string? ReadEnvironment(Func<string, string?> getEnvironmentVariable, string name)
+    {
+        var value = getEnvironmentVariable(name);
+        return string.IsNullOrEmpty(value) ? null : value;
+    }
+
+    /// <summary>
     ///     Log file stream writer (if logging is enabled).
     /// </summary>
     private StreamWriter? _logWriter;
@@ -145,9 +174,10 @@ internal sealed class Context : IDisposable
             if (MirrorUser is not null || MirrorPassword is not null || MirrorBearerToken is not null)
             {
                 throw new ArgumentException(
-                    "--mirror-user, --mirror-password, and --mirror-bearer-token require " +
-                    "--mirror-url; none of them has any effect without a mirror URL to apply " +
-                    "them to.");
+                    "--mirror-user, --mirror-password, and --mirror-bearer-token (and their " +
+                    "DEMASPEECH_MIRROR_* environment variables) require a mirror URL " +
+                    "(--mirror-url or DEMASPEECH_MIRROR_URL); none of them has any effect " +
+                    "without a mirror URL to apply them to.");
             }
 
             return null;
@@ -155,7 +185,8 @@ internal sealed class Context : IDisposable
 
         if (!Uri.TryCreate(MirrorUrl, UriKind.Absolute, out var baseUri))
         {
-            throw new ArgumentException($"--mirror-url '{MirrorUrl}' is not a valid absolute URL.");
+            // The rejected value is deliberately not echoed: a mistyped URL can still carry a pasted credential.
+            throw new ArgumentException("The mirror URL is not a valid absolute URL.");
         }
 
         if (MirrorUser is null != MirrorPassword is null)
@@ -204,19 +235,48 @@ internal sealed class Context : IDisposable
     }
 
     /// <summary>
-    ///     Creates a Context instance from command-line arguments.
+    ///     Creates a Context instance from command-line arguments, reading the mirror settings'
+    ///     environment-variable fallbacks from the process environment.
     /// </summary>
     /// <param name="args">Command-line arguments.</param>
     /// <returns>A new Context instance.</returns>
     /// <exception cref="ArgumentException">Thrown when arguments are invalid.</exception>
     /// <exception cref="InvalidOperationException">Thrown when the specified log file cannot be opened.</exception>
-    public static Context Create(string[] args)
+    public static Context Create(string[] args) => Create(args, Environment.GetEnvironmentVariable);
+
+    /// <summary>
+    ///     Creates a Context instance from command-line arguments, reading the mirror settings'
+    ///     environment-variable fallbacks through <paramref name="getEnvironmentVariable"/>.
+    /// </summary>
+    /// <remarks>
+    ///     A <c>--mirror-*</c> option given on the command line always takes precedence over its
+    ///     environment variable: <see cref="MirrorUrlEnvironmentVariable"/> applies only when
+    ///     <c>--mirror-url</c> is absent, and the credential variables
+    ///     (<see cref="MirrorUserEnvironmentVariable"/>, <see cref="MirrorPasswordEnvironmentVariable"/>,
+    ///     <see cref="MirrorBearerTokenEnvironmentVariable"/>) apply only when none of
+    ///     <c>--mirror-user</c>, <c>--mirror-password</c>, or <c>--mirror-bearer-token</c> was given, so
+    ///     a command-line credential is never mixed with an environment one. An empty variable is
+    ///     treated as unset. A variable's value is never written to any output or error message.
+    /// </remarks>
+    /// <param name="args">Command-line arguments.</param>
+    /// <param name="getEnvironmentVariable">
+    ///     Reads an environment variable by name, returning <see langword="null"/> when it is unset.
+    /// </param>
+    /// <returns>A new Context instance.</returns>
+    /// <exception cref="ArgumentException">Thrown when arguments are invalid.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when the specified log file cannot be opened.</exception>
+    public static Context Create(string[] args, Func<string, string?> getEnvironmentVariable)
     {
         // Validate input
         ArgumentNullException.ThrowIfNull(args);
+        ArgumentNullException.ThrowIfNull(getEnvironmentVariable);
 
         var parser = new ArgumentParser();
         parser.ParseArguments(args);
+
+        // Explicit command-line options win; credentials come from one source only, never a mixture.
+        var credentialsOnCommandLine =
+            parser.MirrorUser is not null || parser.MirrorPassword is not null || parser.MirrorBearerToken is not null;
 
         var result = new Context
         {
@@ -228,10 +288,16 @@ internal sealed class Context : IDisposable
             Diagnostics = parser.Diagnostics,
             ModelsDir = parser.ModelsDir,
             VoicesDir = parser.VoicesDir,
-            MirrorUrl = parser.MirrorUrl,
-            MirrorUser = parser.MirrorUser,
-            MirrorPassword = parser.MirrorPassword,
-            MirrorBearerToken = parser.MirrorBearerToken,
+            MirrorUrl = parser.MirrorUrl ?? ReadEnvironment(getEnvironmentVariable, MirrorUrlEnvironmentVariable),
+            MirrorUser = credentialsOnCommandLine
+                ? parser.MirrorUser
+                : ReadEnvironment(getEnvironmentVariable, MirrorUserEnvironmentVariable),
+            MirrorPassword = credentialsOnCommandLine
+                ? parser.MirrorPassword
+                : ReadEnvironment(getEnvironmentVariable, MirrorPasswordEnvironmentVariable),
+            MirrorBearerToken = credentialsOnCommandLine
+                ? parser.MirrorBearerToken
+                : ReadEnvironment(getEnvironmentVariable, MirrorBearerTokenEnvironmentVariable),
             ResultsFile = parser.ResultsFile,
             HeadingDepth = parser.HeadingDepth,
             Command = parser.Command,

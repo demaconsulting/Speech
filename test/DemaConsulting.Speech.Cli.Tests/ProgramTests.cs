@@ -225,7 +225,7 @@ public class ProgramTests
     ///     Test that Main with an unrecognized argument and <c>--silent</c> still returns the
     ///     non-zero exit code, but suppresses the stderr message - proving the top-level
     ///     <see cref="ArgumentException"/> catch in <see cref="Program.Main"/> honors
-    ///     <c>--silent</c> even though <see cref="Cli.Context.Create"/> itself threw before a
+    ///     <c>--silent</c> even though <see cref="Cli.Context.Create(string[])"/> itself threw before a
     ///     <see cref="Cli.Context"/> could be constructed to expose its own
     ///     <see cref="Cli.Context.Silent"/> flag.
     /// </summary>
@@ -912,6 +912,189 @@ public class ProgramTests
     {
         // Act and Assert (mirror options are validated while creating the context)
         Assert.Throws<ArgumentException>(() => Context.Create(["list-models", "--mirror-bearer-token", "token-value"]));
+    }
+
+    /// <summary>
+    ///     Builds an environment reader over a fixed set of variables, so tests never mutate the process environment.
+    /// </summary>
+    private static Func<string, string?> FakeEnvironment(params (string Name, string Value)[] variables) =>
+        name => variables.Where(v => v.Name == name).Select(v => v.Value).FirstOrDefault();
+
+    /// <summary>
+    ///     Test that <c>DEMASPEECH_MIRROR_URL</c> supplies the mirror URL when <c>--mirror-url</c> is absent.
+    /// </summary>
+    [Fact]
+    public void Context_Create_EnvironmentMirrorUrl_UsedWhenOptionAbsent()
+    {
+        using var context = Context.Create(
+            ["list-models"],
+            FakeEnvironment(("DEMASPEECH_MIRROR_URL", "https://env.example.com")));
+
+        Assert.Equal("https://env.example.com", context.MirrorUrl);
+    }
+
+    /// <summary>
+    ///     Test that <c>--mirror-url</c> takes precedence over <c>DEMASPEECH_MIRROR_URL</c>.
+    /// </summary>
+    [Fact]
+    public void Context_Create_MirrorUrlOption_OverridesEnvironment()
+    {
+        using var context = Context.Create(
+            ["list-models", "--mirror-url", "https://cli.example.com"],
+            FakeEnvironment(("DEMASPEECH_MIRROR_URL", "https://env.example.com")));
+
+        Assert.Equal("https://cli.example.com", context.MirrorUrl);
+    }
+
+    /// <summary>
+    ///     Test that the user and password variables supply the Basic credential when no credential option is given.
+    /// </summary>
+    [Fact]
+    public void Context_Create_EnvironmentBasicCredentials_UsedWhenOptionsAbsent()
+    {
+        using var context = Context.Create(
+            ["list-models"],
+            FakeEnvironment(
+                ("DEMASPEECH_MIRROR_URL", "https://env.example.com"),
+                ("DEMASPEECH_MIRROR_USER", "alice"),
+                ("DEMASPEECH_MIRROR_PASSWORD", "env-secret")));
+
+        var mirror = context.CreateMirror();
+        Assert.NotNull(mirror);
+        Assert.Equal("alice", mirror.Credentials?.UserName);
+        Assert.Equal("env-secret", mirror.Credentials?.Password);
+    }
+
+    /// <summary>
+    ///     Test that <c>DEMASPEECH_MIRROR_BEARER_TOKEN</c> supplies the bearer token when no credential option is given.
+    /// </summary>
+    [Fact]
+    public void Context_Create_EnvironmentBearerToken_UsedWhenOptionsAbsent()
+    {
+        using var context = Context.Create(
+            ["list-models"],
+            FakeEnvironment(
+                ("DEMASPEECH_MIRROR_URL", "https://env.example.com"),
+                ("DEMASPEECH_MIRROR_BEARER_TOKEN", "env-token")));
+
+        var mirror = context.CreateMirror();
+        Assert.NotNull(mirror);
+        Assert.Equal("env-token", mirror.BearerToken);
+    }
+
+    /// <summary>
+    ///     Test that any credential option disables every environment credential, so the two sources never mix.
+    /// </summary>
+    [Fact]
+    public void Context_Create_CredentialOption_DisablesEnvironmentCredentials()
+    {
+        using var context = Context.Create(
+            ["list-models", "--mirror-bearer-token", "cli-token"],
+            FakeEnvironment(
+                ("DEMASPEECH_MIRROR_URL", "https://env.example.com"),
+                ("DEMASPEECH_MIRROR_USER", "alice"),
+                ("DEMASPEECH_MIRROR_PASSWORD", "env-secret")));
+
+        var mirror = context.CreateMirror();
+        Assert.NotNull(mirror);
+        Assert.Null(mirror.Credentials);
+        Assert.Equal("cli-token", mirror.BearerToken);
+    }
+
+    /// <summary>
+    ///     Test that an empty environment variable is treated as unset.
+    /// </summary>
+    [Fact]
+    public void Context_Create_EmptyEnvironmentVariables_TreatedAsUnset()
+    {
+        using var context = Context.Create(
+            ["list-models"],
+            FakeEnvironment(
+                ("DEMASPEECH_MIRROR_URL", ""),
+                ("DEMASPEECH_MIRROR_USER", ""),
+                ("DEMASPEECH_MIRROR_BEARER_TOKEN", "")));
+
+        Assert.Null(context.CreateMirror());
+    }
+
+    /// <summary>
+    ///     Test that environment credentials without any mirror URL are rejected, without echoing their values.
+    /// </summary>
+    [Fact]
+    public void Context_Create_EnvironmentCredentialWithoutUrl_ThrowsWithoutEchoingSecret()
+    {
+        var exception = Assert.Throws<ArgumentException>(() => Context.Create(
+            ["list-models"],
+            FakeEnvironment(("DEMASPEECH_MIRROR_BEARER_TOKEN", "super-secret-value"))));
+
+        Assert.DoesNotContain("super-secret-value", exception.Message);
+    }
+
+    /// <summary>
+    ///     Test that an invalid mirror URL error does not echo the rejected value.
+    /// </summary>
+    [Fact]
+    public void Context_Create_InvalidMirrorUrl_ErrorDoesNotEchoValue()
+    {
+        var exception = Assert.Throws<ArgumentException>(() => Context.Create(
+            ["list-models"],
+            FakeEnvironment(("DEMASPEECH_MIRROR_URL", "not a url secret-value"))));
+
+        Assert.DoesNotContain("secret-value", exception.Message);
+    }
+
+    /// <summary>
+    ///     Test that help names the mirror environment variables.
+    /// </summary>
+    [Fact]
+    public async Task Program_Run_Help_DocumentsMirrorEnvironmentVariables()
+    {
+        var originalOut = Console.Out;
+        try
+        {
+            using var writer = new StringWriter();
+            Console.SetOut(writer);
+            using var context = Context.Create(["--help"], FakeEnvironment());
+
+            await Program.RunAsync(context);
+
+            var output = writer.ToString();
+            Assert.Contains("DEMASPEECH_MIRROR_URL", output);
+            Assert.Contains("DEMASPEECH_MIRROR_USER", output);
+            Assert.Contains("DEMASPEECH_MIRROR_PASSWORD", output);
+            Assert.Contains("DEMASPEECH_MIRROR_BEARER_TOKEN", output);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+    }
+
+    /// <summary>
+    ///     Test that help never prints an environment secret's value.
+    /// </summary>
+    [Fact]
+    public async Task Program_Run_Help_DoesNotPrintEnvironmentSecretValues()
+    {
+        var originalOut = Console.Out;
+        try
+        {
+            using var writer = new StringWriter();
+            Console.SetOut(writer);
+            using var context = Context.Create(
+                ["--help"],
+                FakeEnvironment(
+                    ("DEMASPEECH_MIRROR_URL", "https://env.example.com"),
+                    ("DEMASPEECH_MIRROR_BEARER_TOKEN", "super-secret-value")));
+
+            await Program.RunAsync(context);
+
+            Assert.DoesNotContain("super-secret-value", writer.ToString());
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
     }
 
     /// <summary>

@@ -16,7 +16,13 @@ launch as in the model catalog panel.
 **Key Methods**:
 
 - `Parse(string[])` reads the arguments left to right, each option taking the next argument as its
-  value.
+  value. `Parse(string[], Func<string, string?>)` additionally reads the `DEMASPEECH_MIRROR_URL`,
+  `DEMASPEECH_MIRROR_USER`, `DEMASPEECH_MIRROR_PASSWORD` and `DEMASPEECH_MIRROR_BEARER_TOKEN`
+  environment variables through an injectable reader (the one-argument overload passes
+  `Environment.GetEnvironmentVariable`), so tests never mutate the process environment. A
+  command-line `--mirror-url` overrides the URL variable; any credential option on the command line
+  disables all credential variables so the two sources are never mixed; an empty variable is
+  treated as unset. Secret values and rejected URL values are never written to help or error text.
 - `CreateStoreOptions()` returns store options with the root path override, or `null` when no
   models folder was given.
 - `CreateDownloaderOptions()` delegates mirror validation and construction to
