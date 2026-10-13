@@ -153,17 +153,40 @@ sections:
               - DevicesTestCommand_ParseArguments_DeviceFlagMissingValue_ThrowsArgumentException
               - SpeechCli_DevicesCommandWithoutSubAction_Invoked_ReturnsCleanError
 
+          - id: SpeechCli-DeviceCommands-DevicesTestOutputDrainTimeout
+            title: >-
+              The tool shall fail `devices test` for the output direction with a non-zero exit
+              code and a clear message, rather than hanging, when the playback device does not
+              finish playing the test tone within the tone's duration plus a fixed margin.
+            tags: [subsystem]
+            justification: |
+              A stalled or disconnected output device must not leave a diagnostic command
+              blocked forever, since the command exists to detect exactly that kind of fault.
+            tests:
+              - DevicesTestCommand_PlayTestTone_DeviceNeverDrains_ThrowsInvalidOperationException
+
+          - id: SpeechCli-DeviceCommands-DevicesTestInvariantFormatting
+            title: >-
+              The tool shall report `devices test` durations with a period as the decimal
+              separator regardless of the operator's culture.
+            tags: [subsystem]
+            justification: |
+              A script parsing the report must see the same text on every machine.
+            tests:
+              - DevicesTestCommand_RecordTestClip_CommaDecimalCulture_ReportsInvariantDuration
+
           - id: SpeechCli-DeviceCommands-ToneGeneration
             title: >-
-              The tool shall generate the `devices test` output tone, with no downloaded model
-              required, with the sample count for the requested sample rate and duration.
+              The tool shall generate the `devices test` output tone with exactly the number of
+              samples implied by the playback device's sample rate and channel count and the
+              tone duration, without requiring a downloaded model, and shall reject a
+              non-positive sample rate.
             tags: [subsystem]
             justification: |
               Sanity-checking playback hardware must not depend on a downloaded synthesis model
               being available; a simple, deterministic tone is sufficient to prove audio
               actually reaches the device, and its correctness can be proven with pure math,
-              with no real hardware. The in-process sine-wave generation is described in the
-              DeviceCommandsSubsystem design document.
+              with no real hardware.
             tests:
               - DevicesTestCommand_GenerateToneSamples_ReturnsExpectedSampleCount
               - DevicesTestCommand_GenerateToneSamples_NonPositiveSampleRate_ThrowsArgumentOutOfRangeException
@@ -275,13 +298,12 @@ sections:
 
           - id: SpeechCli-DeviceCommands-LibraryDelegation
             title: >-
-              The tool shall report every audio device probe and device-creation result exactly
-              as the speech library's audio device facilities provide it.
+              The tool shall list and count audio devices exactly as the speech library
+              enumerates them, without adding, hiding, or renaming any device.
             tags: [subsystem]
             justification: |
-              The library's probe interfaces are already public and directly replaceable in
-              tests, so the subsystem adds no wrapper of its own and must not reshape what the
-              library reports. See the DeviceCommandsSubsystem design document.
+              Operators rely on the reported device names being the same names the speech
+              library accepts for device selection, so the report must not reshape them.
             tests:
               - ListDevicesCommand_Run_NoFilter_ListsBothDirections
               - DoctorCommand_Run_ReportsAudioDeviceCounts

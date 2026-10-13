@@ -48,6 +48,8 @@ document).
 `ListModelsCommand_Run_InvalidFormatValue_ThrowsArgumentException`,
 `ListModelsCommand_Run_UnsupportedFlag_ThrowsArgumentException`,
 `ListModelsCommand_Run_RoleFlagMissingValue_ThrowsArgumentException`,
+`ListModelsCommand_Run_InvalidStateValue_ThrowsArgumentException`,
+`ListModelsCommand_Run_ConflictingStateValues_ThrowsArgumentException`,
 `SpeechCli_ListModelsCommand_Invoked_ListsKnownModelsAsTable`,
 `SpeechCli_ListModelsCommandWithJsonFormat_Invoked_EmitsJsonArray`
 
@@ -55,7 +57,8 @@ document).
 Display Name, Role, State, and License columns; `--role tts`/`--state downloaded`/`missing` each
 filter to exactly the matching subset; `--format json` emits a JSON array whose objects contain
 the same fields; an empty result (empty catalog or an over-restrictive filter) prints an
-explanatory message instead of a header-only table; an unrecognized `--role`/`--format` value, an
+explanatory message instead of a header-only table; an unrecognized `--role`/`--state`/`--format`
+value, contradictory `--state downloaded` and `--state missing` flags (in either order), an
 unsupported flag, or a flag missing its value are all rejected with `ArgumentException` rather
 than a crash or silent misbehavior; both the table and JSON out-of-process forms are also proven
 against the built tool.
@@ -65,6 +68,7 @@ against the built tool.
 **Tests**: `ModelInfoCommand_Run_KnownModel_PrintsIdentityAndState`,
 `ModelInfoCommand_Run_NumericParameter_PrintsBounds`,
 `ModelInfoCommand_Run_ChoiceParameter_PrintsOptions`,
+`ModelInfoCommand_Run_NumericParameter_CommaDecimalCulture_PrintsInvariantFormat`,
 `ModelInfoCommand_Run_BooleanParameter_PrintsDefault`,
 `ModelInfoCommand_Run_UnknownModelId_ThrowsArgumentException`,
 `ModelInfoCommand_Run_MissingModelIdArgument_ThrowsArgumentException`,
@@ -73,7 +77,8 @@ against the built tool.
 `SpeechCli_ModelInfoCommandWithMissingArgument_Invoked_ReturnsCleanError`
 
 **Scenario/Expected**: A known model id prints its identity, state, license name/URL, and audio-
-tag support; a `NumericParameter` prints its min/max/step/default; a `ChoiceParameter` prints its
+tag support; a `NumericParameter` prints its min/max/step/default using the invariant culture (a period
+decimal separator even under a comma-decimal current culture); a `ChoiceParameter` prints its
 option list and default; a `BooleanParameter` prints its default; an unknown model id throws
 `ArgumentException` whose message names the id and suggests `list-models`, both in-process and
 (as a clean, non-zero-exit-code error rather than a stack trace) out-of-process; a missing or
@@ -118,6 +123,7 @@ or during a model's download.
 
 **Tests**: `DownloadProgressReporter_Create_KnownTotal_PrintsOneLinePerWholePercent`,
 `DownloadProgressReporter_Create_UnknownTotal_ReportsKilobytes`,
+`DownloadProgressReporter_Create_NullArguments_ThrowArgumentNullException`,
 `ConsoleCancellation_Register_Raise_CancelsSourceRunsCallbackAndSuppressesTermination`,
 `ConsoleCancellation_Observe_Raise_RunsCallbackWithoutSuppressingTermination`
 
@@ -134,13 +140,15 @@ registration's internal `Raise` seam stands in for it.
 `UninstallCommand_Run_StoreThrows_ThrowsInvalidOperationException`,
 `UninstallCommand_Run_MissingModelIdArgument_ThrowsArgumentException`,
 `UninstallCommand_Run_ExtraArgument_ThrowsArgumentException`,
+`UninstallCommand_Run_Canceled_ReportsErrorExitCode`,
 `SpeechCli_UninstallCommand_Invoked_NeverInstalledModel_ExitsCleanly`
 
 **Scenario/Expected**: An installed model is uninstalled and reported successful; a never-
 installed model is treated the same way (safe, successful no-op), never as an error; a
 `SpeechModelStoreException` thrown by the store is caught and re-thrown as
 `InvalidOperationException` so the CLI's clean-error convention applies; a missing or extra
-positional argument is rejected with `ArgumentException`; the never-installed-model path exits
+positional argument is rejected with `ArgumentException`; a canceled token (Ctrl+C) is reported
+as an error with exit code 1 rather than escaping as an unhandled exception; the never-installed-model path exits
 `0` against the built tool.
 
 #### CleanCommand
@@ -148,11 +156,12 @@ positional argument is rejected with `ArgumentException`; the never-installed-mo
 **Tests**: `CleanCommand_Run_KnownModel_CleansUpAndReportsSuccess`,
 `CleanCommand_Run_MissingModelIdArgument_ThrowsArgumentException`,
 `CleanCommand_Run_ExtraArgument_ThrowsArgumentException`,
+`CleanCommand_Run_Canceled_ReportsErrorExitCode`,
 `SpeechCli_CleanCommand_Invoked_NothingToCleanUp_ExitsCleanly`
 
 **Scenario/Expected**: A model with nothing (or something) to clean up is reported successful
-either way, since `CleanUpLeftovers` never throws; a missing or extra positional argument is
-rejected with `ArgumentException`; the nothing-to-clean-up path exits `0` against the built tool.
+either way, since `CleanUpLeftoversAsync` never throws on its own; a missing or extra positional argument is
+rejected with `ArgumentException`; a canceled token is reported as an error with exit code 1; the nothing-to-clean-up path exits `0` against the built tool.
 
 #### ListVoicesCommand
 
@@ -161,11 +170,14 @@ rejected with `ArgumentException`; the nothing-to-clean-up path exits `0` agains
 `ListVoicesCommand_Run_Json_WritesParseableArray`,
 `ListVoicesCommand_Run_BadArguments_ThrowsArgumentException`,
 `ListVoicesCommand_Run_UnknownFormat_ThrowsArgumentException`,
-`ListVoicesCommand_Run_NullArguments_Throw`, `CommandDispatch_Find_VoiceCommands_AreRegistered`
+`ListVoicesCommand_Run_NullArguments_Throw`
 
 **Scenario/Expected**: The table lists every voice with its source and shows the consent note and
 how to choose a voice; an empty list explains how to add voices; JSON is a parseable array; an
 unknown format or extra argument is rejected with `ArgumentException`; null arguments are rejected.
+(Registration of the voice commands in the dispatch table is verified by
+`CommandDispatch_Find_VoiceCommands_AreRegistered` in the CLI-level ProgramTests, outside this
+subsystem's scope.)
 
 #### VoicesCommand
 
@@ -175,6 +187,7 @@ unknown format or extra argument is rejected with `ArgumentException`; null argu
 `VoicesCommand_RunAsync_InstallCanceled_ReportsErrorExitCode`,
 `VoicesCommand_RunAsync_Uninstall_ForwardsAndReports`,
 `VoicesCommand_RunAsync_UninstallStoreThrows_ThrowsInvalidOperationException`,
+`VoicesCommand_RunAsync_UninstallCanceled_ReportsErrorExitCode`,
 `VoicesCommand_RunAsync_InstallUnknownPack_ThrowsArgumentException`,
 `VoicesCommand_RunAsync_BadArguments_ThrowsArgumentException`,
 `VoicesCommand_RunAsync_NullArguments_Throw`,
@@ -182,7 +195,8 @@ unknown format or extra argument is rejected with `ArgumentException`; null argu
 
 **Scenario/Expected**: `packs` shows each pack's state and the consent note; `install` forwards to
 the catalog, prints progress and the consent note, and exits non-zero on failure or cancellation;
-`uninstall` forwards and reports (a store failure becomes `InvalidOperationException`); unknown
+`uninstall` forwards and reports (a store failure becomes `InvalidOperationException`; cancellation
+is reported with exit code 1); unknown
 pack ids, bad arguments, and null arguments are rejected cleanly. Tests use the fake catalog, so
 no pack is downloaded.
 

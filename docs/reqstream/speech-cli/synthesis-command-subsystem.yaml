@@ -214,13 +214,12 @@ sections:
 
           - id: SpeechCli-SynthesisCommands-PlaybackDeviceSelection
             title: >-
-              The tool shall play the synthesized speech on the real playback device that the
-              audio device factory resolves for the `--playback-device` name (or the default
-              device when none is given).
+              The tool shall play the synthesized speech on the playback device named by
+              `--playback-device` (or the default device when none is given).
             tags: [subsystem]
             justification: |
-              An operator choosing an output device expects the speech on that device, and the
-              command must use the same device resolution as the rest of the tool.
+              An operator choosing an output device expects the speech on that device, resolved
+              exactly as the rest of the tool resolves devices.
             tests:
               - AudioDeviceFactoryPlaybackDeviceSource_PlaybackProbe_ForwardsToFactory
               - AudioDeviceFactoryPlaybackDeviceSource_CreatePlaybackDevice_ForwardsToFactory
@@ -240,12 +239,13 @@ sections:
 
           - id: SpeechCli-SynthesisCommands-Disposal
             title: >-
-              The tool shall dispose the synthesizer before the playback device in every case
-              (success, failure, or cancellation) of a `speak` session.
+              The tool shall release the synthesizer and the playback device exactly once, and
+              leave no speech still playing, on every exit path (success, failure, or
+              cancellation) of a `speak` session.
             tags: [subsystem]
             justification: |
-              Disposing the synthesizer first guarantees any in-flight playback/write has
-              genuinely quiesced before the underlying device is released, mirroring the
-              ordering `DownloadCommand` already established for its own cancellation handling.
+              A leaked audio device or a still-playing prompt after the command returns would
+              block the next command and surprise the operator; the release order is described
+              in the SynthesisCommandSubsystem design document.
             tests:
               - SpeakCommand_RunAsync_Success_DisposesEngineAndSessionOnce

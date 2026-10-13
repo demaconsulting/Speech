@@ -414,6 +414,33 @@ public sealed class RecognizeCommandTests
 
     // --- File-input explicit-drain stop flow ---
 
+    /// <summary>Test that a key the recognition model does not declare is rejected before any engine is created.</summary>
+    [Fact]
+    public async Task RecognizeCommand_Run_UnknownParamKey_ThrowsArgumentException()
+    {
+        var catalog = CreateCatalogWithModel();
+        var wavPath = WriteMinimalWavFile();
+        try
+        {
+            using var context = Context.Create(
+                ["recognize", "--stt-model", "model-1", "--input", wavPath, "--stt-param", "nope=1"]);
+
+            await Assert.ThrowsAsync<ArgumentException>(() => RecognizeCommand.RunAsync(context, catalog, new AudioDeviceFactory()));
+        }
+        finally
+        {
+            File.Delete(wavPath);
+        }
+    }
+
+    /// <summary>Test that a malformed --stt-param token (no key=value separator) is rejected.</summary>
+    [Fact]
+    public void RecognizeCommand_ParseArguments_MalformedParamToken_ThrowsArgumentException()
+    {
+        Assert.Throws<ArgumentException>(() => RecognizeCommand.ParseArguments(
+            ["--stt-model", "model-1", "--mic", "--stt-param", "noseparator"]));
+    }
+
     /// <summary>
     ///     Test that file-input mode starts the session once and then explicitly drains it with a
     ///     single <c>StopAsync</c> call - no longer relying on a separate end-of-file event, since

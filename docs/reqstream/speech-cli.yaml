@@ -412,6 +412,7 @@ sections:
           - SpeechCli-ModelCommands-ListModels
           - SpeechCli-ModelCommands-ListModelsFilters
           - SpeechCli-ModelCommands-ListModelsJsonFormat
+          - SpeechCli-ModelCommands-ListModelsArgumentValidation
           - SpeechCli-ModelCommands-LibraryDelegation
           - SpeechCli-ModelCommands-SynthesisSeamExtension
           - SpeechCli-ModelCommands-SynthesisSeamAudioFormat
@@ -433,6 +434,7 @@ sections:
         children:
           - SpeechCli-ModelCommands-ModelInfo
           - SpeechCli-ModelCommands-ModelInfoParameters
+          - SpeechCli-ModelCommands-ModelInfoInvariantFormatting
           - SpeechCli-ModelCommands-ModelInfoUnknownId
         tests:
           - SpeechCli_ModelInfoCommandWithUnknownId_Invoked_ReturnsCleanError
@@ -482,6 +484,8 @@ sections:
         children:
           - SpeechCli-ModelCommands-Clean
           - SpeechCli-ModelCommands-CleanNothingToClean
+          - SpeechCli-ModelCommands-IdArgumentValidation
+          - SpeechCli-ModelCommands-RemovalCancellation
         tests:
           - SpeechCli_CleanCommand_Invoked_NothingToCleanUp_ExitsCleanly
 
@@ -610,6 +614,8 @@ sections:
           - SpeechCli-DeviceCommands-DevicesTestOutput
           - SpeechCli-DeviceCommands-DevicesTestInput
           - SpeechCli-DeviceCommands-DevicesTestInputNoSamples
+          - SpeechCli-DeviceCommands-DevicesTestOutputDrainTimeout
+          - SpeechCli-DeviceCommands-DevicesTestInvariantFormatting
           - SpeechCli-DeviceCommands-DevicesTestDeviceValidation
           - SpeechCli-DeviceCommands-DevicesTestArgumentValidation
           - SpeechCli-DeviceCommands-ToneGeneration
@@ -701,7 +707,7 @@ sections:
           - SpeechCli-RecognitionCommands-ParamRejection
           - SpeechCli-RecognitionCommands-InputFileValidation
           - SpeechCli-RecognitionCommands-FileInputEofDrivenStop
-          - SpeechCli-RecognitionCommands-VerbosityAndOutput
+          - SpeechCli-RecognitionCommands-DefaultVerbosity
           - SpeechCli-RecognitionCommands-InterimOverwrite
           - SpeechCli-RecognitionCommands-InterimOnly
           - SpeechCli-RecognitionCommands-FinalOnly

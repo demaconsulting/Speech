@@ -58,6 +58,23 @@ sections:
               - ListModelsCommand_Run_FormatJson_EmitsJsonArray
               - SpeechCli_ListModelsCommandWithJsonFormat_Invoked_EmitsJsonArray
 
+          - id: SpeechCli-ModelCommands-ListModelsArgumentValidation
+            title: >-
+              The tool shall reject a `list-models` invocation with an unrecognized or valueless
+              `--role`, `--state`, or `--format`, contradictory `--state downloaded` and
+              `--state missing` options, or an unsupported flag, with a clear,
+              non-zero-exit-code error rather than a stack trace.
+            tags: [subsystem]
+            justification: |
+              A mistyped or contradictory option must fail predictably so a script can detect it
+              instead of silently receiving an empty or unfiltered list.
+            tests:
+              - ListModelsCommand_Run_InvalidRoleValue_ThrowsArgumentException
+              - ListModelsCommand_Run_InvalidStateValue_ThrowsArgumentException
+              - ListModelsCommand_Run_ConflictingStateValues_ThrowsArgumentException
+              - ListModelsCommand_Run_InvalidFormatValue_ThrowsArgumentException
+              - ListModelsCommand_Run_UnsupportedFlag_ThrowsArgumentException
+              - ListModelsCommand_Run_RoleFlagMissingValue_ThrowsArgumentException
           - id: SpeechCli-ModelCommands-ModelInfo
             title: >-
               The tool shall print a model's full identity (id, display name, role, install
@@ -84,6 +101,16 @@ sections:
               - ModelInfoCommand_Run_ChoiceParameter_PrintsOptions
               - ModelInfoCommand_Run_BooleanParameter_PrintsDefault
 
+          - id: SpeechCli-ModelCommands-ModelInfoInvariantFormatting
+            title: >-
+              The tool shall print a numeric parameter's values in `model-info` with a period as
+              the decimal separator regardless of the operator's culture.
+            tags: [subsystem]
+            justification: |
+              A script or operator copying a value into `--tts-param` must see the same text on
+              every machine.
+            tests:
+              - ModelInfoCommand_Run_NumericParameter_CommaDecimalCulture_PrintsInvariantFormat
           - id: SpeechCli-ModelCommands-ModelInfoUnknownId
             title: >-
               The tool shall reject `model-info` invoked with an unrecognized or missing model id
@@ -234,6 +261,35 @@ sections:
               - CleanCommand_Run_KnownModel_CleansUpAndReportsSuccess
               - CleanCommand_Run_MissingModelIdArgument_ThrowsArgumentException
 
+          - id: SpeechCli-ModelCommands-IdArgumentValidation
+            title: >-
+              The tool shall reject `uninstall` or `clean` invoked without a model id, or with
+              more than one argument, with a clean, non-zero-exit-code error rather than a stack
+              trace.
+            tags: [subsystem]
+            justification: |
+              A missing or extra id must fail predictably, so a script never removes or cleans
+              the wrong model.
+            tests:
+              - UninstallCommand_Run_MissingModelIdArgument_ThrowsArgumentException
+              - UninstallCommand_Run_ExtraArgument_ThrowsArgumentException
+              - CleanCommand_Run_MissingModelIdArgument_ThrowsArgumentException
+              - CleanCommand_Run_ExtraArgument_ThrowsArgumentException
+
+          - id: SpeechCli-ModelCommands-RemovalCancellation
+            title: >-
+              The tool shall report a clean error with a non-zero exit code, rather than an
+              unhandled exception, when the operator interrupts (`Ctrl+C`) an `uninstall`,
+              `clean`, or `voices uninstall` that is in progress.
+            tags: [subsystem]
+            justification: |
+              An interrupted removal is a deliberate operator action and must end predictably
+              for a calling script.
+            tests:
+              - UninstallCommand_Run_Canceled_ReportsErrorExitCode
+              - CleanCommand_Run_Canceled_ReportsErrorExitCode
+              - VoicesCommand_RunAsync_UninstallCanceled_ReportsErrorExitCode
+
           - id: SpeechCli-ModelCommands-CleanNothingToClean
             title: >-
               The tool shall succeed without error when `clean <modelId>` is invoked for a model
@@ -247,16 +303,14 @@ sections:
 
           - id: SpeechCli-ModelCommands-LibraryDelegation
             title: >-
-              The tool shall report every model descriptor, download, install, uninstall, and
-              cleanup outcome exactly as the speech library's model catalog and model store
-              provide it, keeping no model state of its own.
+              The tool shall report every model's identity, install state, and the outcome of
+              every download, install, uninstall, and cleanup exactly as the speech library
+              reports it, keeping no model state of its own between invocations.
             tags: [subsystem]
             justification: |
               The subsystem exists to expose the library's own model-management behavior from
-              the command line, so it must not maintain any model state of its own. Keeping that
-              dependency replaceable lets each command's argument parsing and presentation be
-              verified without network access or an installed model; the seam is described in
-              the ModelCommandsSubsystem design document.
+              the command line, so what an operator sees must never diverge from what the
+              library reports.
             tests:
               - SpeechModelCatalogAdapter_Enumerate_ReturnsCompiledInKnownModels
               - SpeechModelCatalogAdapter_DownloadAsync_UnknownModelId_ThrowsArgumentException
@@ -278,29 +332,31 @@ sections:
 
           - id: SpeechCli-ModelCommands-SynthesisSeamExtension
             title: >-
-              The tool shall let `speak` load the synthesis engine of a resolved synthesis model.
+              The tool shall run `speak` with the synthesis engine of the synthesis model named
+              by `--model`.
             tags: [subsystem]
             justification: |
-              `speak` must run a real synthesis engine, which only makes sense for a synthesis
-              model.
+              `speak` must produce speech with the engine that belongs to the model the operator
+              chose, which only makes sense for a synthesis model.
             tests:
               - SpeechModelCatalogAdapter_CreateSynthesizerEngineAsync_WithSynthesisModel_ReturnsEngine
 
           - id: SpeechCli-ModelCommands-SynthesisSeamAudioFormat
             title: >-
-              The tool shall size the WAV output of `speak` from the resolved synthesis model's
-              preferred audio format.
+              The tool shall write the WAV output of `speak` in the audio format the selected
+              synthesis model produces.
             tags: [subsystem]
             justification: |
-              `speak` must write audio in the format that model produces.
+              Audio written in a different format than the model produces would play back at the
+              wrong speed or pitch.
             tests:
               - SpeechModelCatalogAdapter_GetPreferredAudioFormat_WithSynthesisModel_ReturnsFormat
 
           - id: SpeechCli-ModelCommands-SynthesisSeamRoleValidation
             title: >-
-              The tool shall reject a model of any role other than synthesis, or a missing
-              model descriptor, when `speak` loads its synthesis engine or audio format, with a
-              clear error naming the model rather than an unhandled exception.
+              The tool shall reject `speak` invoked with a model that is not a synthesis model
+              with a clear, non-zero-exit-code error naming the model rather than an unhandled
+              exception.
             tags: [subsystem]
             justification: |
               A wrong-role model must produce an actionable message, not a crash.
@@ -312,20 +368,20 @@ sections:
 
           - id: SpeechCli-ModelCommands-RecognitionSeamExtension
             title: >-
-              The tool shall let `recognize` load the recognition engine of a resolved
-              recognition model.
+              The tool shall run `recognize` with the recognition engine of the recognition model
+              named by `--model`.
             tags: [subsystem]
             justification: |
-              `recognize` must run a real recognition engine, which only makes sense for a
-              recognition model.
+              `recognize` must transcribe with the engine that belongs to the model the operator
+              chose, which only makes sense for a recognition model.
             tests:
               - SpeechModelCatalogAdapter_CreateRecognizerEngineAsync_WithRecognitionModel_ReturnsEngine
 
           - id: SpeechCli-ModelCommands-RecognitionSeamRoleValidation
             title: >-
-              The tool shall reject a model of any role other than recognition, or a missing
-              model descriptor, when `recognize` loads its recognition engine, with a clear
-              error naming the model rather than an unhandled exception.
+              The tool shall reject `recognize` invoked with a model that is not a recognition
+              model with a clear, non-zero-exit-code error naming the model rather than an
+              unhandled exception.
             tags: [subsystem]
             justification: |
               A wrong-role model must produce an actionable message, not a crash.
@@ -564,8 +620,8 @@ sections:
               `--no-emotions`.
             tags: [subsystem]
             justification: |
-              The emotion clips make the pack roughly thirteen times larger (about 570 MiB
-              against about 44 MiB), so an operator must be able to opt out.
+              The emotion clips make the pack many times larger than the base voices alone, so
+              an operator must be able to opt out.
             tests:
               - VoicesCommand_RunAsync_InstallNoEmotions_InstallsBaseVoicesOnly
 

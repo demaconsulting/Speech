@@ -53,8 +53,8 @@ namespace DemaConsulting.Speech.Cli.Commands.DeviceCommandsSubsystem;
 ///     <b>SherpaOnnx resolvability scope</b>: this check attempts to load the native
 ///     <c>sherpa-onnx-c-api</c> shared library, which only proves the native binary for the
 ///     current platform/architecture is present and loadable - it does not construct a
-///     recognizer or synthesizer, which requires an installed model and is out of scope until
-///     the <c>speak</c>/<c>recognize</c> passes. This is a necessary-but-not-sufficient signal,
+///     recognizer or synthesizer, which requires an installed model and is outside what a
+///     model-independent health check can verify. This is a necessary-but-not-sufficient signal,
 ///     documented here rather than presented as a full inference-path verification.
 ///     </para>
 ///     <para>

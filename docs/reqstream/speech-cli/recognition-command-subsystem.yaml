@@ -147,6 +147,8 @@ sections:
               starts catches an operator typo immediately.
             tests:
               - RecognizeCommand_Run_InvalidParam_ThrowsArgumentException
+              - RecognizeCommand_Run_UnknownParamKey_ThrowsArgumentException
+              - RecognizeCommand_ParseArguments_MalformedParamToken_ThrowsArgumentException
 
           - id: SpeechCli-RecognitionCommands-InputFileValidation
             title: >-
@@ -212,8 +214,8 @@ sections:
 
           - id: SpeechCli-RecognitionCommands-SilenceTimeoutValidation
             title: >-
-              The tool shall reject a non-positive or malformed `--silence-timeout` with a clean
-              error.
+              The tool shall reject a non-positive or malformed `--silence-timeout` with a clean,
+              non-zero-exit-code error.
             tags: [subsystem]
             justification: |
               A zero, negative, or non-numeric timeout would end the session immediately or
@@ -271,8 +273,8 @@ sections:
 
           - id: SpeechCli-RecognitionCommands-StartTimeoutValidation
             title: >-
-              The tool shall reject a non-positive or malformed `--start-timeout` with a clean
-              error.
+              The tool shall reject a non-positive or malformed `--start-timeout` with a clean,
+              non-zero-exit-code error.
             tags: [subsystem]
             justification: |
               A zero, negative, or non-numeric start window would end the session immediately or
@@ -282,7 +284,7 @@ sections:
               - RecognizeCommand_ParseArguments_MalformedStartTimeout_ThrowsArgumentException
               - SilenceTimeoutRecognizerSession_Construct_NonPositiveStartTimeout_ThrowsArgumentOutOfRangeException
 
-          - id: SpeechCli-RecognitionCommands-VerbosityAndOutput
+          - id: SpeechCli-RecognitionCommands-DefaultVerbosity
             title: >-
               The tool shall, by default, print both interim and final recognition results, with
               a final result settled on its own line.

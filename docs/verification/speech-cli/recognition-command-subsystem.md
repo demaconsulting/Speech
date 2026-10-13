@@ -86,11 +86,14 @@ real, downloaded recognition model recognizing a real WAV fixture produces non-e
 
 **Tests**: `RecognizeCommand_ParseArguments_RepeatedParamFlags_AccumulatesInOrder`,
 `RecognizeCommand_Run_ValidParam_ForwardsToCreateRecognizerEngine`,
-`RecognizeCommand_Run_InvalidParam_ThrowsArgumentException`
+`RecognizeCommand_Run_InvalidParam_ThrowsArgumentException`,
+`RecognizeCommand_Run_UnknownParamKey_ThrowsArgumentException`,
+`RecognizeCommand_ParseArguments_MalformedParamToken_ThrowsArgumentException`
 
 **Scenario/Expected**: Repeated `--stt-param` flags accumulate in the order given and are forwarded,
 fully resolved via the shared `ParameterBagParser`, to `CreateRecognizerEngineAsync`'s
-`parameterValues` argument; an invalid value for a declared parameter is rejected before any
+`parameterValues` argument; an out-of-range value for a declared parameter, an undeclared key, or a token
+without a `key=value` separator is rejected before any
 engine is loaded. Full `ParameterBagParser` scenario coverage (numeric range/integer checks,
 choice matching, boolean parsing, unrecognized-key rejection) already lives in
 `SpeechCli-SynthesisCommands-ParamValidation`'s own tests and is not duplicated here.

@@ -91,12 +91,17 @@ tool.
 
 **Tests**: `DevicesTestCommand_PlayTestTone_AvailableDevice_WritesToneAndReportsIt`,
 `DevicesTestCommand_RecordTestClip_DeviceDeliversFrames_ReportsSampleCountAndPeak`,
-`DevicesTestCommand_RecordTestClip_DeviceDeliversNoFrames_ThrowsInvalidOperationException`
+`DevicesTestCommand_RecordTestClip_DeviceDeliversNoFrames_ThrowsInvalidOperationException`,
+`DevicesTestCommand_PlayTestTone_DeviceNeverDrains_ThrowsInvalidOperationException`,
+`DevicesTestCommand_RecordTestClip_CommaDecimalCulture_ReportsInvariantDuration`
 
 **Scenario/Expected**: Driven through a fake `IAudioPlaybackDevice`, the output test starts the device, writes the full
 two-second tone (`sampleRate * 2 * channelCount` samples), stops the device and reports the 440 Hz tone and the device's
-sample rate. Driven through a fake `IAudioCaptureDevice` that raises one frame, the input test reports the exact sample
-count and the peak amplitude of the delivered samples. When the fake delivers no frames, the input test stops the device
+sample rate. A fake whose `PendingSampleCount` never reaches zero makes the bounded drain wait expire (tone duration plus
+a margin, shortened in the test) and the command throws `InvalidOperationException` after stopping the device, rather than
+hanging. Driven through a fake `IAudioCaptureDevice` that raises one frame, the input test reports the exact sample
+count and the peak amplitude of the delivered samples, and reports the recorded duration with a period decimal separator
+even under a comma-decimal current culture (`de-DE`). When the fake delivers no frames, the input test stops the device
 and throws `InvalidOperationException` rather than reporting a successful run with zero samples.
 
 #### Tone Generation
@@ -116,6 +121,7 @@ underlying the output-direction test tone entirely in-process, with no audio har
 
 **Tests**: `DoctorCommand_Run_WritableModelStore_ReportsHealthy`,
 `DoctorCommand_Run_ReportsModelStoreRootPath`,
+`DoctorCommand_Run_ReportsAvailableDiskSpace`,
 `DoctorCommand_Run_ReportsInstalledVersusKnownModelCounts`,
 `DoctorCommand_Run_ReportsAudioDeviceCounts`,
 `DoctorCommand_Run_ReportsSherpaOnnxNativeLibraryResolvable`,
@@ -127,7 +133,7 @@ underlying the output-direction test tone entirely in-process, with no audio har
 `SpeechCli_DoctorCommand_Invoked_ReportsHealthChecklist`
 
 **Scenario/Expected**: A writable model store root reports overall `HEALTHY` and exit code `0`;
-the root path, installed-versus-known model counts (backed by a `FakeCliModelCatalog` with a mix
+the root path, available disk space, installed-versus-known model counts (backed by a `FakeCliModelCatalog` with a mix
 of downloaded/not-downloaded models), and input/output audio device counts (backed by fake
 probes) are all present in the output; the SherpaOnnx native library probe reports `[ OK ]`
 resolvable end to end through the real `TryProbeSherpaOnnxNativeLibrary`/`CheckNativeRuntimes`
@@ -164,12 +170,13 @@ missing dependency.
 
 A DeviceCommandsSubsystem test run passes when: `list-devices` lists and filters detected devices
 correctly, reporting "no devices" cleanly when the result is empty; `devices test` defaults to
-the output direction, rejects an unknown device name for either direction cleanly, and its tone
-generation math is provably correct; `doctor` reports every check as a clear pass/fail/
-informational line, treats only model-store writability as a hard failure, and exits accordingly;
-and every command rejects a missing context, probe, factory, or catalog.
+the output direction, rejects an unknown device name for either direction cleanly, fails rather
+than hangs on a playback device that never drains, and its tone generation math is provably
+correct; `doctor` reports every check as a clear pass/fail/informational line, treats only
+model-store writability as a hard failure, and exits accordingly; and every command rejects a
+missing context, probe, factory, or catalog.
 
-## Manual / Build-Time Verification
+### Manual / Build-Time Verification
 
 The following are verified manually, rather than by an automated test, because they
 require real audio hardware or depend on the actual host machine's environment:

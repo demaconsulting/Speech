@@ -77,7 +77,10 @@ without needing a real device to be created. The resolved device is then checked
 than a stack trace, consistent with the library's own honest-failure convention for
 `UnavailableAudioPlaybackDevice`/`UnavailableAudioCaptureDevice`. A short (2-second, 440 Hz) sine
 wave is generated in-CLI by `GenerateToneSamples` - no TTS model is invoked for this command - and
-written to the device, polling `PendingSampleCount` until playback finishes. Once a device is resolved and
+written to the device, polling `PendingSampleCount` until playback finishes. The poll is bounded: if the device
+still has queued samples after the tone duration plus a fixed margin (5 seconds), `PlayTestTone` stops the device and
+throws an `InvalidOperationException` (clean message, non-zero exit code) instead of hanging on a stalled device.
+Durations in the report are formatted with the invariant culture so the text is identical on every machine. Once a device is resolved and
 available, `PlayTestTone` (which takes the device directly) does the playing and reporting, so tests can drive it
 with a fake `IAudioPlaybackDevice`.
 
@@ -92,8 +95,7 @@ instead of reporting `Samples captured: 0` with a zero peak amplitude as if the 
 
 ### DoctorCommand
 
-Runs a broader environment/health check than `--validate`'s five CI-safe checks (see
-`SelfTest/Validation.cs`), reporting:
+Runs a broader environment/health check than `--validate`'s CI-safe self-tests, reporting:
 
 1. **Native runtimes**: whether PortAudio is resolvable (inferred from whether the resolved probe
    types are the library's `Unavailable*` fallback singletons - a safe, public proxy signal,
@@ -107,7 +109,8 @@ Runs a broader environment/health check than `--validate`'s five CI-safe checks 
 4. **Models**: installed-versus-known model counts, via the `ICliModelCatalog` seam
 
 Each check is printed as a `[ OK ]`/`[INFO]`/`[FAIL]` line, followed by an overall
-`HEALTHY`/`UNHEALTHY` summary.
+`HEALTHY`/`UNHEALTHY` summary. `[FAIL]` lines and the `UNHEALTHY` summary are written to stderr (via
+`WriteError`); every other line goes to stdout.
 
 #### SherpaOnnx Resolvability Scope
 

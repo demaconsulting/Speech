@@ -18,6 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+using System.Globalization;
 using DemaConsulting.Speech.AudioSubsystem;
 using DemaConsulting.Speech.Cli.Cli;
 using DemaConsulting.Speech.Cli.Commands.DeviceCommandsSubsystem;
@@ -297,6 +298,47 @@ public sealed class DevicesTestCommandTests
     }
 
     /// <summary>
+    ///     Test that a playback device whose queue never drains is reported as a failure within the bounded
+    ///     wait instead of hanging, and is still stopped.
+    /// </summary>
+    [Fact]
+    public void DevicesTestCommand_PlayTestTone_DeviceNeverDrains_ThrowsInvalidOperationException()
+    {
+        var context = Context.Create(["devices", "test"]);
+        var device = new RecordingPlaybackDevice { PendingSampleCount = 1 };
+
+        // The tone itself is two seconds long, so the margin only needs to be small, not the production value.
+        var exception = Assert.Throws<InvalidOperationException>(() =>
+            DevicesTestCommand.PlayTestTone(context, device, TimeSpan.FromMilliseconds(1)));
+
+        Assert.True(device.Stopped);
+        Assert.Contains("did not finish", exception.Message);
+    }
+
+    /// <summary>
+    ///     Test that the reported durations use the invariant culture (a decimal point) regardless of the
+    ///     current culture.
+    /// </summary>
+    [Fact]
+    public void DevicesTestCommand_RecordTestClip_CommaDecimalCulture_ReportsInvariantDuration()
+    {
+        var context = Context.Create(["devices", "test", "--direction", "input"]);
+        var device = new FramingCaptureDevice([0.1f]);
+        var originalCulture = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = new CultureInfo("de-DE");
+            var output = CaptureOutput(() => DevicesTestCommand.RecordTestClip(context, device, TimeSpan.FromMilliseconds(1500)));
+
+            Assert.Contains("Recorded 1.5 second(s)", output);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = originalCulture;
+        }
+    }
+
+    /// <summary>
     ///     Test that the input test reports the number of samples recorded and the peak amplitude.
     /// </summary>
     [Fact]
@@ -368,7 +410,7 @@ public sealed class DevicesTestCommandTests
         public int SampleRate => 48000;
 
         /// <inheritdoc/>
-        public long PendingSampleCount => 0;
+        public long PendingSampleCount { get; set; }
 
         /// <inheritdoc/>
         public void Start() => Started = true;

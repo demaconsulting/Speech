@@ -19,6 +19,7 @@
 // SOFTWARE.
 
 // cspell:ignore NOSONAR
+using System.Diagnostics;
 using System.Globalization;
 using System.Numerics.Tensors;
 using DemaConsulting.Speech.AudioSubsystem;
@@ -64,6 +65,8 @@ internal static class DevicesTestCommand
     /// <summary>The fixed capture-clip duration, in seconds, used by the input test.</summary>
     private const double CaptureDurationSeconds = 2.0;
 
+    /// <summary>The margin, in seconds, beyond the tone duration allowed for the playback queue to drain.</summary>
+    private const double PlaybackDrainMarginSeconds = 5.0;
     /// <summary>
     ///     Runs the <c>devices</c> subcommand (currently only the <c>test</c> sub-action) against
     ///     a real, composed <see cref="AudioDeviceFactory"/>.
@@ -281,7 +284,14 @@ internal static class DevicesTestCommand
     /// </summary>
     /// <param name="context">The invocation context. Must not be null.</param>
     /// <param name="device">The available playback device to play the tone on. Must not be null.</param>
-    internal static void PlayTestTone(Context context, IAudioPlaybackDevice device)
+    /// <param name="drainMargin">
+    ///     How long beyond the tone's own duration to wait for the device to drain before reporting a
+    ///     failure; <see langword="null"/> uses the built-in margin.
+    /// </param>
+    /// <exception cref="InvalidOperationException">
+    ///     Thrown when the device still has queued samples after the tone duration plus the margin.
+    /// </exception>
+    internal static void PlayTestTone(Context context, IAudioPlaybackDevice device, TimeSpan? drainMargin = null)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(device);
@@ -294,9 +304,21 @@ internal static class DevicesTestCommand
             device.Write(samples);
 
             // Write is fire-and-forget: poll PendingSampleCount until the hardware has actually
-            // consumed the queued tone, per IAudioPlaybackDevice's own documented contract.
+            // consumed the queued tone, per IAudioPlaybackDevice's own documented contract. The wait
+            // is bounded (tone duration plus a fixed margin) so a stalled device is reported as a
+            // failure instead of hanging the command forever.
+            var drainDeadline = Stopwatch.StartNew();
+            var drainLimit = TimeSpan.FromSeconds(ToneDurationSeconds) +
+                             (drainMargin ?? TimeSpan.FromSeconds(PlaybackDrainMarginSeconds));
             while (device.PendingSampleCount > 0)
             {
+                if (drainDeadline.Elapsed > drainLimit)
+                {
+                    throw new InvalidOperationException(
+                        "The playback device did not finish playing the test tone in time; " +
+                        "check that the output device is connected, enabled, and not stalled.");
+                }
+
                 Thread.Sleep(50);
             }
         }
@@ -306,7 +328,7 @@ internal static class DevicesTestCommand
         }
 
         context.WriteLine(
-            $"Played a {ToneDurationSeconds:0.#}-second {ToneFrequencyHz:0} Hz test tone " +
+            $"Played a {ToneDurationSeconds.ToString("0.#", CultureInfo.InvariantCulture)}-second {ToneFrequencyHz.ToString("0", CultureInfo.InvariantCulture)} Hz test tone " +
             $"(sample rate {device.SampleRate.ToString(CultureInfo.InvariantCulture)} Hz, " +
             $"{device.ChannelCount.ToString(CultureInfo.InvariantCulture)} channel(s)).");
     }
@@ -388,7 +410,7 @@ internal static class DevicesTestCommand
         var peakAmplitude = Math.Abs(TensorPrimitives.MaxMagnitude(captured));
 
         context.WriteLine(
-            $"Recorded {duration.TotalSeconds:0.#} second(s) from the resolved capture device " +
+            $"Recorded {duration.TotalSeconds.ToString("0.#", CultureInfo.InvariantCulture)} second(s) from the resolved capture device " +
             $"(sample rate {device.SampleRate.ToString(CultureInfo.InvariantCulture)} Hz, " +
             $"{device.ChannelCount.ToString(CultureInfo.InvariantCulture)} channel(s)).");
         context.WriteLine($"Samples captured: {captured.Length.ToString(CultureInfo.InvariantCulture)}");
