@@ -12,7 +12,10 @@ subsystem:
 - **AudioFormat**: immutable validating value type for passing requested, preferred, and
   resolved audio-format intent around the library without leaking any backend-native type
 - **WindowedSincLowpassFilter**: shared, dependency-free windowed-sinc Hamming FIR lowpass
-  primitive used by both direction-specific resamplers' downsampling anti-aliasing stage
+  primitive used by the downsampling anti-aliasing stage of the two direction-specific resamplers
+  that live outside this subsystem (`RecognitionSubsystem.AudioFrameResampler` and
+  `SynthesisSubsystem.PlaybackAudioResampler`); the in-subsystem `AudioResampler` has its own
+  Hann-windowed sinc kernel and does not use it
 - **AudioDeviceDescription** and **AudioDeviceSelection**: immutable value types for device
   identity and persisted device preference
 - **IAudioCaptureDevice** / **IAudioPlaybackDevice**: public device contracts
@@ -118,7 +121,25 @@ Each of the following units is documented in its own design document under
 `docs/design/speech/audio-subsystem/`:
 
 - **WindowedSincLowpassFilter** (`windowed-sinc-lowpass-filter.md`): shared anti-aliasing FIR
-  primitive for both direction-specific resamplers.
+  primitive for `RecognitionSubsystem.AudioFrameResampler` and
+  `SynthesisSubsystem.PlaybackAudioResampler`.
+- **AudioFormat** (`audio-format.md`), **AudioDeviceDescription**
+  (`audio-device-description.md`) and **AudioDeviceSelection** (`audio-device-selection.md`):
+  immutable value types for format and device identity.
+- **IAudioCaptureDevice** (`i-audio-capture-device.md`), **IAudioPlaybackDevice**
+  (`i-audio-playback-device.md`), **IAudioCaptureDeviceProbe**
+  (`i-audio-capture-device-probe.md`) and **IAudioPlaybackDeviceProbe**
+  (`i-audio-playback-device-probe.md`): the public device and probe contracts.
+- **AudioDeviceFactory** (`audio-device-factory.md`): composition root for devices and probes.
+- **PortAudioCaptureDevice** (`port-audio-capture-device.md`), **PortAudioPlaybackDevice**
+  (`port-audio-playback-device.md`), **PortAudioCaptureDeviceProbe**
+  (`port-audio-capture-device-probe.md`) and **PortAudioPlaybackDeviceProbe**
+  (`port-audio-playback-device-probe.md`): real PortAudio-backed devices and probes.
+- **AudioFileReader** (`audio-file-reader.md`), **AudioClip** (`audio-clip.md`),
+  **AudioResampler** (`audio-resampler.md`), **WavDecoder** (`wav-decoder.md`) and
+  **FlacDecoder** (`flac-decoder.md`): managed WAV/FLAC decoding, down-mixing and resampling.
+- **PortAudio** (`port-audio.md` and the `port-audio` folder): the child subsystem holding the
+  interop seam and the PortAudioSharp2 adapter.
 - **UnavailableAudioCaptureDevice** (`unavailable-audio-capture-device.md`) and
   **UnavailableAudioPlaybackDevice** (`unavailable-audio-playback-device.md`): honest unavailable
   device fallbacks.

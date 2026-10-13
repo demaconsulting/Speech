@@ -92,7 +92,8 @@ sections:
             justification: |
               Model-driven composition needs to open a device in roughly the format an engine
               wants, while hosts that express no preference must keep today's device-native
-              behavior.
+              behavior. This is a deliberate grouping parent: each child requirement states one
+              criterion.
             children:
               - Speech-Audio-AudioDeviceFactory-PreferredFormatForwarding
               - Speech-Audio-AudioDeviceFactory-DefaultFormatWithoutPreference
@@ -120,7 +121,8 @@ sections:
             justification: |
               This library's "own interfaces over direct OTS types" decision requires
               library-owned abstractions so hosts can supply mocks in tests and the backend can
-              be replaced later without a breaking API change.
+              be replaced later without a breaking API change. This is a deliberate grouping
+              parent: each child requirement states one criterion.
             children:
               - Speech-Audio-IAudioCaptureDevice-AvailabilityFlag
               - Speech-Audio-IAudioCaptureDevice-StartStopFrameCaptured
@@ -130,6 +132,7 @@ sections:
               - Speech-Audio-IAudioPlaybackDeviceProbe-EnumerateNeverThrows
             tests:
               - AudioDeviceFactory_Constructor_InjectedProbes_ExposesInjectedProbes
+              - AudioDeviceFactory_Contracts_SubstitutedWithMocks_BehaveAsConfigured
 
           - id: Speech-Audio-PreferredHostApiEnumeration
             title: >-
@@ -181,6 +184,7 @@ sections:
               - Speech-Audio-IAudioPlaybackDevice-PendingSampleCount
               - Speech-Audio-PortAudioPlaybackDevice-PendingSampleCount
               - Speech-Audio-PortAudioPlaybackDevice-PendingSampleCountReset
+              - Speech-Audio-PortAudioPlaybackDevice-PendingSampleCountZeroWhenUnresolved
             tests:
               - PortAudioPlaybackDevice_IsAvailable_NoResolvableDevice_ReturnsFalse
               - PortAudioPlaybackDevice_Write_StreamRequestsSamples_DrainsQueueAndZeroFills
@@ -221,7 +225,8 @@ sections:
             justification: |
               Any host application - not only a command-line tool - needs a deterministic
               way to drive speech recognition from a pre-recorded file, mirroring the identical
-              file-based need on the playback side above.
+              file-based need on the playback side above. This is a deliberate grouping parent:
+              each child requirement states one criterion.
             children:
               - Speech-Audio-WavFileAudioCaptureDevice-AlwaysAvailable
               - Speech-Audio-WavFileAudioCaptureDevice-DeliversFileContents
@@ -369,16 +374,19 @@ sections:
             justification: |
               Hosts keep reference clips and test audio as WAV or FLAC files. A managed decoder
               adds no native dependency, so it behaves identically on every supported platform
-              and keeps the library trim- and AOT-friendly.
+              and keeps the library trim- and AOT-friendly. This is a deliberate grouping parent:
+              each child requirement states one criterion.
             children:
               - Speech-Audio-AudioFileReader-DetectsContainer
               - Speech-Audio-AudioFileReader-DecodesFileOrStream
               - Speech-Audio-AudioFileReader-ListsSupportedExtensions
-              - Speech-Audio-AudioFileReader-ReportsErrors
+              - Speech-Audio-AudioFileReader-ReportsMissingFile
               - Speech-Audio-AudioFileReader-ReportsMalformedFile
               - Speech-Audio-AudioFileReader-ReportsUnsupportedEncoding
               - Speech-Audio-AudioFileReader-ReportsInvalidArguments
               - Speech-Audio-AudioFileReader-ByteCap
+              - Speech-Audio-AudioFileReader-MaxSamples
+              - Speech-Audio-AudioFileReader-VerifyChecksums
               - Speech-Audio-AudioFileReader-ReadMono
               - Speech-Audio-AudioFileReader-FlacFixtures
               - Speech-Audio-AudioClip-DerivedMembers
@@ -388,6 +396,7 @@ sections:
               - Speech-Audio-WavDecoder-Encodings
               - Speech-Audio-WavDecoder-FloatPassThrough
               - Speech-Audio-WavDecoder-HeaderTolerance
+              - Speech-Audio-WavDecoder-ExtensibleFormat
               - Speech-Audio-WavDecoder-OverstatedDataSize
               - Speech-Audio-WavDecoder-TrailingPartialFrame
               - Speech-Audio-WavDecoder-ZeroLengthData
@@ -396,8 +405,11 @@ sections:
               - Speech-Audio-WavDecoder-MalformedImageRejection
               - Speech-Audio-WavDecoder-SampleCap
               - Speech-Audio-FlacDecoder-Prediction
+              - Speech-Audio-FlacDecoder-StereoAndBitDepth
+              - Speech-Audio-FlacDecoder-HeaderCodes
               - Speech-Audio-FlacDecoder-StreamShapes
               - Speech-Audio-FlacDecoder-Integrity
+              - Speech-Audio-FlacDecoder-IntegrityOptOut
               - Speech-Audio-FlacDecoder-MalformedStreamRejection
               - Speech-Audio-FlacDecoder-SampleCap
             tests:
@@ -409,10 +421,12 @@ sections:
               The AudioSubsystem shall provide down-mixing and resampling of decoded audio clips.
             justification: |
               Recognition and synthesis models require audio at a fixed mono rate; converting
-              in the library keeps that logic in one tested place.
+              in the library keeps that logic in one tested place. This is a deliberate grouping
+              parent: each child requirement states one criterion.
             children:
               - Speech-Audio-AudioResampler-DownMix
               - Speech-Audio-AudioResampler-DownMixChannelCountValidation
+              - Speech-Audio-AudioResampler-DownMixPartialFrame
               - Speech-Audio-AudioResampler-Resample
               - Speech-Audio-AudioResampler-ResampleEqualRates
               - Speech-Audio-AudioResampler-ResampleRateValidation

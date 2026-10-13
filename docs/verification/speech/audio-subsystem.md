@@ -7,7 +7,9 @@ The AudioSubsystem is verified primarily through deterministic unit tests that s
 `IPortAudioApi` and `IPortAudioStream` implementations behind `PortAudioEnvironment`. This makes
 preferred-host selection, name-based device matching, fallback to host-API defaults,
 preferred-format forwarding and clamping, queue behavior, and native-fault degradation fully
-testable without requiring physical audio hardware.
+testable without requiring physical audio hardware. The file-backed WAV devices and
+`AudioDeviceSelection` are verified directly against files and in-memory device lists, and the
+public contracts are verified by substituting mocks.
 
 Automated coverage **does not** include true end-to-end hardware I/O. Actually opening a real
 microphone or speaker and moving audio through it requires manual/local verification on a machine
@@ -30,6 +32,8 @@ An AudioSubsystem test run passes when:
 - Preferred-format hints are forwarded by the factory and resolved by PortAudio-backed devices
   without ever requesting more channels than a device exposes
 - Real PortAudio-backed devices report `IsAvailable` honestly
+- A preferred sample rate the host API cannot open falls back to the device default sample rate
+  with a diagnostic, for both capture and playback
 - Capture frame delivery and playback queue draining work through the seam
 - PortAudio initialization failures and stream-open failures degrade to the documented fallback
   behavior and `AudioDeviceUnavailableException`
@@ -37,6 +41,11 @@ An AudioSubsystem test run passes when:
   refused with `AudioDeviceInUseException` (without terminating the native runtime) while any
   capture/playback device has an active stream, and succeeds again once every active stream is
   unregistered
+- The file-backed WAV playback device round-trips written samples, and the file-backed WAV capture
+  device delivers a file's contents, signals end-of-file once and rejects an unsupported format
+- A name-only `AudioDeviceSelection` resolves a present device by exact name and resolves to no
+  device (so the default is used) when the name is absent or the selection is the system default
+- The device and probe contracts can be substituted with mocks
 - WAV and FLAC files decode through `AudioFileReader` (FLAC bit-exactly against libFLAC fixtures)
   and are down-mixed and resampled by `AudioResampler`, with malformed input rejected
 - The automated verification boundary remains honest about the absence of hardware I/O coverage
@@ -87,14 +96,17 @@ Verifies capture-device default fallback, honest availability reporting, sample 
 
 **Tests**: `PortAudioCaptureDevice_CaptureFormat_ResolvedDevice_ReflectsResolvedDeviceFormat`,
 `PortAudioCaptureDevice_Constructor_PreferredFormatWithinCapability_UsesPreferredFormat`,
+`PortAudioCaptureDevice_Constructor_PreferredSampleRateUnsupported_FallsBackToDeviceDefaultSampleRateAndReportsDiagnostic`,
 `PortAudioCaptureDevice_Constructor_PreferredChannelCountExceedsCapability_ClampsAndReportsDiagnostic`,
 `PortAudioCaptureDevice_Constructor_PreferredFormatOmitted_UsesDeviceDefaultFormat`,
 `PortAudioCaptureDevice_CaptureFormat_NoResolvableDevice_ReturnsZeroRateAndChannelCount`,
 `UnavailableAudioCaptureDevice_CaptureFormat_Read_ReturnsZeroRateAndChannelCount`
 
 Verifies that a resolved capture device reports the requested capture format actually opened on
-the resolved device, honors an in-range preferred format, clamps an excessive preferred channel
-count down to device capability, falls back to the device default when no preference is supplied,
+the resolved device, honors an in-range preferred format, falls back to the device's default
+sample rate with a diagnostic when the preferred rate cannot be opened, clamps an excessive
+preferred channel count down to device capability, falls back to the device default when no
+preference is supplied,
 and that both an unresolved real device and the shared unavailable fallback report zero for both
 values rather than a plausible-looking default.
 
@@ -112,14 +124,17 @@ consumption, underrun zero-fill, and first-use failure wrapping.
 
 **Tests**: `PortAudioPlaybackDevice_PlaybackFormat_ResolvedDevice_ReflectsResolvedDeviceFormat`,
 `PortAudioPlaybackDevice_Constructor_PreferredFormatWithinCapability_UsesPreferredFormat`,
+`PortAudioPlaybackDevice_Constructor_PreferredSampleRateUnsupported_FallsBackToDeviceDefaultSampleRateAndReportsDiagnostic`,
 `PortAudioPlaybackDevice_Constructor_PreferredChannelCountExceedsCapability_ClampsAndReportsDiagnostic`,
 `PortAudioPlaybackDevice_Constructor_PreferredFormatOmitted_UsesDeviceDefaultFormat`,
 `PortAudioPlaybackDevice_PlaybackFormat_NoResolvableDevice_ReturnsZeroRateAndChannelCount`,
 `UnavailableAudioPlaybackDevice_PlaybackFormat_Read_ReturnsZeroRateAndChannelCount`
 
 Verifies that a resolved playback device reports the requested playback format actually opened on
-the resolved device, honors an in-range preferred format, clamps an excessive preferred channel
-count down to device capability, falls back to the device default when no preference is supplied,
+the resolved device, honors an in-range preferred format, falls back to the device's default
+sample rate with a diagnostic when the preferred rate cannot be opened, clamps an excessive
+preferred channel count down to device capability, falls back to the device default when no
+preference is supplied,
 and that both an unresolved real device and the shared unavailable fallback report zero for both
 values rather than a plausible-looking default, mirroring the identical capture-direction
 scenario above.
@@ -203,6 +218,15 @@ becomes available, and never replaces a probe the caller explicitly injected at 
 Verifies that a started capture or playback device registers itself with the environment's
 active-stream tracking (causing a concurrent `Refresh()` to throw `AudioDeviceInUseException`),
 and that `Stop()` unregisters it so a subsequent `Refresh()` succeeds.
+
+#### Mockable Contracts: Device and Probe Substitution
+
+**Tests**: `AudioDeviceFactory_Contracts_SubstitutedWithMocks_BehaveAsConfigured`,
+`AudioDeviceFactory_Constructor_InjectedProbes_ExposesInjectedProbes`
+
+Verifies that the capture and playback device interfaces and both probe interfaces can be
+substituted with mocks that return configured values and record calls, and that a factory exposes
+injected probes unchanged, so hosts and tests need no real audio hardware.
 
 #### Unit-Level Coverage of Supporting Types
 

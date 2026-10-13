@@ -88,6 +88,40 @@ public class AudioDeviceFactoryTests
     }
 
     /// <summary>
+    ///     Proves that all four device and probe contracts can be substituted with mocks, so hosts
+    ///     can depend on audio behavior without real hardware.
+    /// </summary>
+    [Fact]
+    public void AudioDeviceFactory_Contracts_SubstitutedWithMocks_BehaveAsConfigured()
+    {
+        // Arrange: mocks of every device and probe contract, configured with distinct values
+        var captureDevice = Substitute.For<IAudioCaptureDevice>();
+        captureDevice.IsAvailable.Returns(true);
+        captureDevice.SampleRate.Returns(16000);
+        var playbackDevice = Substitute.For<IAudioPlaybackDevice>();
+        playbackDevice.IsAvailable.Returns(true);
+        playbackDevice.ChannelCount.Returns(2);
+        playbackDevice.PendingSampleCount.Returns(7L);
+        var description = new AudioDeviceDescription("Mock", AudioDeviceDirection.Playback, 2, 48000);
+        var captureProbe = Substitute.For<IAudioCaptureDeviceProbe>();
+        captureProbe.Enumerate().Returns([description]);
+        var playbackProbe = Substitute.For<IAudioPlaybackDeviceProbe>();
+        playbackProbe.Enumerate().Returns([description]);
+
+        // Act: drive the mocks through their contract members
+        playbackDevice.Write([0.1f]);
+
+        // Assert: every mock returns its configured values and records the call
+        Assert.True(captureDevice.IsAvailable);
+        Assert.Equal(16000, captureDevice.SampleRate);
+        Assert.Equal(2, playbackDevice.ChannelCount);
+        Assert.Equal(7L, playbackDevice.PendingSampleCount);
+        Assert.Same(description, Assert.Single(captureProbe.Enumerate()));
+        Assert.Same(description, Assert.Single(playbackProbe.Enumerate()));
+        playbackDevice.Received(1).Write(Arg.Any<IReadOnlyList<float>>());
+    }
+
+    /// <summary>
     ///     Proves that a successful PortAudio initialization returns a real capture-device implementation.
     /// </summary>
     [Fact]

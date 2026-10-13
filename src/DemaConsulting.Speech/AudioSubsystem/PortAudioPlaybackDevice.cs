@@ -9,7 +9,8 @@ namespace DemaConsulting.Speech.AudioSubsystem;
 ///     preferred output device and feeds PortAudio callback requests from a managed sample queue.
 /// </summary>
 /// <remarks>
-///     Construction never throws. When PortAudio initialized successfully but no device can be
+///     Construction throws only <see cref="ArgumentNullException"/> for a null environment; a
+///     fault raised while resolving the device is contained and reported as a diagnostic. When PortAudio initialized successfully but no device can be
 ///     resolved for the current selection or host-API default, the instance honestly reports
 ///     <see cref="IsAvailable"/> as <see langword="false"/> and operational members throw
 ///     <see cref="AudioDeviceUnavailableException"/> only when invoked.
@@ -75,7 +76,30 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
         _selection = selection ?? AudioDeviceSelection.SystemDefault;
         _diagnostics = diagnostics ?? NullSpeechDiagnostics.Instance;
         _preferredFormat = preferredFormat;
-        _resolvedDevice = ResolveDevice();
+        _resolvedDevice = TryResolveDevice();
+    }
+
+    /// <summary>
+    ///     Resolves the playback device, containing any fault raised by the native device-table
+    ///     queries so construction never throws for a runtime problem.
+    /// </summary>
+    /// <returns>The resolved device, or <see langword="null"/> when none is usable.</returns>
+    private ResolvedPlaybackDevice? TryResolveDevice()
+    {
+        try
+        {
+            return ResolveDevice();
+        }
+        catch (Exception ex)
+        {
+            // Intentionally broad: device-table queries cross the native interop boundary, and an
+            // unavailable device is reported honestly rather than as an arbitrary interop fault.
+            _diagnostics.Report(
+                SpeechDiagnosticLevel.Error,
+                DiagnosticsCategory,
+                $"PortAudio playback device resolution failed: {ex.Message}");
+            return null;
+        }
     }
 
     /// <summary>
@@ -298,7 +322,10 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
                     // Intentionally broad: stopping the native-backed stream must be contained so
                     // shutdown faults do not escape as arbitrary interop exceptions.
                     stopException = ex;
-                    ClearQueuedSamples();
+
+                    // The native stop failed, so the callback thread may still be running and
+                    // owns the head-block fields: reset only the thread-safe queue and counter.
+                    ClearQueuedSamples(callbackCeased: false);
                     _diagnostics.Report(
                         SpeechDiagnosticLevel.Error,
                         DiagnosticsCategory,
@@ -383,8 +410,10 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
             }
         }
 
+        // Counted before enqueueing so the callback thread, which may dequeue the block the
+        // instant it is visible, can never subtract samples that were not yet added.
+        Interlocked.Add(ref _pendingSampleCount, block.Length);
         _queuedBlocks.Enqueue(block);
-        Interlocked.Add(ref _pendingSampleCount, samples.Count);
     }
 
     /// <inheritdoc/>
@@ -394,7 +423,8 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
     ///     <see cref="IsAvailable"/> is <see langword="false"/> or once <see cref="Stop"/> has
     ///     cleared the queue, matching every other zero-when-unavailable member of this type.
     /// </remarks>
-    public long PendingSampleCount => _resolvedDevice is null ? 0 : Interlocked.Read(ref _pendingSampleCount);
+    public long PendingSampleCount =>
+        _resolvedDevice is null ? 0 : Math.Max(0, Interlocked.Read(ref _pendingSampleCount));
 
     /// <summary>
     ///     Resolves the selected playback device or the host-API-scoped default playback device.
@@ -636,11 +666,21 @@ internal sealed class PortAudioPlaybackDevice : IAudioPlaybackDevice
     /// <summary>
     ///     Drops any buffered samples so a restarted stream never replays stale audio.
     /// </summary>
-    private void ClearQueuedSamples()
+    /// <param name="callbackCeased">
+    ///     <see langword="true"/> when the native stream has genuinely stopped, so the callback
+    ///     thread can no longer touch <see cref="_headBlock"/>; <see langword="false"/> after a
+    ///     failed native stop, when the callback may still be running and only the thread-safe
+    ///     queue and counter may be reset.
+    /// </param>
+    private void ClearQueuedSamples(bool callbackCeased = true)
     {
         _queuedBlocks.Clear();
-        _headBlock = null;
-        _headOffset = 0;
+        if (callbackCeased)
+        {
+            _headBlock = null;
+            _headOffset = 0;
+        }
+
         Interlocked.Exchange(ref _pendingSampleCount, 0);
     }
 

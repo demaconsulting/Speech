@@ -4,25 +4,34 @@
 
 **Data Model**: Holds a `PortAudioEnvironment`, an `AudioDeviceSelection`, a diagnostics sink,
 an optional preferred `AudioFormat`, and either resolved device metadata or `null` when no device
-could be resolved. `ChannelCount` and `SampleRate`, mirroring `PortAudioCaptureDevice`'s identical members,
-project the values requested when the playback stream is opened: either the resolved device's own
-default/full-capacity format, or the
-caller-preferred format with channel count clamped down to device capability and sample rate
-negotiated against the device/host API's actual capability. They report `0` when nothing was
-resolved. The resolved device metadata also captures the environment's `Generation` at the moment
-resolution succeeded, so `Start()` can detect a later `PortAudioEnvironment.Refresh()`. A
-`ConcurrentQueue<float[]>` buffers whole sample blocks written by callers - one
-enqueue per `Write` call rather than one per sample - until the PortAudio callback requests them,
-alongside a `_headBlock`/`_headOffset` cursor that lets the callback drain queued blocks in bulk
-(via `Array.Copy`) instead of dequeuing one sample at a time, and a `long` `_pendingSampleCount`
-field updated with `Interlocked` (because `Write` runs on caller threads while the PortAudio
-callback runs on its own real-time thread) tracking how many enqueued samples the callback has not
-yet dequeued. The `_headBlock`/`_headOffset` cursor requires no additional synchronization: it is
-touched from `ProvideSamples` (the single real-time PortAudio callback thread, only while a stream
-is running) and from `ClearQueuedSamples` (a caller thread, only after that stream's callback
-processing has genuinely ceased). The two never run concurrently because `Start`/`Stop` are
-serialized under the same lock, and `Stop` only calls `ClearQueuedSamples` after the native
-stream-stop call has already blocked until the callback thread finished.
+could be resolved.
+
+`ChannelCount` and `SampleRate`, mirroring `PortAudioCaptureDevice`'s identical members, project
+the values requested when the playback stream is opened: either the resolved device's own
+default/full-capacity format, or the caller-preferred format with channel count clamped down to
+device capability and sample rate negotiated against the device/host API's actual capability. They
+report `0` when nothing was resolved. The resolved device metadata also captures the
+environment's `Generation` at the moment resolution succeeded, so `Start()` can detect a later
+`PortAudioEnvironment.Refresh()`. The stream is opened with a callback block size of
+`FramesPerBuffer` (`0`, letting the host API choose).
+
+A `ConcurrentQueue<float[]>` buffers whole sample blocks written by callers - one enqueue per
+`Write` call rather than one per sample - until the PortAudio callback requests them. A
+`_headBlock`/`_headOffset` cursor lets the callback drain queued blocks in bulk (via
+`Array.Copy`) instead of dequeuing one sample at a time. A `long` `_pendingSampleCount` field,
+updated with `Interlocked` because `Write` runs on caller threads while the PortAudio callback
+runs on its own real-time thread, tracks how many enqueued samples the callback has not yet
+dequeued. The callback fills one reused output buffer, so the array it returns is valid only until
+its next invocation.
+
+The `_headBlock`/`_headOffset` cursor requires no additional synchronization: it is touched from
+`ProvideSamples` (the single real-time PortAudio callback thread, only while a stream is running)
+and reset by `ClearQueuedSamples` (a caller thread) only after the native stream-stop call has
+returned successfully, which blocks until the callback thread finished. `Start`/`Stop` are
+serialized under the same lock. When the native stop fails the callback may still be running, so
+the stop-failure path resets only the thread-safe queue and counter and leaves the cursor alone.
+The queue is unbounded: audio written faster than the hardware renders it, or written before
+`Start()`, is retained until drained or cleared by `Stop()`.
 
 **Key Methods**:
 
@@ -32,7 +41,9 @@ stream-stop call has already blocked until the callback thread finished.
   confirmed openable and otherwise falling back to the device's own default sample rate with an
   Info-level diagnostic, and clamps any preferred channel count down to the device's maximum
   output-channel capability. Captures the environment's current `Generation` alongside the
-  resolved device metadata. Construction never throws.
+  resolved device metadata. The only exception is `ArgumentNullException` for a null
+  environment: a fault raised by the native device-table queries is contained, reported as an
+  Error-level diagnostic, and leaves the device unresolved (unavailable).
 - **Start()**: Atomically validates the resolved device's captured `Generation` against the
   environment's current `Generation` and registers this instance as holding an active stream via
   `PortAudioEnvironment.TryRegisterActiveStream(...)`, all under one acquisition of the
@@ -48,18 +59,26 @@ stream-stop call has already blocked until the callback thread finished.
   raises) inside a `finally` that clears the stream reference and unregisters the active-stream
   entry, so a throwing `Dispose()` can never leave this device stuck registered as active; the
   original start failure is what is ultimately reported and thrown.
-- **Write(IReadOnlyList&lt;float&gt;)**: Enqueues interleaved samples for the PortAudio callback to
-  drain later and increments `_pendingSampleCount` by however many samples were enqueued.
-- **Stop()**: Stops and disposes the active playback stream and clears any queued stale audio,
-  resetting `_pendingSampleCount` to zero, then unregisters this instance via
-  `PortAudioEnvironment.UnregisterActiveStream(...)`.
-- **PendingSampleCount**: Reports `Interlocked.Read(ref _pendingSampleCount)`, or `0` when no
-  device was resolved. `ProvideSamples` (the PortAudio callback) decrements it by exactly the
-  number of samples it actually dequeued - never by a zero-fill shortfall - each time it runs, so
-  the value genuinely reflects hardware-consumption progress rather than merely queue occupancy
-  at enqueue time. Added to fix a bug where `SynthesisSession` stopped
-  the device (discarding whatever was still queued) as soon as every segment was enqueued, rather
-  than once the hardware had actually rendered it, cutting audio off almost instantly.
+  Calling `Start()` on an already started device does nothing.
+- **Write(IReadOnlyList&lt;float&gt;)**: Requires a non-null list (`ArgumentNullException`) and a
+  resolved device (`AudioDeviceUnavailableException` otherwise); an empty list is ignored. Copies
+  the interleaved samples into a new block, so the caller may reuse its buffer immediately, adds
+  the block length to `_pendingSampleCount` and then enqueues the block. The count is added first
+  so the callback can never subtract samples that were not yet counted.
+- **Stop()**: Requires a resolved device (`AudioDeviceUnavailableException` otherwise). Stops and
+  disposes the active playback stream and clears any queued stale audio, resetting
+  `_pendingSampleCount` to zero, then unregisters this instance via
+  `PortAudioEnvironment.UnregisterActiveStream(...)`. A device that was never started only clears
+  the queue. When the native stop fails, the failure is reported and the stream is still
+  disposed; the stop failure is then thrown wrapped, and a dispose fault is logged only. When the
+  stop succeeds but the dispose fails, the dispose fault is thrown wrapped.
+- **PendingSampleCount**: A `long` that reports `_pendingSampleCount` (never below zero), or `0`
+  when no device was resolved, after `Stop()`, and before any write. `ProvideSamples` (the
+  PortAudio callback) decrements it by exactly the number of samples it actually dequeued - never
+  by a zero-fill shortfall - each time it runs, so the value genuinely reflects
+  hardware-consumption progress rather than merely queue occupancy at enqueue time. A caller that
+  must not cut playback off, such as `SynthesisSession`, polls it until it reaches zero before
+  stopping the device.
 
 **Error Handling**: When no device could be resolved, `IsAvailable` is `false` and operational
 members throw `AudioDeviceUnavailableException`. Native stream-open or stream-stop failures are
@@ -72,6 +91,7 @@ active is refused with `AudioDeviceInUseException` by `PortAudioEnvironment`, in
 `AudioDeviceFactory`.
 
 **Dependencies**: `PortAudioEnvironment`, `IPortAudioApi`, `IPortAudioStream`,
-`AudioDeviceSelection`, `AudioFormat`, `ConcurrentQueue<float[]>`, and `ISpeechDiagnostics`.
+`AudioDeviceSelection`, `AudioFormat`, `IAudioPlaybackDevice`, `AudioDeviceUnavailableException`,
+`ConcurrentQueue<float[]>`, and `ISpeechDiagnostics`.
 
 **Callers**: `AudioDeviceFactory.CreatePlaybackDevice()`.

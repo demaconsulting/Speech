@@ -23,4 +23,7 @@ pending sample count honestly as it drains, and surfaces native first-use failur
 
 See the AudioSubsystem-level scenarios "Playback Device: Selection, Availability, and Queued
 Playback", "Playback Device: Reported Playback Format", "Playback Device: Pending Sample Drain
-Tracking", and "Unavailable Fallbacks: Honest Degradation".
+Tracking", and "Mockable Contracts: Device and Probe Substitution", plus the
+_UnavailableAudioPlaybackDevice_ unit verification document
+(`docs/verification/speech/audio-subsystem/unavailable-audio-playback-device.md`) for the
+honest-unavailable behavior.

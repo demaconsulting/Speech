@@ -14,12 +14,15 @@ sections:
               - id: Speech-Audio-PortAudioPlaybackDevice-AvailabilityReflectsResolution
                 title: >-
                   The PortAudioPlaybackDevice class shall report availability according to
-                  whether a playback device can be resolved on the preferred host API.
+                  whether a playback device can be resolved on the preferred host API,
+                  containing faults raised during resolution as unavailability.
                 justification: |
                   Hosts need an honest, non-throwing way to decide whether manual playback is
                   currently possible.
                 tests:
                   - PortAudioPlaybackDevice_IsAvailable_NoResolvableDevice_ReturnsFalse
+                  - PortAudioPlaybackDevice_Constructor_DeviceQueryFaults_ReportsUnavailableAndDiagnostic
+                  - PortAudioPlaybackDevice_Operations_NoResolvableDevice_ThrowAudioDeviceUnavailableException
 
               - id: Speech-Audio-PortAudioPlaybackDevice-StaleSelectionUsesDefault
                 title: >-
@@ -54,13 +57,16 @@ sections:
 
               - id: Speech-Audio-PortAudioPlaybackDevice-NativeFaultsThrowUnavailable
                 title: >-
-                  The PortAudioPlaybackDevice class shall surface native stream-open failures as
-                  AudioDeviceUnavailableException.
+                  The PortAudioPlaybackDevice class shall surface native stream-open, start and
+                  stop failures as AudioDeviceUnavailableException.
                 justification: |
                   A device that disappeared or could not open after selection should fail at
                   first use with a library-specific exception rather than leaking native details.
                 tests:
                   - PortAudioPlaybackDevice_Start_OpenFails_ThrowsAudioDeviceUnavailableException
+                  - PortAudioPlaybackDevice_Start_DisposeThrowsDuringStartFailureCleanup_UnregistersActiveStreamAndThrowsOriginalStartFailure
+                  - PortAudioPlaybackDevice_Stop_NativeStopFails_ThrowsWrappedAndReleasesRegistration
+                  - PortAudioPlaybackDevice_Stop_DisposeFailsAfterStop_ThrowsWrappedDisposeFailure
 
               - id: Speech-Audio-PortAudioPlaybackDevice-PlaybackFormat
                 title: >-
@@ -73,6 +79,7 @@ sections:
                   notably speech synthesis - converts it correctly.
                 tests:
                   - PortAudioPlaybackDevice_PlaybackFormat_ResolvedDevice_ReflectsResolvedDeviceFormat
+                  - PortAudioPlaybackDevice_Start_AlreadyStarted_OpensResolvedFormatOnce
 
               - id: Speech-Audio-PortAudioPlaybackDevice-ZeroPlaybackFormatWhenUnresolved
                 title: >-
@@ -137,29 +144,39 @@ sections:
                   callback, decrementing only by samples the callback genuinely dequeues (never
                   by a zero-fill shortfall).
                 justification: |
-                  Fixes a bug where SynthesisSession stopped the
-                  device (discarding whatever was still queued) as soon as every segment had been
-                  enqueued via the fire-and-forget Write, rather than once the hardware had
-                  actually rendered it, cutting the TTS panel's audio off almost instantly.
-                  PendingSampleCount is the only honest signal of real drain progress, so it must
-                  reflect actual callback consumption rather than mere queue occupancy at
-                  enqueue time.
+                  A caller that must not cut playback off, notably speech synthesis, needs a
+                  signal of real drain progress. Write is fire-and-forget, so only a count that
+                  reflects actual callback consumption, rather than mere queue occupancy at
+                  enqueue time, tells it when the hardware has rendered everything.
                 tests:
                   - PortAudioPlaybackDevice_PendingSampleCount_WriteDrainAndStop_TracksQueueDepth
                   - PortAudioPlaybackDevice_Write_MultipleBlocksOfVaryingSize_DrainsInOrder
                   - PortAudioPlaybackDevice_Write_BlockLargerThanRequest_DrainsRemainderOnNextCall
                   - PortAudioPlaybackDevice_Write_SmallBlockFollowedByAnotherWrite_ConcatenatesAcrossBoundary
+                  - PortAudioPlaybackDevice_Write_EmptyAndNonCollectionLists_HandledCorrectly
+                  - PortAudioPlaybackDevice_ProvideSamples_NonPositiveRequest_ReturnsEmptyAndKeepsQueue
 
               - id: Speech-Audio-PortAudioPlaybackDevice-PendingSampleCountReset
                 title: >-
-                  The PortAudioPlaybackDevice class shall reset PendingSampleCount to zero when
-                  Stop clears the queue or when no device was resolved.
+                  The PortAudioPlaybackDevice class shall report a pending sample count of zero
+                  after Stop clears the queue.
                 justification: |
-                  A discarded queue or a device that never resolved can never deliver samples,
-                  so reporting them as pending would stall drain-waiting callers.
+                  A discarded queue can never deliver samples, so reporting them as pending would
+                  stall drain-waiting callers.
                 tests:
                   - PortAudioPlaybackDevice_Stop_PartiallyConsumedBlock_RestartNeverReplaysStaleAudio
-                  - PortAudioPlaybackDevice_IsAvailable_NoResolvableDevice_ReturnsFalse
+                  - PortAudioPlaybackDevice_PendingSampleCount_WriteDrainAndStop_TracksQueueDepth
+                  - PortAudioPlaybackDevice_Stop_NativeStopFails_ThrowsWrappedAndReleasesRegistration
+
+              - id: Speech-Audio-PortAudioPlaybackDevice-PendingSampleCountZeroWhenUnresolved
+                title: >-
+                  The PortAudioPlaybackDevice class shall report a pending sample count of zero
+                  when no device was resolved.
+                justification: |
+                  A device that never resolved can never deliver samples, so reporting any as
+                  pending would stall drain-waiting callers.
+                tests:
+                  - PortAudioPlaybackDevice_Operations_NoResolvableDevice_ThrowAudioDeviceUnavailableException
 
               - id: Speech-Audio-PortAudioPlaybackDevice-ActiveStreamRegistration
                 title: >-

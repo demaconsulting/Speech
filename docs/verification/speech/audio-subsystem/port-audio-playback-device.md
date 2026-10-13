@@ -24,9 +24,62 @@ sample rate the host API cannot open falls back to the device's default sample r
 Info-level diagnostic, a native `Dispose()` fault during start-failure cleanup still releases the
 active-stream registration and reports the original start failure rather than the dispose
 failure, and a device whose environment was refreshed after construction refuses to start with
-`AudioDeviceUnavailableException` while a device resolved after the refresh starts normally.
+`AudioDeviceUnavailableException` while a device resolved after the refresh starts normally, a
+fault raised while querying the device table is contained as unavailability, a failed native stop
+or a dispose fault after a successful stop is wrapped in `AudioDeviceUnavailableException` while
+still releasing the active-stream registration, and unresolved devices refuse operational calls.
 
 #### Test Scenarios
+
+The tests mark intent with one Arrange/Act/Assert comment per phase; each scenario below names
+its expected outcome.
+
+##### Construction: Device Query Fault Is Contained
+
+**Test**: `PortAudioPlaybackDevice_Constructor_DeviceQueryFaults_ReportsUnavailableAndDiagnostic`
+
+Construction does not throw when device enumeration faults; the device is unavailable and an
+Error diagnostic names the fault.
+
+##### Operations: No Resolvable Device Refuses Calls
+
+**Test**: `PortAudioPlaybackDevice_Operations_NoResolvableDevice_ThrowAudioDeviceUnavailableException`
+
+`Start`, `Stop` and `Write` throw `AudioDeviceUnavailableException`, a null `Write` throws
+`ArgumentNullException`, and `PendingSampleCount` is `0`.
+
+##### Write: Empty and Non-Collection Lists
+
+**Test**: `PortAudioPlaybackDevice_Write_EmptyAndNonCollectionLists_HandledCorrectly`
+
+An empty write queues nothing; a list that is not an `ICollection<float>` is copied element by
+element and drains intact.
+
+##### Start: Already Started Opens the Resolved Format Once
+
+**Test**: `PortAudioPlaybackDevice_Start_AlreadyStarted_OpensResolvedFormatOnce`
+
+A second `Start` does nothing, and the stream was opened with the resolved channel count and
+sample rate.
+
+##### Stop: Native Stop Failure Is Wrapped
+
+**Test**: `PortAudioPlaybackDevice_Stop_NativeStopFails_ThrowsWrappedAndReleasesRegistration`
+
+The stop failure is wrapped, the stream is still disposed, `PendingSampleCount` resets to `0`,
+and a later refresh succeeds.
+
+##### Stop: Dispose Failure After Stop Is Wrapped
+
+**Test**: `PortAudioPlaybackDevice_Stop_DisposeFailsAfterStop_ThrowsWrappedDisposeFailure`
+
+The dispose failure is wrapped and the registration is still released.
+
+##### Callback: Non-Positive Request Returns Empty
+
+**Test**: `PortAudioPlaybackDevice_ProvideSamples_NonPositiveRequest_ReturnsEmptyAndKeepsQueue`
+
+A zero-sample callback request returns an empty block and leaves queued samples pending.
 
 ##### Construction: Stale Selection Falls Back to Default Device
 

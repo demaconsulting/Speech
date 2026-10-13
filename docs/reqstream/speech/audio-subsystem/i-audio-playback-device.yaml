@@ -35,6 +35,7 @@ sections:
                   - UnavailableAudioPlaybackDevice_Write_Always_ThrowsAudioDeviceUnavailableException
                   - PortAudioPlaybackDevice_Write_StreamRequestsSamples_DrainsQueueAndZeroFills
                   - PortAudioPlaybackDevice_Start_OpenFails_ThrowsAudioDeviceUnavailableException
+                  - PortAudioPlaybackDevice_Start_EnvironmentRefreshedAfterConstruction_ThrowsAudioDeviceUnavailableException
 
               - id: Speech-Audio-IAudioPlaybackDevice-PlaybackFormat
                 title: >-
@@ -65,11 +66,10 @@ sections:
                   rendering and returns immediately regardless of how much audio is still
                   pending. Without an honest way to observe real hardware-drain progress, a
                   caller (SynthesisSession) could only ever observe
-                  that samples had been handed off, not that they had actually played - the
-                  confirmed root cause of a bug where the TTS panel's status flashed back to idle
-                  and cut audio off almost instantly, because playback was stopped (discarding
-                  whatever was still queued) as soon as every segment was enqueued.
+                  that samples had been handed off, not that they had actually played, and would
+                  stop playback, discarding whatever was still queued, as soon as every segment
+                  was enqueued.
                 tests:
                   - PortAudioPlaybackDevice_PendingSampleCount_WriteDrainAndStop_TracksQueueDepth
-                  - PortAudioPlaybackDevice_IsAvailable_NoResolvableDevice_ReturnsFalse
+                  - PortAudioPlaybackDevice_Operations_NoResolvableDevice_ThrowAudioDeviceUnavailableException
                   - UnavailableAudioPlaybackDevice_PendingSampleCount_Read_ReturnsZero
