@@ -78,9 +78,11 @@ Verifies that PortAudio initialization failure degrades composition to the hones
 fallback devices rather than throwing.
 
 This scenario also evidences the platform requirements (`Speech-Platform-Windows`, `-Linux`, `-MacOS`,
-`-Net8`, `-Net9` and `-Net10`): the same test runs on every CI operating system and target runtime, and
-each requirement links it through a source filter (`windows@`, `ubuntu@`, `macos@`, `net8.0@`,
-`net9.0@`, `net10.0@`) so only a pass on that platform or runtime counts as evidence.
+`-Net8`, `-Net9` and `-Net10`) only as a portability smoke test: the same test runs on every CI operating
+system and target runtime, and each requirement links it through a source filter (`windows@`, `ubuntu@`,
+`macos@`, `net8.0@`, `net9.0@`, `net10.0@`) so only a pass on that platform or runtime counts. It proves the
+library composes and degrades without throwing on that platform; it does not exercise platform-specific
+native behavior such as real PortAudio device I/O.
 
 ### Validation: No Resolvable Capture Device Throws on Start
 
@@ -95,12 +97,15 @@ consistent with `AudioDeviceFactory` consulting its probe before constructing a 
 
 **Test**: `Speech_SystemIntegration_StreamingRecognition_CapturedAudioProducesRecognitionResults`
 
-Verifies the full public streaming-recognition surface end to end: composing a recognizer for an
-installed model and an available capture device, streaming one captured block through audio-format
-conversion into the recognition engine, and surfacing the resulting provisional and final text
-through the session's IRecognitionSession.GetResultsAsync stream. The recognition engine is a
-deterministic test double, so this scenario proves the composed pipeline rather than
-speech-recognition accuracy.
+Verifies the full public streaming-recognition surface end to end, deterministically: composing a
+recognizer for an installed model and an available capture device, streaming one captured block
+through audio-format conversion into the recognition engine, and consuming the stream in a fixed
+order. The scripted engine decodes a provisional result ("hello") for the block and a final
+result ("hello world") only when the session is stopped, so the test reads the provisional result
+first, then stops the session and reads the final result, and finally observes the stream
+completing. Because the consumer drains the provisional result before the final one can exist,
+the outcome never depends on thread scheduling. The recognition engine is a deterministic test
+double, so this scenario proves the composed pipeline rather than speech-recognition accuracy.
 
 ### Integration: Model Download Verifies and Atomically Installs the Model
 
@@ -123,10 +128,12 @@ to `SpeechModelState.Downloaded` once `DownloadAsync` verifies and atomically in
 **Test**: `Speech_SystemIntegration_StreamingSynthesis_TextProducesPlayedAudio`
 
 Verifies the full public streaming-synthesis surface end to end: composing a synthesizer for an
-installed model and an available playback device, speaking one plain-text utterance, and
-confirming the playback device is started, receives at least one written block of audio, and is
-stopped. The synthesis engine is a deterministic test double, so this scenario proves the composed
-chunked pipeline rather than speech-synthesis audio quality.
+installed model and an available playback device, speaking one utterance with a Natural Language
+Audio Tag (`[fast] hello world`), and confirming the playback device is started, receives at
+least one written block of audio, and is stopped, and that the backend received the tag-free text
+with a speed override above 1.0 (the Layer 2 rendering). The synthesis engine is a deterministic
+test double, so this scenario proves the composed chunked pipeline rather than speech-synthesis
+audio quality.
 
 ### Integration: File-Backed Devices Round-Trip Synthesized Speech Through a WAV File
 
@@ -154,6 +161,18 @@ Language Audio Tag vocabulary becomes a tag span while a bracketed word outside 
 remains in the plain narration text rather than being dropped or rejected, proving the "never
 worse than plain narration" guarantee. Exhaustive per-alias coverage is proven at unit level by
 `AudioTagParserTests.cs`.
+
+## Requirements Verified at Unit or Subsystem Level
+
+Several system requirements have no dedicated `SpeechTests.cs` scenario because the behavior is
+fully observable below the system boundary and its evidence is the unit or subsystem test set
+linked from the requirement (or its child requirements): the reference-voice library
+(`Speech-Models-ReferenceVoiceLibrary`, `-ReferenceVoiceMergedListing`), the download mirror
+(`Speech-Models-DownloadMirror`), explicit uninstall, corrupt-download rejection and failure
+reporting, the configurable storage root, per-model Layer 2 tag rendering, chunked and low-latency
+playback, and the honest-composition fallbacks for recognition and synthesis. Promoting any of
+these to a composed system scenario is deferred; until then the system-level claim for them rests
+on the linked lower-level tests.
 
 ## Acceptance Criteria
 

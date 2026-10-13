@@ -93,8 +93,8 @@ sections:
 
       - id: Speech-Audio-ManagedAudioFileDecoding
         title: >-
-          The library shall read WAV and FLAC audio files into floating-point clips with managed
-          code only, so reference voices and test audio can be supplied in either format.
+          The library shall read WAV and FLAC audio files into floating-point clips without a
+          native decoder dependency.
         tags: [system]
         justification: |
           Hosts store reference clips and recordings as WAV or FLAC. Decoding them in managed
@@ -135,8 +135,8 @@ sections:
 
       - id: Speech-Models-DownloadAndInstall
         title: >-
-          The library shall download speech models, verify each against its declared SHA-256
-          checksum, and install them into a per-user model store.
+          The library shall install a downloaded speech model only after verifying it against
+          its declared checksum.
         tags: [system]
         justification: |
           The "download integrity and progress" decision requires that models download through
@@ -169,24 +169,35 @@ sections:
       - id: Speech-Models-CorruptDownloadRejection
         title: >-
           The library shall never install a corrupted, partial, or checksum-mismatched
-          download and shall report every non-installed outcome honestly.
+          download.
         tags: [system]
         justification: |
           Never installing unverified content requires that a failed download leaves nothing
-          installed and tells the host why, so a host can distinguish a blocked network path,
-          an HTTP error response, and a local disk failure.
+          installed and leaves any prior installation intact.
         children:
-          - Speech-Models-HonestFailureStates
           - Speech-Models-PriorInstallProtected
-          - Speech-Models-RicherFailureClassification
         tests:
           - SpeechModelDownloader_DownloadAsync_ChecksumMismatch_ReportsChecksumMismatchAndInstallsNothing
           - SpeechModelDownloader_DownloadAsync_CanceledMidDownload_ThrowsAndInstallsNothing
 
+      - id: Speech-Models-DownloadFailureReporting
+        title: >-
+          The library shall report the reason a download did not install a model.
+        tags: [system]
+        justification: |
+          A host must be able to distinguish a blocked network path, an HTTP error response,
+          and a local disk failure, rather than seeing a single undifferentiated failure.
+        children:
+          - Speech-Models-HonestFailureStates
+          - Speech-Models-RicherFailureClassification
+        tests:
+          - SpeechModelDownloader_DownloadAsync_ChecksumMismatch_ReportsChecksumMismatchAndInstallsNothing
+          - SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWithStatusCode_ReportsHttpError
+          - SpeechModelDownloader_DownloadAsync_IoException_ReportsIoFailure
+
       - id: Speech-Models-DownloadProgressReporting
         title: >-
-          The library shall let a host observe a model download's progress through a mockable,
-          IProgress-compatible payload.
+          The library shall let a host observe a model download's progress.
         tags: [system]
         justification: |
           A host builds progress UI from the reported progress without depending on a concrete
@@ -255,8 +266,7 @@ sections:
       - id: Speech-Models-ReferenceVoiceLibrary
         title: >-
           The library shall provide a model-agnostic reference-voice library that downloads a
-          verified, licensed voice pack and lists all available voices merged and
-          de-duplicated.
+          verified, licensed voice pack.
         tags: [system]
         justification: |
           Voice-cloning synthesis models need reference clips, and a hundred-plus permissively
@@ -270,11 +280,21 @@ sections:
           - Speech-Models-ReferenceVoiceEmotionInstall
           - Speech-Models-ReferenceVoiceEmotionUpgrade
           - Speech-Models-ReferenceVoiceMoodClips
-          - Speech-Models-ReferenceVoiceUserFolder
-          - Speech-Models-ReferenceVoiceListing
           - Speech-Models-ReferenceVoiceConsentNotice
         tests:
           - ReferenceVoiceLibrary_InstallPack_Success_InstallsVoicesAndUpdatesState
+
+      - id: Speech-Models-ReferenceVoiceMergedListing
+        title: >-
+          The library shall list all available reference voices merged and de-duplicated.
+        tags: [system]
+        justification: |
+          A host voice picker needs one list covering the downloaded pack and the user's own
+          voice folder, with a single deterministic winner when identifiers collide.
+        children:
+          - Speech-Models-ReferenceVoiceUserFolder
+          - Speech-Models-ReferenceVoiceListing
+        tests:
           - ReferenceVoiceLibrary_EnumerateVoices_MergesInPrecedenceOrderFirstIdWins
 
       - id: Speech-Models-CatalogAndContract
@@ -441,16 +461,28 @@ sections:
 
       - id: Speech-Synthesis-ChunkedLowLatencyPlayback
         title: >-
-          The library shall chunk text and play each synthesized chunk as soon as it is ready
-          for low latency.
+          The library shall begin playing the first synthesized text chunk while later chunks are
+          still being synthesized.
         tags: [system]
         justification: |
           Low-latency playback requires beginning playback of the first chunk while later
           chunks are still being synthesized.
         children:
+          - Speech-Synthesis-StreamedPlayback
+        tests:
+          - SynthesisSession_SynthesizeAsync_LongMultiSentenceInput_ProducesOrderedSegmentsSequentially
+
+      - id: Speech-Synthesis-ChunkedSynthesis
+        title: >-
+          The library shall split input text into chunks and synthesize them sequentially in
+          order.
+        tags: [system]
+        justification: |
+          Chunking is what makes early playback possible; sequential in-order synthesis keeps
+          the spoken output faithful to the input text.
+        children:
           - Speech-Synthesis-ChunkedPipeline
           - Speech-Synthesis-SequentialSynthesis
-          - Speech-Synthesis-StreamedPlayback
         tests:
           - SynthesisSession_SynthesizeAsync_LongMultiSentenceInput_ProducesOrderedSegmentsSequentially
 

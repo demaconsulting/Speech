@@ -18,6 +18,43 @@ namespace DemaConsulting.Speech.Tests;
 /// </summary>
 public class SpeechTests
 {
+    /// <summary>Upper bound for awaiting an asynchronous result in a test, so a regression fails instead of hanging.</summary>
+    private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    ///     Advances a result enumerator, failing the test instead of hanging if nothing arrives.
+    /// </summary>
+    /// <typeparam name="T">The enumerated item type.</typeparam>
+    /// <param name="enumerator">The enumerator to advance.</param>
+    /// <param name="cancellationToken">The test cancellation token.</param>
+    /// <returns><see langword="true"/> if an item is available; <see langword="false"/> at end of stream.</returns>
+    private static async Task<bool> NextAsync<T>(IAsyncEnumerator<T> enumerator, CancellationToken cancellationToken)
+    {
+        var next = enumerator.MoveNextAsync();
+        return await next.AsTask().WaitAsync(Timeout, cancellationToken);
+    }
+
+    /// <summary>
+    ///     Best-effort scratch-directory cleanup: a locked file or a missing directory must never
+    ///     mask the test's own assertion failure.
+    /// </summary>
+    /// <param name="path">The scratch directory to delete.</param>
+    private static void TryDeleteDirectory(string path)
+    {
+        try
+        {
+            Directory.Delete(path, recursive: true);
+        }
+        catch (IOException)
+        {
+            // Best-effort cleanup only.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Best-effort cleanup only.
+        }
+    }
+
     /// <summary>
     ///     Proves that the composed system returns real PortAudio-backed device abstractions when PortAudio initializes.
     /// </summary>
@@ -175,7 +212,7 @@ public class SpeechTests
         }
         finally
         {
-            Directory.Delete(testRoot, recursive: true);
+            TryDeleteDirectory(testRoot);
         }
     }
 
@@ -222,7 +259,7 @@ public class SpeechTests
         }
         finally
         {
-            Directory.Delete(testRoot, recursive: true);
+            TryDeleteDirectory(testRoot);
         }
     }
 
@@ -248,47 +285,44 @@ public class SpeechTests
             captureDevice.SampleRate.Returns(16000);
             captureDevice.ChannelCount.Returns(1);
             var backendFactory = new FakeRecognitionEngineFactory(new FakeRecognitionEngine(
-            [
-                new SpeechRecognitionResult("hello", IsFinal: false),
-                new SpeechRecognitionResult("hello world", IsFinal: true)
-            ]));
+                scriptedResults: [new SpeechRecognitionResult("hello", IsFinal: false)],
+                scriptedFlushResult: new SpeechRecognitionResult("hello world", IsFinal: true)));
 
-            // Act: load the engine, create a session, stream one captured block, and drain the pipeline
+            // Act: load the engine and create a session
             var cancellationToken = TestContext.Current.CancellationToken;
             await using var engine = await SpeechRecognizerFactory.LoadAsync(
                 new FakeRecognitionModel(), installedModelDirectory, null, backendFactory,
                 cancellationToken: cancellationToken);
             await using var session = await engine.CreateSessionAsync(captureDevice, cancellationToken);
+            await using var results = session.GetResultsAsync(cancellationToken).GetAsyncEnumerator(cancellationToken);
 
-            var received = new List<SpeechRecognitionResult>();
-            var pump = Task.Run(async () =>
-            {
-                await foreach (var evt in session.GetResultsAsync(cancellationToken))
-                {
-                    received.Add(evt.Result);
-                }
-            }, cancellationToken);
-
+            // Act: stream one captured block; the backend decodes only a provisional result for it
             await session.StartAsync(cancellationToken);
             captureDevice.FrameCaptured += Raise.Event<EventHandler<AudioCaptureFrameEventArgs>>(
                 captureDevice,
                 new AudioCaptureFrameEventArgs([0.1f, 0.2f, 0.3f]));
-            await session.StopAsync(cancellationToken);
-            await pump;
 
-            // Assert: the system produced the final recognition result from the captured audio.
-            // The scripted provisional result ("hello") arrived before the consumer started
-            // draining, and its own final ("hello world") was buffered before it was ever read,
-            // so the provisional was superseded rather than delivered as a stale partial
-            // transcript trailing its own final.
+            // Act: consume the provisional result BEFORE stopping, so ordering never depends on
+            // scheduling; stopping then flushes the backend's trailing final result
+            Assert.True(await NextAsync(results, cancellationToken));
+            var provisional = results.Current.Result;
+            await session.StopAsync(cancellationToken);
+            Assert.True(await NextAsync(results, cancellationToken));
+            var final = results.Current.Result;
+            var streamEnded = !await NextAsync(results, cancellationToken);
+
+            // Assert: the system surfaced a provisional result followed by the final result, in
+            // that order, and then completed the stream
             Assert.True(session.IsAvailable);
-            var result = Assert.Single(received);
-            Assert.True(result.IsFinal);
-            Assert.Equal("hello world", result.Text);
+            Assert.False(provisional.IsFinal);
+            Assert.Equal("hello", provisional.Text);
+            Assert.True(final.IsFinal);
+            Assert.Equal("hello world", final.Text);
+            Assert.True(streamEnded);
         }
         finally
         {
-            Directory.Delete(installedModelDirectory, recursive: true);
+            TryDeleteDirectory(installedModelDirectory);
         }
     }
 
@@ -313,25 +347,31 @@ public class SpeechTests
             playbackDevice.IsAvailable.Returns(true);
             playbackDevice.SampleRate.Returns(16000);
             playbackDevice.ChannelCount.Returns(1);
-            var backendFactory = new FakeSynthesisEngineFactory(new FakeSynthesisEngine(sampleRate: 16000));
+            var synthesisEngine = new FakeSynthesisEngine(sampleRate: 16000);
+            var backendFactory = new FakeSynthesisEngineFactory(synthesisEngine);
 
-            // Act: load the engine, create a session, and speak one plain-text utterance end to end
+            // Act: load the engine, create a session, and speak one tagged utterance end to end
             var cancellationToken = TestContext.Current.CancellationToken;
             await using var engine = await SpeechSynthesizerFactory.LoadAsync(
                 new FakeSynthesisModel(), installedModelDirectory, null, backendFactory,
                 cancellationToken: cancellationToken);
             Assert.True(engine.IsAvailable);
             await using var session = await engine.CreateSessionAsync(playbackDevice, cancellationToken);
-            await session.SpeakAsync("hello world", cancellationToken);
+            await session.SpeakAsync("[fast] hello world", cancellationToken);
 
             // Assert: the system started the device, wrote at least one block of audio, and stopped it
             playbackDevice.Received(1).Start();
             playbackDevice.Received().Write(Arg.Any<IReadOnlyList<float>>());
             playbackDevice.Received(1).Stop();
+
+            // Assert: the Layer 2 tag was rendered into a speed override and stripped from the text
+            var call = Assert.Single(synthesisEngine.GenerateCalls);
+            Assert.True(call.Speed > 1.0f);
+            Assert.Equal("hello world", call.Text.Trim());
         }
         finally
         {
-            Directory.Delete(installedModelDirectory, recursive: true);
+            TryDeleteDirectory(installedModelDirectory);
         }
     }
 
@@ -385,7 +425,7 @@ public class SpeechTests
         }
         finally
         {
-            Directory.Delete(root, recursive: true);
+            TryDeleteDirectory(root);
         }
     }
 
