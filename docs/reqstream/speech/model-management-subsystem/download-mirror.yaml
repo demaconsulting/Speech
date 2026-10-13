@@ -30,10 +30,9 @@ sections:
               - id: Speech-Models-DownloadMirror-MutualExclusivity
                 title: >-
                   The DownloadMirror record shall reject, at construction, supplying both
-                  Credentials and BearerToken, since at most one authentication mechanism may be
-                  configured per mirror.
+                  Credentials and BearerToken.
                 justification: |
-                  Supplying both would silently prefer one over the other with no indication to
+                  At most one authentication mechanism is allowed per mirror. Supplying both would silently prefer one over the other with no indication to
                   the host that the other was ignored - a configuration error that must surface
                   immediately, not a case to resolve with a silent fallback.
                 tests:

@@ -32,14 +32,13 @@ sections:
 
               - id: Speech-Recognition-EngineExclusivity-FailFastNotQueued
                 title: >-
-                  An ISpeechRecognizerEngine implementation's CreateSessionAsync shall fail fast
-                  with RecognitionEngineBusyException, rather than queuing or waiting, when a
-                  prior session created from it already holds the engine's exclusivity lease -
-                  including while that prior session is still tearing down via its own
-                  DisposeAsync.
+                  An ISpeechRecognizerEngine implementation's CreateSessionAsync shall throw
+                  RecognitionEngineBusyException, without queuing or waiting, when a prior
+                  session created from it already holds the engine's exclusivity lease.
                 justification: |
-                  A caller that attempts to create a second session before releasing the first
-                  has made a sequencing error; silently queuing the request would hide that bug
+                  The lease is held while the prior session is still tearing down via its own
+                  DisposeAsync. A caller that attempts to create a second session before releasing
+                  the first has made a sequencing error; silently queuing the request would hide that bug
                   behind an unpredictable delay instead of surfacing it immediately, and the lease
                   is held for the whole disposal window because disposal itself still drives the
                   native backend.

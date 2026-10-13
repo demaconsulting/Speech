@@ -293,6 +293,7 @@ sections:
           - Speech-Models-ContractDeclaration
           - Speech-Models-TunableParameters
           - Speech-Models-TunableParameterValueValidation
+          - Speech-Models-TunableParameterUnrecognizedIdTolerance
         tests:
           - ISpeechModel_Parameters_DeclaresEveryDescriptorKind
           - ISpeechModel_AudioTagSupportAndDownloadDescriptor_AreExposed

@@ -12,11 +12,12 @@ sections:
           - id: Speech-Recognition-MockableContract
             title: >-
               The RecognitionSubsystem shall expose a mockable, async streaming speech-to-text
-              contract split into a Layer 3 engine (one loaded model, reusable across many
-              sessions) and a Layer 5 session (bound to one capture device for its entire life),
+              contract.
+            justification: |
+              The contract is split into a Layer 3 engine (one loaded model, reusable across many
+              sessions) and a Layer 5 session (bound to one capture device for its entire life)
               that reports availability, starts and stops recognition, and delivers provisional
               and final results through an async-enumerable surface.
-            justification: |
               Hosts must be able to test their transcript handling against the contract with no
               model, microphone, or native runtime present. Splitting the mockable surface into an
               engine and a session lets a host amortize the expensive model-load step across many
@@ -64,12 +65,12 @@ sections:
           - id: Speech-Recognition-EngineExclusivity
             title: >-
               The RecognitionSubsystem shall permit at most one live session per loaded engine at
-              a time, failing fast with a documented exception rather than queuing or waiting when
-              a caller attempts to create a second session before the prior one has fully
-              released the engine's exclusivity lease.
+              a time, rejecting a second session-creation attempt with a documented exception,
+              without queuing or waiting, until the prior session has fully released the
+              engine's exclusivity lease.
             justification: |
               The native recognition backend an engine owns is not safe for two sessions to drive
-              concurrently; failing fast surfaces a caller's sequencing bug immediately instead of
+              concurrently; an immediate rejection surfaces a caller's sequencing bug immediately instead of
               hiding it behind an unpredictable queued delay.
             children:
               - Speech-Recognition-EngineExclusivity-SingleActiveSession
@@ -131,6 +132,8 @@ sections:
               contract for genuine machine-state unavailability.
             children:
               - Speech-Recognition-SpeechRecognizerFactory-InvalidRecognizedParameterValueThrows
+              - Speech-Recognition-SpeechRecognizerFactory-InvalidChoiceParameterValueThrows
+              - Speech-Recognition-SpeechRecognizerFactory-InvalidBooleanParameterValueThrows
             tests:
               - SpeechRecognizerFactory_LoadAsync_RecognizedNumericParameterOutOfRange_FaultsWithArgumentException
 

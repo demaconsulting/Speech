@@ -127,21 +127,36 @@ sections:
               - id: Speech-Recognition-SpeechRecognizerFactory-InvalidRecognizedParameterValueThrows
                 title: >-
                   The SpeechRecognizerFactory class shall fault LoadAsync's returned task with
-                  ArgumentException when parameterValues supplies a value for a parameter the
-                  requested model does declare, but the value is invalid for that parameter
-                  (wrong CLR type, outside [Minimum, Maximum] or non-integral for a
-                  NumericParameter declared IsInteger, or not a declared
-                  ChoiceParameterOption.Value for a ChoiceParameter, or not a bool for a
-                  BooleanParameter), naming the parameter id, the model id, and the reason the
-                  value is invalid.
+                  ArgumentException when a supplied numeric parameter value is invalid for the
+                  declared NumericParameter.
                 justification: |
                   A host explicitly targeting a parameter it knows this model declares, with a
                   value invalid for it, is a caller bug rather than a legitimate cross-model
-                  compatibility gap, and must be surfaced loudly through the returned task's fault
-                  rather than silently substituted and discovered much later from confusing
-                  engine behavior.
+                  compatibility gap, and must be surfaced loudly rather than silently substituted
+                  and discovered much later from confusing engine behavior. A numeric value is
+                  invalid when it has the wrong CLR type, lies outside [Minimum, Maximum], or is
+                  non-integral for a parameter declared IsInteger.
                 tests:
                   - SpeechRecognizerFactory_LoadAsync_RecognizedNumericParameterOutOfRange_FaultsWithArgumentException
                   - SpeechRecognizerFactory_LoadAsync_RecognizedNumericParameterWrongType_FaultsWithArgumentException
+
+              - id: Speech-Recognition-SpeechRecognizerFactory-InvalidChoiceParameterValueThrows
+                title: >-
+                  The SpeechRecognizerFactory class shall fault LoadAsync's returned task with
+                  ArgumentException when a supplied choice parameter value is not a declared
+                  option.
+                justification: |
+                  A value outside the closed option set can never be honored and must be surfaced
+                  loudly through the returned task's fault.
+                tests:
                   - SpeechRecognizerFactory_LoadAsync_RecognizedChoiceParameterInvalidOption_FaultsWithArgumentException
+
+              - id: Speech-Recognition-SpeechRecognizerFactory-InvalidBooleanParameterValueThrows
+                title: >-
+                  The SpeechRecognizerFactory class shall fault LoadAsync's returned task with
+                  ArgumentException when a supplied boolean parameter value is not a bool.
+                justification: |
+                  A non-bool value cannot be interpreted as a flag and must be surfaced loudly
+                  through the returned task's fault.
+                tests:
                   - SpeechRecognizerFactory_LoadAsync_RecognizedBooleanParameterWrongType_FaultsWithArgumentException

@@ -126,8 +126,8 @@ sections:
               - id: Speech-Models-SpeechModelStore-UninstallCurrentFailureReporting
                 title: >-
                   The SpeechModelStore class shall throw SpeechModelStoreException when an
-                  uninstall cannot remove a model's current/ directory, after which the model
-                  shall read as not installed.
+                  uninstall cannot remove a model's current/ directory, leaving the model
+                  reading as not installed.
                 justification: |
                   Uninstall is an explicit user action; silently leaving content behind would
                   misreport success, so a locked file is surfaced as a documented exception. The

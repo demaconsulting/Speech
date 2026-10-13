@@ -26,8 +26,8 @@ sections:
 
               - id: Speech-Recognition-DedicatedWorker-CooperativeCancellation
                 title: >-
-                  The DedicatedWorker class shall complete promptly when a cooperative delegate
-                  observes and honors cancellation.
+                  The DedicatedWorker class shall complete without waiting for the abandon timeout when
+                  a cooperative delegate observes and honors cancellation.
                 justification: |
                   A delegate that checks its own cancellation token and returns in response to it
                   is the common, well-behaved case, and must not pay the cost of the abandon

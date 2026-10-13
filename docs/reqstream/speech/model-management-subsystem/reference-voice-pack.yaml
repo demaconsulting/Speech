@@ -36,22 +36,30 @@ sections:
 
               - id: Speech-Models-ReferenceVoicePack-ArgumentValidation
                 title: >-
-                  The ReferenceVoicePack constructor shall reject a non-HTTPS archive URL, a
-                  malformed SHA-256 checksum, a non-positive size, and an id, archive file name or
-                  archive root folder that is not a single safe path segment (separators, a drive
-                  colon, a rooted path, "." or "..", on every platform).
+                  The ReferenceVoicePack constructor shall reject a descriptor that describes an
+                  insecure or malformed archive transfer.
                 justification: |
-                  The id and archive names become directory and file names, and the archive is
-                  fetched over the network, so a descriptor must be unable to describe an insecure
-                  transfer or a path that escapes the store.
+                  The archive is fetched over the network, so a descriptor must be unable to
+                  describe an insecure transfer. This covers a non-HTTPS archive URL, a malformed
+                  SHA-256 checksum, and a non-positive size.
                 tests:
                   - ReferenceVoicePack_Constructor_NonHttpsUri_Throws
                   - ReferenceVoicePack_Constructor_BadChecksum_Throws
+                  - ReferenceVoicePack_Constructor_NonPositiveSize_Throws
+
+              - id: Speech-Models-ReferenceVoicePack-UnsafePathSegmentRejection
+                title: >-
+                  The ReferenceVoicePack constructor shall reject an id, archive file name or
+                  archive root folder that is not a single safe path segment.
+                justification: |
+                  The id and archive names become directory and file names, so a descriptor must
+                  be unable to describe a path that escapes the store. Unsafe segments include
+                  separators, a drive colon, a rooted path, "." or "..", on every platform.
+                tests:
                   - ReferenceVoicePack_Constructor_UnsafeId_Throws
                   - ReferenceVoicePack_Constructor_RootedRootFolder_Throws
                   - ReferenceVoicePack_Constructor_UnsafeArchiveFileName_Throws
                   - ReferenceVoicePack_Constructor_UnsafeRootFolder_Throws
-                  - ReferenceVoicePack_Constructor_NonPositiveSize_Throws
 
               - id: Speech-Models-ReferenceVoicePack-SizeMetadata
                 title: >-
@@ -77,12 +85,21 @@ sections:
 
               - id: Speech-Models-ReferenceVoicePack-MoodClipLookup
                 title: >-
-                  The ReferenceVoiceInfo record shall find a mood clip case-insensitively after
-                  trimming the requested mood name, and shall report no match for a null, blank or
-                  unknown mood or for a voice without mood clips.
+                  The ReferenceVoiceInfo record shall find a mood clip regardless of the case and
+                  surrounding whitespace of the requested mood name.
                 justification: |
                   Mood names reach consumers from tags and options in varying case and spacing, and
                   must resolve to the same clip.
+                tests:
+                  - ReferenceVoiceInfo_TryGetMoodClip_IsCaseInsensitiveAndTrimmed
+
+              - id: Speech-Models-ReferenceVoicePack-MoodClipNoMatch
+                title: >-
+                  The ReferenceVoiceInfo record shall report no match for a null, blank or unknown
+                  mood name.
+                justification: |
+                  A lookup that finds nothing must say so rather than return an unrelated clip,
+                  including for a voice that has no mood clips.
                 tests:
                   - ReferenceVoiceInfo_TryGetMoodClip_IsCaseInsensitiveAndTrimmed
 

@@ -100,16 +100,23 @@ sections:
               - id: Speech-Models-SpeechModelParameters-ChoiceValidation
                 title: >-
                   The ChoiceParameter class shall reject at construction an empty option list or
-                  an option list containing a null element, and shall expose the declared
-                  options and default of a valid parameter.
+                  an option list containing a null element.
                 justification: |
                   An empty option list could never be rendered as a dropdown, and a null element
                   is an invalid declaration that must be an ArgumentException, not a later
                   NullReferenceException.
                 tests:
-                  - ChoiceParameter_Constructor_ValidOptions_ExposesValues
                   - ChoiceParameter_Constructor_EmptyOptions_ThrowsArgumentException
                   - ChoiceParameter_Constructor_NullOptionElement_ThrowsArgumentException
+
+              - id: Speech-Models-SpeechModelParameters-ChoiceValuesExposed
+                title: >-
+                  The ChoiceParameter class shall expose the declared options and default of a
+                  valid parameter.
+                justification: |
+                  A host renders generic controls from the exposed options and default.
+                tests:
+                  - ChoiceParameter_Constructor_ValidOptions_ExposesValues
 
               - id: Speech-Models-SpeechModelParameters-ChoiceDuplicateValidation
                 title: >-
@@ -133,11 +140,12 @@ sections:
               - id: Speech-Models-SpeechModelParameters-ChoiceOptionValueValidation
                 title: >-
                   The ChoiceParameterOption class shall reject at construction an empty or
-                  whitespace-only value.
+                  whitespace-only value and a null value or label.
                 justification: |
                   An option without a value cannot be addressed in the supplied bag.
                 tests:
                   - ChoiceParameterOption_Constructor_EmptyValue_ThrowsArgumentException
+                  - ChoiceParameterOption_Constructor_NullValueOrLabel_ThrowsArgumentNullException
 
               - id: Speech-Models-SpeechModelParameters-ChoiceCommonFieldValidation
                 title: >-
@@ -172,13 +180,13 @@ sections:
                   - BooleanParameter_Constructor_ValidValues_ExposesValues
                   - BooleanParameter_Constructor_WhitespaceId_ThrowsArgumentException
                   - BooleanParameter_Constructor_NullDisplayName_ThrowsArgumentNullException
+                  - BooleanParameter_Constructor_NullIdOrDescription_Throws
 
               - id: Speech-Models-SpeechModelParameterDiagnostics-UnrecognizedIdSilentWithDiagnostic
                 title: >-
-                  SpeechModelParameterDiagnostics.ValidateAndReport shall never throw for a
-                  supplied parameterValues key that names no parameter declared by the model's
-                  own descriptor set, and shall report an Info-level diagnostic naming the
-                  ignored key ("Parameter '{id}' is not declared by this model and was ignored.").
+                  SpeechModelParameterDiagnostics.ValidateAndReport shall ignore a supplied
+                  parameterValues key that names no parameter the model declares, reporting an
+                  Info-level diagnostic naming the key.
                 justification: |
                   A host reusing one settings dictionary across different models must not have
                   composition break just because a given model does not declare a parameter
@@ -187,14 +195,13 @@ sections:
                   informational diagnostic), never a thrown exception.
                 tests:
                   - ValidateAndReport_UnrecognizedParameterId_ReportsInfoAndDoesNotThrow
+                  - ValidateAndReport_MultipleUnrecognizedParameterIds_ReportsInfoForEach
 
               - id: Speech-Models-SpeechModelParameterDiagnostics-InvalidRecognizedValueThrows
                 title: >-
                   SpeechModelParameterDiagnostics.ValidateAndReport shall throw ArgumentException
-                  for the first invalid value found (iterating declared parameters in their
-                  declared order, for determinism) supplied for a parameter the model does
-                  declare, naming the parameter id, the model id, and the reason the value is
-                  invalid, without rounding or otherwise silently substituting a valid value.
+                  for an invalid value supplied for a parameter the model declares, naming the
+                  parameter id, the model id, and the reason.
                 justification: |
                   A host explicitly targeting a parameter it knows this model declares, with a
                   value invalid for it, is a caller bug rather than a legitimate cross-model
@@ -204,24 +211,57 @@ sections:
                   rounding it) and the host discovering the mismatch only from confusing later
                   behavior.
                 tests:
-                  - ValidateAndReport_MultipleInvalidValues_ThrowsForFirstDeclaredParameter
                   - ValidateAndReport_InvalidRecognizedValueAndUnrecognizedId_ThrowsForRecognizedValue
 
-              - id: Speech-Models-SpeechModelParameterDiagnostics-NumericValueInvalid
+              - id: Speech-Models-SpeechModelParameterDiagnostics-FirstInvalidValueReported
+                title: >-
+                  SpeechModelParameterDiagnostics.ValidateAndReport shall report the first invalid
+                  value in the model's declared parameter order when several values are invalid.
+                justification: |
+                  A deterministic choice of reported value keeps the failure message stable for
+                  the caller.
+                tests:
+                  - ValidateAndReport_MultipleInvalidValues_ThrowsForFirstDeclaredParameter
+
+              - id: Speech-Models-SpeechModelParameterDiagnostics-NumericValueOutOfRange
                 title: >-
                   SpeechModelParameterDiagnostics.ValidateAndReport shall throw ArgumentException
-                  for a value supplied for a NumericParameter that is not a double, int or float,
-                  that is non-finite, that lies outside [Minimum, Maximum], or that is fractional
-                  when the parameter is declared IsInteger, reporting a non-finite value
-                  distinctly from a wrong type.
+                  for a value supplied for a NumericParameter that lies outside
+                  [Minimum, Maximum].
                 justification: |
-                  Each of these values is invalid for the declared parameter and must not be
-                  silently clamped or rounded; a NaN or infinite double is the right type, so its
-                  message must not claim a type mismatch.
+                  An out-of-range value must not be silently clamped.
                 tests:
                   - ValidateAndReport_NumericParameterOutOfRange_Throws
+                  - ValidateAndReport_NumericParameterBelowMinimum_Throws
+
+              - id: Speech-Models-SpeechModelParameterDiagnostics-NumericValueWrongType
+                title: >-
+                  SpeechModelParameterDiagnostics.ValidateAndReport shall throw ArgumentException
+                  for a value supplied for a NumericParameter that is not a double, int or float.
+                justification: |
+                  A value of another type cannot be interpreted as a number and must not be
+                  coerced.
+                tests:
                   - ValidateAndReport_NumericParameterWrongType_Throws
+
+              - id: Speech-Models-SpeechModelParameterDiagnostics-NumericValueNonFinite
+                title: >-
+                  SpeechModelParameterDiagnostics.ValidateAndReport shall throw ArgumentException
+                  for a non-finite value supplied for a NumericParameter, reporting it distinctly
+                  from a wrong type.
+                justification: |
+                  A NaN or infinite double is the right type, so its message must not claim a
+                  type mismatch.
+                tests:
                   - ValidateAndReport_NumericParameterNonFiniteValue_ThrowsFiniteMessage
+
+              - id: Speech-Models-SpeechModelParameterDiagnostics-IntegerValueFractional
+                title: >-
+                  SpeechModelParameterDiagnostics.ValidateAndReport shall throw ArgumentException
+                  for a fractional value supplied for a NumericParameter declared IsInteger.
+                justification: |
+                  A fractional value must not be silently rounded.
+                tests:
                   - ValidateAndReport_IntegerParameterFractionalValue_Throws
 
               - id: Speech-Models-SpeechModelParameterDiagnostics-NumericValueAccepted
@@ -305,6 +345,10 @@ sections:
                 tests:
                   - ValidateAndReport_NumericParameterWrongType_Throws
                   - ValidateAndReport_ChoiceParameterWrongType_MessageNamesReceivedType
+                  - ValidateAndReport_NumericParameterOutOfRange_Throws
+                  - ValidateAndReport_BooleanParameterWrongType_Throws
+                  - ValidateAndReport_InvalidRecognizedValueAndUnrecognizedId_ThrowsForRecognizedValue
+                  - ValidateAndReport_UnsupportedParameterDescriptorType_Throws
 
               - id: Speech-Models-SpeechModelParameterDiagnostics-NoOpForNullOrEmptyBag
                 title: >-
@@ -326,3 +370,4 @@ sections:
                   These are mandatory inputs; failing fast identifies the caller bug.
                 tests:
                   - ValidateAndReport_NullArguments_ThrowArgumentNullException
+                  - ValidateAndReport_NullDeclaredParameterElement_ThrowsArgumentException
