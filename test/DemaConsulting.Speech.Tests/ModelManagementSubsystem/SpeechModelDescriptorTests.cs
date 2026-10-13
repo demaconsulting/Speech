@@ -1,5 +1,6 @@
 using DemaConsulting.Speech.ModelManagementSubsystem;
 using DemaConsulting.Speech.Tests.ModelManagementSubsystem.Fakes;
+using NSubstitute;
 
 namespace DemaConsulting.Speech.Tests.ModelManagementSubsystem;
 
@@ -43,8 +44,47 @@ public class SpeechModelDescriptorTests
     }
 
     /// <summary>
-    ///     Proves that two descriptors built with the same model and state are equal, and that a
-    ///     changed state (simulating a store-state transition between two <c>Enumerate()</c>
+    ///     Proves that the license passthrough properties mirror a model that declares a non-default license name and
+    ///     URL, so a descriptor returning constants would fail.
+    /// </summary>
+    [Fact]
+    public void SpeechModelDescriptor_Passthrough_NonDefaultLicense_MirrorsModel()
+    {
+        // Arrange
+        var model = Substitute.For<ISpeechModel>();
+        model.Id.Returns("licensed");
+        model.LicenseName.Returns("MIT");
+        model.LicenseUrl.Returns(new Uri("https://example.invalid/license"));
+
+        // Act
+        var descriptor = new SpeechModelDescriptor(model, SpeechModelState.Downloaded);
+
+        // Assert
+        Assert.Equal("MIT", descriptor.LicenseName);
+        Assert.Equal(new Uri("https://example.invalid/license"), descriptor.LicenseUrl);
+    }
+
+    /// <summary>
+    ///     Proves that two descriptors built with the same model instance and state are equal (reference equality on
+    ///     <c>Model</c>, value equality on <c>State</c>).
+    /// </summary>
+    [Fact]
+    public void SpeechModelDescriptor_SameModelAndState_AreEqual()
+    {
+        // Arrange
+        var model = new FakeRecognitionModel("model-c");
+
+        // Act
+        var first = new SpeechModelDescriptor(model, SpeechModelState.Downloaded);
+        var second = new SpeechModelDescriptor(model, SpeechModelState.Downloaded);
+
+        // Assert
+        Assert.Equal(first, second);
+        Assert.Equal(first.GetHashCode(), second.GetHashCode());
+    }
+
+    /// <summary>
+    ///     Proves that a changed state (simulating a store-state transition between two <c>Enumerate()</c>
     ///     calls) produces an unequal descriptor - since <see cref="SpeechModelDescriptor"/> is a
     ///     record, this proves state transitions are correctly reflected in a fresh snapshot.
     /// </summary>

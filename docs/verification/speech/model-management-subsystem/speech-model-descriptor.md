@@ -17,7 +17,8 @@ is rejected, and that two descriptors for the same model in different states are
 
 `Id`, `DisplayName`, and `Role` always mirror the wrapped `Model`'s own properties verbatim;
 likewise `LicenseName` and `LicenseUrl` always mirror the wrapped `Model`'s declared license
-name and URL; a null `model` throws `ArgumentNullException`; two descriptors differing only in
+name and URL (including a model that declares a non-default license); a null `model` throws
+`ArgumentNullException`; two descriptors for the same model and state are equal; two descriptors differing only in
 `State` are not equal.
 
 #### Test Scenarios
@@ -25,6 +26,14 @@ name and URL; a null `model` throws `ArgumentNullException`; two descriptors dif
 ##### A valid model produces a descriptor exposing the model and its passthrough properties
 
 **Test**: `SpeechModelDescriptor_Constructor_ValidModel_ExposesModelAndPassthroughProperties`
+
+##### Passthrough mirrors a non-default license
+
+**Test**: `SpeechModelDescriptor_Passthrough_NonDefaultLicense_MirrorsModel`
+
+##### The same model and state are equal
+
+**Test**: `SpeechModelDescriptor_SameModelAndState_AreEqual`
 
 ##### A null model throws ArgumentNullException
 

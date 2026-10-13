@@ -459,6 +459,7 @@ sections:
               - Speech-Models-SpeechModelCatalog-DownloadFailureState
               - Speech-Models-SpeechModelCatalog-UnknownModelDownloadThrows
               - Speech-Models-SpeechModelDescriptor-Snapshot
+              - Speech-Models-SpeechModelDescriptor-PassthroughProperties
             tests:
               - SpeechModelCatalog_Enumerate_EmptyKnownModels_ReturnsEmptyList
               - SpeechModelCatalog_AddModels_Called_AppearsInEnumerate
