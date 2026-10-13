@@ -144,6 +144,7 @@ sections:
               - SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-TrailingEndOfText
               - SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-Errors
               - SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-InvalidGzip
+              - SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-EmptyAddedToken
               - SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-MalformedMerges
               - SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-MissingEndOfText
               - SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-EmptyVocabulary

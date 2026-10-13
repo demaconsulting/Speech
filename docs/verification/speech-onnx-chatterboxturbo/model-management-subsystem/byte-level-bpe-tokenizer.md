@@ -83,7 +83,9 @@ trailing count throws `ArgumentOutOfRangeException`; a piece without a vocabular
 
 ##### Null added-token content throws
 
-**Test**: `ByteLevelBpeTokenizer_Constructor_NullAddedTokenContent_ThrowsInvalidData`
+**Test**: `ByteLevelBpeTokenizer_Constructor_NullAddedTokenContent_ThrowsInvalidData` and
+`ByteLevelBpeTokenizer_Constructor_EmptyAddedTokenContent_ThrowsInvalidData` (an empty added token would
+match at every position)
 
 ##### A custom end-of-text token found in the vocabulary is appended
 

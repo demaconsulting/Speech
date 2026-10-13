@@ -72,6 +72,16 @@ sections:
                 tests:
                   - ByteLevelBpeTokenizer_Constructor_InvalidDocument_ThrowsInvalidData
 
+              - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-EmptyAddedToken
+                title: >-
+                  The ByteLevelBpeTokenizer class shall throw InvalidDataException for a document
+                  that declares an added token with empty content.
+                justification: |
+                  An empty added token would match at every position and insert its id between
+                  every character, corrupting every encoding.
+                tests:
+                  - ByteLevelBpeTokenizer_Constructor_EmptyAddedTokenContent_ThrowsInvalidData
+
               - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-InvalidGzip
                 title: >-
                   The ByteLevelBpeTokenizer class shall throw InvalidDataException for a document

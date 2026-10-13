@@ -117,6 +117,11 @@ internal sealed class ByteLevelBpeTokenizer
                 {
                     var content = token.GetProperty("content").GetString()
                                   ?? throw new InvalidDataException("An added token has null content.");
+                    if (content.Length == 0)
+                    {
+                        throw new InvalidDataException("An added token has empty content.");
+                    }
+
                     _addedTokens[content] = token.GetProperty("id").GetInt32();
                 }
             }

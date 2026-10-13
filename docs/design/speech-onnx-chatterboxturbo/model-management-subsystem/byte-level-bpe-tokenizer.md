@@ -9,8 +9,10 @@ ordered merge ranks, the added-token table (atomic special tokens such as parali
 byte-to-unicode table, and the number of trailing end-of-text ids the post-processor appends (two for
 Chatterbox Turbo, id 50256). The added tokens are matched by one regular expression whose alternatives are
 ordered longest first, so a token that is a prefix of another never shadows it. A `ConcurrentDictionary`
-caches the BPE ids per pre-token text. The instance is thread-safe: everything else is read-only, and a cache
-race only repeats deterministic work.
+caches the BPE ids per pre-token text; the cache is unbounded, so a long-lived shared instance fed many
+distinct pre-tokens grows (acceptable for a per-model instance). The instance is thread-safe: everything else
+is read-only, and a cache race only repeats deterministic work. The added-token flags in the document
+(`special`, left-strip and right-strip flags, normalization) are ignored.
 
 **Key Methods**:
 
@@ -22,7 +24,7 @@ race only repeats deterministic work.
   regex, map bytes to unicode, apply merges by rank, look up ids, and append the trailing ids
 
 **Error Handling**: `InvalidDataException` for a non-gzip stream, an invalid or empty tokenizer
-document (including null or malformed merge entries and null added-token content) or an
+document (including null or malformed merge entries and null or empty added-token content) or an
 end-of-text token that is not in the tokenizer when ids must be appended;
 `ArgumentNullException` for null arguments; `ArgumentOutOfRangeException` for a negative
 `trailingEndOfTextCount`; `InvalidOperationException` from `Encode` when a merged piece has no

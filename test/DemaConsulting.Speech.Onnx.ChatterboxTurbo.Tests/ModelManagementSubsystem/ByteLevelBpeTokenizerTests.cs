@@ -229,6 +229,18 @@ public sealed class ByteLevelBpeTokenizerTests
         Assert.Throws<InvalidDataException>(() => new ByteLevelBpeTokenizer(stream, trailingEndOfTextCount: 0));
     }
 
+    /// <summary>Proves an added token with empty content is rejected instead of matching everywhere.</summary>
+    [Fact]
+    public void ByteLevelBpeTokenizer_Constructor_EmptyAddedTokenContent_ThrowsInvalidData()
+    {
+        // Arrange
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(
+            "{\"model\":{\"vocab\":{\"a\":0},\"merges\":[]},\"added_tokens\":[{\"id\":1,\"content\":\"\"}]}"));
+
+        // Act & Assert
+        Assert.Throws<InvalidDataException>(() => new ByteLevelBpeTokenizer(stream, trailingEndOfTextCount: 0));
+    }
+
     /// <summary>Proves a custom end-of-text token found in the vocabulary is the one appended.</summary>
     [Fact]
     public void ByteLevelBpeTokenizer_Constructor_CustomEndOfTextInVocabulary_IsAppended()
