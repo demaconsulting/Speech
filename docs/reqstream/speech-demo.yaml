@@ -119,6 +119,7 @@ sections:
           - SpeechDemo-DeviceSelection-PanelPreselectsFirstDevice
           - SpeechDemo-DeviceSelection-RefreshKeepsSelection
           - SpeechDemo-DeviceSelection-RefreshFailureExplained
+          - SpeechDemo-DeviceSelection-RefreshFailureKeepsState
           - SpeechDemo-DeviceSelection-RefreshReachesLibrary
         tests:
           - SpeechDemo_SystemIntegration_RealAudioBackend_DeviceEnumerationNeverThrows

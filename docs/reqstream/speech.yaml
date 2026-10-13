@@ -52,6 +52,7 @@ sections:
           - Speech-Audio-NameOnlyIdentity
           - Speech-Audio-SelectionFallback
           - Speech-Audio-DeviceRefresh
+          - Speech-Audio-DeviceRefreshInvalidation
           - Speech-Audio-DeviceRefreshRefusal
           - Speech-Audio-MockableContracts
           - Speech-Audio-PreferredHostApiEnumeration
@@ -114,7 +115,7 @@ sections:
           A machine missing compatible native audio support is an expected deployment state.
           The library must degrade predictably rather than failing during composition.
         children:
-          - Speech-Audio-AudioDeviceFactory-PortAudioInitializationFallback
+          - Speech-Audio-InitializationFallback
         tests:
           - Speech_SystemIntegration_PortAudioInitializationFails_FactoryReturnsUnavailableDevices
 
@@ -162,6 +163,7 @@ sections:
           a verified replacement is fully staged, then swapped in atomically.
         children:
           - Speech-Models-AtomicInstall
+          - Speech-Models-LeftoverCleanup
         tests:
           - SpeechModelStore_CompleteInstall_ExistingCurrent_ReplacesContentAndCleansUpOldDirectory
           - SpeechModelStore_CompleteInstall_FirstInstall_CreatesCurrentAndManifest
@@ -191,6 +193,8 @@ sections:
           - Speech-Models-HonestFailureStates
           - Speech-Models-DownloadFailureDiagnostics
           - Speech-Models-RicherFailureClassification
+          - Speech-Models-FailureErrorPopulated
+          - Speech-Models-CallerCancellationNotAFailure
         tests:
           - SpeechModelDownloader_DownloadAsync_ChecksumMismatch_ReportsChecksumMismatchAndInstallsNothing
           - SpeechModelDownloader_DownloadAsync_HttpRequestExceptionWithStatusCode_ReportsHttpError
@@ -260,6 +264,9 @@ sections:
           declared download descriptor.
         children:
           - Speech-Models-MirrorRedirect
+          - Speech-Models-MirrorAuthentication
+          - Speech-Models-MirrorAuthenticationRedirectStripping
+          - Speech-Models-MirrorAuthenticationTransportPolicy
         tests:
           - DownloadMirror_Constructor_NonHttpScheme_ThrowsArgumentExceptionNamingScheme
           - ReferenceVoiceLibrary_InstallPack_WithMirror_RequestsMirrorUri
@@ -315,6 +322,13 @@ sections:
           - Speech-Models-TunableParameters
           - Speech-Models-TunableParameterValueValidation
           - Speech-Models-TunableParameterUnrecognizedIdTolerance
+          - Speech-Models-ContractParameterDeclaration
+          - Speech-Models-ContractAudioTagAndDownloadDeclaration
+          - Speech-Models-ContractLicenseDeclaration
+          - Speech-Models-ContractHooks
+          - Speech-Models-ContractRoleMembers
+          - Speech-Models-TunableParameterDescriptorValidation
+          - Speech-Models-TunableParameterArgumentValidation
         tests:
           - ISpeechModel_Parameters_DeclaresEveryDescriptorKind
           - ISpeechModel_AudioTagSupportAndDownloadDescriptor_AreExposed
@@ -331,6 +345,7 @@ sections:
         children:
           - Speech-Models-CatalogEnumeration
           - Speech-Models-CatalogStoreComposition
+          - Speech-Models-CatalogStateReporting
         tests:
           - Speech_SystemIntegration_ModelCatalog_EnumeratesAndTracksDownloadState
 
@@ -391,6 +406,8 @@ sections:
           Speech-Synthesis-StreamingSynthesizer below.
         children:
           - Speech-Synthesis-ClosedVocabulary
+          - Speech-Synthesis-ClosedVocabularyAliasCanonicalization
+          - Speech-Synthesis-ClosedVocabularyKindGrouping
         tests:
           - Speech_SystemIntegration_AudioTagVocabulary_KnownTagParsedAndUnknownBracketPassesThrough
 
@@ -407,6 +424,7 @@ sections:
         children:
           - Speech-Synthesis-Layer1Parsing
           - Speech-Synthesis-Layer1AliasResolution
+          - Speech-Synthesis-Layer1AliasNullRejection
           - Speech-Synthesis-Layer1LiteralPassthrough
         tests:
           - Speech_SystemIntegration_AudioTagVocabulary_KnownTagParsedAndUnknownBracketPassesThrough
@@ -426,8 +444,14 @@ sections:
           end-to-end behavior is proven against a test model per the fakeable engine seam.
         children:
           - Speech-Synthesis-MockableContract
+          - Speech-Synthesis-MockableContractAvailability
+          - Speech-Synthesis-MockableContractUnavailableOperations
           - Speech-Synthesis-MockableSynthesisPlaybackContract
+          - Speech-Synthesis-MockableSynthesisOneShot
+          - Speech-Synthesis-MockableSynthesisStreaming
+          - Speech-Synthesis-MockableSynthesisSessionDisposal
           - Speech-Synthesis-MockableCancellationContract
+          - Speech-Synthesis-MockableCancellationIdleNoOp
           - Speech-Synthesis-EngineExclusivity
           - Speech-Synthesis-EngineDisposalOrdering
           - Speech-Synthesis-VoiceSelection
@@ -437,8 +461,14 @@ sections:
           - Speech-Synthesis-SessionStateMachine
           - Speech-Synthesis-FaultedSessionTerminal
           - Speech-Synthesis-FaultContainment
+          - Speech-Synthesis-FaultContainmentBoundedCompletion
+          - Speech-Synthesis-FaultContainmentAbandonedCall
+          - Speech-Synthesis-FaultContainmentDisposal
+          - Speech-Synthesis-SessionAvailabilityAfterEnd
           - Speech-Synthesis-DeterministicCancellation
           - Speech-Synthesis-NonCooperativeCallAbandonment
+          - Speech-Synthesis-NativeCallThreadIsolation
+          - Speech-Synthesis-NoSynthesizedTextInDiagnostics
           - Speech-Audio-PlaybackFormatDisclosure
         tests:
           - Speech_SystemIntegration_StreamingSynthesis_TextProducesPlayedAudio
@@ -455,6 +485,8 @@ sections:
           - Speech-Synthesis-Layer2Rendering
           - Speech-Synthesis-Layer2RenderingApproximation
           - Speech-Synthesis-Layer2RenderingStrip
+          - Speech-Synthesis-Layer2RenderingPlainTextChunking
+          - Speech-Synthesis-Layer2RenderingPause
           - Speech-Models-SpeechModelContract-SynthesisEngineConfigDeclaration
           - Speech-Models-SpeechModelContract-SynthesisCapabilityProfileDeclaration
         tests:
