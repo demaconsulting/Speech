@@ -337,17 +337,17 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IAsyncDi
     ///     Marshals one <see cref="ISynthesisSession.StateChanged"/> event onto the UI thread and
     ///     applies <see cref="MapSessionState"/>.
     /// </summary>
-    /// <param name="sender">The raising session. Unused.</param>
+    /// <param name="sender">The raising session.</param>
     /// <param name="e">The event carrying the previous and current session state.</param>
     private void OnSessionStateChanged(object? sender, SessionStateChangedEventArgs e)
     {
         if (_uiContext is null)
         {
-            ApplySessionStateChanged(e);
+            ApplySessionStateChanged(sender, e);
         }
         else
         {
-            _uiContext.Post(state => ApplySessionStateChanged((SessionStateChangedEventArgs)state!), e);
+            _uiContext.Post(state => ApplySessionStateChanged(sender, (SessionStateChangedEventArgs)state!), e);
         }
     }
 
@@ -355,9 +355,17 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IAsyncDi
     ///     Applies one session state transition to <see cref="State"/>, additionally reporting
     ///     <see cref="SessionFaultedMessage"/> when the session has faulted.
     /// </summary>
+    /// <param name="sender">The raising session; a transition from any session other than the cached one is ignored.</param>
     /// <param name="e">The event carrying the previous and current session state.</param>
-    private void ApplySessionStateChanged(SessionStateChangedEventArgs e)
+    private void ApplySessionStateChanged(object? sender, SessionStateChangedEventArgs e)
     {
+        // A transition queued to the UI thread before its session was released (or replaced) must not alter the
+        // state afterwards.
+        if (!ReferenceEquals(sender, _session))
+        {
+            return;
+        }
+
         State = MapSessionState(e.Current);
 
         if (e.Current == SynthesisSessionState.Faulted)
@@ -412,6 +420,36 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IAsyncDi
     /// <returns>A task that completes once playback finishes, is stopped, or faults.</returns>
     [RelayCommand(CanExecute = nameof(CanPlay))]
     private async Task PlayAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await PlayCoreAsync(cancellationToken).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
+            // Stopped while the engine was loading or the session was being created (a stop during
+            // playback is handled inside PlayCoreAsync); nothing is playing.
+            State = SynthesisPlaybackState.Idle;
+            StatusMessage = StoppedMessage;
+        }
+#pragma warning disable CA1031 // Presentation layer must not crash the application on any seam fault.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            // Any other fault from the engine/session seams (for example an invalid parameter value) is reported
+            // honestly; the session's state is unknown, so it is released and the next Play creates a fresh one.
+            State = SynthesisPlaybackState.Error;
+            StatusMessage = ex.Message;
+            await ReleaseSessionAsync().ConfigureAwait(true);
+        }
+    }
+
+    /// <summary>
+    ///     Performs one Play attempt; faults not handled here are contained by <see cref="PlayAsync"/>.
+    /// </summary>
+    /// <param name="cancellationToken">The token that stops the attempt.</param>
+    /// <returns>A task that completes once playback finishes, is stopped, or faults.</returns>
+    private async Task PlayCoreAsync(CancellationToken cancellationToken)
     {
         var selectedModel = SelectedModel;
         if (selectedModel is null)
@@ -511,6 +549,7 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IAsyncDi
             // Faulted is terminal for a session (see ISynthesisSession's remarks): release it so
             // the next Play creates a fresh one against the still-cached engine.
             await ReleaseSessionAsync().ConfigureAwait(true);
+            State = SynthesisPlaybackState.Error;
             StatusMessage = ex.Message;
         }
     }
@@ -564,6 +603,13 @@ public sealed partial class SynthesisPanelViewModel : ObservableObject, IAsyncDi
         }
 
         await ReleaseSessionAsync().ConfigureAwait(true);
+
+        // Late transitions of the released session are ignored (see OnSessionStateChanged), so nothing can be
+        // playing any more.
+        if (State is SynthesisPlaybackState.Synthesizing or SynthesisPlaybackState.Playing)
+        {
+            State = SynthesisPlaybackState.Idle;
+        }
     }
 
     /// <summary>
