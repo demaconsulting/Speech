@@ -43,7 +43,14 @@ rejected with `ArgumentException`, and null arguments are rejected with `Argumen
 
 **Scenario**: A rooted path outside the base is supplied as the component.
 
-**Expected**: `ArgumentException`, because the rooted component replaces the base.
+**Expected**: `ArgumentException`, because a rooted component is never accepted.
+
+#### PathHelpers_SafePathCombine_RootedPathInsideBase_ThrowsArgumentException
+
+**Scenario**: A rooted path that lies inside the base directory is supplied as the component
+(regression for a defect where it was accepted).
+
+**Expected**: `ArgumentException` with parameter name `relativePath`.
 
 #### PathHelpers_SafePathCombine_NullArguments_ThrowArgumentNullException
 

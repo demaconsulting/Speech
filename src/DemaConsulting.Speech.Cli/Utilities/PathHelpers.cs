@@ -37,7 +37,9 @@ internal static class PathHelpers
     /// </remarks>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="basePath"/> or <paramref name="relativePath"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">
-    ///     Thrown when the resolved combined path escapes the base directory, or when a supplied path is invalid.
+    ///     Thrown when <paramref name="relativePath"/> is rooted (even if it lies inside the base
+    ///     directory), when the resolved combined path escapes the base directory, or when a
+    ///     supplied path is invalid.
     /// </exception>
     /// <exception cref="NotSupportedException">Thrown when a supplied path contains an unsupported format.</exception>
     /// <exception cref="PathTooLongException">Thrown when the combined or resolved path exceeds the system-defined maximum length.</exception>
@@ -47,10 +49,15 @@ internal static class PathHelpers
         ArgumentNullException.ThrowIfNull(basePath);
         ArgumentNullException.ThrowIfNull(relativePath);
 
-        // Combine the paths using Path.Combine (not Path.Join): a rooted relativePath must
-        // replace basePath entirely so the containment check below can detect and reject it.
-        // Path.Join would instead glue the rooted segment onto basePath, silently defeating
-        // this method's security boundary.
+        // Reject every rooted component outright, including one that happens to lie inside the
+        // base directory: a component is documented as relative, and accepting an absolute one
+        // would let the caller bypass the relative-component contract.
+        if (Path.IsPathRooted(relativePath))
+        {
+            throw new ArgumentException($"Invalid path component: {relativePath}", nameof(relativePath));
+        }
+
+        // Combine the paths using Path.Combine; the rooted case is already rejected above.
         var combinedPath = Path.Combine(basePath, relativePath);
 
         // Security check: resolve both paths to absolute form and verify the combined

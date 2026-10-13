@@ -33,9 +33,11 @@ sections:
             title: >-
               The PathHelpers unit shall reject, with an ArgumentException, a rooted component.
             justification: |
-              A rooted component replaces the base path when combined, defeating the check.
+              A rooted component replaces the base path when combined, defeating the check; even
+              one that lies inside the base is not a relative component.
             tests:
               - PathHelpers_SafePathCombine_RootedRelativePath_ThrowsArgumentException
+              - PathHelpers_SafePathCombine_RootedPathInsideBase_ThrowsArgumentException
 
           - id: SpeechCli-PathHelpers-NullRejected
             title: >-

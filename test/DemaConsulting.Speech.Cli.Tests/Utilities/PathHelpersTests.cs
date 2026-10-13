@@ -99,6 +99,24 @@ public sealed class PathHelpersTests
     }
 
     /// <summary>
+    ///     Validates that a rooted path that lies inside the base directory is also rejected
+    ///     (regression: it was previously accepted because it passed the containment check).
+    /// </summary>
+    [Fact]
+    public void PathHelpers_SafePathCombine_RootedPathInsideBase_ThrowsArgumentException()
+    {
+        // Arrange: a rooted path that is inside the base directory
+        var basePath = Path.GetFullPath(Path.Join(Path.GetTempPath(), "safe-path-combine-tests"));
+        var rootedInside = Path.Join(basePath, "child.txt");
+
+        // Act
+        var exception = Assert.Throws<ArgumentException>(() => PathHelpers.SafePathCombine(basePath, rootedInside));
+
+        // Assert: the offending parameter is identified
+        Assert.Equal("relativePath", exception.ParamName);
+    }
+
+    /// <summary>
     ///     Validates that null arguments are rejected.
     /// </summary>
     [Fact]

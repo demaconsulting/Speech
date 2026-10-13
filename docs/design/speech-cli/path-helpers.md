@@ -9,14 +9,15 @@ normalization is applied, so it does not resolve symbolic links.
 
 **Key Methods**: `SafePathCombine(basePath, relativePath)`:
 
-1. Combine with `Path.Combine` (deliberately not `Path.Join`): a rooted `relativePath` then
-   replaces the base entirely, so the containment check below detects and rejects it. `Path.Join`
-   would instead append the rooted segment to the base and defeat the check.
-2. Resolve both the base and the combined path to fully qualified form with `Path.GetFullPath`.
-3. Compute `Path.GetRelativePath(absoluteBase, absoluteCombined)` and reject the combination when that
+1. Reject a rooted `relativePath` (`Path.IsPathRooted`) with `ArgumentException`, before any
+   combination. This applies even when the rooted path lies inside the base directory: a component
+   is a relative one by contract, so an absolute path is never accepted.
+2. Combine with `Path.Combine`.
+3. Resolve both the base and the combined path to fully qualified form with `Path.GetFullPath`.
+4. Compute `Path.GetRelativePath(absoluteBase, absoluteCombined)` and reject the combination when that
    relative path is `..`, starts with `..` followed by either directory separator, or is itself
    rooted (the result for a different drive or volume).
-4. Return the already validated absolute combined path, never the unnormalized combination, so a
+5. Return the already validated absolute combined path, never the unnormalized combination, so a
    relative base cannot later resolve against a different working directory than the one the check
    used.
 
@@ -29,7 +30,7 @@ accepted. Case sensitivity of the comparison follows the platform because `GetRe
 | Exception | Condition |
 | --- | --- |
 | `ArgumentNullException` | `basePath` or `relativePath` is null |
-| `ArgumentException` | The combined path escapes the base, or a path is invalid for the runtime (see below) |
+| `ArgumentException` | `relativePath` is rooted (even inside the base), the combined path escapes the base, or a path is invalid for the runtime (see below) |
 | `NotSupportedException` | A path has an unsupported format |
 | `PathTooLongException` | The combined or resolved path exceeds the system limit |
 
