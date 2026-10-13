@@ -24,12 +24,15 @@ download lifecycle is proven against controlled catalog data, never a real netwo
 #### Acceptance Criteria
 
 The unit passes when: it shows one row per reported model and rebuilds correctly on refresh, but
-refuses a refresh while a model download or pack install is in flight; every download outcome is reported as a row state with an honest explanation rather than as an
+refuses a refresh while a model download or pack install is in flight; every download outcome is
+reported as a row state with an honest explanation rather than as an
 application error; an installed model is never re-downloaded; an empty catalog is explained
 rather than shown blank; the mirror-settings fields apply a valid mirror (or revert to each
 model's public URI on a blank URL), re-read the catalog afterwards, and report any validation,
-reconfiguration or re-read failure as an explained panel state; and the reference voice pack section lists, installs and removes packs while refusing operations
-that would overlap a model download, a pack install or a mirror change; a fault reading an installed pack's emotion flag is contained; after any unsuccessful pack
+reconfiguration or re-read failure as an explained panel state; and the reference voice pack
+section lists, installs and removes packs while refusing operations
+that would overlap a model download, a pack install or a mirror change; a fault reading an
+installed pack's emotion flag is contained; after any unsuccessful pack
 install or upgrade the row shows the state the seam reports (a pack still installed stays installed
 and removable) with its failure message, falling back to the attempt's outcome when the state cannot
 be read; and a removal the seam refuses is explained on the row.
