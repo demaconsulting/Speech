@@ -33,6 +33,7 @@ sections:
               - Speech-Synthesis-AudioTagParser-AliasRoundTrip
               - Speech-Synthesis-AudioTagParser-NoAliasAmbiguity
               - Speech-Synthesis-AudioTagParser-KindGrouping
+              - Speech-Synthesis-AudioTagParser-VocabularyImmutability
             tests:
               - AudioTagCatalog_Tags_Always_CoversEveryCanonicalTagWithAtLeastOneAlias
               - AudioTagCatalog_Tags_Always_NoAliasIsSharedByTwoDifferentTags
@@ -50,6 +51,7 @@ sections:
             children:
               - Speech-Synthesis-AudioTagParser-OrderedSpanSequence
               - Speech-Synthesis-AudioTagParser-TagPlacementSpans
+              - Speech-Synthesis-AudioTagParser-NullTextRejection
             tests:
               - AudioTagParser_Parse_MixedPlainTextAndTag_ReturnsOrderedSpans
 
@@ -435,7 +437,7 @@ sections:
               - Speech-Synthesis-SynthesisSession-DisposedReportsUnavailable
               - Speech-Synthesis-SynthesisSession-DisposeWaitsForNativeCompletion
               - Speech-Synthesis-SynthesisSession-DisposeLeaseReleaseAfterNativeCompletion
-              - Speech-Synthesis-SynthesisSession-AbandonedNativeCallFaults
+              - Speech-Synthesis-SynthesisSession-AbandonedNativeCallReturnsPromptly
               - Speech-Synthesis-SynthesisSession-AbandonedNativeCallFaultTransition
               - Speech-Synthesis-SynthesisSession-AbandonedNativeCallRejectsReuse
             tests:

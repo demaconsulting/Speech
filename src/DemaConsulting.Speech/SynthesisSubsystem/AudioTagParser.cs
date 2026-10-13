@@ -73,7 +73,7 @@ public static class AudioTagParser
             {
                 // Unknown tag name or empty brackets: emit only the opening bracket literally and
                 // resume scanning just after it, so a nested '[' inside the candidate (as in
-                // "[ [laugh]") can still open a valid tag; the "never worse than plain
+                // "[ [fast]") can still open a valid tag; the "never worse than plain
                 // narration" guarantee is preserved because all text is still passed through
                 plain.Append('[');
                 i++;

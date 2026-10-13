@@ -60,8 +60,9 @@ word "engine" for the public Layer 3 contract. `ISynthesisBackend` is public and
 ### Interfaces
 
 The subsystem exposes `NaturalLanguageAudioTag`, `NaturalLanguageAudioTagKind`,
-`AudioTagDescriptor`, `AudioTagCatalog`, `TaggedTextSpanKind`, `TaggedTextSpan`, `AudioTagParser`
-(unchanged), `ISpeechSynthesizerEngine`, `ISynthesisSession`, `SynthesizedSpeech`,
+`AudioTagDescriptor`, `AudioTagCatalog`, `TaggedTextSpanKind`, `TaggedTextSpan`, `AudioTagParser`,
+`ISpeechSynthesizerEngine`, `ISynthesisSession`, `ISynthesisBackend`, `EngineAudio`,
+`IModelCapabilityProfile`, `SpeechPlan`, `SpeechSegment`, `SynthesizedSpeech`,
 `SynthesisSessionState`, `SessionStateChangedEventArgs`, `SpeechSynthesizerFactory`,
 `UnavailableSpeechSynthesizerEngine`, `UnavailableSynthesisSession`,
 `SynthesisEngineBusyException`, `SynthesisSessionFaultedException`, and
@@ -120,10 +121,14 @@ stateDiagram-v2
     [*] --> Created
     Created --> Starting : SpeakAsync/SynthesizeAsync called
     Starting --> Running
-    Running --> Stopping : operation completes, cancels, or faults
-    Stopping --> Stopped : success or cancellation
-    Stopping --> Faulted : non-cancellation failure
+    Running --> Stopping : operation completes or is canceled
+    Running --> Faulted : non-cancellation failure
+    Stopping --> Stopped
     Stopped --> Starting : SpeakAsync/SynthesizeAsync called again
+    Created --> Disposing : DisposeAsync
+    Starting --> Disposing : DisposeAsync
+    Running --> Disposing : DisposeAsync
+    Stopping --> Disposing : DisposeAsync
     Stopped --> Disposing : DisposeAsync
     Faulted --> Disposing : DisposeAsync
     Disposing --> Disposed
@@ -134,27 +139,37 @@ stateDiagram-v2
         discrete in-flight operation, not a
         continuous stream. A session returns
         to Stopped and is reusable after each
-        call.
+        call. DisposeAsync is reachable from
+        any state and first waits for any
+        in-flight operation to settle.
     end note
 ```
 
 Operations on one session never overlap (a second call while an operation is in flight throws
-`InvalidOperationException`), and a non-cancellation failure makes the session terminally `Faulted`. The
+`InvalidOperationException`), and a non-cancellation failure - including a canceled operation whose
+native call had to be abandoned - makes the session terminally `Faulted`, directly from the state
+the operation was in. The
 transition rules, the stop and dispose behavior, and the fault handling are specified in _SynthesisSession_.
 
 #### Units
 
 The session coordinates several units, each documented in its own file under
-`synthesis-subsystem/`: _SynthesisBackend_ (`ISynthesisBackend`, `ISynthesisBackendFactory`,
-`DefaultSynthesisBackendFactory`), _Layer2Rendering_ (`IModelCapabilityProfile`,
-`DefaultModelCapabilityProfile`), _SentenceChunker_, _PlaybackAudioResampler_,
-_DedicatedWorker_, and _SynthesisSessionFaultedException_. The session's whole job is to move
-text through rendering and chunking, into the backend (via a dedicated worker), and the resulting
-audio through resampling onto its bound playback device. The remaining units are listed with
-their design documents below.
+`synthesis-subsystem/`. The session's whole job is to move text through rendering and chunking,
+into the backend (via a dedicated worker), and the resulting audio through resampling onto its
+bound playback device. Internal helpers (`SpeechParameterConventions`, `SentenceChunk`, and
+`DedicatedWorkerRun<T>`) are documented with the unit that owns them (Layer 2 rendering,
+_SentenceChunker_, and _DedicatedWorker_ respectively).
 
 | Unit | Design document |
 | ---- | --------------- |
+| `AudioTagParser` (with `AudioTagCatalog` and the tag value types) | `synthesis-subsystem/audio-tag-parser.md` |
+| `IModelCapabilityProfile`, `DefaultModelCapabilityProfile` | `synthesis-subsystem/layer2-rendering.md` |
+| `SentenceChunker` | `synthesis-subsystem/sentence-chunker.md` |
+| `ISynthesisBackend`, `ISynthesisBackendFactory`, `DefaultSynthesisBackendFactory` | `synthesis-subsystem/synthesis-backend.md` |
+| `DedicatedWorker` | `synthesis-subsystem/dedicated-worker.md` |
+| `PlaybackAudioResampler` | `synthesis-subsystem/playback-audio-resampler.md` |
+| `SpeechSynthesizerEngine` | `synthesis-subsystem/speech-synthesizer-engine.md` |
+| `SynthesisSession` | `synthesis-subsystem/synthesis-session.md` |
 | `ISpeechSynthesizerEngine` | `synthesis-subsystem/i-speech-synthesizer-engine.md` |
 | `ISynthesisSession` | `synthesis-subsystem/i-synthesis-session.md` |
 | `SpeechSynthesizerFactory` | `synthesis-subsystem/speech-synthesizer-factory.md` |
@@ -167,21 +182,17 @@ their design documents below.
 #### Design Constraints
 
 **Volume is applied as post-hoc amplitude scaling, not a native backend parameter.** The
-`ISynthesisBackend.Generate` contract has no volume/gain input, so a `Loud`/`Soft`/`Whispers` tag's numeric override is
-applied by scaling the generated segment's samples and clamping to `[-1.0, 1.0]`, rather than
-being passed into `Generate(...)`.
+backend seam has no volume/gain input, so a `Loud`/`Soft`/`Whispers` tag's numeric override is
+applied by scaling the generated segment's samples and clamping to `[-1.0, 1.0]`.
 
-**Speed is applied as a native backend parameter.** Unlike volume, `Generate(text, speed,
-speakerId)` accepts a speed multiplier, so a `Fast`/`VeryFast`/`Slow`/`VerySlow`
-tag's override is passed straight through rather than post-processed.
+**Speed is applied as a native backend parameter.** The backend seam accepts a speed multiplier,
+so a `Fast`/`VeryFast`/`Slow`/`VerySlow` tag's override is passed straight through rather than
+post-processed.
 
-**Voice/speaker selection is a session-level concern, not a per-segment override.** The
-`speakerId` argument to `Generate(...)` is resolved once per segment by calling
-`ISynthesisModel.ResolveSpeakerId(parameterValues)` against the constructor-supplied
-`parameterValues` bag - deliberately _not_ reused via the per-segment `ParameterOverrides`
-mechanism (see Layer 2 rendering), which is Natural Language Audio Tag-scoped and transient. A selected voice, by
-contrast, applies to the whole session, so it is threaded through the constructor instead and
-re-resolved fresh per segment (cheap and pure) rather than cached once for the whole session.
+**Voice/speaker selection is a session-level concern, not a per-segment override.** The speaker
+is resolved by the model from the session's selected parameter values, deliberately not through
+the Natural Language Audio Tag-scoped, transient per-segment parameter overrides (see Layer 2
+rendering). The exact resolution mechanics are specified in _SynthesisSession_.
 
 **Synthesized text is never reported through diagnostics.** Every diagnostic this subsystem emits
 is a structural fact - composed, started, stopped, faulted, or lease-related - and never includes

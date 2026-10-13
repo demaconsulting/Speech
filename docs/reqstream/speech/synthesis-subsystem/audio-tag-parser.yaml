@@ -57,6 +57,28 @@ sections:
                 tests:
                   - AudioTagCatalog_TryResolve_EveryDocumentedAlias_ResolvesToItsOwnTag
                   - AudioTagCatalog_TryResolve_MixedCaseWithExtraWhitespace_ResolvesToCanonicalTag
+                  - AudioTagCatalog_Tags_EveryCanonicalTag_HasExpectedKind
+
+              - id: Speech-Synthesis-AudioTagParser-VocabularyImmutability
+                title: >-
+                  AudioTagCatalog shall expose its tag table and each tag's alias list as read-only
+                  collections that a caller cannot cast back to a mutable collection.
+                justification: |
+                  The vocabulary is closed and single-source-of-truth; a caller that could mutate
+                  the shared static table would silently change parsing for the whole process.
+                tests:
+                  - AudioTagCatalog_Tags_Always_IsNotCastableToMutableList
+                  - AudioTagCatalog_Tags_Always_AliasesAreNotCastableToMutableArray
+
+              - id: Speech-Synthesis-AudioTagParser-NullTextRejection
+                title: >-
+                  AudioTagParser.Parse and TaggedTextSpan.PlainText shall throw
+                  ArgumentNullException when given null text.
+                justification: |
+                  Null is a caller error, not text; failing fast avoids a later null dereference
+                  and is distinct from the empty-input case, which yields an empty span list.
+                tests:
+                  - AudioTagParser_Parse_NullText_ThrowsArgumentNullException
 
               - id: Speech-Synthesis-AudioTagParser-CaseInsensitiveResolution
                 title: >-

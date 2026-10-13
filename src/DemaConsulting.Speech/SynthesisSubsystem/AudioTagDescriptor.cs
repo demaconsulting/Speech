@@ -1,7 +1,7 @@
 namespace DemaConsulting.Speech.SynthesisSubsystem;
 
 /// <summary>
-///     The kind and canonical display information for one <see cref="NaturalLanguageAudioTag"/>,
+///     The kind and alias list for one <see cref="NaturalLanguageAudioTag"/>,
 ///     as reported by <see cref="AudioTagCatalog.Tags"/>.
 /// </summary>
 /// <param name="Tag">The canonical tag value.</param>

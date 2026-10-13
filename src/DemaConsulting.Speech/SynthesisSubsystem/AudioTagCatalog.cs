@@ -10,17 +10,11 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 /// <remarks>
 ///     <see cref="AudioTagParser"/> is the only production consumer of
 ///     <see cref="TryResolve"/>/<see cref="Normalize"/>; this class contains no scanning logic of
-///     its own so the alias table can be reasoned about, tested, and rendered into a user guide independently of how bracket text is located in a larger string.
+///     its own so the alias table can be reasoned about, tested, and rendered into a user guide
+///     independently of how bracket text is located in a larger string.
 /// </remarks>
 public static class AudioTagCatalog
 {
-    /// <summary>
-    ///     Normalized alias text (see <see cref="Normalize"/>) mapped to the canonical tag and
-    ///     kind it resolves to.
-    /// </summary>
-    private static readonly Dictionary<string, (NaturalLanguageAudioTag Tag, NaturalLanguageAudioTagKind Kind)> AliasLookup =
-        BuildAliasLookup();
-
     /// <summary>
     ///     Every canonical tag, its kind, and its full alias list, in <see cref="NaturalLanguageAudioTag"/>
     ///     declaration order.
@@ -30,9 +24,18 @@ public static class AudioTagCatalog
     ///     <see cref="IReadOnlyList{T}"/>) so the runtime instance a caller observes is a genuine
     ///     read-only wrapper, not the backing <see cref="List{T}"/> itself: without this, a caller
     ///     could cast this property back to <c>List&lt;AudioTagDescriptor&gt;</c> and mutate the
-    ///     supposedly-static, single-source-of-truth tag table at runtime.
+    ///     supposedly-static, single-source-of-truth tag table at runtime. Each descriptor's
+    ///     alias list is wrapped the same way. Declared before <see cref="AliasLookup"/> because
+    ///     static field initializers run in textual order and the lookup is built from this list.
     /// </remarks>
     public static IReadOnlyList<AudioTagDescriptor> Tags { get; } = BuildDescriptors().AsReadOnly();
+
+    /// <summary>
+    ///     Normalized alias text (see <see cref="Normalize"/>) mapped to the canonical tag and
+    ///     kind it resolves to.
+    /// </summary>
+    private static readonly Dictionary<string, (NaturalLanguageAudioTag Tag, NaturalLanguageAudioTagKind Kind)> AliasLookup =
+        BuildAliasLookup();
 
     /// <summary>
     ///     Normalizes raw bracket-interior text for alias lookup: trims leading/trailing
@@ -106,16 +109,19 @@ public static class AudioTagCatalog
     }
 
     /// <summary>
-    ///     Builds the immutable alias-to-(tag, kind) lookup table once, at type initialization.
+    ///     Builds the immutable alias-to-(tag, kind) lookup table once, at type initialization,
+    ///     from the same descriptors <see cref="Tags"/> exposes.
     /// </summary>
     private static Dictionary<string, (NaturalLanguageAudioTag, NaturalLanguageAudioTagKind)> BuildAliasLookup()
     {
         var lookup = new Dictionary<string, (NaturalLanguageAudioTag, NaturalLanguageAudioTagKind)>();
-        foreach (var descriptor in BuildDescriptors())
+        foreach (var descriptor in Tags)
         {
             foreach (var alias in descriptor.Aliases)
             {
-                lookup[alias] = (descriptor.Tag, descriptor.Kind);
+                // Add (not the indexer) so a duplicate alias fails fast at type initialization
+                // instead of silently letting the later descriptor win.
+                lookup.Add(alias, (descriptor.Tag, descriptor.Kind));
             }
         }
 
@@ -166,5 +172,5 @@ public static class AudioTagCatalog
     ///     (lowercase, single-spaced) as literal strings in <see cref="BuildDescriptors"/>.
     /// </summary>
     private static AudioTagDescriptor Describe(NaturalLanguageAudioTag tag, NaturalLanguageAudioTagKind kind, params string[] aliases) =>
-        new(tag, kind, aliases);
+        new(tag, kind, Array.AsReadOnly(aliases));
 }

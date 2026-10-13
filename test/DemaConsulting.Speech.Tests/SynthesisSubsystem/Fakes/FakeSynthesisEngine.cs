@@ -75,29 +75,56 @@ internal sealed class FakeSynthesisEngine : ISynthesisBackend
     }
 
     /// <summary>Gets the number of <see cref="Dispose"/> calls this engine has received.</summary>
-    public int DisposeCallCount { get; private set; }
+    public int DisposeCallCount
+    {
+        get
+        {
+            lock (_concurrencyLock)
+            {
+                return _disposeCallCount;
+            }
+        }
+    }
+
+    /// <summary>Backing store for <see cref="DisposeCallCount"/>, guarded by <see cref="_concurrencyLock"/>.</summary>
+    private int _disposeCallCount;
+
+    /// <summary>Backing store for <see cref="MaxConcurrentGenerateCalls"/>, guarded by <see cref="_concurrencyLock"/>.</summary>
+    private int _maxConcurrentGenerateCalls;
+
+    /// <summary>Backing store for <see cref="IsDisposed"/>; volatile so cross-thread reads see the latest value.</summary>
+    private volatile bool _isDisposed;
 
     /// <summary>
     ///     Gets the highest number of <see cref="Generate"/> calls this engine ever observed
     ///     overlapping in flight at once, used to prove the synthesis pipeline never calls
     ///     <see cref="Generate"/> concurrently on the same engine instance.
     /// </summary>
-    public int MaxConcurrentGenerateCalls { get; private set; }
+    public int MaxConcurrentGenerateCalls
+    {
+        get
+        {
+            lock (_concurrencyLock)
+            {
+                return _maxConcurrentGenerateCalls;
+            }
+        }
+    }
 
     /// <summary>Gets a value indicating whether this engine has been disposed.</summary>
-    public bool IsDisposed { get; private set; }
+    public bool IsDisposed => _isDisposed;
 
     /// <inheritdoc/>
     public EngineAudio Generate(string text, float speed, int speakerId)
     {
-        ObjectDisposedException.ThrowIf(IsDisposed, this);
+        ObjectDisposedException.ThrowIf(_isDisposed, this);
 
         lock (_concurrencyLock)
         {
             _inFlightGenerateCalls++;
-            if (_inFlightGenerateCalls > MaxConcurrentGenerateCalls)
+            if (_inFlightGenerateCalls > _maxConcurrentGenerateCalls)
             {
-                MaxConcurrentGenerateCalls = _inFlightGenerateCalls;
+                _maxConcurrentGenerateCalls = _inFlightGenerateCalls;
             }
         }
 
@@ -138,7 +165,10 @@ internal sealed class FakeSynthesisEngine : ISynthesisBackend
     /// <inheritdoc/>
     public void Dispose()
     {
-        IsDisposed = true;
-        DisposeCallCount++;
+        _isDisposed = true;
+        lock (_concurrencyLock)
+        {
+            _disposeCallCount++;
+        }
     }
 }

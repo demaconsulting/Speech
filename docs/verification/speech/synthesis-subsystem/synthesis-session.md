@@ -22,8 +22,7 @@ asserting the exact ordered sequence of transitions raised for one successful op
 asserted to be isolated: the exception is caught and reported through diagnostics rather than
 propagated or allowed to destabilize the session. A handler that blocks while another thread reads
 `State` proves handlers are never invoked under the session lock
-(`SynthesisSession_StateChanged_HandlerBlocksOnOtherThreadReadingState_DoesNotDeadlock`). A few
-tests (`SynthesisSession_StateChanged_HandlerBlocksOnOtherThreadReadingState_DoesNotDeadlock`).
+(`SynthesisSession_StateChanged_HandlerBlocksOnOtherThreadReadingState_DoesNotDeadlock`).
 No test uses a `Task.Delay` window to assert that something has not yet happened. "Not yet
 complete" assertions (for example that `StopAsync`, `DisposeAsync` or the lease release has not
 happened while the native call is blocked) are made against a backend gated by a `SemaphoreSlim`,
@@ -110,8 +109,14 @@ session throws `SynthesisSessionFaultedException` on every subsequent call;
 unavailable playback device fail the caller's task honestly rather than hanging; a playback write
 failure still stops the device; a session's `parameterValues` bag resolves to the correct speaker
 id via `ISynthesisModel.ResolveSpeakerId` once per segment, coexisting correctly with an
-independent per-segment Natural Language Audio Tag speed override in the same call;
-or releasing the lease; volume overrides scale and clamp amplitude. The default backend factory,
+independent per-segment Natural Language Audio Tag speed override in the same call; volume
+overrides scale and clamp amplitude; a canceled operation whose native call cannot be interrupted
+is abandoned so the caller's task returns promptly, and the session then transitions to `Faulted`
+with the abandonment reported through diagnostics; `StopAsync` and `DisposeAsync` do not complete
+and the backend lease is not released until the in-flight native call has returned, and the lease
+is released exactly once even when disposal is called repeatedly or concurrently; a device `Stop`
+that is deferred while a native call is in flight happens only after that call returns; and a
+disposed session rejects further calls with `ObjectDisposedException`. The default backend factory,
 `DedicatedWorker`, Layer 2 rendering, `SentenceChunker`, and `PlaybackAudioResampler` acceptance
 criteria are in their own unit verification documents.
 

@@ -14,8 +14,9 @@ namespace DemaConsulting.Speech.SynthesisSubsystem;
 ///     fallbacks, and the mockable native seam (the public <see cref="ISynthesisBackend"/> and
 ///     the internal <see cref="ISynthesisBackendFactory"/>) backed by <see cref="SpeechSynthesizerEngine"/>,
 ///     <see cref="SynthesisSession"/>, and their playback-format converter. The concrete native
-///     backend implementation (for example, the sibling <c>DemaConsulting.Speech.Sherpa</c>
-///     package's sherpa-onnx backend) lives outside this namespace and is supplied by a model's
+///     backend implementation (for example, the sherpa-onnx backend in the sibling SpeechSherpa
+///     system, shipped as the <c>DemaConsulting.Speech.Sherpa</c> package) lives outside this
+///     namespace and is supplied by a model's
 ///     own <c>CreateBackend</c> implementation.
 /// </remarks>
 internal static class NamespaceDoc

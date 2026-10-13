@@ -22,4 +22,21 @@ the exception type exposes the message and inner exception supplied to each of i
 
 #### Test Scenarios
 
-See the RecognitionSubsystem-level scenario "Unavailable Fallback: Honest Degradation".
+##### UnavailableRecognitionSession: Honest Unavailable Behavior
+
+**Tests**: `UnavailableRecognitionSession_IsAvailable_Read_ReturnsFalse`,
+`UnavailableRecognitionSession_StartAsync_Always_ThrowsSpeechRecognizerUnavailableException`,
+`UnavailableRecognitionSession_GetResultsAsync_Always_ThrowsSpeechRecognizerUnavailableException`
+
+Verifies that the shared instance reports itself unavailable and that both starting and
+enumerating results fail with `SpeechRecognizerUnavailableException` rather than hanging or
+silently yielding nothing.
+
+##### UnavailableRecognitionSession: Safe No-Op Stop and Repeated Disposal
+
+**Tests**: `UnavailableRecognitionSession_StopAsync_Always_IsSafeNoOp`,
+`UnavailableRecognitionSession_DisposeAsync_CalledTwice_DoesNotThrow`
+
+Verifies that stopping is a no-op and that disposing the shared instance twice, then re-reading it,
+leaves the fallback intact for every other holder. The RecognitionSubsystem-level scenario
+"Unavailable Fallback: Honest Degradation" covers the same tests alongside the engine fallback.

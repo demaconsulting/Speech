@@ -15,9 +15,10 @@ namespace DemaConsulting.Speech.Tests.SynthesisSubsystem;
 ///     overlap-rule behavior unique to the session abstraction.
 /// </summary>
 /// <remarks>
-///     Every test is deterministic without timing assumptions: segments are synthesized and
-///     played strictly in order (one at a time), so every assertion runs only once the awaited
-///     call has genuinely completed.
+///     Tests are deterministic: segments are synthesized and played strictly in order (one at a
+///     time), and "not yet complete" assertions are made against semaphore-gated doubles rather
+///     than sleeps. The only real-time dependencies are the abandon-timeout and drain-poll
+///     intervals of the session under test, which bound (never assert) elapsed time.
 /// </remarks>
 public class SynthesisSessionTests
 {
@@ -1546,7 +1547,10 @@ public class SynthesisSessionTests
         public int SampleRate => 16000;
 
         /// <summary>Gets a value indicating whether the in-flight <see cref="Generate"/> call has genuinely returned.</summary>
-        public bool GenerateReturned { get; private set; }
+        public bool GenerateReturned => _generateReturned;
+
+        /// <summary>Backing store for <see cref="GenerateReturned"/>; volatile because it is read from other threads.</summary>
+        private volatile bool _generateReturned;
 
         public EngineAudio Generate(string text, float speed, int speakerId)
         {
@@ -1559,7 +1563,7 @@ public class SynthesisSessionTests
             // failed or timed-out test cannot leave this background thread blocked forever.
             generateRelease.Wait(testCancellationToken);
 
-            GenerateReturned = true;
+            _generateReturned = true;
             return new EngineAudio([], SampleRate);
         }
 

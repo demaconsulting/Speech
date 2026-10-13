@@ -365,7 +365,7 @@ internal sealed class SynthesisSession : ISynthesisSession
         // deliberately leaves _pendingNativeCompletion set. Re-reading and awaiting that field
         // unconditionally (not only when operationTask was non-null) is what actually proves the
         // abandoned native call has genuinely returned before this method lets the caller
-        // (StopAsync/DisposeCoreAsync) release the engine lease or consider the backend reusable
+        // (StopAsync/DisposeCoreAsync) release the engine lease or consider the backend
         // reusable.
         Task? pendingNativeCompletion;
         lock (_syncRoot)

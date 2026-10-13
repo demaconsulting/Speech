@@ -283,6 +283,18 @@ public class AudioTagParserTests
     }
 
     /// <summary>
+    ///     Proves null text is rejected by <see cref="AudioTagParser.Parse"/> and by
+    ///     <see cref="TaggedTextSpan.PlainText"/>, since null is a caller error rather than text.
+    /// </summary>
+    [Fact]
+    public void AudioTagParser_Parse_NullText_ThrowsArgumentNullException()
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => AudioTagParser.Parse(null!));
+        Assert.Throws<ArgumentNullException>(() => TaggedTextSpan.PlainText(null!));
+    }
+
+    /// <summary>
     ///     Proves a recognized tag immediately followed by an unrecognized bracketed word keeps
     ///     both as distinct, correctly-typed spans in order.
     /// </summary>

@@ -10,7 +10,7 @@ production catalog/parser directly and asserts on their return values.
 
 The Layer 3/Layer 5 Engine/Session API is verified the same way the RecognitionSubsystem's own
 Engine/Session API is: a fake `ISynthesisBackend`/`ISynthesisBackendFactory` pair and an
-NSubstitute `IAudioPlaybackDevice` stand in for the native sherpa-onnx runtime and real speakers,
+NSubstitute `IAudioPlaybackDevice` stand in for the native synthesis backend and real speakers,
 making Layer 2 rendering, chunking, per-operation sequential synthesize-then-play behavior, engine
 exclusivity leasing, the session state machine, the overlap rule, cancellation, fault
 containment, and honest degradation fully testable without a downloaded speech model or physical
@@ -39,8 +39,9 @@ Automated coverage **does not** include synthesizing real, intelligible speech. 
 text produces correct audible speech through a real model on real speakers requires a downloaded
 production model (which this library deliberately does not ship by default) and audio hardware,
 so it remains a manual/local verification activity, mirroring the RecognitionSubsystem's
-identical boundary. The real, native-backed `SherpaOnnxSynthesisEngine` backend ships in the
-sibling SpeechSherpa library; see _SpeechSherpa SynthesisSubsystem Verification_.
+identical boundary. The real, native-backed backends ship in sibling systems (for example the
+sherpa-onnx backend in the SpeechSherpa system); see _SpeechSherpa SynthesisSubsystem
+Verification_.
 
 ### Test Environment
 
@@ -62,14 +63,17 @@ A SynthesisSubsystem test run passes when:
 - Every canonical `NaturalLanguageAudioTag` value has at least one alias in `AudioTagCatalog`,
   and no alias is shared by two different tags
 - Every documented alias resolves back to its own canonical tag and kind
-- Alias resolution is case-insensitive and tolerant of extra internal whitespace
+- Alias resolution is case-insensitive and tolerant of extra internal whitespace, and null
+  bracket content or null parser input is rejected with `ArgumentNullException`
+- The catalog's tag table and each descriptor's alias list are read-only (not castable back to a
+  mutable collection), and every canonical tag has its independently expected kind
 - `AudioTagParser.Parse` returns literal text and recognized tags as an ordered sequence of
   spans that reconstructs the input's structure, for plain text alone, a tag alone, adjacent
   tags, and a tag at the start or end of the input, with no spurious empty spans
 - An empty input returns an empty span list
 - Unrecognized bracket content, empty brackets, unclosed brackets, and stray closing brackets are
   passed through as literal text, exactly as they appeared, rather than throwing or being
-  discarded
+  discarded, while a nested opening bracket never swallows a valid tag that follows it
 - Pause tags always render as timed silence regardless of a model's declared audio-tag support;
   native support passes canonical bracket text through unchanged; parameter-mapped support maps
   the handful of tags with a numeric convention and strips every other tag; no support strips
@@ -78,7 +82,8 @@ A SynthesisSubsystem test run passes when:
   unconditionally splits every resulting sentence-level piece further on secondary clause
   punctuation, falls back to a whitespace-budget split only when still over budget, merges
   degenerate word-less pieces onto the preceding chunk, never splits a single word, and rejects a
-  non-positive budget or null text. `ChunkWithMetadata` additionally flags, per chunk, whether the
+  non-positive budget or null text, and yields no chunks for empty or whitespace-only text.
+  `ChunkWithMetadata` additionally flags, per chunk, whether the
   chunk's text ends in a genuine ellipsis
 - `SpeechSynthesizerFactory.LoadAsync` returns a real engine only when the model is installed,
   declares the synthesis role, and the backend loads; every other outcome returns the honest
@@ -90,7 +95,13 @@ A SynthesisSubsystem test run passes when:
   installed/role/backend-load check runs
 - `ISpeechSynthesizerEngine.CreateSessionAsync` succeeds when no lease is held and fails fast with
   `SynthesisEngineBusyException` when one is; disposing a leased session or the engine releases
-  the lease so a subsequent request succeeds again
+  the lease so a subsequent request succeeds again; a `CreateSessionAsync` racing `DisposeAsync`
+  never observes a torn state; and a `LoadAsync` canceled after the backend has been created still
+  disposes that backend
+- The engine's one-shot `SpeakAsync` creates and disposes a session per call, and its one-shot
+  `SynthesizeAsync` returns segments without a playback device
+- `SynthesisEngineBusyException` and `SynthesisSessionFaultedException` follow the standard
+  constructor pattern, preserving the supplied message and inner exception
 - A session's `SpeakAsync`/`SynthesizeAsync` calls never overlap on the same instance - a second
   call while one is in flight throws `InvalidOperationException` - and the session can be reused
   across many sequential calls without reconstruction
@@ -125,7 +136,10 @@ A SynthesisSubsystem test run passes when:
 **Tests**: `AudioTagCatalog_Tags_Always_CoversEveryCanonicalTagWithAtLeastOneAlias`,
 `AudioTagCatalog_Tags_Always_NoAliasIsSharedByTwoDifferentTags`,
 `AudioTagCatalog_TryResolve_EveryDocumentedAlias_ResolvesToItsOwnTag`,
-`AudioTagCatalog_TryResolve_MoodTagsAndShoutAlias_ResolveToExpectedTag`
+`AudioTagCatalog_TryResolve_MoodTagsAndShoutAlias_ResolveToExpectedTag`,
+`AudioTagCatalog_Tags_Always_IsNotCastableToMutableList`,
+`AudioTagCatalog_Tags_Always_AliasesAreNotCastableToMutableArray`,
+`AudioTagCatalog_Tags_EveryCanonicalTag_HasExpectedKind`
 
 The catalog includes nine mood tags (`angry`, `calm`, `happy`, `enthused`, `surprised`, `worried`,
 `confused`, `frustrated`, `neutral`), all of kind Emotion, plus the `shout` alias of `Loud`.
@@ -133,7 +147,9 @@ The catalog includes nine mood tags (`angry`, `calm`, `happy`, `enthused`, `surp
 Verifies that every declared `NaturalLanguageAudioTag` value is reachable through at least one
 alias, that no alias is ambiguous between two tags, and that every documented alias resolves
 back to its own canonical tag and kind, sourced directly from `AudioTagCatalog.Tags` so this
-coverage can never drift out of sync with the catalog it exercises.
+coverage can never drift out of sync with the catalog it exercises. Also verifies that each
+canonical tag has its independently expected kind, and that neither the tag table nor any
+descriptor's alias list can be cast back to a mutable collection.
 
 #### Vocabulary: Normalization, Case-Insensitivity, and Whitespace Tolerance
 
@@ -149,10 +165,12 @@ canonical tag and kind.
 #### Vocabulary: Unresolvable Content
 
 **Tests**: `AudioTagCatalog_TryResolve_UnknownWord_ReturnsFalse`,
-`AudioTagCatalog_TryResolve_EmptyOrWhitespace_ReturnsFalse`
+`AudioTagCatalog_TryResolve_EmptyOrWhitespace_ReturnsFalse`,
+`AudioTagCatalog_NormalizeAndTryResolve_NullContent_ThrowsArgumentNullException`
 
 Verifies that an unknown word and empty or whitespace-only bracket content never resolve to a
-tag.
+tag, and that null content is rejected with `ArgumentNullException` by both `Normalize` and
+`TryResolve`.
 
 #### Parsing: Span Sequence and Ordering
 
@@ -162,10 +180,12 @@ tag.
 `AudioTagParser_Parse_MixedPlainTextAndTag_ReturnsOrderedSpans`,
 `AudioTagParser_Parse_AdjacentTags_ReturnsTwoSeparateTagSpans`,
 `AudioTagParser_Parse_TagAtStartOfText_ReturnsTagSpanFirst`,
-`AudioTagParser_Parse_TagAtEndOfText_ReturnsTagSpanLast`
+`AudioTagParser_Parse_TagAtEndOfText_ReturnsTagSpanLast`,
+`AudioTagParser_Parse_NullText_ThrowsArgumentNullException`
 
 Verifies that every documented alias, bracketed alone, resolves to a single tag span; that plain
-text with no tags, and an empty input, each produce the expected trivial span list; and that
+text with no tags, and an empty input, each produce the expected trivial span list; that null
+text is rejected with `ArgumentNullException`; and that
 mixed text, adjacent tags, and tags at either edge of the input all produce correctly ordered
 spans with no spurious empty spans.
 
@@ -175,10 +195,12 @@ spans with no spurious empty spans.
 `AudioTagParser_Parse_UnclosedOpeningBracket_PassesThroughAsLiteralText`,
 `AudioTagParser_Parse_EmptyBrackets_PassesThroughAsLiteralText`,
 `AudioTagParser_Parse_StrayClosingBracket_PassesThroughAsLiteralText`,
-`AudioTagParser_Parse_RecognizedTagFollowedByUnknownBracket_ReturnsTagThenLiteralSpans`
+`AudioTagParser_Parse_RecognizedTagFollowedByUnknownBracket_ReturnsTagThenLiteralSpans`,
+`AudioTagParser_Parse_NestedOpeningBracketBeforeValidTag_ResolvesTag`
 
 Verifies that an unrecognized bracketed word, an unclosed opening bracket, empty brackets, and a
-stray closing bracket all pass through as literal text exactly as they appeared, and that a
+stray closing bracket all pass through as literal text exactly as they appeared; that a nested
+opening bracket in front of a valid tag does not swallow the tag; and that a
 recognized tag immediately followed by an unrecognized bracket yields distinct, correctly
 ordered tag and literal spans rather than merging or losing either.
 
@@ -228,7 +250,8 @@ single-terminator sentence end, while every other chunk boundary still adds zero
 `SentenceChunker_ChunkWithMetadata_TrailingAdjacentEllipsis_EndsWithEllipsisIsTrue`,
 `SentenceChunker_ChunkWithMetadata_TrailingSpacedEllipsis_EndsWithEllipsisIsTrue`,
 `SentenceChunker_ChunkWithMetadata_FewerThanThreeDots_EndsWithEllipsisIsFalse`,
-`SentenceChunker_Chunk_AndChunkWithMetadata_ProduceSameChunkText`
+`SentenceChunker_Chunk_AndChunkWithMetadata_ProduceSameChunkText`,
+`SentenceChunker_Chunk_EmptyOrWhitespace_ReturnsEmpty`
 
 Verifies that chunking splits on primary sentence-ending punctuation first, then
 **unconditionally** splits every resulting sentence-level piece further on secondary clause
@@ -244,7 +267,8 @@ as a single boundary and stays attached to the preceding sentence as one piece. 
 a degenerate, word-less punctuation piece is merged onto the immediately preceding non-empty
 chunk, or dropped entirely when it occurs at the very start of the text. Finally, verifies that
 `ChunkWithMetadata` correctly flags a chunk as ending in a genuine ellipsis and not for fewer than
-three dots, and that `Chunk` produces exactly the same chunk text as `ChunkWithMetadata`.
+three dots, and that `Chunk` produces exactly the same chunk text as `ChunkWithMetadata`. Empty
+or whitespace-only text yields no chunks.
 
 #### Composition: Real Engine for an Installed Model
 
@@ -275,10 +299,13 @@ shared unavailable engine without throwing.
 `SpeechSynthesizerFactory_LoadAsync_WithStoreNullModel_ThrowsArgumentNullException`,
 `SpeechSynthesizerFactory_LoadAsync_WithStoreNullStore_ThrowsArgumentNullException`,
 `SpeechSynthesizerFactory_LoadAsync_WithCatalogNullModel_ThrowsArgumentNullException`,
-`SpeechSynthesizerFactory_LoadAsync_WithCatalogNullCatalog_ThrowsArgumentNullException`
+`SpeechSynthesizerFactory_LoadAsync_WithCatalogNullCatalog_ThrowsArgumentNullException`,
+`SpeechSynthesizerFactory_LoadAsync_CanceledDuringGraceWindowCreateSucceeds_ThrowsAndDisposesBackend`
 
 Verifies that a null model, store, or catalog throws, and that a canceled `cancellationToken`
-throws `OperationCanceledException`, distinguishing a programming error/explicit cancellation
+throws `OperationCanceledException` - including a cancellation that arrives after the backend
+creation has already succeeded, in which case the created backend is disposed rather than
+leaked - distinguishing a programming error/explicit cancellation
 request from an ordinary machine state. Unlike the former synchronous factory, no
 `NullPlaybackDevice` variant exists for any overload: `LoadAsync` no longer takes a playback
 device parameter at all.
@@ -308,7 +335,10 @@ specific reason the value is invalid.
 `SpeechSynthesizerEngine_CreateSessionAsync_NullDevice_ThrowsArgumentNullException`,
 `SpeechSynthesizerEngine_IsAvailable_Always_ReturnsTrue`,
 `SpeechSynthesizerEngine_DisposeAsync_CalledTwice_DisposesBackendOnce`,
-`SpeechSynthesizerEngine_DisposeAsync_WithActiveLeasedSession_DisposesSessionFirst`
+`SpeechSynthesizerEngine_DisposeAsync_WithActiveLeasedSession_DisposesSessionFirst`,
+`SpeechSynthesizerEngine_CreateSessionAsync_RacingDisposeAsync_NeverObservesTornState`,
+`SynthesisEngineBusyException_Constructors_PreserveMessageAndInnerException`,
+`SynthesisSessionFaultedException_Constructors_PreserveMessageAndInnerException`
 
 Verifies that `CreateSessionAsync` succeeds immediately when no lease is held; fails fast with
 `SynthesisEngineBusyException` (never queueing or waiting) when a lease is already held by a
@@ -316,7 +346,10 @@ still-undisposed session; succeeds again once that prior session is disposed, pr
 released exactly once from the session's own `DisposeAsync`; rejects a null device; always reports
 itself available; disposes its owned backend exactly once across repeated `DisposeAsync` calls;
 and, when disposed while a session is still actively leased, disposes that session first (which
-also releases the lease) before disposing the backend.
+also releases the lease) before disposing the backend. A `CreateSessionAsync` racing a concurrent
+`DisposeAsync` either yields a usable session or fails cleanly with `ObjectDisposedException` (or
+the lease-busy exception), and never any other exception indicating a half-disposed engine. The two lease/fault exceptions each expose the message
+and inner exception supplied to their constructors.
 
 #### Engine: One-Shot Convenience Overloads
 
@@ -333,12 +366,15 @@ fresh session per call (so repeated calls never conflict with the exclusivity le
 `SynthesisSession_StateChanged_HandlerThrows_IsIsolatedAndDoesNotPropagate`,
 `SynthesisSession_StateChanged_FaultingOperation_RaisesTransitionsEndingInFaulted`,
 `SynthesisSession_IsAvailable_BeforeAndAfterDispose_ReflectsLifecycle`,
-`SynthesisSession_IsAvailable_AfterFault_ReturnsFalse`
+`SynthesisSession_IsAvailable_AfterFault_ReturnsFalse`,
+`SynthesisSession_StateChanged_HandlerBlocksOnOtherThreadReadingState_DoesNotDeadlock`
 
 Verifies that one successful `SpeakAsync`/`SynthesizeAsync` call raises the documented
 `Created → Starting → Running → Stopping → Stopped` sequence via `StateChanged`, in order; that a
-faulting operation raises `Starting → Running → Faulted`; that a subscriber's handler exception
-is caught and routed to diagnostics rather than propagated or destabilizing the session; and that
+faulting operation raises `Created → Starting → Running → Faulted` directly (never passing through `Stopping`); that a subscriber's handler exception
+is caught and routed to diagnostics rather than propagated or destabilizing the session; that a
+handler blocking while another thread reads `State` does not deadlock (handlers never run under
+the session lock); and that
 `IsAvailable` reports false once the session is disposed or faulted.
 
 #### Session: Overlap Rule - No Concurrent Operations
@@ -508,6 +544,7 @@ that the delegate always runs on a `TaskCreationOptions.LongRunning` task.
 `PlaybackAudioResampler_Resample_AboveTargetNyquistTone_IsAttenuated`,
 `PlaybackAudioResampler_Resample_ShortInputDuringDownsampling_DoesNotThrow`,
 `PlaybackAudioResampler_Resample_EmptyInput_ReturnsEmpty`,
+`PlaybackAudioResampler_Resample_NonPositiveRate_ThrowsArgumentOutOfRangeException`,
 `PlaybackAudioResampler_UpmixToChannels_SingleChannel_CopiesUnchanged`,
 `PlaybackAudioResampler_UpmixToChannels_MultipleChannels_ReplicatesEachFrame`,
 `PlaybackAudioResampler_UpmixToChannels_EmptyInput_ReturnsEmpty`,

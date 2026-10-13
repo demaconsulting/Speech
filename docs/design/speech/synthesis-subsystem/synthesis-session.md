@@ -120,11 +120,13 @@ playback device throws promptly rather than hanging. Calling an operational memb
 disposal throws `ObjectDisposedException`; calling one while another is already in flight on the
 same session throws `InvalidOperationException`.
 
-**Dependencies**: `ISynthesisBackend`, `SpeechPlan`, `SpeechSegment`, `SpeechParameterConventions`,
+**Dependencies**: `ISynthesisBackend` (whose `Generate` returns the plain-data `EngineAudio`
+record: mono samples plus sample rate), `ISynthesisModel` (`NormalizeText`, `CapabilityProfile`,
+`ResolveSpeakerId`), `SpeechPlan`, `SpeechSegment`, `SpeechParameterConventions`,
 `PlaybackAudioResampler`, `SynthesizedSpeech`, `SynthesisSessionState`,
-`SessionStateChangedEventArgs`, `SynthesisSessionFaultedException`, `DedicatedWorker`,
-`SpeechSynthesizerUnavailableException`, `AudioTagParser` from this subsystem's unchanged units,
-`IAudioPlaybackDevice` from the AudioSubsystem, and `ISpeechDiagnostics` from the Diagnostics
-subsystem.
+`SessionStateChangedEventArgs`, `SynthesisSessionFaultedException`, `DedicatedWorker` and
+`DedicatedWorkerRun<T>`, `SpeechSynthesizerUnavailableException`, `AudioTagParser` from this
+subsystem's other units, `IAudioPlaybackDevice` from the AudioSubsystem, and `ISpeechDiagnostics`
+from the Diagnostics subsystem.
 
 **Callers**: `SpeechSynthesizerEngine.CreateSessionAsync(device, cancellationToken)`.

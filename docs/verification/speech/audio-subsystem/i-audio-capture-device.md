@@ -22,5 +22,7 @@ surfaces captured frames and native first-use failures correctly through the sea
 #### Test Scenarios
 
 See the AudioSubsystem-level scenarios "Capture Device: Selection, Availability, and Stream
-Delivery", "Capture Device: Reported Capture Format", and "Unavailable Fallbacks: Honest
-Degradation".
+Delivery", "Capture Device: Reported Capture Format", and "Mockable Contracts: Device and Probe
+Substitution", plus the _UnavailableAudioCaptureDevice_ unit verification document
+(`docs/verification/speech/audio-subsystem/unavailable-audio-capture-device.md`) for the
+honest-unavailable behavior.

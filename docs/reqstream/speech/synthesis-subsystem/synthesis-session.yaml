@@ -361,7 +361,7 @@ sections:
                 tests:
                   - SynthesisSession_StopAsync_CallerTokenPreCanceled_ThrowsButOperationStillStops
 
-              - id: Speech-Synthesis-SynthesisSession-AbandonedNativeCallFaults
+              - id: Speech-Synthesis-SynthesisSession-AbandonedNativeCallReturnsPromptly
                 title: >-
                   When a cancellation request is not honored by a native backend call within the
                   dedicated worker's abandon timeout, the SynthesisSession class shall return the

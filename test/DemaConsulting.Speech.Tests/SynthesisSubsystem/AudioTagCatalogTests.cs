@@ -174,7 +174,77 @@ public class AudioTagCatalogTests
     [Fact]
     public void AudioTagCatalog_Tags_Always_IsNotCastableToMutableList()
     {
-        Assert.Null(AudioTagCatalog.Tags as List<AudioTagDescriptor>);
+        // Act
+        var tags = AudioTagCatalog.Tags;
+
+        // Assert
+        Assert.Null(tags as List<AudioTagDescriptor>);
+    }
+
+    /// <summary>
+    ///     Proves each descriptor's <see cref="AudioTagDescriptor.Aliases"/> is a genuine read-only
+    ///     wrapper - not the backing <c>string[]</c> - so a caller cannot cast it back to an array
+    ///     and mutate the supposedly-immutable alias table.
+    /// </summary>
+    [Fact]
+    public void AudioTagCatalog_Tags_Always_AliasesAreNotCastableToMutableArray()
+    {
+        // Act
+        var descriptors = AudioTagCatalog.Tags;
+
+        // Assert
+        Assert.All(descriptors, d =>
+        {
+            Assert.Null(d.Aliases as string[]);
+            Assert.Null(d.Aliases as List<string>);
+        });
+    }
+
+    /// <summary>
+    ///     Proves every canonical tag is assigned the independently expected kind, so a wrong
+    ///     kind assignment in the catalog cannot pass merely because the test reads the same table.
+    /// </summary>
+    [Theory]
+    [InlineData(NaturalLanguageAudioTag.Excited, NaturalLanguageAudioTagKind.Emotion)]
+    [InlineData(NaturalLanguageAudioTag.Serious, NaturalLanguageAudioTagKind.Emotion)]
+    [InlineData(NaturalLanguageAudioTag.Sarcastic, NaturalLanguageAudioTagKind.Emotion)]
+    [InlineData(NaturalLanguageAudioTag.Panicked, NaturalLanguageAudioTagKind.Emotion)]
+    [InlineData(NaturalLanguageAudioTag.Bored, NaturalLanguageAudioTagKind.Emotion)]
+    [InlineData(NaturalLanguageAudioTag.Sad, NaturalLanguageAudioTagKind.Emotion)]
+    [InlineData(NaturalLanguageAudioTag.Slow, NaturalLanguageAudioTagKind.Pace)]
+    [InlineData(NaturalLanguageAudioTag.VerySlow, NaturalLanguageAudioTagKind.Pace)]
+    [InlineData(NaturalLanguageAudioTag.Fast, NaturalLanguageAudioTagKind.Pace)]
+    [InlineData(NaturalLanguageAudioTag.VeryFast, NaturalLanguageAudioTagKind.Pace)]
+    [InlineData(NaturalLanguageAudioTag.ShortPause, NaturalLanguageAudioTagKind.Pause)]
+    [InlineData(NaturalLanguageAudioTag.LongPause, NaturalLanguageAudioTagKind.Pause)]
+    [InlineData(NaturalLanguageAudioTag.Emphasis, NaturalLanguageAudioTagKind.Emphasis)]
+    [InlineData(NaturalLanguageAudioTag.Whispers, NaturalLanguageAudioTagKind.DeliveryVolume)]
+    [InlineData(NaturalLanguageAudioTag.Soft, NaturalLanguageAudioTagKind.DeliveryVolume)]
+    [InlineData(NaturalLanguageAudioTag.Loud, NaturalLanguageAudioTagKind.DeliveryVolume)]
+    [InlineData(NaturalLanguageAudioTag.Breathy, NaturalLanguageAudioTagKind.DeliveryVolume)]
+    [InlineData(NaturalLanguageAudioTag.Laughs, NaturalLanguageAudioTagKind.NonVerbal)]
+    [InlineData(NaturalLanguageAudioTag.Sighs, NaturalLanguageAudioTagKind.NonVerbal)]
+    [InlineData(NaturalLanguageAudioTag.Gasp, NaturalLanguageAudioTagKind.NonVerbal)]
+    [InlineData(NaturalLanguageAudioTag.ClearsThroat, NaturalLanguageAudioTagKind.NonVerbal)]
+    [InlineData(NaturalLanguageAudioTag.Snorts, NaturalLanguageAudioTagKind.NonVerbal)]
+    [InlineData(NaturalLanguageAudioTag.Angry, NaturalLanguageAudioTagKind.Emotion)]
+    [InlineData(NaturalLanguageAudioTag.Calm, NaturalLanguageAudioTagKind.Emotion)]
+    [InlineData(NaturalLanguageAudioTag.Happy, NaturalLanguageAudioTagKind.Emotion)]
+    [InlineData(NaturalLanguageAudioTag.Enthused, NaturalLanguageAudioTagKind.Emotion)]
+    [InlineData(NaturalLanguageAudioTag.Surprised, NaturalLanguageAudioTagKind.Emotion)]
+    [InlineData(NaturalLanguageAudioTag.Worried, NaturalLanguageAudioTagKind.Emotion)]
+    [InlineData(NaturalLanguageAudioTag.Confused, NaturalLanguageAudioTagKind.Emotion)]
+    [InlineData(NaturalLanguageAudioTag.Frustrated, NaturalLanguageAudioTagKind.Emotion)]
+    [InlineData(NaturalLanguageAudioTag.Neutral, NaturalLanguageAudioTagKind.Emotion)]
+    public void AudioTagCatalog_Tags_EveryCanonicalTag_HasExpectedKind(
+        NaturalLanguageAudioTag tag,
+        NaturalLanguageAudioTagKind expectedKind)
+    {
+        // Act
+        var descriptor = Assert.Single(AudioTagCatalog.Tags, d => d.Tag == tag);
+
+        // Assert
+        Assert.Equal(expectedKind, descriptor.Kind);
     }
 
     /// <summary>
