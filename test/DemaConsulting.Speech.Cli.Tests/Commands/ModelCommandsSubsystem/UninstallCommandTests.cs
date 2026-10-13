@@ -62,7 +62,7 @@ public sealed class UninstallCommandTests
 
     /// <summary>
     ///     Test that uninstalling a model that was never installed is a safe no-op, per
-    ///     <see cref="SpeechModelStore.Uninstall"/>'s own documented behavior, not an error.
+    ///     <see cref="SpeechModelStore.UninstallAsync"/>'s own documented behavior, not an error.
     /// </summary>
     [Fact]
     public async Task UninstallCommand_Run_NeverInstalledModel_IsSafeNoOp()
@@ -100,7 +100,8 @@ public sealed class UninstallCommandTests
     }
 
     /// <summary>
-    ///     Test that a canceled uninstall is reported as an error rather than propagating the cancellation.
+    ///     Test that a canceled uninstall is reported as an actionable error naming the model,
+    ///     rather than propagating the cancellation.
     /// </summary>
     [Fact]
     public async Task UninstallCommand_Run_Canceled_ReportsErrorExitCode()
@@ -108,14 +109,26 @@ public sealed class UninstallCommandTests
         // Arrange
         using var cancellation = new CancellationTokenSource();
         await cancellation.CancelAsync();
-        var catalog = new FakeCliModelCatalog { UninstallException = new OperationCanceledException(cancellation.Token) };
+        var catalog = new FakeCliModelCatalog().WithModel(new FakeSpeechModel("model-1"), SpeechModelState.Downloaded);
         using var context = Context.Create(["uninstall", "model-1"]);
+        var originalError = Console.Error;
+        using var errorWriter = new StringWriter();
+        Console.SetError(errorWriter);
 
         // Act
-        await UninstallCommand.RunAsync(context, catalog, cancellation.Token);
+        try
+        {
+            await UninstallCommand.RunAsync(context, catalog, cancellation.Token);
+        }
+        finally
+        {
+            Console.SetError(originalError);
+        }
 
-        // Assert
+        // Assert: the canceled token is observed by the catalog before anything is removed
         Assert.Equal(1, context.ExitCode);
+        Assert.Contains("Uninstalling model 'model-1' was canceled.", errorWriter.ToString());
+        Assert.Equal(SpeechModelState.Downloaded, catalog.Enumerate().Single().State);
     }
 
     /// <summary>
@@ -154,7 +167,11 @@ public sealed class UninstallCommandTests
     [Fact]
     public async Task UninstallCommand_Run_NullContext_ThrowsArgumentNullException()
     {
-        await Assert.ThrowsAsync<ArgumentNullException>(() => UninstallCommand.RunAsync(null!, new FakeCliModelCatalog(), TestContext.Current.CancellationToken));
+        // Arrange
+        var catalog = new FakeCliModelCatalog();
+
+        // Act & Assert
+        await Assert.ThrowsAsync<ArgumentNullException>(() => UninstallCommand.RunAsync(null!, catalog, TestContext.Current.CancellationToken));
     }
 
     /// <summary>
@@ -163,7 +180,10 @@ public sealed class UninstallCommandTests
     [Fact]
     public async Task UninstallCommand_Run_NullCatalog_ThrowsArgumentNullException()
     {
+        // Arrange
         using var context = Context.Create(["uninstall", "model-1"]);
+
+        // Act & Assert
         await Assert.ThrowsAsync<ArgumentNullException>(() => UninstallCommand.RunAsync(context, null!, TestContext.Current.CancellationToken));
     }
 }

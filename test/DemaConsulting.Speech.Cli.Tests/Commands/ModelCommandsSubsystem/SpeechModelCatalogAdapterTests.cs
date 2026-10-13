@@ -230,6 +230,54 @@ public sealed class SpeechModelCatalogAdapterTests : IDisposable
         Assert.NotEmpty(adapter.Enumerate());
     }
 
+    /// <summary>
+    ///     Test that a damaged file in <c>--voices-dir</c> does not stop the voice-cloning model from
+    ///     being offered with its other voices as choices.
+    /// </summary>
+    [Fact]
+    public void SpeechModelCatalogAdapter_DamagedVoicesDirFile_VoiceCloningModelStillOffersOtherVoices()
+    {
+        // Arrange
+        var voicesDir = Path.Join(_testRoot, "damaged-voices-model");
+        Directory.CreateDirectory(voicesDir);
+        File.WriteAllBytes(Path.Join(voicesDir, "broken.wav"), [1, 2, 3, 4]);
+        WriteTinyWav(Path.Join(voicesDir, "fine.wav"));
+
+        // Act
+        using var adapter = new SpeechModelCatalogAdapter(
+            new SpeechModelStoreOptions { RootPathOverride = _testRoot },
+            voicesDir: voicesDir);
+        var model = adapter.Enumerate()
+            .First(d => d.Id.StartsWith(OnnxChatterboxTurboEnglishSynthesisModel.BaseModelId, StringComparison.Ordinal))
+            .Model;
+        var voiceChoices = Assert.IsType<ChoiceParameter>(
+            model.Parameters.Single(p => p.Id == OnnxChatterboxTurboEnglishSynthesisModel.VoiceParameterId));
+
+        // Assert
+        Assert.Contains(voiceChoices.Options, option => option.Value == "fine");
+    }
+
+    /// <summary>
+    ///     Test that two separate adapters over the same store root (two invocations) report the
+    ///     same install state for every model: the tool keeps no model state of its own.
+    /// </summary>
+    [Fact]
+    public void SpeechModelCatalogAdapter_Enumerate_SeparateInstancesSameRoot_ReportSameState()
+    {
+        // Arrange
+        var options = new SpeechModelStoreOptions { RootPathOverride = _testRoot };
+
+        // Act
+        using var first = new SpeechModelCatalogAdapter(options);
+        var firstStates = first.Enumerate().Select(d => (d.Id, d.State)).ToList();
+        using var second = new SpeechModelCatalogAdapter(options);
+        var secondStates = second.Enumerate().Select(d => (d.Id, d.State)).ToList();
+
+        // Assert
+        Assert.NotEmpty(firstStates);
+        Assert.Equal(firstStates, secondStates);
+    }
+
     /// <summary>Writes a tiny, valid 16-bit mono 24 kHz silent 1.5 s WAV file (a decodable reference voice).</summary>
     private static void WriteTinyWav(string path)
     {
@@ -263,7 +311,9 @@ public sealed class SpeechModelCatalogAdapterTests : IDisposable
         var options = new SpeechModelStoreOptions { RootPathOverride = _testRoot };
 
         // Act & Assert
-        Assert.ThrowsAny<Exception>(() => new SpeechModelCatalogAdapter(options, voicesDir: "bad\0voices"));
+        var failure = Assert.Throws<DirectoryNotFoundException>(
+            () => new SpeechModelCatalogAdapter(options, voicesDir: "bad\0voices"));
+        Assert.Contains("voices", failure.Message, StringComparison.OrdinalIgnoreCase);
 
         // The store root must remain usable (nothing left locked by the abandoned catalog)
         using var adapter = new SpeechModelCatalogAdapter(options);
@@ -360,6 +410,7 @@ public sealed class SpeechModelCatalogAdapterTests : IDisposable
         // Act & Assert
         var exception = Assert.Throws<ArgumentException>(() => adapter.GetPreferredAudioFormat(descriptor));
         Assert.Equal("descriptor", exception.ParamName);
+        Assert.Contains(descriptor.Id, exception.Message);
     }
 
     /// <summary>
@@ -392,6 +443,7 @@ public sealed class SpeechModelCatalogAdapterTests : IDisposable
         var exception = await Assert.ThrowsAsync<ArgumentException>(
             () => adapter.CreateSynthesizerEngineAsync(descriptor, null, TestContext.Current.CancellationToken));
         Assert.Equal("descriptor", exception.ParamName);
+        Assert.Contains(descriptor.Id, exception.Message);
     }
 
     /// <summary>
@@ -425,6 +477,7 @@ public sealed class SpeechModelCatalogAdapterTests : IDisposable
         var exception = await Assert.ThrowsAsync<ArgumentException>(
             () => adapter.CreateRecognizerEngineAsync(descriptor, null, TestContext.Current.CancellationToken));
         Assert.Equal("descriptor", exception.ParamName);
+        Assert.Contains(descriptor.Id, exception.Message);
     }
 
     /// <summary>

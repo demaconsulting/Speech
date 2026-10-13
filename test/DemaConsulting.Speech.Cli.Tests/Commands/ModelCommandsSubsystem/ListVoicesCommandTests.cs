@@ -160,8 +160,10 @@ public sealed class ListVoicesCommandTests
     [Fact]
     public void ListVoicesCommand_Run_NullArguments_Throw()
     {
+        // Arrange
         using var context = Context.Create(["list-voices"]);
 
+        // Act & Assert
         Assert.Throws<ArgumentNullException>(() => ListVoicesCommand.Run(null!, new FakeCliModelCatalog()));
         Assert.Throws<ArgumentNullException>(() => ListVoicesCommand.Run(context, null!));
         Assert.Throws<ArgumentNullException>(() => ListVoicesCommand.Run(null!));

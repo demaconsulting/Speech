@@ -89,12 +89,80 @@ public sealed class DownloadProgressReporterTests
         }
     }
 
+    /// <summary>
+    ///     Test that a second file that starts at the same whole percent as the previous file is
+    ///     still reported: throttling is per progress item, not global.
+    /// </summary>
+    [Fact]
+    public void DownloadProgressReporter_Create_NextFileSamePercent_ReportsBothFiles()
+    {
+        // Arrange
+        var originalOut = Console.Out;
+        try
+        {
+            using var writer = new StringWriter();
+            Console.SetOut(writer);
+            using var context = Context.Create(["list-devices"]);
+            var reporter = (IProgress<SpeechModelDownloadProgress>)CreateInlineReporter(
+                context, p => $"'m1' file {p.FileIndex + 1}/{p.FileCount}");
+
+            // Act: file 1 ends at 100%, file 2 begins at 100% progress of its own (same percent)
+            reporter.Report(new SpeechModelDownloadProgress(0, 2, 100, 100));
+            reporter.Report(new SpeechModelDownloadProgress(0, 2, 100, 100));
+            reporter.Report(new SpeechModelDownloadProgress(1, 2, 100, 100));
+            var lines = writer.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries);
+
+            // Assert: the repeat within file 1 is suppressed, file 2's identical percent is not
+            Assert.Equal(2, lines.Length);
+            Assert.Contains("file 1/2: 100%", lines[0]);
+            Assert.Contains("file 2/2: 100%", lines[1]);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+    }
+
+    /// <summary>
+    ///     Test that, with an unknown total, a second file starting at the same whole-kilobyte count
+    ///     as the previous file is still reported, while a repeat within one file is suppressed.
+    /// </summary>
+    [Fact]
+    public void DownloadProgressReporter_Create_NextFileSameKilobytes_ReportsBothFiles()
+    {
+        // Arrange
+        var originalOut = Console.Out;
+        try
+        {
+            using var writer = new StringWriter();
+            Console.SetOut(writer);
+            using var context = Context.Create(["list-devices"]);
+            var reporter = (IProgress<SpeechModelDownloadProgress>)CreateInlineReporter(context);
+
+            // Act
+            reporter.Report(new SpeechModelDownloadProgress(0, 2, 2048, null));
+            reporter.Report(new SpeechModelDownloadProgress(0, 2, 2100, null));
+            reporter.Report(new SpeechModelDownloadProgress(1, 2, 2048, null));
+            var lines = writer.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries);
+
+            // Assert
+            Assert.Equal(2, lines.Length);
+            Assert.All(lines, line => Assert.Contains("2 KB", line));
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+    }
+
     /// <summary>Test that null arguments are rejected.</summary>
     [Fact]
     public void DownloadProgressReporter_Create_NullArguments_ThrowArgumentNullException()
     {
+        // Arrange
         using var context = Context.Create(["list-devices"]);
 
+        // Act & Assert
         Assert.Throws<ArgumentNullException>(() => DownloadProgressReporter.Create(null!, _ => "x"));
         Assert.Throws<ArgumentNullException>(() => DownloadProgressReporter.Create(context, null!));
     }
@@ -104,13 +172,18 @@ public sealed class DownloadProgressReporterTests
     ///     <see cref="Progress{T}"/> captures the context at construction and posts every callback to it, so
     ///     the callbacks run synchronously inside <c>Report</c> and no waiting is needed.
     /// </summary>
-    private static Progress<SpeechModelDownloadProgress> CreateInlineReporter(Context context)
+    /// <param name="context">The invocation context whose output receives the lines.</param>
+    /// <param name="describe">The label producer, or <see langword="null"/> for a constant label.</param>
+    /// <returns>The reporter, bound to <paramref name="context"/>.</returns>
+    private static Progress<SpeechModelDownloadProgress> CreateInlineReporter(
+        Context context,
+        Func<SpeechModelDownloadProgress, string>? describe = null)
     {
         var original = SynchronizationContext.Current;
         SynchronizationContext.SetSynchronizationContext(new InlineSynchronizationContext());
         try
         {
-            return DownloadProgressReporter.Create(context, _ => "'m1'");
+            return DownloadProgressReporter.Create(context, describe ?? (_ => "'m1'"));
         }
         finally
         {

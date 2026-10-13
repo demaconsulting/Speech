@@ -75,14 +75,18 @@ internal sealed class SpeechModelCatalogAdapter : ICliModelCatalog, IDisposable
         string? voicesDir = null)
     {
         _voicesDir = voicesDir;
-        var catalog = new SpeechModelCatalog(options, downloaderOptions, diagnostics: null)
-            .AddSherpaModels()
-            .AddKokoroModels()
-            .AddNemotronSttModels();
+        var catalog = new SpeechModelCatalog(options, downloaderOptions, diagnostics: null);
         ReferenceVoiceLibrary? voiceLibrary = null;
 
         try
         {
+            // Every registration happens inside the try block so a failure in any of them
+            // releases the catalog (and voice library) built so far.
+            catalog
+                .AddSherpaModels()
+                .AddKokoroModels()
+                .AddNemotronSttModels();
+
             // One library instance serves both the Chatterbox model (voice list read now) and the
             // voice commands (install/uninstall/enumerate), so they share the same store and mirror.
             voiceLibrary = new ReferenceVoiceLibrary(catalog.Store, downloaderOptions);

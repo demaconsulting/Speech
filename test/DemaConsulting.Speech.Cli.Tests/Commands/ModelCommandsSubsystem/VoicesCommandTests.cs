@@ -156,14 +156,16 @@ public sealed class VoicesCommandTests
 
         // Assert: 597,269,359 B download; 45,632,432 B voices; 553,873,246 B emotions
         Assert.Contains("+Emotions", output);
-        Assert.Contains("570 MB", output);
-        Assert.Contains(" 44 MB", output);
-        Assert.Contains("528 MB", output);
+        Assert.Contains("570 MiB", output);
+        Assert.Contains(" 44 MiB", output);
+        Assert.Contains("528 MiB", output);
+        Assert.DoesNotContain(" MB", output);
         Assert.Contains("Downloaded (with emotions)", output);
     }
 
     /// <summary>
-    ///     Test that a failed install is reported as an error (non-zero exit) without the consent note of success.
+    ///     Test that a failed install (for example a corrupted archive failing verification) is reported
+    ///     as an error with a non-zero exit code, installs nothing, and prints no success message.
     /// </summary>
     [Fact]
     public async Task VoicesCommand_RunAsync_InstallFails_ReportsErrorExitCode()
@@ -177,10 +179,15 @@ public sealed class VoicesCommandTests
         };
 
         // Act
-        var (_, exitCode) = await ExecuteAsync(["voices", "install", PackId], catalog, TestContext.Current.CancellationToken);
+        var (output, error, exitCode) = await ExecuteWithErrorAsync(["voices", "install", PackId], catalog, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(1, exitCode);
+        Assert.Contains("failed to install", error);
+        Assert.Contains("ChecksumMismatch", error);
+        Assert.DoesNotContain("installed (", output);
+        Assert.DoesNotContain(ReferenceVoiceLibrary.ConsentNotice, output);
+        Assert.Equal(SpeechModelState.NotDownloaded, catalog.GetVoicePackState(PackId));
     }
 
     /// <summary>
@@ -342,11 +349,24 @@ public sealed class VoicesCommandTests
         // Arrange
         var catalog = new FakeCliModelCatalog();
         using var context = Context.Create(["voices", "install", "nope"]);
+        var originalOut = Console.Out;
+        using var writer = new StringWriter();
+        Console.SetOut(writer);
 
-        // Act & Assert
-        await Assert.ThrowsAsync<ArgumentException>(
-            () => VoicesCommand.RunAsync(context, catalog, CancellationToken.None));
+        // Act
+        try
+        {
+            await Assert.ThrowsAsync<ArgumentException>(
+                () => VoicesCommand.RunAsync(context, catalog, CancellationToken.None));
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+
+        // Assert: the clean "not a known pack" error comes before any output or install attempt
         Assert.Empty(catalog.InstallPackCalls);
+        Assert.Empty(writer.ToString());
     }
 
     /// <summary>
@@ -384,6 +404,31 @@ public sealed class VoicesCommandTests
         await Assert.ThrowsAsync<ArgumentNullException>(
             () => VoicesCommand.RunAsync(context, null!, CancellationToken.None));
         await Assert.ThrowsAsync<ArgumentNullException>(() => VoicesCommand.RunAsync(null!));
+    }
+
+    /// <summary>Runs the command capturing console output, error output, and the exit code.</summary>
+    private static async Task<(string Output, string Error, int ExitCode)> ExecuteWithErrorAsync(
+        string[] args,
+        FakeCliModelCatalog catalog,
+        CancellationToken cancellationToken)
+    {
+        var originalOut = Console.Out;
+        var originalError = Console.Error;
+        try
+        {
+            using var writer = new StringWriter();
+            using var errorWriter = new StringWriter();
+            Console.SetOut(writer);
+            Console.SetError(errorWriter);
+            using var context = Context.Create(args);
+            await VoicesCommand.RunAsync(context, catalog, cancellationToken);
+            return (writer.ToString(), errorWriter.ToString(), context.ExitCode);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+            Console.SetError(originalError);
+        }
     }
 
     /// <summary>Runs the command capturing console output and the exit code.</summary>

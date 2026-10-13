@@ -28,7 +28,7 @@ namespace DemaConsulting.Speech.Cli.Commands.ModelCommandsSubsystem;
 ///     or staging directories left behind by a prior interrupted download/install for one model.
 /// </summary>
 /// <remarks>
-///     Per <see cref="SpeechModelStore.CleanUpLeftovers"/>'s own documented behavior, this never
+///     Per <see cref="SpeechModelStore.CleanUpLeftoversAsync"/>'s own documented behavior, this never
 ///     throws for a deletion that still fails (for example an open file handle); the leftover
 ///     directory is simply left in place for a future call to retry. It is always safe to call,
 ///     including for a model with nothing left to clean up.

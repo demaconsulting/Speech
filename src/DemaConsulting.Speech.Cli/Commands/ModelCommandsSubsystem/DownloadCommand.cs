@@ -93,6 +93,11 @@ internal static class DownloadCommand
     ///     Parses <c>download</c>'s own arguments: one or more positional <c>&lt;modelId&gt;</c>
     ///     values and the optional <c>--force</c> flag, in any order.
     /// </summary>
+    /// <param name="args">The subcommand arguments following <c>download</c>.</param>
+    /// <returns>The requested model ids in order, and whether <c>--force</c> was given.</returns>
+    /// <exception cref="ArgumentException">
+    ///     Thrown when an unsupported flag is given or no model id is present.
+    /// </exception>
     private static (List<string> ModelIds, bool Force) ParseArguments(IReadOnlyList<string> args)
     {
         var modelIds = new List<string>();
@@ -127,6 +132,11 @@ internal static class DownloadCommand
     ///     model first (<see cref="SpeechModelCatalog.DownloadAsync"/> is otherwise a no-op for an
     ///     already-installed model).
     /// </summary>
+    /// <param name="context">The invocation context that receives progress and error lines.</param>
+    /// <param name="catalog">The catalog seam to download through.</param>
+    /// <param name="modelId">The model id to download.</param>
+    /// <param name="force">Whether to uninstall an already-downloaded model first.</param>
+    /// <param name="cancellationToken">A token that, when canceled, aborts the download.</param>
     /// <returns>
     ///     <see langword="true"/> when the download attempt completed (successfully or not,
     ///     already reported via <see cref="Context.WriteLine"/>/<see cref="Context.WriteError"/>);
@@ -174,10 +184,10 @@ internal static class DownloadCommand
             context.WriteError($"Download of '{modelId}' was canceled.");
             return false;
         }
-        // Intentionally broad: this is the per-model CLI error-isolation boundary, so any
-        // failure while attempting one requested model must be reported cleanly and must not
-        // crash or abort later requested models in the same batch.
-        catch (Exception ex)
+        // Only the documented operator-facing errors are isolated per model (an unknown model
+        // id surfaces as ArgumentException; a store state problem as InvalidOperationException).
+        // Any other exception is unexpected and propagates instead of being masked.
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
         {
             context.WriteError($"Model '{modelId}' failed: {ex.Message}");
             return true;

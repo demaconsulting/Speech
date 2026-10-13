@@ -143,7 +143,7 @@ internal static class VoicesCommand
 
             context.WriteLine(string.Create(
                 CultureInfo.InvariantCulture,
-                $"{packs[i].Id.PadRight(idWidth)}  {state.PadRight(stateWidth)}  {ToMegabytes(packs[i].SizeBytes),5:F0} MB  {ToMegabytes(packs[i].VoicesBytes),3:F0} MB  {ToMegabytes(packs[i].EmotionsBytes),6:F0} MB  {packs[i].LicenseName} - {packs[i].DisplayName}"));
+                $"{packs[i].Id.PadRight(idWidth)}  {state.PadRight(stateWidth)}  {ToMegabytes(packs[i].SizeBytes),5:F0} MiB  {ToMegabytes(packs[i].VoicesBytes),3:F0} MiB  {ToMegabytes(packs[i].EmotionsBytes),6:F0} MiB  {packs[i].LicenseName} - {packs[i].DisplayName}"));
         }
 
         context.WriteLine("");
@@ -153,7 +153,7 @@ internal static class VoicesCommand
         context.WriteLine(ReferenceVoiceLibrary.ConsentNotice);
     }
 
-    /// <summary>Converts a byte count to megabytes (MiB).</summary>
+    /// <summary>Converts a byte count to binary megabytes (MiB, 1024 x 1024 bytes), the unit printed in the packs table.</summary>
     private static double ToMegabytes(long bytes) => bytes / (1024.0 * 1024.0);
 
     /// <summary>Installs one pack, reporting progress and the consent note.</summary>

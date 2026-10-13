@@ -48,34 +48,40 @@ internal static class DownloadProgressReporter
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(describe);
 
-        var lastReportedPercent = -1;
-        var lastReportedKilobytes = -1L;
+        // Throttle state is per progress item: the last rendered line is remembered and a new
+        // line is printed only when it differs, so a different file (label or file index) that
+        // starts at the same percent or kilobyte count as the previous one is still reported.
+        var gate = new object();
+        string? lastItem = null;
+        string? lastValue = null;
         return new Progress<SpeechModelDownloadProgress>(progress =>
         {
+            // The label and file index together identify the item being transferred
+            var item = $"{progress.FileIndex}/{progress.FileCount}|{describe(progress)}";
+            string value;
             if (progress.FractionComplete is { } fraction)
             {
-                var percent = (int)(fraction * 100);
-                if (percent == lastReportedPercent)
-                {
-                    return;
-                }
-
-                lastReportedPercent = percent;
-                context.WriteLine($"  {describe(progress)}: {percent}%");
+                value = $"{(int)(fraction * 100)}%";
             }
             else
             {
                 // TotalBytes is unknown (no Content-Length reported); report by whole kilobytes
                 // transferred instead, throttled the same way.
-                var kilobytes = progress.BytesTransferred / 1024;
-                if (kilobytes == lastReportedKilobytes)
+                value = $"{progress.BytesTransferred / 1024:N0} KB";
+            }
+
+            lock (gate)
+            {
+                if (item == lastItem && value == lastValue)
                 {
                     return;
                 }
 
-                lastReportedKilobytes = kilobytes;
-                context.WriteLine($"  {describe(progress)}: {kilobytes:N0} KB");
+                lastItem = item;
+                lastValue = value;
             }
+
+            context.WriteLine($"  {describe(progress)}: {value}");
         });
     }
 }

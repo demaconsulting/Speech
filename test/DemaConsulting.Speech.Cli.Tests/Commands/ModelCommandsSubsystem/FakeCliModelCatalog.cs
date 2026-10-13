@@ -64,6 +64,15 @@ internal sealed class FakeCliModelCatalog : ICliModelCatalog
     /// <summary>Gets or sets an exception <see cref="CleanUpLeftoversAsync"/> faults with, or null.</summary>
     public Exception? CleanUpException { get; set; }
 
+    /// <summary>
+    ///     Gets or sets a value indicating whether <see cref="CleanUpLeftoversAsync"/> blocks until
+    ///     its token is canceled, simulating a cleanup that is still running when Ctrl+C arrives.
+    /// </summary>
+    public bool CleanUpBlocksUntilCanceled { get; set; }
+
+    /// <summary>Gets a source completed once a blocking cleanup has started.</summary>
+    public TaskCompletionSource CleanUpStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
     /// <summary>Gets or sets an exception to throw from <see cref="DownloadAsync"/> before any result is produced.</summary>
     public Exception? DownloadException { get; set; }
 
@@ -79,6 +88,9 @@ internal sealed class FakeCliModelCatalog : ICliModelCatalog
     /// <summary>
     ///     Adds or replaces a model descriptor this fake enumerates.
     /// </summary>
+    /// <param name="model">The model to enumerate.</param>
+    /// <param name="state">The install state to report for the model.</param>
+    /// <returns>This fake, for chaining.</returns>
     public FakeCliModelCatalog WithModel(ISpeechModel model, SpeechModelState state)
     {
         _descriptors[model.Id] = new SpeechModelDescriptor(model, state);
@@ -131,6 +143,7 @@ internal sealed class FakeCliModelCatalog : ICliModelCatalog
     public Task UninstallAsync(string modelId, CancellationToken cancellationToken)
     {
         UninstallCalls.Add(modelId);
+        cancellationToken.ThrowIfCancellationRequested();
         if (UninstallException is not null)
         {
             return Task.FromException(UninstallException);
@@ -145,10 +158,21 @@ internal sealed class FakeCliModelCatalog : ICliModelCatalog
     }
 
     /// <inheritdoc/>
-    public Task CleanUpLeftoversAsync(string modelId, CancellationToken cancellationToken)
+    public async Task CleanUpLeftoversAsync(string modelId, CancellationToken cancellationToken)
     {
         CleanUpLeftoversCalls.Add(modelId);
-        return CleanUpException is not null ? Task.FromException(CleanUpException) : Task.CompletedTask;
+        cancellationToken.ThrowIfCancellationRequested();
+        if (CleanUpBlocksUntilCanceled)
+        {
+            // Simulates a cleanup in flight: completes only when the token is canceled
+            CleanUpStarted.TrySetResult();
+            await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (CleanUpException is not null)
+        {
+            throw CleanUpException;
+        }
     }
 
     /// <summary>

@@ -28,7 +28,7 @@ namespace DemaConsulting.Speech.Cli.Commands.ModelCommandsSubsystem;
 ///     manifest, and any leftover scratch directories.
 /// </summary>
 /// <remarks>
-///     Per <see cref="SpeechModelStore.Uninstall"/>'s own documented behavior, uninstalling a
+///     Per <see cref="SpeechModelStore.UninstallAsync"/>'s own documented behavior, uninstalling a
 ///     model that is not currently installed is a safe no-op (there is simply nothing to
 ///     remove), not an error; this command follows that same documented semantic rather than
 ///     inventing a new "not installed" error case.

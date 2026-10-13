@@ -36,6 +36,13 @@ internal sealed class FakeSpeechModel : ISpeechModel
     /// <summary>
     ///     Initializes a new instance of the <see cref="FakeSpeechModel"/> class.
     /// </summary>
+    /// <param name="id">The model id.</param>
+    /// <param name="displayName">The human-readable model name.</param>
+    /// <param name="role">The role the model fills (recognition by default).</param>
+    /// <param name="parameters">The parameters the model exposes, or <see langword="null"/> for none.</param>
+    /// <param name="audioTagSupport">The audio-tag support the model advertises.</param>
+    /// <param name="licenseName">The license name the model reports.</param>
+    /// <param name="licenseUrl">The license URL the model reports, or <see langword="null"/> when absent.</param>
     public FakeSpeechModel(
         string id,
         string displayName = "Fake Model",

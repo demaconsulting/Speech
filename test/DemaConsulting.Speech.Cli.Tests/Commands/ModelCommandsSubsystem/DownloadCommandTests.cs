@@ -300,6 +300,97 @@ public sealed class DownloadCommandTests
     }
 
     /// <summary>
+    ///     Test that an unexpected exception (not a documented operator error) is not masked as a
+    ///     per-model failure: it propagates and later requested models are not attempted.
+    /// </summary>
+    [Fact]
+    public async Task DownloadCommand_RunAsync_UnexpectedException_Propagates()
+    {
+        // Arrange
+        var catalog = new FakeCliModelCatalog { DownloadException = new IOException("disk fault") };
+        catalog
+            .WithModel(new FakeSpeechModel("model-1"), SpeechModelState.NotDownloaded)
+            .WithModel(new FakeSpeechModel("model-2"), SpeechModelState.NotDownloaded);
+        using var context = Context.Create(["download", "model-1", "model-2"]);
+
+        // Act
+        var exception = await Assert.ThrowsAsync<IOException>(
+            () => DownloadCommand.RunAsync(context, catalog, CancellationToken.None));
+
+        // Assert
+        Assert.Equal("disk fault", exception.Message);
+        Assert.Equal(["model-1"], catalog.DownloadCalls);
+    }
+
+    /// <summary>
+    ///     Test that an <see cref="InvalidOperationException"/> (a documented operator error) is
+    ///     reported for that model with its message and the remaining models are still attempted.
+    /// </summary>
+    [Fact]
+    public async Task DownloadCommand_RunAsync_InvalidOperation_ReportsErrorAndContinues()
+    {
+        // Arrange
+        var catalog = new FakeCliModelCatalog { DownloadException = new InvalidOperationException("store busy") };
+        catalog
+            .WithModel(new FakeSpeechModel("model-1"), SpeechModelState.NotDownloaded)
+            .WithModel(new FakeSpeechModel("model-2"), SpeechModelState.NotDownloaded);
+        using var context = Context.Create(["download", "model-1", "model-2"]);
+        var originalError = Console.Error;
+        using var errorWriter = new StringWriter();
+        Console.SetError(errorWriter);
+
+        // Act
+        try
+        {
+            await DownloadCommand.RunAsync(context, catalog, CancellationToken.None);
+        }
+        finally
+        {
+            Console.SetError(originalError);
+        }
+
+        // Assert
+        Assert.Equal(["model-1", "model-2"], catalog.DownloadCalls);
+        Assert.Equal(1, context.ExitCode);
+        Assert.Contains("Model 'model-1' failed: store busy", errorWriter.ToString());
+    }
+
+    /// <summary>
+    ///     Test that a cancellation raised by the catalog mid-download is reported cleanly (a
+    ///     one-line message naming the model, no stack trace) and is not treated as a failure to continue past.
+    /// </summary>
+    [Fact]
+    public async Task DownloadCommand_RunAsync_CancellationFromCatalog_ReportsCleanMessageAndStops()
+    {
+        // Arrange
+        var catalog = new FakeCliModelCatalog { DownloadException = new OperationCanceledException() };
+        catalog
+            .WithModel(new FakeSpeechModel("model-1"), SpeechModelState.NotDownloaded)
+            .WithModel(new FakeSpeechModel("model-2"), SpeechModelState.NotDownloaded);
+        using var context = Context.Create(["download", "model-1", "model-2"]);
+        var originalError = Console.Error;
+        using var errorWriter = new StringWriter();
+        Console.SetError(errorWriter);
+
+        // Act
+        try
+        {
+            await DownloadCommand.RunAsync(context, catalog, CancellationToken.None);
+        }
+        finally
+        {
+            Console.SetError(originalError);
+        }
+
+        // Assert
+        var error = errorWriter.ToString();
+        Assert.Equal(["model-1"], catalog.DownloadCalls);
+        Assert.Equal(1, context.ExitCode);
+        Assert.Contains("Download of 'model-1' was canceled.", error);
+        Assert.DoesNotContain("   at ", error);
+    }
+
+    /// <summary>
     ///     Test that no requested model id throws a clean <see cref="ArgumentException"/>.
     /// </summary>
     [Fact]
@@ -333,8 +424,12 @@ public sealed class DownloadCommandTests
     [Fact]
     public async Task DownloadCommand_RunAsync_NullContext_ThrowsArgumentNullException()
     {
+        // Arrange
+        var catalog = new FakeCliModelCatalog();
+
+        // Act & Assert
         await Assert.ThrowsAsync<ArgumentNullException>(
-            () => DownloadCommand.RunAsync(null!, new FakeCliModelCatalog(), CancellationToken.None));
+            () => DownloadCommand.RunAsync(null!, catalog, CancellationToken.None));
     }
 
     /// <summary>
@@ -343,7 +438,10 @@ public sealed class DownloadCommandTests
     [Fact]
     public async Task DownloadCommand_RunAsync_NullCatalog_ThrowsArgumentNullException()
     {
+        // Arrange
         using var context = Context.Create(["download", "model-1"]);
+
+        // Act & Assert
         await Assert.ThrowsAsync<ArgumentNullException>(() => DownloadCommand.RunAsync(context, null!, CancellationToken.None));
     }
 }
