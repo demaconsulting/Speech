@@ -70,12 +70,16 @@ sections:
 
               - id: SpeechCli-SynthesisCommands-ParamNumberFormatRejection
                 title: >-
-                  The tool shall reject a numeric `--tts-param` value that is not a number with a
-                  clean, non-zero-exit-code error rather than a stack trace.
+                  The tool shall reject a numeric `--tts-param` value that is not a finite number
+                  (text, `NaN`, or an infinity) with a clean, non-zero-exit-code error rather
+                  than a stack trace.
                 justification: |
-                  Text where a number is required is an operator typo that must fail immediately.
+                  Text, or a non-finite value, where a finite number is required is an operator
+                  typo that must fail immediately and must never be applied to the model.
                 tests:
                   - ParameterBagParser_Resolve_NumericMalformed_ThrowsArgumentException
+                  - ParameterBagParser_Resolve_NumericNonFinite_ThrowsArgumentException
+                  - ParameterBagParser_Resolve_IntegerParameterNonFinite_ThrowsArgumentException
 
               - id: SpeechCli-SynthesisCommands-ParamIntegerRejection
                 title: >-

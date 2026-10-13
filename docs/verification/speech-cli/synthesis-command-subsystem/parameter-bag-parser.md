@@ -65,6 +65,19 @@ undeclared key, and rejects missing inputs.
 
 **Expected**: `ArgumentException`.
 
+##### ParameterBagParser_Resolve_NumericNonFinite_ThrowsArgumentException
+
+**Scenario**: A numeric parameter is given `NaN`, `Infinity` or `-Infinity` (theory).
+
+**Expected**: `ArgumentException` naming the flag, parameter and value; the value is never
+accepted as inside the range.
+
+##### ParameterBagParser_Resolve_IntegerParameterNonFinite_ThrowsArgumentException
+
+**Scenario**: An integer-only numeric parameter is given `NaN`, `Infinity` or `-Infinity` (theory).
+
+**Expected**: `ArgumentException`.
+
 ##### ParameterBagParser_Resolve_IntegerParameterFractionalValue_ThrowsArgumentException
 
 **Scenario**: `speakerIndex=1.5` is resolved against an integer-only numeric parameter.

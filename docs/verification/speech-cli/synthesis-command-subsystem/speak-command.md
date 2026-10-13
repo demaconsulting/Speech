@@ -31,12 +31,37 @@ engine and the device, and rejects a missing dependency.
 
 #### Known Gaps
 
-No test covers `--file` naming a readable, missing or unreadable file, text read from piped stdin,
-or empty and whitespace-only text; `speak` with a missing file surfaces the file-system exception as
-an unexpected error. The unknown-model and wrong-role tests assert that the message names the
-model, but no test asserts the suggested remedy text (`list-models`, `list-models --role tts`).
+No test covers a readable `--file`, text read from piped stdin (the one stdin test is skipped
+whenever stdin is redirected), or empty and whitespace-only text. The unknown-model and wrong-role
+tests assert that the message names the model, but no test asserts the suggested remedy text
+(`list-models`, `list-models --role tts`). A `--file` naming a missing file is covered by
+`SpeakCommand_RunAsync_MissingTextFile_ThrowsInvalidOperationException`.
 
 #### Test Scenarios
+
+##### SpeakCommand_ParseArguments_ValueFlagAtEndOfArgs_ThrowsArgumentException
+
+**Scenario**: Each value-taking flag (theory) is last on the command line.
+
+**Expected**: `ArgumentException` naming the flag as requiring a value.
+
+##### SpeakCommand_ParseArguments_ValueFlagFollowedByRecognizedOption_ThrowsArgumentException
+
+**Scenario**: Each value-taking flag (theory) is directly followed by another `speak` option.
+
+**Expected**: `ArgumentException` naming the flag as requiring a value; the option is not consumed.
+
+##### SpeakCommand_ParseArguments_DashPrefixedNonOptionValue_IsAccepted
+
+**Scenario**: A flag value starts with a dash but is not a `speak` option (for example `-1`).
+
+**Expected**: The value is accepted as the flag's value.
+
+##### SpeakCommand_RunAsync_MissingTextFile_ThrowsInvalidOperationException
+
+**Scenario**: `--file` names a file that does not exist.
+
+**Expected**: `InvalidOperationException` naming the file, wrapping the file-system failure.
 
 ##### SpeakCommand_ParseArguments_MissingModel_ThrowsArgumentException
 

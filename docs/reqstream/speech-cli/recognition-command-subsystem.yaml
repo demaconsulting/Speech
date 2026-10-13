@@ -41,14 +41,25 @@ sections:
             title: >-
               The tool shall stream speech-to-text results from a real microphone, through a
               known, downloaded recognition model named by `--stt-model <id>`, when `recognize`
-              is invoked with `--mic`, and shall finish the run on its own once the idle timeout
-              ends the session.
+              is invoked with `--mic`.
             tags: [subsystem]
             justification: |
               An operator dictating into a microphone needs the same command that handles WAV
-              files, without writing any code, and needs it to end by itself when they stop
-              talking. The run-level test drives the command through the capture-device seam with
-              a fake device and session, and the idle-timeout decorator ends the run.
+              files, without writing any code. The run-level test drives the command through the
+              capture-device seam with a fake device and session.
             tests:
               - RecognizeCommand_ParseArguments_MicFlag_ParsesTrue
               - RecognizeCommand_Run_MicMode_StreamsResultsFromCaptureDevice
+
+          - id: SpeechCli-RecognitionCommands-RecognizeMicrophoneIdleEnd
+            title: >-
+              The tool shall finish a `recognize --mic` run on its own, with a successful exit,
+              once the idle timeout ends the session.
+            tags: [subsystem]
+            justification: |
+              An operator who stops talking needs the run to end by itself instead of having to
+              press `Ctrl+C`. The run-level test shows the command and the idle-timeout decorator
+              cooperating to end the session and return.
+            tests:
+              - RecognizeCommand_Run_MicMode_StreamsResultsFromCaptureDevice
+              - SilenceTimeoutRecognizerSession_GetResultsAsync_TimeoutBeforeAnyResult_StopsSessionAndRaisesTimedOutOnce

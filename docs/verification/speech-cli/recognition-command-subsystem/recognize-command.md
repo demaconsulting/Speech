@@ -66,6 +66,35 @@ downloaded model exists, and is reported as skipped otherwise (see its scenario 
 
 **Expected**: `ArgumentException`.
 
+##### RecognizeCommand_ParseArguments_ValueFlagAtEndOfArgs_ThrowsArgumentException
+
+**Scenario**: Each value-taking flag (theory) is the last argument with no value.
+
+**Expected**: `ArgumentException` whose message names the flag and says it requires a value.
+
+##### RecognizeCommand_ParseArguments_ValueFlagFollowedByRecognizedOption_ThrowsArgumentException
+
+**Scenario**: Each value-taking flag (theory) is directly followed by another `recognize` option
+(for example `--stt-model --mic`).
+
+**Expected**: `ArgumentException` naming the flag as requiring a value; the option is not consumed
+as the value.
+
+##### RecognizeCommand_ParseArguments_NonFiniteTimeout_ThrowsArgumentException
+
+**Scenario**: `--silence-timeout` or `--start-timeout` is given `NaN`, `Infinity` or `-Infinity`
+(theory).
+
+**Expected**: `ArgumentException`.
+
+##### RecognizeCommand_Run_FileInputCanceledDuringStart_CompletesGracefully
+
+**Scenario**: A file-mode run whose cancellation token is canceled while the session is starting,
+over a fake session whose `StopAsync` throws when given a canceled token.
+
+**Expected**: No exception escapes, the exit code is `0`, `StopAsync` was called twice (the second
+with an uncancelable token) and the session and engine are disposed.
+
 ##### RecognizeCommand_ParseArguments_NullArgs_ThrowsArgumentNullException
 
 **Scenario**: `ParseArguments` receives a null argument list.

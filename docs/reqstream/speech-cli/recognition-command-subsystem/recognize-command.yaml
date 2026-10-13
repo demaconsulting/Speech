@@ -9,7 +9,7 @@
 # The requirements are grouped by concern, one criterion each:
 #   - Input source (InputSourceValidation, InputSourceMissing, FileInputSource,
 #     FileInputEofDrivenStop, InputFileValidation, TimeoutsIgnoredForFileInput)
-#   - Arguments (ArgumentValidation)
+#   - Arguments (ArgumentValidation, ValueFlagOptionRejection, FileInputCancellation)
 #   - Model resolution (ModelValidation, ModelUnknown, ModelWrongRole, ModelNotDownloaded)
 #   - Model parameters (ParamValidation, ParamRejection)
 #   - Idle timeout options (SilenceTimeoutOption, SilenceTimeoutDefault,
@@ -117,6 +117,32 @@ sections:
                 tests:
                   - RecognizeCommand_ParseArguments_UnsupportedArgument_ThrowsArgumentException
                   - RecognizeCommand_ParseArguments_FlagMissingValue_ThrowsArgumentException
+                  - RecognizeCommand_ParseArguments_ValueFlagAtEndOfArgs_ThrowsArgumentException
+
+              - id: SpeechCli-RecognitionCommands-ValueFlagOptionRejection
+                title: >-
+                  The tool shall reject `recognize` invoked with a flag that takes a value
+                  directly followed by another `recognize` option, with a clean,
+                  non-zero-exit-code error naming the flag as missing its value, rather than
+                  treating the option as that flag's value.
+                tags: [unit]
+                justification: |
+                  Silently consuming the next option as a value would drop that option and run
+                  the command with the wrong settings, so the omission must fail immediately.
+                tests:
+                  - RecognizeCommand_ParseArguments_ValueFlagFollowedByRecognizedOption_ThrowsArgumentException
+
+              - id: SpeechCli-RecognitionCommands-FileInputCancellation
+                title: >-
+                  The tool shall, when the operator cancels a `recognize --input` run with
+                  `Ctrl+C`, finish the run gracefully, without an unhandled exception, and
+                  release the recognizer and its session.
+                tags: [unit]
+                justification: |
+                  Interrupting a long file transcription must end cleanly instead of printing a
+                  stack trace or leaking the recognizer.
+                tests:
+                  - RecognizeCommand_Run_FileInputCanceledDuringStart_CompletesGracefully
 
               - id: SpeechCli-RecognitionCommands-ModelValidation
                 title: >-
@@ -224,15 +250,16 @@ sections:
 
               - id: SpeechCli-RecognitionCommands-SilenceTimeoutValidation
                 title: >-
-                  The tool shall reject a non-positive or malformed `--silence-timeout` with a
-                  clean, non-zero-exit-code error.
+                  The tool shall reject a non-positive, non-finite (`NaN` or infinite), or
+                  malformed `--silence-timeout` with a clean, non-zero-exit-code error.
                 tags: [unit]
                 justification: |
-                  A zero, negative, or non-numeric timeout would end the session immediately or
-                  never, so it must fail predictably.
+                  A zero, negative, non-finite, or non-numeric timeout would end the session
+                  immediately or never, so it must fail predictably.
                 tests:
                   - RecognizeCommand_ParseArguments_NonPositiveSilenceTimeout_ThrowsArgumentException
                   - RecognizeCommand_ParseArguments_MalformedSilenceTimeout_ThrowsArgumentException
+                  - RecognizeCommand_ParseArguments_NonFiniteTimeout_ThrowsArgumentException
 
               - id: SpeechCli-RecognitionCommands-StartTimeoutOption
                 title: >-
@@ -260,15 +287,16 @@ sections:
 
               - id: SpeechCli-RecognitionCommands-StartTimeoutValidation
                 title: >-
-                  The tool shall reject a non-positive or malformed `--start-timeout` with a
-                  clean, non-zero-exit-code error.
+                  The tool shall reject a non-positive, non-finite (`NaN` or infinite), or
+                  malformed `--start-timeout` with a clean, non-zero-exit-code error.
                 tags: [unit]
                 justification: |
-                  A zero, negative, or non-numeric start window would end the session
+                  A zero, negative, non-finite, or non-numeric start window would end the session
                   immediately or never, so it must fail predictably.
                 tests:
                   - RecognizeCommand_ParseArguments_NonPositiveStartTimeout_ThrowsArgumentException
                   - RecognizeCommand_ParseArguments_MalformedStartTimeout_ThrowsArgumentException
+                  - RecognizeCommand_ParseArguments_NonFiniteTimeout_ThrowsArgumentException
 
               - id: SpeechCli-RecognitionCommands-DefaultVerbosity
                 title: >-

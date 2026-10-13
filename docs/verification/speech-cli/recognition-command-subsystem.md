@@ -61,7 +61,9 @@ A RecognitionCommandSubsystem test run passes when the microphone run above succ
 parsing and disposal tests pass, every unit's own acceptance criteria are met, and the
 integration test either passes against a real model or is reported as skipped for lack of a
 downloaded model. A skip means that scenario is unverified in that environment and must be
-covered by the manual verification below.
+covered by the manual verification below. The skip is deliberate: the model store is per-user
+and may be empty on build agents, so the test is not made unskippable; the manual evidence step
+below is the required substitute and its outcome is recorded with the release verification.
 
 ### Manual / Build-Time Verification
 

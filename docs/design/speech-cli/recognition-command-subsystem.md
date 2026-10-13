@@ -24,8 +24,13 @@ non-zero-exit-code error.
 
 **Consumed**: `ICliModelCatalog` (`Enumerate` and `CreateRecognizerEngineAsync`), the library's
 `ISpeechRecognizerEngine`, `IRecognitionSession`, `SpeechRecognitionEvent`,
-`SpeechRecognitionResult` and `AudioFormat`, `AudioDeviceFactory`, `WavFileAudioCaptureDevice`,
-`ParameterBagParser`, and `DevicesTestCommand.ResolveDeviceSelectionOrThrow`.
+`SpeechRecognitionResult` and `AudioFormat`, the ConversationCommandSubsystem's
+`ICliCaptureDeviceSource` interface (`CaptureProbe` and `CreateCaptureDevice`, the seam
+`RecognizeCommand` resolves a real microphone through), `WavFileAudioCaptureDevice`,
+`ParameterBagParser`, and `DevicesTestCommand.ResolveDeviceSelectionOrThrow`. The production
+`AudioDeviceFactory` reaches `RecognizeCommand` only transitively: the `RunAsync(Context)` entry
+point composes it and wraps it in the conversation subsystem's production `ICliCaptureDeviceSource`
+implementation, whose ownership stays with that subsystem (see its own design document).
 
 ### Design
 
@@ -44,6 +49,21 @@ idle windows (start timeout 8 seconds, silence timeout 5 seconds by default, eac
 the other) and hands them to the decorator. The decorator ends the session by stopping the wrapped
 session when the active window elapses; stopping completes the result stream, which ends the
 command's result pump. `Ctrl+C` reaches the same terminal state by stopping the session directly.
+The run ends successfully when the idle timeout ends the session (the microphone idle-end
+behavior) and the capture device, session and engine are then released.
+
+**Cancellation in file mode.** When `Ctrl+C` lands while a file is being processed, the drain
+`StopAsync` that honors the canceled token may itself throw a cancellation. `RecognizeCommand`
+catches that and stops the session again with an uncancelable token, so the session always reaches
+a terminal state, the result pump ends, and the command completes gracefully rather than
+surfacing an unhandled cancellation.
+
+**Value-taking flags.** Every flag that takes a value (`--stt-model`, `--input`,
+`--capture-device`, `--silence-timeout`, `--start-timeout`, `--stt-param`, `--output-text`)
+rejects, with an `ArgumentException` naming the flag and stating that it requires a value, a
+following token that is one of `recognize`'s own option tokens; a value that merely begins with a
+dash but is not one of those options is accepted. Timeout values must also be finite, positive
+numbers: `NaN` and infinities are rejected with the same error as any other malformed timeout.
 
 **Role validation.** `RecognizeCommand` validates the model's role itself, before asking the seam
 for an engine, so the operator receives a message naming the model and suggesting
@@ -61,8 +81,8 @@ value that equals a global flag is absorbed as that global option rather than pa
 
 `RecognizeCommand` depends on the `ICliModelCatalog` seam (only `Enumerate` and
 `CreateRecognizerEngineAsync`), the library's public recognition types and `AudioFormat`,
-`AudioDeviceFactory` from the library's audio subsystem (through the conversation subsystem's
-`ICliCaptureDeviceSource` seam), and `WavFileAudioCaptureDevice`. It reuses the DeviceCommandsSubsystem's
+the conversation subsystem's `ICliCaptureDeviceSource` seam (the library's `AudioDeviceFactory`
+is reached only through that seam's production implementation), and `WavFileAudioCaptureDevice`. It reuses the DeviceCommandsSubsystem's
 `DevicesTestCommand.ResolveDeviceSelectionOrThrow` helper and the SynthesisCommandSubsystem's
 `ParameterBagParser` rather than duplicating either. `SilenceTimeoutRecognizerSession` depends only
 on the library's public `IRecognitionSession` and `SpeechRecognitionEvent` types and the BCL

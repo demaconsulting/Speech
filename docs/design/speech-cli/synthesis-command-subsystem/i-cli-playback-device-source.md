@@ -28,8 +28,8 @@ project provides everywhere else. A narrow seam is the smaller change, and mirro
   probe, otherwise an honestly unavailable device whose `IsAvailable` is false.
 
 **Error Handling**: The contract reports a missing device through the unavailable device rather
-than an exception; the caller (`SpeakCommand`) turns that into a clean error suggesting
-`--output-audio`.
+than an exception; the caller (`SpeakCommand`) turns that into a clean operator error suggesting
+`--output-audio`, and synthesis is not started.
 
 **Dependencies**: The library's `IAudioPlaybackDeviceProbe`, `IAudioPlaybackDevice` and
 `AudioDeviceSelection`.

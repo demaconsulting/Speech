@@ -10,6 +10,7 @@
 #   - Idle windows (SilenceTimeout, StartTimeout, SessionStartWindowFallback)
 #   - Construction (SessionRequiresWrappedSession, SessionTimeoutValidation,
 #     SessionDefaultClock)
+#   - Draining (SessionTimeoutDrain)
 #   - Cancellation (SessionCancellation)
 # Every test below is a SilenceTimeoutRecognizerSessionTests test.
 
@@ -35,6 +36,8 @@ sections:
                   - SilenceTimeoutRecognizerSession_GetResultsAsync_TimeoutAfterResult_StopsSessionAndRaisesTimedOutOnce
                   - SilenceTimeoutRecognizerSession_GetResultsAsync_FirstResultReceived_ReArmsWithIdleTimeoutNotStartTimeout
                   - SilenceTimeoutRecognizerSession_GetResultsAsync_SecondResultReceived_StaysOnIdleTimeout
+                  - SilenceTimeoutRecognizerSession_GetResultsAsync_ManyResults_LeavesNoPendingTimers
+                  - SilenceTimeoutRecognizerSession_GetResultsAsync_ResultWinsRace_DisposesLosingTimer
 
               - id: SpeechCli-RecognitionCommands-StartTimeout
                 title: >-
@@ -89,13 +92,28 @@ sections:
               - id: SpeechCli-RecognitionCommands-SessionDefaultClock
                 title: >-
                   The SilenceTimeoutRecognizerSession shall be creatable without supplying a time
-                  source, and then measure its windows against the system clock.
+                  source, and shall then end a session once the configured idle window has
+                  elapsed in real time.
                 tags: [unit]
                 justification: |
-                  Production callers have no reason to supply a clock; only tests substitute one
-                  to avoid real waiting.
+                  Production callers have no reason to supply a clock, so an idle window of N
+                  seconds must mean N real seconds; only tests substitute a clock to avoid real
+                  waiting.
                 tests:
                   - SilenceTimeoutRecognizerSession_Construct_NullTimeProvider_DoesNotThrow
+                  - SilenceTimeoutRecognizerSession_GetResultsAsync_NoTimeProvider_EndsSessionAfterRealIdleWindow
+
+              - id: SpeechCli-RecognitionCommands-SessionTimeoutDrain
+                title: >-
+                  The SilenceTimeoutRecognizerSession shall deliver any result produced while the
+                  session is being stopped after an idle timeout before it ends its result
+                  stream.
+                tags: [unit]
+                justification: |
+                  Audio captured just before the idle window elapsed may still yield a final
+                  result when the session drains; dropping it would lose the last words spoken.
+                tests:
+                  - SilenceTimeoutRecognizerSession_GetResultsAsync_TimeoutDrain_YieldsTrailingResultBeforeEnding
 
               - id: SpeechCli-RecognitionCommands-SessionCancellation
                 title: >-

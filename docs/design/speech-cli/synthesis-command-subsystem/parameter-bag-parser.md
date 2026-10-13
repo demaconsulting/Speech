@@ -16,7 +16,8 @@ strings; the result is a `Dictionary<string, object>` keyed by parameter id whos
   string.
 - **Resolve(rawValues, declaredParameters, flagName)**: Looks each key up in the declared
   parameters by exact (ordinal) id and resolves the value by the parameter's concrete kind:
-  - `NumericParameter`: parsed as a `double` with invariant culture, checked against `Minimum` and
+  - `NumericParameter`: parsed as a `double` with invariant culture, required to be finite (`NaN`
+    and infinities are rejected), checked against `Minimum` and
     `Maximum`, and, when the parameter is integer-only, checked to be a whole number.
   - `ChoiceParameter`: matched ordinally against the declared option values and returned as the
     string.

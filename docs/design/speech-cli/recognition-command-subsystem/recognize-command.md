@@ -85,7 +85,8 @@ the last time the console line was settled.
   semantics, consistent with `speak --output-audio`.
 
 **Error Handling**: Operator mistakes throw `ArgumentException` with an actionable message: a
-missing `--stt-model`, an unsupported argument, a value-less flag, a non-positive or malformed
+missing `--stt-model`, an unsupported argument, a value-less flag (including a flag directly followed
+by another `recognize` option), a non-positive, non-finite or malformed
 timeout, both or neither of `--input` and `--mic`, both `--interim` and `--final-only`, an
 unknown, wrong-role or not-downloaded model, an invalid `--stt-param`, and an unknown
 `--capture-device`. A capture device that is not available in microphone mode throws
@@ -93,7 +94,8 @@ unknown, wrong-role or not-downloaded model, an invalid `--stt-param`, and an un
 16-bit PCM, because the WAV device rejects it when its capture starts, and the message
 names the file or the mono requirement. Null arguments to the entry points throw
 `ArgumentNullException`. A cancellation that ends the result pump is treated as graceful
-termination. Neither `IAudioCaptureDevice` nor its implementations are disposable, so the command
+termination; in file mode, if the drain `StopAsync` itself throws a cancellation, the command
+stops the session again with an uncancelable token before completing. Neither `IAudioCaptureDevice` nor its implementations are disposable, so the command
 needs no capture-device disposal; the engine and session are released by `await using`.
 
 **Dependencies**: `ICliModelCatalog`, `ICliCaptureDeviceSource`, `AudioDeviceFactory`,

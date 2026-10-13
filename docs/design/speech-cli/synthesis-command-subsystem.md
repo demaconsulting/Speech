@@ -23,8 +23,9 @@ The subsystem also consumes two members of the `ICliModelCatalog` seam owned by
 ### Interfaces
 
 **Exposed**: `SpeakCommand.RunAsync(Context)` (the `CommandDispatch` entry point, which awaits the
-asynchronous work), `ParameterBagParser.Resolve` and `ParameterBagParser.ParseToken` (consumed by
-the recognition and conversation command subsystems), and the CLI-owned `ICliPlaybackDeviceSource`
+asynchronous work), the C# `internal` members `ParameterBagParser.Resolve` and
+`ParameterBagParser.ParseToken` (consumed by
+the recognition and conversation command subsystems within the same assembly), and the CLI-owned `ICliPlaybackDeviceSource`
 seam. Operator mistakes are reported as `ArgumentException` or `InvalidOperationException`, which
 `Program` turns into a one-line error and a non-zero exit code.
 
@@ -42,7 +43,7 @@ a fixed order. `ParameterBagParser` is a stateless helper.
 
 **Ownership of ParameterBagParser.** It is a unit of this subsystem: its source, unit tests,
 requirements and design live here, and it is reviewed with this subsystem. The recognition and
-conversation command subsystems consume it through its internal `Resolve` and `ParseToken` methods,
+conversation command subsystems consume it through its C# `internal` `Resolve` and `ParseToken` methods,
 exactly as they consume this subsystem's `ICliPlaybackDeviceSource`, and so depend on this
 subsystem.
 
@@ -84,7 +85,7 @@ subsystem in production, via `AudioDeviceFactoryPlaybackDeviceSource`), and
 `DeviceCommandsSubsystem` rather than duplicating device resolution logic.
 `ParameterBagParser` depends only on the library's public
 `ISpeechModelParameter`/`NumericParameter`/`ChoiceParameter`/`BooleanParameter` types. The
-recognition and conversation command subsystems consume `ParameterBagParser` and
-`ICliPlaybackDeviceSource`. Nothing in this subsystem touches `ISynthesisModel` or any other
+recognition and conversation command subsystems consume the C# `internal` `ParameterBagParser.Resolve`/`ParseToken` methods and the
+`ICliPlaybackDeviceSource` seam. Nothing in this subsystem touches `ISynthesisModel` or any other
 internal library type directly; that access is confined to the catalog adapter of
 `ModelCommandsSubsystem`.

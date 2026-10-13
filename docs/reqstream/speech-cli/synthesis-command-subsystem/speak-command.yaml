@@ -5,8 +5,8 @@
 # decomposing the parent SynthesisCommandSubsystem requirements.
 #
 # The requirements are grouped by concern, one criterion each:
-#   - Flags (ModelValidation, ArgumentValidation)
-#   - Text source (TextSourceValidation, TextSourceMissing)
+#   - Flags (ModelValidation, ArgumentValidation, ValueFlagOptionRejection)
+#   - Text source (TextSourceValidation, TextSourceMissing, TextFileUnreadable)
 #   - Model resolution (ModelUnknown, ModelWrongRole, ModelNotDownloaded)
 #   - Parameters and tags (ParamApplication, ParamInvalidRejection, NoTags)
 #   - Output and device (OutputDispatch, PlaybackDeviceDispatch, PlaybackDeviceUnavailable)
@@ -16,8 +16,8 @@
 # catalog's refusal to create an engine for a model of the wrong role, naming the model by id. The
 # user-facing `speak` message for a wrong-role model is owned by ModelWrongRole below.
 #
-# Not covered by any requirement because no test proves it: `speak --file` naming a missing or
-# unreadable file, text from piped stdin, and empty or whitespace-only text.
+# Not covered by any requirement because no test proves it: text from piped stdin, and empty or
+# whitespace-only text.
 
 sections:
   - title: SpeechCli Requirements
@@ -107,6 +107,33 @@ sections:
                 tests:
                   - SpeakCommand_ParseArguments_UnsupportedArgument_ThrowsArgumentException
                   - SpeakCommand_ParseArguments_FlagMissingValue_ThrowsArgumentException
+                  - SpeakCommand_ParseArguments_ValueFlagAtEndOfArgs_ThrowsArgumentException
+
+              - id: SpeechCli-SynthesisCommands-ValueFlagOptionRejection
+                title: >-
+                  The tool shall reject `speak` invoked with a flag that takes a value directly
+                  followed by another `speak` option, with a clean, non-zero-exit-code error
+                  naming the flag as missing its value, rather than treating the option as that
+                  flag's value.
+                justification: |
+                  Silently consuming the next option as a value would drop that option and run
+                  the command with the wrong settings, so the omission must fail immediately.
+                  A value that merely begins with a dash but is not a `speak` option, such as
+                  narration text, remains acceptable.
+                tests:
+                  - SpeakCommand_ParseArguments_ValueFlagFollowedByRecognizedOption_ThrowsArgumentException
+                  - SpeakCommand_ParseArguments_DashPrefixedNonOptionValue_IsAccepted
+
+              - id: SpeechCli-SynthesisCommands-TextFileUnreadable
+                title: >-
+                  The tool shall reject `speak` invoked with a `--file` that names a missing or
+                  unreadable file with a clean, non-zero-exit-code error that names the file,
+                  rather than a stack trace.
+                justification: |
+                  A mistyped or inaccessible path must fail with an error that identifies the
+                  file so the operator can correct it.
+                tests:
+                  - SpeakCommand_RunAsync_MissingTextFile_ThrowsInvalidOperationException
 
               - id: SpeechCli-SynthesisCommands-ParamApplication
                 title: >-

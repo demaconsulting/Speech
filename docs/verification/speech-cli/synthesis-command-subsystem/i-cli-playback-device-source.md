@@ -25,15 +25,28 @@ validation, creation and unavailability without hardware.
 
 #### Test Scenarios
 
-##### AudioDeviceFactoryPlaybackDeviceSource_PlaybackProbe_ForwardsToFactory
+##### AudioDeviceFactoryPlaybackDeviceSource_PlaybackProbe_ReturnsInjectedProbeIdentity
 
-**Scenario**: The production implementation's probe is compared with its factory's probe.
+**Scenario**: The production implementation's probe is compared with the probe its factory was
+built with.
 
 **Expected**: They are the same instance.
 
-##### AudioDeviceFactoryPlaybackDeviceSource_CreatePlaybackDevice_ForwardsToFactory
+##### AudioDeviceFactoryPlaybackDeviceSource_CreatePlaybackDevice_EmptyProbeDefault_ReturnsUnavailable
 
-**Scenario**: A device is created for the default selection and for a named selection.
+**Scenario**: A default device is requested when the probe lists no devices.
+
+**Expected**: An unavailable device.
+
+##### AudioDeviceFactoryPlaybackDeviceSource_CreatePlaybackDevice_UnknownNamedSelection_ReturnsUnavailable
+
+**Scenario**: A device name the probe does not list is requested.
+
+**Expected**: An unavailable device.
+
+##### AudioDeviceFactoryPlaybackDeviceSource_CreatePlaybackDevice_MatchesFactoryResult
+
+**Scenario**: A device is created for the default selection and for a listed named selection.
 
 **Expected**: The result has the same type and availability as the factory's own result.
 
@@ -47,4 +60,5 @@ validation, creation and unavailability without hardware.
 
 **Scenario**: `speak` runs over a fake source that reports no device.
 
-**Expected**: `InvalidOperationException`.
+**Expected**: `InvalidOperationException` whose message names `--output-audio` as the alternative,
+and the fake synthesizer's call count shows synthesis never started.

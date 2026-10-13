@@ -40,6 +40,20 @@ verification documents is also reported cleanly by the built tool with a non-zer
 
 ### Test Scenarios
 
+#### ParamFlagNameReported
+
+**Tests**: `ParameterBagParser_Resolve_UnrecognizedKey_ThrowsArgumentException`,
+`ParameterBagParser_Resolve_NumericMalformed_ThrowsArgumentException`,
+`ParameterBagParser_ParseToken_NoSeparator_ThrowsArgumentException`,
+`SpeakCommand_RunAsync_InvalidParam_ThrowsArgumentException`,
+`RecognizeCommand_Run_InvalidParam_ThrowsArgumentException`,
+`RecognizeCommand_Run_UnknownParamKey_ThrowsArgumentException`,
+`RecognizeCommand_ParseArguments_MalformedParamToken_ThrowsArgumentException`
+
+**Scenario/Expected**: A malformed or undeclared `--tts-param` for `speak` and `--stt-param` for
+`recognize` is rejected with an `ArgumentException` whose message names the invoking flag verbatim
+(`--tts-param` or `--stt-param`), so the operator sees the flag they typed.
+
 #### SpeakCommand_RunAsync_Success_DisposesEngineAndSessionOnce
 
 **Scenario**: `speak` runs end to end over a fake catalog, device source, engine and session.

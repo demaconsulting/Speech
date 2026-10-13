@@ -60,10 +60,17 @@ non-zero exit code. A cancellation during speaking (for example `Ctrl+C`) is cau
 the one-line error `Speech was canceled.`, so the exit code is non-zero and no stack trace appears.
 A null context, catalog or device source is rejected with `ArgumentNullException`.
 
-Two text-source situations have no dedicated handling. A `--file` that names a missing or
-unreadable file surfaces the file-system exception from reading it, which `Program` reports as an
-unexpected error rather than a clean usage error. Empty or whitespace-only text is passed to the
-session unchanged, so the outcome is the engine's own behavior. Neither is covered by a test.
+Two text-source situations are handled as follows. A `--file` that names a missing or unreadable
+file is reported as an `InvalidOperationException` wrapping the file-system failure, so `Program`
+prints a clean one-line error naming the file and returns a non-zero exit code; a test covers it.
+Empty or whitespace-only text is passed to the session unchanged, so the outcome is the engine's
+own behavior.
+
+**Value-taking flags.** `--tts-model`, `--text`, `--file`, `--output-audio`, `--playback-device`
+and `--tts-param` each require a value. If the next token is absent, or is one of `speak`'s own
+option tokens, parsing is rejected with an `ArgumentException` saying the flag requires a value.
+A value that merely begins with a dash but is not one of those options (for example `-1` or
+narration text) is accepted.
 
 **Dependencies**: `ICliModelCatalog` (`Enumerate`, `GetPreferredAudioFormat`,
 `CreateSynthesizerEngineAsync`); `ICliPlaybackDeviceSource`; `ParameterBagParser`;
