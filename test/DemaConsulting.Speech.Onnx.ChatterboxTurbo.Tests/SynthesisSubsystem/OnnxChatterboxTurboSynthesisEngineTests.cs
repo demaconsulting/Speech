@@ -202,6 +202,17 @@ public sealed class OnnxChatterboxTurboSynthesisEngineTests
         Assert.Equal(0.1f, networks.EncodeInputs[0][0], 3);
     }
 
+    /// <summary>Proves the engine reports the true 24 kHz output sample rate.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboSynthesisEngine_SampleRate_Is24Kilohertz()
+    {
+        // Arrange
+        using var engine = Create(new FakeNetworks([OnnxChatterboxTurboSynthesisEngine.StopSpeechToken]));
+
+        // Assert
+        Assert.Equal(24000, engine.SampleRate);
+    }
+
     /// <summary>Proves the speed argument is ignored, since the model exposes no speed control.</summary>
     [Fact]
     public void OnnxChatterboxTurboSynthesisEngine_Generate_Speed_IsIgnored()

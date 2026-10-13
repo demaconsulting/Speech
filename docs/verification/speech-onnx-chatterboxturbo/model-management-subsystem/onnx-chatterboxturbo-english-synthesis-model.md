@@ -73,6 +73,10 @@ and `OnnxChatterboxTurboEnglishSynthesisModel_Constructor_DirectoryWavAndFlacSam
 
 **Test**: `OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_NoVoices_Throws`
 
+##### Backend creation rejects an empty model directory path
+
+**Test**: `OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_EmptyDirectory_ThrowsArgumentException`
+
 ##### Backend creation reports a missing file
 
 **Test**: `OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_MissingFile_ThrowsFileNotFound`

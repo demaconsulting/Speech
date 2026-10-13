@@ -20,8 +20,7 @@ sections:
           - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxBackend
             title: >-
               The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall implement the Speech
-              library's ISynthesisBackend seam for the Chatterbox Turbo model on the CPU,
-              reporting the true 24 kHz output sample rate.
+              library's ISynthesisBackend seam for the Chatterbox Turbo model on the CPU.
             justification: |
               A real implementation of the backend seam is what turns the Speech library's
               synthesis policy into audible speech for this package's model.
@@ -47,6 +46,17 @@ sections:
             tests:
               - OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_SyntheticInstall_SynthesizesAudio
               - OnnxChatterboxTurboSynthesisEngine_Generate_ScriptedTokens_AssemblesPromptAndDecoderInput
+
+          - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxBackendSampleRate
+            title: >-
+              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall report the true 24 kHz
+              output sample rate of the audio it produces.
+            justification: |
+              The Speech library resamples and mixes based on the true rate of the audio.
+            children:
+              - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-SampleRate
+            tests:
+              - OnnxChatterboxTurboSynthesisEngine_SampleRate_Is24Kilohertz
 
           - id: SpeechOnnxChatterboxTurbo-Synthesis-VoiceConditioning
             title: >-
@@ -119,32 +129,107 @@ sections:
           - id: SpeechOnnxChatterboxTurbo-Synthesis-TagProfile
             title: >-
               The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall provide a capability
-              profile that renders each audio tag as speech, silence or nothing according to what
-              the model can reproduce.
+              profile that renders the laugh, throat-clear and gasp audio tags as the model's
+              native tokens.
             justification: |
               The model's tag behavior is model-specific, so the policy belongs with the
               package rather than the generic Speech library renderer.
             children:
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-NativeTags
-              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-Silence
-              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-Unsupported
-              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-InvalidInput
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-NativeTagInline
             tests:
               - ChatterboxTurboCapabilityProfile_Render_MidSentenceLaugh_StaysInlineWithNativeToken
 
+          - id: SpeechOnnxChatterboxTurbo-Synthesis-TagSilence
+            title: >-
+              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall provide a capability
+              profile that renders the sigh and pause audio tags as silence.
+            justification: |
+              The model has no usable token for these tags, so real silence is the faithful
+              rendering.
+            children:
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-Silence
+            tests:
+              - ChatterboxTurboCapabilityProfile_Render_PauseTags_BecomeSilence
+
+          - id: SpeechOnnxChatterboxTurbo-Synthesis-TagOmission
+            title: >-
+              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall provide a capability
+              profile that omits every audio tag the model cannot reproduce.
+            justification: |
+              The model mispronounces unknown brackets, so tags it cannot render must become
+              nothing.
+            children:
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-Unsupported
+            tests:
+              - ChatterboxTurboCapabilityProfile_Render_UnsupportedTags_NeverEmitBracketText
+
+          - id: SpeechOnnxChatterboxTurbo-Synthesis-TagInputSafety
+            title: >-
+              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall let its capability profile
+              render empty or invalid text safely and reject null arguments.
+            justification: |
+              Rendering must never fail a synthesis call on degenerate input.
+            children:
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-InvalidInput
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-NullArguments
+            tests:
+              - ChatterboxTurboCapabilityProfile_Render_EmptyOrInvalid_BehavesSafely
+
           - id: SpeechOnnxChatterboxTurbo-Synthesis-TagRelocation
             title: >-
-              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall relocate, suffix or drop a
-              tag that would end a sentence, and keep a tag between sentences with the speech
-              that follows it.
+              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall move a tag that would end a
+              sentence before the final word when the configured policy is move-before-final-word.
             justification: |
               A tag with no speech after it makes the model misbehave.
             children:
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-TrailingTag
-              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-TagBetweenSentences
-              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-TrailingTagOnlyChunk
             tests:
               - ChatterboxTurboCapabilityProfile_Render_TrailingTag_MoveBeforeFinalWord_RelocatesTag
+
+          - id: SpeechOnnxChatterboxTurbo-Synthesis-TagSuffixing
+            title: >-
+              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall suffix a tag that would end
+              a sentence when the configured policy is suffix.
+            justification: |
+              A host may prefer to keep the tag at the end of the sentence.
+            children:
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-TrailingTagSuffix
+            tests:
+              - ChatterboxTurboCapabilityProfile_Render_TrailingTag_Suffix_AppendsOrDrops
+
+          - id: SpeechOnnxChatterboxTurbo-Synthesis-TagStripping
+            title: >-
+              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall strip a tag that would end a
+              sentence when the configured policy is strip.
+            justification: |
+              A host may prefer silence over a tag at the end of a sentence.
+            children:
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-TrailingTagStrip
+            tests:
+              - ChatterboxTurboCapabilityProfile_Render_TrailingTag_Strip_DropsTag
+
+          - id: SpeechOnnxChatterboxTurbo-Synthesis-TagBetweenSentences
+            title: >-
+              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall keep a tag between
+              sentences with the speech that follows it.
+            justification: |
+              A tag that stands alone has no speech to attach to.
+            children:
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-TagBetweenSentences
+            tests:
+              - ChatterboxTurboCapabilityProfile_Render_TagBetweenSentences_LeadsNextSentence
+
+          - id: SpeechOnnxChatterboxTurbo-Synthesis-TagOnlyChunk
+            title: >-
+              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall join a chunk holding only a
+              trailing tag to the previous unit.
+            justification: |
+              A chunk of only a tag has no speech to carry it.
+            children:
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-TrailingTagOnlyChunk
+            tests:
+              - ChatterboxTurboCapabilityProfile_Render_TrailingTagOnlyChunk_JoinsPreviousUnit
 
           - id: SpeechOnnxChatterboxTurbo-Synthesis-Segmentation
             title: >-
@@ -162,38 +247,104 @@ sections:
           - id: SpeechOnnxChatterboxTurbo-Synthesis-MoodTags
             title: >-
               The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall turn mood audio tags into
-              per-segment moods, hiding the seam between moods with a short silence.
+              per-segment moods.
             justification: |
               The model has no emotion tokens, so moods are realized by switching the reference
               clip per segment.
             children:
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-Moods
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodPersistence
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodLastWins
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-NonMoodTags
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodMarker
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodMarkerLookup
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodTagPolicy
+            tests:
+              - ChatterboxTurboCapabilityProfile_Render_MoodTag_MarksFollowingTextWithMood
+
+          - id: SpeechOnnxChatterboxTurbo-Synthesis-MoodSeamSilence
+            title: >-
+              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall hide the seam between moods
+              with a short silence.
+            justification: |
+              A change of reference clip is audible, so a short silence at the change hides the
+              seam.
+            children:
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodJoinSilence
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodJoinSilenceDisabled
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodJoinSilenceOverlap
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodJoinSilenceEllipsisWins
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodJoinSilenceValidation
-              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodTagPolicy
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-PolicyValidation
             tests:
               - ChatterboxTurboCapabilityProfile_Render_MoodChange_AddsJoinSilenceOnlyAtChanges
 
           - id: SpeechOnnxChatterboxTurbo-Synthesis-GenerationBounds
             title: >-
-              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall stop generation at the
-              end-of-speech token or, failing that, at a bound derived from the text length and
-              an absolute maximum, flagging the result as truncated.
+              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall stop generation after an
+              absolute maximum number of speech tokens.
             justification: |
               Without a bound a missing end-of-speech token would never terminate.
             children:
               - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-Bounds
-              - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-ProportionalBound
-              - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-Truncation
-              - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-SegmentGuards
-              - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-StopToken
             tests:
               - OnnxChatterboxTurboSynthesisEngine_Generate_NeverStops_IsBoundedAndFlagged
+
+          - id: SpeechOnnxChatterboxTurbo-Synthesis-GenerationProportionalBound
+            title: >-
+              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall stop generation after a
+              number of speech tokens derived from the text length.
+            justification: |
+              A runaway generation on short text must end long before the absolute maximum.
+            children:
+              - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-ProportionalBound
+            tests:
+              - OnnxChatterboxTurboSynthesisEngine_Generate_ProportionalBound_StopsRunawayEarly
+
+          - id: SpeechOnnxChatterboxTurbo-Synthesis-GenerationStop
+            title: >-
+              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall end generation at the
+              end-of-speech token.
+            justification: |
+              Breaking a token loop must never prevent the model from ending speech.
+            children:
+              - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-StopToken
+            tests:
+              - OnnxChatterboxTurboSynthesisEngine_Generate_StopAfterCappedRun_EndsWithoutTruncation
+
+          - id: SpeechOnnxChatterboxTurbo-Synthesis-GenerationTruncation
+            title: >-
+              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall flag a result that hit a
+              generation bound as truncated.
+            justification: |
+              A bounded utterance is a degraded result, and a host can tell it from a complete
+              one.
+            children:
+              - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-Truncation
+            tests:
+              - OnnxChatterboxTurboSynthesisEngine_Generate_NeverStops_IsBoundedAndFlagged
+
+          - id: SpeechOnnxChatterboxTurbo-Synthesis-GenerationNoException
+            title: >-
+              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall never throw for hitting a
+              generation bound.
+            justification: |
+              A bounded utterance is a degraded result, not a failure.
+            children:
+              - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-BoundNoException
+            tests:
+              - OnnxChatterboxTurboSynthesisEngine_Generate_NeverStops_IsBoundedAndFlagged
+
+          - id: SpeechOnnxChatterboxTurbo-Synthesis-GenerationSegmentGuards
+            title: >-
+              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall apply the generation bounds
+              to each mood segment separately.
+            justification: |
+              A runaway segment must not consume the budget of the segments after it.
+            children:
+              - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-SegmentGuards
+            tests:
+              - OnnxChatterboxTurboSynthesisEngine_Generate_MarkedSegments_GuardsApplyPerSegment
 
           - id: SpeechOnnxChatterboxTurbo-Synthesis-RepetitionGuard
             title: >-

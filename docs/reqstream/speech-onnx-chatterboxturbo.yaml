@@ -32,6 +32,7 @@ sections:
         children:
           - SpeechOnnxChatterboxTurbo-Models-CatalogRegistration
           - SpeechOnnxChatterboxTurbo-Models-ModelOptions
+          - SpeechOnnxChatterboxTurbo-Models-ModelOptionsValidation
         tests:
           - SpeechOnnxChatterboxTurbo_SystemIntegration_AddChatterboxTurboModels_RegistersModelAndReturnsCatalog
 
@@ -49,6 +50,8 @@ sections:
           - SpeechOnnxChatterboxTurbo-Models-ModelDescription
           - SpeechOnnxChatterboxTurbo-Models-ModelDownload
           - SpeechOnnxChatterboxTurbo-Models-BackendCreation
+          - SpeechOnnxChatterboxTurbo-Models-BackendCreationFailures
+          - SpeechOnnxChatterboxTurbo-Models-BackendCreationCleanup
         tests:
           - SpeechOnnxChatterboxTurbo_SystemIntegration_RegisteredModel_IsDownloadableWithVariantsAndVoices
 
@@ -75,6 +78,7 @@ sections:
           backend turns rendered text into audible speech for this package's synthesis model.
         children:
           - SpeechOnnxChatterboxTurbo-Synthesis-OnnxBackend
+          - SpeechOnnxChatterboxTurbo-Synthesis-OnnxBackendSampleRate
         tests:
           - SpeechOnnxChatterboxTurbo_SystemIntegration_SyntheticInstall_SynthesizesThroughSpeechPipeline
 
@@ -90,8 +94,12 @@ sections:
           package.
         children:
           - SpeechOnnxChatterboxTurbo-Models-ReferenceVoices
+          - SpeechOnnxChatterboxTurbo-Models-ReferenceVoiceSamples
+          - SpeechOnnxChatterboxTurbo-Models-ReferenceVoiceFileErrors
+          - SpeechOnnxChatterboxTurbo-Models-ReferenceVoiceArguments
           - SpeechOnnxChatterboxTurbo-Models-ReferenceVoiceNormalization
           - SpeechOnnxChatterboxTurbo-Models-ReferenceVoiceLength
+          - SpeechOnnxChatterboxTurbo-Models-ReferenceVoiceMinimumLength
           - SpeechOnnxChatterboxTurbo-Models-VoiceChoice
           - SpeechOnnxChatterboxTurbo-Synthesis-VoiceCaching
         tests:
@@ -119,6 +127,9 @@ sections:
           drops clips in their folder.
         children:
           - SpeechOnnxChatterboxTurbo-Models-StoreReferenceVoices
+          - SpeechOnnxChatterboxTurbo-Models-StoreVoiceUniqueness
+          - SpeechOnnxChatterboxTurbo-Models-StoreVoiceNaming
+          - SpeechOnnxChatterboxTurbo-Models-StoreVoiceOptOutChoice
         tests:
           - SpeechOnnxChatterboxTurbo_SystemIntegration_StoreVoices_OfferedByDefaultAndSpoken
 
@@ -132,6 +143,7 @@ sections:
           model unusable.
         children:
           - SpeechOnnxChatterboxTurbo-Models-StoreVoiceLazyLoading
+          - SpeechOnnxChatterboxTurbo-Models-StoreVoiceDamagedClip
         tests:
           - SpeechOnnxChatterboxTurbo_SystemIntegration_StoreVoicesResilience_DamagedClipDoesNotBlockOtherVoices
 
@@ -145,6 +157,7 @@ sections:
           expressed.
         children:
           - SpeechOnnxChatterboxTurbo-Synthesis-MoodTags
+          - SpeechOnnxChatterboxTurbo-Synthesis-MoodSeamSilence
           - SpeechOnnxChatterboxTurbo-Synthesis-MoodConditioning
           - SpeechOnnxChatterboxTurbo-Models-StoreVoiceMoods
         tests:
@@ -196,7 +209,7 @@ sections:
         justification: |
           The model has no usable sound for these tags, so silence is the faithful rendering.
         children:
-          - SpeechOnnxChatterboxTurbo-Synthesis-TagProfile
+          - SpeechOnnxChatterboxTurbo-Synthesis-TagSilence
         tests:
           - SpeechOnnxChatterboxTurbo_SystemIntegration_NativeTagRendering_SilenceInlineOrOmitted
 
@@ -209,7 +222,8 @@ sections:
           The model ignores or mispronounces other tags, so a tailored policy omits them and
           tagged text never fails or sounds wrong.
         children:
-          - SpeechOnnxChatterboxTurbo-Synthesis-TagProfile
+          - SpeechOnnxChatterboxTurbo-Synthesis-TagOmission
+          - SpeechOnnxChatterboxTurbo-Synthesis-TagInputSafety
         tests:
           - SpeechOnnxChatterboxTurbo_SystemIntegration_NativeTagRendering_SilenceInlineOrOmitted
 
@@ -223,6 +237,10 @@ sections:
           tag is kept next to speech.
         children:
           - SpeechOnnxChatterboxTurbo-Synthesis-TagRelocation
+          - SpeechOnnxChatterboxTurbo-Synthesis-TagSuffixing
+          - SpeechOnnxChatterboxTurbo-Synthesis-TagStripping
+          - SpeechOnnxChatterboxTurbo-Synthesis-TagBetweenSentences
+          - SpeechOnnxChatterboxTurbo-Synthesis-TagOnlyChunk
         tests:
           - SpeechOnnxChatterboxTurbo_SystemIntegration_TagPlacement_TrailingTagIsKeptWithSpeech
 
@@ -249,6 +267,11 @@ sections:
           hang a host application and exhaust memory.
         children:
           - SpeechOnnxChatterboxTurbo-Synthesis-GenerationBounds
+          - SpeechOnnxChatterboxTurbo-Synthesis-GenerationProportionalBound
+          - SpeechOnnxChatterboxTurbo-Synthesis-GenerationStop
+          - SpeechOnnxChatterboxTurbo-Synthesis-GenerationTruncation
+          - SpeechOnnxChatterboxTurbo-Synthesis-GenerationNoException
+          - SpeechOnnxChatterboxTurbo-Synthesis-GenerationSegmentGuards
           - SpeechOnnxChatterboxTurbo-Synthesis-RepetitionGuard
         tests:
           - SpeechOnnxChatterboxTurbo_SystemIntegration_RunawayProtection_BoundsGenerationWithoutException

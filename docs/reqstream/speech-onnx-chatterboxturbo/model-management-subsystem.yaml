@@ -41,8 +41,11 @@ sections:
               this declared metadata.
             children:
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-Identity
+              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-DisplayName
+              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-License
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-OutputFormat
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-CapabilityProfile
+              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-ProfileJoinSilence
 
           - id: SpeechOnnxChatterboxTurbo-Models-ModelDownload
             title: >-
@@ -75,27 +78,55 @@ sections:
           - id: SpeechOnnxChatterboxTurbo-Models-BackendCreation
             title: >-
               The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall build a loaded
-              synthesis backend from an installed model directory, or fail with an
-              InvalidOperationException when no voice is available or a graph is invalid, or a
-              FileNotFoundException when a model file is missing.
+              synthesis backend from an installed model directory.
             justification: |
               This is how the model store turns an installed model into speech.
             children:
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-CreateBackend
+
+          - id: SpeechOnnxChatterboxTurbo-Models-BackendCreationFailures
+            title: >-
+              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall fail backend creation
+              with an exception that identifies the cause of the failure (no voice, empty
+              directory path, missing model file, invalid graph).
+            justification: |
+              A broken install or configuration must be reported precisely so the host can tell
+              the causes apart.
+            children:
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-CreateBackendFailures
+              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-CreateBackendEmptyPath
+              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-CreateBackendMissingFile
+              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-CreateBackendInvalidGraph
+
+          - id: SpeechOnnxChatterboxTurbo-Models-BackendCreationCleanup
+            title: >-
+              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall release every native
+              session it already created when backend creation fails.
+            justification: |
+              Native sessions must never leak when construction fails.
+            children:
+              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-CreateBackendNoLeak
 
           - id: SpeechOnnxChatterboxTurbo-Models-ModelOptions
             title: >-
               The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall let a host configure
               the model through an options object whose defaults are the fp16 language model, q4
-              auxiliary graphs, 1024 maximum new tokens and a 150 ms mood join silence, and that
-              rejects invalid values when they are assigned.
+              auxiliary graphs, 1024 maximum new tokens and a 150 ms mood join silence.
             justification: |
-              A host that supplies no options gets sensible behavior, and invalid values fail at
-              assignment rather than during synthesis.
+              A host that supplies no options gets sensible behavior.
             children:
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-Options
+
+          - id: SpeechOnnxChatterboxTurbo-Models-ModelOptionsValidation
+            title: >-
+              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall reject invalid model
+              option values when they are assigned.
+            justification: |
+              Invalid values fail at assignment rather than during synthesis.
+            children:
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-OptionsValidation
+              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-OptionsRangeValidation
+              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-OptionsNullVoiceList
 
           - id: SpeechOnnxChatterboxTurbo-Models-TextTokenization
             title: >-
@@ -110,23 +141,53 @@ sections:
               - SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-EmptyText
               - SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-EmbeddedDocument
               - SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-SpecialTokens
+              - SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-TrailingEndOfText
               - SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-Errors
+              - SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-InvalidGzip
+              - SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-MalformedMerges
+              - SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-MissingEndOfText
+              - SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-EmptyVocabulary
               - SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-UnknownPiece
               - SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-InvalidArguments
+              - SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-NullArguments
               - SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-MergeRanks
 
           - id: SpeechOnnxChatterboxTurbo-Models-ReferenceVoices
             title: >-
               The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall create reference
-              voices from in-memory audio or WAV or FLAC files of any sample rate and channel
-              count, rejecting arguments and files it cannot use.
+              voices from WAV or FLAC files of any sample rate and channel count.
             justification: |
-              Hosts hold clips in whatever format they were recorded, and a clip that cannot be
-              used must be reported clearly.
+              Hosts hold clips in whatever format they were recorded.
             children:
               - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-FileLoading
+
+          - id: SpeechOnnxChatterboxTurbo-Models-ReferenceVoiceSamples
+            title: >-
+              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall create reference
+              voices from in-memory audio of any sample rate and channel count.
+            justification: |
+              Hosts that already hold decoded audio must not need a file.
+            children:
+              - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-FromSamples
+
+          - id: SpeechOnnxChatterboxTurbo-Models-ReferenceVoiceFileErrors
+            title: >-
+              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall report a reference
+              voice file it cannot use with an exception that identifies the problem.
+            justification: |
+              A clip that cannot be used must be reported clearly.
+            children:
               - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-FileErrors
+
+          - id: SpeechOnnxChatterboxTurbo-Models-ReferenceVoiceArguments
+            title: >-
+              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall reject invalid
+              arguments when creating a reference voice.
+            justification: |
+              Programming errors must surface with a clear exception.
+            children:
               - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-InvalidArguments
+              - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-InvalidMoodArguments
 
           - id: SpeechOnnxChatterboxTurbo-Models-ReferenceVoiceNormalization
             title: >-
@@ -142,14 +203,20 @@ sections:
 
           - id: SpeechOnnxChatterboxTurbo-Models-ReferenceVoiceLength
             title: >-
-              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall accept reference
-              voices of between 1 and 30 seconds, rejecting shorter clips and trimming longer
-              clips to 30 seconds.
+              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall trim reference voices
+              longer than 30 seconds to 30 seconds.
             justification: |
-              The speech encoder needs a clip long enough to condition on and is only specified
-              for clips of bounded length.
+              The speech encoder is only specified for clips of bounded length.
             children:
               - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-MaximumLength
+
+          - id: SpeechOnnxChatterboxTurbo-Models-ReferenceVoiceMinimumLength
+            title: >-
+              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall reject reference
+              voices shorter than 1 second.
+            justification: |
+              The speech encoder needs a clip long enough to condition on.
+            children:
               - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-Validation
 
           - id: SpeechOnnxChatterboxTurbo-Models-StoreReferenceVoices
@@ -163,30 +230,69 @@ sections:
               source and wire up its own.
             children:
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoices
-              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoiceDuplicates
-              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoiceLabels
-              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoiceOptOut
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoiceDefault
-              - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-ConcurrentFirstUse
-              - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-LazyFileErrors
               - SpeechOnnxChatterboxTurbo-Models-SpeechModelCatalogChatterboxTurboExtensions-DefaultStoreVoices
             tests:
               - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_StoreVoices_MergedAfterExplicitAndDirectoryFirstIdWins
 
+          - id: SpeechOnnxChatterboxTurbo-Models-StoreVoiceUniqueness
+            title: >-
+              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall skip a library voice
+              whose id is already present among the voices.
+            justification: |
+              An earlier voice wins, so a duplicate id never makes a voice unreachable.
+            children:
+              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoiceDuplicates
+            tests:
+              - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_LibraryVoiceDuplicate_IsSkippedWithInfoDiagnostic
+
+          - id: SpeechOnnxChatterboxTurbo-Models-StoreVoiceNaming
+            title: >-
+              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall keep the display names
+              of library voices distinguishable from earlier voices.
+            justification: |
+              Two voices with the same visible name could not be told apart in a voice list.
+            children:
+              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoiceLabels
+            tests:
+              - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_UserVoiceLabelClash_AddsUserSuffix
+
+          - id: SpeechOnnxChatterboxTurbo-Models-StoreVoiceOptOutChoice
+            title: >-
+              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall let a host opt out of
+              the library voices.
+            justification: |
+              A host that wants only its own voices must be able to say so.
+            children:
+              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoiceOptOut
+            tests:
+              - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_IncludeStoreVoicesFalse_IgnoresLibrary
+
           - id: SpeechOnnxChatterboxTurbo-Models-StoreVoiceLazyLoading
             title: >-
               The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall list store voices
-              without decoding their clips, and decode a clip only when its voice is first used,
-              reporting a damaged clip then, with its file named, without affecting the other
-              voices.
+              without decoding their clips, and decode a clip only when its voice is first used.
             justification: |
-              A hundred clips must not be decoded at startup, and one damaged clip must not make
-              the model unusable.
+              A hundred clips must not be decoded at startup.
             children:
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoiceLazyLoading
               - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-LazyFileLoading
+              - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-ConcurrentFirstUse
             tests:
               - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_CorruptStoreVoice_DoesNotFailConstruction
+
+          - id: SpeechOnnxChatterboxTurbo-Models-StoreVoiceDamagedClip
+            title: >-
+              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall report a damaged store
+              voice clip when its voice is first used, with its file named, without affecting the
+              other voices.
+            justification: |
+              One damaged clip must not make the model unusable, and its message must identify
+              it.
+            children:
+              - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-LazyFileErrors
+            tests:
+              - ChatterboxTurboReferenceVoice_FromFileLazy_CorruptFile_FailsOnFirstUseNamingFile
 
           - id: SpeechOnnxChatterboxTurbo-Models-StoreVoiceMoods
             title: >-
@@ -202,5 +308,6 @@ sections:
               - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-MoodClipLoading
               - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-MoodNames
               - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-MoodLookup
+              - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-NullMoodMap
             tests:
               - ChatterboxTurboReferenceVoice_WithMoodFiles_LoadsMoodClipsLazilyAndReportsMissingMoods

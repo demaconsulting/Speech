@@ -17,11 +17,27 @@ sections:
             requirements:
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-Identity
                 title: >-
-                  The OnnxChatterboxTurboEnglishSynthesisModel class shall declare a stable id,
-                  display name, English language and the model's license.
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall declare a stable id.
                 justification: |
-                  The model store and Speech library select and list a model based on this
-                  metadata.
+                  The model store selects and tracks an installed model by its id.
+                tests:
+                  - OnnxChatterboxTurboEnglishSynthesisModel_Metadata_DescribesNativeTagSynthesisModel
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-DisplayName
+                title: >-
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall declare a display name
+                  that states the model's English language.
+                justification: |
+                  The Speech library lists a model for a user by its display name.
+                tests:
+                  - OnnxChatterboxTurboEnglishSynthesisModel_Metadata_DescribesNativeTagSynthesisModel
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-License
+                title: >-
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall declare the model's
+                  license name.
+                justification: |
+                  A host must be able to show the license a model is distributed under.
                 tests:
                   - OnnxChatterboxTurboEnglishSynthesisModel_Metadata_DescribesNativeTagSynthesisModel
 
@@ -37,12 +53,20 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-CapabilityProfile
                 title: >-
                   The OnnxChatterboxTurboEnglishSynthesisModel class shall declare a capability
-                  profile that supports native audio tags and uses the configured mood join
-                  silence.
+                  profile that supports native audio tags.
                 justification: |
                   The Speech library renders audio tags for a model according to its profile.
                 tests:
                   - OnnxChatterboxTurboEnglishSynthesisModel_Metadata_DescribesNativeTagSynthesisModel
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-ProfileJoinSilence
+                title: >-
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall build its capability
+                  profile with the configured mood join silence.
+                justification: |
+                  A host tunes the seam between mood clips through the model options, so the
+                  profile must honor that value.
+                tests:
                   - OnnxChatterboxTurboEnglishSynthesisModel_CapabilityProfile_UsesMoodJoinSilenceOption
 
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-DownloadDescriptor
@@ -137,17 +161,48 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-CreateBackendFailures
                 title: >-
-                  The OnnxChatterboxTurboEnglishSynthesisModel class shall fail backend creation,
-                  without leaking sessions, with an InvalidOperationException when no voice is
-                  supplied, an ArgumentException for an empty model directory, a
-                  FileNotFoundException when a model file is missing and an
-                  InvalidOperationException when a graph is invalid.
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall fail backend creation
+                  with an InvalidOperationException when no voice is supplied.
                 justification: |
-                  A broken install must be reported precisely, and native sessions must never
-                  leak when construction fails.
+                  A backend with no voice cannot speak, so the misconfiguration must be reported
+                  precisely.
                 tests:
                   - OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_NoVoices_Throws
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-CreateBackendEmptyPath
+                title: >-
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall fail backend creation
+                  with an ArgumentException for an empty model directory.
+                justification: |
+                  An empty path is a programming error that must be reported precisely.
+                tests:
+                  - OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_EmptyDirectory_ThrowsArgumentException
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-CreateBackendMissingFile
+                title: >-
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall fail backend creation
+                  with a FileNotFoundException when a model file is missing.
+                justification: |
+                  An incomplete install must be reported precisely, before any session is created.
+                tests:
                   - OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_MissingFile_ThrowsFileNotFound
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-CreateBackendInvalidGraph
+                title: >-
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall fail backend creation
+                  with an InvalidOperationException when a graph is invalid.
+                justification: |
+                  A corrupt or mismatched graph must be reported precisely.
+                tests:
+                  - OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_InvalidGraph_DisposesSessionsAndThrows
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-CreateBackendNoLeak
+                title: >-
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall dispose every session
+                  it already created when backend creation fails.
+                justification: |
+                  Native sessions must never leak when construction fails.
+                tests:
                   - OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_InvalidGraph_DisposesSessionsAndThrows
 
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-Options
@@ -167,14 +222,30 @@ sections:
                 title: >-
                   The OnnxChatterboxTurboEnglishSynthesisModel unit shall, through its
                   ChatterboxTurboModelOptions, throw an ArgumentOutOfRangeException when a
-                  variant is undefined or a numeric option is out of range, and an
-                  ArgumentNullException for a null reference-voice list, when the value is
-                  assigned.
+                  variant is assigned an undefined value.
+                justification: |
+                  Invalid values fail at assignment rather than during synthesis.
+                tests:
+                  - ChatterboxTurboModelOptions_VariantSetters_UndefinedValue_ThrowsArgumentOutOfRangeException
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-OptionsRangeValidation
+                title: >-
+                  The OnnxChatterboxTurboEnglishSynthesisModel unit shall, through its
+                  ChatterboxTurboModelOptions, throw an ArgumentOutOfRangeException when a numeric
+                  option is assigned an out-of-range value.
                 justification: |
                   Invalid values fail at assignment rather than during synthesis.
                 tests:
                   - ChatterboxTurboModelOptions_Properties_HaveSafeDefaultsAndValidate
-                  - ChatterboxTurboModelOptions_VariantSetters_UndefinedValue_ThrowsArgumentOutOfRangeException
+
+              - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-OptionsNullVoiceList
+                title: >-
+                  The OnnxChatterboxTurboEnglishSynthesisModel unit shall, through its
+                  ChatterboxTurboModelOptions, throw an ArgumentNullException when the
+                  reference-voice list is assigned null.
+                justification: |
+                  A null list fails at assignment rather than during synthesis.
+                tests:
                   - ChatterboxTurboModelOptions_ReferenceVoices_Null_ThrowsArgumentNullException
 
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoices

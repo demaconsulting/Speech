@@ -47,27 +47,66 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-SpecialTokens
                 title: >-
                   The ByteLevelBpeTokenizer class shall keep added special tokens such as audio
-                  tags atomic and shall append the configured number of end-of-text tokens.
+                  tags atomic.
                 justification: |
-                  Tags must map to their single dedicated ids, and the language model expects the
-                  trailing end-of-text ids.
+                  Tags must map to their single dedicated ids.
                 tests:
                   - ByteLevelBpeTokenizer_Encode_Tag_IsAtomicAndSpaceIsSeparate
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-TrailingEndOfText
+                title: >-
+                  The ByteLevelBpeTokenizer class shall append the configured number of
+                  end-of-text tokens.
+                justification: |
+                  The language model expects the trailing end-of-text ids.
+                tests:
                   - ByteLevelBpeTokenizer_FromGzipStream_ZeroTrailing_AddsNoEndOfText
+                  - ByteLevelBpeTokenizer_Encode_EmptyText_ReturnsOnlyTrailingPair
 
               - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-Errors
                 title: >-
                   The ByteLevelBpeTokenizer class shall throw InvalidDataException for a document
-                  that is not valid gzip, not a valid tokenizer (including an empty vocabulary or
-                  malformed merges) or lacks the end-of-text token.
+                  that is not a valid tokenizer.
                 justification: |
                   A corrupt resource must surface with a clear exception.
                 tests:
                   - ByteLevelBpeTokenizer_Constructor_InvalidDocument_ThrowsInvalidData
-                  - ByteLevelBpeTokenizer_Constructor_MalformedMerge_ThrowsInvalidData
-                  - ByteLevelBpeTokenizer_Constructor_MissingEndOfText_ThrowsInvalidData
-                  - ByteLevelBpeTokenizer_Constructor_EmptyVocabulary_ThrowsInvalidData
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-InvalidGzip
+                title: >-
+                  The ByteLevelBpeTokenizer class shall throw InvalidDataException for a document
+                  that is not valid gzip.
+                justification: |
+                  A corrupt resource must surface with a clear exception.
+                tests:
                   - ByteLevelBpeTokenizer_FromGzipStream_NotGzip_ThrowsInvalidData
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-MalformedMerges
+                title: >-
+                  The ByteLevelBpeTokenizer class shall throw InvalidDataException for a document
+                  with malformed merges.
+                justification: |
+                  A corrupt merge list would silently change the produced ids.
+                tests:
+                  - ByteLevelBpeTokenizer_Constructor_MalformedMerge_ThrowsInvalidData
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-MissingEndOfText
+                title: >-
+                  The ByteLevelBpeTokenizer class shall throw InvalidDataException for a document
+                  that lacks the end-of-text token.
+                justification: |
+                  Without the end-of-text token the trailing ids cannot be produced.
+                tests:
+                  - ByteLevelBpeTokenizer_Constructor_MissingEndOfText_ThrowsInvalidData
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-EmptyVocabulary
+                title: >-
+                  The ByteLevelBpeTokenizer class shall throw InvalidDataException for a document
+                  with an empty vocabulary.
+                justification: |
+                  An empty vocabulary cannot encode any text.
+                tests:
+                  - ByteLevelBpeTokenizer_Constructor_EmptyVocabulary_ThrowsInvalidData
 
               - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-UnknownPiece
                 title: >-
@@ -81,11 +120,19 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-InvalidArguments
                 title: >-
                   The ByteLevelBpeTokenizer class shall throw ArgumentOutOfRangeException for a
-                  negative trailing count and ArgumentNullException for null arguments.
+                  negative trailing count.
                 justification: |
                   Programming errors must surface with a clear exception.
                 tests:
                   - ByteLevelBpeTokenizer_Constructor_NegativeTrailingCount_ThrowsArgumentOutOfRange
+
+              - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-NullArguments
+                title: >-
+                  The ByteLevelBpeTokenizer class shall throw ArgumentNullException for null
+                  arguments.
+                justification: |
+                  Programming errors must surface with a clear exception.
+                tests:
                   - ByteLevelBpeTokenizer_NullArguments_Throw
 
               - id: SpeechOnnxChatterboxTurbo-Models-ByteLevelBpeTokenizer-MergeRanks

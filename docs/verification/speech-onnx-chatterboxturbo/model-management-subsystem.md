@@ -60,9 +60,11 @@ Construction and listing decode no clip; the damaged clip fails with its file na
 #### Backend creation fails when the install is unusable
 
 **Tests**: `OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_NoVoices_Throws`,
+`OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_EmptyDirectory_ThrowsArgumentException`,
 `OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_MissingFile_ThrowsFileNotFound` and
 `OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_InvalidGraph_DisposesSessionsAndThrows`
 
-With no voices `CreateBackend` throws `InvalidOperationException`, with a missing file `FileNotFoundException`
+With no voices `CreateBackend` throws `InvalidOperationException`, with an empty directory path
+`ArgumentException`, with a missing file `FileNotFoundException`
 before any session is created, and with an invalid graph `InvalidOperationException` after disposing the sessions
 it created.

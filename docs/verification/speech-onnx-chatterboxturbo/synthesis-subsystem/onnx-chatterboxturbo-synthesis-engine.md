@@ -79,6 +79,10 @@ distinct clips are encoded once each, in first-use order) and
 `OnnxChatterboxTurboSynthesisEngine_Generate_MarkedSegments_GuardsApplyPerSegment`,
 `OnnxChatterboxTurboSynthesisEngine_Generate_RenderedPlan_OrderedClipsAndNoMarkerInTokens`
 
+##### The engine reports a 24 kHz sample rate
+
+**Test**: `OnnxChatterboxTurboSynthesisEngine_SampleRate_Is24Kilohertz`
+
 ##### The speed argument is ignored
 
 **Test**: `OnnxChatterboxTurboSynthesisEngine_Generate_Speed_IsIgnored`

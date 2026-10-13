@@ -239,6 +239,16 @@ public sealed class OnnxChatterboxTurboEnglishSynthesisModelTests : IDisposable
 
         // Act & Assert
         Assert.Throws<InvalidOperationException>(() => model.CreateBackend(_root));
+    }
+
+    /// <summary>Proves creating a backend from an empty model directory path is rejected.</summary>
+    [Fact]
+    public void OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_EmptyDirectory_ThrowsArgumentException()
+    {
+        // Arrange
+        var model = new OnnxChatterboxTurboEnglishSynthesisModel();
+
+        // Act & Assert
         Assert.Throws<ArgumentException>(() => model.CreateBackend(string.Empty));
     }
 

@@ -33,6 +33,15 @@ sections:
                 tests:
                   - OnnxChatterboxTurboSynthesisEngine_Generate_EmptyText_ReturnsEmptyAudioWithoutNetworkCalls
 
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-SampleRate
+                title: >-
+                  The OnnxChatterboxTurboSynthesisEngine class shall report a 24 kHz output sample
+                  rate.
+                justification: |
+                  The Speech library resamples and mixes based on the true rate of the audio.
+                tests:
+                  - OnnxChatterboxTurboSynthesisEngine_SampleRate_Is24Kilohertz
+
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-SpeedIgnored
                 title: >-
                   The OnnxChatterboxTurboSynthesisEngine class shall ignore the requested speech
@@ -67,13 +76,22 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-Truncation
                 title: >-
                   The OnnxChatterboxTurboSynthesisEngine class shall flag a result that hit a
-                  bound as truncated and never throw for hitting a bound.
+                  bound as truncated.
                 justification: |
-                  A bounded utterance is a degraded result, not a failure, and a host can tell it
-                  from a complete one.
+                  A bounded utterance is a degraded result, and a host can tell it from a
+                  complete one.
                 tests:
                   - OnnxChatterboxTurboSynthesisEngine_Generate_NeverStops_IsBoundedAndFlagged
                   - OnnxChatterboxTurboSynthesisEngine_Generate_StopAfterCappedRun_EndsWithoutTruncation
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-BoundNoException
+                title: >-
+                  The OnnxChatterboxTurboSynthesisEngine class shall never throw for hitting a
+                  generation bound.
+                justification: |
+                  A bounded utterance is a degraded result, not a failure.
+                tests:
+                  - OnnxChatterboxTurboSynthesisEngine_Generate_NeverStops_IsBoundedAndFlagged
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-RunLengthCap
                 title: >-
