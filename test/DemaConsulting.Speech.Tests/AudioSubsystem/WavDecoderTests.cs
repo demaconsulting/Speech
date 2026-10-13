@@ -204,6 +204,98 @@ public sealed class WavDecoderTests
         Assert.True(float.IsNaN(clip.Samples[0]));
     }
 
+    /// <summary>Proves a sample rate above <see cref="int.MaxValue"/> is rejected as an invalid rate.</summary>
+    [Fact]
+    public void WavDecoder_Decode_SampleRateAboveIntMax_Throws()
+    {
+        // Arrange
+        var fmt = Format(1, 8000, 16, 1);
+        BinaryPrimitives.WriteUInt32LittleEndian(fmt.AsSpan(4), 0x80000000u);
+
+        // Act
+        var ex = Assert.Throws<InvalidDataException>(() => AudioFileReader.Read(new MemoryStream(Riff(("fmt ", fmt), ("data", new byte[2])))));
+
+        // Assert
+        Assert.Contains("no channels or no sample rate", ex.Message);
+    }
+
+    /// <summary>Proves a non-data chunk whose padded body runs past the end ends the walk with "no data chunk".</summary>
+    [Fact]
+    public void WavDecoder_Decode_ChunkRunsPastEnd_ReportsNoDataChunk()
+    {
+        // Arrange: a LIST chunk declaring 100 bytes with only 2 present
+        var image = Riff(("fmt ", Format(1, 8000, 16, 1))).Concat("LIST"u8.ToArray()).Concat(BitConverter.GetBytes(100u)).Concat(new byte[2]).ToArray();
+
+        // Act
+        var ex = Assert.Throws<InvalidDataException>(() => AudioFileReader.Read(new MemoryStream(image)));
+
+        // Assert
+        Assert.Contains("no 'data' chunk", ex.Message);
+    }
+
+    /// <summary>Proves an extensible header with a float sub-format decodes as float.</summary>
+    [Fact]
+    public void WavDecoder_Decode_ExtensibleFloatSubFormat_DecodesAsFloat()
+    {
+        // Arrange
+        var data = new byte[4];
+        BinaryPrimitives.WriteSingleLittleEndian(data, -0.25f);
+
+        // Act
+        var clip = AudioFileReader.Read(new MemoryStream(Riff(("fmt ", Extensible(3, 32, 1)), ("data", data))));
+
+        // Assert
+        Assert.Equal([-0.25f], clip.Samples);
+        Assert.Equal(32, clip.BitsPerSample);
+    }
+
+    /// <summary>Proves an unsupported extensible sub-format or bit depth raises <see cref="NotSupportedException"/>.</summary>
+    [Theory]
+    [InlineData(2, 16)]
+    [InlineData(1, 12)]
+    [InlineData(3, 64)]
+    public void WavDecoder_Decode_ExtensibleUnsupportedEncoding_Throws(int subFormat, int bits) =>
+        Assert.Throws<NotSupportedException>(() => AudioFileReader.Read(
+            new MemoryStream(Riff(("fmt ", Extensible(subFormat, bits, 1)), ("data", new byte[8])))));
+
+    /// <summary>Proves a ragged final frame is dropped when the declared data size is exact.</summary>
+    [Fact]
+    public void WavDecoder_Decode_TrailingPartialFrame_IsDropped()
+    {
+        // Arrange: stereo 16-bit, 6 data bytes with an accurate declared size (one frame plus 2 stray bytes)
+        var image = Wav(1, 8000, 16, 2, new byte[] { 0, 0, 0, 0x40, 0, 0x20 });
+
+        // Act
+        var clip = AudioFileReader.Read(new MemoryStream(image));
+
+        // Assert
+        Assert.Equal([0f, 0.5f], clip.Samples);
+        Assert.Equal(1, clip.FrameCount);
+    }
+
+    /// <summary>Proves the decoder itself rejects data that lacks a RIFF/WAVE header.</summary>
+    [Fact]
+    public void WavDecoder_Decode_NonWavHeader_Throws()
+    {
+        // Act
+        var ex = Assert.Throws<InvalidDataException>(() => WavDecoder.Decode(new byte[20], long.MaxValue));
+
+        // Assert
+        Assert.Contains("not a RIFF/WAVE", ex.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Builds a 40-byte <c>WAVE_FORMAT_EXTENSIBLE</c> <c>fmt </c> body with the given sub-format tag.</summary>
+    private static byte[] Extensible(int subFormat, int bits, int channels)
+    {
+        var fmt = new byte[40];
+        BinaryPrimitives.WriteUInt16LittleEndian(fmt, 0xFFFE);
+        BinaryPrimitives.WriteUInt16LittleEndian(fmt.AsSpan(2), (ushort)channels);
+        BinaryPrimitives.WriteUInt32LittleEndian(fmt.AsSpan(4), 8000);
+        BinaryPrimitives.WriteUInt16LittleEndian(fmt.AsSpan(14), (ushort)bits);
+        BinaryPrimitives.WriteUInt16LittleEndian(fmt.AsSpan(24), (ushort)subFormat);
+        return fmt;
+    }
+
     /// <summary>Encodes a fractional full-scale value as little-endian PCM.</summary>
     private static byte[] PcmBytes(double fraction, int bits, int bytesPerSample)
     {

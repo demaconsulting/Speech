@@ -5,7 +5,13 @@
 Verified by `FlacDecoderTests.cs` in two ways: real libFLAC-encoded fixtures (`TestData/flac`,
 produced by soundfile; see `TestData/NOTICE.md`) are compared bit-exactly with lossless WAV twins,
 and a test-only FLAC encoder (`TestFlacEncoder`) writes streams that exercise every subframe type,
-residual coding, stereo mode, header code and error path that the fixtures do not.
+residual coding, stereo mode and header code, and most error paths, that the fixtures do not. The
+`FlacBitReader` and `FlacCrc` helpers are verified through the decoder (and the CRC check values)
+rather than by their own tests. Not exercised by any test: a reserved residual coding method,
+`PeekFrameSync` returning false other than at the end of an unknown-length stream, a duplicate
+STREAMINFO or oversized metadata block, and metadata block type 127. The reserved residual method is
+rejected by a single check before any partition is read, and the metadata blocks are skipped by
+length like any non-STREAMINFO block; these are residual verification gaps, not covered claims.
 
 #### Test Environment
 
@@ -81,9 +87,14 @@ larger than the declared total, a non-syncsafe ID3v2 size and the sample cap are
 
 **Test**: `FlacDecoder_Decode_Id3PrefixedFileWithDatExtension_DecodesThroughReader`
 
-##### ID3v2 size field that is not syncsafe
+##### ID3v2 size field that is not syncsafe, and a damaged tag decoded directly
 
-**Test**: `FlacDecoder_Decode_Id3SizeNotSyncsafe_Throws`
+**Tests**: `FlacDecoder_Decode_Id3SizeNotSyncsafe_Throws` (reader message and decoder message),
+`FlacDecoder_Decode_DamagedId3Tag_ThrowsNotFlacStream`
+
+##### Frame-number UTF-8 continuation damage
+
+**Test**: `FlacDecoder_Decode_FrameNumberBadContinuation_Throws`
 
 ##### Marker detection, STREAMINFO values, metadata damage and subframe-header damage
 
@@ -95,7 +106,7 @@ larger than the declared total, a non-syncsafe ID3v2 size and the sample cap are
 
 **Test**: `FlacDecoder_Decode_UnknownTotal_DecodesUntilData_Ends`
 
-##### Bad checksums
+##### Bad checksums and the verification opt-out
 
 **Test**: `FlacDecoder_Decode_BadChecksums_ThrowUnlessVerificationDisabled`
 

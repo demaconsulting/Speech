@@ -21,11 +21,12 @@
   frame, enforces `maxSamples`, and converts samples to `float`: 8-bit unsigned, 16/24/32-bit
   signed PCM and 32-bit float.
 
-**Error Handling**: `InvalidDataException` for a missing header, `fmt` or `data` chunk, a
-truncated chunk, a `data` chunk that precedes `fmt`, zero channels or rate, a sample rate above
-`int.MaxValue`, a `WAVE_FORMAT_EXTENSIBLE` `fmt` chunk shorter than 40 bytes, or more samples than
-`maxSamples`; `NotSupportedException`
-for any other format tag or bit depth.
+**Error Handling**: `InvalidDataException` for data without a RIFF/WAVE header (`Decode` checks
+this itself even though `AudioFileReader` dispatches on the header first), a missing `fmt` or
+`data` chunk, a truncated chunk, a `data` chunk that precedes `fmt`, zero channels or rate, a
+sample rate above `int.MaxValue`, a `WAVE_FORMAT_EXTENSIBLE` `fmt` chunk shorter than 40 bytes,
+or more samples than `maxSamples`; `NotSupportedException` for any other format tag or bit depth,
+including an extensible sub-format other than PCM or float.
 
 Float samples are passed through as stored, so a NaN in the file reaches the clip unchanged.
 

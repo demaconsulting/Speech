@@ -22,14 +22,22 @@ hostile declared length cannot force a large allocation; samples are scaled by `
   bit depth come from STREAMINFO, and the effective cap is `maxSamples` clamped to
   `Array.MaxLength`. An internal overload `Decode(data, verifyChecksums, maxSamples, maxArrayLength)`
   takes the array-length ceiling explicitly (the public form passes `Array.MaxLength`) so tests can
-  exercise the clamp with a small value: parse the frame header (block size, sample rate and bit depth codes,
-  UTF-8 frame number, CRC-8), decode each subframe (constant, verbatim, fixed order 0-4, LPC order
-  1-32 with Rice residual methods 0 and 1 and escape partitions, wasted bits), call
-  `FlacBitReader.AlignToByte` to reach the frame footer, check the CRC-16, and undo left/side,
-  side/right and mid/side stereo with an extra bit for the side channel. The frame must match
-  STREAMINFO strictly: its channel count and sample rate must equal the declared values (an
-  explicit bit-depth code is used as written and a code of zero means "as in STREAMINFO"), and its
-  block size may not exceed the declared maximum
+  exercise the clamp with a small value. `verifyChecksums` is the unit's form of the
+  `AudioFileReadOptions.VerifyChecksums` option
+- **Metadata walk**: after the `fLaC` marker, STREAMINFO must be the first block and exactly 34
+  bytes long; every later block is skipped by its length, and a block running past the end of the
+  data is rejected. STREAMINFO is validated: sample rate 1 to 655350 Hz, bit depth at least 4 and
+  maximum block size at least 1.
+- **FlacFrameDecoder.Decode(reader, info, verify, buffers)**: parse the frame header (block size,
+  sample rate and bit depth codes, UTF-8 frame number, CRC-8), decode each subframe (constant,
+  verbatim, fixed order 0-4, LPC order 1-32 with Rice residual methods 0 and 1 and escape
+  partitions, wasted bits), call `FlacBitReader.AlignToByte` to reach the frame footer, check the
+  CRC-16, and undo left/side, side/right and mid/side stereo with an extra bit for the side
+  channel. The frame must match STREAMINFO strictly: its channel count and sample rate must equal
+  the declared values, an explicit bit-depth code must equal the STREAMINFO depth (a code of zero
+  means "as in STREAMINFO"; a reserved code is rejected), and its block size may not exceed the
+  declared maximum
+- **FlacCrc**: the CRC-8 and CRC-16 used for the header and frame checks
 - **FlacBitReader**: bounds-checked bit, unary, signed and UTF-8 number reads, `PeekFrameSync`
   (are the next two byte-aligned bytes the 14-bit frame sync code) and `AlignToByte` (skip to the
   next byte boundary after the last subframe)

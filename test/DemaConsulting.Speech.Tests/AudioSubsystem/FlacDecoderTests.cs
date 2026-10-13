@@ -389,17 +389,46 @@ public sealed class FlacDecoderTests
         Assert.Throws<InvalidDataException>(() => Decode(Tamper(FirstFrameOffset + 4, 0xFF), lenient));
     }
 
-    /// <summary>Proves a frame larger than the STREAMINFO maximum and a damaged ID3 tag are rejected.</summary>
+    /// <summary>Proves a frame larger than the STREAMINFO maximum is rejected.</summary>
     [Fact]
     public void FlacDecoder_Decode_BlockLargerThanMaximum_Throws()
     {
         // Arrange
         var bytes = new TestFlacEncoder { BlockSize = 256, StreamInfoMaxBlockSize = 64 }.Encode(Signal(1, 256, 16));
-        var damagedId3 = "ID3\u0004\0\0\0\0\u007F\u007F"u8.ToArray().Concat("fLaC"u8.ToArray()).ToArray();
 
         // Act / Assert
         Assert.Throws<InvalidDataException>(() => Decode(bytes));
-        Assert.Throws<InvalidDataException>(() => Decode(damagedId3));
+    }
+
+    /// <summary>Proves a damaged ID3v2 tag (size beyond the data) is rejected by the decoder itself.</summary>
+    [Fact]
+    public void FlacDecoder_Decode_DamagedId3Tag_ThrowsNotFlacStream()
+    {
+        // Arrange: a tag declaring 16383 bytes of body although only the marker follows
+        var damagedId3 = "ID3\u0004\0\0\0\0\u007F\u007F"u8.ToArray().Concat("fLaC"u8.ToArray()).ToArray();
+
+        // Act
+        var ex = Assert.Throws<InvalidDataException>(() => FlacDecoder.Decode(damagedId3, true, long.MaxValue));
+
+        // Assert
+        Assert.Contains("not a FLAC stream", ex.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Proves an invalid UTF-8 continuation byte in the frame number is rejected.</summary>
+    [Fact]
+    public void FlacDecoder_Decode_FrameNumberBadContinuation_Throws()
+    {
+        // Arrange: a two-byte frame-number prefix whose continuation byte is not 10xxxxxx
+        var bytes = (byte[])new TestFlacEncoder { BlockSize = 100 }.Encode(Signal(1, 100, 16)).Clone();
+        bytes[FirstFrameOffset + 4] = 0xC0;
+        bytes[FirstFrameOffset + 5] = 0x00;
+        var lenient = new AudioFileReadOptions { VerifyChecksums = false };
+
+        // Act
+        var ex = Assert.Throws<InvalidDataException>(() => Decode(bytes, lenient));
+
+        // Assert
+        Assert.Contains("continuation", ex.Message, StringComparison.Ordinal);
     }
 
     /// <summary>Proves invalid predictor and residual parameters are rejected.</summary>
@@ -491,11 +520,13 @@ public sealed class FlacDecoderTests
         var header = new byte[] { (byte)'I', (byte)'D', (byte)'3', 4, 0, 0, 0, 0, 0, 0x80 };
         var bytes = header.Concat(new byte[128]).Concat(flac).ToArray();
 
-        // Act
+        // Act: through the reader (which finds no marker) and directly through the decoder
         var ex = Assert.Throws<InvalidDataException>(() => Decode(bytes));
+        var direct = Assert.Throws<InvalidDataException>(() => FlacDecoder.Decode(bytes, true, long.MaxValue));
 
         // Assert
         Assert.Contains("neither a RIFF/WAVE nor a FLAC", ex.Message);
+        Assert.Contains("not a FLAC stream", direct.Message, StringComparison.Ordinal);
     }
 
     /// <summary>Proves <see cref="FlacDecoder.IsFlac"/> accepts a bare or ID3v2-prefixed stream and rejects everything else.</summary>

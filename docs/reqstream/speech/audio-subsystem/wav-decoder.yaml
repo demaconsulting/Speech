@@ -34,13 +34,25 @@ sections:
 
               - id: Speech-Audio-WavDecoder-HeaderTolerance
                 title: >-
-                  The WavDecoder class shall decode the WAVE_FORMAT_EXTENSIBLE form, skipping unknown
-                  chunks and padding odd-sized chunks.
+                  The WavDecoder class shall skip unknown chunks and pad odd-sized chunks while
+                  walking the chunk list.
                 justification: |
                   Encoders in the wild write extra chunks; tolerating them avoids needless failures
                   on files that are otherwise valid.
                 tests:
                   - WavDecoder_Decode_ExtensibleWithExtraChunks_Decodes
+
+              - id: Speech-Audio-WavDecoder-ExtensibleFormat
+                title: >-
+                  The WavDecoder class shall decode the WAVE_FORMAT_EXTENSIBLE form using the tag of its
+                  sub-format (PCM or float) and reject an unsupported sub-format or bit depth with
+                  NotSupportedException.
+                justification: |
+                  Multichannel and high-resolution encoders commonly write the extensible header.
+                tests:
+                  - WavDecoder_Decode_ExtensibleWithExtraChunks_Decodes
+                  - WavDecoder_Decode_ExtensibleFloatSubFormat_DecodesAsFloat
+                  - WavDecoder_Decode_ExtensibleUnsupportedEncoding_Throws
 
               - id: Speech-Audio-WavDecoder-OverstatedDataSize
                 title: >-
@@ -58,6 +70,7 @@ sections:
                 justification: |
                   A ragged final frame cannot be interpreted and must not shift later frames or fail the decode.
                 tests:
+                  - WavDecoder_Decode_TrailingPartialFrame_IsDropped
                   - WavDecoder_Decode_OverstatedDataSize_IsClamped
 
               - id: Speech-Audio-WavDecoder-ZeroLengthData
@@ -91,12 +104,17 @@ sections:
                 title: >-
                   The WavDecoder class shall reject a malformed image with InvalidDataException naming
                   the defect: a missing data chunk, a data chunk that precedes the fmt chunk, a
-                  truncated or too-short fmt or extensible fmt chunk, a truncated file, and zero
-                  channels or a zero sample rate.
+                  truncated or too-short fmt or extensible fmt chunk, a truncated file, a chunk running
+                  past the end of the image, zero channels, a zero sample rate or a rate above the
+                  32-bit signed range, and data that lacks a RIFF/WAVE header.
                 justification: |
-                  Hostile or damaged files must fail clearly rather than decode garbage.
+                  Hostile or damaged files must fail clearly rather than decode garbage; the
+                  defects share one error type and one purpose, so they form a single requirement.
                 tests:
                   - WavDecoder_Decode_MalformedImages_Throw
+                  - WavDecoder_Decode_SampleRateAboveIntMax_Throws
+                  - WavDecoder_Decode_ChunkRunsPastEnd_ReportsNoDataChunk
+                  - WavDecoder_Decode_NonWavHeader_Throws
 
               - id: Speech-Audio-WavDecoder-SampleCap
                 title: >-

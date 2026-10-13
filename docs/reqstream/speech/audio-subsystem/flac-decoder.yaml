@@ -25,40 +25,66 @@ sections:
                   - FlacDecoder_Decode_ResidualCoding_RoundTrips
                   - FlacDecoder_Decode_WastedBits_AreRestored
 
-              - id: Speech-Audio-FlacDecoder-StreamShapes
+              - id: Speech-Audio-FlacDecoder-StereoAndBitDepth
                 title: >-
-                  The FlacDecoder shall handle all stereo decorrelation modes, bit depths from 4 to 32, every
-                  sample-rate and block-size header code, multi-byte frame numbers, up to eight channels, ID3v2
-                  prefixes, extra metadata blocks and streams of unknown length.
+                  The FlacDecoder shall handle all stereo decorrelation modes and bit depths from 4 to
+                  32.
                 justification: |
-                  Real FLAC files vary in all of these ways.
+                  Real FLAC files vary in channel assignment and sample width.
                 tests:
                   - FlacDecoder_Decode_StereoModes_RoundTrip
                   - FlacDecoder_Decode_BitDepths_RoundTrip
+
+              - id: Speech-Audio-FlacDecoder-HeaderCodes
+                title: >-
+                  The FlacDecoder shall handle every sample-rate and block-size header code and
+                  multi-byte frame numbers.
+                justification: |
+                  Real FLAC files vary in the header codes their encoders choose.
+                tests:
                   - FlacDecoder_Decode_SampleRateCodes_ReportRate
                   - FlacDecoder_Decode_BlockSizeCodes_RoundTrip
                   - FlacDecoder_Decode_ManyFrames_ParsesMultiByteFrameNumbers
+
+              - id: Speech-Audio-FlacDecoder-StreamShapes
+                title: >-
+                  The FlacDecoder shall handle up to eight channels, ID3v2 prefixes, extra metadata
+                  blocks and streams of unknown length.
+                justification: |
+                  Real FLAC files vary in container layout.
+                tests:
                   - FlacDecoder_Decode_ContainerVariants_RoundTrip
                   - FlacDecoder_Decode_Id3PrefixedFileWithDatExtension_DecodesThroughReader
                   - FlacDecoder_Decode_UnknownTotal_DecodesUntilData_Ends
+                  - FlacDecoder_IsFlac_VariousInputs_DetectsMarkerOnly
 
               - id: Speech-Audio-FlacDecoder-Integrity
                 title: >-
-                  The FlacDecoder shall verify frame-header CRC-8 and frame CRC-16 checksums unless
-                  verification is disabled, rejecting a frame whose checksum is wrong with
-                  InvalidDataException.
+                  The FlacDecoder shall verify frame-header CRC-8 and frame CRC-16 checksums,
+                  rejecting a frame whose checksum is wrong with InvalidDataException.
                 justification: |
                   Corrupt input must fail with a clear error instead of producing garbage.
                 tests:
                   - FlacCrc_Checksums_StandardCheckString_MatchPublishedValues
                   - FlacDecoder_Decode_BadChecksums_ThrowUnlessVerificationDisabled
 
+              - id: Speech-Audio-FlacDecoder-IntegrityOptOut
+                title: >-
+                  The FlacDecoder shall accept a frame with a wrong checksum when checksum
+                  verification is disabled.
+                justification: |
+                  Hosts that prefer to recover as much audio as possible from a damaged file can
+                  turn verification off.
+                tests:
+                  - FlacDecoder_Decode_BadChecksums_ThrowUnlessVerificationDisabled
+
               - id: Speech-Audio-FlacDecoder-MalformedStreamRejection
                 title: >-
-                  The FlacDecoder shall reject truncated streams, invalid header or predictor fields,
-                  oversized blocks, a frame that holds more samples than remain of a known STREAMINFO
-                  total, and a damaged ID3v2 prefix (including a size field that is not syncsafe) with
-                  InvalidDataException.
+                  The FlacDecoder shall reject truncated streams, invalid STREAMINFO values,
+                  damaged metadata, invalid header, frame-number, subframe or predictor fields,
+                  oversized blocks, a frame that holds more samples than remain of a known
+                  STREAMINFO total, and a damaged ID3v2 prefix (including a size field that is not
+                  syncsafe) with InvalidDataException.
                 justification: |
                   Corrupt or hostile input must fail with a clear, bounded error instead of producing
                   garbage.
@@ -66,10 +92,15 @@ sections:
                   - FlacDecoder_Decode_Truncated_Throws
                   - FlacDecoder_Decode_MissingFrames_Throws
                   - FlacDecoder_Decode_InvalidFields_Throw
+                  - FlacDecoder_Decode_InvalidStreamInfoValues_Throw
+                  - FlacDecoder_Decode_MetadataDamage_ReportsTruncation
+                  - FlacDecoder_Decode_DamagedSubframeHeader_ThrowsSpecificErrors
+                  - FlacDecoder_Decode_FrameNumberBadContinuation_Throws
                   - FlacDecoder_Decode_BlockLargerThanMaximum_Throws
                   - FlacDecoder_Decode_InvalidPredictorParameters_Throw
                   - FlacDecoder_Decode_FrameExceedsDeclaredTotal_Throws
                   - FlacDecoder_Decode_Id3SizeNotSyncsafe_Throws
+                  - FlacDecoder_Decode_DamagedId3Tag_ThrowsNotFlacStream
 
               - id: Speech-Audio-FlacDecoder-SampleCap
                 title: >-
