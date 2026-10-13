@@ -35,15 +35,42 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-RepetitionPenalty
                 title: >-
-                  The ChatterboxTurboTokenSelector class shall make a previously generated token
-                  less likely to be chosen again, whether its logit is positive or negative, by
-                  dividing a positive logit and multiplying a negative logit by the fixed
-                  repetition penalty of 1.2, deterministically for the same inputs.
+                  The ChatterboxTurboTokenSelector class shall make a recently generated token with
+                  a positive logit less likely to be chosen again, so that a slightly lower-scoring
+                  token that was not generated wins.
                 justification: |
                   Without the penalty greedy decoding loops on one token.
                 tests:
                   - ChatterboxTurboTokenSelector_Select_RepeatedPositive_IsPenalized
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-RepetitionPenaltyNegative
+                title: >-
+                  The ChatterboxTurboTokenSelector class shall make a recently generated token with
+                  a negative logit less likely to be chosen again, so that it is pushed further
+                  down rather than up.
+                justification: |
+                  A penalty that only divided would make a negative logit more likely.
+                tests:
                   - ChatterboxTurboTokenSelector_Select_RepeatedNegative_IsPushedDown
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-RepetitionPenaltyBounded
+                title: >-
+                  The ChatterboxTurboTokenSelector class shall apply only a mild repetition
+                  penalty, so that a repeated token whose logit is far ahead of the others is
+                  still chosen.
+                justification: |
+                  A penalty that is too strong would forbid legitimately repeated tokens.
+                tests:
+                  - ChatterboxTurboTokenSelector_Select_RepeatedTokenFarAhead_StillWins
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-Deterministic
+                title: >-
+                  The ChatterboxTurboTokenSelector class shall choose the same token every time
+                  for the same logits, history and blocked token.
+                justification: |
+                  Generation must be reproducible for a given model output.
+                tests:
+                  - ChatterboxTurboTokenSelector_Select_SameInputs_ChooseSameTokenEveryTime
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-OutOfRangeHistory
                 title: >-
@@ -56,14 +83,44 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-NonFinite
                 title: >-
-                  The ChatterboxTurboTokenSelector class shall return a valid token for NaN and
-                  negative-infinity logits, never choosing a NaN logit over a real score.
+                  The ChatterboxTurboTokenSelector class shall return a valid token for all-NaN
+                  and all-negative-infinity logits.
                 justification: |
                   A numerically broken model output must not crash or hang generation.
                 tests:
                   - ChatterboxTurboTokenSelector_Select_AllNaN_ReturnsLowestId
                   - ChatterboxTurboTokenSelector_Select_AllNegativeInfinity_ReturnsLowestUnblockedId
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-NaNNeverChosen
+                title: >-
+                  The ChatterboxTurboTokenSelector class shall never choose a NaN logit over a
+                  real score, including for a token that was generated before.
+                justification: |
+                  A NaN comparison would otherwise silently select an arbitrary token.
+                tests:
                   - ChatterboxTurboTokenSelector_Select_NaNAmongRealScores_IsNeverChosen
+                  - ChatterboxTurboTokenSelector_Select_NaNWithHistoryId_IsNeverChosen
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-PositiveInfinity
+                title: >-
+                  The ChatterboxTurboTokenSelector class shall choose a token whose logit is
+                  positive infinity, including when that token was generated before.
+                justification: |
+                  A saturated score is the strongest preference and the repetition penalty must
+                  not turn it into a NaN or a loss.
+                tests:
+                  - ChatterboxTurboTokenSelector_Select_PositiveInfinity_IsChosen
+                  - ChatterboxTurboTokenSelector_Select_PositiveInfinityWithHistoryId_IsChosen
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-NegativeInfinity
+                title: >-
+                  The ChatterboxTurboTokenSelector class shall not choose a token whose logit is
+                  negative infinity while another token has a real score, including when that
+                  token was generated before.
+                justification: |
+                  A negative-infinity score marks a forbidden token.
+                tests:
+                  - ChatterboxTurboTokenSelector_Select_NegativeInfinityWithHistoryId_IsNotChosen
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-InvalidArguments
                 title: >-
@@ -78,14 +135,30 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-BlockedToken
                 title: >-
                   The ChatterboxTurboTokenSelector class shall exclude an optional blocked token
-                  from selection for one call, even when it was generated before, and shall
-                  ignore a blocked id outside the vocabulary.
+                  from selection for one call.
                 justification: |
                   The run-length cap needs to break a token loop.
                 tests:
                   - ChatterboxTurboTokenSelector_Select_BlockedToken_IsSkipped
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-BlockedTokenInHistory
+                title: >-
+                  The ChatterboxTurboTokenSelector class shall exclude the blocked token even when
+                  it was generated before.
+                justification: |
+                  The repetition penalty must not let a blocked token back in.
+                tests:
                   - ChatterboxTurboTokenSelector_Select_BlockedTokenInHistory_IsSkipped
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-BlockedTokenOutOfRange
+                title: >-
+                  The ChatterboxTurboTokenSelector class shall ignore a blocked id outside the
+                  vocabulary, including a negative id other than the none value.
+                justification: |
+                  A stale blocked id must not crash or distort selection.
+                tests:
                   - ChatterboxTurboTokenSelector_Select_BlockedIdOutOfRange_IsIgnored
+                  - ChatterboxTurboTokenSelector_Select_NegativeBlockedIdOtherThanNone_BlocksNothing
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-StopToken
                 title: >-

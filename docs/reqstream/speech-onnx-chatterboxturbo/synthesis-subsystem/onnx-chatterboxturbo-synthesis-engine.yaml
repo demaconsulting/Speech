@@ -32,6 +32,7 @@ sections:
                   Empty input needs no inference and must not fail.
                 tests:
                   - OnnxChatterboxTurboSynthesisEngine_Generate_EmptyText_ReturnsEmptyAudioWithoutNetworkCalls
+                  - OnnxChatterboxTurboSynthesisEngine_Generate_EmptyString_ReturnsEmptyAudioWithoutNetworkCalls
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-SampleRate
                 title: >-
@@ -122,6 +123,7 @@ sections:
                   Breaking a token loop must never prevent the model from ending speech.
                 tests:
                   - OnnxChatterboxTurboSynthesisEngine_Generate_StopAfterCappedRun_EndsWithoutTruncation
+                  - OnnxChatterboxTurboSynthesisEngine_Generate_CapOfOne_StopTokenIsNeverExcluded
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-Voices
                 title: >-
@@ -196,6 +198,15 @@ sections:
                   A missing mood must never fail synthesis.
                 tests:
                   - OnnxChatterboxTurboSynthesisEngine_Generate_MoodMissing_FallsBackToBaseClip
+
+              - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-MoodUnknownSpeaker
+                title: >-
+                  The OnnxChatterboxTurboSynthesisEngine class shall use the first voice's clip
+                  for the requested mood when the speaker id is invalid.
+                justification: |
+                  A bad speaker id combined with a mood must still be spoken in that mood.
+                tests:
+                  - OnnxChatterboxTurboSynthesisEngine_Generate_MoodMarkerUnknownSpeaker_UsesFirstVoiceMoodClip
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-SegmentGuards
                 title: >-

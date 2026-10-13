@@ -26,14 +26,15 @@ sections:
                 tests:
                   - OnnxChatterboxTurboNetworks_Encode_NamedOutputs_ReturnsConditioning
                   - OnnxChatterboxTurboNetworks_Decode_SpeechTokens_ReturnsWaveform
+                  - OnnxChatterboxTurboNetworks_Decode_ChangedConditioning_ChangesWaveform
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboConditioning-Reuse
                 title: >-
-                  The ChatterboxTurboConditioning record shall be reusable for every utterance
-                  spoken with the same voice and mood without running the speech encoder again.
+                  The ChatterboxTurboConditioning record shall be safely shareable across
+                  utterances, because it is treated as read-only.
                 justification: |
-                  Encoding a clip is expensive and deterministic, so one conditioning serves
-                  every later utterance.
+                  One conditioning serves every later utterance, so it must not change after
+                  creation. The engine unit owns the caching behavior itself.
                 tests:
                   - OnnxChatterboxTurboSynthesisEngine_Generate_Voices_AreEncodedOnceAndFallBack
                   - OnnxChatterboxTurboSynthesisEngine_Generate_MoodMarker_UsesMoodClipOnceAndHidesMarker

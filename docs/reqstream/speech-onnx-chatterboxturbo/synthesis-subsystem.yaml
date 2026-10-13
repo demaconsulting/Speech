@@ -33,15 +33,28 @@ sections:
               - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-DisposeDuringGeneration
               - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-Encode
               - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-Embed
+              - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-EmbedEmpty
               - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-Step
               - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-Decode
+              - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-DecodeConditioning
+              - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-DecodeEmpty
               - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-EncoderOutputs
+              - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-EncoderOutputsUnnamed
+              - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-EncoderOutputsUnrecognized
               - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-Precision
               - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-InvalidArguments
+              - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-EmbeddingLength
+              - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-SequenceLength
+              - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-AttentionLength
               - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-Configuration
+              - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-ConfigurationValidation
               - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-GraphValidation
+              - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-GraphValidationLanguageModel
               - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-ConstructionCleanup
               - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-Lifecycle
+              - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-UseAfterDispose
+              - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-StateDispose
+              - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-DisposeAll
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboConditioning-EncoderOutputs
             tests:
               - OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_SyntheticInstall_SynthesizesAudio
@@ -69,6 +82,7 @@ sections:
             children:
               - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-Voices
               - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-VoiceFallback
+              - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-MoodUnknownSpeaker
             tests:
               - OnnxChatterboxTurboSynthesisEngine_Generate_Voices_AreEncodedOnceAndFallBack
 
@@ -112,18 +126,38 @@ sections:
           - id: SpeechOnnxChatterboxTurbo-Synthesis-MoodMarkerHiding
             title: >-
               The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall never let the internal
-              mood-carrying character reach the tokenizer or the speech, whether it was written
-              by the capability profile or supplied in the caller's text, and shall return empty
-              audio for text that holds only such characters.
+              mood-carrying character written by the capability profile reach the tokenizer or
+              the speech.
             justification: |
-              A mood is realized by switching clips, so the internal carrier must never be spoken
-              or forged.
+              A mood is realized by switching clips, so the internal carrier must never be
+              spoken.
             children:
               - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-MoodMarkerHidden
-              - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-MarkerOnlyText
-              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MarkerSafety
             tests:
               - OnnxChatterboxTurboSynthesisEngine_Generate_MoodMarker_UsesMoodClipOnceAndHidesMarker
+
+          - id: SpeechOnnxChatterboxTurbo-Synthesis-MoodMarkerCallerSupplied
+            title: >-
+              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall remove the internal
+              mood-carrying character, and the profile's placeholder characters, from the
+              caller's text so a caller cannot forge a mood.
+            justification: |
+              A forged carrier would let caller text select a reference clip or leak into speech.
+            children:
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MarkerSafety
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-PlaceholderSafety
+            tests:
+              - ChatterboxTurboCapabilityProfile_Render_PlaceholderCharactersInUserText_AreRemoved
+
+          - id: SpeechOnnxChatterboxTurbo-Synthesis-MoodMarkerOnlyText
+            title: >-
+              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall return empty audio for text
+              that holds only mood-carrying characters.
+            justification: |
+              A marker with no speech has nothing to synthesize and must not fail.
+            children:
+              - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-MarkerOnlyText
+            tests:
               - OnnxChatterboxTurboSynthesisEngine_Generate_MarkerOnlyText_ReturnsEmptyAudio
 
           - id: SpeechOnnxChatterboxTurbo-Synthesis-TagProfile
@@ -136,6 +170,8 @@ sections:
               package rather than the generic Speech library renderer.
             children:
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-NativeTags
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-NativeTagThroatClear
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-NativeTagGasp
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-NativeTagInline
             tests:
               - ChatterboxTurboCapabilityProfile_Render_MidSentenceLaugh_StaysInlineWithNativeToken
@@ -152,7 +188,9 @@ sections:
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-ShortPauseSilence
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-LongPauseSilence
             tests:
-              - ChatterboxTurboCapabilityProfile_Render_PauseTags_BecomeSilence
+              - ChatterboxTurboCapabilityProfile_Render_Sigh_BecomesSilenceSegment
+              - ChatterboxTurboCapabilityProfile_Render_ShortPause_BecomesThreeHundredMillisecondSilence
+              - ChatterboxTurboCapabilityProfile_Render_LongPause_BecomesNineHundredMillisecondSilence
 
           - id: SpeechOnnxChatterboxTurbo-Synthesis-TagOmission
             title: >-
@@ -163,25 +201,39 @@ sections:
               nothing.
             children:
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-Unsupported
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-TagOnlyDropped
             tests:
               - ChatterboxTurboCapabilityProfile_Render_UnsupportedTags_NeverEmitBracketText
 
           - id: SpeechOnnxChatterboxTurbo-Synthesis-TagInputSafety
             title: >-
               The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall let its capability profile
-              render empty or invalid text safely and reject null arguments.
+              render empty, whitespace-only or otherwise invalid text as an empty plan without
+              failing.
             justification: |
               Rendering must never fail a synthesis call on degenerate input.
             children:
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-InvalidInput
+            tests:
+              - ChatterboxTurboCapabilityProfile_Render_EmptyInput_ProducesEmptyPlan
+              - ChatterboxTurboCapabilityProfile_Render_WhitespaceOnlyText_ProducesEmptyPlan
+
+          - id: SpeechOnnxChatterboxTurbo-Synthesis-TagNullArguments
+            title: >-
+              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall let its capability profile
+              reject null arguments with an ArgumentNullException.
+            justification: |
+              A null argument is a programming error and must surface clearly.
+            children:
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-NullArguments
             tests:
-              - ChatterboxTurboCapabilityProfile_Render_EmptyOrInvalid_BehavesSafely
+              - ChatterboxTurboCapabilityProfile_Render_NullArguments_Throw
 
           - id: SpeechOnnxChatterboxTurbo-Synthesis-TagRelocation
             title: >-
               The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall move a tag that would end a
-              sentence before the final word when the configured policy is move-before-final-word.
+              sentence before the final word when the EndOfSentenceTagPolicy option is
+              MoveBeforeFinalWord, which is the default.
             justification: |
               A tag with no speech after it makes the model misbehave.
             children:
@@ -192,24 +244,38 @@ sections:
           - id: SpeechOnnxChatterboxTurbo-Synthesis-TagSuffixing
             title: >-
               The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall suffix a tag that would end
-              a sentence when the configured policy is suffix.
+              a sentence when the host sets the EndOfSentenceTagPolicy option to Suffix, and
+              shall drop such a tag when it has no suffixed form.
             justification: |
               A host may prefer to keep the tag at the end of the sentence.
             children:
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-TrailingTagSuffix
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-TrailingTagSuffixDrop
             tests:
-              - ChatterboxTurboCapabilityProfile_Render_TrailingTag_Suffix_AppendsOrDrops
+              - ChatterboxTurboCapabilityProfile_Render_TrailingTag_Suffix_AppendsSuffixedTag
+              - ChatterboxTurboCapabilityProfile_Render_TrailingTag_SuffixWithoutSuffixForm_DropsTag
 
           - id: SpeechOnnxChatterboxTurbo-Synthesis-TagStripping
             title: >-
               The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall strip a tag that would end a
-              sentence when the configured policy is strip.
+              sentence when the host sets the EndOfSentenceTagPolicy option to Strip.
             justification: |
               A host may prefer silence over a tag at the end of a sentence.
             children:
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-TrailingTagStrip
             tests:
               - ChatterboxTurboCapabilityProfile_Render_TrailingTag_Strip_DropsTag
+
+          - id: SpeechOnnxChatterboxTurbo-Synthesis-TagPolicyValidation
+            title: >-
+              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall reject an undefined
+              EndOfSentenceTagPolicy value with an ArgumentOutOfRangeException.
+            justification: |
+              An undefined policy must fail early instead of producing odd audio.
+            children:
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-PolicyValidation
+            tests:
+              - ChatterboxTurboCapabilityProfile_Constructor_UndefinedPolicy_ThrowsArgumentOutOfRangeException
 
           - id: SpeechOnnxChatterboxTurbo-Synthesis-TagBetweenSentences
             title: >-
@@ -245,25 +311,28 @@ sections:
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-EllipsisPause
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-DigitFlankedStop
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-LongSentences
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-LongSentenceClauses
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-LongSentenceBudget
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-OverLongToken
             tests:
-              - ChatterboxTurboCapabilityProfile_Render_LongSentence_IsSplit
+              - ChatterboxTurboCapabilityProfile_Render_LongSentence_IsSplitKeepingEveryWord
 
           - id: SpeechOnnxChatterboxTurbo-Synthesis-MoodTags
             title: >-
-              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall turn mood audio tags into
-              per-segment moods.
+              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall turn the fifteen mood audio
+              tags into per-segment moods that map to the named reference-clip moods.
             justification: |
               The model has no emotion tokens, so moods are realized by switching the reference
               clip per segment.
             children:
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-Moods
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodAliases
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodPersistence
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodLastWins
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-NonMoodTags
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodMarker
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodMarkerLookup
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodMarkerNone
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodTagPolicy
             tests:
               - ChatterboxTurboCapabilityProfile_Render_MoodTag_MarksFollowingTextWithMood
@@ -271,7 +340,8 @@ sections:
           - id: SpeechOnnxChatterboxTurbo-Synthesis-MoodSeamSilence
             title: >-
               The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall hide the seam between moods
-              with a short silence.
+              with a silence of 150 ms by default, which the host can configure from 0 (off)
+              to 1000 ms.
             justification: |
               A change of reference clip is audible, so a short silence at the change hides the
               seam.
@@ -281,14 +351,14 @@ sections:
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodJoinSilenceOverlap
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodJoinSilenceEllipsisWins
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodJoinSilenceValidation
-              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-PolicyValidation
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MoodJoinSilenceRange
             tests:
               - ChatterboxTurboCapabilityProfile_Render_MoodChange_AddsJoinSilenceOnlyAtChanges
 
           - id: SpeechOnnxChatterboxTurbo-Synthesis-GenerationBounds
             title: >-
-              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall stop generation after an
-              absolute maximum number of speech tokens.
+              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall stop generation after at
+              most 1024 speech tokens by default, a maximum the host can configure.
             justification: |
               Without a bound a missing end-of-speech token would never terminate.
             children:
@@ -298,8 +368,9 @@ sections:
 
           - id: SpeechOnnxChatterboxTurbo-Synthesis-GenerationProportionalBound
             title: >-
-              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall stop generation after a
-              number of speech tokens derived from the text length.
+              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall stop generation after 25
+              speech tokens per text token by default (a ratio the host can configure) plus a
+              fixed slack of 32 tokens.
             justification: |
               A runaway generation on short text must end long before the absolute maximum.
             children:
@@ -317,6 +388,7 @@ sections:
               - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-StopToken
             tests:
               - OnnxChatterboxTurboSynthesisEngine_Generate_StopAfterCappedRun_EndsWithoutTruncation
+              - OnnxChatterboxTurboSynthesisEngine_Generate_CapOfOne_StopTokenIsNeverExcluded
 
           - id: SpeechOnnxChatterboxTurbo-Synthesis-GenerationTruncation
             title: >-
@@ -354,21 +426,53 @@ sections:
 
           - id: SpeechOnnxChatterboxTurbo-Synthesis-RepetitionGuard
             title: >-
-              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall avoid sustained repetition of
-              a single speech token.
+              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall limit identical consecutive
+              speech tokens to 12 by default, a cap the host can configure or turn off with 0,
+              while still allowing the speech to end.
             justification: |
-              Without a penalty the model loops on a single token.
+              Without a cap the model loops on a single token.
             children:
               - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-RunLengthCap
               - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-RunLengthCapDisabled
-              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-Selection
-              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-TieBreak
-              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-RepetitionPenalty
-              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-OutOfRangeHistory
-              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-NonFinite
-              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-InvalidArguments
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-BlockedToken
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-BlockedTokenInHistory
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-BlockedTokenOutOfRange
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-StopToken
               - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-SingleId
             tests:
               - OnnxChatterboxTurboSynthesisEngine_Generate_StuckToken_IsCappedAtRunLength
+
+          - id: SpeechOnnxChatterboxTurbo-Synthesis-RepetitionPenalty
+            title: >-
+              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall make a recently generated
+              speech token less likely to be chosen again, without forbidding a repeat whose
+              score is far ahead.
+            justification: |
+              A mild penalty discourages loops while keeping legitimately repeated tokens.
+            children:
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-RepetitionPenalty
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-RepetitionPenaltyNegative
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-RepetitionPenaltyBounded
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-OutOfRangeHistory
+            tests:
+              - ChatterboxTurboTokenSelector_Select_RepeatedPositive_IsPenalized
+
+          - id: SpeechOnnxChatterboxTurbo-Synthesis-TokenSelection
+            title: >-
+              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall choose speech tokens
+              deterministically, resolving ties to the lowest id and surviving non-finite logits
+              and invalid arguments as specified by its token selector.
+            justification: |
+              Reproducible, crash-free selection is the base of the generation loop.
+            children:
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-Selection
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-TieBreak
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-Deterministic
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-NonFinite
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-NaNNeverChosen
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-PositiveInfinity
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-NegativeInfinity
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-InvalidArguments
+            tests:
+              - ChatterboxTurboTokenSelector_Select_NoHistory_ReturnsArgmax
+              - ChatterboxTurboTokenSelector_Select_Ties_ResolveToLowestId
