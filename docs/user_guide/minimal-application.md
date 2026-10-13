@@ -1,4 +1,4 @@
-## Building a Minimal End-to-End Application
+# Building a Minimal End-to-End Application
 
 The preceding sections introduced model download, capture/recognition, and playback/synthesis
 independently. This section ties them together into one minimal console application - the kind

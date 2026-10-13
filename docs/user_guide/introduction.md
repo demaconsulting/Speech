@@ -27,6 +27,6 @@ This user guide does not cover:
 - Distribution of the demo application, which is built from source and not published as a package
 - Platforms or .NET versions other than the supported .NET 8, 9, and 10 desktop targets
 
-# References
+## References
 
 - [REF-1] Continuous Compliance Methodology (<https://github.com/demaconsulting/ContinuousCompliance>)

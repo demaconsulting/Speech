@@ -1,4 +1,4 @@
-## Where to Look for More Detail
+# Where to Look for More Detail
 
 - The "Speech Design" document and its per-subsystem design chapters describe the current software
   structure, interfaces, and design rationale in full.

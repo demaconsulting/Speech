@@ -1,4 +1,4 @@
-## SpeechCli
+# SpeechCli
 
 `speech-cli` is a cross-platform .NET global tool, packaged as `DemaConsulting.Speech.Cli`, that
 exposes the library's model management, audio device inspection, text-to-speech, and
@@ -6,7 +6,7 @@ speech-to-text capabilities directly from the command line - useful for scriptin
 checks, or trying a model without writing any code. It is a sibling application to the library,
 not a wrapper around the demo; it is separately packaged and versioned.
 
-### Installing SpeechCli
+## Installing SpeechCli
 
 ```bash
 dotnet tool install -g DemaConsulting.Speech.Cli
@@ -20,7 +20,7 @@ Once installed, the `speech-cli` command is available on the `PATH`. Run `speech
 time to check that the native audio backend, native inference runtime, and model store are all in
 a healthy state on the current machine.
 
-### Command Overview
+## Command Overview
 
 | Command | Purpose |
 | --- | --- |
@@ -42,7 +42,7 @@ Every command's exact flags are shown by `speech-cli --help`, which always refle
 version - run it locally rather than relying solely on the summary above, which is illustrative
 only.
 
-### Reference voices (Chatterbox Turbo)
+## Reference voices (Chatterbox Turbo)
 
 The `chatterbox-turbo-onnx-en` text-to-speech model clones a *reference voice*, so it needs at
 least one voice to speak. Voices come from three places, all listed by `list-voices`:
@@ -73,7 +73,7 @@ runs and lists it, and synthesizing with that voice fails with an error naming t
 > **Consent:** only clone voices you have permission to use. `list-voices`, `voices packs`,
 > `voices install`, and `--help` all repeat this note.
 
-### Worked Examples
+## Worked Examples
 
 Download a recognition model, then recognize speech from a WAV file:
 

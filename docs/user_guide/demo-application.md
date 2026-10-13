@@ -1,4 +1,4 @@
-## Demo Application
+# Demo Application
 
 The repository includes an Avalonia desktop demo application, `DemaConsulting.Speech.Demo`, which
 uses only the library's public API. It is not published to NuGet; run it from a clone of the
@@ -70,7 +70,7 @@ The application opens with four panels, one of which embeds a fifth:
   reload on the next Play) - selecting a different voice in the dropdown audibly changes the
   synthesized speech.
 
-### Launch options
+## Launch options
 
 The demo accepts `--models-dir <path>`, `--mirror-url <url>` (with `--mirror-user`,
 `--mirror-password` or `--mirror-bearer-token`), and `--voices-dir <path>`, matching
@@ -86,7 +86,7 @@ off the command line. An explicit command-line option takes precedence, and any 
 the demo ignore all credential environment variables. Secret values are never printed in help or error text.
 For a scripted launch, set these variables rather than passing the secret as an option.
 
-### Diagnostics: Raw Capture Recording
+## Diagnostics: Raw Capture Recording
 
 The Speech-to-Text panel supports an opt-in diagnostic aid for investigating
 live-microphone streaming issues: set the `DEMASPEECH_CAPTURE_DEBUG_DIR` environment variable to

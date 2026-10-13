@@ -1,4 +1,4 @@
-## Natural Language Audio Tags
+# Natural Language Audio Tags
 
 The library also provides the closed, fixed Natural Language Audio Tag vocabulary and its
 model-independent Layer 1 parser from the `SynthesisSubsystem`

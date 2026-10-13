@@ -1,4 +1,4 @@
-## Hardware Verification Boundary
+# Hardware Verification Boundary
 
 Automated tests in this repository verify only the seam-driven logic that is safe for CI:
 preferred-host selection, name-based device matching, fallback to the host API's default device,

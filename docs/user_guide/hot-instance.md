@@ -1,4 +1,4 @@
-## Hot TTS/STT: Reusing an Instance Across Turns
+# Hot TTS/STT: Reusing an Instance Across Turns
 
 `SpeechRecognizerFactory.LoadAsync(...)`/`SpeechSynthesizerFactory.LoadAsync(...)` are the
 expensive step in either direction: on success, each loads a model into native memory. Beneath

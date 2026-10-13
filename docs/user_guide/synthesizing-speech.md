@@ -1,4 +1,4 @@
-## Synthesizing Speech
+# Synthesizing Speech
 
 `SpeechSynthesizerFactory.LoadAsync(...)` composes an `ISpeechSynthesizerEngine` over an
 installed `ISynthesisModel`, mirroring `SpeechRecognizerFactory`'s nothing-throws-at-composition
@@ -93,9 +93,11 @@ the selected model's own declared audio-tag support (`IModelCapabilityProfile`):
 (`SherpaOnnxVitsLibriTtsEnglishSynthesisModel`, `SherpaOnnxKokoroEnglishSynthesisModel` and
 `OnnxKokoroEnglishSynthesisModel`), so every non-pause tag is stripped to plain narration for them -
 the plain words are always spoken regardless, per the "never worse than plain narration" guarantee
-above. **`OnnxChatterboxTurboEnglishSynthesisModel` declares `Native`**: its capability profile maps
-`[laugh]`, `[clear throat]` and `[gasp]` to native tokens and handles the mood tags described under
-the "Mood tags" subsection of the Chatterbox Turbo section below. `ParameterMapped` is fully implemented
+above. **`OnnxChatterboxTurboEnglishSynthesisModel` declares `Native`**: its capability profile maps the
+callers' tags (for example `[laughs]`, `[clears throat]` and `[gasp]`) to the model's internal
+native tokens - `[laugh]`, `[clear throat]` and `[gasp]` are those internal tokens, not tags you
+type - and handles the mood tags described under the "Mood tags" subsection of the Chatterbox
+Turbo section below. `ParameterMapped` is fully implemented
 and exercised by tests, ready for a
 future or host-supplied model to declare, but no shipped model currently uses it.
 
@@ -173,7 +175,7 @@ needs no sherpa-onnx. The fourth synthesis model, the Chatterbox Turbo voice-clo
 described in the "Chatterbox Turbo" subsection below and in the CLI subsection "Reference voices
 (Chatterbox Turbo)".
 
-### Chatterbox Turbo
+## Chatterbox Turbo
 
 The optional `DemaConsulting.Speech.Onnx.ChatterboxTurbo` package adds a voice-cloning synthesis
 model through `AddChatterboxTurboModels(options)`: `OnnxChatterboxTurboEnglishSynthesisModel`
@@ -195,7 +197,7 @@ var options = new ChatterboxTurboModelOptions
 var catalog = new SpeechModelCatalog().AddChatterboxTurboModels(options);
 ```
 
-#### Reference voice packs
+### Reference voice packs
 
 The package bundles no voice audio, but the core package can download an optional **reference-voice
 pack** and keeps a folder for your own clips, and the model lists all of them as voices
@@ -232,12 +234,13 @@ with a given id wins, so your own clip overrides a pack voice of the same name. 
 read when the catalog is built, so rebuild it after installing a pack. Cloning a real person's voice
 requires that person's consent (`ReferenceVoiceLibrary.ConsentNotice`).
 
-#### Model variants and generation
+### Model variants and generation
 
 The first voice is the default and the `voice` choice parameter selects another. The default
 download is the fp16 language model with q4 helper graphs (eight files, roughly 1.1 GB);
 `LanguageModelVariant` and `AuxiliaryModelVariant` choose other precisions, each with its own model
-id. It runs on the CPU only. It renders `[laugh]`, `[clear throat]` and `[gasp]` natively, renders
+id. It runs on the CPU only. It renders the laugh, clear-throat and gasp tags natively (via the internal
+`[laugh]`, `[clear throat]` and `[gasp]` tokens, which are not tags you type), renders
 sighs and pauses as silence and omits every other tag except the mood tags below;
 `EndOfSentenceTagPolicy` controls whether a
 native tag that would end a sentence is moved before the final word (default), suffixed, or
@@ -246,7 +249,7 @@ produces truncated audio rather than a hang, and `MaxConsecutiveSpeechTokenRepea
 disables) stops the model from locking onto one speech token and producing a sustained tone. You are
 responsible for having the right to clone any voice you use.
 
-#### Mood tags
+### Mood tags
 
 For a voice with emotion clips (`MoodClips`), the mood tags `[excited]`, `[enthused]`,
 `[happy]`, `[sad]`, `[angry]`, `[loud]`/`[shout]`, `[calm]`, `[surprised]`, `[bored]`/`[tired]`,

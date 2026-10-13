@@ -1,4 +1,4 @@
-## Recognizing Speech
+# Recognizing Speech
 
 The library also provides the `RecognitionSubsystem`
 (`DemaConsulting.Speech.RecognitionSubsystem`), which turns captured audio into text:
@@ -156,7 +156,7 @@ dither; it also finalizes an utterance after 2.5 seconds of quiet following spee
 mirror serves its files from `<mirror>/nemotron-3.5-asr-streaming-0.6b-onnx-int4/<file>`. See
 "Synthesizing Speech" below for the production synthesis models.
 
-### Reading WAV and FLAC files
+## Reading WAV and FLAC files
 
 The core package decodes audio files with managed code only. `AudioFileReader.Read(path)` (or
 `Read(stream)`) detects WAV (8/16/24/32-bit PCM and 32-bit float) or FLAC by content and returns an

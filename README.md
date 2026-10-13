@@ -163,6 +163,7 @@ using DemaConsulting.Speech.Onnx.ChatterboxTurbo;
 using DemaConsulting.Speech.Onnx.ChatterboxTurbo.ModelManagementSubsystem;
 
 var options = new ChatterboxTurboModelOptions
+{
     ReferenceVoices =
     [
         ChatterboxTurboReferenceVoice.FromFile("narrator", "narrator.wav"),
@@ -171,7 +172,7 @@ var options = new ChatterboxTurboModelOptions
     // ReferenceVoiceDirectory = "voices",
 };
 
-var catalog = new SpeechModelCatalog().AddChatterboxTurboModels(options);
+using var catalog = new SpeechModelCatalog().AddChatterboxTurboModels(options);
 ```
 
 The package bundles no voice audio, but the core package can download an optional **reference-voice
