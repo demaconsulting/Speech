@@ -57,7 +57,7 @@ The SpeechCli system is accepted when all of the following hold (IEC 62304 §5.7
   option
 - An unrecognized subcommand or option exits non-zero with a one-line error and no stack trace
 - The ReqStream requirements-to-tests enforcement reports every SpeechCli requirement as covered
-- The manual build-time checks listed in _Manual / Build-Time Verification_ are performed for each
+- The manual build-time checks listed in _Build-Time Verification_ are performed for each
   release and produce the expected result
 
 ## Test Scenarios
@@ -206,14 +206,23 @@ runtime state for the process's own entry point to reach.
 Verifies every `CommandDispatch` handler (a `Func<Context, Task>`) is non-null and yields a non-null
 `Task` when invoked, confirming the asynchronous dispatch pipeline has no missing entry.
 
-## Manual / Build-Time Verification
+## Build-Time Verification
 
-The following are verified manually, rather than by an automated test, because they
-are properties of the build and packaging pipeline rather than of runtime behavior:
+Global tool packaging is a property of the build and packaging pipeline rather than of runtime behavior, so it is
+verified by the pack verification step in `build.ps1` (run locally and by any caller of the build script) instead of
+a unit test. After the Release build, the step runs the CI-equivalent
+`dotnet pack --no-build --no-restore --configuration Release --property:PackageVersion=0.0.1-test` into a temporary
+directory and fails the build unless all of the following hold:
 
-- `dotnet pack src/DemaConsulting.Speech.Cli/DemaConsulting.Speech.Cli.csproj -c Release` produces
-  a `.nupkg` and a `.snupkg`, confirming the global tool packaging plumbing
-  (`PackAsTool`/`ToolCommandName`/`PackageId`) actually works, not just that the `.csproj` looks
-  correct
+- the pack reports no NuGet (`NU*`) warnings
+- a `.nupkg` exists for every packable `src/` project
+- the `DemaConsulting.Speech.Cli` package contains a `DotnetToolSettings.xml` whose command name is `speech-cli`,
+  confirming the global tool packaging plumbing (`PackAsTool`/`ToolCommandName`/`PackageId`) actually works, not just
+  that the `.csproj` looks correct
+
+This evidence covers `SpeechCli-Packaging-GlobalTool` together with the linked `--version` and `--help` tests.
+
+The following remains a manual check:
+
 - `dotnet run --project src/DemaConsulting.Speech.Cli -- --help` produces sane, readable banner
   and usage output when run directly from source
