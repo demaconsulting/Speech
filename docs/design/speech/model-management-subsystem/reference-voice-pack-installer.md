@@ -26,9 +26,11 @@ exists so tests can exercise the caps with small limits:
    archive URL and SHA-256, voice count, emotion clip count, variants: `["voices"]` or
    `["voices","voices-emotion"]`).
 
-**Error Handling**: All problems are `InvalidDataException` (which the downloader classifies as
+**Error Handling**: A null pack throws `ArgumentNullException` and a null or empty staging directory throws
+`ArgumentException`. All archive problems are `InvalidDataException` (which the downloader classifies as
 `Failed`, installing nothing): a file that is not a zip archive, an entry name containing a backslash,
-a colon, a leading slash, a NUL, or a `..` or `.` segment, an extracted entry with a segment that is not
+a colon, a leading slash, a NUL, or a `..` or `.` segment (rejected for every entry, even one the allow-list
+would otherwise ignore, because the name check runs before the allow-list), an extracted entry with a segment that is not
 valid on every platform (characters `* ? < > | "` or control characters, Windows reserved device names
 such as `CON`/`NUL`/`COM1`, a trailing dot or space), a resolved path outside the staging
 directory, two entries mapping to one destination, an entry or total size over its cap, or no voices.

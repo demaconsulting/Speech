@@ -14,8 +14,11 @@ namespace DemaConsulting.Speech.ModelManagementSubsystem;
 ///     are requested <c>{root}/voices-emotion/{speaker}/{mood}.flac</c> and <c>{root}/voices-emotion/README.md</c> are
 ///     extracted too. Everything else is ignored. Emotion clips never count as voices: an archive with only emotion
 ///     clips still fails.
-///     <b>Safety</b>: an entry whose name is rooted, contains a backslash, a drive colon or a <c>..</c> segment fails
-///     the whole install (a legitimate, hash-pinned archive never has one), each extracted path is re-checked to
+///     <b>Safety</b>: an entry whose name is rooted, contains a backslash, a drive colon, a NUL or a <c>..</c>/<c>.</c>
+///     segment fails the whole install (a legitimate, hash-pinned archive never has one), even when the entry would
+///     otherwise be ignored by the allow-list; an extracted entry with a segment that is not valid on every platform
+///     (invalid or control characters, reserved device names, a trailing dot or space) fails it too, two entries that
+///     map to one destination fail it, each extracted path is re-checked to
 ///     lie inside the staging directory, and the number of bytes actually read per entry and in total is capped
 ///     regardless of what the archive's headers claim.
 /// </remarks>
@@ -44,6 +47,17 @@ internal static class ReferenceVoicePackInstaller
 
     /// <summary>JSON options for <c>pack.json</c>.</summary>
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
+
+    /// <summary>The characters rejected in any extracted path segment on every platform (the Windows-invalid set; a colon is already rejected in <see cref="SplitSafely"/>).</summary>
+    private static readonly char[] InvalidSegmentChars = [.. Path.GetInvalidFileNameChars(), '*', '?', '<', '>', '|', '"'];
+
+    /// <summary>The Windows reserved device names (matched with or without an extension).</summary>
+    private static readonly HashSet<string> ReservedNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "CON", "PRN", "AUX", "NUL",
+        "COM0", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+        "LPT0", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+    };
 
     /// <summary>
     ///     Extracts the pack's allowed entries from the staged archive into the staging directory.
@@ -170,17 +184,6 @@ internal static class ReferenceVoicePackInstaller
 
         return segments;
     }
-
-    /// <summary>The characters rejected in any extracted path segment on every platform (the Windows-invalid set).</summary>
-    private static readonly char[] InvalidSegmentChars = [.. Path.GetInvalidFileNameChars(), '*', '?', '<', '>', '|', '"', ':'];
-
-    /// <summary>The Windows reserved device names (matched with or without an extension).</summary>
-    private static readonly HashSet<string> ReservedNames = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "CON", "PRN", "AUX", "NUL",
-        "COM0", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
-        "LPT0", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
-    };
 
     /// <summary>
     ///     Rejects a destination whose segments cannot be created on every platform (invalid characters, control

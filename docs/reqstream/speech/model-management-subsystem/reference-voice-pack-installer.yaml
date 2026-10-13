@@ -48,16 +48,34 @@ sections:
               - id: Speech-Models-ReferenceVoicePackInstaller-ArchiveSafety
                 title: >-
                   The ReferenceVoicePackInstaller shall reject archives containing path-traversal,
-                  rooted, drive-qualified or backslash entry names, entry names with a segment that is
-                  not valid on every platform, or two entries that map to the same destination.
+                  rooted, drive-qualified or backslash entry names.
                 justification: |
                   Even a checksum-verified archive is untrusted input to the extractor (the
                   checksum guards integrity, not safety), so a zip-slip entry must never write
-                  outside the staging directory, and a name that is invalid on some platform must not
-                  yield a pack that installs on one platform only.
+                  outside the staging directory.
                 tests:
                   - ReferenceVoicePackInstaller_Install_UnsafeEntryName_ThrowsAndWritesNothingOutside
+                  - ReferenceVoicePackInstaller_Install_WithEmotions_UnsafeEmotionEntry_Throws
+
+              - id: Speech-Models-ReferenceVoicePackInstaller-PortableNames
+                title: >-
+                  The ReferenceVoicePackInstaller shall reject archives with an entry name that has a
+                  segment that is not valid on every platform.
+                justification: |
+                  A name that is invalid on some platform must not yield a pack that installs on one
+                  platform only.
+                tests:
                   - ReferenceVoicePackInstaller_Install_PlatformInvalidEntryName_ThrowsInvalidData
+                  - ReferenceVoicePackInstaller_Install_WithEmotions_UnsafeEmotionEntry_Throws
+
+              - id: Speech-Models-ReferenceVoicePackInstaller-UniqueDestinations
+                title: >-
+                  The ReferenceVoicePackInstaller shall reject archives with two entries that map to
+                  the same destination.
+                justification: |
+                  A duplicate destination would silently overwrite or fail part-way through the
+                  extraction.
+                tests:
                   - ReferenceVoicePackInstaller_Install_DuplicateEntry_Throws
 
               - id: Speech-Models-ReferenceVoicePackInstaller-MalformedArchiveRejection
@@ -82,14 +100,24 @@ sections:
               - id: Speech-Models-ReferenceVoicePackInstaller-SizeCaps
                 title: >-
                   The ReferenceVoicePackInstaller shall fail the install with an InvalidDataException when
-                  the bytes actually read for one entry exceed 128 MiB or the running total exceeds 2 GiB,
-                  regardless of what the archive headers claim.
+                  the bytes actually read for one entry exceed 128 MiB, regardless of what the archive
+                  headers claim.
                 justification: |
                   Zip headers can understate the uncompressed size, so only the bytes actually read can
                   bound disk use against a decompression bomb. The caps are internal parameters (defaults
-                  unchanged) so tests exercise both with small limits instead of gigabytes of data.
+                  unchanged) so tests exercise them with small limits instead of gigabytes of data.
                 tests:
                   - ReferenceVoicePackInstaller_Install_EntryExceedsEntryCap_Throws
+
+              - id: Speech-Models-ReferenceVoicePackInstaller-TotalSizeCap
+                title: >-
+                  The ReferenceVoicePackInstaller shall fail the install with an InvalidDataException when
+                  the running total of bytes actually read exceeds 2 GiB, regardless of what the archive
+                  headers claim.
+                justification: |
+                  Many small entries can still exhaust the disk, so the total is bounded as well as each
+                  entry.
+                tests:
                   - ReferenceVoicePackInstaller_Install_TotalExceedsTotalCap_Throws
 
               - id: Speech-Models-ReferenceVoicePackInstaller-AcceptsContentAtCaps

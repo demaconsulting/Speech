@@ -9,12 +9,15 @@ temporary directory. No network access and no real upstream archive are used.
 #### Test Environment
 
 - **Framework**: xUnit v3 running under the .NET SDK
+- **File system**: a temporary directory under the system temp path, created per test and deleted afterward
 
 #### Acceptance Criteria
 
-Tests pass when exactly the allow-listed entries are extracted with the root folder removed, `pack.json`
-is written, the archive is deleted, every unsafe or malformed archive fails with
-`InvalidDataException` without writing outside the staging directory, and cancellation is honored.
+Tests pass when exactly the allow-listed entries are extracted with the root folder removed (and, when
+requested, the emotion clips), `pack.json` is written with the variants and clip counts, the archive is
+deleted, every unsafe, unportable, duplicate or malformed archive fails with `InvalidDataException` without
+writing outside the staging directory, content over the per-entry or total size cap fails while content
+exactly at the (inclusive) caps succeeds, and cancellation is honored.
 
 #### Test Scenarios
 
@@ -28,16 +31,21 @@ is written, the archive is deleted, every unsafe or malformed archive fails with
 
 **Test**: `ReferenceVoicePackInstaller_Install_EntriesOutsideRoot_AreIgnored`
 
+**Test**: `ReferenceVoicePackInstaller_Install_StagingDirectoryWithTrailingSeparator_Extracts`
+
 ##### Archive Safety
 
 **Test**: `ReferenceVoicePackInstaller_Install_UnsafeEntryName_ThrowsAndWritesNothingOutside`
 
 **Test**: `ReferenceVoicePackInstaller_Install_PlatformInvalidEntryName_ThrowsInvalidData`
 
+**Test**: `ReferenceVoicePackInstaller_Install_WithEmotions_UnsafeEmotionEntry_Throws` (also covers a colon, a
+trailing dot or space and a control character in an emotion speaker folder)
+
 **Test**: `ReferenceVoicePackInstaller_Install_NoVoices_Throws` (asserts the message names the expected
 `voice-zero/voices/*.flac` layout and "voice clips")
+
 **Test**: `ReferenceVoicePackInstaller_Install_DuplicateEntry_Throws`
-**Test**: `ReferenceVoicePackInstaller_Install_StagingDirectoryWithTrailingSeparator_Extracts`
 
 **Test**: `ReferenceVoicePackInstaller_Install_NotAZip_Throws`
 

@@ -380,11 +380,18 @@ sections:
               silently accepted and discovered only when a host tries to render it.
             children:
               - Speech-Models-SpeechModelParameters-NumericValidation
+              - Speech-Models-SpeechModelParameters-NumericDefaultValidation
+              - Speech-Models-SpeechModelParameters-NumericFiniteValidation
               - Speech-Models-SpeechModelParameters-NumericValuesExposed
               - Speech-Models-SpeechModelParameters-NumericCommonFieldValidation
               - Speech-Models-SpeechModelParameters-NumericIntegerFlag
               - Speech-Models-SpeechModelParameters-NumericIntegerValidation
               - Speech-Models-SpeechModelParameters-ChoiceValidation
+              - Speech-Models-SpeechModelParameters-ChoiceDuplicateValidation
+              - Speech-Models-SpeechModelParameters-ChoiceDefaultValidation
+              - Speech-Models-SpeechModelParameters-ChoiceOptionValueValidation
+              - Speech-Models-SpeechModelParameters-ChoiceCommonFieldValidation
+              - Speech-Models-SpeechModelParameters-ChoiceOptionsDefensiveCopy
               - Speech-Models-SpeechModelParameters-BooleanValidation
             tests:
               - NumericParameter_Constructor_MinimumGreaterThanMaximum_ThrowsArgumentException
@@ -413,6 +420,16 @@ sections:
             children:
               - Speech-Models-SpeechModelParameterDiagnostics-UnrecognizedIdSilentWithDiagnostic
               - Speech-Models-SpeechModelParameterDiagnostics-InvalidRecognizedValueThrows
+              - Speech-Models-SpeechModelParameterDiagnostics-NumericValueInvalid
+              - Speech-Models-SpeechModelParameterDiagnostics-NumericValueAccepted
+              - Speech-Models-SpeechModelParameterDiagnostics-ChoiceValueInvalid
+              - Speech-Models-SpeechModelParameterDiagnostics-BooleanValueInvalid
+              - Speech-Models-SpeechModelParameterDiagnostics-ValidChoiceAndBooleanAccepted
+              - Speech-Models-SpeechModelParameterDiagnostics-NullValueThrows
+              - Speech-Models-SpeechModelParameterDiagnostics-UnsupportedDescriptorThrows
+              - Speech-Models-SpeechModelParameterDiagnostics-ParamName
+              - Speech-Models-SpeechModelParameterDiagnostics-NoOpForNullOrEmptyBag
+              - Speech-Models-SpeechModelParameterDiagnostics-NullArguments
             tests:
               - ValidateAndReport_UnrecognizedParameterId_ReportsInfoAndDoesNotThrow
               - ValidateAndReport_NumericParameterOutOfRange_Throws
@@ -526,9 +543,12 @@ sections:
               - Speech-Models-ReferenceVoicePackInstaller-PackMetadata
               - Speech-Models-ReferenceVoicePackInstaller-ArchiveDeletion
               - Speech-Models-ReferenceVoicePackInstaller-ArchiveSafety
+              - Speech-Models-ReferenceVoicePackInstaller-PortableNames
+              - Speech-Models-ReferenceVoicePackInstaller-UniqueDestinations
               - Speech-Models-ReferenceVoicePackInstaller-MalformedArchiveRejection
               - Speech-Models-ReferenceVoicePackInstaller-Cancellation
               - Speech-Models-ReferenceVoicePackInstaller-SizeCaps
+              - Speech-Models-ReferenceVoicePackInstaller-TotalSizeCap
               - Speech-Models-ReferenceVoicePackInstaller-AcceptsContentAtCaps
             tests:
               - ReferenceVoicePackInstaller_Install_TypicalArchive_ExtractsOnlyAllowListedEntries

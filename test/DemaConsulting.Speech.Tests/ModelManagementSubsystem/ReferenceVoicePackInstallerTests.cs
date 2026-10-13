@@ -22,7 +22,7 @@ public sealed class ReferenceVoicePackInstallerTests : IDisposable
                 Directory.Delete(_root, recursive: true);
             }
         }
-        catch (IOException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             // Best-effort cleanup only.
         }
@@ -138,11 +138,16 @@ public sealed class ReferenceVoicePackInstallerTests : IDisposable
     }
 
     /// <summary>
-    ///     Proves that unsafe emotion entry names fail the install when emotions are requested, like any other entry.
+    ///     Proves that unsafe or unportable emotion entry names (traversal, backslash, colon, trailing dot or space, control
+    ///     character) fail the install when emotions are requested, like any other entry.
     /// </summary>
     [Theory]
     [InlineData("voice-zero/voices-emotion/../../evil.flac")]
     [InlineData("voice-zero/voices-emotion/alana_jordan/..\\evil.flac")]
+    [InlineData("voice-zero/voices-emotion/alana:jordan/happy.flac")]
+    [InlineData("voice-zero/voices-emotion/alana./happy.flac")]
+    [InlineData("voice-zero/voices-emotion/alana /happy.flac")]
+    [InlineData("voice-zero/voices-emotion/ala\u0001na/happy.flac")]
     public async Task ReferenceVoicePackInstaller_Install_WithEmotions_UnsafeEmotionEntry_Throws(string entryName)
     {
         // Arrange
