@@ -131,8 +131,7 @@ sections:
           A hundred clips must not be decoded at startup, and one damaged clip must not make the
           model unusable.
         children:
-          - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoiceLazyLoading
-          - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-LazyFileLoading
+          - SpeechOnnxChatterboxTurbo-Models-StoreVoiceLazyLoading
         tests:
           - SpeechOnnxChatterboxTurbo_SystemIntegration_StoreVoicesResilience_DamagedClipDoesNotBlockOtherVoices
 
@@ -159,7 +158,7 @@ sections:
         justification: |
           A voice that lacks a mood must still be spoken rather than fail.
         children:
-          - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-MoodFallback
+          - SpeechOnnxChatterboxTurbo-Synthesis-MoodFallback
         tests:
           - SpeechOnnxChatterboxTurbo_SystemIntegration_MoodVoices_UseMoodClipWithBaseFallback
 
@@ -172,9 +171,7 @@ sections:
           A mood is realized by switching clips, so any internal carrier must never reach the
           speech.
         children:
-          - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-MoodMarkerHidden
-          - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-MarkerOnlyText
-          - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MarkerSafety
+          - SpeechOnnxChatterboxTurbo-Synthesis-MoodMarkerHiding
         tests:
           - SpeechOnnxChatterboxTurbo_SystemIntegration_MoodMarkerHidden_NeverSpokenOrSynthesized
 
@@ -226,6 +223,8 @@ sections:
           tag is kept next to speech.
         children:
           - SpeechOnnxChatterboxTurbo-Synthesis-TagRelocation
+        tests:
+          - SpeechOnnxChatterboxTurbo_SystemIntegration_TagPlacement_TrailingTagIsKeptWithSpeech
 
       - id: SpeechOnnxChatterboxTurbo-Synthesis-LongTextSegmentation
         title: >-
@@ -236,6 +235,8 @@ sections:
           The model degrades on long inputs, and splitting must never lose speech.
         children:
           - SpeechOnnxChatterboxTurbo-Synthesis-Segmentation
+        tests:
+          - SpeechOnnxChatterboxTurbo_SystemIntegration_LongTextSegmentation_SplitsAndSpeaksEverySentence
 
       - id: SpeechOnnxChatterboxTurbo-Synthesis-RunawayProtection
         title: >-

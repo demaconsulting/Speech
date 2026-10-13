@@ -5,8 +5,8 @@
 # SynthesisSubsystem, decomposing the system-level requirements in
 # docs/reqstream/speech-onnx-chatterboxturbo.yaml. The subsystem implements the Speech library's
 # public ISynthesisBackend seam over the four Chatterbox Turbo graphs: the engine (generation
-# loop), the networks (ONNX Runtime sessions), the token selector, and the capability profile
-# (audio-tag rendering policy).
+# loop), the networks (ONNX Runtime sessions), the token selector, the conditioning record
+# (reference-clip encoder outputs) and the capability profile (audio-tag rendering policy).
 #
 # Covered by test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/SynthesisSubsystem/;
 # unit-level requirements live under
@@ -43,6 +43,7 @@ sections:
               - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-GraphValidation
               - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-ConstructionCleanup
               - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-Lifecycle
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboConditioning-EncoderOutputs
             tests:
               - OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_SyntheticInstall_SynthesizesAudio
               - OnnxChatterboxTurboSynthesisEngine_Generate_ScriptedTokens_AssemblesPromptAndDecoderInput
@@ -70,6 +71,7 @@ sections:
               latency low.
             children:
               - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-VoiceCaching
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboConditioning-Reuse
             tests:
               - OnnxChatterboxTurboSynthesisEngine_Generate_Voices_AreEncodedOnceAndFallBack
 
@@ -85,6 +87,34 @@ sections:
               - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-MoodClipCaching
             tests:
               - OnnxChatterboxTurboSynthesisEngine_Generate_MoodMarker_UsesMoodClipOnceAndHidesMarker
+
+          - id: SpeechOnnxChatterboxTurbo-Synthesis-MoodFallback
+            title: >-
+              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall condition a mood segment on
+              the voice's base clip when the selected voice has no clip for that mood.
+            justification: |
+              A voice that lacks a mood must still be spoken rather than fail.
+            children:
+              - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-MoodFallback
+            tests:
+              - OnnxChatterboxTurboSynthesisEngine_Generate_MoodMissing_FallsBackToBaseClip
+
+          - id: SpeechOnnxChatterboxTurbo-Synthesis-MoodMarkerHiding
+            title: >-
+              The SpeechOnnxChatterboxTurbo SynthesisSubsystem shall never let the internal
+              mood-carrying character reach the tokenizer or the speech, whether it was written
+              by the capability profile or supplied in the caller's text, and shall return empty
+              audio for text that holds only such characters.
+            justification: |
+              A mood is realized by switching clips, so the internal carrier must never be spoken
+              or forged.
+            children:
+              - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-MoodMarkerHidden
+              - SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-MarkerOnlyText
+              - SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-MarkerSafety
+            tests:
+              - OnnxChatterboxTurboSynthesisEngine_Generate_MoodMarker_UsesMoodClipOnceAndHidesMarker
+              - OnnxChatterboxTurboSynthesisEngine_Generate_MarkerOnlyText_ReturnsEmptyAudio
 
           - id: SpeechOnnxChatterboxTurbo-Synthesis-TagProfile
             title: >-

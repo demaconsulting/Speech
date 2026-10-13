@@ -44,7 +44,7 @@ Logits `[-1, -1.1]`, history `{0}`: id 0 scores -1 x 1.2 = -1.2, below -1.1, so 
 **Test**: `ChatterboxTurboTokenSelector_Select_Ties_ResolveToLowestId`
 
 Logits `[1, 1, 1]`, empty history: id 0. With `[1, 1, 1]` and history `{0, 1, 99}`
-(`..._PenalizedTiesAndOutOfRangeHistory_ResolveToUnpenalizedId`) ids 0 and 1 are penalized to 0.83 and
+(`ChatterboxTurboTokenSelector_Select_PenalizedTiesAndOutOfRangeHistory_ResolveToUnpenalizedId`) ids 0 and 1 are penalized to 0.83 and
 the out-of-range id 99 is ignored: id 2.
 
 ##### Invalid input is rejected
@@ -73,6 +73,13 @@ Only the stop-token logit is 5 and the stop token is passed as the blocked id: t
 
 ##### A single blocked id is returned
 
-**Test**: `ChatterboxTurboTokenSelector_Select_AllBlocked_FallsBackToArgmax`
+**Test**: `ChatterboxTurboTokenSelector_Select_SingleIdBlocked_ReturnsOnlyId`
 
 Logits `[3]`, block id 0: id 0.
+
+##### A blocked id outside the vocabulary is ignored
+
+**Test**: `ChatterboxTurboTokenSelector_Select_BlockedIdOutOfRange_IsIgnored`
+
+A blocked id beyond the logits changes nothing; the argmax is returned. A NaN blocked id is not representable
+(the blocked token is an integer), so the NaN case applies only to logits and is covered above.

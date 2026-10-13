@@ -7,8 +7,10 @@ engine never touches tensors or session options directly.
 **Data Model**: Four sessions, the language-model key/value cache layout read from the graph's metadata
 (layer count from the `past_key_values.*.key` inputs, cache element type, head count and head width,
 defaulting to 16 heads of dimension 64 when the graph leaves them dynamic), the language model's
-`inputs_embeds` element type, the intra-op thread count, and a static `OnSessionCreated` hook used only
-by tests to observe sessions.
+`inputs_embeds` element type, the intra-op thread count (exposed as `IntraOpThreads`), the layer count
+(`LayerCount`) and the cache element type (`KeyValueElementType`), and a static `OnSessionCreated` hook
+used only by tests to observe sessions. `CreateFloat16Tensor` is the shared helper that builds the half-precision
+tensors for embeddings and empty cache entries.
 
 **Key Methods**:
 
@@ -26,8 +28,9 @@ by tests to observe sessions.
   previous step's `present.*` tensors afterwards (the previous presents are disposed only after the run that
   consumed them), converts the embeddings to float16 when the graph declares them so, and returns the last
   position's logits as floats. `inputEmbeddings` must contain `sequenceLength` times
-  `OnnxChatterboxTurboSynthesisEngine.EmbeddingSize` values and `attentionLength` must be at least
-  `sequenceLength`
+  `OnnxChatterboxTurboSynthesisEngine.EmbeddingSize` values, `sequenceLength` must be positive (zero is
+  rejected) and `attentionLength` must be at least `sequenceLength`. A step on a state that was itself
+  disposed, or whose owning networks were disposed, throws `ObjectDisposedException` before any native call
 - **Decode(speechTokens, conditioning)**: runs the conditional decoder and returns the waveform
 - **ReadFloats(value)**: copies a float32 or float16 tensor into a float array
 - **Dispose()**: disposes all sessions and the run options; it is idempotent. `Encode`, `Embed`, `Decode` and
@@ -36,8 +39,8 @@ by tests to observe sessions.
   one shared half-to-float helper.
 
 **Error Handling**: `FileNotFoundException` for a missing graph (checked before a session is created);
-`ArgumentOutOfRangeException` for a non-positive thread count or an attention length shorter than the
-sequence length; `ArgumentException` for an embeddings array of the wrong length; `ArgumentNullException`
+`ArgumentOutOfRangeException` for a non-positive thread count, a non-positive sequence length or an attention length shorter than the
+sequence length; `ObjectDisposedException` for use after dispose of the networks or of a language-model state; `ArgumentException` for an embeddings array of the wrong length; `ArgumentNullException`
 for null arguments; `InvalidOperationException` when a graph lacks the expected structure (no
 `past_key_values` inputs, or encoder outputs that match neither the named nor the positional contract);
 other ONNX Runtime exceptions propagate after cleanup. Not thread-safe; the engine serializes calls.

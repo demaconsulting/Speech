@@ -14,7 +14,9 @@ produced segments.
 
 Native tags use model tokens and never emit unsupported bracket text; sighs and pauses become
 silence; trailing tags follow the configured policy; sentences are split with ellipsis pauses and
-long sentences are split; a trailing tag-only chunk joins the previous unit; null arguments throw;
+long sentences are split (never at a digit-flanked stop, and by word budget when a clause has no punctuation);
+mood tags mark following text, apply until the next mood tag, add the join silence only at mood changes and never
+leak marker characters; a trailing tag-only chunk joins the previous unit; null arguments throw;
 empty or invalid input is safe.
 
 #### Test Scenarios
@@ -63,6 +65,20 @@ empty or invalid input is safe.
 
 **Test**: `ChatterboxTurboCapabilityProfile_Render_LongSentence_IsSplit`
 
+##### A full stop between digits is not a sentence boundary
+
+**Test**: `ChatterboxTurboCapabilityProfile_Render_DigitFlankedStop_IsNotASentenceBoundary`
+
+A decimal such as `3.14` stays inside one segment.
+
+##### An over-long clause is split on the word budget
+
+**Test**: `ChatterboxTurboCapabilityProfile_Render_OverLongClause_SplitsOnWordBudgetKeepingEveryWord`
+
+A clause with no clause punctuation and more than 200 characters is split by word budget and every word is
+kept. The 200-character budget is measured on placeholder text, where each native tag counts as one
+character, so the expanded model tokens are not counted and a part may exceed the budget by the tags' expansion.
+
 ##### Empty or invalid input is safe
 
 **Test**: `ChatterboxTurboCapabilityProfile_Render_EmptyOrInvalid_BehavesSafely`
@@ -71,26 +87,44 @@ empty or invalid input is safe.
 
 **Test**: `ChatterboxTurboCapabilityProfile_Treatments_CoverEveryTagWithoutEmotionTokens`
 
-##### Mood tags mark text, stay in order and join with silence
+##### Mood tags mark text and non-mood style tags stay stripped
 
-**Tests**: `ChatterboxTurboCapabilityProfile_Render_MoodTag_MarksFollowingTextWithMood`,
-`ChatterboxTurboCapabilityProfile_Render_NonMoodStyleTags_StayStripped`,
-`ChatterboxTurboCapabilityProfile_Render_MoodRuns_AppliesUntilNextMoodTagInOrder`,
-`ChatterboxTurboCapabilityProfile_Render_ConsecutiveMoodTags_LastWins`,
-`ChatterboxTurboCapabilityProfile_Render_MoodChange_AddsJoinSilenceOnlyAtChanges`,
-`ChatterboxTurboCapabilityProfile_Render_JoinSilence_ZeroDisablesAndLongerEllipsisPauseWins`,
-`ChatterboxTurboCapabilityProfile_Render_PauseBetweenMoods_IsUnmarkedAndNotDoubled`,
-`ChatterboxTurboCapabilityProfile_Render_NativeTagInMoodSpan_KeepsPolicyPerSegment`,
-`ChatterboxTurboCapabilityProfile_Render_MarkerCharactersInUserText_AreStripped`,
-`ChatterboxTurboCapabilityProfile_MoodMarker_RoundTripsAndJoinIsValidated`,
-`ChatterboxTurboCapabilityProfile_WithMoodMarker_IsCaseInsensitiveAndTrimmed`,
+**Tests**: `ChatterboxTurboCapabilityProfile_Render_MoodTag_MarksFollowingTextWithMood` and
+`ChatterboxTurboCapabilityProfile_Render_NonMoodStyleTags_StayStripped`
+
+Each of the 15 mood tags marks the following text with its mood (aliases map to 13 distinct moods); whispers,
+sarcastic, soft and breathy stay stripped.
+
+##### A mood applies until the next mood tag
+
+**Tests**: `ChatterboxTurboCapabilityProfile_Render_MoodRuns_AppliesUntilNextMoodTagInOrder` and
+`ChatterboxTurboCapabilityProfile_Render_ConsecutiveMoodTags_LastWins`
+
+##### Mood changes add a join silence
+
+**Tests**: `ChatterboxTurboCapabilityProfile_Render_MoodChange_AddsJoinSilenceOnlyAtChanges`,
+`ChatterboxTurboCapabilityProfile_Render_JoinSilence_ZeroDisablesAndLongerEllipsisPauseWins` and
+`ChatterboxTurboCapabilityProfile_Render_PauseBetweenMoods_IsUnmarkedAndNotDoubled`
+
+Adjacent spoken segments with different moods get the join silence and none otherwise; zero disables it, a
+longer ellipsis pause is kept and a pause between moods stays unmarked.
+
+##### The end-of-sentence policy is applied per mood segment
+
+**Test**: `ChatterboxTurboCapabilityProfile_Render_NativeTagInMoodSpan_KeepsPolicyPerSegment`
+
+##### Marker characters in user text are removed
+
+**Test**: `ChatterboxTurboCapabilityProfile_Render_MarkerCharactersInUserText_AreStripped`
+
+##### The mood marker round-trips and the configuration is validated
+
+**Tests**: `ChatterboxTurboCapabilityProfile_MoodMarker_RoundTripsAndJoinIsValidated`,
+`ChatterboxTurboCapabilityProfile_WithMoodMarker_IsCaseInsensitiveAndTrimmed` and
 `ChatterboxTurboCapabilityProfile_Constructor_JoinBoundariesAcceptedAndUndefinedPolicyRejected`
 
-Verifies the tag-to-mood mapping, that a mood applies until the next mood tag, that adjacent
-segments with different moods get the join silence (and none otherwise), that pauses stay
-unmarked, that the end-of-sentence policy is applied per segment, that marker characters in
-user text are removed, that mood names match case-insensitively after trimming (blank names add no marker) and that
-the join boundaries 0 and 1000 are accepted.
+Mood names match case-insensitively after trimming (blank names add no marker) and the join boundaries 0 and
+1000 are accepted.
 
 ##### A trailing tag-only chunk joins the previous unit
 

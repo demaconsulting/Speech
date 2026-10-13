@@ -137,9 +137,11 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-CreateBackendFailures
                 title: >-
-                  The OnnxChatterboxTurboEnglishSynthesisModel class shall fail backend creation
-                  with a clear exception, without leaking sessions, when no voice is supplied, a
-                  model file is missing, or a graph is invalid.
+                  The OnnxChatterboxTurboEnglishSynthesisModel class shall fail backend creation,
+                  without leaking sessions, with an InvalidOperationException when no voice is
+                  supplied, an ArgumentException for an empty model directory, a
+                  FileNotFoundException when a model file is missing and an
+                  InvalidOperationException when a graph is invalid.
                 justification: |
                   A broken install must be reported precisely, and native sessions must never
                   leak when construction fails.
@@ -150,8 +152,12 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-Options
                 title: >-
-                  The ChatterboxTurboModelOptions class shall provide safe defaults for every
-                  option.
+                  The OnnxChatterboxTurboEnglishSynthesisModel unit shall provide, through its
+                  ChatterboxTurboModelOptions, these defaults: Fp16 language-model variant, Q4
+                  auxiliary variant, 1024 maximum new tokens, 25 speech tokens per text token, 12
+                  maximum consecutive repeats, 1 to 6 intra-op threads, the move-before-final-word
+                  end-of-sentence policy, no explicit voices, 150 ms mood join silence, store
+                  voices included, and no voice directory, voice library or diagnostics.
                 justification: |
                   A host that supplies no options gets sensible behavior.
                 tests:
@@ -159,8 +165,11 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-OptionsValidation
                 title: >-
-                  The ChatterboxTurboModelOptions class shall validate values assigned to its
-                  options, rejecting undefined variant values and a null reference-voice list.
+                  The OnnxChatterboxTurboEnglishSynthesisModel unit shall, through its
+                  ChatterboxTurboModelOptions, throw an ArgumentOutOfRangeException when a
+                  variant is undefined or a numeric option is out of range, and an
+                  ArgumentNullException for a null reference-voice list, when the value is
+                  assigned.
                 justification: |
                   Invalid values fail at assignment rather than during synthesis.
                 tests:
@@ -228,4 +237,5 @@ sections:
                   A host gets the store's voices without wiring them, and its options object is
                   never changed behind its back.
                 tests:
+                  - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_DefaultLibrary_UsedOnlyWhenOptionsNameNone
                   - SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_DefaultsToCatalogStoreVoices

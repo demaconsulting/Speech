@@ -6,7 +6,7 @@
 
 **Key Methods**:
 
-- **Select(ReadOnlySpan&lt;float&gt; logits, IReadOnlySet&lt;long&gt; generated, int blockedToken = -1)**: returns the
+- **Select(`ReadOnlySpan<float> logits`, `IReadOnlySet<long> generated`, `int blockedToken = -1`)**: returns the
   chosen token id. `logits` are the vocabulary-sized logits of the last position and `generated` holds the
   distinct ids generated so far, including the start token (ids outside the vocabulary are ignored). A single
   pass over the unblocked ids divides a generated id's positive logit by the penalty and multiplies its

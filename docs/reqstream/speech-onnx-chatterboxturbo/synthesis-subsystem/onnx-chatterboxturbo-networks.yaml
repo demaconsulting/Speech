@@ -75,13 +75,16 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-InvalidArguments
                 title: >-
-                  The OnnxChatterboxTurboNetworks class shall reject null arguments, an embedding
-                  of the wrong length and an attention mask shorter than the sequence.
+                  The OnnxChatterboxTurboNetworks class shall reject null arguments (including a
+                  null step embedding), an embedding of the wrong length, a zero or negative
+                  sequence length and an attention mask shorter than the sequence.
                 justification: |
                   Misuse of a tensor contract must fail loudly rather than corrupt the cache.
                 tests:
                   - OnnxChatterboxTurboNetworks_Step_WrongEmbeddingLength_ThrowsArgumentException
                   - OnnxChatterboxTurboNetworks_Step_AttentionShorterThanSequence_ThrowsArgumentOutOfRangeException
+                  - OnnxChatterboxTurboNetworks_Step_ZeroSequenceLength_ThrowsArgumentOutOfRangeException
+                  - OnnxChatterboxTurboNetworks_Step_NullEmbeddings_ThrowsArgumentNullException
                   - OnnxChatterboxTurboNetworks_NullArguments_Throw
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-Configuration
@@ -96,8 +99,8 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-GraphValidation
                 title: >-
                   The OnnxChatterboxTurboNetworks class shall fail construction with a
-                  FileNotFoundException for a missing graph file and with an exception for an
-                  invalid language-model graph.
+                  FileNotFoundException for a missing graph file and with an
+                  InvalidOperationException for an invalid language-model graph.
                 justification: |
                   A broken install must be reported precisely at load time.
                 tests:
@@ -117,10 +120,14 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboNetworks-Lifecycle
                 title: >-
                   The OnnxChatterboxTurboNetworks class shall dispose every session on dispose and
-                  reject further use with an ObjectDisposedException.
+                  reject further use, including a language-model step on a state begun before the
+                  dispose and a step on a state that was itself disposed, with an
+                  ObjectDisposedException.
                 justification: |
                   Native sessions must be released deterministically, and a call on a released
                   session must not reach native code.
                 tests:
                   - OnnxChatterboxTurboNetworks_Dispose_DisposesAllSessions
                   - OnnxChatterboxTurboNetworks_AfterDispose_RejectsUse
+                  - OnnxChatterboxTurboNetworks_Step_AfterStateDispose_ThrowsObjectDisposedException
+                  - OnnxChatterboxTurboNetworks_Step_AfterNetworksDispose_ThrowsObjectDisposedException

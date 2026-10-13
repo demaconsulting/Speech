@@ -8,7 +8,10 @@ that records calls and replays scripted logits, so the algorithm is checked with
 #### Test Environment
 
 - **Framework**: xUnit v3; project `test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests`
-- **Isolation**: no network, no files
+- **Isolation**: no network I/O and no files; the fake networks record calls and replay scripted logits
+- **Mood-marker setup**: the mood scenarios build segment text led by the internal marker characters
+  (as `ChatterboxTurboCapabilityProfile` would write them) and give the voice a distinct mood clip, so
+  the clip passed to the fake encoder shows which clip conditioned the segment
 
 #### Acceptance Criteria
 

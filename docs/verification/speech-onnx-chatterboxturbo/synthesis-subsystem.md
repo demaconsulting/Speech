@@ -8,7 +8,11 @@ tested against a fake `IChatterboxTurboNetworks`; the ONNX networks are tested a
 graphs written by the test project (an encoder, an embedder using Mod and Gather, a language model
 using MatMul and Concat with a key/value cache, and a decoder using Cast); the token selector and
 capability profile are pure functions tested directly. End-to-end construction through
-`CreateBackend` is covered in the ModelManagementSubsystem verification.
+`CreateBackend` is verified by the model unit and the ModelManagementSubsystem verification; the
+subsystem scenarios below use the engine and capability-profile unit tests as their evidence. The
+following behaviors are verified at unit level only, in the unit verification documents: networks
+disposal and use after dispose, non-finite logits, tag relocation details, segmentation details and
+invalid-argument validation.
 
 ### Test Environment
 
@@ -28,15 +32,15 @@ segmentation in the capability profile.
 ### Test Scenarios
 
 See the unit verification documents: `onnx-chatterboxturbo-synthesis-engine.md`,
-`onnx-chatterboxturbo-networks.md`, `chatterbox-turbo-token-selector.md` and
+`onnx-chatterboxturbo-networks.md`, `chatterbox-turbo-conditioning.md`, `chatterbox-turbo-token-selector.md` and
 `chatterbox-turbo-capability-profile.md`.
 
-#### End-to-end synthesis through a synthetic install
+#### Backend construction is verified in the model unit
 
-**Test**: `OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_SyntheticInstall_SynthesizesAudio`
-
-Verifies that a model installed from tiny synthetic graphs builds a backend through `CreateBackend` and
-returns audio at the model's 24 kHz output rate for a sentence of text.
+The scenario "End-to-end synthesis through a synthetic install" belongs to the model unit's verification
+(`OnnxChatterboxTurboEnglishSynthesisModel_CreateBackend_SyntheticInstall_SynthesizesAudio`); it is
+the evidence that this subsystem's engine and networks compose into a working backend and returns audio at
+the 24 kHz output rate.
 
 #### Mood conditioning
 

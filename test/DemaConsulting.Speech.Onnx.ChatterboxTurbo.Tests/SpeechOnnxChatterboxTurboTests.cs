@@ -143,7 +143,7 @@ public sealed class SpeechOnnxChatterboxTurboTests : IDisposable
     {
         // Arrange
         InstallSynthetic();
-        var wavPath = Path.Combine(_root, "clips", "stereo44.wav");
+        var wavPath = Path.Join(_root, "clips", "stereo44.wav");
         WriteWav(wavPath, 0.25f, sampleRate: 44100, channels: 2);
         var stereo48K = ChatterboxTurboReferenceVoice.FromSamples("memory", Enumerable.Repeat(0.25f, 2 * 48000).ToArray(), 48000, 2);
         var file = ChatterboxTurboReferenceVoice.FromFile("file", wavPath);
@@ -187,7 +187,7 @@ public sealed class SpeechOnnxChatterboxTurboTests : IDisposable
         using var catalog = NewCatalog();
         using (var library = new ReferenceVoiceLibrary(catalog.Store))
         {
-            WriteWav(Path.Combine(library.EnsureUserDirectory(), "mine.wav"), 0.5f);
+            WriteWav(Path.Join(library.EnsureUserDirectory(), "mine.wav"), 0.5f);
         }
 
         catalog.AddChatterboxTurboModels(options);
@@ -212,12 +212,14 @@ public sealed class SpeechOnnxChatterboxTurboTests : IDisposable
         using var catalog = NewCatalog();
         using (var library = new ReferenceVoiceLibrary(catalog.Store))
         {
-            await File.WriteAllBytesAsync(Path.Combine(library.EnsureUserDirectory(), "damaged.wav"), "not a wav file"u8.ToArray(), TestContext.Current.CancellationToken);
+            await File.WriteAllBytesAsync(Path.Join(library.EnsureUserDirectory(), "damaged.wav"), "not a wav file"u8.ToArray(), TestContext.Current.CancellationToken);
         }
 
-        // Act: registration reads no clip; the model still loads and speaks the explicit voice
+        // Registration reads no clip
         catalog.AddChatterboxTurboModels(new ChatterboxTurboModelOptions { ReferenceVoices = [Voice("a", 0.25f)], MaxNewTokens = MaxNewTokens });
         var model = Assert.IsAssignableFrom<ISynthesisModel>(Assert.Single(catalog.Enumerate()).Model);
+
+        // Act: the model still loads and speaks the explicit voice
         var engine = await SpeechSynthesizerFactory.LoadAsync(model, _root, null, Values(model, "a"), TestContext.Current.CancellationToken);
         var speech = await engine.SynthesizeAsync("Hello there.", TestContext.Current.CancellationToken);
         await engine.DisposeAsync();
@@ -233,7 +235,7 @@ public sealed class SpeechOnnxChatterboxTurboTests : IDisposable
     {
         // Arrange
         InstallSynthetic();
-        var sadPath = Path.Combine(_root, "clips", "sad.wav");
+        var sadPath = Path.Join(_root, "clips", "sad.wav");
         WriteWav(sadPath, 0.5f);
         var withSad = Voice("sadly", 0.25f).WithMoodFiles(new Dictionary<string, string> { ["sad"] = sadPath });
         var options = new ChatterboxTurboModelOptions { ReferenceVoices = [withSad, Voice("plain", 0.25f)], MaxNewTokens = MaxNewTokens };
@@ -296,6 +298,38 @@ public sealed class SpeechOnnxChatterboxTurboTests : IDisposable
         Assert.Equal(SegmentSamples, Assert.Single(omitted).Samples.Count);
     }
 
+    /// <summary>Proves a trailing tag is kept next to speech rather than left without speech after it.</summary>
+    [Fact]
+    public async Task SpeechOnnxChatterboxTurbo_SystemIntegration_TagPlacement_TrailingTagIsKeptWithSpeech()
+    {
+        // Arrange
+        InstallSynthetic();
+        var options = new ChatterboxTurboModelOptions { ReferenceVoices = [Voice("a", 0.25f)], MaxNewTokens = MaxNewTokens };
+
+        // Act
+        var trailing = await SynthesizeAsync(options, "That was really funny [laughs]");
+
+        // Assert: the tag does not become a segment of its own with no speech after it
+        Assert.Equal(SegmentSamples, Assert.Single(trailing).Samples.Count);
+    }
+
+    /// <summary>Proves long text is split into several sentences, each synthesized, with no sentence left out.</summary>
+    [Fact]
+    public async Task SpeechOnnxChatterboxTurbo_SystemIntegration_LongTextSegmentation_SplitsAndSpeaksEverySentence()
+    {
+        // Arrange: ten sentences of about 35 characters, well over the 200-character limit in total
+        InstallSynthetic();
+        var options = new ChatterboxTurboModelOptions { ReferenceVoices = [Voice("a", 0.25f)], MaxNewTokens = MaxNewTokens };
+        var text = string.Join(' ', Enumerable.Repeat("This is a short test sentence here.", 10));
+
+        // Act
+        var speech = await SynthesizeAsync(options, text);
+
+        // Assert
+        Assert.True(speech.Count > 1);
+        Assert.All(speech, segment => Assert.Equal(SegmentSamples, segment.Samples.Count));
+    }
+
     /// <summary>Proves a generation that never emits end-of-speech is truncated after a bounded amount of work, without an exception.</summary>
     [Fact]
     public async Task SpeechOnnxChatterboxTurbo_SystemIntegration_RunawayProtection_BoundsGenerationWithoutException()
@@ -313,7 +347,7 @@ public sealed class SpeechOnnxChatterboxTurboTests : IDisposable
 
     /// <summary>Creates a catalog over a scratch store.</summary>
     private SpeechModelCatalog NewCatalog() =>
-        new(new SpeechModelStoreOptions { RootPathOverride = Path.Combine(_root, "store") });
+        new(new SpeechModelStoreOptions { RootPathOverride = Path.Join(_root, "store") });
 
     /// <summary>
     ///     Writes the synthetic graphs, replacing the encoder with one whose conditioning prompt is the reference clip's
@@ -321,7 +355,7 @@ public sealed class SpeechOnnxChatterboxTurboTests : IDisposable
     /// </summary>
     private void InstallSynthetic()
     {
-        var (encoder, _, _, _) = ChatterboxTurboGraphFixture.Write(Path.Combine(_root, "onnx"));
+        var (encoder, _, _, _) = ChatterboxTurboGraphFixture.Write(Path.Join(_root, "onnx"));
         File.WriteAllBytes(encoder, ClipEchoEncoder());
     }
 

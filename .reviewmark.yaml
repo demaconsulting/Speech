@@ -2444,8 +2444,25 @@ reviews:
       - "docs/design/speech-onnx-chatterboxturbo/synthesis-subsystem/onnx-chatterboxturbo-synthesis-engine.md"
       - "docs/verification/speech-onnx-chatterboxturbo/synthesis-subsystem/onnx-chatterboxturbo-synthesis-engine.md"
       - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/SynthesisSubsystem/OnnxChatterboxTurboSynthesisEngine.cs"
-      - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/SynthesisSubsystem/ChatterboxTurboConditioning.cs"
       - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/SynthesisSubsystem/ChatterboxTurboGenerationResult.cs"
+      - "test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/SynthesisSubsystem/OnnxChatterboxTurboSynthesisEngineTests.cs"
+
+  # SpeechOnnxChatterboxTurbo-SynthesisSubsystem-ChatterboxTurboConditioning Review (one per unit)
+  - id: SpeechOnnxChatterboxTurbo-SynthesisSubsystem-ChatterboxTurboConditioning
+    title: >-
+      Review that SpeechOnnxChatterboxTurbo SynthesisSubsystem
+      ChatterboxTurboConditioning Implementation is Correct
+    context:
+      - "docs/design/speech-onnx-chatterboxturbo.md"
+      - "docs/design/speech-onnx-chatterboxturbo/synthesis-subsystem.md"
+      - "docs/reqstream/speech-onnx-chatterboxturbo.yaml"
+      - "docs/reqstream/speech-onnx-chatterboxturbo/synthesis-subsystem.yaml"
+    paths:
+      - "docs/reqstream/speech-onnx-chatterboxturbo/synthesis-subsystem/chatterbox-turbo-conditioning.yaml"
+      - "docs/design/speech-onnx-chatterboxturbo/synthesis-subsystem/chatterbox-turbo-conditioning.md"
+      - "docs/verification/speech-onnx-chatterboxturbo/synthesis-subsystem/chatterbox-turbo-conditioning.md"
+      - "src/DemaConsulting.Speech.Onnx.ChatterboxTurbo/SynthesisSubsystem/ChatterboxTurboConditioning.cs"
+      - "test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/SynthesisSubsystem/OnnxChatterboxTurboNetworksTests.cs"
       - "test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests/SynthesisSubsystem/OnnxChatterboxTurboSynthesisEngineTests.cs"
 
   # SpeechOnnxChatterboxTurbo-SynthesisSubsystem-OnnxChatterboxTurboNetworks Review (one per unit)

@@ -36,7 +36,9 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-RepetitionPenalty
                 title: >-
                   The ChatterboxTurboTokenSelector class shall make a previously generated token
-                  less likely to be chosen again, whether its logit is positive or negative.
+                  less likely to be chosen again, whether its logit is positive or negative, by
+                  dividing a positive logit and multiplying a negative logit by the fixed
+                  repetition penalty of 1.2, deterministically for the same inputs.
                 justification: |
                   Without the penalty greedy decoding loops on one token.
                 tests:
@@ -76,12 +78,14 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-BlockedToken
                 title: >-
                   The ChatterboxTurboTokenSelector class shall exclude an optional blocked token
-                  from selection for one call, even when it was generated before.
+                  from selection for one call, even when it was generated before, and shall
+                  ignore a blocked id outside the vocabulary.
                 justification: |
                   The run-length cap needs to break a token loop.
                 tests:
                   - ChatterboxTurboTokenSelector_Select_BlockedToken_IsSkipped
                   - ChatterboxTurboTokenSelector_Select_BlockedTokenInHistory_IsSkipped
+                  - ChatterboxTurboTokenSelector_Select_BlockedIdOutOfRange_IsIgnored
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboTokenSelector-StopToken
                 title: >-
@@ -99,4 +103,4 @@ sections:
                 justification: |
                   Selection must always yield a token.
                 tests:
-                  - ChatterboxTurboTokenSelector_Select_AllBlocked_FallsBackToArgmax
+                  - ChatterboxTurboTokenSelector_Select_SingleIdBlocked_ReturnsOnlyId

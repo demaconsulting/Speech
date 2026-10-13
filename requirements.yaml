@@ -163,6 +163,7 @@ includes:
   - docs/reqstream/speech-onnx-chatterboxturbo/synthesis-subsystem/onnx-chatterboxturbo-networks.yaml
   - docs/reqstream/speech-onnx-chatterboxturbo/synthesis-subsystem/chatterbox-turbo-token-selector.yaml
   - docs/reqstream/speech-onnx-chatterboxturbo/synthesis-subsystem/chatterbox-turbo-capability-profile.yaml
+  - docs/reqstream/speech-onnx-chatterboxturbo/synthesis-subsystem/chatterbox-turbo-conditioning.yaml
   - docs/reqstream/speech-onnx-nemotron-stt.yaml
   - docs/reqstream/speech-onnx-nemotron-stt/model-management-subsystem.yaml
   - docs/reqstream/speech-onnx-nemotron-stt/model-management-subsystem/onnx-nemotron-multilingual-recognition-model.yaml

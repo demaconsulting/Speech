@@ -34,7 +34,8 @@ sections:
             title: >-
               The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall provide an
               ISynthesisModel for Chatterbox Turbo English that declares its identity, license,
-              native audio-tag support and 24 kHz mono output.
+              capability profile with native audio-tag support (including the supported mood
+              tags) and 24 kHz mono output.
             justification: |
               The model store and the Speech library list, select and render for a model from
               this declared metadata.
@@ -74,8 +75,9 @@ sections:
           - id: SpeechOnnxChatterboxTurbo-Models-BackendCreation
             title: >-
               The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall build a loaded
-              synthesis backend from an installed model directory, or fail with a clear
-              exception when the installation is unusable.
+              synthesis backend from an installed model directory, or fail with an
+              InvalidOperationException when no voice is available or a graph is invalid, or a
+              FileNotFoundException when a model file is missing.
             justification: |
               This is how the model store turns an installed model into speech.
             children:
@@ -85,8 +87,9 @@ sections:
           - id: SpeechOnnxChatterboxTurbo-Models-ModelOptions
             title: >-
               The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall let a host configure
-              the model through an options object that has safe defaults and rejects invalid
-              values when they are assigned.
+              the model through an options object whose defaults are the fp16 language model, q4
+              auxiliary graphs, 1024 maximum new tokens and a 150 ms mood join silence, and that
+              rejects invalid values when they are assigned.
             justification: |
               A host that supplies no options gets sensible behavior, and invalid values fail at
               assignment rather than during synthesis.
@@ -162,15 +165,28 @@ sections:
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoices
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoiceDuplicates
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoiceLabels
-              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoiceLazyLoading
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoiceOptOut
               - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoiceDefault
-              - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-LazyFileLoading
               - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-ConcurrentFirstUse
               - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-LazyFileErrors
               - SpeechOnnxChatterboxTurbo-Models-SpeechModelCatalogChatterboxTurboExtensions-DefaultStoreVoices
             tests:
               - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_StoreVoices_MergedAfterExplicitAndDirectoryFirstIdWins
+
+          - id: SpeechOnnxChatterboxTurbo-Models-StoreVoiceLazyLoading
+            title: >-
+              The SpeechOnnxChatterboxTurbo ModelManagementSubsystem shall list store voices
+              without decoding their clips, and decode a clip only when its voice is first used,
+              reporting a damaged clip then, with its file named, without affecting the other
+              voices.
+            justification: |
+              A hundred clips must not be decoded at startup, and one damaged clip must not make
+              the model unusable.
+            children:
+              - SpeechOnnxChatterboxTurbo-Models-OnnxChatterboxTurboEnglishSynthesisModel-StoreVoiceLazyLoading
+              - SpeechOnnxChatterboxTurbo-Models-ChatterboxTurboReferenceVoice-LazyFileLoading
+            tests:
+              - OnnxChatterboxTurboEnglishSynthesisModel_Constructor_CorruptStoreVoice_DoesNotFailConstruction
 
           - id: SpeechOnnxChatterboxTurbo-Models-StoreVoiceMoods
             title: >-

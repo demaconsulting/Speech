@@ -18,11 +18,14 @@ times to the decoder input) and embedding size 1024.
   `min(maxNewTokens, ceil(textIds * maxAudioTokensPerTextToken) + 32)` (computed in floating point and
   clamped, so a huge finite ratio cannot overflow), then decodes the prompt
   tokens, the speech tokens and trailing silence. The loop also tracks the last token and its run
-  length; once the run reaches `maxConsecutiveSpeechTokenRepeats` (default 12, 0 disables) that
+  length; once the run reaches `maxConsecutiveSpeechTokenRepeats` (a configured value; the model
+  options default it to 12, and 0 disables) that
   token is passed to the selector as blocked for the next step only. The stop token is never blocked.
+  The selector's repetition penalty is tracked over the start token and every generated token.
   Hitting the bound sets `HitTokenLimit`; it never throws. An out-of-range speaker id falls back to
-  the first voice. The `speed` argument is not
-  used by the model. Segment text may begin with the internal mood marker written by
+  the first voice. The `speed` argument is ignored (the model has no speed control), so any speed gives
+  identical audio. Empty text, and text that holds only marker characters, return empty audio without
+  calling the networks. Segment text may begin with the internal mood marker written by
   `ChatterboxTurboCapabilityProfile`: the engine reads it, strips every marker character, returns
   empty audio if no speech remains and tokenizes only the stripped text, so the marker never
   reaches the tokenizer or the speech. Conditioning is cached per (voice, mood) and computed on
@@ -30,9 +33,14 @@ times to the decoder input) and embedding size 1024.
   moods, or an unknown mood) the voice's base clip is used and shares the base cache entry. Each
   segment is a separate `Generate` call, so the stop bound and repeat cap apply per segment and
   each segment pays its own prefill cost.
-- **Dispose()**: sets the disposed flag atomically (`Interlocked.Exchange`, so it is idempotent) and
-  then, under the generation lock, disposes the networks; an in-flight `Generate` stops at its next step
-  and later calls throw `ObjectDisposedException`
+- **Dispose()**: sets the disposed flag atomically (`Interlocked.Exchange`), so only the first call
+  disposes; a second concurrent call returns immediately without waiting for the first to finish. The
+  first call then, under the generation lock, disposes the networks; an in-flight `Generate` stops at
+  its next step and later calls throw `ObjectDisposedException`
+- **SampleRate**: always 24000 Hz, the conditional decoder's output rate
+
+**Bounds**: the maximum token count, the per-text-token ratio and the repeat cap are constructor
+arguments (configured values); their defaults (1024, 25 and 12) belong to `ChatterboxTurboModelOptions`.
 
 **Threading**: calls are serialized with an internal lock, so concurrent `Generate` calls are safe
 (they run one at a time); `Dispose` may be called from another thread.

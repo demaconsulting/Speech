@@ -36,12 +36,24 @@ or a join outside 0 to 1000 (both bounds accepted).
   the tag before the final word, else a per-tag suffix, else strip), attaches a tag between
   sentences to the following sentence, attaches a trailing tag-only chunk (a tag with no speech after it) to
   the previous unit so the policy places it, adds a 500 ms pause after ellipsis-ending sentences, and splits
-  sentences over 200 characters at `,;:` and then by word budget. Output never contains
+  sentences over 200 characters at `,;:` and then by word budget. The 200-character budget is measured on
+  the placeholder text (each native tag is one character) before tags expand to their model tokens, so a
+  unit may exceed 200 characters by the expansion. Output never contains
   bracketed text for unsupported tags.
+- **AddMoodJoinSilence(segments, moods)** (private): after rendering, for each pair of directly adjacent
+  spoken segments whose moods differ (including a change from or to the base clip), raises the earlier
+  segment's post-silence to at least the configured join silence, never shortening a longer pause (such as an
+  ellipsis pause); pause segments are not spoken, so they are never marked or counted as a mood change. A
+  join silence of 0 disables the step.
+
+**Supporting types**: `ChatterboxTurboTagKind` (Native, Pause, Strip or Mood) classifies how a tag is
+rendered, and `ChatterboxTurboTagTreatment` (kind, native token, pause milliseconds, suffix form and mood name)
+is the per-tag treatment table entry.
 
 **Error Handling**: `ArgumentNullException` for null `spans` or `model`; otherwise empty or invalid input
 produces an empty, safe result.
 
 **Dependencies**: Speech's public capability-profile and rendering types.
 
-**Callers**: `OnnxChatterboxTurboEnglishSynthesisModel` (exposes it) and Speech's renderer.
+**Callers**: `OnnxChatterboxTurboEnglishSynthesisModel` (exposes it), Speech's renderer and
+`OnnxChatterboxTurboSynthesisEngine` (which calls `ReadMoodMarker` to split the mood marker off a segment).

@@ -11,7 +11,13 @@ These tests run in a non-parallel collection.
 #### Test Environment
 
 - **Framework**: xUnit v3; project `test/DemaConsulting.Speech.Onnx.ChatterboxTurbo.Tests`
-- **Isolation**: scratch directories; no network; no real model
+- **Isolation**: scratch directories; no network I/O; no real model
+- **Collection**: the tests belong to a non-parallel xUnit collection because the session hook is
+  process-wide
+- **Reflection**: the disposed flag of an ONNX Runtime session is read by reflection, since it has no public accessor
+- **Known limits**: "no session leak" beyond the disposed flags of the observed sessions is not
+  verified; the multi-assertion tests (thread count, use after dispose) are kept whole because each
+  asserts one lifecycle contract over one expensive session set
 
 #### Acceptance Criteria
 
@@ -51,8 +57,10 @@ own `IntraOpThreads` property and the rejection of a non-positive count only.
 
 ##### Step rejects invalid arguments
 
-**Tests**: `OnnxChatterboxTurboNetworks_Step_WrongEmbeddingLength_ThrowsArgumentException` and
-`OnnxChatterboxTurboNetworks_Step_AttentionShorterThanSequence_ThrowsArgumentOutOfRangeException`
+**Tests**: `OnnxChatterboxTurboNetworks_Step_WrongEmbeddingLength_ThrowsArgumentException`,
+`OnnxChatterboxTurboNetworks_Step_AttentionShorterThanSequence_ThrowsArgumentOutOfRangeException`,
+`OnnxChatterboxTurboNetworks_Step_ZeroSequenceLength_ThrowsArgumentOutOfRangeException` and
+`OnnxChatterboxTurboNetworks_Step_NullEmbeddings_ThrowsArgumentNullException`
 
 ##### Half-precision encoder, embedder and decoder outputs are converted
 
@@ -94,3 +102,11 @@ Graphs that emit float16 values (via Cast) yield the same float values as the fl
 **Test**: `OnnxChatterboxTurboNetworks_AfterDispose_RejectsUse`
 
 Encode, embed, decode and begin-generation throw `ObjectDisposedException` after dispose; a second dispose is harmless.
+
+##### Step after state or networks dispose is rejected
+
+**Tests**: `OnnxChatterboxTurboNetworks_Step_AfterStateDispose_ThrowsObjectDisposedException` and
+`OnnxChatterboxTurboNetworks_Step_AfterNetworksDispose_ThrowsObjectDisposedException`
+
+A language-model step throws `ObjectDisposedException` both after the state itself is disposed and after the
+networks that began it are disposed, without reaching the native session.

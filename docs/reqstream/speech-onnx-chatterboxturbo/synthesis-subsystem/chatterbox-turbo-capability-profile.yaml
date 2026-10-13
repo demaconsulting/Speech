@@ -100,7 +100,9 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-LongSentences
                 title: >-
                   The ChatterboxTurboCapabilityProfile class shall split a sentence longer than
-                  200 characters into parts, keeping every word.
+                  200 characters into parts, keeping every word. The budget is measured on text in
+                  which each native tag counts as one character, before the tag is expanded to its
+                  model token, so a part may exceed 200 characters by the tags' expansion.
                 justification: |
                   The model degrades on long inputs, and splitting must never lose speech.
                 tests:
@@ -119,8 +121,10 @@ sections:
 
               - id: SpeechOnnxChatterboxTurbo-Synthesis-ChatterboxTurboCapabilityProfile-Moods
                 title: >-
-                  The ChatterboxTurboCapabilityProfile class shall map the mood tags (and the
-                  shout, tired, worried and neutral aliases) to a mood that applies to the
+                  The ChatterboxTurboCapabilityProfile class shall map the 15 mood tags (excited,
+                  enthused, happy, sad, angry as anger, loud as shout, calm, surprised, bored as
+                  tired, worried, panicked as worried, confused, frustrated, neutral and serious
+                  as neutral, giving 13 distinct moods) to a mood that applies to the
                   following text until the next mood tag, the last of consecutive mood tags
                   winning.
                 justification: |

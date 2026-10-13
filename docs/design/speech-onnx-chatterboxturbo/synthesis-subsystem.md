@@ -18,10 +18,11 @@ units:
 ### Interfaces
 
 The engine implements `ISynthesisBackend` (`SampleRate`, `Generate`, `Dispose`). The engine talks to
-the networks only through the internal `IChatterboxTurboNetworks` interface
-(`Encode`, `Embed`, `Step`, `Decode`, `Dispose`) so the generation algorithm is testable with a
-fake. The capability profile is the synthesis model's public capability description, consumed by the
-Speech library's renderer.
+the networks only through the internal `IChatterboxTurboNetworks` interface (`Encode`, `Embed`,
+`BeginGeneration`, `Decode`, `Dispose`); `BeginGeneration` returns an
+`IChatterboxTurboLanguageModelState` whose `Step` and `Dispose` own one generation's key/value cache.
+This keeps the generation algorithm testable with a fake. The capability profile is the synthesis
+model's public capability description, consumed by the Speech library's renderer.
 
 ### Design
 
@@ -51,7 +52,15 @@ changes; the engine reads the marker to choose the reference clip and strips it 
 
 Hitting the generation bound never throws; the result is flagged truncated. Invalid arguments throw
 argument exceptions; use after dispose throws `ObjectDisposedException`. Native failures propagate as
-`OnnxRuntimeException` to Speech's fault-containment layer.
+`OnnxRuntimeException` to Speech's fault-containment layer. Empty text, and text that holds only
+mood-marker characters, yield empty audio without error. The `speed` argument is ignored because the
+model has no speed control.
+
+### Verification Scope
+
+The subsystem-level behaviors (mood fallback, marker hiding, tag rendering, bounds) are verified by the
+unit-level suites listed in the subsystem verification document; disposal, non-finite logits, use after
+dispose and invalid arguments are verified at unit level only.
 
 ### Dependencies
 

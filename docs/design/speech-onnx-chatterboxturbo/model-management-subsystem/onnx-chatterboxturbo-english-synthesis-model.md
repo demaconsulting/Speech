@@ -42,14 +42,21 @@ graphs, and `chatterbox-turbo-onnx-en-lm-<variant>-aux-<variant>` for any other 
   cap), `MoodJoinSilenceMilliseconds` between 0 and 1000 (default 150); the default thread count is half the
   logical processors, between 1 and 6. The end-of-sentence tag policy selects how a trailing tag is rendered.
 - **ResolveSpeakerId(parameters)**: maps the selected voice id to its index, defaulting to 0
-- **CreateBackend(installDirectory)**: requires at least one voice, throws `FileNotFoundException`
-  for any missing model file, builds the networks, tokenizer and engine, and disposes created
-  sessions if a later step fails
+- **CreateBackend(installDirectory)**: in order, validates the directory argument (null throws
+  `ArgumentNullException`, empty throws `ArgumentException`), requires at least one voice
+  (`InvalidOperationException`), checks every model file exists (`FileNotFoundException`, before any session is
+  created), builds the networks (an invalid graph throws `InvalidOperationException`), the tokenizer and the
+  engine, and disposes created sessions if a later step fails. The voices are decoded lazily by the engine on
+  first use; concurrent first use of one voice decodes its clip once (see `ChatterboxTurboReferenceVoice`).
 
-**Error Handling**: `ArgumentException` for duplicate explicit or directory voice ids or an undefined
-variant; `DirectoryNotFoundException` for a missing voice directory; `InvalidOperationException` when no
-voice exists at backend creation; `FileNotFoundException` for missing files; ONNX Runtime exceptions
-propagate after cleanup.
+**Error Handling**: `ArgumentException` for duplicate explicit or directory voice ids (the message names the
+id and whether it came from `ReferenceVoices` or `ReferenceVoiceDirectory`) or an empty install directory;
+an undefined variant is rejected by the option setters first, so the model's own undefined-variant
+`ArgumentException` is a defensive check that normal use never reaches; `ArgumentNullException` for a null
+install directory; `DirectoryNotFoundException` for a missing voice directory; `InvalidOperationException` when no
+voice exists at backend creation or a graph is invalid; `FileNotFoundException` for missing files; other ONNX
+Runtime exceptions propagate after cleanup. With no voices at all, `Parameters` is empty (there is no voice
+choice to offer).
 
 **Dependencies**: `OnnxChatterboxTurboNetworks`, `OnnxChatterboxTurboSynthesisEngine`,
 `ByteLevelBpeTokenizer`, `ChatterboxTurboCapabilityProfile`, `ChatterboxTurboReferenceVoice`,

@@ -2,9 +2,12 @@
 
 #### Verification Approach
 
-Verified by `OnnxChatterboxTurboEnglishSynthesisModelTests.cs`. Backend creation uses synthetic ONNX
+Verified by `OnnxChatterboxTurboEnglishSynthesisModelTests.cs`, which also owns the verification of
+`ChatterboxTurboModelOptions` (not a separate unit). Backend creation uses synthetic ONNX
 graphs written into a scratch install directory, and a static test hook confirms sessions are
-disposed on failure.
+disposed on failure and that none is created for a missing file. The language and the auxiliary-graph
+variants are checked by id and file name; the English language is a fixed property of the model
+(its display name is asserted) and the graphs' content is verified in the networks unit.
 
 #### Test Environment
 
@@ -80,8 +83,13 @@ and `OnnxChatterboxTurboEnglishSynthesisModel_Constructor_DirectoryWavAndFlacSam
 
 ##### Options have safe defaults and validate
 
-**Tests**: `ChatterboxTurboModelOptions_Properties_HaveSafeDefaultsAndValidate` and
-`ChatterboxTurboModelOptions_VariantSetters_UndefinedValue_ThrowsArgumentOutOfRangeException`
+**Tests**: `ChatterboxTurboModelOptions_Properties_HaveSafeDefaultsAndValidate`,
+`ChatterboxTurboModelOptions_VariantSetters_UndefinedValue_ThrowsArgumentOutOfRangeException` and
+`ChatterboxTurboModelOptions_ReferenceVoices_Null_ThrowsArgumentNullException`
+
+The defaults asserted are Fp16 language model, Q4 auxiliary graphs, 1024 tokens, 25 tokens per text token, 12
+repeats, a thread count from 1 to 6, the move-before-final-word policy, no voices, store voices included, no
+directory, library or diagnostics, and a 150 ms join silence.
 
 ##### Library voices merge after explicit and directory voices, first id wins
 
@@ -114,3 +122,12 @@ and `OnnxChatterboxTurboEnglishSynthesisModel_Constructor_DirectoryWavAndFlacSam
 ##### The catalog extension defaults to the catalog store's library
 
 **Test**: `SpeechModelCatalogChatterboxTurboExtensions_AddChatterboxTurboModels_DefaultsToCatalogStoreVoices`
+is verified in the extension unit's verification document and is linked here only as evidence for the
+store-voice default; its owner is `speech-model-catalog-chatterbox-turbo-extensions.md`.
+
+##### A default library is used only when the options name none
+
+**Test**: `OnnxChatterboxTurboEnglishSynthesisModel_Constructor_DefaultLibrary_UsedOnlyWhenOptionsNameNone`
+
+The model-level counterpart: the default library supplied by the extension is used when the options name no
+library, and an options-supplied library wins.

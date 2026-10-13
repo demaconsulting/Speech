@@ -46,8 +46,8 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-Bounds
                 title: >-
                   The OnnxChatterboxTurboSynthesisEngine class shall stop generating after at most
-                  1024 speech tokens by default, and never after more than the configured
-                  maximum even when the proportional limit is larger.
+                  the configured maximum number of speech tokens (the model options own the
+                  default), even when the proportional limit is larger.
                 justification: |
                   A missing end-of-speech token must not hang the host application.
                 tests:
@@ -57,7 +57,8 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-ProportionalBound
                 title: >-
                   The OnnxChatterboxTurboSynthesisEngine class shall stop generating after at
-                  most 25 speech tokens per text token plus 32 tokens by default.
+                  most the configured number of speech tokens per text token plus the configured
+                  slack (the model options own the defaults).
                 justification: |
                   A runaway generation on short text must end long before the absolute maximum.
                 tests:
@@ -77,7 +78,8 @@ sections:
               - id: SpeechOnnxChatterboxTurbo-Synthesis-OnnxChatterboxTurboSynthesisEngine-RunLengthCap
                 title: >-
                   The OnnxChatterboxTurboSynthesisEngine class shall limit identical consecutive
-                  speech tokens to 12 by default, still allowing the speech to end.
+                  speech tokens to the configured maximum run length (the model options own the
+                  default), still allowing the speech to end.
                 justification: |
                   The model can lock onto one speech token and produce a sustained tone; breaking
                   the run restores progress without affecting normal speech.

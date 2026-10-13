@@ -135,6 +135,7 @@ input-files:
   - docs/design/speech-onnx-chatterboxturbo/synthesis-subsystem.md
   - docs/design/speech-onnx-chatterboxturbo/synthesis-subsystem/chatterbox-turbo-capability-profile.md
   - docs/design/speech-onnx-chatterboxturbo/synthesis-subsystem/chatterbox-turbo-token-selector.md
+  - docs/design/speech-onnx-chatterboxturbo/synthesis-subsystem/chatterbox-turbo-conditioning.md
   - docs/design/speech-onnx-chatterboxturbo/synthesis-subsystem/onnx-chatterboxturbo-networks.md
   - docs/design/speech-onnx-chatterboxturbo/synthesis-subsystem/onnx-chatterboxturbo-synthesis-engine.md
   - docs/design/speech-onnx-kokoro.md
