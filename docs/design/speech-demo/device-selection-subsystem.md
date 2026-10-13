@@ -14,7 +14,8 @@ contains the following units, each documented in its own file:
   _DeviceSelectionViewModel Design_
 
 The subsystem also contains **DeviceSelectionView**, the Avalonia view bound to
-`DeviceSelectionViewModel`.
+`DeviceSelectionViewModel`. It is a declarative view with no logic of its own beyond binding, so it has
+no unit design or unit tests; its behavior is verified through the view model it binds to.
 
 ### Interfaces
 

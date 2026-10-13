@@ -61,6 +61,16 @@ keeps their chosen voice and other settings. The subsystem depends only on the l
 including the model-switch and empty-state behavior — to be verified with no installed model and
 no native runtime.
 
-Within the subsystem, `ModelSettingsViewModel` constructs one `ParameterViewModels` presenter per
+Within the subsystem, `ModelSettingsViewModel` constructs one `ParameterViewModelBase` subclass per
 recognized parameter and reads each presenter's `Id` and `BoxedValue` (and writes its typed value
 on restore); the presenters never call back into the view model.
+
+### Error Handling
+
+The subsystem never throws for unexpected model data. A parameter whose type is none of the three
+recognized kinds is skipped and the remaining parameters are still presented. A model with no
+parameters, or no model at all, produces an explanatory empty-state message instead of an empty
+panel. `RestoreValues()` tolerates a captured bag whose keys are missing, whose choice option is no
+longer offered, or whose value has the wrong type: each such entry leaves the presenter at its
+declared default rather than failing, so a catalog rebuild can never lose or corrupt the user's
+other settings.

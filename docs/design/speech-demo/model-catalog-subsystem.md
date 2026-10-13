@@ -19,7 +19,10 @@ following units, each documented in its own file:
 
 The subsystem also contains **ModelCatalogView**, the Avalonia view bound to
 `ModelCatalogViewModel`, and **ModelCatalogComposition**, the value that pairs a library catalog
-with its shared `ReferenceVoiceLibrary` for the composition root and the service.
+with its shared `ReferenceVoiceLibrary` for the composition root and the service. The view is a
+declarative binding surface and the composition value is an immutable pair with no behavior, so
+neither has a unit design; the view is verified through the view model it binds to, and the
+composition value through the service tests that construct from it.
 
 ### Interfaces
 

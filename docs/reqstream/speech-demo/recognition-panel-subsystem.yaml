@@ -58,6 +58,42 @@ sections:
             tests:
               - RecognitionPanelViewModel_Stop_DuringListening_StopsWithoutDisposingSession
 
+          - id: SpeechDemo-Recognition-CaptureDebugOptIn
+            title: >-
+              The RecognitionPanelSubsystem shall start no capture-debug recording unless the
+              capture-debug environment variable names a folder.
+            justification: |
+              The diagnostic writes microphone audio to disk, so it must be off by default.
+            tests:
+              - CaptureDebugRecorder_TryStart_EnvironmentVariableUnset_ReturnsNull
+
+          - id: SpeechDemo-Recognition-CaptureDebugWavOutput
+            title: >-
+              The RecognitionPanelSubsystem shall write the captured audio at its native sample
+              rate and channel count as a finalized, valid WAV file, even when no frame arrived.
+            justification: |
+              A diagnostic recording is only useful if it plays back exactly as captured.
+            tests:
+              - CaptureDebugRecorder_TryStart_RecordsFramesThenDisposed_WritesValidFinalizedWavFile
+              - CaptureDebugRecorder_Dispose_NoFramesCaptured_StillWritesValidFinalizedWavFile
+              - WavFileWriter_Dispose_AfterWritingSamples_WritesValidRiffWaveHeader
+              - WavFileWriter_WriteSamples_NormalizedFloatSamples_RoundTripAsPcm16
+              - WavFileWriter_WriteSamples_OutOfRangeSample_ClampsToBoundary
+
+          - id: SpeechDemo-Recognition-CaptureDebugFailureContained
+            title: >-
+              The RecognitionPanelSubsystem shall contain capture-debug failures, with invalid
+              arguments rejected and repeated disposal harmless, so a diagnostic fault never
+              breaks listening.
+            justification: |
+              A temporary diagnostic must never be able to break the feature it observes.
+            tests:
+              - CaptureDebugRecorder_Dispose_CalledTwice_DoesNotThrow
+              - WavFileWriter_Dispose_CalledTwice_IsIdempotent
+              - WavFileWriter_Constructor_EmptyPath_ThrowsArgumentException
+              - WavFileWriter_Constructor_NonPositiveSampleRate_ThrowsArgumentOutOfRangeException
+              - WavFileWriter_Constructor_NonPositiveChannelCount_ThrowsArgumentOutOfRangeException
+
           - id: SpeechDemo-Recognition-StopsBeforeDeviceRefresh
             title: >-
               The RecognitionPanelSubsystem shall stop an active listening session before a

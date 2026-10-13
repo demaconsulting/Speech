@@ -26,9 +26,9 @@ synthesis roles, but the full download/install lifecycle is still verified at th
 against controlled catalog data, never a real network fetch.
 
 System tests reside in `SpeechDemoTests.cs` within the `DemaConsulting.Speech.Demo.Tests`
-project. They compose the real shell over the library's real public entry points, and the
-test project supplies its own fakes where a unit needs one (catalog service, synthesis and
-recognition sessions), so every system requirement is proven through the composed application
+project. Tests that prove composition call the real `App.Compose` or `Program.Run`; the remaining
+scenarios mirror the composition over fakes (catalog service, synthesis and recognition
+sessions, audio devices) so each system requirement is proven through the composed shell
 rather than a single unit.
 
 ## Test Environment
@@ -55,7 +55,7 @@ exceptions and when the automated verification boundary remains honest: composit
 state over the real library are claimed as automated coverage, while user-interface interaction,
 physical audio I/O, and real model downloads are explicitly left to manual/local verification.
 
-## System-Level Test Scenarios
+## Test Scenarios
 
 ### Integration: Real Library Entry Points Compose a Working Shell
 
@@ -169,9 +169,30 @@ Verifies that the user voices folder option is recorded in the launch options.
 
 **Test**: `SpeechDemo_SystemIntegration_LaunchOptions_RejectBadOptionsWithExplanation`
 
-Verifies that an unrecognized option, and an option missing its value, are rejected with an
-explained error. Rejection is verified at the option parser because the entry point starts the
-graphical application.
+Verifies, by driving `Program.Run` with a stub application starter, that an unrecognized option
+and an option missing its value exit with code 1, print an explained error naming the argument
+position (never echoing the option) plus the usage text, and never start the application.
+
+### Integration: Help Prints Usage and Exits
+
+**Test**: `SpeechDemo_SystemIntegration_LaunchOptions_HelpPrintsUsageAndExits`
+
+Verifies that `--help` (even alongside an invalid mirror URL) prints the usage text to standard
+output, exits 0, writes nothing to standard error and never starts the application.
+
+### Integration: Mirror Environment Inputs Apply at Launch
+
+**Test**: `SpeechDemo_SystemIntegration_LaunchOptions_MirrorEnvironmentAppliesAtLaunch`
+
+Verifies that `DEMASPEECH_MIRROR_*` environment values, read through an injected environment
+reader, reach the composed catalog panel and the downloader options.
+
+### Integration: Speech-to-Text Capture Debug Records Only When Enabled
+
+**Test**: `SpeechDemo_SystemIntegration_SpeechToText_CaptureDebugRecordsOnlyWhenEnabled`
+
+Verifies that with the capture-debug variable set a listening session writes one finalized WAV
+file of the captured frames, and that with it cleared no file is written.
 
 ### Integration: Reference Voice Pack Install and Remove
 

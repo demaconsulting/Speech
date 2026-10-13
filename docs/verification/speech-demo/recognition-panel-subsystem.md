@@ -71,3 +71,43 @@ the device refresh is attempted, so the refresh completes without throwing; the 
 
 **Expected**: The refresh completes without throwing, no session is created, and the panel
 remains `Idle`.
+
+### Supporting Types: Capture Debug Recording
+
+The temporary capture-debug facility (`CaptureDebugRecorder` and `WavFileWriter`) is verified
+against a per-test temporary folder, with the process-wide capture-debug environment variable
+saved and restored, in a non-parallel test collection.
+
+#### CaptureDebugRecorder_TryStart_EnvironmentVariableUnset_ReturnsNull
+
+**Scenario**: The capture-debug environment variable is unset.
+
+**Expected**: No recorder is created, so nothing is written to disk.
+
+#### CaptureDebugRecorder_TryStart_RecordsFramesThenDisposed_WritesValidFinalizedWavFile
+
+**Scenario**: The variable names a folder; frames are recorded and the recorder is disposed.
+
+**Expected**: One WAV file with a valid RIFF/WAVE header at the captured sample rate and channel
+count, holding every recorded sample.
+
+#### CaptureDebugRecorder_Dispose_NoFramesCaptured_StillWritesValidFinalizedWavFile
+
+**Scenario**: The recorder is disposed without any frame.
+
+**Expected**: A valid, empty WAV file is still written.
+
+#### CaptureDebugRecorder_Dispose_CalledTwice_DoesNotThrow
+
+**Scenario**: The recorder is disposed twice.
+
+**Expected**: No exception.
+
+#### WavFileWriter tests
+
+**Scenario**: `WavFileWriterTests` write samples and dispose, construct with invalid arguments,
+and dispose twice.
+
+**Expected**: A valid RIFF/WAVE header, normalized floats round-trip as 16-bit PCM, out-of-range
+samples clamp, an empty path or non-positive rate/channel count is rejected, and repeated
+disposal is idempotent.

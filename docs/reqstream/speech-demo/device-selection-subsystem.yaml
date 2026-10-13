@@ -75,13 +75,22 @@ sections:
             tests:
               - DeviceSelectionSubsystem_Composed_Refresh_DeviceStillReported_KeepsSelection
 
-          - id: SpeechDemo-DeviceSelection-RefreshFailureExplained
+          - id: SpeechDemo-DeviceSelection-RefreshFailureKeepsState
             title: >-
               The DeviceSelectionSubsystem shall, when the library cannot complete a refresh,
-              leave the device lists and selections untouched and explain the failure.
+              leave the device lists and selections untouched.
             justification: |
               A refresh can be refused (for example while a device is in use) or fail in the
-              native layer; the panel must stay usable with its previous lists and tell the
-              user why nothing changed, not crash or clear a working choice.
+              native layer; the panel must stay usable with its previous lists and choices,
+              not clear a working choice.
             tests:
-              - DeviceSelectionSubsystem_Composed_RefreshFails_KeepsListsAndExplains
+              - DeviceSelectionSubsystem_Composed_RefreshFails_KeepsListsAndSelections
+
+          - id: SpeechDemo-DeviceSelection-RefreshFailureExplained
+            title: >-
+              The DeviceSelectionSubsystem shall explain, in both status texts, why a refresh
+              the library could not complete changed nothing.
+            justification: |
+              A silent failure would leave the user believing the refresh worked.
+            tests:
+              - DeviceSelectionSubsystem_Composed_RefreshFails_ExplainsInStatus

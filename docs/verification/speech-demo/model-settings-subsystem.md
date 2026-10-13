@@ -62,6 +62,12 @@ parameter no longer offers.
 
 **Expected**: The affected presenters keep their defaults and the other values still apply.
 
+#### ModelSettingsViewModel_RestoreValues_WrongTypedValues_KeepsDefaults
+
+**Scenario**: The restored bag holds values of the wrong type for their parameters.
+
+**Expected**: The affected presenters keep their defaults and nothing throws.
+
 #### ModelSettingsViewModel_Constructor_NoModel_ReportsNoModelEmptyState
 
 **Scenario**: The panel is created with no model.

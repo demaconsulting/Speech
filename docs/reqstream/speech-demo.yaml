@@ -51,6 +51,7 @@ sections:
           - SpeechDemo-App-AvaloniaApplication
           - SpeechDemo-App-ShutdownContainment
           - SpeechDemo-App-CatalogRegistration
+          - SpeechDemo-App-CompositionFailureReleasesCatalog
           - SpeechDemo-App-ShutdownDeferral
           - SpeechDemo-App-ShutdownRepeatedRequest
           - SpeechDemo-App-MirrorPrePopulation
@@ -84,24 +85,36 @@ sections:
           Failing fast on a mistyped option prevents a user believing a setting is in effect
           when it is not.
         children:
-          - SpeechDemo-LaunchOptions-HelpRequest
-          - SpeechDemo-LaunchOptions-HelpText
           - SpeechDemo-LaunchOptions-RejectUnrecognized
           - SpeechDemo-LaunchOptions-UnrecognizedNotEchoed
-          - SpeechDemo-LaunchOptions-HelpSkipsVoicesDirCheck
           - SpeechDemo-LaunchOptions-RepeatedOptionLastWins
-          - SpeechDemo-LaunchOptions-HelpTextNullWriter
           - SpeechDemo-LaunchOptions-RejectMissingValue
           - SpeechDemo-LaunchOptions-RejectNullArguments
           - SpeechDemo-LaunchOptions-RejectNullEnvironmentReader
           - SpeechDemo-Program-FailFast
           - SpeechDemo-Program-FailFastUsage
           - SpeechDemo-Program-ErrorNoEcho
+        tests:
+          - SpeechDemo_SystemIntegration_LaunchOptions_RejectBadOptionsWithExplanation
+
+      - id: SpeechDemo-Shell-HelpRequest
+        title: >-
+          The demo application shall print its usage text and exit successfully, without
+          starting the user interface, when launched with the help option.
+        tags: [system]
+        justification: |
+          A user needs a discoverable way to learn the launch options; help must win over any
+          other (even invalid) option so it is always reachable.
+        children:
+          - SpeechDemo-LaunchOptions-HelpRequest
+          - SpeechDemo-LaunchOptions-HelpText
+          - SpeechDemo-LaunchOptions-HelpSkipsVoicesDirCheck
+          - SpeechDemo-LaunchOptions-HelpTextNullWriter
           - SpeechDemo-Program-HelpExitCode
           - SpeechDemo-Program-HelpWinsOverInvalidMirror
           - SpeechDemo-Program-HelpRequest
         tests:
-          - SpeechDemo_SystemIntegration_LaunchOptions_RejectBadOptionsWithExplanation
+          - SpeechDemo_SystemIntegration_LaunchOptions_HelpPrintsUsageAndExits
 
       - id: SpeechDemo-Devices-Selection
         title: >-
@@ -267,6 +280,8 @@ sections:
           The demo's composition root registers the sibling packages' production models into
           its SpeechModelCatalog - core DemaConsulting.Speech ships zero built-in models - so
           the demo's catalog panel must surface those real models.
+        children:
+          - SpeechDemo-App-CatalogRegistration
         tests:
           - SpeechDemo_SystemIntegration_RealModelCatalog_ReportsKnownModels
 
@@ -303,15 +318,7 @@ sections:
           - SpeechDemo-LaunchOptions-MirrorInsecureBasicRejection
           - SpeechDemo-LaunchOptions-MirrorMixedSourcesRejection
           - SpeechDemo-LaunchOptions-MirrorEmptyOptionIgnored
-          - SpeechDemo-LaunchOptions-MirrorUrlEnvironment
-          - SpeechDemo-LaunchOptions-MirrorUrlOptionPrecedence
-          - SpeechDemo-LaunchOptions-MirrorBasicCredentialsEnvironment
-          - SpeechDemo-LaunchOptions-MirrorBearerTokenEnvironment
-          - SpeechDemo-LaunchOptions-MirrorCredentialOptionPrecedence
-          - SpeechDemo-LaunchOptions-MirrorEnvironmentEmptyIgnored
-          - SpeechDemo-LaunchOptions-MirrorEnvironmentCredentialRequiresUrl
           - SpeechDemo-LaunchOptions-MirrorSecretsNotInErrors
-          - SpeechDemo-LaunchOptions-MirrorEnvironmentHelp
           - SpeechDemo-MirrorOptions-Validation
           - SpeechDemo-MirrorOptions-BlankUrlNoMirror
           - SpeechDemo-MirrorOptions-CredentialWithoutUrl
@@ -325,6 +332,26 @@ sections:
           - SpeechDemo-Models-MirrorSettingsPrePopulation
         tests:
           - SpeechDemo_SystemIntegration_MirrorRedirection_AppliesAtLaunch
+
+      - id: SpeechDemo-Models-MirrorEnvironmentInputs
+        title: >-
+          The demo application shall accept the model-download mirror URL and credentials from
+          DEMASPEECH_MIRROR_* environment variables, with launch options taking precedence.
+        tags: [system]
+        justification: |
+          Credentials passed as command-line arguments leak into process listings and shell
+          history; environment variables let a scripted or CI launch supply them safely.
+        children:
+          - SpeechDemo-LaunchOptions-MirrorUrlEnvironment
+          - SpeechDemo-LaunchOptions-MirrorUrlOptionPrecedence
+          - SpeechDemo-LaunchOptions-MirrorBasicCredentialsEnvironment
+          - SpeechDemo-LaunchOptions-MirrorBearerTokenEnvironment
+          - SpeechDemo-LaunchOptions-MirrorCredentialOptionPrecedence
+          - SpeechDemo-LaunchOptions-MirrorEnvironmentEmptyIgnored
+          - SpeechDemo-LaunchOptions-MirrorEnvironmentCredentialRequiresUrl
+          - SpeechDemo-LaunchOptions-MirrorEnvironmentHelp
+        tests:
+          - SpeechDemo_SystemIntegration_LaunchOptions_MirrorEnvironmentAppliesAtLaunch
 
       - id: SpeechDemo-Models-MirrorRuntimeRedirection
         title: >-
@@ -877,3 +904,19 @@ sections:
           - SpeechDemo-Recognition-ResultStreamFaultReported
         tests:
           - SpeechDemo_SystemIntegration_SpeechToText_UnavailableEngineIsExplained
+
+      - id: SpeechDemo-Recognition-CaptureDebugRecording
+        title: >-
+          The demo application shall record the raw captured microphone audio to a WAV file only
+          when the developer opts in through the capture-debug environment variable.
+        tags: [system]
+        justification: |
+          A developer diagnosing poor recognition needs to hear exactly what the capture device
+          delivered, but a normal run must never write audio to disk, so the diagnostic is
+          strictly opt-in. The facility is a temporary diagnostic aid.
+        children:
+          - SpeechDemo-Recognition-CaptureDebugOptIn
+          - SpeechDemo-Recognition-CaptureDebugWavOutput
+          - SpeechDemo-Recognition-CaptureDebugFailureContained
+        tests:
+          - SpeechDemo_SystemIntegration_SpeechToText_CaptureDebugRecordsOnlyWhenEnabled

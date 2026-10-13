@@ -63,7 +63,7 @@ library's system default.
 environment.
 
 **Expected**: The environment is terminated once and initialized twice (the initial initialization
-plus the re-scan).
+plus the re-scan), and the capture and playback lists are unchanged.
 
 #### DeviceSelectionSubsystem_Composed_Refresh_DeviceStillReported_KeepsSelection
 
@@ -72,12 +72,17 @@ capture devices, with the second capture device selected.
 
 **Expected**: The second capture device stays selected.
 
-#### DeviceSelectionSubsystem_Composed_RefreshFails_KeepsListsAndExplains
+#### DeviceSelectionSubsystem_Composed_RefreshFails_KeepsListsAndSelections
 
 **Scenario**: The composed panel is refreshed over a fake PortAudio environment whose native
 teardown throws.
 
-**Expected**: The capture list and selection are unchanged, and both status texts carry the
-failure's message. The in-use refusal (`AudioDeviceInUseException`) takes the same path in the view
+**Expected**: The capture and playback lists and selections are unchanged.
+
+#### DeviceSelectionSubsystem_Composed_RefreshFails_ExplainsInStatus
+
+**Scenario**: The same failing refresh.
+
+**Expected**: Both status texts carry the failure's message. The in-use refusal (`AudioDeviceInUseException`) takes the same path in the view
 model but needs an open stream, which cannot be created without hardware, so it is verified at unit
 level in the DeviceSelectionViewModel verification document.

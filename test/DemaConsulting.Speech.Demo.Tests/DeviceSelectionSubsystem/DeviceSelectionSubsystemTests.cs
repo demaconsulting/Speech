@@ -99,9 +99,12 @@ public class DeviceSelectionSubsystemTests
         var micA = new AudioDeviceDescription("Mic A", AudioDeviceDirection.Capture, 1, 16000);
         var captureProbe = Substitute.For<IAudioCaptureDeviceProbe>();
         captureProbe.Enumerate().Returns([micA]);
+        var speaker = new AudioDeviceDescription("Speaker", AudioDeviceDirection.Playback, 2, 48000);
+        var playbackProbe = Substitute.For<IAudioPlaybackDeviceProbe>();
+        playbackProbe.Enumerate().Returns([speaker]);
         var api = new FakePortAudioApi();
         var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
-        var service = new AudioDeviceService(new AudioDeviceFactory(captureProbe, null, null, environment));
+        var service = new AudioDeviceService(new AudioDeviceFactory(captureProbe, playbackProbe, null, environment));
         var viewModel = new DeviceSelectionViewModel(service);
 
         // Act: refresh through the panel
@@ -111,35 +114,66 @@ public class DeviceSelectionSubsystemTests
         Assert.Equal(1, api.TerminateCallCount);
         Assert.Equal(2, api.InitializeCallCount);
         Assert.Equal([micA], viewModel.CaptureDevices);
+        Assert.Equal([speaker], viewModel.PlaybackDevices);
     }
 
     /// <summary>
     ///     Proves that a refresh the library cannot complete leaves the composed panel's lists and
-    ///     selections untouched and explains the failure in the status text.
+    ///     selections untouched.
     /// </summary>
     [Fact]
-    public async Task DeviceSelectionSubsystem_Composed_RefreshFails_KeepsListsAndExplains()
+    public async Task DeviceSelectionSubsystem_Composed_RefreshFails_KeepsListsAndSelections()
     {
-        // Arrange: an environment whose native teardown fails
-        var micA = new AudioDeviceDescription("Mic A", AudioDeviceDirection.Capture, 1, 16000);
-        var captureProbe = Substitute.For<IAudioCaptureDeviceProbe>();
-        captureProbe.Enumerate().Returns([micA]);
-        var api = new FakePortAudioApi { TerminateFailure = new InvalidOperationException("teardown failed") };
-        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
-        var service = new AudioDeviceService(new AudioDeviceFactory(captureProbe, null, null, environment));
-        var viewModel = new DeviceSelectionViewModel(service);
-        var selectionBefore = viewModel.CaptureSelection;
+        // Arrange: a panel over an environment whose native teardown fails
+        var (viewModel, micA, speaker) = ComposeWithFailingRefresh();
+        var captureSelectionBefore = viewModel.CaptureSelection;
+        var playbackSelectionBefore = viewModel.PlaybackSelection;
 
         // Act: refresh through the panel
         await viewModel.RefreshAsync();
 
-        // Assert: nothing was re-enumerated or reselected, and both statuses carry the message
+        // Assert: nothing was re-enumerated or reselected, in either direction
         Assert.Equal([micA], viewModel.CaptureDevices);
-        Assert.Equal(selectionBefore, viewModel.CaptureSelection);
+        Assert.Equal([speaker], viewModel.PlaybackDevices);
+        Assert.Equal(captureSelectionBefore, viewModel.CaptureSelection);
+        Assert.Equal(playbackSelectionBefore, viewModel.PlaybackSelection);
+    }
+
+    /// <summary>
+    ///     Proves that a refresh the library cannot complete is explained in both status texts.
+    /// </summary>
+    [Fact]
+    public async Task DeviceSelectionSubsystem_Composed_RefreshFails_ExplainsInStatus()
+    {
+        // Arrange: a panel over an environment whose native teardown fails
+        var (viewModel, _, _) = ComposeWithFailingRefresh();
+
+        // Act: refresh through the panel
+        await viewModel.RefreshAsync();
+
+        // Assert: both statuses carry the failure message
         Assert.Equal("teardown failed", viewModel.CaptureStatus);
         Assert.Equal("teardown failed", viewModel.PlaybackStatus);
     }
 
+    /// <summary>
+    ///     Composes a panel over one capture and one playback device whose PortAudio teardown fails.
+    /// </summary>
+    /// <returns>The panel plus the capture and playback devices it lists.</returns>
+    private static (DeviceSelectionViewModel ViewModel, AudioDeviceDescription Mic, AudioDeviceDescription Speaker)
+        ComposeWithFailingRefresh()
+    {
+        var micA = new AudioDeviceDescription("Mic A", AudioDeviceDirection.Capture, 1, 16000);
+        var captureProbe = Substitute.For<IAudioCaptureDeviceProbe>();
+        captureProbe.Enumerate().Returns([micA]);
+        var speaker = new AudioDeviceDescription("Speaker", AudioDeviceDirection.Playback, 2, 48000);
+        var playbackProbe = Substitute.For<IAudioPlaybackDeviceProbe>();
+        playbackProbe.Enumerate().Returns([speaker]);
+        var api = new FakePortAudioApi { TerminateFailure = new InvalidOperationException("teardown failed") };
+        var environment = new PortAudioEnvironment(api, OSPlatform.Windows);
+        var service = new AudioDeviceService(new AudioDeviceFactory(captureProbe, playbackProbe, null, environment));
+        return (new DeviceSelectionViewModel(service), micA, speaker);
+    }
     /// <summary>
     ///     Proves that a refresh through the composed panel keeps the chosen device when the
     ///     library still reports it.

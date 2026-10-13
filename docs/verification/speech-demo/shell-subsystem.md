@@ -34,3 +34,28 @@ honest empty state.
 **Scenario**: The shell is composed over seams that report no devices and no models.
 
 **Expected**: Composition succeeds and each panel reports its own honest empty state.
+
+#### MainWindowViewModel_Constructor_ValidPanels_OffersAllFourPanels
+
+**Scenario**: The shell is composed over the four real panel view models.
+
+**Expected**: The navigation list offers all four panels, in the order device selection, model
+catalog, text-to-speech, speech-to-text.
+
+#### MainWindowViewModel_Constructor_ValidPanels_SelectsFirstPanel
+
+**Scenario**: The shell is composed and nothing has been navigated yet.
+
+**Expected**: The first panel is the selected panel.
+
+#### MainWindowViewModel_SelectedPanel_Changed_NotifiesSelectedPanel
+
+**Scenario**: The selected panel is changed to a different panel.
+
+**Expected**: `SelectedPanel` changes and a property-changed notification is raised for it.
+
+#### MainWindowViewModel_SelectedPanel_SameValue_DoesNotNotify
+
+**Scenario**: The already-selected panel is assigned again.
+
+**Expected**: No property-changed notification is raised.
