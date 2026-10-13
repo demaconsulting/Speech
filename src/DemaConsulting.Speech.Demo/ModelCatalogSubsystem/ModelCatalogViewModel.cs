@@ -22,7 +22,10 @@ namespace DemaConsulting.Speech.Demo.ModelCatalogSubsystem;
 ///     </para>
 ///     <para>
 ///     Not thread-safe: expected to be used from the UI thread. Download progress is marshalled
-///     back through the same synchronization context the download was started on.
+///     back through the same synchronization context the download was started on. While a model
+///     download or voice-pack install is in flight, <see cref="Refresh"/>, <see cref="ApplyMirror"/>
+///     and the voice-pack commands are refused, because they would rebuild the catalog or the rows
+///     the transfer depends on.
 ///     </para>
 /// </remarks>
 public sealed partial class ModelCatalogViewModel : ObservableObject
@@ -32,6 +35,11 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
         "No speech models are currently known to this catalog, so the list is empty. " +
         "This can happen if the model catalog service was configured with no models; the panel " +
         "will list models automatically once the catalog knows about any.";
+
+    /// <summary>The explanation shown when a voice-pack action is refused because a transfer is in flight.</summary>
+    public const string VoiceBusyMessage =
+        "Wait for the current model or voice-pack download to finish (or cancel it) and try again: " +
+        "installing or removing a voice pack rebuilds the catalog, which would abort it.";
 
     /// <summary>The seam supplying the model list and performing downloads.</summary>
     private readonly IModelCatalogService _catalogService;
@@ -58,11 +66,6 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
 
     /// <summary>Gets the consent notice shown with the reference-voice section.</summary>
     public string VoiceConsentNotice { get; } = ReferenceVoiceLibrary.ConsentNotice;
-
-    /// <summary>The explanation shown when a voice-pack action is refused because a transfer is in flight.</summary>
-    public const string VoiceBusyMessage =
-        "Wait for the current model or voice-pack download to finish (or cancel it) and try again: " +
-        "installing or removing a voice pack rebuilds the catalog, which would abort it.";
 
     /// <summary>
     ///     Gets or sets the row the user has selected, or <see langword="null"/> when none is
@@ -188,7 +191,8 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
     /// </summary>
     /// <remarks>
     ///     Validation failures (an invalid URL, a lone user or password, or a mirror this
-    ///     service's catalog does not support reconfiguring) are reported in
+    ///     service's catalog does not support reconfiguring), and any unexpected fault from the
+    ///     service or from the catalog re-read that follows, are reported in
     ///     <see cref="MirrorStatusMessage"/> rather than thrown at the user, consistent with how
     ///     <see cref="DownloadAsync"/> reports every failure in-row instead of crashing the panel.
     ///     <para>
@@ -208,13 +212,14 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
             MirrorStatusMessage =
                 "Cannot change the mirror while a download is in progress. Wait for it to " +
                 "finish, or cancel it, and try again.";
-            OnPropertyChanged(nameof(HasMirrorStatusMessage));
-            OnPropertyChanged(nameof(MirrorAppliedSuccessfully));
+            NotifyMirrorStatusChanged();
             return;
         }
 
         try
         {
+            // Reconfigure first; any failure here (invalid input, an unsupported reconfiguration or an
+            // unexpected seam fault) is reported as the mirror error and the rows are left alone.
             var mirror = MirrorOptionsFactory.Create(MirrorUrl, MirrorUser, MirrorPassword, MirrorBearerToken);
             _catalogService.ApplyMirror(mirror);
 
@@ -222,22 +227,49 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
             MirrorStatusMessage = mirror is null
                 ? "Mirror cleared: downloads now use each model's own public URI."
                 : $"Mirror applied: downloads now use '{mirror.BaseUri}'.";
+            NotifyMirrorStatusChanged();
 
             // The freshly rebuilt catalog may report different install states for models whose
             // files live under a models directory this session has not yet touched, so refresh
-            // the row list from it rather than leaving stale rows on display.
-            await ReloadAsync().ConfigureAwait(true);
+            // the row list from it rather than leaving stale rows on display. A failure of this
+            // re-read is contained separately so it cannot escape the command.
+            await ReloadAfterMirrorAsync().ConfigureAwait(true);
         }
-        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
+#pragma warning disable CA1031 // Presentation layer must not crash the application on any seam fault.
+        catch (Exception exception)
+#pragma warning restore CA1031
         {
             MirrorHasError = true;
             MirrorStatusMessage = exception.Message;
+            NotifyMirrorStatusChanged();
         }
-        finally
+    }
+
+    /// <summary>
+    ///     Re-reads the catalog after a successful mirror change, reporting a failed re-read as a mirror error.
+    /// </summary>
+    /// <returns>A task that completes when the rows are current or the failure has been reported.</returns>
+    private async Task ReloadAfterMirrorAsync()
+    {
+        try
         {
-            OnPropertyChanged(nameof(HasMirrorStatusMessage));
-            OnPropertyChanged(nameof(MirrorAppliedSuccessfully));
+            await ReloadAsync().ConfigureAwait(true);
         }
+#pragma warning disable CA1031 // Presentation layer must not crash the application on any seam fault.
+        catch (Exception exception)
+#pragma warning restore CA1031
+        {
+            MirrorHasError = true;
+            MirrorStatusMessage = $"Mirror applied, but the catalog could not be re-read: {exception.Message}";
+            NotifyMirrorStatusChanged();
+        }
+    }
+
+    /// <summary>Announces the derived mirror-status display flags.</summary>
+    private void NotifyMirrorStatusChanged()
+    {
+        OnPropertyChanged(nameof(HasMirrorStatusMessage));
+        OnPropertyChanged(nameof(MirrorAppliedSuccessfully));
     }
 
     /// <summary>

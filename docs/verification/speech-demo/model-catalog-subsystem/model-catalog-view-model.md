@@ -23,13 +23,13 @@ download lifecycle is proven against controlled catalog data, never a real netwo
 
 #### Acceptance Criteria
 
-The unit passes when: it shows one row per reported model and rebuilds correctly on refresh;
-every download outcome is reported as a row state with an honest explanation rather than as an
+The unit passes when: it shows one row per reported model and rebuilds correctly on refresh, but
+refuses a refresh while a model download or pack install is in flight; every download outcome is reported as a row state with an honest explanation rather than as an
 application error; an installed model is never re-downloaded; an empty catalog is explained
 rather than shown blank; the mirror-settings fields apply a valid mirror (or revert to each
-model's public URI on a blank URL) while reporting any validation or reconfiguration failure as
-an explained panel state; and the reference voice pack section lists, installs and removes packs while refusing operations
-that would overlap a model download, a pack install or a mirror change; after any unsuccessful pack
+model's public URI on a blank URL), re-read the catalog afterwards, and report any validation,
+reconfiguration or re-read failure as an explained panel state; and the reference voice pack section lists, installs and removes packs while refusing operations
+that would overlap a model download, a pack install or a mirror change; a fault reading an installed pack's emotion flag is contained; after any unsuccessful pack
 install or upgrade the row shows the state the seam reports (a pack still installed stays installed
 and removable) with its failure message, falling back to the attempt's outcome when the state cannot
 be read; and a removal the seam refuses is explained on the row.
@@ -85,6 +85,21 @@ stays selected.
 **Scenario**: The refresh command is executed the way a bound button does.
 
 **Expected**: The catalog is re-read through the seam.
+
+##### ModelCatalogViewModel_Refresh_DownloadInFlight_KeepsRowsAndDoesNotRereadCatalog
+
+**Scenario**: A model download is in flight (its seam call has not completed) and the panel is
+refreshed.
+
+**Expected**: The refresh is refused: the same downloading row stays in place and the catalog is
+not enumerated again, so the transfer's progress and outcome are not discarded.
+
+##### ModelCatalogViewModel_Refresh_PackInstalling_KeepsRowsAndDoesNotRereadCatalog
+
+**Scenario**: A voice pack row is installing and the panel is refreshed.
+
+**Expected**: The refresh is refused: the same pack row stays in place and the catalog is not
+enumerated again.
 
 ##### ModelCatalogViewModel_DownloadAsync_Installed_MarksModelDownloaded
 
@@ -166,13 +181,28 @@ those values, so the GUI and launch-time entry points stay consistent.
 **Scenario**: Valid mirror fields are applied.
 
 **Expected**: The seam's `ApplyMirror` is called with a `DownloadMirror` built from those fields
-and the panel reports success and refreshes.
+and the panel reports success.
 
 ##### ModelCatalogViewModel_ApplyMirror_ValidMirror_ReportsSuccess
 
 **Scenario**: A valid mirror URL is applied.
 
-**Expected**: The panel reports no error and shows a success confirmation.
+**Expected**: The panel reports no error and shows a success confirmation naming the mirror.
+
+##### ModelCatalogViewModel_ApplyMirror_ValidMirror_ReReadsCatalog
+
+**Scenario**: A valid mirror is applied and the reconfigured catalog reports a different install
+state for a model.
+
+**Expected**: The catalog is enumerated again and the row shows the new state.
+
+##### ModelCatalogViewModel_ApplyMirror_UnexpectedFault_ReportedInPanel
+
+**Scenario**: Either the seam's `ApplyMirror` throws an unexpected exception, or the catalog
+re-read after a successful reconfiguration throws.
+
+**Expected**: Nothing escapes; the panel reports an error that names the cause and does not show
+the success confirmation.
 
 ##### ModelCatalogViewModel_ApplyMirror_BearerToken_ForwardsToken
 
@@ -304,7 +334,8 @@ removable, and nothing escapes.
 
 **Scenario**: A pack is removed, and the uninstall is made to throw.
 
-**Expected**: The service uninstalls the pack and the rows refresh; a fault is reported on the row.
+**Expected**: The service uninstalls the pack, the catalog is re-read so the rows refresh, and a
+fault is reported on the row.
 
 ##### ModelCatalogViewModel_RemoveVoicePack_ModelDownloading_RefusedWithoutCallingService
 
@@ -330,3 +361,18 @@ removable, and nothing escapes.
 
 **Expected**: The request is refused with an explanation, because the rebuild would dispose the
 catalog the install uses.
+
+##### ModelCatalogViewModel_VoicePackCommands_AnotherPackInstalling_RefusedWithoutCallingService
+
+**Scenario**: One pack row is installing and an install and a removal are requested for other pack
+rows.
+
+**Expected**: Both requests are refused with the busy explanation on their rows and the service is
+not called.
+
+##### ModelCatalogViewModel_Constructor_EmotionFlagReadFaults_InitialLoadCompletesWithFlagFalse
+
+**Scenario**: A pack is installed at construction and the seam throws when asked whether it has
+emotion variants.
+
+**Expected**: `InitialLoadTask` completes without faulting and the row's emotion flag stays false.

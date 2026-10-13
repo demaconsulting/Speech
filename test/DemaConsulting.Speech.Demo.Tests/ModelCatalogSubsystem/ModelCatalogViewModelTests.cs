@@ -75,7 +75,7 @@ public class ModelCatalogViewModelTests
     ///     <see cref="DownloadMirror"/> to the catalog service and reports success.
     /// </summary>
     [Fact]
-    public void ModelCatalogViewModel_ApplyMirror_ValidMirror_ForwardsConfiguredMirrorAndReportsSuccess()
+    public async Task ModelCatalogViewModel_ApplyMirror_ValidMirror_ForwardsConfiguredMirrorAndReportsSuccess()
     {
         // Arrange
         var service = Service();
@@ -87,7 +87,7 @@ public class ModelCatalogViewModelTests
         };
 
         // Act
-        viewModel.ApplyMirrorCommand.Execute(null);
+        await viewModel.ApplyMirrorCommand.ExecuteAsync(null);
 
         // Assert: the service received a mirror built from the typed fields
         service.Received(1).ApplyMirror(Arg.Is<DownloadMirror?>(
@@ -101,28 +101,88 @@ public class ModelCatalogViewModelTests
     }
 
     /// <summary>
-    ///     Proves that applying a valid mirror reports success in the panel.
+    ///     Proves that applying a valid mirror reports the applied mirror in the panel's confirmation message.
     /// </summary>
     [Fact]
-    public void ModelCatalogViewModel_ApplyMirror_ValidMirror_ReportsSuccess()
+    public async Task ModelCatalogViewModel_ApplyMirror_ValidMirror_ReportsSuccess()
     {
         // Arrange
         var viewModel = new ModelCatalogViewModel(Service()) { MirrorUrl = "https://mirror.example.com" };
 
         // Act
-        viewModel.ApplyMirrorCommand.Execute(null);
+        await viewModel.ApplyMirrorCommand.ExecuteAsync(null);
 
-        // Assert
+        // Assert: a success confirmation naming the mirror is shown
         Assert.False(viewModel.MirrorHasError);
         Assert.True(viewModel.HasMirrorStatusMessage);
         Assert.True(viewModel.MirrorAppliedSuccessfully);
+        Assert.Contains("mirror.example.com", viewModel.MirrorStatusMessage, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Proves that applying a valid mirror re-reads the catalog, so the rows reflect whatever the
+    ///     reconfigured catalog reports.
+    /// </summary>
+    [Fact]
+    public async Task ModelCatalogViewModel_ApplyMirror_ValidMirror_ReReadsCatalog()
+    {
+        // Arrange: the reconfigured catalog reports a different state on its next enumeration
+        var service = SequencedService(
+            [FakeSpeechModel.Descriptor("model-a", SpeechModelState.NotDownloaded)],
+            [FakeSpeechModel.Descriptor("model-a", SpeechModelState.Downloaded)]);
+        var viewModel = new ModelCatalogViewModel(service) { MirrorUrl = "https://mirror.example.com" };
+
+        // Act
+        await viewModel.ApplyMirrorCommand.ExecuteAsync(null);
+
+        // Assert: the catalog was enumerated again and the row shows the new state
+        service.Received(2).Enumerate();
+        Assert.Equal(SpeechModelState.Downloaded, Assert.Single(viewModel.Models).State);
+    }
+
+    /// <summary>
+    ///     Proves that an unexpected exception from the service's mirror reconfiguration, and a failure to
+    ///     re-read the catalog afterwards, are each reported in the panel rather than escaping the command.
+    /// </summary>
+    /// <param name="failOnReload">
+    ///     <see langword="true"/> to fail the catalog re-read after a successful reconfiguration;
+    ///     <see langword="false"/> to fail the reconfiguration itself.
+    /// </param>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ModelCatalogViewModel_ApplyMirror_UnexpectedFault_ReportedInPanel(bool failOnReload)
+    {
+        // Arrange
+        var service = Service();
+        if (failOnReload)
+        {
+            service.Enumerate().Returns(_ => [], _ => throw new IOException("catalog unreadable"));
+        }
+        else
+        {
+            service
+                .When(s => s.ApplyMirror(Arg.Any<DownloadMirror?>()))
+                .Do(_ => throw new IOException("catalog unreadable"));
+        }
+
+        var viewModel = new ModelCatalogViewModel(service) { MirrorUrl = "https://mirror.example.com" };
+
+        // Act
+        var exception = await Record.ExceptionAsync(() => viewModel.ApplyMirrorCommand.ExecuteAsync(null));
+
+        // Assert: nothing escaped and the panel reports an error naming the cause
+        Assert.Null(exception);
+        Assert.True(viewModel.MirrorHasError);
+        Assert.False(viewModel.MirrorAppliedSuccessfully);
+        Assert.Contains("catalog unreadable", viewModel.MirrorStatusMessage, StringComparison.Ordinal);
     }
 
     /// <summary>
     ///     Proves that a typed bearer token is forwarded to the catalog service with the mirror.
     /// </summary>
     [Fact]
-    public void ModelCatalogViewModel_ApplyMirror_BearerToken_ForwardsToken()
+    public async Task ModelCatalogViewModel_ApplyMirror_BearerToken_ForwardsToken()
     {
         // Arrange
         var service = Service();
@@ -133,7 +193,7 @@ public class ModelCatalogViewModelTests
         };
 
         // Act
-        viewModel.ApplyMirrorCommand.Execute(null);
+        await viewModel.ApplyMirrorCommand.ExecuteAsync(null);
 
         // Assert
         service.Received(1).ApplyMirror(Arg.Is<DownloadMirror?>(
@@ -145,14 +205,14 @@ public class ModelCatalogViewModelTests
     ///     rather than requiring a separate "clear" action.
     /// </summary>
     [Fact]
-    public void ModelCatalogViewModel_ApplyMirror_BlankUrl_AppliesNullMirror()
+    public async Task ModelCatalogViewModel_ApplyMirror_BlankUrl_AppliesNullMirror()
     {
         // Arrange
         var service = Service();
         var viewModel = new ModelCatalogViewModel(service) { MirrorUrl = null };
 
         // Act
-        viewModel.ApplyMirrorCommand.Execute(null);
+        await viewModel.ApplyMirrorCommand.ExecuteAsync(null);
 
         // Assert
         service.Received(1).ApplyMirror(null);
@@ -165,14 +225,14 @@ public class ModelCatalogViewModelTests
     ///     user, consistent with every other seam failure this panel reports in place.
     /// </summary>
     [Fact]
-    public void ModelCatalogViewModel_ApplyMirror_InvalidUrl_ReportsErrorWithoutCallingService()
+    public async Task ModelCatalogViewModel_ApplyMirror_InvalidUrl_ReportsErrorWithoutCallingService()
     {
         // Arrange
         var service = Service();
         var viewModel = new ModelCatalogViewModel(service) { MirrorUrl = "not a url" };
 
         // Act
-        var exception = Record.Exception(() => viewModel.ApplyMirrorCommand.Execute(null));
+        var exception = await Record.ExceptionAsync(() => viewModel.ApplyMirrorCommand.ExecuteAsync(null));
 
         // Assert: nothing escaped, the service was never asked to change its mirror, and the
         // panel reports the failure as an error rather than a success
@@ -190,14 +250,14 @@ public class ModelCatalogViewModelTests
     ///     credentials supplied without a URL.
     /// </summary>
     [Fact]
-    public void ModelCatalogViewModel_ApplyMirror_CredentialsWithoutUrl_ReportsErrorWithoutCallingService()
+    public async Task ModelCatalogViewModel_ApplyMirror_CredentialsWithoutUrl_ReportsErrorWithoutCallingService()
     {
         // Arrange
         var service = Service();
         var viewModel = new ModelCatalogViewModel(service) { MirrorBearerToken = "token-value" };
 
         // Act
-        var exception = Record.Exception(() => viewModel.ApplyMirrorCommand.Execute(null));
+        var exception = await Record.ExceptionAsync(() => viewModel.ApplyMirrorCommand.ExecuteAsync(null));
 
         // Assert: nothing escaped, the service was never asked to change its mirror, and the
         // panel reports the failure as an error rather than a success
@@ -213,7 +273,7 @@ public class ModelCatalogViewModelTests
     ///     <see cref="InvalidOperationException"/> in the panel rather than crashing the demo.
     /// </summary>
     [Fact]
-    public void ModelCatalogViewModel_ApplyMirror_ServiceRejectsReconfiguration_ReportsError()
+    public async Task ModelCatalogViewModel_ApplyMirror_ServiceRejectsReconfiguration_ReportsError()
     {
         // Arrange
         var service = Service();
@@ -223,7 +283,7 @@ public class ModelCatalogViewModelTests
         var viewModel = new ModelCatalogViewModel(service) { MirrorUrl = "https://mirror.example.com" };
 
         // Act
-        viewModel.ApplyMirrorCommand.Execute(null);
+        await viewModel.ApplyMirrorCommand.ExecuteAsync(null);
 
         // Assert
         Assert.True(viewModel.MirrorHasError);
@@ -236,14 +296,14 @@ public class ModelCatalogViewModelTests
     ///     in flight depends on, which would otherwise abort that download.
     /// </summary>
     [Fact]
-    public void ModelCatalogViewModel_ApplyMirror_DownloadInProgress_RefusesAndReportsError()
+    public async Task ModelCatalogViewModel_ApplyMirror_DownloadInProgress_RefusesAndReportsError()
     {
         // Arrange: one row already in the Downloading state
         var service = Service(FakeSpeechModel.Descriptor("model-a", SpeechModelState.Downloading));
         var viewModel = new ModelCatalogViewModel(service) { MirrorUrl = "https://mirror.example.com" };
 
         // Act
-        viewModel.ApplyMirrorCommand.Execute(null);
+        await viewModel.ApplyMirrorCommand.ExecuteAsync(null);
 
         // Assert: refused before ever reaching the service, and reported as an explained error
         service.DidNotReceive().ApplyMirror(Arg.Any<DownloadMirror?>());
@@ -947,7 +1007,7 @@ public class ModelCatalogViewModelTests
     ///     Proves that applying a mirror is refused while a pack install is in flight.
     /// </summary>
     [Fact]
-    public void ModelCatalogViewModel_ApplyMirror_PackInstalling_IsRefused()
+    public async Task ModelCatalogViewModel_ApplyMirror_PackInstalling_IsRefused()
     {
         // Arrange
         var service = VoiceService(SpeechModelState.NotDownloaded);
@@ -955,11 +1015,76 @@ public class ModelCatalogViewModelTests
         viewModel.VoicePacks[0].State = SpeechModelState.Downloading;
 
         // Act
-        viewModel.ApplyMirror();
+        await viewModel.ApplyMirrorCommand.ExecuteAsync(null);
 
         // Assert
         Assert.True(viewModel.MirrorHasError);
         service.DidNotReceiveWithAnyArgs().ApplyMirror(default);
+    }
+
+    /// <summary>
+    ///     Proves that refreshing is refused while a pack install is in flight, leaving the installing row in place.
+    /// </summary>
+    [Fact]
+    public async Task ModelCatalogViewModel_Refresh_PackInstalling_KeepsRowsAndDoesNotRereadCatalog()
+    {
+        // Arrange
+        var service = VoiceService(SpeechModelState.NotDownloaded);
+        var viewModel = new ModelCatalogViewModel(service);
+        var row = viewModel.VoicePacks[0];
+        row.State = SpeechModelState.Downloading;
+        service.ClearReceivedCalls();
+
+        // Act
+        await viewModel.Refresh();
+
+        // Assert
+        Assert.Same(row, viewModel.VoicePacks[0]);
+        service.DidNotReceive().Enumerate();
+    }
+
+    /// <summary>
+    ///     Proves that installing or removing a pack is refused while a different pack is installing.
+    /// </summary>
+    [Fact]
+    public async Task ModelCatalogViewModel_VoicePackCommands_AnotherPackInstalling_RefusedWithoutCallingService()
+    {
+        // Arrange: one pack row is installing; the rows under test are separate rows
+        var service = VoiceService(SpeechModelState.NotDownloaded);
+        var viewModel = new ModelCatalogViewModel(service);
+        viewModel.VoicePacks[0].State = SpeechModelState.Downloading;
+        var installable = new ReferenceVoicePackListItemViewModel(ReferenceVoicePack.VoiceZero10, SpeechModelState.NotDownloaded);
+        var removable = new ReferenceVoicePackListItemViewModel(ReferenceVoicePack.VoiceZero10, SpeechModelState.Downloaded);
+
+        // Act
+        await viewModel.InstallVoicePackAsync(installable, TestContext.Current.CancellationToken);
+        await viewModel.RemoveVoicePack(removable, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(ModelCatalogViewModel.VoiceBusyMessage, installable.FailureMessage);
+        Assert.Equal(ModelCatalogViewModel.VoiceBusyMessage, removable.FailureMessage);
+        await service.DidNotReceiveWithAnyArgs().InstallReferenceVoicePackAsync(default!, default, default, TestContext.Current.CancellationToken);
+        await service.DidNotReceiveWithAnyArgs().UninstallReferenceVoicePackAsync(default!, TestContext.Current.CancellationToken);
+    }
+
+    /// <summary>
+    ///     Proves that a fault while reading an installed pack's emotion flag at construction is contained: the
+    ///     initial load task still completes and the flag stays false.
+    /// </summary>
+    [Fact]
+    public async Task ModelCatalogViewModel_Constructor_EmotionFlagReadFaults_InitialLoadCompletesWithFlagFalse()
+    {
+        // Arrange
+        var service = VoiceService(SpeechModelState.Downloaded);
+        service.ReferenceVoicePackHasEmotionsAsync("voice-zero-1.0", Arg.Any<CancellationToken>())
+            .Returns(_ => Task.FromException<bool>(new IOException("unreadable")));
+
+        // Act
+        var viewModel = new ModelCatalogViewModel(service);
+        await viewModel.InitialLoadTask;
+
+        // Assert
+        Assert.False(viewModel.VoicePacks[0].HasEmotions);
     }
 
     /// <summary>
@@ -1007,6 +1132,7 @@ public class ModelCatalogViewModelTests
 
         // Assert
         await service.Received(1).UninstallReferenceVoicePackAsync("voice-zero-1.0", Arg.Any<CancellationToken>());
+        service.Received(2).Enumerate();
         Assert.Equal(SpeechModelState.NotDownloaded, viewModel.VoicePacks[0].State);
 
         // Act & Assert: ignored when not installed, or null

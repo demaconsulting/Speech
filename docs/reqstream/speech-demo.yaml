@@ -7,7 +7,7 @@
 # and demonstrates it, but ships and is versioned as part of this repository.
 
 sections:
-  - title: Demo Application
+  - title: SpeechDemo Requirements
     requirements:
       - id: SpeechDemo-Shell-CapabilityNavigation
         title: >-
@@ -49,6 +49,7 @@ sections:
           - SpeechDemo-Shell-EmptyEnvironmentComposition
           - SpeechDemo-App-ShellComposition
           - SpeechDemo-App-AvaloniaApplication
+          - SpeechDemo-App-ShutdownContainment
           - SpeechDemo-Program-AvaloniaApp
         tests:
           - SpeechDemo_SystemIntegration_RefreshAllPanels_NeverThrows
@@ -82,6 +83,9 @@ sections:
           - SpeechDemo-LaunchOptions-RejectUnrecognized
           - SpeechDemo-LaunchOptions-RejectMissingValue
           - SpeechDemo-LaunchOptions-RejectNullArguments
+          - SpeechDemo-LaunchOptions-RejectNullEnvironmentReader
+          - SpeechDemo-Program-FailFast
+          - SpeechDemo-Program-HelpRequest
         tests:
           - SpeechDemo_SystemIntegration_LaunchOptions_RejectBadOptionsWithExplanation
 
@@ -155,7 +159,7 @@ sections:
           - SpeechDemo-Models-StateChangeAnnouncement
           - SpeechDemo-Models-StatePresentation
           - SpeechDemo-Models-Refresh
-          - SpeechDemo-Models-LibraryCatalogDelegation
+          - SpeechDemo-Models-RefreshBlockedDuringTransfer          - SpeechDemo-Models-LibraryCatalogDelegation
           - SpeechDemo-ModelCatalog-PanelOperation
           - SpeechDemo-Models-LibraryDownloadDelegation
           - SpeechDemo-Models-CatalogSeamRequired
@@ -176,7 +180,8 @@ sections:
           multi-hundred-megabyte download, since automated tests must not depend on network
           access.
         children:
-          - SpeechDemo-Models-DownloadGuard
+          - SpeechDemo-Models-DownloadGuardInstalled
+          - SpeechDemo-Models-DownloadGuardInFlight
           - SpeechDemo-Models-DownloadAvailability
           - SpeechDemo-Models-InstallNotification
           - SpeechDemo-ModelCatalog-ModelDownload
@@ -285,6 +290,7 @@ sections:
           - SpeechDemo-MirrorOptions-CredentialWithoutUrl
           - SpeechDemo-MirrorOptions-HalfCredentialPair
           - SpeechDemo-MirrorOptions-InvalidUrl
+          - SpeechDemo-MirrorOptions-InsecureCredentialRejected
           - SpeechDemo-Models-MirrorSettingsPrePopulation
         tests:
           - SpeechDemo_SystemIntegration_MirrorRedirection_AppliesAtLaunch
@@ -304,6 +310,9 @@ sections:
           - SpeechDemo-Models-CatalogFactoryRequired
           - SpeechDemo-Models-MirrorCatalogOwnership
           - SpeechDemo-Models-MirrorSettingsUi
+          - SpeechDemo-Models-MirrorSettingsBearerToken
+          - SpeechDemo-Models-MirrorSettingsReloadsRows
+          - SpeechDemo-Models-MirrorSettingsFaultContained
           - SpeechDemo-Models-MirrorBlockedDuringDownload
           - SpeechDemo-Models-MirrorDisposesCurrentCatalog
           - SpeechDemo-Models-ExternalCatalogNotDisposed
@@ -346,6 +355,8 @@ sections:
           - SpeechDemo-Voices-PackRemoveBlockedDuringDownload
           - SpeechDemo-Voices-DownloadBlockedDuringPackInstall
           - SpeechDemo-Voices-MirrorBlockedDuringPackInstall
+          - SpeechDemo-Voices-PackBlockedDuringPackInstall
+          - SpeechDemo-Voices-PackInitialEmotionLoadContained
           - SpeechDemo-Voices-PackRowPresentation
           - SpeechDemo-Voices-PackRowRequiresPack
           - SpeechDemo-Voices-PackEmotionOption
@@ -424,10 +435,10 @@ sections:
           A user with their own recordings needs a way to use them without installing the
           pack. SpeechCli offers the same capability through its --voices-dir option.
         children:
-          - SpeechDemo-Voices-LaunchOption
-          - SpeechDemo-Voices-LaunchOptionHelp
-          - SpeechDemo-Voices-LaunchOptionValueRequired
-          - SpeechDemo-Voices-LaunchOptionFolderMustExist
+          - SpeechDemo-LaunchOptions-VoicesDir
+          - SpeechDemo-LaunchOptions-VoicesDirHelp
+          - SpeechDemo-LaunchOptions-VoicesDirValueRequired
+          - SpeechDemo-LaunchOptions-VoicesDirMustExist
         tests:
           - SpeechDemo_SystemIntegration_LaunchOptions_VoicesDirOptionRecordsVoicesFolder
 

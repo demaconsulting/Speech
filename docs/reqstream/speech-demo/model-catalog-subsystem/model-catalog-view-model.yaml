@@ -5,16 +5,12 @@
 # panel's presentation state, refresh, download orchestration, mirror settings and reference
 # voice pack section - decomposing the parent ModelCatalogSubsystem requirements.
 #
-# The requirements are grouped by concern, one criterion each:
-#   - Model rows and refresh (Models-PanelSeamRequired, Models-Enumeration, -Refresh, -EmptyCatalogExplanation)
-#   - Downloading (Models-DownloadProgress, -DownloadOutcomes, -DownloadRetry, -DownloadGuard)
-#   - Mirror settings (Models-MirrorSettingsUi, -MirrorSettingsPrePopulation,
-#     -MirrorSettingsBlankRevert, -MirrorSettingsInvalidReported,
-#     -MirrorSettingsRejectedReported, -MirrorBlockedDuringDownload)
-#   - Voice pack section (Voices-PackPanel, -PackSectionHidden, -PackInstalledEmotionsShown,
-#     -PackInstall, -PackEmotionChoiceForwarded, -PackInstallFailureReported,
-#     -PackInstallRollbackKeepsPack, -PackInstallStateReadFallback, -PackRemove,
-#     -PackRemoveFaultReported, -PackRemoveStoreErrorReported, -PackBlockedDuringDownload)
+# The requirements are grouped by concern, one criterion each, and identified by prefix:
+#   - SpeechDemo-Models-* : model rows, refresh and its busy guard, downloading and its guards,
+#     the empty-catalog explanation, and the mirror settings (apply, revert, rejection, faults,
+#     blocked during a download)
+#   - SpeechDemo-Voices-* : the reference voice pack section (listing, install, emotion choice,
+#     failure and rollback reporting, removal, and the refusals while a transfer is in flight)
 # Every test below is a ModelCatalogViewModelTests test.
 
 sections:
@@ -74,6 +70,20 @@ sections:
                   that cannot be downloaded.
                 tests:
                   - ModelCatalogViewModel_Refresh_ModelNoLongerKnown_DropsRowAndFallsBack
+
+              - id: SpeechDemo-Models-RefreshBlockedDuringTransfer
+                title: >-
+                  The ModelCatalogSubsystem shall refuse an on-demand catalog refresh while any
+                  model download or voice pack install is in flight, leaving the rows untouched
+                  and without re-reading the catalog.
+                justification: |
+                  Refreshing rebuilds every row, which would discard the row that is showing the
+                  transfer's progress and eventual outcome. Refusing the refresh keeps the
+                  user's in-flight transfer visible; the commands that finish a transfer reload
+                  the rows themselves.
+                tests:
+                  - ModelCatalogViewModel_Refresh_DownloadInFlight_KeepsRowsAndDoesNotRereadCatalog
+                  - ModelCatalogViewModel_Refresh_PackInstalling_KeepsRowsAndDoesNotRereadCatalog
 
               - id: SpeechDemo-Models-DownloadProgress
                 title: >-
@@ -155,15 +165,23 @@ sections:
                 tests:
                   - ModelCatalogViewModel_DownloadAsync_RetryAfterFailure_ClearsPreviousFailureMessage
 
-              - id: SpeechDemo-Models-DownloadGuard
+              - id: SpeechDemo-Models-DownloadGuardInstalled
                 title: >-
                   The ModelCatalogSubsystem shall not start a download for a model that is
-                  already installed or already downloading.
+                  already installed.
                 justification: |
                   Re-downloading an installed model risks disturbing working content for no
-                  benefit, and a second download of a running one would collide with it.
+                  benefit.
                 tests:
                   - ModelCatalogViewModel_DownloadAsync_AlreadyInstalledModel_DoesNotDownload
+
+              - id: SpeechDemo-Models-DownloadGuardInFlight
+                title: >-
+                  The ModelCatalogSubsystem shall not start a second download for a model that
+                  is already downloading.
+                justification: |
+                  A second download of a running one would collide with it.
+                tests:
                   - ModelCatalogViewModel_DownloadAsync_AlreadyDownloadingModel_DoesNotDownload
 
               - id: SpeechDemo-Models-DownloadNoSelection
@@ -191,16 +209,46 @@ sections:
 
               - id: SpeechDemo-Models-MirrorSettingsUi
                 title: >-
-                  The ModelCatalogSubsystem shall apply the mirror base URL and optional
-                  credential or bearer token a user has entered, so that every subsequent
-                  download is redirected to that mirror.
+                  The ModelCatalogSubsystem shall apply the mirror base URL and optional HTTP
+                  Basic credential a user has entered, so that every subsequent download is
+                  redirected to that mirror.
                 justification: |
                   A user whose network blocks a model's public download host needs to redirect
                   downloads to an internal mirror from the running application, not only via a
                   launch-time argument that requires relaunching the demo.
                 tests:
                   - ModelCatalogViewModel_ApplyMirror_ValidMirror_ForwardsConfiguredMirrorAndReportsSuccess
+
+              - id: SpeechDemo-Models-MirrorSettingsBearerToken
+                title: >-
+                  The ModelCatalogSubsystem shall apply a bearer token a user has entered
+                  together with the mirror base URL.
+                justification: |
+                  Mirrors protected by a bearer token are as common as those protected by Basic
+                  credentials, and the token must reach the download configuration unchanged.
+                tests:
                   - ModelCatalogViewModel_ApplyMirror_BearerToken_ForwardsToken
+
+              - id: SpeechDemo-Models-MirrorSettingsReloadsRows
+                title: >-
+                  The ModelCatalogSubsystem shall re-read the catalog after a mirror change is
+                  applied, so the rows show what the reconfigured catalog reports.
+                justification: |
+                  The rebuilt catalog may report different install states, so leaving the old
+                  rows on display would show stale information.
+                tests:
+                  - ModelCatalogViewModel_ApplyMirror_ValidMirror_ReReadsCatalog
+
+              - id: SpeechDemo-Models-MirrorSettingsFaultContained
+                title: >-
+                  The ModelCatalogSubsystem shall report an unexpected fault while applying a
+                  mirror, or while re-reading the catalog afterwards, as an explained panel
+                  error rather than letting it escape.
+                justification: |
+                  The mirror command is a fault-isolation boundary like every other command in
+                  the panel; an unexpected seam fault must not crash the demo.
+                tests:
+                  - ModelCatalogViewModel_ApplyMirror_UnexpectedFault_ReportedInPanel
 
               - id: SpeechDemo-Models-MirrorSettingsPrePopulation
                 title: >-
@@ -458,3 +506,24 @@ sections:
                   flight.
                 tests:
                   - ModelCatalogViewModel_ApplyMirror_PackInstalling_IsRefused
+
+              - id: SpeechDemo-Voices-PackBlockedDuringPackInstall
+                title: >-
+                  The ModelCatalogSubsystem shall refuse a pack install or removal while another
+                  pack is installing, showing an explanation on the row, without calling the
+                  catalog service.
+                justification: |
+                  Each pack change rebuilds the catalog, and disposing the old catalog would
+                  abort the install already in flight.
+                tests:
+                  - ModelCatalogViewModel_VoicePackCommands_AnotherPackInstalling_RefusedWithoutCallingService
+
+              - id: SpeechDemo-Voices-PackInitialEmotionLoadContained
+                title: >-
+                  The ModelCatalogSubsystem shall contain a fault while reading an installed
+                  pack's emotion flag, leaving the flag false and completing the initial load.
+                justification: |
+                  The flags are read in the background from the construction path; a fault there
+                  must neither crash the demo nor leave the initial-load task faulted.
+                tests:
+                  - ModelCatalogViewModel_Constructor_EmotionFlagReadFaults_InitialLoadCompletesWithFlagFalse
