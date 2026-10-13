@@ -105,14 +105,19 @@ throws `InvalidOperationException`; a session is reusable across repeated calls 
 reconstruction; the `StateChanged` event raises the documented transition sequence for both a
 successful and a faulting operation, with a subscriber's handler exception isolated; a faulted
 session throws `SynthesisSessionFaultedException` on every subsequent call;
-`SynthesizeAsync` returns the full-fidelity segment list including silence; backend faults and an
-unavailable playback device fail the caller's task honestly rather than hanging; a playback write
+`SynthesizeAsync` returns the full-fidelity segment list including silence, completing only once
+every segment is synthesized, with at most one backend call in flight at a time; a backend fault
+fails the caller's task honestly, an unavailable playback device does likewise, and neither
+hangs; an unrequested backend `OperationCanceledException` faults the session rather than stopping
+it; a playback write
 failure still stops the device; a session's `parameterValues` bag resolves to the correct speaker
 id via `ISynthesisModel.ResolveSpeakerId` once per segment, coexisting correctly with an
 independent per-segment Natural Language Audio Tag speed override in the same call; volume
 overrides scale and clamp amplitude; a canceled operation whose native call cannot be interrupted
-is abandoned so the caller's task returns promptly, and the session then transitions to `Faulted`
-with the abandonment reported through diagnostics; `StopAsync` and `DisposeAsync` do not complete
+is abandoned so the caller's task returns promptly (a slow device `Start` does not block the
+caller), and the session then transitions to `Faulted`
+with the abandonment reported through diagnostics; a canceled `StopAsync` caller token throws
+without aborting the teardown, and a stopped operation unwinds to `Stopped`; `StopAsync` and `DisposeAsync` do not complete
 and the backend lease is not released until the in-flight native call has returned, and the lease
 is released exactly once even when disposal is called repeatedly or concurrently; a device `Stop`
 that is deferred while a native call is in flight happens only after that call returns; and a

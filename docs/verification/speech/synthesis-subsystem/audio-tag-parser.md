@@ -16,7 +16,8 @@ engine, audio device, or native runtime.
 This unit is considered verified when every canonical tag is reachable through at least one
 unambiguous alias, alias resolution is case-insensitive and whitespace-tolerant, `Parse` produces
 a correctly ordered span sequence for plain text, tags, and mixtures of the two (including edge
-placement and adjacency), and every unrecognized or malformed bracket form passes through as
+placement and adjacency, with no spurious empty spans), an empty span list for empty input, and
+every unrecognized or malformed bracket form passes through as
 literal text rather than throwing or being discarded.
 
 The unit is also verified when a catalog or parser caller cannot mutate the vocabulary (the tag

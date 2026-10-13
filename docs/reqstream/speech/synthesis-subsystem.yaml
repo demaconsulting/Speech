@@ -50,6 +50,8 @@ sections:
               installed.
             children:
               - Speech-Synthesis-AudioTagParser-OrderedSpanSequence
+              - Speech-Synthesis-AudioTagParser-EmptyInputSpans
+              - Speech-Synthesis-AudioTagParser-NoSpuriousEmptySpans
               - Speech-Synthesis-AudioTagParser-TagPlacementSpans
               - Speech-Synthesis-AudioTagParser-NullTextRejection
             tests:
@@ -340,7 +342,9 @@ sections:
               chunk is still being synthesized.
             children:
               - Speech-Synthesis-SynthesisSession-ChunkedPipeline
+              - Speech-Synthesis-SynthesisSession-SequentialSynthesis
               - Speech-Synthesis-SynthesisSession-FullFidelitySegmentList
+              - Speech-Synthesis-SynthesisSession-SynthesizeCompletesWhenAllSegmentsDone
             tests:
               - SynthesisSession_SynthesizeAsync_LongMultiSentenceInput_ProducesOrderedSegmentsSequentially
               - SynthesisSession_SynthesizeAsync_ReturnsFullFidelitySegmentListIncludingSilence
@@ -415,6 +419,7 @@ sections:
               longer trustworthy after a fault.
             children:
               - Speech-Synthesis-SynthesisSession-FaultedIsTerminal
+              - Speech-Synthesis-SynthesisSession-UnrequestedCancellationFaults
               - Speech-Synthesis-SynthesisSession-FaultedRejectsSubsequentCalls
               - Speech-Synthesis-SynthesisSessionFaultedException-Thrown
             tests:
@@ -432,13 +437,16 @@ sections:
               wait for native calls so freed native memory is never touched.
             children:
               - Speech-Synthesis-SynthesisSession-FaultContainment
+              - Speech-Synthesis-SynthesisSession-PlaybackDeviceUnavailableContainment
               - Speech-Synthesis-SynthesisSession-DisposeReleasesLeaseOnce
               - Speech-Synthesis-SynthesisSession-DisposedStateReporting
               - Speech-Synthesis-SynthesisSession-DisposedReportsUnavailable
               - Speech-Synthesis-SynthesisSession-DisposeWaitsForNativeCompletion
               - Speech-Synthesis-SynthesisSession-DisposeLeaseReleaseAfterNativeCompletion
               - Speech-Synthesis-SynthesisSession-AbandonedNativeCallReturnsPromptly
+              - Speech-Synthesis-SynthesisSession-SlowDeviceStartDoesNotBlockCaller
               - Speech-Synthesis-SynthesisSession-AbandonedNativeCallFaultTransition
+              - Speech-Synthesis-SynthesisSession-AbandonedNativeCallReportsDiagnostics
               - Speech-Synthesis-SynthesisSession-AbandonedNativeCallRejectsReuse
             tests:
               - SynthesisSession_SynthesizeAsync_BackendThrows_ReportsFaultAndTransitionsToFaulted
@@ -453,10 +461,12 @@ sections:
               still running.
             children:
               - Speech-Synthesis-SynthesisSession-StopCancelsOperation
+              - Speech-Synthesis-SynthesisSession-StopUnwindsToStopped
               - Speech-Synthesis-SynthesisSession-StopWhenIdle
               - Speech-Synthesis-SynthesisSession-StopWaitsForNativeCompletion
               - Speech-Synthesis-SynthesisSession-DeviceStopDeferredUntilStartReturns
               - Speech-Synthesis-SynthesisSession-StopCallerTokenBoundsWaitOnly
+              - Speech-Synthesis-SynthesisSession-StopCallerTokenDoesNotAbortTeardown
               - Speech-Synthesis-DedicatedWorker-CooperativeCancellation
             tests:
               - SynthesisSession_StopAsync_WhileSpeaking_DoesNotCompleteUntilInFlightGenerateReturns

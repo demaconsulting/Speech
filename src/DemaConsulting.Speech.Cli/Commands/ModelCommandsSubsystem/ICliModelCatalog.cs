@@ -108,7 +108,7 @@ internal interface ICliModelCatalog
     ///     synthesis-role model.
     /// </param>
     /// <param name="parameterValues">
-    ///     An optional session-level parameter value bag resolved from <c>--param</c>, or
+    ///     An optional session-level parameter value bag resolved from <c>--tts-param</c>, or
     ///     <see langword="null"/> to use every model's own default parameter values.
     /// </param>
     /// <param name="cancellationToken">A token to observe for cancellation of the load.</param>
@@ -144,7 +144,7 @@ internal interface ICliModelCatalog
     ///     recognition-role model.
     /// </param>
     /// <param name="parameterValues">
-    ///     An optional session-level parameter value bag resolved from <c>--param</c>, or
+    ///     An optional session-level parameter value bag resolved from <c>--stt-param</c>, or
     ///     <see langword="null"/> to use every model's own default parameter values.
     /// </param>
     /// <param name="cancellationToken">A token to observe for cancellation of the load.</param>

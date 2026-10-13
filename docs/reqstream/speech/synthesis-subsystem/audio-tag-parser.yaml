@@ -105,17 +105,36 @@ sections:
               - id: Speech-Synthesis-AudioTagParser-OrderedSpanSequence
                 title: >-
                   AudioTagParser.Parse shall return the input's literal text and recognized tags
-                  as an ordered sequence of spans that reconstructs the input's structure,
-                  including plain text alone, empty input and mixed text and tags, with no
-                  spurious empty spans.
+                  as an ordered sequence of spans that reconstructs the input's structure, for
+                  plain text alone and for mixed text and tags.
                 justification: |
                   A later Layer 2 rendering stage must be able to walk the parser's output in
                   order to build a SpeechPlan; any gap, duplication, or incorrect ordering would
                   corrupt the synthesized speech's structure.
                 tests:
                   - AudioTagParser_Parse_PlainTextWithNoTags_ReturnsSinglePlainTextSpan
-                  - AudioTagParser_Parse_EmptyInput_ReturnsEmptySpanList
                   - AudioTagParser_Parse_MixedPlainTextAndTag_ReturnsOrderedSpans
+
+              - id: Speech-Synthesis-AudioTagParser-EmptyInputSpans
+                title: >-
+                  AudioTagParser.Parse shall return an empty span list for empty input.
+                justification: |
+                  Empty input has no text or tags to render; returning an empty list rather than
+                  an empty text span lets the rendering stage treat it as nothing to speak.
+                tests:
+                  - AudioTagParser_Parse_EmptyInput_ReturnsEmptySpanList
+
+              - id: Speech-Synthesis-AudioTagParser-NoSpuriousEmptySpans
+                title: >-
+                  AudioTagParser.Parse shall not emit empty text spans between or around
+                  recognized tags.
+                justification: |
+                  Spurious empty spans would be rendered as empty segments, adding needless
+                  backend calls or silence to the synthesized speech.
+                tests:
+                  - AudioTagParser_Parse_AdjacentTags_ReturnsTwoSeparateTagSpans
+                  - AudioTagParser_Parse_TagAtStartOfText_ReturnsTagSpanFirst
+                  - AudioTagParser_Parse_TagAtEndOfText_ReturnsTagSpanLast
 
               - id: Speech-Synthesis-AudioTagParser-TagPlacementSpans
                 title: >-
