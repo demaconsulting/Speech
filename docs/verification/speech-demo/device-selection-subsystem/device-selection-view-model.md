@@ -35,7 +35,6 @@ refresh recovers.
 
 **Expected**: `ArgumentNullException`.
 
-
 ##### DeviceSelectionViewModel_Constructor_DevicesAvailable_PopulatesBothLists
 
 **Scenario**: The service reports capture and playback devices.
@@ -43,13 +42,11 @@ refresh recovers.
 **Expected**: Both lists are populated during construction, so the window shows real device names
 the instant it opens.
 
-
 ##### DeviceSelectionViewModel_Constructor_DevicesAvailable_ReportsCountStatus
 
 **Scenario**: The service reports devices.
 
 **Expected**: Each status line reports how many devices of that direction were found.
-
 
 ##### DeviceSelectionViewModel_Constructor_DevicesAvailable_SelectsFirstOfEachDirection
 
@@ -58,13 +55,11 @@ the instant it opens.
 **Expected**: The first device in each direction is preselected, so the demo is usable without
 configuration.
 
-
 ##### DeviceSelectionViewModel_Constructor_NeverCallsRefreshDevices
 
 **Scenario**: The service would refuse a refresh, and the panel is constructed.
 
 **Expected**: `RefreshDevices()` is never called and both lists are still populated.
-
 
 ##### DeviceSelectionViewModel_Constructor_NoDevices_ReportsHonestEmptyState
 
@@ -73,14 +68,12 @@ configuration.
 **Expected**: Both directions report no devices available and carry an explanatory message naming
 the possible cause.
 
-
 ##### DeviceSelectionViewModel_Refresh_AllDevicesRemoved_ClearsSelectionAndExplains
 
 **Scenario**: The last device is removed and the panel is refreshed.
 
 **Expected**: The selection is cleared and the explanatory empty-state message is shown for both
 directions.
-
 
 ##### DeviceSelectionViewModel_CaptureSelection_DeviceSelected_ReturnsNameBasedSelection
 
@@ -89,14 +82,12 @@ directions.
 **Expected**: The exposed selection is the library's name-based `AudioDeviceSelection` for that
 device.
 
-
 ##### DeviceSelectionViewModel_SelectedPlaybackDevice_Changed_NotifiesPlaybackSelection
 
 **Scenario**: The chosen playback device changes.
 
 **Expected**: The derived playback selection is re-announced, so a bound consumer never reads a
 stale selection.
-
 
 ##### DeviceSelectionViewModel_Selections_NoDevices_ReturnSystemDefault
 
@@ -105,13 +96,11 @@ stale selection.
 **Expected**: Both selections report the library's system-default selection, so a caller never
 has to special-case the no-device machine.
 
-
 ##### DeviceSelectionViewModel_RefreshCommand_Executed_ReEnumeratesDevices
 
 **Scenario**: The refresh command is executed the way a bound button does.
 
 **Expected**: Both directions are re-enumerated through the service.
-
 
 ##### DeviceSelectionViewModel_Refresh_CallsRefreshDevicesBeforeEnumerating
 
@@ -120,13 +109,11 @@ has to special-case the no-device machine.
 **Expected**: `IAudioDeviceService.RefreshDevices()` is called exactly once, before either direction
 is re-enumerated.
 
-
 ##### DeviceSelectionViewModel_Refresh_DeviceAdded_KeepsExistingSelection
 
 **Scenario**: A device is hot-plugged and the panel is refreshed.
 
 **Expected**: The chosen device stays selected.
-
 
 ##### DeviceSelectionViewModel_Refresh_SameDeviceReportedWithNewFormat_SelectsMatchingNameAgain
 
@@ -143,7 +130,6 @@ instance-based.
 **Expected**: The first remaining device is selected, so the picker is never left blank while
 devices exist.
 
-
 ##### DeviceSelectionViewModel_Refresh_SelectedPlaybackDeviceRemoved_FallsBackToFirstPlayback
 
 **Scenario**: The selected playback device is unplugged and the panel is refreshed.
@@ -157,7 +143,6 @@ unchanged.
 
 **Expected**: Change notifications are raised for both availability flags and both read true.
 
-
 ##### DeviceSelectionViewModel_Refresh_ServiceThrowsAudioDeviceInUseException_SurfacesMessageViaStatusAndDoesNotClearLists
 
 **Scenario**: `IAudioDeviceService.RefreshDevices()` throws `AudioDeviceInUseException` because a
@@ -165,7 +150,6 @@ device is currently streaming.
 
 **Expected**: Both `CaptureStatus` and `PlaybackStatus` are set to the exception's message, and
 neither list nor either selection is touched.
-
 
 ##### DeviceSelectionViewModel_Refresh_HookCannotStopInUseDevice_FallsBackToStatusMessage
 
@@ -183,7 +167,6 @@ the safety net.
 **Expected**: Both status texts are set to the exception's message, and neither list nor either
 selection is touched.
 
-
 ##### DeviceSelectionViewModel_Refresh_SucceedsAfterRefusal_ReEnumeratesAndClearsMessage
 
 **Scenario**: The first refresh is refused with `AudioDeviceInUseException` and the second
@@ -191,7 +174,6 @@ succeeds.
 
 **Expected**: The first shows the refusal message; the second re-enumerates and reports the normal
 count status.
-
 
 ##### DeviceSelectionViewModel_Refresh_RegisteredHook_InvokedAndAwaitedBeforeRefreshDevices
 
@@ -202,13 +184,11 @@ is called.
 completes, `Refresh()` proceeds and calls `RefreshDevices()` exactly once, proving the hook is
 awaited to completion rather than fired without waiting.
 
-
 ##### DeviceSelectionViewModel_Refresh_MultipleHooks_InvokedInRegistrationOrder
 
 **Scenario**: Two hooks are registered and `Refresh()` is called.
 
 **Expected**: The hooks run in registration order.
-
 
 ##### DeviceSelectionViewModel_Refresh_UnregisteredHook_NotInvoked
 
@@ -216,13 +196,11 @@ awaited to completion rather than fired without waiting.
 
 **Expected**: The unregistered hook is never invoked.
 
-
 ##### DeviceSelectionViewModel_UnregisterPreRefreshHook_NeverRegistered_RefreshStillSucceeds
 
 **Scenario**: A hook that was never registered is unregistered, then `Refresh()` is called.
 
 **Expected**: No exception, and the refresh still reaches the service.
-
 
 ##### DeviceSelectionViewModel_RegisterPreRefreshHook_NullHook_ThrowsArgumentNullException
 
@@ -230,10 +208,8 @@ awaited to completion rather than fired without waiting.
 
 **Expected**: `ArgumentNullException`.
 
-
 ##### DeviceSelectionViewModel_UnregisterPreRefreshHook_NullHook_ThrowsArgumentNullException
 
 **Scenario**: A null hook is unregistered.
 
 **Expected**: `ArgumentNullException`.
-

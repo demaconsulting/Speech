@@ -33,13 +33,11 @@ the factory, returning the library's unavailable device when the factory knows n
 
 **Expected**: `ArgumentNullException`.
 
-
 ##### AudioDeviceService_EnumerateCaptureDevices_ProbeReportsDevices_ReturnsProbeDevices
 
 **Scenario**: The library's capture probe reports devices.
 
 **Expected**: The adapter returns exactly those devices, unfiltered and unsorted.
-
 
 ##### AudioDeviceService_EnumeratePlaybackDevices_ProbeReportsDevices_ReturnsProbeDevices
 
@@ -47,13 +45,11 @@ the factory, returning the library's unavailable device when the factory knows n
 
 **Expected**: The adapter returns exactly those devices.
 
-
 ##### AudioDeviceService_Enumerate_ProbesReportNothing_ReturnsEmptyLists
 
 **Scenario**: Both probes report nothing.
 
 **Expected**: Empty lists rather than null, so the panel never has to null-check the library.
-
 
 ##### AudioDeviceService_EnumerateCaptureDevices_ProbeResultChanges_ReturnsLatestProbeDevices
 
@@ -63,7 +59,6 @@ second.
 **Expected**: Each enumeration returns the probe's answer at that moment, proving nothing is
 cached.
 
-
 ##### AudioDeviceService_RefreshDevices_Always_DelegatesToFactoryRefreshDevices
 
 **Scenario**: `RefreshDevices()` is called on an adapter over a factory built on a fake PortAudio
@@ -72,13 +67,11 @@ environment.
 **Expected**: The call is forwarded to `AudioDeviceFactory.RefreshDevices()` exactly once, proved by
 the environment being terminated once and initialized twice.
 
-
 ##### AudioDeviceService_CreateCaptureDevice_ProbeKnowsNoDevices_ReturnsUnavailableDevice
 
 **Scenario**: A capture device is requested for a name the factory's probe does not report.
 
 **Expected**: The library's shared unavailable capture device is returned.
-
 
 ##### AudioDeviceService_CreatePlaybackDevice_ProbeKnowsNoDevices_ReturnsUnavailableDevice
 
@@ -86,4 +79,3 @@ the environment being terminated once and initialized twice.
 nothing.
 
 **Expected**: The library's shared unavailable playback device is returned.
-

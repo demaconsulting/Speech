@@ -35,16 +35,19 @@ change and stays silent for an unchanged selection; and its window title names t
 **Scenario**: The shell is constructed with no catalog panel.
 
 **Expected**: `ArgumentNullException`.
+
 ##### MainWindowViewModel_Constructor_NullSynthesis_ThrowsArgumentNullException
 
 **Scenario**: The shell is constructed with no text-to-speech panel.
 
 **Expected**: `ArgumentNullException`.
+
 ##### MainWindowViewModel_Constructor_NullRecognition_ThrowsArgumentNullException
 
 **Scenario**: The shell is constructed with no speech-to-text panel.
 
 **Expected**: `ArgumentNullException`.
+
 ##### MainWindowViewModel_Constructor_ValidPanels_OffersAllFourPanels
 
 **Scenario**: The shell is constructed with all four panels.
@@ -57,17 +60,20 @@ change and stays silent for an unchanged selection; and its window title names t
 **Scenario**: The shell is constructed with all four panels.
 
 **Expected**: No entry has a null, empty or whitespace title.
+
 ##### MainWindowViewModel_Constructor_ValidPanels_HostsTheInjectedPanelInstances
 
 **Scenario**: The shell is constructed with all four panels.
 
 **Expected**: Each entry's content is the exact injected instance, proving the shell hosts panels
 rather than constructing its own.
+
 ##### MainWindowViewModel_Constructor_ValidPanels_SelectsFirstPanel
 
 **Scenario**: The shell is constructed.
 
 **Expected**: The first entry is selected, so the window never opens with a blank content area.
+
 ##### MainWindowViewModel_SelectedPanel_Changed_NotifiesSelectedPanel
 
 **Scenario**: The selected panel is changed.
@@ -80,6 +86,7 @@ no code-behind.
 **Scenario**: The already-selected panel is assigned again.
 
 **Expected**: No change notification is raised.
+
 ##### MainWindowViewModel_Title_Read_NamesTheImplementedCapabilities
 
 **Scenario**: The window title is read.

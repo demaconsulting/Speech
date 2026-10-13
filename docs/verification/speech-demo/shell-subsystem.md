@@ -34,4 +34,3 @@ honest empty state.
 **Scenario**: The shell is composed over seams that report no devices and no models.
 
 **Expected**: Composition succeeds and each panel reports its own honest empty state.
-

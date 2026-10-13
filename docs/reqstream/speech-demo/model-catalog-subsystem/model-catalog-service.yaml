@@ -214,45 +214,83 @@ sections:
 
               - id: SpeechDemo-Voices-PackUninstallRebuild
                 title: >-
-                  The ModelCatalogSubsystem shall rebuild its catalog and voice library and
-                  raise ReferenceVoicesChanged after a voice pack is uninstalled.
+                  The ModelCatalogSubsystem shall rebuild its catalog and voice library after a
+                  voice pack is uninstalled.
                 justification: |
                   The Chatterbox voice list is fixed when the model is constructed, so a removed
-                  voice is only withdrawn after the catalog is rebuilt. Announcing the change
-                  lets the synthesis panel stop offering the removed voices immediately.
+                  voice is only withdrawn after the catalog is rebuilt.
+                tests:
+                  - ModelCatalogService_UninstallReferenceVoicePack_RebuildsCatalogAndRaisesEvent
+
+              - id: SpeechDemo-Voices-PackUninstallAnnounce
+                title: >-
+                  The ModelCatalogSubsystem shall raise ReferenceVoicesChanged after a voice
+                  pack is uninstalled.
+                justification: |
+                  Announcing the change lets the synthesis panel stop offering the removed
+                  voices immediately.
                 tests:
                   - ModelCatalogService_UninstallReferenceVoicePack_RebuildsCatalogAndRaisesEvent
 
               - id: SpeechDemo-Voices-PackInstallRebuild
                 title: >-
-                  The ModelCatalogSubsystem shall rebuild its catalog and voice library and
-                  raise ReferenceVoicesChanged after a voice pack install attempt that fails.
+                  The ModelCatalogSubsystem shall rebuild its catalog and voice library after a
+                  voice pack install attempt that fails.
                 justification: |
                   A failed upgrade can still have changed the installed state (the old install
-                  is moved aside, then restored), so the rebuild and announcement must happen
-                  for the voice choices to stay accurate.
+                  is moved aside, then restored), so the rebuild must happen for the voice
+                  choices to stay accurate.
+                tests:
+                  - ModelCatalogService_InstallReferenceVoicePackAsync_Failure_StillRebuildsAndRaises
+
+              - id: SpeechDemo-Voices-PackInstallFailureAnnounce
+                title: >-
+                  The ModelCatalogSubsystem shall raise ReferenceVoicesChanged after a voice
+                  pack install attempt that fails.
+                justification: |
+                  A failed upgrade can still have changed the installed state, so dependent
+                  panels must be told to refresh their voice choices.
                 tests:
                   - ModelCatalogService_InstallReferenceVoicePackAsync_Failure_StillRebuildsAndRaises
 
               - id: SpeechDemo-Voices-PackInstallCanceledRebuild
                 title: >-
-                  The ModelCatalogSubsystem shall rebuild its catalog and voice library and
-                  raise ReferenceVoicesChanged after a voice pack install attempt is canceled.
+                  The ModelCatalogSubsystem shall rebuild its catalog and voice library after a
+                  voice pack install attempt is canceled.
                 justification: |
                   A canceled upgrade can still have changed the installed state, so the rebuild
-                  and announcement must happen even though the cancellation propagates to the
+                  must happen even though the cancellation propagates to the caller.
+                tests:
+                  - ModelCatalogService_InstallReferenceVoicePackAsync_Canceled_StillRebuildsAndRaises
+
+              - id: SpeechDemo-Voices-PackInstallCanceledAnnounce
+                title: >-
+                  The ModelCatalogSubsystem shall raise ReferenceVoicesChanged after a voice
+                  pack install attempt is canceled.
+                justification: |
+                  A canceled upgrade can still have changed the installed state, so dependent
+                  panels must be told to refresh even though the cancellation propagates to the
                   caller.
                 tests:
                   - ModelCatalogService_InstallReferenceVoicePackAsync_Canceled_StillRebuildsAndRaises
 
               - id: SpeechDemo-Voices-PackMirrorRebuild
                 title: >-
-                  The ModelCatalogSubsystem shall rebuild its catalog and voice library and
-                  raise ReferenceVoicesChanged when its mirror is changed.
+                  The ModelCatalogSubsystem shall rebuild its catalog and voice library when its
+                  mirror is changed.
                 justification: |
                   Voice packs download through the same mirror as models, so a mirror change
-                  must produce a freshly configured catalog and library and tell dependent
-                  panels to refresh.
+                  must produce a freshly configured catalog and library.
+                tests:
+                  - ModelCatalogService_ApplyMirror_Composed_RebuildsPairAndRaisesEvent
+
+              - id: SpeechDemo-Voices-PackMirrorAnnounce
+                title: >-
+                  The ModelCatalogSubsystem shall raise ReferenceVoicesChanged when its mirror
+                  is changed.
+                justification: |
+                  Dependent panels must be told to refresh once a mirror change has produced a
+                  freshly configured catalog and library.
                 tests:
                   - ModelCatalogService_ApplyMirror_Composed_RebuildsPairAndRaisesEvent
 

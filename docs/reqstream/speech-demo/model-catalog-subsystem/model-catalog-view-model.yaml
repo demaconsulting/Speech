@@ -306,11 +306,19 @@ sections:
 
               - id: SpeechDemo-Voices-PackInstall
                 title: >-
-                  The ModelCatalogSubsystem shall install a voice pack on command and refresh the
-                  rows so the pack is shown as installed.
+                  The ModelCatalogSubsystem shall install a voice pack on command.
                 justification: |
-                  Installing a pack makes its voices available; the user must see from the row
-                  that the install worked and that the pack can now be removed.
+                  Installing a pack makes its voices available.
+                tests:
+                  - ModelCatalogViewModel_InstallVoicePackAsync_Installed_RefreshesRows
+
+              - id: SpeechDemo-Voices-PackInstallRowRefresh
+                title: >-
+                  The ModelCatalogSubsystem shall refresh the rows after a voice pack install so
+                  the pack is shown as installed.
+                justification: |
+                  The user must see from the row that the install worked and that the pack can
+                  now be removed.
                 tests:
                   - ModelCatalogViewModel_InstallVoicePackAsync_Installed_RefreshesRows
 

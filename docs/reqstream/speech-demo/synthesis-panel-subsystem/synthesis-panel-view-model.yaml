@@ -122,14 +122,25 @@ sections:
 
               - id: SpeechDemo-Synthesis-EngineSessionReuse
                 title: >-
-                  The SynthesisPanelViewModel shall load a synthesizer engine once and create a
-                  session once, reusing both across repeated Play calls while the selected
-                  model, its parameter values and the playback device are unchanged.
+                  The SynthesisPanelViewModel shall load a synthesizer engine once and reuse it
+                  across repeated Play calls while the selected model, its parameter values and
+                  the playback device are unchanged.
                 justification: |
                   Loading a model is the expensive step, and the library's guidance for its
-                  synthesizer engine and session is to construct once and reuse across many
-                  sessions. Replaying the same text with the same voice is the common case and
-                  must stay cheap.
+                  synthesizer engine is to construct once and reuse across many sessions.
+                  Replaying the same text with the same voice is the common case and must stay
+                  cheap.
+                tests:
+                  - SynthesisPanelViewModel_Play_CalledTwiceWithUnchangedModelAndParameters_ReusesSameSessionWithoutReload
+
+              - id: SpeechDemo-Synthesis-SessionReuse
+                title: >-
+                  The SynthesisPanelViewModel shall create a synthesizer session once and reuse
+                  it across repeated Play calls while the selected model, its parameter values
+                  and the playback device are unchanged.
+                justification: |
+                  The library's guidance for its synthesizer session is to construct once and
+                  reuse it, so replaying the same text with the same voice stays cheap.
                 tests:
                   - SynthesisPanelViewModel_Play_CalledTwiceWithUnchangedModelAndParameters_ReusesSameSessionWithoutReload
 
@@ -277,11 +288,21 @@ sections:
 
               - id: SpeechDemo-Synthesis-ResourceLifetime
                 title: >-
-                  The SynthesisPanelViewModel shall release its cached session and cached engine
-                  when it is disposed.
+                  The SynthesisPanelViewModel shall release its cached session when it is
+                  disposed.
                 justification: |
-                  The panel caches an engine and a session across Play calls; leaking them at
-                  shutdown would keep a loaded model and an open playback device alive.
+                  The panel caches a session across Play calls; leaking it at shutdown would
+                  keep an open playback device alive.
+                tests:
+                  - SynthesisPanelViewModel_DisposeAsync_AfterPlay_ReleasesSessionAndEngineOnce
+
+              - id: SpeechDemo-Synthesis-EngineLifetime
+                title: >-
+                  The SynthesisPanelViewModel shall release its cached engine when it is
+                  disposed.
+                justification: |
+                  The panel caches an engine across Play calls; leaking it at shutdown would
+                  keep a loaded model alive.
                 tests:
                   - SynthesisPanelViewModel_DisposeAsync_AfterPlay_ReleasesSessionAndEngineOnce
 

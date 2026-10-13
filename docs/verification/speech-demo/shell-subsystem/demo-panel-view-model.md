@@ -26,7 +26,6 @@ missing title, a blank title, and a missing content.
 
 **Expected**: Both are carried unchanged.
 
-
 ##### DemoPanelViewModel_Constructor_BlankTitle_ThrowsArgumentException
 
 **Scenario**: A navigation entry is built with an empty or whitespace title.
@@ -39,10 +38,8 @@ missing title, a blank title, and a missing content.
 
 **Expected**: `ArgumentNullException`.
 
-
 ##### DemoPanelViewModel_Constructor_NullContent_ThrowsArgumentNullException
 
 **Scenario**: A navigation entry is built with no content.
 
 **Expected**: `ArgumentNullException`.
-

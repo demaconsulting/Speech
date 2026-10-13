@@ -130,6 +130,7 @@ sections:
         children:
           - SpeechDemo-Devices-EmptyStateExplanation
           - SpeechDemo-Devices-EmptyStateAfterRefresh
+          - SpeechDemo-Devices-EmptyStateAfterRefreshExplained
           - SpeechDemo-Devices-EmptySelectionFallback
           - SpeechDemo-DeviceSelection-EmptyPanelExplained
         tests:
@@ -340,21 +341,29 @@ sections:
           - SpeechDemo-Voices-PackRowRequiresPack
           - SpeechDemo-Voices-PackEmotionOption
           - SpeechDemo-Voices-PackNoEmotionOption
+          - SpeechDemo-ModelCatalog-VoicePackChangeRebuild
           - SpeechDemo-ModelCatalog-VoicePackChangeNotification
+          - SpeechDemo-ModelCatalog-VoicePackRemovedRebuild
           - SpeechDemo-ModelCatalog-VoicePackRemovedNotification
+          - SpeechDemo-ModelCatalog-VoicePackMirrorChangedRebuild
           - SpeechDemo-ModelCatalog-VoicePackMirrorChangedNotification
           - SpeechDemo-Voices-PackServiceCompositionRequired
           - SpeechDemo-Voices-PackServiceNoLibrary
           - SpeechDemo-Voices-PackServiceNoLibraryRefusal
           - SpeechDemo-Voices-PackUninstallRebuild
+          - SpeechDemo-Voices-PackUninstallAnnounce
           - SpeechDemo-Voices-PackInstallRebuild
+          - SpeechDemo-Voices-PackInstallFailureAnnounce
           - SpeechDemo-Voices-PackInstallCanceledRebuild
+          - SpeechDemo-Voices-PackInstallCanceledAnnounce
           - SpeechDemo-Voices-PackMirrorRebuild
+          - SpeechDemo-Voices-PackMirrorAnnounce
           - SpeechDemo-Voices-PackUninstallWaitsForInstall
           - SpeechDemo-Voices-PackUninstallDefersRebuild
           - SpeechDemo-Voices-PackSectionHidden
           - SpeechDemo-Voices-PackInstalledEmotionsShown
           - SpeechDemo-Voices-PackInstall
+          - SpeechDemo-Voices-PackInstallRowRefresh
           - SpeechDemo-Voices-PackEmotionChoiceForwarded
           - SpeechDemo-Voices-PackAddEmotionsIncluded
           - SpeechDemo-Voices-PackInstallFailureReported
@@ -529,9 +538,11 @@ sections:
           - SpeechDemo-Synthesis-PlayLifecycle
           - SpeechDemo-Synthesis-SessionSeam
           - SpeechDemo-Synthesis-EngineSessionReuse
+          - SpeechDemo-Synthesis-SessionReuse
           - SpeechDemo-Synthesis-VoiceSelectionForwarding
           - SpeechDemo-Synthesis-AutoRefreshOnInstall
           - SpeechDemo-Synthesis-ResourceLifetime
+          - SpeechDemo-Synthesis-EngineLifetime
           - SpeechDemo-Synthesis-ModelSwitchGuard
           - SpeechDemo-Synthesis-DisposeIdempotent
           - SpeechDemo-Synthesis-ModelSwitchAllowedAfterError
@@ -655,6 +666,7 @@ sections:
           - SpeechDemo-Recognition-ModelSelection
           - SpeechDemo-Recognition-StartStopLifecycle
           - SpeechDemo-Recognition-ResourceLifetime
+          - SpeechDemo-Recognition-EngineLifetime
           - SpeechDemo-Recognition-SessionSeam
           - SpeechDemo-Recognition-AutoRefreshOnInstall
           - SpeechDemo-Recognition-ModelSwitchGuard

@@ -37,7 +37,6 @@ two capture devices and one playback device.
 
 **Expected**: Both pickers list exactly those devices.
 
-
 #### DeviceSelectionSubsystem_Composed_ProbesReportDevices_PickersPreselectFirstOfEachDirection
 
 **Scenario**: The view model is composed over the real adapter and a factory whose probes report
@@ -45,7 +44,6 @@ two capture devices and one playback device.
 
 **Expected**: The first device of each direction is preselected, and the derived selections are the
 library's name-based values for them.
-
 
 #### DeviceSelectionSubsystem_Composed_ProbesReportNothing_PickersExplainAndDefault
 
@@ -55,7 +53,6 @@ nothing.
 **Expected**: Both pickers are empty with an explanatory status and both selections are the
 library's system default.
 
-
 #### DeviceSelectionSubsystem_Composed_Refresh_ReScansLibrary
 
 **Scenario**: The composed panel is refreshed over a factory built on a fake PortAudio
@@ -64,11 +61,9 @@ environment.
 **Expected**: The environment is terminated once and initialized twice (the initial initialization
 plus the re-scan).
 
-
 #### DeviceSelectionSubsystem_Composed_Refresh_DeviceStillReported_KeepsSelection
 
 **Scenario**: The composed panel is refreshed over a factory whose probe still reports both
 capture devices, with the second capture device selected.
 
 **Expected**: The second capture device stays selected.
-

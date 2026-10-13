@@ -92,13 +92,20 @@ sections:
 
               - id: SpeechDemo-Devices-EmptyStateAfterRefresh
                 title: >-
-                  The DeviceSelectionViewModel shall clear the chosen device and report the
-                  explanatory empty-state message when a refresh removes the last device in a
-                  direction.
+                  The DeviceSelectionViewModel shall clear the chosen device when a refresh
+                  removes the last device in a direction.
                 justification: |
                   A device unplugged while the demo runs must not leave a stale selection on
-                  screen; the panel returns to the same explained empty state it shows at
-                  start-up.
+                  screen.
+                tests:
+                  - DeviceSelectionViewModel_Refresh_AllDevicesRemoved_ClearsSelectionAndExplains
+
+              - id: SpeechDemo-Devices-EmptyStateAfterRefreshExplained
+                title: >-
+                  The DeviceSelectionViewModel shall report the explanatory empty-state message
+                  when a refresh removes the last device in a direction.
+                justification: |
+                  The panel returns to the same explained empty state it shows at start-up.
                 tests:
                   - DeviceSelectionViewModel_Refresh_AllDevicesRemoved_ClearsSelectionAndExplains
 
@@ -148,8 +155,10 @@ sections:
                   - SpeechDemo-Devices-RefreshSelectionFallback
                   - SpeechDemo-Devices-RefreshAvailabilityNotification
                   - SpeechDemo-Devices-RefreshInUseHandling
+                  - SpeechDemo-Devices-RefreshInUseKeepsState
                   - SpeechDemo-Devices-RefreshPreHooks
                   - SpeechDemo-Devices-RefreshGeneralFaultHandling
+                  - SpeechDemo-Devices-RefreshGeneralFaultKeepsState
                   - SpeechDemo-Devices-RefreshRecovery
                 tests:
                   - DeviceSelectionViewModel_RefreshCommand_Executed_ReEnumeratesDevices
@@ -203,13 +212,23 @@ sections:
               - id: SpeechDemo-Devices-RefreshInUseHandling
                 title: >-
                   The DeviceSelectionViewModel shall show the message of an
-                  AudioDeviceInUseException raised by a refresh as both status texts, leaving
-                  both device lists and both selections unchanged and not raising an error.
+                  AudioDeviceInUseException raised by a refresh as both status texts without
+                  raising an error.
                 justification: |
                   A refresh refused because a device is actively streaming is an ordinary,
-                  recoverable condition, not a crash; re-enumerating anyway could not have
-                  found anything new (the library refused to re-scan), so leaving both lists
-                  and selections untouched while explaining why is the honest, crash-free
+                  recoverable condition, not a crash; explaining why is the honest, crash-free
+                  choice.
+                tests:
+                  - DeviceSelectionViewModel_Refresh_ServiceThrowsAudioDeviceInUseException_SurfacesMessageViaStatusAndDoesNotClearLists
+                  - DeviceSelectionViewModel_Refresh_HookCannotStopInUseDevice_FallsBackToStatusMessage
+
+              - id: SpeechDemo-Devices-RefreshInUseKeepsState
+                title: >-
+                  The DeviceSelectionViewModel shall leave both device lists and both
+                  selections unchanged when a refresh raises an AudioDeviceInUseException.
+                justification: |
+                  Re-enumerating anyway could not have found anything new (the library refused
+                  to re-scan), so leaving both lists and selections untouched is the honest
                   choice.
                 tests:
                   - DeviceSelectionViewModel_Refresh_ServiceThrowsAudioDeviceInUseException_SurfacesMessageViaStatusAndDoesNotClearLists
@@ -218,8 +237,7 @@ sections:
               - id: SpeechDemo-Devices-RefreshGeneralFaultHandling
                 title: >-
                   The DeviceSelectionViewModel shall show the message of any other exception
-                  raised by a refresh as both status texts, leaving both device lists and both
-                  selections unchanged and not raising an error.
+                  raised by a refresh as both status texts without raising an error.
                 justification: |
                   The library's refresh can also propagate a general exception - for example, a
                   native Terminate() failure - that is not AudioDeviceInUseException (see the
@@ -227,6 +245,16 @@ sections:
                   Treating every refresh fault the same way keeps the UI crash-free and the
                   explanation honest regardless of which failure mode the native runtime
                   reports.
+                tests:
+                  - DeviceSelectionViewModel_Refresh_ServiceThrowsGeneralException_SurfacesMessageViaStatusAndDoesNotClearLists
+
+              - id: SpeechDemo-Devices-RefreshGeneralFaultKeepsState
+                title: >-
+                  The DeviceSelectionViewModel shall leave both device lists and both
+                  selections unchanged when a refresh raises any other exception.
+                justification: |
+                  A faulted refresh found nothing trustworthy, so keeping the previous lists
+                  and selections is safer than clearing them.
                 tests:
                   - DeviceSelectionViewModel_Refresh_ServiceThrowsGeneralException_SurfacesMessageViaStatusAndDoesNotClearLists
 

@@ -320,12 +320,22 @@ sections:
 
               - id: SpeechDemo-Recognition-ResourceLifetime
                 title: >-
-                  The RecognitionPanelViewModel shall release an active session and the cached
-                  recognizer engine when the panel is disposed.
+                  The RecognitionPanelViewModel shall release an active session when the panel is
+                  disposed.
                 justification: |
-                  A recognizer engine and its session own unmanaged inference resources and a live
-                  capture device; leaking either when the panel's host shuts down would starve the
-                  next session or leave the device open.
+                  A recognizer session owns unmanaged inference resources and a live capture
+                  device; leaking it when the panel's host shuts down would leave the device
+                  open.
+                tests:
+                  - RecognitionPanelViewModel_Dispose_ReleasesActiveSessionWithoutThrowing
+
+              - id: SpeechDemo-Recognition-EngineLifetime
+                title: >-
+                  The RecognitionPanelViewModel shall release the cached recognizer engine when
+                  the panel is disposed.
+                justification: |
+                  A recognizer engine owns unmanaged inference resources; leaking it when the
+                  panel's host shuts down would starve the next session.
                 tests:
                   - RecognitionPanelViewModel_Dispose_ReleasesActiveSessionWithoutThrowing
 

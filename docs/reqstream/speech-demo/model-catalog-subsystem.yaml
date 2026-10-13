@@ -74,39 +74,62 @@ sections:
             tests:
               - ModelCatalogViewModel_ApplyMirror_ValidMirror_ReportsSuccess
 
-          - id: SpeechDemo-ModelCatalog-VoicePackChangeNotification
+          - id: SpeechDemo-ModelCatalog-VoicePackChangeRebuild
             title: >-
               The ModelCatalogSubsystem shall rebuild its catalog and reference voice library
-              and raise a voices-changed notification after a voice pack install attempt, so
-              that other panels can refresh.
+              after a voice pack install attempt.
             justification: |
               The Chatterbox voice list is fixed when the model is constructed, so a stale
-              catalog would keep offering the old voices. The notification is how the synthesis
-              panel learns that its voice choices changed.
+              catalog would keep offering the old voices.
             tests:
               - ModelCatalogService_InstallReferenceVoicePackAsync_Failure_StillRebuildsAndRaises
               - ModelCatalogViewModel_InstallVoicePackAsync_Installed_RefreshesRows
 
-          - id: SpeechDemo-ModelCatalog-VoicePackRemovedNotification
+          - id: SpeechDemo-ModelCatalog-VoicePackChangeNotification
+            title: >-
+              The ModelCatalogSubsystem shall raise a voices-changed notification after a voice
+              pack install attempt, so that other panels can refresh.
+            justification: |
+              The notification is how the synthesis panel learns that its voice choices
+              changed.
+            tests:
+              - ModelCatalogService_InstallReferenceVoicePackAsync_Failure_StillRebuildsAndRaises
+              - ModelCatalogViewModel_InstallVoicePackAsync_Installed_RefreshesRows
+
+          - id: SpeechDemo-ModelCatalog-VoicePackRemovedRebuild
             title: >-
               The ModelCatalogSubsystem shall rebuild its catalog and reference voice library
-              and raise a voices-changed notification after a voice pack is removed, so that
-              other panels can refresh.
+              after a voice pack is removed.
             justification: |
-              A removed voice is only withdrawn once the catalog is rebuilt, and the
-              notification lets the synthesis panel stop offering the removed voices.
+              A removed voice is only withdrawn once the catalog is rebuilt.
             tests:
               - ModelCatalogService_UninstallReferenceVoicePack_RebuildsCatalogAndRaisesEvent
 
-          - id: SpeechDemo-ModelCatalog-VoicePackMirrorChangedNotification
+          - id: SpeechDemo-ModelCatalog-VoicePackRemovedNotification
+            title: >-
+              The ModelCatalogSubsystem shall raise a voices-changed notification after a voice
+              pack is removed, so that other panels can refresh.
+            justification: |
+              The notification lets the synthesis panel stop offering the removed voices.
+            tests:
+              - ModelCatalogService_UninstallReferenceVoicePack_RebuildsCatalogAndRaisesEvent
+
+          - id: SpeechDemo-ModelCatalog-VoicePackMirrorChangedRebuild
             title: >-
               The ModelCatalogSubsystem shall rebuild its catalog and reference voice library
-              and raise a voices-changed notification when the mirror is changed, so that
-              other panels can refresh.
+              when the mirror is changed.
             justification: |
               Voice packs download through the same mirror as models, so a mirror change
-              produces a freshly configured catalog and library that dependent panels must
-              pick up.
+              produces a freshly configured catalog and library.
+            tests:
+              - ModelCatalogService_ApplyMirror_Composed_RebuildsPairAndRaisesEvent
+
+          - id: SpeechDemo-ModelCatalog-VoicePackMirrorChangedNotification
+            title: >-
+              The ModelCatalogSubsystem shall raise a voices-changed notification when the
+              mirror is changed, so that other panels can refresh.
+            justification: |
+              Dependent panels must pick up the freshly configured catalog and library.
             tests:
               - ModelCatalogService_ApplyMirror_Composed_RebuildsPairAndRaisesEvent
 
