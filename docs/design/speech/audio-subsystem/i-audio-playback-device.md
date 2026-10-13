@@ -17,7 +17,8 @@ after `Start()` and after `Stop()`, and never throw. `PendingSampleCount` is a `
 - **Write(IReadOnlyList&lt;float&gt;)**: Submit normalized interleaved float samples in [-1, 1]
   for playback. The list must not be null: an available device throws `ArgumentNullException`, whereas an
   unavailable device throws `AudioDeviceUnavailableException` without examining its argument. Real
-  implementations may buffer the supplied block before the hardware callback requests it; `Write` is fire-and-forget and returns immediately
+  implementations may buffer the supplied block before the hardware callback requests it; `Write` is
+  fire-and-forget and returns immediately
   regardless of how much audio is still pending, so it alone cannot tell a caller when playback
   has genuinely finished.
 - **PendingSampleCount**: Reports how many samples handed to `Write` the hardware has not yet
