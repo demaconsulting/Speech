@@ -1593,6 +1593,7 @@ reviews:
       - "docs/verification/speech-demo/app.md"
       - "src/DemaConsulting.Speech.Demo/App.axaml.cs"
       - "test/DemaConsulting.Speech.Demo.Tests/SpeechDemoTests.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/AppTests.cs"
       - "test/DemaConsulting.Speech.Demo.Tests/Ots/AvaloniaTests.cs"
 
   # SpeechDemo-AppLaunchOptions Review (one per unit)
@@ -1620,6 +1621,7 @@ reviews:
       - "docs/verification/speech-demo/mirror-options-factory.md"
       - "src/DemaConsulting.Speech.Demo/MirrorOptionsFactory.cs"
       - "test/DemaConsulting.Speech.Demo.Tests/AppLaunchOptionsTests.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/MirrorOptionsFactoryTests.cs"
       - "test/DemaConsulting.Speech.Demo.Tests/ModelCatalogSubsystem/ModelCatalogViewModelTests.cs"
 
   # SpeechDemo-Program Review (one per unit)
@@ -1633,6 +1635,7 @@ reviews:
       - "docs/design/speech-demo/program.md"
       - "docs/verification/speech-demo/program.md"
       - "src/DemaConsulting.Speech.Demo/Program.cs"
+      - "test/DemaConsulting.Speech.Demo.Tests/ProgramTests.cs"
       - "test/DemaConsulting.Speech.Demo.Tests/Ots/AvaloniaTests.cs"
 
   # SpeechDemo-Design Review (one per system)
