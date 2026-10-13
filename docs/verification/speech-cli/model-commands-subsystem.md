@@ -160,8 +160,9 @@ as an error with exit code 1 rather than escaping as an unhandled exception; the
 `SpeechCli_CleanCommand_Invoked_NothingToCleanUp_ExitsCleanly`
 
 **Scenario/Expected**: A model with nothing (or something) to clean up is reported successful
-either way, since `CleanUpLeftoversAsync` never throws on its own; a missing or extra positional argument is
-rejected with `ArgumentException`; a canceled token is reported as an error with exit code 1; the nothing-to-clean-up path exits `0` against the built tool.
+either way, since `CleanUpLeftoversAsync` never throws on its own; a missing or extra positional
+argument is rejected with `ArgumentException`; a canceled token is reported as an error with
+exit code 1; the nothing-to-clean-up path exits `0` against the built tool.
 
 #### ListVoicesCommand
 
