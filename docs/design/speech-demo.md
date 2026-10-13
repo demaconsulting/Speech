@@ -14,9 +14,9 @@ behavior and its own users, and because the library must never depend on it.
 
 The application consists of six subsystems and four units that sit directly under the system:
 
-- **ShellSubsystem**: the manual composition root and the window shell — it constructs the
-  library entry points and the demo's service adapters, injects them into the panel view
-  models, and presents one titled, selectable panel per demonstrated capability — see
+- **ShellSubsystem**: the window shell and the panel wiring — it holds the demo's service adapters,
+  injects them into the panel view models, and presents one titled, selectable panel per
+  demonstrated capability; the composition root itself is `App` — see
   _SpeechDemo ShellSubsystem Design_
 - **DeviceSelectionSubsystem**: the capture and playback device pickers — a demo-owned
   enumeration seam over the library's `AudioDeviceFactory` probes, plus the presentation state
@@ -63,7 +63,8 @@ external interfaces are its user interface and the interfaces it consumes.
 | Model settings panel | Inbound/Outbound | User interface | Renders generic controls; explains empty state |
 | Text-to-speech panel | Inbound/Outbound | User interface | Text input, tag hints, Play/Stop, playback status |
 | Speech-to-text panel | Inbound/Outbound | User interface | Start/Stop, live partial/final transcript |
-| Command-line launch options | Inbound | Arguments | `--models-dir`, `--voices-dir`, `--mirror-*`, `--help` |
+| Command-line launch options | Inbound | Arguments | `--models-dir`, `--voices-dir`, `--mirror-*`, `--help`/`-h`/`-?` |
+| `DEMASPEECH_MIRROR_*` variables | Inbound | Environment variables | URL, user, password, bearer-token defaults |
 | Mirror and voice-pack controls | Inbound/Outbound | User interface | Validated locally; honest failures |
 | `DEMASPEECH_CAPTURE_DEBUG_DIR` | Inbound | Environment variable | Opt-in raw capture recording; off by default |
 | Refresh commands | Inbound | User interface | Never throw |
@@ -198,10 +199,15 @@ N/A - SpeechDemo provides no safety-critical functionality requiring risk contro
 (`--models-dir`, `--voices-dir`, `--mirror-url`, `--mirror-user`, `--mirror-password`, `--mirror-bearer-token`,
 and `--help`/`-h`/`-?`), mirroring `DemaConsulting.Speech.Cli`'s global options of the same name
 so a user behind a network policy that blocks a model's public download host can redirect every
-model download to an internal mirror the same way with either tool. `Program.Main` parses
+model download to an internal mirror the same way with either tool. Each mirror setting can also
+come from a `DEMASPEECH_MIRROR_URL`, `_USER`, `_PASSWORD` or `_BEARER_TOKEN` environment
+variable: an explicit `--mirror-url` wins over the URL variable, any credential option on the
+command line disables all credential variables, and an empty variable counts as unset.
+`Program.Main` parses
 `args` into an `AppLaunchOptions` before Avalonia's lifetime starts and publishes it through the
 static `App.LaunchOptions` property, since the demo's composition root (`App`) has no
-constructor parameters of its own to carry it through. Launch-time arguments are the
+constructor parameters of its own to carry it through. `Program.Run` is the testable seam for this
+step and `App.Compose` for the composition that follows. Launch-time arguments are the
 scriptable complement to the in-app mirror-settings panel: they are discoverable (via `--help`)
 and let a shell or script configure the demo before it starts.
 

@@ -141,4 +141,5 @@ resources, a live capture device, or a stale event subscription.
 
 **Callers**:
 
-- `RecognitionPanelView.axaml`, which binds to the view model; no other unit calls it
+- `RecognitionPanelView.axaml`, which binds to the view model
+- `App.Compose`, which constructs it, and `MainWindowViewModel`, which hosts it

@@ -101,7 +101,6 @@ and the empty-catalog message, driven entirely by `IModelCatalogService`.
   canceled and otherwise catches any exception from the service and shows its message on the row,
   so a store error never crashes the panel and leaves the pack installed.
 
-
 **Error Handling**: Never lets a seam fault, checksum mismatch, transport failure, or
 cancellation escape as an unhandled exception; every outcome resolves to a row state and,
 where applicable, a human-readable failure message. When the catalog reports nothing,

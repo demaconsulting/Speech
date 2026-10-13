@@ -27,11 +27,16 @@ launch as in the model catalog panel.
   models folder was given.
 - `CreateDownloaderOptions()` delegates mirror validation and construction to
   `MirrorOptionsFactory` and returns `null` when no mirror was requested.
-- `PrintHelp` writes the option summary to a text writer.
+- `PrintHelp(TextWriter)` writes the option summary to the supplied writer (throwing
+  `ArgumentNullException` for a null writer); `PrintHelp()` writes to `Console.Out`. The summary
+  lists the help flags, `--mirror-bearer-token` and the four `DEMASPEECH_MIRROR_*` variables,
+  exposed as the `MirrorUrlEnvironmentVariable`, `MirrorUserEnvironmentVariable`,
+  `MirrorPasswordEnvironmentVariable` and `MirrorBearerTokenEnvironmentVariable` constants.
 
-**Error Handling**: `Parse` throws `ArgumentNullException` for null arguments and
-`ArgumentException` for an unrecognized argument, an option missing its value, or a `--voices-dir`
-folder that does not exist. `CreateDownloaderOptions` surfaces the factory's `ArgumentException`.
+**Error Handling**: `Parse` throws `ArgumentNullException` for null arguments or a null
+environment reader, and `ArgumentException` for an unrecognized argument, an option missing its
+value, or a `--voices-dir` folder that does not exist. `CreateDownloaderOptions` surfaces the
+factory's `ArgumentException`.
 
 **Dependencies**: `MirrorOptionsFactory` and the library's `SpeechModelStoreOptions` and
 `SpeechModelDownloaderOptions`.

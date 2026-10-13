@@ -3,8 +3,9 @@
 ### Verification Approach
 
 `AppLaunchOptions` is verified through deterministic unit tests that call `Parse`, the option
-translation methods and `PrintHelp` directly. Folder-existence checks use scratch directories under
-the test output folder.
+translation methods and `PrintHelp(TextWriter)` directly. Every parse test uses an injected fake
+environment reader, so results never depend on the ambient `DEMASPEECH_MIRROR_*` variables.
+Folder-existence checks use scratch directories under the test output folder.
 
 ### Test Environment
 
@@ -29,13 +30,13 @@ rejected with `ArgumentException`; the store and mirror options reflect the pars
 
 #### Parse_HelpFlag_SetsHelp
 
-**Scenario**: A help flag is supplied.
+**Scenario**: Each help flag (`--help`, `-h` and `-?`) is supplied.
 
 **Expected**: `Help` is set.
 
 #### Parse_AllOptions_ParsesOntoProperties
 
-**Scenario**: Every option is supplied.
+**Scenario**: Every option, including `--voices-dir`, is supplied.
 
 **Expected**: Each value lands on its property.
 
@@ -54,6 +55,12 @@ rejected with `ArgumentException`; the store and mirror options reflect the pars
 #### Parse_NullArguments_ThrowsArgumentNullException
 
 **Scenario**: Null arguments are supplied.
+
+**Expected**: `ArgumentNullException`.
+
+#### Parse_NullEnvironmentReader_ThrowsArgumentNullException
+
+**Scenario**: A null environment reader is supplied.
 
 **Expected**: `ArgumentNullException`.
 
@@ -99,6 +106,24 @@ rejected with `ArgumentException`; the store and mirror options reflect the pars
 
 **Expected**: `ArgumentException`.
 
+#### CreateDownloaderOptions_MirrorPasswordWithoutUser_ThrowsArgumentException
+
+**Scenario**: A mirror password is given without a user.
+
+**Expected**: `ArgumentException`.
+
+#### CreateDownloaderOptions_MirrorCredentialsWithoutUrl_ThrowsArgumentException
+
+**Scenario**: A mirror user and password are given without a URL.
+
+**Expected**: `ArgumentException`.
+
+#### CreateDownloaderOptions_MirrorBearerTokenWithoutUrl_ThrowsArgumentException
+
+**Scenario**: A mirror bearer token is given without a URL.
+
+**Expected**: `ArgumentException`.
+
 #### Parse_VoicesDir_ExistingDirectory_SetsVoicesDir
 
 **Scenario**: `--voices-dir` names an existing folder.
@@ -122,6 +147,18 @@ rejected with `ArgumentException`; the store and mirror options reflect the pars
 **Scenario**: The help text is printed.
 
 **Expected**: It lists the `--voices-dir` option.
+
+#### PrintHelp_ListsHelpFlagsAndBearerTokenOption
+
+**Scenario**: The help text is written to a `StringWriter`.
+
+**Expected**: It lists `--help`, `-h`, `-?` and `--mirror-bearer-token`.
+
+#### PrintHelp_NullWriter_ThrowsArgumentNullException
+
+**Scenario**: A null writer is supplied.
+
+**Expected**: `ArgumentNullException`.
 
 #### Parse_EnvironmentMirrorUrl_UsedWhenOptionAbsent
 

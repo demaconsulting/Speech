@@ -22,7 +22,8 @@ following units, each documented in its own file:
 ### Interfaces
 
 The subsystem exposes one presentation surface, `RecognitionPanelViewModel`, consumed by
-`RecognitionPanelView.axaml`; no other subsystem depends on it. It consumes:
+`RecognitionPanelView.axaml`; the ShellSubsystem (`MainWindowViewModel`) holds and hosts it, and
+`App` constructs it. It consumes:
 
 - `IModelCatalogService` and `IAudioDeviceService` — the shell-provided demo services for
   listing installed models and creating capture devices

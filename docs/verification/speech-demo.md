@@ -25,8 +25,9 @@ synthesis roles, but the full download/install lifecycle is still verified at th
 against controlled catalog data, never a real network fetch.
 
 System tests reside in `SpeechDemoTests.cs` within the `DemaConsulting.Speech.Demo.Tests`
-project. They compose the real shell with the library's fakes (catalog service, synthesis and
-recognition sessions) so every system requirement is proven through the composed application
+project. They compose the real shell over the library's real public entry points, and the
+test project supplies its own fakes where a unit needs one (catalog service, synthesis and
+recognition sessions), so every system requirement is proven through the composed application
 rather than a single unit.
 
 ## Test Environment
