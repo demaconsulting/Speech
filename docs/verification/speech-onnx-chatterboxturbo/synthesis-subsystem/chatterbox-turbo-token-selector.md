@@ -44,8 +44,8 @@ Logits `[-1, -1.1]`, history `{0}`: id 0 scores -1 x 1.2 = -1.2, below -1.1, so 
 **Test**: `ChatterboxTurboTokenSelector_Select_Ties_ResolveToLowestId`
 
 Logits `[1, 1, 1]`, empty history: id 0. With `[1, 1, 1]` and history `{0, 1, 99}`
-(`ChatterboxTurboTokenSelector_Select_PenalizedTiesAndOutOfRangeHistory_ResolveToUnpenalizedId`) ids 0 and 1 are penalized to 0.83 and
-the out-of-range id 99 is ignored: id 2.
+(`ChatterboxTurboTokenSelector_Select_PenalizedTiesAndOutOfRangeHistory_ResolveToUnpenalizedId`) ids 0 and 1
+are penalized to 0.83 and the out-of-range id 99 is ignored: id 2.
 
 ##### Invalid input is rejected
 

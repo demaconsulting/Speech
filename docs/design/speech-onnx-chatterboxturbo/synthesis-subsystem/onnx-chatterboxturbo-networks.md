@@ -39,8 +39,10 @@ tensors for embeddings and empty cache entries.
   one shared half-to-float helper.
 
 **Error Handling**: `FileNotFoundException` for a missing graph (checked before a session is created);
-`ArgumentOutOfRangeException` for a non-positive thread count, a non-positive sequence length or an attention length shorter than the
-sequence length; `ObjectDisposedException` for use after dispose of the networks or of a language-model state; `ArgumentException` for an embeddings array of the wrong length; `ArgumentNullException`
+`ArgumentOutOfRangeException` for a non-positive thread count, a non-positive sequence length or an
+attention length shorter than the sequence length; `ObjectDisposedException` for use after dispose of the
+networks or of a language-model state; `ArgumentException` for an embeddings array of the wrong length;
+`ArgumentNullException`
 for null arguments; `InvalidOperationException` when a graph lacks the expected structure (no
 `past_key_values` inputs, or encoder outputs that match neither the named nor the positional contract);
 other ONNX Runtime exceptions propagate after cleanup. Not thread-safe; the engine serializes calls.
