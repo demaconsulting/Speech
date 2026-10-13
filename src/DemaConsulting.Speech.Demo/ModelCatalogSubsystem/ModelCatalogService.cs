@@ -251,24 +251,21 @@ public sealed class ModelCatalogService : IModelCatalogService, IDisposable
         _catalog = composition.Catalog;
         _voiceLibrary = composition.VoiceLibrary;
         _downloaderOptions = options;
-        previousCatalog.Dispose();
-        previousLibrary?.Dispose();
+
+        // The new pair is already published, so the previous library is disposed even when disposing
+        // the previous catalog throws; that failure then propagates after both disposals were attempted.
+        try
+        {
+            previousCatalog.Dispose();
+        }
+        finally
+        {
+            previousLibrary?.Dispose();
+        }
     }
 
     /// <inheritdoc/>
-    public IReadOnlyList<SpeechModelDescriptor> Enumerate()
-    {
-        try
-        {
-            return _catalog.Enumerate();
-        }
-        catch (ObjectDisposedException)
-        {
-            // A concurrent ApplyMirror disposed the catalog read just before the swap; the
-            // replacement is already published, so retry against it.
-            return _catalog.Enumerate();
-        }
-    }
+    public IReadOnlyList<SpeechModelDescriptor> Enumerate() => _catalog.Enumerate();
 
     /// <inheritdoc/>
     public async Task<SpeechModelDownloadResult> DownloadAsync(

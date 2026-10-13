@@ -333,4 +333,55 @@ public class ReferenceVoicePackListItemViewModelTests
         // Assert
         Assert.Equal("999", row.StatusText);
     }
+
+    /// <summary>
+    ///     Proves that changing <c>ProgressFraction</c> raises a change notification for itself and that the value
+    ///     is passed through unchanged.
+    /// </summary>
+    [Fact]
+    public void ReferenceVoicePackListItemViewModel_ProgressFraction_Changed_IsAnnouncedAndPassedThrough()
+    {
+        // Arrange
+        var row = new ReferenceVoicePackListItemViewModel(ReferenceVoicePack.VoiceZero10, SpeechModelState.Downloading);
+        var raised = new List<string?>();
+        row.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+        // Act
+        row.ProgressFraction = 0.25;
+
+        // Assert
+        Assert.Contains(nameof(row.ProgressFraction), raised);
+        Assert.Equal(0.25, row.ProgressFraction);
+        Assert.True(row.IsInstalling);
+    }
+
+    /// <summary>
+    ///     Proves that a pack without emotion clips ignores a reported <c>HasEmotions</c> for its status text and
+    ///     upgrade offer.
+    /// </summary>
+    [Fact]
+    public void ReferenceVoicePackListItemViewModel_PackWithoutEmotionVariants_IgnoresHasEmotions()
+    {
+        // Arrange
+        var pack = new ReferenceVoicePack(
+            "plain-pack",
+            "Plain pack",
+            new Uri("https://example.com/plain.zip"),
+            new string('a', 64),
+            1024 * 1024,
+            "plain.zip",
+            "plain",
+            "CC0",
+            new Uri("https://example.com/license"),
+            "Someone",
+            new Uri("https://example.com/source"));
+
+        // Act
+        var row = new ReferenceVoicePackListItemViewModel(pack, SpeechModelState.Downloaded, hasEmotions: true);
+
+        // Assert
+        Assert.Equal("Installed", row.StatusText);
+        Assert.False(row.CanUpgradeToEmotions);
+        Assert.False(row.EffectiveIncludeEmotions);
+    }
 }

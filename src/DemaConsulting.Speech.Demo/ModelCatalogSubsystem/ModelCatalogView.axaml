@@ -6,7 +6,13 @@
 
   <Grid Margin="16" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto">
 
-    <TextBlock Grid.Row="0" Text="Model Catalog" FontSize="18" FontWeight="SemiBold" />
+    <StackPanel Grid.Row="0">
+      <TextBlock Text="Model Catalog" FontSize="18" FontWeight="SemiBold" />
+      <TextBlock Text="{Binding RefreshErrorMessage}"
+                 TextWrapping="Wrap"
+                 IsVisible="{Binding HasRefreshErrorMessage}"
+                 Foreground="IndianRed" />
+    </StackPanel>
 
     <Border Grid.Row="1"
             Margin="0,8,0,0"

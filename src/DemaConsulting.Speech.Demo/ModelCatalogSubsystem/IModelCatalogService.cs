@@ -47,10 +47,10 @@ public interface IModelCatalogService
     ///     released.
     /// </returns>
     /// <remarks>
-    ///     Reads the library's in-memory view; it does not touch the network. The production service
-    ///     retries once when a concurrent mirror change disposes the catalog it was reading, so a
-    ///     disposed-catalog <see cref="ObjectDisposedException"/> or any other fault from the library
-    ///     itself can still propagate to the caller.
+    ///     Reads the library's in-memory view; it does not touch the network. The library catalog's
+    ///     <c>Enumerate</c> never throws for an honest state query and does not depend on the catalog's
+    ///     downloader, so reading a catalog that a mirror change has just replaced is safe and needs no
+    ///     retry; any fault from the library itself propagates to the caller.
     /// </remarks>
     IReadOnlyList<SpeechModelDescriptor> Enumerate();
 

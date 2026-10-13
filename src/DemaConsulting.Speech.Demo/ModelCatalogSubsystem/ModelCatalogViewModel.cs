@@ -138,6 +138,19 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
     public bool MirrorAppliedSuccessfully => HasMirrorStatusMessage && !MirrorHasError;
 
     /// <summary>
+    ///     Gets or sets the explanation shown when the catalog could not be (re-)read, or
+    ///     <see langword="null"/> when the most recent re-read succeeded.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasRefreshErrorMessage))]
+    public partial string? RefreshErrorMessage { get; set; }
+
+    /// <summary>
+    ///     Gets a value indicating whether <see cref="RefreshErrorMessage"/> has content to show.
+    /// </summary>
+    public bool HasRefreshErrorMessage => !string.IsNullOrEmpty(RefreshErrorMessage);
+
+    /// <summary>
     ///     Initializes a new instance of the <see cref="ModelCatalogViewModel"/> class and loads
     ///     the current catalog contents.
     /// </summary>
@@ -220,7 +233,12 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
         {
             // Reconfigure first; any failure here (invalid input, an unsupported reconfiguration or an
             // unexpected seam fault) is reported as the mirror error and the rows are left alone.
-            var mirror = MirrorOptionsFactory.Create(MirrorUrl, MirrorUser, MirrorPassword, MirrorBearerToken);
+            // A cleared text box yields "" rather than null; a blank credential means "not supplied".
+            var mirror = MirrorOptionsFactory.Create(
+                MirrorUrl,
+                NullIfBlank(MirrorUser),
+                NullIfBlank(MirrorPassword),
+                NullIfBlank(MirrorBearerToken));
             _catalogService.ApplyMirror(mirror);
 
             MirrorHasError = false;
@@ -254,6 +272,7 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
         try
         {
             await ReloadAsync().ConfigureAwait(true);
+            RefreshErrorMessage = null;
         }
 #pragma warning disable CA1031 // Presentation layer must not crash the application on any seam fault.
         catch (Exception exception)
@@ -264,6 +283,11 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
             NotifyMirrorStatusChanged();
         }
     }
+
+    /// <summary>Maps an empty or whitespace-only typed value to <see langword="null"/>.</summary>
+    /// <param name="value">The typed value.</param>
+    /// <returns>The value, or <see langword="null"/> when it is null, empty or whitespace-only.</returns>
+    private static string? NullIfBlank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
 
     /// <summary>Announces the derived mirror-status display flags.</summary>
     private void NotifyMirrorStatusChanged()
@@ -295,7 +319,28 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
             return;
         }
 
-        await ReloadAsync().ConfigureAwait(true);
+        await ReloadReportingAsync("The catalog could not be re-read").ConfigureAwait(true);
+    }
+
+    /// <summary>
+    ///     Re-reads the catalog (without the busy check) and reports a failed re-read in
+    ///     <see cref="RefreshErrorMessage"/> instead of throwing; the rows stay as they were.
+    /// </summary>
+    /// <param name="context">The explanation prefix that tells the user what was being re-read and why.</param>
+    /// <returns>A task that completes when the rows are current or the failure has been reported.</returns>
+    private async Task ReloadReportingAsync(string context)
+    {
+        try
+        {
+            await ReloadAsync().ConfigureAwait(true);
+            RefreshErrorMessage = null;
+        }
+#pragma warning disable CA1031 // Presentation layer must not crash the application on any seam fault.
+        catch (Exception exception)
+#pragma warning restore CA1031
+        {
+            RefreshErrorMessage = $"{context}: {exception.Message}";
+        }
     }
 
     /// <summary>
@@ -325,9 +370,19 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
     {
         var previousId = SelectedModel?.Id;
 
+        // Read everything first so a seam fault leaves the displayed rows untouched.
+        var models = _catalogService.Enumerate()
+            .Select(static descriptor => new ModelListItemViewModel(descriptor))
+            .ToList();
+        var packs = new List<ReferenceVoicePackListItemViewModel>();
+        foreach (var pack in _catalogService.ReferenceVoicePacks)
+        {
+            var packState = _catalogService.GetReferenceVoicePackState(pack.Id);
+            packs.Add(new ReferenceVoicePackListItemViewModel(pack, packState, hasEmotions: false));
+        }
+
         Models.Clear();
-        foreach (var model in _catalogService.Enumerate()
-            .Select(static descriptor => new ModelListItemViewModel(descriptor)))
+        foreach (var model in models)
         {
             Models.Add(model);
         }
@@ -338,10 +393,9 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
               ?? Models.FirstOrDefault();
 
         VoicePacks.Clear();
-        foreach (var pack in _catalogService.ReferenceVoicePacks)
+        foreach (var pack in packs)
         {
-            var packState = _catalogService.GetReferenceVoicePackState(pack.Id);
-            VoicePacks.Add(new ReferenceVoicePackListItemViewModel(pack, packState, hasEmotions: false));
+            VoicePacks.Add(pack);
         }
 
         OnPropertyChanged(nameof(HasModels));
@@ -498,8 +552,9 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
 
             if (result.Outcome == SpeechModelDownloadOutcome.Installed)
             {
-                // The service rebuilt the catalog (so Chatterbox re-reads its voices); re-read the rows.
-                await ReloadAsync().ConfigureAwait(true);
+                // The service rebuilt the catalog (so Chatterbox re-reads its voices); re-read the rows. A failed
+                // re-read is not an install failure, so it is reported separately.
+                await ReloadReportingAsync("The voice pack was installed, but the catalog could not be re-read").ConfigureAwait(true);
             }
             else
             {
@@ -591,18 +646,21 @@ public sealed partial class ModelCatalogViewModel : ObservableObject
         try
         {
             await _catalogService.UninstallReferenceVoicePackAsync(pack.Id, cancellationToken).ConfigureAwait(true);
-            await ReloadAsync().ConfigureAwait(true);
         }
         catch (OperationCanceledException)
         {
             pack.FailureMessage = "Removal canceled.";
+            return;
         }
 #pragma warning disable CA1031 // Presentation layer must not crash the application on any seam fault.
         catch (Exception exception)
 #pragma warning restore CA1031
         {
             pack.FailureMessage = exception.Message;
+            return;
         }
+
+        await ReloadReportingAsync("The voice pack was removed, but the catalog could not be re-read").ConfigureAwait(true);
     }
 
     /// <summary>

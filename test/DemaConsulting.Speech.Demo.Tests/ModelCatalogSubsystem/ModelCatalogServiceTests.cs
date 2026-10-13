@@ -126,6 +126,25 @@ public class ModelCatalogServiceTests
     }
 
     /// <summary>
+    ///     Proves that a composed service answers the emotion-variants question through its voice library: a pack
+    ///     that is not installed has none.
+    /// </summary>
+    /// <returns>A task that completes when the test finishes.</returns>
+    [Fact]
+    public async Task ModelCatalogService_ReferenceVoices_Composed_NotInstalledPackHasNoEmotions()
+    {
+        // Arrange
+        var root = IsolatedOptions().RootPathOverride!;
+        using var service = new ModelCatalogService(Compose(root, null), null, o => Compose(root, o));
+
+        // Act
+        var hasEmotions = await service.ReferenceVoicePackHasEmotionsAsync("voice-zero-1.0", TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.False(hasEmotions);
+    }
+
+    /// <summary>
     ///     Proves that a composed service reports a user voices folder inside the catalog's store root.
     /// </summary>
     [Fact]
@@ -295,6 +314,212 @@ public class ModelCatalogServiceTests
         // Act & Assert: the install's own exception wins
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
             service.InstallReferenceVoicePackAsync("voice-zero-1.0", true, null, cts.Token));
+    }
+
+    /// <summary>
+    ///     Builds a composed service whose voice library installs a tiny synthetic pack through an in-memory
+    ///     download client, so a successful install can be exercised without any network access.
+    /// </summary>
+    /// <param name="root">The store root to use.</param>
+    /// <param name="onBuild">Invoked by every rebuild after the initial composition.</param>
+    /// <param name="rebuildFails">Whether rebuilds after the initial composition throw.</param>
+    /// <param name="packId">Receives the synthetic pack's id.</param>
+    /// <returns>The service under test.</returns>
+    private static ModelCatalogService SyntheticPackService(string root, Action onBuild, bool rebuildFails, out string packId)
+    {
+        var zip = SyntheticPackZip();
+        var pack = SyntheticPack(zip);
+        packId = pack.Id;
+        var client = new InMemoryZipClient(zip);
+        ModelCatalogComposition Build(SpeechModelDownloaderOptions? options)
+        {
+            var catalog = new SpeechModelCatalog(new SpeechModelStoreOptions { RootPathOverride = root }, options, diagnostics: null);
+            return new ModelCatalogComposition(
+                catalog,
+                new ReferenceVoiceLibrary(catalog.Store, options, diagnostics: null, client, [pack]));
+        }
+
+        return new ModelCatalogService(
+            Build(null),
+            null,
+            options =>
+            {
+                onBuild();
+                return rebuildFails ? throw new InvalidOperationException("cannot rebuild") : Build(options);
+            });
+    }
+
+    /// <summary>Builds the bytes of a tiny, well-formed voice pack archive.</summary>
+    /// <returns>The zip bytes.</returns>
+    private static byte[] SyntheticPackZip()
+    {
+        using var stream = new MemoryStream();
+        using (var archive = new System.IO.Compression.ZipArchive(stream, System.IO.Compression.ZipArchiveMode.Create, leaveOpen: true))
+        {
+            foreach (var (name, text) in new[] { ("voice-zero/LICENSE.md", "license"), ("voice-zero/voices/alana_jordan.flac", "flac") })
+            {
+                using var entryStream = archive.CreateEntry(name).Open();
+                var bytes = System.Text.Encoding.UTF8.GetBytes(text);
+                entryStream.Write(bytes, 0, bytes.Length);
+            }
+        }
+
+        return stream.ToArray();
+    }
+
+    /// <summary>Builds a pack descriptor whose checksum matches <paramref name="zip"/>.</summary>
+    /// <param name="zip">The archive bytes.</param>
+    /// <returns>The descriptor.</returns>
+    private static ReferenceVoicePack SyntheticPack(byte[] zip) => new(
+        "voice-zero-1.0",
+        "Test pack",
+        new Uri("https://example.invalid/voice-zero-1.0.zip"),
+        Convert.ToHexString(SHA256.HashData(zip)).ToLowerInvariant(),
+        zip.Length,
+        "voice-zero-1.0.zip",
+        "voice-zero",
+        "CC0 1.0 Universal",
+        new Uri("https://creativecommons.org/publicdomain/zero/1.0/"),
+        "Test attribution",
+        new Uri("https://example.invalid/project"));
+
+    /// <summary>Fake client that serves one fixed in-memory archive.</summary>
+    /// <param name="payload">The archive bytes.</param>
+    private sealed class InMemoryZipClient(byte[] payload) : IModelDownloadClient
+    {
+        /// <inheritdoc/>
+        public async Task DownloadAsync(
+            Uri sourceUri,
+            Stream destination,
+            IProgress<SpeechModelDownloadProgress>? progress,
+            CancellationToken cancellationToken) =>
+            await destination.WriteAsync(payload, cancellationToken);
+    }
+
+    /// <summary>
+    ///     Proves that a successful pack install rebuilds the catalog and voice library, raises
+    ///     <see cref="IModelCatalogService.ReferenceVoicesChanged"/>, and then reports the pack as installed
+    ///     (with the emotions query delegated to the new library).
+    /// </summary>
+    [Fact]
+    public async Task ModelCatalogService_InstallReferenceVoicePackAsync_Success_RebuildsAndRaises()
+    {
+        // Arrange
+        var root = IsolatedOptions().RootPathOverride!;
+        var builds = 0;
+        using var service = SyntheticPackService(root, () => builds++, rebuildFails: false, out var packId);
+        var raised = 0;
+        service.ReferenceVoicesChanged += (_, _) => raised++;
+
+        // Act
+        var result = await service.InstallReferenceVoicePackAsync(packId, false, null, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(SpeechModelDownloadOutcome.Installed, result.Outcome);
+        Assert.Equal(1, builds);
+        Assert.Equal(1, raised);
+        Assert.Equal(SpeechModelState.Downloaded, service.GetReferenceVoicePackState(packId));
+        Assert.False(await service.ReferenceVoicePackHasEmotionsAsync(packId, TestContext.Current.CancellationToken));
+    }
+
+    /// <summary>
+    ///     Proves that when a pack install succeeds but the catalog rebuild that follows fails, the rebuild's
+    ///     failure propagates to the caller.
+    /// </summary>
+    [Fact]
+    public async Task ModelCatalogService_InstallReferenceVoicePackAsync_SuccessThenRebuildFails_Propagates()
+    {
+        // Arrange
+        var root = IsolatedOptions().RootPathOverride!;
+        using var service = SyntheticPackService(root, () => { }, rebuildFails: true, out var packId);
+
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => service.InstallReferenceVoicePackAsync(packId, false, null, TestContext.Current.CancellationToken));
+        Assert.Equal("cannot rebuild", exception.Message);
+    }
+
+    /// <summary>
+    ///     Proves that an uninstall that throws neither rebuilds the catalog nor raises the changed event.
+    /// </summary>
+    [Fact]
+    public async Task ModelCatalogService_UninstallReferenceVoicePackAsync_Fails_DoesNotRebuildOrRaise()
+    {
+        // Arrange
+        var root = IsolatedOptions().RootPathOverride!;
+        var builds = 0;
+        using var service = new ModelCatalogService(Compose(root, null), null, o =>
+        {
+            builds++;
+            return Compose(root, o);
+        });
+        var raised = 0;
+        service.ReferenceVoicesChanged += (_, _) => raised++;
+
+        // Act
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => service.UninstallReferenceVoicePackAsync("missing-pack", TestContext.Current.CancellationToken));
+
+        // Assert
+        Assert.Equal(0, builds);
+        Assert.Equal(0, raised);
+    }
+
+    /// <summary>
+    ///     Proves that a composition factory that fails during a mirror change leaves the previous catalog and
+    ///     voice library published and still usable (not disposed).
+    /// </summary>
+    [Fact]
+    public void ModelCatalogService_ApplyMirror_Composed_FactoryFails_KeepsPreviousPair()
+    {
+        // Arrange
+        var root = IsolatedOptions().RootPathOverride!;
+        var initial = Compose(root, null);
+        using var service = new ModelCatalogService(initial, null, _ => throw new InvalidOperationException("cannot rebuild"));
+        var raised = 0;
+        service.ReferenceVoicesChanged += (_, _) => raised++;
+
+        // Act
+        Assert.Throws<InvalidOperationException>(() => service.ApplyMirror(new DownloadMirror(new Uri("https://mirror.example.test/"))));
+
+        // Assert: nothing was announced, and the previous pair still works
+        Assert.Equal(0, raised);
+        Assert.Equal(SpeechModelState.NotDownloaded, service.GetReferenceVoicePackState("voice-zero-1.0"));
+        Assert.Equal(SpeechModelState.NotDownloaded, initial.VoiceLibrary.GetPackState("voice-zero-1.0"));
+    }
+
+    /// <summary>
+    ///     Proves that disposing a composed service disposes both its current catalog and its voice library.
+    /// </summary>
+    [Fact]
+    public async Task ModelCatalogService_Dispose_Composed_DisposesCatalogAndVoiceLibrary()
+    {
+        // Arrange
+        var root = IsolatedOptions().RootPathOverride!;
+        var initial = Compose(root, null);
+        var service = new ModelCatalogService(initial, null, o => Compose(root, o));
+
+        // Act
+        service.Dispose();
+
+        // Assert
+        await Assert.ThrowsAsync<ObjectDisposedException>(
+            () => initial.VoiceLibrary.InstallPackAsync("voice-zero-1.0", false, null, TestContext.Current.CancellationToken));
+    }
+
+    /// <summary>
+    ///     Proves that a composition must have both a catalog and a voice library.
+    /// </summary>
+    [Fact]
+    public void ModelCatalogComposition_Constructor_NullMember_ThrowsArgumentNullException()
+    {
+        // Arrange
+        using var catalog = new SpeechModelCatalog(IsolatedOptions());
+        using var library = new ReferenceVoiceLibrary(catalog.Store);
+
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => new ModelCatalogComposition(null!, library));
+        Assert.Throws<ArgumentNullException>(() => new ModelCatalogComposition(catalog, null!));
     }
 
     /// <summary>
