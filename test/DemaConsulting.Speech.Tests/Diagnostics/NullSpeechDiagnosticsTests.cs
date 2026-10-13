@@ -43,20 +43,28 @@ public class NullSpeechDiagnosticsTests
     }
 
     /// <summary>
-    ///     Proves that <see cref="NullSpeechDiagnostics.Report"/> never throws even when given
-    ///     null-ish/edge inputs, confirming the sink cannot become the reason a caller's real
-    ///     operation fails.
+    ///     Proves that <see cref="NullSpeechDiagnostics.Report"/> never throws when given a null,
+    ///     empty, or non-empty category or message, confirming the sink cannot become the reason a
+    ///     caller's real operation fails.
     /// </summary>
-    [Fact]
-    public void NullSpeechDiagnostics_Report_NullOrEmptyArguments_DoesNotThrow()
+    [Theory]
+    [InlineData(null, null)]
+    [InlineData("", "")]
+    [InlineData(null, "")]
+    [InlineData("", null)]
+    [InlineData("Category", null)]
+    [InlineData(null, "Message")]
+    [InlineData("Category", "")]
+    [InlineData("", "Message")]
+    public void NullSpeechDiagnostics_Report_NullOrEmptyArguments_DoesNotThrow(string? category, string? message)
     {
         // Arrange: obtain the shared no-op sink
         var diagnostics = NullSpeechDiagnostics.Instance;
 
-        // Act: report using null category/message, which the interface signature permits at
-        // runtime even though nullable annotations discourage it at compile time
+        // Act: report using the null or empty category/message, which the interface signature
+        // permits at runtime even though nullable annotations discourage it at compile time
         var exception = Record.Exception(() =>
-            diagnostics.Report(SpeechDiagnosticLevel.Error, null!, null!));
+            diagnostics.Report(SpeechDiagnosticLevel.Error, category!, message!));
 
         // Assert: no exception is thrown
         Assert.Null(exception);

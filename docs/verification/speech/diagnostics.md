@@ -54,6 +54,15 @@ confirming the sink can never become the reason a caller's real operation fails.
 Verifies, for each `SpeechDiagnosticLevel` value (`Info`, `Warning`, `Error`), that `Report`
 discards the event without throwing.
 
+#### Contract: Sink Receives Severity, Category, and Message
+
+**Tests**: `SpeechDiagnostics_Report_AnySeverity_SinkReceivesSeverity`,
+`SpeechDiagnostics_Report_Category_SinkReceivesCategory`,
+`SpeechDiagnostics_Report_Message_SinkReceivesMessage`
+
+Verifies that a recording sink observes the severity (for every level), category, and message
+exactly as reported.
+
 #### Integration: Sink Receives Structural Events
 
 **Test**: `Speech_SystemIntegration_DiagnosticsSink_ReceivesStructuralEvents`

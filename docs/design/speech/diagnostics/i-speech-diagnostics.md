@@ -10,15 +10,15 @@ severity.
 **Key Methods**:
 
 - **Report(SpeechDiagnosticLevel level, string category, string message)**: Reports a single
-  structural diagnostic event. Preconditions: `category` and `message` are non-null (enforced by
-  each implementation, not by the interface itself). Postconditions: the event has been
-  delivered to whatever the implementation does with it (logged, discarded, forwarded); the
-  method itself never throws for a well-formed call, by convention for all implementations
-  shipped by this library.
+  structural diagnostic event. Preconditions: none; callers pass non-null text, but implementations must tolerate a null
+or
+  empty `category` or `message`. Postconditions: the event has been delivered to whatever
+  the implementation does with it (logged, discarded, forwarded); implementations must not throw
+  for any input.
 
 **Error Handling**: The interface itself defines no error handling; each implementation decides
-how to treat invalid input. `NullSpeechDiagnostics`, the library's own implementation, never
-throws.
+how to treat unusual input, but none may throw. `NullSpeechDiagnostics`, the library's own
+implementation, never throws.
 
 **Dependencies**: None.
 
@@ -28,8 +28,8 @@ calls `Report`:
 - AudioSubsystem: `AudioDeviceFactory` and the PortAudio-backed capture and playback devices
 - ModelManagementSubsystem: `SpeechModelCatalog`, `SpeechModelDownloader`, `ReferenceVoiceLibrary`,
   `HttpModelDownloadClient`, and `SpeechModelParameterDiagnostics`
-- RecognitionSubsystem: `SpeechRecognizerFactory`, `SpeechRecognizerEngine`, `RecognitionSession`,
-  `RecognitionResultBuffer`, and `DedicatedWorker`
+- RecognitionSubsystem: `SpeechRecognizerFactory`, `SpeechRecognizerEngine`, `RecognitionSession`, and
+  `DedicatedWorker`
 - SynthesisSubsystem: `SpeechSynthesizerFactory`, `SpeechSynthesizerEngine`, `SynthesisSession`,
   and `DedicatedWorker`
 
