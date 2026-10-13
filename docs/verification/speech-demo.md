@@ -84,10 +84,11 @@ picker a user would read as a bug.
 
 **Test**: `SpeechDemo_SystemIntegration_RealModelCatalog_ReportsKnownModels`
 
-Verifies that the catalog panel composed through `App.Compose` lists exactly the models the shared
-catalog service enumerates - spanning both the recognition and synthesis roles - rather than
-reporting an empty catalog. The test compares against the service rather than a hard-coded count,
-so adding a model family does not break it.
+Verifies that the catalog panel composed through `App.Compose` lists a model from each documented
+family (Sherpa, Kokoro, Nemotron speech-to-text and Chatterbox Turbo, by literal model identifier) -
+spanning both the recognition and synthesis roles - rather than reporting an empty catalog. The test
+asserts independently stated identifiers instead of comparing the panel with the catalog it was
+built from, so a family that is not registered fails the test.
 
 The real multi-hundred-megabyte reference voice pack download is left to manual verification.
 

@@ -20,7 +20,9 @@ desktop lifetime.
 - `OnFrameworkInitializationCompleted` composes the desktop shell by calling `Compose` with
   `LaunchOptions`, assigns the result to the main window and subscribes `ShutdownRequested`,
   delegating to `HandleShutdownRequested` and cancelling the request when it returns true.
-- `HandleShutdownRequested(Action, MainWindowViewModel)` is the testable shutdown decision. The
+- `HandleShutdownRequested(Action, MainWindowViewModel, Func<Task>?)` is the testable shutdown decision;
+  the optional last argument is a test seam awaited before the teardown steps so cleanup can be
+  held pending. The
   first call sets `_shuttingDown`, starts `CompleteShutdownAsync` and returns true (defer). A repeated
   call returns true while cleanup is pending, so shutdown can never proceed mid-cleanup, and false
   once `_cleanupCompleted` is set.
@@ -39,7 +41,7 @@ desktop lifetime.
   returns the catalog and library together as the composition. The factory builds its own
   `SpeechModelStore` for the voice library because the catalog keeps its store private.
 - The shutdown handler defers application exit: it cancels the first shutdown request, sets
-  `_shuttingDown`, and starts `CompleteShutdownAsync(Action, MainWindowViewModel)`, keeping the task
+  `_shuttingDown`, and starts `CompleteShutdownAsync(Action, MainWindowViewModel, Func<Task>?)`, keeping the task
   in `ShutdownTask`.
 - `CompleteShutdownAsync` calls `RunTeardownAsync` to dispose the synthesis panel, then the
   recognition panel, then the model catalog service, and finally sets `_cleanupCompleted` and calls

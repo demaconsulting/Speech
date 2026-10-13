@@ -129,8 +129,11 @@ public sealed class App : Application
     /// </remarks>
     /// <param name="resumeShutdown">Resumes the lifetime's shutdown once cleanup has settled.</param>
     /// <param name="viewModel">The main window's view model owning the panels to dispose.</param>
+    /// <param name="beforeTeardown">
+    ///     An optional step awaited before the teardown steps run, so a test can hold cleanup pending.
+    /// </param>
     /// <returns><see langword="true"/> when the shutdown must be canceled (deferred).</returns>
-    internal bool HandleShutdownRequested(Action resumeShutdown, MainWindowViewModel viewModel)
+    internal bool HandleShutdownRequested(Action resumeShutdown, MainWindowViewModel viewModel, Func<Task>? beforeTeardown = null)
     {
         if (_shuttingDown)
         {
@@ -145,7 +148,7 @@ public sealed class App : Application
         // that races in while cleanup is still pending already sees this guard set and cannot
         // start a second concurrent cleanup against the same ViewModels and catalog.
         _shuttingDown = true;
-        _shutdownTask = CompleteShutdownAsync(resumeShutdown, viewModel);
+        _shutdownTask = CompleteShutdownAsync(resumeShutdown, viewModel, beforeTeardown);
         return true;
     }
 
@@ -291,10 +294,16 @@ public sealed class App : Application
     /// </remarks>
     /// <param name="resumeShutdown">Resumes the lifetime's shutdown once cleanup has completed.</param>
     /// <param name="viewModel">The main window's view model owning the panels to dispose.</param>
-    private async Task CompleteShutdownAsync(Action resumeShutdown, MainWindowViewModel viewModel)
+    /// <param name="beforeTeardown">An optional step awaited before the teardown steps run.</param>
+    private async Task CompleteShutdownAsync(Action resumeShutdown, MainWindowViewModel viewModel, Func<Task>? beforeTeardown)
     {
         try
         {
+            if (beforeTeardown is not null)
+            {
+                await beforeTeardown();
+            }
+
             await RunTeardownAsync(
                 viewModel.Synthesis.DisposeAsync,
                 viewModel.Recognition.DisposeAsync,

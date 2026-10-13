@@ -55,8 +55,8 @@ public sealed class AppTests
     }
 
     /// <summary>
-    ///     Test that the composed catalog registers every model family the demo offers, through the
-    ///     same service the synthesis and recognition panels share.
+    ///     Test that the composed catalog registers every model family the demo offers, so the catalog
+    ///     panel lists a model from each family.
     /// </summary>
     [Fact]
     public void App_Compose_IsolatedLaunchOptions_CatalogListsEveryRegisteredModel()
@@ -65,12 +65,35 @@ public sealed class AppTests
         var viewModel = App.Compose(IsolatedLaunchOptions(), out var catalogService);
         using var disposable = catalogService;
 
-        // Assert: the panel lists exactly what the shared service reports, and the demo registers models at all
-        var registered = catalogService.Enumerate().Count;
-        Assert.True(registered > 0);
-        Assert.Equal(registered, viewModel.ModelCatalog.Models.Count);
+        // Assert: the panel lists a model from each documented family, by literal identifier
+        var listed = viewModel.ModelCatalog.Models.Select(m => m.Id).ToList();
+        foreach (var expected in ExpectedModelIds)
+        {
+            Assert.Contains(expected, listed);
+        }
+
+        Assert.Contains(listed, id => id.StartsWith(ExpectedChatterboxIdPrefix, StringComparison.Ordinal));
         Assert.False(viewModel.ModelCatalog.IsCatalogEmpty);
     }
+
+    /// <summary>
+    ///     Literal identifiers of the Sherpa, Kokoro and Nemotron models the demo documents as
+    ///     offered (stated independently of the library's own constants).
+    /// </summary>
+    internal static readonly string[] ExpectedModelIds =
+    [
+        "streaming-zipformer-en-2023-06-26",
+        "nemotron-speech-streaming-en-0.6b-560ms-int8-2026-04-25",
+        "vits-piper-en_US-libritts_r-medium",
+        "kokoro-int8-en-v0_19",
+        "kokoro-onnx-v1_0-en",
+        "nemotron-3.5-asr-streaming-0.6b-onnx-int4",
+    ];
+
+    /// <summary>
+    ///     Literal identifier prefix of the Chatterbox Turbo model (variants append a suffix).
+    /// </summary>
+    internal const string ExpectedChatterboxIdPrefix = "chatterbox-turbo-onnx-en";
 
     /// <summary>
     ///     Test that composing with mirror launch options pre-populates the catalog panel's
@@ -142,7 +165,7 @@ public sealed class AppTests
 
     /// <summary>
     ///     Test that a repeated request is never answered by starting a second cleanup, is
-    ///     deferred while cleanup is pending, and is let through once cleanup has completed
+    ///     deferred while cleanup is held pending, and is let through once cleanup has completed
     ///     (the genuine second request raised by the lifetime's own shutdown).
     /// </summary>
     [Fact]
@@ -160,22 +183,29 @@ public sealed class AppTests
             resumed.TrySetResult();
         }
 
-        // Act
-        app.HandleShutdownRequested(Resume, viewModel);
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        // Act: the first request starts cleanup, which is held pending by the gate
+        var first = app.HandleShutdownRequested(Resume, viewModel, () => gate.Task);
         var firstTask = app.ShutdownTask!;
-        var whileMaybePending = app.HandleShutdownRequested(Resume, viewModel);
-        var completedWhenAsked = firstTask.IsCompleted;
+        var whilePending = app.HandleShutdownRequested(Resume, viewModel, () => gate.Task);
+        var stillPending = !firstTask.IsCompleted;
+        var resumedWhilePending = resumeCalls;
+        gate.SetResult();
         await resumed.Task.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
         await firstTask;
         var afterCleanup = app.HandleShutdownRequested(Resume, viewModel);
 
-        // Assert: deferred whenever cleanup could still have been pending, then let through
-        Assert.True(whileMaybePending || completedWhenAsked);
+        // Assert: deferred while cleanup is pending, never resumed early, no second cleanup,
+        // and let through once cleanup has completed
+        Assert.True(first);
+        Assert.True(stillPending);
+        Assert.True(whilePending);
+        Assert.Equal(0, resumedWhilePending);
         Assert.False(afterCleanup);
         Assert.Same(firstTask, app.ShutdownTask);
         Assert.Equal(1, resumeCalls);
     }
-
     /// <summary>
     ///     Test that the shutdown task is absent until a shutdown has been requested.
     /// </summary>

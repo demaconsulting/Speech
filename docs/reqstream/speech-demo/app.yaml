@@ -1,9 +1,9 @@
 ---
 # Software Unit Requirements for the SpeechDemo App
 #
-# These requirements describe the design-level behavior of the App unit - the Avalonia
-# application object and the demo's manual composition root - decomposing the system-level
-# library composition requirement in docs/reqstream/speech-demo.yaml. Composition and the
+# These requirements describe the observable startup and shutdown behavior of the App unit -
+# the Avalonia application object and the demo's composition root - decomposing the
+# system-level startup requirement in docs/reqstream/speech-demo.yaml. Composition and the
 # per-step shutdown containment are exercised through the internal Compose and
 # RunTeardownAsync seams, so no running desktop lifetime is needed.
 
@@ -14,12 +14,12 @@ sections:
         requirements:
           - id: SpeechDemo-App-ShellComposition
             title: >-
-              The App unit shall compose the demo's object graph by hand over the library's
-              real public entry points, with every panel wired to the shared device selection
-              and model catalog.
+              When the demo starts, the App unit shall present a main window with four panels -
+              device selection, model catalog, synthesis and recognition - opening on the first,
+              even when the machine has no audio backend and no installed models.
             justification: |
-              The demo exists to show how a host application wires itself to the library. A
-              single explicit composition root keeps that wiring readable.
+              The demo exists to show the library working. Every panel must be available on a
+              fresh machine so the user can see honestly what is and is not available.
             tests:
               - App_Compose_IsolatedLaunchOptions_ComposesShellWithAllPanels
               - App_Compose_NullLaunchOptions_ComposesShell
@@ -27,8 +27,9 @@ sections:
 
           - id: SpeechDemo-App-CatalogRegistration
             title: >-
-              The App unit shall register every model family the demo offers in the catalog it
-              composes, so the catalog panel lists them.
+              When the demo starts, the model catalog panel shall list a model from each of the four
+              model families the demo offers (Sherpa, Kokoro, Nemotron speech-to-text and Chatterbox
+              Turbo).
             justification: |
               A composition root that forgot a family would present an apparently empty or
               partial catalog.
@@ -38,8 +39,8 @@ sections:
 
           - id: SpeechDemo-App-MirrorPrePopulation
             title: >-
-              The App unit shall pre-populate the model catalog panel's mirror settings from the
-              launch options.
+              When the demo starts with mirror launch options, the model catalog panel shall show
+              those mirror settings as its initial values.
             justification: |
               A mirror given on the command line must be visible and editable in the panel.
             tests:
@@ -47,19 +48,26 @@ sections:
 
           - id: SpeechDemo-App-ShutdownContainment
             title: >-
-              The App unit shall run each shutdown disposal step separately, so a failure in one
-              step neither prevents the remaining steps nor stops the application from exiting.
+              When the demo shuts down, the App unit shall release the synthesizer, the recognizer
+              and the model catalog, in that order.
             justification: |
-              Shutdown releases the synthesizer, recognizer and catalog. One faulting dispose
-              must not leak the others or leave the process hanging.
+              Shutdown must release every resource the demo holds.
             tests:
               - App_RunTeardownAsync_AllStepsSucceed_RunsEveryStepInOrder
+
+          - id: SpeechDemo-App-ShutdownFailureContained
+            title: >-
+              If releasing one resource fails during shutdown, the demo shall still release the
+              remaining resources and still exit.
+            justification: |
+              One faulting release must not leak the others or leave the process hanging.
+            tests:
               - App_RunTeardownAsync_StepsFail_ContainsEachFailureAndRunsRemainingSteps
 
           - id: SpeechDemo-App-ShutdownDeferral
             title: >-
-              The App unit shall defer the first shutdown request until asynchronous cleanup has
-              finished, then resume shutdown exactly once.
+              When the user first requests shutdown, the demo shall finish releasing its resources
+              before exiting, and shall exit exactly once.
             justification: |
               Exiting while a synthesizer or recognizer is still releasing audio devices would
               leak them.
@@ -69,8 +77,8 @@ sections:
 
           - id: SpeechDemo-App-ShutdownRepeatedRequest
             title: >-
-              The App unit shall keep cancelling repeated shutdown requests while cleanup is
-              pending and start no second cleanup.
+              If the user requests shutdown again while resources are still being released, the
+              demo shall not exit before the release finishes and shall not start a second release.
             justification: |
               A second close request during cleanup must neither exit mid-cleanup nor run the
               disposal steps twice.
@@ -79,17 +87,19 @@ sections:
 
           - id: SpeechDemo-App-CompositionFailureReleasesCatalog
             title: >-
-              The App unit shall release the model catalog service it created when composing the
-              panels fails, rather than leaking it.
+              If building the main window fails at startup, the demo shall release the model
+              catalog it had already created rather than leaking it.
             justification: |
               The caller only receives the catalog service after a successful composition, so a
               failure part-way through would otherwise leave its download machinery undisposed.
             tests:
               - App_BuildOrDispose_BuildThrows_DisposesOwnerAndRethrows
               - App_BuildOrDispose_BuildSucceeds_ReturnsResultAndLeavesOwnerOpen
+
           - id: SpeechDemo-App-AvaloniaApplication
             title: >-
-              The App unit shall be a valid Avalonia application.
+              The demo shall start under the Avalonia desktop runtime and its design-time
+              tooling, which require the application object to be a framework application.
             justification: |
               Avalonia's runtime and design-time tooling can only start the demo when the
               application object derives from the framework's application type.

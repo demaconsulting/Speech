@@ -122,8 +122,8 @@ public class SpeechDemoTests
     ///     The demo's composition root (<c>App.Compose</c>) registers the Sherpa, Kokoro,
     ///     Nemotron STT and Chatterbox Turbo model families, so the panel must surface the real
     ///     models rather than the empty-catalog message. The test composes through
-    ///     <c>App.Compose</c> itself and compares the panel with the shared service instead of
-    ///     hard-coding a model count that would break whenever a model is added. Core
+    ///     <c>App.Compose</c> itself and asserts the literal identifiers of the documented model families
+    ///     rather than comparing the panel with the catalog it was built from. Core
     ///     <c>DemaConsulting.Speech</c> itself ships no built-in models.
     /// </remarks>
     [Fact]
@@ -137,16 +137,19 @@ public class SpeechDemoTests
         using var disposable = catalogService;
         var registered = catalogService.Enumerate();
 
-        // Assert: the panel lists exactly the registered models, covering both capabilities,
-        // not an empty state
-        Assert.NotEmpty(registered);
-        Assert.Equal(registered.Count, shell.ModelCatalog.Models.Count);
+        // Assert: the panel lists a model of each documented family by literal identifier,
+        // covering both capabilities, not an empty state
+        var listed = shell.ModelCatalog.Models.Select(m => m.Id).ToList();
+        foreach (var expected in AppTests.ExpectedModelIds)
+        {
+            Assert.Contains(expected, listed);
+        }
+
+        Assert.Contains(listed, id => id.StartsWith(AppTests.ExpectedChatterboxIdPrefix, StringComparison.Ordinal));
         Assert.False(shell.ModelCatalog.IsCatalogEmpty);
         Assert.Contains(registered, m => m.Role == SpeechModelRole.Synthesis);
         Assert.Contains(registered, m => m.Role == SpeechModelRole.Recognition);
-    }
-
-    /// <summary>
+    }    /// <summary>
     ///     Proves that the demo's synthesis and recognition panels, composed over the real
     ///     library catalog, honestly report that no models are installed yet - the expected
     ///     state of a fresh install - rather than a silently empty or crashing panel.

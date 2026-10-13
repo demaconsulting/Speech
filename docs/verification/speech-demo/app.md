@@ -21,9 +21,11 @@ verification (`Ots/AvaloniaTests.cs`) and is linked here as evidence for the `Ap
 ### Acceptance Criteria
 
 The unit passes when the shell composes over the real library entry points without a downloaded
-model, every panel is wired and the catalog lists every registered model, every teardown step runs
-in order even when earlier steps fail, each failure is contained, and `App` derives from the Avalonia
-application type.
+model, every panel is wired and the catalog lists a model from each documented family (Sherpa,
+Kokoro, Nemotron speech-to-text and Chatterbox Turbo, checked by literal identifier), every teardown
+step runs in order even when earlier steps fail, each failure is contained, a repeated shutdown
+request is deferred while cleanup is held pending and starts no second cleanup, and `App` derives
+from the Avalonia application type.
 
 ### Test Scenarios
 
@@ -38,7 +40,9 @@ model catalog panels all present.
 
 **Scenario**: The composed catalog is enumerated.
 
-**Expected**: Every registered model family appears in the catalog.
+**Expected**: The catalog panel lists the literal identifier of a model from each documented family
+(the Sherpa zipformer, VITS and Kokoro models, the Kokoro ONNX model, both Nemotron models and a
+Chatterbox Turbo model).
 
 #### App_Compose_NullLaunchOptions_ComposesShell
 
@@ -69,8 +73,8 @@ through `App.Compose` with an isolated models directory.
 
 **Scenario**: The shell is composed through `App.Compose` and the catalog panel is inspected.
 
-**Expected**: The panel lists exactly the models the shared service enumerates, covering both
-recognition and synthesis, and is not empty.
+**Expected**: The panel lists the literal identifier of a model from each documented family, the
+catalog includes both synthesis and recognition models, and the panel is not empty.
 
 #### App_Compose_MirrorLaunchOptions_PrePopulatesCatalogPanelMirrorSettings
 
@@ -86,9 +90,12 @@ recognition and synthesis, and is not empty.
 
 #### App_HandleShutdownRequested_RepeatedRequest_StartsNoSecondCleanup
 
-**Scenario**: A second shutdown request arrives while cleanup may still be pending.
+**Scenario**: Cleanup is held pending by a gate, a second shutdown request arrives, then the gate is
+released and a final request arrives after cleanup completes.
 
-**Expected**: The request is cancelled while cleanup is pending, and no second cleanup starts.
+**Expected**: The second request is cancelled while cleanup is verifiably pending and shutdown is not
+resumed early; no second cleanup starts; shutdown resumes exactly once; the final request is let
+through.
 
 #### App_BuildOrDispose_BuildThrows_DisposesOwnerAndRethrows
 
